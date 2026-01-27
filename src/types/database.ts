@@ -1,0 +1,170 @@
+export type Profile = {
+  id: string
+  email: string
+  full_name: string | null
+  avatar_url: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type WhatsAppSession = {
+  id: string
+  user_id: string
+  instance_name: string
+  instance_id: string | null
+  status: 'connected' | 'disconnected' | 'qr_pending' | 'error'
+  qr_code: string | null
+  phone_number: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type AIAgent = {
+  id: string
+  user_id: string
+  name: string
+  description: string | null
+  system_prompt: string
+  objective: string | null
+  model: string
+  temperature: number
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export type WALink = {
+  id: string
+  user_id: string
+  session_id: string
+  ai_agent_id: string | null
+  name: string
+  slug: string | null
+  pre_filled_message: string | null
+  tracking_source: string | null
+  click_count: number
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export type Contact = {
+  id: string
+  session_id: string
+  phone_number: string
+  name: string | null
+  profile_picture: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type Conversation = {
+  id: string
+  session_id: string
+  contact_id: string
+  ai_agent_id: string | null
+  wa_link_id: string | null
+  last_message_at: string | null
+  last_message_preview: string | null
+  unread_count: number
+  is_ai_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export type Message = {
+  id: string
+  conversation_id: string
+  session_id: string
+  direction: 'inbound' | 'outbound'
+  content: string | null
+  message_type: 'text' | 'image' | 'audio' | 'video' | 'document' | 'sticker' | 'location' | 'contact'
+  media_url: string | null
+  wa_message_id: string | null
+  sent_by: 'user' | 'ai_agent' | 'contact'
+  ai_agent_id: string | null
+  status: 'pending' | 'sent' | 'delivered' | 'read' | 'failed'
+  created_at: string
+}
+
+export type StatDaily = {
+  id: string
+  user_id: string
+  session_id: string | null
+  ai_agent_id: string | null
+  wa_link_id: string | null
+  date: string
+  messages_sent: number
+  messages_received: number
+  conversations_started: number
+  response_rate: number | null
+  avg_response_time_seconds: number | null
+}
+
+// Joined types
+export type ConversationWithContact = Conversation & {
+  contact: Contact
+}
+
+export type MessageWithAgent = Message & {
+  ai_agent?: AIAgent | null
+}
+
+// Database type for Supabase generic client
+// Must match GenericSchema: { Tables, Views, Functions }
+export type Database = {
+  public: {
+    Tables: {
+      profiles: {
+        Row: Profile
+        Insert: Partial<Profile> & Pick<Profile, 'id' | 'email'>
+        Update: Partial<Profile>
+        Relationships: []
+      }
+      whatsapp_sessions: {
+        Row: WhatsAppSession
+        Insert: Partial<WhatsAppSession> & Pick<WhatsAppSession, 'user_id' | 'instance_name'>
+        Update: Partial<WhatsAppSession>
+        Relationships: []
+      }
+      ai_agents: {
+        Row: AIAgent
+        Insert: Partial<AIAgent> & Pick<AIAgent, 'user_id' | 'name' | 'system_prompt'>
+        Update: Partial<AIAgent>
+        Relationships: []
+      }
+      wa_links: {
+        Row: WALink
+        Insert: Partial<WALink> & Pick<WALink, 'user_id' | 'session_id' | 'name'>
+        Update: Partial<WALink>
+        Relationships: []
+      }
+      contacts: {
+        Row: Contact
+        Insert: Partial<Contact> & Pick<Contact, 'session_id' | 'phone_number'>
+        Update: Partial<Contact>
+        Relationships: []
+      }
+      conversations: {
+        Row: Conversation
+        Insert: Partial<Conversation> & Pick<Conversation, 'session_id' | 'contact_id'>
+        Update: Partial<Conversation>
+        Relationships: []
+      }
+      messages: {
+        Row: Message
+        Insert: Partial<Message> & Pick<Message, 'conversation_id' | 'session_id' | 'direction'>
+        Update: Partial<Message>
+        Relationships: []
+      }
+      stats_daily: {
+        Row: StatDaily
+        Insert: Partial<StatDaily> & Pick<StatDaily, 'user_id' | 'date'>
+        Update: Partial<StatDaily>
+        Relationships: []
+      }
+    }
+    Views: {}
+    Functions: {}
+  }
+}
