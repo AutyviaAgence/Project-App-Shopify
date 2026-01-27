@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { ContactProfilePanel } from '@/components/contact-profile-panel'
 import {
   MessageSquare,
   Send,
@@ -24,6 +25,7 @@ import {
   ArrowLeft,
   User,
   Bot,
+  UserCircle,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -60,6 +62,7 @@ export default function ConversationsPage() {
   const [newMessage, setNewMessage] = useState('')
   const [sending, setSending] = useState(false)
   const [agents, setAgents] = useState<AIAgent[]>([])
+  const [profileOpen, setProfileOpen] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const fetchAgents = useCallback(async () => {
@@ -334,7 +337,7 @@ export default function ConversationsPage() {
             {conversations.map((conv) => (
               <button
                 key={conv.id}
-                onClick={() => setSelectedConv(conv)}
+                onClick={() => { setSelectedConv(conv); setProfileOpen(false) }}
                 className={cn(
                   'flex w-full items-start gap-3 border-b p-3 text-left transition-colors hover:bg-muted/50',
                   selectedConv?.id === conv.id && 'bg-muted'
@@ -393,7 +396,7 @@ export default function ConversationsPage() {
             {/* Chat header */}
             <div className="flex items-center gap-3 border-b p-4">
               <button
-                onClick={() => setSelectedConv(null)}
+                onClick={() => { setSelectedConv(null); setProfileOpen(false) }}
                 className="md:hidden"
               >
                 <ArrowLeft className="h-5 w-5" />
@@ -412,6 +415,17 @@ export default function ConversationsPage() {
                   </span>
                 </div>
               </div>
+
+              {/* Profile button */}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 shrink-0"
+                onClick={() => setProfileOpen(true)}
+                title="Profil du contact"
+              >
+                <UserCircle className="h-5 w-5" />
+              </Button>
 
               {/* Agent IA controls */}
               <div className="flex items-center gap-2">
@@ -543,6 +557,13 @@ export default function ConversationsPage() {
           </div>
         )}
       </div>
+
+      {/* Contact profile panel */}
+      <ContactProfilePanel
+        contactId={selectedConv?.contact.id ?? null}
+        open={profileOpen}
+        onOpenChange={setProfileOpen}
+      />
     </div>
   )
 }

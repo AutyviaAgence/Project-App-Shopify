@@ -55,6 +55,12 @@ export type Contact = {
   session_id: string
   phone_number: string
   name: string | null
+  first_name: string | null
+  last_name: string | null
+  email: string | null
+  notes: string | null
+  ai_summary: string | null
+  ai_summary_updated_at: string | null
   profile_picture: string | null
   created_at: string
   updated_at: string
