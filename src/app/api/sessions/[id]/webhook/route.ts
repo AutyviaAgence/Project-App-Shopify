@@ -4,7 +4,7 @@ import { evolution } from '@/lib/evolution/client'
 
 /** POST /api/sessions/[id]/webhook — Reconfigurer le webhook d'une session */
 export async function POST(
-  req: NextRequest,
+  _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
@@ -26,11 +26,12 @@ export async function POST(
     return NextResponse.json({ error: 'Session introuvable' }, { status: 404 })
   }
 
-  // Lire l'URL du webhook depuis le body ou utiliser le défaut
-  const body = await req.json().catch(() => ({}))
-  const webhookUrl = body.webhookUrl as string | undefined
-  const appUrl = webhookUrl || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-  const fullUrl = webhookUrl || `${appUrl}/api/webhook/evolution`
+  // Construire l'URL du webhook depuis NEXT_PUBLIC_APP_URL (production)
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL
+  if (!appUrl) {
+    return NextResponse.json({ error: 'NEXT_PUBLIC_APP_URL non configurée' }, { status: 500 })
+  }
+  const fullUrl = `${appUrl.replace(/\/$/, '')}/api/webhook/evolution`
 
   const result = await evolution.setWebhook(session.instance_name, fullUrl)
 

@@ -14,7 +14,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { toast } from 'sonner'
-import { Input } from '@/components/ui/input'
 import {
   Plus,
   Smartphone,
@@ -26,8 +25,6 @@ import {
   Loader2,
   AlertCircle,
   Globe,
-  Check,
-  Copy,
 } from 'lucide-react'
 
 const STATUS_CONFIG = {
@@ -45,10 +42,7 @@ export default function SessionsPage() {
   const [qrLoading, setQrLoading] = useState(false)
   const [disconnecting, setDisconnecting] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
-  const [webhookDialog, setWebhookDialog] = useState<WhatsAppSession | null>(null)
-  const [webhookUrl, setWebhookUrl] = useState('')
-  const [webhookSaving, setWebhookSaving] = useState(false)
-  const [webhookSaved, setWebhookSaved] = useState(false)
+  const [webhookConfiguring, setWebhookConfiguring] = useState<string | null>(null)
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -167,27 +161,22 @@ export default function SessionsPage() {
     }
   }
 
-  async function handleWebhookSave() {
-    if (!webhookDialog || !webhookUrl.trim()) return
-    setWebhookSaving(true)
-    setWebhookSaved(false)
+  async function handleConfigureWebhook(sessionId: string) {
+    setWebhookConfiguring(sessionId)
     try {
-      const res = await fetch(`/api/sessions/${webhookDialog.id}/webhook`, {
+      const res = await fetch(`/api/sessions/${sessionId}/webhook`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ webhookUrl: `${webhookUrl.trim().replace(/\/$/, '')}/api/webhook/evolution` }),
       })
       const json = await res.json()
       if (res.ok) {
-        setWebhookSaved(true)
-        toast.success(`Webhook configuré : ${json.data.webhook}`)
+        toast.success('Webhook configuré !')
       } else {
         toast.error(json.error || 'Erreur lors de la configuration du webhook')
       }
     } catch {
       toast.error('Erreur réseau')
     } finally {
-      setWebhookSaving(false)
+      setWebhookConfiguring(null)
     }
   }
 
@@ -210,6 +199,27 @@ export default function SessionsPage() {
       setDeleting(null)
     }
   }
+
+  // Auto-configure webhook for connected sessions on load
+  useEffect(() => {
+    const connectedSessions = sessions.filter((s) => s.status === 'connected')
+    if (connectedSessions.length === 0) return
+
+    for (const s of connectedSessions) {
+      fetch(`/api/sessions/${s.id}/webhook`, { method: 'POST' })
+        .then((res) => res.json())
+        .then((json) => {
+          if (json.data) {
+            console.log(`[Auto-webhook] Configured for ${s.instance_name}`)
+          }
+        })
+        .catch(() => {
+          // Silently ignore — webhook will be retried on next load
+        })
+    }
+    // Only run once when sessions are first loaded
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessions.length > 0])
 
   // Poll status for all non-connected sessions (fallback when webhook can't reach localhost)
   useEffect(() => {
@@ -354,13 +364,14 @@ export default function SessionsPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => {
-                            setWebhookDialog(session)
-                            setWebhookUrl('')
-                            setWebhookSaved(false)
-                          }}
+                          onClick={() => handleConfigureWebhook(session.id)}
+                          disabled={webhookConfiguring === session.id}
                         >
-                          <Globe className="mr-1 h-3 w-3" />
+                          {webhookConfiguring === session.id ? (
+                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                          ) : (
+                            <Globe className="mr-1 h-3 w-3" />
+                          )}
                           Webhook
                         </Button>
                         <Button
@@ -481,90 +492,6 @@ export default function SessionsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Webhook Configuration Dialog */}
-      <Dialog
-        open={!!webhookDialog}
-        onOpenChange={(open) => {
-          if (!open) {
-            setWebhookDialog(null)
-            setWebhookUrl('')
-            setWebhookSaved(false)
-          }
-        }}
-      >
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Configurer le Webhook</DialogTitle>
-            <DialogDescription>
-              Pour recevoir les messages WhatsApp, ton app doit être accessible
-              depuis internet. Utilise <strong>ngrok</strong> pour créer un tunnel.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-2">
-            {/* Step 1 */}
-            <div className="rounded-lg border p-3">
-              <p className="text-sm font-medium">1. Ouvre un nouveau terminal et lance :</p>
-              <div className="mt-2 flex items-center gap-2">
-                <code className="flex-1 rounded bg-muted px-3 py-2 text-xs font-mono">
-                  npx ngrok http 3000
-                </code>
-                <Button
-                  size="icon"
-                  variant="ghost"
-                  className="h-8 w-8 shrink-0"
-                  onClick={() => {
-                    navigator.clipboard.writeText('npx ngrok http 3000')
-                    toast.success('Commande copiée !')
-                  }}
-                >
-                  <Copy className="h-3.5 w-3.5" />
-                </Button>
-              </div>
-            </div>
-
-            {/* Step 2 */}
-            <div className="rounded-lg border p-3">
-              <p className="text-sm font-medium">
-                2. Copie l&apos;URL <code className="rounded bg-muted px-1 text-xs">https://xxxx.ngrok-free.app</code> affichée par ngrok :
-              </p>
-              <div className="mt-2">
-                <Input
-                  placeholder="https://abc123.ngrok-free.app"
-                  value={webhookUrl}
-                  onChange={(e) => {
-                    setWebhookUrl(e.target.value)
-                    setWebhookSaved(false)
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* Step 3 */}
-            <Button
-              onClick={handleWebhookSave}
-              disabled={!webhookUrl.trim() || webhookSaving}
-              className="w-full"
-            >
-              {webhookSaving ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : webhookSaved ? (
-                <Check className="mr-2 h-4 w-4" />
-              ) : (
-                <Globe className="mr-2 h-4 w-4" />
-              )}
-              {webhookSaved ? 'Webhook configuré !' : 'Configurer le webhook'}
-            </Button>
-
-            {webhookSaved && (
-              <p className="text-center text-xs text-green-600">
-                Les messages WhatsApp reçus sur cette session apparaîtront
-                maintenant dans Conversations.
-              </p>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
