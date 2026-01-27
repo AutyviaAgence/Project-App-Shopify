@@ -158,6 +158,32 @@ export async function POST(req: NextRequest) {
           .select()
           .single()
 
+        // 4. Auto-réponse IA (fire-and-forget)
+        if (!fromMe) {
+          // Re-fetch pour avoir les champs IA à jour
+          const { data: convFresh } = await supabase
+            .from('conversations')
+            .select('is_ai_active, ai_agent_id')
+            .eq('id', conversation.id)
+            .single()
+
+          if (convFresh?.is_ai_active && convFresh?.ai_agent_id) {
+            import('@/lib/openai/process-ai-response')
+              .then(({ processAIResponse }) => {
+                processAIResponse({
+                  conversationId: conversation.id,
+                  sessionId: session.id,
+                  instanceName: instanceName,
+                  contactPhoneNumber: phoneNumber,
+                  agentId: convFresh.ai_agent_id!,
+                })
+              })
+              .catch((err) => {
+                console.error('[Webhook] AI import error:', err)
+              })
+          }
+        }
+
         break
       }
     }

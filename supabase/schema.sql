@@ -46,7 +46,7 @@ CREATE TABLE IF NOT EXISTS ai_agents (
   description TEXT,
   system_prompt TEXT NOT NULL,
   objective TEXT,
-  model TEXT DEFAULT 'claude-sonnet-4-20250514',
+  model TEXT DEFAULT 'gpt-4o-mini',
   temperature FLOAT DEFAULT 0.7,
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW(),

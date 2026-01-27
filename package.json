@@ -27,6 +27,7 @@
     "date-fns": "^4.1.0",
     "lucide-react": "^0.563.0",
     "next": "16.1.5",
+    "openai": "^6.16.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "server-only": "^0.0.1",

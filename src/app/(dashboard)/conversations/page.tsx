@@ -2,10 +2,18 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { Message } from '@/types/database'
+import type { Message, AIAgent } from '@/types/database'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import {
@@ -15,6 +23,7 @@ import {
   Smartphone,
   ArrowLeft,
   User,
+  Bot,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -23,6 +32,7 @@ type ConversationWithJoins = {
   id: string
   session_id: string
   contact_id: string
+  ai_agent_id: string | null
   last_message_at: string | null
   last_message_preview: string | null
   unread_count: number
@@ -49,7 +59,20 @@ export default function ConversationsPage() {
   const [messagesLoading, setMessagesLoading] = useState(false)
   const [newMessage, setNewMessage] = useState('')
   const [sending, setSending] = useState(false)
+  const [agents, setAgents] = useState<AIAgent[]>([])
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  const fetchAgents = useCallback(async () => {
+    try {
+      const res = await fetch('/api/agents')
+      const json = await res.json()
+      if (res.ok && json.data) {
+        setAgents(json.data.filter((a: AIAgent) => a.is_active))
+      }
+    } catch {
+      // silently ignore
+    }
+  }, [])
 
   const fetchConversations = useCallback(async () => {
     try {
@@ -67,7 +90,8 @@ export default function ConversationsPage() {
 
   useEffect(() => {
     fetchConversations()
-  }, [fetchConversations])
+    fetchAgents()
+  }, [fetchConversations, fetchAgents])
 
   // Load messages when selecting a conversation
   const loadMessages = useCallback(async (convId: string) => {
@@ -200,6 +224,63 @@ export default function ConversationsPage() {
     }
   }
 
+  async function handleAssignAgent(convId: string, agentId: string | null) {
+    try {
+      const res = await fetch(`/api/conversations/${convId}/agent`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ai_agent_id: agentId,
+          is_ai_active: agentId ? true : false,
+        }),
+      })
+      const json = await res.json()
+      if (res.ok && json.data) {
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.id === convId
+              ? { ...c, ai_agent_id: json.data.ai_agent_id, is_ai_active: json.data.is_ai_active }
+              : c
+          )
+        )
+        if (selectedConv?.id === convId) {
+          setSelectedConv((prev) =>
+            prev ? { ...prev, ai_agent_id: json.data.ai_agent_id, is_ai_active: json.data.is_ai_active } : prev
+          )
+        }
+        toast.success(agentId ? 'Agent assigné' : 'Agent retiré')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    }
+  }
+
+  async function handleToggleAI(convId: string, isActive: boolean) {
+    try {
+      const res = await fetch(`/api/conversations/${convId}/agent`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_ai_active: isActive }),
+      })
+      const json = await res.json()
+      if (res.ok && json.data) {
+        setConversations((prev) =>
+          prev.map((c) =>
+            c.id === convId ? { ...c, is_ai_active: json.data.is_ai_active } : c
+          )
+        )
+        if (selectedConv?.id === convId) {
+          setSelectedConv((prev) =>
+            prev ? { ...prev, is_ai_active: json.data.is_ai_active } : prev
+          )
+        }
+        toast.success(isActive ? 'IA activée' : 'IA désactivée')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    }
+  }
+
   function getContactDisplay(conv: ConversationWithJoins) {
     if (conv.contact.name) {
       return `${conv.contact.name} (+${conv.contact.phone_number})`
@@ -280,6 +361,12 @@ export default function ConversationsPage() {
                     <span className="text-[10px] text-muted-foreground">
                       {getSessionLabel(conv)}
                     </span>
+                    {conv.is_ai_active && (
+                      <Badge variant="outline" className="h-4 px-1 text-[9px] text-violet-600 border-violet-300">
+                        <Bot className="mr-0.5 h-2.5 w-2.5" />
+                        IA
+                      </Badge>
+                    )}
                     {conv.last_message_at && (
                       <span className="text-[10px] text-muted-foreground">
                         · {formatDistanceToNow(new Date(conv.last_message_at), { addSuffix: true, locale: fr })}
@@ -324,6 +411,37 @@ export default function ConversationsPage() {
                   </span>
                 </div>
               </div>
+
+              {/* Agent IA controls */}
+              <div className="flex items-center gap-2">
+                <Select
+                  value={selectedConv.ai_agent_id || 'none'}
+                  onValueChange={(val) =>
+                    handleAssignAgent(selectedConv.id, val === 'none' ? null : val)
+                  }
+                >
+                  <SelectTrigger className="h-8 w-[160px] text-xs">
+                    <Bot className="mr-1 h-3 w-3" />
+                    <SelectValue placeholder="Agent IA" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Aucun agent</SelectItem>
+                    {agents.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {selectedConv.ai_agent_id && (
+                  <Switch
+                    checked={selectedConv.is_ai_active}
+                    onCheckedChange={(checked) =>
+                      handleToggleAI(selectedConv.id, checked)
+                    }
+                  />
+                )}
+              </div>
             </div>
 
             {/* Messages */}
@@ -340,42 +458,55 @@ export default function ConversationsPage() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {messages.map((msg) => (
-                    <div
-                      key={msg.id}
-                      className={cn(
-                        'flex',
-                        msg.direction === 'outbound' ? 'justify-end' : 'justify-start'
-                      )}
-                    >
+                  {messages.map((msg) => {
+                    const isAI = msg.sent_by === 'ai_agent'
+                    return (
                       <div
+                        key={msg.id}
                         className={cn(
-                          'max-w-[75%] rounded-lg px-3 py-2 text-sm',
-                          msg.direction === 'outbound'
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-muted'
+                          'flex',
+                          msg.direction === 'outbound' ? 'justify-end' : 'justify-start'
                         )}
                       >
-                        <p className="whitespace-pre-wrap break-words">
-                          {msg.content}
-                        </p>
-                        <p
+                        <div
                           className={cn(
-                            'mt-1 text-[10px]',
-                            msg.direction === 'outbound'
-                              ? 'text-primary-foreground/70'
-                              : 'text-muted-foreground'
+                            'max-w-[75%] rounded-lg px-3 py-2 text-sm',
+                            isAI
+                              ? 'bg-violet-100 dark:bg-violet-900/30 border border-violet-200 dark:border-violet-800'
+                              : msg.direction === 'outbound'
+                                ? 'bg-primary text-primary-foreground'
+                                : 'bg-muted'
                           )}
                         >
-                          {new Date(msg.created_at).toLocaleTimeString('fr-FR', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                          {msg.status === 'pending' && ' · envoi...'}
-                        </p>
+                          {isAI && (
+                            <div className="mb-1 flex items-center gap-1 text-[10px] font-medium text-violet-600 dark:text-violet-400">
+                              <Bot className="h-3 w-3" />
+                              Agent IA
+                            </div>
+                          )}
+                          <p className="whitespace-pre-wrap break-words">
+                            {msg.content}
+                          </p>
+                          <p
+                            className={cn(
+                              'mt-1 text-[10px]',
+                              isAI
+                                ? 'text-violet-500'
+                                : msg.direction === 'outbound'
+                                  ? 'text-primary-foreground/70'
+                                  : 'text-muted-foreground'
+                            )}
+                          >
+                            {new Date(msg.created_at).toLocaleTimeString('fr-FR', {
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            })}
+                            {msg.status === 'pending' && ' · envoi...'}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    )
+                  })}
                   <div ref={messagesEndRef} />
                 </div>
               )}
