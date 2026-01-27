@@ -3,7 +3,7 @@ import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { generateAgentResponse, type ChatMessage } from './client'
 import { evolution } from '@/lib/evolution/client'
 
-const MAX_CONTEXT_MESSAGES = 20
+const MAX_CONTEXT_MESSAGES = 50
 
 /**
  * Traite une réponse IA automatique pour un message entrant.
@@ -38,16 +38,17 @@ export async function processAIResponse(params: {
 
     console.log('[AI] Agent trouvé:', agent.name, '| model:', agent.model)
 
-    // 2. Récupérer l'historique récent des messages pour le contexte
+    // 2. Récupérer les N messages les plus récents (desc) puis remettre en ordre chrono
     const { data: recentMessages } = await supabase
       .from('messages')
       .select('id, content, sent_by, direction, message_type, ai_processed, created_at')
       .eq('conversation_id', params.conversationId)
-      .order('created_at', { ascending: true })
+      .order('created_at', { ascending: false })
       .limit(MAX_CONTEXT_MESSAGES)
 
-    // 3. Construire les messages pour OpenAI
-    const chatMessages: ChatMessage[] = (recentMessages || [])
+    // 3. Remettre en ordre chronologique et construire les messages pour OpenAI
+    const sorted = (recentMessages || []).reverse()
+    const chatMessages: ChatMessage[] = sorted
       .filter((m) => m.content)
       .map((m) => ({
         role: m.sent_by === 'contact' ? ('user' as const) : ('assistant' as const),
