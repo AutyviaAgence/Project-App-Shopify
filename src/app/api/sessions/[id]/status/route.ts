@@ -59,7 +59,7 @@ export async function GET(
     if (instanceResult.ok) {
       const instances = instanceResult.data as Array<Record<string, unknown>>
       const instance = Array.isArray(instances) ? instances[0] : instances
-      const owner = (instance as Record<string, unknown>)?.owner as string | undefined
+      const owner = (instance as Record<string, unknown>)?.ownerJid as string | undefined
       if (owner) {
         phoneUpdate = { phone_number: owner.split('@')[0] }
       }

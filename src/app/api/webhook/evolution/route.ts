@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
         if (status === 'connected') {
           updateData.qr_code = null
           // Récupérer le numéro de téléphone si disponible
-          const owner = payload.data?.instance?.owner
+          const owner = payload.data?.instance?.owner || payload.data?.instance?.ownerJid
           if (owner) {
             updateData.phone_number = owner.split('@')[0]
           }
