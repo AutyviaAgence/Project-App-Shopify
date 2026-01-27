@@ -36,6 +36,8 @@ export async function processAIResponse(params: {
       return
     }
 
+    console.log('[AI] Agent trouvé:', agent.name, '| model:', agent.model)
+
     // 2. Récupérer l'historique récent des messages pour le contexte
     const { data: recentMessages } = await supabase
       .from('messages')
@@ -58,6 +60,8 @@ export async function processAIResponse(params: {
       systemPrompt += `\n\nObjectif principal : ${agent.objective}`
     }
 
+    console.log('[AI] Contexte:', chatMessages.length, 'messages | Appel OpenAI...')
+
     // 5. Appeler OpenAI
     const result = await generateAgentResponse({
       model: agent.model,
@@ -72,6 +76,7 @@ export async function processAIResponse(params: {
     }
 
     const aiResponseText = result.content
+    console.log('[AI] Réponse OpenAI reçue:', aiResponseText.slice(0, 80) + '...')
 
     // 6. Envoyer via Evolution API
     const evoResult = await evolution.sendText(

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
+import { processAIResponse } from '@/lib/openai/process-ai-response'
 
 /**
  * POST /api/webhook/evolution
@@ -158,7 +159,7 @@ export async function POST(req: NextRequest) {
           .select()
           .single()
 
-        // 4. Auto-réponse IA (fire-and-forget)
+        // 4. Auto-réponse IA
         if (!fromMe) {
           // Re-fetch pour avoir les champs IA à jour
           const { data: convFresh } = await supabase
@@ -167,20 +168,22 @@ export async function POST(req: NextRequest) {
             .eq('id', conversation.id)
             .single()
 
+          console.log('[Webhook] AI check:', {
+            convId: conversation.id,
+            is_ai_active: convFresh?.is_ai_active,
+            ai_agent_id: convFresh?.ai_agent_id,
+          })
+
           if (convFresh?.is_ai_active && convFresh?.ai_agent_id) {
-            import('@/lib/openai/process-ai-response')
-              .then(({ processAIResponse }) => {
-                processAIResponse({
-                  conversationId: conversation.id,
-                  sessionId: session.id,
-                  instanceName: instanceName,
-                  contactPhoneNumber: phoneNumber,
-                  agentId: convFresh.ai_agent_id!,
-                })
-              })
-              .catch((err) => {
-                console.error('[Webhook] AI import error:', err)
-              })
+            console.log('[Webhook] Triggering AI response...')
+            await processAIResponse({
+              conversationId: conversation.id,
+              sessionId: session.id,
+              instanceName: instanceName,
+              contactPhoneNumber: phoneNumber,
+              agentId: convFresh.ai_agent_id,
+            })
+            console.log('[Webhook] AI response done')
           }
         }
 
