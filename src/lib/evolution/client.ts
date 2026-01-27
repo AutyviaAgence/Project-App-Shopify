@@ -93,6 +93,13 @@ export const evolution = {
     })
   },
 
+  /** Récupérer les infos d'une instance (owner, profileName, etc.) */
+  fetchInstance(instanceName: string) {
+    return request(`/instance/fetchInstances?instanceName=${instanceName}`, {
+      method: 'GET',
+    })
+  },
+
   /** Configurer le webhook */
   setWebhook(instanceName: string, webhookUrl: string) {
     return request(`/webhook/set/${instanceName}`, {

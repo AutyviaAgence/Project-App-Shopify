@@ -67,5 +67,28 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  // Récupérer le numéro pour les sessions connectées sans phone_number
+  if (sessions) {
+    for (const session of sessions) {
+      if (session.status === 'connected' && !session.phone_number) {
+        const instanceResult = await evolution.fetchInstance(session.instance_name)
+        if (instanceResult.ok) {
+          const instances = instanceResult.data as Array<Record<string, unknown>>
+          const instance = Array.isArray(instances) ? instances[0] : instances
+          const owner = (instance as Record<string, unknown>)?.owner as string | undefined
+          if (owner) {
+            const phoneNumber = owner.split('@')[0]
+            session.phone_number = phoneNumber
+            // Sauvegarder en BDD pour les prochains appels
+            await supabase
+              .from('whatsapp_sessions')
+              .update({ phone_number: phoneNumber })
+              .eq('id', session.id)
+          }
+        }
+      }
+    }
+  }
+
   return NextResponse.json({ data: sessions })
 }
