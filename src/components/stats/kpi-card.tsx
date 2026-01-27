@@ -9,9 +9,10 @@ type KPICardProps = {
   value: number
   trend?: number | null
   icon: LucideIcon
+  formatValue?: (value: number) => string
 }
 
-export function KPICard({ title, value, trend, icon: Icon }: KPICardProps) {
+export function KPICard({ title, value, trend, icon: Icon, formatValue }: KPICardProps) {
   return (
     <Card>
       <CardHeader className="pb-2">
@@ -24,7 +25,7 @@ export function KPICard({ title, value, trend, icon: Icon }: KPICardProps) {
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold">
-          {value.toLocaleString('fr-FR')}
+          {formatValue ? formatValue(value) : value.toLocaleString('fr-FR')}
         </div>
         {trend != null && (
           <div

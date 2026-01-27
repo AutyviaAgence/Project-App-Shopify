@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
     // Messages période courante
     supabase
       .from('messages')
-      .select('id, direction, sent_by, ai_agent_id, conversation_id, created_at')
+      .select('id, direction, sent_by, ai_agent_id, ai_processed, conversation_id, created_at')
       .in('session_id', sessionIds)
       .gte('created_at', from)
       .lte('created_at', to),
@@ -120,7 +120,63 @@ export async function GET(req: NextRequest) {
   const newContacts = contacts.filter((c) => c.created_at >= from).length
   const prevNewContacts = prevContactsRes.count || 0
 
+  // --- Taux de réponse IA (global) ---
+  const inboundMessages = messages.filter((m) => m.direction === 'inbound')
+  const inboundProcessed = inboundMessages.filter((m) => m.ai_processed)
+  const responseRate = inboundMessages.length > 0
+    ? Math.round((inboundProcessed.length / inboundMessages.length) * 100)
+    : null
+
+  // --- Temps de réponse moyen (global) ---
+  // Grouper les messages par conversation pour calculer les deltas
+  const msgsByConvoForTime = new Map<string, typeof messages>()
+  for (const m of messages) {
+    const arr = msgsByConvoForTime.get(m.conversation_id) || []
+    arr.push(m)
+    msgsByConvoForTime.set(m.conversation_id, arr)
+  }
+
+  const responseTimes: number[] = []
+  const responseTimesByAgent = new Map<string, number[]>()
+
+  for (const convoMsgs of msgsByConvoForTime.values()) {
+    // Trier par date
+    convoMsgs.sort((a, b) => a.created_at.localeCompare(b.created_at))
+    for (let i = 0; i < convoMsgs.length; i++) {
+      const msg = convoMsgs[i]
+      if (msg.direction !== 'inbound' || !msg.ai_processed) continue
+      // Trouver le prochain message outbound AI dans cette conversation
+      for (let j = i + 1; j < convoMsgs.length; j++) {
+        const next = convoMsgs[j]
+        if (next.direction === 'outbound' && next.sent_by === 'ai_agent') {
+          const delta = (new Date(next.created_at).getTime() - new Date(msg.created_at).getTime()) / 1000
+          if (delta > 0 && delta < 86400) { // ignorer les deltas > 24h (anomalies)
+            responseTimes.push(delta)
+            if (next.ai_agent_id) {
+              const arr = responseTimesByAgent.get(next.ai_agent_id) || []
+              arr.push(delta)
+              responseTimesByAgent.set(next.ai_agent_id, arr)
+            }
+          }
+          break
+        }
+        // Si on tombe sur un autre inbound, arrêter
+        if (next.direction === 'inbound') break
+      }
+    }
+  }
+
+  const avgResponseTime = responseTimes.length > 0
+    ? Math.round(responseTimes.reduce((s, v) => s + v, 0) / responseTimes.length)
+    : null
+
   // --- Agents ---
+  // Pré-calculer les inbound par agent (via conversation)
+  const convoToAgent = new Map<string, string | null>()
+  for (const c of conversations) {
+    convoToAgent.set(c.id, c.ai_agent_id)
+  }
+
   const agentStats: StatsAgent[] = agents.map((agent) => {
     const agentMessages = messages.filter((m) => m.ai_agent_id === agent.id)
     const agentConvos = new Set(
@@ -128,11 +184,29 @@ export async function GET(req: NextRequest) {
         .filter((c) => c.ai_agent_id === agent.id)
         .map((c) => c.id)
     )
+
+    // Taux de réponse par agent
+    const agentInbound = inboundMessages.filter(
+      (m) => convoToAgent.get(m.conversation_id) === agent.id
+    )
+    const agentInboundProcessed = agentInbound.filter((m) => m.ai_processed)
+    const agentResponseRate = agentInbound.length > 0
+      ? Math.round((agentInboundProcessed.length / agentInbound.length) * 100)
+      : null
+
+    // Temps de réponse par agent
+    const agentTimes = responseTimesByAgent.get(agent.id) || []
+    const agentAvgTime = agentTimes.length > 0
+      ? Math.round(agentTimes.reduce((s, v) => s + v, 0) / agentTimes.length)
+      : null
+
     return {
       id: agent.id,
       name: agent.name,
       messagesHandled: agentMessages.length,
       conversationsManaged: agentConvos.size,
+      responseRate: agentResponseRate,
+      avgResponseTime: agentAvgTime,
       isActive: agent.is_active,
     }
   })
@@ -236,6 +310,8 @@ export async function GET(req: NextRequest) {
       activeConversations,
       totalContacts,
       newContacts,
+      responseRate,
+      avgResponseTime,
       messagesTrend: computeTrend(totalMessages, prevMessageCount),
       conversationsTrend: computeTrend(activeConversations, prevActiveConvos),
       contactsTrend: computeTrend(newContacts, prevNewContacts),
@@ -265,6 +341,8 @@ function emptyResponse(): StatsResponse {
       activeConversations: 0,
       totalContacts: 0,
       newContacts: 0,
+      responseRate: null,
+      avgResponseTime: null,
       messagesTrend: null,
       conversationsTrend: null,
       contactsTrend: null,

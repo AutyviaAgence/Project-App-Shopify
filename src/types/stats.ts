@@ -5,6 +5,8 @@ export type StatsOverview = {
   activeConversations: number
   totalContacts: number
   newContacts: number
+  responseRate: number | null
+  avgResponseTime: number | null
   messagesTrend: number | null
   conversationsTrend: number | null
   contactsTrend: number | null
@@ -15,6 +17,8 @@ export type StatsAgent = {
   name: string
   messagesHandled: number
   conversationsManaged: number
+  responseRate: number | null
+  avgResponseTime: number | null
   isActive: boolean
 }
 

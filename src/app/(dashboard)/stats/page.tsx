@@ -26,11 +26,20 @@ import {
   MousePointerClick,
   ArrowRightLeft,
   Phone,
+  Zap,
+  Clock,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
 type SessionOption = { id: string; instance_name: string }
+
+function formatSeconds(s: number): string {
+  if (s < 60) return `${s}s`
+  const min = Math.floor(s / 60)
+  const sec = s % 60
+  return sec > 0 ? `${min}m ${sec}s` : `${min}m`
+}
 
 export default function StatsPage() {
   const [period, setPeriod] = useState('30')
@@ -136,18 +145,12 @@ export default function StatsPage() {
 
           {/* === Vue globale === */}
           <TabsContent value="overview" className="space-y-6">
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <KPICard
                 title="Messages total"
                 value={stats.overview.totalMessages}
                 trend={stats.overview.messagesTrend}
                 icon={MessageSquare}
-              />
-              <KPICard
-                title="Messages reçus"
-                value={stats.overview.messagesIn}
-                trend={null}
-                icon={ArrowDownLeft}
               />
               <KPICard
                 title="Conversations actives"
@@ -160,6 +163,26 @@ export default function StatsPage() {
                 value={stats.overview.newContacts}
                 trend={stats.overview.contactsTrend}
                 icon={UserPlus}
+              />
+              <KPICard
+                title="Messages reçus"
+                value={stats.overview.messagesIn}
+                trend={null}
+                icon={ArrowDownLeft}
+              />
+              <KPICard
+                title="Taux de réponse IA"
+                value={stats.overview.responseRate ?? 0}
+                trend={null}
+                icon={Zap}
+                formatValue={(v) => `${v}%`}
+              />
+              <KPICard
+                title="Temps réponse moyen"
+                value={stats.overview.avgResponseTime ?? 0}
+                trend={null}
+                icon={Clock}
+                formatValue={(v) => v > 0 ? formatSeconds(v) : '—'}
               />
             </div>
 
@@ -213,6 +236,22 @@ export default function StatsPage() {
                             </p>
                             <p className="text-xs text-muted-foreground">
                               Conversations
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-2xl font-bold">
+                              {agent.responseRate != null ? `${agent.responseRate}%` : '—'}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Taux de réponse
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-2xl font-bold">
+                              {agent.avgResponseTime != null ? formatSeconds(agent.avgResponseTime) : '—'}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Temps moyen
                             </p>
                           </div>
                         </div>
