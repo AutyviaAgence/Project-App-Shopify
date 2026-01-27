@@ -44,7 +44,7 @@ export async function PATCH(
   }
 
   const body = await req.json()
-  const { name, description, system_prompt, objective, model, temperature, is_active } = body as {
+  const { name, description, system_prompt, objective, model, temperature, is_active, response_delay } = body as {
     name?: string
     description?: string
     system_prompt?: string
@@ -52,6 +52,7 @@ export async function PATCH(
     model?: string
     temperature?: number
     is_active?: boolean
+    response_delay?: number
   }
 
   const updateData: Record<string, unknown> = {}
@@ -66,6 +67,9 @@ export async function PATCH(
     updateData.temperature = Math.max(0, Math.min(2, Number(temperature) || 0.7))
   }
   if (is_active !== undefined) updateData.is_active = is_active
+  if (response_delay !== undefined) {
+    updateData.response_delay = Math.max(0, Math.min(30, Math.floor(Number(response_delay) || 0)))
+  }
 
   if (Object.keys(updateData).length === 0) {
     return NextResponse.json({ error: 'Rien à modifier' }, { status: 400 })

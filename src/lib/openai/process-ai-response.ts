@@ -41,7 +41,7 @@ export async function processAIResponse(params: {
     // 2. Récupérer l'historique récent des messages pour le contexte
     const { data: recentMessages } = await supabase
       .from('messages')
-      .select('content, sent_by, direction, created_at')
+      .select('id, content, sent_by, direction, message_type, ai_processed, created_at')
       .eq('conversation_id', params.conversationId)
       .order('created_at', { ascending: true })
       .limit(MAX_CONTEXT_MESSAGES)
@@ -109,6 +109,14 @@ export async function processAIResponse(params: {
         last_message_preview: aiResponseText.slice(0, 100),
       })
       .eq('id', params.conversationId)
+
+    // 9. Marquer les messages inbound non traités comme traités
+    await supabase
+      .from('messages')
+      .update({ ai_processed: true })
+      .eq('conversation_id', params.conversationId)
+      .eq('direction', 'inbound')
+      .eq('ai_processed', false)
 
     console.log('[AI] Réponse envoyée pour conversation:', params.conversationId)
   } catch (err) {

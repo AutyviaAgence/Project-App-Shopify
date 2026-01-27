@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { processAIResponse } from '@/lib/openai/process-ai-response'
+import { processMediaMessage } from '@/lib/openai/media-processor'
 
 /**
  * POST /api/webhook/evolution
@@ -84,11 +85,29 @@ export async function POST(req: NextRequest) {
         const fromMe = messageData.key.fromMe as boolean
         const waMessageId = messageData.key.id as string
         const pushName = messageData.pushName as string | undefined
-        const content = messageData.message?.conversation
-          || messageData.message?.extendedTextMessage?.text
-          || ''
 
-        if (!content && !messageData.message) break
+        // Traitement média : détecte le type et extrait/transcrit/décrit le contenu
+        const mediaResult = await processMediaMessage(
+          messageData.message || {},
+          instanceName,
+          waMessageId,
+          remoteJid
+        )
+        const content = mediaResult.content
+        const messageType = mediaResult.messageType
+
+        // Ignorer seulement les messages texte vides sans payload
+        if (!content && messageType === 'text' && !messageData.message) break
+
+        // Aperçu adapté au type pour la conversation
+        const previewContent = messageType === 'text'
+          ? (content || '').slice(0, 100)
+          : messageType === 'audio' ? 'Message vocal'
+          : messageType === 'image' ? 'Photo'
+          : messageType === 'video' ? 'Vidéo'
+          : messageType === 'document' ? 'Document'
+          : messageType === 'sticker' ? 'Sticker'
+          : (content || '').slice(0, 100)
 
         // 1. Upsert contact
         const { data: contact } = await supabase
@@ -122,7 +141,7 @@ export async function POST(req: NextRequest) {
               session_id: session.id,
               contact_id: contact.id,
               last_message_at: new Date().toISOString(),
-              last_message_preview: typeof content === 'string' ? content.slice(0, 100) : '',
+              last_message_preview: previewContent,
             },
             { onConflict: 'session_id,contact_id' }
           )
@@ -133,8 +152,6 @@ export async function POST(req: NextRequest) {
 
         // 2b. Auto-assign agent IA depuis un lien WA (nouvelles conversations)
         if (!fromMe && !conversation.ai_agent_id) {
-          // Chercher un lien WA avec agent pour cette session
-          // D'abord essayer de matcher par message pré-rempli
           let matchingLink = null
           if (content) {
             const { data: exactMatch } = await supabase
@@ -169,30 +186,31 @@ export async function POST(req: NextRequest) {
             .update({
               unread_count: (conversation.unread_count || 0) + 1,
               last_message_at: new Date().toISOString(),
-              last_message_preview: typeof content === 'string' ? content.slice(0, 100) : '',
+              last_message_preview: previewContent,
             })
             .eq('id', conversation.id)
         }
 
         // 3. Insérer le message (dédupliqué via index unique wa_message_id)
-        await supabase
+        const { data: insertedMessage } = await supabase
           .from('messages')
           .insert({
             conversation_id: conversation.id,
             session_id: session.id,
             direction: fromMe ? 'outbound' : 'inbound',
             content: content || '',
-            message_type: 'text',
+            message_type: messageType,
+            media_url: mediaResult.mediaUrl,
             wa_message_id: waMessageId,
             sent_by: fromMe ? 'user' : 'contact',
             status: 'delivered',
+            ai_processed: false,
           })
           .select()
           .single()
 
-        // 4. Auto-réponse IA
+        // 4. Auto-réponse IA (avec support délai/debounce)
         if (!fromMe) {
-          // Re-fetch pour avoir les champs IA à jour
           const { data: convFresh } = await supabase
             .from('conversations')
             .select('is_ai_active, ai_agent_id')
@@ -203,9 +221,39 @@ export async function POST(req: NextRequest) {
             convId: conversation.id,
             is_ai_active: convFresh?.is_ai_active,
             ai_agent_id: convFresh?.ai_agent_id,
+            messageType,
           })
 
           if (convFresh?.is_ai_active && convFresh?.ai_agent_id) {
+            // Récupérer le délai configuré sur l'agent
+            const { data: agentConfig } = await supabase
+              .from('ai_agents')
+              .select('response_delay')
+              .eq('id', convFresh.ai_agent_id)
+              .single()
+
+            const delay = agentConfig?.response_delay ?? 0
+
+            if (delay > 0) {
+              console.log(`[Webhook] Waiting ${delay}s (debounce)...`)
+              await new Promise(resolve => setTimeout(resolve, delay * 1000))
+
+              // Vérifier si ce message est toujours le plus récent inbound
+              const { data: latestMsg } = await supabase
+                .from('messages')
+                .select('id')
+                .eq('conversation_id', conversation.id)
+                .eq('direction', 'inbound')
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .single()
+
+              if (latestMsg?.id !== insertedMessage?.id) {
+                console.log('[Webhook] Newer message exists, skipping AI (debounce)')
+                break
+              }
+            }
+
             console.log('[Webhook] Triggering AI response...')
             await processAIResponse({
               conversationId: conversation.id,

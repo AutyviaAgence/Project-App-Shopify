@@ -48,6 +48,7 @@ export default function AgentsPage() {
   const [formObjective, setFormObjective] = useState('')
   const [formModel, setFormModel] = useState('gpt-4o-mini')
   const [formTemperature, setFormTemperature] = useState('0.7')
+  const [formResponseDelay, setFormResponseDelay] = useState('0')
 
   const fetchAgents = useCallback(async () => {
     try {
@@ -75,6 +76,7 @@ export default function AgentsPage() {
     setFormObjective('')
     setFormModel('gpt-4o-mini')
     setFormTemperature('0.7')
+    setFormResponseDelay('0')
     setDialogOpen(true)
   }
 
@@ -86,6 +88,7 @@ export default function AgentsPage() {
     setFormObjective(agent.objective || '')
     setFormModel(agent.model)
     setFormTemperature(String(agent.temperature))
+    setFormResponseDelay(String(agent.response_delay ?? 0))
     setDialogOpen(true)
   }
 
@@ -114,6 +117,7 @@ export default function AgentsPage() {
             objective: formObjective.trim(),
             model: formModel,
             temperature: temp,
+            response_delay: parseInt(formResponseDelay) || 0,
           }),
         })
         const json = await res.json()
@@ -135,6 +139,7 @@ export default function AgentsPage() {
             objective: formObjective.trim(),
             model: formModel,
             temperature: temp,
+            response_delay: parseInt(formResponseDelay) || 0,
           }),
         })
         const json = await res.json()
@@ -249,13 +254,18 @@ export default function AgentsPage() {
                       </p>
                     )}
 
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <Badge variant="outline" className="text-xs">
                         {agent.model}
                       </Badge>
                       <span className="text-xs text-muted-foreground">
                         T° {agent.temperature}
                       </span>
+                      {agent.response_delay > 0 && (
+                        <span className="text-xs text-muted-foreground">
+                          Délai {agent.response_delay}s
+                        </span>
+                      )}
                     </div>
 
                     <p className="text-xs text-muted-foreground line-clamp-2">
@@ -393,6 +403,23 @@ export default function AgentsPage() {
                   0 = précis, 2 = créatif
                 </p>
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="agent-delay">Délai de réponse (secondes)</Label>
+              <Input
+                id="agent-delay"
+                type="number"
+                min={0}
+                max={30}
+                step={1}
+                value={formResponseDelay}
+                onChange={(e) => setFormResponseDelay(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Temps d&apos;attente avant de répondre. Permet de regrouper plusieurs messages
+                consécutifs en une seule réponse IA. 0 = réponse immédiate.
+              </p>
             </div>
 
             <Button

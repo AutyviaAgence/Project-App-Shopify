@@ -28,6 +28,7 @@ export type AIAgent = {
   objective: string | null
   model: string
   temperature: number
+  response_delay: number
   is_active: boolean
   created_at: string
   updated_at: string
@@ -84,6 +85,7 @@ export type Message = {
   sent_by: 'user' | 'ai_agent' | 'contact'
   ai_agent_id: string | null
   status: 'pending' | 'sent' | 'delivered' | 'read' | 'failed'
+  ai_processed: boolean
   created_at: string
 }
 

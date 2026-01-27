@@ -35,7 +35,7 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json()
-  const { name, description, system_prompt, objective, model, temperature, is_active } = body as {
+  const { name, description, system_prompt, objective, model, temperature, is_active, response_delay } = body as {
     name?: string
     description?: string
     system_prompt?: string
@@ -43,6 +43,7 @@ export async function POST(req: Request) {
     model?: string
     temperature?: number
     is_active?: boolean
+    response_delay?: number
   }
 
   if (!name?.trim() || !system_prompt?.trim()) {
@@ -53,6 +54,9 @@ export async function POST(req: Request) {
   const finalTemp = typeof temperature === 'number'
     ? Math.max(0, Math.min(2, temperature))
     : 0.7
+  const finalDelay = typeof response_delay === 'number'
+    ? Math.max(0, Math.min(30, Math.floor(response_delay)))
+    : 0
 
   const { data: agent, error } = await supabase
     .from('ai_agents')
@@ -64,6 +68,7 @@ export async function POST(req: Request) {
       objective: objective?.trim() || null,
       model: finalModel,
       temperature: finalTemp,
+      response_delay: finalDelay,
       is_active: is_active !== undefined ? is_active : true,
     })
     .select()

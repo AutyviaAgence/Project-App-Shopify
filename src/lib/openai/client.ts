@@ -20,6 +20,80 @@ export type ChatMessage = {
   content: string
 }
 
+/**
+ * Transcrit un audio en texte via Whisper.
+ */
+export async function transcribeAudio(
+  audioBuffer: Buffer,
+  mimeType: string
+): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
+  try {
+    const openai = getClient()
+    const ext = mimeType.includes('ogg') ? 'ogg'
+      : mimeType.includes('mp4') ? 'mp4'
+      : mimeType.includes('mpeg') ? 'mp3'
+      : mimeType.includes('wav') ? 'wav'
+      : 'ogg'
+    const uint8 = new Uint8Array(audioBuffer)
+    const file = new File([uint8], `audio.${ext}`, { type: mimeType })
+
+    const transcription = await openai.audio.transcriptions.create({
+      file,
+      model: 'whisper-1',
+    })
+
+    return { ok: true, text: transcription.text }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown Whisper error'
+    console.error('[OpenAI Whisper] Error:', message)
+    return { ok: false, error: message }
+  }
+}
+
+/**
+ * Décrit une image via GPT-4o Vision.
+ */
+export async function describeImage(
+  base64Data: string,
+  mimeType: string = 'image/jpeg'
+): Promise<{ ok: true; description: string } | { ok: false; error: string }> {
+  try {
+    const openai = getClient()
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'text',
+              text: 'Décris cette image de manière concise. Concentre-toi sur ce qui est montré et tout texte visible.',
+            },
+            {
+              type: 'image_url',
+              image_url: {
+                url: `data:${mimeType};base64,${base64Data}`,
+                detail: 'low',
+              },
+            },
+          ],
+        },
+      ],
+      max_tokens: 300,
+    })
+
+    const description = response.choices[0]?.message?.content
+    if (!description) {
+      return { ok: false, error: 'Empty response from Vision' }
+    }
+    return { ok: true, description }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown Vision error'
+    console.error('[OpenAI Vision] Error:', message)
+    return { ok: false, error: message }
+  }
+}
+
 export async function generateAgentResponse(params: {
   model: string
   temperature: number

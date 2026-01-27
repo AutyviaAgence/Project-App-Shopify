@@ -189,6 +189,7 @@ export default function ConversationsPage() {
       sent_by: 'user',
       ai_agent_id: null,
       status: 'pending',
+      ai_processed: false,
       created_at: new Date().toISOString(),
     }
     setMessages((prev) => [...prev, optimistic])

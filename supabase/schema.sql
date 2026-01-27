@@ -48,6 +48,7 @@ CREATE TABLE IF NOT EXISTS ai_agents (
   objective TEXT,
   model TEXT DEFAULT 'gpt-4o-mini',
   temperature FLOAT DEFAULT 0.7,
+  response_delay INTEGER DEFAULT 0,
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -123,6 +124,7 @@ CREATE TABLE IF NOT EXISTS messages (
   sent_by TEXT NOT NULL CHECK (sent_by IN ('user', 'ai_agent', 'contact')),
   ai_agent_id UUID REFERENCES ai_agents(id) ON DELETE SET NULL,
   status TEXT DEFAULT 'sent' CHECK (status IN ('pending', 'sent', 'delivered', 'read', 'failed')),
+  ai_processed BOOLEAN DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -131,6 +133,9 @@ CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
 CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_wa_id
   ON messages(wa_message_id) WHERE wa_message_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_messages_ai_pending
+  ON messages(conversation_id, ai_processed, created_at)
+  WHERE direction = 'inbound' AND ai_processed = false;
 
 -- Statistiques agrégées quotidiennes
 CREATE TABLE IF NOT EXISTS stats_daily (

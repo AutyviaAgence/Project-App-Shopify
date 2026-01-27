@@ -100,6 +100,21 @@ export const evolution = {
     })
   },
 
+  /** Récupérer le média en base64 depuis un message (fallback) */
+  getBase64FromMediaMessage(instanceName: string, messageId: string, remoteJid: string) {
+    return request<{ base64: string }>(`/chat/getBase64FromMediaMessage/${instanceName}`, {
+      method: 'POST',
+      body: JSON.stringify({
+        message: {
+          key: {
+            remoteJid,
+            id: messageId,
+          },
+        },
+      }),
+    })
+  },
+
   /** Configurer le webhook */
   setWebhook(instanceName: string, webhookUrl: string) {
     return request(`/webhook/set/${instanceName}`, {
@@ -109,7 +124,7 @@ export const evolution = {
           enabled: true,
           url: webhookUrl,
           byEvents: false,
-          base64: false,
+          base64: true,
           events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE', 'QRCODE_UPDATED'],
         },
       }),
