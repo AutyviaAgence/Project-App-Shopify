@@ -98,10 +98,13 @@ export const evolution = {
     return request(`/webhook/set/${instanceName}`, {
       method: 'POST',
       body: JSON.stringify({
-        url: webhookUrl,
-        webhook_by_events: true,
-        webhook_base64: false,
-        events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE', 'QRCODE_UPDATED'],
+        webhook: {
+          enabled: true,
+          url: webhookUrl,
+          byEvents: false,
+          base64: false,
+          events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE', 'QRCODE_UPDATED'],
+        },
       }),
     })
   },
