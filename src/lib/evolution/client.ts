@@ -115,6 +115,20 @@ export const evolution = {
     })
   },
 
+  /** Envoyer une présence (composing/paused) pour simuler la saisie */
+  sendPresence(instanceName: string, number: string, presence: 'composing' | 'paused', delay?: number) {
+    return request(`/chat/sendPresence/${instanceName}`, {
+      method: 'POST',
+      body: JSON.stringify({
+        number,
+        options: {
+          delay: delay ?? 1200,
+          presence,
+        },
+      }),
+    })
+  },
+
   /** Configurer le webhook */
   setWebhook(instanceName: string, webhookUrl: string) {
     return request(`/webhook/set/${instanceName}`, {

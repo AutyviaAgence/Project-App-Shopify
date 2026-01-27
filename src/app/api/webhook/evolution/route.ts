@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { processAIResponse } from '@/lib/openai/process-ai-response'
 import { processMediaMessage } from '@/lib/openai/media-processor'
+import { evolution } from '@/lib/evolution/client'
 
 /**
  * POST /api/webhook/evolution
@@ -228,14 +229,22 @@ export async function POST(req: NextRequest) {
             // Récupérer le délai configuré sur l'agent
             const { data: agentConfig } = await supabase
               .from('ai_agents')
-              .select('response_delay')
+              .select('response_delay_min, response_delay_max')
               .eq('id', convFresh.ai_agent_id)
               .single()
 
-            const delay = agentConfig?.response_delay ?? 0
+            const delayMin = agentConfig?.response_delay_min ?? 0
+            const delayMax = agentConfig?.response_delay_max ?? 0
+            const delay = delayMax > delayMin
+              ? delayMin + Math.random() * (delayMax - delayMin)
+              : delayMin
 
             if (delay > 0) {
-              console.log(`[Webhook] Waiting ${delay}s (debounce)...`)
+              console.log(`[Webhook] Waiting ${delay.toFixed(1)}s (random debounce ${delayMin}-${delayMax}s)...`)
+
+              // Activer l'indicateur de saisie pendant l'attente
+              evolution.sendPresence(instanceName, phoneNumber, 'composing', Math.round(delay * 1000)).catch(() => {})
+
               await new Promise(resolve => setTimeout(resolve, delay * 1000))
 
               // Vérifier si ce message est toujours le plus récent inbound
@@ -250,9 +259,13 @@ export async function POST(req: NextRequest) {
 
               if (latestMsg?.id !== insertedMessage?.id) {
                 console.log('[Webhook] Newer message exists, skipping AI (debounce)')
+                evolution.sendPresence(instanceName, phoneNumber, 'paused').catch(() => {})
                 break
               }
             }
+
+            // Activer l'indicateur de saisie pendant la génération IA
+            evolution.sendPresence(instanceName, phoneNumber, 'composing').catch(() => {})
 
             console.log('[Webhook] Triggering AI response...')
             await processAIResponse({
@@ -262,6 +275,9 @@ export async function POST(req: NextRequest) {
               contactPhoneNumber: phoneNumber,
               agentId: convFresh.ai_agent_id,
             })
+
+            // Arrêter l'indicateur de saisie après l'envoi
+            evolution.sendPresence(instanceName, phoneNumber, 'paused').catch(() => {})
             console.log('[Webhook] AI response done')
           }
         }

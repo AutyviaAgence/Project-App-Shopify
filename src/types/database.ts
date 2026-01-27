@@ -28,7 +28,8 @@ export type AIAgent = {
   objective: string | null
   model: string
   temperature: number
-  response_delay: number
+  response_delay_min: number
+  response_delay_max: number
   is_active: boolean
   created_at: string
   updated_at: string

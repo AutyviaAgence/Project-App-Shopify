@@ -48,7 +48,8 @@ CREATE TABLE IF NOT EXISTS ai_agents (
   objective TEXT,
   model TEXT DEFAULT 'gpt-4o-mini',
   temperature FLOAT DEFAULT 0.7,
-  response_delay INTEGER DEFAULT 0,
+  response_delay_min INTEGER DEFAULT 0,
+  response_delay_max INTEGER DEFAULT 0,
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()

@@ -48,7 +48,8 @@ export default function AgentsPage() {
   const [formObjective, setFormObjective] = useState('')
   const [formModel, setFormModel] = useState('gpt-4o-mini')
   const [formTemperature, setFormTemperature] = useState('0.7')
-  const [formResponseDelay, setFormResponseDelay] = useState('0')
+  const [formDelayMin, setFormDelayMin] = useState('0')
+  const [formDelayMax, setFormDelayMax] = useState('0')
 
   const fetchAgents = useCallback(async () => {
     try {
@@ -76,7 +77,8 @@ export default function AgentsPage() {
     setFormObjective('')
     setFormModel('gpt-4o-mini')
     setFormTemperature('0.7')
-    setFormResponseDelay('0')
+    setFormDelayMin('0')
+    setFormDelayMax('0')
     setDialogOpen(true)
   }
 
@@ -88,7 +90,8 @@ export default function AgentsPage() {
     setFormObjective(agent.objective || '')
     setFormModel(agent.model)
     setFormTemperature(String(agent.temperature))
-    setFormResponseDelay(String(agent.response_delay ?? 0))
+    setFormDelayMin(String(agent.response_delay_min ?? 0))
+    setFormDelayMax(String(agent.response_delay_max ?? 0))
     setDialogOpen(true)
   }
 
@@ -117,7 +120,8 @@ export default function AgentsPage() {
             objective: formObjective.trim(),
             model: formModel,
             temperature: temp,
-            response_delay: parseInt(formResponseDelay) || 0,
+            response_delay_min: parseInt(formDelayMin) || 0,
+            response_delay_max: parseInt(formDelayMax) || 0,
           }),
         })
         const json = await res.json()
@@ -139,7 +143,8 @@ export default function AgentsPage() {
             objective: formObjective.trim(),
             model: formModel,
             temperature: temp,
-            response_delay: parseInt(formResponseDelay) || 0,
+            response_delay_min: parseInt(formDelayMin) || 0,
+            response_delay_max: parseInt(formDelayMax) || 0,
           }),
         })
         const json = await res.json()
@@ -261,9 +266,9 @@ export default function AgentsPage() {
                       <span className="text-xs text-muted-foreground">
                         T° {agent.temperature}
                       </span>
-                      {agent.response_delay > 0 && (
+                      {(agent.response_delay_min > 0 || agent.response_delay_max > 0) && (
                         <span className="text-xs text-muted-foreground">
-                          Délai {agent.response_delay}s
+                          Délai {agent.response_delay_min}–{agent.response_delay_max}s
                         </span>
                       )}
                     </div>
@@ -406,19 +411,36 @@ export default function AgentsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="agent-delay">Délai de réponse (secondes)</Label>
-              <Input
-                id="agent-delay"
-                type="number"
-                min={0}
-                max={30}
-                step={1}
-                value={formResponseDelay}
-                onChange={(e) => setFormResponseDelay(e.target.value)}
-              />
+              <Label>Délai de réponse (secondes)</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <Label htmlFor="agent-delay-min" className="text-xs text-muted-foreground">Minimum</Label>
+                  <Input
+                    id="agent-delay-min"
+                    type="number"
+                    min={0}
+                    max={30}
+                    step={1}
+                    value={formDelayMin}
+                    onChange={(e) => setFormDelayMin(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="agent-delay-max" className="text-xs text-muted-foreground">Maximum</Label>
+                  <Input
+                    id="agent-delay-max"
+                    type="number"
+                    min={0}
+                    max={30}
+                    step={1}
+                    value={formDelayMax}
+                    onChange={(e) => setFormDelayMax(e.target.value)}
+                  />
+                </div>
+              </div>
               <p className="text-xs text-muted-foreground">
-                Temps d&apos;attente avant de répondre. Permet de regrouper plusieurs messages
-                consécutifs en une seule réponse IA. 0 = réponse immédiate.
+                Délai aléatoire entre min et max avant de répondre. Regroupe les messages
+                consécutifs et simule un comportement humain. 0/0 = réponse immédiate.
               </p>
             </div>
 

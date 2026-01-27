@@ -44,7 +44,7 @@ export async function PATCH(
   }
 
   const body = await req.json()
-  const { name, description, system_prompt, objective, model, temperature, is_active, response_delay } = body as {
+  const { name, description, system_prompt, objective, model, temperature, is_active, response_delay_min, response_delay_max } = body as {
     name?: string
     description?: string
     system_prompt?: string
@@ -52,7 +52,8 @@ export async function PATCH(
     model?: string
     temperature?: number
     is_active?: boolean
-    response_delay?: number
+    response_delay_min?: number
+    response_delay_max?: number
   }
 
   const updateData: Record<string, unknown> = {}
@@ -67,8 +68,12 @@ export async function PATCH(
     updateData.temperature = Math.max(0, Math.min(2, Number(temperature) || 0.7))
   }
   if (is_active !== undefined) updateData.is_active = is_active
-  if (response_delay !== undefined) {
-    updateData.response_delay = Math.max(0, Math.min(30, Math.floor(Number(response_delay) || 0)))
+  if (response_delay_min !== undefined) {
+    updateData.response_delay_min = Math.max(0, Math.min(30, Math.floor(Number(response_delay_min) || 0)))
+  }
+  if (response_delay_max !== undefined) {
+    const min = typeof updateData.response_delay_min === 'number' ? updateData.response_delay_min as number : 0
+    updateData.response_delay_max = Math.max(min, Math.min(30, Math.floor(Number(response_delay_max) || 0)))
   }
 
   if (Object.keys(updateData).length === 0) {
