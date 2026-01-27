@@ -314,9 +314,12 @@ export default function SessionsPage() {
               <Card key={session.id}>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">
-                    {session.phone_number
-                      ? `+${session.phone_number}`
-                      : session.instance_name}
+                    {session.instance_name}
+                    {session.phone_number && (
+                      <span className="ml-1 text-xs font-normal text-muted-foreground">
+                        (+{session.phone_number})
+                      </span>
+                    )}
                   </CardTitle>
                   <Badge variant={config.variant}>
                     <StatusIcon className="mr-1 h-3 w-3" />
