@@ -56,6 +56,18 @@ export async function GET(
     const updateData: Record<string, unknown> = { status: newStatus }
     if (newStatus === 'connected') {
       updateData.qr_code = null
+
+      // Auto-configure webhook when session becomes connected
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL
+      if (appUrl) {
+        const webhookUrl = `${appUrl.replace(/\/$/, '')}/api/webhook/evolution`
+        const webhookResult = await evolution.setWebhook(session.instance_name, webhookUrl)
+        if (webhookResult.ok) {
+          console.log(`[Status] Webhook auto-configured: ${webhookUrl}`)
+        } else {
+          console.warn('[Status] Failed to auto-configure webhook:', webhookResult.error)
+        }
+      }
     }
 
     await supabase
