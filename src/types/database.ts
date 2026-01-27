@@ -90,6 +90,39 @@ export type Message = {
   created_at: string
 }
 
+export type KnowledgeDocument = {
+  id: string
+  user_id: string
+  name: string
+  description: string | null
+  doc_type: 'pdf' | 'text'
+  text_content: string | null
+  storage_path: string | null
+  status: 'pending' | 'processing' | 'ready' | 'error'
+  error_message: string | null
+  chunk_count: number
+  char_count: number
+  created_at: string
+  updated_at: string
+}
+
+export type KnowledgeChunk = {
+  id: string
+  document_id: string
+  user_id: string
+  chunk_index: number
+  content: string
+  token_count: number | null
+  created_at: string
+}
+
+export type AgentKnowledgeDocument = {
+  id: string
+  agent_id: string
+  document_id: string
+  created_at: string
+}
+
 export type StatDaily = {
   id: string
   user_id: string
@@ -166,8 +199,42 @@ export type Database = {
         Update: Partial<StatDaily>
         Relationships: []
       }
+      knowledge_documents: {
+        Row: KnowledgeDocument
+        Insert: Partial<KnowledgeDocument> & Pick<KnowledgeDocument, 'user_id' | 'name'>
+        Update: Partial<KnowledgeDocument>
+        Relationships: []
+      }
+      knowledge_chunks: {
+        Row: KnowledgeChunk
+        Insert: Partial<KnowledgeChunk> & Pick<KnowledgeChunk, 'document_id' | 'user_id' | 'chunk_index' | 'content'>
+        Update: Partial<KnowledgeChunk>
+        Relationships: []
+      }
+      agent_knowledge_documents: {
+        Row: AgentKnowledgeDocument
+        Insert: Partial<AgentKnowledgeDocument> & Pick<AgentKnowledgeDocument, 'agent_id' | 'document_id'>
+        Update: Partial<AgentKnowledgeDocument>
+        Relationships: []
+      }
     }
     Views: {}
-    Functions: {}
+    Functions: {
+      match_knowledge_chunks: {
+        Args: {
+          query_embedding: string
+          match_document_ids: string[]
+          match_threshold?: number
+          match_count?: number
+        }
+        Returns: {
+          id: string
+          document_id: string
+          content: string
+          chunk_index: number
+          similarity: number
+        }[]
+      }
+    }
   }
 }

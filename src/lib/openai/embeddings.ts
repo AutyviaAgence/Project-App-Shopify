@@ -1,0 +1,57 @@
+import 'server-only'
+import OpenAI from 'openai'
+
+let client: OpenAI | null = null
+
+function getClient(): OpenAI {
+  if (client) return client
+  const apiKey = process.env.OPENAI_API_KEY
+  if (!apiKey) throw new Error('[OpenAI] OPENAI_API_KEY is required')
+  client = new OpenAI({ apiKey })
+  return client
+}
+
+const EMBEDDING_MODEL = 'text-embedding-3-small'
+
+/**
+ * Génère un embedding pour un texte unique.
+ */
+export async function generateEmbedding(
+  text: string
+): Promise<{ ok: true; embedding: number[] } | { ok: false; error: string }> {
+  try {
+    const openai = getClient()
+    const response = await openai.embeddings.create({
+      model: EMBEDDING_MODEL,
+      input: text,
+    })
+    return { ok: true, embedding: response.data[0].embedding }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown embedding error'
+    console.error('[OpenAI Embedding] Error:', message)
+    return { ok: false, error: message }
+  }
+}
+
+/**
+ * Génère des embeddings pour plusieurs textes en un seul appel (batch).
+ */
+export async function generateEmbeddings(
+  texts: string[]
+): Promise<{ ok: true; embeddings: number[][] } | { ok: false; error: string }> {
+  try {
+    const openai = getClient()
+    const response = await openai.embeddings.create({
+      model: EMBEDDING_MODEL,
+      input: texts,
+    })
+    const embeddings = response.data
+      .sort((a, b) => a.index - b.index)
+      .map((d) => d.embedding)
+    return { ok: true, embeddings }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Unknown embedding error'
+    console.error('[OpenAI Embedding] Error:', message)
+    return { ok: false, error: message }
+  }
+}

@@ -13,6 +13,7 @@ import {
   Link2,
   BarChart3,
   LogOut,
+  BookOpen,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -21,6 +22,7 @@ const NAV_ITEMS = [
   { href: '/sessions', label: 'Sessions', icon: Smartphone },
   { href: '/conversations', label: 'Conversations', icon: MessageSquare },
   { href: '/agents', label: 'Agents IA', icon: Bot },
+  { href: '/knowledge', label: 'Connaissances', icon: BookOpen },
   { href: '/links', label: 'Liens WA', icon: Link2 },
   { href: '/stats', label: 'Statistiques', icon: BarChart3 },
 ]

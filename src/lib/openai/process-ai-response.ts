@@ -2,6 +2,7 @@ import 'server-only'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { generateAgentResponse, type ChatMessage } from './client'
 import { evolution } from '@/lib/evolution/client'
+import { retrieveContext } from '@/lib/knowledge/retriever'
 
 const MAX_CONTEXT_MESSAGES = 50
 
@@ -55,13 +56,34 @@ export async function processAIResponse(params: {
         content: m.content!,
       }))
 
-    // 4. Construire le prompt système (inclure l'objectif si défini)
+    // 3.5. RAG : Récupérer le contexte pertinent de la base de connaissances
+    let knowledgeContext = ''
+    const lastUserMessage = chatMessages.filter(m => m.role === 'user').pop()
+    if (lastUserMessage) {
+      const ragResult = await retrieveContext({
+        agentId: params.agentId,
+        query: lastUserMessage.content,
+        topK: 5,
+        threshold: 0.7,
+      })
+      if (ragResult.ok && ragResult.context) {
+        knowledgeContext = ragResult.context
+        console.log('[AI] RAG contexte récupéré:', ragResult.chunks.length, 'chunks')
+      } else if (!ragResult.ok) {
+        console.warn('[AI] RAG erreur:', ragResult.error)
+      }
+    }
+
+    // 4. Construire le prompt système (inclure l'objectif + connaissances si disponibles)
     let systemPrompt = agent.system_prompt
     if (agent.objective) {
       systemPrompt += `\n\nObjectif principal : ${agent.objective}`
     }
+    if (knowledgeContext) {
+      systemPrompt += `\n\n--- Base de connaissances ---\nUtilise les informations suivantes pour répondre de manière précise. Si l'information demandée ne se trouve pas dans la base de connaissances, dis-le honnêtement.\n\n${knowledgeContext}\n--- Fin de la base de connaissances ---`
+    }
 
-    console.log('[AI] Contexte:', chatMessages.length, 'messages | Appel OpenAI...')
+    console.log('[AI] Contexte:', chatMessages.length, 'messages', knowledgeContext ? '| RAG actif' : '| sans RAG', '| Appel OpenAI...')
 
     // 5. Appeler OpenAI
     const result = await generateAgentResponse({
