@@ -201,7 +201,10 @@ export default function ConversationsPage() {
   }
 
   function getContactDisplay(conv: ConversationWithJoins) {
-    return conv.contact.name || `+${conv.contact.phone_number}`
+    if (conv.contact.name) {
+      return `${conv.contact.name} (+${conv.contact.phone_number})`
+    }
+    return `+${conv.contact.phone_number}`
   }
 
   function getSessionLabel(conv: ConversationWithJoins) {
