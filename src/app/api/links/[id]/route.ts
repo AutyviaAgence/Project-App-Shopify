@@ -15,12 +15,13 @@ export async function PATCH(
   }
 
   const body = await req.json()
-  const { name, pre_filled_message, tracking_source, slug, is_active } = body as {
+  const { name, pre_filled_message, tracking_source, slug, is_active, ai_agent_id } = body as {
     name?: string
     pre_filled_message?: string
     tracking_source?: string
     slug?: string
     is_active?: boolean
+    ai_agent_id?: string | null
   }
 
   const updateData: Record<string, unknown> = {}
@@ -29,6 +30,7 @@ export async function PATCH(
   if (tracking_source !== undefined) updateData.tracking_source = tracking_source || null
   if (slug !== undefined) updateData.slug = slug.trim() || null
   if (is_active !== undefined) updateData.is_active = is_active
+  if (ai_agent_id !== undefined) updateData.ai_agent_id = ai_agent_id
 
   if (Object.keys(updateData).length === 0) {
     return NextResponse.json({ error: 'Rien à modifier' }, { status: 400 })

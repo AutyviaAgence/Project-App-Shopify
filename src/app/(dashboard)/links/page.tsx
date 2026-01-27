@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import type { WALink, WhatsAppSession } from '@/types/database'
+import type { WALink, WhatsAppSession, AIAgent } from '@/types/database'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -33,6 +33,7 @@ import {
   Loader2,
   MousePointerClick,
   ExternalLink,
+  Bot,
 } from 'lucide-react'
 
 type WALinkWithSession = WALink & {
@@ -46,6 +47,7 @@ type WALinkWithSession = WALink & {
 export default function LinksPage() {
   const [links, setLinks] = useState<WALinkWithSession[]>([])
   const [sessions, setSessions] = useState<WhatsAppSession[]>([])
+  const [agents, setAgents] = useState<AIAgent[]>([])
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<WALinkWithSession | null>(null)
@@ -58,6 +60,7 @@ export default function LinksPage() {
   const [formMessage, setFormMessage] = useState('')
   const [formSource, setFormSource] = useState('')
   const [formSlug, setFormSlug] = useState('')
+  const [formAgentId, setFormAgentId] = useState('')
 
   const fetchLinks = useCallback(async () => {
     try {
@@ -85,10 +88,23 @@ export default function LinksPage() {
     }
   }, [])
 
+  const fetchAgents = useCallback(async () => {
+    try {
+      const res = await fetch('/api/agents')
+      const json = await res.json()
+      if (res.ok && json.data) {
+        setAgents(json.data.filter((a: AIAgent) => a.is_active))
+      }
+    } catch {
+      // silently ignore
+    }
+  }, [])
+
   useEffect(() => {
     fetchLinks()
     fetchSessions()
-  }, [fetchLinks, fetchSessions])
+    fetchAgents()
+  }, [fetchLinks, fetchSessions, fetchAgents])
 
   function openCreateDialog() {
     setEditing(null)
@@ -97,6 +113,7 @@ export default function LinksPage() {
     setFormMessage('')
     setFormSource('')
     setFormSlug('')
+    setFormAgentId('')
     setDialogOpen(true)
   }
 
@@ -107,6 +124,7 @@ export default function LinksPage() {
     setFormMessage(link.pre_filled_message || '')
     setFormSource(link.tracking_source || '')
     setFormSlug(link.slug || '')
+    setFormAgentId(link.ai_agent_id || '')
     setDialogOpen(true)
   }
 
@@ -127,6 +145,7 @@ export default function LinksPage() {
             pre_filled_message: formMessage.trim(),
             tracking_source: formSource.trim(),
             slug: formSlug.trim(),
+            ai_agent_id: formAgentId || null,
           }),
         })
         const json = await res.json()
@@ -147,6 +166,7 @@ export default function LinksPage() {
             pre_filled_message: formMessage.trim(),
             tracking_source: formSource.trim(),
             slug: formSlug.trim(),
+            ai_agent_id: formAgentId || null,
           }),
         })
         const json = await res.json()
@@ -294,6 +314,15 @@ export default function LinksPage() {
                       </p>
                     )}
 
+                    {link.ai_agent_id && (
+                      <div className="flex items-center gap-1">
+                        <Badge variant="outline" className="text-xs text-violet-600 border-violet-300">
+                          <Bot className="mr-1 h-3 w-3" />
+                          {agents.find((a) => a.id === link.ai_agent_id)?.name || 'Agent IA'}
+                        </Badge>
+                      </div>
+                    )}
+
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
                       <MousePointerClick className="h-3 w-3" />
                       {link.click_count} clic{link.click_count !== 1 ? 's' : ''}
@@ -432,6 +461,27 @@ export default function LinksPage() {
                   onChange={(e) => setFormSlug(e.target.value.replace(/[^a-z0-9-]/gi, '').toLowerCase())}
                 />
               </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="link-agent">Agent IA</Label>
+              <Select value={formAgentId || 'none'} onValueChange={(val) => setFormAgentId(val === 'none' ? '' : val)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Aucun agent" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Aucun agent</SelectItem>
+                  {agents.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      <Bot className="mr-1 inline h-3 w-3" />
+                      {a.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                L&apos;agent répondra automatiquement aux conversations initiées via ce lien.
+              </p>
             </div>
 
             <Button

@@ -131,6 +131,37 @@ export async function POST(req: NextRequest) {
 
         if (!conversation) break
 
+        // 2b. Auto-assign agent IA depuis un lien WA (nouvelles conversations)
+        if (!fromMe && !conversation.ai_agent_id) {
+          // Chercher un lien WA avec agent pour cette session
+          // D'abord essayer de matcher par message pré-rempli
+          let matchingLink = null
+          if (content) {
+            const { data: exactMatch } = await supabase
+              .from('wa_links')
+              .select('id, ai_agent_id')
+              .eq('session_id', session.id)
+              .eq('is_active', true)
+              .not('ai_agent_id', 'is', null)
+              .eq('pre_filled_message', content)
+              .limit(1)
+              .maybeSingle()
+            matchingLink = exactMatch
+          }
+
+          if (matchingLink?.ai_agent_id) {
+            await supabase
+              .from('conversations')
+              .update({
+                ai_agent_id: matchingLink.ai_agent_id,
+                is_ai_active: true,
+                wa_link_id: matchingLink.id,
+              })
+              .eq('id', conversation.id)
+            console.log('[Webhook] Auto-assigned agent from WA link:', matchingLink.id)
+          }
+        }
+
         // Incrémenter unread si message entrant
         if (!fromMe) {
           await supabase

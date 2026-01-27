@@ -34,12 +34,13 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json()
-  const { name, session_id, pre_filled_message, tracking_source, slug } = body as {
+  const { name, session_id, pre_filled_message, tracking_source, slug, ai_agent_id } = body as {
     name?: string
     session_id?: string
     pre_filled_message?: string
     tracking_source?: string
     slug?: string
+    ai_agent_id?: string | null
   }
 
   if (!name || !session_id) {
@@ -70,6 +71,7 @@ export async function POST(req: Request) {
       slug: finalSlug,
       pre_filled_message: pre_filled_message || null,
       tracking_source: tracking_source || null,
+      ai_agent_id: ai_agent_id || null,
     })
     .select('*, whatsapp_sessions(phone_number, instance_name, status)')
     .single()
