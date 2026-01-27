@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { processDocument } from '@/lib/knowledge/processor'
 
 /** GET /api/knowledge — Lister les documents de l'utilisateur */
 export async function GET() {
@@ -83,9 +82,9 @@ export async function POST(req: Request) {
     }
 
     // Fire-and-forget : traitement en arrière-plan
-    processDocument(doc.id).catch((err) =>
-      console.error('[Knowledge] Background process error:', err)
-    )
+    import('@/lib/knowledge/processor')
+      .then(({ processDocument }) => processDocument(doc.id))
+      .catch((err) => console.error('[Knowledge] Background process error:', err))
 
     return NextResponse.json({ data: doc })
   } else {
@@ -119,9 +118,9 @@ export async function POST(req: Request) {
     }
 
     // Fire-and-forget
-    processDocument(doc.id).catch((err) =>
-      console.error('[Knowledge] Background process error:', err)
-    )
+    import('@/lib/knowledge/processor')
+      .then(({ processDocument }) => processDocument(doc.id))
+      .catch((err) => console.error('[Knowledge] Background process error:', err))
 
     return NextResponse.json({ data: doc })
   }

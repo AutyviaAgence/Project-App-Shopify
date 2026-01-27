@@ -1,5 +1,4 @@
 import 'server-only'
-import { PDFParse } from 'pdf-parse'
 
 /**
  * Extrait le texte d'un buffer PDF.
@@ -8,6 +7,7 @@ export async function extractTextFromPDF(
   buffer: Buffer
 ): Promise<{ ok: true; text: string; pageCount: number } | { ok: false; error: string }> {
   try {
+    const { PDFParse } = await import('pdf-parse')
     const parser = new PDFParse({ data: new Uint8Array(buffer) })
     const result = await parser.getText()
     return {

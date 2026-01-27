@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { processDocument } from '@/lib/knowledge/processor'
 
 /** GET /api/knowledge/[id] — Détail d'un document */
 export async function GET(
@@ -82,9 +81,9 @@ export async function PATCH(
   }
 
   if (needsReprocess) {
-    processDocument(doc.id).catch((err) =>
-      console.error('[Knowledge] Reprocess error:', err)
-    )
+    import('@/lib/knowledge/processor')
+      .then(({ processDocument }) => processDocument(doc.id))
+      .catch((err) => console.error('[Knowledge] Reprocess error:', err))
   }
 
   return NextResponse.json({ data: doc })
