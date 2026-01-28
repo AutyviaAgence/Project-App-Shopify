@@ -212,6 +212,24 @@ export type TeamMember = {
   invited_email: string | null
   invitation_token: string | null
   status: 'pending' | 'accepted'
+  allowed_session_ids: string[] | null
+  allowed_agent_ids: string[] | null
+  allowed_link_ids: string[] | null
+  created_at: string
+}
+
+export type TeamInvitation = {
+  id: string
+  team_id: string
+  code: string
+  role: 'admin' | 'member'
+  allowed_session_ids: string[] | null
+  allowed_agent_ids: string[] | null
+  allowed_link_ids: string[] | null
+  created_by: string
+  used_by: string | null
+  used_at: string | null
+  expires_at: string | null
   created_at: string
 }
 
@@ -329,6 +347,12 @@ export type Database = {
         Row: TeamMember
         Insert: Partial<TeamMember> & Pick<TeamMember, 'team_id' | 'role'>
         Update: Partial<TeamMember>
+        Relationships: []
+      }
+      team_invitations: {
+        Row: TeamInvitation
+        Insert: Partial<TeamInvitation> & Pick<TeamInvitation, 'team_id' | 'code' | 'created_by'>
+        Update: Partial<TeamInvitation>
         Relationships: []
       }
     }

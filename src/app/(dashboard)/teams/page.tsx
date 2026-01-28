@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import type { Team, TeamMember, Profile } from '@/types/database'
+import type { Team, TeamMember, Profile, WhatsAppSession, AIAgent, WALink } from '@/types/database'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -32,6 +32,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { toast } from 'sonner'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Plus,
   Users,
@@ -45,12 +46,28 @@ import {
   LogOut,
   Check,
   KeyRound,
+  Ticket,
+  MessageSquare,
+  Bot,
+  Link2,
 } from 'lucide-react'
 
 type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member'; join_code?: string }
 
 type TeamMemberWithProfile = TeamMember & {
   profile?: Profile | null
+}
+
+type TeamInvitation = {
+  id: string
+  code: string
+  role: 'admin' | 'member'
+  allowed_session_ids: string[] | null
+  allowed_agent_ids: string[] | null
+  allowed_link_ids: string[] | null
+  used_by: string | null
+  expires_at: string | null
+  created_at: string
 }
 
 export default function TeamsPage() {
@@ -60,11 +77,26 @@ export default function TeamsPage() {
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [membersDialogOpen, setMembersDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
   const [selectedTeam, setSelectedTeam] = useState<TeamWithRole | null>(null)
   const [members, setMembers] = useState<TeamMemberWithProfile[]>([])
   const [membersLoading, setMembersLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [copiedCode, setCopiedCode] = useState<string | null>(null)
+
+  // Invitation state
+  const [inviteRole, setInviteRole] = useState<'admin' | 'member'>('member')
+  const [sessions, setSessions] = useState<WhatsAppSession[]>([])
+  const [agents, setAgents] = useState<AIAgent[]>([])
+  const [links, setLinks] = useState<WALink[]>([])
+  const [selectedSessions, setSelectedSessions] = useState<string[]>([])
+  const [selectedAgents, setSelectedAgents] = useState<string[]>([])
+  const [selectedLinks, setSelectedLinks] = useState<string[]>([])
+  const [resourcesLoading, setResourcesLoading] = useState(false)
+  const [generatingInvite, setGeneratingInvite] = useState(false)
+  const [generatedCode, setGeneratedCode] = useState<string | null>(null)
+  const [invitations, setInvitations] = useState<TeamInvitation[]>([])
+  const [invitationsLoading, setInvitationsLoading] = useState(false)
 
   // Form state
   const [formName, setFormName] = useState('')
@@ -125,6 +157,120 @@ export default function TeamsPage() {
   function openDeleteDialog(team: TeamWithRole) {
     setSelectedTeam(team)
     setDeleteDialogOpen(true)
+  }
+
+  async function openInviteDialog(team: TeamWithRole) {
+    setSelectedTeam(team)
+    setInviteRole('member')
+    setSelectedSessions([])
+    setSelectedAgents([])
+    setSelectedLinks([])
+    setGeneratedCode(null)
+    setInviteDialogOpen(true)
+
+    // Charger les ressources et invitations existantes
+    setResourcesLoading(true)
+    setInvitationsLoading(true)
+
+    try {
+      const [sessionsRes, agentsRes, linksRes, invitationsRes] = await Promise.all([
+        fetch('/api/sessions'),
+        fetch('/api/agents'),
+        fetch('/api/links'),
+        fetch(`/api/teams/${team.id}/invitations`)
+      ])
+
+      const [sessionsJson, agentsJson, linksJson, invitationsJson] = await Promise.all([
+        sessionsRes.json(),
+        agentsRes.json(),
+        linksRes.json(),
+        invitationsRes.json()
+      ])
+
+      // Filtrer uniquement les ressources appartenant à cette équipe
+      setSessions(sessionsJson.data?.filter((s: WhatsAppSession) => s.team_id === team.id) || [])
+      setAgents(agentsJson.data?.filter((a: AIAgent) => a.team_id === team.id) || [])
+      setLinks(linksJson.data?.filter((l: WALink) => l.team_id === team.id) || [])
+      setInvitations(invitationsJson.data || [])
+    } catch {
+      toast.error('Erreur lors du chargement des ressources')
+    } finally {
+      setResourcesLoading(false)
+      setInvitationsLoading(false)
+    }
+  }
+
+  async function generateInviteCode() {
+    if (!selectedTeam) return
+
+    setGeneratingInvite(true)
+    try {
+      const res = await fetch(`/api/teams/${selectedTeam.id}/invitations`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          role: inviteRole,
+          allowed_session_ids: selectedSessions.length > 0 ? selectedSessions : null,
+          allowed_agent_ids: selectedAgents.length > 0 ? selectedAgents : null,
+          allowed_link_ids: selectedLinks.length > 0 ? selectedLinks : null,
+        }),
+      })
+      const json = await res.json()
+      if (res.ok && json.data) {
+        setGeneratedCode(json.data.code)
+        setInvitations(prev => [json.data, ...prev])
+        toast.success('Code d\'invitation généré !')
+      } else {
+        toast.error(json.error || 'Erreur lors de la génération')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setGeneratingInvite(false)
+    }
+  }
+
+  async function deleteInvitation(invitationId: string) {
+    if (!selectedTeam) return
+
+    try {
+      const res = await fetch(`/api/teams/${selectedTeam.id}/invitations/${invitationId}`, {
+        method: 'DELETE',
+      })
+      if (res.ok) {
+        setInvitations(prev => prev.filter(i => i.id !== invitationId))
+        toast.success('Invitation supprimée')
+      } else {
+        const json = await res.json()
+        toast.error(json.error || 'Erreur')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    }
+  }
+
+  function toggleSession(sessionId: string) {
+    setSelectedSessions(prev =>
+      prev.includes(sessionId)
+        ? prev.filter(id => id !== sessionId)
+        : [...prev, sessionId]
+    )
+  }
+
+  function toggleAgent(agentId: string) {
+    setSelectedAgents(prev =>
+      prev.includes(agentId)
+        ? prev.filter(id => id !== agentId)
+        : [...prev, agentId]
+    )
+  }
+
+  function toggleLink(linkId: string) {
+    setSelectedLinks(prev =>
+      prev.includes(linkId)
+        ? prev.filter(id => id !== linkId)
+        : [...prev, linkId]
+    )
   }
 
   async function handleCreate() {
@@ -400,14 +546,25 @@ export default function TeamsPage() {
                     Membres
                   </Button>
                   {(team.my_role === 'owner' || team.my_role === 'admin') && (
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => openEditDialog(team)}
-                      className="h-8 w-8 p-0"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => openInviteDialog(team)}
+                        className="h-8"
+                      >
+                        <Ticket className="mr-1.5 h-3.5 w-3.5" />
+                        Inviter
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => openEditDialog(team)}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    </>
                   )}
                   {team.my_role === 'owner' && (
                     <Button
@@ -584,6 +741,231 @@ export default function TeamsPage() {
               </div>
             )}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Invite Dialog */}
+      <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Inviter un membre</DialogTitle>
+            <DialogDescription>
+              Générez un code d&apos;invitation à usage unique avec les permissions souhaitées.
+            </DialogDescription>
+          </DialogHeader>
+
+          {generatedCode ? (
+            <div className="space-y-4 py-4">
+              <div className="flex flex-col items-center gap-4 p-6 bg-muted/50 rounded-xl">
+                <p className="text-sm text-muted-foreground">Code d&apos;invitation généré :</p>
+                <div className="flex items-center gap-3">
+                  <span className="text-3xl font-mono font-bold tracking-wider">{generatedCode}</span>
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    onClick={() => copyCode(generatedCode)}
+                  >
+                    {copiedCode === generatedCode ? (
+                      <Check className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground text-center">
+                  Partagez ce code. Il ne peut être utilisé qu&apos;une seule fois.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => setGeneratedCode(null)}
+              >
+                <Plus className="mr-2 h-4 w-4" />
+                Générer un autre code
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-6 py-2">
+              {/* Role selection */}
+              <div className="space-y-2">
+                <Label>Rôle</Label>
+                <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as 'admin' | 'member')}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="member">Membre</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {resourcesLoading ? (
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                </div>
+              ) : (
+                <>
+                  {/* Sessions */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <MessageSquare className="h-4 w-4 text-[#7DC2A5]" />
+                      Sessions WhatsApp
+                      <Badge variant="secondary" className="ml-auto text-xs">
+                        {selectedSessions.length === 0 ? 'Toutes' : `${selectedSessions.length}/${sessions.length}`}
+                      </Badge>
+                    </div>
+                    {sessions.length > 0 ? (
+                      <div className="space-y-2 pl-1">
+                        {sessions.map(session => (
+                          <label
+                            key={session.id}
+                            className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer"
+                          >
+                            <Checkbox
+                              checked={selectedSessions.includes(session.id)}
+                              onCheckedChange={() => toggleSession(session.id)}
+                            />
+                            <span className="text-sm">{session.instance_name}</span>
+                            <Badge variant="outline" className="ml-auto text-xs">
+                              {session.status}
+                            </Badge>
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground pl-6">Aucune session dans cette équipe</p>
+                    )}
+                    <p className="text-xs text-muted-foreground pl-6">
+                      {selectedSessions.length === 0 ? 'Accès à toutes les sessions' : 'Accès limité aux sessions sélectionnées'}
+                    </p>
+                  </div>
+
+                  {/* Agents */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <Bot className="h-4 w-4 text-[#40E9BE]" />
+                      Agents IA
+                      <Badge variant="secondary" className="ml-auto text-xs">
+                        {selectedAgents.length === 0 ? 'Tous' : `${selectedAgents.length}/${agents.length}`}
+                      </Badge>
+                    </div>
+                    {agents.length > 0 ? (
+                      <div className="space-y-2 pl-1">
+                        {agents.map(agent => (
+                          <label
+                            key={agent.id}
+                            className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer"
+                          >
+                            <Checkbox
+                              checked={selectedAgents.includes(agent.id)}
+                              onCheckedChange={() => toggleAgent(agent.id)}
+                            />
+                            <span className="text-sm">{agent.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground pl-6">Aucun agent dans cette équipe</p>
+                    )}
+                    <p className="text-xs text-muted-foreground pl-6">
+                      {selectedAgents.length === 0 ? 'Accès à tous les agents' : 'Accès limité aux agents sélectionnés'}
+                    </p>
+                  </div>
+
+                  {/* Links */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <Link2 className="h-4 w-4 text-[#7DC2A5]" />
+                      Liens WhatsApp
+                      <Badge variant="secondary" className="ml-auto text-xs">
+                        {selectedLinks.length === 0 ? 'Tous' : `${selectedLinks.length}/${links.length}`}
+                      </Badge>
+                    </div>
+                    {links.length > 0 ? (
+                      <div className="space-y-2 pl-1">
+                        {links.map(link => (
+                          <label
+                            key={link.id}
+                            className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer"
+                          >
+                            <Checkbox
+                              checked={selectedLinks.includes(link.id)}
+                              onCheckedChange={() => toggleLink(link.id)}
+                            />
+                            <span className="text-sm">{link.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground pl-6">Aucun lien dans cette équipe</p>
+                    )}
+                    <p className="text-xs text-muted-foreground pl-6">
+                      {selectedLinks.length === 0 ? 'Accès à tous les liens' : 'Accès limité aux liens sélectionnés'}
+                    </p>
+                  </div>
+                </>
+              )}
+
+              <Button
+                onClick={generateInviteCode}
+                disabled={generatingInvite || resourcesLoading}
+                className="w-full"
+              >
+                {generatingInvite ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Ticket className="mr-2 h-4 w-4" />
+                )}
+                Générer le code
+              </Button>
+
+              {/* Existing invitations */}
+              {!invitationsLoading && invitations.filter(i => !i.used_by).length > 0 && (
+                <div className="space-y-3 pt-4 border-t">
+                  <p className="text-sm font-medium text-muted-foreground">Codes actifs</p>
+                  <div className="space-y-2">
+                    {invitations.filter(i => !i.used_by).map(invitation => (
+                      <div
+                        key={invitation.id}
+                        className="flex items-center justify-between p-3 bg-muted/30 rounded-lg"
+                      >
+                        <div className="flex items-center gap-3">
+                          <span className="font-mono font-medium">{invitation.code}</span>
+                          <Badge variant="outline" className="text-xs">
+                            {invitation.role}
+                          </Badge>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8"
+                            onClick={() => copyCode(invitation.code)}
+                          >
+                            {copiedCode === invitation.code ? (
+                              <Check className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <Copy className="h-4 w-4" />
+                            )}
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            onClick={() => deleteInvitation(invitation.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
 
