@@ -1,7 +1,7 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { updateSession } from '@/lib/supabase/middleware'
 
-const PUBLIC_ROUTES = ['/login', '/register', '/forgot-password']
+const PUBLIC_ROUTES = ['/login', '/register', '/forgot-password', '/join']
 const AUTH_ROUTES = ['/login', '/register', '/forgot-password']
 
 export async function middleware(request: NextRequest) {
@@ -15,8 +15,10 @@ export async function middleware(request: NextRequest) {
 
   const isAuthRoute = AUTH_ROUTES.some(route => pathname.startsWith(route))
 
+  const isPublicRoute = PUBLIC_ROUTES.some(route => pathname.startsWith(route))
+
   // Non authentifié sur route protégée → login
-  if (!user && !isAuthRoute) {
+  if (!user && !isAuthRoute && !isPublicRoute) {
     const url = request.nextUrl.clone()
     url.pathname = '/login'
     return NextResponse.redirect(url)
