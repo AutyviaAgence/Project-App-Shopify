@@ -1,8 +1,8 @@
 'use client'
 
 import type { LucideIcon } from 'lucide-react'
-import { TrendingUp, TrendingDown } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { TrendingUp, TrendingDown, Minus } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 type KPICardProps = {
   title: string
@@ -10,45 +10,87 @@ type KPICardProps = {
   trend?: number | null
   icon: LucideIcon
   formatValue?: (value: number) => string
+  color?: 'green' | 'blue' | 'purple' | 'orange'
 }
 
-export function KPICard({ title, value, trend, icon: Icon, formatValue }: KPICardProps) {
+const colorClasses = {
+  green: {
+    bg: 'bg-[#7DC2A5]/10',
+    icon: 'text-[#7DC2A5]',
+    border: 'border-[#7DC2A5]/20',
+  },
+  blue: {
+    bg: 'bg-blue-500/10',
+    icon: 'text-blue-500',
+    border: 'border-blue-500/20',
+  },
+  purple: {
+    bg: 'bg-violet-500/10',
+    icon: 'text-violet-500',
+    border: 'border-violet-500/20',
+  },
+  orange: {
+    bg: 'bg-orange-500/10',
+    icon: 'text-orange-500',
+    border: 'border-orange-500/20',
+  },
+}
+
+export function KPICard({
+  title,
+  value,
+  trend,
+  icon: Icon,
+  formatValue,
+  color = 'green',
+}: KPICardProps) {
+  const colors = colorClasses[color]
+
   return (
-    <Card>
-      <CardHeader className="pb-2">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-sm font-medium text-muted-foreground">
+    <div className={cn(
+      'rounded-xl border bg-card p-5 transition-all hover:shadow-md hover:-translate-y-0.5',
+      colors.border
+    )}>
+      <div className="flex items-start justify-between">
+        <div className="flex-1">
+          <p className="text-sm font-medium text-muted-foreground mb-1">
             {title}
-          </CardTitle>
-          <Icon className="h-4 w-4 text-muted-foreground" />
+          </p>
+          <p className="text-3xl font-bold tracking-tight">
+            {formatValue ? formatValue(value) : value.toLocaleString('fr-FR')}
+          </p>
+          {trend != null && (
+            <div
+              className={cn(
+                'mt-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
+                trend > 0
+                  ? 'bg-emerald-500/10 text-emerald-600'
+                  : trend < 0
+                    ? 'bg-red-500/10 text-red-500'
+                    : 'bg-muted text-muted-foreground'
+              )}
+            >
+              {trend > 0 ? (
+                <TrendingUp className="h-3 w-3" />
+              ) : trend < 0 ? (
+                <TrendingDown className="h-3 w-3" />
+              ) : (
+                <Minus className="h-3 w-3" />
+              )}
+              <span>
+                {trend > 0 ? '+' : ''}
+                {trend}%
+              </span>
+            </div>
+          )}
         </div>
-      </CardHeader>
-      <CardContent>
-        <div className="text-2xl font-bold">
-          {formatValue ? formatValue(value) : value.toLocaleString('fr-FR')}
+        <div className={cn(
+          'flex h-12 w-12 shrink-0 items-center justify-center rounded-xl',
+          colors.bg
+        )}>
+          <Icon className={cn('h-6 w-6', colors.icon)} />
         </div>
-        {trend != null && (
-          <div
-            className={`mt-1 flex items-center gap-1 text-xs ${
-              trend > 0
-                ? 'text-emerald-600'
-                : trend < 0
-                  ? 'text-red-500'
-                  : 'text-muted-foreground'
-            }`}
-          >
-            {trend > 0 ? (
-              <TrendingUp className="h-3 w-3" />
-            ) : trend < 0 ? (
-              <TrendingDown className="h-3 w-3" />
-            ) : null}
-            <span>
-              {trend > 0 ? '+' : ''}
-              {trend}% vs période préc.
-            </span>
-          </div>
-        )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   )
 }

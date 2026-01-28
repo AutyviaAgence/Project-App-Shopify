@@ -3,6 +3,11 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ===========================================
+   AUTYVIA DESIGN SYSTEM
+   Inspiré de Linear, Intercom, Crisp
+   =========================================== */
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -47,72 +52,91 @@
 }
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* Autyvia Brand Colors */
+  --autyvia-green: #7DC2A5;
+  --autyvia-turquoise: #40E9BE;
+  --autyvia-turquoise-dark: #33B89A;
+  --autyvia-gray-dark: #2D3E48;
+  --autyvia-gray-light: #F5F7FA;
+  --autyvia-white: #FFFFFF;
+  --autyvia-error: #EF4444;
+  --autyvia-warning: #F59E0B;
+  --autyvia-success: #10B981;
+
+  --radius: 0.5rem;
+
+  /* Light Theme - Autyvia */
+  --background: #FFFFFF;
+  --foreground: #2D3E48;
+  --card: #FFFFFF;
+  --card-foreground: #2D3E48;
+  --popover: #FFFFFF;
+  --popover-foreground: #2D3E48;
+  --primary: #7DC2A5;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F5F7FA;
+  --secondary-foreground: #2D3E48;
+  --muted: #F5F7FA;
+  --muted-foreground: #6B7B8A;
+  --accent: #40E9BE;
+  --accent-foreground: #2D3E48;
+  --destructive: #EF4444;
+  --border: #E5E9ED;
+  --input: #E5E9ED;
+  --ring: #7DC2A5;
+
+  /* Charts - Autyvia palette */
+  --chart-1: #7DC2A5;
+  --chart-2: #40E9BE;
+  --chart-3: #33B89A;
+  --chart-4: #2D3E48;
+  --chart-5: #6B7B8A;
+
+  /* Sidebar - Style Linear/Crisp */
+  --sidebar: #2D3E48;
+  --sidebar-foreground: #FFFFFF;
+  --sidebar-primary: #7DC2A5;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #3D4E58;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: #3D4E58;
+  --sidebar-ring: #7DC2A5;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: #1A252C;
+  --foreground: #F5F7FA;
+  --card: #2D3E48;
+  --card-foreground: #F5F7FA;
+  --popover: #2D3E48;
+  --popover-foreground: #F5F7FA;
+  --primary: #7DC2A5;
+  --primary-foreground: #1A252C;
+  --secondary: #3D4E58;
+  --secondary-foreground: #F5F7FA;
+  --muted: #3D4E58;
+  --muted-foreground: #9CAAB5;
+  --accent: #40E9BE;
+  --accent-foreground: #1A252C;
+  --destructive: #EF4444;
+  --border: #3D4E58;
+  --input: #3D4E58;
+  --ring: #7DC2A5;
+
+  --chart-1: #7DC2A5;
+  --chart-2: #40E9BE;
+  --chart-3: #33B89A;
+  --chart-4: #F5F7FA;
+  --chart-5: #9CAAB5;
+
+  --sidebar: #1A252C;
+  --sidebar-foreground: #F5F7FA;
+  --sidebar-primary: #7DC2A5;
+  --sidebar-primary-foreground: #1A252C;
+  --sidebar-accent: #2D3E48;
+  --sidebar-accent-foreground: #F5F7FA;
+  --sidebar-border: #3D4E58;
+  --sidebar-ring: #7DC2A5;
 }
 
 @layer base {
@@ -120,6 +144,190 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
+  }
+}
+
+/* ===========================================
+   CUSTOM UTILITIES - Style Linear/Intercom
+   =========================================== */
+
+@layer utilities {
+  /* Smooth transitions everywhere */
+  .transition-smooth {
+    @apply transition-all duration-200 ease-out;
+  }
+
+  /* Hover lift effect */
+  .hover-lift {
+    @apply transition-transform duration-200 hover:-translate-y-0.5;
+  }
+
+  /* Glass effect for cards */
+  .glass {
+    @apply bg-white/80 backdrop-blur-xl border border-white/20;
+  }
+
+  .dark .glass {
+    @apply bg-[#2D3E48]/80 border-white/10;
+  }
+
+  /* Gradient text */
+  .text-gradient {
+    @apply bg-gradient-to-r from-[#7DC2A5] to-[#40E9BE] bg-clip-text text-transparent;
+  }
+
+  /* Active nav indicator */
+  .nav-active {
+    @apply bg-[#7DC2A5] text-white;
+  }
+
+  /* Scrollbar styling */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #E5E9ED transparent;
+  }
+
+  .dark .scrollbar-thin {
+    scrollbar-color: #3D4E58 transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: #E5E9ED;
+    border-radius: 3px;
+  }
+
+  .dark .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: #3D4E58;
+  }
+
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Message bubbles */
+  .bubble-incoming {
+    @apply bg-[#F5F7FA] text-[#2D3E48] rounded-2xl rounded-bl-md;
+  }
+
+  .dark .bubble-incoming {
+    @apply bg-[#3D4E58] text-[#F5F7FA];
+  }
+
+  .bubble-outgoing {
+    @apply bg-[#7DC2A5] text-white rounded-2xl rounded-br-md;
+  }
+
+  .bubble-ai {
+    @apply bg-gradient-to-br from-[#7DC2A5]/10 to-[#40E9BE]/10 border border-[#7DC2A5]/20 text-[#2D3E48] rounded-2xl rounded-bl-md;
+  }
+
+  .dark .bubble-ai {
+    @apply text-[#F5F7FA];
+  }
+}
+
+/* ===========================================
+   ANIMATIONS
+   =========================================== */
+
+@keyframes slide-in-right {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slide-in-left {
+  from {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in-up {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes pulse-soft {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.3s ease-out;
+}
+
+.animate-slide-in-left {
+  animation: slide-in-left 0.3s ease-out;
+}
+
+.animate-fade-in-up {
+  animation: fade-in-up 0.3s ease-out;
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 2s ease-in-out infinite;
+}
+
+/* ===========================================
+   MOBILE OPTIMIZATIONS
+   =========================================== */
+
+@media (max-width: 768px) {
+  /* Larger touch targets */
+  button, a, [role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Better spacing on mobile */
+  .container {
+    @apply px-4;
+  }
+}
+
+/* Safe area insets for mobile */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
   }
 }

@@ -13,7 +13,6 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Separator } from '@/components/ui/separator'
 import { toast } from 'sonner'
 import {
   User,
@@ -22,8 +21,10 @@ import {
   Sparkles,
   Loader2,
   Save,
+  MessageSquare,
+  Calendar,
 } from 'lucide-react'
-import { formatDistanceToNow } from 'date-fns'
+import { formatDistanceToNow, format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
 type ContactProfilePanelProps = {
@@ -139,152 +140,200 @@ export function ContactProfilePanel({
     return contact.name || 'Contact inconnu'
   }
 
+  function getInitials() {
+    if (!contact) return ''
+    const name = getDisplayName()
+    if (name && name !== 'Contact inconnu') {
+      return name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
+    }
+    return contact.phone_number?.slice(-2) || '??'
+  }
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full overflow-auto sm:max-w-md">
-        <SheetHeader>
+      <SheetContent className="w-full overflow-auto sm:max-w-md p-0">
+        <SheetHeader className="sr-only">
           <SheetTitle>Profil du contact</SheetTitle>
-          <SheetDescription className="sr-only">
+          <SheetDescription>
             Informations et notes sur le contact
           </SheetDescription>
         </SheetHeader>
 
         {loading ? (
           <div className="flex h-40 items-center justify-center">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
           </div>
         ) : contact ? (
-          <div className="space-y-6 px-4 pb-4">
-            {/* Header : avatar + nom + téléphone */}
-            <div className="flex flex-col items-center gap-3">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10 text-primary">
-                <User className="h-7 w-7" />
+          <div className="flex flex-col h-full">
+            {/* Header with gradient background */}
+            <div className="relative bg-gradient-to-br from-[#7DC2A5] to-[#40E9BE] px-6 pt-8 pb-12">
+              <div className="flex flex-col items-center">
+                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm text-white text-xl font-semibold border-2 border-white/30">
+                  {getInitials()}
+                </div>
+                <h2 className="mt-4 text-lg font-semibold text-white text-center">
+                  {getDisplayName()}
+                </h2>
+                {contact.name && (contact.first_name || contact.last_name) && (
+                  <p className="text-sm text-white/80">
+                    WhatsApp : {contact.name}
+                  </p>
+                )}
               </div>
-              <div className="text-center">
-                <p className="text-lg font-medium">{getDisplayName()}</p>
-                {contact.name &&
-                  (contact.first_name || contact.last_name) && (
-                    <p className="text-xs text-muted-foreground">
-                      WhatsApp : {contact.name}
+            </div>
+
+            {/* Stats cards */}
+            <div className="-mt-6 mx-4 grid grid-cols-2 gap-3">
+              <div className="rounded-xl bg-card p-4 shadow-sm border">
+                <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                  <Phone className="h-4 w-4" />
+                  <span className="text-xs font-medium">Téléphone</span>
+                </div>
+                <p className="text-sm font-semibold">+{contact.phone_number}</p>
+              </div>
+              <div className="rounded-xl bg-card p-4 shadow-sm border">
+                <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                  <Calendar className="h-4 w-4" />
+                  <span className="text-xs font-medium">Ajouté</span>
+                </div>
+                <p className="text-sm font-semibold">
+                  {contact.created_at
+                    ? format(new Date(contact.created_at), 'd MMM yyyy', { locale: fr })
+                    : '-'}
+                </p>
+              </div>
+            </div>
+
+            {/* Scrollable content */}
+            <div className="flex-1 overflow-auto px-4 py-4 space-y-6">
+              {/* AI Summary section */}
+              <div className="rounded-xl bg-gradient-to-br from-[#7DC2A5]/5 to-[#40E9BE]/5 border border-[#7DC2A5]/20 p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#7DC2A5]/10">
+                      <Sparkles className="h-4 w-4 text-[#7DC2A5]" />
+                    </div>
+                    <span className="text-sm font-semibold">Résumé IA</span>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleGenerateSummary}
+                    disabled={generatingSummary}
+                    className="h-8 text-xs border-[#7DC2A5]/30 text-[#7DC2A5] hover:bg-[#7DC2A5]/10"
+                  >
+                    {generatingSummary ? (
+                      <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                    ) : (
+                      <Sparkles className="mr-1.5 h-3 w-3" />
+                    )}
+                    {contact.ai_summary ? 'Regénérer' : 'Générer'}
+                  </Button>
+                </div>
+
+                {contact.ai_summary ? (
+                  <div>
+                    <p className="whitespace-pre-wrap text-sm text-foreground/80 leading-relaxed">
+                      {contact.ai_summary}
                     </p>
-                  )}
-                <div className="mt-1 flex items-center justify-center gap-1 text-sm text-muted-foreground">
-                  <Phone className="h-3 w-3" />
-                  +{contact.phone_number}
+                    {contact.ai_summary_updated_at && (
+                      <p className="mt-3 text-[10px] text-muted-foreground">
+                        Généré{' '}
+                        {formatDistanceToNow(
+                          new Date(contact.ai_summary_updated_at),
+                          { addSuffix: true, locale: fr }
+                        )}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Générez un résumé IA basé sur l&apos;historique des conversations.
+                  </p>
+                )}
+              </div>
+
+              {/* Editable fields */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-semibold flex items-center gap-2">
+                  <User className="h-4 w-4 text-muted-foreground" />
+                  Informations
+                </h3>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="first_name" className="text-xs text-muted-foreground">
+                      Prénom
+                    </Label>
+                    <Input
+                      id="first_name"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      placeholder="Prénom"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="last_name" className="text-xs text-muted-foreground">
+                      Nom
+                    </Label>
+                    <Input
+                      id="last_name"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      placeholder="Nom"
+                      className="h-9 text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="email" className="text-xs text-muted-foreground">
+                    Email
+                  </Label>
+                  <div className="relative">
+                    <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Input
+                      id="email"
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="email@exemple.com"
+                      className="pl-9 h-9 text-sm"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <Label htmlFor="notes" className="text-xs text-muted-foreground">
+                    Notes
+                  </Label>
+                  <Textarea
+                    id="notes"
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Notes sur ce contact..."
+                    rows={3}
+                    className="text-sm resize-none"
+                  />
                 </div>
               </div>
             </div>
 
-            <Separator />
-
-            {/* Champs éditables */}
-            <div className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-2">
-                  <Label htmlFor="first_name">Prénom</Label>
-                  <Input
-                    id="first_name"
-                    value={firstName}
-                    onChange={(e) => setFirstName(e.target.value)}
-                    placeholder="Prénom"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="last_name">Nom</Label>
-                  <Input
-                    id="last_name"
-                    value={lastName}
-                    onChange={(e) => setLastName(e.target.value)}
-                    placeholder="Nom"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="email@exemple.com"
-                    className="pl-9"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="notes">Notes</Label>
-                <Textarea
-                  id="notes"
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  placeholder="Notes sur ce contact..."
-                  rows={4}
-                />
-              </div>
-
+            {/* Fixed footer with save button */}
+            <div className="border-t p-4">
               <Button
                 onClick={handleSave}
                 disabled={saving || !hasChanges}
-                className="w-full"
+                className="w-full h-10"
               >
                 {saving ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
                   <Save className="mr-2 h-4 w-4" />
                 )}
-                Enregistrer
+                Enregistrer les modifications
               </Button>
-            </div>
-
-            <Separator />
-
-            {/* Résumé IA */}
-            <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <Label className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-violet-500" />
-                  Résumé IA
-                </Label>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleGenerateSummary}
-                  disabled={generatingSummary}
-                >
-                  {generatingSummary ? (
-                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                  ) : (
-                    <Sparkles className="mr-1 h-3 w-3" />
-                  )}
-                  {contact.ai_summary ? 'Regénérer' : 'Générer'}
-                </Button>
-              </div>
-
-              {contact.ai_summary ? (
-                <div className="rounded-md border bg-muted/30 p-3">
-                  <p className="whitespace-pre-wrap text-sm">
-                    {contact.ai_summary}
-                  </p>
-                  {contact.ai_summary_updated_at && (
-                    <p className="mt-2 text-xs text-muted-foreground">
-                      Généré{' '}
-                      {formatDistanceToNow(
-                        new Date(contact.ai_summary_updated_at),
-                        { addSuffix: true, locale: fr }
-                      )}
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  Cliquez sur &quot;Générer&quot; pour créer un résumé IA de la
-                  conversation.
-                </p>
-              )}
             </div>
           </div>
         ) : null}
