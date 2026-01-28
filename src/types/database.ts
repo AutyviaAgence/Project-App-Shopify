@@ -34,6 +34,12 @@ export type AIAgent = {
   max_messages_per_conversation: number | null
   inactivity_timeout_minutes: number | null
   is_active: boolean
+  schedule_enabled: boolean
+  schedule_timezone: string
+  schedule_start_time: string
+  schedule_end_time: string
+  schedule_days: number[]
+  auto_detect_language: boolean
   created_at: string
   updated_at: string
 }
@@ -161,6 +167,18 @@ export type StatDaily = {
   avg_response_time_seconds: number | null
 }
 
+export type WebhookLog = {
+  id: string
+  session_id: string | null
+  event_type: string
+  instance_name: string
+  payload: Record<string, unknown> | null
+  status: 'success' | 'error' | 'skipped'
+  error_message: string | null
+  processing_time_ms: number | null
+  created_at: string
+}
+
 // Joined types
 export type ConversationWithContact = Conversation & {
   contact: Contact
@@ -251,6 +269,12 @@ export type Database = {
         Row: ConversationTagAssignment
         Insert: Partial<ConversationTagAssignment> & Pick<ConversationTagAssignment, 'conversation_id' | 'tag_id'>
         Update: Partial<ConversationTagAssignment>
+        Relationships: []
+      }
+      webhook_logs: {
+        Row: WebhookLog
+        Insert: Partial<WebhookLog> & Pick<WebhookLog, 'event_type' | 'instance_name'>
+        Update: Partial<WebhookLog>
         Relationships: []
       }
     }

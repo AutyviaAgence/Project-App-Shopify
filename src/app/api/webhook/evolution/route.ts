@@ -10,10 +10,15 @@ import { evolution } from '@/lib/evolution/client'
  * Utilise le service_role car pas d'auth utilisateur ici
  */
 export async function POST(req: NextRequest) {
+  const startTime = Date.now()
   const supabase = createAdminSupabase(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
+
+  let logStatus: 'success' | 'error' | 'skipped' = 'success'
+  let logError: string | null = null
+  let sessionId: string | null = null
 
   try {
     const payload = await req.json()
@@ -33,8 +38,22 @@ export async function POST(req: NextRequest) {
 
     if (!session) {
       console.warn('[Webhook] Session not found:', instanceName)
+      logStatus = 'skipped'
+      logError = 'Session not found'
+      // Log anyway with null session_id
+      await supabase.from('webhook_logs').insert({
+        session_id: null,
+        event_type: event,
+        instance_name: instanceName,
+        payload,
+        status: logStatus,
+        error_message: logError,
+        processing_time_ms: Date.now() - startTime,
+      })
       return NextResponse.json({ ok: true })
     }
+
+    sessionId = session.id
 
     switch (event) {
       case 'connection.update': {
@@ -226,12 +245,54 @@ export async function POST(req: NextRequest) {
           })
 
           if (convFresh?.is_ai_active && convFresh?.ai_agent_id) {
-            // Récupérer la config de l'agent (délai + limites)
+            // Récupérer la config de l'agent (délai + limites + horaires)
             const { data: agentConfig } = await supabase
               .from('ai_agents')
-              .select('response_delay_min, response_delay_max, max_messages_per_conversation, inactivity_timeout_minutes')
+              .select('response_delay_min, response_delay_max, max_messages_per_conversation, inactivity_timeout_minutes, schedule_enabled, schedule_timezone, schedule_start_time, schedule_end_time, schedule_days')
               .eq('id', convFresh.ai_agent_id)
               .single()
+
+            // Vérification horaires d'activité
+            if (agentConfig?.schedule_enabled) {
+              const tz = agentConfig.schedule_timezone || 'Europe/Paris'
+              const now = new Date()
+
+              // Convertir en heure locale du fuseau horaire configuré
+              const formatter = new Intl.DateTimeFormat('en-US', {
+                timeZone: tz,
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: false,
+                weekday: 'short',
+              })
+              const parts = formatter.formatToParts(now)
+              const hour = parseInt(parts.find(p => p.type === 'hour')?.value || '0')
+              const minute = parseInt(parts.find(p => p.type === 'minute')?.value || '0')
+              const weekdayStr = parts.find(p => p.type === 'weekday')?.value || 'Mon'
+
+              // Convertir le jour de la semaine (Sun=0, Mon=1, ..., Sat=6)
+              const dayMap: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 }
+              const currentDay = dayMap[weekdayStr] ?? 1
+
+              // Vérifier si le jour actuel est dans les jours autorisés
+              const allowedDays = agentConfig.schedule_days || [1, 2, 3, 4, 5]
+              if (!allowedDays.includes(currentDay)) {
+                console.log(`[Webhook] Skipping AI — outside schedule days (current: ${weekdayStr}, allowed: ${allowedDays.join(',')})`)
+                break
+              }
+
+              // Vérifier si l'heure actuelle est dans la plage horaire
+              const currentMinutes = hour * 60 + minute
+              const [startH, startM] = (agentConfig.schedule_start_time || '09:00').split(':').map(Number)
+              const [endH, endM] = (agentConfig.schedule_end_time || '18:00').split(':').map(Number)
+              const startMinutes = startH * 60 + startM
+              const endMinutes = endH * 60 + endM
+
+              if (currentMinutes < startMinutes || currentMinutes >= endMinutes) {
+                console.log(`[Webhook] Skipping AI — outside schedule hours (current: ${hour}:${minute}, allowed: ${agentConfig.schedule_start_time}-${agentConfig.schedule_end_time} ${tz})`)
+                break
+              }
+            }
 
             // Vérification limite : max messages par conversation
             if (agentConfig?.max_messages_per_conversation) {
@@ -337,9 +398,38 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Log webhook success
+    await supabase.from('webhook_logs').insert({
+      session_id: sessionId,
+      event_type: event,
+      instance_name: instanceName,
+      payload,
+      status: logStatus,
+      error_message: logError,
+      processing_time_ms: Date.now() - startTime,
+    })
+
     return NextResponse.json({ ok: true })
   } catch (error) {
     console.error('[Webhook] Error:', error)
+    logStatus = 'error'
+    logError = error instanceof Error ? error.message : 'Unknown error'
+
+    // Try to log the error (best effort)
+    try {
+      await supabase.from('webhook_logs').insert({
+        session_id: sessionId,
+        event_type: 'unknown',
+        instance_name: 'unknown',
+        payload: null,
+        status: logStatus,
+        error_message: logError,
+        processing_time_ms: Date.now() - startTime,
+      })
+    } catch {
+      // Ignore logging errors
+    }
+
     return NextResponse.json({ ok: true }) // Toujours 200 pour éviter les retries Evolution
   }
 }

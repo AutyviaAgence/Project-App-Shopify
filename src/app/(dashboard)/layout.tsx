@@ -15,6 +15,7 @@ import {
   LogOut,
   BookOpen,
   Settings,
+  ScrollText,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Breadcrumbs } from '@/components/breadcrumbs'
@@ -27,6 +28,7 @@ const NAV_ITEMS = [
   { href: '/knowledge', label: 'Connaissances', icon: BookOpen },
   { href: '/links', label: 'Liens WA', icon: Link2 },
   { href: '/stats', label: 'Statistiques', icon: BarChart3 },
+  { href: '/logs', label: 'Logs Webhook', icon: ScrollText },
 ]
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {

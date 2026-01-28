@@ -44,7 +44,12 @@ export async function PATCH(
   }
 
   const body = await req.json()
-  const { name, description, system_prompt, objective, model, temperature, is_active, response_delay_min, response_delay_max, max_messages_per_conversation, inactivity_timeout_minutes } = body as {
+  const {
+    name, description, system_prompt, objective, model, temperature, is_active,
+    response_delay_min, response_delay_max, max_messages_per_conversation, inactivity_timeout_minutes,
+    schedule_enabled, schedule_timezone, schedule_start_time, schedule_end_time, schedule_days,
+    auto_detect_language
+  } = body as {
     name?: string
     description?: string
     system_prompt?: string
@@ -56,6 +61,12 @@ export async function PATCH(
     response_delay_max?: number
     max_messages_per_conversation?: number | null
     inactivity_timeout_minutes?: number | null
+    schedule_enabled?: boolean
+    schedule_timezone?: string
+    schedule_start_time?: string
+    schedule_end_time?: string
+    schedule_days?: number[]
+    auto_detect_language?: boolean
   }
 
   const updateData: Record<string, unknown> = {}
@@ -86,6 +97,35 @@ export async function PATCH(
     updateData.inactivity_timeout_minutes = inactivity_timeout_minutes != null
       ? Math.max(1, Math.min(10080, Math.floor(inactivity_timeout_minutes)))
       : null
+  }
+
+  // Schedule fields
+  if (schedule_enabled !== undefined) {
+    updateData.schedule_enabled = Boolean(schedule_enabled)
+  }
+  if (schedule_timezone !== undefined) {
+    updateData.schedule_timezone = schedule_timezone || 'Europe/Paris'
+  }
+  if (schedule_start_time !== undefined) {
+    // Validate HH:MM format
+    const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/
+    updateData.schedule_start_time = timeRegex.test(schedule_start_time) ? schedule_start_time : '09:00'
+  }
+  if (schedule_end_time !== undefined) {
+    const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/
+    updateData.schedule_end_time = timeRegex.test(schedule_end_time) ? schedule_end_time : '18:00'
+  }
+  if (schedule_days !== undefined) {
+    // Validate days array (0-6)
+    const validDays = Array.isArray(schedule_days)
+      ? schedule_days.filter(d => Number.isInteger(d) && d >= 0 && d <= 6)
+      : [1, 2, 3, 4, 5]
+    updateData.schedule_days = validDays.length > 0 ? validDays : [1, 2, 3, 4, 5]
+  }
+
+  // Auto-detect language
+  if (auto_detect_language !== undefined) {
+    updateData.auto_detect_language = Boolean(auto_detect_language)
   }
 
   if (Object.keys(updateData).length === 0) {

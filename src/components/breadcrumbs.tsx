@@ -13,6 +13,7 @@ const ROUTE_LABELS: Record<string, string> = {
   links: 'Liens WhatsApp',
   stats: 'Statistiques',
   settings: 'Paramètres',
+  logs: 'Logs Webhook',
 }
 
 export function Breadcrumbs() {

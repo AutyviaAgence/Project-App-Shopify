@@ -31,6 +31,8 @@ import {
   Pencil,
   Loader2,
   Brain,
+  Clock,
+  Languages,
 } from 'lucide-react'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 
@@ -55,6 +57,16 @@ export default function AgentsPage() {
   const [formDelayMax, setFormDelayMax] = useState('0')
   const [formMaxMessages, setFormMaxMessages] = useState('')
   const [formInactivityTimeout, setFormInactivityTimeout] = useState('')
+
+  // Schedule form state
+  const [formScheduleEnabled, setFormScheduleEnabled] = useState(false)
+  const [formScheduleTimezone, setFormScheduleTimezone] = useState('Europe/Paris')
+  const [formScheduleStartTime, setFormScheduleStartTime] = useState('09:00')
+  const [formScheduleEndTime, setFormScheduleEndTime] = useState('18:00')
+  const [formScheduleDays, setFormScheduleDays] = useState<number[]>([1, 2, 3, 4, 5])
+
+  // Language detection
+  const [formAutoDetectLanguage, setFormAutoDetectLanguage] = useState(false)
 
   const fetchAgents = useCallback(async () => {
     try {
@@ -86,6 +98,12 @@ export default function AgentsPage() {
     setFormDelayMax('0')
     setFormMaxMessages('')
     setFormInactivityTimeout('')
+    setFormScheduleEnabled(false)
+    setFormScheduleTimezone('Europe/Paris')
+    setFormScheduleStartTime('09:00')
+    setFormScheduleEndTime('18:00')
+    setFormScheduleDays([1, 2, 3, 4, 5])
+    setFormAutoDetectLanguage(false)
     setDialogOpen(true)
   }
 
@@ -101,6 +119,12 @@ export default function AgentsPage() {
     setFormDelayMax(String(agent.response_delay_max ?? 0))
     setFormMaxMessages(agent.max_messages_per_conversation != null ? String(agent.max_messages_per_conversation) : '')
     setFormInactivityTimeout(agent.inactivity_timeout_minutes != null ? String(agent.inactivity_timeout_minutes) : '')
+    setFormScheduleEnabled(agent.schedule_enabled ?? false)
+    setFormScheduleTimezone(agent.schedule_timezone ?? 'Europe/Paris')
+    setFormScheduleStartTime(agent.schedule_start_time ?? '09:00')
+    setFormScheduleEndTime(agent.schedule_end_time ?? '18:00')
+    setFormScheduleDays(agent.schedule_days ?? [1, 2, 3, 4, 5])
+    setFormAutoDetectLanguage(agent.auto_detect_language ?? false)
     setDialogOpen(true)
   }
 
@@ -133,6 +157,12 @@ export default function AgentsPage() {
             response_delay_max: parseInt(formDelayMax) || 0,
             max_messages_per_conversation: formMaxMessages.trim() ? parseInt(formMaxMessages) : null,
             inactivity_timeout_minutes: formInactivityTimeout.trim() ? parseInt(formInactivityTimeout) : null,
+            schedule_enabled: formScheduleEnabled,
+            schedule_timezone: formScheduleTimezone,
+            schedule_start_time: formScheduleStartTime,
+            schedule_end_time: formScheduleEndTime,
+            schedule_days: formScheduleDays,
+            auto_detect_language: formAutoDetectLanguage,
           }),
         })
         const json = await res.json()
@@ -158,6 +188,12 @@ export default function AgentsPage() {
             response_delay_max: parseInt(formDelayMax) || 0,
             max_messages_per_conversation: formMaxMessages.trim() ? parseInt(formMaxMessages) : null,
             inactivity_timeout_minutes: formInactivityTimeout.trim() ? parseInt(formInactivityTimeout) : null,
+            schedule_enabled: formScheduleEnabled,
+            schedule_timezone: formScheduleTimezone,
+            schedule_start_time: formScheduleStartTime,
+            schedule_end_time: formScheduleEndTime,
+            schedule_days: formScheduleDays,
+            auto_detect_language: formAutoDetectLanguage,
           }),
         })
         const json = await res.json()
@@ -300,6 +336,18 @@ export default function AgentsPage() {
                       {agent.inactivity_timeout_minutes != null && (
                         <span className="text-xs text-muted-foreground">
                           Timeout {agent.inactivity_timeout_minutes}min
+                        </span>
+                      )}
+                      {agent.schedule_enabled && (
+                        <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+                          <Clock className="h-3 w-3" />
+                          {agent.schedule_start_time}–{agent.schedule_end_time}
+                        </span>
+                      )}
+                      {agent.auto_detect_language && (
+                        <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+                          <Languages className="h-3 w-3" />
+                          Multi-langue
                         </span>
                       )}
                     </div>
@@ -513,6 +561,123 @@ export default function AgentsPage() {
                 L&apos;agent arrête de répondre après N messages ou si la conversation est
                 inactive depuis X minutes. Laisser vide = pas de limite.
               </p>
+            </div>
+
+            {/* Schedule Section */}
+            <div className="space-y-3 border-t pt-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="text-sm font-medium flex items-center gap-1.5">
+                    <Clock className="h-4 w-4" />
+                    Horaires d&apos;activité
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Limiter l&apos;agent à certaines plages horaires
+                  </p>
+                </div>
+                <Switch
+                  checked={formScheduleEnabled}
+                  onCheckedChange={setFormScheduleEnabled}
+                />
+              </div>
+
+              {formScheduleEnabled && (
+                <div className="space-y-3 pl-1">
+                  <div className="space-y-1">
+                    <Label htmlFor="schedule-timezone" className="text-xs text-muted-foreground">
+                      Fuseau horaire
+                    </Label>
+                    <Select value={formScheduleTimezone} onValueChange={setFormScheduleTimezone}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Europe/Paris">Europe/Paris (CET)</SelectItem>
+                        <SelectItem value="Europe/London">Europe/London (GMT)</SelectItem>
+                        <SelectItem value="America/New_York">America/New_York (EST)</SelectItem>
+                        <SelectItem value="America/Los_Angeles">America/Los_Angeles (PST)</SelectItem>
+                        <SelectItem value="Asia/Tokyo">Asia/Tokyo (JST)</SelectItem>
+                        <SelectItem value="Asia/Dubai">Asia/Dubai (GST)</SelectItem>
+                        <SelectItem value="Africa/Casablanca">Africa/Casablanca (WET)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Label htmlFor="schedule-start" className="text-xs text-muted-foreground">
+                        Heure de début
+                      </Label>
+                      <Input
+                        id="schedule-start"
+                        type="time"
+                        value={formScheduleStartTime}
+                        onChange={(e) => setFormScheduleStartTime(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="schedule-end" className="text-xs text-muted-foreground">
+                        Heure de fin
+                      </Label>
+                      <Input
+                        id="schedule-end"
+                        type="time"
+                        value={formScheduleEndTime}
+                        onChange={(e) => setFormScheduleEndTime(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">Jours actifs</Label>
+                    <div className="flex flex-wrap gap-1">
+                      {[
+                        { day: 1, label: 'Lun' },
+                        { day: 2, label: 'Mar' },
+                        { day: 3, label: 'Mer' },
+                        { day: 4, label: 'Jeu' },
+                        { day: 5, label: 'Ven' },
+                        { day: 6, label: 'Sam' },
+                        { day: 0, label: 'Dim' },
+                      ].map(({ day, label }) => (
+                        <Button
+                          key={day}
+                          type="button"
+                          size="sm"
+                          variant={formScheduleDays.includes(day) ? 'default' : 'outline'}
+                          className="h-7 px-2 text-xs"
+                          onClick={() => {
+                            setFormScheduleDays((prev) =>
+                              prev.includes(day)
+                                ? prev.filter((d) => d !== day)
+                                : [...prev, day]
+                            )
+                          }}
+                        >
+                          {label}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Language Detection Section */}
+            <div className="flex items-center justify-between border-t pt-4">
+              <div className="space-y-0.5">
+                <Label className="text-sm font-medium flex items-center gap-1.5">
+                  <Languages className="h-4 w-4" />
+                  Détection de langue
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Répond automatiquement dans la langue de l&apos;utilisateur
+                </p>
+              </div>
+              <Switch
+                checked={formAutoDetectLanguage}
+                onCheckedChange={setFormAutoDetectLanguage}
+              />
             </div>
 
             <Button
