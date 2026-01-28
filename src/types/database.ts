@@ -373,6 +373,25 @@ export type Database = {
           similarity: number
         }[]
       }
+      join_team_with_code: {
+        Args: {
+          p_code: string
+        }
+        Returns: {
+          success?: boolean
+          error?: string
+          status?: number
+          data?: {
+            team: { id: string; name: string }
+            role: string
+            permissions: {
+              sessions: string[] | null
+              agents: string[] | null
+              links: string[] | null
+            }
+          }
+        }
+      }
     }
   }
 }
