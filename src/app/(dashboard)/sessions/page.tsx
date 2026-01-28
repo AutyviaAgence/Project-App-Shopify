@@ -30,6 +30,7 @@ import {
   Settings2,
   Save,
 } from 'lucide-react'
+import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 
 const STATUS_CONFIG = {
   connected: { label: 'Connecté', variant: 'default' as const, icon: Wifi },
@@ -50,6 +51,8 @@ export default function SessionsPage() {
   const [editingSession, setEditingSession] = useState<WhatsAppSession | null>(null)
   const [formDailyLimit, setFormDailyLimit] = useState('')
   const [savingSettings, setSavingSettings] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [sessionToDelete, setSessionToDelete] = useState<WhatsAppSession | null>(null)
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -187,15 +190,23 @@ export default function SessionsPage() {
     }
   }
 
-  async function handleDelete(sessionId: string) {
-    setDeleting(sessionId)
+  function openDeleteDialog(session: WhatsAppSession) {
+    setSessionToDelete(session)
+    setDeleteDialogOpen(true)
+  }
+
+  async function handleConfirmDelete() {
+    if (!sessionToDelete) return
+    setDeleting(sessionToDelete.id)
     try {
-      const res = await fetch(`/api/sessions/${sessionId}/disconnect`, {
+      const res = await fetch(`/api/sessions/${sessionToDelete.id}/disconnect`, {
         method: 'DELETE',
       })
       if (res.ok) {
-        setSessions((prev) => prev.filter((s) => s.id !== sessionId))
+        setSessions((prev) => prev.filter((s) => s.id !== sessionToDelete.id))
         toast.success('Session supprimée')
+        setDeleteDialogOpen(false)
+        setSessionToDelete(null)
       } else {
         const json = await res.json()
         toast.error(json.error || 'Erreur lors de la suppression')
@@ -449,7 +460,7 @@ export default function SessionsPage() {
                       size="sm"
                       variant="ghost"
                       className="text-destructive hover:text-destructive"
-                      onClick={() => handleDelete(session.id)}
+                      onClick={() => openDeleteDialog(session)}
                       disabled={isDeleting}
                     >
                       {isDeleting ? (
@@ -596,6 +607,19 @@ export default function SessionsPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Confirm Delete Dialog */}
+      <ConfirmDeleteDialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteDialogOpen(open)
+          if (!open) setSessionToDelete(null)
+        }}
+        onConfirm={handleConfirmDelete}
+        title="Supprimer la session"
+        description={`Êtes-vous sûr de vouloir supprimer la session "${sessionToDelete?.instance_name}" ? Cette action déconnectera le numéro WhatsApp et supprimera toutes les données associées.`}
+        loading={deleting === sessionToDelete?.id}
+      />
     </div>
   )
 }

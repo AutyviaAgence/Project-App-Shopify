@@ -132,6 +132,21 @@ export type AgentKnowledgeDocument = {
   created_at: string
 }
 
+export type ConversationTag = {
+  id: string
+  user_id: string
+  name: string
+  color: string
+  created_at: string
+}
+
+export type ConversationTagAssignment = {
+  id: string
+  conversation_id: string
+  tag_id: string
+  created_at: string
+}
+
 export type StatDaily = {
   id: string
   user_id: string
@@ -224,6 +239,18 @@ export type Database = {
         Row: AgentKnowledgeDocument
         Insert: Partial<AgentKnowledgeDocument> & Pick<AgentKnowledgeDocument, 'agent_id' | 'document_id'>
         Update: Partial<AgentKnowledgeDocument>
+        Relationships: []
+      }
+      conversation_tags: {
+        Row: ConversationTag
+        Insert: Partial<ConversationTag> & Pick<ConversationTag, 'user_id' | 'name'>
+        Update: Partial<ConversationTag>
+        Relationships: []
+      }
+      conversation_tag_assignments: {
+        Row: ConversationTagAssignment
+        Insert: Partial<ConversationTagAssignment> & Pick<ConversationTagAssignment, 'conversation_id' | 'tag_id'>
+        Update: Partial<ConversationTagAssignment>
         Relationships: []
       }
     }

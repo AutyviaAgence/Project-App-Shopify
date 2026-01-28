@@ -85,6 +85,9 @@ export async function processAIResponse(params: {
 
     console.log('[AI] Contexte:', chatMessages.length, 'messages', knowledgeContext ? '| RAG actif' : '| sans RAG', '| Appel OpenAI...')
 
+    // 4.5. Envoyer l'indicateur "en train d'écrire" avant d'appeler OpenAI
+    await evolution.sendPresence(params.instanceName, params.contactPhoneNumber, 'composing')
+
     // 5. Appeler OpenAI
     const result = await generateAgentResponse({
       model: agent.model,

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { Message, AIAgent } from '@/types/database'
+import type { Message, AIAgent, ConversationTag } from '@/types/database'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -14,6 +14,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { ContactProfilePanel } from '@/components/contact-profile-panel'
@@ -26,6 +31,14 @@ import {
   User,
   Bot,
   UserCircle,
+  Copy,
+  Check,
+  Filter,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Tag,
+  Plus,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -51,6 +64,7 @@ type ConversationWithJoins = {
     instance_name: string
     phone_number: string | null
   }
+  tags?: ConversationTag[]
 }
 
 export default function ConversationsPage() {
@@ -63,7 +77,26 @@ export default function ConversationsPage() {
   const [sending, setSending] = useState(false)
   const [agents, setAgents] = useState<AIAgent[]>([])
   const [profileOpen, setProfileOpen] = useState(false)
+  const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Tags
+  const [allTags, setAllTags] = useState<ConversationTag[]>([])
+  const [conversationTags, setConversationTags] = useState<Record<string, ConversationTag[]>>({})
+  const [newTagName, setNewTagName] = useState('')
+  const [creatingTag, setCreatingTag] = useState(false)
+
+  // Filters
+  const [sessions, setSessions] = useState<{ id: string; instance_name: string; phone_number: string | null }[]>([])
+  const [filterSession, setFilterSession] = useState<string>('all')
+  const [filterAiActive, setFilterAiActive] = useState<string>('all')
+  const [showFilters, setShowFilters] = useState(false)
+
+  // Pagination
+  const [page, setPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalConversations, setTotalConversations] = useState(0)
+  const ITEMS_PER_PAGE = 20
 
   const fetchAgents = useCallback(async () => {
     try {
@@ -77,24 +110,77 @@ export default function ConversationsPage() {
     }
   }, [])
 
+  const fetchSessions = useCallback(async () => {
+    try {
+      const res = await fetch('/api/sessions')
+      const json = await res.json()
+      if (res.ok && json.data) {
+        setSessions(json.data.map((s: { id: string; instance_name: string; phone_number: string | null }) => ({
+          id: s.id,
+          instance_name: s.instance_name,
+          phone_number: s.phone_number,
+        })))
+      }
+    } catch {
+      // silently ignore
+    }
+  }, [])
+
+  const fetchTags = useCallback(async () => {
+    try {
+      const res = await fetch('/api/tags')
+      const json = await res.json()
+      if (res.ok && json.data) {
+        setAllTags(json.data)
+      }
+    } catch {
+      // silently ignore
+    }
+  }, [])
+
+  const fetchConversationTags = useCallback(async (convId: string) => {
+    try {
+      const res = await fetch(`/api/conversations/${convId}/tags`)
+      const json = await res.json()
+      if (res.ok && json.data) {
+        setConversationTags((prev) => ({ ...prev, [convId]: json.data }))
+      }
+    } catch {
+      // silently ignore
+    }
+  }, [])
+
   const fetchConversations = useCallback(async () => {
     try {
-      const res = await fetch('/api/conversations')
+      const params = new URLSearchParams()
+      if (filterSession !== 'all') params.set('session_id', filterSession)
+      if (filterAiActive !== 'all') params.set('is_ai_active', filterAiActive)
+      params.set('page', page.toString())
+      params.set('limit', ITEMS_PER_PAGE.toString())
+
+      const url = `/api/conversations?${params.toString()}`
+      const res = await fetch(url)
       const json = await res.json()
       if (res.ok && json.data) {
         setConversations(json.data)
+        if (json.pagination) {
+          setTotalPages(json.pagination.totalPages)
+          setTotalConversations(json.pagination.total)
+        }
       }
     } catch {
       toast.error('Erreur lors du chargement des conversations')
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [filterSession, filterAiActive, page])
 
   useEffect(() => {
     fetchConversations()
     fetchAgents()
-  }, [fetchConversations, fetchAgents])
+    fetchSessions()
+    fetchTags()
+  }, [fetchConversations, fetchAgents, fetchSessions, fetchTags])
 
   // Load messages when selecting a conversation
   const loadMessages = useCallback(async (convId: string) => {
@@ -298,6 +384,70 @@ export default function ConversationsPage() {
       : conv.session.instance_name
   }
 
+  async function handleCopyMessage(messageId: string, content: string) {
+    try {
+      await navigator.clipboard.writeText(content)
+      setCopiedMessageId(messageId)
+      setTimeout(() => setCopiedMessageId(null), 2000)
+    } catch {
+      toast.error('Impossible de copier')
+    }
+  }
+
+  async function handleCreateTag() {
+    if (!newTagName.trim() || creatingTag) return
+    setCreatingTag(true)
+    try {
+      const res = await fetch('/api/tags', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newTagName.trim() }),
+      })
+      const json = await res.json()
+      if (res.ok && json.data) {
+        setAllTags((prev) => [...prev, json.data].sort((a, b) => a.name.localeCompare(b.name)))
+        setNewTagName('')
+        toast.success('Tag créé')
+      } else {
+        toast.error(json.error || 'Erreur lors de la création')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setCreatingTag(false)
+    }
+  }
+
+  async function handleToggleTag(convId: string, tag: ConversationTag) {
+    const currentTags = conversationTags[convId] || []
+    const hasTag = currentTags.some((t) => t.id === tag.id)
+    const newTagIds = hasTag
+      ? currentTags.filter((t) => t.id !== tag.id).map((t) => t.id)
+      : [...currentTags.map((t) => t.id), tag.id]
+
+    // Optimistic update
+    const newTags = hasTag
+      ? currentTags.filter((t) => t.id !== tag.id)
+      : [...currentTags, tag]
+    setConversationTags((prev) => ({ ...prev, [convId]: newTags }))
+
+    try {
+      const res = await fetch(`/api/conversations/${convId}/tags`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tag_ids: newTagIds }),
+      })
+      if (!res.ok) {
+        // Revert
+        setConversationTags((prev) => ({ ...prev, [convId]: currentTags }))
+        toast.error('Erreur lors de la mise à jour')
+      }
+    } catch {
+      setConversationTags((prev) => ({ ...prev, [convId]: currentTags }))
+      toast.error('Erreur réseau')
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -316,10 +466,69 @@ export default function ConversationsPage() {
         )}
       >
         <div className="border-b p-4">
-          <h1 className="text-lg font-bold">Conversations</h1>
-          <p className="text-xs text-muted-foreground">
-            {conversations.length} conversation{conversations.length !== 1 ? 's' : ''}
-          </p>
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-lg font-bold">Conversations</h1>
+              <p className="text-xs text-muted-foreground">
+                {conversations.length} conversation{conversations.length !== 1 ? 's' : ''}
+              </p>
+            </div>
+            <Button
+              variant={showFilters ? 'secondary' : 'ghost'}
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              <Filter className="h-4 w-4" />
+            </Button>
+          </div>
+
+          {showFilters && (
+            <div className="mt-3 space-y-2">
+              <Select value={filterSession} onValueChange={setFilterSession}>
+                <SelectTrigger className="h-8 text-xs">
+                  <Smartphone className="mr-1 h-3 w-3" />
+                  <SelectValue placeholder="Session" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Toutes les sessions</SelectItem>
+                  {sessions.map((s) => (
+                    <SelectItem key={s.id} value={s.id}>
+                      {s.phone_number ? `+${s.phone_number}` : s.instance_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+
+              <Select value={filterAiActive} onValueChange={setFilterAiActive}>
+                <SelectTrigger className="h-8 text-xs">
+                  <Bot className="mr-1 h-3 w-3" />
+                  <SelectValue placeholder="Statut IA" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Tous les statuts</SelectItem>
+                  <SelectItem value="true">IA active</SelectItem>
+                  <SelectItem value="false">IA inactive</SelectItem>
+                </SelectContent>
+              </Select>
+
+              {(filterSession !== 'all' || filterAiActive !== 'all') && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-full text-xs"
+                  onClick={() => {
+                    setFilterSession('all')
+                    setFilterAiActive('all')
+                    setPage(1)
+                  }}
+                >
+                  <X className="mr-1 h-3 w-3" />
+                  Réinitialiser les filtres
+                </Button>
+              )}
+            </div>
+          )}
         </div>
 
         {conversations.length === 0 ? (
@@ -333,54 +542,179 @@ export default function ConversationsPage() {
             </p>
           </div>
         ) : (
-          <div className="overflow-auto">
-            {conversations.map((conv) => (
-              <button
-                key={conv.id}
-                onClick={() => { setSelectedConv(conv); setProfileOpen(false) }}
-                className={cn(
-                  'flex w-full items-start gap-3 border-b p-3 text-left transition-colors hover:bg-muted/50',
-                  selectedConv?.id === conv.id && 'bg-muted'
-                )}
-              >
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
-                  <User className="h-5 w-5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="truncate text-sm font-medium">
-                      {getContactDisplay(conv)}
-                    </span>
-                    {conv.unread_count > 0 && (
-                      <Badge variant="default" className="shrink-0 text-xs">
-                        {conv.unread_count}
-                      </Badge>
-                    )}
+          <>
+            <div className="flex-1 overflow-auto">
+              {conversations.map((conv) => (
+                <button
+                  key={conv.id}
+                  onClick={() => { setSelectedConv(conv); setProfileOpen(false) }}
+                  className={cn(
+                    'flex w-full items-start gap-3 border-b p-3 text-left transition-colors hover:bg-muted/50',
+                    selectedConv?.id === conv.id && 'bg-muted'
+                  )}
+                >
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <User className="h-5 w-5" />
                   </div>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {conv.last_message_preview || 'Pas de message'}
-                  </p>
-                  <div className="mt-1 flex items-center gap-2">
-                    <Smartphone className="h-3 w-3 text-muted-foreground" />
-                    <span className="text-[10px] text-muted-foreground">
-                      {getSessionLabel(conv)}
-                    </span>
-                    {conv.is_ai_active && (
-                      <Badge variant="outline" className="h-4 px-1 text-[9px] text-violet-600 border-violet-300">
-                        <Bot className="mr-0.5 h-2.5 w-2.5" />
-                        IA
-                      </Badge>
-                    )}
-                    {conv.last_message_at && (
-                      <span className="text-[10px] text-muted-foreground">
-                        · {formatDistanceToNow(new Date(conv.last_message_at), { addSuffix: true, locale: fr })}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate text-sm font-medium">
+                        {getContactDisplay(conv)}
                       </span>
-                    )}
+                      {conv.unread_count > 0 && (
+                        <Badge variant="default" className="shrink-0 text-xs">
+                          {conv.unread_count}
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="truncate text-xs text-muted-foreground">
+                      {conv.last_message_preview || 'Pas de message'}
+                    </p>
+                    <div className="mt-1 flex items-center gap-2">
+                      <Smartphone className="h-3 w-3 text-muted-foreground" />
+                      <span className="text-[10px] text-muted-foreground">
+                        {getSessionLabel(conv)}
+                      </span>
+                      {conv.is_ai_active && (
+                        <Badge variant="outline" className="h-4 px-1 text-[9px] text-violet-600 border-violet-300">
+                          <Bot className="mr-0.5 h-2.5 w-2.5" />
+                          IA
+                        </Badge>
+                      )}
+                      {conv.last_message_at && (
+                        <span className="text-[10px] text-muted-foreground">
+                          · {formatDistanceToNow(new Date(conv.last_message_at), { addSuffix: true, locale: fr })}
+                        </span>
+                      )}
+                    </div>
+                    {/* Tags */}
+                    <div className="mt-1.5 flex items-center gap-1 flex-wrap">
+                      {(conversationTags[conv.id] || []).slice(0, 3).map((tag) => (
+                        <span
+                          key={tag.id}
+                          className="inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-medium"
+                          style={{ backgroundColor: `${tag.color}20`, color: tag.color }}
+                        >
+                          {tag.name}
+                        </span>
+                      ))}
+                      {(conversationTags[conv.id] || []).length > 3 && (
+                        <span className="text-[9px] text-muted-foreground">
+                          +{(conversationTags[conv.id] || []).length - 3}
+                        </span>
+                      )}
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              if (!conversationTags[conv.id]) {
+                                fetchConversationTags(conv.id)
+                              }
+                            }}
+                            className="inline-flex items-center rounded px-1 py-0.5 text-[9px] text-muted-foreground hover:bg-muted"
+                          >
+                            <Tag className="h-2.5 w-2.5 mr-0.5" />
+                            Tags
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent
+                          className="w-56 p-2"
+                          align="start"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <div className="space-y-2">
+                            <p className="text-xs font-medium">Gérer les tags</p>
+                            <div className="max-h-32 overflow-auto space-y-1">
+                              {allTags.map((tag) => {
+                                const isSelected = (conversationTags[conv.id] || []).some((t) => t.id === tag.id)
+                                return (
+                                  <button
+                                    key={tag.id}
+                                    onClick={() => handleToggleTag(conv.id, tag)}
+                                    className={cn(
+                                      'flex w-full items-center gap-2 rounded px-2 py-1 text-xs transition-colors',
+                                      isSelected ? 'bg-muted' : 'hover:bg-muted/50'
+                                    )}
+                                  >
+                                    <span
+                                      className="h-3 w-3 rounded-full shrink-0"
+                                      style={{ backgroundColor: tag.color }}
+                                    />
+                                    <span className="flex-1 text-left truncate">{tag.name}</span>
+                                    {isSelected && <Check className="h-3 w-3 text-primary" />}
+                                  </button>
+                                )
+                              })}
+                              {allTags.length === 0 && (
+                                <p className="text-xs text-muted-foreground py-1">Aucun tag disponible</p>
+                              )}
+                            </div>
+                            <div className="border-t pt-2">
+                              <div className="flex gap-1">
+                                <Input
+                                  value={newTagName}
+                                  onChange={(e) => setNewTagName(e.target.value)}
+                                  placeholder="Nouveau tag..."
+                                  className="h-7 text-xs"
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault()
+                                      handleCreateTag()
+                                    }
+                                  }}
+                                />
+                                <Button
+                                  size="sm"
+                                  className="h-7 px-2"
+                                  onClick={handleCreateTag}
+                                  disabled={!newTagName.trim() || creatingTag}
+                                >
+                                  <Plus className="h-3 w-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
                   </div>
+                </button>
+              ))}
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="border-t p-2 flex items-center justify-between">
+                <span className="text-xs text-muted-foreground">
+                  {totalConversations} conv.
+                </span>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    disabled={page <= 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-xs px-2">
+                    {page}/{totalPages}
+                  </span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7"
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    disabled={page >= totalPages}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
                 </div>
-              </button>
-            ))}
-          </div>
+              </div>
+            )}
+          </>
         )}
       </div>
 
@@ -475,14 +809,28 @@ export default function ConversationsPage() {
                 <div className="space-y-2">
                   {messages.map((msg) => {
                     const isAI = msg.sent_by === 'ai_agent'
+                    const isCopied = copiedMessageId === msg.id
                     return (
                       <div
                         key={msg.id}
                         className={cn(
-                          'flex',
+                          'group flex items-start gap-1',
                           msg.direction === 'outbound' ? 'justify-end' : 'justify-start'
                         )}
                       >
+                        {msg.direction === 'outbound' && msg.content && (
+                          <button
+                            onClick={() => handleCopyMessage(msg.id, msg.content || '')}
+                            className="mt-2 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                            title="Copier"
+                          >
+                            {isCopied ? (
+                              <Check className="h-3.5 w-3.5 text-green-500" />
+                            ) : (
+                              <Copy className="h-3.5 w-3.5" />
+                            )}
+                          </button>
+                        )}
                         <div
                           className={cn(
                             'max-w-[75%] rounded-lg px-3 py-2 text-sm',
@@ -519,6 +867,19 @@ export default function ConversationsPage() {
                             {msg.status === 'pending' && ' · envoi...'}
                           </p>
                         </div>
+                        {msg.direction === 'inbound' && msg.content && (
+                          <button
+                            onClick={() => handleCopyMessage(msg.id, msg.content || '')}
+                            className="mt-2 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                            title="Copier"
+                          >
+                            {isCopied ? (
+                              <Check className="h-3.5 w-3.5 text-green-500" />
+                            ) : (
+                              <Copy className="h-3.5 w-3.5" />
+                            )}
+                          </button>
+                        )}
                       </div>
                     )
                   })}

@@ -17,6 +17,7 @@ import {
   Settings,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { Breadcrumbs } from '@/components/breadcrumbs'
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -97,8 +98,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </aside>
 
       {/* Main content */}
-      <main className="flex-1 overflow-auto">
-        {children}
+      <main className="flex flex-1 flex-col overflow-hidden">
+        <Breadcrumbs />
+        <div className="flex-1 overflow-auto">
+          {children}
+        </div>
       </main>
     </div>
   )

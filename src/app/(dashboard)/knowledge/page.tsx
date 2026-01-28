@@ -31,6 +31,7 @@ import {
   Download,
   Eye,
 } from 'lucide-react'
+import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 
 function statusBadge(status: string) {
   switch (status) {
@@ -93,6 +94,10 @@ export default function KnowledgePage() {
   const [viewDialogOpen, setViewDialogOpen] = useState(false)
   const [viewDoc, setViewDoc] = useState<{ name: string; content: string } | null>(null)
   const [viewLoading, setViewLoading] = useState(false)
+
+  // Delete confirmation dialog
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [docToDelete, setDocToDelete] = useState<KnowledgeDocument | null>(null)
 
   // Polling ref
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -262,13 +267,21 @@ export default function KnowledgePage() {
     }
   }
 
-  async function handleDelete(id: string) {
-    setDeleting(id)
+  function openDeleteDialog(doc: KnowledgeDocument) {
+    setDocToDelete(doc)
+    setDeleteDialogOpen(true)
+  }
+
+  async function handleConfirmDelete() {
+    if (!docToDelete) return
+    setDeleting(docToDelete.id)
     try {
-      const res = await fetch(`/api/knowledge/${id}`, { method: 'DELETE' })
+      const res = await fetch(`/api/knowledge/${docToDelete.id}`, { method: 'DELETE' })
       if (res.ok) {
-        setDocuments((prev) => prev.filter((d) => d.id !== id))
+        setDocuments((prev) => prev.filter((d) => d.id !== docToDelete.id))
         toast.success('Document supprimé')
+        setDeleteDialogOpen(false)
+        setDocToDelete(null)
       } else {
         const json = await res.json()
         toast.error(json.error || 'Erreur lors de la suppression')
@@ -540,7 +553,7 @@ export default function KnowledgePage() {
                       size="sm"
                       variant="ghost"
                       className="text-destructive hover:text-destructive"
-                      onClick={() => handleDelete(doc.id)}
+                      onClick={() => openDeleteDialog(doc)}
                       disabled={isDeleting}
                     >
                       {isDeleting ? (
@@ -806,6 +819,19 @@ export default function KnowledgePage() {
           ) : null}
         </DialogContent>
       </Dialog>
+
+      {/* Confirm Delete Dialog */}
+      <ConfirmDeleteDialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteDialogOpen(open)
+          if (!open) setDocToDelete(null)
+        }}
+        onConfirm={handleConfirmDelete}
+        title="Supprimer le document"
+        description={`Êtes-vous sûr de vouloir supprimer le document "${docToDelete?.name}" ? Cette action supprimera également tous les chunks et embeddings associés.`}
+        loading={deleting === docToDelete?.id}
+      />
     </div>
   )
 }

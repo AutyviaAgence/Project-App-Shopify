@@ -32,6 +32,7 @@ import {
   Loader2,
   Brain,
 } from 'lucide-react'
+import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 
 export default function AgentsPage() {
   const [agents, setAgents] = useState<AIAgent[]>([])
@@ -40,6 +41,8 @@ export default function AgentsPage() {
   const [editing, setEditing] = useState<AIAgent | null>(null)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [agentToDelete, setAgentToDelete] = useState<AIAgent | null>(null)
 
   // Form state
   const [formName, setFormName] = useState('')
@@ -173,13 +176,21 @@ export default function AgentsPage() {
     }
   }
 
-  async function handleDelete(id: string) {
-    setDeleting(id)
+  function openDeleteDialog(agent: AIAgent) {
+    setAgentToDelete(agent)
+    setDeleteDialogOpen(true)
+  }
+
+  async function handleConfirmDelete() {
+    if (!agentToDelete) return
+    setDeleting(agentToDelete.id)
     try {
-      const res = await fetch(`/api/agents/${id}`, { method: 'DELETE' })
+      const res = await fetch(`/api/agents/${agentToDelete.id}`, { method: 'DELETE' })
       if (res.ok) {
-        setAgents((prev) => prev.filter((a) => a.id !== id))
+        setAgents((prev) => prev.filter((a) => a.id !== agentToDelete.id))
         toast.success('Agent supprimé')
+        setDeleteDialogOpen(false)
+        setAgentToDelete(null)
       } else {
         const json = await res.json()
         toast.error(json.error || 'Erreur lors de la suppression')
@@ -317,7 +328,7 @@ export default function AgentsPage() {
                       size="sm"
                       variant="ghost"
                       className="text-destructive hover:text-destructive"
-                      onClick={() => handleDelete(agent.id)}
+                      onClick={() => openDeleteDialog(agent)}
                       disabled={isDeleting}
                     >
                       {isDeleting ? (
@@ -519,6 +530,19 @@ export default function AgentsPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Confirm Delete Dialog */}
+      <ConfirmDeleteDialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteDialogOpen(open)
+          if (!open) setAgentToDelete(null)
+        }}
+        onConfirm={handleConfirmDelete}
+        title="Supprimer l'agent"
+        description={`Êtes-vous sûr de vouloir supprimer l'agent "${agentToDelete?.name}" ? Cette action est irréversible.`}
+        loading={deleting === agentToDelete?.id}
+      />
     </div>
   )
 }
