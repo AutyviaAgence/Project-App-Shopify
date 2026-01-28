@@ -110,5 +110,11 @@ export async function POST(
     })
     .eq('id', id)
 
-  return NextResponse.json({ data: message })
+  // Retourner le message avec le contenu en clair (pas chiffré) pour l'affichage
+  return NextResponse.json({
+    data: {
+      ...message,
+      content: content.trim()
+    }
+  })
 }

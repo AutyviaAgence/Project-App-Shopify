@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import type { Team, TeamMember, Profile } from '@/types/database'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -43,10 +43,11 @@ import {
   Shield,
   UserIcon,
   LogOut,
-  Link2,
+  Check,
+  KeyRound,
 } from 'lucide-react'
 
-type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
+type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member'; join_code?: string }
 
 type TeamMemberWithProfile = TeamMember & {
   profile?: Profile | null
@@ -63,12 +64,12 @@ export default function TeamsPage() {
   const [members, setMembers] = useState<TeamMemberWithProfile[]>([])
   const [membersLoading, setMembersLoading] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [copiedCode, setCopiedCode] = useState<string | null>(null)
 
   // Form state
   const [formName, setFormName] = useState('')
-  const [formSlug, setFormSlug] = useState('')
-  const [inviteRole, setInviteRole] = useState<'admin' | 'member'>('member')
-  const [invitationUrl, setInvitationUrl] = useState<string | null>(null)
+  const [joinCode, setJoinCode] = useState('')
+  const [joining, setJoining] = useState(false)
 
   const fetchTeams = useCallback(async () => {
     try {
@@ -105,22 +106,18 @@ export default function TeamsPage() {
 
   function openCreateDialog() {
     setFormName('')
-    setFormSlug('')
     setCreateDialogOpen(true)
   }
 
   function openEditDialog(team: TeamWithRole) {
     setSelectedTeam(team)
     setFormName(team.name)
-    setFormSlug(team.slug || '')
     setEditDialogOpen(true)
   }
 
   function openMembersDialog(team: TeamWithRole) {
     setSelectedTeam(team)
     setMembers([])
-    setInvitationUrl(null)
-    setInviteRole('member')
     fetchMembers(team.id)
     setMembersDialogOpen(true)
   }
@@ -141,10 +138,7 @@ export default function TeamsPage() {
       const res = await fetch('/api/teams', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: formName.trim(),
-          slug: formSlug.trim() || undefined,
-        }),
+        body: JSON.stringify({ name: formName.trim() }),
       })
       const json = await res.json()
       if (res.ok && json.data) {
@@ -169,10 +163,7 @@ export default function TeamsPage() {
       const res = await fetch(`/api/teams/${selectedTeam.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: formName.trim(),
-          slug: formSlug.trim() || null,
-        }),
+        body: JSON.stringify({ name: formName.trim() }),
       })
       const json = await res.json()
       if (res.ok && json.data) {
@@ -210,28 +201,31 @@ export default function TeamsPage() {
     }
   }
 
-  async function handleCreateInvitation() {
-    if (!selectedTeam) return
+  async function handleJoinWithCode() {
+    if (!joinCode.trim()) {
+      toast.error('Entrez un code')
+      return
+    }
 
-    setSaving(true)
+    setJoining(true)
     try {
-      const res = await fetch(`/api/teams/${selectedTeam.id}/members`, {
+      const res = await fetch('/api/teams/join-code', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ role: inviteRole }),
+        body: JSON.stringify({ code: joinCode.trim() }),
       })
       const json = await res.json()
       if (res.ok && json.data) {
-        setInvitationUrl(json.data.invitation_url)
-        setMembers((prev) => [...prev, json.data])
-        toast.success('Lien d\'invitation créé')
+        toast.success(`Vous avez rejoint l'équipe ${json.data.team.name}`)
+        setJoinCode('')
+        fetchTeams()
       } else {
-        toast.error(json.error || 'Erreur lors de la création')
+        toast.error(json.error || 'Code invalide')
       }
     } catch {
       toast.error('Erreur réseau')
     } finally {
-      setSaving(false)
+      setJoining(false)
     }
   }
 
@@ -275,11 +269,11 @@ export default function TeamsPage() {
     }
   }
 
-  function copyInvitationLink() {
-    if (invitationUrl) {
-      navigator.clipboard.writeText(invitationUrl)
-      toast.success('Lien copié !')
-    }
+  function copyCode(code: string) {
+    navigator.clipboard.writeText(code)
+    setCopiedCode(code)
+    toast.success('Code copié !')
+    setTimeout(() => setCopiedCode(null), 2000)
   }
 
   function getRoleIcon(role: string) {
@@ -296,7 +290,7 @@ export default function TeamsPage() {
   function getRoleBadge(role: string) {
     switch (role) {
       case 'owner':
-        return <Badge variant="default" className="gap-1"><Crown className="h-3 w-3" />Propriétaire</Badge>
+        return <Badge className="gap-1 bg-[#7DC2A5] hover:bg-[#7DC2A5]/80"><Crown className="h-3 w-3" />Propriétaire</Badge>
       case 'admin':
         return <Badge variant="secondary" className="gap-1"><Shield className="h-3 w-3" />Admin</Badge>
       default:
@@ -313,55 +307,96 @@ export default function TeamsPage() {
   }
 
   return (
-    <div className="p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Équipes</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Gérez vos équipes et invitez des collaborateurs.
-          </p>
-        </div>
-        <Button onClick={openCreateDialog}>
-          <Plus className="mr-2 h-4 w-4" />
-          Nouvelle équipe
-        </Button>
+    <div className="p-4 md:p-6 pb-20 md:pb-6 space-y-6">
+      {/* Header */}
+      <div className="flex flex-col gap-1">
+        <h1 className="text-xl md:text-2xl font-bold">Équipes</h1>
+        <p className="text-sm text-muted-foreground">
+          Créez ou rejoignez une équipe pour partager vos ressources.
+        </p>
       </div>
 
+      {/* Join with code */}
+      <Card className="border-dashed">
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row gap-3">
+            <div className="flex-1">
+              <Label htmlFor="join-code" className="text-xs text-muted-foreground">
+                Rejoindre avec un code
+              </Label>
+              <div className="flex gap-2 mt-1">
+                <Input
+                  id="join-code"
+                  placeholder="AUTY-XXXX"
+                  value={joinCode}
+                  onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
+                  className="font-mono"
+                  maxLength={9}
+                />
+                <Button onClick={handleJoinWithCode} disabled={joining || !joinCode.trim()}>
+                  {joining ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4 mr-2" />}
+                  Rejoindre
+                </Button>
+              </div>
+            </div>
+            <div className="hidden sm:block border-l mx-4" />
+            <div className="flex items-end">
+              <Button onClick={openCreateDialog} variant="outline">
+                <Plus className="mr-2 h-4 w-4" />
+                Créer une équipe
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Teams list */}
       {teams.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
-            <Users className="mb-4 h-12 w-12 text-muted-foreground" />
-            <h3 className="text-lg font-medium">Aucune équipe</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Créez une équipe pour partager vos ressources avec vos collaborateurs.
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
+              <Users className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <h3 className="mt-4 text-lg font-medium">Aucune équipe</h3>
+            <p className="mt-1 text-sm text-muted-foreground text-center">
+              Créez une équipe ou rejoignez-en une avec un code.
             </p>
-            <Button className="mt-4" onClick={openCreateDialog}>
-              <Plus className="mr-2 h-4 w-4" />
-              Créer une équipe
-            </Button>
           </CardContent>
         </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {teams.map((team) => (
-            <Card key={team.id}>
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle className="text-base">{team.name}</CardTitle>
+            <Card key={team.id} className="overflow-hidden">
+              <CardHeader className="pb-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <CardTitle className="text-base truncate">{team.name}</CardTitle>
+                    {team.join_code && (team.my_role === 'owner' || team.my_role === 'admin') && (
+                      <button
+                        onClick={() => copyCode(team.join_code!)}
+                        className="mt-1 inline-flex items-center gap-1.5 text-xs font-mono bg-muted px-2 py-1 rounded hover:bg-muted/80 transition-colors"
+                      >
+                        {copiedCode === team.join_code ? (
+                          <Check className="h-3 w-3 text-green-500" />
+                        ) : (
+                          <Copy className="h-3 w-3" />
+                        )}
+                        {team.join_code}
+                      </button>
+                    )}
+                  </div>
                   {getRoleBadge(team.my_role)}
                 </div>
-                {team.slug && (
-                  <CardDescription className="text-xs">/{team.slug}</CardDescription>
-                )}
               </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-2">
+              <CardContent className="pt-0">
+                <div className="flex items-center gap-2 flex-wrap">
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => openMembersDialog(team)}
+                    className="h-8"
                   >
-                    <Users className="mr-1 h-3 w-3" />
+                    <Users className="mr-1.5 h-3.5 w-3.5" />
                     Membres
                   </Button>
                   {(team.my_role === 'owner' || team.my_role === 'admin') && (
@@ -369,18 +404,19 @@ export default function TeamsPage() {
                       size="sm"
                       variant="ghost"
                       onClick={() => openEditDialog(team)}
+                      className="h-8 w-8 p-0"
                     >
-                      <Pencil className="h-3 w-3" />
+                      <Pencil className="h-3.5 w-3.5" />
                     </Button>
                   )}
                   {team.my_role === 'owner' && (
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="text-destructive hover:text-destructive"
+                      className="h-8 w-8 p-0 text-destructive hover:text-destructive"
                       onClick={() => openDeleteDialog(team)}
                     >
-                      <Trash2 className="h-3 w-3" />
+                      <Trash2 className="h-3.5 w-3.5" />
                     </Button>
                   )}
                 </div>
@@ -396,26 +432,18 @@ export default function TeamsPage() {
           <DialogHeader>
             <DialogTitle>Nouvelle équipe</DialogTitle>
             <DialogDescription>
-              Créez une équipe pour partager sessions, agents et documents.
+              Un code de jonction sera généré automatiquement.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label htmlFor="team-name">Nom de l&apos;équipe *</Label>
+              <Label htmlFor="team-name">Nom de l&apos;équipe</Label>
               <Input
                 id="team-name"
                 placeholder="Mon équipe"
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="team-slug">Identifiant (optionnel)</Label>
-              <Input
-                id="team-slug"
-                placeholder="mon-equipe"
-                value={formSlug}
-                onChange={(e) => setFormSlug(e.target.value.replace(/[^a-z0-9-]/gi, '').toLowerCase())}
+                onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
               />
             </div>
             <Button onClick={handleCreate} disabled={saving || !formName.trim()} className="w-full">
@@ -434,21 +462,32 @@ export default function TeamsPage() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label htmlFor="edit-team-name">Nom de l&apos;équipe *</Label>
+              <Label htmlFor="edit-team-name">Nom de l&apos;équipe</Label>
               <Input
                 id="edit-team-name"
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleEdit()}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-team-slug">Identifiant</Label>
-              <Input
-                id="edit-team-slug"
-                value={formSlug}
-                onChange={(e) => setFormSlug(e.target.value.replace(/[^a-z0-9-]/gi, '').toLowerCase())}
-              />
-            </div>
+            {selectedTeam?.join_code && (
+              <div className="space-y-2">
+                <Label className="text-xs text-muted-foreground">Code de jonction</Label>
+                <div className="flex gap-2">
+                  <Input value={selectedTeam.join_code} readOnly className="font-mono" />
+                  <Button variant="outline" size="icon" onClick={() => copyCode(selectedTeam.join_code!)}>
+                    {copiedCode === selectedTeam.join_code ? (
+                      <Check className="h-4 w-4 text-green-500" />
+                    ) : (
+                      <Copy className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Partagez ce code pour que d&apos;autres personnes puissent rejoindre votre équipe.
+                </p>
+              </div>
+            )}
             <Button onClick={handleEdit} disabled={saving || !formName.trim()} className="w-full">
               {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Pencil className="mr-2 h-4 w-4" />}
               Enregistrer
@@ -463,139 +502,87 @@ export default function TeamsPage() {
           <DialogHeader>
             <DialogTitle>Membres de {selectedTeam?.name}</DialogTitle>
             <DialogDescription>
-              Gérez les membres et créez des liens d&apos;invitation.
+              {selectedTeam?.join_code && (selectedTeam?.my_role === 'owner' || selectedTeam?.my_role === 'admin') && (
+                <span className="inline-flex items-center gap-2 mt-2">
+                  Code de jonction :
+                  <button
+                    onClick={() => copyCode(selectedTeam.join_code!)}
+                    className="inline-flex items-center gap-1.5 font-mono bg-muted px-2 py-1 rounded hover:bg-muted/80 transition-colors"
+                  >
+                    {copiedCode === selectedTeam.join_code ? (
+                      <Check className="h-3 w-3 text-green-500" />
+                    ) : (
+                      <Copy className="h-3 w-3" />
+                    )}
+                    {selectedTeam.join_code}
+                  </button>
+                </span>
+              )}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            {/* Invitation section */}
-            {selectedTeam && (selectedTeam.my_role === 'owner' || selectedTeam.my_role === 'admin') && (
-              <div className="border rounded-lg p-4 bg-muted/50">
-                <h4 className="text-sm font-medium mb-3">Inviter un membre</h4>
-                <div className="flex gap-2 items-end">
-                  <div className="flex-1">
-                    <Label className="text-xs">Rôle</Label>
-                    <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as 'admin' | 'member')}>
-                      <SelectTrigger className="h-9">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="member">Membre</SelectItem>
-                        {selectedTeam.my_role === 'owner' && (
-                          <SelectItem value="admin">Admin</SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
+            {membersLoading ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <div className="space-y-2 max-h-80 overflow-auto">
+                {members.filter(m => m.status === 'accepted').map((member) => (
+                  <div
+                    key={member.id}
+                    className="flex items-center justify-between rounded-xl border p-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-[#7DC2A5] to-[#40E9BE] text-white text-sm font-medium">
+                        {member.profile?.full_name?.charAt(0)?.toUpperCase() || '?'}
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">
+                          {member.profile?.full_name || 'Utilisateur'}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {member.profile?.email}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {member.role !== 'owner' && selectedTeam?.my_role === 'owner' && (
+                        <Select
+                          value={member.role}
+                          onValueChange={(v) => handleChangeMemberRole(member.id, v as 'admin' | 'member')}
+                        >
+                          <SelectTrigger className="h-8 w-24 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="admin">Admin</SelectItem>
+                            <SelectItem value="member">Membre</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                      {member.role === 'owner' && (
+                        <Badge className="h-7 bg-[#7DC2A5]">Propriétaire</Badge>
+                      )}
+                      {member.role !== 'owner' && (selectedTeam?.my_role === 'owner' || selectedTeam?.my_role === 'admin') && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                          onClick={() => handleRemoveMember(member.id)}
+                        >
+                          <LogOut className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
-                  <Button size="sm" onClick={handleCreateInvitation} disabled={saving}>
-                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4 mr-1" />}
-                    Créer lien
-                  </Button>
-                </div>
-                {invitationUrl && (
-                  <div className="mt-3 flex gap-2">
-                    <Input value={invitationUrl} readOnly className="text-xs h-8" />
-                    <Button size="sm" variant="outline" onClick={copyInvitationLink}>
-                      <Copy className="h-3 w-3" />
-                    </Button>
-                  </div>
+                ))}
+                {members.filter(m => m.status === 'accepted').length === 0 && (
+                  <p className="text-center text-sm text-muted-foreground py-4">
+                    Aucun membre
+                  </p>
                 )}
               </div>
             )}
-
-            {/* Members list */}
-            <div className="space-y-2">
-              <h4 className="text-sm font-medium">Membres ({members.filter(m => m.status === 'accepted').length})</h4>
-              {membersLoading ? (
-                <div className="flex justify-center py-4">
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                </div>
-              ) : (
-                <div className="space-y-2 max-h-60 overflow-auto">
-                  {members.filter(m => m.status === 'accepted').map((member) => (
-                    <div
-                      key={member.id}
-                      className="flex items-center justify-between rounded-lg border p-3"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
-                          {getRoleIcon(member.role)}
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium">
-                            {member.profile?.full_name || member.profile?.email || 'Utilisateur'}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {member.profile?.email}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {member.role !== 'owner' && selectedTeam?.my_role === 'owner' && (
-                          <Select
-                            value={member.role}
-                            onValueChange={(v) => handleChangeMemberRole(member.id, v as 'admin' | 'member')}
-                          >
-                            <SelectTrigger className="h-7 w-24 text-xs">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="admin">Admin</SelectItem>
-                              <SelectItem value="member">Membre</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        )}
-                        {member.role === 'owner' && (
-                          <Badge variant="default" className="h-7">Propriétaire</Badge>
-                        )}
-                        {member.role !== 'owner' && (
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                            onClick={() => handleRemoveMember(member.id)}
-                          >
-                            <LogOut className="h-3 w-3" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-
-                  {/* Pending invitations */}
-                  {members.filter(m => m.status === 'pending').length > 0 && (
-                    <>
-                      <h5 className="text-xs font-medium text-muted-foreground mt-4">Invitations en attente</h5>
-                      {members.filter(m => m.status === 'pending').map((member) => (
-                        <div
-                          key={member.id}
-                          className="flex items-center justify-between rounded-lg border border-dashed p-3"
-                        >
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-muted text-muted-foreground">
-                              <Link2 className="h-4 w-4" />
-                            </div>
-                            <div>
-                              <p className="text-sm">Invitation ({member.role})</p>
-                              <p className="text-xs text-muted-foreground">
-                                En attente d&apos;acceptation
-                              </p>
-                            </div>
-                          </div>
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                            onClick={() => handleRemoveMember(member.id)}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      ))}
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
           </div>
         </DialogContent>
       </Dialog>
@@ -607,7 +594,6 @@ export default function TeamsPage() {
             <AlertDialogTitle>Supprimer l&apos;équipe ?</AlertDialogTitle>
             <AlertDialogDescription>
               Cette action est irréversible. Les membres perdront l&apos;accès aux ressources partagées.
-              Les ressources de l&apos;équipe ne seront pas supprimées mais n&apos;auront plus d&apos;équipe associée.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
