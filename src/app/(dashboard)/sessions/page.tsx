@@ -13,6 +13,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
 import {
   Plus,
@@ -25,6 +27,8 @@ import {
   Loader2,
   AlertCircle,
   Globe,
+  Settings2,
+  Save,
 } from 'lucide-react'
 
 const STATUS_CONFIG = {
@@ -43,6 +47,9 @@ export default function SessionsPage() {
   const [disconnecting, setDisconnecting] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [webhookConfiguring, setWebhookConfiguring] = useState<string | null>(null)
+  const [editingSession, setEditingSession] = useState<WhatsAppSession | null>(null)
+  const [formDailyLimit, setFormDailyLimit] = useState('')
+  const [savingSettings, setSavingSettings] = useState(false)
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -200,6 +207,32 @@ export default function SessionsPage() {
     }
   }
 
+  async function handleSaveSessionSettings() {
+    if (!editingSession) return
+    setSavingSettings(true)
+    try {
+      const res = await fetch(`/api/sessions/${editingSession.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          daily_ai_message_limit: formDailyLimit.trim() ? parseInt(formDailyLimit) : null,
+        }),
+      })
+      const json = await res.json()
+      if (res.ok && json.data) {
+        setSessions((prev) => prev.map((s) => (s.id === editingSession.id ? json.data : s)))
+        toast.success('Paramètres de session mis à jour')
+        setEditingSession(null)
+      } else {
+        toast.error(json.error || 'Erreur lors de la mise à jour')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setSavingSettings(false)
+    }
+  }
+
   // Auto-configure webhook for connected sessions on load
   useEffect(() => {
     const connectedSessions = sessions.filter((s) => s.status === 'connected')
@@ -335,6 +368,11 @@ export default function SessionsPage() {
                       year: 'numeric',
                     })}
                   </p>
+                  {session.daily_ai_message_limit != null && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Limite IA : {session.daily_ai_message_limit.toLocaleString('fr-FR')} msg/jour
+                    </p>
+                  )}
 
                   <div className="mt-4 flex gap-2">
                     {session.status === 'qr_pending' && (
@@ -393,6 +431,20 @@ export default function SessionsPage() {
                       </>
                     )}
 
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setEditingSession(session)
+                        setFormDailyLimit(
+                          session.daily_ai_message_limit != null
+                            ? String(session.daily_ai_message_limit)
+                            : ''
+                        )
+                      }}
+                    >
+                      <Settings2 className="h-3 w-3" />
+                    </Button>
                     <Button
                       size="sm"
                       variant="ghost"
@@ -495,6 +547,55 @@ export default function SessionsPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Session Settings Dialog */}
+      <Dialog
+        open={!!editingSession}
+        onOpenChange={(open) => {
+          if (!open) setEditingSession(null)
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Paramètres de la session</DialogTitle>
+            <DialogDescription>
+              Configurez les limites pour {editingSession?.instance_name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="daily-limit">
+                Limite quotidienne de messages IA
+              </Label>
+              <Input
+                id="daily-limit"
+                type="number"
+                min={1}
+                max={100000}
+                step={1}
+                placeholder="Illimité"
+                value={formDailyLimit}
+                onChange={(e) => setFormDailyLimit(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Nombre maximum de messages envoyés par l&apos;IA par jour pour
+                cette session. Laisser vide = pas de limite.
+              </p>
+            </div>
+            <Button
+              onClick={handleSaveSessionSettings}
+              disabled={savingSettings}
+              className="w-full"
+            >
+              {savingSettings ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="mr-2 h-4 w-4" />
+              )}
+              Enregistrer
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

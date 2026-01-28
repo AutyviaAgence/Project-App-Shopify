@@ -15,6 +15,7 @@ export type WhatsAppSession = {
   status: 'connected' | 'disconnected' | 'qr_pending' | 'error'
   qr_code: string | null
   phone_number: string | null
+  daily_ai_message_limit: number | null
   created_at: string
   updated_at: string
 }
@@ -30,6 +31,8 @@ export type AIAgent = {
   temperature: number
   response_delay_min: number
   response_delay_max: number
+  max_messages_per_conversation: number | null
+  inactivity_timeout_minutes: number | null
   is_active: boolean
   created_at: string
   updated_at: string

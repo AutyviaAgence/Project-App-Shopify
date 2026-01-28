@@ -35,7 +35,7 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json()
-  const { name, description, system_prompt, objective, model, temperature, is_active, response_delay_min, response_delay_max } = body as {
+  const { name, description, system_prompt, objective, model, temperature, is_active, response_delay_min, response_delay_max, max_messages_per_conversation, inactivity_timeout_minutes } = body as {
     name?: string
     description?: string
     system_prompt?: string
@@ -45,6 +45,8 @@ export async function POST(req: Request) {
     is_active?: boolean
     response_delay_min?: number
     response_delay_max?: number
+    max_messages_per_conversation?: number | null
+    inactivity_timeout_minutes?: number | null
   }
 
   if (!name?.trim() || !system_prompt?.trim()) {
@@ -62,6 +64,13 @@ export async function POST(req: Request) {
     ? Math.max(finalDelayMin, Math.min(30, Math.floor(response_delay_max)))
     : finalDelayMin
 
+  const finalMaxMessages = max_messages_per_conversation != null
+    ? Math.max(1, Math.min(10000, Math.floor(max_messages_per_conversation)))
+    : null
+  const finalInactivityTimeout = inactivity_timeout_minutes != null
+    ? Math.max(1, Math.min(10080, Math.floor(inactivity_timeout_minutes)))
+    : null
+
   const { data: agent, error } = await supabase
     .from('ai_agents')
     .insert({
@@ -75,6 +84,8 @@ export async function POST(req: Request) {
       response_delay_min: finalDelayMin,
       response_delay_max: finalDelayMax,
       is_active: is_active !== undefined ? is_active : true,
+      max_messages_per_conversation: finalMaxMessages,
+      inactivity_timeout_minutes: finalInactivityTimeout,
     })
     .select()
     .single()

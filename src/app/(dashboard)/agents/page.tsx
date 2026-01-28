@@ -50,6 +50,8 @@ export default function AgentsPage() {
   const [formTemperature, setFormTemperature] = useState('0.7')
   const [formDelayMin, setFormDelayMin] = useState('0')
   const [formDelayMax, setFormDelayMax] = useState('0')
+  const [formMaxMessages, setFormMaxMessages] = useState('')
+  const [formInactivityTimeout, setFormInactivityTimeout] = useState('')
 
   const fetchAgents = useCallback(async () => {
     try {
@@ -79,6 +81,8 @@ export default function AgentsPage() {
     setFormTemperature('0.7')
     setFormDelayMin('0')
     setFormDelayMax('0')
+    setFormMaxMessages('')
+    setFormInactivityTimeout('')
     setDialogOpen(true)
   }
 
@@ -92,6 +96,8 @@ export default function AgentsPage() {
     setFormTemperature(String(agent.temperature))
     setFormDelayMin(String(agent.response_delay_min ?? 0))
     setFormDelayMax(String(agent.response_delay_max ?? 0))
+    setFormMaxMessages(agent.max_messages_per_conversation != null ? String(agent.max_messages_per_conversation) : '')
+    setFormInactivityTimeout(agent.inactivity_timeout_minutes != null ? String(agent.inactivity_timeout_minutes) : '')
     setDialogOpen(true)
   }
 
@@ -122,6 +128,8 @@ export default function AgentsPage() {
             temperature: temp,
             response_delay_min: parseInt(formDelayMin) || 0,
             response_delay_max: parseInt(formDelayMax) || 0,
+            max_messages_per_conversation: formMaxMessages.trim() ? parseInt(formMaxMessages) : null,
+            inactivity_timeout_minutes: formInactivityTimeout.trim() ? parseInt(formInactivityTimeout) : null,
           }),
         })
         const json = await res.json()
@@ -145,6 +153,8 @@ export default function AgentsPage() {
             temperature: temp,
             response_delay_min: parseInt(formDelayMin) || 0,
             response_delay_max: parseInt(formDelayMax) || 0,
+            max_messages_per_conversation: formMaxMessages.trim() ? parseInt(formMaxMessages) : null,
+            inactivity_timeout_minutes: formInactivityTimeout.trim() ? parseInt(formInactivityTimeout) : null,
           }),
         })
         const json = await res.json()
@@ -269,6 +279,16 @@ export default function AgentsPage() {
                       {(agent.response_delay_min > 0 || agent.response_delay_max > 0) && (
                         <span className="text-xs text-muted-foreground">
                           Délai {agent.response_delay_min}–{agent.response_delay_max}s
+                        </span>
+                      )}
+                      {agent.max_messages_per_conversation != null && (
+                        <span className="text-xs text-muted-foreground">
+                          Max {agent.max_messages_per_conversation} msg
+                        </span>
+                      )}
+                      {agent.inactivity_timeout_minutes != null && (
+                        <span className="text-xs text-muted-foreground">
+                          Timeout {agent.inactivity_timeout_minutes}min
                         </span>
                       )}
                     </div>
@@ -441,6 +461,46 @@ export default function AgentsPage() {
               <p className="text-xs text-muted-foreground">
                 Délai aléatoire entre min et max avant de répondre. Regroupe les messages
                 consécutifs et simule un comportement humain. 0/0 = réponse immédiate.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Limites de conversation</Label>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <Label htmlFor="agent-max-messages" className="text-xs text-muted-foreground">
+                    Messages max / conversation
+                  </Label>
+                  <Input
+                    id="agent-max-messages"
+                    type="number"
+                    min={1}
+                    max={10000}
+                    step={1}
+                    placeholder="Illimité"
+                    value={formMaxMessages}
+                    onChange={(e) => setFormMaxMessages(e.target.value)}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="agent-inactivity" className="text-xs text-muted-foreground">
+                    Timeout inactivité (min)
+                  </Label>
+                  <Input
+                    id="agent-inactivity"
+                    type="number"
+                    min={1}
+                    max={10080}
+                    step={1}
+                    placeholder="Désactivé"
+                    value={formInactivityTimeout}
+                    onChange={(e) => setFormInactivityTimeout(e.target.value)}
+                  />
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                L&apos;agent arrête de répondre après N messages ou si la conversation est
+                inactive depuis X minutes. Laisser vide = pas de limite.
               </p>
             </div>
 

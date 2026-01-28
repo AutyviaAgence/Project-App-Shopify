@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS whatsapp_sessions (
   status TEXT DEFAULT 'disconnected' CHECK (status IN ('connected', 'disconnected', 'qr_pending', 'error')),
   qr_code TEXT,
   phone_number TEXT,
+  daily_ai_message_limit INTEGER,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -50,6 +51,8 @@ CREATE TABLE IF NOT EXISTS ai_agents (
   temperature FLOAT DEFAULT 0.7,
   response_delay_min INTEGER DEFAULT 0,
   response_delay_max INTEGER DEFAULT 0,
+  max_messages_per_conversation INTEGER,
+  inactivity_timeout_minutes INTEGER,
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()

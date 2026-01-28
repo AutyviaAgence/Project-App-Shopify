@@ -44,7 +44,7 @@ export async function PATCH(
   }
 
   const body = await req.json()
-  const { name, description, system_prompt, objective, model, temperature, is_active, response_delay_min, response_delay_max } = body as {
+  const { name, description, system_prompt, objective, model, temperature, is_active, response_delay_min, response_delay_max, max_messages_per_conversation, inactivity_timeout_minutes } = body as {
     name?: string
     description?: string
     system_prompt?: string
@@ -54,6 +54,8 @@ export async function PATCH(
     is_active?: boolean
     response_delay_min?: number
     response_delay_max?: number
+    max_messages_per_conversation?: number | null
+    inactivity_timeout_minutes?: number | null
   }
 
   const updateData: Record<string, unknown> = {}
@@ -74,6 +76,16 @@ export async function PATCH(
   if (response_delay_max !== undefined) {
     const min = typeof updateData.response_delay_min === 'number' ? updateData.response_delay_min as number : 0
     updateData.response_delay_max = Math.max(min, Math.min(30, Math.floor(Number(response_delay_max) || 0)))
+  }
+  if (max_messages_per_conversation !== undefined) {
+    updateData.max_messages_per_conversation = max_messages_per_conversation != null
+      ? Math.max(1, Math.min(10000, Math.floor(max_messages_per_conversation)))
+      : null
+  }
+  if (inactivity_timeout_minutes !== undefined) {
+    updateData.inactivity_timeout_minutes = inactivity_timeout_minutes != null
+      ? Math.max(1, Math.min(10080, Math.floor(inactivity_timeout_minutes)))
+      : null
   }
 
   if (Object.keys(updateData).length === 0) {

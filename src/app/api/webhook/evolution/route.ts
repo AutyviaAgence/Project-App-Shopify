@@ -226,12 +226,63 @@ export async function POST(req: NextRequest) {
           })
 
           if (convFresh?.is_ai_active && convFresh?.ai_agent_id) {
-            // Récupérer le délai configuré sur l'agent
+            // Récupérer la config de l'agent (délai + limites)
             const { data: agentConfig } = await supabase
               .from('ai_agents')
-              .select('response_delay_min, response_delay_max')
+              .select('response_delay_min, response_delay_max, max_messages_per_conversation, inactivity_timeout_minutes')
               .eq('id', convFresh.ai_agent_id)
               .single()
+
+            // Vérification limite : max messages par conversation
+            if (agentConfig?.max_messages_per_conversation) {
+              const { count } = await supabase
+                .from('messages')
+                .select('id', { count: 'exact', head: true })
+                .eq('conversation_id', conversation.id)
+              if (count != null && count >= agentConfig.max_messages_per_conversation) {
+                console.log(`[Webhook] Skipping AI — max messages reached (${count}/${agentConfig.max_messages_per_conversation})`)
+                break
+              }
+            }
+
+            // Vérification limite : timeout d'inactivité
+            if (agentConfig?.inactivity_timeout_minutes) {
+              const { data: prevMessages } = await supabase
+                .from('messages')
+                .select('created_at')
+                .eq('conversation_id', conversation.id)
+                .order('created_at', { ascending: false })
+                .limit(2)
+
+              // Le premier message est celui qu'on vient d'insérer, le second est le précédent
+              if (prevMessages && prevMessages.length >= 2) {
+                const previousMsgTime = new Date(prevMessages[1].created_at)
+                const cutoff = new Date()
+                cutoff.setMinutes(cutoff.getMinutes() - agentConfig.inactivity_timeout_minutes)
+                if (previousMsgTime < cutoff) {
+                  console.log(`[Webhook] Skipping AI — conversation inactive (last msg: ${previousMsgTime.toISOString()}, timeout: ${agentConfig.inactivity_timeout_minutes}min)`)
+                  break
+                }
+              }
+            }
+
+            // Vérification limite : messages IA quotidiens par session
+            if (session.daily_ai_message_limit != null) {
+              const todayStart = new Date()
+              todayStart.setHours(0, 0, 0, 0)
+
+              const { count: dailyAiCount } = await supabase
+                .from('messages')
+                .select('id', { count: 'exact', head: true })
+                .eq('session_id', session.id)
+                .eq('sent_by', 'ai_agent')
+                .gte('created_at', todayStart.toISOString())
+
+              if (dailyAiCount != null && dailyAiCount >= session.daily_ai_message_limit) {
+                console.log(`[Webhook] Skipping AI — daily session limit reached (${dailyAiCount}/${session.daily_ai_message_limit})`)
+                break
+              }
+            }
 
             const delayMin = agentConfig?.response_delay_min ?? 0
             const delayMax = agentConfig?.response_delay_max ?? 0

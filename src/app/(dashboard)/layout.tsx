@@ -14,6 +14,7 @@ import {
   BarChart3,
   LogOut,
   BookOpen,
+  Settings,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -72,6 +73,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </nav>
 
         <div className="border-t p-2">
+          <Link
+            href="/settings"
+            className={cn(
+              'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+              pathname === '/settings' || pathname.startsWith('/settings/')
+                ? 'bg-primary text-primary-foreground'
+                : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+            )}
+          >
+            <Settings className="h-4 w-4" />
+            Paramètres
+          </Link>
           <Button
             variant="ghost"
             className="w-full justify-start gap-3 text-muted-foreground"
