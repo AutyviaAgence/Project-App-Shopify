@@ -16,6 +16,7 @@ import {
   BookOpen,
   Settings,
   ScrollText,
+  Users,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Breadcrumbs } from '@/components/breadcrumbs'
@@ -28,6 +29,7 @@ const NAV_ITEMS = [
   { href: '/agents', label: 'Agents IA', icon: Bot },
   { href: '/knowledge', label: 'Connaissances', icon: BookOpen },
   { href: '/links', label: 'Liens WA', icon: Link2 },
+  { href: '/teams', label: 'Équipes', icon: Users },
   { href: '/stats', label: 'Statistiques', icon: BarChart3 },
   { href: '/logs', label: 'Logs Webhook', icon: ScrollText },
 ]

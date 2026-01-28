@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { evolution } from '@/lib/evolution/client'
+import { getUserTeamIds, buildAccessFilter } from '@/lib/teams/access'
 
 /** POST /api/sessions — Créer une nouvelle session WhatsApp */
 export async function POST(req: NextRequest) {
@@ -9,6 +10,17 @@ export async function POST(req: NextRequest) {
 
   if (authError || !user) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  }
+
+  const body = await req.json().catch(() => ({}))
+  const { team_id } = body as { team_id?: string }
+
+  // Vérifier que l'utilisateur a accès à l'équipe si spécifiée
+  if (team_id) {
+    const teamIds = await getUserTeamIds(supabase, user.id)
+    if (!teamIds.includes(team_id)) {
+      return NextResponse.json({ error: 'Équipe non autorisée' }, { status: 403 })
+    }
   }
 
   const instanceName = `wa-${user.id.slice(0, 8)}-${Date.now()}`
@@ -31,6 +43,7 @@ export async function POST(req: NextRequest) {
     .from('whatsapp_sessions')
     .insert({
       user_id: user.id,
+      team_id: team_id || null,
       instance_name: instanceName,
       instance_id: (evoData?.instance as Record<string, unknown>)?.instanceId as string || null,
       status: 'qr_pending' as const,
@@ -48,7 +61,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ data: session })
 }
 
-/** GET /api/sessions — Lister les sessions de l'utilisateur */
+/** GET /api/sessions — Lister les sessions de l'utilisateur (+ équipes) */
 export async function GET() {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -57,10 +70,14 @@ export async function GET() {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
+  // Récupérer les équipes de l'utilisateur
+  const teamIds = await getUserTeamIds(supabase, user.id)
+
+  // Construire la requête avec filtre d'accès
   const { data: sessions, error } = await supabase
     .from('whatsapp_sessions')
     .select('*')
-    .eq('user_id', user.id)
+    .or(buildAccessFilter(user.id, teamIds))
     .order('created_at', { ascending: false })
 
   if (error) {

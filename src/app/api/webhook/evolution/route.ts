@@ -4,6 +4,7 @@ import { processAIResponse } from '@/lib/openai/process-ai-response'
 import { processMediaMessage } from '@/lib/openai/media-processor'
 import { evolution } from '@/lib/evolution/client'
 import { encryptMessage } from '@/lib/crypto/encryption'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 /**
  * POST /api/webhook/evolution
@@ -11,6 +12,9 @@ import { encryptMessage } from '@/lib/crypto/encryption'
  * Utilise le service_role car pas d'auth utilisateur ici
  */
 export async function POST(req: NextRequest) {
+  // Rate limiting pour le webhook (1000/min)
+  const rateLimitResponse = checkRateLimit(req, 'WEBHOOK')
+  if (rateLimitResponse) return rateLimitResponse
   const startTime = Date.now()
   const supabase = createAdminSupabase(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

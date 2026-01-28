@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getUserTeamIds, buildAccessFilter } from '@/lib/teams/access'
 
 const VALID_MODELS = ['gpt-4o-mini', 'gpt-4o']
 
-/** GET /api/agents — Lister les agents IA de l'utilisateur */
+/** GET /api/agents — Lister les agents IA de l'utilisateur (+ équipes) */
 export async function GET() {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -12,10 +13,13 @@ export async function GET() {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
+  // Récupérer les équipes de l'utilisateur
+  const teamIds = await getUserTeamIds(supabase, user.id)
+
   const { data: agents, error } = await supabase
     .from('ai_agents')
     .select('*')
-    .eq('user_id', user.id)
+    .or(buildAccessFilter(user.id, teamIds))
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -35,7 +39,7 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json()
-  const { name, description, system_prompt, objective, model, temperature, is_active, response_delay_min, response_delay_max, max_messages_per_conversation, inactivity_timeout_minutes } = body as {
+  const { name, description, system_prompt, objective, model, temperature, is_active, response_delay_min, response_delay_max, max_messages_per_conversation, inactivity_timeout_minutes, team_id } = body as {
     name?: string
     description?: string
     system_prompt?: string
@@ -47,6 +51,15 @@ export async function POST(req: Request) {
     response_delay_max?: number
     max_messages_per_conversation?: number | null
     inactivity_timeout_minutes?: number | null
+    team_id?: string
+  }
+
+  // Vérifier que l'utilisateur a accès à l'équipe si spécifiée
+  if (team_id) {
+    const teamIds = await getUserTeamIds(supabase, user.id)
+    if (!teamIds.includes(team_id)) {
+      return NextResponse.json({ error: 'Équipe non autorisée' }, { status: 403 })
+    }
   }
 
   if (!name?.trim() || !system_prompt?.trim()) {
@@ -75,6 +88,7 @@ export async function POST(req: Request) {
     .from('ai_agents')
     .insert({
       user_id: user.id,
+      team_id: team_id || null,
       name: name.trim(),
       description: description?.trim() || null,
       system_prompt: system_prompt.trim(),

@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { generateAgentResponse } from '@/lib/openai/client'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 /** POST /api/contacts/[id]/summary — Générer un résumé IA de la conversation */
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Rate limiting (10/min car opération IA lourde)
+  const rateLimitResponse = checkRateLimit(req, 'HEAVY')
+  if (rateLimitResponse) return rateLimitResponse
+
   const { id } = await params
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()

@@ -10,6 +10,7 @@ export type Profile = {
 export type WhatsAppSession = {
   id: string
   user_id: string
+  team_id: string | null
   instance_name: string
   instance_id: string | null
   status: 'connected' | 'disconnected' | 'qr_pending' | 'error'
@@ -23,6 +24,7 @@ export type WhatsAppSession = {
 export type AIAgent = {
   id: string
   user_id: string
+  team_id: string | null
   name: string
   description: string | null
   system_prompt: string
@@ -47,6 +49,7 @@ export type AIAgent = {
 export type WALink = {
   id: string
   user_id: string
+  team_id: string | null
   session_id: string
   ai_agent_id: string | null
   name: string
@@ -108,6 +111,7 @@ export type Message = {
 export type KnowledgeDocument = {
   id: string
   user_id: string
+  team_id: string | null
   name: string
   description: string | null
   doc_type: 'pdf' | 'text'
@@ -141,6 +145,7 @@ export type AgentKnowledgeDocument = {
 export type ConversationTag = {
   id: string
   user_id: string
+  team_id: string | null
   name: string
   color: string
   created_at: string
@@ -187,6 +192,26 @@ export type UserAlert = {
   message: string
   metadata: Record<string, unknown> | null
   is_read: boolean
+  created_at: string
+}
+
+export type Team = {
+  id: string
+  name: string
+  slug: string | null
+  owner_id: string
+  created_at: string
+  updated_at: string
+}
+
+export type TeamMember = {
+  id: string
+  team_id: string
+  user_id: string | null
+  role: 'owner' | 'admin' | 'member'
+  invited_email: string | null
+  invitation_token: string | null
+  status: 'pending' | 'accepted'
   created_at: string
 }
 
@@ -292,6 +317,18 @@ export type Database = {
         Row: UserAlert
         Insert: Partial<UserAlert> & Pick<UserAlert, 'user_id' | 'alert_type' | 'title' | 'message'>
         Update: Partial<UserAlert>
+        Relationships: []
+      }
+      teams: {
+        Row: Team
+        Insert: Partial<Team> & Pick<Team, 'name' | 'owner_id'>
+        Update: Partial<Team>
+        Relationships: []
+      }
+      team_members: {
+        Row: TeamMember
+        Insert: Partial<TeamMember> & Pick<TeamMember, 'team_id' | 'role'>
+        Update: Partial<TeamMember>
         Relationships: []
       }
     }

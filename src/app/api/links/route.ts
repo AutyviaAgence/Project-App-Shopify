@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getUserTeamIds, buildAccessFilter } from '@/lib/teams/access'
 
-/** GET /api/links — Lister les liens WA de l'utilisateur */
+/** GET /api/links — Lister les liens WA de l'utilisateur (+ équipes) */
 export async function GET() {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -10,11 +11,14 @@ export async function GET() {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
+  // Récupérer les équipes de l'utilisateur
+  const teamIds = await getUserTeamIds(supabase, user.id)
+
   // Récupérer les liens avec les sessions associées
   const { data: links, error } = await supabase
     .from('wa_links')
     .select('*, whatsapp_sessions(phone_number, instance_name, status)')
-    .eq('user_id', user.id)
+    .or(buildAccessFilter(user.id, teamIds))
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -34,25 +38,34 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json()
-  const { name, session_id, pre_filled_message, tracking_source, slug, ai_agent_id } = body as {
+  const { name, session_id, pre_filled_message, tracking_source, slug, ai_agent_id, team_id } = body as {
     name?: string
     session_id?: string
     pre_filled_message?: string
     tracking_source?: string
     slug?: string
     ai_agent_id?: string | null
+    team_id?: string
   }
 
   if (!name || !session_id) {
     return NextResponse.json({ error: 'Nom et session requis' }, { status: 400 })
   }
 
-  // Vérifier que la session appartient à l'utilisateur
+  // Récupérer les équipes de l'utilisateur
+  const teamIds = await getUserTeamIds(supabase, user.id)
+
+  // Vérifier que l'utilisateur a accès à l'équipe si spécifiée
+  if (team_id && !teamIds.includes(team_id)) {
+    return NextResponse.json({ error: 'Équipe non autorisée' }, { status: 403 })
+  }
+
+  // Vérifier que la session appartient à l'utilisateur ou à une de ses équipes
   const { data: session } = await supabase
     .from('whatsapp_sessions')
     .select('id')
     .eq('id', session_id)
-    .eq('user_id', user.id)
+    .or(buildAccessFilter(user.id, teamIds))
     .single()
 
   if (!session) {
@@ -66,6 +79,7 @@ export async function POST(req: Request) {
     .from('wa_links')
     .insert({
       user_id: user.id,
+      team_id: team_id || null,
       session_id,
       name,
       slug: finalSlug,

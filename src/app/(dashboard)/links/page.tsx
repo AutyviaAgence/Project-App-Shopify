@@ -225,9 +225,27 @@ export default function LinksPage() {
     return `${base}/api/wa/${slug}`
   }
 
+  function getDirectWaUrl(link: WALinkWithSession) {
+    const phone = link.whatsapp_sessions?.phone_number
+    if (!phone) return null
+    let url = `https://wa.me/${phone}`
+    if (link.pre_filled_message) {
+      url += `?text=${encodeURIComponent(link.pre_filled_message)}`
+    }
+    return url
+  }
+
   function copyLink(slug: string) {
     navigator.clipboard.writeText(getPublicUrl(slug))
     toast.success('Lien copié !')
+  }
+
+  function copyDirectLink(link: WALinkWithSession) {
+    const url = getDirectWaUrl(link)
+    if (url) {
+      navigator.clipboard.writeText(url)
+      toast.success('Lien wa.me direct copié !')
+    }
   }
 
   if (loading) {
@@ -333,18 +351,37 @@ export default function LinksPage() {
                         /api/wa/{link.slug}
                       </code>
                     )}
+
+                    {phone && (
+                      <code className="block text-xs bg-green-50 dark:bg-green-950 px-2 py-0.5 rounded truncate text-green-700 dark:text-green-300">
+                        wa.me/{phone}
+                      </code>
+                    )}
                   </div>
 
-                  <div className="mt-4 flex items-center gap-2">
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => copyLink(link.slug!)}
                       disabled={!link.slug}
+                      title="Copier le lien avec tracking"
                     >
                       <Copy className="mr-1 h-3 w-3" />
-                      Copier
+                      Tracking
                     </Button>
+                    {phone && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => copyDirectLink(link)}
+                        className="border-green-300 text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-400 dark:hover:bg-green-950"
+                        title="Copier le lien wa.me direct (pour Google My Business, etc.)"
+                      >
+                        <Copy className="mr-1 h-3 w-3" />
+                        wa.me
+                      </Button>
+                    )}
                     <Button
                       size="sm"
                       variant="outline"

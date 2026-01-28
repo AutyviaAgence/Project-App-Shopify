@@ -222,15 +222,36 @@ export default function ConversationsPage() {
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages' },
-        (payload) => {
+        async (payload) => {
           const newMsg = payload.new as Message
-          // Add to current chat if matching
+          // Add to current chat if matching - re-fetch via API to get decrypted content
           if (selectedConv && newMsg.conversation_id === selectedConv.id) {
+            // Check if message already exists (deduplicate)
             setMessages((prev) => {
-              // Deduplicate
               if (prev.some((m) => m.id === newMsg.id)) return prev
-              return [...prev, newMsg]
+              // Add placeholder immediately for responsiveness
+              return prev
             })
+
+            // Fetch the single message via API to get decrypted content
+            try {
+              const res = await fetch(`/api/conversations/${selectedConv.id}/messages/${newMsg.id}`)
+              if (res.ok) {
+                const json = await res.json()
+                if (json.data) {
+                  setMessages((prev) => {
+                    if (prev.some((m) => m.id === json.data.id)) return prev
+                    return [...prev, json.data]
+                  })
+                }
+              } else {
+                // Fallback: reload all messages
+                loadMessages(selectedConv.id)
+              }
+            } catch {
+              // Fallback: reload all messages
+              loadMessages(selectedConv.id)
+            }
           }
           // Update conversation list
           fetchConversations()
@@ -255,7 +276,7 @@ export default function ConversationsPage() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [selectedConv?.id, fetchConversations])
+  }, [selectedConv?.id, fetchConversations, loadMessages])
 
   async function handleSend(e: React.FormEvent) {
     e.preventDefault()
