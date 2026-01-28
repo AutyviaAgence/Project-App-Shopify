@@ -63,6 +63,13 @@ $$ LANGUAGE plpgsql;
 -- =============================================
 ALTER TABLE team_invitations ENABLE ROW LEVEL SECURITY;
 
+-- Supprimer les policies existantes si elles existent
+DROP POLICY IF EXISTS "Admins can view team invitations" ON team_invitations;
+DROP POLICY IF EXISTS "Admins can create invitations" ON team_invitations;
+DROP POLICY IF EXISTS "Admins can delete unused invitations" ON team_invitations;
+DROP POLICY IF EXISTS "Anyone can view invitation by code" ON team_invitations;
+DROP POLICY IF EXISTS "Admins can update invitations" ON team_invitations;
+
 -- Les admins/owners peuvent voir les invitations de leur équipe
 CREATE POLICY "Admins can view team invitations" ON team_invitations
   FOR SELECT USING (is_team_admin(team_id));
@@ -74,6 +81,10 @@ CREATE POLICY "Admins can create invitations" ON team_invitations
 -- Les admins/owners peuvent supprimer des invitations non utilisées
 CREATE POLICY "Admins can delete unused invitations" ON team_invitations
   FOR DELETE USING (is_team_admin(team_id) AND used_by IS NULL);
+
+-- Les admins/owners peuvent mettre à jour les invitations (pour marquer used_by)
+CREATE POLICY "Admins can update invitations" ON team_invitations
+  FOR UPDATE USING (is_team_admin(team_id));
 
 -- Tout le monde peut voir une invitation par son code (pour rejoindre)
 CREATE POLICY "Anyone can view invitation by code" ON team_invitations

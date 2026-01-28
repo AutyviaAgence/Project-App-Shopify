@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
-/** POST /api/teams/join-code — Rejoindre une équipe via code d'invitation */
+/** POST /api/teams/join-code — Rejoindre une équipe via code d'invitation unique */
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
