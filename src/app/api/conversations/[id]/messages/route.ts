@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { decryptMessage } from '@/lib/crypto/encryption'
 
 /** GET /api/conversations/[id]/messages — Lister les messages d'une conversation */
 export async function GET(
@@ -48,11 +49,17 @@ export async function GET(
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  // Déchiffrer les messages
+  const decryptedMessages = (messages || []).map(msg => ({
+    ...msg,
+    content: msg.content ? decryptMessage(msg.content) : msg.content,
+  }))
+
   // Marquer comme lu (reset unread)
   await supabase
     .from('conversations')
     .update({ unread_count: 0 })
     .eq('id', id)
 
-  return NextResponse.json({ data: messages })
+  return NextResponse.json({ data: decryptedMessages })
 }

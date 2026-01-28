@@ -1,0 +1,213 @@
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import { Bell, Check, Trash2, AlertTriangle, WifiOff, AlertCircle, Info, Zap } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { cn } from '@/lib/utils'
+import { toast } from 'sonner'
+import type { UserAlert } from '@/types/database'
+
+const ALERT_ICONS: Record<string, typeof AlertTriangle> = {
+  session_disconnected: WifiOff,
+  quota_reached: Zap,
+  ai_error: AlertCircle,
+  webhook_error: AlertTriangle,
+  info: Info,
+}
+
+const ALERT_COLORS: Record<string, string> = {
+  session_disconnected: 'text-orange-500',
+  quota_reached: 'text-yellow-500',
+  ai_error: 'text-red-500',
+  webhook_error: 'text-red-500',
+  info: 'text-blue-500',
+}
+
+export function AlertsDropdown() {
+  const [alerts, setAlerts] = useState<UserAlert[]>([])
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [isOpen, setIsOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+
+  const fetchAlerts = useCallback(async () => {
+    try {
+      const res = await fetch('/api/alerts?limit=10')
+      if (!res.ok) return
+      const data = await res.json()
+      setAlerts(data.data || [])
+      setUnreadCount(data.unread_count || 0)
+    } catch {
+      // Silently fail
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchAlerts()
+    // Poll every 30 seconds
+    const interval = setInterval(fetchAlerts, 30000)
+    return () => clearInterval(interval)
+  }, [fetchAlerts])
+
+  const handleMarkAsRead = async (alertId: string) => {
+    try {
+      const res = await fetch('/api/alerts', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ alert_ids: [alertId] }),
+      })
+      if (!res.ok) throw new Error()
+      setAlerts(prev => prev.map(a => a.id === alertId ? { ...a, is_read: true } : a))
+      setUnreadCount(prev => Math.max(0, prev - 1))
+    } catch {
+      toast.error('Erreur lors du marquage')
+    }
+  }
+
+  const handleMarkAllRead = async () => {
+    setIsLoading(true)
+    try {
+      const res = await fetch('/api/alerts', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mark_all_read: true }),
+      })
+      if (!res.ok) throw new Error()
+      setAlerts(prev => prev.map(a => ({ ...a, is_read: true })))
+      setUnreadCount(0)
+      toast.success('Toutes les alertes marquées comme lues')
+    } catch {
+      toast.error('Erreur lors du marquage')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleDelete = async (alertId: string) => {
+    try {
+      const res = await fetch(`/api/alerts?id=${alertId}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error()
+      const wasUnread = alerts.find(a => a.id === alertId)?.is_read === false
+      setAlerts(prev => prev.filter(a => a.id !== alertId))
+      if (wasUnread) setUnreadCount(prev => Math.max(0, prev - 1))
+    } catch {
+      toast.error('Erreur lors de la suppression')
+    }
+  }
+
+  const formatTime = (dateStr: string) => {
+    const date = new Date(dateStr)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffMins = Math.floor(diffMs / 60000)
+    const diffHours = Math.floor(diffMins / 60)
+    const diffDays = Math.floor(diffHours / 24)
+
+    if (diffMins < 1) return 'À l\'instant'
+    if (diffMins < 60) return `Il y a ${diffMins}min`
+    if (diffHours < 24) return `Il y a ${diffHours}h`
+    if (diffDays < 7) return `Il y a ${diffDays}j`
+    return date.toLocaleDateString('fr-FR')
+  }
+
+  return (
+    <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon" className="relative">
+          <Bell className="h-5 w-5" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+              {unreadCount > 9 ? '9+' : unreadCount}
+            </span>
+          )}
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-80">
+        <DropdownMenuLabel className="flex items-center justify-between">
+          <span>Notifications</span>
+          {unreadCount > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 text-xs"
+              onClick={handleMarkAllRead}
+              disabled={isLoading}
+            >
+              <Check className="mr-1 h-3 w-3" />
+              Tout lire
+            </Button>
+          )}
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+
+        {alerts.length === 0 ? (
+          <div className="py-6 text-center text-sm text-muted-foreground">
+            Aucune notification
+          </div>
+        ) : (
+          <div className="max-h-[300px] overflow-y-auto">
+            {alerts.map((alert) => {
+              const Icon = ALERT_ICONS[alert.alert_type] || Info
+              const color = ALERT_COLORS[alert.alert_type] || 'text-muted-foreground'
+
+              return (
+                <DropdownMenuItem
+                  key={alert.id}
+                  className={cn(
+                    'flex items-start gap-3 p-3 cursor-default',
+                    !alert.is_read && 'bg-muted/50'
+                  )}
+                  onSelect={(e) => e.preventDefault()}
+                >
+                  <Icon className={cn('h-5 w-5 mt-0.5 shrink-0', color)} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className={cn('text-sm font-medium truncate', !alert.is_read && 'font-semibold')}>
+                        {alert.title}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground shrink-0">
+                        {formatTime(alert.created_at)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
+                      {alert.message}
+                    </p>
+                    <div className="flex items-center gap-1 mt-1">
+                      {!alert.is_read && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-5 text-[10px] px-1.5"
+                          onClick={() => handleMarkAsRead(alert.id)}
+                        >
+                          <Check className="mr-0.5 h-2.5 w-2.5" />
+                          Lu
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-5 text-[10px] px-1.5 text-destructive hover:text-destructive"
+                        onClick={() => handleDelete(alert.id)}
+                      >
+                        <Trash2 className="mr-0.5 h-2.5 w-2.5" />
+                        Supprimer
+                      </Button>
+                    </div>
+                  </div>
+                </DropdownMenuItem>
+              )
+            })}
+          </div>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}

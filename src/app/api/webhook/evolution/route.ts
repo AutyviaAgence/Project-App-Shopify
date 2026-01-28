@@ -3,6 +3,7 @@ import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { processAIResponse } from '@/lib/openai/process-ai-response'
 import { processMediaMessage } from '@/lib/openai/media-processor'
 import { evolution } from '@/lib/evolution/client'
+import { encryptMessage } from '@/lib/crypto/encryption'
 
 /**
  * POST /api/webhook/evolution
@@ -78,6 +79,17 @@ export async function POST(req: NextRequest) {
           .from('whatsapp_sessions')
           .update(updateData)
           .eq('id', session.id)
+
+        // Créer une alerte si session déconnectée
+        if (state === 'close' && session.status === 'connected') {
+          await supabase.from('user_alerts').insert({
+            user_id: session.user_id,
+            alert_type: 'session_disconnected',
+            title: 'Session déconnectée',
+            message: `La session "${session.instance_name}" a été déconnectée. Reconnectez-vous via le QR code.`,
+            metadata: { session_id: session.id, instance_name: session.instance_name },
+          })
+        }
 
         break
       }
@@ -212,13 +224,16 @@ export async function POST(req: NextRequest) {
         }
 
         // 3. Insérer le message (dédupliqué via index unique wa_message_id)
+        // Chiffrer le contenu du message si la clé est configurée
+        const encryptedContent = content ? encryptMessage(content) : ''
+
         const { data: insertedMessage } = await supabase
           .from('messages')
           .insert({
             conversation_id: conversation.id,
             session_id: session.id,
             direction: fromMe ? 'outbound' : 'inbound',
-            content: content || '',
+            content: encryptedContent,
             message_type: messageType,
             media_url: mediaResult.mediaUrl,
             wa_message_id: waMessageId,
@@ -341,6 +356,27 @@ export async function POST(req: NextRequest) {
 
               if (dailyAiCount != null && dailyAiCount >= session.daily_ai_message_limit) {
                 console.log(`[Webhook] Skipping AI — daily session limit reached (${dailyAiCount}/${session.daily_ai_message_limit})`)
+
+                // Créer une alerte quota atteint (une seule fois par jour)
+                const todayStr = todayStart.toISOString().split('T')[0]
+                const { data: existingAlert } = await supabase
+                  .from('user_alerts')
+                  .select('id')
+                  .eq('user_id', session.user_id)
+                  .eq('alert_type', 'quota_reached')
+                  .gte('created_at', todayStart.toISOString())
+                  .limit(1)
+                  .maybeSingle()
+
+                if (!existingAlert) {
+                  await supabase.from('user_alerts').insert({
+                    user_id: session.user_id,
+                    alert_type: 'quota_reached',
+                    title: 'Quota IA atteint',
+                    message: `La session "${session.instance_name}" a atteint sa limite quotidienne de ${session.daily_ai_message_limit} messages IA.`,
+                    metadata: { session_id: session.id, date: todayStr, limit: session.daily_ai_message_limit },
+                  })
+                }
                 break
               }
             }
@@ -426,6 +462,25 @@ export async function POST(req: NextRequest) {
         error_message: logError,
         processing_time_ms: Date.now() - startTime,
       })
+
+      // Créer une alerte d'erreur webhook si on a une session
+      if (sessionId) {
+        const { data: sess } = await supabase
+          .from('whatsapp_sessions')
+          .select('user_id, instance_name')
+          .eq('id', sessionId)
+          .single()
+
+        if (sess) {
+          await supabase.from('user_alerts').insert({
+            user_id: sess.user_id,
+            alert_type: 'webhook_error',
+            title: 'Erreur webhook',
+            message: `Une erreur s'est produite lors du traitement d'un webhook pour "${sess.instance_name}": ${logError}`,
+            metadata: { session_id: sessionId, error: logError },
+          })
+        }
+      }
     } catch {
       // Ignore logging errors
     }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { evolution } from '@/lib/evolution/client'
+import { encryptMessage } from '@/lib/crypto/encryption'
 
 /** POST /api/conversations/[id]/send — Envoyer un message */
 export async function POST(
@@ -75,14 +76,16 @@ export async function POST(
     return NextResponse.json({ error: evoResult.error }, { status: 502 })
   }
 
-  // Sauvegarder en BDD
+  // Sauvegarder en BDD (chiffré si clé configurée)
+  const encryptedContent = encryptMessage(content.trim())
+
   const { data: message, error: dbError } = await supabase
     .from('messages')
     .insert({
       conversation_id: id,
       session_id: session.id,
       direction: 'outbound',
-      content: content.trim(),
+      content: encryptedContent,
       message_type: 'text',
       sent_by: 'user',
       status: 'sent',

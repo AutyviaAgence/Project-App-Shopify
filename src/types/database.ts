@@ -179,6 +179,17 @@ export type WebhookLog = {
   created_at: string
 }
 
+export type UserAlert = {
+  id: string
+  user_id: string
+  alert_type: 'session_disconnected' | 'quota_reached' | 'ai_error' | 'webhook_error' | 'info'
+  title: string
+  message: string
+  metadata: Record<string, unknown> | null
+  is_read: boolean
+  created_at: string
+}
+
 // Joined types
 export type ConversationWithContact = Conversation & {
   contact: Contact
@@ -275,6 +286,12 @@ export type Database = {
         Row: WebhookLog
         Insert: Partial<WebhookLog> & Pick<WebhookLog, 'event_type' | 'instance_name'>
         Update: Partial<WebhookLog>
+        Relationships: []
+      }
+      user_alerts: {
+        Row: UserAlert
+        Insert: Partial<UserAlert> & Pick<UserAlert, 'user_id' | 'alert_type' | 'title' | 'message'>
+        Update: Partial<UserAlert>
         Relationships: []
       }
     }

@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Breadcrumbs } from '@/components/breadcrumbs'
+import { AlertsDropdown } from '@/components/alerts-dropdown'
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -50,8 +51,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     <div className="flex h-screen">
       {/* Sidebar */}
       <aside className="flex w-60 flex-col border-r bg-muted/30">
-        <div className="flex h-14 items-center border-b px-4">
+        <div className="flex h-14 items-center justify-between border-b px-4">
           <span className="text-lg font-bold">Autyvia</span>
+          <AlertsDropdown />
         </div>
 
         <nav className="flex-1 space-y-1 p-2">

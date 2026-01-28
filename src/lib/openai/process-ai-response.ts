@@ -3,6 +3,7 @@ import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { generateAgentResponse, type ChatMessage } from './client'
 import { evolution } from '@/lib/evolution/client'
 import { retrieveContext } from '@/lib/knowledge/retriever'
+import { encryptMessage, decryptMessage } from '@/lib/crypto/encryption'
 
 const MAX_CONTEXT_MESSAGES = 50
 
@@ -48,12 +49,13 @@ export async function processAIResponse(params: {
       .limit(MAX_CONTEXT_MESSAGES)
 
     // 3. Remettre en ordre chronologique et construire les messages pour OpenAI
+    // Déchiffrer les messages pour le contexte IA
     const sorted = (recentMessages || []).reverse()
     const chatMessages: ChatMessage[] = sorted
       .filter((m) => m.content)
       .map((m) => ({
         role: m.sent_by === 'contact' ? ('user' as const) : ('assistant' as const),
-        content: m.content!,
+        content: decryptMessage(m.content!),
       }))
 
     // 3.5. RAG : Récupérer le contexte pertinent de la base de connaissances
@@ -120,12 +122,12 @@ export async function processAIResponse(params: {
       console.error('[AI] Erreur envoi Evolution:', evoResult.error)
     }
 
-    // 7. Sauvegarder le message IA en BDD
+    // 7. Sauvegarder le message IA en BDD (chiffré si clé configurée)
     await supabase.from('messages').insert({
       conversation_id: params.conversationId,
       session_id: params.sessionId,
       direction: 'outbound',
-      content: aiResponseText,
+      content: encryptMessage(aiResponseText),
       message_type: 'text',
       sent_by: 'ai_agent',
       ai_agent_id: params.agentId,
