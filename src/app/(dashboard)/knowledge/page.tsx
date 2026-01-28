@@ -28,6 +28,8 @@ import {
   RefreshCw,
   Bot,
   Check,
+  Download,
+  Eye,
 } from 'lucide-react'
 
 function statusBadge(status: string) {
@@ -86,6 +88,11 @@ export default function KnowledgePage() {
   const [selectedDoc, setSelectedDoc] = useState<KnowledgeDocument | null>(null)
   const [docAgentIds, setDocAgentIds] = useState<string[]>([])
   const [savingAgents, setSavingAgents] = useState(false)
+
+  // View document dialog
+  const [viewDialogOpen, setViewDialogOpen] = useState(false)
+  const [viewDoc, setViewDoc] = useState<{ name: string; content: string } | null>(null)
+  const [viewLoading, setViewLoading] = useState(false)
 
   // Polling ref
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -342,6 +349,61 @@ export default function KnowledgePage() {
     }
   }
 
+  async function handleDownload(doc: KnowledgeDocument) {
+    try {
+      const res = await fetch(`/api/knowledge/${doc.id}/download`)
+      const json = await res.json()
+      if (!res.ok) {
+        toast.error(json.error || 'Erreur lors du téléchargement')
+        return
+      }
+
+      if (json.type === 'pdf') {
+        // Ouvrir l'URL signée dans un nouvel onglet (visualisation / téléchargement)
+        window.open(json.url, '_blank')
+      } else {
+        // Document texte : télécharger en fichier .txt
+        const blob = new Blob([json.content], { type: 'text/plain;charset=utf-8' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${json.name || 'document'}.txt`
+        a.click()
+        URL.revokeObjectURL(url)
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    }
+  }
+
+  async function handleView(doc: KnowledgeDocument) {
+    if (doc.doc_type === 'pdf') {
+      // Pour les PDF, ouvrir directement dans un nouvel onglet
+      handleDownload(doc)
+      return
+    }
+
+    // Pour les documents texte, afficher dans un dialog
+    setViewLoading(true)
+    setViewDialogOpen(true)
+    setViewDoc(null)
+    try {
+      const res = await fetch(`/api/knowledge/${doc.id}/download`)
+      const json = await res.json()
+      if (res.ok) {
+        setViewDoc({ name: json.name, content: json.content })
+      } else {
+        toast.error(json.error || 'Erreur lors du chargement')
+        setViewDialogOpen(false)
+      }
+    } catch {
+      toast.error('Erreur réseau')
+      setViewDialogOpen(false)
+    } finally {
+      setViewLoading(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -423,6 +485,26 @@ export default function KnowledgePage() {
                   </div>
 
                   <div className="mt-4 flex items-center gap-2 flex-wrap">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleView(doc)}
+                    >
+                      <Eye className="mr-1 h-3 w-3" />
+                      Voir
+                    </Button>
+
+                    {doc.doc_type === 'pdf' && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleDownload(doc)}
+                      >
+                        <Download className="mr-1 h-3 w-3" />
+                        Télécharger
+                      </Button>
+                    )}
+
                     {doc.doc_type === 'text' && (
                       <Button
                         size="sm"
@@ -695,6 +777,33 @@ export default function KnowledgePage() {
               Enregistrer
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* View Document Dialog (texte) */}
+      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>
+              <FileText className="mr-2 inline h-4 w-4" />
+              {viewDoc?.name || 'Document'}
+            </DialogTitle>
+            <DialogDescription>
+              Contenu du document texte
+            </DialogDescription>
+          </DialogHeader>
+
+          {viewLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : viewDoc ? (
+            <div className="flex-1 overflow-y-auto">
+              <pre className="whitespace-pre-wrap break-words rounded-md border bg-muted/50 p-4 text-sm font-mono">
+                {viewDoc.content}
+              </pre>
+            </div>
+          ) : null}
         </DialogContent>
       </Dialog>
     </div>
