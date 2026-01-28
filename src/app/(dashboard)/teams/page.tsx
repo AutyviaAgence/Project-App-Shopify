@@ -52,7 +52,7 @@ import {
   Link2,
 } from 'lucide-react'
 
-type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member'; join_code?: string }
+type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
 
 type TeamMemberWithProfile = TeamMember & {
   profile?: Profile | null
@@ -473,11 +473,11 @@ export default function TeamsPage() {
               <div className="flex gap-2 mt-1">
                 <Input
                   id="join-code"
-                  placeholder="AUTY-XXXX"
+                  placeholder="ABC123"
                   value={joinCode}
                   onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                   className="font-mono"
-                  maxLength={9}
+                  maxLength={6}
                 />
                 <Button onClick={handleJoinWithCode} disabled={joining || !joinCode.trim()}>
                   {joining ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4 mr-2" />}
@@ -515,22 +515,7 @@ export default function TeamsPage() {
             <Card key={team.id} className="overflow-hidden">
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <CardTitle className="text-base truncate">{team.name}</CardTitle>
-                    {team.join_code && (team.my_role === 'owner' || team.my_role === 'admin') && (
-                      <button
-                        onClick={() => copyCode(team.join_code!)}
-                        className="mt-1 inline-flex items-center gap-1.5 text-xs font-mono bg-muted px-2 py-1 rounded hover:bg-muted/80 transition-colors"
-                      >
-                        {copiedCode === team.join_code ? (
-                          <Check className="h-3 w-3 text-green-500" />
-                        ) : (
-                          <Copy className="h-3 w-3" />
-                        )}
-                        {team.join_code}
-                      </button>
-                    )}
-                  </div>
+                  <CardTitle className="text-base truncate">{team.name}</CardTitle>
                   {getRoleBadge(team.my_role)}
                 </div>
               </CardHeader>
@@ -589,7 +574,7 @@ export default function TeamsPage() {
           <DialogHeader>
             <DialogTitle>Nouvelle équipe</DialogTitle>
             <DialogDescription>
-              Un code de jonction sera généré automatiquement.
+              Créez une équipe puis invitez des membres avec des codes d&apos;invitation.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -627,24 +612,6 @@ export default function TeamsPage() {
                 onKeyDown={(e) => e.key === 'Enter' && handleEdit()}
               />
             </div>
-            {selectedTeam?.join_code && (
-              <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Code de jonction</Label>
-                <div className="flex gap-2">
-                  <Input value={selectedTeam.join_code} readOnly className="font-mono" />
-                  <Button variant="outline" size="icon" onClick={() => copyCode(selectedTeam.join_code!)}>
-                    {copiedCode === selectedTeam.join_code ? (
-                      <Check className="h-4 w-4 text-green-500" />
-                    ) : (
-                      <Copy className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Partagez ce code pour que d&apos;autres personnes puissent rejoindre votre équipe.
-                </p>
-              </div>
-            )}
             <Button onClick={handleEdit} disabled={saving || !formName.trim()} className="w-full">
               {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Pencil className="mr-2 h-4 w-4" />}
               Enregistrer
@@ -659,22 +626,7 @@ export default function TeamsPage() {
           <DialogHeader>
             <DialogTitle>Membres de {selectedTeam?.name}</DialogTitle>
             <DialogDescription>
-              {selectedTeam?.join_code && (selectedTeam?.my_role === 'owner' || selectedTeam?.my_role === 'admin') && (
-                <span className="inline-flex items-center gap-2 mt-2">
-                  Code de jonction :
-                  <button
-                    onClick={() => copyCode(selectedTeam.join_code!)}
-                    className="inline-flex items-center gap-1.5 font-mono bg-muted px-2 py-1 rounded hover:bg-muted/80 transition-colors"
-                  >
-                    {copiedCode === selectedTeam.join_code ? (
-                      <Check className="h-3 w-3 text-green-500" />
-                    ) : (
-                      <Copy className="h-3 w-3" />
-                    )}
-                    {selectedTeam.join_code}
-                  </button>
-                </span>
-              )}
+              Gérez les membres de votre équipe.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
