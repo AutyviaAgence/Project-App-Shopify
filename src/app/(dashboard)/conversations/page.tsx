@@ -65,8 +65,15 @@ type ConversationWithJoins = {
     id: string
     instance_name: string
     phone_number: string | null
+    team_id: string | null
+    team_name: string | null
   }
   tags?: ConversationTag[]
+}
+
+type Team = {
+  id: string
+  name: string
 }
 
 export default function ConversationsPage() {
@@ -91,8 +98,10 @@ export default function ConversationsPage() {
 
   // Filters
   const [sessions, setSessions] = useState<{ id: string; instance_name: string; phone_number: string | null }[]>([])
+  const [teams, setTeams] = useState<Team[]>([])
   const [filterSession, setFilterSession] = useState<string>('all')
   const [filterAiActive, setFilterAiActive] = useState<string>('all')
+  const [filterTeam, setFilterTeam] = useState<string>('all')
   const [showFilters, setShowFilters] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -130,6 +139,18 @@ export default function ConversationsPage() {
     }
   }, [])
 
+  const fetchTeams = useCallback(async () => {
+    try {
+      const res = await fetch('/api/teams')
+      const json = await res.json()
+      if (res.ok && json.data) {
+        setTeams(json.data)
+      }
+    } catch {
+      // silently ignore
+    }
+  }, [])
+
   const fetchTags = useCallback(async () => {
     try {
       const res = await fetch('/api/tags')
@@ -159,6 +180,7 @@ export default function ConversationsPage() {
       const params = new URLSearchParams()
       if (filterSession !== 'all') params.set('session_id', filterSession)
       if (filterAiActive !== 'all') params.set('is_ai_active', filterAiActive)
+      if (filterTeam !== 'all') params.set('team_id', filterTeam)
       params.set('page', page.toString())
       params.set('limit', ITEMS_PER_PAGE.toString())
 
@@ -177,14 +199,15 @@ export default function ConversationsPage() {
     } finally {
       setLoading(false)
     }
-  }, [filterSession, filterAiActive, page])
+  }, [filterSession, filterAiActive, filterTeam, page])
 
   useEffect(() => {
     fetchConversations()
     fetchAgents()
     fetchSessions()
     fetchTags()
-  }, [fetchConversations, fetchAgents, fetchSessions, fetchTags])
+    fetchTeams()
+  }, [fetchConversations, fetchAgents, fetchSessions, fetchTags, fetchTeams])
 
   // Load messages when selecting a conversation
   const loadMessages = useCallback(async (convId: string) => {
@@ -519,9 +542,9 @@ export default function ConversationsPage() {
             >
               <Filter className="h-3.5 w-3.5" />
               Filtres
-              {(filterSession !== 'all' || filterAiActive !== 'all') && (
+              {(filterSession !== 'all' || filterAiActive !== 'all' || filterTeam !== 'all') && (
                 <Badge variant="default" className="ml-1 h-4 w-4 p-0 text-[10px]">
-                  {(filterSession !== 'all' ? 1 : 0) + (filterAiActive !== 'all' ? 1 : 0)}
+                  {(filterSession !== 'all' ? 1 : 0) + (filterAiActive !== 'all' ? 1 : 0) + (filterTeam !== 'all' ? 1 : 0)}
                 </Badge>
               )}
             </Button>
@@ -532,6 +555,23 @@ export default function ConversationsPage() {
 
           {showFilters && (
             <div className="flex flex-wrap gap-2 animate-fade-in-up">
+              {teams.length > 0 && (
+                <Select value={filterTeam} onValueChange={(v) => { setFilterTeam(v); setPage(1) }}>
+                  <SelectTrigger className="h-8 w-[140px] text-xs">
+                    <SelectValue placeholder="Équipe" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Toutes</SelectItem>
+                    <SelectItem value="personal">Personnelles</SelectItem>
+                    {teams.map((t) => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+
               <Select value={filterSession} onValueChange={(v) => { setFilterSession(v); setPage(1) }}>
                 <SelectTrigger className="h-8 w-[140px] text-xs">
                   <SelectValue placeholder="Session" />
@@ -557,12 +597,12 @@ export default function ConversationsPage() {
                 </SelectContent>
               </Select>
 
-              {(filterSession !== 'all' || filterAiActive !== 'all') && (
+              {(filterSession !== 'all' || filterAiActive !== 'all' || filterTeam !== 'all') && (
                 <Button
                   variant="ghost"
                   size="sm"
                   className="h-8 px-2 text-xs"
-                  onClick={() => { setFilterSession('all'); setFilterAiActive('all'); setPage(1) }}
+                  onClick={() => { setFilterSession('all'); setFilterAiActive('all'); setFilterTeam('all'); setPage(1) }}
                 >
                   <X className="h-3 w-3 mr-1" />
                   Reset
@@ -645,6 +685,11 @@ export default function ConversationsPage() {
                           <Smartphone className="h-3 w-3" />
                           {getSessionLabel(conv)}
                         </span>
+                        {conv.session.team_name && (
+                          <Badge variant="outline" className="h-4 px-1.5 text-[9px] border-primary/30 text-primary">
+                            {conv.session.team_name}
+                          </Badge>
+                        )}
                         {conv.is_ai_active && (
                           <Badge className="h-4 px-1.5 text-[9px] bg-[#7DC2A5]/10 text-[#7DC2A5] hover:bg-[#7DC2A5]/20 border-0">
                             <Bot className="mr-0.5 h-2.5 w-2.5" />

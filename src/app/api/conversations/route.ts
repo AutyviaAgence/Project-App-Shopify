@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getUserTeamIds } from '@/lib/teams/access'
 
 /** GET /api/conversations — Lister les conversations de l'utilisateur */
 export async function GET(req: NextRequest) {
@@ -16,14 +17,39 @@ export async function GET(req: NextRequest) {
   const aiActiveFilter = searchParams.get('is_ai_active')
   const dateFrom = searchParams.get('date_from')
   const dateTo = searchParams.get('date_to')
+  const teamFilter = searchParams.get('team_id')
   const page = parseInt(searchParams.get('page') || '1', 10)
   const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10), 100)
 
-  // Récupérer les sessions de l'utilisateur
-  const { data: sessions } = await supabase
+  // Récupérer les équipes de l'utilisateur
+  const teamIds = await getUserTeamIds(supabase, user.id)
+
+  // Récupérer les sessions de l'utilisateur et de ses équipes
+  let sessionsQuery = supabase
     .from('whatsapp_sessions')
     .select('*')
-    .eq('user_id', user.id)
+
+  if (teamIds.length > 0) {
+    sessionsQuery = sessionsQuery.or(`user_id.eq.${user.id},team_id.in.(${teamIds.join(',')})`)
+  } else {
+    sessionsQuery = sessionsQuery.eq('user_id', user.id)
+  }
+
+  // Filtrer par équipe si demandé
+  if (teamFilter === 'personal') {
+    sessionsQuery = supabase
+      .from('whatsapp_sessions')
+      .select('*')
+      .eq('user_id', user.id)
+      .is('team_id', null)
+  } else if (teamFilter && teamFilter !== 'all') {
+    sessionsQuery = supabase
+      .from('whatsapp_sessions')
+      .select('*')
+      .eq('team_id', teamFilter)
+  }
+
+  const { data: sessions } = await sessionsQuery
 
   if (!sessions || sessions.length === 0) {
     return NextResponse.json({ data: [] })
@@ -83,16 +109,32 @@ export async function GET(req: NextRequest) {
 
   const contactsMap = Object.fromEntries((contacts || []).map((c) => [c.id, c]))
 
+  // Récupérer les noms des équipes
+  const sessionTeamIds = [...new Set(sessions.map((s) => s.team_id).filter(Boolean))] as string[]
+  let teamsMap: Record<string, { id: string; name: string }> = {}
+  if (sessionTeamIds.length > 0) {
+    const { data: teams } = await supabase
+      .from('teams')
+      .select('id, name')
+      .in('id', sessionTeamIds)
+    teamsMap = Object.fromEntries((teams || []).map((t) => [t.id, t]))
+  }
+
   // Assembler les données
-  const result = conversations.map((conv) => ({
-    ...conv,
-    contact: contactsMap[conv.contact_id] || null,
-    session: {
-      id: sessionsMap[conv.session_id]?.id,
-      instance_name: sessionsMap[conv.session_id]?.instance_name,
-      phone_number: sessionsMap[conv.session_id]?.phone_number,
-    },
-  }))
+  const result = conversations.map((conv) => {
+    const session = sessionsMap[conv.session_id]
+    return {
+      ...conv,
+      contact: contactsMap[conv.contact_id] || null,
+      session: {
+        id: session?.id,
+        instance_name: session?.instance_name,
+        phone_number: session?.phone_number,
+        team_id: session?.team_id || null,
+        team_name: session?.team_id ? teamsMap[session.team_id]?.name : null,
+      },
+    }
+  })
 
   return NextResponse.json({
     data: result,
