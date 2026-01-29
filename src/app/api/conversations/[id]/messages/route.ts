@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { decryptMessage } from '@/lib/crypto/encryption'
+import { canAccessResource } from '@/lib/teams/access'
 
 /** GET /api/conversations/[id]/messages — Lister les messages d'une conversation */
 export async function GET(
@@ -26,15 +27,20 @@ export async function GET(
     return NextResponse.json({ error: 'Conversation introuvable' }, { status: 404 })
   }
 
-  // Vérifier que la session appartient à l'utilisateur
+  // Récupérer la session pour vérifier l'accès
   const { data: session } = await supabase
     .from('whatsapp_sessions')
-    .select('id')
+    .select('id, user_id, team_id')
     .eq('id', conversation.session_id)
-    .eq('user_id', user.id)
     .single()
 
   if (!session) {
+    return NextResponse.json({ error: 'Session introuvable' }, { status: 404 })
+  }
+
+  // Vérifier l'accès (propriétaire ou membre de l'équipe)
+  const hasAccess = await canAccessResource(supabase, user.id, session.user_id, session.team_id)
+  if (!hasAccess) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 

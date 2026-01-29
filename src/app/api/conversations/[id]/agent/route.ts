@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { canAccessResource, getUserTeamIds } from '@/lib/teams/access'
 
 /** PATCH /api/conversations/[id]/agent — Assigner/désactiver un agent IA */
 export async function PATCH(
@@ -20,7 +21,7 @@ export async function PATCH(
     is_ai_active?: boolean
   }
 
-  // Vérifier que la conversation appartient à l'utilisateur via la session
+  // Vérifier que la conversation existe
   const { data: conversation } = await supabase
     .from('conversations')
     .select('id, session_id')
@@ -31,26 +32,39 @@ export async function PATCH(
     return NextResponse.json({ error: 'Conversation introuvable' }, { status: 404 })
   }
 
-  // Vérifier la propriété de la session
+  // Récupérer la session
   const { data: session } = await supabase
     .from('whatsapp_sessions')
-    .select('id')
+    .select('id, user_id, team_id')
     .eq('id', conversation.session_id)
-    .eq('user_id', user.id)
     .single()
 
   if (!session) {
+    return NextResponse.json({ error: 'Session introuvable' }, { status: 404 })
+  }
+
+  // Vérifier l'accès (propriétaire ou membre de l'équipe)
+  const hasAccess = await canAccessResource(supabase, user.id, session.user_id, session.team_id)
+  if (!hasAccess) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 
-  // Si on assigne un agent, vérifier qu'il appartient à l'utilisateur
+  // Si on assigne un agent, vérifier qu'il appartient à l'utilisateur ou à une équipe accessible
   if (ai_agent_id) {
-    const { data: agent } = await supabase
+    const teamIds = await getUserTeamIds(supabase, user.id)
+
+    let agentQuery = supabase
       .from('ai_agents')
-      .select('id')
+      .select('id, user_id, team_id')
       .eq('id', ai_agent_id)
-      .eq('user_id', user.id)
-      .single()
+
+    if (teamIds.length > 0) {
+      agentQuery = agentQuery.or(`user_id.eq.${user.id},team_id.in.(${teamIds.join(',')})`)
+    } else {
+      agentQuery = agentQuery.eq('user_id', user.id)
+    }
+
+    const { data: agent } = await agentQuery.single()
 
     if (!agent) {
       return NextResponse.json({ error: 'Agent introuvable' }, { status: 404 })

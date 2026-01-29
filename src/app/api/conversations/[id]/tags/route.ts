@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { canAccessResource } from '@/lib/teams/access'
 
-async function verifyConversationOwnership(supabase: Awaited<ReturnType<typeof createClient>>, conversationId: string, userId: string) {
+async function verifyConversationAccess(supabase: Awaited<ReturnType<typeof createClient>>, conversationId: string, userId: string) {
   const { data: conv } = await supabase
     .from('conversations')
     .select('id, session_id')
@@ -12,11 +13,13 @@ async function verifyConversationOwnership(supabase: Awaited<ReturnType<typeof c
 
   const { data: session } = await supabase
     .from('whatsapp_sessions')
-    .select('user_id')
+    .select('user_id, team_id')
     .eq('id', conv.session_id)
     .single()
 
-  return session?.user_id === userId
+  if (!session) return false
+
+  return canAccessResource(supabase, userId, session.user_id, session.team_id)
 }
 
 /** GET /api/conversations/[id]/tags — Liste des tags assignés à une conversation */
@@ -32,7 +35,7 @@ export async function GET(
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  const isOwner = await verifyConversationOwnership(supabase, id, user.id)
+  const isOwner = await verifyConversationAccess(supabase, id, user.id)
   if (!isOwner) {
     return NextResponse.json({ error: 'Conversation introuvable' }, { status: 404 })
   }
@@ -81,7 +84,7 @@ export async function PUT(
     return NextResponse.json({ error: 'tag_ids doit être un tableau' }, { status: 400 })
   }
 
-  const isOwner = await verifyConversationOwnership(supabase, id, user.id)
+  const isOwner = await verifyConversationAccess(supabase, id, user.id)
   if (!isOwner) {
     return NextResponse.json({ error: 'Conversation introuvable' }, { status: 404 })
   }
