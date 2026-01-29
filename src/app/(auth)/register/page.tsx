@@ -88,8 +88,8 @@ function RegisterForm() {
             />
           </div>
         </CardContent>
-        <CardFooter className="flex flex-col gap-4">
-          <Button type="submit" className="w-full" disabled={loading}>
+        <CardFooter className="flex flex-col gap-4 pt-2">
+          <Button type="submit" className="w-full mt-2" disabled={loading}>
             {loading ? 'Création...' : "S'inscrire"}
           </Button>
           <Link href="/login" className="text-sm text-muted-foreground hover:underline">
