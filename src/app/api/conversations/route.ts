@@ -43,6 +43,10 @@ export async function GET(req: NextRequest) {
       .eq('user_id', user.id)
       .is('team_id', null)
   } else if (teamFilter && teamFilter !== 'all') {
+    // Vérifier que l'utilisateur a accès à cette équipe
+    if (!teamIds.includes(teamFilter)) {
+      return NextResponse.json({ data: [] })
+    }
     sessionsQuery = supabase
       .from('whatsapp_sessions')
       .select('*')

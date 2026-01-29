@@ -151,7 +151,7 @@ export function ContactProfilePanel({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full overflow-auto sm:max-w-md p-0">
+      <SheetContent className="w-full overflow-auto sm:max-w-sm p-0">
         <SheetHeader className="sr-only">
           <SheetTitle>Profil du contact</SheetTitle>
           <SheetDescription>
@@ -166,16 +166,16 @@ export function ContactProfilePanel({
         ) : contact ? (
           <div className="flex flex-col h-full">
             {/* Header with gradient background */}
-            <div className="relative bg-gradient-to-br from-[#7DC2A5] to-[#40E9BE] px-6 pt-8 pb-12">
+            <div className="relative bg-gradient-to-br from-[#7DC2A5] to-[#40E9BE] px-4 pt-6 pb-10">
               <div className="flex flex-col items-center">
-                <div className="flex h-20 w-20 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm text-white text-xl font-semibold border-2 border-white/30">
+                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm text-white text-base font-semibold border-2 border-white/30">
                   {getInitials()}
                 </div>
-                <h2 className="mt-4 text-lg font-semibold text-white text-center">
+                <h2 className="mt-3 text-base font-semibold text-white text-center">
                   {getDisplayName()}
                 </h2>
                 {contact.name && (contact.first_name || contact.last_name) && (
-                  <p className="text-sm text-white/80">
+                  <p className="text-xs text-white/80">
                     WhatsApp : {contact.name}
                   </p>
                 )}
@@ -183,20 +183,20 @@ export function ContactProfilePanel({
             </div>
 
             {/* Stats cards */}
-            <div className="-mt-6 mx-4 grid grid-cols-2 gap-3">
-              <div className="rounded-xl bg-card p-4 shadow-sm border">
-                <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                  <Phone className="h-4 w-4" />
-                  <span className="text-xs font-medium">Téléphone</span>
+            <div className="-mt-5 mx-3 grid grid-cols-2 gap-2">
+              <div className="rounded-lg bg-card p-3 shadow-sm border">
+                <div className="flex items-center gap-1.5 text-muted-foreground mb-0.5">
+                  <Phone className="h-3 w-3" />
+                  <span className="text-[10px] font-medium">Téléphone</span>
                 </div>
-                <p className="text-sm font-semibold">+{contact.phone_number}</p>
+                <p className="text-xs font-semibold">+{contact.phone_number}</p>
               </div>
-              <div className="rounded-xl bg-card p-4 shadow-sm border">
-                <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                  <Calendar className="h-4 w-4" />
-                  <span className="text-xs font-medium">Ajouté</span>
+              <div className="rounded-lg bg-card p-3 shadow-sm border">
+                <div className="flex items-center gap-1.5 text-muted-foreground mb-0.5">
+                  <Calendar className="h-3 w-3" />
+                  <span className="text-[10px] font-medium">Ajouté</span>
                 </div>
-                <p className="text-sm font-semibold">
+                <p className="text-xs font-semibold">
                   {contact.created_at
                     ? format(new Date(contact.created_at), 'd MMM yyyy', { locale: fr })
                     : '-'}
@@ -205,15 +205,15 @@ export function ContactProfilePanel({
             </div>
 
             {/* Scrollable content */}
-            <div className="flex-1 overflow-auto px-4 py-4 space-y-6">
+            <div className="flex-1 overflow-auto px-3 py-3 space-y-4">
               {/* AI Summary section */}
-              <div className="rounded-xl bg-gradient-to-br from-[#7DC2A5]/5 to-[#40E9BE]/5 border border-[#7DC2A5]/20 p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#7DC2A5]/10">
-                      <Sparkles className="h-4 w-4 text-[#7DC2A5]" />
+              <div className="rounded-lg bg-gradient-to-br from-[#7DC2A5]/5 to-[#40E9BE]/5 border border-[#7DC2A5]/20 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-md bg-[#7DC2A5]/10">
+                      <Sparkles className="h-3 w-3 text-[#7DC2A5]" />
                     </div>
-                    <span className="text-sm font-semibold">Résumé IA</span>
+                    <span className="text-xs font-semibold">Résumé IA</span>
                   </div>
                   <Button
                     size="sm"
@@ -233,11 +233,11 @@ export function ContactProfilePanel({
 
                 {contact.ai_summary ? (
                   <div>
-                    <p className="whitespace-pre-wrap text-sm text-foreground/80 leading-relaxed">
+                    <p className="whitespace-pre-wrap text-xs text-foreground/80 leading-relaxed">
                       {contact.ai_summary}
                     </p>
                     {contact.ai_summary_updated_at && (
-                      <p className="mt-3 text-[10px] text-muted-foreground">
+                      <p className="mt-2 text-[10px] text-muted-foreground">
                         Généré{' '}
                         {formatDistanceToNow(
                           new Date(contact.ai_summary_updated_at),
@@ -247,22 +247,22 @@ export function ContactProfilePanel({
                     )}
                   </div>
                 ) : (
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-xs text-muted-foreground">
                     Générez un résumé IA basé sur l&apos;historique des conversations.
                   </p>
                 )}
               </div>
 
               {/* Editable fields */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-semibold flex items-center gap-2">
-                  <User className="h-4 w-4 text-muted-foreground" />
+              <div className="space-y-3">
+                <h3 className="text-xs font-semibold flex items-center gap-1.5">
+                  <User className="h-3 w-3 text-muted-foreground" />
                   Informations
                 </h3>
 
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="space-y-1.5">
-                    <Label htmlFor="first_name" className="text-xs text-muted-foreground">
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="first_name" className="text-[10px] text-muted-foreground">
                       Prénom
                     </Label>
                     <Input
@@ -270,11 +270,11 @@ export function ContactProfilePanel({
                       value={firstName}
                       onChange={(e) => setFirstName(e.target.value)}
                       placeholder="Prénom"
-                      className="h-9 text-sm"
+                      className="h-8 text-xs"
                     />
                   </div>
-                  <div className="space-y-1.5">
-                    <Label htmlFor="last_name" className="text-xs text-muted-foreground">
+                  <div className="space-y-1">
+                    <Label htmlFor="last_name" className="text-[10px] text-muted-foreground">
                       Nom
                     </Label>
                     <Input
@@ -282,30 +282,30 @@ export function ContactProfilePanel({
                       value={lastName}
                       onChange={(e) => setLastName(e.target.value)}
                       placeholder="Nom"
-                      className="h-9 text-sm"
+                      className="h-8 text-xs"
                     />
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label htmlFor="email" className="text-xs text-muted-foreground">
+                <div className="space-y-1">
+                  <Label htmlFor="email" className="text-[10px] text-muted-foreground">
                     Email
                   </Label>
                   <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                    <Mail className="absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
                     <Input
                       id="email"
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="email@exemple.com"
-                      className="pl-9 h-9 text-sm"
+                      className="pl-8 h-8 text-xs"
                     />
                   </div>
                 </div>
 
-                <div className="space-y-1.5">
-                  <Label htmlFor="notes" className="text-xs text-muted-foreground">
+                <div className="space-y-1">
+                  <Label htmlFor="notes" className="text-[10px] text-muted-foreground">
                     Notes
                   </Label>
                   <Textarea
@@ -313,24 +313,24 @@ export function ContactProfilePanel({
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Notes sur ce contact..."
-                    rows={3}
-                    className="text-sm resize-none"
+                    rows={2}
+                    className="text-xs resize-none"
                   />
                 </div>
               </div>
             </div>
 
             {/* Fixed footer with save button */}
-            <div className="border-t p-4">
+            <div className="border-t p-3">
               <Button
                 onClick={handleSave}
                 disabled={saving || !hasChanges}
-                className="w-full h-10"
+                className="w-full h-9 text-xs"
               >
                 {saving ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
                 ) : (
-                  <Save className="mr-2 h-4 w-4" />
+                  <Save className="mr-1.5 h-3 w-3" />
                 )}
                 Enregistrer les modifications
               </Button>
