@@ -67,8 +67,8 @@ function LoginForm() {
             />
           </div>
         </CardContent>
-        <CardFooter className="flex flex-col gap-4">
-          <Button type="submit" className="w-full" disabled={loading}>
+        <CardFooter className="flex flex-col gap-4 pt-2">
+          <Button type="submit" className="w-full mt-2" disabled={loading}>
             {loading ? 'Connexion...' : 'Se connecter'}
           </Button>
           <div className="flex justify-between text-sm w-full">
