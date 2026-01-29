@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getUserTeamIds } from '@/lib/teams/access'
+import { getUserTeamIds, getUserTeamPermissions, filterSessionsByPermissions } from '@/lib/teams/access'
 
 /** GET /api/conversations — Lister les conversations de l'utilisateur */
 export async function GET(req: NextRequest) {
@@ -21,8 +21,9 @@ export async function GET(req: NextRequest) {
   const page = parseInt(searchParams.get('page') || '1', 10)
   const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10), 100)
 
-  // Récupérer les équipes de l'utilisateur
+  // Récupérer les équipes et permissions de l'utilisateur
   const teamIds = await getUserTeamIds(supabase, user.id)
+  const permissions = await getUserTeamPermissions(supabase, user.id)
 
   // Récupérer les sessions de l'utilisateur et de ses équipes
   let sessionsQuery = supabase
@@ -53,9 +54,16 @@ export async function GET(req: NextRequest) {
       .eq('team_id', teamFilter)
   }
 
-  const { data: sessions } = await sessionsQuery
+  const { data: allSessions } = await sessionsQuery
 
-  if (!sessions || sessions.length === 0) {
+  if (!allSessions || allSessions.length === 0) {
+    return NextResponse.json({ data: [] })
+  }
+
+  // Filtrer les sessions selon les permissions granulaires
+  const sessions = filterSessionsByPermissions(allSessions, user.id, permissions)
+
+  if (sessions.length === 0) {
     return NextResponse.json({ data: [] })
   }
 

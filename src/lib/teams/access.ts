@@ -231,3 +231,43 @@ export function filterLinksByPermissions<T extends ResourceWithId>(
     return false
   })
 }
+
+/**
+ * Vérifie si l'utilisateur peut accéder à une session spécifique
+ * Prend en compte les permissions granulaires pour les membres
+ */
+export async function canAccessSession(
+  supabase: SupabaseClient,
+  userId: string,
+  session: { id: string; user_id: string; team_id: string | null }
+): Promise<boolean> {
+  // Accès direct via user_id
+  if (session.user_id === userId) {
+    return true
+  }
+
+  // Accès via équipe avec permissions granulaires
+  if (session.team_id) {
+    const { data: membership } = await supabase
+      .from('team_members')
+      .select('role, allowed_session_ids')
+      .eq('team_id', session.team_id)
+      .eq('user_id', userId)
+      .eq('status', 'accepted')
+      .single()
+
+    if (!membership) return false
+
+    // Owner et Admin ont accès à tout
+    if (membership.role === 'owner' || membership.role === 'admin') return true
+
+    // Pour les membres, vérifier les permissions granulaires
+    // null = accès à toutes les sessions
+    if (membership.allowed_session_ids === null) return true
+
+    // Sinon, vérifier si la session est dans la liste
+    return membership.allowed_session_ids.includes(session.id)
+  }
+
+  return false
+}

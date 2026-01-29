@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { evolution } from '@/lib/evolution/client'
 import { encryptMessage } from '@/lib/crypto/encryption'
-import { canAccessResource } from '@/lib/teams/access'
+import { canAccessSession } from '@/lib/teams/access'
 
 /** POST /api/conversations/[id]/send — Envoyer un message */
 export async function POST(
@@ -50,8 +50,8 @@ export async function POST(
     return NextResponse.json({ error: 'Session introuvable' }, { status: 404 })
   }
 
-  // Vérifier l'accès (propriétaire ou membre de l'équipe)
-  const hasAccess = await canAccessResource(supabase, user.id, session.user_id, session.team_id)
+  // Vérifier l'accès (propriétaire ou membre avec permissions)
+  const hasAccess = await canAccessSession(supabase, user.id, session)
   if (!hasAccess) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }

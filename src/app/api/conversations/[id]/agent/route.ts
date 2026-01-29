@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { canAccessResource, getUserTeamIds } from '@/lib/teams/access'
+import { canAccessSession, getUserTeamIds } from '@/lib/teams/access'
 
 /** PATCH /api/conversations/[id]/agent — Assigner/désactiver un agent IA */
 export async function PATCH(
@@ -43,8 +43,8 @@ export async function PATCH(
     return NextResponse.json({ error: 'Session introuvable' }, { status: 404 })
   }
 
-  // Vérifier l'accès (propriétaire ou membre de l'équipe)
-  const hasAccess = await canAccessResource(supabase, user.id, session.user_id, session.team_id)
+  // Vérifier l'accès (propriétaire ou membre avec permissions)
+  const hasAccess = await canAccessSession(supabase, user.id, session)
   if (!hasAccess) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { canAccessResource } from '@/lib/teams/access'
+import { canAccessSession } from '@/lib/teams/access'
 
 async function verifyConversationAccess(supabase: Awaited<ReturnType<typeof createClient>>, conversationId: string, userId: string) {
   const { data: conv } = await supabase
@@ -13,13 +13,13 @@ async function verifyConversationAccess(supabase: Awaited<ReturnType<typeof crea
 
   const { data: session } = await supabase
     .from('whatsapp_sessions')
-    .select('user_id, team_id')
+    .select('id, user_id, team_id')
     .eq('id', conv.session_id)
     .single()
 
   if (!session) return false
 
-  return canAccessResource(supabase, userId, session.user_id, session.team_id)
+  return canAccessSession(supabase, userId, session)
 }
 
 /** GET /api/conversations/[id]/tags — Liste des tags assignés à une conversation */
