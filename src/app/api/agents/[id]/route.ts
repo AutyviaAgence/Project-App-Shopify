@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getUserTeamIds, canAccessResource } from '@/lib/teams/access'
 
 const VALID_MODELS = ['gpt-4o-mini', 'gpt-4o']
 
@@ -43,12 +44,29 @@ export async function PATCH(
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
+  // Récupérer l'agent actuel pour vérifier l'accès
+  const { data: existingAgent } = await supabase
+    .from('ai_agents')
+    .select('*')
+    .eq('id', id)
+    .single()
+
+  if (!existingAgent) {
+    return NextResponse.json({ error: 'Agent introuvable' }, { status: 404 })
+  }
+
+  // Vérifier l'accès à l'agent
+  const hasAccess = await canAccessResource(supabase, user.id, existingAgent.user_id, existingAgent.team_id)
+  if (!hasAccess) {
+    return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+  }
+
   const body = await req.json()
   const {
     name, description, system_prompt, objective, model, temperature, is_active,
     response_delay_min, response_delay_max, max_messages_per_conversation, inactivity_timeout_minutes,
     schedule_enabled, schedule_timezone, schedule_start_time, schedule_end_time, schedule_days,
-    auto_detect_language
+    auto_detect_language, team_id
   } = body as {
     name?: string
     description?: string
@@ -67,6 +85,7 @@ export async function PATCH(
     schedule_end_time?: string
     schedule_days?: number[]
     auto_detect_language?: boolean
+    team_id?: string | null
   }
 
   const updateData: Record<string, unknown> = {}
@@ -128,6 +147,23 @@ export async function PATCH(
     updateData.auto_detect_language = Boolean(auto_detect_language)
   }
 
+  // Gestion du changement d'équipe
+  if (team_id !== undefined) {
+    // Seul le propriétaire de l'agent peut changer l'équipe
+    if (existingAgent.user_id !== user.id) {
+      return NextResponse.json({ error: 'Seul le propriétaire peut changer l\'équipe' }, { status: 403 })
+    }
+
+    if (team_id) {
+      // Vérifier que l'utilisateur a accès à la nouvelle équipe
+      const userTeamIds = await getUserTeamIds(supabase, user.id)
+      if (!userTeamIds.includes(team_id)) {
+        return NextResponse.json({ error: 'Équipe non autorisée' }, { status: 403 })
+      }
+    }
+    updateData.team_id = team_id || null
+  }
+
   if (Object.keys(updateData).length === 0) {
     return NextResponse.json({ error: 'Rien à modifier' }, { status: 400 })
   }
@@ -136,7 +172,6 @@ export async function PATCH(
     .from('ai_agents')
     .update(updateData)
     .eq('id', id)
-    .eq('user_id', user.id)
     .select()
     .single()
 

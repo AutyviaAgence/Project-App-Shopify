@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import type { AIAgent } from '@/types/database'
+import type { AIAgent, Team } from '@/types/database'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -33,8 +33,11 @@ import {
   Brain,
   Clock,
   Languages,
+  Users,
 } from 'lucide-react'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
+
+type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
 
 export default function AgentsPage() {
   const [agents, setAgents] = useState<AIAgent[]>([])
@@ -45,8 +48,10 @@ export default function AgentsPage() {
   const [deleting, setDeleting] = useState<string | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [agentToDelete, setAgentToDelete] = useState<AIAgent | null>(null)
+  const [teams, setTeams] = useState<TeamWithRole[]>([])
 
   // Form state
+  const [formTeamId, setFormTeamId] = useState('')
   const [formName, setFormName] = useState('')
   const [formDescription, setFormDescription] = useState('')
   const [formSystemPrompt, setFormSystemPrompt] = useState('')
@@ -82,12 +87,26 @@ export default function AgentsPage() {
     }
   }, [])
 
+  const fetchTeams = useCallback(async () => {
+    try {
+      const res = await fetch('/api/teams')
+      const json = await res.json()
+      if (res.ok && json.data) {
+        setTeams(json.data.filter((t: TeamWithRole) => t.my_role === 'owner' || t.my_role === 'admin'))
+      }
+    } catch {
+      // Silently ignore
+    }
+  }, [])
+
   useEffect(() => {
     fetchAgents()
-  }, [fetchAgents])
+    fetchTeams()
+  }, [fetchAgents, fetchTeams])
 
   function openCreateDialog() {
     setEditing(null)
+    setFormTeamId('')
     setFormName('')
     setFormDescription('')
     setFormSystemPrompt('')
@@ -109,6 +128,7 @@ export default function AgentsPage() {
 
   function openEditDialog(agent: AIAgent) {
     setEditing(agent)
+    setFormTeamId(agent.team_id || '')
     setFormName(agent.name)
     setFormDescription(agent.description || '')
     setFormSystemPrompt(agent.system_prompt)
@@ -163,6 +183,7 @@ export default function AgentsPage() {
             schedule_end_time: formScheduleEndTime,
             schedule_days: formScheduleDays,
             auto_detect_language: formAutoDetectLanguage,
+            team_id: formTeamId || null,
           }),
         })
         const json = await res.json()
@@ -194,6 +215,7 @@ export default function AgentsPage() {
             schedule_end_time: formScheduleEndTime,
             schedule_days: formScheduleDays,
             auto_detect_language: formAutoDetectLanguage,
+            team_id: formTeamId || null,
           }),
         })
         const json = await res.json()
@@ -317,6 +339,12 @@ export default function AgentsPage() {
                     )}
 
                     <div className="flex items-center gap-2 flex-wrap">
+                      {agent.team_id && (
+                        <Badge variant="outline" className="gap-1 text-xs font-normal">
+                          <Users className="h-3 w-3" />
+                          {teams.find(t => t.id === agent.team_id)?.name || 'Équipe'}
+                        </Badge>
+                      )}
                       <Badge variant="outline" className="text-xs">
                         {agent.model}
                       </Badge>
@@ -413,6 +441,31 @@ export default function AgentsPage() {
           </DialogHeader>
 
           <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="agent-team">Équipe</Label>
+              <Select value={formTeamId} onValueChange={setFormTeamId}>
+                <SelectTrigger id="agent-team">
+                  <SelectValue placeholder="Agent personnel" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Agent personnel</SelectItem>
+                  {teams.map((team) => (
+                    <SelectItem key={team.id} value={team.id}>
+                      <span className="flex items-center gap-2">
+                        <Users className="h-3.5 w-3.5" />
+                        {team.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {formTeamId
+                  ? 'Les membres de l\'équipe pourront utiliser cet agent.'
+                  : 'Cet agent est uniquement accessible par vous.'}
+              </p>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="agent-name">Nom *</Label>
               <Input

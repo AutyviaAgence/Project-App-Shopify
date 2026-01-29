@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import type { WALink, WhatsAppSession, AIAgent } from '@/types/database'
+import type { WALink, WhatsAppSession, AIAgent, Team } from '@/types/database'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -34,7 +34,10 @@ import {
   MousePointerClick,
   ExternalLink,
   Bot,
+  Users,
 } from 'lucide-react'
+
+type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
 
 type WALinkWithSession = WALink & {
   whatsapp_sessions: {
@@ -48,6 +51,7 @@ export default function LinksPage() {
   const [links, setLinks] = useState<WALinkWithSession[]>([])
   const [sessions, setSessions] = useState<WhatsAppSession[]>([])
   const [agents, setAgents] = useState<AIAgent[]>([])
+  const [teams, setTeams] = useState<TeamWithRole[]>([])
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<WALinkWithSession | null>(null)
@@ -55,6 +59,7 @@ export default function LinksPage() {
   const [deleting, setDeleting] = useState<string | null>(null)
 
   // Form state
+  const [formTeamId, setFormTeamId] = useState('')
   const [formName, setFormName] = useState('')
   const [formSessionId, setFormSessionId] = useState('')
   const [formMessage, setFormMessage] = useState('')
@@ -100,14 +105,28 @@ export default function LinksPage() {
     }
   }, [])
 
+  const fetchTeams = useCallback(async () => {
+    try {
+      const res = await fetch('/api/teams')
+      const json = await res.json()
+      if (res.ok && json.data) {
+        setTeams(json.data.filter((t: TeamWithRole) => t.my_role === 'owner' || t.my_role === 'admin'))
+      }
+    } catch {
+      // Silently ignore
+    }
+  }, [])
+
   useEffect(() => {
     fetchLinks()
     fetchSessions()
     fetchAgents()
-  }, [fetchLinks, fetchSessions, fetchAgents])
+    fetchTeams()
+  }, [fetchLinks, fetchSessions, fetchAgents, fetchTeams])
 
   function openCreateDialog() {
     setEditing(null)
+    setFormTeamId('')
     setFormName('')
     setFormSessionId('')
     setFormMessage('')
@@ -119,6 +138,7 @@ export default function LinksPage() {
 
   function openEditDialog(link: WALinkWithSession) {
     setEditing(link)
+    setFormTeamId(link.team_id || '')
     setFormName(link.name)
     setFormSessionId(link.session_id)
     setFormMessage(link.pre_filled_message || '')
@@ -146,6 +166,7 @@ export default function LinksPage() {
             tracking_source: formSource.trim(),
             slug: formSlug.trim(),
             ai_agent_id: formAgentId || null,
+            team_id: formTeamId || null,
           }),
         })
         const json = await res.json()
@@ -167,6 +188,7 @@ export default function LinksPage() {
             tracking_source: formSource.trim(),
             slug: formSlug.trim(),
             ai_agent_id: formAgentId || null,
+            team_id: formTeamId || null,
           }),
         })
         const json = await res.json()
@@ -316,9 +338,15 @@ export default function LinksPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    <p className="text-xs text-muted-foreground">
-                      {phone ? `+${phone}` : session?.instance_name || 'Session inconnue'}
-                    </p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <span>{phone ? `+${phone}` : session?.instance_name || 'Session inconnue'}</span>
+                      {link.team_id && (
+                        <Badge variant="outline" className="gap-1 text-xs font-normal">
+                          <Users className="h-3 w-3" />
+                          {teams.find(t => t.id === link.team_id)?.name || 'Équipe'}
+                        </Badge>
+                      )}
+                    </div>
 
                     {link.pre_filled_message && (
                       <p className="text-xs text-muted-foreground truncate">
@@ -438,6 +466,31 @@ export default function LinksPage() {
           </DialogHeader>
 
           <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="link-team">Équipe</Label>
+              <Select value={formTeamId} onValueChange={setFormTeamId}>
+                <SelectTrigger id="link-team">
+                  <SelectValue placeholder="Lien personnel" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Lien personnel</SelectItem>
+                  {teams.map((team) => (
+                    <SelectItem key={team.id} value={team.id}>
+                      <span className="flex items-center gap-2">
+                        <Users className="h-3.5 w-3.5" />
+                        {team.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {formTeamId
+                  ? 'Les membres de l\'équipe pourront voir ce lien.'
+                  : 'Ce lien est uniquement accessible par vous.'}
+              </p>
+            </div>
+
             <div className="space-y-2">
               <Label htmlFor="link-name">Nom du lien *</Label>
               <Input

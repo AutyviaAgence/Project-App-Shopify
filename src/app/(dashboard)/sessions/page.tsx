@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import type { WhatsAppSession } from '@/types/database'
+import type { WhatsAppSession, Team } from '@/types/database'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -13,6 +13,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
@@ -29,8 +36,11 @@ import {
   Globe,
   Settings2,
   Save,
+  Users,
 } from 'lucide-react'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
+
+type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
 
 const STATUS_CONFIG = {
   connected: { label: 'Connecté', variant: 'default' as const, icon: Wifi },
@@ -43,6 +53,9 @@ export default function SessionsPage() {
   const [sessions, setSessions] = useState<WhatsAppSession[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
+  const [teams, setTeams] = useState<TeamWithRole[]>([])
+  const [selectedTeamId, setSelectedTeamId] = useState<string>('')
   const [qrSession, setQrSession] = useState<WhatsAppSession | null>(null)
   const [qrLoading, setQrLoading] = useState(false)
   const [disconnecting, setDisconnecting] = useState<string | null>(null)
@@ -50,6 +63,7 @@ export default function SessionsPage() {
   const [webhookConfiguring, setWebhookConfiguring] = useState<string | null>(null)
   const [editingSession, setEditingSession] = useState<WhatsAppSession | null>(null)
   const [formDailyLimit, setFormDailyLimit] = useState('')
+  const [formSessionTeamId, setFormSessionTeamId] = useState<string>('')
   const [savingSettings, setSavingSettings] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [sessionToDelete, setSessionToDelete] = useState<WhatsAppSession | null>(null)
@@ -68,9 +82,23 @@ export default function SessionsPage() {
     }
   }, [])
 
+  const fetchTeams = useCallback(async () => {
+    try {
+      const res = await fetch('/api/teams')
+      const json = await res.json()
+      if (res.ok && json.data) {
+        // Filtrer pour ne garder que les équipes où l'utilisateur est owner ou admin
+        setTeams(json.data.filter((t: TeamWithRole) => t.my_role === 'owner' || t.my_role === 'admin'))
+      }
+    } catch {
+      // Silently ignore
+    }
+  }, [])
+
   useEffect(() => {
     fetchSessions()
-  }, [fetchSessions])
+    fetchTeams()
+  }, [fetchSessions, fetchTeams])
 
   // Realtime subscription for session status updates
   useEffect(() => {
@@ -107,10 +135,21 @@ export default function SessionsPage() {
     }
   }, [qrSession?.id])
 
+  function openCreateDialog() {
+    setSelectedTeamId('')
+    setCreateDialogOpen(true)
+  }
+
   async function handleCreate() {
     setCreating(true)
     try {
-      const res = await fetch('/api/sessions', { method: 'POST' })
+      const res = await fetch('/api/sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          team_id: selectedTeamId || null,
+        }),
+      })
       const json = await res.json()
       if (!res.ok) {
         toast.error(json.error || 'Erreur lors de la création')
@@ -118,6 +157,7 @@ export default function SessionsPage() {
       }
       const newSession = json.data as WhatsAppSession
       setSessions((prev) => [newSession, ...prev])
+      setCreateDialogOpen(false)
       // Open QR dialog immediately
       setQrSession(newSession)
       toast.success('Session créée, scannez le QR code')
@@ -227,6 +267,7 @@ export default function SessionsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           daily_ai_message_limit: formDailyLimit.trim() ? parseInt(formDailyLimit) : null,
+          team_id: formSessionTeamId || null,
         }),
       })
       const json = await res.json()
@@ -318,12 +359,8 @@ export default function SessionsPage() {
             Gérez vos connexions WhatsApp. Chaque session correspond à un numéro.
           </p>
         </div>
-        <Button onClick={handleCreate} disabled={creating}>
-          {creating ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Plus className="mr-2 h-4 w-4" />
-          )}
+        <Button onClick={openCreateDialog}>
+          <Plus className="mr-2 h-4 w-4" />
           Nouvelle session
         </Button>
       </div>
@@ -336,12 +373,8 @@ export default function SessionsPage() {
             <p className="mt-1 text-sm text-muted-foreground">
               Créez votre première session WhatsApp pour commencer.
             </p>
-            <Button className="mt-4" onClick={handleCreate} disabled={creating}>
-              {creating ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Plus className="mr-2 h-4 w-4" />
-              )}
+            <Button className="mt-4" onClick={openCreateDialog}>
+              <Plus className="mr-2 h-4 w-4" />
               Créer une session
             </Button>
           </CardContent>
@@ -371,14 +404,22 @@ export default function SessionsPage() {
                   </Badge>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-xs text-muted-foreground">
-                    Créée le{' '}
-                    {new Date(session.created_at).toLocaleDateString('fr-FR', {
-                      day: 'numeric',
-                      month: 'long',
-                      year: 'numeric',
-                    })}
-                  </p>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span>
+                      Créée le{' '}
+                      {new Date(session.created_at).toLocaleDateString('fr-FR', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                      })}
+                    </span>
+                    {session.team_id && (
+                      <Badge variant="outline" className="gap-1 text-xs font-normal">
+                        <Users className="h-3 w-3" />
+                        {teams.find(t => t.id === session.team_id)?.name || 'Équipe'}
+                      </Badge>
+                    )}
+                  </div>
                   {session.daily_ai_message_limit != null && (
                     <p className="mt-1 text-xs text-muted-foreground">
                       Limite IA : {session.daily_ai_message_limit.toLocaleString('fr-FR')} msg/jour
@@ -452,6 +493,7 @@ export default function SessionsPage() {
                             ? String(session.daily_ai_message_limit)
                             : ''
                         )
+                        setFormSessionTeamId(session.team_id || '')
                       }}
                     >
                       <Settings2 className="h-3 w-3" />
@@ -569,10 +611,34 @@ export default function SessionsPage() {
           <DialogHeader>
             <DialogTitle>Paramètres de la session</DialogTitle>
             <DialogDescription>
-              Configurez les limites pour {editingSession?.instance_name}
+              Configurez les paramètres pour {editingSession?.instance_name}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="settings-team-select">Équipe</Label>
+              <Select value={formSessionTeamId} onValueChange={setFormSessionTeamId}>
+                <SelectTrigger id="settings-team-select">
+                  <SelectValue placeholder="Session personnelle" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Session personnelle</SelectItem>
+                  {teams.map((team) => (
+                    <SelectItem key={team.id} value={team.id}>
+                      <span className="flex items-center gap-2">
+                        <Users className="h-3.5 w-3.5" />
+                        {team.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {formSessionTeamId
+                  ? 'Les membres de l\'équipe pourront accéder à cette session.'
+                  : 'Cette session est uniquement accessible par vous.'}
+              </p>
+            </div>
             <div className="space-y-2">
               <Label htmlFor="daily-limit">
                 Limite quotidienne de messages IA
@@ -603,6 +669,52 @@ export default function SessionsPage() {
                 <Save className="mr-2 h-4 w-4" />
               )}
               Enregistrer
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Session Dialog */}
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Nouvelle session WhatsApp</DialogTitle>
+            <DialogDescription>
+              Créez une nouvelle session WhatsApp. Vous pourrez scanner le QR code ensuite.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="team-select">Équipe (optionnel)</Label>
+              <Select value={selectedTeamId} onValueChange={setSelectedTeamId}>
+                <SelectTrigger id="team-select">
+                  <SelectValue placeholder="Session personnelle" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Session personnelle</SelectItem>
+                  {teams.map((team) => (
+                    <SelectItem key={team.id} value={team.id}>
+                      <span className="flex items-center gap-2">
+                        <Users className="h-3.5 w-3.5" />
+                        {team.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {selectedTeamId
+                  ? 'Les membres de l\'équipe pourront accéder à cette session selon leurs permissions.'
+                  : 'Cette session sera uniquement accessible par vous.'}
+              </p>
+            </div>
+            <Button onClick={handleCreate} disabled={creating} className="w-full">
+              {creating ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="mr-2 h-4 w-4" />
+              )}
+              Créer la session
             </Button>
           </div>
         </DialogContent>
