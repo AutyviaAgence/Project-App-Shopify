@@ -233,7 +233,7 @@ export function ContactProfilePanel({
 
                 {contact.ai_summary ? (
                   <div>
-                    <p className="whitespace-pre-wrap text-xs text-foreground/80 leading-relaxed">
+                    <p className="whitespace-pre-wrap text-xs text-foreground/80 leading-relaxed max-h-24 overflow-auto">
                       {contact.ai_summary}
                     </p>
                     {contact.ai_summary_updated_at && (
