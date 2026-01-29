@@ -28,7 +28,6 @@ import {
   Loader2,
   Smartphone,
   ArrowLeft,
-  User,
   Bot,
   UserCircle,
   Copy,
@@ -40,7 +39,6 @@ import {
   Tag,
   Plus,
   Search,
-  MoreVertical,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -59,6 +57,8 @@ type ConversationWithJoins = {
     id: string
     phone_number: string
     name: string | null
+    first_name: string | null
+    last_name: string | null
     profile_picture: string | null
   }
   session: {
@@ -413,11 +413,32 @@ export default function ConversationsPage() {
   }
 
   function getContactDisplay(conv: ConversationWithJoins) {
+    const fullName = [conv.contact.first_name, conv.contact.last_name]
+      .filter(Boolean)
+      .join(' ')
+      .trim()
+
+    // Si on a prénom/nom ET nom WhatsApp différent, afficher les deux
+    if (fullName && conv.contact.name && fullName !== conv.contact.name) {
+      return `${fullName} (${conv.contact.name})`
+    }
+    // Si on a seulement prénom/nom
+    if (fullName) return fullName
+    // Si on a seulement nom WhatsApp
     if (conv.contact.name) return conv.contact.name
+    // Sinon le numéro de téléphone
     return `+${conv.contact.phone_number}`
   }
 
   function getContactInitials(conv: ConversationWithJoins) {
+    // Priorité au prénom/nom
+    const fullName = [conv.contact.first_name, conv.contact.last_name]
+      .filter(Boolean)
+      .join(' ')
+      .trim()
+    if (fullName) {
+      return fullName.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
+    }
     if (conv.contact.name) {
       return conv.contact.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
     }
@@ -498,6 +519,8 @@ export default function ConversationsPage() {
     const q = searchQuery.toLowerCase()
     return (
       conv.contact.name?.toLowerCase().includes(q) ||
+      conv.contact.first_name?.toLowerCase().includes(q) ||
+      conv.contact.last_name?.toLowerCase().includes(q) ||
       conv.contact.phone_number.includes(q) ||
       conv.last_message_preview?.toLowerCase().includes(q)
     )
