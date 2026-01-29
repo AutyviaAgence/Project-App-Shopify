@@ -200,54 +200,7 @@ export function ContactProfilePanel({
 
             {/* Scrollable content */}
             <div className="flex-1 overflow-auto px-3 py-3 space-y-4">
-              {/* AI Summary section */}
-              <div className="rounded-lg bg-gradient-to-br from-[#7DC2A5]/5 to-[#40E9BE]/5 border border-[#7DC2A5]/20 p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-1.5">
-                    <div className="flex h-6 w-6 items-center justify-center rounded-md bg-[#7DC2A5]/10">
-                      <Sparkles className="h-3 w-3 text-[#7DC2A5]" />
-                    </div>
-                    <span className="text-xs font-semibold">Résumé IA</span>
-                  </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={handleGenerateSummary}
-                    disabled={generatingSummary}
-                    className="h-8 text-xs border-[#7DC2A5]/30 text-[#7DC2A5] hover:bg-[#7DC2A5]/10"
-                  >
-                    {generatingSummary ? (
-                      <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
-                    ) : (
-                      <Sparkles className="mr-1.5 h-3 w-3" />
-                    )}
-                    {contact.ai_summary ? 'Regénérer' : 'Générer'}
-                  </Button>
-                </div>
-
-                {contact.ai_summary ? (
-                  <div>
-                    <p className="whitespace-pre-wrap text-xs text-foreground/80 leading-relaxed max-h-24 overflow-auto">
-                      {contact.ai_summary}
-                    </p>
-                    {contact.ai_summary_updated_at && (
-                      <p className="mt-2 text-[10px] text-muted-foreground">
-                        Généré{' '}
-                        {formatDistanceToNow(
-                          new Date(contact.ai_summary_updated_at),
-                          { addSuffix: true, locale: fr }
-                        )}
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    Générez un résumé IA basé sur l&apos;historique des conversations.
-                  </p>
-                )}
-              </div>
-
-              {/* Editable fields */}
+              {/* Editable fields - EN PREMIER */}
               <div className="space-y-3">
                 <h3 className="text-xs font-semibold flex items-center gap-1.5">
                   <User className="h-3 w-3 text-muted-foreground" />
@@ -307,10 +260,57 @@ export function ContactProfilePanel({
                     value={notes}
                     onChange={(e) => setNotes(e.target.value)}
                     placeholder="Notes sur ce contact..."
-                    rows={2}
+                    rows={3}
                     className="text-xs resize-none"
                   />
                 </div>
+              </div>
+
+              {/* AI Summary section - APRÈS les informations */}
+              <div className="rounded-lg border bg-muted/30 p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="h-3.5 w-3.5 text-[#7DC2A5]" />
+                    <span className="text-xs font-semibold">Résumé IA</span>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleGenerateSummary}
+                    disabled={generatingSummary}
+                    className="h-7 text-xs px-2"
+                  >
+                    {generatingSummary ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-3 w-3" />
+                    )}
+                    <span className="ml-1">{contact.ai_summary ? 'Regénérer' : 'Générer'}</span>
+                  </Button>
+                </div>
+
+                {contact.ai_summary ? (
+                  <div className="space-y-2">
+                    <div className="bg-background rounded-md p-2 border">
+                      <p className="whitespace-pre-wrap text-xs text-foreground leading-relaxed select-text cursor-text">
+                        {contact.ai_summary}
+                      </p>
+                    </div>
+                    {contact.ai_summary_updated_at && (
+                      <p className="text-[10px] text-muted-foreground">
+                        Généré{' '}
+                        {formatDistanceToNow(
+                          new Date(contact.ai_summary_updated_at),
+                          { addSuffix: true, locale: fr }
+                        )}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Générez un résumé IA basé sur l&apos;historique des conversations.
+                  </p>
+                )}
               </div>
             </div>
 
