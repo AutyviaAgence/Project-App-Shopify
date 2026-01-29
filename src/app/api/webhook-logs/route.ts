@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getUserTeamIds } from '@/lib/teams/access'
 
 /** GET /api/webhook-logs — Liste des logs webhook de l'utilisateur */
 export async function GET(req: NextRequest) {
@@ -18,11 +19,20 @@ export async function GET(req: NextRequest) {
   const page = parseInt(searchParams.get('page') || '1', 10)
   const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 100)
 
-  // Get user's sessions first
-  const { data: sessions } = await supabase
+  // Get user's sessions (personal + team)
+  const teamIds = await getUserTeamIds(supabase, user.id)
+
+  let sessionsQuery = supabase
     .from('whatsapp_sessions')
     .select('id')
-    .eq('user_id', user.id)
+
+  if (teamIds.length > 0) {
+    sessionsQuery = sessionsQuery.or(`user_id.eq.${user.id},team_id.in.(${teamIds.join(',')})`)
+  } else {
+    sessionsQuery = sessionsQuery.eq('user_id', user.id)
+  }
+
+  const { data: sessions } = await sessionsQuery
 
   if (!sessions || sessions.length === 0) {
     return NextResponse.json({ data: [], pagination: { page, limit, total: 0, totalPages: 0 } })
@@ -30,11 +40,11 @@ export async function GET(req: NextRequest) {
 
   const sessionIds = sessions.map((s) => s.id)
 
-  // Build query
+  // Build query - include logs with null session_id (orphaned) OR matching sessions
   let query = supabase
     .from('webhook_logs')
     .select('*', { count: 'exact' })
-    .in('session_id', sessionIds)
+    .or(`session_id.is.null,session_id.in.(${sessionIds.join(',')})`)
 
   // Apply filters
   if (sessionFilter && sessionIds.includes(sessionFilter)) {
@@ -78,11 +88,20 @@ export async function DELETE() {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  // Get user's sessions
-  const { data: sessions } = await supabase
+  // Get user's sessions (personal + team)
+  const teamIds = await getUserTeamIds(supabase, user.id)
+
+  let sessionsQuery = supabase
     .from('whatsapp_sessions')
     .select('id')
-    .eq('user_id', user.id)
+
+  if (teamIds.length > 0) {
+    sessionsQuery = sessionsQuery.or(`user_id.eq.${user.id},team_id.in.(${teamIds.join(',')})`)
+  } else {
+    sessionsQuery = sessionsQuery.eq('user_id', user.id)
+  }
+
+  const { data: sessions } = await sessionsQuery
 
   if (!sessions || sessions.length === 0) {
     return NextResponse.json({ deleted: 0 })
@@ -92,10 +111,11 @@ export async function DELETE() {
   const cutoffDate = new Date()
   cutoffDate.setDate(cutoffDate.getDate() - 7)
 
+  // Delete old logs for user's sessions (including orphaned logs)
   const { error, count } = await supabase
     .from('webhook_logs')
     .delete({ count: 'exact' })
-    .in('session_id', sessionIds)
+    .or(`session_id.is.null,session_id.in.(${sessionIds.join(',')})`)
     .lt('created_at', cutoffDate.toISOString())
 
   if (error) {

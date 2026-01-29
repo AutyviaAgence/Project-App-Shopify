@@ -42,6 +42,9 @@ export type AIAgent = {
   schedule_end_time: string
   schedule_days: number[]
   auto_detect_language: boolean
+  escalation_enabled: boolean
+  escalation_keywords: string[]
+  escalation_message: string | null
   created_at: string
   updated_at: string
 }

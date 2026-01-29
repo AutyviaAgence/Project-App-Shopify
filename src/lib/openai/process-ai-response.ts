@@ -40,6 +40,88 @@ export async function processAIResponse(params: {
 
     console.log('[AI] Agent trouvé:', agent.name, '| model:', agent.model)
 
+    // 1.5. Vérifier l'escalation (garde-fou) sur le dernier message entrant
+    if (agent.escalation_enabled && agent.escalation_keywords?.length > 0) {
+      // Récupérer le dernier message entrant
+      const { data: lastInbound } = await supabase
+        .from('messages')
+        .select('content')
+        .eq('conversation_id', params.conversationId)
+        .eq('direction', 'inbound')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .single()
+
+      if (lastInbound?.content) {
+        const messageText = decryptMessage(lastInbound.content).toLowerCase()
+        const triggeredKeyword = (agent.escalation_keywords as string[]).find((kw: string) =>
+          messageText.includes(kw.toLowerCase())
+        )
+
+        if (triggeredKeyword) {
+          console.log('[AI] ESCALATION détectée! Mot-clé:', triggeredKeyword)
+
+          // Envoyer le message d'escalation si configuré
+          if (agent.escalation_message) {
+            await evolution.sendText(
+              params.instanceName,
+              params.contactPhoneNumber,
+              agent.escalation_message
+            )
+
+            // Sauvegarder le message d'escalation
+            await supabase.from('messages').insert({
+              conversation_id: params.conversationId,
+              session_id: params.sessionId,
+              direction: 'outbound',
+              content: encryptMessage(agent.escalation_message),
+              message_type: 'text',
+              sent_by: 'ai_agent',
+              ai_agent_id: params.agentId,
+              status: 'sent',
+            })
+          }
+
+          // Désactiver l'IA pour cette conversation et enregistrer l'escalation
+          await supabase
+            .from('conversations')
+            .update({
+              is_ai_active: false,
+              escalation_reason: triggeredKeyword,
+              escalated_at: new Date().toISOString(),
+              last_message_at: new Date().toISOString(),
+              last_message_preview: agent.escalation_message?.slice(0, 100) || 'Escalation automatique',
+            })
+            .eq('id', params.conversationId)
+
+          // Créer une alerte pour l'utilisateur
+          const { data: session } = await supabase
+            .from('whatsapp_sessions')
+            .select('user_id, instance_name')
+            .eq('id', params.sessionId)
+            .single()
+
+          if (session) {
+            await supabase.from('user_alerts').insert({
+              user_id: session.user_id,
+              alert_type: 'info',
+              title: 'Escalation automatique',
+              message: `Une conversation a été automatiquement transférée car le mot-clé "${triggeredKeyword}" a été détecté. L'IA a été désactivée pour cette conversation.`,
+              metadata: {
+                conversation_id: params.conversationId,
+                session_id: params.sessionId,
+                keyword: triggeredKeyword,
+                agent_id: params.agentId,
+              },
+            })
+          }
+
+          console.log('[AI] Conversation escaladée, IA désactivée')
+          return
+        }
+      }
+    }
+
     // 2. Récupérer les N messages les plus récents (desc) puis remettre en ordre chrono
     const { data: recentMessages } = await supabase
       .from('messages')

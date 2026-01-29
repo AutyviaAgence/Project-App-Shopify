@@ -50,7 +50,7 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json()
-  const { name, description, system_prompt, objective, model, temperature, is_active, response_delay_min, response_delay_max, max_messages_per_conversation, inactivity_timeout_minutes, team_id } = body as {
+  const { name, description, system_prompt, objective, model, temperature, is_active, response_delay_min, response_delay_max, max_messages_per_conversation, inactivity_timeout_minutes, escalation_enabled, escalation_keywords, escalation_message, team_id } = body as {
     name?: string
     description?: string
     system_prompt?: string
@@ -62,6 +62,9 @@ export async function POST(req: Request) {
     response_delay_max?: number
     max_messages_per_conversation?: number | null
     inactivity_timeout_minutes?: number | null
+    escalation_enabled?: boolean
+    escalation_keywords?: string[]
+    escalation_message?: string
     team_id?: string
   }
 
@@ -95,6 +98,11 @@ export async function POST(req: Request) {
     ? Math.max(1, Math.min(10080, Math.floor(inactivity_timeout_minutes)))
     : null
 
+  // Escalation settings
+  const finalEscalationKeywords = Array.isArray(escalation_keywords)
+    ? escalation_keywords.map(k => k.trim().toLowerCase()).filter(k => k.length > 0)
+    : undefined
+
   const { data: agent, error } = await supabase
     .from('ai_agents')
     .insert({
@@ -111,6 +119,9 @@ export async function POST(req: Request) {
       is_active: is_active !== undefined ? is_active : true,
       max_messages_per_conversation: finalMaxMessages,
       inactivity_timeout_minutes: finalInactivityTimeout,
+      escalation_enabled: escalation_enabled ?? false,
+      escalation_keywords: finalEscalationKeywords,
+      escalation_message: escalation_message?.trim() || null,
     })
     .select()
     .single()

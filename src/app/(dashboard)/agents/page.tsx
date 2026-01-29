@@ -34,6 +34,7 @@ import {
   Clock,
   Languages,
   Users,
+  ShieldAlert,
 } from 'lucide-react'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 
@@ -72,6 +73,11 @@ export default function AgentsPage() {
 
   // Language detection
   const [formAutoDetectLanguage, setFormAutoDetectLanguage] = useState(false)
+
+  // Escalation (garde-fou)
+  const [formEscalationEnabled, setFormEscalationEnabled] = useState(false)
+  const [formEscalationKeywords, setFormEscalationKeywords] = useState('')
+  const [formEscalationMessage, setFormEscalationMessage] = useState('')
 
   const fetchAgents = useCallback(async () => {
     try {
@@ -123,6 +129,9 @@ export default function AgentsPage() {
     setFormScheduleEndTime('18:00')
     setFormScheduleDays([1, 2, 3, 4, 5])
     setFormAutoDetectLanguage(false)
+    setFormEscalationEnabled(false)
+    setFormEscalationKeywords('')
+    setFormEscalationMessage('')
     setDialogOpen(true)
   }
 
@@ -145,6 +154,9 @@ export default function AgentsPage() {
     setFormScheduleEndTime(agent.schedule_end_time ?? '18:00')
     setFormScheduleDays(agent.schedule_days ?? [1, 2, 3, 4, 5])
     setFormAutoDetectLanguage(agent.auto_detect_language ?? false)
+    setFormEscalationEnabled(agent.escalation_enabled ?? false)
+    setFormEscalationKeywords(agent.escalation_keywords?.join(', ') ?? '')
+    setFormEscalationMessage(agent.escalation_message ?? '')
     setDialogOpen(true)
   }
 
@@ -183,6 +195,9 @@ export default function AgentsPage() {
             schedule_end_time: formScheduleEndTime,
             schedule_days: formScheduleDays,
             auto_detect_language: formAutoDetectLanguage,
+            escalation_enabled: formEscalationEnabled,
+            escalation_keywords: formEscalationKeywords.split(',').map(k => k.trim()).filter(k => k.length > 0),
+            escalation_message: formEscalationMessage.trim() || null,
             team_id: formTeamId || null,
           }),
         })
@@ -215,6 +230,9 @@ export default function AgentsPage() {
             schedule_end_time: formScheduleEndTime,
             schedule_days: formScheduleDays,
             auto_detect_language: formAutoDetectLanguage,
+            escalation_enabled: formEscalationEnabled,
+            escalation_keywords: formEscalationKeywords.split(',').map(k => k.trim()).filter(k => k.length > 0),
+            escalation_message: formEscalationMessage.trim() || null,
             team_id: formTeamId || null,
           }),
         })
@@ -376,6 +394,12 @@ export default function AgentsPage() {
                         <span className="text-xs text-muted-foreground flex items-center gap-0.5">
                           <Languages className="h-3 w-3" />
                           Multi-langue
+                        </span>
+                      )}
+                      {agent.escalation_enabled && (
+                        <span className="text-xs text-muted-foreground flex items-center gap-0.5">
+                          <ShieldAlert className="h-3 w-3" />
+                          Garde-fou
                         </span>
                       )}
                     </div>
@@ -731,6 +755,63 @@ export default function AgentsPage() {
                 checked={formAutoDetectLanguage}
                 onCheckedChange={setFormAutoDetectLanguage}
               />
+            </div>
+
+            {/* Escalation Section (Garde-fou) */}
+            <div className="space-y-3 border-t pt-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label className="text-sm font-medium flex items-center gap-1.5">
+                    <ShieldAlert className="h-4 w-4" />
+                    Garde-fou (Escalation)
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Désactive l&apos;IA si le client est contrarié
+                  </p>
+                </div>
+                <Switch
+                  checked={formEscalationEnabled}
+                  onCheckedChange={setFormEscalationEnabled}
+                />
+              </div>
+
+              {formEscalationEnabled && (
+                <div className="space-y-3 pl-1">
+                  <div className="space-y-1">
+                    <Label htmlFor="escalation-keywords" className="text-xs text-muted-foreground">
+                      Mots-clés déclencheurs (séparés par virgule)
+                    </Label>
+                    <Textarea
+                      id="escalation-keywords"
+                      placeholder="parler à un humain, énervé, remboursement, plainte..."
+                      value={formEscalationKeywords}
+                      onChange={(e) => setFormEscalationKeywords(e.target.value)}
+                      rows={3}
+                      className="text-sm"
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      L&apos;IA sera désactivée si l&apos;un de ces mots-clés est détecté dans le message du client.
+                    </p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <Label htmlFor="escalation-message" className="text-xs text-muted-foreground">
+                      Message d&apos;escalation (optionnel)
+                    </Label>
+                    <Textarea
+                      id="escalation-message"
+                      placeholder="Je comprends votre frustration. Un conseiller va prendre le relais..."
+                      value={formEscalationMessage}
+                      onChange={(e) => setFormEscalationMessage(e.target.value)}
+                      rows={2}
+                      className="text-sm"
+                    />
+                    <p className="text-[10px] text-muted-foreground">
+                      Ce message sera envoyé au client avant de désactiver l&apos;IA.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
 
             <Button

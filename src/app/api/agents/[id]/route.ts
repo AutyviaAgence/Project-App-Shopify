@@ -66,7 +66,7 @@ export async function PATCH(
     name, description, system_prompt, objective, model, temperature, is_active,
     response_delay_min, response_delay_max, max_messages_per_conversation, inactivity_timeout_minutes,
     schedule_enabled, schedule_timezone, schedule_start_time, schedule_end_time, schedule_days,
-    auto_detect_language, team_id
+    auto_detect_language, escalation_enabled, escalation_keywords, escalation_message, team_id
   } = body as {
     name?: string
     description?: string
@@ -85,6 +85,9 @@ export async function PATCH(
     schedule_end_time?: string
     schedule_days?: number[]
     auto_detect_language?: boolean
+    escalation_enabled?: boolean
+    escalation_keywords?: string[]
+    escalation_message?: string
     team_id?: string | null
   }
 
@@ -145,6 +148,21 @@ export async function PATCH(
   // Auto-detect language
   if (auto_detect_language !== undefined) {
     updateData.auto_detect_language = Boolean(auto_detect_language)
+  }
+
+  // Escalation (garde-fou)
+  if (escalation_enabled !== undefined) {
+    updateData.escalation_enabled = Boolean(escalation_enabled)
+  }
+  if (escalation_keywords !== undefined) {
+    // Filtrer et nettoyer les mots-clés
+    const cleanedKeywords = Array.isArray(escalation_keywords)
+      ? escalation_keywords.map(k => k.trim().toLowerCase()).filter(k => k.length > 0)
+      : []
+    updateData.escalation_keywords = cleanedKeywords
+  }
+  if (escalation_message !== undefined) {
+    updateData.escalation_message = escalation_message?.trim() || null
   }
 
   // Gestion du changement d'équipe
