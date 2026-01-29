@@ -33,6 +33,9 @@ export async function GET(
       invited_email,
       invitation_token,
       status,
+      allowed_session_ids,
+      allowed_agent_ids,
+      allowed_link_ids,
       created_at,
       profiles (
         id,

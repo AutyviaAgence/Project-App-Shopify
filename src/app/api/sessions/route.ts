@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { evolution } from '@/lib/evolution/client'
-import { getUserTeamIds, buildAccessFilter } from '@/lib/teams/access'
+import { getUserTeamIds, getUserTeamPermissions, buildAccessFilter, filterSessionsByPermissions } from '@/lib/teams/access'
+import type { WhatsAppSession } from '@/types/database'
 
 /** POST /api/sessions — Créer une nouvelle session WhatsApp */
 export async function POST(req: NextRequest) {
@@ -61,7 +62,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ data: session })
 }
 
-/** GET /api/sessions — Lister les sessions de l'utilisateur (+ équipes) */
+/** GET /api/sessions — Lister les sessions de l'utilisateur (+ équipes avec permissions) */
 export async function GET() {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -70,11 +71,14 @@ export async function GET() {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  // Récupérer les équipes de l'utilisateur
-  const teamIds = await getUserTeamIds(supabase, user.id)
+  // Récupérer les équipes et permissions de l'utilisateur
+  const [teamIds, permissions] = await Promise.all([
+    getUserTeamIds(supabase, user.id),
+    getUserTeamPermissions(supabase, user.id)
+  ])
 
-  // Construire la requête avec filtre d'accès
-  const { data: sessions, error } = await supabase
+  // Construire la requête avec filtre d'accès basique (équipes)
+  const { data: allSessions, error } = await supabase
     .from('whatsapp_sessions')
     .select('*')
     .or(buildAccessFilter(user.id, teamIds))
@@ -84,24 +88,29 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  // Filtrer selon les permissions granulaires
+  const sessions = filterSessionsByPermissions(
+    (allSessions || []) as (WhatsAppSession & { id: string; user_id: string; team_id: string | null })[],
+    user.id,
+    permissions
+  )
+
   // Récupérer le numéro pour les sessions connectées sans phone_number
-  if (sessions) {
-    for (const session of sessions) {
-      if (session.status === 'connected' && !session.phone_number) {
-        const instanceResult = await evolution.fetchInstance(session.instance_name)
-        if (instanceResult.ok) {
-          const instances = instanceResult.data as Array<Record<string, unknown>>
-          const instance = Array.isArray(instances) ? instances[0] : instances
-          const owner = (instance as Record<string, unknown>)?.ownerJid as string | undefined
-          if (owner) {
-            const phoneNumber = owner.split('@')[0]
-            session.phone_number = phoneNumber
-            // Sauvegarder en BDD pour les prochains appels
-            await supabase
-              .from('whatsapp_sessions')
-              .update({ phone_number: phoneNumber })
-              .eq('id', session.id)
-          }
+  for (const session of sessions) {
+    if (session.status === 'connected' && !session.phone_number) {
+      const instanceResult = await evolution.fetchInstance(session.instance_name)
+      if (instanceResult.ok) {
+        const instances = instanceResult.data as Array<Record<string, unknown>>
+        const instance = Array.isArray(instances) ? instances[0] : instances
+        const owner = (instance as Record<string, unknown>)?.ownerJid as string | undefined
+        if (owner) {
+          const phoneNumber = owner.split('@')[0]
+          session.phone_number = phoneNumber
+          // Sauvegarder en BDD pour les prochains appels
+          await supabase
+            .from('whatsapp_sessions')
+            .update({ phone_number: phoneNumber })
+            .eq('id', session.id)
         }
       }
     }

@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getUserTeamIds, buildAccessFilter } from '@/lib/teams/access'
+import { getUserTeamIds, getUserTeamPermissions, buildAccessFilter, filterAgentsByPermissions } from '@/lib/teams/access'
+import type { AIAgent } from '@/types/database'
 
 const VALID_MODELS = ['gpt-4o-mini', 'gpt-4o']
 
-/** GET /api/agents — Lister les agents IA de l'utilisateur (+ équipes) */
+/** GET /api/agents — Lister les agents IA de l'utilisateur (+ équipes avec permissions) */
 export async function GET() {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -13,10 +14,13 @@ export async function GET() {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  // Récupérer les équipes de l'utilisateur
-  const teamIds = await getUserTeamIds(supabase, user.id)
+  // Récupérer les équipes et permissions de l'utilisateur
+  const [teamIds, permissions] = await Promise.all([
+    getUserTeamIds(supabase, user.id),
+    getUserTeamPermissions(supabase, user.id)
+  ])
 
-  const { data: agents, error } = await supabase
+  const { data: allAgents, error } = await supabase
     .from('ai_agents')
     .select('*')
     .or(buildAccessFilter(user.id, teamIds))
@@ -25,6 +29,13 @@ export async function GET() {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
+
+  // Filtrer selon les permissions granulaires
+  const agents = filterAgentsByPermissions(
+    (allAgents || []) as (AIAgent & { id: string; user_id: string; team_id: string | null })[],
+    user.id,
+    permissions
+  )
 
   return NextResponse.json({ data: agents })
 }

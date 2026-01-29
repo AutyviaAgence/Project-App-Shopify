@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getUserTeamIds, buildAccessFilter } from '@/lib/teams/access'
+import { getUserTeamIds, getUserTeamPermissions, buildAccessFilter, filterLinksByPermissions } from '@/lib/teams/access'
+import type { WALink } from '@/types/database'
 
-/** GET /api/links — Lister les liens WA de l'utilisateur (+ équipes) */
+/** GET /api/links — Lister les liens WA de l'utilisateur (+ équipes avec permissions) */
 export async function GET() {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -11,11 +12,14 @@ export async function GET() {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  // Récupérer les équipes de l'utilisateur
-  const teamIds = await getUserTeamIds(supabase, user.id)
+  // Récupérer les équipes et permissions de l'utilisateur
+  const [teamIds, permissions] = await Promise.all([
+    getUserTeamIds(supabase, user.id),
+    getUserTeamPermissions(supabase, user.id)
+  ])
 
   // Récupérer les liens avec les sessions associées
-  const { data: links, error } = await supabase
+  const { data: allLinks, error } = await supabase
     .from('wa_links')
     .select('*, whatsapp_sessions(phone_number, instance_name, status)')
     .or(buildAccessFilter(user.id, teamIds))
@@ -24,6 +28,13 @@ export async function GET() {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
+
+  // Filtrer selon les permissions granulaires
+  const links = filterLinksByPermissions(
+    (allLinks || []) as (WALink & { id: string; user_id: string; team_id: string | null })[],
+    user.id,
+    permissions
+  )
 
   return NextResponse.json({ data: links })
 }

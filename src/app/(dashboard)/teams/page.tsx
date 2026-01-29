@@ -70,6 +70,32 @@ type TeamInvitation = {
   created_at: string
 }
 
+// Composant Avatar avec fallback
+function MemberAvatar({ member, size = 'md' }: { member: TeamMemberWithProfile; size?: 'sm' | 'md' | 'lg' }) {
+  const sizeClasses = {
+    sm: 'h-7 w-7 text-xs',
+    md: 'h-9 w-9 text-sm',
+    lg: 'h-12 w-12 text-base'
+  }
+
+  if (member.profile?.avatar_url) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={member.profile.avatar_url}
+        alt={member.profile.full_name || 'Avatar'}
+        className={`${sizeClasses[size]} rounded-full object-cover`}
+      />
+    )
+  }
+
+  return (
+    <div className={`${sizeClasses[size]} flex items-center justify-center rounded-full bg-gradient-to-br from-[#7DC2A5] to-[#40E9BE] text-white font-medium`}>
+      {member.profile?.full_name?.charAt(0)?.toUpperCase() || '?'}
+    </div>
+  )
+}
+
 export default function TeamsPage() {
   const [teams, setTeams] = useState<TeamWithRole[]>([])
   const [loading, setLoading] = useState(true)
@@ -78,7 +104,9 @@ export default function TeamsPage() {
   const [membersDialogOpen, setMembersDialogOpen] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false)
+  const [permissionsDialogOpen, setPermissionsDialogOpen] = useState(false)
   const [selectedTeam, setSelectedTeam] = useState<TeamWithRole | null>(null)
+  const [selectedMember, setSelectedMember] = useState<TeamMemberWithProfile | null>(null)
   const [members, setMembers] = useState<TeamMemberWithProfile[]>([])
   const [membersLoading, setMembersLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -97,6 +125,12 @@ export default function TeamsPage() {
   const [generatedCode, setGeneratedCode] = useState<string | null>(null)
   const [invitations, setInvitations] = useState<TeamInvitation[]>([])
   const [invitationsLoading, setInvitationsLoading] = useState(false)
+
+  // Permissions editing state
+  const [editingSessions, setEditingSessions] = useState<string[]>([])
+  const [editingAgents, setEditingAgents] = useState<string[]>([])
+  const [editingLinks, setEditingLinks] = useState<string[]>([])
+  const [permissionsMode, setPermissionsMode] = useState<'all' | 'specific'>('all')
 
   // Form state
   const [formName, setFormName] = useState('')
@@ -415,6 +449,140 @@ export default function TeamsPage() {
     }
   }
 
+  async function openPermissionsDialog(member: TeamMemberWithProfile) {
+    if (!selectedTeam) return
+
+    setSelectedMember(member)
+    setResourcesLoading(true)
+    setPermissionsDialogOpen(true)
+
+    // Déterminer le mode (tout accès ou spécifique)
+    const hasAllAccess = member.allowed_session_ids === null &&
+      member.allowed_agent_ids === null &&
+      member.allowed_link_ids === null
+    setPermissionsMode(hasAllAccess ? 'all' : 'specific')
+
+    // Initialiser les sélections avec les permissions actuelles
+    setEditingSessions(member.allowed_session_ids || [])
+    setEditingAgents(member.allowed_agent_ids || [])
+    setEditingLinks(member.allowed_link_ids || [])
+
+    try {
+      const [sessionsRes, agentsRes, linksRes] = await Promise.all([
+        fetch('/api/sessions'),
+        fetch('/api/agents'),
+        fetch('/api/links'),
+      ])
+
+      const [sessionsJson, agentsJson, linksJson] = await Promise.all([
+        sessionsRes.json(),
+        agentsRes.json(),
+        linksRes.json(),
+      ])
+
+      // Filtrer les ressources de l'équipe
+      setSessions(sessionsJson.data?.filter((s: WhatsAppSession) => s.team_id === selectedTeam.id) || [])
+      setAgents(agentsJson.data?.filter((a: AIAgent) => a.team_id === selectedTeam.id) || [])
+      setLinks(linksJson.data?.filter((l: WALink) => l.team_id === selectedTeam.id) || [])
+    } catch {
+      toast.error('Erreur lors du chargement des ressources')
+    } finally {
+      setResourcesLoading(false)
+    }
+  }
+
+  async function handleSavePermissions() {
+    if (!selectedTeam || !selectedMember) return
+
+    setSaving(true)
+    try {
+      const body = permissionsMode === 'all'
+        ? {
+            allowed_session_ids: null,
+            allowed_agent_ids: null,
+            allowed_link_ids: null,
+          }
+        : {
+            allowed_session_ids: editingSessions,
+            allowed_agent_ids: editingAgents,
+            allowed_link_ids: editingLinks,
+          }
+
+      const res = await fetch(`/api/teams/${selectedTeam.id}/members/${selectedMember.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const json = await res.json()
+      if (res.ok && json.data) {
+        setMembers((prev) =>
+          prev.map((m) =>
+            m.id === selectedMember.id
+              ? {
+                  ...m,
+                  allowed_session_ids: json.data.allowed_session_ids,
+                  allowed_agent_ids: json.data.allowed_agent_ids,
+                  allowed_link_ids: json.data.allowed_link_ids,
+                }
+              : m
+          )
+        )
+        toast.success('Permissions mises à jour')
+        setPermissionsDialogOpen(false)
+      } else {
+        toast.error(json.error || 'Erreur')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function toggleEditingSession(sessionId: string) {
+    setEditingSessions((prev) =>
+      prev.includes(sessionId) ? prev.filter((id) => id !== sessionId) : [...prev, sessionId]
+    )
+  }
+
+  function toggleEditingAgent(agentId: string) {
+    setEditingAgents((prev) =>
+      prev.includes(agentId) ? prev.filter((id) => id !== agentId) : [...prev, agentId]
+    )
+  }
+
+  function toggleEditingLink(linkId: string) {
+    setEditingLinks((prev) =>
+      prev.includes(linkId) ? prev.filter((id) => id !== linkId) : [...prev, linkId]
+    )
+  }
+
+  function getPermissionsSummary(member: TeamMemberWithProfile): string {
+    if (member.role === 'owner' || member.role === 'admin') {
+      return 'Accès complet'
+    }
+    const hasAllSessions = member.allowed_session_ids === null
+    const hasAllAgents = member.allowed_agent_ids === null
+    const hasAllLinks = member.allowed_link_ids === null
+
+    if (hasAllSessions && hasAllAgents && hasAllLinks) {
+      return 'Toutes les ressources'
+    }
+
+    const parts: string[] = []
+    if (!hasAllSessions) {
+      parts.push(`${member.allowed_session_ids?.length || 0} session(s)`)
+    }
+    if (!hasAllAgents) {
+      parts.push(`${member.allowed_agent_ids?.length || 0} agent(s)`)
+    }
+    if (!hasAllLinks) {
+      parts.push(`${member.allowed_link_ids?.length || 0} lien(s)`)
+    }
+
+    return parts.length > 0 ? parts.join(', ') : 'Aucun accès'
+  }
+
   function copyCode(code: string) {
     navigator.clipboard.writeText(code)
     setCopiedCode(code)
@@ -622,11 +790,11 @@ export default function TeamsPage() {
 
       {/* Members Dialog */}
       <Dialog open={membersDialogOpen} onOpenChange={setMembersDialogOpen}>
-        <DialogContent className="sm:max-w-lg">
+        <DialogContent className="sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>Membres de {selectedTeam?.name}</DialogTitle>
             <DialogDescription>
-              Gérez les membres de votre équipe.
+              Gérez les membres et leurs permissions.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -635,54 +803,75 @@ export default function TeamsPage() {
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
             ) : (
-              <div className="space-y-2 max-h-80 overflow-auto">
+              <div className="space-y-3 max-h-[60vh] overflow-auto">
                 {members.filter(m => m.status === 'accepted').map((member) => (
                   <div
                     key={member.id}
-                    className="flex items-center justify-between rounded-xl border p-3"
+                    className="rounded-xl border p-4 space-y-3"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-[#7DC2A5] to-[#40E9BE] text-white text-sm font-medium">
-                        {member.profile?.full_name?.charAt(0)?.toUpperCase() || '?'}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <MemberAvatar member={member} size="md" />
+                        <div>
+                          <p className="text-sm font-medium">
+                            {member.profile?.full_name || 'Utilisateur'}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {member.profile?.email}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="text-sm font-medium">
-                          {member.profile?.full_name || 'Utilisateur'}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {member.profile?.email}
-                        </p>
+                      <div className="flex items-center gap-2">
+                        {member.role !== 'owner' && selectedTeam?.my_role === 'owner' && (
+                          <Select
+                            value={member.role}
+                            onValueChange={(v) => handleChangeMemberRole(member.id, v as 'admin' | 'member')}
+                          >
+                            <SelectTrigger className="h-8 w-24 text-xs">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="admin">Admin</SelectItem>
+                              <SelectItem value="member">Membre</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
+                        {member.role === 'owner' && (
+                          <Badge className="h-7 bg-[#7DC2A5]">Propriétaire</Badge>
+                        )}
+                        {member.role !== 'owner' && (selectedTeam?.my_role === 'owner' || selectedTeam?.my_role === 'admin') && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                            onClick={() => handleRemoveMember(member.id)}
+                          >
+                            <LogOut className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {member.role !== 'owner' && selectedTeam?.my_role === 'owner' && (
-                        <Select
-                          value={member.role}
-                          onValueChange={(v) => handleChangeMemberRole(member.id, v as 'admin' | 'member')}
-                        >
-                          <SelectTrigger className="h-8 w-24 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="admin">Admin</SelectItem>
-                            <SelectItem value="member">Membre</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      )}
-                      {member.role === 'owner' && (
-                        <Badge className="h-7 bg-[#7DC2A5]">Propriétaire</Badge>
-                      )}
-                      {member.role !== 'owner' && (selectedTeam?.my_role === 'owner' || selectedTeam?.my_role === 'admin') && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                          onClick={() => handleRemoveMember(member.id)}
-                        >
-                          <LogOut className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
+
+                    {/* Permissions row */}
+                    {member.role !== 'owner' && (
+                      <div className="flex items-center justify-between pt-2 border-t">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Shield className="h-3.5 w-3.5" />
+                          <span>{getPermissionsSummary(member)}</span>
+                        </div>
+                        {(selectedTeam?.my_role === 'owner' || selectedTeam?.my_role === 'admin') && member.role === 'member' && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-xs"
+                            onClick={() => openPermissionsDialog(member)}
+                          >
+                            <Pencil className="h-3 w-3 mr-1" />
+                            Permissions
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
                 {members.filter(m => m.status === 'accepted').length === 0 && (
@@ -942,6 +1131,160 @@ export default function TeamsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Permissions Dialog */}
+      <Dialog open={permissionsDialogOpen} onOpenChange={setPermissionsDialogOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Permissions de {selectedMember?.profile?.full_name || 'membre'}</DialogTitle>
+            <DialogDescription>
+              Définissez les ressources auxquelles ce membre peut accéder.
+            </DialogDescription>
+          </DialogHeader>
+
+          {resourcesLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <div className="space-y-6 py-2">
+              {/* Mode selection */}
+              <div className="space-y-3">
+                <Label>Mode d&apos;accès</Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setPermissionsMode('all')}
+                    className={`p-3 rounded-lg border text-left transition-colors ${
+                      permissionsMode === 'all'
+                        ? 'border-[#7DC2A5] bg-[#7DC2A5]/10'
+                        : 'border-border hover:border-muted-foreground/50'
+                    }`}
+                  >
+                    <p className="text-sm font-medium">Accès complet</p>
+                    <p className="text-xs text-muted-foreground">Toutes les ressources de l&apos;équipe</p>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setPermissionsMode('specific')}
+                    className={`p-3 rounded-lg border text-left transition-colors ${
+                      permissionsMode === 'specific'
+                        ? 'border-[#7DC2A5] bg-[#7DC2A5]/10'
+                        : 'border-border hover:border-muted-foreground/50'
+                    }`}
+                  >
+                    <p className="text-sm font-medium">Accès limité</p>
+                    <p className="text-xs text-muted-foreground">Sélectionner les ressources</p>
+                  </button>
+                </div>
+              </div>
+
+              {permissionsMode === 'specific' && (
+                <>
+                  {/* Sessions */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <MessageSquare className="h-4 w-4 text-[#7DC2A5]" />
+                      Sessions WhatsApp
+                      <Badge variant="secondary" className="ml-auto text-xs">
+                        {editingSessions.length}/{sessions.length}
+                      </Badge>
+                    </div>
+                    {sessions.length > 0 ? (
+                      <div className="space-y-2 pl-1">
+                        {sessions.map((session) => (
+                          <label
+                            key={session.id}
+                            className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer"
+                          >
+                            <Checkbox
+                              checked={editingSessions.includes(session.id)}
+                              onCheckedChange={() => toggleEditingSession(session.id)}
+                            />
+                            <span className="text-sm">{session.instance_name}</span>
+                            <Badge variant="outline" className="ml-auto text-xs">
+                              {session.status}
+                            </Badge>
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground pl-6">Aucune session dans cette équipe</p>
+                    )}
+                  </div>
+
+                  {/* Agents */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <Bot className="h-4 w-4 text-[#40E9BE]" />
+                      Agents IA
+                      <Badge variant="secondary" className="ml-auto text-xs">
+                        {editingAgents.length}/{agents.length}
+                      </Badge>
+                    </div>
+                    {agents.length > 0 ? (
+                      <div className="space-y-2 pl-1">
+                        {agents.map((agent) => (
+                          <label
+                            key={agent.id}
+                            className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer"
+                          >
+                            <Checkbox
+                              checked={editingAgents.includes(agent.id)}
+                              onCheckedChange={() => toggleEditingAgent(agent.id)}
+                            />
+                            <span className="text-sm">{agent.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground pl-6">Aucun agent dans cette équipe</p>
+                    )}
+                  </div>
+
+                  {/* Links */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <Link2 className="h-4 w-4 text-[#7DC2A5]" />
+                      Liens WhatsApp
+                      <Badge variant="secondary" className="ml-auto text-xs">
+                        {editingLinks.length}/{links.length}
+                      </Badge>
+                    </div>
+                    {links.length > 0 ? (
+                      <div className="space-y-2 pl-1">
+                        {links.map((link) => (
+                          <label
+                            key={link.id}
+                            className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer"
+                          >
+                            <Checkbox
+                              checked={editingLinks.includes(link.id)}
+                              onCheckedChange={() => toggleEditingLink(link.id)}
+                            />
+                            <span className="text-sm">{link.name}</span>
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground pl-6">Aucun lien dans cette équipe</p>
+                    )}
+                  </div>
+                </>
+              )}
+
+              <Button onClick={handleSavePermissions} disabled={saving} className="w-full">
+                {saving ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Check className="mr-2 h-4 w-4" />
+                )}
+                Enregistrer les permissions
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

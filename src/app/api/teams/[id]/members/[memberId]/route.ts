@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getTeamRole, isTeamAdmin, isTeamOwner } from '@/lib/teams/access'
 
-/** PATCH /api/teams/[id]/members/[memberId] — Modifier le rôle d'un membre */
+/** PATCH /api/teams/[id]/members/[memberId] — Modifier le rôle et/ou permissions d'un membre */
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string; memberId: string }> }
@@ -44,20 +44,51 @@ export async function PATCH(
   }
 
   const body = await req.json()
-  const { role } = body as { role?: 'admin' | 'member' }
-
-  if (role !== 'admin' && role !== 'member') {
-    return NextResponse.json({ error: 'Rôle invalide' }, { status: 400 })
+  const {
+    role,
+    allowed_session_ids,
+    allowed_agent_ids,
+    allowed_link_ids
+  } = body as {
+    role?: 'admin' | 'member'
+    allowed_session_ids?: string[] | null
+    allowed_agent_ids?: string[] | null
+    allowed_link_ids?: string[] | null
   }
 
-  // Seul l'owner peut promouvoir en admin
-  if (role === 'admin' && userRole !== 'owner') {
-    return NextResponse.json({ error: 'Seul le propriétaire peut promouvoir en administrateur' }, { status: 403 })
+  // Construire l'objet de mise à jour
+  const updateData: Record<string, unknown> = {}
+
+  // Gestion du rôle
+  if (role !== undefined) {
+    if (role !== 'admin' && role !== 'member') {
+      return NextResponse.json({ error: 'Rôle invalide' }, { status: 400 })
+    }
+    // Seul l'owner peut promouvoir en admin
+    if (role === 'admin' && userRole !== 'owner') {
+      return NextResponse.json({ error: 'Seul le propriétaire peut promouvoir en administrateur' }, { status: 403 })
+    }
+    updateData.role = role
+  }
+
+  // Gestion des permissions (null = accès à tout, [] = aucun accès, [...] = accès limité)
+  if (allowed_session_ids !== undefined) {
+    updateData.allowed_session_ids = allowed_session_ids
+  }
+  if (allowed_agent_ids !== undefined) {
+    updateData.allowed_agent_ids = allowed_agent_ids
+  }
+  if (allowed_link_ids !== undefined) {
+    updateData.allowed_link_ids = allowed_link_ids
+  }
+
+  if (Object.keys(updateData).length === 0) {
+    return NextResponse.json({ error: 'Aucune modification fournie' }, { status: 400 })
   }
 
   const { data: updated, error } = await supabase
     .from('team_members')
-    .update({ role })
+    .update(updateData)
     .eq('id', memberId)
     .select()
     .single()
