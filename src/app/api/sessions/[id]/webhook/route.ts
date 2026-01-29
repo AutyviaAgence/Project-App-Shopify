@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { evolution } from '@/lib/evolution/client'
+import { checkTeamPermission } from '@/lib/teams/access'
 
 /** POST /api/sessions/[id]/webhook — Reconfigurer le webhook d'une session */
 export async function POST(
@@ -15,15 +16,23 @@ export async function POST(
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
+  // Récupérer la session (RLS gère l'accès)
   const { data: session, error: dbError } = await supabase
     .from('whatsapp_sessions')
     .select('*')
     .eq('id', id)
-    .eq('user_id', user.id)
     .single()
 
   if (dbError || !session) {
     return NextResponse.json({ error: 'Session introuvable' }, { status: 404 })
+  }
+
+  // Vérifier permission d'édition pour les sessions d'équipe
+  if (session.team_id && session.user_id !== user.id) {
+    const hasPermission = await checkTeamPermission(supabase, user.id, session.team_id, 'sessions_manage')
+    if (!hasPermission) {
+      return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+    }
   }
 
   // Construire l'URL du webhook depuis NEXT_PUBLIC_APP_URL (production)
