@@ -167,7 +167,7 @@ export default function DashboardPage() {
               <TimeSeriesChart
                 data={stats.charts.conversationsOverTime}
                 title=""
-                color="hsl(var(--chart-2))"
+                color="#40E9BE"
               />
             </div>
           </div>

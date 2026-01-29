@@ -1,3 +1,4 @@
+
 -- Migration: Ajouter policy INSERT pour ai_agents
 -- À exécuter dans Supabase SQL Editor
 

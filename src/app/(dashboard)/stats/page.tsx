@@ -187,12 +187,26 @@ export default function StatsPage() {
             </div>
 
             <div className="grid gap-6 lg:grid-cols-2">
-              <MessagesChart data={stats.charts.messagesOverTime} />
-              <TimeSeriesChart
-                data={stats.charts.conversationsOverTime}
-                title="Nouvelles conversations"
-                color="hsl(var(--chart-3))"
-              />
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Messages par jour</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <MessagesChart data={stats.charts.messagesOverTime} />
+                </CardContent>
+              </Card>
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Nouvelles conversations</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <TimeSeriesChart
+                    data={stats.charts.conversationsOverTime}
+                    title=""
+                    color="#40E9BE"
+                  />
+                </CardContent>
+              </Card>
             </div>
           </TabsContent>
 
@@ -260,7 +274,14 @@ export default function StatsPage() {
                   ))}
                 </div>
 
-                <AgentsComparisonChart data={stats.agents} />
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">Comparaison des agents</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <AgentsComparisonChart data={stats.agents} />
+                  </CardContent>
+                </Card>
               </>
             )}
           </TabsContent>
@@ -368,11 +389,18 @@ export default function StatsPage() {
               />
             </div>
 
-            <TimeSeriesChart
-              data={stats.charts.newContactsOverTime}
-              title="Nouveaux contacts par jour"
-              color="hsl(var(--chart-4))"
-            />
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Nouveaux contacts par jour</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <TimeSeriesChart
+                  data={stats.charts.newContactsOverTime}
+                  title=""
+                  color="#8B5CF6"
+                />
+              </CardContent>
+            </Card>
 
             {/* Top 10 contacts */}
             {stats.contacts.topContacts.length > 0 && (

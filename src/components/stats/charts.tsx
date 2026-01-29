@@ -12,12 +12,58 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { StatsMessagePoint, StatsTimePoint } from '@/types/stats'
+
+// Autyvia brand colors
+const COLORS = {
+  green: '#7DC2A5',
+  turquoise: '#40E9BE',
+  turquoiseDark: '#33B89A',
+  grayDark: '#2D3E48',
+  grayMuted: '#9CAAB5',
+  purple: '#8B5CF6',
+  blue: '#3B82F6',
+  gridLine: '#3D4E58',
+}
 
 function formatDate(dateStr: string) {
   const d = new Date(dateStr)
   return `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`
+}
+
+// Custom tooltip component for better visibility
+function CustomTooltip({
+  active,
+  payload,
+  label,
+  labelFormatter,
+}: {
+  active?: boolean
+  payload?: Array<{ name: string; value: number; color: string }>
+  label?: string
+  labelFormatter?: (label: string) => string
+}) {
+  if (!active || !payload || payload.length === 0) return null
+
+  return (
+    <div className="bg-popover border border-border rounded-lg shadow-lg p-3 min-w-[140px]">
+      <p className="text-sm font-medium text-foreground mb-2">
+        {labelFormatter ? labelFormatter(label as string) : label}
+      </p>
+      {payload.map((entry, index) => (
+        <div key={index} className="flex items-center justify-between gap-4 text-sm">
+          <div className="flex items-center gap-2">
+            <div
+              className="w-3 h-3 rounded-sm"
+              style={{ backgroundColor: entry.color }}
+            />
+            <span className="text-muted-foreground">{entry.name}</span>
+          </div>
+          <span className="font-semibold text-foreground">{entry.value}</span>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 // --- Messages Bar Chart (stacked inbound / outbound) ---
@@ -28,51 +74,45 @@ type MessagesChartProps = {
 
 export function MessagesChart({ data }: MessagesChartProps) {
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Messages par jour</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={300}>
-          <BarChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-            <XAxis
-              dataKey="date"
-              tickFormatter={formatDate}
-              className="text-xs"
-              tick={{ fill: 'hsl(var(--muted-foreground))' }}
-            />
-            <YAxis
-              className="text-xs"
-              tick={{ fill: 'hsl(var(--muted-foreground))' }}
-            />
-            <Tooltip
-              labelFormatter={(label) => formatDate(label as string)}
-              contentStyle={{
-                backgroundColor: 'hsl(var(--card))',
-                border: '1px solid hsl(var(--border))',
-                borderRadius: '8px',
-              }}
-            />
-            <Legend />
-            <Bar
-              dataKey="inbound"
-              name="Reçus"
-              stackId="messages"
-              fill="hsl(var(--chart-1))"
-              radius={[0, 0, 0, 0]}
-            />
-            <Bar
-              dataKey="outbound"
-              name="Envoyés"
-              stackId="messages"
-              fill="hsl(var(--chart-2))"
-              radius={[4, 4, 0, 0]}
-            />
-          </BarChart>
-        </ResponsiveContainer>
-      </CardContent>
-    </Card>
+    <ResponsiveContainer width="100%" height={280}>
+      <BarChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke={COLORS.gridLine} opacity={0.3} />
+        <XAxis
+          dataKey="date"
+          tickFormatter={formatDate}
+          tick={{ fill: COLORS.grayMuted, fontSize: 12 }}
+          axisLine={{ stroke: COLORS.gridLine }}
+          tickLine={{ stroke: COLORS.gridLine }}
+        />
+        <YAxis
+          tick={{ fill: COLORS.grayMuted, fontSize: 12 }}
+          axisLine={{ stroke: COLORS.gridLine }}
+          tickLine={{ stroke: COLORS.gridLine }}
+        />
+        <Tooltip
+          content={<CustomTooltip labelFormatter={formatDate} />}
+          cursor={{ fill: 'rgba(125, 194, 165, 0.1)' }}
+        />
+        <Legend
+          wrapperStyle={{ paddingTop: 16 }}
+          formatter={(value) => <span className="text-sm text-muted-foreground">{value}</span>}
+        />
+        <Bar
+          dataKey="outbound"
+          name="Envoyés"
+          stackId="messages"
+          fill={COLORS.green}
+          radius={[0, 0, 0, 0]}
+        />
+        <Bar
+          dataKey="inbound"
+          name="Reçus"
+          stackId="messages"
+          fill={COLORS.turquoise}
+          radius={[4, 4, 0, 0]}
+        />
+      </BarChart>
+    </ResponsiveContainer>
   )
 }
 
@@ -87,54 +127,48 @@ type TimeSeriesChartProps = {
 export function TimeSeriesChart({
   data,
   title,
-  color = 'hsl(var(--chart-3))',
+  color = COLORS.turquoise,
 }: TimeSeriesChartProps) {
+  // Generate unique gradient ID based on title or random
+  const gradientId = `gradient-${title.replace(/\s+/g, '-') || 'default'}`
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={250}>
-          <AreaChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-            <XAxis
-              dataKey="date"
-              tickFormatter={formatDate}
-              className="text-xs"
-              tick={{ fill: 'hsl(var(--muted-foreground))' }}
-            />
-            <YAxis
-              className="text-xs"
-              tick={{ fill: 'hsl(var(--muted-foreground))' }}
-              allowDecimals={false}
-            />
-            <Tooltip
-              labelFormatter={(label) => formatDate(label as string)}
-              contentStyle={{
-                backgroundColor: 'hsl(var(--card))',
-                border: '1px solid hsl(var(--border))',
-                borderRadius: '8px',
-              }}
-            />
-            <defs>
-              <linearGradient id={`gradient-${title}`} x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor={color} stopOpacity={0.3} />
-                <stop offset="95%" stopColor={color} stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <Area
-              type="monotone"
-              dataKey="count"
-              name="Nombre"
-              stroke={color}
-              fill={`url(#gradient-${title})`}
-              strokeWidth={2}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </CardContent>
-    </Card>
+    <ResponsiveContainer width="100%" height={280}>
+      <AreaChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke={COLORS.gridLine} opacity={0.3} />
+        <XAxis
+          dataKey="date"
+          tickFormatter={formatDate}
+          tick={{ fill: COLORS.grayMuted, fontSize: 12 }}
+          axisLine={{ stroke: COLORS.gridLine }}
+          tickLine={{ stroke: COLORS.gridLine }}
+        />
+        <YAxis
+          tick={{ fill: COLORS.grayMuted, fontSize: 12 }}
+          axisLine={{ stroke: COLORS.gridLine }}
+          tickLine={{ stroke: COLORS.gridLine }}
+          allowDecimals={false}
+        />
+        <Tooltip
+          content={<CustomTooltip labelFormatter={formatDate} />}
+          cursor={{ stroke: color, strokeWidth: 1, strokeDasharray: '3 3' }}
+        />
+        <defs>
+          <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor={color} stopOpacity={0.4} />
+            <stop offset="95%" stopColor={color} stopOpacity={0.05} />
+          </linearGradient>
+        </defs>
+        <Area
+          type="monotone"
+          dataKey="count"
+          name="Nombre"
+          stroke={color}
+          fill={`url(#${gradientId})`}
+          strokeWidth={2}
+        />
+      </AreaChart>
+    </ResponsiveContainer>
   )
 }
 
@@ -148,49 +182,87 @@ export function AgentsComparisonChart({ data }: AgentsComparisonChartProps) {
   if (data.length === 0) return null
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base">Comparaison des agents</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={Math.max(200, data.length * 60)}>
-          <BarChart data={data} layout="vertical">
-            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-            <XAxis
-              type="number"
-              className="text-xs"
-              tick={{ fill: 'hsl(var(--muted-foreground))' }}
-            />
-            <YAxis
-              type="category"
-              dataKey="name"
-              className="text-xs"
-              width={120}
-              tick={{ fill: 'hsl(var(--muted-foreground))' }}
-            />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: 'hsl(var(--card))',
-                border: '1px solid hsl(var(--border))',
-                borderRadius: '8px',
-              }}
-            />
-            <Legend />
-            <Bar
-              dataKey="messagesHandled"
-              name="Messages traités"
-              fill="hsl(var(--chart-1))"
-              radius={[0, 4, 4, 0]}
-            />
-            <Bar
-              dataKey="conversationsManaged"
-              name="Conversations"
-              fill="hsl(var(--chart-4))"
-              radius={[0, 4, 4, 0]}
-            />
-          </BarChart>
-        </ResponsiveContainer>
-      </CardContent>
-    </Card>
+    <ResponsiveContainer width="100%" height={Math.max(200, data.length * 60)}>
+      <BarChart data={data} layout="vertical" margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke={COLORS.gridLine} opacity={0.3} />
+        <XAxis
+          type="number"
+          tick={{ fill: COLORS.grayMuted, fontSize: 12 }}
+          axisLine={{ stroke: COLORS.gridLine }}
+          tickLine={{ stroke: COLORS.gridLine }}
+        />
+        <YAxis
+          type="category"
+          dataKey="name"
+          width={120}
+          tick={{ fill: COLORS.grayMuted, fontSize: 12 }}
+          axisLine={{ stroke: COLORS.gridLine }}
+          tickLine={{ stroke: COLORS.gridLine }}
+        />
+        <Tooltip
+          content={<CustomTooltip />}
+          cursor={{ fill: 'rgba(125, 194, 165, 0.1)' }}
+        />
+        <Legend
+          wrapperStyle={{ paddingTop: 16 }}
+          formatter={(value) => <span className="text-sm text-muted-foreground">{value}</span>}
+        />
+        <Bar
+          dataKey="conversationsManaged"
+          name="Conversations"
+          fill={COLORS.green}
+          radius={[0, 4, 4, 0]}
+        />
+        <Bar
+          dataKey="messagesHandled"
+          name="Messages traités"
+          fill={COLORS.turquoise}
+          radius={[0, 4, 4, 0]}
+        />
+      </BarChart>
+    </ResponsiveContainer>
+  )
+}
+
+// --- Contacts Over Time Area Chart ---
+
+export function ContactsOverTimeChart({ data }: { data: StatsTimePoint[] }) {
+  return (
+    <ResponsiveContainer width="100%" height={280}>
+      <AreaChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke={COLORS.gridLine} opacity={0.3} />
+        <XAxis
+          dataKey="date"
+          tickFormatter={formatDate}
+          tick={{ fill: COLORS.grayMuted, fontSize: 12 }}
+          axisLine={{ stroke: COLORS.gridLine }}
+          tickLine={{ stroke: COLORS.gridLine }}
+        />
+        <YAxis
+          tick={{ fill: COLORS.grayMuted, fontSize: 12 }}
+          axisLine={{ stroke: COLORS.gridLine }}
+          tickLine={{ stroke: COLORS.gridLine }}
+          allowDecimals={false}
+        />
+        <Tooltip
+          content={<CustomTooltip labelFormatter={formatDate} />}
+          cursor={{ stroke: COLORS.purple, strokeWidth: 1, strokeDasharray: '3 3' }}
+        />
+        <defs>
+          <linearGradient id="gradient-contacts" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor={COLORS.purple} stopOpacity={0.4} />
+            <stop offset="95%" stopColor={COLORS.purple} stopOpacity={0.05} />
+          </linearGradient>
+        </defs>
+        <Area
+          type="monotone"
+          dataKey="count"
+          name="Nouveaux contacts"
+          stroke={COLORS.purple}
+          fill="url(#gradient-contacts)"
+          strokeWidth={2}
+        />
+      </AreaChart>
+    </ResponsiveContainer>
   )
 }
