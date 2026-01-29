@@ -165,43 +165,37 @@ export function ContactProfilePanel({
           </div>
         ) : contact ? (
           <div className="flex flex-col h-full">
-            {/* Header with gradient background */}
-            <div className="relative bg-gradient-to-br from-[#7DC2A5] to-[#40E9BE] px-4 pt-6 pb-10">
-              <div className="flex flex-col items-center">
-                <div className="flex h-14 w-14 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm text-white text-base font-semibold border-2 border-white/30">
+            {/* Header compact */}
+            <div className="bg-gradient-to-br from-[#7DC2A5] to-[#40E9BE] px-3 py-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm text-white text-sm font-semibold border border-white/30 shrink-0">
                   {getInitials()}
                 </div>
-                <h2 className="mt-3 text-base font-semibold text-white text-center">
-                  {getDisplayName()}
-                </h2>
-                {contact.name && (contact.first_name || contact.last_name) && (
-                  <p className="text-xs text-white/80">
-                    WhatsApp : {contact.name}
-                  </p>
-                )}
+                <div className="min-w-0 flex-1">
+                  <h2 className="text-sm font-semibold text-white truncate">
+                    {getDisplayName()}
+                  </h2>
+                  <p className="text-xs text-white/80 truncate">+{contact.phone_number}</p>
+                </div>
               </div>
             </div>
 
-            {/* Stats cards */}
-            <div className="-mt-5 mx-3 grid grid-cols-2 gap-2">
-              <div className="rounded-lg bg-card p-3 shadow-sm border">
-                <div className="flex items-center gap-1.5 text-muted-foreground mb-0.5">
-                  <Phone className="h-3 w-3" />
-                  <span className="text-[10px] font-medium">Téléphone</span>
-                </div>
-                <p className="text-xs font-semibold">+{contact.phone_number}</p>
-              </div>
-              <div className="rounded-lg bg-card p-3 shadow-sm border">
-                <div className="flex items-center gap-1.5 text-muted-foreground mb-0.5">
-                  <Calendar className="h-3 w-3" />
-                  <span className="text-[10px] font-medium">Ajouté</span>
-                </div>
-                <p className="text-xs font-semibold">
+            {/* Stats inline */}
+            <div className="mx-3 mt-2 flex items-center gap-4 text-xs text-muted-foreground">
+              <div className="flex items-center gap-1">
+                <Calendar className="h-3 w-3" />
+                <span>
                   {contact.created_at
                     ? format(new Date(contact.created_at), 'd MMM yyyy', { locale: fr })
                     : '-'}
-                </p>
+                </span>
               </div>
+              {contact.name && (contact.first_name || contact.last_name) && (
+                <div className="flex items-center gap-1 truncate">
+                  <MessageSquare className="h-3 w-3" />
+                  <span className="truncate">{contact.name}</span>
+                </div>
+              )}
             </div>
 
             {/* Scrollable content */}
