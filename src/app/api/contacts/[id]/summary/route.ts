@@ -85,13 +85,26 @@ export async function POST(
   const result = await generateAgentResponse({
     model: 'gpt-4o-mini',
     temperature: 0.3,
-    systemPrompt: `Tu es un assistant qui génère des résumés concis de conversations WhatsApp.
-Génère un résumé structuré en français qui inclut :
-- Les sujets principaux abordés
-- Les demandes ou besoins du contact
-- Les informations clés échangées
-- Le ton général de la conversation
-Sois concis (max 300 mots). Utilise des puces pour structurer.`,
+    systemPrompt: `Tu es un assistant qui génère des résumés structurés de conversations WhatsApp.
+
+Génère un résumé en français avec EXACTEMENT ces sections (garde les titres tels quels) :
+
+**Discussions générale :**
+Un résumé des sujets principaux abordés dans la conversation.
+
+**Informations client :**
+Les informations personnelles ou professionnelles mentionnées par le contact (nom, entreprise, localisation, préférences, etc.). Si aucune information n'est disponible, écris "Aucune information extraite".
+
+**Demandes et besoins :**
+Les demandes spécifiques, questions ou besoins exprimés par le contact.
+
+**Ton et sentiment :**
+Le ton général de la conversation (amical, formel, frustré, satisfait, etc.).
+
+**Points d'action :**
+Les actions à suivre ou engagements pris, s'il y en a. Sinon, écris "Aucun".
+
+Sois concis et factuel. Maximum 400 mots au total.`,
     messages: [
       { role: 'user', content: `Voici la conversation à résumer :\n\n${transcript}` },
     ],
