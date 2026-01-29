@@ -468,12 +468,12 @@ export default function LinksPage() {
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label htmlFor="link-team">Équipe</Label>
-              <Select value={formTeamId} onValueChange={setFormTeamId}>
+              <Select value={formTeamId || 'personal'} onValueChange={(v) => setFormTeamId(v === 'personal' ? '' : v)}>
                 <SelectTrigger id="link-team">
                   <SelectValue placeholder="Lien personnel" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Lien personnel</SelectItem>
+                  <SelectItem value="personal">Lien personnel</SelectItem>
                   {teams.map((team) => (
                     <SelectItem key={team.id} value={team.id}>
                       <span className="flex items-center gap-2">

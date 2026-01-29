@@ -443,12 +443,12 @@ export default function AgentsPage() {
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label htmlFor="agent-team">Équipe</Label>
-              <Select value={formTeamId} onValueChange={setFormTeamId}>
+              <Select value={formTeamId || 'personal'} onValueChange={(v) => setFormTeamId(v === 'personal' ? '' : v)}>
                 <SelectTrigger id="agent-team">
                   <SelectValue placeholder="Agent personnel" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Agent personnel</SelectItem>
+                  <SelectItem value="personal">Agent personnel</SelectItem>
                   {teams.map((team) => (
                     <SelectItem key={team.id} value={team.id}>
                       <span className="flex items-center gap-2">

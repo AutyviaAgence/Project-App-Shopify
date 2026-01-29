@@ -617,12 +617,12 @@ export default function SessionsPage() {
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label htmlFor="settings-team-select">Équipe</Label>
-              <Select value={formSessionTeamId} onValueChange={setFormSessionTeamId}>
+              <Select value={formSessionTeamId || 'personal'} onValueChange={(v) => setFormSessionTeamId(v === 'personal' ? '' : v)}>
                 <SelectTrigger id="settings-team-select">
                   <SelectValue placeholder="Session personnelle" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Session personnelle</SelectItem>
+                  <SelectItem value="personal">Session personnelle</SelectItem>
                   {teams.map((team) => (
                     <SelectItem key={team.id} value={team.id}>
                       <span className="flex items-center gap-2">
@@ -686,12 +686,12 @@ export default function SessionsPage() {
           <div className="space-y-4 py-4">
             <div className="space-y-2">
               <Label htmlFor="team-select">Équipe (optionnel)</Label>
-              <Select value={selectedTeamId} onValueChange={setSelectedTeamId}>
+              <Select value={selectedTeamId || 'personal'} onValueChange={(v) => setSelectedTeamId(v === 'personal' ? '' : v)}>
                 <SelectTrigger id="team-select">
                   <SelectValue placeholder="Session personnelle" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">Session personnelle</SelectItem>
+                  <SelectItem value="personal">Session personnelle</SelectItem>
                   {teams.map((team) => (
                     <SelectItem key={team.id} value={team.id}>
                       <span className="flex items-center gap-2">
