@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import type { KnowledgeDocument, AIAgent } from '@/types/database'
+import type { KnowledgeDocument, AIAgent, Team } from '@/types/database'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -16,6 +16,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { toast } from 'sonner'
 import {
   Plus,
@@ -30,8 +37,11 @@ import {
   Check,
   Download,
   Eye,
+  Users,
 } from 'lucide-react'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
+
+type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
 
 function statusBadge(status: string) {
   switch (status) {
@@ -70,6 +80,7 @@ function typeBadge(docType: string) {
 export default function KnowledgePage() {
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([])
   const [agents, setAgents] = useState<AIAgent[]>([])
+  const [teams, setTeams] = useState<TeamWithRole[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
@@ -78,6 +89,7 @@ export default function KnowledgePage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<KnowledgeDocument | null>(null)
   const [formTab, setFormTab] = useState<string>('text')
+  const [formTeamId, setFormTeamId] = useState('')
   const [formName, setFormName] = useState('')
   const [formDescription, setFormDescription] = useState('')
   const [formTextContent, setFormTextContent] = useState('')
@@ -128,10 +140,24 @@ export default function KnowledgePage() {
     }
   }, [])
 
+  const fetchTeams = useCallback(async () => {
+    try {
+      const res = await fetch('/api/teams')
+      const json = await res.json()
+      if (res.ok && json.data) {
+        // Filtrer les équipes où l'utilisateur peut gérer la knowledge (owner/admin ou can_manage_knowledge)
+        setTeams(json.data.filter((t: TeamWithRole) => t.my_role === 'owner' || t.my_role === 'admin'))
+      }
+    } catch {
+      // Silently ignore
+    }
+  }, [])
+
   useEffect(() => {
     fetchDocuments()
     fetchAgents()
-  }, [fetchDocuments, fetchAgents])
+    fetchTeams()
+  }, [fetchDocuments, fetchAgents, fetchTeams])
 
   // Polling quand des documents sont en processing/pending
   useEffect(() => {
@@ -159,6 +185,7 @@ export default function KnowledgePage() {
   function openCreateDialog() {
     setEditing(null)
     setFormTab('text')
+    setFormTeamId('')
     setFormName('')
     setFormDescription('')
     setFormTextContent('')
@@ -170,6 +197,7 @@ export default function KnowledgePage() {
   function openEditDialog(doc: KnowledgeDocument) {
     setEditing(doc)
     setFormTab(doc.doc_type)
+    setFormTeamId(doc.team_id || '')
     setFormName(doc.name)
     setFormDescription(doc.description || '')
     setFormTextContent(doc.text_content || '')
@@ -222,6 +250,9 @@ export default function KnowledgePage() {
           formData.append('file', formFile)
           formData.append('name', formName.trim())
           formData.append('description', formDescription.trim())
+          if (formTeamId) {
+            formData.append('team_id', formTeamId)
+          }
 
           const res = await fetch('/api/knowledge', {
             method: 'POST',
@@ -248,6 +279,7 @@ export default function KnowledgePage() {
               name: formName.trim(),
               description: formDescription.trim(),
               text_content: formTextContent.trim(),
+              team_id: formTeamId || undefined,
             }),
           })
           const json = await res.json()
@@ -478,6 +510,12 @@ export default function KnowledgePage() {
 
                     <div className="flex items-center gap-2 flex-wrap">
                       {typeBadge(doc.doc_type)}
+                      {doc.team_id && (
+                        <Badge variant="outline" className="text-xs">
+                          <Users className="mr-1 h-3 w-3" />
+                          {teams.find((t) => t.id === doc.team_id)?.name || 'Équipe'}
+                        </Badge>
+                      )}
                       {doc.status === 'ready' && (
                         <>
                           <span className="text-xs text-muted-foreground">
@@ -586,6 +624,37 @@ export default function KnowledgePage() {
           </DialogHeader>
 
           <div className="space-y-4 py-2">
+            {/* Sélecteur d'équipe (seulement en création) */}
+            {!editing && teams.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="doc-team">Équipe (optionnel)</Label>
+                <Select value={formTeamId} onValueChange={setFormTeamId}>
+                  <SelectTrigger id="doc-team">
+                    <SelectValue placeholder="Document personnel" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">
+                      <div className="flex items-center gap-2">
+                        <FileText className="h-4 w-4" />
+                        <span>Document personnel</span>
+                      </div>
+                    </SelectItem>
+                    {teams.map((team) => (
+                      <SelectItem key={team.id} value={team.id}>
+                        <div className="flex items-center gap-2">
+                          <Users className="h-4 w-4" />
+                          <span>{team.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Associez ce document à une équipe pour le partager avec ses membres.
+                </p>
+              </div>
+            )}
+
             {!editing && (
               <Tabs value={formTab} onValueChange={setFormTab}>
                 <TabsList className="grid w-full grid-cols-2">
