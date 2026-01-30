@@ -695,6 +695,11 @@ export default function ConversationsPage() {
                         )}
                       </div>
 
+                      {/* Numéro de téléphone */}
+                      <p className="text-[10px] text-muted-foreground truncate">
+                        +{conv.contact.phone_number}
+                      </p>
+
                       <p className={cn(
                         'mt-0.5 truncate text-xs',
                         conv.unread_count > 0 ? 'text-foreground' : 'text-muted-foreground'
