@@ -10,17 +10,61 @@ export async function GET() {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  const { data: profile, error } = await supabase
+  // Récupérer le profil existant
+  const { data: existingProfile } = await supabase
     .from('profiles')
     .select('*')
     .eq('id', user.id)
     .single()
 
-  if (error || !profile) {
-    return NextResponse.json({ error: 'Profil introuvable' }, { status: 404 })
+  // Extraire les données de auth.users
+  const authFullName = user.user_metadata?.full_name || user.user_metadata?.name
+  const authAvatarUrl = user.user_metadata?.avatar_url || user.user_metadata?.picture
+
+  // Si le profil n'existe pas ou manque des infos, synchroniser
+  if (!existingProfile) {
+    // Créer le profil s'il n'existe pas
+    const { data: newProfile, error: insertError } = await supabase
+      .from('profiles')
+      .insert({
+        id: user.id,
+        email: user.email || '',
+        full_name: authFullName || user.email?.split('@')[0] || null,
+        avatar_url: authAvatarUrl || null,
+      })
+      .select()
+      .single()
+
+    if (insertError) {
+      return NextResponse.json({ error: 'Erreur création profil' }, { status: 500 })
+    }
+    return NextResponse.json({ data: newProfile })
   }
 
-  return NextResponse.json({ data: profile })
+  // Synchroniser si des infos manquent dans le profil mais existent dans auth
+  const needsSync =
+    (!existingProfile.full_name && authFullName) ||
+    (!existingProfile.avatar_url && authAvatarUrl) ||
+    (existingProfile.email !== user.email)
+
+  if (needsSync) {
+    const { data: updatedProfile, error: updateError } = await supabase
+      .from('profiles')
+      .update({
+        full_name: existingProfile.full_name || authFullName || user.email?.split('@')[0],
+        avatar_url: existingProfile.avatar_url || authAvatarUrl,
+        email: user.email || existingProfile.email,
+      })
+      .eq('id', user.id)
+      .select()
+      .single()
+
+    if (!updateError && updatedProfile) {
+      return NextResponse.json({ data: updatedProfile })
+    }
+  }
+
+  return NextResponse.json({ data: existingProfile })
 }
 
 /** PATCH /api/profile — Modifier le profil */
