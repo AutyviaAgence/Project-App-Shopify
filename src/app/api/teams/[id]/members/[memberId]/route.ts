@@ -48,12 +48,29 @@ export async function PATCH(
     role,
     allowed_session_ids,
     allowed_agent_ids,
-    allowed_link_ids
+    allowed_link_ids,
+    // Nouvelles permissions granulaires
+    can_view_stats,
+    can_view_knowledge,
+    can_view_messages,
+    can_manage_sessions,
+    can_manage_agents,
+    can_manage_knowledge,
+    can_manage_links,
+    can_send_messages,
   } = body as {
     role?: 'admin' | 'member'
     allowed_session_ids?: string[] | null
     allowed_agent_ids?: string[] | null
     allowed_link_ids?: string[] | null
+    can_view_stats?: boolean
+    can_view_knowledge?: boolean
+    can_view_messages?: boolean
+    can_manage_sessions?: boolean
+    can_manage_agents?: boolean
+    can_manage_knowledge?: boolean
+    can_manage_links?: boolean
+    can_send_messages?: boolean
   }
 
   // Construire l'objet de mise à jour
@@ -71,7 +88,7 @@ export async function PATCH(
     updateData.role = role
   }
 
-  // Gestion des permissions (null = accès à tout, [] = aucun accès, [...] = accès limité)
+  // Gestion des permissions de ressources (null = accès à tout, [] = aucun accès, [...] = accès limité)
   if (allowed_session_ids !== undefined) {
     updateData.allowed_session_ids = allowed_session_ids
   }
@@ -80,6 +97,32 @@ export async function PATCH(
   }
   if (allowed_link_ids !== undefined) {
     updateData.allowed_link_ids = allowed_link_ids
+  }
+
+  // Gestion des permissions granulaires (lecture/écriture)
+  if (can_view_stats !== undefined) {
+    updateData.can_view_stats = can_view_stats
+  }
+  if (can_view_knowledge !== undefined) {
+    updateData.can_view_knowledge = can_view_knowledge
+  }
+  if (can_view_messages !== undefined) {
+    updateData.can_view_messages = can_view_messages
+  }
+  if (can_manage_sessions !== undefined) {
+    updateData.can_manage_sessions = can_manage_sessions
+  }
+  if (can_manage_agents !== undefined) {
+    updateData.can_manage_agents = can_manage_agents
+  }
+  if (can_manage_knowledge !== undefined) {
+    updateData.can_manage_knowledge = can_manage_knowledge
+  }
+  if (can_manage_links !== undefined) {
+    updateData.can_manage_links = can_manage_links
+  }
+  if (can_send_messages !== undefined) {
+    updateData.can_send_messages = can_send_messages
   }
 
   if (Object.keys(updateData).length === 0) {

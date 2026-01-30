@@ -50,7 +50,13 @@ import {
   MessageSquare,
   Bot,
   Link2,
+  BarChart3,
+  BookOpen,
+  Send,
+  Eye,
+  Settings,
 } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
 
 type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
 
@@ -131,6 +137,16 @@ export default function TeamsPage() {
   const [editingAgents, setEditingAgents] = useState<string[]>([])
   const [editingLinks, setEditingLinks] = useState<string[]>([])
   const [permissionsMode, setPermissionsMode] = useState<'all' | 'specific'>('all')
+
+  // Granular permissions state
+  const [canViewStats, setCanViewStats] = useState(true)
+  const [canViewKnowledge, setCanViewKnowledge] = useState(true)
+  const [canViewMessages, setCanViewMessages] = useState(true)
+  const [canManageSessions, setCanManageSessions] = useState(false)
+  const [canManageAgents, setCanManageAgents] = useState(false)
+  const [canManageKnowledge, setCanManageKnowledge] = useState(false)
+  const [canManageLinks, setCanManageLinks] = useState(false)
+  const [canSendMessages, setCanSendMessages] = useState(true)
 
   // Form state
   const [formName, setFormName] = useState('')
@@ -467,6 +483,26 @@ export default function TeamsPage() {
     setEditingAgents(member.allowed_agent_ids || [])
     setEditingLinks(member.allowed_link_ids || [])
 
+    // Initialiser les permissions granulaires
+    const m = member as TeamMemberWithProfile & {
+      can_view_stats?: boolean
+      can_view_knowledge?: boolean
+      can_view_messages?: boolean
+      can_manage_sessions?: boolean
+      can_manage_agents?: boolean
+      can_manage_knowledge?: boolean
+      can_manage_links?: boolean
+      can_send_messages?: boolean
+    }
+    setCanViewStats(m.can_view_stats ?? true)
+    setCanViewKnowledge(m.can_view_knowledge ?? true)
+    setCanViewMessages(m.can_view_messages ?? true)
+    setCanManageSessions(m.can_manage_sessions ?? false)
+    setCanManageAgents(m.can_manage_agents ?? false)
+    setCanManageKnowledge(m.can_manage_knowledge ?? false)
+    setCanManageLinks(m.can_manage_links ?? false)
+    setCanSendMessages(m.can_send_messages ?? true)
+
     try {
       const [sessionsRes, agentsRes, linksRes] = await Promise.all([
         fetch('/api/sessions'),
@@ -496,7 +532,7 @@ export default function TeamsPage() {
 
     setSaving(true)
     try {
-      const body = permissionsMode === 'all'
+      const resourcePermissions = permissionsMode === 'all'
         ? {
             allowed_session_ids: null,
             allowed_agent_ids: null,
@@ -507,6 +543,18 @@ export default function TeamsPage() {
             allowed_agent_ids: editingAgents,
             allowed_link_ids: editingLinks,
           }
+
+      const body = {
+        ...resourcePermissions,
+        can_view_stats: canViewStats,
+        can_view_knowledge: canViewKnowledge,
+        can_view_messages: canViewMessages,
+        can_manage_sessions: canManageSessions,
+        can_manage_agents: canManageAgents,
+        can_manage_knowledge: canManageKnowledge,
+        can_manage_links: canManageLinks,
+        can_send_messages: canSendMessages,
+      }
 
       const res = await fetch(`/api/teams/${selectedTeam.id}/members/${selectedMember.id}`, {
         method: 'PATCH',
@@ -520,9 +568,7 @@ export default function TeamsPage() {
             m.id === selectedMember.id
               ? {
                   ...m,
-                  allowed_session_ids: json.data.allowed_session_ids,
-                  allowed_agent_ids: json.data.allowed_agent_ids,
-                  allowed_link_ids: json.data.allowed_link_ids,
+                  ...json.data,
                 }
               : m
           )
@@ -1179,13 +1225,94 @@ export default function TeamsPage() {
                 </div>
               </div>
 
+              {/* Granular permissions */}
+              <div className="space-y-4 border-t pt-4">
+                <p className="text-sm font-medium">Droits d&apos;accès</p>
+
+                {/* View permissions */}
+                <div className="space-y-3">
+                  <p className="text-xs text-muted-foreground flex items-center gap-2">
+                    <Eye className="h-3.5 w-3.5" />
+                    Vision (lecture seule)
+                  </p>
+                  <div className="grid gap-3 pl-5">
+                    <label className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">Statistiques</span>
+                      </div>
+                      <Switch checked={canViewStats} onCheckedChange={setCanViewStats} />
+                    </label>
+                    <label className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <BookOpen className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">Base de connaissances</span>
+                      </div>
+                      <Switch checked={canViewKnowledge} onCheckedChange={setCanViewKnowledge} />
+                    </label>
+                    <label className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">Messages</span>
+                      </div>
+                      <Switch checked={canViewMessages} onCheckedChange={setCanViewMessages} />
+                    </label>
+                  </div>
+                </div>
+
+                {/* Manage permissions */}
+                <div className="space-y-3">
+                  <p className="text-xs text-muted-foreground flex items-center gap-2">
+                    <Settings className="h-3.5 w-3.5" />
+                    Modification (écriture)
+                  </p>
+                  <div className="grid gap-3 pl-5">
+                    <label className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <MessageSquare className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">Gérer les sessions</span>
+                      </div>
+                      <Switch checked={canManageSessions} onCheckedChange={setCanManageSessions} />
+                    </label>
+                    <label className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Bot className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">Gérer les agents IA</span>
+                      </div>
+                      <Switch checked={canManageAgents} onCheckedChange={setCanManageAgents} />
+                    </label>
+                    <label className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <BookOpen className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">Gérer la base de connaissances</span>
+                      </div>
+                      <Switch checked={canManageKnowledge} onCheckedChange={setCanManageKnowledge} />
+                    </label>
+                    <label className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Link2 className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">Gérer les liens WA</span>
+                      </div>
+                      <Switch checked={canManageLinks} onCheckedChange={setCanManageLinks} />
+                    </label>
+                    <label className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Send className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm">Envoyer des messages</span>
+                      </div>
+                      <Switch checked={canSendMessages} onCheckedChange={setCanSendMessages} />
+                    </label>
+                  </div>
+                </div>
+              </div>
+
               {permissionsMode === 'specific' && (
                 <>
                   {/* Sessions */}
-                  <div className="space-y-3">
+                  <div className="space-y-3 border-t pt-4">
                     <div className="flex items-center gap-2 text-sm font-medium">
                       <MessageSquare className="h-4 w-4 text-[#7DC2A5]" />
-                      Sessions WhatsApp
+                      Sessions WhatsApp autorisées
                       <Badge variant="secondary" className="ml-auto text-xs">
                         {editingSessions.length}/{sessions.length}
                       </Badge>

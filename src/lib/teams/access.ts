@@ -9,7 +9,30 @@ export type MemberPermissions = {
   allowed_session_ids: string[] | null
   allowed_agent_ids: string[] | null
   allowed_link_ids: string[] | null
+  // Permissions granulaires de lecture
+  can_view_stats: boolean
+  can_view_knowledge: boolean
+  can_view_messages: boolean
+  // Permissions granulaires de modification
+  can_manage_sessions: boolean
+  can_manage_agents: boolean
+  can_manage_knowledge: boolean
+  can_manage_links: boolean
+  can_send_messages: boolean
 }
+
+/**
+ * Types de permissions disponibles
+ */
+export type PermissionType =
+  | 'stats_view'
+  | 'knowledge_view'
+  | 'messages_view'
+  | 'sessions_manage'
+  | 'agents_manage'
+  | 'knowledge_manage'
+  | 'links_manage'
+  | 'messages_send'
 
 /**
  * Récupère tous les IDs d'équipes auxquelles l'utilisateur appartient
@@ -36,11 +59,28 @@ export async function getUserTeamPermissions(
 ): Promise<MemberPermissions[]> {
   const { data } = await supabase
     .from('team_members')
-    .select('team_id, role, allowed_session_ids, allowed_agent_ids, allowed_link_ids')
+    .select(`
+      team_id, role,
+      allowed_session_ids, allowed_agent_ids, allowed_link_ids,
+      can_view_stats, can_view_knowledge, can_view_messages,
+      can_manage_sessions, can_manage_agents, can_manage_knowledge,
+      can_manage_links, can_send_messages
+    `)
     .eq('user_id', userId)
     .eq('status', 'accepted')
 
-  return (data || []) as MemberPermissions[]
+  // Appliquer les valeurs par défaut pour les permissions nulles
+  return (data || []).map((m) => ({
+    ...m,
+    can_view_stats: m.can_view_stats ?? true,
+    can_view_knowledge: m.can_view_knowledge ?? true,
+    can_view_messages: m.can_view_messages ?? true,
+    can_manage_sessions: m.can_manage_sessions ?? false,
+    can_manage_agents: m.can_manage_agents ?? false,
+    can_manage_knowledge: m.can_manage_knowledge ?? false,
+    can_manage_links: m.can_manage_links ?? false,
+    can_send_messages: m.can_send_messages ?? true,
+  })) as MemberPermissions[]
 }
 
 /**
@@ -270,4 +310,93 @@ export async function canAccessSession(
   }
 
   return false
+}
+
+/**
+ * Vérifie si l'utilisateur a une permission spécifique dans une équipe
+ */
+export async function checkTeamPermission(
+  supabase: SupabaseClient,
+  userId: string,
+  teamId: string,
+  permission: PermissionType
+): Promise<boolean> {
+  const { data: membership } = await supabase
+    .from('team_members')
+    .select(`
+      role,
+      can_view_stats, can_view_knowledge, can_view_messages,
+      can_manage_sessions, can_manage_agents, can_manage_knowledge,
+      can_manage_links, can_send_messages
+    `)
+    .eq('team_id', teamId)
+    .eq('user_id', userId)
+    .eq('status', 'accepted')
+    .single()
+
+  if (!membership) return false
+
+  // Owner et Admin ont toutes les permissions
+  if (membership.role === 'owner' || membership.role === 'admin') {
+    return true
+  }
+
+  // Pour les membres, vérifier la permission spécifique
+  switch (permission) {
+    case 'stats_view':
+      return membership.can_view_stats ?? true
+    case 'knowledge_view':
+      return membership.can_view_knowledge ?? true
+    case 'messages_view':
+      return membership.can_view_messages ?? true
+    case 'sessions_manage':
+      return membership.can_manage_sessions ?? false
+    case 'agents_manage':
+      return membership.can_manage_agents ?? false
+    case 'knowledge_manage':
+      return membership.can_manage_knowledge ?? false
+    case 'links_manage':
+      return membership.can_manage_links ?? false
+    case 'messages_send':
+      return membership.can_send_messages ?? true
+    default:
+      return false
+  }
+}
+
+/**
+ * Récupère toutes les permissions d'un utilisateur dans une équipe
+ */
+export async function getTeamMemberPermissions(
+  supabase: SupabaseClient,
+  userId: string,
+  teamId: string
+): Promise<MemberPermissions | null> {
+  const { data } = await supabase
+    .from('team_members')
+    .select(`
+      team_id, role,
+      allowed_session_ids, allowed_agent_ids, allowed_link_ids,
+      can_view_stats, can_view_knowledge, can_view_messages,
+      can_manage_sessions, can_manage_agents, can_manage_knowledge,
+      can_manage_links, can_send_messages
+    `)
+    .eq('team_id', teamId)
+    .eq('user_id', userId)
+    .eq('status', 'accepted')
+    .single()
+
+  if (!data) return null
+
+  return {
+    ...data,
+    can_view_stats: data.can_view_stats ?? true,
+    can_view_knowledge: data.can_view_knowledge ?? true,
+    can_view_messages: data.can_view_messages ?? true,
+    can_manage_sessions: data.can_manage_sessions ?? false,
+    can_manage_agents: data.can_manage_agents ?? false,
+    can_manage_knowledge: data.can_manage_knowledge ?? false,
+    can_manage_links: data.can_manage_links ?? false,
+    can_send_messages: data.can_send_messages ?? true,
+  } as MemberPermissions
 }
