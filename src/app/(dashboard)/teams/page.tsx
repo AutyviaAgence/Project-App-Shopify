@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import type { Team, TeamMember, Profile, WhatsAppSession, AIAgent, WALink } from '@/types/database'
+import type { Team, TeamMember, Profile, WhatsAppSession, AIAgent, WALink, KnowledgeDocument } from '@/types/database'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -123,9 +123,11 @@ export default function TeamsPage() {
   const [sessions, setSessions] = useState<WhatsAppSession[]>([])
   const [agents, setAgents] = useState<AIAgent[]>([])
   const [links, setLinks] = useState<WALink[]>([])
+  const [knowledgeDocs, setKnowledgeDocs] = useState<KnowledgeDocument[]>([])
   const [selectedSessions, setSelectedSessions] = useState<string[]>([])
   const [selectedAgents, setSelectedAgents] = useState<string[]>([])
   const [selectedLinks, setSelectedLinks] = useState<string[]>([])
+  const [selectedKnowledge, setSelectedKnowledge] = useState<string[]>([])
   const [resourcesLoading, setResourcesLoading] = useState(false)
   const [generatingInvite, setGeneratingInvite] = useState(false)
   const [generatedCode, setGeneratedCode] = useState<string | null>(null)
@@ -136,6 +138,7 @@ export default function TeamsPage() {
   const [editingSessions, setEditingSessions] = useState<string[]>([])
   const [editingAgents, setEditingAgents] = useState<string[]>([])
   const [editingLinks, setEditingLinks] = useState<string[]>([])
+  const [editingKnowledge, setEditingKnowledge] = useState<string[]>([])
   const [permissionsMode, setPermissionsMode] = useState<'all' | 'specific'>('all')
 
   // Granular permissions state
@@ -504,22 +507,25 @@ export default function TeamsPage() {
     setCanSendMessages(m.can_send_messages ?? true)
 
     try {
-      const [sessionsRes, agentsRes, linksRes] = await Promise.all([
+      const [sessionsRes, agentsRes, linksRes, knowledgeRes] = await Promise.all([
         fetch('/api/sessions'),
         fetch('/api/agents'),
         fetch('/api/links'),
+        fetch('/api/knowledge'),
       ])
 
-      const [sessionsJson, agentsJson, linksJson] = await Promise.all([
+      const [sessionsJson, agentsJson, linksJson, knowledgeJson] = await Promise.all([
         sessionsRes.json(),
         agentsRes.json(),
         linksRes.json(),
+        knowledgeRes.json(),
       ])
 
       // Filtrer les ressources de l'équipe
       setSessions(sessionsJson.data?.filter((s: WhatsAppSession) => s.team_id === selectedTeam.id) || [])
       setAgents(agentsJson.data?.filter((a: AIAgent) => a.team_id === selectedTeam.id) || [])
       setLinks(linksJson.data?.filter((l: WALink) => l.team_id === selectedTeam.id) || [])
+      setKnowledgeDocs(knowledgeJson.data?.filter((k: KnowledgeDocument) => k.team_id === selectedTeam.id) || [])
     } catch {
       toast.error('Erreur lors du chargement des ressources')
     } finally {
@@ -600,6 +606,12 @@ export default function TeamsPage() {
   function toggleEditingLink(linkId: string) {
     setEditingLinks((prev) =>
       prev.includes(linkId) ? prev.filter((id) => id !== linkId) : [...prev, linkId]
+    )
+  }
+
+  function toggleEditingKnowledge(docId: string) {
+    setEditingKnowledge((prev) =>
+      prev.includes(docId) ? prev.filter((id) => id !== docId) : [...prev, docId]
     )
   }
 
@@ -1395,6 +1407,38 @@ export default function TeamsPage() {
                       </div>
                     ) : (
                       <p className="text-xs text-muted-foreground pl-6">Aucun lien dans cette équipe</p>
+                    )}
+                  </div>
+
+                  {/* Knowledge */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <BookOpen className="h-4 w-4 text-[#40E9BE]" />
+                      Base de connaissances
+                      <Badge variant="secondary" className="ml-auto text-xs">
+                        {editingKnowledge.length}/{knowledgeDocs.length}
+                      </Badge>
+                    </div>
+                    {knowledgeDocs.length > 0 ? (
+                      <div className="space-y-2 pl-1">
+                        {knowledgeDocs.map((doc) => (
+                          <label
+                            key={doc.id}
+                            className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer"
+                          >
+                            <Checkbox
+                              checked={editingKnowledge.includes(doc.id)}
+                              onCheckedChange={() => toggleEditingKnowledge(doc.id)}
+                            />
+                            <span className="text-sm">{doc.name}</span>
+                            <Badge variant="outline" className="ml-auto text-xs">
+                              {doc.doc_type}
+                            </Badge>
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground pl-6">Aucun document dans cette équipe</p>
                     )}
                   </div>
                 </>
