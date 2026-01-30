@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { checkTeamPermission } from '@/lib/teams/access'
 
 /** GET /api/knowledge/[id] — Détail d'un document */
 export async function GET(
@@ -14,15 +15,23 @@ export async function GET(
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
+  // Récupérer le document (RLS gère l'accès de base)
   const { data: doc, error } = await supabase
     .from('knowledge_documents')
     .select('*')
     .eq('id', id)
-    .eq('user_id', user.id)
     .single()
 
   if (error || !doc) {
     return NextResponse.json({ error: 'Document introuvable' }, { status: 404 })
+  }
+
+  // Vérifier la permission pour les documents d'équipe
+  if (doc.team_id && doc.user_id !== user.id) {
+    const hasPermission = await checkTeamPermission(supabase, user.id, doc.team_id, 'knowledge_view')
+    if (!hasPermission) {
+      return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+    }
   }
 
   return NextResponse.json({ data: doc })
@@ -39,6 +48,27 @@ export async function PATCH(
 
   if (authError || !user) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  }
+
+  // Récupérer le document pour vérifier les permissions
+  const { data: existingDoc } = await supabase
+    .from('knowledge_documents')
+    .select('user_id, team_id')
+    .eq('id', id)
+    .single()
+
+  if (!existingDoc) {
+    return NextResponse.json({ error: 'Document introuvable' }, { status: 404 })
+  }
+
+  // Vérifier la permission de modification
+  if (existingDoc.team_id && existingDoc.user_id !== user.id) {
+    const hasPermission = await checkTeamPermission(supabase, user.id, existingDoc.team_id, 'knowledge_manage')
+    if (!hasPermission) {
+      return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+    }
+  } else if (existingDoc.user_id !== user.id) {
+    return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 
   const body = await req.json()
@@ -68,7 +98,6 @@ export async function PATCH(
     .from('knowledge_documents')
     .update(updateData)
     .eq('id', id)
-    .eq('user_id', user.id)
     .select()
     .single()
 
@@ -102,16 +131,25 @@ export async function DELETE(
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  // Récupérer le document pour nettoyer le storage
+  // Récupérer le document pour vérifier les permissions et nettoyer le storage
   const { data: doc } = await supabase
     .from('knowledge_documents')
-    .select('storage_path')
+    .select('user_id, team_id, storage_path')
     .eq('id', id)
-    .eq('user_id', user.id)
     .single()
 
   if (!doc) {
     return NextResponse.json({ error: 'Document introuvable' }, { status: 404 })
+  }
+
+  // Vérifier la permission de modification
+  if (doc.team_id && doc.user_id !== user.id) {
+    const hasPermission = await checkTeamPermission(supabase, user.id, doc.team_id, 'knowledge_manage')
+    if (!hasPermission) {
+      return NextResponse.json({ error: 'Permission refusée' }, { status: 403 })
+    }
+  } else if (doc.user_id !== user.id) {
+    return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 
   // Supprimer le fichier storage si PDF
@@ -124,7 +162,6 @@ export async function DELETE(
     .from('knowledge_documents')
     .delete()
     .eq('id', id)
-    .eq('user_id', user.id)
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })

@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getUserTeamIds, buildAccessFilter } from '@/lib/teams/access'
+import { getUserTeamIds, getUserTeamPermissions, checkTeamPermission } from '@/lib/teams/access'
 import { checkRateLimit } from '@/lib/rate-limit'
 
-/** GET /api/knowledge — Lister les documents de l'utilisateur (+ équipes) */
+/** GET /api/knowledge — Lister les documents de l'utilisateur (+ équipes avec permission) */
 export async function GET() {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -12,13 +12,23 @@ export async function GET() {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  // Récupérer les équipes de l'utilisateur
-  const teamIds = await getUserTeamIds(supabase, user.id)
+  // Récupérer les permissions de l'utilisateur dans ses équipes
+  const permissions = await getUserTeamPermissions(supabase, user.id)
+
+  // Filtrer les équipes où l'utilisateur peut voir la base de connaissances
+  const allowedTeamIds = permissions
+    .filter((p) => p.role === 'owner' || p.role === 'admin' || p.can_view_knowledge)
+    .map((p) => p.team_id)
+
+  // Construire le filtre d'accès
+  const accessFilter = allowedTeamIds.length > 0
+    ? `user_id.eq.${user.id},team_id.in.(${allowedTeamIds.join(',')})`
+    : `user_id.eq.${user.id}`
 
   const { data: documents, error } = await supabase
     .from('knowledge_documents')
     .select('*')
-    .or(buildAccessFilter(user.id, teamIds))
+    .or(accessFilter)
     .order('created_at', { ascending: false })
 
   if (error) {
@@ -55,11 +65,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Fichier et nom requis' }, { status: 400 })
     }
 
-    // Vérifier que l'utilisateur a accès à l'équipe si spécifiée
+    // Vérifier que l'utilisateur a la permission de gérer la knowledge dans l'équipe
     if (team_id) {
-      const teamIds = await getUserTeamIds(supabase, user.id)
-      if (!teamIds.includes(team_id)) {
-        return NextResponse.json({ error: 'Équipe non autorisée' }, { status: 403 })
+      const hasPermission = await checkTeamPermission(supabase, user.id, team_id, 'knowledge_manage')
+      if (!hasPermission) {
+        return NextResponse.json({ error: 'Permission refusée pour cette équipe' }, { status: 403 })
       }
     }
 
@@ -120,11 +130,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Nom et contenu requis' }, { status: 400 })
     }
 
-    // Vérifier que l'utilisateur a accès à l'équipe si spécifiée
+    // Vérifier que l'utilisateur a la permission de gérer la knowledge dans l'équipe
     if (team_id) {
-      const teamIds = await getUserTeamIds(supabase, user.id)
-      if (!teamIds.includes(team_id)) {
-        return NextResponse.json({ error: 'Équipe non autorisée' }, { status: 403 })
+      const hasPermission = await checkTeamPermission(supabase, user.id, team_id, 'knowledge_manage')
+      if (!hasPermission) {
+        return NextResponse.json({ error: 'Permission refusée pour cette équipe' }, { status: 403 })
       }
     }
 
