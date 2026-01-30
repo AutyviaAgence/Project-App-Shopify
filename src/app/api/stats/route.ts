@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getDateRange, computeTrend, groupByDate, groupMessagesByDate } from '@/lib/stats/helpers'
+import { getUserTeamPermissions } from '@/lib/teams/access'
 import type { StatsResponse, StatsAgent, StatsLink, StatsTopContact, StatsContactsBySession } from '@/types/stats'
 
 /** GET /api/stats?period=30&session_id=all */
@@ -18,11 +19,24 @@ export async function GET(req: NextRequest) {
 
   const { from, to, prevFrom, prevTo } = getDateRange(period)
 
-  // 1. Sessions de l'utilisateur
+  // Récupérer les permissions de l'utilisateur dans ses équipes
+  const permissions = await getUserTeamPermissions(supabase, user.id)
+
+  // Filtrer les équipes où l'utilisateur peut voir les statistiques
+  const allowedTeamIds = permissions
+    .filter((p) => p.role === 'owner' || p.role === 'admin' || p.can_view_stats)
+    .map((p) => p.team_id)
+
+  // Construire le filtre d'accès pour les sessions
+  const accessFilter = allowedTeamIds.length > 0
+    ? `user_id.eq.${user.id},team_id.in.(${allowedTeamIds.join(',')})`
+    : `user_id.eq.${user.id}`
+
+  // 1. Sessions de l'utilisateur + équipes avec permission
   const { data: sessions } = await supabase
     .from('whatsapp_sessions')
     .select('id, instance_name')
-    .eq('user_id', user.id)
+    .or(accessFilter)
 
   if (!sessions || sessions.length === 0) {
     return NextResponse.json({ data: emptyResponse() })
@@ -87,16 +101,16 @@ export async function GET(req: NextRequest) {
       .in('session_id', sessionIds)
       .gte('created_at', prevFrom)
       .lt('created_at', from),
-    // Agents
+    // Agents (utilisateur + équipes avec permission)
     supabase
       .from('ai_agents')
       .select('id, name, is_active')
-      .eq('user_id', user.id),
-    // Liens
+      .or(accessFilter),
+    // Liens (utilisateur + équipes avec permission)
     supabase
       .from('wa_links')
       .select('id, slug, name, click_count, is_active')
-      .eq('user_id', user.id),
+      .or(accessFilter),
   ])
 
   const messages = messagesRes.data || []

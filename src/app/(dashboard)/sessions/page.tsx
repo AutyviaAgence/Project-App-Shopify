@@ -351,15 +351,15 @@ export default function SessionsPage() {
   }
 
   return (
-    <div className="p-6">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="p-4 sm:p-6">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Sessions WhatsApp</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Sessions WhatsApp</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Gérez vos connexions WhatsApp. Chaque session correspond à un numéro.
           </p>
         </div>
-        <Button onClick={openCreateDialog}>
+        <Button onClick={openCreateDialog} className="w-full sm:w-auto">
           <Plus className="mr-2 h-4 w-4" />
           Nouvelle session
         </Button>
@@ -389,8 +389,8 @@ export default function SessionsPage() {
 
             return (
               <Card key={session.id}>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">
+                <CardHeader className="flex flex-col gap-2 space-y-0 pb-2 sm:flex-row sm:items-center sm:justify-between">
+                  <CardTitle className="text-sm font-medium break-all">
                     {session.instance_name}
                     {session.phone_number && (
                       <span className="ml-1 text-xs font-normal text-muted-foreground">
@@ -398,13 +398,13 @@ export default function SessionsPage() {
                       </span>
                     )}
                   </CardTitle>
-                  <Badge variant={config.variant}>
+                  <Badge variant={config.variant} className="w-fit">
                     <StatusIcon className="mr-1 h-3 w-3" />
                     {config.label}
                   </Badge>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <div className="flex flex-col gap-1 text-xs text-muted-foreground sm:flex-row sm:items-center sm:gap-2">
                     <span>
                       Créée le{' '}
                       {new Date(session.created_at).toLocaleDateString('fr-FR', {
@@ -414,7 +414,7 @@ export default function SessionsPage() {
                       })}
                     </span>
                     {session.team_id && (
-                      <Badge variant="outline" className="gap-1 text-xs font-normal">
+                      <Badge variant="outline" className="gap-1 text-xs font-normal w-fit">
                         <Users className="h-3 w-3" />
                         {teams.find(t => t.id === session.team_id)?.name || 'Équipe'}
                       </Badge>
@@ -426,7 +426,7 @@ export default function SessionsPage() {
                     </p>
                   )}
 
-                  <div className="mt-4 flex gap-2">
+                  <div className="mt-4 flex flex-wrap gap-2">
                     {session.status === 'qr_pending' && (
                       <Button
                         size="sm"
