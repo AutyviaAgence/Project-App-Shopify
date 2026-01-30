@@ -72,17 +72,34 @@ export async function PATCH(
   }
 
   const body = await req.json()
-  const { name, description, text_content, reprocess } = body as {
+  const { name, description, text_content, reprocess, team_id } = body as {
     name?: string
     description?: string
     text_content?: string
     reprocess?: boolean
+    team_id?: string | null
+  }
+
+  // Si on change de team_id, vérifier la permission dans la nouvelle équipe
+  if (team_id !== undefined && team_id !== existingDoc.team_id) {
+    // Si on déplace vers une équipe, vérifier qu'on a la permission
+    if (team_id) {
+      const hasNewTeamPermission = await checkTeamPermission(supabase, user.id, team_id, 'knowledge_manage')
+      if (!hasNewTeamPermission) {
+        return NextResponse.json({ error: 'Permission refusée pour cette équipe' }, { status: 403 })
+      }
+    }
+    // Seul le propriétaire peut déplacer un document personnel vers une équipe ou inversement
+    if (existingDoc.user_id !== user.id) {
+      return NextResponse.json({ error: 'Seul le propriétaire peut changer l\'équipe du document' }, { status: 403 })
+    }
   }
 
   const updateData: Record<string, unknown> = {}
   if (name !== undefined) updateData.name = name.trim()
   if (description !== undefined) updateData.description = description?.trim() || null
   if (text_content !== undefined) updateData.text_content = text_content.trim()
+  if (team_id !== undefined) updateData.team_id = team_id || null
 
   const needsReprocess = text_content !== undefined || reprocess
 

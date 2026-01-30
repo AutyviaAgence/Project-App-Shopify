@@ -218,6 +218,7 @@ export default function KnowledgePage() {
         const body: Record<string, unknown> = {
           name: formName.trim(),
           description: formDescription.trim(),
+          team_id: formTeamId || null,
         }
         if (editing.doc_type === 'text') {
           body.text_content = formTextContent.trim()
@@ -624,16 +625,19 @@ export default function KnowledgePage() {
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            {/* Sélecteur d'équipe (seulement en création) */}
-            {!editing && teams.length > 0 && (
+            {/* Sélecteur d'équipe */}
+            {teams.length > 0 && (
               <div className="space-y-2">
                 <Label htmlFor="doc-team">Équipe (optionnel)</Label>
-                <Select value={formTeamId} onValueChange={setFormTeamId}>
+                <Select
+                  value={formTeamId || '_personal'}
+                  onValueChange={(val) => setFormTeamId(val === '_personal' ? '' : val)}
+                >
                   <SelectTrigger id="doc-team">
                     <SelectValue placeholder="Document personnel" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">
+                    <SelectItem value="_personal">
                       <div className="flex items-center gap-2">
                         <FileText className="h-4 w-4" />
                         <span>Document personnel</span>
@@ -650,7 +654,9 @@ export default function KnowledgePage() {
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">
-                  Associez ce document à une équipe pour le partager avec ses membres.
+                  {editing
+                    ? 'Changez l\'équipe associée à ce document.'
+                    : 'Associez ce document à une équipe pour le partager avec ses membres.'}
                 </p>
               </div>
             )}
