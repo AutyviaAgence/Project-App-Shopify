@@ -33,9 +33,10 @@ export async function PATCH(
   }
 
   const body = await req.json()
-  const { daily_ai_message_limit, team_id } = body as {
+  const { daily_ai_message_limit, team_id, team_ids } = body as {
     daily_ai_message_limit?: number | null
     team_id?: string | null
+    team_ids?: string[]
   }
 
   const updateData: Record<string, unknown> = {}
@@ -47,37 +48,60 @@ export async function PATCH(
       : null
   }
 
-  // Gestion du changement d'équipe
-  if (team_id !== undefined) {
-    // Seul le propriétaire de la session peut changer l'équipe
+  // Gestion du changement d'équipes (multi-équipes)
+  const selectedTeamIds = team_ids !== undefined ? team_ids : (team_id !== undefined ? (team_id ? [team_id] : []) : undefined)
+
+  if (selectedTeamIds !== undefined) {
+    // Seul le propriétaire de la session peut changer les équipes
     if (existingSession.user_id !== user.id) {
-      return NextResponse.json({ error: 'Seul le propriétaire peut changer l\'équipe' }, { status: 403 })
+      return NextResponse.json({ error: 'Seul le propriétaire peut changer les équipes' }, { status: 403 })
     }
 
-    if (team_id) {
-      // Vérifier que l'utilisateur a accès à la nouvelle équipe
+    // Vérifier que l'utilisateur a accès aux équipes spécifiées
+    if (selectedTeamIds.length > 0) {
       const userTeamIds = await getUserTeamIds(supabase, user.id)
-      if (!userTeamIds.includes(team_id)) {
-        return NextResponse.json({ error: 'Équipe non autorisée' }, { status: 403 })
+      const unauthorized = selectedTeamIds.filter(tid => !userTeamIds.includes(tid))
+      if (unauthorized.length > 0) {
+        return NextResponse.json({ error: 'Équipe(s) non autorisée(s)' }, { status: 403 })
       }
     }
-    updateData.team_id = team_id || null
+
+    // Mettre à jour la table de liaison
+    // 1. Supprimer les anciennes associations
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any).from('session_teams').delete().eq('session_id', id)
+
+    // 2. Créer les nouvelles associations
+    if (selectedTeamIds.length > 0) {
+      const teamAssociations = selectedTeamIds.map(teamId => ({
+        session_id: id,
+        team_id: teamId,
+      }))
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any).from('session_teams').insert(teamAssociations)
+    }
+
+    // Legacy: garder le premier team_id pour compatibilité
+    updateData.team_id = selectedTeamIds[0] || null
   }
 
-  if (Object.keys(updateData).length === 0) {
-    return NextResponse.json({ error: 'Rien à modifier' }, { status: 400 })
+  // Mise à jour si nécessaire
+  let session = existingSession
+  if (Object.keys(updateData).length > 0) {
+    const { data: updatedSession, error } = await supabase
+      .from('whatsapp_sessions')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+    session = updatedSession
   }
 
-  const { data: session, error } = await supabase
-    .from('whatsapp_sessions')
-    .update(updateData)
-    .eq('id', id)
-    .select()
-    .single()
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
-
-  return NextResponse.json({ data: session })
+  return NextResponse.json({
+    data: { ...session, team_ids: selectedTeamIds ?? (session.team_id ? [session.team_id] : []) }
+  })
 }

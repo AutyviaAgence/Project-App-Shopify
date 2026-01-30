@@ -37,7 +37,34 @@ export async function GET() {
     permissions
   )
 
-  return NextResponse.json({ data: agents })
+  // Récupérer les team_ids pour chaque agent
+  const agentIds = agents.map(a => a.id)
+  let agentTeamsMap: Record<string, string[]> = {}
+
+  if (agentIds.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: agentTeams } = await (supabase as any)
+      .from('agent_teams')
+      .select('agent_id, team_id')
+      .in('agent_id', agentIds) as { data: { agent_id: string; team_id: string }[] | null }
+
+    if (agentTeams) {
+      for (const at of agentTeams) {
+        if (!agentTeamsMap[at.agent_id]) {
+          agentTeamsMap[at.agent_id] = []
+        }
+        agentTeamsMap[at.agent_id].push(at.team_id)
+      }
+    }
+  }
+
+  // Ajouter team_ids à chaque agent
+  const agentsWithTeams = agents.map(a => ({
+    ...a,
+    team_ids: agentTeamsMap[a.id] || (a.team_id ? [a.team_id] : [])
+  }))
+
+  return NextResponse.json({ data: agentsWithTeams })
 }
 
 /** POST /api/agents — Créer un nouvel agent IA */
@@ -50,7 +77,7 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json()
-  const { name, description, system_prompt, objective, model, temperature, is_active, response_delay_min, response_delay_max, max_messages_per_conversation, inactivity_timeout_minutes, escalation_enabled, escalation_keywords, escalation_message, team_id } = body as {
+  const { name, description, system_prompt, objective, model, temperature, is_active, response_delay_min, response_delay_max, max_messages_per_conversation, inactivity_timeout_minutes, escalation_enabled, escalation_keywords, escalation_message, booking_url, team_id, team_ids } = body as {
     name?: string
     description?: string
     system_prompt?: string
@@ -65,14 +92,20 @@ export async function POST(req: Request) {
     escalation_enabled?: boolean
     escalation_keywords?: string[]
     escalation_message?: string
+    booking_url?: string
     team_id?: string
+    team_ids?: string[]
   }
 
-  // Vérifier que l'utilisateur a accès à l'équipe si spécifiée
-  if (team_id) {
-    const teamIds = await getUserTeamIds(supabase, user.id)
-    if (!teamIds.includes(team_id)) {
-      return NextResponse.json({ error: 'Équipe non autorisée' }, { status: 403 })
+  // Support des deux formats: team_id (legacy) et team_ids (nouveau)
+  const selectedTeamIds = team_ids || (team_id ? [team_id] : [])
+
+  // Vérifier que l'utilisateur a accès aux équipes spécifiées
+  if (selectedTeamIds.length > 0) {
+    const userTeamIds = await getUserTeamIds(supabase, user.id)
+    const unauthorized = selectedTeamIds.filter(id => !userTeamIds.includes(id))
+    if (unauthorized.length > 0) {
+      return NextResponse.json({ error: 'Équipe(s) non autorisée(s)' }, { status: 403 })
     }
   }
 
@@ -107,7 +140,7 @@ export async function POST(req: Request) {
     .from('ai_agents')
     .insert({
       user_id: user.id,
-      team_id: team_id || null,
+      team_id: selectedTeamIds[0] || null, // Legacy: garder le premier pour compatibilité
       name: name.trim(),
       description: description?.trim() || null,
       system_prompt: system_prompt.trim(),
@@ -122,6 +155,7 @@ export async function POST(req: Request) {
       escalation_enabled: escalation_enabled ?? false,
       escalation_keywords: finalEscalationKeywords,
       escalation_message: escalation_message?.trim() || null,
+      booking_url: booking_url?.trim() || null,
     })
     .select()
     .single()
@@ -130,5 +164,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  return NextResponse.json({ data: agent })
+  // Créer les associations multi-équipes
+  if (selectedTeamIds.length > 0 && agent) {
+    const teamAssociations = selectedTeamIds.map(teamId => ({
+      agent_id: agent.id,
+      team_id: teamId,
+    }))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any).from('agent_teams').insert(teamAssociations)
+  }
+
+  return NextResponse.json({
+    data: { ...agent, team_ids: selectedTeamIds }
+  })
 }

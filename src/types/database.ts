@@ -45,6 +45,7 @@ export type AIAgent = {
   escalation_enabled: boolean
   escalation_keywords: string[]
   escalation_message: string | null
+  booking_url: string | null
   created_at: string
   updated_at: string
 }
@@ -198,6 +199,19 @@ export type UserAlert = {
   created_at: string
 }
 
+export type BookingLinkClick = {
+  id: string
+  agent_id: string
+  conversation_id: string | null
+  contact_id: string | null
+  session_id: string | null
+  user_agent: string | null
+  ip_hash: string | null
+  referer: string | null
+  clicked_at: string
+  created_at: string
+}
+
 export type Team = {
   id: string
   name: string
@@ -205,6 +219,35 @@ export type Team = {
   owner_id: string
   created_at: string
   updated_at: string
+}
+
+// Tables de liaison multi-équipes
+export type SessionTeam = {
+  id: string
+  session_id: string
+  team_id: string
+  created_at: string
+}
+
+export type AgentTeam = {
+  id: string
+  agent_id: string
+  team_id: string
+  created_at: string
+}
+
+export type DocumentTeam = {
+  id: string
+  document_id: string
+  team_id: string
+  created_at: string
+}
+
+export type LinkTeam = {
+  id: string
+  link_id: string
+  team_id: string
+  created_at: string
 }
 
 export type TeamMember = {

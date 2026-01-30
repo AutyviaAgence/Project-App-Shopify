@@ -172,7 +172,30 @@ export async function processAIResponse(params: {
       systemPrompt += `\n\n--- Instruction de langue ---\nIMPORTANT : Détecte automatiquement la langue utilisée par l'utilisateur dans son dernier message et réponds TOUJOURS dans cette même langue. Si l'utilisateur écrit en anglais, réponds en anglais. Si l'utilisateur écrit en espagnol, réponds en espagnol. Adapte-toi à la langue de chaque message.`
     }
 
-    console.log('[AI] Contexte:', chatMessages.length, 'messages', knowledgeContext ? '| RAG actif' : '| sans RAG', agent.auto_detect_language ? '| multi-langue' : '', '| Appel OpenAI...')
+    // 4.2. Lien de rendez-vous tracké
+    if (agent.booking_url) {
+      // Construire l'URL de tracking avec les paramètres de contexte
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.example.com'
+      const trackingUrl = new URL(`${baseUrl}/api/booking/${agent.id}`)
+      trackingUrl.searchParams.set('conv', params.conversationId)
+      trackingUrl.searchParams.set('session', params.sessionId)
+
+      // Récupérer le contact_id depuis la conversation
+      const { data: conv } = await supabase
+        .from('conversations')
+        .select('contact_id')
+        .eq('id', params.conversationId)
+        .single()
+
+      if (conv?.contact_id) {
+        trackingUrl.searchParams.set('contact', conv.contact_id)
+      }
+
+      systemPrompt += `\n\n--- Lien de rendez-vous ---\nSi l'utilisateur souhaite prendre un rendez-vous, planifier un appel, ou réserver un créneau, partage ce lien :\n${trackingUrl.toString()}\nUtilise ce lien tel quel sans le modifier. Tu peux l'inclure naturellement dans ta réponse quand c'est pertinent.`
+      console.log('[AI] Booking URL injectée')
+    }
+
+    console.log('[AI] Contexte:', chatMessages.length, 'messages', knowledgeContext ? '| RAG actif' : '| sans RAG', agent.auto_detect_language ? '| multi-langue' : '', agent.booking_url ? '| booking' : '', '| Appel OpenAI...')
 
     // 4.5. Envoyer l'indicateur "en train d'écrire" avant d'appeler OpenAI
     await evolution.sendPresence(params.instanceName, params.contactPhoneNumber, 'composing')

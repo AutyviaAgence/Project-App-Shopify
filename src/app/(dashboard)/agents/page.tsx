@@ -35,24 +35,28 @@ import {
   Languages,
   Users,
   ShieldAlert,
+  CalendarClock,
+  Link2,
 } from 'lucide-react'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
+import { MultiTeamSelect } from '@/components/multi-team-select'
 
 type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
+type AgentWithTeamIds = AIAgent & { team_ids?: string[] }
 
 export default function AgentsPage() {
-  const [agents, setAgents] = useState<AIAgent[]>([])
+  const [agents, setAgents] = useState<AgentWithTeamIds[]>([])
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [editing, setEditing] = useState<AIAgent | null>(null)
+  const [editing, setEditing] = useState<AgentWithTeamIds | null>(null)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [agentToDelete, setAgentToDelete] = useState<AIAgent | null>(null)
+  const [agentToDelete, setAgentToDelete] = useState<AgentWithTeamIds | null>(null)
   const [teams, setTeams] = useState<TeamWithRole[]>([])
 
   // Form state
-  const [formTeamId, setFormTeamId] = useState('')
+  const [formTeamIds, setFormTeamIds] = useState<string[]>([])
   const [formName, setFormName] = useState('')
   const [formDescription, setFormDescription] = useState('')
   const [formSystemPrompt, setFormSystemPrompt] = useState('')
@@ -78,6 +82,9 @@ export default function AgentsPage() {
   const [formEscalationEnabled, setFormEscalationEnabled] = useState(false)
   const [formEscalationKeywords, setFormEscalationKeywords] = useState('')
   const [formEscalationMessage, setFormEscalationMessage] = useState('')
+
+  // Lien de rendez-vous
+  const [formBookingUrl, setFormBookingUrl] = useState('')
 
   const fetchAgents = useCallback(async () => {
     try {
@@ -112,7 +119,7 @@ export default function AgentsPage() {
 
   function openCreateDialog() {
     setEditing(null)
-    setFormTeamId('')
+    setFormTeamIds([])
     setFormName('')
     setFormDescription('')
     setFormSystemPrompt('')
@@ -132,12 +139,13 @@ export default function AgentsPage() {
     setFormEscalationEnabled(false)
     setFormEscalationKeywords('')
     setFormEscalationMessage('')
+    setFormBookingUrl('')
     setDialogOpen(true)
   }
 
-  function openEditDialog(agent: AIAgent) {
+  function openEditDialog(agent: AgentWithTeamIds) {
     setEditing(agent)
-    setFormTeamId(agent.team_id || '')
+    setFormTeamIds(agent.team_ids || (agent.team_id ? [agent.team_id] : []))
     setFormName(agent.name)
     setFormDescription(agent.description || '')
     setFormSystemPrompt(agent.system_prompt)
@@ -157,6 +165,7 @@ export default function AgentsPage() {
     setFormEscalationEnabled(agent.escalation_enabled ?? false)
     setFormEscalationKeywords(agent.escalation_keywords?.join(', ') ?? '')
     setFormEscalationMessage(agent.escalation_message ?? '')
+    setFormBookingUrl(agent.booking_url ?? '')
     setDialogOpen(true)
   }
 
@@ -198,7 +207,8 @@ export default function AgentsPage() {
             escalation_enabled: formEscalationEnabled,
             escalation_keywords: formEscalationKeywords.split(',').map(k => k.trim()).filter(k => k.length > 0),
             escalation_message: formEscalationMessage.trim() || null,
-            team_id: formTeamId || null,
+            booking_url: formBookingUrl.trim() || null,
+            team_ids: formTeamIds,
           }),
         })
         const json = await res.json()
@@ -233,7 +243,8 @@ export default function AgentsPage() {
             escalation_enabled: formEscalationEnabled,
             escalation_keywords: formEscalationKeywords.split(',').map(k => k.trim()).filter(k => k.length > 0),
             escalation_message: formEscalationMessage.trim() || null,
-            team_id: formTeamId || null,
+            booking_url: formBookingUrl.trim() || null,
+            team_ids: formTeamIds,
           }),
         })
         const json = await res.json()
@@ -357,11 +368,15 @@ export default function AgentsPage() {
                     )}
 
                     <div className="flex items-center gap-2 flex-wrap">
-                      {agent.team_id && (
-                        <Badge variant="outline" className="gap-1 text-xs font-normal">
-                          <Users className="h-3 w-3" />
-                          {teams.find(t => t.id === agent.team_id)?.name || 'Équipe'}
-                        </Badge>
+                      {(agent.team_ids?.length || agent.team_id) && (
+                        <>
+                          {(agent.team_ids || (agent.team_id ? [agent.team_id] : [])).map(tid => (
+                            <Badge key={tid} variant="outline" className="gap-1 text-xs font-normal">
+                              <Users className="h-3 w-3" />
+                              {teams.find(t => t.id === tid)?.name || 'Équipe'}
+                            </Badge>
+                          ))}
+                        </>
                       )}
                       <Badge variant="outline" className="text-xs">
                         {agent.model}
@@ -465,30 +480,14 @@ export default function AgentsPage() {
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="agent-team">Équipe</Label>
-              <Select value={formTeamId || 'personal'} onValueChange={(v) => setFormTeamId(v === 'personal' ? '' : v)}>
-                <SelectTrigger id="agent-team">
-                  <SelectValue placeholder="Agent personnel" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="personal">Agent personnel</SelectItem>
-                  {teams.map((team) => (
-                    <SelectItem key={team.id} value={team.id}>
-                      <span className="flex items-center gap-2">
-                        <Users className="h-3.5 w-3.5" />
-                        {team.name}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                {formTeamId
-                  ? 'Les membres de l\'équipe pourront utiliser cet agent.'
-                  : 'Cet agent est uniquement accessible par vous.'}
-              </p>
-            </div>
+            <MultiTeamSelect
+              teams={teams}
+              selectedTeamIds={formTeamIds}
+              onTeamIdsChange={setFormTeamIds}
+              label="Équipes"
+              description="Les membres des équipes sélectionnées pourront utiliser cet agent."
+              emptyDescription="Cet agent est uniquement accessible par vous."
+            />
 
             <div className="space-y-2">
               <Label htmlFor="agent-name">Nom *</Label>
@@ -755,6 +754,28 @@ export default function AgentsPage() {
                 checked={formAutoDetectLanguage}
                 onCheckedChange={setFormAutoDetectLanguage}
               />
+            </div>
+
+            {/* Lien de rendez-vous */}
+            <div className="space-y-2 border-t pt-4">
+              <Label htmlFor="booking-url" className="text-sm font-medium flex items-center gap-1.5">
+                <CalendarClock className="h-4 w-4" />
+                Lien de rendez-vous
+              </Label>
+              <div className="relative">
+                <Link2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  id="booking-url"
+                  type="url"
+                  placeholder="https://calendly.com/votre-lien"
+                  value={formBookingUrl}
+                  onChange={(e) => setFormBookingUrl(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                URL de prise de RDV (Calendly, Cal.com...). L&apos;agent pourra partager un lien tracké.
+              </p>
             </div>
 
             {/* Escalation Section (Garde-fou) */}

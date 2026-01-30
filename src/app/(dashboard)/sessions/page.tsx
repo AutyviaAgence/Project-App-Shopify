@@ -13,13 +13,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
@@ -39,8 +32,10 @@ import {
   Users,
 } from 'lucide-react'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
+import { MultiTeamSelect } from '@/components/multi-team-select'
 
 type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
+type SessionWithTeamIds = WhatsAppSession & { team_ids?: string[] }
 
 const STATUS_CONFIG = {
   connected: { label: 'Connecté', variant: 'default' as const, icon: Wifi },
@@ -50,23 +45,23 @@ const STATUS_CONFIG = {
 }
 
 export default function SessionsPage() {
-  const [sessions, setSessions] = useState<WhatsAppSession[]>([])
+  const [sessions, setSessions] = useState<SessionWithTeamIds[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [teams, setTeams] = useState<TeamWithRole[]>([])
-  const [selectedTeamId, setSelectedTeamId] = useState<string>('')
-  const [qrSession, setQrSession] = useState<WhatsAppSession | null>(null)
+  const [selectedTeamIds, setSelectedTeamIds] = useState<string[]>([])
+  const [qrSession, setQrSession] = useState<SessionWithTeamIds | null>(null)
   const [qrLoading, setQrLoading] = useState(false)
   const [disconnecting, setDisconnecting] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [webhookConfiguring, setWebhookConfiguring] = useState<string | null>(null)
-  const [editingSession, setEditingSession] = useState<WhatsAppSession | null>(null)
+  const [editingSession, setEditingSession] = useState<SessionWithTeamIds | null>(null)
   const [formDailyLimit, setFormDailyLimit] = useState('')
-  const [formSessionTeamId, setFormSessionTeamId] = useState<string>('')
+  const [formSessionTeamIds, setFormSessionTeamIds] = useState<string[]>([])
   const [savingSettings, setSavingSettings] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [sessionToDelete, setSessionToDelete] = useState<WhatsAppSession | null>(null)
+  const [sessionToDelete, setSessionToDelete] = useState<SessionWithTeamIds | null>(null)
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -136,7 +131,7 @@ export default function SessionsPage() {
   }, [qrSession?.id])
 
   function openCreateDialog() {
-    setSelectedTeamId('')
+    setSelectedTeamIds([])
     setCreateDialogOpen(true)
   }
 
@@ -147,7 +142,7 @@ export default function SessionsPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          team_id: selectedTeamId || null,
+          team_ids: selectedTeamIds,
         }),
       })
       const json = await res.json()
@@ -267,7 +262,7 @@ export default function SessionsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           daily_ai_message_limit: formDailyLimit.trim() ? parseInt(formDailyLimit) : null,
-          team_id: formSessionTeamId || null,
+          team_ids: formSessionTeamIds,
         }),
       })
       const json = await res.json()
@@ -413,11 +408,15 @@ export default function SessionsPage() {
                         year: 'numeric',
                       })}
                     </span>
-                    {session.team_id && (
-                      <Badge variant="outline" className="gap-1 text-xs font-normal w-fit">
-                        <Users className="h-3 w-3" />
-                        {teams.find(t => t.id === session.team_id)?.name || 'Équipe'}
-                      </Badge>
+                    {(session.team_ids?.length || session.team_id) && (
+                      <div className="flex flex-wrap gap-1">
+                        {(session.team_ids || (session.team_id ? [session.team_id] : [])).map(tid => (
+                          <Badge key={tid} variant="outline" className="gap-1 text-xs font-normal">
+                            <Users className="h-3 w-3" />
+                            {teams.find(t => t.id === tid)?.name || 'Équipe'}
+                          </Badge>
+                        ))}
+                      </div>
                     )}
                   </div>
                   {session.daily_ai_message_limit != null && (
@@ -493,7 +492,7 @@ export default function SessionsPage() {
                             ? String(session.daily_ai_message_limit)
                             : ''
                         )
-                        setFormSessionTeamId(session.team_id || '')
+                        setFormSessionTeamIds(session.team_ids || (session.team_id ? [session.team_id] : []))
                       }}
                     >
                       <Settings2 className="h-3 w-3" />
@@ -615,30 +614,14 @@ export default function SessionsPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="settings-team-select">Équipe</Label>
-              <Select value={formSessionTeamId || 'personal'} onValueChange={(v) => setFormSessionTeamId(v === 'personal' ? '' : v)}>
-                <SelectTrigger id="settings-team-select">
-                  <SelectValue placeholder="Session personnelle" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="personal">Session personnelle</SelectItem>
-                  {teams.map((team) => (
-                    <SelectItem key={team.id} value={team.id}>
-                      <span className="flex items-center gap-2">
-                        <Users className="h-3.5 w-3.5" />
-                        {team.name}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                {formSessionTeamId
-                  ? 'Les membres de l\'équipe pourront accéder à cette session.'
-                  : 'Cette session est uniquement accessible par vous.'}
-              </p>
-            </div>
+            <MultiTeamSelect
+              teams={teams}
+              selectedTeamIds={formSessionTeamIds}
+              onTeamIdsChange={setFormSessionTeamIds}
+              label="Équipes"
+              description="Les membres des équipes sélectionnées pourront accéder à cette session selon leurs permissions."
+              emptyDescription="Cette session est uniquement accessible par vous."
+            />
             <div className="space-y-2">
               <Label htmlFor="daily-limit">
                 Limite quotidienne de messages IA
@@ -684,30 +667,14 @@ export default function SessionsPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="team-select">Équipe (optionnel)</Label>
-              <Select value={selectedTeamId || 'personal'} onValueChange={(v) => setSelectedTeamId(v === 'personal' ? '' : v)}>
-                <SelectTrigger id="team-select">
-                  <SelectValue placeholder="Session personnelle" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="personal">Session personnelle</SelectItem>
-                  {teams.map((team) => (
-                    <SelectItem key={team.id} value={team.id}>
-                      <span className="flex items-center gap-2">
-                        <Users className="h-3.5 w-3.5" />
-                        {team.name}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                {selectedTeamId
-                  ? 'Les membres de l\'équipe pourront accéder à cette session selon leurs permissions.'
-                  : 'Cette session sera uniquement accessible par vous.'}
-              </p>
-            </div>
+            <MultiTeamSelect
+              teams={teams}
+              selectedTeamIds={selectedTeamIds}
+              onTeamIdsChange={setSelectedTeamIds}
+              label="Équipes (optionnel)"
+              description="Les membres des équipes sélectionnées pourront accéder à cette session selon leurs permissions."
+              emptyDescription="Cette session sera uniquement accessible par vous."
+            />
             <Button onClick={handleCreate} disabled={creating} className="w-full">
               {creating ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

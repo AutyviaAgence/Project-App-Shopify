@@ -36,6 +36,7 @@ import {
   Bot,
   Users,
 } from 'lucide-react'
+import { MultiTeamSelect } from '@/components/multi-team-select'
 
 type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
 
@@ -45,6 +46,7 @@ type WALinkWithSession = WALink & {
     instance_name: string
     status: string
   } | null
+  team_ids?: string[]
 }
 
 export default function LinksPage() {
@@ -59,7 +61,7 @@ export default function LinksPage() {
   const [deleting, setDeleting] = useState<string | null>(null)
 
   // Form state
-  const [formTeamId, setFormTeamId] = useState('')
+  const [formTeamIds, setFormTeamIds] = useState<string[]>([])
   const [formName, setFormName] = useState('')
   const [formSessionId, setFormSessionId] = useState('')
   const [formMessage, setFormMessage] = useState('')
@@ -126,7 +128,7 @@ export default function LinksPage() {
 
   function openCreateDialog() {
     setEditing(null)
-    setFormTeamId('')
+    setFormTeamIds([])
     setFormName('')
     setFormSessionId('')
     setFormMessage('')
@@ -138,7 +140,7 @@ export default function LinksPage() {
 
   function openEditDialog(link: WALinkWithSession) {
     setEditing(link)
-    setFormTeamId(link.team_id || '')
+    setFormTeamIds(link.team_ids || (link.team_id ? [link.team_id] : []))
     setFormName(link.name)
     setFormSessionId(link.session_id)
     setFormMessage(link.pre_filled_message || '')
@@ -166,7 +168,7 @@ export default function LinksPage() {
             tracking_source: formSource.trim(),
             slug: formSlug.trim(),
             ai_agent_id: formAgentId || null,
-            team_id: formTeamId || null,
+            team_ids: formTeamIds,
           }),
         })
         const json = await res.json()
@@ -188,7 +190,7 @@ export default function LinksPage() {
             tracking_source: formSource.trim(),
             slug: formSlug.trim(),
             ai_agent_id: formAgentId || null,
-            team_id: formTeamId || null,
+            team_ids: formTeamIds,
           }),
         })
         const json = await res.json()
@@ -338,13 +340,17 @@ export default function LinksPage() {
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
                       <span>{phone ? `+${phone}` : session?.instance_name || 'Session inconnue'}</span>
-                      {link.team_id && (
-                        <Badge variant="outline" className="gap-1 text-xs font-normal">
-                          <Users className="h-3 w-3" />
-                          {teams.find(t => t.id === link.team_id)?.name || 'Équipe'}
-                        </Badge>
+                      {(link.team_ids?.length || link.team_id) && (
+                        <>
+                          {(link.team_ids || (link.team_id ? [link.team_id] : [])).map(tid => (
+                            <Badge key={tid} variant="outline" className="gap-1 text-xs font-normal">
+                              <Users className="h-3 w-3" />
+                              {teams.find(t => t.id === tid)?.name || 'Équipe'}
+                            </Badge>
+                          ))}
+                        </>
                       )}
                     </div>
 
@@ -466,30 +472,14 @@ export default function LinksPage() {
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="link-team">Équipe</Label>
-              <Select value={formTeamId || 'personal'} onValueChange={(v) => setFormTeamId(v === 'personal' ? '' : v)}>
-                <SelectTrigger id="link-team">
-                  <SelectValue placeholder="Lien personnel" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="personal">Lien personnel</SelectItem>
-                  {teams.map((team) => (
-                    <SelectItem key={team.id} value={team.id}>
-                      <span className="flex items-center gap-2">
-                        <Users className="h-3.5 w-3.5" />
-                        {team.name}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                {formTeamId
-                  ? 'Les membres de l\'équipe pourront voir ce lien.'
-                  : 'Ce lien est uniquement accessible par vous.'}
-              </p>
-            </div>
+            <MultiTeamSelect
+              teams={teams}
+              selectedTeamIds={formTeamIds}
+              onTeamIdsChange={setFormTeamIds}
+              label="Équipes"
+              description="Les membres des équipes sélectionnées pourront voir ce lien."
+              emptyDescription="Ce lien est uniquement accessible par vous."
+            />
 
             <div className="space-y-2">
               <Label htmlFor="link-name">Nom du lien *</Label>

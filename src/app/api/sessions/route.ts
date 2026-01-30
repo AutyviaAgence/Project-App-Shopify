@@ -14,13 +14,17 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => ({}))
-  const { team_id } = body as { team_id?: string }
+  const { team_id, team_ids } = body as { team_id?: string; team_ids?: string[] }
 
-  // Vérifier que l'utilisateur a accès à l'équipe si spécifiée
-  if (team_id) {
-    const teamIds = await getUserTeamIds(supabase, user.id)
-    if (!teamIds.includes(team_id)) {
-      return NextResponse.json({ error: 'Équipe non autorisée' }, { status: 403 })
+  // Support des deux formats: team_id (legacy) et team_ids (nouveau)
+  const selectedTeamIds = team_ids || (team_id ? [team_id] : [])
+
+  // Vérifier que l'utilisateur a accès aux équipes spécifiées
+  if (selectedTeamIds.length > 0) {
+    const userTeamIds = await getUserTeamIds(supabase, user.id)
+    const unauthorized = selectedTeamIds.filter(id => !userTeamIds.includes(id))
+    if (unauthorized.length > 0) {
+      return NextResponse.json({ error: 'Équipe(s) non autorisée(s)' }, { status: 403 })
     }
   }
 
@@ -44,7 +48,7 @@ export async function POST(req: NextRequest) {
     .from('whatsapp_sessions')
     .insert({
       user_id: user.id,
-      team_id: team_id || null,
+      team_id: selectedTeamIds[0] || null, // Legacy: garder le premier pour compatibilité
       instance_name: instanceName,
       instance_id: (evoData?.instance as Record<string, unknown>)?.instanceId as string || null,
       status: 'qr_pending' as const,
@@ -59,7 +63,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: dbError.message }, { status: 500 })
   }
 
-  return NextResponse.json({ data: session })
+  // 4. Créer les associations multi-équipes
+  if (selectedTeamIds.length > 0 && session) {
+    const teamAssociations = selectedTeamIds.map(teamId => ({
+      session_id: session.id,
+      team_id: teamId,
+    }))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any).from('session_teams').insert(teamAssociations)
+  }
+
+  // Retourner avec team_ids
+  return NextResponse.json({
+    data: { ...session, team_ids: selectedTeamIds }
+  })
 }
 
 /** GET /api/sessions — Lister les sessions de l'utilisateur (+ équipes avec permissions) */
@@ -116,5 +133,32 @@ export async function GET() {
     }
   }
 
-  return NextResponse.json({ data: sessions })
+  // Récupérer les team_ids pour chaque session
+  const sessionIds = sessions.map(s => s.id)
+  let sessionTeamsMap: Record<string, string[]> = {}
+
+  if (sessionIds.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: sessionTeams } = await (supabase as any)
+      .from('session_teams')
+      .select('session_id, team_id')
+      .in('session_id', sessionIds) as { data: { session_id: string; team_id: string }[] | null }
+
+    if (sessionTeams) {
+      for (const st of sessionTeams) {
+        if (!sessionTeamsMap[st.session_id]) {
+          sessionTeamsMap[st.session_id] = []
+        }
+        sessionTeamsMap[st.session_id].push(st.team_id)
+      }
+    }
+  }
+
+  // Ajouter team_ids à chaque session
+  const sessionsWithTeams = sessions.map(s => ({
+    ...s,
+    team_ids: sessionTeamsMap[s.id] || (s.team_id ? [s.team_id] : [])
+  }))
+
+  return NextResponse.json({ data: sessionsWithTeams })
 }

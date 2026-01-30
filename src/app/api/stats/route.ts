@@ -104,7 +104,7 @@ export async function GET(req: NextRequest) {
     // Agents (utilisateur + équipes avec permission)
     supabase
       .from('ai_agents')
-      .select('id, name, is_active')
+      .select('id, name, is_active, booking_url')
       .or(accessFilter),
     // Liens (utilisateur + équipes avec permission)
     supabase
@@ -118,6 +118,25 @@ export async function GET(req: NextRequest) {
   const contacts = contactsRes.data || []
   const agents = agentsRes.data || []
   const links = linksRes.data || []
+
+  // Récupérer les clics de booking par agent (pour la période)
+  const agentIds = agents.map((a) => a.id)
+  const bookingClicksByAgent: Record<string, number> = {}
+  if (agentIds.length > 0) {
+    // Note: booking_link_clicks table created via migration
+    const { data: bookingClicks } = await supabase
+      .from('booking_link_clicks' as 'messages') // Type cast car table pas encore dans types
+      .select('agent_id')
+      .in('agent_id', agentIds)
+      .gte('clicked_at', from)
+      .lte('clicked_at', to) as { data: { agent_id: string }[] | null }
+
+    if (bookingClicks) {
+      for (const click of bookingClicks) {
+        bookingClicksByAgent[click.agent_id] = (bookingClicksByAgent[click.agent_id] || 0) + 1
+      }
+    }
+  }
 
   // --- Overview ---
   const messagesIn = messages.filter((m) => m.direction === 'inbound').length
@@ -222,6 +241,8 @@ export async function GET(req: NextRequest) {
       responseRate: agentResponseRate,
       avgResponseTime: agentAvgTime,
       isActive: agent.is_active,
+      bookingClicks: bookingClicksByAgent[agent.id] || 0,
+      hasBookingUrl: !!agent.booking_url,
     }
   })
 

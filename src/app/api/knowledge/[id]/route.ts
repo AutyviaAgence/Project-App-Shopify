@@ -34,7 +34,16 @@ export async function GET(
     }
   }
 
-  return NextResponse.json({ data: doc })
+  // Récupérer les team_ids depuis la table de liaison
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: documentTeams } = await (supabase as any)
+    .from('document_teams')
+    .select('team_id')
+    .eq('document_id', id)
+
+  const team_ids = documentTeams?.map((dt: { team_id: string }) => dt.team_id) || []
+
+  return NextResponse.json({ data: { ...doc, team_ids } })
 }
 
 /** PATCH /api/knowledge/[id] — Modifier un document */
@@ -72,26 +81,31 @@ export async function PATCH(
   }
 
   const body = await req.json()
-  const { name, description, text_content, reprocess, team_id } = body as {
+  const { name, description, text_content, reprocess, team_id, team_ids } = body as {
     name?: string
     description?: string
     text_content?: string
     reprocess?: boolean
     team_id?: string | null
+    team_ids?: string[]
   }
 
-  // Si on change de team_id, vérifier la permission dans la nouvelle équipe
-  if (team_id !== undefined && team_id !== existingDoc.team_id) {
-    // Si on déplace vers une équipe, vérifier qu'on a la permission
-    if (team_id) {
-      const hasNewTeamPermission = await checkTeamPermission(supabase, user.id, team_id, 'knowledge_manage')
-      if (!hasNewTeamPermission) {
-        return NextResponse.json({ error: 'Permission refusée pour cette équipe' }, { status: 403 })
-      }
-    }
-    // Seul le propriétaire peut déplacer un document personnel vers une équipe ou inversement
+  // Support multi-équipes: team_ids ou team_id (legacy)
+  const selectedTeamIds = team_ids !== undefined ? team_ids : (team_id !== undefined ? (team_id ? [team_id] : []) : undefined)
+
+  // Si on change d'équipes, vérifier les permissions
+  if (selectedTeamIds !== undefined) {
+    // Seul le propriétaire peut changer les équipes
     if (existingDoc.user_id !== user.id) {
-      return NextResponse.json({ error: 'Seul le propriétaire peut changer l\'équipe du document' }, { status: 403 })
+      return NextResponse.json({ error: 'Seul le propriétaire peut changer les équipes du document' }, { status: 403 })
+    }
+
+    // Vérifier la permission dans chaque nouvelle équipe
+    for (const tid of selectedTeamIds) {
+      const hasNewTeamPermission = await checkTeamPermission(supabase, user.id, tid, 'knowledge_manage')
+      if (!hasNewTeamPermission) {
+        return NextResponse.json({ error: 'Permission refusée pour une des équipes' }, { status: 403 })
+      }
     }
   }
 
@@ -99,40 +113,63 @@ export async function PATCH(
   if (name !== undefined) updateData.name = name.trim()
   if (description !== undefined) updateData.description = description?.trim() || null
   if (text_content !== undefined) updateData.text_content = text_content.trim()
-  if (team_id !== undefined) updateData.team_id = team_id || null
+
+  // Gestion multi-équipes
+  if (selectedTeamIds !== undefined) {
+    // Mettre à jour la table de liaison
+    // 1. Supprimer les anciennes associations
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any).from('document_teams').delete().eq('document_id', id)
+
+    // 2. Créer les nouvelles associations
+    if (selectedTeamIds.length > 0) {
+      const teamAssociations = selectedTeamIds.map(teamId => ({
+        document_id: id,
+        team_id: teamId,
+      }))
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any).from('document_teams').insert(teamAssociations)
+    }
+
+    // Legacy: garder le premier team_id pour compatibilité
+    updateData.team_id = selectedTeamIds[0] || null
+  }
 
   const needsReprocess = text_content !== undefined || reprocess
 
-  if (Object.keys(updateData).length === 0 && !needsReprocess) {
-    return NextResponse.json({ error: 'Rien à modifier' }, { status: 400 })
+  // Mise à jour si nécessaire
+  let doc = existingDoc
+  if (Object.keys(updateData).length > 0 || needsReprocess) {
+    if (needsReprocess) {
+      updateData.status = 'pending'
+    }
+
+    const { data: updatedDoc, error } = await supabase
+      .from('knowledge_documents')
+      .update(updateData)
+      .eq('id', id)
+      .select()
+      .single()
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    if (!updatedDoc) {
+      return NextResponse.json({ error: 'Document introuvable' }, { status: 404 })
+    }
+    doc = updatedDoc
+
+    if (needsReprocess) {
+      import('@/lib/knowledge/processor')
+        .then(({ processDocument }) => processDocument(id))
+        .catch((err) => console.error('[Knowledge] Reprocess error:', err))
+    }
   }
 
-  if (needsReprocess) {
-    updateData.status = 'pending'
-  }
-
-  const { data: doc, error } = await supabase
-    .from('knowledge_documents')
-    .update(updateData)
-    .eq('id', id)
-    .select()
-    .single()
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 })
-  }
-
-  if (!doc) {
-    return NextResponse.json({ error: 'Document introuvable' }, { status: 404 })
-  }
-
-  if (needsReprocess) {
-    import('@/lib/knowledge/processor')
-      .then(({ processDocument }) => processDocument(doc.id))
-      .catch((err) => console.error('[Knowledge] Reprocess error:', err))
-  }
-
-  return NextResponse.json({ data: doc })
+  return NextResponse.json({
+    data: { ...doc, id, team_ids: selectedTeamIds ?? (doc.team_id ? [doc.team_id] : []) }
+  })
 }
 
 /** DELETE /api/knowledge/[id] — Supprimer un document */

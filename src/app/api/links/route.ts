@@ -36,6 +36,34 @@ export async function GET() {
     permissions
   )
 
+  // Récupérer les team_ids pour chaque lien depuis la table de liaison
+  if (links && links.length > 0) {
+    const linkIds = links.map(l => l.id)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: linkTeams } = await (supabase as any)
+      .from('link_teams')
+      .select('link_id, team_id')
+      .in('link_id', linkIds)
+
+    // Créer une map link_id -> team_ids
+    const teamsByLink = new Map<string, string[]>()
+    if (linkTeams) {
+      for (const lt of linkTeams as { link_id: string; team_id: string }[]) {
+        const existing = teamsByLink.get(lt.link_id) || []
+        existing.push(lt.team_id)
+        teamsByLink.set(lt.link_id, existing)
+      }
+    }
+
+    // Ajouter team_ids à chaque lien
+    const linksWithTeamIds = links.map(link => ({
+      ...link,
+      team_ids: teamsByLink.get(link.id) || (link.team_id ? [link.team_id] : [])
+    }))
+
+    return NextResponse.json({ data: linksWithTeamIds })
+  }
+
   return NextResponse.json({ data: links })
 }
 
@@ -49,7 +77,7 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json()
-  const { name, session_id, pre_filled_message, tracking_source, slug, ai_agent_id, team_id } = body as {
+  const { name, session_id, pre_filled_message, tracking_source, slug, ai_agent_id, team_id, team_ids: bodyTeamIds } = body as {
     name?: string
     session_id?: string
     pre_filled_message?: string
@@ -57,18 +85,25 @@ export async function POST(req: Request) {
     slug?: string
     ai_agent_id?: string | null
     team_id?: string
+    team_ids?: string[]
   }
+
+  // Support multi-équipes: team_ids ou team_id (legacy)
+  const selectedTeamIds = bodyTeamIds || (team_id ? [team_id] : [])
 
   if (!name || !session_id) {
     return NextResponse.json({ error: 'Nom et session requis' }, { status: 400 })
   }
 
   // Récupérer les équipes de l'utilisateur
-  const teamIds = await getUserTeamIds(supabase, user.id)
+  const userTeamIds = await getUserTeamIds(supabase, user.id)
 
-  // Vérifier que l'utilisateur a accès à l'équipe si spécifiée
-  if (team_id && !teamIds.includes(team_id)) {
-    return NextResponse.json({ error: 'Équipe non autorisée' }, { status: 403 })
+  // Vérifier que l'utilisateur a accès à toutes les équipes spécifiées
+  if (selectedTeamIds.length > 0) {
+    const unauthorized = selectedTeamIds.filter(tid => !userTeamIds.includes(tid))
+    if (unauthorized.length > 0) {
+      return NextResponse.json({ error: 'Équipe(s) non autorisée(s)' }, { status: 403 })
+    }
   }
 
   // Vérifier que la session appartient à l'utilisateur ou à une de ses équipes
@@ -76,7 +111,7 @@ export async function POST(req: Request) {
     .from('whatsapp_sessions')
     .select('id')
     .eq('id', session_id)
-    .or(buildAccessFilter(user.id, teamIds))
+    .or(buildAccessFilter(user.id, userTeamIds))
     .single()
 
   if (!session) {
@@ -90,7 +125,7 @@ export async function POST(req: Request) {
     .from('wa_links')
     .insert({
       user_id: user.id,
-      team_id: team_id || null,
+      team_id: selectedTeamIds[0] || null, // Legacy: premier team_id
       session_id,
       name,
       slug: finalSlug,
@@ -108,5 +143,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  return NextResponse.json({ data: link })
+  // Créer les associations multi-équipes
+  if (selectedTeamIds.length > 0 && link) {
+    const teamAssociations = selectedTeamIds.map(teamId => ({
+      link_id: link.id,
+      team_id: teamId,
+    }))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    await (supabase as any).from('link_teams').insert(teamAssociations)
+  }
+
+  return NextResponse.json({ data: { ...link, team_ids: selectedTeamIds } })
 }

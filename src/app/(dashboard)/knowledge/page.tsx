@@ -16,13 +16,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { toast } from 'sonner'
 import {
   Plus,
@@ -40,8 +33,10 @@ import {
   Users,
 } from 'lucide-react'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
+import { MultiTeamSelect } from '@/components/multi-team-select'
 
 type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
+type DocWithTeamIds = KnowledgeDocument & { team_ids?: string[] }
 
 function statusBadge(status: string) {
   switch (status) {
@@ -78,7 +73,7 @@ function typeBadge(docType: string) {
 }
 
 export default function KnowledgePage() {
-  const [documents, setDocuments] = useState<KnowledgeDocument[]>([])
+  const [documents, setDocuments] = useState<DocWithTeamIds[]>([])
   const [agents, setAgents] = useState<AIAgent[]>([])
   const [teams, setTeams] = useState<TeamWithRole[]>([])
   const [loading, setLoading] = useState(true)
@@ -87,9 +82,9 @@ export default function KnowledgePage() {
 
   // Create/Edit dialog
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [editing, setEditing] = useState<KnowledgeDocument | null>(null)
+  const [editing, setEditing] = useState<DocWithTeamIds | null>(null)
   const [formTab, setFormTab] = useState<string>('text')
-  const [formTeamId, setFormTeamId] = useState('')
+  const [formTeamIds, setFormTeamIds] = useState<string[]>([])
   const [formName, setFormName] = useState('')
   const [formDescription, setFormDescription] = useState('')
   const [formTextContent, setFormTextContent] = useState('')
@@ -185,7 +180,7 @@ export default function KnowledgePage() {
   function openCreateDialog() {
     setEditing(null)
     setFormTab('text')
-    setFormTeamId('')
+    setFormTeamIds([])
     setFormName('')
     setFormDescription('')
     setFormTextContent('')
@@ -194,10 +189,10 @@ export default function KnowledgePage() {
     setDialogOpen(true)
   }
 
-  function openEditDialog(doc: KnowledgeDocument) {
+  function openEditDialog(doc: DocWithTeamIds) {
     setEditing(doc)
     setFormTab(doc.doc_type)
-    setFormTeamId(doc.team_id || '')
+    setFormTeamIds(doc.team_ids || (doc.team_id ? [doc.team_id] : []))
     setFormName(doc.name)
     setFormDescription(doc.description || '')
     setFormTextContent(doc.text_content || '')
@@ -218,7 +213,7 @@ export default function KnowledgePage() {
         const body: Record<string, unknown> = {
           name: formName.trim(),
           description: formDescription.trim(),
-          team_id: formTeamId || null,
+          team_ids: formTeamIds,
         }
         if (editing.doc_type === 'text') {
           body.text_content = formTextContent.trim()
@@ -251,8 +246,8 @@ export default function KnowledgePage() {
           formData.append('file', formFile)
           formData.append('name', formName.trim())
           formData.append('description', formDescription.trim())
-          if (formTeamId) {
-            formData.append('team_id', formTeamId)
+          if (formTeamIds.length > 0) {
+            formData.append('team_ids', JSON.stringify(formTeamIds))
           }
 
           const res = await fetch('/api/knowledge', {
@@ -280,7 +275,7 @@ export default function KnowledgePage() {
               name: formName.trim(),
               description: formDescription.trim(),
               text_content: formTextContent.trim(),
-              team_id: formTeamId || undefined,
+              team_ids: formTeamIds,
             }),
           })
           const json = await res.json()
@@ -511,11 +506,15 @@ export default function KnowledgePage() {
 
                     <div className="flex items-center gap-2 flex-wrap">
                       {typeBadge(doc.doc_type)}
-                      {doc.team_id && (
-                        <Badge variant="outline" className="text-xs">
-                          <Users className="mr-1 h-3 w-3" />
-                          {teams.find((t) => t.id === doc.team_id)?.name || 'Équipe'}
-                        </Badge>
+                      {(doc.team_ids?.length || doc.team_id) && (
+                        <>
+                          {(doc.team_ids || (doc.team_id ? [doc.team_id] : [])).map(tid => (
+                            <Badge key={tid} variant="outline" className="text-xs">
+                              <Users className="mr-1 h-3 w-3" />
+                              {teams.find((t) => t.id === tid)?.name || 'Équipe'}
+                            </Badge>
+                          ))}
+                        </>
                       )}
                       {doc.status === 'ready' && (
                         <>
@@ -636,40 +635,16 @@ export default function KnowledgePage() {
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            {/* Sélecteur d'équipe */}
+            {/* Sélecteur multi-équipes */}
             {teams.length > 0 && (
-              <div className="space-y-2">
-                <Label htmlFor="doc-team">Équipe (optionnel)</Label>
-                <Select
-                  value={formTeamId || '_personal'}
-                  onValueChange={(val) => setFormTeamId(val === '_personal' ? '' : val)}
-                >
-                  <SelectTrigger id="doc-team">
-                    <SelectValue placeholder="Document personnel" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="_personal">
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4" />
-                        <span>Document personnel</span>
-                      </div>
-                    </SelectItem>
-                    {teams.map((team) => (
-                      <SelectItem key={team.id} value={team.id}>
-                        <div className="flex items-center gap-2">
-                          <Users className="h-4 w-4" />
-                          <span>{team.name}</span>
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  {editing
-                    ? 'Changez l\'équipe associée à ce document.'
-                    : 'Associez ce document à une équipe pour le partager avec ses membres.'}
-                </p>
-              </div>
+              <MultiTeamSelect
+                teams={teams}
+                selectedTeamIds={formTeamIds}
+                onTeamIdsChange={setFormTeamIds}
+                label="Équipes (optionnel)"
+                description="Les membres des équipes sélectionnées pourront accéder à ce document."
+                emptyDescription="Ce document est uniquement accessible par vous."
+              />
             )}
 
             {!editing && (

@@ -20,6 +20,8 @@ export type StatsAgent = {
   responseRate: number | null
   avgResponseTime: number | null
   isActive: boolean
+  bookingClicks: number
+  hasBookingUrl: boolean
 }
 
 export type StatsLink = {

@@ -268,6 +268,16 @@ export default function StatsPage() {
                               Temps moyen
                             </p>
                           </div>
+                          {agent.hasBookingUrl && (
+                            <div className="col-span-2 border-t pt-3 mt-2">
+                              <p className="text-2xl font-bold text-primary">
+                                {agent.bookingClicks.toLocaleString('fr-FR')}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Clics lien RDV
+                              </p>
+                            </div>
+                          )}
                         </div>
                       </CardContent>
                     </Card>
