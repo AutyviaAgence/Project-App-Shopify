@@ -22,28 +22,10 @@ export async function GET(
     return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 
-  // Récupérer les membres avec leurs profils
+  // Récupérer les membres
   const { data: members, error } = await supabase
     .from('team_members')
-    .select(`
-      id,
-      team_id,
-      user_id,
-      role,
-      invited_email,
-      invitation_token,
-      status,
-      allowed_session_ids,
-      allowed_agent_ids,
-      allowed_link_ids,
-      created_at,
-      profiles (
-        id,
-        email,
-        full_name,
-        avatar_url
-      )
-    `)
+    .select('*')
     .eq('team_id', id)
     .order('created_at', { ascending: true })
 
@@ -51,12 +33,30 @@ export async function GET(
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  // Récupérer les profils séparément pour les membres avec user_id
+  const userIds = (members || [])
+    .filter((m) => m.user_id)
+    .map((m) => m.user_id as string)
+
+  let profilesMap: Record<string, { id: string; email: string | null; full_name: string | null; avatar_url: string | null }> = {}
+
+  if (userIds.length > 0) {
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, email, full_name, avatar_url')
+      .in('id', userIds)
+
+    if (profiles) {
+      profilesMap = Object.fromEntries(profiles.map((p) => [p.id, p]))
+    }
+  }
+
   // Masquer le token d'invitation pour les non-admin
   const isAdmin = role === 'owner' || role === 'admin'
   const formattedMembers = (members || []).map((m) => ({
     ...m,
     invitation_token: isAdmin && m.status === 'pending' ? m.invitation_token : null,
-    profile: m.profiles,
+    profile: m.user_id ? profilesMap[m.user_id] || null : null,
   }))
 
   return NextResponse.json({ data: formattedMembers })

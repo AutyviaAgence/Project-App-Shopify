@@ -304,15 +304,15 @@ export default function AgentsPage() {
   }
 
   return (
-    <div className="p-6">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="p-4 sm:p-6">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Agents IA</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Agents IA</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Créez des agents intelligents pour répondre automatiquement sur WhatsApp.
           </p>
         </div>
-        <Button onClick={openCreateDialog}>
+        <Button onClick={openCreateDialog} className="w-full sm:w-auto">
           <Plus className="mr-2 h-4 w-4" />
           Nouvel agent
         </Button>
@@ -339,12 +339,12 @@ export default function AgentsPage() {
 
             return (
               <Card key={agent.id} className={!agent.is_active ? 'opacity-60' : ''}>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardHeader className="flex flex-col gap-2 space-y-0 pb-2 sm:flex-row sm:items-center sm:justify-between">
                   <CardTitle className="text-sm font-medium truncate">
                     <Bot className="mr-1 inline h-4 w-4" />
                     {agent.name}
                   </CardTitle>
-                  <Badge variant={agent.is_active ? 'default' : 'secondary'}>
+                  <Badge variant={agent.is_active ? 'default' : 'secondary'} className="w-fit">
                     {agent.is_active ? 'Actif' : 'Inactif'}
                   </Badge>
                 </CardHeader>
@@ -415,7 +415,7 @@ export default function AgentsPage() {
                     )}
                   </div>
 
-                  <div className="mt-4 flex items-center gap-2">
+                  <div className="mt-4 flex flex-wrap items-center gap-2">
                     <Button
                       size="sm"
                       variant="ghost"
