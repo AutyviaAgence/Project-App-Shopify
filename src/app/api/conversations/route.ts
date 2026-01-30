@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
   const dateFrom = searchParams.get('date_from')
   const dateTo = searchParams.get('date_to')
   const teamFilter = searchParams.get('team_id')
+  const searchQuery = searchParams.get('search')?.trim().toLowerCase()
   const page = parseInt(searchParams.get('page') || '1', 10)
   const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10), 100)
 
@@ -133,7 +134,7 @@ export async function GET(req: NextRequest) {
   }
 
   // Assembler les données
-  const result = conversations.map((conv) => {
+  let result = conversations.map((conv) => {
     const session = sessionsMap[conv.session_id]
     return {
       ...conv,
@@ -148,13 +149,30 @@ export async function GET(req: NextRequest) {
     }
   })
 
+  // Filtrer par recherche (côté serveur après avoir récupéré les contacts)
+  let filteredCount = count || 0
+  if (searchQuery) {
+    result = result.filter((conv) => {
+      const contact = conv.contact
+      if (!contact) return false
+      return (
+        contact.phone_number?.includes(searchQuery) ||
+        contact.name?.toLowerCase().includes(searchQuery) ||
+        contact.first_name?.toLowerCase().includes(searchQuery) ||
+        contact.last_name?.toLowerCase().includes(searchQuery) ||
+        conv.last_message_preview?.toLowerCase().includes(searchQuery)
+      )
+    })
+    filteredCount = result.length
+  }
+
   return NextResponse.json({
     data: result,
     pagination: {
       page,
       limit,
-      total: count || 0,
-      totalPages: Math.ceil((count || 0) / limit),
+      total: searchQuery ? filteredCount : (count || 0),
+      totalPages: Math.ceil((searchQuery ? filteredCount : (count || 0)) / limit),
     },
   })
 }

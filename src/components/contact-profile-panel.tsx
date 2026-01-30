@@ -42,6 +42,7 @@ export function ContactProfilePanel({
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [generatingSummary, setGeneratingSummary] = useState(false)
+  const [extractingInfo, setExtractingInfo] = useState(false)
 
   // Champs éditables
   const [firstName, setFirstName] = useState('')
@@ -125,6 +126,51 @@ export function ContactProfilePanel({
     }
   }
 
+  async function handleExtractInfo() {
+    if (!contactId) return
+    setExtractingInfo(true)
+    try {
+      const res = await fetch(`/api/contacts/${contactId}/extract-info`, {
+        method: 'POST',
+      })
+      const json = await res.json()
+      if (res.ok && json.data?.extracted) {
+        const extracted = json.data.extracted
+        let updated = false
+
+        // Remplir les champs vides avec les infos extraites
+        if (extracted.first_name && !firstName) {
+          setFirstName(extracted.first_name)
+          updated = true
+        }
+        if (extracted.last_name && !lastName) {
+          setLastName(extracted.last_name)
+          updated = true
+        }
+        if (extracted.email && !email) {
+          setEmail(extracted.email)
+          updated = true
+        }
+        if (extracted.notes) {
+          setNotes(extracted.notes)
+          updated = true
+        }
+
+        if (updated) {
+          toast.success('Informations extraites avec succès')
+        } else {
+          toast.info('Aucune nouvelle information trouvée')
+        }
+      } else {
+        toast.error(json.error || 'Erreur lors de l\'extraction')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setExtractingInfo(false)
+    }
+  }
+
   const hasChanges =
     contact &&
     (firstName !== (contact.first_name || '') ||
@@ -202,10 +248,26 @@ export function ContactProfilePanel({
             <div className="flex-1 overflow-auto px-3 py-3 space-y-4">
               {/* Editable fields - EN PREMIER */}
               <div className="space-y-3">
-                <h3 className="text-xs font-semibold flex items-center gap-1.5">
-                  <User className="h-3 w-3 text-muted-foreground" />
-                  Informations
-                </h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-xs font-semibold flex items-center gap-1.5">
+                    <User className="h-3 w-3 text-muted-foreground" />
+                    Informations
+                  </h3>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleExtractInfo}
+                    disabled={extractingInfo}
+                    className="h-7 text-xs px-2"
+                  >
+                    {extractingInfo ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-3 w-3" />
+                    )}
+                    <span className="ml-1">Compléter via IA</span>
+                  </Button>
+                </div>
 
                 <div className="grid grid-cols-2 gap-2">
                   <div className="space-y-1">

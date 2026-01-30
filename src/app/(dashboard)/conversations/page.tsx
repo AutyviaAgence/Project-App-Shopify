@@ -181,8 +181,13 @@ export default function ConversationsPage() {
       if (filterSession !== 'all') params.set('session_id', filterSession)
       if (filterAiActive !== 'all') params.set('is_ai_active', filterAiActive)
       if (filterTeam !== 'all') params.set('team_id', filterTeam)
-      params.set('page', page.toString())
-      params.set('limit', ITEMS_PER_PAGE.toString())
+      if (searchQuery.trim()) {
+        params.set('search', searchQuery.trim())
+        params.set('limit', '100') // Plus de résultats lors d'une recherche
+      } else {
+        params.set('page', page.toString())
+        params.set('limit', ITEMS_PER_PAGE.toString())
+      }
 
       const url = `/api/conversations?${params.toString()}`
       const res = await fetch(url)
@@ -199,7 +204,7 @@ export default function ConversationsPage() {
     } finally {
       setLoading(false)
     }
-  }, [filterSession, filterAiActive, filterTeam, page])
+  }, [filterSession, filterAiActive, filterTeam, page, searchQuery])
 
   useEffect(() => {
     fetchConversations()
@@ -513,18 +518,20 @@ export default function ConversationsPage() {
     }
   }
 
-  // Filter conversations by search
-  const filteredConversations = conversations.filter((conv) => {
-    if (!searchQuery) return true
-    const q = searchQuery.toLowerCase()
-    return (
-      conv.contact.name?.toLowerCase().includes(q) ||
-      conv.contact.first_name?.toLowerCase().includes(q) ||
-      conv.contact.last_name?.toLowerCase().includes(q) ||
-      conv.contact.phone_number.includes(q) ||
-      conv.last_message_preview?.toLowerCase().includes(q)
-    )
-  })
+  // Debounce search - déclenche fetchConversations après 300ms sans frappe
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchQuery)
+      setPage(1) // Reset page on search
+    }, 300)
+    return () => clearTimeout(timer)
+  }, [searchQuery])
+
+  // Re-fetch quand le debounced search change
+  useEffect(() => {
+    fetchConversations()
+  }, [debouncedSearch]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) {
     return (
@@ -636,7 +643,7 @@ export default function ConversationsPage() {
         </div>
 
         {/* Conversation list */}
-        {filteredConversations.length === 0 ? (
+        {conversations.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center p-8">
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
               <MessageSquare className="h-7 w-7 text-muted-foreground" />
@@ -651,7 +658,7 @@ export default function ConversationsPage() {
         ) : (
           <>
             <div className="flex-1 overflow-auto scrollbar-thin">
-              {filteredConversations.map((conv) => {
+              {conversations.map((conv) => {
                 const isSelected = selectedConv?.id === conv.id
                 return (
                   <button
