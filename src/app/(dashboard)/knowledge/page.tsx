@@ -568,6 +568,17 @@ export default function KnowledgePage() {
                       </Button>
                     )}
 
+                    {doc.doc_type === 'pdf' && teams.length > 0 && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => openEditDialog(doc)}
+                      >
+                        <Users className="mr-1 h-3 w-3" />
+                        Équipe
+                      </Button>
+                    )}
+
                     <Button
                       size="sm"
                       variant="ghost"
