@@ -69,10 +69,49 @@ export type StatsCharts = {
   newContactsOverTime: StatsTimePoint[]
 }
 
+export type StatsCampaign = {
+  id: string
+  name: string
+  status: string
+  totalRecipients: number
+  sentCount: number
+  deliveredCount: number
+  repliedCount: number
+  failedCount: number
+  responseRate: number
+  relanceAgentId: string | null
+  relanceAgentName: string | null
+  startedAt: string | null
+  completedAt: string | null
+}
+
+export type StatsCampaigns = {
+  totalCampaigns: number
+  activeCampaigns: number
+  completedCampaigns: number
+  totalSent: number
+  totalDelivered: number
+  totalReplied: number
+  totalFailed: number
+  overallResponseRate: number
+  campaigns: StatsCampaign[]
+  relanceAgentStats: StatsRelanceAgent[]
+}
+
+export type StatsRelanceAgent = {
+  id: string
+  name: string
+  campaignsCount: number
+  totalSent: number
+  totalReplied: number
+  responseRate: number
+}
+
 export type StatsResponse = {
   overview: StatsOverview
   agents: StatsAgent[]
   links: StatsLink[]
   contacts: StatsContacts
   charts: StatsCharts
+  campaigns?: StatsCampaigns
 }

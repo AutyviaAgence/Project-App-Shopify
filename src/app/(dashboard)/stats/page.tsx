@@ -28,6 +28,11 @@ import {
   Phone,
   Zap,
   Clock,
+  Megaphone,
+  Send,
+  CheckCircle,
+  XCircle,
+  TrendingUp,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -138,6 +143,7 @@ export default function StatsPage() {
         <Tabs defaultValue="overview">
           <TabsList>
             <TabsTrigger value="overview">Vue globale</TabsTrigger>
+            <TabsTrigger value="campaigns">Campagnes</TabsTrigger>
             <TabsTrigger value="agents">Agents IA</TabsTrigger>
             <TabsTrigger value="links">Liens WA</TabsTrigger>
             <TabsTrigger value="contacts">Contacts</TabsTrigger>
@@ -208,6 +214,183 @@ export default function StatsPage() {
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          {/* === Campagnes === */}
+          <TabsContent value="campaigns" className="space-y-6">
+            {!stats.campaigns || stats.campaigns.totalCampaigns === 0 ? (
+              <Card>
+                <CardContent className="flex h-40 items-center justify-center">
+                  <p className="text-muted-foreground">Aucune campagne créée.</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                {/* KPIs Campagnes */}
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <KPICard
+                    title="Total campagnes"
+                    value={stats.campaigns.totalCampaigns}
+                    trend={null}
+                    icon={Megaphone}
+                  />
+                  <KPICard
+                    title="Messages envoyés"
+                    value={stats.campaigns.totalSent}
+                    trend={null}
+                    icon={Send}
+                  />
+                  <KPICard
+                    title="Réponses reçues"
+                    value={stats.campaigns.totalReplied}
+                    trend={null}
+                    icon={MessageSquare}
+                  />
+                  <KPICard
+                    title="Taux de réponse"
+                    value={stats.campaigns.overallResponseRate}
+                    trend={null}
+                    icon={TrendingUp}
+                    formatValue={(v) => `${v}%`}
+                  />
+                </div>
+
+                {/* Stats par campagne */}
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {stats.campaigns.campaigns.map((campaign) => {
+                    const statusColors: Record<string, string> = {
+                      draft: 'bg-gray-100 text-gray-700',
+                      scheduled: 'bg-blue-100 text-blue-700',
+                      running: 'bg-green-100 text-green-700',
+                      paused: 'bg-yellow-100 text-yellow-700',
+                      completed: 'bg-purple-100 text-purple-700',
+                      cancelled: 'bg-red-100 text-red-700',
+                    }
+                    const statusLabels: Record<string, string> = {
+                      draft: 'Brouillon',
+                      scheduled: 'Programmée',
+                      running: 'En cours',
+                      paused: 'En pause',
+                      completed: 'Terminée',
+                      cancelled: 'Annulée',
+                    }
+                    return (
+                      <Card key={campaign.id}>
+                        <CardHeader className="pb-3">
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="flex items-center gap-2 text-base">
+                              <Megaphone className="h-4 w-4" />
+                              {campaign.name}
+                            </CardTitle>
+                            <Badge className={statusColors[campaign.status] || 'bg-gray-100'}>
+                              {statusLabels[campaign.status] || campaign.status}
+                            </Badge>
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div>
+                              <p className="text-2xl font-bold">
+                                {campaign.sentCount.toLocaleString('fr-FR')}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Envoyés
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-2xl font-bold">
+                                {campaign.repliedCount.toLocaleString('fr-FR')}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Réponses
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-2xl font-bold text-primary">
+                                {campaign.responseRate}%
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Taux de réponse
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-2xl font-bold">
+                                {campaign.totalRecipients.toLocaleString('fr-FR')}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Destinataires
+                              </p>
+                            </div>
+                          </div>
+                          {campaign.relanceAgentName && (
+                            <div className="mt-3 pt-3 border-t">
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <Bot className="h-3 w-3" />
+                                Agent : {campaign.relanceAgentName}
+                              </div>
+                            </div>
+                          )}
+                          {campaign.failedCount > 0 && (
+                            <div className="mt-2 flex items-center gap-1 text-xs text-destructive">
+                              <XCircle className="h-3 w-3" />
+                              {campaign.failedCount} échec(s)
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    )
+                  })}
+                </div>
+
+                {/* Stats par agent de relance */}
+                {stats.campaigns.relanceAgentStats.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-base">Performance des agents de relance</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b text-left text-muted-foreground">
+                              <th className="pb-2 pr-4">Agent</th>
+                              <th className="pb-2 pr-4 text-right">Campagnes</th>
+                              <th className="pb-2 pr-4 text-right">Envoyés</th>
+                              <th className="pb-2 pr-4 text-right">Réponses</th>
+                              <th className="pb-2 text-right">Taux</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {stats.campaigns.relanceAgentStats.map((agent) => (
+                              <tr key={agent.id} className="border-b last:border-0">
+                                <td className="py-2 pr-4 font-medium">
+                                  <div className="flex items-center gap-2">
+                                    <Bot className="h-4 w-4 text-muted-foreground" />
+                                    {agent.name}
+                                  </div>
+                                </td>
+                                <td className="py-2 pr-4 text-right">
+                                  {agent.campaignsCount}
+                                </td>
+                                <td className="py-2 pr-4 text-right">
+                                  {agent.totalSent.toLocaleString('fr-FR')}
+                                </td>
+                                <td className="py-2 pr-4 text-right">
+                                  {agent.totalReplied.toLocaleString('fr-FR')}
+                                </td>
+                                <td className="py-2 text-right font-medium text-primary">
+                                  {agent.responseRate}%
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+              </>
+            )}
           </TabsContent>
 
           {/* === Agents IA === */}

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getDateRange, computeTrend, groupByDate, groupMessagesByDate } from '@/lib/stats/helpers'
 import { getUserTeamPermissions } from '@/lib/teams/access'
-import type { StatsResponse, StatsAgent, StatsLink, StatsTopContact, StatsContactsBySession } from '@/types/stats'
+import type { StatsResponse, StatsAgent, StatsLink, StatsTopContact, StatsContactsBySession, StatsCampaign, StatsCampaigns, StatsRelanceAgent } from '@/types/stats'
 
 /** GET /api/stats?period=30&session_id=all */
 export async function GET(req: NextRequest) {
@@ -62,6 +62,7 @@ export async function GET(req: NextRequest) {
     prevContactsRes,
     agentsRes,
     linksRes,
+    campaignsRes,
   ] = await Promise.all([
     // Messages période courante
     supabase
@@ -111,6 +112,11 @@ export async function GET(req: NextRequest) {
       .from('wa_links')
       .select('id, slug, name, click_count, is_active')
       .or(accessFilter),
+    // Campagnes (utilisateur + équipes)
+    supabase
+      .from('campaigns')
+      .select('id, name, status, total_recipients, sent_count, delivered_count, replied_count, failed_count, relance_agent_id, started_at, completed_at')
+      .or(accessFilter),
   ])
 
   const messages = messagesRes.data || []
@@ -118,6 +124,7 @@ export async function GET(req: NextRequest) {
   const contacts = contactsRes.data || []
   const agents = agentsRes.data || []
   const links = linksRes.data || []
+  const campaigns = campaignsRes.data || []
 
   // Récupérer les clics de booking par agent (pour la période)
   const agentIds = agents.map((a) => a.id)
@@ -322,6 +329,84 @@ export async function GET(req: NextRequest) {
     })
   )
 
+  // --- Campaigns ---
+  const campaignStats: StatsCampaign[] = campaigns.map((campaign) => {
+    const responseRate = campaign.sent_count > 0
+      ? Math.round((campaign.replied_count / campaign.sent_count) * 100)
+      : 0
+    const relanceAgent = agents.find((a) => a.id === campaign.relance_agent_id)
+    return {
+      id: campaign.id,
+      name: campaign.name,
+      status: campaign.status,
+      totalRecipients: campaign.total_recipients,
+      sentCount: campaign.sent_count,
+      deliveredCount: campaign.delivered_count,
+      repliedCount: campaign.replied_count,
+      failedCount: campaign.failed_count,
+      responseRate,
+      relanceAgentId: campaign.relance_agent_id,
+      relanceAgentName: relanceAgent?.name || null,
+      startedAt: campaign.started_at,
+      completedAt: campaign.completed_at,
+    }
+  })
+
+  // Aggregate campaign stats
+  const totalCampaigns = campaigns.length
+  const activeCampaigns = campaigns.filter((c) => c.status === 'running' || c.status === 'paused').length
+  const completedCampaigns = campaigns.filter((c) => c.status === 'completed').length
+  const totalCampaignSent = campaigns.reduce((sum, c) => sum + c.sent_count, 0)
+  const totalCampaignDelivered = campaigns.reduce((sum, c) => sum + c.delivered_count, 0)
+  const totalCampaignReplied = campaigns.reduce((sum, c) => sum + c.replied_count, 0)
+  const totalCampaignFailed = campaigns.reduce((sum, c) => sum + c.failed_count, 0)
+  const overallCampaignResponseRate = totalCampaignSent > 0
+    ? Math.round((totalCampaignReplied / totalCampaignSent) * 100)
+    : 0
+
+  // Relance agent stats
+  const relanceAgentStatsMap = new Map<string, { name: string; campaigns: number; sent: number; replied: number }>()
+  for (const campaign of campaigns) {
+    if (campaign.relance_agent_id) {
+      const existing = relanceAgentStatsMap.get(campaign.relance_agent_id)
+      const agentName = agents.find((a) => a.id === campaign.relance_agent_id)?.name || 'Agent inconnu'
+      if (existing) {
+        existing.campaigns += 1
+        existing.sent += campaign.sent_count
+        existing.replied += campaign.replied_count
+      } else {
+        relanceAgentStatsMap.set(campaign.relance_agent_id, {
+          name: agentName,
+          campaigns: 1,
+          sent: campaign.sent_count,
+          replied: campaign.replied_count,
+        })
+      }
+    }
+  }
+
+  const relanceAgentStats: StatsRelanceAgent[] = [...relanceAgentStatsMap.entries()].map(([id, stats]) => ({
+    id,
+    name: stats.name,
+    campaignsCount: stats.campaigns,
+    totalSent: stats.sent,
+    totalReplied: stats.replied,
+    responseRate: stats.sent > 0 ? Math.round((stats.replied / stats.sent) * 100) : 0,
+  }))
+
+  const campaignsData: StatsCampaigns = {
+    totalCampaigns,
+    activeCampaigns,
+    completedCampaigns,
+    totalSent: totalCampaignSent,
+    totalDelivered: totalCampaignDelivered,
+    totalReplied: totalCampaignReplied,
+    totalFailed: totalCampaignFailed,
+    overallResponseRate: overallCampaignResponseRate,
+    campaigns: campaignStats,
+    relanceAgentStats,
+  }
+
   // --- Charts ---
   const messagesOverTime = groupMessagesByDate(messages, from, to)
   const conversationsOverTime = groupByDate(
@@ -362,6 +447,7 @@ export async function GET(req: NextRequest) {
       conversationsOverTime,
       newContactsOverTime,
     },
+    campaigns: campaignsData,
   }
 
   return NextResponse.json({ data: response })

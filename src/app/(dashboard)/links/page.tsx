@@ -37,6 +37,7 @@ import {
   Users,
 } from 'lucide-react'
 import { MultiTeamSelect } from '@/components/multi-team-select'
+import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 
 type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
 
@@ -59,6 +60,8 @@ export default function LinksPage() {
   const [editing, setEditing] = useState<WALinkWithSession | null>(null)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [linkToDelete, setLinkToDelete] = useState<WALinkWithSession | null>(null)
 
   // Form state
   const [formTeamIds, setFormTeamIds] = useState<string[]>([])
@@ -209,13 +212,21 @@ export default function LinksPage() {
     }
   }
 
-  async function handleDelete(id: string) {
-    setDeleting(id)
+  function openDeleteDialog(link: WALinkWithSession) {
+    setLinkToDelete(link)
+    setDeleteDialogOpen(true)
+  }
+
+  async function handleConfirmDelete() {
+    if (!linkToDelete) return
+    setDeleting(linkToDelete.id)
     try {
-      const res = await fetch(`/api/links/${id}`, { method: 'DELETE' })
+      const res = await fetch(`/api/links/${linkToDelete.id}`, { method: 'DELETE' })
       if (res.ok) {
-        setLinks((prev) => prev.filter((l) => l.id !== id))
+        setLinks((prev) => prev.filter((l) => l.id !== linkToDelete.id))
         toast.success('Lien supprimé')
+        setDeleteDialogOpen(false)
+        setLinkToDelete(null)
       } else {
         const json = await res.json()
         toast.error(json.error || 'Erreur lors de la suppression')
@@ -436,7 +447,7 @@ export default function LinksPage() {
                       size="sm"
                       variant="ghost"
                       className="text-destructive hover:text-destructive"
-                      onClick={() => handleDelete(link.id)}
+                      onClick={() => openDeleteDialog(link)}
                       disabled={isDeleting}
                     >
                       {isDeleting ? (
@@ -579,6 +590,19 @@ export default function LinksPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Confirm Delete Dialog */}
+      <ConfirmDeleteDialog
+        open={deleteDialogOpen}
+        onOpenChange={(open) => {
+          setDeleteDialogOpen(open)
+          if (!open) setLinkToDelete(null)
+        }}
+        onConfirm={handleConfirmDelete}
+        title="Supprimer le lien"
+        description={`Êtes-vous sûr de vouloir supprimer le lien "${linkToDelete?.name}" ? Cette action est irréversible.`}
+        loading={deleting === linkToDelete?.id}
+      />
     </div>
   )
 }
