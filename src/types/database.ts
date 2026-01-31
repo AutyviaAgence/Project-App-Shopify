@@ -296,6 +296,9 @@ export type Campaign = {
   // Agent IA pour personnalisation (optionnel, doit être type 'relance')
   relance_agent_id: string | null
 
+  // Agent IA pour les réponses après relance (optionnel, doit être type 'conversation')
+  conversation_agent_id: string | null
+
   // Message template (utilisé si pas d'agent)
   message_template: string | null
 
@@ -303,6 +306,7 @@ export type Campaign = {
   filter_session_ids: string[] | null
   filter_tracking_sources: string[] | null
   filter_tag_ids: string[] | null
+  filter_link_ids: string[] | null
   filter_inactivity_days: number | null
   filter_exclude_replied: boolean
 

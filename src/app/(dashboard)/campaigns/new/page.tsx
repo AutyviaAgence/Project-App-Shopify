@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import type { AIAgent, WhatsAppSession, ConversationTag, Team } from '@/types/database'
+import type { AIAgent, WhatsAppSession, ConversationTag, Team, WALink } from '@/types/database'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -51,17 +51,20 @@ export default function NewCampaignPage() {
   const [tags, setTags] = useState<ConversationTag[]>([])
   const [teams, setTeams] = useState<TeamWithRole[]>([])
   const [trackingSources, setTrackingSources] = useState<string[]>([])
+  const [links, setLinks] = useState<WALink[]>([])
 
   // Form state
   const [name, setName] = useState('')
   const [teamId, setTeamId] = useState<string>('')
   const [useAgent, setUseAgent] = useState(true)
   const [agentId, setAgentId] = useState<string>('')
+  const [conversationAgentId, setConversationAgentId] = useState<string>('')
   const [messageTemplate, setMessageTemplate] = useState('')
 
   // Filters
   const [filterSessionIds, setFilterSessionIds] = useState<string[]>([])
   const [filterTrackingSources, setFilterTrackingSources] = useState<string[]>([])
+  const [filterLinkIds, setFilterLinkIds] = useState<string[]>([])
   const [filterTagIds, setFilterTagIds] = useState<string[]>([])
   const [filterInactivityDays, setFilterInactivityDays] = useState<number>(7)
   const [filterExcludeReplied, setFilterExcludeReplied] = useState(false)
@@ -80,32 +83,32 @@ export default function NewCampaignPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [sessionsRes, agentsRes, tagsRes, teamsRes] = await Promise.all([
+      const [sessionsRes, agentsRes, tagsRes, teamsRes, linksRes] = await Promise.all([
         fetch('/api/sessions'),
         fetch('/api/agents'),
         fetch('/api/tags'),
         fetch('/api/teams'),
+        fetch('/api/links'),
       ])
 
-      const [sessionsJson, agentsJson, tagsJson, teamsJson] = await Promise.all([
+      const [sessionsJson, agentsJson, tagsJson, teamsJson, linksJson] = await Promise.all([
         sessionsRes.json(),
         agentsRes.json(),
         tagsRes.json(),
         teamsRes.json(),
+        linksRes.json(),
       ])
 
       if (sessionsJson.data) setSessions(sessionsJson.data)
       if (agentsJson.data) {
-        // Filtrer pour ne garder que les agents de type 'relance'
-        const relanceAgents = agentsJson.data.filter(
-          (a: AgentWithType) => a.agent_type === 'relance'
-        )
-        setAgents(relanceAgents)
+        // Garder tous les agents pour sélectionner relance ET conversation
+        setAgents(agentsJson.data)
       }
       if (tagsJson.data) setTags(tagsJson.data)
       if (teamsJson.data) {
         setTeams(teamsJson.data.filter((t: TeamWithRole) => t.my_role === 'owner' || t.my_role === 'admin'))
       }
+      if (linksJson.data) setLinks(linksJson.data)
 
       // Récupérer les sources de tracking uniques
       const sourcesRes = await fetch('/api/conversations?tracking_sources=true')
@@ -140,9 +143,11 @@ export default function NewCampaignPage() {
           name: name.trim(),
           team_id: teamId || null,
           relance_agent_id: useAgent && agentId ? agentId : null,
+          conversation_agent_id: conversationAgentId || null,
           message_template: !useAgent ? messageTemplate : null,
           filter_session_ids: filterSessionIds.length > 0 ? filterSessionIds : null,
           filter_tracking_sources: filterTrackingSources.length > 0 ? filterTrackingSources : null,
+          filter_link_ids: filterLinkIds.length > 0 ? filterLinkIds : null,
           filter_tag_ids: filterTagIds.length > 0 ? filterTagIds : null,
           filter_inactivity_days: filterInactivityDays,
           filter_exclude_replied: filterExcludeReplied,
@@ -221,9 +226,11 @@ export default function NewCampaignPage() {
           name: name.trim(),
           team_id: teamId || null,
           relance_agent_id: useAgent && agentId ? agentId : null,
+          conversation_agent_id: conversationAgentId || null,
           message_template: !useAgent ? messageTemplate : null,
           filter_session_ids: filterSessionIds.length > 0 ? filterSessionIds : null,
           filter_tracking_sources: filterTrackingSources.length > 0 ? filterTrackingSources : null,
+          filter_link_ids: filterLinkIds.length > 0 ? filterLinkIds : null,
           filter_tag_ids: filterTagIds.length > 0 ? filterTagIds : null,
           filter_inactivity_days: filterInactivityDays,
           filter_exclude_replied: filterExcludeReplied,
@@ -261,6 +268,7 @@ export default function NewCampaignPage() {
   }
 
   const relanceAgents = agents.filter(a => a.agent_type === 'relance')
+  const conversationAgents = agents.filter(a => a.agent_type === 'conversation' || !a.agent_type)
 
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto">
@@ -380,6 +388,30 @@ export default function NewCampaignPage() {
                 </p>
               </div>
             )}
+
+            {/* Agent de conversation pour le suivi */}
+            <div className="space-y-2 pt-4 border-t">
+              <Label className="flex items-center gap-2">
+                <MessageSquare className="h-4 w-4" />
+                Agent de conversation (suivi)
+              </Label>
+              <p className="text-xs text-muted-foreground mb-2">
+                Cet agent prendra le relais pour répondre aux contacts après le message de relance.
+              </p>
+              <Select value={conversationAgentId || 'none'} onValueChange={(v) => setConversationAgentId(v === 'none' ? '' : v)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Aucun (agent par défaut de la conversation)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Aucun (garder l&apos;agent actuel)</SelectItem>
+                  {conversationAgents.map((agent) => (
+                    <SelectItem key={agent.id} value={agent.id}>
+                      {agent.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </CardContent>
         </Card>
 
@@ -424,12 +456,43 @@ export default function NewCampaignPage() {
               </p>
             </div>
 
-            {/* Tracking sources */}
+            {/* Liens WhatsApp */}
+            {links.length > 0 && (
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Link2 className="h-4 w-4" />
+                  Liens WhatsApp
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Cibler les contacts venus via ces liens spécifiques
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {links.map((link) => (
+                    <Badge
+                      key={link.id}
+                      variant={filterLinkIds.includes(link.id) ? 'default' : 'outline'}
+                      className="cursor-pointer"
+                      onClick={() => {
+                        setFilterLinkIds((prev) =>
+                          prev.includes(link.id)
+                            ? prev.filter((id) => id !== link.id)
+                            : [...prev, link.id]
+                        )
+                      }}
+                    >
+                      {link.name}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Tracking sources (legacy) */}
             {trackingSources.length > 0 && (
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
                   <Link2 className="h-4 w-4" />
-                  Sources de tracking
+                  Sources de tracking (legacy)
                 </Label>
                 <div className="flex flex-wrap gap-2">
                   {trackingSources.map((source) => (

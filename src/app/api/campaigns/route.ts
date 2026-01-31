@@ -61,9 +61,11 @@ export async function POST(req: NextRequest) {
     name,
     team_id,
     relance_agent_id,
+    conversation_agent_id,
     message_template,
     filter_session_ids,
     filter_tracking_sources,
+    filter_link_ids,
     filter_tag_ids,
     filter_inactivity_days,
     filter_exclude_replied,
@@ -80,9 +82,11 @@ export async function POST(req: NextRequest) {
     name: string
     team_id?: string
     relance_agent_id?: string
+    conversation_agent_id?: string
     message_template?: string
     filter_session_ids?: string[]
     filter_tracking_sources?: string[]
+    filter_link_ids?: string[]
     filter_tag_ids?: string[]
     filter_inactivity_days?: number
     filter_exclude_replied?: boolean
@@ -146,9 +150,11 @@ export async function POST(req: NextRequest) {
       name: name.trim(),
       status: scheduled_at ? 'scheduled' : 'draft',
       relance_agent_id: relance_agent_id || null,
+      conversation_agent_id: conversation_agent_id || null,
       message_template: message_template?.trim() || null,
       filter_session_ids: filter_session_ids || null,
       filter_tracking_sources: filter_tracking_sources || null,
+      filter_link_ids: filter_link_ids || null,
       filter_tag_ids: filter_tag_ids || null,
       filter_inactivity_days: filter_inactivity_days || null,
       filter_exclude_replied: filter_exclude_replied ?? false,

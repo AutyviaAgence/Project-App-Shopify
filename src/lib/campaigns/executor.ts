@@ -11,6 +11,7 @@ interface Campaign {
   name: string
   status: string
   relance_agent_id: string | null
+  conversation_agent_id: string | null
   message_template: string | null
   delay_between_min: number
   delay_between_max: number
@@ -221,12 +222,20 @@ async function executeCampaign(supabase: any, campaign: Campaign): Promise<void>
 
       // Mettre à jour la conversation si elle existe
       if (recipient.conversation_id) {
+        const updateData: Record<string, unknown> = {
+          last_message_at: new Date().toISOString(),
+          last_message_preview: message.slice(0, 100)
+        }
+
+        // Changer l'agent de conversation si spécifié dans la campagne
+        if (campaign.conversation_agent_id) {
+          updateData.agent_id = campaign.conversation_agent_id
+          console.log(`[Campaign ${campaignId}] Switching conversation agent to ${campaign.conversation_agent_id}`)
+        }
+
         await supabase
           .from('conversations')
-          .update({
-            last_message_at: new Date().toISOString(),
-            last_message_preview: message.slice(0, 100)
-          })
+          .update(updateData)
           .eq('id', recipient.conversation_id)
       }
     } else {
