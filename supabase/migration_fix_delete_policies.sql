@@ -50,3 +50,52 @@ CREATE POLICY "Users can delete own links" ON wa_links
 DROP POLICY IF EXISTS "Users can delete own tags" ON conversation_tags;
 CREATE POLICY "Users can delete own tags" ON conversation_tags
   FOR DELETE USING (user_id = auth.uid());
+
+-- =============================================
+-- 7. Stats Daily - Ajouter policies complètes
+-- =============================================
+
+-- INSERT pour créer des stats
+DROP POLICY IF EXISTS "Users can insert own stats" ON stats_daily;
+CREATE POLICY "Users can insert own stats" ON stats_daily
+  FOR INSERT WITH CHECK (user_id = auth.uid());
+
+-- UPDATE pour mettre à jour les stats
+DROP POLICY IF EXISTS "Users can update own stats" ON stats_daily;
+CREATE POLICY "Users can update own stats" ON stats_daily
+  FOR UPDATE USING (user_id = auth.uid());
+
+-- DELETE pour supprimer les stats
+DROP POLICY IF EXISTS "Users can delete own stats" ON stats_daily;
+CREATE POLICY "Users can delete own stats" ON stats_daily
+  FOR DELETE USING (user_id = auth.uid());
+
+-- =============================================
+-- 8. Contacts - Ajouter DELETE policy
+-- =============================================
+
+DROP POLICY IF EXISTS "Users can delete own contacts" ON contacts;
+CREATE POLICY "Users can delete own contacts" ON contacts
+  FOR DELETE USING (
+    session_id IN (SELECT id FROM whatsapp_sessions WHERE user_id = auth.uid())
+  );
+
+-- =============================================
+-- 9. Conversations - Ajouter DELETE policy
+-- =============================================
+
+DROP POLICY IF EXISTS "Users can delete own conversations" ON conversations;
+CREATE POLICY "Users can delete own conversations" ON conversations
+  FOR DELETE USING (
+    session_id IN (SELECT id FROM whatsapp_sessions WHERE user_id = auth.uid())
+  );
+
+-- =============================================
+-- 10. Messages - Ajouter DELETE policy
+-- =============================================
+
+DROP POLICY IF EXISTS "Users can delete own messages" ON messages;
+CREATE POLICY "Users can delete own messages" ON messages
+  FOR DELETE USING (
+    session_id IN (SELECT id FROM whatsapp_sessions WHERE user_id = auth.uid())
+  );
