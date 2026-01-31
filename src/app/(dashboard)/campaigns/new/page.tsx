@@ -299,12 +299,12 @@ export default function NewCampaignPage() {
             {teams.length > 0 && (
               <div className="space-y-2">
                 <Label>Équipe (optionnel)</Label>
-                <Select value={teamId} onValueChange={setTeamId}>
+                <Select value={teamId || 'none'} onValueChange={(v) => setTeamId(v === 'none' ? '' : v)}>
                   <SelectTrigger>
                     <SelectValue placeholder="Aucune équipe" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">Aucune équipe</SelectItem>
+                    <SelectItem value="none">Aucune équipe</SelectItem>
                     {teams.map((team) => (
                       <SelectItem key={team.id} value={team.id}>
                         {team.name}
