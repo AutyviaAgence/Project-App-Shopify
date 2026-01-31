@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import type { Profile } from '@/types/database'
 import { Button } from '@/components/ui/button'
@@ -9,6 +10,23 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { toast } from 'sonner'
 import {
   Loader2,
@@ -16,6 +34,14 @@ import {
   Sun,
   Moon,
   Monitor,
+  Lock,
+  Trash2,
+  AlertTriangle,
+  Eye,
+  EyeOff,
+  Globe,
+  Download,
+  FileArchive,
 } from 'lucide-react'
 
 const THEMES = [
@@ -24,12 +50,60 @@ const THEMES = [
   { value: 'system', label: 'Système', icon: Monitor },
 ] as const
 
+// Timezones les plus courants, groupés par région
+const TIMEZONES = [
+  { value: 'Europe/Paris', label: 'Paris (UTC+1/+2)', region: 'Europe' },
+  { value: 'Europe/London', label: 'Londres (UTC+0/+1)', region: 'Europe' },
+  { value: 'Europe/Brussels', label: 'Bruxelles (UTC+1/+2)', region: 'Europe' },
+  { value: 'Europe/Zurich', label: 'Zurich (UTC+1/+2)', region: 'Europe' },
+  { value: 'Europe/Berlin', label: 'Berlin (UTC+1/+2)', region: 'Europe' },
+  { value: 'Europe/Madrid', label: 'Madrid (UTC+1/+2)', region: 'Europe' },
+  { value: 'Europe/Rome', label: 'Rome (UTC+1/+2)', region: 'Europe' },
+  { value: 'Europe/Amsterdam', label: 'Amsterdam (UTC+1/+2)', region: 'Europe' },
+  { value: 'America/New_York', label: 'New York (UTC-5/-4)', region: 'Amérique' },
+  { value: 'America/Los_Angeles', label: 'Los Angeles (UTC-8/-7)', region: 'Amérique' },
+  { value: 'America/Chicago', label: 'Chicago (UTC-6/-5)', region: 'Amérique' },
+  { value: 'America/Toronto', label: 'Toronto (UTC-5/-4)', region: 'Amérique' },
+  { value: 'America/Montreal', label: 'Montréal (UTC-5/-4)', region: 'Amérique' },
+  { value: 'America/Sao_Paulo', label: 'São Paulo (UTC-3)', region: 'Amérique' },
+  { value: 'Africa/Casablanca', label: 'Casablanca (UTC+0/+1)', region: 'Afrique' },
+  { value: 'Africa/Tunis', label: 'Tunis (UTC+1)', region: 'Afrique' },
+  { value: 'Africa/Algiers', label: 'Alger (UTC+1)', region: 'Afrique' },
+  { value: 'Africa/Dakar', label: 'Dakar (UTC+0)', region: 'Afrique' },
+  { value: 'Africa/Abidjan', label: 'Abidjan (UTC+0)', region: 'Afrique' },
+  { value: 'Asia/Dubai', label: 'Dubaï (UTC+4)', region: 'Asie' },
+  { value: 'Asia/Singapore', label: 'Singapour (UTC+8)', region: 'Asie' },
+  { value: 'Asia/Tokyo', label: 'Tokyo (UTC+9)', region: 'Asie' },
+  { value: 'Asia/Shanghai', label: 'Shanghai (UTC+8)', region: 'Asie' },
+  { value: 'Australia/Sydney', label: 'Sydney (UTC+10/+11)', region: 'Océanie' },
+  { value: 'Pacific/Auckland', label: 'Auckland (UTC+12/+13)', region: 'Océanie' },
+]
+
 export default function SettingsPage() {
+  const router = useRouter()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [formFullName, setFormFullName] = useState('')
   const [formAvatarUrl, setFormAvatarUrl] = useState('')
+  const [formTimezone, setFormTimezone] = useState('Europe/Paris')
+
+  // Password change state
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [changingPassword, setChangingPassword] = useState(false)
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false)
+  const [showNewPassword, setShowNewPassword] = useState(false)
+
+  // Account deletion state
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deletePassword, setDeletePassword] = useState('')
+  const [deleteConfirmation, setDeleteConfirmation] = useState('')
+  const [deleting, setDeleting] = useState(false)
+
+  // Export state
+  const [exporting, setExporting] = useState(false)
 
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
@@ -47,6 +121,7 @@ export default function SettingsPage() {
           setProfile(json.data)
           setFormFullName(json.data.full_name || '')
           setFormAvatarUrl(json.data.avatar_url || '')
+          setFormTimezone(json.data.timezone || 'Europe/Paris')
         }
       } catch {
         toast.error('Erreur lors du chargement du profil')
@@ -66,6 +141,7 @@ export default function SettingsPage() {
         body: JSON.stringify({
           full_name: formFullName.trim(),
           avatar_url: formAvatarUrl.trim(),
+          timezone: formTimezone,
         }),
       })
       const json = await res.json()
@@ -79,6 +155,105 @@ export default function SettingsPage() {
       toast.error('Erreur réseau')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleChangePassword() {
+    if (!currentPassword || !newPassword) {
+      toast.error('Veuillez remplir tous les champs')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error('Les mots de passe ne correspondent pas')
+      return
+    }
+    if (newPassword.length < 8) {
+      toast.error('Le nouveau mot de passe doit contenir au moins 8 caractères')
+      return
+    }
+
+    setChangingPassword(true)
+    try {
+      const res = await fetch('/api/account/password', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ currentPassword, newPassword }),
+      })
+      const json = await res.json()
+      if (res.ok) {
+        toast.success('Mot de passe modifié avec succès')
+        setCurrentPassword('')
+        setNewPassword('')
+        setConfirmPassword('')
+      } else {
+        toast.error(json.error || 'Erreur lors du changement de mot de passe')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setChangingPassword(false)
+    }
+  }
+
+  async function handleDeleteAccount() {
+    if (!deletePassword) {
+      toast.error('Veuillez entrer votre mot de passe')
+      return
+    }
+    if (deleteConfirmation !== 'SUPPRIMER') {
+      toast.error('Veuillez taper SUPPRIMER pour confirmer')
+      return
+    }
+
+    setDeleting(true)
+    try {
+      const res = await fetch('/api/account/delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          password: deletePassword,
+          confirmation: deleteConfirmation,
+        }),
+      })
+      const json = await res.json()
+      if (res.ok) {
+        toast.success('Compte supprimé')
+        router.push('/login')
+      } else {
+        toast.error(json.error || 'Erreur lors de la suppression')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  async function handleExportData() {
+    setExporting(true)
+    try {
+      const res = await fetch('/api/account/export')
+      if (!res.ok) {
+        const json = await res.json()
+        throw new Error(json.error || 'Erreur lors de l\'export')
+      }
+
+      // Télécharger le fichier ZIP
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `export_${new Date().toISOString().split('T')[0]}.zip`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+
+      toast.success('Export téléchargé avec succès')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Erreur lors de l\'export')
+    } finally {
+      setExporting(false)
     }
   }
 
@@ -98,6 +273,13 @@ export default function SettingsPage() {
         .toUpperCase()
         .slice(0, 2)
     : profile?.email?.charAt(0).toUpperCase() || '?'
+
+  // Grouper les timezones par région
+  const timezonesByRegion = TIMEZONES.reduce((acc, tz) => {
+    if (!acc[tz.region]) acc[tz.region] = []
+    acc[tz.region].push(tz)
+    return acc
+  }, {} as Record<string, typeof TIMEZONES>)
 
   return (
     <div className="p-6">
@@ -176,50 +358,306 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        {/* Apparence */}
+        {/* Préférences */}
         <Card>
           <CardHeader>
-            <CardTitle>Apparence</CardTitle>
-            <CardDescription>Personnalisez le thème de l&apos;interface.</CardDescription>
+            <CardTitle className="flex items-center gap-2">
+              <Globe className="h-5 w-5" />
+              Préférences
+            </CardTitle>
+            <CardDescription>Personnalisez votre expérience.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Timezone */}
+            <div className="space-y-2">
+              <Label htmlFor="timezone">Fuseau horaire</Label>
+              <Select value={formTimezone} onValueChange={setFormTimezone}>
+                <SelectTrigger id="timezone">
+                  <SelectValue placeholder="Sélectionnez un fuseau horaire" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(timezonesByRegion).map(([region, tzs]) => (
+                    <div key={region}>
+                      <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                        {region}
+                      </div>
+                      {tzs.map((tz) => (
+                        <SelectItem key={tz.value} value={tz.value}>
+                          {tz.label}
+                        </SelectItem>
+                      ))}
+                    </div>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Utilisé pour l&apos;affichage des dates et la planification des campagnes.
+              </p>
+            </div>
+
+            {/* Thème */}
+            <div className="space-y-2">
+              <Label>Thème</Label>
+              {mounted ? (
+                <div className="flex gap-2">
+                  {THEMES.map(({ value, label, icon: Icon }) => (
+                    <Button
+                      key={value}
+                      variant={theme === value ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setTheme(value)}
+                      className="gap-2"
+                    >
+                      <Icon className="h-4 w-4" />
+                      {label}
+                    </Button>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  {THEMES.map(({ value, label, icon: Icon }) => (
+                    <Button
+                      key={value}
+                      variant="outline"
+                      size="sm"
+                      className="gap-2"
+                      disabled
+                    >
+                      <Icon className="h-4 w-4" />
+                      {label}
+                    </Button>
+                  ))}
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                Le thème &laquo; Système &raquo; suit les préférences de votre navigateur.
+              </p>
+            </div>
+
+            <Button onClick={handleSaveProfile} disabled={saving}>
+              {saving ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Save className="mr-2 h-4 w-4" />
+              )}
+              Enregistrer les préférences
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Sécurité - Changement de mot de passe */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Lock className="h-5 w-5" />
+              Sécurité
+            </CardTitle>
+            <CardDescription>Modifiez votre mot de passe.</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="current-password">Mot de passe actuel</Label>
+              <div className="relative">
+                <Input
+                  id="current-password"
+                  type={showCurrentPassword ? 'text' : 'password'}
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="••••••••"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                >
+                  {showCurrentPassword ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="new-password">Nouveau mot de passe</Label>
+              <div className="relative">
+                <Input
+                  id="new-password"
+                  type={showNewPassword ? 'text' : 'password'}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="••••••••"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                >
+                  {showNewPassword ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Minimum 8 caractères
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="confirm-password">Confirmer le nouveau mot de passe</Label>
+              <Input
+                id="confirm-password"
+                type="password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="••••••••"
+              />
+            </div>
+
+            <Button
+              onClick={handleChangePassword}
+              disabled={changingPassword || !currentPassword || !newPassword || !confirmPassword}
+            >
+              {changingPassword ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Lock className="mr-2 h-4 w-4" />
+              )}
+              Changer le mot de passe
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Export des données (RGPD) */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileArchive className="h-5 w-5" />
+              Vos données
+            </CardTitle>
+            <CardDescription>
+              Exportez toutes vos données personnelles (RGPD).
+            </CardDescription>
           </CardHeader>
           <CardContent>
-            {mounted ? (
-              <div className="flex gap-2">
-                {THEMES.map(({ value, label, icon: Icon }) => (
-                  <Button
-                    key={value}
-                    variant={theme === value ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setTheme(value)}
-                    className="gap-2"
-                  >
-                    <Icon className="h-4 w-4" />
-                    {label}
-                  </Button>
-                ))}
-              </div>
-            ) : (
-              <div className="flex gap-2">
-                {THEMES.map(({ value, label, icon: Icon }) => (
-                  <Button
-                    key={value}
-                    variant="outline"
-                    size="sm"
-                    className="gap-2"
-                    disabled
-                  >
-                    <Icon className="h-4 w-4" />
-                    {label}
-                  </Button>
-                ))}
-              </div>
-            )}
-            <p className="mt-3 text-xs text-muted-foreground">
-              Le thème &laquo; Système &raquo; suit les préférences de votre navigateur.
+            <p className="text-sm text-muted-foreground mb-4">
+              Téléchargez une archive ZIP contenant toutes vos données : profil, sessions,
+              contacts, conversations, messages, agents IA, documents, campagnes et équipes.
             </p>
+            <Button onClick={handleExportData} disabled={exporting} variant="outline">
+              {exporting ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="mr-2 h-4 w-4" />
+              )}
+              Exporter mes données
+            </Button>
+          </CardContent>
+        </Card>
+
+        {/* Zone de danger - Suppression du compte */}
+        <Card className="border-destructive/50">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Zone de danger
+            </CardTitle>
+            <CardDescription>
+              Actions irréversibles sur votre compte.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-4">
+              <h4 className="font-medium text-destructive">Supprimer le compte</h4>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Cette action supprimera définitivement votre compte et toutes vos données :
+                sessions WhatsApp, contacts, conversations, agents IA, documents, campagnes, etc.
+                Cette action est irréversible.
+              </p>
+              <Button
+                variant="destructive"
+                className="mt-4"
+                onClick={() => setDeleteDialogOpen(true)}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Supprimer mon compte
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>
+
+      {/* Dialog de confirmation de suppression */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="h-5 w-5" />
+              Supprimer votre compte
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-4">
+                <p>
+                  Cette action est <strong>irréversible</strong>. Toutes vos données seront
+                  définitivement supprimées.
+                </p>
+
+                <div className="space-y-2">
+                  <Label htmlFor="delete-password">Mot de passe</Label>
+                  <Input
+                    id="delete-password"
+                    type="password"
+                    value={deletePassword}
+                    onChange={(e) => setDeletePassword(e.target.value)}
+                    placeholder="Entrez votre mot de passe"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="delete-confirmation">
+                    Tapez <strong>SUPPRIMER</strong> pour confirmer
+                  </Label>
+                  <Input
+                    id="delete-confirmation"
+                    value={deleteConfirmation}
+                    onChange={(e) => setDeleteConfirmation(e.target.value)}
+                    placeholder="SUPPRIMER"
+                  />
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel
+              disabled={deleting}
+              onClick={() => {
+                setDeletePassword('')
+                setDeleteConfirmation('')
+              }}
+            >
+              Annuler
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                handleDeleteAccount()
+              }}
+              disabled={deleting || !deletePassword || deleteConfirmation !== 'SUPPRIMER'}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Supprimer définitivement
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
