@@ -3,6 +3,7 @@ import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { processAIResponse } from '@/lib/openai/process-ai-response'
 import { processMediaMessage } from '@/lib/openai/media-processor'
 import { evolution } from '@/lib/evolution/client'
+import { syncContactsFromWhatsApp } from '@/lib/evolution/sync-contacts'
 import { encryptMessage } from '@/lib/crypto/encryption'
 import { checkRateLimit } from '@/lib/rate-limit'
 
@@ -112,6 +113,19 @@ export async function POST(req: NextRequest) {
             message: `La session "${session.instance_name}" a été déconnectée. Reconnectez-vous via le QR code.`,
             metadata: { session_id: session.id, instance_name: session.instance_name },
           })
+        }
+
+        // Synchroniser les contacts automatiquement à la connexion
+        if (state === 'open' && session.status !== 'connected') {
+          console.log('[Webhook] Session connected, syncing contacts...')
+          // Lancer la sync en arrière-plan (ne pas bloquer le webhook)
+          syncContactsFromWhatsApp(supabase, session.id, instanceName)
+            .then(result => {
+              console.log(`[Webhook] Contact sync complete: ${result.synced} synced, ${result.skipped} skipped`)
+            })
+            .catch(err => {
+              console.error('[Webhook] Contact sync failed:', err)
+            })
         }
 
         break

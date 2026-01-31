@@ -30,6 +30,7 @@ import {
   Settings2,
   Save,
   Users,
+  Download,
 } from 'lucide-react'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { MultiTeamSelect } from '@/components/multi-team-select'
@@ -64,6 +65,7 @@ export default function SessionsPage() {
   const [savingSettings, setSavingSettings] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [sessionToDelete, setSessionToDelete] = useState<SessionWithTeamIds | null>(null)
+  const [syncingContacts, setSyncingContacts] = useState<string | null>(null)
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -252,6 +254,25 @@ export default function SessionsPage() {
       toast.error('Erreur réseau')
     } finally {
       setDeleting(null)
+    }
+  }
+
+  async function handleSyncContacts(sessionId: string) {
+    setSyncingContacts(sessionId)
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}/sync-contacts`, {
+        method: 'POST',
+      })
+      const json = await res.json()
+      if (res.ok && json.data) {
+        toast.success(`${json.data.synced} contacts synchronisés`)
+      } else {
+        toast.error(json.error || 'Erreur lors de la synchronisation')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setSyncingContacts(null)
     }
   }
 
@@ -456,6 +477,20 @@ export default function SessionsPage() {
 
                     {session.status === 'connected' && (
                       <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleSyncContacts(session.id)}
+                          disabled={syncingContacts === session.id}
+                          title="Importer les contacts WhatsApp existants"
+                        >
+                          {syncingContacts === session.id ? (
+                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                          ) : (
+                            <Download className="mr-1 h-3 w-3" />
+                          )}
+                          Contacts
+                        </Button>
                         <Button
                           size="sm"
                           variant="outline"
