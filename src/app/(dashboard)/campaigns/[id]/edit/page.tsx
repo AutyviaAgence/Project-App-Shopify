@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, use } from 'react'
 import { useRouter } from 'next/navigation'
-import type { AIAgent, WhatsAppSession, ConversationTag, Team, Campaign } from '@/types/database'
+import type { AIAgent, WhatsAppSession, ConversationTag, Team, Campaign, WALink } from '@/types/database'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -25,6 +25,7 @@ import {
   Megaphone,
   Bot,
   MessageSquare,
+  MessageCircle,
   Filter,
   Shield,
   Clock,
@@ -51,6 +52,7 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
   const [agents, setAgents] = useState<AgentWithType[]>([])
   const [tags, setTags] = useState<ConversationTag[]>([])
   const [teams, setTeams] = useState<TeamWithRole[]>([])
+  const [links, setLinks] = useState<WALink[]>([])
   const [trackingSources, setTrackingSources] = useState<string[]>([])
 
   // Form state
@@ -58,11 +60,13 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
   const [teamId, setTeamId] = useState<string>('')
   const [useAgent, setUseAgent] = useState(true)
   const [agentId, setAgentId] = useState<string>('')
+  const [conversationAgentId, setConversationAgentId] = useState<string>('')
   const [messageTemplate, setMessageTemplate] = useState('')
 
   // Filters
   const [filterSessionIds, setFilterSessionIds] = useState<string[]>([])
   const [filterTrackingSources, setFilterTrackingSources] = useState<string[]>([])
+  const [filterLinkIds, setFilterLinkIds] = useState<string[]>([])
   const [filterTagIds, setFilterTagIds] = useState<string[]>([])
   const [filterInactivityDays, setFilterInactivityDays] = useState<number>(7)
   const [filterExcludeReplied, setFilterExcludeReplied] = useState(false)
@@ -82,20 +86,22 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
   const fetchData = useCallback(async () => {
     try {
       // Charger la campagne et les options en parallèle
-      const [campaignRes, sessionsRes, agentsRes, tagsRes, teamsRes] = await Promise.all([
+      const [campaignRes, sessionsRes, agentsRes, tagsRes, teamsRes, linksRes] = await Promise.all([
         fetch(`/api/campaigns/${id}`),
         fetch('/api/sessions'),
         fetch('/api/agents'),
         fetch('/api/tags'),
         fetch('/api/teams'),
+        fetch('/api/links'),
       ])
 
-      const [campaignJson, sessionsJson, agentsJson, tagsJson, teamsJson] = await Promise.all([
+      const [campaignJson, sessionsJson, agentsJson, tagsJson, teamsJson, linksJson] = await Promise.all([
         campaignRes.json(),
         sessionsRes.json(),
         agentsRes.json(),
         tagsRes.json(),
         teamsRes.json(),
+        linksRes.json(),
       ])
 
       if (!campaignRes.ok || !campaignJson.data) {
@@ -112,9 +118,11 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
       setTeamId(c.team_id || '')
       setUseAgent(!!c.relance_agent_id)
       setAgentId(c.relance_agent_id || '')
+      setConversationAgentId(c.conversation_agent_id || '')
       setMessageTemplate(c.message_template || '')
       setFilterSessionIds(c.filter_session_ids || [])
       setFilterTrackingSources(c.filter_tracking_sources || [])
+      setFilterLinkIds(c.filter_link_ids || [])
       setFilterTagIds(c.filter_tag_ids || [])
       setFilterInactivityDays(c.filter_inactivity_days || 7)
       setFilterExcludeReplied(c.filter_exclude_replied || false)
@@ -132,16 +140,12 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
       }
 
       if (sessionsJson.data) setSessions(sessionsJson.data)
-      if (agentsJson.data) {
-        const relanceAgents = agentsJson.data.filter(
-          (a: AgentWithType) => a.agent_type === 'relance'
-        )
-        setAgents(relanceAgents)
-      }
+      if (agentsJson.data) setAgents(agentsJson.data)
       if (tagsJson.data) setTags(tagsJson.data)
       if (teamsJson.data) {
         setTeams(teamsJson.data.filter((t: TeamWithRole) => t.my_role === 'owner' || t.my_role === 'admin'))
       }
+      if (linksJson.data) setLinks(linksJson.data)
 
       // Récupérer les sources de tracking uniques
       const sourcesRes = await fetch('/api/conversations?tracking_sources=true')
@@ -185,9 +189,11 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
           name: name.trim(),
           team_id: teamId || null,
           relance_agent_id: useAgent && agentId ? agentId : null,
+          conversation_agent_id: conversationAgentId || null,
           message_template: !useAgent ? messageTemplate : null,
           filter_session_ids: filterSessionIds.length > 0 ? filterSessionIds : null,
           filter_tracking_sources: filterTrackingSources.length > 0 ? filterTrackingSources : null,
+          filter_link_ids: filterLinkIds.length > 0 ? filterLinkIds : null,
           filter_tag_ids: filterTagIds.length > 0 ? filterTagIds : null,
           filter_inactivity_days: filterInactivityDays,
           filter_exclude_replied: filterExcludeReplied,
@@ -366,6 +372,36 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
                 </p>
               </div>
             )}
+
+            {/* Agent de conversation (suivi) */}
+            <div className="space-y-2 pt-4 border-t">
+              <Label className="flex items-center gap-2">
+                <MessageCircle className="h-4 w-4" />
+                Agent de conversation (suivi)
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                Cet agent prendra le relais pour répondre aux contacts après le message de relance.
+              </p>
+              <Select
+                value={conversationAgentId || 'none'}
+                onValueChange={(v) => setConversationAgentId(v === 'none' ? '' : v)}
+                disabled={!canEdit}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Garder l'agent actuel" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Garder l&apos;agent actuel de chaque conversation</SelectItem>
+                  {agents
+                    .filter((a) => a.agent_type === 'conversation')
+                    .map((agent) => (
+                      <SelectItem key={agent.id} value={agent.id}>
+                        {agent.name}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
           </CardContent>
         </Card>
 
@@ -437,6 +473,38 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
                     </Badge>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* Liens WhatsApp */}
+            {links.length > 0 && (
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Link2 className="h-4 w-4" />
+                  Liens WhatsApp
+                </Label>
+                <div className="flex flex-wrap gap-2">
+                  {links.map((link) => (
+                    <Badge
+                      key={link.id}
+                      variant={filterLinkIds.includes(link.id) ? 'default' : 'outline'}
+                      className={canEdit ? 'cursor-pointer' : 'cursor-default'}
+                      onClick={() => {
+                        if (!canEdit) return
+                        setFilterLinkIds((prev) =>
+                          prev.includes(link.id)
+                            ? prev.filter((lid) => lid !== link.id)
+                            : [...prev, link.id]
+                        )
+                      }}
+                    >
+                      {link.name}
+                    </Badge>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Cibler les contacts venus via ces liens spécifiques
+                </p>
               </div>
             )}
 
