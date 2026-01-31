@@ -36,9 +36,29 @@ import {
   ExternalLink,
 } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet'
 import { formatDistanceToNow, format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
+
+type ContactDetails = {
+  id: string
+  name: string | null
+  phone_number: string
+  first_name: string | null
+  last_name: string | null
+  email: string | null
+  notes: string | null
+  profile_picture_url: string | null
+  created_at: string
+  last_message_at: string | null
+}
 
 type RecipientWithContact = CampaignRecipient & {
   contact?: Pick<Contact, 'id' | 'name' | 'phone_number'> | null
@@ -82,6 +102,9 @@ export default function CampaignDetailPage() {
   const [selectedRecipients, setSelectedRecipients] = useState<Set<string>>(new Set())
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [contactSheetOpen, setContactSheetOpen] = useState(false)
+  const [selectedContact, setSelectedContact] = useState<ContactDetails | null>(null)
+  const [loadingContact, setLoadingContact] = useState(false)
 
   const fetchCampaign = useCallback(async (showLoader = true) => {
     if (showLoader) setLoading(true)
@@ -206,6 +229,28 @@ export default function CampaignDetailPage() {
       setSelectedRecipients(new Set())
     } else {
       setSelectedRecipients(new Set(campaign.recipients.map((r) => r.id)))
+    }
+  }
+
+  async function handleViewContact(contactId: string) {
+    setLoadingContact(true)
+    setContactSheetOpen(true)
+    setSelectedContact(null)
+
+    try {
+      const res = await fetch(`/api/contacts/${contactId}`)
+      const json = await res.json()
+      if (res.ok && json.data) {
+        setSelectedContact(json.data)
+      } else {
+        toast.error(json.error || 'Erreur lors du chargement du contact')
+        setContactSheetOpen(false)
+      }
+    } catch {
+      toast.error('Erreur réseau')
+      setContactSheetOpen(false)
+    } finally {
+      setLoadingContact(false)
     }
   }
 
@@ -626,10 +671,10 @@ export default function CampaignDetailPage() {
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => router.push(`/conversations?contact=${recipient.contact?.id}`)}
+                              onClick={() => handleViewContact(recipient.contact!.id)}
                               title="Voir le profil"
                             >
-                              <ExternalLink className="h-4 w-4" />
+                              <User className="h-4 w-4" />
                             </Button>
                           )}
                         </TableCell>
@@ -664,6 +709,119 @@ export default function CampaignDetailPage() {
         loading={deleting}
         confirmText="Supprimer"
       />
+
+      {/* Contact Profile Sheet */}
+      <Sheet open={contactSheetOpen} onOpenChange={setContactSheetOpen}>
+        <SheetContent className="sm:max-w-md">
+          <SheetHeader>
+            <SheetTitle>Profil du contact</SheetTitle>
+            <SheetDescription>
+              Détails du contact sélectionné
+            </SheetDescription>
+          </SheetHeader>
+
+          {loadingContact ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : selectedContact ? (
+            <div className="mt-6 space-y-6">
+              {/* Avatar et nom */}
+              <div className="flex items-center gap-4">
+                {selectedContact.profile_picture_url ? (
+                  <img
+                    src={selectedContact.profile_picture_url}
+                    alt={selectedContact.name || 'Contact'}
+                    className="h-16 w-16 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center">
+                    <User className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                )}
+                <div>
+                  <h3 className="text-lg font-semibold">
+                    {selectedContact.name || 'Sans nom'}
+                  </h3>
+                  <p className="text-sm text-muted-foreground flex items-center gap-1">
+                    <Phone className="h-3 w-3" />
+                    {selectedContact.phone_number}
+                  </p>
+                </div>
+              </div>
+
+              {/* Informations */}
+              <div className="space-y-4">
+                {(selectedContact.first_name || selectedContact.last_name) && (
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground uppercase">
+                      Nom complet
+                    </label>
+                    <p className="mt-1">
+                      {[selectedContact.first_name, selectedContact.last_name].filter(Boolean).join(' ')}
+                    </p>
+                  </div>
+                )}
+
+                {selectedContact.email && (
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground uppercase">
+                      Email
+                    </label>
+                    <p className="mt-1">{selectedContact.email}</p>
+                  </div>
+                )}
+
+                <div>
+                  <label className="text-xs font-medium text-muted-foreground uppercase">
+                    Premier contact
+                  </label>
+                  <p className="mt-1">
+                    {format(new Date(selectedContact.created_at), 'dd MMMM yyyy à HH:mm', { locale: fr })}
+                  </p>
+                </div>
+
+                {selectedContact.last_message_at && (
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground uppercase">
+                      Dernier message
+                    </label>
+                    <p className="mt-1">
+                      {formatDistanceToNow(new Date(selectedContact.last_message_at), { addSuffix: true, locale: fr })}
+                    </p>
+                  </div>
+                )}
+
+                {selectedContact.notes && (
+                  <div>
+                    <label className="text-xs font-medium text-muted-foreground uppercase">
+                      Notes
+                    </label>
+                    <p className="mt-1 text-sm whitespace-pre-wrap bg-muted p-3 rounded-lg">
+                      {selectedContact.notes}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Actions */}
+              <div className="pt-4 border-t">
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => {
+                    setContactSheetOpen(false)
+                    router.push(`/conversations?contact=${selectedContact.id}`)
+                  }}
+                >
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  Voir la conversation
+                </Button>
+              </div>
+            </div>
+          ) : null}
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }
