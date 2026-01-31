@@ -57,10 +57,11 @@ BEGIN
     c.name AS contact_name,
     conv.last_message_at,
     EXTRACT(DAY FROM NOW() - conv.last_message_at)::INTEGER AS days_inactive,
-    conv.tracking_source
+    wl.tracking_source
   FROM contacts c
   JOIN conversations conv ON conv.contact_id = c.id
   JOIN whatsapp_sessions s ON s.id = c.session_id
+  LEFT JOIN wa_links wl ON wl.id = conv.wa_link_id
   WHERE
     -- Accès utilisateur
     (s.user_id = p_user_id OR s.team_id IN (
@@ -68,10 +69,10 @@ BEGIN
     ))
     -- Filtre sessions
     AND (p_session_ids IS NULL OR c.session_id = ANY(p_session_ids))
-    -- Filtre tracking source (legacy)
-    AND (p_tracking_sources IS NULL OR conv.tracking_source = ANY(p_tracking_sources))
-    -- Filtre par liens WhatsApp (nouveau)
-    AND (p_link_ids IS NULL OR conv.link_id = ANY(p_link_ids))
+    -- Filtre tracking source (via wa_links)
+    AND (p_tracking_sources IS NULL OR wl.tracking_source = ANY(p_tracking_sources))
+    -- Filtre par liens WhatsApp
+    AND (p_link_ids IS NULL OR conv.wa_link_id = ANY(p_link_ids))
     -- Filtre tags
     AND (p_tag_ids IS NULL OR EXISTS (
       SELECT 1 FROM conversation_tag_assignments cta
