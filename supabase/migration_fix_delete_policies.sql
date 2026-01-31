@@ -99,3 +99,22 @@ CREATE POLICY "Users can delete own messages" ON messages
   FOR DELETE USING (
     session_id IN (SELECT id FROM whatsapp_sessions WHERE user_id = auth.uid())
   );
+
+-- =============================================
+-- 11. Campaign Recipients - Ajouter DELETE policy
+-- =============================================
+
+-- Les users doivent pouvoir supprimer les recipients de leurs campagnes
+DROP POLICY IF EXISTS "Users can delete campaign recipients" ON campaign_recipients;
+CREATE POLICY "Users can delete campaign recipients" ON campaign_recipients
+  FOR DELETE USING (
+    campaign_id IN (SELECT id FROM campaigns WHERE user_id = auth.uid())
+  );
+
+-- =============================================
+-- 12. Campaign Blacklist - Ajouter DELETE policy
+-- =============================================
+
+DROP POLICY IF EXISTS "Users can delete from blacklist" ON campaign_blacklist;
+CREATE POLICY "Users can delete from blacklist" ON campaign_blacklist
+  FOR DELETE USING (user_id = auth.uid());
