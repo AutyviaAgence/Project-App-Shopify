@@ -121,24 +121,22 @@ export async function POST(
       .eq('campaign_id', id)
       .eq('status', 'pending')
 
-    // Déclencher l'Edge Function pour exécuter la campagne (fire & forget)
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    // Déclencher l'exécution de la campagne en arrière-plan (fire & forget)
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const internalSecret = process.env.INTERNAL_API_SECRET
 
-    if (supabaseUrl && supabaseAnonKey) {
-      fetch(`${supabaseUrl}/functions/v1/campaign-executor`, {
+    if (internalSecret) {
+      fetch(`${baseUrl}/api/campaigns/${id}/execute`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${supabaseAnonKey}`,
+          'x-internal-secret': internalSecret,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          campaign_id: id,
-          action: action === 'start' ? 'start' : 'resume',
-        }),
       }).catch((err) => {
-        console.error('[Campaign Actions] Edge function trigger failed:', err)
+        console.error('[Campaign Actions] Execute trigger failed:', err)
       })
+    } else {
+      console.warn('[Campaign Actions] INTERNAL_API_SECRET not configured, campaign will not execute')
     }
   }
 
