@@ -42,7 +42,7 @@ import {
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { getSessionDisplayName, getContactDisplayName, formatPhoneNumber } from '@/lib/format-phone'
+import { getSessionDisplayName, getContactDisplayName } from '@/lib/format-phone'
 
 type ConversationWithJoins = {
   id: string
@@ -696,10 +696,12 @@ export default function ConversationsPage() {
                         )}
                       </div>
 
-                      {/* Numéro de téléphone */}
-                      <p className="text-[10px] text-muted-foreground truncate">
-                        {formatPhoneNumber(conv.contact.phone_number)}
-                      </p>
+                      {/* Nom WhatsApp si différent du nom affiché */}
+                      {conv.contact.name && (conv.contact.first_name || conv.contact.last_name) && (
+                        <p className="text-[10px] text-muted-foreground truncate">
+                          {conv.contact.name}
+                        </p>
+                      )}
 
                       <p className={cn(
                         'mt-0.5 truncate text-xs',

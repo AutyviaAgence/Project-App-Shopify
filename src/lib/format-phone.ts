@@ -87,7 +87,11 @@ export function getSessionDisplayName(session: {
 
 /**
  * Obtient le nom d'affichage pour un contact
- * Priorité: name > first_name + last_name > phone_number formaté
+ * Priorité: first_name + last_name > phone_number formaté
+ *
+ * Note: On n'utilise PAS le "name" WhatsApp car c'est souvent le nom du
+ * business qui a envoyé le message (ex: "Autyvia"), pas le nom du contact.
+ * Le numéro formaté est plus utile pour identifier les contacts.
  */
 export function getContactDisplayName(contact: {
   name?: string | null
@@ -95,16 +99,14 @@ export function getContactDisplayName(contact: {
   last_name?: string | null
   phone_number: string
 }): string {
-  if (contact.name) {
-    return contact.name
-  }
-
+  // Priorité 1: Prénom/nom renseignés manuellement
   if (contact.first_name || contact.last_name) {
     return [contact.first_name, contact.last_name]
       .filter(Boolean)
       .join(' ')
   }
 
+  // Priorité 2: Numéro de téléphone formaté (plus utile que le nom WhatsApp générique)
   return formatPhoneNumber(contact.phone_number)
 }
 
