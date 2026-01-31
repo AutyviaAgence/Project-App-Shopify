@@ -23,7 +23,9 @@ import {
   Save,
   MessageSquare,
   Calendar,
+  Trash2,
 } from 'lucide-react'
+import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { formatDistanceToNow, format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 
@@ -31,18 +33,22 @@ type ContactProfilePanelProps = {
   contactId: string | null
   open: boolean
   onOpenChange: (open: boolean) => void
+  onContactDeleted?: () => void
 }
 
 export function ContactProfilePanel({
   contactId,
   open,
   onOpenChange,
+  onContactDeleted,
 }: ContactProfilePanelProps) {
   const [contact, setContact] = useState<Contact | null>(null)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [generatingSummary, setGeneratingSummary] = useState(false)
   const [extractingInfo, setExtractingInfo] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   // Champs éditables
   const [firstName, setFirstName] = useState('')
@@ -177,6 +183,29 @@ export function ContactProfilePanel({
       lastName !== (contact.last_name || '') ||
       email !== (contact.email || '') ||
       notes !== (contact.notes || ''))
+
+  async function handleDelete() {
+    if (!contactId) return
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/contacts/${contactId}`, {
+        method: 'DELETE',
+      })
+      const json = await res.json()
+      if (res.ok) {
+        toast.success('Contact supprimé')
+        onOpenChange(false)
+        onContactDeleted?.()
+      } else {
+        toast.error(json.error || 'Erreur lors de la suppression')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setDeleting(false)
+      setDeleteDialogOpen(false)
+    }
+  }
 
   function getDisplayName() {
     if (!contact) return ''
@@ -377,7 +406,7 @@ export function ContactProfilePanel({
             </div>
 
             {/* Fixed footer with save button */}
-            <div className="border-t p-3">
+            <div className="border-t p-3 space-y-2">
               <Button
                 onClick={handleSave}
                 disabled={saving || !hasChanges}
@@ -390,9 +419,26 @@ export function ContactProfilePanel({
                 )}
                 Enregistrer les modifications
               </Button>
+              <Button
+                variant="outline"
+                onClick={() => setDeleteDialogOpen(true)}
+                className="w-full h-9 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+              >
+                <Trash2 className="mr-1.5 h-3 w-3" />
+                Supprimer ce contact
+              </Button>
             </div>
           </div>
         ) : null}
+
+        <ConfirmDeleteDialog
+          open={deleteDialogOpen}
+          onOpenChange={setDeleteDialogOpen}
+          onConfirm={handleDelete}
+          title="Supprimer le contact"
+          description={`Êtes-vous sûr de vouloir supprimer ce contact et toutes ses conversations ? Cette action est irréversible.`}
+          loading={deleting}
+        />
       </SheetContent>
     </Sheet>
   )

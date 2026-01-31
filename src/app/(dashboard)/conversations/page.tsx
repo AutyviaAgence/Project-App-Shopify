@@ -1101,6 +1101,13 @@ export default function ConversationsPage() {
         contactId={selectedConv?.contact.id ?? null}
         open={profileOpen}
         onOpenChange={setProfileOpen}
+        onContactDeleted={() => {
+          // Retirer la conversation de la liste et désélectionner
+          if (selectedConv) {
+            setConversations(prev => prev.filter(c => c.id !== selectedConv.id))
+            setSelectedConv(null)
+          }
+        }}
       />
     </div>
   )

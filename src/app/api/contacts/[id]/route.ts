@@ -105,3 +105,52 @@ export async function PATCH(
 
   return NextResponse.json({ data: updated })
 }
+
+/** DELETE /api/contacts/[id] — Supprimer un contact et ses conversations/messages */
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params
+  const supabase = await createClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  }
+
+  // Vérifier que le contact existe
+  const { data: contact } = await supabase
+    .from('contacts')
+    .select('id, session_id, phone_number')
+    .eq('id', id)
+    .single()
+
+  if (!contact) {
+    return NextResponse.json({ error: 'Contact introuvable' }, { status: 404 })
+  }
+
+  // Vérifier que la session appartient à l'utilisateur
+  const { data: session } = await supabase
+    .from('whatsapp_sessions')
+    .select('id')
+    .eq('id', contact.session_id)
+    .eq('user_id', user.id)
+    .single()
+
+  if (!session) {
+    return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+  }
+
+  // Supprimer le contact (les conversations et messages seront supprimés en cascade via FK)
+  const { error } = await supabase
+    .from('contacts')
+    .delete()
+    .eq('id', id)
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  return NextResponse.json({ data: { deleted: true } })
+}

@@ -31,6 +31,11 @@ export async function syncContactsFromWhatsApp(
   const chats = chatsResult.data
   console.log(`[SyncContacts] Fetched ${chats.length} chats from WhatsApp`)
 
+  // Log quelques exemples pour debug
+  if (chats.length > 0) {
+    console.log('[SyncContacts] Sample chats:', JSON.stringify(chats.slice(0, 3)))
+  }
+
   let synced = 0
   let skipped = 0
 
@@ -50,7 +55,10 @@ export async function syncContactsFromWhatsApp(
 
       // Extraire le numéro de téléphone
       const phoneNumber = chat.id.split('@')[0]
-      if (!phoneNumber || phoneNumber.length < 5) {
+
+      // Valider que c'est un numéro de téléphone valide (au moins 8 chiffres, uniquement des chiffres)
+      if (!phoneNumber || phoneNumber.length < 8 || !/^\d+$/.test(phoneNumber)) {
+        console.log(`[SyncContacts] Skipping invalid phone: "${phoneNumber}" (from id: "${chat.id}")`)
         skipped++
         continue
       }
