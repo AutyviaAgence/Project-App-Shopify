@@ -146,13 +146,13 @@ export const evolution = {
   },
 
   /** Récupérer la liste des chats/contacts WhatsApp */
-  fetchChats(instanceName: string) {
+  findChats(instanceName: string) {
     return request<Array<{
       id: string
       name?: string
       unreadCount?: number
       lastMsgTimestamp?: number
-    }>>(`/chat/fetchChats/${instanceName}`, {
+    }>>(`/chat/findChats/${instanceName}`, {
       method: 'POST',
       body: JSON.stringify({}),
       timeout: 30000, // Plus long car peut être lent

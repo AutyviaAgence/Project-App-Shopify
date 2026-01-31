@@ -21,7 +21,7 @@ export async function syncContactsFromWhatsApp(
   console.log(`[SyncContacts] Starting sync for session ${sessionId} (${instanceName})`)
 
   // 1. Récupérer les chats depuis Evolution API
-  const chatsResult = await evolution.fetchChats(instanceName)
+  const chatsResult = await evolution.findChats(instanceName)
 
   if (!chatsResult.ok) {
     console.error('[SyncContacts] Failed to fetch chats:', chatsResult.error)
