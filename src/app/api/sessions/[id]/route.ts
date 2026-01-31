@@ -33,13 +33,19 @@ export async function PATCH(
   }
 
   const body = await req.json()
-  const { daily_ai_message_limit, team_id, team_ids } = body as {
+  const { display_name, daily_ai_message_limit, team_id, team_ids } = body as {
+    display_name?: string | null
     daily_ai_message_limit?: number | null
     team_id?: string | null
     team_ids?: string[]
   }
 
   const updateData: Record<string, unknown> = {}
+
+  // Gestion du nom d'affichage
+  if (display_name !== undefined) {
+    updateData.display_name = display_name?.trim() || null
+  }
 
   // Gestion de la limite quotidienne
   if (daily_ai_message_limit !== undefined) {

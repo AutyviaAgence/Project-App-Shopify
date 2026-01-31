@@ -42,6 +42,7 @@ import {
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import { getSessionDisplayName, getContactDisplayName, formatPhoneNumber } from '@/lib/format-phone'
 
 type ConversationWithJoins = {
   id: string
@@ -418,21 +419,12 @@ export default function ConversationsPage() {
   }
 
   function getContactDisplay(conv: ConversationWithJoins) {
-    const fullName = [conv.contact.first_name, conv.contact.last_name]
-      .filter(Boolean)
-      .join(' ')
-      .trim()
-
-    // Si on a prénom/nom ET nom WhatsApp différent, afficher les deux
-    if (fullName && conv.contact.name && fullName !== conv.contact.name) {
-      return `${fullName} (${conv.contact.name})`
-    }
-    // Si on a seulement prénom/nom
-    if (fullName) return fullName
-    // Si on a seulement nom WhatsApp
-    if (conv.contact.name) return conv.contact.name
-    // Sinon le numéro de téléphone
-    return `+${conv.contact.phone_number}`
+    return getContactDisplayName({
+      name: conv.contact.name,
+      first_name: conv.contact.first_name,
+      last_name: conv.contact.last_name,
+      phone_number: conv.contact.phone_number,
+    })
   }
 
   function getContactInitials(conv: ConversationWithJoins) {
@@ -451,9 +443,11 @@ export default function ConversationsPage() {
   }
 
   function getSessionLabel(conv: ConversationWithJoins) {
-    return conv.session.phone_number
-      ? `+${conv.session.phone_number}`
-      : conv.session.instance_name
+    return getSessionDisplayName({
+      display_name: null, // pas encore disponible dans la query
+      phone_number: conv.session.phone_number,
+      instance_name: conv.session.instance_name,
+    })
   }
 
   async function handleCopyMessage(messageId: string, content: string) {
@@ -704,7 +698,7 @@ export default function ConversationsPage() {
 
                       {/* Numéro de téléphone */}
                       <p className="text-[10px] text-muted-foreground truncate">
-                        +{conv.contact.phone_number}
+                        {formatPhoneNumber(conv.contact.phone_number)}
                       </p>
 
                       <p className={cn(

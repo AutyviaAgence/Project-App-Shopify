@@ -33,6 +33,7 @@ import {
 } from 'lucide-react'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { MultiTeamSelect } from '@/components/multi-team-select'
+import { getSessionDisplayName, formatPhoneNumber } from '@/lib/format-phone'
 
 type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
 type SessionWithTeamIds = WhatsAppSession & { team_ids?: string[] }
@@ -58,6 +59,7 @@ export default function SessionsPage() {
   const [webhookConfiguring, setWebhookConfiguring] = useState<string | null>(null)
   const [editingSession, setEditingSession] = useState<SessionWithTeamIds | null>(null)
   const [formDailyLimit, setFormDailyLimit] = useState('')
+  const [formDisplayName, setFormDisplayName] = useState('')
   const [formSessionTeamIds, setFormSessionTeamIds] = useState<string[]>([])
   const [savingSettings, setSavingSettings] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -261,6 +263,7 @@ export default function SessionsPage() {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          display_name: formDisplayName.trim() || null,
           daily_ai_message_limit: formDailyLimit.trim() ? parseInt(formDailyLimit) : null,
           team_ids: formSessionTeamIds,
         }),
@@ -321,7 +324,7 @@ export default function SessionsPage() {
                 setQrSession(updated)
               }
               if (updated.status === 'connected') {
-                toast.success(`WhatsApp connecté : ${updated.phone_number ? '+' + updated.phone_number : updated.instance_name}`)
+                toast.success(`WhatsApp connecté : ${getSessionDisplayName(updated)}`)
               }
             }
           }
@@ -386,10 +389,10 @@ export default function SessionsPage() {
               <Card key={session.id}>
                 <CardHeader className="flex flex-col gap-2 space-y-0 pb-2 sm:flex-row sm:items-center sm:justify-between">
                   <CardTitle className="text-sm font-medium break-all">
-                    {session.instance_name}
-                    {session.phone_number && (
+                    {getSessionDisplayName(session)}
+                    {session.display_name && session.phone_number && (
                       <span className="ml-1 text-xs font-normal text-muted-foreground">
-                        (+{session.phone_number})
+                        ({formatPhoneNumber(session.phone_number)})
                       </span>
                     )}
                   </CardTitle>
@@ -487,6 +490,7 @@ export default function SessionsPage() {
                       variant="ghost"
                       onClick={() => {
                         setEditingSession(session)
+                        setFormDisplayName(session.display_name || '')
                         setFormDailyLimit(
                           session.daily_ai_message_limit != null
                             ? String(session.daily_ai_message_limit)
@@ -610,10 +614,24 @@ export default function SessionsPage() {
           <DialogHeader>
             <DialogTitle>Paramètres de la session</DialogTitle>
             <DialogDescription>
-              Configurez les paramètres pour {editingSession?.instance_name}
+              Configurez les paramètres pour {editingSession ? getSessionDisplayName(editingSession) : ''}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="display-name">
+                Nom de la session
+              </Label>
+              <Input
+                id="display-name"
+                placeholder={editingSession?.phone_number ? formatPhoneNumber(editingSession.phone_number) : editingSession?.instance_name}
+                value={formDisplayName}
+                onChange={(e) => setFormDisplayName(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Nom personnalisé pour identifier facilement cette session.
+              </p>
+            </div>
             <MultiTeamSelect
               teams={teams}
               selectedTeamIds={formSessionTeamIds}
@@ -696,7 +714,7 @@ export default function SessionsPage() {
         }}
         onConfirm={handleConfirmDelete}
         title="Supprimer la session"
-        description={`Êtes-vous sûr de vouloir supprimer la session "${sessionToDelete?.instance_name}" ? Cette action déconnectera le numéro WhatsApp et supprimera toutes les données associées.`}
+        description={`Êtes-vous sûr de vouloir supprimer la session "${sessionToDelete ? getSessionDisplayName(sessionToDelete) : ''}" ? Cette action déconnectera le numéro WhatsApp et supprimera toutes les données associées.`}
         loading={deleting === sessionToDelete?.id}
       />
     </div>

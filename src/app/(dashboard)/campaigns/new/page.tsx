@@ -34,6 +34,7 @@ import {
   Calendar,
   AlertTriangle,
 } from 'lucide-react'
+import { getSessionDisplayName } from '@/lib/format-phone'
 
 type AgentWithType = AIAgent & { agent_type?: 'conversation' | 'relance' }
 type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
@@ -447,7 +448,7 @@ export default function NewCampaignPage() {
                       )
                     }}
                   >
-                    {session.instance_name}
+                    {getSessionDisplayName(session)}
                   </Badge>
                 ))}
               </div>

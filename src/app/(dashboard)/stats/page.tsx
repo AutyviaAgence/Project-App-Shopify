@@ -36,8 +36,9 @@ import {
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { fr } from 'date-fns/locale'
+import { getSessionDisplayName, formatPhoneNumber } from '@/lib/format-phone'
 
-type SessionOption = { id: string; instance_name: string }
+type SessionOption = { id: string; instance_name: string; phone_number?: string | null; display_name?: string | null }
 
 function formatSeconds(s: number): string {
   if (s < 60) return `${s}s`
@@ -61,9 +62,11 @@ export default function StatsPage() {
         const json = await res.json()
         if (res.ok && json.data) {
           setSessions(
-            json.data.map((s: { id: string; instance_name: string }) => ({
+            json.data.map((s: { id: string; instance_name: string; phone_number?: string | null; display_name?: string | null }) => ({
               id: s.id,
               instance_name: s.instance_name,
+              phone_number: s.phone_number,
+              display_name: s.display_name,
             }))
           )
         }
@@ -127,7 +130,7 @@ export default function StatsPage() {
               <SelectItem value="all">Toutes les sessions</SelectItem>
               {sessions.map((s) => (
                 <SelectItem key={s.id} value={s.id}>
-                  {s.instance_name}
+                  {getSessionDisplayName({ display_name: s.display_name || null, phone_number: s.phone_number || null, instance_name: s.instance_name })}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -623,7 +626,7 @@ export default function StatsPage() {
                             <td className="py-2 pr-4">
                               <div className="flex items-center gap-1 text-muted-foreground">
                                 <Phone className="h-3 w-3" />
-                                +{contact.phoneNumber}
+                                {formatPhoneNumber(contact.phoneNumber)}
                               </div>
                             </td>
                             <td className="py-2 pr-4 text-right font-medium">

@@ -13,6 +13,7 @@ export type WhatsAppSession = {
   team_id: string | null
   instance_name: string
   instance_id: string | null
+  display_name: string | null
   status: 'connected' | 'disconnected' | 'qr_pending' | 'error'
   qr_code: string | null
   phone_number: string | null

@@ -38,6 +38,7 @@ import {
 } from 'lucide-react'
 import { MultiTeamSelect } from '@/components/multi-team-select'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
+import { getSessionDisplayName } from '@/lib/format-phone'
 
 type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
 
@@ -45,6 +46,7 @@ type WALinkWithSession = WALink & {
   whatsapp_sessions: {
     phone_number: string | null
     instance_name: string
+    display_name: string | null
     status: string
   } | null
   team_ids?: string[]
@@ -352,7 +354,7 @@ export default function LinksPage() {
                 <CardContent>
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
-                      <span>{phone ? `+${phone}` : session?.instance_name || 'Session inconnue'}</span>
+                      <span>{session ? getSessionDisplayName({ display_name: session.display_name, phone_number: session.phone_number, instance_name: session.instance_name }) : 'Session inconnue'}</span>
                       {(link.team_ids?.length || link.team_id) && (
                         <>
                           {(link.team_ids || (link.team_id ? [link.team_id] : [])).map(tid => (
@@ -512,7 +514,7 @@ export default function LinksPage() {
                   <SelectContent>
                     {sessions.map((s) => (
                       <SelectItem key={s.id} value={s.id}>
-                        {s.phone_number ? `+${s.phone_number}` : s.instance_name}
+                        {getSessionDisplayName({ display_name: s.display_name, phone_number: s.phone_number, instance_name: s.instance_name })}
                       </SelectItem>
                     ))}
                   </SelectContent>
