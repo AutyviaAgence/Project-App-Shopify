@@ -77,7 +77,7 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json()
-  const { name, description, system_prompt, objective, model, temperature, is_active, response_delay_min, response_delay_max, max_messages_per_conversation, inactivity_timeout_minutes, escalation_enabled, escalation_keywords, escalation_message, booking_url, team_id, team_ids } = body as {
+  const { name, description, system_prompt, objective, model, temperature, is_active, response_delay_min, response_delay_max, max_messages_per_conversation, inactivity_timeout_minutes, escalation_enabled, escalation_keywords, escalation_message, booking_url, team_id, team_ids, agent_type } = body as {
     name?: string
     description?: string
     system_prompt?: string
@@ -95,6 +95,7 @@ export async function POST(req: Request) {
     booking_url?: string
     team_id?: string
     team_ids?: string[]
+    agent_type?: 'conversation' | 'relance'
   }
 
   // Support des deux formats: team_id (legacy) et team_ids (nouveau)
@@ -136,6 +137,10 @@ export async function POST(req: Request) {
     ? escalation_keywords.map(k => k.trim().toLowerCase()).filter(k => k.length > 0)
     : undefined
 
+  // Valider le type d'agent
+  const validAgentTypes = ['conversation', 'relance'] as const
+  const finalAgentType = agent_type && validAgentTypes.includes(agent_type) ? agent_type : 'conversation'
+
   const { data: agent, error } = await supabase
     .from('ai_agents')
     .insert({
@@ -156,6 +161,7 @@ export async function POST(req: Request) {
       escalation_keywords: finalEscalationKeywords,
       escalation_message: escalation_message?.trim() || null,
       booking_url: booking_url?.trim() || null,
+      agent_type: finalAgentType,
     })
     .select()
     .single()

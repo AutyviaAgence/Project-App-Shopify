@@ -46,6 +46,7 @@ export type AIAgent = {
   escalation_keywords: string[]
   escalation_message: string | null
   booking_url: string | null
+  agent_type: 'conversation' | 'relance'
   created_at: string
   updated_at: string
 }
@@ -279,6 +280,104 @@ export type TeamInvitation = {
   created_at: string
 }
 
+// =============================================
+// Types Campagnes de relance
+// =============================================
+
+export type CampaignStatus = 'draft' | 'scheduled' | 'running' | 'paused' | 'completed' | 'cancelled'
+
+export type Campaign = {
+  id: string
+  user_id: string
+  team_id: string | null
+  name: string
+  status: CampaignStatus
+
+  // Agent IA pour personnalisation (optionnel, doit être type 'relance')
+  relance_agent_id: string | null
+
+  // Message template (utilisé si pas d'agent)
+  message_template: string | null
+
+  // Filtres de ciblage
+  filter_session_ids: string[] | null
+  filter_tracking_sources: string[] | null
+  filter_tag_ids: string[] | null
+  filter_inactivity_days: number | null
+  filter_exclude_replied: boolean
+
+  // Limites anti-ban
+  max_recipients: number
+  delay_between_min: number
+  delay_between_max: number
+  messages_per_hour: number
+  send_hour_start: number
+  send_hour_end: number
+  min_response_rate: number
+  min_days_since_last_campaign: number
+
+  // Planification
+  scheduled_at: string | null
+  started_at: string | null
+  completed_at: string | null
+  paused_at: string | null
+  pause_reason: string | null
+
+  // Stats agrégées
+  total_recipients: number
+  sent_count: number
+  delivered_count: number
+  replied_count: number
+  failed_count: number
+
+  created_at: string
+  updated_at: string
+}
+
+export type CampaignRecipientStatus = 'pending' | 'queued' | 'sending' | 'sent' | 'delivered' | 'replied' | 'failed' | 'skipped'
+
+export type CampaignRecipient = {
+  id: string
+  campaign_id: string
+  contact_id: string
+  conversation_id: string | null
+  session_id: string
+
+  status: CampaignRecipientStatus
+
+  // Message envoyé (personnalisé par IA ou template)
+  message_sent: string | null
+
+  // Timestamps du cycle de vie
+  queued_at: string
+  sent_at: string | null
+  delivered_at: string | null
+  replied_at: string | null
+
+  // Erreur si échec
+  error_message: string | null
+
+  created_at: string
+}
+
+export type CampaignBlacklistReason = 'opt_out' | 'manual' | 'low_engagement' | 'complained'
+
+export type CampaignBlacklist = {
+  id: string
+  user_id: string
+  contact_id: string
+  session_id: string
+  reason: CampaignBlacklistReason
+  keyword_matched: string | null
+  created_at: string
+}
+
+export type CampaignOptOutKeyword = {
+  id: string
+  keyword: string
+  created_at: string
+}
+
 // Joined types
 export type ConversationWithContact = Conversation & {
   contact: Contact
@@ -401,6 +500,30 @@ export type Database = {
         Update: Partial<TeamInvitation>
         Relationships: []
       }
+      campaigns: {
+        Row: Campaign
+        Insert: Partial<Campaign> & Pick<Campaign, 'user_id' | 'name'>
+        Update: Partial<Campaign>
+        Relationships: []
+      }
+      campaign_recipients: {
+        Row: CampaignRecipient
+        Insert: Partial<CampaignRecipient> & Pick<CampaignRecipient, 'campaign_id' | 'contact_id' | 'session_id'>
+        Update: Partial<CampaignRecipient>
+        Relationships: []
+      }
+      campaign_blacklist: {
+        Row: CampaignBlacklist
+        Insert: Partial<CampaignBlacklist> & Pick<CampaignBlacklist, 'user_id' | 'contact_id' | 'session_id'>
+        Update: Partial<CampaignBlacklist>
+        Relationships: []
+      }
+      campaign_opt_out_keywords: {
+        Row: CampaignOptOutKeyword
+        Insert: Partial<CampaignOptOutKeyword> & Pick<CampaignOptOutKeyword, 'keyword'>
+        Update: Partial<CampaignOptOutKeyword>
+        Relationships: []
+      }
     }
     Views: {}
     Functions: {
@@ -437,6 +560,28 @@ export type Database = {
             }
           }
         }
+      }
+      get_campaign_eligible_contacts: {
+        Args: {
+          p_user_id: string
+          p_session_ids?: string[] | null
+          p_tracking_sources?: string[] | null
+          p_tag_ids?: string[] | null
+          p_inactivity_days?: number | null
+          p_exclude_replied?: boolean
+          p_min_days_since_last_campaign?: number
+          p_max_recipients?: number
+        }
+        Returns: {
+          contact_id: string
+          conversation_id: string | null
+          session_id: string
+          phone_number: string
+          contact_name: string | null
+          last_message_at: string | null
+          days_inactive: number
+          tracking_source: string | null
+        }[]
       }
     }
   }

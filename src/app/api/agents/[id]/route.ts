@@ -80,7 +80,8 @@ export async function PATCH(
     name, description, system_prompt, objective, model, temperature, is_active,
     response_delay_min, response_delay_max, max_messages_per_conversation, inactivity_timeout_minutes,
     schedule_enabled, schedule_timezone, schedule_start_time, schedule_end_time, schedule_days,
-    auto_detect_language, escalation_enabled, escalation_keywords, escalation_message, team_id, team_ids
+    auto_detect_language, escalation_enabled, escalation_keywords, escalation_message, team_id, team_ids,
+    agent_type
   } = body as {
     name?: string
     description?: string
@@ -104,6 +105,7 @@ export async function PATCH(
     escalation_message?: string
     team_id?: string | null
     team_ids?: string[]
+    agent_type?: 'conversation' | 'relance'
   }
 
   const updateData: Record<string, unknown> = {}
@@ -178,6 +180,14 @@ export async function PATCH(
   }
   if (escalation_message !== undefined) {
     updateData.escalation_message = escalation_message?.trim() || null
+  }
+
+  // Type d'agent (conversation ou relance)
+  if (agent_type !== undefined) {
+    const validAgentTypes = ['conversation', 'relance'] as const
+    if (validAgentTypes.includes(agent_type)) {
+      updateData.agent_type = agent_type
+    }
   }
 
   // Gestion du changement d'équipes (multi-équipes)

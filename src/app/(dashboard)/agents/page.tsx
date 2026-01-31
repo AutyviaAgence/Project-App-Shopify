@@ -37,6 +37,7 @@ import {
   ShieldAlert,
   CalendarClock,
   Link2,
+  Megaphone,
 } from 'lucide-react'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { MultiTeamSelect } from '@/components/multi-team-select'
@@ -85,6 +86,9 @@ export default function AgentsPage() {
 
   // Lien de rendez-vous
   const [formBookingUrl, setFormBookingUrl] = useState('')
+
+  // Type d'agent
+  const [formAgentType, setFormAgentType] = useState<'conversation' | 'relance'>('conversation')
 
   const fetchAgents = useCallback(async () => {
     try {
@@ -140,6 +144,7 @@ export default function AgentsPage() {
     setFormEscalationKeywords('')
     setFormEscalationMessage('')
     setFormBookingUrl('')
+    setFormAgentType('conversation')
     setDialogOpen(true)
   }
 
@@ -166,6 +171,7 @@ export default function AgentsPage() {
     setFormEscalationKeywords(agent.escalation_keywords?.join(', ') ?? '')
     setFormEscalationMessage(agent.escalation_message ?? '')
     setFormBookingUrl(agent.booking_url ?? '')
+    setFormAgentType(agent.agent_type ?? 'conversation')
     setDialogOpen(true)
   }
 
@@ -209,6 +215,7 @@ export default function AgentsPage() {
             escalation_message: formEscalationMessage.trim() || null,
             booking_url: formBookingUrl.trim() || null,
             team_ids: formTeamIds,
+            agent_type: formAgentType,
           }),
         })
         const json = await res.json()
@@ -245,6 +252,7 @@ export default function AgentsPage() {
             escalation_message: formEscalationMessage.trim() || null,
             booking_url: formBookingUrl.trim() || null,
             team_ids: formTeamIds,
+            agent_type: formAgentType,
           }),
         })
         const json = await res.json()
@@ -368,6 +376,12 @@ export default function AgentsPage() {
                     )}
 
                     <div className="flex items-center gap-2 flex-wrap">
+                      {agent.agent_type === 'relance' && (
+                        <Badge variant="secondary" className="gap-1 text-xs">
+                          <Megaphone className="h-3 w-3" />
+                          Relance
+                        </Badge>
+                      )}
                       {(agent.team_ids?.length || agent.team_id) && (
                         <>
                           {(agent.team_ids || (agent.team_id ? [agent.team_id] : [])).map(tid => (
@@ -508,6 +522,22 @@ export default function AgentsPage() {
                 onChange={(e) => setFormDescription(e.target.value)}
                 rows={2}
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="agent-type">Type d&apos;agent</Label>
+              <Select value={formAgentType} onValueChange={(v) => setFormAgentType(v as 'conversation' | 'relance')}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="conversation">Conversation (répond aux messages)</SelectItem>
+                  <SelectItem value="relance">Relance (génère premier message)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Les agents de type &quot;relance&quot; sont utilisés pour les campagnes de relance.
+              </p>
             </div>
 
             <div className="space-y-2">
