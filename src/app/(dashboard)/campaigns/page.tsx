@@ -322,7 +322,7 @@ export default function CampaignsPage() {
                         </Button>
                       )}
 
-                      {(campaign.status === 'draft' || campaign.status === 'scheduled') && (
+                      {campaign.status !== 'running' && (
                         <Button
                           size="sm"
                           variant="ghost"
