@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { startCampaignExecution } from '@/lib/campaigns/executor'
 
 type CampaignAction = 'start' | 'pause' | 'resume' | 'cancel'
 
@@ -113,7 +114,7 @@ export async function POST(
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // Si démarrage, marquer les destinataires comme "queued"
+  // Si démarrage, marquer les destinataires comme "queued" et lancer l'exécution
   if (action === 'start' || action === 'resume') {
     await supabase
       .from('campaign_recipients')
@@ -121,23 +122,8 @@ export async function POST(
       .eq('campaign_id', id)
       .eq('status', 'pending')
 
-    // Déclencher l'exécution de la campagne en arrière-plan (fire & forget)
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-    const internalSecret = process.env.INTERNAL_API_SECRET
-
-    if (internalSecret) {
-      fetch(`${baseUrl}/api/campaigns/${id}/execute`, {
-        method: 'POST',
-        headers: {
-          'x-internal-secret': internalSecret,
-          'Content-Type': 'application/json',
-        },
-      }).catch((err) => {
-        console.error('[Campaign Actions] Execute trigger failed:', err)
-      })
-    } else {
-      console.warn('[Campaign Actions] INTERNAL_API_SECRET not configured, campaign will not execute')
-    }
+    // Lancer l'exécution en arrière-plan (fire & forget, pas de requête HTTP)
+    startCampaignExecution(id)
   }
 
   // Si annulation, marquer les destinataires pending/queued comme "skipped"

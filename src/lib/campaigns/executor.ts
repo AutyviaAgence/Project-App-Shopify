@@ -1,55 +1,9 @@
-import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
 /**
- * POST /api/campaigns/[id]/execute
- * Exécute une campagne de manière asynchrone (fire & forget)
- * Cette route est appelée en interne après le démarrage d'une campagne
- *
- * Sur VPS, pas de timeout → on peut exécuter des processus longs
+ * Exécuteur de campagnes de relance WhatsApp
+ * Fonctionne en arrière-plan sur VPS (pas de timeout)
  */
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  const { id: campaignId } = await params
-
-  // Vérifier le secret interne (évite les appels externes)
-  const authHeader = req.headers.get('x-internal-secret')
-  const internalSecret = process.env.INTERNAL_API_SECRET
-
-  if (!internalSecret || authHeader !== internalSecret) {
-    return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
-  }
-
-  // Créer client Supabase admin (service role)
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-
-  // Récupérer la campagne
-  const { data: campaign, error: campaignError } = await supabase
-    .from('campaigns')
-    .select('*')
-    .eq('id', campaignId)
-    .single()
-
-  if (campaignError || !campaign) {
-    return NextResponse.json({ error: 'Campagne non trouvée' }, { status: 404 })
-  }
-
-  if (campaign.status !== 'running') {
-    return NextResponse.json({ error: 'Campagne pas en cours' }, { status: 400 })
-  }
-
-  // Lancer l'exécution en arrière-plan (ne pas attendre)
-  executeCampaign(supabase, campaign).catch((err) => {
-    console.error(`[Campaign ${campaignId}] Execution error:`, err)
-  })
-
-  return NextResponse.json({ message: 'Exécution lancée' })
-}
 
 interface Campaign {
   id: string
@@ -78,8 +32,44 @@ interface Contact {
   name: string | null
 }
 
+/**
+ * Lance l'exécution d'une campagne en arrière-plan
+ * Appelé depuis /api/campaigns/[id]/actions quand action = start ou resume
+ */
+export function startCampaignExecution(campaignId: string): void {
+  // Fire & forget - on ne bloque pas la réponse HTTP
+  executeCampaignById(campaignId).catch((err) => {
+    console.error(`[Campaign ${campaignId}] Execution error:`, err)
+  })
+}
+
+async function executeCampaignById(campaignId: string): Promise<void> {
+  const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+
+  const { data: campaign, error } = await supabase
+    .from('campaigns')
+    .select('*')
+    .eq('id', campaignId)
+    .single()
+
+  if (error || !campaign) {
+    console.error(`[Campaign ${campaignId}] Not found`)
+    return
+  }
+
+  if (campaign.status !== 'running') {
+    console.log(`[Campaign ${campaignId}] Not in running state (${campaign.status})`)
+    return
+  }
+
+  await executeCampaign(supabase, campaign as Campaign)
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function executeCampaign(supabase: any, campaign: Campaign) {
+async function executeCampaign(supabase: any, campaign: Campaign): Promise<void> {
   const campaignId = campaign.id
   console.log(`[Campaign ${campaignId}] Starting execution...`)
 
@@ -114,7 +104,7 @@ async function executeCampaign(supabase: any, campaign: Campaign) {
   console.log(`[Campaign ${campaignId}] Processing ${recipients.length} recipients...`)
 
   let sentThisHour = 0
-  const hourStart = Date.now()
+  let hourStart = Date.now()
 
   for (const recipient of recipients) {
     // Vérifier si la campagne est toujours running
@@ -148,9 +138,10 @@ async function executeCampaign(supabase: any, campaign: Campaign) {
       const elapsed = Date.now() - hourStart
       if (elapsed < 3600000) {
         const waitTime = Math.ceil((3600000 - elapsed) / 1000)
-        console.log(`[Campaign ${campaignId}] Hourly limit reached, waiting ${waitTime}s`)
+        console.log(`[Campaign ${campaignId}] Hourly limit reached (${campaign.messages_per_hour}), waiting ${waitTime}s`)
         await sleep(3600000 - elapsed)
         sentThisHour = 0
+        hourStart = Date.now()
       }
     }
 
