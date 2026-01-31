@@ -6,6 +6,25 @@ import { evolution } from '@/lib/evolution/client'
 import { encryptMessage } from '@/lib/crypto/encryption'
 import { checkRateLimit } from '@/lib/rate-limit'
 
+// Mots-clés opt-out par défaut (synchronisés avec campaign_opt_out_keywords table)
+const DEFAULT_OPT_OUT_KEYWORDS = [
+  'stop', 'arrêter', 'arreter', 'désabonner', 'desabonner',
+  'unsubscribe', 'ne plus recevoir', 'spam', 'harcèlement', 'harcelement'
+]
+
+/**
+ * Vérifie si un message contient un mot-clé opt-out
+ */
+function containsOptOutKeyword(message: string, keywords: string[]): string | null {
+  const lowerMessage = message.toLowerCase().trim()
+  for (const keyword of keywords) {
+    if (lowerMessage === keyword || lowerMessage.includes(keyword)) {
+      return keyword
+    }
+  }
+  return null
+}
+
 /**
  * POST /api/webhook/evolution
  * Reçoit les events de Evolution API (messages, connexion, QR code)
@@ -247,6 +266,54 @@ export async function POST(req: NextRequest) {
           })
           .select()
           .single()
+
+        // 3b. Détection opt-out pour campagnes
+        if (!fromMe && content && messageType === 'text') {
+          // Charger les mots-clés opt-out depuis la base de données
+          const { data: dbKeywords } = await supabase
+            .from('campaign_opt_out_keywords')
+            .select('keyword')
+
+          const optOutKeywords = dbKeywords?.length
+            ? dbKeywords.map(k => k.keyword)
+            : DEFAULT_OPT_OUT_KEYWORDS
+
+          const matchedKeyword = containsOptOutKeyword(content, optOutKeywords)
+
+          if (matchedKeyword) {
+            console.log(`[Webhook] Opt-out keyword detected: "${matchedKeyword}" from ${phoneNumber}`)
+
+            // Ajouter à la blacklist (upsert pour éviter doublons)
+            await supabase
+              .from('campaign_blacklist')
+              .upsert(
+                {
+                  user_id: session.user_id,
+                  contact_id: contact.id,
+                  session_id: session.id,
+                  reason: 'opt_out',
+                  keyword_matched: matchedKeyword,
+                },
+                { onConflict: 'user_id,contact_id' }
+              )
+
+            // Créer une alerte pour informer l'utilisateur
+            await supabase.from('user_alerts').insert({
+              user_id: session.user_id,
+              alert_type: 'campaign_opt_out',
+              title: 'Contact désabonné',
+              message: `${contact.name || phoneNumber} s'est désabonné des campagnes (mot-clé: "${matchedKeyword}")`,
+              metadata: {
+                contact_id: contact.id,
+                phone_number: phoneNumber,
+                keyword: matchedKeyword,
+                session_id: session.id
+              },
+            })
+
+            console.log(`[Webhook] Contact ${contact.id} added to blacklist`)
+          }
+        }
 
         // 4. Auto-réponse IA (avec support délai/debounce)
         if (!fromMe) {

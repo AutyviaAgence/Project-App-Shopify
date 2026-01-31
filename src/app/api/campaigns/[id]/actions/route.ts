@@ -120,6 +120,26 @@ export async function POST(
       .update({ status: 'queued' })
       .eq('campaign_id', id)
       .eq('status', 'pending')
+
+    // Déclencher l'Edge Function pour exécuter la campagne (fire & forget)
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+    if (supabaseUrl && supabaseAnonKey) {
+      fetch(`${supabaseUrl}/functions/v1/campaign-executor`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${supabaseAnonKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          campaign_id: id,
+          action: action === 'start' ? 'start' : 'resume',
+        }),
+      }).catch((err) => {
+        console.error('[Campaign Actions] Edge function trigger failed:', err)
+      })
+    }
   }
 
   // Si annulation, marquer les destinataires pending/queued comme "skipped"
