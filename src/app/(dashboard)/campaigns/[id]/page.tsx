@@ -32,7 +32,10 @@ import {
   Pencil,
   User,
   Phone,
+  Trash2,
+  ExternalLink,
 } from 'lucide-react'
+import { Checkbox } from '@/components/ui/checkbox'
 import { formatDistanceToNow, format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
@@ -76,6 +79,9 @@ export default function CampaignDetailPage() {
   const [actionLoading, setActionLoading] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+  const [selectedRecipients, setSelectedRecipients] = useState<Set<string>>(new Set())
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   const fetchCampaign = useCallback(async (showLoader = true) => {
     if (showLoader) setLoading(true)
@@ -152,6 +158,54 @@ export default function CampaignDetailPage() {
       toast.error('Erreur réseau')
     } finally {
       setRefreshing(false)
+    }
+  }
+
+  async function handleDeleteRecipients() {
+    if (selectedRecipients.size === 0) return
+
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/campaigns/${campaignId}/recipients`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recipient_ids: Array.from(selectedRecipients) }),
+      })
+      const json = await res.json()
+      if (res.ok && json.data) {
+        toast.success(`${json.data.deleted_count} destinataire(s) supprimé(s)`)
+        setSelectedRecipients(new Set())
+        setDeleteDialogOpen(false)
+        fetchCampaign(false)
+      } else {
+        toast.error(json.error || 'Erreur lors de la suppression')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  function toggleRecipient(recipientId: string) {
+    setSelectedRecipients((prev) => {
+      const newSet = new Set(prev)
+      if (newSet.has(recipientId)) {
+        newSet.delete(recipientId)
+      } else {
+        newSet.add(recipientId)
+      }
+      return newSet
+    })
+  }
+
+  function toggleAllRecipients() {
+    if (!campaign?.recipients) return
+
+    if (selectedRecipients.size === campaign.recipients.length) {
+      setSelectedRecipients(new Set())
+    } else {
+      setSelectedRecipients(new Set(campaign.recipients.map((r) => r.id)))
     }
   }
 
@@ -420,9 +474,29 @@ export default function CampaignDetailPage() {
             <CardTitle className="text-lg">Destinataires</CardTitle>
             <CardDescription>
               {campaign.recipients?.length || 0} contacts
+              {selectedRecipients.size > 0 && (
+                <span className="ml-2 text-primary">
+                  ({selectedRecipients.size} sélectionné{selectedRecipients.size > 1 ? 's' : ''})
+                </span>
+              )}
             </CardDescription>
           </div>
           <div className="flex gap-2">
+            {selectedRecipients.size > 0 && canEdit && (
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={() => setDeleteDialogOpen(true)}
+                disabled={deleting}
+              >
+                {deleting ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Trash2 className="mr-2 h-4 w-4" />
+                )}
+                Supprimer ({selectedRecipients.size})
+              </Button>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -472,18 +546,41 @@ export default function CampaignDetailPage() {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    {canEdit && (
+                      <TableHead className="w-[40px]">
+                        <Checkbox
+                          checked={
+                            campaign.recipients.length > 0 &&
+                            selectedRecipients.size === campaign.recipients.length
+                          }
+                          onCheckedChange={toggleAllRecipients}
+                          aria-label="Sélectionner tout"
+                        />
+                      </TableHead>
+                    )}
                     <TableHead>Contact</TableHead>
                     <TableHead>Statut</TableHead>
                     <TableHead>Envoyé</TableHead>
                     <TableHead>Message</TableHead>
+                    <TableHead className="w-[50px]"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {campaign.recipients.map((recipient) => {
                     const recipientStatus = recipientStatusLabels[recipient.status] || { label: recipient.status, color: '' }
+                    const isSelected = selectedRecipients.has(recipient.id)
 
                     return (
-                      <TableRow key={recipient.id}>
+                      <TableRow key={recipient.id} className={isSelected ? 'bg-muted/50' : ''}>
+                        {canEdit && (
+                          <TableCell>
+                            <Checkbox
+                              checked={isSelected}
+                              onCheckedChange={() => toggleRecipient(recipient.id)}
+                              aria-label={`Sélectionner ${recipient.contact?.name || 'contact'}`}
+                            />
+                          </TableCell>
+                        )}
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <div className="p-1.5 bg-muted rounded-full">
@@ -524,6 +621,18 @@ export default function CampaignDetailPage() {
                             <span className="text-xs text-muted-foreground">-</span>
                           )}
                         </TableCell>
+                        <TableCell>
+                          {recipient.contact?.id && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => router.push(`/conversations?contact=${recipient.contact?.id}`)}
+                              title="Voir le profil"
+                            >
+                              <ExternalLink className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </TableCell>
                       </TableRow>
                     )
                   })}
@@ -543,6 +652,17 @@ export default function CampaignDetailPage() {
         description="Êtes-vous sûr de vouloir annuler cette campagne ? Les messages non envoyés seront abandonnés."
         loading={actionLoading}
         confirmText="Annuler la campagne"
+      />
+
+      {/* Confirm Delete Recipients Dialog */}
+      <ConfirmDeleteDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleDeleteRecipients}
+        title="Supprimer les destinataires"
+        description={`Êtes-vous sûr de vouloir supprimer ${selectedRecipients.size} destinataire(s) de cette campagne ?`}
+        loading={deleting}
+        confirmText="Supprimer"
       />
     </div>
   )
