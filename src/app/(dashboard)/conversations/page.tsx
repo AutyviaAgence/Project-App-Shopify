@@ -883,7 +883,9 @@ export default function ConversationsPage() {
                     {getContactDisplay(selectedConv)}
                   </p>
                   <p className="truncate text-xs text-muted-foreground">
-                    +{selectedConv.contact.phone_number}
+                    {/^\d{8,}$/.test(selectedConv.contact.phone_number)
+                      ? `+${selectedConv.contact.phone_number}`
+                      : selectedConv.contact.phone_number}
                   </p>
                 </div>
               </button>
