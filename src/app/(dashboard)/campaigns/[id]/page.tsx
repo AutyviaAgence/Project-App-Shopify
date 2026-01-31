@@ -34,7 +34,14 @@ import {
   Phone,
   Trash2,
   ExternalLink,
+  Sparkles,
+  Mail,
+  Calendar,
 } from 'lucide-react'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
+import { Separator } from '@/components/ui/separator'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
   Sheet,
@@ -58,6 +65,8 @@ type ContactDetails = {
   profile_picture_url: string | null
   created_at: string
   last_message_at: string | null
+  ai_summary: string | null
+  ai_summary_updated_at: string | null
 }
 
 type RecipientWithContact = CampaignRecipient & {
@@ -105,6 +114,15 @@ export default function CampaignDetailPage() {
   const [contactSheetOpen, setContactSheetOpen] = useState(false)
   const [selectedContact, setSelectedContact] = useState<ContactDetails | null>(null)
   const [loadingContact, setLoadingContact] = useState(false)
+  const [editedContact, setEditedContact] = useState<{
+    first_name: string
+    last_name: string
+    email: string
+    notes: string
+  }>({ first_name: '', last_name: '', email: '', notes: '' })
+  const [savingContact, setSavingContact] = useState(false)
+  const [extractingInfo, setExtractingInfo] = useState(false)
+  const [generatingSummary, setGeneratingSummary] = useState(false)
 
   const fetchCampaign = useCallback(async (showLoader = true) => {
     if (showLoader) setLoading(true)
@@ -242,6 +260,12 @@ export default function CampaignDetailPage() {
       const json = await res.json()
       if (res.ok && json.data) {
         setSelectedContact(json.data)
+        setEditedContact({
+          first_name: json.data.first_name || '',
+          last_name: json.data.last_name || '',
+          email: json.data.email || '',
+          notes: json.data.notes || '',
+        })
       } else {
         toast.error(json.error || 'Erreur lors du chargement du contact')
         setContactSheetOpen(false)
@@ -251,6 +275,80 @@ export default function CampaignDetailPage() {
       setContactSheetOpen(false)
     } finally {
       setLoadingContact(false)
+    }
+  }
+
+  async function handleSaveContact() {
+    if (!selectedContact) return
+    setSavingContact(true)
+
+    try {
+      const res = await fetch(`/api/contacts/${selectedContact.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editedContact),
+      })
+      const json = await res.json()
+      if (res.ok && json.data) {
+        setSelectedContact(json.data)
+        toast.success('Contact mis à jour')
+      } else {
+        toast.error(json.error || 'Erreur lors de la sauvegarde')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setSavingContact(false)
+    }
+  }
+
+  async function handleExtractInfo() {
+    if (!selectedContact) return
+    setExtractingInfo(true)
+
+    try {
+      const res = await fetch(`/api/contacts/${selectedContact.id}/extract-info`, {
+        method: 'POST',
+      })
+      const json = await res.json()
+      if (res.ok && json.data?.extracted) {
+        const extracted = json.data.extracted
+        setEditedContact({
+          first_name: extracted.first_name || editedContact.first_name,
+          last_name: extracted.last_name || editedContact.last_name,
+          email: extracted.email || editedContact.email,
+          notes: extracted.notes || editedContact.notes,
+        })
+        toast.success('Informations extraites')
+      } else {
+        toast.error(json.error || 'Erreur lors de l\'extraction')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setExtractingInfo(false)
+    }
+  }
+
+  async function handleGenerateSummary() {
+    if (!selectedContact) return
+    setGeneratingSummary(true)
+
+    try {
+      const res = await fetch(`/api/contacts/${selectedContact.id}/summary`, {
+        method: 'POST',
+      })
+      const json = await res.json()
+      if (res.ok && json.data) {
+        setSelectedContact(json.data)
+        toast.success('Résumé généré')
+      } else {
+        toast.error(json.error || 'Erreur lors de la génération')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setGeneratingSummary(false)
     }
   }
 
@@ -712,100 +810,187 @@ export default function CampaignDetailPage() {
 
       {/* Contact Profile Sheet */}
       <Sheet open={contactSheetOpen} onOpenChange={setContactSheetOpen}>
-        <SheetContent className="sm:max-w-md">
-          <SheetHeader>
-            <SheetTitle>Profil du contact</SheetTitle>
-            <SheetDescription>
-              Détails du contact sélectionné
-            </SheetDescription>
-          </SheetHeader>
-
+        <SheetContent className="sm:max-w-md p-0 flex flex-col h-full">
           {loadingContact ? (
-            <div className="flex items-center justify-center py-12">
+            <div className="flex items-center justify-center h-full">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
           ) : selectedContact ? (
-            <div className="mt-6 space-y-6">
-              {/* Avatar et nom */}
-              <div className="flex items-center gap-4">
-                {selectedContact.profile_picture_url ? (
-                  <img
-                    src={selectedContact.profile_picture_url}
-                    alt={selectedContact.name || 'Contact'}
-                    className="h-16 w-16 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center">
-                    <User className="h-8 w-8 text-muted-foreground" />
-                  </div>
-                )}
-                <div>
-                  <h3 className="text-lg font-semibold">
-                    {selectedContact.name || 'Sans nom'}
-                  </h3>
-                  <p className="text-sm text-muted-foreground flex items-center gap-1">
-                    <Phone className="h-3 w-3" />
-                    {selectedContact.phone_number}
-                  </p>
-                </div>
-              </div>
-
-              {/* Informations */}
-              <div className="space-y-4">
-                {(selectedContact.first_name || selectedContact.last_name) && (
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground uppercase">
-                      Nom complet
-                    </label>
-                    <p className="mt-1">
-                      {[selectedContact.first_name, selectedContact.last_name].filter(Boolean).join(' ')}
+            <>
+              {/* Header avec avatar */}
+              <div className="bg-primary p-4 text-primary-foreground">
+                <div className="flex items-center gap-3">
+                  {selectedContact.profile_picture_url ? (
+                    <img
+                      src={selectedContact.profile_picture_url}
+                      alt={selectedContact.name || 'Contact'}
+                      className="h-12 w-12 rounded-full object-cover border-2 border-primary-foreground/20"
+                    />
+                  ) : (
+                    <div className="h-12 w-12 rounded-full bg-primary-foreground/20 flex items-center justify-center text-lg font-semibold">
+                      {(selectedContact.name || selectedContact.phone_number)?.[0]?.toUpperCase() || '?'}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="font-semibold truncate">
+                      {selectedContact.name || 'Sans nom'}
+                    </h3>
+                    <p className="text-sm opacity-80">
+                      +{selectedContact.phone_number}
                     </p>
                   </div>
-                )}
-
-                {selectedContact.email && (
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground uppercase">
-                      Email
-                    </label>
-                    <p className="mt-1">{selectedContact.email}</p>
-                  </div>
-                )}
-
-                <div>
-                  <label className="text-xs font-medium text-muted-foreground uppercase">
-                    Premier contact
-                  </label>
-                  <p className="mt-1">
-                    {format(new Date(selectedContact.created_at), 'dd MMMM yyyy à HH:mm', { locale: fr })}
-                  </p>
                 </div>
-
-                {selectedContact.last_message_at && (
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground uppercase">
-                      Dernier message
-                    </label>
-                    <p className="mt-1">
+                <div className="flex items-center gap-4 mt-3 text-xs opacity-80">
+                  <span className="flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    {format(new Date(selectedContact.created_at), 'dd MMM yyyy', { locale: fr })}
+                  </span>
+                  {selectedContact.last_message_at && (
+                    <span className="flex items-center gap-1">
+                      <MessageSquare className="h-3 w-3" />
                       {formatDistanceToNow(new Date(selectedContact.last_message_at), { addSuffix: true, locale: fr })}
-                    </p>
-                  </div>
-                )}
-
-                {selectedContact.notes && (
-                  <div>
-                    <label className="text-xs font-medium text-muted-foreground uppercase">
-                      Notes
-                    </label>
-                    <p className="mt-1 text-sm whitespace-pre-wrap bg-muted p-3 rounded-lg">
-                      {selectedContact.notes}
-                    </p>
-                  </div>
-                )}
+                    </span>
+                  )}
+                </div>
               </div>
 
-              {/* Actions */}
-              <div className="pt-4 border-t">
+              <div className="flex-1 overflow-y-auto">
+                <div className="p-4 space-y-6">
+                  {/* Section Informations */}
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-medium flex items-center gap-2">
+                        <User className="h-4 w-4" />
+                        Informations
+                      </h4>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleExtractInfo}
+                        disabled={extractingInfo}
+                      >
+                        {extractingInfo ? (
+                          <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                        ) : (
+                          <Sparkles className="mr-2 h-3 w-3" />
+                        )}
+                        Compléter via IA
+                      </Button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <Label htmlFor="first_name" className="text-xs text-muted-foreground">
+                          Prénom
+                        </Label>
+                        <Input
+                          id="first_name"
+                          value={editedContact.first_name}
+                          onChange={(e) => setEditedContact({ ...editedContact, first_name: e.target.value })}
+                          placeholder="Prénom"
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="last_name" className="text-xs text-muted-foreground">
+                          Nom
+                        </Label>
+                        <Input
+                          id="last_name"
+                          value={editedContact.last_name}
+                          onChange={(e) => setEditedContact({ ...editedContact, last_name: e.target.value })}
+                          placeholder="Nom"
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mt-3">
+                      <Label htmlFor="email" className="text-xs text-muted-foreground">
+                        Email
+                      </Label>
+                      <div className="relative mt-1">
+                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <Input
+                          id="email"
+                          type="email"
+                          value={editedContact.email}
+                          onChange={(e) => setEditedContact({ ...editedContact, email: e.target.value })}
+                          placeholder="email@exemple.com"
+                          className="pl-9"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mt-3">
+                      <Label htmlFor="notes" className="text-xs text-muted-foreground">
+                        Notes
+                      </Label>
+                      <Textarea
+                        id="notes"
+                        value={editedContact.notes}
+                        onChange={(e) => setEditedContact({ ...editedContact, notes: e.target.value })}
+                        placeholder="Notes sur ce contact..."
+                        className="mt-1 min-h-[80px]"
+                      />
+                    </div>
+
+                    <Button
+                      onClick={handleSaveContact}
+                      disabled={savingContact}
+                      className="w-full mt-3"
+                      size="sm"
+                    >
+                      {savingContact ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <CheckCircle className="mr-2 h-4 w-4" />
+                      )}
+                      Enregistrer
+                    </Button>
+                  </div>
+
+                  <Separator />
+
+                  {/* Section Résumé IA */}
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="text-sm font-medium flex items-center gap-2">
+                        <Sparkles className="h-4 w-4" />
+                        Résumé IA
+                      </h4>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleGenerateSummary}
+                        disabled={generatingSummary}
+                      >
+                        {generatingSummary ? (
+                          <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                        ) : (
+                          <RefreshCw className="mr-2 h-3 w-3" />
+                        )}
+                        {selectedContact.ai_summary ? 'Regénérer' : 'Générer'}
+                      </Button>
+                    </div>
+
+                    {selectedContact.ai_summary ? (
+                      <div className="bg-muted rounded-lg p-3 text-sm whitespace-pre-wrap prose prose-sm max-w-none dark:prose-invert">
+                        {selectedContact.ai_summary}
+                      </div>
+                    ) : (
+                      <div className="bg-muted rounded-lg p-4 text-center text-sm text-muted-foreground">
+                        <Sparkles className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                        <p>Aucun résumé disponible</p>
+                        <p className="text-xs mt-1">Cliquez sur &quot;Générer&quot; pour créer un résumé IA de la conversation</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Footer */}
+              <div className="p-4 border-t">
                 <Button
                   variant="outline"
                   className="w-full"
@@ -818,7 +1003,7 @@ export default function CampaignDetailPage() {
                   Voir la conversation
                 </Button>
               </div>
-            </div>
+            </>
           ) : null}
         </SheetContent>
       </Sheet>
