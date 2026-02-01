@@ -67,6 +67,19 @@ export async function POST(req: NextRequest) {
     // Supprimer les données utilisateur (les FK CASCADE supprimeront les données liées)
     // L'ordre est important pour respecter les contraintes FK
 
+    // 0. Nettoyer les invitations d'équipe
+    await adminSupabase
+      .from('team_invitations')
+      .update({ used_by: null })
+      .eq('used_by', user.id)
+    const { error: e0 } = await adminSupabase
+      .from('team_invitations')
+      .delete()
+      .eq('invited_by', user.id)
+    if (e0 && !e0.message?.includes('does not exist')) {
+      console.error('Error deleting team_invitations:', e0)
+    }
+
     // 1. Supprimer les team_members où l'utilisateur est membre
     const { error: e1 } = await adminSupabase
       .from('team_members')
