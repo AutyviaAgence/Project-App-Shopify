@@ -58,21 +58,55 @@ export async function GET() {
     }
   }
 
-  // Récupérer les stats de clics booking pour chaque agent
-  const bookingStatsMap: Record<string, { total_clicks: number; unique_contacts: number }> = {}
+  // Récupérer les stats de booking (propositions et clics) pour chaque agent
+  const bookingStatsMap: Record<string, {
+    total_proposals: number
+    total_clicks: number
+    unique_contacts: number
+    conversion_rate: number
+  }> = {}
 
   if (agentIds.length > 0) {
+    // Récupérer les propositions de RDV
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: bookingProposals } = await (supabase as any)
+      .from('booking_proposals')
+      .select('agent_id, clicked')
+      .in('agent_id', agentIds) as { data: { agent_id: string; clicked: boolean }[] | null }
+
+    // Récupérer les clics
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: bookingClicks } = await (supabase as any)
       .from('booking_link_clicks')
       .select('agent_id, contact_id')
       .in('agent_id', agentIds) as { data: { agent_id: string; contact_id: string | null }[] | null }
 
+    // Compter les propositions par agent
+    if (bookingProposals) {
+      for (const proposal of bookingProposals) {
+        if (!bookingStatsMap[proposal.agent_id]) {
+          bookingStatsMap[proposal.agent_id] = {
+            total_proposals: 0,
+            total_clicks: 0,
+            unique_contacts: 0,
+            conversion_rate: 0,
+          }
+        }
+        bookingStatsMap[proposal.agent_id].total_proposals++
+      }
+    }
+
+    // Compter les clics et contacts uniques par agent
     if (bookingClicks) {
       const contactsByAgent: Record<string, Set<string>> = {}
       for (const click of bookingClicks) {
         if (!bookingStatsMap[click.agent_id]) {
-          bookingStatsMap[click.agent_id] = { total_clicks: 0, unique_contacts: 0 }
+          bookingStatsMap[click.agent_id] = {
+            total_proposals: 0,
+            total_clicks: 0,
+            unique_contacts: 0,
+            conversion_rate: 0,
+          }
         }
         bookingStatsMap[click.agent_id].total_clicks++
 
@@ -90,13 +124,26 @@ export async function GET() {
         }
       }
     }
+
+    // Calculer le taux de conversion
+    for (const agentId of Object.keys(bookingStatsMap)) {
+      const stats = bookingStatsMap[agentId]
+      if (stats.total_proposals > 0) {
+        stats.conversion_rate = Math.round((stats.total_clicks / stats.total_proposals) * 100)
+      }
+    }
   }
 
   // Ajouter team_ids et booking_stats à chaque agent
   const agentsWithTeams = agents.map(a => ({
     ...a,
     team_ids: agentTeamsMap[a.id] || (a.team_id ? [a.team_id] : []),
-    booking_stats: bookingStatsMap[a.id] || { total_clicks: 0, unique_contacts: 0 },
+    booking_stats: bookingStatsMap[a.id] || {
+      total_proposals: 0,
+      total_clicks: 0,
+      unique_contacts: 0,
+      conversion_rate: 0,
+    },
   }))
 
   return NextResponse.json({ data: agentsWithTeams })

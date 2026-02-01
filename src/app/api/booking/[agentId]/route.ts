@@ -39,7 +39,32 @@ export async function GET(
   const userAgent = req.headers.get('user-agent') || null
   const referer = req.headers.get('referer') || null
 
-  // Note: booking_link_clicks table created via migration
+  // Trouver la dernière proposition de RDV pour cette conversation (si elle existe)
+  let proposalId: string | null = null
+  if (conversationId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: proposal } = await (supabase as any)
+      .from('booking_proposals')
+      .select('id')
+      .eq('agent_id', agentId)
+      .eq('conversation_id', conversationId)
+      .eq('clicked', false)
+      .order('proposed_at', { ascending: false })
+      .limit(1)
+      .single() as { data: { id: string } | null }
+
+    if (proposal) {
+      proposalId = proposal.id
+      // Marquer la proposition comme cliquée
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any)
+        .from('booking_proposals')
+        .update({ clicked: true, clicked_at: new Date().toISOString() })
+        .eq('id', proposalId)
+    }
+  }
+
+  // Enregistrer le clic avec la référence à la proposition
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   await (supabase as any).from('booking_link_clicks').insert({
     agent_id: agentId,
@@ -49,6 +74,7 @@ export async function GET(
     user_agent: userAgent,
     ip_hash: ipHash,
     referer: referer,
+    proposal_id: proposalId,
   })
 
   // Rediriger vers le lien de RDV

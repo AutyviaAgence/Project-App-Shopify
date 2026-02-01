@@ -228,7 +228,7 @@ export async function processAIResponse(params: {
     }
 
     // 7. Sauvegarder le message IA en BDD (chiffré si clé configurée)
-    await supabase.from('messages').insert({
+    const { data: savedMessage } = await supabase.from('messages').insert({
       conversation_id: params.conversationId,
       session_id: params.sessionId,
       direction: 'outbound',
@@ -237,7 +237,32 @@ export async function processAIResponse(params: {
       sent_by: 'ai_agent',
       ai_agent_id: params.agentId,
       status: evoResult.ok ? 'sent' : 'failed',
-    })
+    }).select('id').single()
+
+    // 7.1 Tracker si l'agent a proposé un lien de RDV dans sa réponse
+    if (agent.booking_url) {
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.example.com'
+      const bookingLinkPattern = `${baseUrl}/api/booking/${agent.id}`
+
+      if (aiResponseText.includes(bookingLinkPattern)) {
+        // Récupérer le contact_id depuis la conversation
+        const { data: conv } = await supabase
+          .from('conversations')
+          .select('contact_id')
+          .eq('id', params.conversationId)
+          .single()
+
+        // Enregistrer la proposition de RDV
+        await supabase.from('booking_proposals').insert({
+          agent_id: params.agentId,
+          conversation_id: params.conversationId,
+          contact_id: conv?.contact_id || null,
+          session_id: params.sessionId,
+          message_id: savedMessage?.id || null,
+        })
+        console.log('[AI] Proposition de RDV trackée pour agent:', agent.name)
+      }
+    }
 
     // 8. Mettre à jour l'aperçu de la conversation
     await supabase

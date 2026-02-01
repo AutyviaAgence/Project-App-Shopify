@@ -39,13 +39,17 @@ import {
   Link2,
   Megaphone,
   MousePointerClick,
-  UserCheck,
 } from 'lucide-react'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { MultiTeamSelect } from '@/components/multi-team-select'
 
 type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
-type BookingStats = { total_clicks: number; unique_contacts: number }
+type BookingStats = {
+  total_proposals: number
+  total_clicks: number
+  unique_contacts: number
+  conversion_rate: number
+}
 type AgentWithTeamIds = AIAgent & { team_ids?: string[]; booking_stats?: BookingStats }
 
 export default function AgentsPage() {
@@ -448,21 +452,33 @@ export default function AgentsPage() {
 
                     {/* Stats des liens de RDV */}
                     {agent.booking_url && (
-                      <div className="flex items-center gap-3 pt-2 border-t">
-                        <div className="flex items-center gap-1">
+                      <div className="flex flex-wrap items-center gap-3 pt-2 border-t">
+                        <div className="flex items-center gap-1" title="Nombre de fois où l'agent a proposé un lien de RDV">
+                          <CalendarClock className="h-3.5 w-3.5 text-blue-500" />
+                          <span className="text-xs font-medium">
+                            {agent.booking_stats?.total_proposals || 0}
+                          </span>
+                          <span className="text-xs text-muted-foreground">proposés</span>
+                        </div>
+                        <div className="flex items-center gap-1" title="Nombre de clics sur les liens de RDV">
                           <MousePointerClick className="h-3.5 w-3.5 text-primary" />
                           <span className="text-xs font-medium">
                             {agent.booking_stats?.total_clicks || 0}
                           </span>
                           <span className="text-xs text-muted-foreground">clics</span>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <UserCheck className="h-3.5 w-3.5 text-green-500" />
-                          <span className="text-xs font-medium">
-                            {agent.booking_stats?.unique_contacts || 0}
-                          </span>
-                          <span className="text-xs text-muted-foreground">contacts</span>
-                        </div>
+                        {(agent.booking_stats?.total_proposals || 0) > 0 && (
+                          <div className="flex items-center gap-1" title="Taux de conversion (clics / propositions)">
+                            <span className={`text-xs font-medium ${
+                              (agent.booking_stats?.conversion_rate || 0) >= 50 ? 'text-green-500' :
+                              (agent.booking_stats?.conversion_rate || 0) >= 20 ? 'text-yellow-500' :
+                              'text-muted-foreground'
+                            }`}>
+                              {agent.booking_stats?.conversion_rate || 0}%
+                            </span>
+                            <span className="text-xs text-muted-foreground">taux</span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
