@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
     const { error: e0 } = await adminSupabase
       .from('team_invitations')
       .delete()
-      .eq('invited_by', user.id)
+      .eq('created_by', user.id)
     if (e0 && !e0.message?.includes('does not exist')) {
       console.error('Error deleting team_invitations:', e0)
     }
