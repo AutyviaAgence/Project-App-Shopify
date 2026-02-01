@@ -49,8 +49,12 @@ export async function POST(req: NextRequest) {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
   if (!supabaseUrl || !serviceRoleKey) {
+    console.error('Missing env vars:', {
+      hasUrl: !!supabaseUrl,
+      hasServiceKey: !!serviceRoleKey
+    })
     return NextResponse.json(
-      { error: 'Configuration serveur manquante' },
+      { error: 'Configuration serveur manquante (SUPABASE_SERVICE_ROLE_KEY)' },
       { status: 500 }
     )
   }
@@ -59,72 +63,90 @@ export async function POST(req: NextRequest) {
     auth: { autoRefreshToken: false, persistSession: false }
   })
 
-  // Supprimer les données utilisateur (les FK CASCADE supprimeront les données liées)
-  // L'ordre est important pour respecter les contraintes FK
+  try {
+    // Supprimer les données utilisateur (les FK CASCADE supprimeront les données liées)
+    // L'ordre est important pour respecter les contraintes FK
 
-  // 1. Supprimer les team_members où l'utilisateur est membre
-  await adminSupabase
-    .from('team_members')
-    .delete()
-    .eq('user_id', user.id)
+    // 1. Supprimer les team_members où l'utilisateur est membre
+    const { error: e1 } = await adminSupabase
+      .from('team_members')
+      .delete()
+      .eq('user_id', user.id)
+    if (e1) console.error('Error deleting team_members:', e1)
 
-  // 2. Supprimer les équipes où l'utilisateur est owner
-  await adminSupabase
-    .from('teams')
-    .delete()
-    .eq('owner_id', user.id)
+    // 2. Supprimer les équipes où l'utilisateur est owner
+    const { error: e2 } = await adminSupabase
+      .from('teams')
+      .delete()
+      .eq('owner_id', user.id)
+    if (e2) console.error('Error deleting teams:', e2)
 
-  // 3. Supprimer les sessions WhatsApp (cascade sur contacts, conversations, messages)
-  await adminSupabase
-    .from('whatsapp_sessions')
-    .delete()
-    .eq('user_id', user.id)
+    // 3. Supprimer les sessions WhatsApp (cascade sur contacts, conversations, messages)
+    const { error: e3 } = await adminSupabase
+      .from('whatsapp_sessions')
+      .delete()
+      .eq('user_id', user.id)
+    if (e3) console.error('Error deleting whatsapp_sessions:', e3)
 
-  // 4. Supprimer les agents IA
-  await adminSupabase
-    .from('ai_agents')
-    .delete()
-    .eq('user_id', user.id)
+    // 4. Supprimer les agents IA
+    const { error: e4 } = await adminSupabase
+      .from('ai_agents')
+      .delete()
+      .eq('user_id', user.id)
+    if (e4) console.error('Error deleting ai_agents:', e4)
 
-  // 5. Supprimer les documents de connaissance
-  await adminSupabase
-    .from('knowledge_documents')
-    .delete()
-    .eq('user_id', user.id)
+    // 5. Supprimer les documents de connaissance
+    const { error: e5 } = await adminSupabase
+      .from('knowledge_documents')
+      .delete()
+      .eq('user_id', user.id)
+    if (e5) console.error('Error deleting knowledge_documents:', e5)
 
-  // 6. Supprimer les liens WA
-  await adminSupabase
-    .from('wa_links')
-    .delete()
-    .eq('user_id', user.id)
+    // 6. Supprimer les liens WA
+    const { error: e6 } = await adminSupabase
+      .from('wa_links')
+      .delete()
+      .eq('user_id', user.id)
+    if (e6) console.error('Error deleting wa_links:', e6)
 
-  // 7. Supprimer les campagnes
-  await adminSupabase
-    .from('campaigns')
-    .delete()
-    .eq('user_id', user.id)
+    // 7. Supprimer les campagnes
+    const { error: e7 } = await adminSupabase
+      .from('campaigns')
+      .delete()
+      .eq('user_id', user.id)
+    if (e7) console.error('Error deleting campaigns:', e7)
 
-  // 8. Supprimer les alertes
-  await adminSupabase
-    .from('alerts')
-    .delete()
-    .eq('user_id', user.id)
+    // 8. Supprimer les alertes
+    const { error: e8 } = await adminSupabase
+      .from('alerts')
+      .delete()
+      .eq('user_id', user.id)
+    if (e8) console.error('Error deleting alerts:', e8)
 
-  // 9. Supprimer le profil
-  await adminSupabase
-    .from('profiles')
-    .delete()
-    .eq('id', user.id)
+    // 9. Supprimer le profil
+    const { error: e9 } = await adminSupabase
+      .from('profiles')
+      .delete()
+      .eq('id', user.id)
+    if (e9) console.error('Error deleting profiles:', e9)
 
-  // 10. Supprimer l'utilisateur auth
-  const { error: deleteError } = await adminSupabase.auth.admin.deleteUser(user.id)
+    // 10. Supprimer l'utilisateur auth
+    const { error: deleteError } = await adminSupabase.auth.admin.deleteUser(user.id)
 
-  if (deleteError) {
+    if (deleteError) {
+      console.error('Error deleting auth user:', deleteError)
+      return NextResponse.json(
+        { error: `Erreur lors de la suppression du compte: ${deleteError.message}` },
+        { status: 500 }
+      )
+    }
+
+    return NextResponse.json({ data: { deleted: true } })
+  } catch (error) {
+    console.error('Unexpected error during account deletion:', error)
     return NextResponse.json(
-      { error: 'Erreur lors de la suppression du compte' },
+      { error: `Erreur inattendue: ${error instanceof Error ? error.message : 'Unknown error'}` },
       { status: 500 }
     )
   }
-
-  return NextResponse.json({ data: { deleted: true } })
 }
