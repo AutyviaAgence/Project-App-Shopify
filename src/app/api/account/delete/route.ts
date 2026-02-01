@@ -116,21 +116,32 @@ export async function POST(req: NextRequest) {
       .eq('user_id', user.id)
     if (e7) console.error('Error deleting campaigns:', e7)
 
-    // 8. Supprimer les alertes
+    // 8. Supprimer les alertes (table optionnelle)
     const { error: e8 } = await adminSupabase
       .from('alerts')
       .delete()
       .eq('user_id', user.id)
-    if (e8) console.error('Error deleting alerts:', e8)
+    if (e8 && !e8.message?.includes('does not exist')) {
+      console.error('Error deleting alerts:', e8)
+    }
 
-    // 9. Supprimer le profil
+    // 9. Supprimer les préférences utilisateur (table optionnelle)
+    const { error: e8b } = await adminSupabase
+      .from('user_preferences')
+      .delete()
+      .eq('user_id', user.id)
+    if (e8b && !e8b.message?.includes('does not exist')) {
+      console.error('Error deleting user_preferences:', e8b)
+    }
+
+    // 11. Supprimer le profil
     const { error: e9 } = await adminSupabase
       .from('profiles')
       .delete()
       .eq('id', user.id)
     if (e9) console.error('Error deleting profiles:', e9)
 
-    // 10. Supprimer l'utilisateur auth
+    // 12. Supprimer l'utilisateur auth
     const { error: deleteError } = await adminSupabase.auth.admin.deleteUser(user.id)
 
     if (deleteError) {
