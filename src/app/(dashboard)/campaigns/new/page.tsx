@@ -56,7 +56,7 @@ export default function NewCampaignPage() {
 
   // Form state
   const [name, setName] = useState('')
-  const [teamId, setTeamId] = useState<string>('')
+  const [teamIds, setTeamIds] = useState<string[]>([])
   const [useAgent, setUseAgent] = useState(true)
   const [agentId, setAgentId] = useState<string>('')
   const [conversationAgentId, setConversationAgentId] = useState<string>('')
@@ -142,7 +142,7 @@ export default function NewCampaignPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: name.trim(),
-          team_id: teamId || null,
+          team_ids: teamIds.length > 0 ? teamIds : undefined,
           relance_agent_id: useAgent && agentId ? agentId : null,
           conversation_agent_id: conversationAgentId || null,
           message_template: !useAgent ? messageTemplate : null,
@@ -225,7 +225,7 @@ export default function NewCampaignPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name: name.trim(),
-          team_id: teamId || null,
+          team_ids: teamIds.length > 0 ? teamIds : undefined,
           relance_agent_id: useAgent && agentId ? agentId : null,
           conversation_agent_id: conversationAgentId || null,
           message_template: !useAgent ? messageTemplate : null,
@@ -307,20 +307,29 @@ export default function NewCampaignPage() {
 
             {teams.length > 0 && (
               <div className="space-y-2">
-                <Label>Équipe (optionnel)</Label>
-                <Select value={teamId || 'none'} onValueChange={(v) => setTeamId(v === 'none' ? '' : v)}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Aucune équipe" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Aucune équipe</SelectItem>
-                    {teams.map((team) => (
-                      <SelectItem key={team.id} value={team.id}>
-                        {team.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label>Équipes (optionnel)</Label>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Sélectionnez les équipes qui auront accès à cette campagne
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {teams.map((team) => (
+                    <Badge
+                      key={team.id}
+                      variant={teamIds.includes(team.id) ? 'default' : 'outline'}
+                      className="cursor-pointer"
+                      onClick={() => {
+                        setTeamIds((prev) =>
+                          prev.includes(team.id)
+                            ? prev.filter((id) => id !== team.id)
+                            : [...prev, team.id]
+                        )
+                      }}
+                    >
+                      <Users className="mr-1 h-3 w-3" />
+                      {team.name}
+                    </Badge>
+                  ))}
+                </div>
               </div>
             )}
           </CardContent>

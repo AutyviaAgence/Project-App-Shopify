@@ -253,6 +253,13 @@ export type LinkTeam = {
   created_at: string
 }
 
+export type CampaignTeam = {
+  id: string
+  campaign_id: string
+  team_id: string
+  created_at: string
+}
+
 export type TeamMember = {
   id: string
   team_id: string
