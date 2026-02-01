@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -38,6 +39,9 @@ export default function ForgotPasswordPage() {
       <div className="flex min-h-screen items-center justify-center px-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
+            <div className="flex justify-center mb-4">
+              <Image src="/logo.svg" alt="Autyvia" width={64} height={64} className="h-16 w-16" />
+            </div>
             <CardTitle>Email envoyé</CardTitle>
             <CardDescription>
               Vérifiez votre boîte mail pour réinitialiser votre mot de passe.
@@ -57,6 +61,9 @@ export default function ForgotPasswordPage() {
     <div className="flex min-h-screen items-center justify-center px-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
+          <div className="flex justify-center mb-4">
+            <Image src="/logo.svg" alt="Autyvia" width={64} height={64} className="h-16 w-16" />
+          </div>
           <CardTitle className="text-2xl font-bold">Mot de passe oublié</CardTitle>
           <CardDescription>Entrez votre email pour recevoir un lien de réinitialisation</CardDescription>
         </CardHeader>

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
@@ -125,15 +126,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         )}>
           {!collapsed && (
             <Link href="/dashboard" className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#7DC2A5] to-[#40E9BE]">
-                <span className="text-sm font-bold text-white">A</span>
-              </div>
+              <Image src="/logo.svg" alt="Autyvia" width={32} height={32} className="h-8 w-8" />
               <span className="text-lg font-semibold text-white">Autyvia</span>
             </Link>
           )}
           {collapsed && (
-            <Link href="/dashboard" className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-[#7DC2A5] to-[#40E9BE]">
-              <span className="text-sm font-bold text-white">A</span>
+            <Link href="/dashboard">
+              <Image src="/logo.svg" alt="Autyvia" width={32} height={32} className="h-8 w-8" />
             </Link>
           )}
           <button
