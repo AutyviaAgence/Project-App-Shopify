@@ -58,10 +58,45 @@ export async function GET() {
     }
   }
 
-  // Ajouter team_ids à chaque agent
+  // Récupérer les stats de clics booking pour chaque agent
+  const bookingStatsMap: Record<string, { total_clicks: number; unique_contacts: number }> = {}
+
+  if (agentIds.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: bookingClicks } = await (supabase as any)
+      .from('booking_link_clicks')
+      .select('agent_id, contact_id')
+      .in('agent_id', agentIds) as { data: { agent_id: string; contact_id: string | null }[] | null }
+
+    if (bookingClicks) {
+      const contactsByAgent: Record<string, Set<string>> = {}
+      for (const click of bookingClicks) {
+        if (!bookingStatsMap[click.agent_id]) {
+          bookingStatsMap[click.agent_id] = { total_clicks: 0, unique_contacts: 0 }
+        }
+        bookingStatsMap[click.agent_id].total_clicks++
+
+        if (click.contact_id) {
+          if (!contactsByAgent[click.agent_id]) {
+            contactsByAgent[click.agent_id] = new Set()
+          }
+          contactsByAgent[click.agent_id].add(click.contact_id)
+        }
+      }
+      // Calculer les contacts uniques
+      for (const [agentId, contacts] of Object.entries(contactsByAgent)) {
+        if (bookingStatsMap[agentId]) {
+          bookingStatsMap[agentId].unique_contacts = contacts.size
+        }
+      }
+    }
+  }
+
+  // Ajouter team_ids et booking_stats à chaque agent
   const agentsWithTeams = agents.map(a => ({
     ...a,
-    team_ids: agentTeamsMap[a.id] || (a.team_id ? [a.team_id] : [])
+    team_ids: agentTeamsMap[a.id] || (a.team_id ? [a.team_id] : []),
+    booking_stats: bookingStatsMap[a.id] || { total_clicks: 0, unique_contacts: 0 },
   }))
 
   return NextResponse.json({ data: agentsWithTeams })

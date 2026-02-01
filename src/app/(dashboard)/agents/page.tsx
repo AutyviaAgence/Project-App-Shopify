@@ -38,12 +38,15 @@ import {
   CalendarClock,
   Link2,
   Megaphone,
+  MousePointerClick,
+  UserCheck,
 } from 'lucide-react'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { MultiTeamSelect } from '@/components/multi-team-select'
 
 type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
-type AgentWithTeamIds = AIAgent & { team_ids?: string[] }
+type BookingStats = { total_clicks: number; unique_contacts: number }
+type AgentWithTeamIds = AIAgent & { team_ids?: string[]; booking_stats?: BookingStats }
 
 export default function AgentsPage() {
   const [agents, setAgents] = useState<AgentWithTeamIds[]>([])
@@ -441,6 +444,26 @@ export default function AgentsPage() {
                       <p className="text-xs text-muted-foreground truncate">
                         Objectif : {agent.objective}
                       </p>
+                    )}
+
+                    {/* Stats des liens de RDV */}
+                    {agent.booking_url && (
+                      <div className="flex items-center gap-3 pt-2 border-t">
+                        <div className="flex items-center gap-1">
+                          <MousePointerClick className="h-3.5 w-3.5 text-primary" />
+                          <span className="text-xs font-medium">
+                            {agent.booking_stats?.total_clicks || 0}
+                          </span>
+                          <span className="text-xs text-muted-foreground">clics</span>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <UserCheck className="h-3.5 w-3.5 text-green-500" />
+                          <span className="text-xs font-medium">
+                            {agent.booking_stats?.unique_contacts || 0}
+                          </span>
+                          <span className="text-xs text-muted-foreground">contacts</span>
+                        </div>
+                      </div>
                     )}
                   </div>
 
