@@ -681,7 +681,7 @@ export default function TeamsPage() {
   return (
     <div className="p-4 md:p-6 pb-20 md:pb-6 space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-1">
+      <div data-tour="teams-header" className="flex flex-col gap-1">
         <h1 className="text-xl md:text-2xl font-bold">Équipes</h1>
         <p className="text-sm text-muted-foreground">
           Créez ou rejoignez une équipe pour partager vos ressources.

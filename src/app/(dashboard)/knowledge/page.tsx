@@ -456,13 +456,13 @@ export default function KnowledgePage() {
   return (
     <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
-        <div>
+        <div data-tour="knowledge-header">
           <h1 className="text-2xl font-bold">Base de connaissances</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Ajoutez des documents que vos agents IA pourront consulter pour enrichir leurs réponses.
           </p>
         </div>
-        <Button onClick={openCreateDialog}>
+        <Button data-tour="upload-btn" onClick={openCreateDialog}>
           <Plus className="mr-2 h-4 w-4" />
           Nouveau document
         </Button>

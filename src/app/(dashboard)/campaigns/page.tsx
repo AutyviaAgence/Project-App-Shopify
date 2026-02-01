@@ -138,7 +138,7 @@ export default function CampaignsPage() {
   return (
     <div className="p-4 sm:p-6">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+        <div data-tour="campaigns-header">
           <h1 className="text-xl sm:text-2xl font-bold">Campagnes de relance</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Relancez vos contacts inactifs avec des messages personnalisés.
@@ -159,7 +159,7 @@ export default function CampaignsPage() {
               <SelectItem value="cancelled">Annulées</SelectItem>
             </SelectContent>
           </Select>
-          <Button onClick={() => router.push('/campaigns/new')} className="w-full sm:w-auto">
+          <Button data-tour="new-campaign-btn" onClick={() => router.push('/campaigns/new')} className="w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" />
             Nouvelle campagne
           </Button>

@@ -545,7 +545,7 @@ export default function ConversationsPage() {
         )}
       >
         {/* Search header */}
-        <div className="p-3 space-y-3">
+        <div data-tour="conversations-header" className="p-3 space-y-3">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
@@ -557,7 +557,7 @@ export default function ConversationsPage() {
           </div>
 
           {/* Filter bar */}
-          <div className="flex items-center gap-2">
+          <div data-tour="conversations-filters" className="flex items-center gap-2">
             <Button
               variant={showFilters ? 'secondary' : 'ghost'}
               size="sm"

@@ -296,13 +296,13 @@ export default function LinksPage() {
   return (
     <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
-        <div>
+        <div data-tour="links-header">
           <h1 className="text-2xl font-bold">Liens WhatsApp</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Créez des liens wa.me avec tracking et message pré-rempli.
           </p>
         </div>
-        <Button onClick={openCreateDialog} disabled={sessions.length === 0}>
+        <Button data-tour="new-link-btn" onClick={openCreateDialog} disabled={sessions.length === 0}>
           <Plus className="mr-2 h-4 w-4" />
           Nouveau lien
         </Button>

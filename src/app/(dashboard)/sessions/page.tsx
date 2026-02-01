@@ -372,13 +372,13 @@ export default function SessionsPage() {
   return (
     <div className="p-4 sm:p-6">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+        <div data-tour="sessions-header">
           <h1 className="text-xl sm:text-2xl font-bold">Sessions WhatsApp</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Gérez vos connexions WhatsApp. Chaque session correspond à un numéro.
           </p>
         </div>
-        <Button onClick={openCreateDialog} className="w-full sm:w-auto">
+        <Button data-tour="new-session-btn" onClick={openCreateDialog} className="w-full sm:w-auto">
           <Plus className="mr-2 h-4 w-4" />
           Nouvelle session
         </Button>

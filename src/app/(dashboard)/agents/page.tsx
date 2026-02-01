@@ -332,13 +332,13 @@ export default function AgentsPage() {
   return (
     <div className="p-4 sm:p-6">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+        <div data-tour="agents-header">
           <h1 className="text-xl sm:text-2xl font-bold">Agents IA</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Créez des agents intelligents pour répondre automatiquement sur WhatsApp.
           </p>
         </div>
-        <Button onClick={openCreateDialog} className="w-full sm:w-auto">
+        <Button data-tour="new-agent-btn" onClick={openCreateDialog} className="w-full sm:w-auto">
           <Plus className="mr-2 h-4 w-4" />
           Nouvel agent
         </Button>

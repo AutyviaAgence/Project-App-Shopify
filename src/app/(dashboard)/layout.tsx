@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { AlertsDropdown } from '@/components/alerts-dropdown'
+import { TourProvider } from '@/components/guided-tour'
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -102,6 +103,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
+    <TourProvider>
     <div className="flex h-[100dvh] overflow-hidden bg-background">
       {/* Mobile overlay */}
       {sidebarOpen && (
@@ -248,5 +250,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Spacer for mobile bottom nav */}
       <div className="h-16 md:hidden" />
     </div>
+    </TourProvider>
   )
 }
