@@ -18,7 +18,10 @@ import {
   Link2,
   ArrowRight,
   Clock,
+  HelpCircle,
 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { OnboardingTour, useOnboardingTour } from '@/components/onboarding-tour'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 
@@ -33,6 +36,7 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<StatsResponse | null>(null)
   const [sessions, setSessions] = useState<WhatsAppSession[]>([])
   const [loading, setLoading] = useState(true)
+  const tour = useOnboardingTour()
 
   const fetchData = useCallback(async () => {
     setLoading(true)
@@ -70,14 +74,32 @@ export default function DashboardPage() {
   return (
     <div className="p-4 md:p-6 space-y-6 pb-20 md:pb-6">
       {/* Header */}
-      <div className="flex flex-col gap-1">
-        <h1 className="text-xl md:text-2xl font-bold text-foreground">
-          Bonjour !
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Aperçu de votre activité des 7 derniers jours
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-xl md:text-2xl font-bold text-foreground">
+            Bonjour !
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Aperçu de votre activité des 7 derniers jours
+          </p>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={tour.openTour}
+          className="gap-2 shrink-0"
+        >
+          <HelpCircle className="h-4 w-4" />
+          <span className="hidden sm:inline">Guide</span>
+        </Button>
       </div>
+
+      {/* Onboarding Tour */}
+      <OnboardingTour
+        isOpen={tour.isOpen}
+        onClose={tour.closeTour}
+        onComplete={tour.completeTour}
+      />
 
       {loading ? (
         <div className="flex h-64 items-center justify-center">
