@@ -360,9 +360,9 @@ function TourOverlay() {
   const highlightPadding = 8
 
   return (
-    <div className="fixed inset-0 z-[9999]">
+    <div className="fixed inset-0 z-[9999] pointer-events-none">
       {/* Dark overlay with hole for target */}
-      <svg className="absolute inset-0 w-full h-full">
+      <svg className="absolute inset-0 w-full h-full pointer-events-auto" onClick={endTour}>
         <defs>
           <mask id="spotlight-mask">
             <rect x="0" y="0" width="100%" height="100%" fill="white" />
@@ -400,7 +400,7 @@ function TourOverlay() {
 
       {/* Tooltip */}
       <div
-        className="absolute bg-white dark:bg-gray-900 rounded-xl shadow-2xl border overflow-hidden"
+        className="absolute bg-white dark:bg-gray-900 rounded-xl shadow-2xl border overflow-hidden pointer-events-auto"
         style={tooltipStyle}
       >
         {/* Header */}
@@ -467,20 +467,6 @@ function TourOverlay() {
           </Button>
         </div>
       </div>
-
-      {/* Click blocker (but allow clicking the highlighted element) */}
-      <div
-        className="absolute inset-0"
-        onClick={(e) => {
-          const target = document.querySelector(step.target)
-          if (target && target.contains(e.target as Node)) {
-            return // Allow click on highlighted element
-          }
-          e.preventDefault()
-          e.stopPropagation()
-        }}
-        style={{ pointerEvents: 'auto' }}
-      />
     </div>
   )
 }
