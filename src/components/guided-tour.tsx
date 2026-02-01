@@ -28,82 +28,60 @@ interface TourContextType {
   goToStep: (index: number) => void
 }
 
-// Tour steps configuration
+// Tour steps configuration (réduit à 8 étapes essentielles)
 const TOUR_STEPS: TourStep[] = [
-  // Dashboard
+  // Dashboard - Bienvenue
   {
     id: 'welcome',
     page: '/dashboard',
     target: '[data-tour="header"]',
     title: 'Bienvenue sur Autyvia !',
-    description: 'Ce guide va vous montrer les fonctionnalités principales de la plateforme. Suivez les étapes pour découvrir comment automatiser vos conversations WhatsApp.',
+    description: 'Découvrez comment automatiser vos conversations WhatsApp en quelques étapes. Ce guide rapide vous présente les fonctionnalités essentielles.',
     position: 'bottom'
   },
-  {
-    id: 'dashboard-kpi',
-    page: '/dashboard',
-    target: '[data-tour="kpi-cards"]',
-    title: 'Vos statistiques clés',
-    description: 'Visualisez en un coup d\'œil vos messages, conversations actives, nouveaux contacts et taux de réponse IA.',
-    position: 'bottom'
-  },
-  {
-    id: 'dashboard-quick-stats',
-    page: '/dashboard',
-    target: '[data-tour="quick-stats"]',
-    title: 'Accès rapide',
-    description: 'Accédez rapidement à vos sessions WhatsApp, agents IA et liens de tracking. Cliquez sur une carte pour aller à la page correspondante.',
-    position: 'top'
-  },
-  // Sessions
+  // Sessions - Connecter WhatsApp
   {
     id: 'sessions-page',
     page: '/sessions',
     target: '[data-tour="sessions-header"]',
-    title: 'Sessions WhatsApp',
-    description: 'C\'est ici que vous connectez vos comptes WhatsApp. Chaque session représente un numéro de téléphone.',
+    title: '1. Connectez WhatsApp',
+    description: 'Commencez par connecter votre compte WhatsApp. Cliquez sur "Nouvelle session" et scannez le QR code avec votre téléphone.',
     position: 'bottom'
   },
-  {
-    id: 'sessions-new',
-    page: '/sessions',
-    target: '[data-tour="new-session-btn"]',
-    title: 'Nouvelle session',
-    description: 'Cliquez ici pour connecter un nouveau compte WhatsApp. Vous devrez scanner un QR code avec votre téléphone.',
-    position: 'left'
-  },
-  // Agents
+  // Agents - Créer un agent IA
   {
     id: 'agents-page',
     page: '/agents',
     target: '[data-tour="agents-header"]',
-    title: 'Agents IA',
-    description: 'Les agents IA répondent automatiquement à vos clients. Vous pouvez créer plusieurs agents avec des personnalités différentes.',
+    title: '2. Créez un agent IA',
+    description: 'Les agents IA répondent automatiquement à vos clients 24h/24. Définissez leur personnalité, horaires et comportement.',
     position: 'bottom'
   },
+  // Knowledge - Base de connaissances
   {
-    id: 'agents-new',
-    page: '/agents',
-    target: '[data-tour="new-agent-btn"]',
-    title: 'Créer un agent',
-    description: 'Cliquez ici pour créer un nouvel agent. Vous pourrez définir sa personnalité, ses horaires et son comportement.',
-    position: 'left'
+    id: 'knowledge-page',
+    page: '/knowledge',
+    target: '[data-tour="knowledge-header"]',
+    title: '3. Enrichissez avec des documents',
+    description: 'Uploadez vos FAQ, catalogues ou conditions. L\'IA utilisera ces informations pour répondre précisément aux questions.',
+    position: 'bottom'
   },
   // Conversations
   {
     id: 'conversations-page',
     page: '/conversations',
     target: '[data-tour="conversations-header"]',
-    title: 'Conversations',
-    description: 'Consultez toutes vos conversations WhatsApp. Vous pouvez voir les messages, assigner un agent IA ou répondre manuellement.',
+    title: '4. Gérez vos conversations',
+    description: 'Consultez toutes vos conversations, assignez des agents IA ou prenez le relais manuellement quand nécessaire.',
     position: 'bottom'
   },
+  // Links - Tracking
   {
-    id: 'conversations-filters',
-    page: '/conversations',
-    target: '[data-tour="conversations-filters"]',
-    title: 'Filtres et recherche',
-    description: 'Filtrez vos conversations par session, par activité IA, ou recherchez un contact spécifique.',
+    id: 'links-page',
+    page: '/links',
+    target: '[data-tour="links-header"]',
+    title: '5. Trackez vos sources',
+    description: 'Créez des liens WhatsApp personnalisés pour savoir d\'où viennent vos contacts (réseaux sociaux, Google, etc.).',
     position: 'bottom'
   },
   // Campaigns
@@ -111,59 +89,8 @@ const TOUR_STEPS: TourStep[] = [
     id: 'campaigns-page',
     page: '/campaigns',
     target: '[data-tour="campaigns-header"]',
-    title: 'Campagnes',
-    description: 'Envoyez des messages en masse à vos contacts. Idéal pour les relances, promotions ou informations importantes.',
-    position: 'bottom'
-  },
-  {
-    id: 'campaigns-new',
-    page: '/campaigns',
-    target: '[data-tour="new-campaign-btn"]',
-    title: 'Nouvelle campagne',
-    description: 'Créez une campagne avec des filtres (tags, inactivité, source) et des protections anti-spam intégrées.',
-    position: 'left'
-  },
-  // Knowledge
-  {
-    id: 'knowledge-page',
-    page: '/knowledge',
-    target: '[data-tour="knowledge-header"]',
-    title: 'Base de connaissances',
-    description: 'Enrichissez vos agents avec des documents. L\'IA utilisera ces informations pour répondre plus précisément.',
-    position: 'bottom'
-  },
-  {
-    id: 'knowledge-upload',
-    page: '/knowledge',
-    target: '[data-tour="upload-btn"]',
-    title: 'Ajouter un document',
-    description: 'Uploadez un PDF (FAQ, catalogue, conditions) ou collez du texte. Le document sera automatiquement analysé.',
-    position: 'left'
-  },
-  // Links
-  {
-    id: 'links-page',
-    page: '/links',
-    target: '[data-tour="links-header"]',
-    title: 'Liens WhatsApp',
-    description: 'Créez des liens wa.me trackés pour mesurer d\'où viennent vos contacts (Facebook, Instagram, Google...).',
-    position: 'bottom'
-  },
-  {
-    id: 'links-new',
-    page: '/links',
-    target: '[data-tour="new-link-btn"]',
-    title: 'Créer un lien',
-    description: 'Chaque lien peut avoir un message pré-rempli et un agent IA assigné automatiquement.',
-    position: 'left'
-  },
-  // Teams
-  {
-    id: 'teams-page',
-    page: '/teams',
-    target: '[data-tour="teams-header"]',
-    title: 'Équipes',
-    description: 'Collaborez avec votre équipe. Partagez sessions, agents et documents avec des permissions personnalisées.',
+    title: '6. Lancez des campagnes',
+    description: 'Envoyez des messages ciblés à vos contacts avec des filtres intelligents et des protections anti-spam intégrées.',
     position: 'bottom'
   },
   // End
@@ -172,7 +99,7 @@ const TOUR_STEPS: TourStep[] = [
     page: '/dashboard',
     target: '[data-tour="header"]',
     title: 'C\'est parti !',
-    description: 'Vous connaissez maintenant les bases d\'Autyvia. Commencez par connecter une session WhatsApp, puis créez votre premier agent IA !',
+    description: 'Vous êtes prêt ! Commencez par connecter une session WhatsApp, puis créez votre premier agent IA. Bon succès !',
     position: 'bottom'
   }
 ]
@@ -369,7 +296,7 @@ function TourOverlay() {
 
   if (!targetRect) {
     return (
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50">
+      <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/30">
         <div className="animate-pulse text-white">Chargement...</div>
       </div>
     )
@@ -378,9 +305,9 @@ function TourOverlay() {
   const highlightPadding = 8
 
   return (
-    <div className="fixed inset-0 z-[9999] pointer-events-none">
-      {/* Dark overlay with hole for target */}
-      <svg className="absolute inset-0 w-full h-full pointer-events-auto" onClick={endTour}>
+    <div className="fixed inset-0 z-[9999] pointer-events-none overflow-visible">
+      {/* Dark overlay with hole for target - plus léger et permet le scroll */}
+      <svg className="absolute inset-0 w-full h-full" style={{ pointerEvents: 'none' }}>
         <defs>
           <mask id="spotlight-mask">
             <rect x="0" y="0" width="100%" height="100%" fill="white" />
@@ -399,8 +326,9 @@ function TourOverlay() {
           y="0"
           width="100%"
           height="100%"
-          fill="rgba(0, 0, 0, 0.75)"
+          fill="rgba(0, 0, 0, 0.4)"
           mask="url(#spotlight-mask)"
+          style={{ pointerEvents: 'none' }}
         />
       </svg>
 
