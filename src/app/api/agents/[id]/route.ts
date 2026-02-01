@@ -80,8 +80,8 @@ export async function PATCH(
     name, description, system_prompt, objective, model, temperature, is_active,
     response_delay_min, response_delay_max, max_messages_per_conversation, inactivity_timeout_minutes,
     schedule_enabled, schedule_timezone, schedule_start_time, schedule_end_time, schedule_days,
-    auto_detect_language, escalation_enabled, escalation_keywords, escalation_message, team_id, team_ids,
-    agent_type
+    auto_detect_language, escalation_enabled, escalation_keywords, escalation_message, booking_url,
+    team_id, team_ids, agent_type
   } = body as {
     name?: string
     description?: string
@@ -103,6 +103,7 @@ export async function PATCH(
     escalation_enabled?: boolean
     escalation_keywords?: string[]
     escalation_message?: string
+    booking_url?: string
     team_id?: string | null
     team_ids?: string[]
     agent_type?: 'conversation' | 'relance'
@@ -180,6 +181,11 @@ export async function PATCH(
   }
   if (escalation_message !== undefined) {
     updateData.escalation_message = escalation_message?.trim() || null
+  }
+
+  // Lien de rendez-vous
+  if (booking_url !== undefined) {
+    updateData.booking_url = booking_url?.trim() || null
   }
 
   // Type d'agent (conversation ou relance)
