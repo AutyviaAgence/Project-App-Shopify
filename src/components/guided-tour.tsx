@@ -28,7 +28,7 @@ interface TourContextType {
   goToStep: (index: number) => void
 }
 
-// Tour steps configuration (réduit à 8 étapes essentielles)
+// Tour steps configuration (12 étapes détaillées)
 const TOUR_STEPS: TourStep[] = [
   // Dashboard - Bienvenue
   {
@@ -36,52 +36,84 @@ const TOUR_STEPS: TourStep[] = [
     page: '/dashboard',
     target: '[data-tour="header"]',
     title: 'Bienvenue sur Autyvia !',
-    description: 'Découvrez comment automatiser vos conversations WhatsApp en quelques étapes. Ce guide rapide vous présente les fonctionnalités essentielles.',
+    description: 'Ce guide vous accompagne pas à pas pour configurer votre système d\'automatisation WhatsApp. Vous pouvez naviguer avec les flèches du clavier ou les boutons.',
     position: 'bottom'
   },
-  // Sessions - Connecter WhatsApp
+  {
+    id: 'dashboard-kpi',
+    page: '/dashboard',
+    target: '[data-tour="kpi-cards"]',
+    title: 'Tableau de bord',
+    description: 'Visualisez vos statistiques clés : messages envoyés/reçus, conversations actives, nouveaux contacts et taux de réponse de l\'IA. Ces données se mettent à jour en temps réel.',
+    position: 'bottom'
+  },
+  // Sessions
   {
     id: 'sessions-page',
     page: '/sessions',
     target: '[data-tour="sessions-header"]',
-    title: '1. Connectez WhatsApp',
-    description: 'Commencez par connecter votre compte WhatsApp. Cliquez sur "Nouvelle session" et scannez le QR code avec votre téléphone.',
+    title: 'Sessions WhatsApp',
+    description: 'Une session = un compte WhatsApp connecté. Vous pouvez connecter plusieurs numéros pour gérer différentes activités ou équipes.',
     position: 'bottom'
   },
-  // Agents - Créer un agent IA
+  {
+    id: 'sessions-new',
+    page: '/sessions',
+    target: '[data-tour="new-session-btn"]',
+    title: 'Connecter WhatsApp',
+    description: 'Cliquez ici pour connecter un nouveau compte. Un QR code apparaîtra : scannez-le avec WhatsApp sur votre téléphone (Paramètres > Appareils connectés).',
+    position: 'left'
+  },
+  // Agents
   {
     id: 'agents-page',
     page: '/agents',
     target: '[data-tour="agents-header"]',
-    title: '2. Créez un agent IA',
-    description: 'Les agents IA répondent automatiquement à vos clients 24h/24. Définissez leur personnalité, horaires et comportement.',
+    title: 'Agents IA',
+    description: 'Les agents IA répondent automatiquement à vos clients 24h/24. Chaque agent a sa propre personnalité, ses horaires et son comportement.',
     position: 'bottom'
   },
-  // Knowledge - Base de connaissances
+  {
+    id: 'agents-new',
+    page: '/agents',
+    target: '[data-tour="new-agent-btn"]',
+    title: 'Créer un agent',
+    description: 'Créez un agent en définissant : son nom, sa personnalité (prompt système), ses horaires actifs, et les sessions WhatsApp qu\'il gère.',
+    position: 'left'
+  },
+  // Knowledge
   {
     id: 'knowledge-page',
     page: '/knowledge',
     target: '[data-tour="knowledge-header"]',
-    title: '3. Enrichissez avec des documents',
-    description: 'Uploadez vos FAQ, catalogues ou conditions. L\'IA utilisera ces informations pour répondre précisément aux questions.',
+    title: 'Base de connaissances',
+    description: 'Enrichissez vos agents avec des documents. L\'IA utilisera ces informations pour répondre précisément aux questions de vos clients.',
     position: 'bottom'
+  },
+  {
+    id: 'knowledge-upload',
+    page: '/knowledge',
+    target: '[data-tour="upload-btn"]',
+    title: 'Ajouter un document',
+    description: 'Uploadez un PDF (FAQ, catalogue, tarifs, conditions) ou collez du texte. Assignez ensuite le document aux agents qui doivent l\'utiliser.',
+    position: 'left'
   },
   // Conversations
   {
     id: 'conversations-page',
     page: '/conversations',
     target: '[data-tour="conversations-header"]',
-    title: '4. Gérez vos conversations',
-    description: 'Consultez toutes vos conversations, assignez des agents IA ou prenez le relais manuellement quand nécessaire.',
+    title: 'Conversations',
+    description: 'Consultez toutes vos conversations WhatsApp. Voyez les messages échangés, l\'historique avec chaque contact, et les réponses de l\'IA.',
     position: 'bottom'
   },
-  // Links - Tracking
+  // Links
   {
     id: 'links-page',
     page: '/links',
     target: '[data-tour="links-header"]',
-    title: '5. Trackez vos sources',
-    description: 'Créez des liens WhatsApp personnalisés pour savoir d\'où viennent vos contacts (réseaux sociaux, Google, etc.).',
+    title: 'Liens WhatsApp',
+    description: 'Créez des liens wa.me personnalisés pour tracker l\'origine de vos contacts. Chaque lien peut avoir un message pré-rempli et un agent assigné.',
     position: 'bottom'
   },
   // Campaigns
@@ -89,8 +121,8 @@ const TOUR_STEPS: TourStep[] = [
     id: 'campaigns-page',
     page: '/campaigns',
     target: '[data-tour="campaigns-header"]',
-    title: '6. Lancez des campagnes',
-    description: 'Envoyez des messages ciblés à vos contacts avec des filtres intelligents et des protections anti-spam intégrées.',
+    title: 'Campagnes',
+    description: 'Envoyez des messages de relance à vos contacts inactifs. Filtrez par tags, source, ou durée d\'inactivité. Protections anti-spam intégrées.',
     position: 'bottom'
   },
   // End
@@ -98,8 +130,8 @@ const TOUR_STEPS: TourStep[] = [
     id: 'tour-end',
     page: '/dashboard',
     target: '[data-tour="header"]',
-    title: 'C\'est parti !',
-    description: 'Vous êtes prêt ! Commencez par connecter une session WhatsApp, puis créez votre premier agent IA. Bon succès !',
+    title: 'Prêt à démarrer !',
+    description: 'Commencez par : 1) Connecter une session WhatsApp, 2) Créer un agent IA, 3) Optionnellement ajouter des documents. L\'IA répondra ensuite automatiquement !',
     position: 'bottom'
   }
 ]
