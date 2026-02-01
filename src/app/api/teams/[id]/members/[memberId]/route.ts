@@ -49,6 +49,7 @@ export async function PATCH(
     allowed_session_ids,
     allowed_agent_ids,
     allowed_link_ids,
+    allowed_campaign_ids,
     // Nouvelles permissions granulaires
     can_view_stats,
     can_view_knowledge,
@@ -63,6 +64,7 @@ export async function PATCH(
     allowed_session_ids?: string[] | null
     allowed_agent_ids?: string[] | null
     allowed_link_ids?: string[] | null
+    allowed_campaign_ids?: string[] | null
     can_view_stats?: boolean
     can_view_knowledge?: boolean
     can_view_messages?: boolean
@@ -97,6 +99,9 @@ export async function PATCH(
   }
   if (allowed_link_ids !== undefined) {
     updateData.allowed_link_ids = allowed_link_ids
+  }
+  if (allowed_campaign_ids !== undefined) {
+    updateData.allowed_campaign_ids = allowed_campaign_ids
   }
 
   // Gestion des permissions granulaires (lecture/écriture)

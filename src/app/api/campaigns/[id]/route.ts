@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getUserTeamIds } from '@/lib/teams/access'
+import { canAccessCampaign, isTeamAdmin } from '@/lib/teams/access'
 
 /** GET /api/campaigns/[id] — Récupérer une campagne */
 export async function GET(
@@ -26,11 +26,8 @@ export async function GET(
     return NextResponse.json({ error: 'Campagne non trouvée' }, { status: 404 })
   }
 
-  // Vérifier l'accès
-  const teamIds = await getUserTeamIds(supabase, user.id)
-  const hasAccess =
-    campaign.user_id === user.id ||
-    (campaign.team_id && teamIds.includes(campaign.team_id))
+  // Vérifier l'accès avec permissions granulaires
+  const hasAccess = await canAccessCampaign(supabase, user.id, campaign)
 
   if (!hasAccess) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
@@ -75,8 +72,11 @@ export async function PATCH(
     return NextResponse.json({ error: 'Campagne non trouvée' }, { status: 404 })
   }
 
-  // Vérifier que l'utilisateur est le propriétaire
-  if (existing.user_id !== user.id) {
+  // Vérifier l'accès (propriétaire ou admin d'équipe)
+  const isOwner = existing.user_id === user.id
+  const isAdmin = existing.team_id ? await isTeamAdmin(supabase, user.id, existing.team_id) : false
+
+  if (!isOwner && !isAdmin) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 
@@ -180,7 +180,7 @@ export async function DELETE(
   // Récupérer la campagne
   const { data: existing, error: fetchError } = await supabase
     .from('campaigns')
-    .select('user_id, status')
+    .select('user_id, team_id, status')
     .eq('id', id)
     .single()
 
@@ -188,8 +188,11 @@ export async function DELETE(
     return NextResponse.json({ error: 'Campagne non trouvée' }, { status: 404 })
   }
 
-  // Vérifier que l'utilisateur est le propriétaire
-  if (existing.user_id !== user.id) {
+  // Vérifier l'accès (propriétaire ou admin d'équipe)
+  const isOwner = existing.user_id === user.id
+  const isAdmin = existing.team_id ? await isTeamAdmin(supabase, user.id, existing.team_id) : false
+
+  if (!isOwner && !isAdmin) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 

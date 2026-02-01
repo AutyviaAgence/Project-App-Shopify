@@ -9,6 +9,7 @@ export type MemberPermissions = {
   allowed_session_ids: string[] | null
   allowed_agent_ids: string[] | null
   allowed_link_ids: string[] | null
+  allowed_campaign_ids: string[] | null
   // Permissions granulaires de lecture
   can_view_stats: boolean
   can_view_knowledge: boolean
@@ -61,7 +62,7 @@ export async function getUserTeamPermissions(
     .from('team_members')
     .select(`
       team_id, role,
-      allowed_session_ids, allowed_agent_ids, allowed_link_ids,
+      allowed_session_ids, allowed_agent_ids, allowed_link_ids, allowed_campaign_ids,
       can_view_stats, can_view_knowledge, can_view_messages,
       can_manage_sessions, can_manage_agents, can_manage_knowledge,
       can_manage_links, can_send_messages
@@ -72,6 +73,7 @@ export async function getUserTeamPermissions(
   // Appliquer les valeurs par défaut pour les permissions nulles
   return (data || []).map((m) => ({
     ...m,
+    allowed_campaign_ids: m.allowed_campaign_ids ?? null,
     can_view_stats: m.can_view_stats ?? true,
     can_view_knowledge: m.can_view_knowledge ?? true,
     can_view_messages: m.can_view_messages ?? true,
@@ -273,6 +275,31 @@ export function filterLinksByPermissions<T extends ResourceWithId>(
 }
 
 /**
+ * Filtre les campagnes selon les permissions granulaires de l'utilisateur
+ */
+export function filterCampaignsByPermissions<T extends ResourceWithId>(
+  campaigns: T[],
+  userId: string,
+  permissions: MemberPermissions[]
+): T[] {
+  return campaigns.filter((campaign) => {
+    if (campaign.user_id === userId) return true
+
+    if (campaign.team_id) {
+      const memberPerm = permissions.find((p) => p.team_id === campaign.team_id)
+      if (!memberPerm) return false
+
+      if (memberPerm.role === 'owner' || memberPerm.role === 'admin') return true
+
+      if (memberPerm.allowed_campaign_ids === null) return true
+      return memberPerm.allowed_campaign_ids.includes(campaign.id)
+    }
+
+    return false
+  })
+}
+
+/**
  * Vérifie si l'utilisateur peut accéder à une session spécifique
  * Prend en compte les permissions granulaires pour les membres
  */
@@ -376,7 +403,7 @@ export async function getTeamMemberPermissions(
     .from('team_members')
     .select(`
       team_id, role,
-      allowed_session_ids, allowed_agent_ids, allowed_link_ids,
+      allowed_session_ids, allowed_agent_ids, allowed_link_ids, allowed_campaign_ids,
       can_view_stats, can_view_knowledge, can_view_messages,
       can_manage_sessions, can_manage_agents, can_manage_knowledge,
       can_manage_links, can_send_messages
@@ -390,6 +417,7 @@ export async function getTeamMemberPermissions(
 
   return {
     ...data,
+    allowed_campaign_ids: data.allowed_campaign_ids ?? null,
     can_view_stats: data.can_view_stats ?? true,
     can_view_knowledge: data.can_view_knowledge ?? true,
     can_view_messages: data.can_view_messages ?? true,
@@ -399,4 +427,44 @@ export async function getTeamMemberPermissions(
     can_manage_links: data.can_manage_links ?? false,
     can_send_messages: data.can_send_messages ?? true,
   } as MemberPermissions
+}
+
+/**
+ * Vérifie si l'utilisateur peut accéder à une campagne spécifique
+ * Prend en compte les permissions granulaires pour les membres
+ */
+export async function canAccessCampaign(
+  supabase: SupabaseClient,
+  userId: string,
+  campaign: { id: string; user_id: string; team_id: string | null }
+): Promise<boolean> {
+  // Accès direct via user_id
+  if (campaign.user_id === userId) {
+    return true
+  }
+
+  // Accès via équipe avec permissions granulaires
+  if (campaign.team_id) {
+    const { data: membership } = await supabase
+      .from('team_members')
+      .select('role, allowed_campaign_ids')
+      .eq('team_id', campaign.team_id)
+      .eq('user_id', userId)
+      .eq('status', 'accepted')
+      .single()
+
+    if (!membership) return false
+
+    // Owner et Admin ont accès à tout
+    if (membership.role === 'owner' || membership.role === 'admin') return true
+
+    // Pour les membres, vérifier les permissions granulaires
+    // null = accès à toutes les campagnes
+    if (membership.allowed_campaign_ids === null) return true
+
+    // Sinon, vérifier si la campagne est dans la liste
+    return membership.allowed_campaign_ids.includes(campaign.id)
+  }
+
+  return false
 }

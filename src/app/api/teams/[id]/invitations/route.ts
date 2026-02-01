@@ -83,11 +83,13 @@ export async function POST(
     allowed_session_ids,
     allowed_agent_ids,
     allowed_link_ids,
+    allowed_campaign_ids,
   } = body as {
     role?: 'admin' | 'member'
     allowed_session_ids?: string[] | null
     allowed_agent_ids?: string[] | null
     allowed_link_ids?: string[] | null
+    allowed_campaign_ids?: string[] | null
   }
 
   // Générer un code unique
@@ -117,6 +119,7 @@ export async function POST(
       allowed_session_ids: allowed_session_ids || null,
       allowed_agent_ids: allowed_agent_ids || null,
       allowed_link_ids: allowed_link_ids || null,
+      allowed_campaign_ids: allowed_campaign_ids || null,
       created_by: user.id,
     })
     .select()

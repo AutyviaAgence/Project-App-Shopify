@@ -264,6 +264,7 @@ export type TeamMember = {
   allowed_session_ids: string[] | null
   allowed_agent_ids: string[] | null
   allowed_link_ids: string[] | null
+  allowed_campaign_ids: string[] | null
   created_at: string
 }
 
@@ -275,6 +276,7 @@ export type TeamInvitation = {
   allowed_session_ids: string[] | null
   allowed_agent_ids: string[] | null
   allowed_link_ids: string[] | null
+  allowed_campaign_ids: string[] | null
   created_by: string
   used_by: string | null
   used_at: string | null
@@ -563,6 +565,7 @@ export type Database = {
               sessions: string[] | null
               agents: string[] | null
               links: string[] | null
+              campaigns: string[] | null
             }
           }
         }

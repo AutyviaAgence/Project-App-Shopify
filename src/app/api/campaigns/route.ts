@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getUserTeamIds } from '@/lib/teams/access'
+import { getUserTeamIds, getUserTeamPermissions, filterCampaignsByPermissions } from '@/lib/teams/access'
 import type { CampaignStatus } from '@/types/database'
 
 const VALID_STATUSES: CampaignStatus[] = ['draft', 'scheduled', 'running', 'paused', 'completed', 'cancelled']
@@ -17,8 +17,9 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const statusParam = searchParams.get('status')
 
-  // Récupérer les équipes de l'utilisateur
+  // Récupérer les équipes et permissions de l'utilisateur
   const teamIds = await getUserTeamIds(supabase, user.id)
+  const permissions = await getUserTeamPermissions(supabase, user.id)
 
   // Construire la requête
   let query = supabase
@@ -44,7 +45,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  return NextResponse.json({ data: campaigns })
+  // Filtrer selon les permissions granulaires
+  const accessibleCampaigns = filterCampaignsByPermissions(
+    campaigns || [],
+    user.id,
+    permissions
+  )
+
+  return NextResponse.json({ data: accessibleCampaigns })
 }
 
 /** POST /api/campaigns — Créer une nouvelle campagne */

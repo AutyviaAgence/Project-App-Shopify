@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import type { Team, TeamMember, Profile, WhatsAppSession, AIAgent, WALink, KnowledgeDocument } from '@/types/database'
+import type { Team, TeamMember, Profile, WhatsAppSession, AIAgent, WALink, KnowledgeDocument, Campaign } from '@/types/database'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -55,6 +55,7 @@ import {
   Send,
   Eye,
   Settings,
+  Megaphone,
 } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
 
@@ -71,6 +72,7 @@ type TeamInvitation = {
   allowed_session_ids: string[] | null
   allowed_agent_ids: string[] | null
   allowed_link_ids: string[] | null
+  allowed_campaign_ids: string[] | null
   used_by: string | null
   expires_at: string | null
   created_at: string
@@ -130,10 +132,12 @@ export default function TeamsPage() {
   const [agents, setAgents] = useState<AIAgent[]>([])
   const [links, setLinks] = useState<WALink[]>([])
   const [knowledgeDocs, setKnowledgeDocs] = useState<KnowledgeDocument[]>([])
+  const [campaigns, setCampaigns] = useState<Campaign[]>([])
   const [selectedSessions, setSelectedSessions] = useState<string[]>([])
   const [selectedAgents, setSelectedAgents] = useState<string[]>([])
   const [selectedLinks, setSelectedLinks] = useState<string[]>([])
   const [selectedKnowledge, setSelectedKnowledge] = useState<string[]>([])
+  const [selectedCampaigns, setSelectedCampaigns] = useState<string[]>([])
   const [resourcesLoading, setResourcesLoading] = useState(false)
   const [generatingInvite, setGeneratingInvite] = useState(false)
   const [generatedCode, setGeneratedCode] = useState<string | null>(null)
@@ -145,6 +149,7 @@ export default function TeamsPage() {
   const [editingAgents, setEditingAgents] = useState<string[]>([])
   const [editingLinks, setEditingLinks] = useState<string[]>([])
   const [editingKnowledge, setEditingKnowledge] = useState<string[]>([])
+  const [editingCampaigns, setEditingCampaigns] = useState<string[]>([])
   const [permissionsMode, setPermissionsMode] = useState<'all' | 'specific'>('all')
 
   // Granular permissions state
@@ -224,6 +229,7 @@ export default function TeamsPage() {
     setSelectedSessions([])
     setSelectedAgents([])
     setSelectedLinks([])
+    setSelectedCampaigns([])
     setGeneratedCode(null)
     setInviteDialogOpen(true)
 
@@ -232,17 +238,19 @@ export default function TeamsPage() {
     setInvitationsLoading(true)
 
     try {
-      const [sessionsRes, agentsRes, linksRes, invitationsRes] = await Promise.all([
+      const [sessionsRes, agentsRes, linksRes, campaignsRes, invitationsRes] = await Promise.all([
         fetch('/api/sessions'),
         fetch('/api/agents'),
         fetch('/api/links'),
+        fetch('/api/campaigns'),
         fetch(`/api/teams/${team.id}/invitations`)
       ])
 
-      const [sessionsJson, agentsJson, linksJson, invitationsJson] = await Promise.all([
+      const [sessionsJson, agentsJson, linksJson, campaignsJson, invitationsJson] = await Promise.all([
         sessionsRes.json(),
         agentsRes.json(),
         linksRes.json(),
+        campaignsRes.json(),
         invitationsRes.json()
       ])
 
@@ -250,6 +258,7 @@ export default function TeamsPage() {
       setSessions(sessionsJson.data?.filter((s: WhatsAppSession) => s.team_id === team.id) || [])
       setAgents(agentsJson.data?.filter((a: AIAgent) => a.team_id === team.id) || [])
       setLinks(linksJson.data?.filter((l: WALink) => l.team_id === team.id) || [])
+      setCampaigns(campaignsJson.data?.filter((c: Campaign) => c.team_id === team.id) || [])
       setInvitations(invitationsJson.data || [])
     } catch {
       toast.error('Erreur lors du chargement des ressources')
@@ -272,6 +281,7 @@ export default function TeamsPage() {
           allowed_session_ids: selectedSessions.length > 0 ? selectedSessions : null,
           allowed_agent_ids: selectedAgents.length > 0 ? selectedAgents : null,
           allowed_link_ids: selectedLinks.length > 0 ? selectedLinks : null,
+          allowed_campaign_ids: selectedCampaigns.length > 0 ? selectedCampaigns : null,
         }),
       })
       const json = await res.json()
@@ -329,6 +339,14 @@ export default function TeamsPage() {
       prev.includes(linkId)
         ? prev.filter(id => id !== linkId)
         : [...prev, linkId]
+    )
+  }
+
+  function toggleCampaign(campaignId: string) {
+    setSelectedCampaigns(prev =>
+      prev.includes(campaignId)
+        ? prev.filter(id => id !== campaignId)
+        : [...prev, campaignId]
     )
   }
 
@@ -482,15 +500,18 @@ export default function TeamsPage() {
     setPermissionsDialogOpen(true)
 
     // Déterminer le mode (tout accès ou spécifique)
+    const memberWithCampaigns = member as TeamMemberWithProfile & { allowed_campaign_ids?: string[] | null }
     const hasAllAccess = member.allowed_session_ids === null &&
       member.allowed_agent_ids === null &&
-      member.allowed_link_ids === null
+      member.allowed_link_ids === null &&
+      memberWithCampaigns.allowed_campaign_ids === null
     setPermissionsMode(hasAllAccess ? 'all' : 'specific')
 
     // Initialiser les sélections avec les permissions actuelles
     setEditingSessions(member.allowed_session_ids || [])
     setEditingAgents(member.allowed_agent_ids || [])
     setEditingLinks(member.allowed_link_ids || [])
+    setEditingCampaigns(memberWithCampaigns.allowed_campaign_ids || [])
 
     // Initialiser les permissions granulaires
     const m = member as TeamMemberWithProfile & {
@@ -513,18 +534,20 @@ export default function TeamsPage() {
     setCanSendMessages(m.can_send_messages ?? true)
 
     try {
-      const [sessionsRes, agentsRes, linksRes, knowledgeRes] = await Promise.all([
+      const [sessionsRes, agentsRes, linksRes, knowledgeRes, campaignsRes] = await Promise.all([
         fetch('/api/sessions'),
         fetch('/api/agents'),
         fetch('/api/links'),
         fetch('/api/knowledge'),
+        fetch('/api/campaigns'),
       ])
 
-      const [sessionsJson, agentsJson, linksJson, knowledgeJson] = await Promise.all([
+      const [sessionsJson, agentsJson, linksJson, knowledgeJson, campaignsJson] = await Promise.all([
         sessionsRes.json(),
         agentsRes.json(),
         linksRes.json(),
         knowledgeRes.json(),
+        campaignsRes.json(),
       ])
 
       // Filtrer les ressources de l'équipe
@@ -532,6 +555,7 @@ export default function TeamsPage() {
       setAgents(agentsJson.data?.filter((a: AIAgent) => a.team_id === selectedTeam.id) || [])
       setLinks(linksJson.data?.filter((l: WALink) => l.team_id === selectedTeam.id) || [])
       setKnowledgeDocs(knowledgeJson.data?.filter((k: KnowledgeDocument) => k.team_id === selectedTeam.id) || [])
+      setCampaigns(campaignsJson.data?.filter((c: Campaign) => c.team_id === selectedTeam.id) || [])
     } catch {
       toast.error('Erreur lors du chargement des ressources')
     } finally {
@@ -549,11 +573,13 @@ export default function TeamsPage() {
             allowed_session_ids: null,
             allowed_agent_ids: null,
             allowed_link_ids: null,
+            allowed_campaign_ids: null,
           }
         : {
             allowed_session_ids: editingSessions,
             allowed_agent_ids: editingAgents,
             allowed_link_ids: editingLinks,
+            allowed_campaign_ids: editingCampaigns,
           }
 
       const body = {
@@ -618,6 +644,12 @@ export default function TeamsPage() {
   function toggleEditingKnowledge(docId: string) {
     setEditingKnowledge((prev) =>
       prev.includes(docId) ? prev.filter((id) => id !== docId) : [...prev, docId]
+    )
+  }
+
+  function toggleEditingCampaign(campaignId: string) {
+    setEditingCampaigns((prev) =>
+      prev.includes(campaignId) ? prev.filter((id) => id !== campaignId) : [...prev, campaignId]
     )
   }
 
@@ -1110,6 +1142,41 @@ export default function TeamsPage() {
                       {selectedLinks.length === 0 ? 'Accès à tous les liens' : 'Accès limité aux liens sélectionnés'}
                     </p>
                   </div>
+
+                  {/* Campaigns */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <Megaphone className="h-4 w-4 text-[#40E9BE]" />
+                      Campagnes de relance
+                      <Badge variant="secondary" className="ml-auto text-xs">
+                        {selectedCampaigns.length === 0 ? 'Toutes' : `${selectedCampaigns.length}/${campaigns.length}`}
+                      </Badge>
+                    </div>
+                    {campaigns.length > 0 ? (
+                      <div className="space-y-2 pl-1">
+                        {campaigns.map(campaign => (
+                          <label
+                            key={campaign.id}
+                            className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer"
+                          >
+                            <Checkbox
+                              checked={selectedCampaigns.includes(campaign.id)}
+                              onCheckedChange={() => toggleCampaign(campaign.id)}
+                            />
+                            <span className="text-sm">{campaign.name}</span>
+                            <Badge variant="outline" className="ml-auto text-xs">
+                              {campaign.status}
+                            </Badge>
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground pl-6">Aucune campagne dans cette équipe</p>
+                    )}
+                    <p className="text-xs text-muted-foreground pl-6">
+                      {selectedCampaigns.length === 0 ? 'Accès à toutes les campagnes' : 'Accès limité aux campagnes sélectionnées'}
+                    </p>
+                  </div>
                 </>
               )}
 
@@ -1445,6 +1512,38 @@ export default function TeamsPage() {
                       </div>
                     ) : (
                       <p className="text-xs text-muted-foreground pl-6">Aucun document dans cette équipe</p>
+                    )}
+                  </div>
+
+                  {/* Campaigns */}
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-sm font-medium">
+                      <Megaphone className="h-4 w-4 text-[#7DC2A5]" />
+                      Campagnes de relance
+                      <Badge variant="secondary" className="ml-auto text-xs">
+                        {editingCampaigns.length}/{campaigns.length}
+                      </Badge>
+                    </div>
+                    {campaigns.length > 0 ? (
+                      <div className="space-y-2 pl-1">
+                        {campaigns.map((campaign) => (
+                          <label
+                            key={campaign.id}
+                            className="flex items-center gap-3 p-2 rounded-lg hover:bg-muted/50 cursor-pointer"
+                          >
+                            <Checkbox
+                              checked={editingCampaigns.includes(campaign.id)}
+                              onCheckedChange={() => toggleEditingCampaign(campaign.id)}
+                            />
+                            <span className="text-sm">{campaign.name}</span>
+                            <Badge variant="outline" className="ml-auto text-xs">
+                              {campaign.status}
+                            </Badge>
+                          </label>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-xs text-muted-foreground pl-6">Aucune campagne dans cette équipe</p>
                     )}
                   </div>
                 </>
