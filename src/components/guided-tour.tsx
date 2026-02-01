@@ -276,60 +276,78 @@ function TourOverlay() {
 
   // Find and track target element
   useEffect(() => {
+    let retryCount = 0
+    const maxRetries = 30 // Try for up to 3 seconds
+    let retryTimer: NodeJS.Timeout | null = null
+
+    const updatePosition = (target: Element) => {
+      const rect = target.getBoundingClientRect()
+      setTargetRect(rect)
+
+      // Calculate tooltip position
+      const padding = 16
+      const tooltipWidth = 360
+      const tooltipHeight = 200 // approximate
+
+      let top = 0
+      let left = 0
+
+      switch (step.position || 'bottom') {
+        case 'top':
+          top = rect.top - tooltipHeight - padding
+          left = rect.left + rect.width / 2 - tooltipWidth / 2
+          break
+        case 'bottom':
+          top = rect.bottom + padding
+          left = rect.left + rect.width / 2 - tooltipWidth / 2
+          break
+        case 'left':
+          top = rect.top + rect.height / 2 - tooltipHeight / 2
+          left = rect.left - tooltipWidth - padding
+          break
+        case 'right':
+          top = rect.top + rect.height / 2 - tooltipHeight / 2
+          left = rect.right + padding
+          break
+      }
+
+      // Keep tooltip in viewport
+      left = Math.max(padding, Math.min(left, window.innerWidth - tooltipWidth - padding))
+      top = Math.max(padding, Math.min(top, window.innerHeight - tooltipHeight - padding))
+
+      setTooltipStyle({ top, left, width: tooltipWidth })
+    }
+
     const findTarget = () => {
       const target = document.querySelector(step.target)
       if (target) {
-        const rect = target.getBoundingClientRect()
-        setTargetRect(rect)
-
-        // Calculate tooltip position
-        const padding = 16
-        const tooltipWidth = 360
-        const tooltipHeight = 200 // approximate
-
-        let top = 0
-        let left = 0
-
-        switch (step.position || 'bottom') {
-          case 'top':
-            top = rect.top - tooltipHeight - padding
-            left = rect.left + rect.width / 2 - tooltipWidth / 2
-            break
-          case 'bottom':
-            top = rect.bottom + padding
-            left = rect.left + rect.width / 2 - tooltipWidth / 2
-            break
-          case 'left':
-            top = rect.top + rect.height / 2 - tooltipHeight / 2
-            left = rect.left - tooltipWidth - padding
-            break
-          case 'right':
-            top = rect.top + rect.height / 2 - tooltipHeight / 2
-            left = rect.right + padding
-            break
-        }
-
-        // Keep tooltip in viewport
-        left = Math.max(padding, Math.min(left, window.innerWidth - tooltipWidth - padding))
-        top = Math.max(padding, Math.min(top, window.innerHeight - tooltipHeight - padding))
-
-        setTooltipStyle({ top, left, width: tooltipWidth })
-      } else {
-        setTargetRect(null)
+        updatePosition(target)
+        retryCount = 0 // Reset retry count when found
+      } else if (retryCount < maxRetries) {
+        // Element not found, retry after a short delay
+        retryCount++
+        retryTimer = setTimeout(findTarget, 100)
       }
     }
 
-    // Initial find
-    const timer = setTimeout(findTarget, 100)
+    // Initial find with small delay to let page render
+    retryTimer = setTimeout(findTarget, 50)
 
-    // Listen for resize/scroll
-    window.addEventListener('resize', findTarget)
-    window.addEventListener('scroll', findTarget, true)
+    // Listen for resize/scroll to update position
+    const handleUpdate = () => {
+      const target = document.querySelector(step.target)
+      if (target) {
+        updatePosition(target)
+      }
+    }
+
+    window.addEventListener('resize', handleUpdate)
+    window.addEventListener('scroll', handleUpdate, true)
 
     return () => {
-      clearTimeout(timer)
-      window.removeEventListener('resize', findTarget)
-      window.removeEventListener('scroll', findTarget, true)
+      if (retryTimer) clearTimeout(retryTimer)
+      window.removeEventListener('resize', handleUpdate)
+      window.removeEventListener('scroll', handleUpdate, true)
     }
   }, [step])
 
