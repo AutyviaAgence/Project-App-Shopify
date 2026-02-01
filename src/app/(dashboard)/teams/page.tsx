@@ -95,9 +95,15 @@ function MemberAvatar({ member, size = 'md' }: { member: TeamMemberWithProfile; 
     )
   }
 
+  // Fallback: use first letter of name, email or invited_email
+  const initial = member.profile?.full_name?.charAt(0)?.toUpperCase()
+    || member.profile?.email?.charAt(0)?.toUpperCase()
+    || member.invited_email?.charAt(0)?.toUpperCase()
+    || '?'
+
   return (
     <div className={`${sizeClasses[size]} flex items-center justify-center rounded-full bg-gradient-to-br from-[#7DC2A5] to-[#40E9BE] text-white font-medium`}>
-      {member.profile?.full_name?.charAt(0)?.toUpperCase() || '?'}
+      {initial}
     </div>
   )
 }
@@ -872,10 +878,10 @@ export default function TeamsPage() {
                         <MemberAvatar member={member} size="md" />
                         <div>
                           <p className="text-sm font-medium">
-                            {member.profile?.full_name || 'Utilisateur'}
+                            {member.profile?.full_name || member.invited_email?.split('@')[0] || 'Utilisateur'}
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            {member.profile?.email}
+                            {member.profile?.email || member.invited_email}
                           </p>
                         </div>
                       </div>
