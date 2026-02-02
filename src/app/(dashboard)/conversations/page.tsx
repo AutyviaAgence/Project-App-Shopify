@@ -176,6 +176,25 @@ export default function ConversationsPage() {
     }
   }, [])
 
+  // Charger les tags de toutes les conversations visibles (batch)
+  const fetchAllConversationTags = useCallback(async (convIds: string[]) => {
+    if (convIds.length === 0) return
+
+    try {
+      const res = await fetch('/api/conversations/tags/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversation_ids: convIds }),
+      })
+      const json = await res.json()
+      if (res.ok && json.data) {
+        setConversationTags((prev) => ({ ...prev, ...json.data }))
+      }
+    } catch {
+      // silently ignore
+    }
+  }, [])
+
   const fetchConversations = useCallback(async () => {
     try {
       const params = new URLSearchParams()
@@ -199,13 +218,18 @@ export default function ConversationsPage() {
           setTotalPages(json.pagination.totalPages)
           setTotalConversations(json.pagination.total)
         }
+        // Charger les tags de toutes les conversations
+        const convIds = json.data.map((c: ConversationWithJoins) => c.id)
+        if (convIds.length > 0) {
+          fetchAllConversationTags(convIds)
+        }
       }
     } catch {
       toast.error('Erreur lors du chargement des conversations')
     } finally {
       setLoading(false)
     }
-  }, [filterSession, filterAiActive, filterTeam, page, searchQuery])
+  }, [filterSession, filterAiActive, filterTeam, page, searchQuery, fetchAllConversationTags])
 
   useEffect(() => {
     fetchConversations()
