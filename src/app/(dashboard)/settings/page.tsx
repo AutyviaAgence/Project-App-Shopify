@@ -116,6 +116,17 @@ export default function SettingsPage() {
 
   // Export state
   const [exporting, setExporting] = useState(false)
+  const [exportOptions, setExportOptions] = useState({
+    sessions: true,
+    contacts: true,
+    conversations: true,
+    agents: true,
+    knowledge: true,
+    links: true,
+    tags: true,
+    campaigns: true,
+  })
+  const [exportSessionId, setExportSessionId] = useState<string>('')
 
   // Import state
   const [importing, setImporting] = useState(false)
@@ -281,7 +292,14 @@ export default function SettingsPage() {
   async function handleExportData() {
     setExporting(true)
     try {
-      const res = await fetch('/api/account/export')
+      const res = await fetch('/api/account/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...exportOptions,
+          sessionId: exportSessionId || undefined,
+        }),
+      })
       if (!res.ok) {
         const json = await res.json()
         throw new Error(json.error || 'Erreur lors de l\'export')
@@ -292,7 +310,14 @@ export default function SettingsPage() {
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `export_${new Date().toISOString().split('T')[0]}.zip`
+      // Extraire le nom du fichier depuis Content-Disposition si disponible
+      const contentDisposition = res.headers.get('Content-Disposition')
+      let fileName = `export_${new Date().toISOString().split('T')[0]}.zip`
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename="(.+)"/)
+        if (match) fileName = match[1]
+      }
+      a.download = fileName
       document.body.appendChild(a)
       a.click()
       window.URL.revokeObjectURL(url)
@@ -631,24 +656,150 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileArchive className="h-5 w-5" />
-              Vos données
+              Exporter vos données
             </CardTitle>
             <CardDescription>
-              Exportez toutes vos données personnelles (RGPD).
+              Exportez vos données pour backup ou transfert vers une autre session.
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground mb-4">
-              Téléchargez une archive ZIP contenant toutes vos données : profil, sessions,
-              contacts, conversations, messages, agents IA, documents, campagnes et équipes.
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              Sélectionnez les données à exporter. Vous pouvez filtrer par session
+              pour n&apos;exporter que la configuration liée à une session spécifique.
             </p>
+
+            {/* Filtre par session (optionnel) */}
+            <div className="space-y-2">
+              <Label htmlFor="export-session">Filtrer par session (optionnel)</Label>
+              <Select value={exportSessionId} onValueChange={setExportSessionId}>
+                <SelectTrigger id="export-session">
+                  <SelectValue placeholder="Toutes les sessions" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="">Toutes les sessions</SelectItem>
+                  {sessions.map((session) => (
+                    <SelectItem key={session.id} value={session.id}>
+                      {session.display_name || session.phone_number || session.instance_name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Laissez vide pour exporter toutes vos données, ou sélectionnez une session
+                pour n&apos;exporter que les données liées à celle-ci.
+              </p>
+            </div>
+
+            {/* Options d'export */}
+            <div className="space-y-3">
+              <Label>Données à exporter</Label>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="export-sessions"
+                    checked={exportOptions.sessions}
+                    onCheckedChange={(checked) =>
+                      setExportOptions((prev) => ({ ...prev, sessions: !!checked }))
+                    }
+                  />
+                  <label htmlFor="export-sessions" className="text-sm cursor-pointer">
+                    Sessions
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="export-contacts"
+                    checked={exportOptions.contacts}
+                    onCheckedChange={(checked) =>
+                      setExportOptions((prev) => ({ ...prev, contacts: !!checked }))
+                    }
+                  />
+                  <label htmlFor="export-contacts" className="text-sm cursor-pointer">
+                    Contacts
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="export-conversations"
+                    checked={exportOptions.conversations}
+                    onCheckedChange={(checked) =>
+                      setExportOptions((prev) => ({ ...prev, conversations: !!checked }))
+                    }
+                  />
+                  <label htmlFor="export-conversations" className="text-sm cursor-pointer">
+                    Conversations
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="export-agents"
+                    checked={exportOptions.agents}
+                    onCheckedChange={(checked) =>
+                      setExportOptions((prev) => ({ ...prev, agents: !!checked }))
+                    }
+                  />
+                  <label htmlFor="export-agents" className="text-sm cursor-pointer">
+                    Agents IA
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="export-knowledge"
+                    checked={exportOptions.knowledge}
+                    onCheckedChange={(checked) =>
+                      setExportOptions((prev) => ({ ...prev, knowledge: !!checked }))
+                    }
+                  />
+                  <label htmlFor="export-knowledge" className="text-sm cursor-pointer">
+                    Bases de connaissances
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="export-links"
+                    checked={exportOptions.links}
+                    onCheckedChange={(checked) =>
+                      setExportOptions((prev) => ({ ...prev, links: !!checked }))
+                    }
+                  />
+                  <label htmlFor="export-links" className="text-sm cursor-pointer">
+                    Liens WhatsApp
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="export-tags"
+                    checked={exportOptions.tags}
+                    onCheckedChange={(checked) =>
+                      setExportOptions((prev) => ({ ...prev, tags: !!checked }))
+                    }
+                  />
+                  <label htmlFor="export-tags" className="text-sm cursor-pointer">
+                    Tags
+                  </label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="export-campaigns"
+                    checked={exportOptions.campaigns}
+                    onCheckedChange={(checked) =>
+                      setExportOptions((prev) => ({ ...prev, campaigns: !!checked }))
+                    }
+                  />
+                  <label htmlFor="export-campaigns" className="text-sm cursor-pointer">
+                    Campagnes
+                  </label>
+                </div>
+              </div>
+            </div>
+
             <Button onClick={handleExportData} disabled={exporting} variant="outline">
               {exporting ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
                 <Download className="mr-2 h-4 w-4" />
               )}
-              Exporter mes données
+              Exporter les données sélectionnées
             </Button>
           </CardContent>
         </Card>
