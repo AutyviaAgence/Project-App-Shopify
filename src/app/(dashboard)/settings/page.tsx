@@ -28,7 +28,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { toast } from 'sonner'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
   Loader2,
   Save,
@@ -42,19 +41,8 @@ import {
   EyeOff,
   Globe,
   Download,
-  Upload,
   FileArchive,
-  CheckCircle2,
-  XCircle,
 } from 'lucide-react'
-
-type WhatsAppSession = {
-  id: string
-  instance_name: string
-  display_name: string | null
-  phone_number: string | null
-  status: string
-}
 
 const THEMES = [
   { value: 'light', label: 'Clair', icon: Sun },
@@ -117,24 +105,6 @@ export default function SettingsPage() {
   // Export state
   const [exporting, setExporting] = useState(false)
 
-  // Import state
-  const [importing, setImporting] = useState(false)
-  const [importFile, setImportFile] = useState<File | null>(null)
-  const [importOptions, setImportOptions] = useState({
-    agents: true,
-    knowledge: true,
-    tags: true,
-    links: true,
-    campaigns: true,
-  })
-  const [sessions, setSessions] = useState<WhatsAppSession[]>([])
-  const [targetSessionId, setTargetSessionId] = useState<string>('')
-  const [importResult, setImportResult] = useState<{
-    success: boolean
-    summary: { totalImported: number; totalErrors: number }
-    result: Record<string, { imported: number; errors: string[] }>
-  } | null>(null)
-
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
 
@@ -160,25 +130,6 @@ export default function SettingsPage() {
       }
     }
     loadProfile()
-  }, [])
-
-  // Charger les sessions pour l'import
-  useEffect(() => {
-    async function loadSessions() {
-      try {
-        const res = await fetch('/api/sessions')
-        const json = await res.json()
-        if (res.ok && json.data) {
-          setSessions(json.data)
-          if (json.data.length > 0) {
-            setTargetSessionId(json.data[0].id)
-          }
-        }
-      } catch {
-        // Silencieux - pas critique
-      }
-    }
-    loadSessions()
   }, [])
 
   async function handleSaveProfile() {
@@ -303,48 +254,6 @@ export default function SettingsPage() {
       toast.error(error instanceof Error ? error.message : 'Erreur lors de l\'export')
     } finally {
       setExporting(false)
-    }
-  }
-
-  async function handleImportData() {
-    if (!importFile) {
-      toast.error('Veuillez sélectionner un fichier ZIP')
-      return
-    }
-
-    setImporting(true)
-    setImportResult(null)
-
-    try {
-      const formData = new FormData()
-      formData.append('file', importFile)
-      formData.append('options', JSON.stringify({
-        ...importOptions,
-        targetSessionId: importOptions.links ? targetSessionId : undefined,
-      }))
-
-      const res = await fetch('/api/account/import', {
-        method: 'POST',
-        body: formData,
-      })
-
-      const json = await res.json()
-
-      if (!res.ok) {
-        throw new Error(json.error || 'Erreur lors de l\'import')
-      }
-
-      setImportResult(json)
-
-      if (json.summary.totalErrors === 0) {
-        toast.success(`Import réussi : ${json.summary.totalImported} éléments importés`)
-      } else {
-        toast.warning(`Import terminé : ${json.summary.totalImported} importés, ${json.summary.totalErrors} erreurs`)
-      }
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erreur lors de l\'import')
-    } finally {
-      setImporting(false)
     }
   }
 
@@ -649,180 +558,6 @@ export default function SettingsPage() {
                 <Download className="mr-2 h-4 w-4" />
               )}
               Exporter mes données
-            </Button>
-          </CardContent>
-        </Card>
-
-        {/* Import des données */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Upload className="h-5 w-5" />
-              Importer des données
-            </CardTitle>
-            <CardDescription>
-              Importez des données depuis un fichier d&apos;export (ZIP).
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Vous pouvez importer des agents IA, bases de connaissances, tags, liens et campagnes
-              depuis un fichier d&apos;export. Les éléments existants avec le même nom seront ignorés.
-            </p>
-
-            {/* Sélection du fichier */}
-            <div className="space-y-2">
-              <Label htmlFor="import-file">Fichier ZIP d&apos;export</Label>
-              <Input
-                id="import-file"
-                type="file"
-                accept=".zip"
-                onChange={(e) => {
-                  setImportFile(e.target.files?.[0] || null)
-                  setImportResult(null)
-                }}
-              />
-            </div>
-
-            {/* Options d'import */}
-            <div className="space-y-3">
-              <Label>Données à importer</Label>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="import-agents"
-                    checked={importOptions.agents}
-                    onCheckedChange={(checked) =>
-                      setImportOptions((prev) => ({ ...prev, agents: !!checked }))
-                    }
-                  />
-                  <label htmlFor="import-agents" className="text-sm cursor-pointer">
-                    Agents IA
-                  </label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="import-knowledge"
-                    checked={importOptions.knowledge}
-                    onCheckedChange={(checked) =>
-                      setImportOptions((prev) => ({ ...prev, knowledge: !!checked }))
-                    }
-                  />
-                  <label htmlFor="import-knowledge" className="text-sm cursor-pointer">
-                    Bases de connaissances
-                  </label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="import-tags"
-                    checked={importOptions.tags}
-                    onCheckedChange={(checked) =>
-                      setImportOptions((prev) => ({ ...prev, tags: !!checked }))
-                    }
-                  />
-                  <label htmlFor="import-tags" className="text-sm cursor-pointer">
-                    Tags
-                  </label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="import-links"
-                    checked={importOptions.links}
-                    onCheckedChange={(checked) =>
-                      setImportOptions((prev) => ({ ...prev, links: !!checked }))
-                    }
-                  />
-                  <label htmlFor="import-links" className="text-sm cursor-pointer">
-                    Liens WhatsApp
-                  </label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="import-campaigns"
-                    checked={importOptions.campaigns}
-                    onCheckedChange={(checked) =>
-                      setImportOptions((prev) => ({ ...prev, campaigns: !!checked }))
-                    }
-                  />
-                  <label htmlFor="import-campaigns" className="text-sm cursor-pointer">
-                    Campagnes
-                  </label>
-                </div>
-              </div>
-            </div>
-
-            {/* Session cible pour les liens */}
-            {importOptions.links && sessions.length > 0 && (
-              <div className="space-y-2">
-                <Label htmlFor="target-session">Session cible pour les liens</Label>
-                <Select value={targetSessionId} onValueChange={setTargetSessionId}>
-                  <SelectTrigger id="target-session">
-                    <SelectValue placeholder="Sélectionnez une session" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sessions.map((session) => (
-                      <SelectItem key={session.id} value={session.id}>
-                        {session.display_name || session.phone_number || session.instance_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="text-xs text-muted-foreground">
-                  Les liens importés seront associés à cette session WhatsApp.
-                </p>
-              </div>
-            )}
-
-            {importOptions.links && sessions.length === 0 && (
-              <p className="text-sm text-amber-600">
-                Aucune session WhatsApp disponible. Les liens ne pourront pas être importés.
-              </p>
-            )}
-
-            {/* Résultat de l'import */}
-            {importResult && (
-              <div className="rounded-lg border p-4 space-y-2">
-                <div className="flex items-center gap-2">
-                  {importResult.summary.totalErrors === 0 ? (
-                    <CheckCircle2 className="h-5 w-5 text-green-500" />
-                  ) : (
-                    <XCircle className="h-5 w-5 text-amber-500" />
-                  )}
-                  <span className="font-medium">
-                    {importResult.summary.totalImported} éléments importés
-                    {importResult.summary.totalErrors > 0 &&
-                      `, ${importResult.summary.totalErrors} erreurs`}
-                  </span>
-                </div>
-                <div className="text-sm text-muted-foreground space-y-1">
-                  {Object.entries(importResult.result).map(([key, value]) => (
-                    <div key={key} className="flex justify-between">
-                      <span className="capitalize">{key}</span>
-                      <span>
-                        {value.imported} importé(s)
-                        {value.errors.length > 0 && (
-                          <span className="text-amber-600 ml-1">
-                            ({value.errors.length} erreur(s))
-                          </span>
-                        )}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <Button
-              onClick={handleImportData}
-              disabled={importing || !importFile}
-              variant="outline"
-            >
-              {importing ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Upload className="mr-2 h-4 w-4" />
-              )}
-              Importer les données
             </Button>
           </CardContent>
         </Card>
