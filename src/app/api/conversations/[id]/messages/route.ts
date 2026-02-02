@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { decryptMessage } from '@/lib/crypto/encryption'
-import { canAccessSession } from '@/lib/teams/access'
+import { canAccessSession, checkTeamPermission } from '@/lib/teams/access'
 
 /** GET /api/conversations/[id]/messages — Lister les messages d'une conversation */
 export async function GET(
@@ -42,6 +42,14 @@ export async function GET(
   const hasAccess = await canAccessSession(supabase, user.id, session)
   if (!hasAccess) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+  }
+
+  // Vérifier la permission can_view_messages pour les ressources d'équipe
+  if (session.team_id && session.user_id !== user.id) {
+    const canViewMessages = await checkTeamPermission(supabase, user.id, session.team_id, 'messages_view')
+    if (!canViewMessages) {
+      return NextResponse.json({ error: 'Permission de lecture des messages refusée' }, { status: 403 })
+    }
   }
 
   // Récupérer les messages

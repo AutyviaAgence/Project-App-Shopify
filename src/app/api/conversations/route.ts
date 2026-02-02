@@ -62,7 +62,27 @@ export async function GET(req: NextRequest) {
   }
 
   // Filtrer les sessions selon les permissions granulaires
-  const sessions = filterSessionsByPermissions(allSessions, user.id, permissions)
+  let sessions = filterSessionsByPermissions(allSessions, user.id, permissions)
+
+  // Filtrer aussi les sessions où l'utilisateur n'a pas la permission can_view_messages
+  sessions = sessions.filter((session) => {
+    // Ressources personnelles = toujours accès
+    if (session.user_id === user.id) return true
+
+    // Pour les ressources d'équipe, vérifier can_view_messages
+    if (session.team_id) {
+      const memberPerm = permissions.find((p) => p.team_id === session.team_id)
+      if (!memberPerm) return false
+
+      // Owner/Admin ont toujours accès
+      if (memberPerm.role === 'owner' || memberPerm.role === 'admin') return true
+
+      // Vérifier la permission can_view_messages
+      return memberPerm.can_view_messages === true
+    }
+
+    return false
+  })
 
   if (sessions.length === 0) {
     return NextResponse.json({ data: [] })

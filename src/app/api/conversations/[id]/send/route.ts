@@ -56,6 +56,15 @@ export async function POST(
     return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 
+  // Vérifier la permission can_send_messages pour les ressources d'équipe
+  if (session.team_id && session.user_id !== user.id) {
+    const { checkTeamPermission } = await import('@/lib/teams/access')
+    const canSendMessages = await checkTeamPermission(supabase, user.id, session.team_id, 'messages_send')
+    if (!canSendMessages) {
+      return NextResponse.json({ error: 'Permission d\'envoi de messages refusée' }, { status: 403 })
+    }
+  }
+
   if (session.status !== 'connected') {
     return NextResponse.json({ error: 'Session non connectée' }, { status: 400 })
   }
