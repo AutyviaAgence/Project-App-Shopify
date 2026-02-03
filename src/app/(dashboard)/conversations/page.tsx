@@ -95,7 +95,22 @@ export default function ConversationsPage() {
   const [allTags, setAllTags] = useState<ConversationTag[]>([])
   const [conversationTags, setConversationTags] = useState<Record<string, ConversationTag[]>>({})
   const [newTagName, setNewTagName] = useState('')
+  const [newTagColor, setNewTagColor] = useState('#3B82F6')
   const [creatingTag, setCreatingTag] = useState(false)
+
+  // Couleurs prédéfinies pour les tags
+  const TAG_COLORS = [
+    '#3B82F6', // blue
+    '#10B981', // green
+    '#F59E0B', // amber
+    '#EF4444', // red
+    '#8B5CF6', // violet
+    '#EC4899', // pink
+    '#06B6D4', // cyan
+    '#F97316', // orange
+    '#6366F1', // indigo
+    '#84CC16', // lime
+  ]
 
   // Filters
   const [sessions, setSessions] = useState<{ id: string; instance_name: string; phone_number: string | null }[]>([])
@@ -491,12 +506,13 @@ export default function ConversationsPage() {
       const res = await fetch('/api/tags', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: newTagName.trim() }),
+        body: JSON.stringify({ name: newTagName.trim(), color: newTagColor }),
       })
       const json = await res.json()
       if (res.ok && json.data) {
         setAllTags((prev) => [...prev, json.data].sort((a, b) => a.name.localeCompare(b.name)))
         setNewTagName('')
+        setNewTagColor('#3B82F6')
         toast.success('Tag créé')
       } else {
         toast.error(json.error || 'Erreur lors de la création')
@@ -720,11 +736,23 @@ export default function ConversationsPage() {
                         )}
                       </div>
 
-                      {/* Nom WhatsApp si différent du nom affiché */}
-                      {conv.contact.name && (conv.contact.first_name || conv.contact.last_name) && (
-                        <p className="text-[10px] text-muted-foreground truncate">
-                          {conv.contact.name}
-                        </p>
+                      {/* Numéro de téléphone - toujours visible si le contact a un nom */}
+                      {(conv.contact.first_name || conv.contact.last_name || conv.contact.name) && (
+                        <div className="flex items-center gap-1 group/phone">
+                          <p className="text-[10px] text-muted-foreground truncate">
+                            +{conv.contact.phone_number}
+                          </p>
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              navigator.clipboard.writeText(`+${conv.contact.phone_number}`)
+                              toast.success('Numéro copié')
+                            }}
+                            className="opacity-0 group-hover/phone:opacity-100 transition-opacity p-0.5 hover:bg-muted rounded"
+                          >
+                            <Copy className="h-2.5 w-2.5 text-muted-foreground" />
+                          </button>
+                        </div>
                       )}
 
                       <p className={cn(
@@ -813,7 +841,7 @@ export default function ConversationsPage() {
                                   <p className="text-xs text-muted-foreground py-2 text-center">Aucun tag</p>
                                 )}
                               </div>
-                              <div className="border-t pt-2">
+                              <div className="border-t pt-2 space-y-2">
                                 <div className="flex gap-1">
                                   <Input
                                     value={newTagName}
@@ -835,6 +863,19 @@ export default function ConversationsPage() {
                                   >
                                     <Plus className="h-3 w-3" />
                                   </Button>
+                                </div>
+                                <div className="flex flex-wrap gap-1">
+                                  {TAG_COLORS.map((color) => (
+                                    <button
+                                      key={color}
+                                      onClick={() => setNewTagColor(color)}
+                                      className={cn(
+                                        'h-5 w-5 rounded-full transition-all',
+                                        newTagColor === color ? 'ring-2 ring-offset-1 ring-primary' : 'hover:scale-110'
+                                      )}
+                                      style={{ backgroundColor: color }}
+                                    />
+                                  ))}
                                 </div>
                               </div>
                             </div>
