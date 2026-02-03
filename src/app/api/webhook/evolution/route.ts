@@ -222,6 +222,8 @@ export async function POST(req: NextRequest) {
         // 2b. Auto-assign agent IA depuis un lien WA (nouvelles conversations)
         if (!fromMe && !conversation.ai_agent_id) {
           let matchingLink = null
+
+          // 1. Chercher correspondance exacte avec pre_filled_message
           if (content) {
             const { data: exactMatch } = await supabase
               .from('wa_links')
@@ -233,6 +235,21 @@ export async function POST(req: NextRequest) {
               .limit(1)
               .maybeSingle()
             matchingLink = exactMatch
+          }
+
+          // 2. Si pas de correspondance exacte, chercher un lien par défaut pour cette session
+          // (premier lien actif avec un agent configuré)
+          if (!matchingLink) {
+            const { data: defaultLink } = await supabase
+              .from('wa_links')
+              .select('id, ai_agent_id')
+              .eq('session_id', session.id)
+              .eq('is_active', true)
+              .not('ai_agent_id', 'is', null)
+              .order('created_at', { ascending: true })
+              .limit(1)
+              .maybeSingle()
+            matchingLink = defaultLink
           }
 
           if (matchingLink?.ai_agent_id) {

@@ -23,6 +23,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Megaphone,
+  Tag,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { AlertsDropdown } from '@/components/alerts-dropdown'
@@ -36,6 +37,7 @@ const NAV_ITEMS = [
   { href: '/campaigns', label: 'Campagnes', icon: Megaphone },
   { href: '/knowledge', label: 'Base de connaissances', icon: BookOpen },
   { href: '/links', label: 'Liens WhatsApp', icon: Link2 },
+  { href: '/tags', label: 'Tags', icon: Tag },
   { href: '/teams', label: 'Équipes', icon: Users },
   { href: '/stats', label: 'Statistiques', icon: BarChart3 },
 ]
