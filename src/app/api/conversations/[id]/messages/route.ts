@@ -63,10 +63,22 @@ export async function GET(
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // Déchiffrer les messages
+  // Récupérer les noms des agents IA pour les messages envoyés par des agents
+  const agentIds = [...new Set((messages || []).filter(m => m.ai_agent_id).map(m => m.ai_agent_id).filter((id): id is string => id !== null))]
+  let agentsMap: Record<string, string> = {}
+  if (agentIds.length > 0) {
+    const { data: agents } = await supabase
+      .from('ai_agents')
+      .select('id, name')
+      .in('id', agentIds)
+    agentsMap = Object.fromEntries((agents || []).map(a => [a.id, a.name]))
+  }
+
+  // Déchiffrer les messages et ajouter le nom de l'agent
   const decryptedMessages = (messages || []).map(msg => ({
     ...msg,
     content: msg.content ? decryptMessage(msg.content) : msg.content,
+    agent_name: msg.ai_agent_id ? agentsMap[msg.ai_agent_id] || null : null,
   }))
 
   // Marquer comme lu (reset unread)

@@ -1102,7 +1102,7 @@ function ConversationsPageContent() {
                           {isAI && (
                             <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-medium text-[#7DC2A5]">
                               <Bot className="h-3 w-3" />
-                              Agent IA
+                              {(msg as typeof msg & { agent_name?: string }).agent_name || 'Agent IA'}
                             </div>
                           )}
                           <p className="whitespace-pre-wrap break-words text-sm">
