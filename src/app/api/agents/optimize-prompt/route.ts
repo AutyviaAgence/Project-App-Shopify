@@ -2,10 +2,6 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import OpenAI from 'openai'
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-})
-
 const OPTIMIZATION_PROMPT = `Tu es un expert en conception de prompts pour agents conversationnels WhatsApp.
 
 Ton rôle est d'améliorer le prompt système fourni pour le rendre plus efficace, structuré et professionnel.
@@ -28,6 +24,10 @@ Important :
 
 export async function POST(request: Request) {
   try {
+    const openai = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+    })
+
     const supabase = await createClient()
     const { data: { user }, error: authError } = await supabase.auth.getUser()
 
