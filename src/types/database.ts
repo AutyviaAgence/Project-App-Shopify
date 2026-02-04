@@ -4,6 +4,7 @@ export type Profile = {
   full_name: string | null
   avatar_url: string | null
   timezone: string
+  data_retention_months: number | null // null = conserver indéfiniment
   created_at: string
   updated_at: string
 }

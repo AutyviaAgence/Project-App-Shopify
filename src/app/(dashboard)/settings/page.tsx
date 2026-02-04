@@ -42,7 +42,19 @@ import {
   Globe,
   Download,
   FileArchive,
+  Clock,
 } from 'lucide-react'
+
+// Options de rétention des données
+const RETENTION_OPTIONS = [
+  { value: 'null', label: 'Conserver indéfiniment', months: null },
+  { value: '1', label: '1 mois', months: 1 },
+  { value: '3', label: '3 mois', months: 3 },
+  { value: '6', label: '6 mois', months: 6 },
+  { value: '12', label: '1 an', months: 12 },
+  { value: '24', label: '2 ans', months: 24 },
+  { value: '36', label: '3 ans', months: 36 },
+]
 
 const THEMES = [
   { value: 'light', label: 'Clair', icon: Sun },
@@ -87,6 +99,7 @@ export default function SettingsPage() {
   const [formFullName, setFormFullName] = useState('')
   const [formAvatarUrl, setFormAvatarUrl] = useState('')
   const [formTimezone, setFormTimezone] = useState('Europe/Paris')
+  const [formDataRetention, setFormDataRetention] = useState<number | null>(null)
 
   // Password change state
   const [currentPassword, setCurrentPassword] = useState('')
@@ -105,6 +118,12 @@ export default function SettingsPage() {
   // Export state
   const [exporting, setExporting] = useState(false)
 
+  // Purge state
+  const [purgePreview, setPurgePreview] = useState<{ messages_to_delete: number; cutoff_date: string | null } | null>(null)
+  const [loadingPurgePreview, setLoadingPurgePreview] = useState(false)
+  const [purging, setPurging] = useState(false)
+  const [purgeDialogOpen, setPurgeDialogOpen] = useState(false)
+
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
 
@@ -122,6 +141,7 @@ export default function SettingsPage() {
           setFormFullName(json.data.full_name || '')
           setFormAvatarUrl(json.data.avatar_url || '')
           setFormTimezone(json.data.timezone || 'Europe/Paris')
+          setFormDataRetention(json.data.data_retention_months)
         }
       } catch {
         toast.error('Erreur lors du chargement du profil')
@@ -142,6 +162,7 @@ export default function SettingsPage() {
           full_name: formFullName.trim(),
           avatar_url: formAvatarUrl.trim(),
           timezone: formTimezone,
+          data_retention_months: formDataRetention,
         }),
       })
       const json = await res.json()
@@ -254,6 +275,42 @@ export default function SettingsPage() {
       toast.error(error instanceof Error ? error.message : 'Erreur lors de l\'export')
     } finally {
       setExporting(false)
+    }
+  }
+
+  async function loadPurgePreview() {
+    setLoadingPurgePreview(true)
+    try {
+      const res = await fetch('/api/account/purge')
+      const json = await res.json()
+      if (res.ok) {
+        setPurgePreview(json)
+      } else {
+        toast.error(json.error || 'Erreur lors du chargement')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setLoadingPurgePreview(false)
+    }
+  }
+
+  async function handlePurgeData() {
+    setPurging(true)
+    try {
+      const res = await fetch('/api/account/purge', { method: 'POST' })
+      const json = await res.json()
+      if (res.ok) {
+        toast.success(json.message || 'Messages supprimés')
+        setPurgeDialogOpen(false)
+        setPurgePreview(null)
+      } else {
+        toast.error(json.error || 'Erreur lors de la purge')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setPurging(false)
     }
   }
 
@@ -562,6 +619,83 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
+        {/* Rétention des données */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              Rétention des données
+            </CardTitle>
+            <CardDescription>
+              Définissez la durée de conservation de vos messages.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="data-retention">Durée de conservation</Label>
+              <Select
+                value={formDataRetention === null ? 'null' : String(formDataRetention)}
+                onValueChange={(value) => {
+                  setFormDataRetention(value === 'null' ? null : Number(value))
+                }}
+              >
+                <SelectTrigger id="data-retention">
+                  <SelectValue placeholder="Sélectionnez une durée" />
+                </SelectTrigger>
+                <SelectContent>
+                  {RETENTION_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Les messages plus anciens que cette durée seront automatiquement supprimés.
+                Les conversations et contacts seront conservés.
+              </p>
+            </div>
+
+            {formDataRetention !== null && (
+              <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
+                <p className="text-sm text-amber-600 dark:text-amber-400">
+                  <AlertTriangle className="inline-block h-4 w-4 mr-1" />
+                  Les messages de plus de {formDataRetention} mois seront purgés automatiquement.
+                </p>
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <Button onClick={handleSaveProfile} disabled={saving}>
+                {saving ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="mr-2 h-4 w-4" />
+                )}
+                Enregistrer
+              </Button>
+
+              {profile?.data_retention_months && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    loadPurgePreview()
+                    setPurgeDialogOpen(true)
+                  }}
+                  disabled={loadingPurgePreview}
+                >
+                  {loadingPurgePreview ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="mr-2 h-4 w-4" />
+                  )}
+                  Purger maintenant
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Zone de danger - Suppression du compte */}
         <Card className="border-destructive/50">
           <CardHeader>
@@ -654,6 +788,69 @@ export default function SettingsPage() {
             >
               {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Supprimer définitivement
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Dialog de confirmation de purge */}
+      <AlertDialog open={purgeDialogOpen} onOpenChange={setPurgeDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Clock className="h-5 w-5" />
+              Purger les anciens messages
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-4">
+                {loadingPurgePreview ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  </div>
+                ) : purgePreview ? (
+                  <>
+                    <p>
+                      Vous êtes sur le point de supprimer définitivement les messages
+                      de plus de <strong>{profile?.data_retention_months} mois</strong>.
+                    </p>
+                    {purgePreview.messages_to_delete > 0 ? (
+                      <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
+                        <p className="text-sm text-amber-600 dark:text-amber-400">
+                          <AlertTriangle className="inline-block h-4 w-4 mr-1" />
+                          <strong>{purgePreview.messages_to_delete}</strong> message(s) seront supprimés.
+                          {purgePreview.cutoff_date && (
+                            <span className="block mt-1 text-xs">
+                              Messages antérieurs au {new Date(purgePreview.cutoff_date).toLocaleDateString('fr-FR')}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-3">
+                        <p className="text-sm text-green-600 dark:text-green-400">
+                          Aucun message à supprimer. Tous vos messages sont récents.
+                        </p>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p>Erreur lors du chargement de l&apos;aperçu.</p>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={purging}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault()
+                handlePurgeData()
+              }}
+              disabled={purging || !purgePreview || purgePreview.messages_to_delete === 0}
+              className="bg-amber-600 text-white hover:bg-amber-700"
+            >
+              {purging && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Purger les messages
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
