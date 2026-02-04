@@ -17,10 +17,10 @@ import {
 import { Button } from '@/components/ui/button'
 
 const LEGAL_PAGES = [
-  { href: '/privacy', label: 'Politique de confidentialit\u00e9', icon: Shield },
-  { href: '/cgu', label: 'Conditions d\'utilisation', icon: FileText },
+  { href: '/privacy', label: 'Politique de confidentialité', icon: Shield },
+  { href: '/cgu', label: "Conditions d'utilisation", icon: FileText },
   { href: '/cgv', label: 'Conditions de vente', icon: ScrollText },
-  { href: '/legal', label: 'Mentions l\u00e9gales', icon: Scale },
+  { href: '/legal', label: 'Mentions légales', icon: Scale },
 ]
 
 interface LegalPageLayoutProps {
@@ -57,7 +57,7 @@ export function LegalPageLayout({ children, title, description, lastUpdated }: L
           <aside className="lg:sticky lg:top-24 lg:h-fit">
             <nav className="space-y-1 rounded-xl border bg-white p-4 shadow-sm dark:bg-slate-900">
               <p className="mb-3 px-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Documents l\u00e9gaux
+                Documents légaux
               </p>
               {LEGAL_PAGES.map((page) => {
                 const isActive = pathname === page.href
@@ -115,7 +115,7 @@ export function LegalPageLayout({ children, title, description, lastUpdated }: L
                 <p className="mt-2 text-slate-600 dark:text-slate-400">{description}</p>
               )}
               <p className="mt-4 text-sm text-slate-500">
-                Derni\u00e8re mise \u00e0 jour : {lastUpdated}
+                Dernière mise à jour : {lastUpdated}
               </p>
             </div>
 
@@ -129,7 +129,7 @@ export function LegalPageLayout({ children, title, description, lastUpdated }: L
             {/* Footer */}
             <div className="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-xl border bg-white p-4 text-sm text-slate-500 shadow-sm dark:bg-slate-900">
               <p>
-                \u00a9 {new Date().getFullYear()} Autyvia - Julian TOURAILLE-TRAN
+                © {new Date().getFullYear()} Autyvia - Julian TOURAILLE-TRAN
               </p>
               <p>SIRET : 992 684 829 00011</p>
             </div>
