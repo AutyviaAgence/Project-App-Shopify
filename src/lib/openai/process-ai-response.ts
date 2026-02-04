@@ -264,6 +264,65 @@ export async function processAIResponse(params: {
       }
     }
 
+    // 7.2 Vérifier la condition d'arrêt personnalisée
+    if (agent.stop_condition) {
+      const stopCheckResult = await generateAgentResponse({
+        model: 'gpt-4o-mini',
+        temperature: 0,
+        systemPrompt: `Tu es un assistant qui vérifie si une condition d'arrêt est remplie.
+
+Condition d'arrêt définie : "${agent.stop_condition}"
+
+Analyse la dernière réponse de l'agent et détermine si la condition d'arrêt est remplie.
+Réponds UNIQUEMENT par "OUI" si la condition est clairement remplie, ou "NON" sinon.
+Sois strict : la condition doit être explicitement satisfaite.`,
+        messages: [
+          { role: 'user', content: `Dernière réponse de l'agent :\n\n${aiResponseText}` },
+        ],
+      })
+
+      if (stopCheckResult.ok && stopCheckResult.content.trim().toUpperCase().startsWith('OUI')) {
+        console.log('[AI] Condition d\'arrêt remplie:', agent.stop_condition)
+
+        // Récupérer les infos de la session pour la notification
+        const { data: session } = await supabase
+          .from('whatsapp_sessions')
+          .select('user_id, instance_name')
+          .eq('id', params.sessionId)
+          .single()
+
+        // Désactiver l'IA pour cette conversation
+        await supabase
+          .from('conversations')
+          .update({
+            is_ai_active: false,
+            last_message_at: new Date().toISOString(),
+            last_message_preview: aiResponseText.slice(0, 100),
+          })
+          .eq('id', params.conversationId)
+
+        // Créer une notification pour l'utilisateur
+        if (session) {
+          await supabase.from('user_alerts').insert({
+            user_id: session.user_id,
+            alert_type: 'agent_stopped',
+            title: 'Agent arrêté automatiquement',
+            message: `L'agent "${agent.name}" s'est arrêté car la condition a été remplie : "${agent.stop_condition}"`,
+            metadata: {
+              conversation_id: params.conversationId,
+              session_id: params.sessionId,
+              agent_id: params.agentId,
+              stop_condition: agent.stop_condition,
+              reason: 'stop_condition_met',
+            },
+          })
+        }
+
+        console.log('[AI] Conversation arrêtée suite à la condition d\'arrêt')
+        return
+      }
+    }
+
     // 8. Mettre à jour l'aperçu de la conversation
     await supabase
       .from('conversations')

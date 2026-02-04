@@ -242,6 +242,27 @@ export async function POST(req: NextRequest) {
               })
               .eq('id', conversation.id)
             console.log('[Webhook] Auto-assigned agent from WA link:', matchingLink.id)
+
+            // Notification: agent a commencé à gérer une conversation
+            const { data: agentInfo } = await supabase
+              .from('ai_agents')
+              .select('name')
+              .eq('id', matchingLink.ai_agent_id)
+              .single()
+
+            await supabase.from('user_alerts').insert({
+              user_id: session.user_id,
+              alert_type: 'agent_started',
+              title: 'Agent IA activé',
+              message: `L'agent "${agentInfo?.name || 'IA'}" a commencé à gérer une nouvelle conversation avec +${contact.phone_number}`,
+              metadata: {
+                conversation_id: conversation.id,
+                session_id: session.id,
+                agent_id: matchingLink.ai_agent_id,
+                contact_phone: contact.phone_number,
+                wa_link_id: matchingLink.id,
+              },
+            })
           }
         }
 

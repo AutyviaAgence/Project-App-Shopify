@@ -110,6 +110,9 @@ export default function AgentsPage() {
   // Type d'agent
   const [formAgentType, setFormAgentType] = useState<'conversation' | 'relance'>('conversation')
 
+  // Condition d'arrêt
+  const [formStopCondition, setFormStopCondition] = useState('')
+
   // Wizard state
   const [wizardOpen, setWizardOpen] = useState(false)
 
@@ -175,6 +178,7 @@ export default function AgentsPage() {
     setFormEscalationMessage('')
     setFormBookingUrl('')
     setFormAgentType('conversation')
+    setFormStopCondition('')
     setDialogOpen(true)
   }
 
@@ -202,6 +206,7 @@ export default function AgentsPage() {
     setFormEscalationMessage(agent.escalation_message ?? '')
     setFormBookingUrl(agent.booking_url ?? '')
     setFormAgentType(agent.agent_type ?? 'conversation')
+    setFormStopCondition(agent.stop_condition ?? '')
     setDialogOpen(true)
   }
 
@@ -246,6 +251,7 @@ export default function AgentsPage() {
             booking_url: formBookingUrl.trim() || null,
             team_ids: formTeamIds,
             agent_type: formAgentType,
+            stop_condition: formStopCondition.trim() || null,
           }),
         })
         const json = await res.json()
@@ -283,6 +289,7 @@ export default function AgentsPage() {
             booking_url: formBookingUrl.trim() || null,
             team_ids: formTeamIds,
             agent_type: formAgentType,
+            stop_condition: formStopCondition.trim() || null,
           }),
         })
         const json = await res.json()
@@ -1092,6 +1099,28 @@ export default function AgentsPage() {
                   </div>
                 </div>
               )}
+            </div>
+
+            {/* Condition d'arrêt */}
+            <div className="space-y-3 pt-4 border-t">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <Clock className="h-4 w-4 text-orange-500" />
+                Condition d&apos;arrêt automatique
+              </div>
+              <div className="space-y-2">
+                <Textarea
+                  id="stop-condition"
+                  placeholder="Ex: Arrêter la conversation après avoir envoyé le lien de rendez-vous calendly"
+                  value={formStopCondition}
+                  onChange={(e) => setFormStopCondition(e.target.value)}
+                  rows={2}
+                  className="text-sm"
+                />
+                <p className="text-[10px] text-muted-foreground">
+                  Décrivez en langage naturel quand l&apos;agent doit automatiquement arrêter de répondre.
+                  L&apos;IA analysera chaque réponse pour vérifier si cette condition est remplie.
+                </p>
+              </div>
             </div>
 
             <Button

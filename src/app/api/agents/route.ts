@@ -159,7 +159,7 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json()
-  const { name, description, system_prompt, objective, model, temperature, is_active, response_delay_min, response_delay_max, max_messages_per_conversation, inactivity_timeout_minutes, escalation_enabled, escalation_keywords, escalation_message, booking_url, team_id, team_ids, agent_type } = body as {
+  const { name, description, system_prompt, objective, model, temperature, is_active, response_delay_min, response_delay_max, max_messages_per_conversation, inactivity_timeout_minutes, escalation_enabled, escalation_keywords, escalation_message, booking_url, team_id, team_ids, agent_type, stop_condition } = body as {
     name?: string
     description?: string
     system_prompt?: string
@@ -178,6 +178,7 @@ export async function POST(req: Request) {
     team_id?: string
     team_ids?: string[]
     agent_type?: 'conversation' | 'relance'
+    stop_condition?: string
   }
 
   // Support des deux formats: team_id (legacy) et team_ids (nouveau)
@@ -244,6 +245,7 @@ export async function POST(req: Request) {
       escalation_message: escalation_message?.trim() || null,
       booking_url: booking_url?.trim() || null,
       agent_type: finalAgentType,
+      stop_condition: stop_condition?.trim() || null,
     })
     .select()
     .single()

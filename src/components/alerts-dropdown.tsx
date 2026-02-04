@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Bell, Check, Trash2, AlertTriangle, WifiOff, AlertCircle, Info, Zap } from 'lucide-react'
+import { Bell, Check, Trash2, AlertTriangle, WifiOff, AlertCircle, Info, Zap, Bot, BotOff, UserX } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -21,6 +21,9 @@ const ALERT_ICONS: Record<string, typeof AlertTriangle> = {
   ai_error: AlertCircle,
   webhook_error: AlertTriangle,
   info: Info,
+  campaign_opt_out: UserX,
+  agent_started: Bot,
+  agent_stopped: BotOff,
 }
 
 const ALERT_COLORS: Record<string, string> = {
@@ -29,6 +32,9 @@ const ALERT_COLORS: Record<string, string> = {
   ai_error: 'text-red-500',
   webhook_error: 'text-red-500',
   info: 'text-blue-500',
+  campaign_opt_out: 'text-purple-500',
+  agent_started: 'text-green-500',
+  agent_stopped: 'text-orange-500',
 }
 
 export function AlertsDropdown() {
