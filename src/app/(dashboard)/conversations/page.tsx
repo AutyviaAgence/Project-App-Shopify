@@ -469,8 +469,12 @@ function ConversationsPageContent() {
           )
         }
         toast.success(agentId ? 'Agent assigné' : 'Agent retiré')
+      } else {
+        console.error('[Conversations] Erreur assignation agent:', json.error)
+        toast.error(json.error || 'Erreur lors de l\'assignation')
       }
-    } catch {
+    } catch (err) {
+      console.error('[Conversations] Erreur réseau assignation agent:', err)
       toast.error('Erreur réseau')
     }
   }

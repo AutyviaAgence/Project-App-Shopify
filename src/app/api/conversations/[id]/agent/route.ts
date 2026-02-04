@@ -53,21 +53,25 @@ export async function PATCH(
   if (ai_agent_id) {
     const teamIds = await getUserTeamIds(supabase, user.id)
 
-    let agentQuery = supabase
+    // Récupérer l'agent d'abord
+    const { data: agent, error: agentError } = await supabase
       .from('ai_agents')
       .select('id, user_id, team_id')
       .eq('id', ai_agent_id)
+      .single()
 
-    if (teamIds.length > 0) {
-      agentQuery = agentQuery.or(`user_id.eq.${user.id},team_id.in.(${teamIds.join(',')})`)
-    } else {
-      agentQuery = agentQuery.eq('user_id', user.id)
+    if (agentError || !agent) {
+      console.error('[Agent] Agent introuvable:', ai_agent_id, agentError)
+      return NextResponse.json({ error: 'Agent introuvable' }, { status: 404 })
     }
 
-    const { data: agent } = await agentQuery.single()
+    // Vérifier que l'utilisateur a accès à cet agent
+    const isOwner = agent.user_id === user.id
+    const isTeamAgent = agent.team_id && teamIds.includes(agent.team_id)
 
-    if (!agent) {
-      return NextResponse.json({ error: 'Agent introuvable' }, { status: 404 })
+    if (!isOwner && !isTeamAgent) {
+      console.error('[Agent] Accès non autorisé à l\'agent:', ai_agent_id)
+      return NextResponse.json({ error: 'Accès non autorisé à cet agent' }, { status: 403 })
     }
   }
 
