@@ -43,6 +43,7 @@ import {
   Settings2,
   ChevronDown,
   Wand2,
+  MessageSquare,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -53,6 +54,7 @@ import {
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { MultiTeamSelect } from '@/components/multi-team-select'
 import { AgentWizard, type GeneratedAgentConfig } from '@/components/agent-wizard'
+import { AgentTestChat } from '@/components/agent-test-chat'
 
 type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
 type BookingStats = {
@@ -113,6 +115,10 @@ export default function AgentsPage() {
 
   // Optimisation du prompt
   const [optimizing, setOptimizing] = useState(false)
+
+  // Test chat state
+  const [testChatOpen, setTestChatOpen] = useState(false)
+  const [testingAgent, setTestingAgent] = useState<AIAgent | null>(null)
 
   const fetchAgents = useCallback(async () => {
     try {
@@ -646,6 +652,17 @@ export default function AgentsPage() {
                     <Button
                       size="sm"
                       variant="ghost"
+                      onClick={() => {
+                        setTestingAgent(agent)
+                        setTestChatOpen(true)
+                      }}
+                    >
+                      <MessageSquare className="mr-1 h-3 w-3" />
+                      Tester
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
                       className="text-destructive hover:text-destructive"
                       onClick={() => openDeleteDialog(agent)}
                       disabled={isDeleting}
@@ -1112,6 +1129,19 @@ export default function AgentsPage() {
         onOpenChange={setWizardOpen}
         onComplete={handleWizardComplete}
       />
+
+      {/* Agent Test Chat */}
+      {testingAgent && (
+        <AgentTestChat
+          open={testChatOpen}
+          onOpenChange={(open) => {
+            setTestChatOpen(open)
+            if (!open) setTestingAgent(null)
+          }}
+          agentId={testingAgent.id}
+          agentName={testingAgent.name}
+        />
+      )}
     </div>
   )
 }
