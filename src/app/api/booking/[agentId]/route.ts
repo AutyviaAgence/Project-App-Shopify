@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import crypto from 'crypto'
 
 /** GET /api/booking/[agentId] — Redirection trackée vers le lien de RDV */
@@ -8,7 +8,12 @@ export async function GET(
   { params }: { params: Promise<{ agentId: string }> }
 ) {
   const { agentId } = await params
-  const supabase = await createClient()
+
+  // Utiliser le client admin pour contourner les RLS (visiteurs non authentifiés)
+  const supabase = createAdminSupabase(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
 
   // Récupérer l'agent et son booking_url
   const { data: agent, error } = await supabase
