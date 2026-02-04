@@ -196,7 +196,7 @@ export type WebhookLog = {
 export type UserAlert = {
   id: string
   user_id: string
-  alert_type: 'session_disconnected' | 'quota_reached' | 'ai_error' | 'webhook_error' | 'info' | 'campaign_opt_out' | 'agent_started' | 'agent_stopped'
+  alert_type: 'session_disconnected' | 'quota_reached' | 'ai_error' | 'webhook_error' | 'info' | 'campaign_opt_out' | 'agent_started' | 'agent_stopped' | 'booking_click'
   title: string
   message: string
   metadata: Record<string, unknown> | null

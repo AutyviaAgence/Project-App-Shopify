@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Bell, Check, Trash2, AlertTriangle, WifiOff, AlertCircle, Info, Zap, Bot, BotOff, UserX, ExternalLink } from 'lucide-react'
+import { Bell, Check, Trash2, AlertTriangle, WifiOff, AlertCircle, Info, Zap, Bot, BotOff, UserX, ExternalLink, CalendarCheck } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -25,6 +25,7 @@ const ALERT_ICONS: Record<string, typeof AlertTriangle> = {
   campaign_opt_out: UserX,
   agent_started: Bot,
   agent_stopped: BotOff,
+  booking_click: CalendarCheck,
 }
 
 const ALERT_COLORS: Record<string, string> = {
@@ -36,6 +37,7 @@ const ALERT_COLORS: Record<string, string> = {
   campaign_opt_out: 'text-purple-500',
   agent_started: 'text-green-500',
   agent_stopped: 'text-orange-500',
+  booking_click: 'text-emerald-500',
 }
 
 export function AlertsDropdown() {

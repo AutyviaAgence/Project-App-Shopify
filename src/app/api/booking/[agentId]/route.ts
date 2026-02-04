@@ -13,7 +13,7 @@ export async function GET(
   // Récupérer l'agent et son booking_url
   const { data: agent, error } = await supabase
     .from('ai_agents')
-    .select('id, booking_url')
+    .select('id, name, booking_url, user_id')
     .eq('id', agentId)
     .single()
 
@@ -76,6 +76,43 @@ export async function GET(
     referer: referer,
     proposal_id: proposalId,
   })
+
+  // Créer une notification pour l'utilisateur propriétaire de l'agent
+  if (agent.user_id) {
+    // Récupérer les infos du contact si disponible
+    let contactName = 'Un contact'
+    let contactPhone = ''
+    if (contactId) {
+      const { data: contact } = await supabase
+        .from('contacts')
+        .select('first_name, last_name, name, phone_number')
+        .eq('id', contactId)
+        .single()
+
+      if (contact) {
+        const fullName = [contact.first_name, contact.last_name].filter(Boolean).join(' ')
+        contactName = fullName || contact.name || `+${contact.phone_number}`
+        contactPhone = contact.phone_number
+      }
+    }
+
+    await supabase.from('user_alerts').insert({
+      user_id: agent.user_id,
+      alert_type: 'booking_click',
+      title: 'Clic sur lien de rendez-vous',
+      message: `${contactName} a cliqué sur le lien de rendez-vous proposé par l'agent "${agent.name}".${contactPhone ? ` (${contactPhone})` : ''}`,
+      metadata: {
+        conversation_id: conversationId || null,
+        contact_id: contactId || null,
+        session_id: sessionId || null,
+        agent_id: agentId,
+        agent_name: agent.name,
+        contact_name: contactName,
+        contact_phone: contactPhone || null,
+        type: 'booking_click',
+      },
+    })
+  }
 
   // Rediriger vers le lien de RDV
   return NextResponse.redirect(agent.booking_url, 302)
