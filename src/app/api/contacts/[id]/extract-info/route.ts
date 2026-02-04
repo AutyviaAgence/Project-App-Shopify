@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { generateAgentResponse } from '@/lib/openai/client'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { decryptMessage } from '@/lib/crypto/encryption'
 
 /** POST /api/contacts/[id]/extract-info — Extraire les informations du contact via IA */
 export async function POST(
@@ -68,8 +69,9 @@ export async function POST(
   }
 
   // Formater le transcript - utiliser direction comme fallback si sent_by n'est pas défini
+  // Déchiffrer les messages avant de les envoyer à l'IA
   const transcript = messages
-    .filter((m) => m.content)
+    .filter((m): m is typeof m & { content: string } => !!m.content)
     .map((m) => {
       let sender = 'Inconnu'
       if (m.sent_by === 'contact' || m.direction === 'inbound') {
@@ -79,7 +81,9 @@ export async function POST(
       } else if (m.sent_by === 'user' || m.direction === 'outbound') {
         sender = 'Utilisateur'
       }
-      return `[${sender}]: ${m.content}`
+      // Déchiffrer le contenu du message
+      const decryptedContent = decryptMessage(m.content)
+      return `[${sender}]: ${decryptedContent}`
     })
     .join('\n')
 
