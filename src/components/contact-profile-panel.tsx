@@ -140,24 +140,27 @@ export function ContactProfilePanel({
         method: 'POST',
       })
       const json = await res.json()
+      console.log('[extract-info] API response:', json)
+
       if (res.ok && json.data?.extracted) {
         const extracted = json.data.extracted
+        console.log('[extract-info] Extracted data:', extracted)
         const updates: string[] = []
 
         // Remplir avec les infos extraites (écrase les valeurs existantes si nouvelles trouvées)
-        if (extracted.first_name) {
+        if (extracted.first_name && extracted.first_name !== 'null') {
           setFirstName(extracted.first_name)
           updates.push('prénom')
         }
-        if (extracted.last_name) {
+        if (extracted.last_name && extracted.last_name !== 'null') {
           setLastName(extracted.last_name)
           updates.push('nom')
         }
-        if (extracted.email) {
+        if (extracted.email && extracted.email !== 'null') {
           setEmail(extracted.email)
           updates.push('email')
         }
-        if (extracted.notes) {
+        if (extracted.notes && extracted.notes !== 'null') {
           setNotes(extracted.notes)
           updates.push('notes')
         }
@@ -170,7 +173,8 @@ export function ContactProfilePanel({
       } else {
         toast.error(json.error || 'Erreur lors de l\'extraction')
       }
-    } catch {
+    } catch (err) {
+      console.error('[extract-info] Error:', err)
       toast.error('Erreur réseau')
     } finally {
       setExtractingInfo(false)

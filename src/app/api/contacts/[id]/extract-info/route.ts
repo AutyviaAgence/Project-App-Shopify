@@ -67,19 +67,24 @@ export async function POST(
     return NextResponse.json({ error: 'Aucun message à analyser' }, { status: 400 })
   }
 
-  // Formater le transcript
+  // Formater le transcript - utiliser direction comme fallback si sent_by n'est pas défini
   const transcript = messages
     .filter((m) => m.content)
     .map((m) => {
-      const sender =
-        m.sent_by === 'contact'
-          ? 'Contact'
-          : m.sent_by === 'ai_agent'
-            ? 'Agent IA'
-            : 'Utilisateur'
+      let sender = 'Inconnu'
+      if (m.sent_by === 'contact' || m.direction === 'inbound') {
+        sender = 'Contact'
+      } else if (m.sent_by === 'ai_agent') {
+        sender = 'Agent IA'
+      } else if (m.sent_by === 'user' || m.direction === 'outbound') {
+        sender = 'Utilisateur'
+      }
       return `[${sender}]: ${m.content}`
     })
     .join('\n')
+
+  console.log('[extract-info] Messages count:', messages.length)
+  console.log('[extract-info] Transcript preview:', transcript.substring(0, 1000))
 
   // Appeler OpenAI pour extraire les informations
   const result = await generateAgentResponse({
@@ -87,36 +92,46 @@ export async function POST(
     temperature: 0.2,
     systemPrompt: `Tu es un assistant spécialisé dans l'extraction d'informations de contacts à partir de conversations WhatsApp.
 
-Analyse la conversation et extrait les informations suivantes sur le CONTACT (pas l'utilisateur ou l'agent IA) :
+Analyse la conversation et extrait les informations sur le CONTACT (messages marqués [Contact]).
 
-Tu dois répondre UNIQUEMENT en JSON valide avec ce format exact :
+IMPORTANT: Dans cette conversation, les messages du contact (client) sont marqués avec "[Contact]:". Les messages marqués "[Agent IA]:" ou "[Utilisateur]:" viennent de l'entreprise.
+
+Réponds UNIQUEMENT en JSON valide avec cette structure :
 {
-  "first_name": "string ou null si non trouvé",
-  "last_name": "string ou null si non trouvé",
-  "email": "string ou null si non trouvé",
-  "notes": "string avec les informations importantes sur le contact : profession, entreprise, localisation, besoins, préférences, contexte, etc. Maximum 500 caractères. Si rien de pertinent, mettre null."
+  "first_name": null,
+  "last_name": null,
+  "email": null,
+  "notes": null
 }
 
-Règles importantes :
-- Ne met QUE les informations explicitement mentionnées ou clairement déduites de la conversation
-- Si le contact se présente avec son nom complet, sépare prénom et nom
-- Pour l'email, cherche des adresses email mentionnées par le contact
-- Pour les notes, résume les informations clés utiles pour un commercial ou support client
-- Si tu n'es pas sûr d'une information, met null
-- Ne devine pas et ne fabrique pas d'informations
+Pour chaque champ, remplace null par la valeur trouvée ou garde null si non trouvé.
 
-Réponds UNIQUEMENT avec le JSON, sans explication ni texte autour.`,
+Règles :
+- first_name: prénom du contact s'il se présente
+- last_name: nom de famille du contact s'il se présente
+- email: adresse email mentionnée par le contact (format xxx@xxx.xxx)
+- notes: résumé des infos utiles (profession, entreprise, localisation, besoins, produits/services demandés). Max 500 caractères.
+
+Cherche particulièrement :
+- Quand le contact dit "je suis...", "je m'appelle...", "mon nom est..."
+- Les emails dans le format texte@domaine.extension
+- Les informations sur le métier, l'entreprise, les besoins du contact
+
+Ne devine RIEN. Extrais uniquement les informations explicites.`,
     messages: [
-      { role: 'user', content: `Voici la conversation à analyser :\n\n${transcript}` },
+      { role: 'user', content: `Conversation à analyser :\n\n${transcript}` },
     ],
   })
 
   if (!result.ok) {
+    console.error('[extract-info] OpenAI error:', result.error)
     return NextResponse.json(
       { error: 'Erreur lors de l\'extraction des informations' },
       { status: 500 }
     )
   }
+
+  console.log('[extract-info] OpenAI response:', result.content)
 
   // Parser la réponse JSON
   let extractedInfo: {
@@ -135,7 +150,26 @@ Réponds UNIQUEMENT avec le JSON, sans explication ni texte autour.`,
       jsonStr = jsonStr.replace(/^```\n?/, '').replace(/\n?```$/, '')
     }
     extractedInfo = JSON.parse(jsonStr)
-  } catch {
+
+    // Normaliser les valeurs : convertir chaînes vides, "null", undefined en null
+    const normalizeValue = (val: unknown): string | null => {
+      if (val === null || val === undefined) return null
+      if (typeof val !== 'string') return null
+      const trimmed = val.trim()
+      if (trimmed === '' || trimmed.toLowerCase() === 'null' || trimmed === 'string ou null si non trouvé') {
+        return null
+      }
+      return trimmed
+    }
+
+    extractedInfo.first_name = normalizeValue(extractedInfo.first_name)
+    extractedInfo.last_name = normalizeValue(extractedInfo.last_name)
+    extractedInfo.email = normalizeValue(extractedInfo.email)
+    extractedInfo.notes = normalizeValue(extractedInfo.notes)
+
+    console.log('[extract-info] Parsed info:', extractedInfo)
+  } catch (parseError) {
+    console.error('[extract-info] JSON parse error:', parseError, 'Raw:', result.content)
     return NextResponse.json(
       { error: 'Erreur lors du parsing des informations extraites' },
       { status: 500 }
