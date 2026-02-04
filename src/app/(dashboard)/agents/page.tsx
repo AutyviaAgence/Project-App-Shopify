@@ -42,6 +42,7 @@ import {
   Sparkles,
   Settings2,
   ChevronDown,
+  Wand2,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -109,6 +110,9 @@ export default function AgentsPage() {
 
   // Wizard state
   const [wizardOpen, setWizardOpen] = useState(false)
+
+  // Optimisation du prompt
+  const [optimizing, setOptimizing] = useState(false)
 
   const fetchAgents = useCallback(async () => {
     try {
@@ -405,6 +409,42 @@ export default function AgentsPage() {
     }
   }
 
+  async function handleOptimizePrompt() {
+    if (!formSystemPrompt.trim() || formSystemPrompt.trim().length < 10) {
+      toast.error('Écrivez d\'abord un prompt d\'au moins 10 caractères')
+      return
+    }
+
+    setOptimizing(true)
+    try {
+      const res = await fetch('/api/agents/optimize-prompt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          prompt: formSystemPrompt,
+          context: {
+            businessName: formName || undefined,
+            agentType: formAgentType,
+            objective: formObjective || undefined,
+          },
+        }),
+      })
+
+      const json = await res.json()
+
+      if (res.ok && json.data?.optimized) {
+        setFormSystemPrompt(json.data.optimized)
+        toast.success('Prompt optimisé avec succès !')
+      } else {
+        toast.error(json.error || 'Erreur lors de l\'optimisation')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setOptimizing(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -691,7 +731,29 @@ export default function AgentsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="agent-prompt">Prompt système *</Label>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="agent-prompt">Prompt système *</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleOptimizePrompt}
+                  disabled={optimizing || !formSystemPrompt.trim() || formSystemPrompt.trim().length < 10}
+                  className="h-7 text-xs"
+                >
+                  {optimizing ? (
+                    <>
+                      <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
+                      Optimisation...
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="mr-1.5 h-3 w-3" />
+                      Optimiser avec l&apos;IA
+                    </>
+                  )}
+                </Button>
+              </div>
               <Textarea
                 id="agent-prompt"
                 placeholder="Ex: Tu es un assistant de support client pour l'entreprise X. Tu réponds de manière professionnelle et concise aux questions des clients..."
