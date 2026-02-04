@@ -147,20 +147,20 @@ export function ContactProfilePanel({
         console.log('[extract-info] Extracted data:', extracted)
         const updates: string[] = []
 
-        // Remplir avec les infos extraites (écrase les valeurs existantes si nouvelles trouvées)
-        if (extracted.first_name && extracted.first_name !== 'null') {
+        // Remplir uniquement les champs vides (ne pas écraser les valeurs existantes)
+        if (extracted.first_name && extracted.first_name !== 'null' && !firstName.trim()) {
           setFirstName(extracted.first_name)
           updates.push('prénom')
         }
-        if (extracted.last_name && extracted.last_name !== 'null') {
+        if (extracted.last_name && extracted.last_name !== 'null' && !lastName.trim()) {
           setLastName(extracted.last_name)
           updates.push('nom')
         }
-        if (extracted.email && extracted.email !== 'null') {
+        if (extracted.email && extracted.email !== 'null' && !email.trim()) {
           setEmail(extracted.email)
           updates.push('email')
         }
-        if (extracted.notes && extracted.notes !== 'null') {
+        if (extracted.notes && extracted.notes !== 'null' && !notes.trim()) {
           setNotes(extracted.notes)
           updates.push('notes')
         }
@@ -168,7 +168,7 @@ export function ContactProfilePanel({
         if (updates.length > 0) {
           toast.success(`Informations extraites : ${updates.join(', ')}`)
         } else {
-          toast.info('Aucune information trouvée dans la conversation')
+          toast.info('Aucune nouvelle information à compléter')
         }
       } else {
         toast.error(json.error || 'Erreur lors de l\'extraction')

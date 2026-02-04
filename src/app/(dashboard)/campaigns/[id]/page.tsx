@@ -319,19 +319,20 @@ export default function CampaignDetailPage() {
         const updates: string[] = []
 
         const newContact = { ...editedContact }
-        if (extracted.first_name) {
+        // Remplir uniquement les champs vides (ne pas écraser les valeurs existantes)
+        if (extracted.first_name && !editedContact.first_name.trim()) {
           newContact.first_name = extracted.first_name
           updates.push('prénom')
         }
-        if (extracted.last_name) {
+        if (extracted.last_name && !editedContact.last_name.trim()) {
           newContact.last_name = extracted.last_name
           updates.push('nom')
         }
-        if (extracted.email) {
+        if (extracted.email && !editedContact.email.trim()) {
           newContact.email = extracted.email
           updates.push('email')
         }
-        if (extracted.notes) {
+        if (extracted.notes && !editedContact.notes.trim()) {
           newContact.notes = extracted.notes
           updates.push('notes')
         }
@@ -341,7 +342,7 @@ export default function CampaignDetailPage() {
         if (updates.length > 0) {
           toast.success(`Informations extraites : ${updates.join(', ')}`)
         } else {
-          toast.info('Aucune information trouvée dans la conversation')
+          toast.info('Aucune nouvelle information à compléter')
         }
       } else {
         toast.error(json.error || 'Erreur lors de l\'extraction')
