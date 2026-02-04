@@ -83,6 +83,14 @@ function LoginForm() {
               Créer un compte
             </Link>
           </div>
+          {/* Liens juridiques */}
+          <div className="flex flex-wrap justify-center gap-3 text-xs text-muted-foreground pt-2 border-t w-full">
+            <Link href="/cgu" className="hover:underline">CGU</Link>
+            <span>•</span>
+            <Link href="/privacy" className="hover:underline">Confidentialité</Link>
+            <span>•</span>
+            <Link href="/legal" className="hover:underline">Mentions légales</Link>
+          </div>
         </CardFooter>
       </form>
     </Card>

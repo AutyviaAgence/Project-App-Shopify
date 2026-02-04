@@ -43,7 +43,10 @@ import {
   Download,
   FileArchive,
   Clock,
+  Scale,
+  ExternalLink,
 } from 'lucide-react'
+import Link from 'next/link'
 
 // Options de rétention des données
 const RETENTION_OPTIONS = [
@@ -616,6 +619,55 @@ export default function SettingsPage() {
               )}
               Exporter mes données
             </Button>
+          </CardContent>
+        </Card>
+
+        {/* Documents juridiques */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Scale className="h-5 w-5" />
+              Documents juridiques
+            </CardTitle>
+            <CardDescription>
+              Consultez nos documents légaux et notre politique de confidentialité.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="grid gap-2">
+              <Link
+                href="/privacy"
+                target="_blank"
+                className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+              >
+                <span className="text-sm font-medium">Politique de confidentialité</span>
+                <ExternalLink className="h-4 w-4 text-muted-foreground" />
+              </Link>
+              <Link
+                href="/cgu"
+                target="_blank"
+                className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+              >
+                <span className="text-sm font-medium">Conditions Générales d&apos;Utilisation</span>
+                <ExternalLink className="h-4 w-4 text-muted-foreground" />
+              </Link>
+              <Link
+                href="/cgv"
+                target="_blank"
+                className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+              >
+                <span className="text-sm font-medium">Conditions Générales de Vente</span>
+                <ExternalLink className="h-4 w-4 text-muted-foreground" />
+              </Link>
+              <Link
+                href="/legal"
+                target="_blank"
+                className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
+              >
+                <span className="text-sm font-medium">Mentions légales</span>
+                <ExternalLink className="h-4 w-4 text-muted-foreground" />
+              </Link>
+            </div>
           </CardContent>
         </Card>
 
