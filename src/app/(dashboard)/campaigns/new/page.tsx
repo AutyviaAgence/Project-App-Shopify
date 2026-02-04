@@ -31,7 +31,6 @@ import {
   Users,
   Tag,
   Link2,
-  Calendar,
   AlertTriangle,
 } from 'lucide-react'
 import { getSessionDisplayName } from '@/lib/format-phone'
@@ -78,9 +77,6 @@ export default function NewCampaignPage() {
   const [sendHourStart, setSendHourStart] = useState(9)
   const [sendHourEnd, setSendHourEnd] = useState(21)
   const [minDaysSinceLastCampaign, setMinDaysSinceLastCampaign] = useState(7)
-
-  // Schedule
-  const [scheduledAt, setScheduledAt] = useState<string>('')
 
   const fetchData = useCallback(async () => {
     try {
@@ -159,7 +155,6 @@ export default function NewCampaignPage() {
           send_hour_start: sendHourStart,
           send_hour_end: sendHourEnd,
           min_days_since_last_campaign: minDaysSinceLastCampaign,
-          scheduled_at: scheduledAt || null,
         }),
       })
 
@@ -242,7 +237,6 @@ export default function NewCampaignPage() {
           send_hour_start: sendHourStart,
           send_hour_end: sendHourEnd,
           min_days_since_last_campaign: minDaysSinceLastCampaign,
-          scheduled_at: scheduledAt || null,
         }),
       })
 
@@ -680,33 +674,6 @@ export default function NewCampaignPage() {
               />
               <p className="text-xs text-muted-foreground">
                 Ne pas recontacter quelqu&apos;un contacté par campagne il y a moins de {minDaysSinceLastCampaign} jours
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Programmation */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Calendar className="h-5 w-5" />
-              Programmation
-            </CardTitle>
-            <CardDescription>
-              Optionnel : planifiez le lancement de la campagne.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-2">
-              <Label htmlFor="scheduled">Date et heure de lancement</Label>
-              <Input
-                id="scheduled"
-                type="datetime-local"
-                value={scheduledAt}
-                onChange={(e) => setScheduledAt(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Laisser vide pour un lancement manuel.
               </p>
             </div>
           </CardContent>
