@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useState, useCallback, useRef } from 'react'
+import { Suspense, useEffect, useState, useCallback, useRef } from 'react'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { Message, AIAgent, ConversationTag } from '@/types/database'
 import { Button } from '@/components/ui/button'
@@ -77,10 +78,13 @@ type Team = {
   name: string
 }
 
-export default function ConversationsPage() {
+function ConversationsPageContent() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
   const [conversations, setConversations] = useState<ConversationWithJoins[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedConv, setSelectedConv] = useState<ConversationWithJoins | null>(null)
+  const [pendingOpenConvId, setPendingOpenConvId] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [messagesLoading, setMessagesLoading] = useState(false)
   const [newMessage, setNewMessage] = useState('')
@@ -253,6 +257,46 @@ export default function ConversationsPage() {
     fetchTags()
     fetchTeams()
   }, [fetchConversations, fetchAgents, fetchSessions, fetchTags, fetchTeams])
+
+  // Gérer le paramètre ?open=conversationId dans l'URL
+  useEffect(() => {
+    const openConvId = searchParams.get('open')
+    if (openConvId) {
+      setPendingOpenConvId(openConvId)
+      // Nettoyer l'URL après avoir récupéré le paramètre
+      router.replace('/conversations', { scroll: false })
+    }
+  }, [searchParams, router])
+
+  // Ouvrir la conversation quand elle est disponible
+  useEffect(() => {
+    if (pendingOpenConvId && conversations.length > 0) {
+      const conv = conversations.find(c => c.id === pendingOpenConvId)
+      if (conv) {
+        setSelectedConv(conv)
+        setProfileOpen(false)
+        setPendingOpenConvId(null)
+      } else if (!loading) {
+        // La conversation n'est pas dans la liste actuelle, essayer de la charger
+        const fetchConversation = async () => {
+          try {
+            const res = await fetch(`/api/conversations/${pendingOpenConvId}`)
+            if (res.ok) {
+              const json = await res.json()
+              if (json.data) {
+                setSelectedConv(json.data)
+                setProfileOpen(false)
+              }
+            }
+          } catch {
+            toast.error('Conversation introuvable')
+          }
+          setPendingOpenConvId(null)
+        }
+        fetchConversation()
+      }
+    }
+  }, [pendingOpenConvId, conversations, loading])
 
   // Load messages when selecting a conversation
   const loadMessages = useCallback(async (convId: string) => {
@@ -1177,5 +1221,17 @@ export default function ConversationsPage() {
         }}
       />
     </div>
+  )
+}
+
+export default function ConversationsPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    }>
+      <ConversationsPageContent />
+    </Suspense>
   )
 }

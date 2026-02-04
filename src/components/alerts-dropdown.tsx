@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Bell, Check, Trash2, AlertTriangle, WifiOff, AlertCircle, Info, Zap, Bot, BotOff, UserX } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Bell, Check, Trash2, AlertTriangle, WifiOff, AlertCircle, Info, Zap, Bot, BotOff, UserX, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -38,10 +39,12 @@ const ALERT_COLORS: Record<string, string> = {
 }
 
 export function AlertsDropdown() {
+  const router = useRouter()
   const [alerts, setAlerts] = useState<UserAlert[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
+  const [expandedAlertId, setExpandedAlertId] = useState<string | null>(null)
 
   const fetchAlerts = useCallback(async () => {
     try {
@@ -123,6 +126,22 @@ export function AlertsDropdown() {
     return date.toLocaleDateString('fr-FR')
   }
 
+  const handleViewConversation = (alert: UserAlert) => {
+    const conversationId = (alert.metadata as Record<string, unknown>)?.conversation_id as string | undefined
+    if (conversationId) {
+      setIsOpen(false)
+      // Marquer comme lu si non lu
+      if (!alert.is_read) {
+        handleMarkAsRead(alert.id)
+      }
+      router.push(`/conversations?open=${conversationId}`)
+    }
+  }
+
+  const hasConversationLink = (alert: UserAlert) => {
+    return !!(alert.metadata as Record<string, unknown>)?.conversation_id
+  }
+
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuTrigger asChild>
@@ -135,7 +154,7 @@ export function AlertsDropdown() {
           )}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-80">
+      <DropdownMenuContent align="end" className="w-96">
         <DropdownMenuLabel className="flex items-center justify-between">
           <span>Notifications</span>
           {unreadCount > 0 && (
@@ -158,40 +177,64 @@ export function AlertsDropdown() {
             Aucune notification
           </div>
         ) : (
-          <div className="max-h-[300px] overflow-y-auto">
+          <div className="max-h-[400px] overflow-y-auto">
             {alerts.map((alert) => {
               const Icon = ALERT_ICONS[alert.alert_type] || Info
               const color = ALERT_COLORS[alert.alert_type] || 'text-muted-foreground'
+              const isExpanded = expandedAlertId === alert.id
 
               return (
                 <DropdownMenuItem
                   key={alert.id}
                   className={cn(
-                    'flex items-start gap-3 p-3 cursor-default',
+                    'flex items-start gap-3 p-3 cursor-pointer',
                     !alert.is_read && 'bg-muted/50'
                   )}
-                  onSelect={(e) => e.preventDefault()}
+                  onSelect={(e) => {
+                    e.preventDefault()
+                    setExpandedAlertId(isExpanded ? null : alert.id)
+                  }}
                 >
                   <Icon className={cn('h-5 w-5 mt-0.5 shrink-0', color)} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between gap-2">
-                      <span className={cn('text-sm font-medium truncate', !alert.is_read && 'font-semibold')}>
+                      <span className={cn('text-sm font-medium', !alert.is_read && 'font-semibold', !isExpanded && 'truncate')}>
                         {alert.title}
                       </span>
                       <span className="text-[10px] text-muted-foreground shrink-0">
                         {formatTime(alert.created_at)}
                       </span>
                     </div>
-                    <p className="text-xs text-muted-foreground line-clamp-2 mt-0.5">
+                    <p className={cn(
+                      'text-xs text-muted-foreground mt-0.5',
+                      isExpanded ? 'whitespace-pre-wrap' : 'line-clamp-2'
+                    )}>
                       {alert.message}
                     </p>
-                    <div className="flex items-center gap-1 mt-1">
+                    <div className="flex items-center gap-1 mt-2">
+                      {hasConversationLink(alert) && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-6 text-[10px] px-2"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleViewConversation(alert)
+                          }}
+                        >
+                          <ExternalLink className="mr-1 h-2.5 w-2.5" />
+                          Voir conversation
+                        </Button>
+                      )}
                       {!alert.is_read && (
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-5 text-[10px] px-1.5"
-                          onClick={() => handleMarkAsRead(alert.id)}
+                          className="h-6 text-[10px] px-2"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleMarkAsRead(alert.id)
+                          }}
                         >
                           <Check className="mr-0.5 h-2.5 w-2.5" />
                           Lu
@@ -200,8 +243,11 @@ export function AlertsDropdown() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="h-5 text-[10px] px-1.5 text-destructive hover:text-destructive"
-                        onClick={() => handleDelete(alert.id)}
+                        className="h-6 text-[10px] px-2 text-destructive hover:text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDelete(alert.id)
+                        }}
                       >
                         <Trash2 className="mr-0.5 h-2.5 w-2.5" />
                         Supprimer
