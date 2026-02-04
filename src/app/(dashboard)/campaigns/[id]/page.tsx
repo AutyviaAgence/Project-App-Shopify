@@ -316,13 +316,33 @@ export default function CampaignDetailPage() {
       const json = await res.json()
       if (res.ok && json.data?.extracted) {
         const extracted = json.data.extracted
-        setEditedContact({
-          first_name: extracted.first_name || editedContact.first_name,
-          last_name: extracted.last_name || editedContact.last_name,
-          email: extracted.email || editedContact.email,
-          notes: extracted.notes || editedContact.notes,
-        })
-        toast.success('Informations extraites')
+        const updates: string[] = []
+
+        const newContact = { ...editedContact }
+        if (extracted.first_name) {
+          newContact.first_name = extracted.first_name
+          updates.push('prénom')
+        }
+        if (extracted.last_name) {
+          newContact.last_name = extracted.last_name
+          updates.push('nom')
+        }
+        if (extracted.email) {
+          newContact.email = extracted.email
+          updates.push('email')
+        }
+        if (extracted.notes) {
+          newContact.notes = extracted.notes
+          updates.push('notes')
+        }
+
+        setEditedContact(newContact)
+
+        if (updates.length > 0) {
+          toast.success(`Informations extraites : ${updates.join(', ')}`)
+        } else {
+          toast.info('Aucune information trouvée dans la conversation')
+        }
       } else {
         toast.error(json.error || 'Erreur lors de l\'extraction')
       }
