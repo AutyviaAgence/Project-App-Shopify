@@ -1,249 +1,155 @@
-'use client'
-
-import Link from 'next/link'
-import Image from 'next/image'
-import { ArrowLeft } from 'lucide-react'
-import { Button } from '@/components/ui/button'
+import { LegalPageLayout } from '@/components/legal-page-layout'
 
 export default function PrivacyPage() {
   return (
-    <div className="min-h-screen bg-background">
-      <div className="container mx-auto max-w-4xl px-4 py-8">
-        {/* Header */}
-        <div className="mb-8 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
-            <Image src="/logo.svg" alt="Autyvia" width={32} height={32} className="h-8 w-8" />
-            <span className="text-lg font-semibold">Autyvia</span>
-          </Link>
-          <Button variant="ghost" asChild>
-            <Link href="/">
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Retour
-            </Link>
-          </Button>
-        </div>
+    <LegalPageLayout
+      title="Politique de Confidentialit\u00e9"
+      description="D\u00e9couvrez comment nous collectons, utilisons et prot\u00e9geons vos donn\u00e9es personnelles."
+      lastUpdated="04 f\u00e9vrier 2026"
+    >
+      <p className="lead text-lg">
+        La pr\u00e9sente Politique de Confidentialit\u00e9 d\u00e9crit comment Autyvia collecte, utilise, stocke et prot\u00e8ge vos donn\u00e9es personnelles lorsque vous utilisez notre site web et notre application.
+      </p>
 
-        {/* Content */}
-        <article className="prose prose-slate dark:prose-invert max-w-none">
-          <h1>Politique de Confidentialité</h1>
+      <p>
+        Nous nous engageons \u00e0 prot\u00e9ger votre vie priv\u00e9e conform\u00e9ment au R\u00e8glement G\u00e9n\u00e9ral sur la Protection des Donn\u00e9es (RGPD) et \u00e0 la loi Informatique et Libert\u00e9s.
+      </p>
 
-          <p className="lead">
-            La présente Politique de Confidentialité décrit comment Autyvia (ci-après « nous », « notre » ou « Autyvia »)
-            collecte, utilise, stocke et protège vos données personnelles lorsque vous utilisez notre site web autyvia.fr
-            et notre application.
-          </p>
-
-          <p>
-            Nous nous engageons à protéger votre vie privée conformément au Règlement Général sur la Protection des Données
-            (RGPD) et à la loi Informatique et Libertés.
-          </p>
-
-          <h2>Responsable du traitement</h2>
-          <p>
-            <strong>Julian TOURAILLE-TRAN</strong><br />
-            Micro-entreprise Autyvia<br />
-            SIRET : 992 684 829 00011<br />
-            Adresse : 778 routes des barthes<br />
-            Email : <a href="mailto:autyviaagence@gmail.com">autyviaagence@gmail.com</a>
-          </p>
-
-          <h2>Délégué à la Protection des Données (DPO)</h2>
-          <p>
-            Autyvia n&apos;a pas désigné de Délégué à la Protection des Données, cette désignation n&apos;étant pas obligatoire
-            pour les micro-entreprises ne traitant pas de données sensibles à grande échelle.
-          </p>
-          <p>
-            Pour toute question relative à la protection de vos données, vous pouvez contacter directement le responsable
-            du traitement : <a href="mailto:autyviaagence@gmail.com">autyviaagence@gmail.com</a>
-          </p>
-
-          <h2>Registre des traitements</h2>
-          <p>
-            Conformément à l&apos;article 30 du RGPD, Autyvia tient un registre des activités de traitement.
-            Ce registre est disponible sur demande auprès du responsable du traitement.
-          </p>
-
-          <h2>Données collectées</h2>
-
-          <h3>Données que vous nous fournissez</h3>
-          <ul>
-            <li><strong>Données d&apos;identification</strong> : nom, prénom, adresse email</li>
-            <li><strong>Données de connexion</strong> : mot de passe (chiffré)</li>
-            <li><strong>Données de profil</strong> : avatar, fuseau horaire, préférences</li>
-            <li><strong>Données de facturation</strong> : adresse, informations de paiement</li>
-          </ul>
-
-          <h3>Données collectées automatiquement</h3>
-          <ul>
-            <li><strong>Données de connexion</strong> : adresse IP, type de navigateur, système d&apos;exploitation</li>
-            <li><strong>Données d&apos;utilisation</strong> : pages visitées, fonctionnalités utilisées, horodatages</li>
-            <li>Cookies et technologies similaires</li>
-          </ul>
-
-          <h3>Données liées à l&apos;utilisation du service</h3>
-          <ul>
-            <li><strong>Messages WhatsApp</strong> : contenus des conversations traitées par nos Services</li>
-            <li><strong>Contacts</strong> : numéros de téléphone et noms des contacts WhatsApp</li>
-            <li><strong>Documents</strong> : fichiers uploadés dans la base de connaissances</li>
-            <li><strong>Configurations</strong> : paramètres des agents IA, prompts, horaires</li>
-          </ul>
-
-          <h2>Finalités du traitement</h2>
-          <p>Nous utilisons vos données personnelles pour :</p>
-          <ul>
-            <li>Fournir et maintenir nos Services</li>
-            <li>Gérer votre compte utilisateur</li>
-            <li>Traiter vos paiements</li>
-            <li>Répondre automatiquement à vos messages WhatsApp via l&apos;intelligence artificielle</li>
-            <li>Améliorer et personnaliser nos Services</li>
-            <li>Vous envoyer des communications relatives à votre compte</li>
-            <li>Assurer la sécurité de nos Services</li>
-            <li>Respecter nos obligations légales</li>
-          </ul>
-
-          <h2>Bases légales du traitement</h2>
-          <ul>
-            <li><strong>Exécution du contrat</strong> : pour fournir nos Services</li>
-            <li><strong>Consentement</strong> : pour les communications marketing</li>
-            <li><strong>Intérêt légitime</strong> : pour améliorer nos Services et assurer leur sécurité</li>
-            <li><strong>Obligation légale</strong> : pour respecter nos obligations comptables et fiscales</li>
-          </ul>
-
-          <h2>Traitement par intelligence artificielle</h2>
-          <p>
-            Nos Services utilisent l&apos;intelligence artificielle (OpenAI GPT-4) pour générer des réponses
-            automatiques à vos messages WhatsApp.
-          </p>
-
-          <h3>Fonctionnement</h3>
-          <ul>
-            <li>Les messages reçus sur votre WhatsApp sont transmis de manière sécurisée à l&apos;API OpenAI</li>
-            <li>L&apos;IA génère une réponse basée sur vos paramètres et votre base de connaissances</li>
-            <li>La réponse est envoyée au destinataire via WhatsApp</li>
-          </ul>
-
-          <h3>Garanties</h3>
-          <ul>
-            <li>OpenAI ne conserve pas vos données au-delà du traitement de la requête</li>
-            <li>Vos données ne sont PAS utilisées pour entraîner les modèles d&apos;IA</li>
-            <li>Les échanges sont chiffrés en transit (TLS) et au repos (AES-256)</li>
-          </ul>
-          <p>
-            Pour plus d&apos;informations : <a href="https://openai.com/policies/privacy-policy" target="_blank" rel="noopener noreferrer">https://openai.com/policies/privacy-policy</a>
-          </p>
-
-          <h2>Sous-traitants et destinataires des données</h2>
-          <p>
-            Vos données peuvent être partagées avec les sous-traitants suivants, avec lesquels nous avons conclu
-            des accords de traitement des données (DPA) :
-          </p>
-
-          <h3>Hébergement et stockage (Europe)</h3>
-          <ul>
-            <li><strong>OVH SAS</strong> (France, Roubaix) : hébergement du serveur applicatif - DPA signé - Données en France</li>
-            <li><strong>Supabase Inc.</strong> (Région Europe) : base de données PostgreSQL - DPA signé - Données en Europe (eu-west)</li>
-          </ul>
-
-          <h3>Services tiers</h3>
-          <ul>
-            <li><strong>OpenAI Inc.</strong> (USA) : traitement IA des messages - DPA signé - Données non conservées, non utilisées pour l&apos;entraînement</li>
-            <li><strong>Stripe Inc.</strong> (USA/Europe) : traitement des paiements - DPA signé - Certifié PCI-DSS</li>
-          </ul>
-
-          <h3>Autres destinataires</h3>
-          <ul>
-            <li><strong>Autorités compétentes</strong> : uniquement si requis par la loi</li>
-          </ul>
-          <p>
-            <strong>Nous ne vendons jamais vos données personnelles à des tiers.</strong>
-          </p>
-          <p>
-            Vos données principales (compte, conversations, documents) sont stockées exclusivement en France (OVH)
-            et en Europe (Supabase). Seul le traitement IA transite temporairement vers les serveurs OpenAI.
-          </p>
-
-          <h2>Transferts hors UE</h2>
-          <p>
-            Certains de nos sous-traitants sont situés aux États-Unis (OpenAI, Stripe). Ces transferts sont encadrés par :
-          </p>
-          <ul>
-            <li>Les Clauses Contractuelles Types (CCT) de la Commission Européenne</li>
-            <li>Le Data Privacy Framework UE-États-Unis (certification Stripe et OpenAI)</li>
-            <li>Des mesures de sécurité supplémentaires (chiffrement, minimisation des données)</li>
-          </ul>
-          <p>Vos données principales restent stockées en France et en Europe.</p>
-
-          <h2>Durée de conservation</h2>
-          <ul>
-            <li><strong>Données de compte</strong> : durée de l&apos;inscription + 3 ans après suppression</li>
-            <li><strong>Messages WhatsApp</strong> : 2 ans à compter de leur réception</li>
-            <li><strong>Documents uploadés</strong> : jusqu&apos;à suppression par l&apos;utilisateur + 30 jours</li>
-            <li><strong>Logs techniques</strong> : 6 mois</li>
-            <li><strong>Données de facturation</strong> : 10 ans (obligation légale)</li>
-          </ul>
-          <p>
-            Après suppression de votre compte, vos données sont anonymisées ou supprimées dans un délai de 30 jours.
-          </p>
-
-          <h2>Vos droits</h2>
-          <p>Conformément au RGPD, vous disposez des droits suivants :</p>
-          <ul>
-            <li><strong>Droit d&apos;accès</strong> : obtenir une copie de vos données</li>
-            <li><strong>Droit de rectification</strong> : corriger vos données inexactes</li>
-            <li><strong>Droit à l&apos;effacement</strong> : supprimer vos données</li>
-            <li><strong>Droit à la limitation</strong> : restreindre le traitement</li>
-            <li><strong>Droit à la portabilité</strong> : recevoir vos données dans un format structuré</li>
-            <li><strong>Droit d&apos;opposition</strong> : vous opposer au traitement</li>
-            <li><strong>Droit de retirer votre consentement</strong> : à tout moment</li>
-          </ul>
-
-          <h3>Exercer vos droits</h3>
-          <ul>
-            <li>Depuis votre compte : Paramètres &gt; Données personnelles</li>
-            <li>Par email : <a href="mailto:autyviaagence@gmail.com">autyviaagence@gmail.com</a></li>
-            <li>Par courrier : 778 routes des barthes</li>
-          </ul>
-          <p>Nous répondrons dans un délai de 30 jours.</p>
-
-          <h3>Réclamation CNIL</h3>
-          <p>Si vous estimez que vos droits ne sont pas respectés :</p>
-          <p>
-            Commission Nationale de l&apos;Informatique et des Libertés<br />
-            3 Place de Fontenoy, TSA 80715, 75334 Paris Cedex 07<br />
-            <a href="https://www.cnil.fr" target="_blank" rel="noopener noreferrer">https://www.cnil.fr</a>
-          </p>
-
-          <h2>Sécurité des données</h2>
-          <ul>
-            <li>Chiffrement des données en transit (TLS 1.3) et au repos (AES-256)</li>
-            <li>Authentification sécurisée avec hachage des mots de passe</li>
-            <li>Contrôle d&apos;accès strict aux données</li>
-            <li>Surveillance et journalisation des accès</li>
-            <li>Sauvegardes régulières</li>
-            <li>Hébergement en France (OVH)</li>
-          </ul>
-
-          <h2>Contact</h2>
-          <p>Pour toute question concernant vos données personnelles :</p>
-          <p>
-            Email : <a href="mailto:autyviaagence@gmail.com">autyviaagence@gmail.com</a><br />
-            Adresse : 778 routes des barthes
-          </p>
-
-          <hr />
-          <p className="text-sm text-muted-foreground">
-            Dernière mise à jour : 04 février 2026
-          </p>
-        </article>
-
-        {/* Footer links */}
-        <div className="mt-12 flex flex-wrap gap-4 border-t pt-6 text-sm text-muted-foreground">
-          <Link href="/legal" className="hover:underline">Mentions légales</Link>
-          <Link href="/cgu" className="hover:underline">CGU</Link>
-          <Link href="/cgv" className="hover:underline">CGV</Link>
-          <Link href="/privacy" className="hover:underline font-medium text-foreground">Politique de confidentialité</Link>
-        </div>
+      <h2>Responsable du traitement</h2>
+      <div className="not-prose rounded-lg bg-slate-50 p-4 dark:bg-slate-800">
+        <p className="font-semibold text-slate-900 dark:text-white">Julian TOURAILLE-TRAN</p>
+        <p className="text-sm text-slate-600 dark:text-slate-400">Micro-entreprise Autyvia</p>
+        <p className="text-sm text-slate-600 dark:text-slate-400">SIRET : 992 684 829 00011</p>
+        <p className="text-sm text-slate-600 dark:text-slate-400">778 routes des barthes</p>
+        <a href="mailto:autyviaagence@gmail.com" className="text-sm text-primary hover:underline">
+          autyviaagence@gmail.com
+        </a>
       </div>
-    </div>
+
+      <h2>Donn\u00e9es collect\u00e9es</h2>
+
+      <h3>Donn\u00e9es que vous nous fournissez</h3>
+      <ul>
+        <li><strong>Donn\u00e9es d&apos;identification</strong> : nom, pr\u00e9nom, adresse email</li>
+        <li><strong>Donn\u00e9es de connexion</strong> : mot de passe (chiffr\u00e9)</li>
+        <li><strong>Donn\u00e9es de profil</strong> : avatar, fuseau horaire, pr\u00e9f\u00e9rences</li>
+        <li><strong>Donn\u00e9es de facturation</strong> : adresse, informations de paiement</li>
+      </ul>
+
+      <h3>Donn\u00e9es collect\u00e9es automatiquement</h3>
+      <ul>
+        <li><strong>Donn\u00e9es techniques</strong> : adresse IP, type de navigateur, syst\u00e8me d&apos;exploitation</li>
+        <li><strong>Donn\u00e9es d&apos;utilisation</strong> : pages visit\u00e9es, fonctionnalit\u00e9s utilis\u00e9es, horodatages</li>
+        <li>Cookies et technologies similaires</li>
+      </ul>
+
+      <h3>Donn\u00e9es li\u00e9es \u00e0 l&apos;utilisation du service</h3>
+      <ul>
+        <li><strong>Messages WhatsApp</strong> : contenus des conversations trait\u00e9es par nos Services</li>
+        <li><strong>Contacts</strong> : num\u00e9ros de t\u00e9l\u00e9phone et noms des contacts WhatsApp</li>
+        <li><strong>Documents</strong> : fichiers upload\u00e9s dans la base de connaissances</li>
+        <li><strong>Configurations</strong> : param\u00e8tres des agents IA, prompts, horaires</li>
+      </ul>
+
+      <h2>Finalit\u00e9s du traitement</h2>
+      <p>Nous utilisons vos donn\u00e9es personnelles pour :</p>
+      <ul>
+        <li>Fournir et maintenir nos Services</li>
+        <li>G\u00e9rer votre compte utilisateur</li>
+        <li>Traiter vos paiements</li>
+        <li>R\u00e9pondre automatiquement \u00e0 vos messages WhatsApp via l&apos;IA</li>
+        <li>Am\u00e9liorer et personnaliser nos Services</li>
+        <li>Vous envoyer des communications relatives \u00e0 votre compte</li>
+        <li>Assurer la s\u00e9curit\u00e9 de nos Services</li>
+        <li>Respecter nos obligations l\u00e9gales</li>
+      </ul>
+
+      <h2>Bases l\u00e9gales du traitement</h2>
+      <ul>
+        <li><strong>Ex\u00e9cution du contrat</strong> : pour fournir nos Services</li>
+        <li><strong>Consentement</strong> : pour les communications marketing</li>
+        <li><strong>Int\u00e9r\u00eat l\u00e9gitime</strong> : pour am\u00e9liorer nos Services et assurer leur s\u00e9curit\u00e9</li>
+        <li><strong>Obligation l\u00e9gale</strong> : pour respecter nos obligations comptables et fiscales</li>
+      </ul>
+
+      <h2>Traitement par intelligence artificielle</h2>
+      <p>
+        Nos Services utilisent l&apos;intelligence artificielle (OpenAI GPT-4) pour g\u00e9n\u00e9rer des r\u00e9ponses automatiques \u00e0 vos messages WhatsApp.
+      </p>
+
+      <div className="not-prose my-4 rounded-lg border-l-4 border-primary bg-primary/5 p-4">
+        <p className="font-medium text-slate-900 dark:text-white">Garanties importantes</p>
+        <ul className="mt-2 space-y-1 text-sm text-slate-600 dark:text-slate-400">
+          <li>\u2022 OpenAI ne conserve pas vos donn\u00e9es au-del\u00e0 du traitement</li>
+          <li>\u2022 Vos donn\u00e9es ne sont PAS utilis\u00e9es pour entra\u00eener les mod\u00e8les d&apos;IA</li>
+          <li>\u2022 Les \u00e9changes sont chiffr\u00e9s en transit (TLS) et au repos (AES-256)</li>
+        </ul>
+      </div>
+
+      <h2>Sous-traitants et h\u00e9bergement</h2>
+
+      <h3>H\u00e9bergement (Europe)</h3>
+      <ul>
+        <li><strong>OVH SAS</strong> (France) : h\u00e9bergement du serveur applicatif</li>
+        <li><strong>Supabase Inc.</strong> (R\u00e9gion Europe) : base de donn\u00e9es PostgreSQL</li>
+      </ul>
+
+      <h3>Services tiers</h3>
+      <ul>
+        <li><strong>OpenAI Inc.</strong> (USA) : traitement IA des messages</li>
+        <li><strong>Stripe Inc.</strong> (USA/Europe) : traitement des paiements - Certifi\u00e9 PCI-DSS</li>
+      </ul>
+
+      <p><strong>Nous ne vendons jamais vos donn\u00e9es personnelles \u00e0 des tiers.</strong></p>
+
+      <h2>Dur\u00e9e de conservation</h2>
+      <ul>
+        <li><strong>Donn\u00e9es de compte</strong> : dur\u00e9e de l&apos;inscription + 3 ans apr\u00e8s suppression</li>
+        <li><strong>Messages WhatsApp</strong> : 2 ans \u00e0 compter de leur r\u00e9ception</li>
+        <li><strong>Documents upload\u00e9s</strong> : jusqu&apos;\u00e0 suppression par l&apos;utilisateur + 30 jours</li>
+        <li><strong>Logs techniques</strong> : 6 mois</li>
+        <li><strong>Donn\u00e9es de facturation</strong> : 10 ans (obligation l\u00e9gale)</li>
+      </ul>
+
+      <h2>Vos droits</h2>
+      <p>Conform\u00e9ment au RGPD, vous disposez des droits suivants :</p>
+      <ul>
+        <li><strong>Droit d&apos;acc\u00e8s</strong> : obtenir une copie de vos donn\u00e9es</li>
+        <li><strong>Droit de rectification</strong> : corriger vos donn\u00e9es inexactes</li>
+        <li><strong>Droit \u00e0 l&apos;effacement</strong> : supprimer vos donn\u00e9es</li>
+        <li><strong>Droit \u00e0 la limitation</strong> : restreindre le traitement</li>
+        <li><strong>Droit \u00e0 la portabilit\u00e9</strong> : recevoir vos donn\u00e9es dans un format structur\u00e9</li>
+        <li><strong>Droit d&apos;opposition</strong> : vous opposer au traitement</li>
+        <li><strong>Droit de retirer votre consentement</strong> : \u00e0 tout moment</li>
+      </ul>
+
+      <h3>Exercer vos droits</h3>
+      <ul>
+        <li>Depuis votre compte : Param\u00e8tres &gt; Donn\u00e9es personnelles</li>
+        <li>Par email : <a href="mailto:autyviaagence@gmail.com">autyviaagence@gmail.com</a></li>
+        <li>Par courrier : 778 routes des barthes</li>
+      </ul>
+      <p>Nous r\u00e9pondrons dans un d\u00e9lai de 30 jours.</p>
+
+      <h3>R\u00e9clamation CNIL</h3>
+      <p>Si vous estimez que vos droits ne sont pas respect\u00e9s :</p>
+      <div className="not-prose rounded-lg bg-slate-50 p-4 dark:bg-slate-800">
+        <p className="font-semibold text-slate-900 dark:text-white">Commission Nationale de l&apos;Informatique et des Libert\u00e9s</p>
+        <p className="text-sm text-slate-600 dark:text-slate-400">3 Place de Fontenoy, TSA 80715, 75334 Paris Cedex 07</p>
+        <a href="https://www.cnil.fr" target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">
+          www.cnil.fr
+        </a>
+      </div>
+
+      <h2>S\u00e9curit\u00e9 des donn\u00e9es</h2>
+      <ul>
+        <li>Chiffrement des donn\u00e9es en transit (TLS 1.3) et au repos (AES-256)</li>
+        <li>Authentification s\u00e9curis\u00e9e avec hachage des mots de passe</li>
+        <li>Contr\u00f4le d&apos;acc\u00e8s strict aux donn\u00e9es</li>
+        <li>Surveillance et journalisation des acc\u00e8s</li>
+        <li>Sauvegardes r\u00e9guli\u00e8res</li>
+        <li>H\u00e9bergement en France (OVH)</li>
+      </ul>
+    </LegalPageLayout>
   )
 }
