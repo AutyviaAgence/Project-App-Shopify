@@ -181,8 +181,11 @@ export function AlertsDropdown() {
         ) : (
           <div className="max-h-[400px] overflow-y-auto">
             {alerts.map((alert) => {
-              const Icon = ALERT_ICONS[alert.alert_type] || Info
-              const color = ALERT_COLORS[alert.alert_type] || 'text-muted-foreground'
+              // Vérifier si c'est un booking_click via metadata (car le type en BDD est 'info')
+              const metadataType = (alert.metadata as Record<string, unknown>)?.type as string | undefined
+              const effectiveType = metadataType === 'booking_click' ? 'booking_click' : alert.alert_type
+              const Icon = ALERT_ICONS[effectiveType] || Info
+              const color = ALERT_COLORS[effectiveType] || 'text-muted-foreground'
               const isExpanded = expandedAlertId === alert.id
 
               return (

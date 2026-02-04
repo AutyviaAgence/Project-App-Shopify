@@ -101,11 +101,11 @@ export async function GET(
       }
     }
 
-    await supabase.from('user_alerts').insert({
+    const { error: alertError } = await supabase.from('user_alerts').insert({
       user_id: agent.user_id,
-      alert_type: 'booking_click',
+      alert_type: 'info', // Utiliser 'info' car 'booking_click' n'existe peut-être pas en BDD
       title: 'Clic sur lien de rendez-vous',
-      message: `${contactName} a cliqué sur le lien de rendez-vous proposé par l'agent "${agent.name}".${contactPhone ? ` (${contactPhone})` : ''}`,
+      message: `${contactName} a cliqué sur le lien de rendez-vous proposé par l'agent "${agent.name}".${contactPhone ? ` (+${contactPhone})` : ''}`,
       metadata: {
         conversation_id: conversationId || null,
         contact_id: contactId || null,
@@ -117,6 +117,12 @@ export async function GET(
         type: 'booking_click',
       },
     })
+
+    if (alertError) {
+      console.error('[Booking] Erreur création alerte:', alertError)
+    } else {
+      console.log('[Booking] Notification créée pour clic RDV:', contactName)
+    }
   }
 
   // Rediriger vers le lien de RDV
