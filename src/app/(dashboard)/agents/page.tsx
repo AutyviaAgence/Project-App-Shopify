@@ -39,9 +39,19 @@ import {
   Link2,
   Megaphone,
   MousePointerClick,
+  Sparkles,
+  Settings2,
+  ChevronDown,
 } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { MultiTeamSelect } from '@/components/multi-team-select'
+import { AgentWizard, type GeneratedAgentConfig } from '@/components/agent-wizard'
 
 type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
 type BookingStats = {
@@ -96,6 +106,9 @@ export default function AgentsPage() {
 
   // Type d'agent
   const [formAgentType, setFormAgentType] = useState<'conversation' | 'relance'>('conversation')
+
+  // Wizard state
+  const [wizardOpen, setWizardOpen] = useState(false)
 
   const fetchAgents = useCallback(async () => {
     try {
@@ -321,6 +334,77 @@ export default function AgentsPage() {
     }
   }
 
+  async function handleWizardComplete(config: GeneratedAgentConfig) {
+    setSaving(true)
+    try {
+      // 1. Créer l'agent
+      const agentRes = await fetch('/api/agents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: config.name,
+          description: config.description,
+          system_prompt: config.system_prompt,
+          objective: config.objective,
+          model: 'gpt-4o-mini',
+          temperature: 0.7,
+          response_delay_min: 2,
+          response_delay_max: 5,
+          agent_type: config.agent_type,
+          escalation_enabled: config.escalation_enabled,
+          escalation_keywords: config.escalation_keywords,
+          escalation_message: config.escalation_message,
+          booking_url: config.booking_url || null,
+          schedule_enabled: config.schedule_enabled,
+          schedule_timezone: 'Europe/Paris',
+          schedule_start_time: config.schedule_start_time,
+          schedule_end_time: config.schedule_end_time,
+          schedule_days: config.schedule_days,
+          auto_detect_language: true,
+        }),
+      })
+
+      const agentJson = await agentRes.json()
+
+      if (!agentRes.ok) {
+        toast.error(agentJson.error || 'Erreur lors de la création de l\'agent')
+        return
+      }
+
+      // 2. Créer automatiquement un document RAG avec les infos métier
+      if (config.ragContent) {
+        try {
+          const ragRes = await fetch('/api/knowledge', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              title: `Informations - ${config.name}`,
+              content: config.ragContent,
+              agent_ids: [agentJson.data.id],
+            }),
+          })
+
+          if (ragRes.ok) {
+            toast.success('Agent créé avec sa base de connaissances !')
+          } else {
+            toast.success('Agent créé ! (base de connaissances non créée)')
+          }
+        } catch {
+          toast.success('Agent créé ! (base de connaissances non créée)')
+        }
+      } else {
+        toast.success('Agent créé avec succès !')
+      }
+
+      setAgents((prev) => [agentJson.data, ...prev])
+      setWizardOpen(false)
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -338,10 +422,31 @@ export default function AgentsPage() {
             Créez des agents intelligents pour répondre automatiquement sur WhatsApp.
           </p>
         </div>
-        <Button data-tour="new-agent-btn" onClick={openCreateDialog} className="w-full sm:w-auto">
-          <Plus className="mr-2 h-4 w-4" />
-          Nouvel agent
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button data-tour="new-agent-btn" className="w-full sm:w-auto">
+              <Plus className="mr-2 h-4 w-4" />
+              Nouvel agent
+              <ChevronDown className="ml-2 h-4 w-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => setWizardOpen(true)}>
+              <Sparkles className="mr-2 h-4 w-4 text-primary" />
+              <div>
+                <p className="font-medium">Assistant guidé</p>
+                <p className="text-xs text-muted-foreground">Répondez à quelques questions</p>
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={openCreateDialog}>
+              <Settings2 className="mr-2 h-4 w-4" />
+              <div>
+                <p className="font-medium">Mode avancé</p>
+                <p className="text-xs text-muted-foreground">Configuration manuelle complète</p>
+              </div>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {agents.length === 0 ? (
@@ -352,10 +457,16 @@ export default function AgentsPage() {
             <p className="mt-1 text-sm text-muted-foreground">
               Créez votre premier agent IA pour automatiser vos réponses WhatsApp.
             </p>
-            <Button className="mt-4" onClick={openCreateDialog}>
-              <Plus className="mr-2 h-4 w-4" />
-              Créer un agent
-            </Button>
+            <div className="mt-4 flex flex-col sm:flex-row gap-2">
+              <Button onClick={() => setWizardOpen(true)}>
+                <Sparkles className="mr-2 h-4 w-4" />
+                Créer avec l&apos;assistant
+              </Button>
+              <Button variant="outline" onClick={openCreateDialog}>
+                <Settings2 className="mr-2 h-4 w-4" />
+                Mode avancé
+              </Button>
+            </div>
           </CardContent>
         </Card>
       ) : (
@@ -931,6 +1042,13 @@ export default function AgentsPage() {
         title="Supprimer l'agent"
         description={`Êtes-vous sûr de vouloir supprimer l'agent "${agentToDelete?.name}" ? Cette action est irréversible.`}
         loading={deleting === agentToDelete?.id}
+      />
+
+      {/* Agent Creation Wizard */}
+      <AgentWizard
+        open={wizardOpen}
+        onOpenChange={setWizardOpen}
+        onComplete={handleWizardComplete}
       />
     </div>
   )
