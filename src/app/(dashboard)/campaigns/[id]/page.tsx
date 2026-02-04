@@ -37,6 +37,7 @@ import {
   Sparkles,
   Mail,
   Calendar,
+  UserPlus,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -53,6 +54,7 @@ import {
 import { formatDistanceToNow, format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
+import { CampaignContactSelector } from '@/components/campaign-contact-selector'
 
 type ContactDetails = {
   id: string
@@ -123,6 +125,7 @@ export default function CampaignDetailPage() {
   const [savingContact, setSavingContact] = useState(false)
   const [extractingInfo, setExtractingInfo] = useState(false)
   const [generatingSummary, setGeneratingSummary] = useState(false)
+  const [contactSelectorOpen, setContactSelectorOpen] = useState(false)
 
   const fetchCampaign = useCallback(async (showLoader = true) => {
     if (showLoader) setLoading(true)
@@ -653,19 +656,29 @@ export default function CampaignDetailPage() {
               )}
             </Button>
             {canRefreshRecipients && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRefreshRecipients}
-                disabled={refreshing}
-              >
-                {refreshing ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Users className="mr-2 h-4 w-4" />
-                )}
-                Actualiser les contacts
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setContactSelectorOpen(true)}
+                >
+                  <UserPlus className="mr-2 h-4 w-4" />
+                  Gérer les prospects
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRefreshRecipients}
+                  disabled={refreshing}
+                >
+                  {refreshing ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Users className="mr-2 h-4 w-4" />
+                  )}
+                  Auto-ajouter
+                </Button>
+              </>
             )}
           </div>
         </CardHeader>
@@ -675,13 +688,21 @@ export default function CampaignDetailPage() {
               <Users className="mx-auto h-8 w-8 mb-2" />
               <p>Aucun destinataire</p>
               {canRefreshRecipients && (
-                <Button
-                  variant="link"
-                  onClick={handleRefreshRecipients}
-                  disabled={refreshing}
-                >
-                  Ajouter des contacts éligibles
-                </Button>
+                <div className="flex flex-col gap-2 mt-4">
+                  <Button
+                    onClick={() => setContactSelectorOpen(true)}
+                  >
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    Sélectionner des prospects
+                  </Button>
+                  <Button
+                    variant="link"
+                    onClick={handleRefreshRecipients}
+                    disabled={refreshing}
+                  >
+                    ou ajouter automatiquement les contacts éligibles
+                  </Button>
+                </div>
               )}
             </div>
           ) : (
@@ -1007,6 +1028,14 @@ export default function CampaignDetailPage() {
           ) : null}
         </SheetContent>
       </Sheet>
+
+      {/* Contact Selector Dialog */}
+      <CampaignContactSelector
+        open={contactSelectorOpen}
+        onOpenChange={setContactSelectorOpen}
+        campaignId={campaignId}
+        onContactsUpdated={() => fetchCampaign(false)}
+      />
     </div>
   )
 }
