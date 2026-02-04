@@ -11,7 +11,7 @@ COMMENT ON COLUMN ai_agents.stop_condition IS 'Condition en texte libre analysé
 -- D'abord, supprimer la contrainte existante
 ALTER TABLE user_alerts DROP CONSTRAINT IF EXISTS user_alerts_alert_type_check;
 
--- Recréer avec les nouveaux types
+-- Recréer avec les nouveaux types (incluant booking_click pour les clics sur liens RDV)
 ALTER TABLE user_alerts
 ADD CONSTRAINT user_alerts_alert_type_check
 CHECK (alert_type IN (
@@ -22,7 +22,8 @@ CHECK (alert_type IN (
   'info',
   'campaign_opt_out',
   'agent_started',
-  'agent_stopped'
+  'agent_stopped',
+  'booking_click'
 ));
 
-COMMENT ON COLUMN user_alerts.alert_type IS 'Type d''alerte: session_disconnected, quota_reached, ai_error, webhook_error, info, campaign_opt_out, agent_started, agent_stopped';
+COMMENT ON COLUMN user_alerts.alert_type IS 'Type d''alerte: session_disconnected, quota_reached, ai_error, webhook_error, info, campaign_opt_out, agent_started, agent_stopped, booking_click';

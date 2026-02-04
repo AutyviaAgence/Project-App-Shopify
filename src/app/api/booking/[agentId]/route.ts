@@ -103,7 +103,7 @@ export async function GET(
 
     const { error: alertError } = await supabase.from('user_alerts').insert({
       user_id: agent.user_id,
-      alert_type: 'info', // Utiliser 'info' car 'booking_click' n'existe peut-être pas en BDD
+      alert_type: 'booking_click',
       title: 'Clic sur lien de rendez-vous',
       message: `${contactName} a cliqué sur le lien de rendez-vous proposé par l'agent "${agent.name}".${contactPhone ? ` (+${contactPhone})` : ''}`,
       metadata: {
