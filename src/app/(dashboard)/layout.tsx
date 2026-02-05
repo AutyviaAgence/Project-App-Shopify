@@ -24,6 +24,7 @@ import {
   ChevronRight,
   Megaphone,
   Tag,
+  ExternalLink,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { AlertsDropdown } from '@/components/alerts-dropdown'
@@ -210,7 +211,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </div>
 
           {/* Right side */}
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <a
+              href="https://app.autyvia.fr/login"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 rounded-lg bg-[#7DC2A5] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#6BB394]"
+            >
+              <span>Ouvrir l&apos;App</span>
+              <ExternalLink className="h-4 w-4" />
+            </a>
             <AlertsDropdown />
           </div>
         </header>
