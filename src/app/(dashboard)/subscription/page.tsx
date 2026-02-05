@@ -63,6 +63,14 @@ function SubscriptionContent() {
         throw new Error(data.error || 'Erreur lors de la création de la session')
       }
 
+      // Si l'abonnement est déjà actif côté Stripe, rafraîchir
+      if (data.already_active) {
+        toast.success('Votre abonnement est déjà actif ! Profil resynchronisé.')
+        await refetch()
+        setIsProcessing(false)
+        return
+      }
+
       // Rediriger vers Stripe Checkout
       window.location.href = data.url
     } catch (error) {
