@@ -41,8 +41,11 @@ function SubscriptionContent() {
   // Gérer les redirections depuis Stripe
   useEffect(() => {
     if (searchParams.get('success') === 'true') {
-      toast.success('Paiement réussi ! Votre abonnement est maintenant actif.')
-      refetch()
+      // Synchroniser l'abonnement depuis Stripe (fallback si le webhook n'a pas fonctionné)
+      fetch('/api/subscription/sync', { method: 'POST' })
+        .then(() => refetch())
+        .then(() => toast.success('Paiement réussi ! Votre abonnement est maintenant actif.'))
+        .catch(() => refetch())
     } else if (searchParams.get('cancelled') === 'true') {
       toast.info('Paiement annulé.')
     }
