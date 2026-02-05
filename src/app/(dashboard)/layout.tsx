@@ -24,11 +24,15 @@ import {
   ChevronRight,
   Megaphone,
   Tag,
+  AlertTriangle,
+  CreditCard,
+  Loader2,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { AlertsDropdown } from '@/components/alerts-dropdown'
 import { TourProvider } from '@/components/guided-tour'
 import { SubscriptionBanner } from '@/components/subscription-banner'
+import { useSubscription } from '@/hooks/use-subscription'
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -48,11 +52,21 @@ const BOTTOM_NAV_ITEMS = [
   { href: '/settings', label: 'Paramètres', icon: Settings },
 ]
 
+// Pages accessibles même sans abonnement actif
+const ALLOWED_WITHOUT_SUBSCRIPTION = ['/subscription', '/settings']
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
+  const { subscription, loading: subscriptionLoading } = useSubscription()
+
+  // Vérifier si la page actuelle est accessible sans abonnement
+  const isAllowedPage = ALLOWED_WITHOUT_SUBSCRIPTION.some(
+    p => pathname === p || pathname.startsWith(p + '/')
+  )
+  const isBlocked = subscription && !subscription.isActive && !isAllowedPage
 
   // Close sidebar on route change (mobile)
   useEffect(() => {
@@ -221,9 +235,40 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* Page content */}
         <main className="flex-1 overflow-auto bg-[#F5F7FA] dark:bg-[#1A252C]">
-          <div className="animate-fade-in-up">
-            {children}
-          </div>
+          {subscriptionLoading ? (
+            <div className="flex h-full items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : isBlocked ? (
+            <div className="flex h-full items-center justify-center p-6">
+              <div className="max-w-md text-center space-y-6">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
+                  <AlertTriangle className="h-8 w-8 text-red-600 dark:text-red-400" />
+                </div>
+                <div className="space-y-2">
+                  <h2 className="text-2xl font-bold text-foreground">Accès suspendu</h2>
+                  <p className="text-muted-foreground">
+                    {subscription?.status === 'cancelled'
+                      ? 'Votre abonnement a été annulé. Réabonnez-vous pour accéder à la plateforme.'
+                      : subscription?.status === 'expired'
+                        ? 'Votre abonnement a expiré. Renouvelez-le pour continuer à utiliser Autyvia.'
+                        : 'Votre période d\'essai est terminée. Abonnez-vous pour continuer à utiliser Autyvia.'}
+                  </p>
+                </div>
+                <Link
+                  href="/subscription"
+                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+                >
+                  <CreditCard className="h-5 w-5" />
+                  Gérer mon abonnement
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <div className="animate-fade-in-up">
+              {children}
+            </div>
+          )}
         </main>
       </div>
 
