@@ -50,7 +50,7 @@ export async function POST() {
 
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
-      mode: 'payment', // Paiement unique
+      mode: 'subscription', // Abonnement récurrent
       payment_method_types: ['card'],
       line_items: [
         {
@@ -61,14 +61,19 @@ export async function POST() {
               description: 'Accès complet à la plateforme Autyvia - Automatisation WhatsApp IA',
             },
             unit_amount: SUBSCRIPTION_PRICE_CENTS,
+            recurring: {
+              interval: 'month',
+            },
           },
           quantity: 1,
         },
       ],
       success_url: `${baseUrl}/subscription?success=true`,
       cancel_url: `${baseUrl}/subscription?cancelled=true`,
-      metadata: {
-        user_id: user.id,
+      subscription_data: {
+        metadata: {
+          user_id: user.id,
+        },
       },
     })
 

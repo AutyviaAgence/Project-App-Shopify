@@ -39,87 +39,202 @@ export async function POST(req: NextRequest) {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session
-        const userId = session.metadata?.user_id
 
-        if (userId) {
-          // Activer l'abonnement (1 mois)
-          const subscriptionEndsAt = new Date()
-          subscriptionEndsAt.setMonth(subscriptionEndsAt.getMonth() + 1)
+        // Pour les abonnements, récupérer le user_id depuis subscription_data.metadata
+        if (session.mode === 'subscription' && session.subscription) {
+          const stripe = getStripe()
+          const subscription = await stripe.subscriptions.retrieve(session.subscription as string) as Stripe.Subscription
+          const userId = subscription.metadata?.user_id
 
-          await supabase
-            .from('profiles')
-            .update({
-              subscription_status: 'active',
-              subscription_ends_at: subscriptionEndsAt.toISOString(),
+          if (userId) {
+            const subscriptionEndsAt = new Date((subscription as any).current_period_end * 1000)
+
+            await supabase
+              .from('profiles')
+              .update({
+                subscription_status: 'active',
+                subscription_ends_at: subscriptionEndsAt.toISOString(),
+                stripe_subscription_id: subscription.id,
+              })
+              .eq('id', userId)
+
+            // Enregistrer le paiement
+            await supabase.from('payment_history').insert({
+              user_id: userId,
+              amount: session.amount_total || 15000,
+              currency: session.currency || 'eur',
+              status: 'succeeded',
+              stripe_payment_intent_id: session.payment_intent as string || null,
+              description: 'Abonnement Autyvia - Mensuel',
+              metadata: {
+                checkout_session_id: session.id,
+                subscription_id: subscription.id,
+              },
             })
-            .eq('id', userId)
 
-          // Enregistrer le paiement
-          await supabase.from('payment_history').insert({
-            user_id: userId,
-            amount: session.amount_total || 15000,
-            currency: session.currency || 'eur',
-            status: 'succeeded',
-            stripe_payment_intent_id: session.payment_intent as string,
-            description: 'Abonnement Autyvia - 1 mois',
-            metadata: {
-              checkout_session_id: session.id,
-            },
-          })
+            // Créer une alerte pour l'utilisateur
+            await supabase.from('user_alerts').insert({
+              user_id: userId,
+              alert_type: 'info',
+              title: 'Abonnement activé',
+              message: `Votre abonnement Autyvia a été activé. Prochain renouvellement le ${subscriptionEndsAt.toLocaleDateString('fr-FR')}.`,
+              metadata: {
+                type: 'subscription_created',
+                amount: session.amount_total,
+              },
+            })
 
-          // Créer une alerte pour l'utilisateur
-          await supabase.from('user_alerts').insert({
-            user_id: userId,
-            alert_type: 'info',
-            title: 'Paiement réussi',
-            message: `Votre abonnement Autyvia a été activé. Il sera valide jusqu'au ${subscriptionEndsAt.toLocaleDateString('fr-FR')}.`,
-            metadata: {
-              type: 'payment_success',
-              amount: session.amount_total,
-            },
-          })
-
-          console.log('[Stripe Webhook] Subscription activated for user:', userId)
+            console.log('[Stripe Webhook] Subscription created for user:', userId)
+          }
         }
         break
       }
 
-      case 'payment_intent.payment_failed': {
-        const paymentIntent = event.data.object as Stripe.PaymentIntent
-        const customerId = paymentIntent.customer as string
+      case 'invoice.payment_succeeded': {
+        // Renouvellement d'abonnement réussi
+        const invoice = event.data.object as Stripe.Invoice
+        const subscriptionId = (invoice as any).subscription as string
 
-        if (customerId) {
-          // Trouver l'utilisateur par stripe_customer_id
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('id')
-            .eq('stripe_customer_id', customerId)
-            .single()
+        if (subscriptionId && invoice.billing_reason === 'subscription_cycle') {
+          const stripe = getStripe()
+          const subscription = await stripe.subscriptions.retrieve(subscriptionId) as Stripe.Subscription
+          const userId = subscription.metadata?.user_id
 
-          if (profile) {
+          if (userId) {
+            const subscriptionEndsAt = new Date((subscription as any).current_period_end * 1000)
+
+            await supabase
+              .from('profiles')
+              .update({
+                subscription_status: 'active',
+                subscription_ends_at: subscriptionEndsAt.toISOString(),
+              })
+              .eq('id', userId)
+
             await supabase.from('payment_history').insert({
-              user_id: profile.id,
-              amount: paymentIntent.amount,
-              currency: paymentIntent.currency,
-              status: 'failed',
-              stripe_payment_intent_id: paymentIntent.id,
-              description: 'Paiement échoué',
+              user_id: userId,
+              amount: invoice.amount_paid,
+              currency: invoice.currency,
+              status: 'succeeded',
+              stripe_payment_intent_id: (invoice as any).payment_intent as string || null,
+              description: 'Renouvellement abonnement Autyvia',
               metadata: {
-                error: paymentIntent.last_payment_error?.message,
+                invoice_id: invoice.id,
+                subscription_id: subscriptionId,
               },
             })
 
             await supabase.from('user_alerts').insert({
-              user_id: profile.id,
-              alert_type: 'webhook_error',
-              title: 'Paiement échoué',
-              message: `Votre paiement a échoué. Raison : ${paymentIntent.last_payment_error?.message || 'Erreur inconnue'}`,
+              user_id: userId,
+              alert_type: 'info',
+              title: 'Abonnement renouvelé',
+              message: `Votre abonnement a été renouvelé. Prochain renouvellement le ${subscriptionEndsAt.toLocaleDateString('fr-FR')}.`,
               metadata: {
-                type: 'payment_failed',
-                error: paymentIntent.last_payment_error?.message,
+                type: 'subscription_renewed',
+                amount: invoice.amount_paid,
               },
             })
+
+            console.log('[Stripe Webhook] Subscription renewed for user:', userId)
           }
+        }
+        break
+      }
+
+      case 'invoice.payment_failed': {
+        // Échec de paiement d'abonnement
+        const invoice = event.data.object as Stripe.Invoice
+        const subscriptionId = (invoice as any).subscription as string
+
+        if (subscriptionId) {
+          const stripe = getStripe()
+          const subscription = await stripe.subscriptions.retrieve(subscriptionId) as Stripe.Subscription
+          const userId = subscription.metadata?.user_id
+
+          if (userId) {
+            await supabase.from('payment_history').insert({
+              user_id: userId,
+              amount: invoice.amount_due,
+              currency: invoice.currency,
+              status: 'failed',
+              stripe_payment_intent_id: (invoice as any).payment_intent as string || null,
+              description: 'Échec renouvellement abonnement',
+              metadata: {
+                invoice_id: invoice.id,
+                subscription_id: subscriptionId,
+              },
+            })
+
+            await supabase.from('user_alerts').insert({
+              user_id: userId,
+              alert_type: 'webhook_error',
+              title: 'Échec de paiement',
+              message: 'Le renouvellement de votre abonnement a échoué. Veuillez mettre à jour votre moyen de paiement.',
+              metadata: {
+                type: 'payment_failed',
+                invoice_id: invoice.id,
+              },
+            })
+
+            console.log('[Stripe Webhook] Payment failed for user:', userId)
+          }
+        }
+        break
+      }
+
+      case 'customer.subscription.deleted': {
+        // Abonnement annulé
+        const subscription = event.data.object as Stripe.Subscription
+        const userId = subscription.metadata?.user_id
+
+        if (userId) {
+          await supabase
+            .from('profiles')
+            .update({
+              subscription_status: 'cancelled',
+              stripe_subscription_id: null,
+            })
+            .eq('id', userId)
+
+          await supabase.from('user_alerts').insert({
+            user_id: userId,
+            alert_type: 'warning',
+            title: 'Abonnement annulé',
+            message: 'Votre abonnement Autyvia a été annulé. Vous pouvez vous réabonner à tout moment.',
+            metadata: {
+              type: 'subscription_cancelled',
+            },
+          })
+
+          console.log('[Stripe Webhook] Subscription cancelled for user:', userId)
+        }
+        break
+      }
+
+      case 'customer.subscription.updated': {
+        // Mise à jour d'abonnement (changement de statut, etc.)
+        const subscription = event.data.object as Stripe.Subscription
+        const userId = subscription.metadata?.user_id
+
+        if (userId) {
+          const subscriptionEndsAt = new Date((subscription as any).current_period_end * 1000)
+          let status: 'active' | 'cancelled' | 'expired' = 'active'
+
+          if (subscription.status === 'canceled' || subscription.status === 'unpaid') {
+            status = 'cancelled'
+          } else if (subscription.status === 'past_due') {
+            status = 'expired'
+          }
+
+          await supabase
+            .from('profiles')
+            .update({
+              subscription_status: status,
+              subscription_ends_at: subscriptionEndsAt.toISOString(),
+            })
+            .eq('id', userId)
+
+          console.log('[Stripe Webhook] Subscription updated for user:', userId, 'status:', status)
         }
         break
       }

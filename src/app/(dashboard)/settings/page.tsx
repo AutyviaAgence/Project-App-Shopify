@@ -45,6 +45,7 @@ import {
   Clock,
   Scale,
   ExternalLink,
+  CreditCard,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -415,6 +416,28 @@ export default function SettingsPage() {
               )}
               Enregistrer
             </Button>
+          </CardContent>
+        </Card>
+
+        {/* Abonnement */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5" />
+              Abonnement
+            </CardTitle>
+            <CardDescription>Gérez votre abonnement Autyvia.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              Consultez le statut de votre abonnement, souscrivez ou gérez votre paiement.
+            </p>
+            <Link href="/subscription">
+              <Button variant="outline">
+                <CreditCard className="mr-2 h-4 w-4" />
+                Gérer mon abonnement
+              </Button>
+            </Link>
           </CardContent>
         </Card>
 
