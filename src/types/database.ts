@@ -1,3 +1,5 @@
+export type SubscriptionStatus = 'trial' | 'active' | 'expired' | 'cancelled'
+
 export type Profile = {
   id: string
   email: string
@@ -5,8 +7,26 @@ export type Profile = {
   avatar_url: string | null
   timezone: string
   data_retention_months: number | null // null = conserver indéfiniment
+  subscription_status: SubscriptionStatus
+  trial_ends_at: string | null
+  subscription_ends_at: string | null
+  stripe_customer_id: string | null
+  stripe_subscription_id: string | null
   created_at: string
   updated_at: string
+}
+
+export type PaymentHistory = {
+  id: string
+  user_id: string
+  amount: number // en centimes
+  currency: string
+  status: 'pending' | 'succeeded' | 'failed' | 'refunded'
+  stripe_payment_intent_id: string | null
+  stripe_invoice_id: string | null
+  description: string | null
+  metadata: Record<string, unknown> | null
+  created_at: string
 }
 
 export type WhatsAppSession = {

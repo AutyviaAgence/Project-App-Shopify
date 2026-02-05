@@ -28,6 +28,7 @@ import {
 import { toast } from 'sonner'
 import { AlertsDropdown } from '@/components/alerts-dropdown'
 import { TourProvider } from '@/components/guided-tour'
+import { SubscriptionBanner } from '@/components/subscription-banner'
 
 const NAV_ITEMS = [
   { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -214,6 +215,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <AlertsDropdown />
           </div>
         </header>
+
+        {/* Subscription banner */}
+        <SubscriptionBanner />
 
         {/* Page content */}
         <main className="flex-1 overflow-auto bg-[#F5F7FA] dark:bg-[#1A252C]">
