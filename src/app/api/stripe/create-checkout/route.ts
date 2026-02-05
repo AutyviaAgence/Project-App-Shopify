@@ -47,16 +47,18 @@ export async function POST() {
         .eq('id', user.id)
     }
 
-    // Vérifier si le client a déjà un abonnement actif côté Stripe
+    // Vérifier si le client a déjà un abonnement côté Stripe (actif, trialing ou past_due)
     const existingSubscriptions = await stripe.subscriptions.list({
       customer: customerId,
-      status: 'active',
-      limit: 1,
+      limit: 5,
     })
 
-    if (existingSubscriptions.data.length > 0) {
-      // Abonnement déjà actif côté Stripe — resynchroniser la BDD
-      const activeSub = existingSubscriptions.data[0]
+    const activeSub = existingSubscriptions.data.find(
+      s => s.status === 'active' || s.status === 'trialing' || s.status === 'past_due'
+    )
+
+    if (activeSub) {
+      // Abonnement existant côté Stripe — resynchroniser la BDD
       const subscriptionEndsAt = getSubscriptionEndDate(activeSub)
 
       const adminSupabase = createAdminClient(
@@ -115,8 +117,9 @@ export async function POST() {
     })
 
     return NextResponse.json({ url: session.url })
-  } catch (error) {
-    console.error('[Stripe] Error creating checkout session:', error)
-    return NextResponse.json({ error: 'Erreur lors de la création de la session' }, { status: 500 })
+  } catch (error: any) {
+    console.error('[Stripe] Error creating checkout session:', error?.message || error)
+    const message = error?.message || 'Erreur lors de la création de la session'
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }
