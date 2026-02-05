@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getStripe } from '@/lib/stripe/client'
+import { getSubscriptionEndDate } from '@/lib/stripe/helpers'
 import { createClient } from '@supabase/supabase-js'
 import type Stripe from 'stripe'
 
@@ -71,7 +72,7 @@ export async function POST(req: NextRequest) {
           console.log('[Stripe Webhook] Resolved user_id:', resolvedUserId)
 
           if (resolvedUserId) {
-            const subscriptionEndsAt = new Date((subscription as any).current_period_end * 1000)
+            const subscriptionEndsAt = getSubscriptionEndDate(subscription)
 
             const { error: updateError } = await supabase
               .from('profiles')
@@ -133,7 +134,7 @@ export async function POST(req: NextRequest) {
           const userId = subscription.metadata?.user_id
 
           if (userId) {
-            const subscriptionEndsAt = new Date((subscription as any).current_period_end * 1000)
+            const subscriptionEndsAt = getSubscriptionEndDate(subscription)
 
             await supabase
               .from('profiles')
@@ -249,7 +250,7 @@ export async function POST(req: NextRequest) {
         const userId = subscription.metadata?.user_id
 
         if (userId) {
-          const subscriptionEndsAt = new Date((subscription as any).current_period_end * 1000)
+          const subscriptionEndsAt = getSubscriptionEndDate(subscription)
           let status: 'active' | 'cancelled' | 'expired' = 'active'
 
           if (subscription.status === 'canceled' || subscription.status === 'unpaid') {
