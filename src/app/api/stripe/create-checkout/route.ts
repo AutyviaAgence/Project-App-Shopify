@@ -70,6 +70,9 @@ export async function POST() {
       ],
       success_url: `${baseUrl}/subscription?success=true`,
       cancel_url: `${baseUrl}/subscription?cancelled=true`,
+      metadata: {
+        user_id: user.id,
+      },
       subscription_data: {
         metadata: {
           user_id: user.id,

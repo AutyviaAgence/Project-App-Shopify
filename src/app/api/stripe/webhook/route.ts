@@ -39,28 +39,58 @@ export async function POST(req: NextRequest) {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session
+        console.log('[Stripe Webhook] checkout.session.completed - mode:', session.mode, 'subscription:', session.subscription)
 
-        // Pour les abonnements, récupérer le user_id depuis subscription_data.metadata
         if (session.mode === 'subscription' && session.subscription) {
           const stripe = getStripe()
           const subscription = await stripe.subscriptions.retrieve(session.subscription as string) as Stripe.Subscription
-          const userId = subscription.metadata?.user_id
 
-          if (userId) {
+          // Essayer plusieurs sources pour le user_id
+          const userId = subscription.metadata?.user_id
+            || session.metadata?.user_id
+            || null
+
+          // Fallback: chercher via le customer Stripe
+          let resolvedUserId = userId
+          if (!resolvedUserId && session.customer) {
+            const customer = await stripe.customers.retrieve(session.customer as string) as Stripe.Customer
+            const supabaseUserId = customer.metadata?.supabase_user_id
+            if (supabaseUserId) {
+              resolvedUserId = supabaseUserId
+            } else {
+              // Dernier fallback: chercher par stripe_customer_id dans la BDD
+              const { data: profile } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('stripe_customer_id', session.customer as string)
+                .single()
+              if (profile) resolvedUserId = profile.id
+            }
+          }
+
+          console.log('[Stripe Webhook] Resolved user_id:', resolvedUserId)
+
+          if (resolvedUserId) {
             const subscriptionEndsAt = new Date((subscription as any).current_period_end * 1000)
 
-            await supabase
+            const { error: updateError } = await supabase
               .from('profiles')
               .update({
                 subscription_status: 'active',
                 subscription_ends_at: subscriptionEndsAt.toISOString(),
                 stripe_subscription_id: subscription.id,
               })
-              .eq('id', userId)
+              .eq('id', resolvedUserId)
+
+            if (updateError) {
+              console.error('[Stripe Webhook] Error updating profile:', updateError)
+            } else {
+              console.log('[Stripe Webhook] Profile updated successfully for user:', resolvedUserId)
+            }
 
             // Enregistrer le paiement
             await supabase.from('payment_history').insert({
-              user_id: userId,
+              user_id: resolvedUserId,
               amount: session.amount_total || 15000,
               currency: session.currency || 'eur',
               status: 'succeeded',
@@ -74,7 +104,7 @@ export async function POST(req: NextRequest) {
 
             // Créer une alerte pour l'utilisateur
             await supabase.from('user_alerts').insert({
-              user_id: userId,
+              user_id: resolvedUserId,
               alert_type: 'info',
               title: 'Abonnement activé',
               message: `Votre abonnement Autyvia a été activé. Prochain renouvellement le ${subscriptionEndsAt.toLocaleDateString('fr-FR')}.`,
@@ -84,7 +114,9 @@ export async function POST(req: NextRequest) {
               },
             })
 
-            console.log('[Stripe Webhook] Subscription created for user:', userId)
+            console.log('[Stripe Webhook] Subscription created for user:', resolvedUserId)
+          } else {
+            console.error('[Stripe Webhook] Could not resolve user_id for session:', session.id)
           }
         }
         break
