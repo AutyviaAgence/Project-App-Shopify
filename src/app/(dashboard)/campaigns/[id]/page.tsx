@@ -636,7 +636,7 @@ export default function CampaignDetailPage() {
 
       {/* Liste des destinataires */}
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0">
+        <CardHeader className="flex flex-col gap-4 space-y-0 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <CardTitle className="text-lg">Destinataires</CardTitle>
             <CardDescription>
@@ -648,7 +648,7 @@ export default function CampaignDetailPage() {
               )}
             </CardDescription>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             {selectedRecipients.size > 0 && canEdit && (
               <Button
                 variant="destructive"
@@ -745,8 +745,8 @@ export default function CampaignDetailPage() {
                     )}
                     <TableHead>Contact</TableHead>
                     <TableHead>Statut</TableHead>
-                    <TableHead>Envoyé</TableHead>
-                    <TableHead>Message</TableHead>
+                    <TableHead className="hidden sm:table-cell">Envoyé</TableHead>
+                    <TableHead className="hidden md:table-cell">Message</TableHead>
                     <TableHead className="w-[50px]"></TableHead>
                   </TableRow>
                 </TableHeader>
@@ -792,12 +792,12 @@ export default function CampaignDetailPage() {
                             </div>
                           )}
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
+                        <TableCell className="text-sm text-muted-foreground hidden sm:table-cell">
                           {recipient.sent_at
                             ? format(new Date(recipient.sent_at), 'dd/MM HH:mm', { locale: fr })
                             : '-'}
                         </TableCell>
-                        <TableCell className="max-w-[200px]">
+                        <TableCell className="max-w-[200px] hidden md:table-cell">
                           {recipient.message_sent ? (
                             <span className="text-xs truncate block" title={recipient.message_sent}>
                               {recipient.message_sent.substring(0, 50)}...

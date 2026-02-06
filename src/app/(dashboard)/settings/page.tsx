@@ -343,9 +343,9 @@ export default function SettingsPage() {
   }, {} as Record<string, typeof TIMEZONES>)
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold">Paramètres</h1>
+        <h1 className="text-xl sm:text-2xl font-bold">Paramètres</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           Gérez votre profil et vos préférences.
         </p>

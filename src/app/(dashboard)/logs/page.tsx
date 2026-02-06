@@ -164,10 +164,10 @@ export default function LogsPage() {
   }
 
   return (
-    <div className="p-6">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="p-4 sm:p-6">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Logs Webhook</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Logs Webhook</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Historique des événements reçus de Evolution API
           </p>
@@ -187,7 +187,7 @@ export default function LogsPage() {
       {/* Filters */}
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <Select value={filterSession} onValueChange={(v) => { setFilterSession(v); setPage(1) }}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue placeholder="Session" />
           </SelectTrigger>
           <SelectContent>
@@ -199,7 +199,7 @@ export default function LogsPage() {
         </Select>
 
         <Select value={filterEvent} onValueChange={(v) => { setFilterEvent(v); setPage(1) }}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue placeholder="Événement" />
           </SelectTrigger>
           <SelectContent>
@@ -211,7 +211,7 @@ export default function LogsPage() {
         </Select>
 
         <Select value={filterStatus} onValueChange={(v) => { setFilterStatus(v); setPage(1) }}>
-          <SelectTrigger className="w-[150px]">
+          <SelectTrigger className="w-full sm:w-[150px]">
             <SelectValue placeholder="Statut" />
           </SelectTrigger>
           <SelectContent>
@@ -238,36 +238,36 @@ export default function LogsPage() {
         </div>
       ) : (
         <>
-          <div className="rounded-md border">
+          <div className="rounded-md border overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/50">
-                  <th className="px-4 py-2 text-left font-medium">Statut</th>
-                  <th className="px-4 py-2 text-left font-medium">Événement</th>
-                  <th className="px-4 py-2 text-left font-medium">Instance</th>
-                  <th className="px-4 py-2 text-left font-medium">Temps</th>
-                  <th className="px-4 py-2 text-left font-medium">Date</th>
-                  <th className="px-4 py-2 text-left font-medium">Actions</th>
+                  <th className="px-3 sm:px-4 py-2 text-left font-medium">Statut</th>
+                  <th className="px-3 sm:px-4 py-2 text-left font-medium">Événement</th>
+                  <th className="px-3 sm:px-4 py-2 text-left font-medium hidden sm:table-cell">Instance</th>
+                  <th className="px-3 sm:px-4 py-2 text-left font-medium hidden md:table-cell">Temps</th>
+                  <th className="px-3 sm:px-4 py-2 text-left font-medium">Date</th>
+                  <th className="px-3 sm:px-4 py-2 text-left font-medium">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {logs.map((log) => (
                   <tr key={log.id} className="border-b hover:bg-muted/30">
-                    <td className="px-4 py-2">
+                    <td className="px-3 sm:px-4 py-2">
                       <div className="flex items-center gap-2">
                         {getStatusIcon(log.status)}
                         {getStatusBadge(log.status)}
                       </div>
                     </td>
-                    <td className="px-4 py-2">{getEventBadge(log.event_type)}</td>
-                    <td className="px-4 py-2 font-mono text-xs">{log.instance_name}</td>
-                    <td className="px-4 py-2 text-muted-foreground">
+                    <td className="px-3 sm:px-4 py-2">{getEventBadge(log.event_type)}</td>
+                    <td className="px-3 sm:px-4 py-2 font-mono text-xs hidden sm:table-cell">{log.instance_name}</td>
+                    <td className="px-3 sm:px-4 py-2 text-muted-foreground hidden md:table-cell">
                       {log.processing_time_ms != null ? `${log.processing_time_ms}ms` : '-'}
                     </td>
-                    <td className="px-4 py-2 text-muted-foreground">
+                    <td className="px-3 sm:px-4 py-2 text-muted-foreground">
                       {formatDistanceToNow(new Date(log.created_at), { addSuffix: true, locale: fr })}
                     </td>
-                    <td className="px-4 py-2">
+                    <td className="px-3 sm:px-4 py-2">
                       <Button
                         variant="ghost"
                         size="sm"

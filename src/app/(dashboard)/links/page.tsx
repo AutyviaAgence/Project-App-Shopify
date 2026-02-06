@@ -294,15 +294,15 @@ export default function LinksPage() {
   }
 
   return (
-    <div className="p-6">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="p-4 sm:p-6">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div data-tour="links-header">
-          <h1 className="text-2xl font-bold">Liens WhatsApp</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Liens WhatsApp</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Créez des liens wa.me avec tracking et message pré-rempli.
           </p>
         </div>
-        <Button data-tour="new-link-btn" onClick={openCreateDialog} disabled={sessions.length === 0}>
+        <Button data-tour="new-link-btn" onClick={openCreateDialog} disabled={sessions.length === 0} className="w-full sm:w-auto">
           <Plus className="mr-2 h-4 w-4" />
           Nouveau lien
         </Button>
@@ -343,11 +343,11 @@ export default function LinksPage() {
 
             return (
               <Card key={link.id} className={!link.is_active ? 'opacity-60' : ''}>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardHeader className="flex flex-col gap-2 space-y-0 pb-2 sm:flex-row sm:items-center sm:justify-between">
                   <CardTitle className="text-sm font-medium truncate">
                     {link.name}
                   </CardTitle>
-                  <Badge variant={link.is_active ? 'default' : 'secondary'}>
+                  <Badge variant={link.is_active ? 'default' : 'secondary'} className="w-fit">
                     {link.is_active ? 'Actif' : 'Inactif'}
                   </Badge>
                 </CardHeader>

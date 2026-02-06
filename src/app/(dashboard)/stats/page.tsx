@@ -101,18 +101,18 @@ export default function StatsPage() {
   }, [fetchStats])
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-4 sm:p-6">
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Statistiques</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Statistiques</h1>
           <p className="text-sm text-muted-foreground">
             Analysez vos performances WhatsApp.
           </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <Select value={period} onValueChange={setPeriod}>
-            <SelectTrigger className="w-[120px]">
+            <SelectTrigger className="w-full sm:w-[120px]">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -123,7 +123,7 @@ export default function StatsPage() {
           </Select>
 
           <Select value={sessionFilter} onValueChange={setSessionFilter}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger className="w-full sm:w-[180px]">
               <SelectValue placeholder="Toutes les sessions" />
             </SelectTrigger>
             <SelectContent>

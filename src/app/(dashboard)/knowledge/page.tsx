@@ -454,15 +454,15 @@ export default function KnowledgePage() {
   }
 
   return (
-    <div className="p-6">
-      <div className="mb-6 flex items-center justify-between">
+    <div className="p-4 sm:p-6">
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div data-tour="knowledge-header">
-          <h1 className="text-2xl font-bold">Base de connaissances</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Base de connaissances</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Ajoutez des documents que vos agents IA pourront consulter pour enrichir leurs réponses.
           </p>
         </div>
-        <Button data-tour="upload-btn" onClick={openCreateDialog}>
+        <Button data-tour="upload-btn" onClick={openCreateDialog} className="w-full sm:w-auto">
           <Plus className="mr-2 h-4 w-4" />
           Nouveau document
         </Button>
@@ -489,7 +489,7 @@ export default function KnowledgePage() {
 
             return (
               <Card key={doc.id}>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardHeader className="flex flex-col gap-2 space-y-0 pb-2 sm:flex-row sm:items-center sm:justify-between">
                   <CardTitle className="text-sm font-medium truncate">
                     <FileText className="mr-1 inline h-4 w-4" />
                     {doc.name}

@@ -905,19 +905,19 @@ export default function TeamsPage() {
                     key={member.id}
                     className="rounded-xl border p-4 space-y-3"
                   >
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex items-center gap-3 min-w-0">
                         <MemberAvatar member={member} size="md" />
-                        <div>
-                          <p className="text-sm font-medium">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium truncate">
                             {member.profile?.full_name || member.invited_email?.split('@')[0] || 'Utilisateur'}
                           </p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-xs text-muted-foreground truncate">
                             {member.profile?.email || member.invited_email}
                           </p>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-shrink-0">
                         {member.role !== 'owner' && selectedTeam?.my_role === 'owner' && (
                           <Select
                             value={member.role}
