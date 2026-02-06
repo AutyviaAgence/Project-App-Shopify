@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { checkTokenLimit, recordTokenUsage } from '@/lib/openai/token-tracker'
 
 /**
  * Exécuteur de campagnes de relance WhatsApp
@@ -178,11 +179,18 @@ async function executeCampaign(supabase: any, campaign: Campaign): Promise<void>
     // Générer le message
     let message: string
     if (agent) {
-      try {
-        message = await generateAIMessage(agent, contact)
-      } catch (error) {
-        console.error(`[Campaign ${campaignId}] AI error:`, error)
+      // Vérifier la limite de tokens avant de générer
+      const tokenCheck = await checkTokenLimit(campaign.user_id)
+      if (!tokenCheck.allowed) {
+        console.log(`[Campaign ${campaignId}] Token limit reached, using template`)
         message = campaign.message_template || ''
+      } else {
+        try {
+          message = await generateAIMessage(agent, contact, campaign.user_id)
+        } catch (error) {
+          console.error(`[Campaign ${campaignId}] AI error:`, error)
+          message = campaign.message_template || ''
+        }
       }
     } else {
       message = (campaign.message_template || '')
@@ -274,7 +282,7 @@ async function executeCampaign(supabase: any, campaign: Campaign): Promise<void>
   }
 }
 
-async function generateAIMessage(agent: AIAgent, contact: Contact): Promise<string> {
+async function generateAIMessage(agent: AIAgent, contact: Contact, userId: string): Promise<string> {
   const systemPrompt = agent.system_prompt
     .replace(/{contact_name}/g, contact.name || 'Client')
     .replace(/{phone_number}/g, contact.phone_number)
@@ -301,6 +309,10 @@ async function generateAIMessage(agent: AIAgent, contact: Contact): Promise<stri
   }
 
   const data = await response.json()
+  const tokensUsed = data.usage?.total_tokens || 0
+  if (tokensUsed > 0) {
+    await recordTokenUsage(userId, tokensUsed)
+  }
   return data.choices[0]?.message?.content || ''
 }
 

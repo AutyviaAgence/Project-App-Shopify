@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
+import { Progress } from '@/components/ui/progress'
 import {
   Check,
   CreditCard,
@@ -21,6 +22,7 @@ import {
   Clock,
   CheckCircle,
   XCircle,
+  Cpu,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -48,6 +50,8 @@ function SubscriptionContent() {
         .catch(() => refetch())
     } else if (searchParams.get('cancelled') === 'true') {
       toast.info('Paiement annulé.')
+    } else if (searchParams.get('tokens_success') === 'true') {
+      refetch().then(() => toast.success('Tokens ajoutés avec succès !'))
     }
   }, [searchParams, refetch])
 
@@ -167,6 +171,76 @@ function SubscriptionContent() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Utilisation des tokens IA */}
+      {subscription && (
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Cpu className="h-5 w-5" />
+              Utilisation des tokens IA
+            </CardTitle>
+            <CardDescription>
+              {subscription.status === 'trial'
+                ? 'Période d\'essai : 200 000 tokens inclus'
+                : subscription.status === 'active'
+                  ? 'Abonnement : 5 000 000 tokens/mois inclus'
+                  : 'Aucun quota actif'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">
+                  {subscription.tokensUsed.toLocaleString()} / {subscription.tokensLimit.toLocaleString()} tokens
+                </span>
+                <span className={cn(
+                  'font-medium',
+                  subscription.usagePercentage < 70 && 'text-green-600',
+                  subscription.usagePercentage >= 70 && subscription.usagePercentage < 90 && 'text-amber-600',
+                  subscription.usagePercentage >= 90 && 'text-red-600',
+                )}>
+                  {subscription.usagePercentage}%
+                </span>
+              </div>
+              <Progress
+                value={Math.min(subscription.usagePercentage, 100)}
+                className={cn(
+                  'h-3',
+                  subscription.usagePercentage >= 90 && '[&>div]:bg-red-500',
+                  subscription.usagePercentage >= 70 && subscription.usagePercentage < 90 && '[&>div]:bg-amber-500',
+                )}
+              />
+            </div>
+
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">
+                {subscription.tokensRemaining.toLocaleString()} tokens restants
+              </span>
+              {subscription.usagePercentage >= 90 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={async () => {
+                    try {
+                      const res = await fetch('/api/stripe/buy-tokens', { method: 'POST' })
+                      const data = await res.json()
+                      if (!res.ok) throw new Error(data.error)
+                      window.location.href = data.url
+                    } catch {
+                      toast.error('Erreur lors de la création du paiement')
+                    }
+                  }}
+                >
+                  <Zap className="mr-1 h-3 w-3" />
+                  Acheter 500K tokens
+                </Button>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Offre d'abonnement */}
       <Card className="border-2 border-primary/20">

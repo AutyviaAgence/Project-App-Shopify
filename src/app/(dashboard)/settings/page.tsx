@@ -46,6 +46,8 @@ import {
   Scale,
   ExternalLink,
   CreditCard,
+  Cpu,
+  Zap,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -438,6 +440,49 @@ export default function SettingsPage() {
                 Gérer mon abonnement
               </Button>
             </Link>
+          </CardContent>
+        </Card>
+
+        {/* Tokens IA supplémentaires */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Cpu className="h-5 w-5" />
+              Tokens IA supplémentaires
+            </CardTitle>
+            <CardDescription>Achetez des tokens supplémentaires pour l&apos;IA.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              Si vous atteignez votre limite de tokens, vous pouvez acheter des tokens supplémentaires.
+              Les tokens achetés s&apos;ajoutent à votre quota mensuel.
+            </p>
+            <div className="flex items-center justify-between rounded-lg border p-4">
+              <div>
+                <p className="font-medium">500 000 tokens IA</p>
+                <p className="text-sm text-muted-foreground">Paiement unique</p>
+              </div>
+              <div className="text-right">
+                <p className="text-2xl font-bold">50&euro;</p>
+                <Button
+                  size="sm"
+                  className="mt-2"
+                  onClick={async () => {
+                    try {
+                      const res = await fetch('/api/stripe/buy-tokens', { method: 'POST' })
+                      const data = await res.json()
+                      if (!res.ok) throw new Error(data.error)
+                      window.location.href = data.url
+                    } catch {
+                      toast.error('Erreur lors de la création du paiement')
+                    }
+                  }}
+                >
+                  <Zap className="mr-2 h-4 w-4" />
+                  Acheter
+                </Button>
+              </div>
+            </div>
           </CardContent>
         </Card>
 

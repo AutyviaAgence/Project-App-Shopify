@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { canAccessResource } from '@/lib/teams/access'
 import { generateAgentResponse, type ChatMessage } from '@/lib/openai/client'
+import { checkTokenLimit, recordTokenUsage } from '@/lib/openai/token-tracker'
 
 export async function POST(
   req: NextRequest,
@@ -42,6 +43,12 @@ export async function POST(
     return NextResponse.json({ error: 'Message requis' }, { status: 400 })
   }
 
+  // Vérifier la limite de tokens
+  const tokenCheck = await checkTokenLimit(user.id)
+  if (!tokenCheck.allowed) {
+    return NextResponse.json({ error: 'Limite de tokens IA atteinte. Achetez des tokens supplémentaires.' }, { status: 429 })
+  }
+
   // Construire les messages pour l'API
   const messages: ChatMessage[] = [
     ...(history || []),
@@ -59,6 +66,9 @@ export async function POST(
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 500 })
   }
+
+  // Enregistrer l'utilisation des tokens
+  await recordTokenUsage(user.id, result.tokensUsed)
 
   return NextResponse.json({
     data: {

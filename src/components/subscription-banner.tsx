@@ -2,24 +2,65 @@
 
 import { useSubscription } from '@/hooks/use-subscription'
 import { Button } from '@/components/ui/button'
-import { AlertTriangle, Clock, CreditCard } from 'lucide-react'
+import { AlertTriangle, Clock, CreditCard, Cpu } from 'lucide-react'
 import Link from 'next/link'
-import { cn } from '@/lib/utils'
 
 export function SubscriptionBanner() {
   const { subscription, loading } = useSubscription()
 
   if (loading || !subscription) return null
 
-  // Abonnement actif sans problème
+  // Token limit reached (100%) — red banner
+  if (subscription.isActive && subscription.usagePercentage >= 100) {
+    return (
+      <div className="bg-red-500/10 border-b border-red-500/20 px-4 py-2">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
+            <Cpu className="h-4 w-4" />
+            <span className="text-sm font-medium">
+              Limite de tokens IA atteinte — l&apos;IA est suspendue.
+            </span>
+          </div>
+          <Link href="/subscription">
+            <Button size="sm" className="h-7 text-xs bg-red-600 hover:bg-red-700">
+              Acheter des tokens
+            </Button>
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  // Token usage high (>=90%) — amber banner
+  if (subscription.isActive && subscription.usagePercentage >= 90) {
+    return (
+      <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
+          <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
+            <Cpu className="h-4 w-4" />
+            <span className="text-sm font-medium">
+              {subscription.usagePercentage}% des tokens IA utilisés — {subscription.tokensRemaining.toLocaleString()} restants
+            </span>
+          </div>
+          <Link href="/subscription">
+            <Button size="sm" variant="outline" className="h-7 text-xs border-amber-500/50 hover:bg-amber-500/10">
+              Voir mon utilisation
+            </Button>
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  // Active subscription without issues
   if (subscription.isActive && subscription.status === 'active') return null
 
-  // Période d'essai avec plus de 3 jours restants
+  // Trial with more than 3 days remaining
   if (subscription.status === 'trial' && subscription.daysRemaining && subscription.daysRemaining > 3) {
     return null
   }
 
-  // Période d'essai avec 3 jours ou moins
+  // Trial with 3 days or less
   if (subscription.status === 'trial' && subscription.daysRemaining !== null && subscription.daysRemaining > 0) {
     return (
       <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2">
@@ -41,7 +82,7 @@ export function SubscriptionBanner() {
     )
   }
 
-  // Période d'essai expirée ou abonnement expiré
+  // Trial expired or subscription expired
   if (subscription.isTrialExpired || subscription.isSubscriptionExpired || subscription.status === 'expired') {
     return (
       <div className="bg-red-500/10 border-b border-red-500/20 px-4 py-3">

@@ -3,6 +3,7 @@ import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { extractTextFromPDF } from './pdf-parser'
 import { chunkText } from './chunker'
 import { generateEmbeddings } from '@/lib/openai/embeddings'
+import { recordTokenUsage } from '@/lib/openai/token-tracker'
 
 const EMBEDDING_BATCH_SIZE = 100
 
@@ -82,6 +83,11 @@ export async function processDocument(documentId: string) {
       const embResult = await generateEmbeddings(texts)
       if (!embResult.ok) {
         throw new Error(`Échec embedding : ${embResult.error}`)
+      }
+
+      // Enregistrer l'utilisation des tokens d'embedding
+      if (embResult.tokensUsed > 0) {
+        await recordTokenUsage(doc.user_id, embResult.tokensUsed)
       }
 
       const rows = batch.map((chunk, j) => ({

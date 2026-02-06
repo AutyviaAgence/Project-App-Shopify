@@ -6,6 +6,7 @@ export type MediaExtractionResult = {
   messageType: 'text' | 'image' | 'audio' | 'video' | 'document' | 'sticker' | 'location' | 'contact'
   content: string
   mediaUrl: string | null
+  tokensUsed: number
 }
 
 type MessagePayload = Record<string, unknown>
@@ -84,7 +85,7 @@ export async function processMediaMessage(
     const textContent = (message.conversation as string)
       || ((message.extendedTextMessage as MessagePayload)?.text as string)
       || ''
-    return { messageType: 'text', content: textContent, mediaUrl: null }
+    return { messageType: 'text', content: textContent, mediaUrl: null, tokensUsed: 0 }
   }
 
   // Location
@@ -96,6 +97,7 @@ export async function processMediaMessage(
       messageType: 'location',
       content: `[Location partagée : ${lat}, ${lng}]`,
       mediaUrl: null,
+      tokensUsed: 0,
     }
   }
 
@@ -107,12 +109,13 @@ export async function processMediaMessage(
       messageType: 'contact',
       content: `[Contact partagé : ${displayName}]`,
       mediaUrl: null,
+      tokensUsed: 0,
     }
   }
 
   // Sticker
   if (type === 'sticker') {
-    return { messageType: 'sticker', content: '[Sticker reçu]', mediaUrl: null }
+    return { messageType: 'sticker', content: '[Sticker reçu]', mediaUrl: null, tokensUsed: 0 }
   }
 
   // Vidéo (pas de traitement lourd)
@@ -123,12 +126,13 @@ export async function processMediaMessage(
       messageType: 'video',
       content: caption ? `[Vidéo reçue avec légende : ${caption}]` : '[Vidéo reçue]',
       mediaUrl: null,
+      tokensUsed: 0,
     }
   }
 
   // --- Médias nécessitant base64 ---
   if (!hasMedia) {
-    return { messageType: type, content: `[${type} reçu]`, mediaUrl: null }
+    return { messageType: type, content: `[${type} reçu]`, mediaUrl: null, tokensUsed: 0 }
   }
 
   const base64 = await getBase64Data(message, instanceName, messageId, remoteJid)
@@ -141,6 +145,7 @@ export async function processMediaMessage(
         messageType: 'audio',
         content: '[Message vocal reçu - transcription impossible]',
         mediaUrl: null,
+        tokensUsed: 0,
       }
     }
     console.log('[MediaProcessor] Transcribing audio...')
@@ -152,6 +157,7 @@ export async function processMediaMessage(
         ? `[Message vocal transcrit] : "${result.text}"`
         : '[Message vocal reçu - transcription échouée]',
       mediaUrl: null,
+      tokensUsed: result.ok ? result.tokensUsed : 0,
     }
   }
 
@@ -167,6 +173,7 @@ export async function processMediaMessage(
           ? `[Image reçue avec légende : ${caption}]`
           : '[Image reçue - description impossible]',
         mediaUrl: null,
+        tokensUsed: 0,
       }
     }
     console.log('[MediaProcessor] Describing image...')
@@ -178,6 +185,7 @@ export async function processMediaMessage(
         ? `[Image reçue - description : ${description}] Légende : ${caption}`
         : `[Image reçue - description : ${description}]`,
       mediaUrl: null,
+      tokensUsed: result.ok ? result.tokensUsed : 0,
     }
   }
 
@@ -190,9 +198,10 @@ export async function processMediaMessage(
       messageType: 'document',
       content: `[Document reçu : ${fileName} (${docMime})]`,
       mediaUrl: null,
+      tokensUsed: 0,
     }
   }
 
   // Fallback
-  return { messageType: type, content: `[${type} reçu]`, mediaUrl: null }
+  return { messageType: type, content: `[${type} reçu]`, mediaUrl: null, tokensUsed: 0 }
 }

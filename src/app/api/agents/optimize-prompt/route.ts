@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import OpenAI from 'openai'
+import { checkTokenLimit, recordTokenUsage } from '@/lib/openai/token-tracker'
 
 const OPTIMIZATION_PROMPT = `Tu es un expert en conception de prompts pour agents conversationnels WhatsApp.
 
@@ -37,6 +38,12 @@ export async function POST(request: Request) {
 
     const body = await request.json()
     const { prompt, context } = body
+
+    // Vérifier la limite de tokens
+    const tokenCheck = await checkTokenLimit(user.id)
+    if (!tokenCheck.allowed) {
+      return NextResponse.json({ error: 'Limite de tokens IA atteinte. Achetez des tokens supplémentaires.' }, { status: 429 })
+    }
 
     if (!prompt || typeof prompt !== 'string' || prompt.trim().length < 10) {
       return NextResponse.json(
@@ -78,6 +85,9 @@ export async function POST(request: Request) {
         { status: 500 }
       )
     }
+
+    // Enregistrer l'utilisation des tokens
+    await recordTokenUsage(user.id, completion.usage?.total_tokens || 0)
 
     return NextResponse.json({
       data: {

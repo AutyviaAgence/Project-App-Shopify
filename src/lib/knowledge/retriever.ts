@@ -22,7 +22,7 @@ export async function retrieveContext(params: {
   query: string
   topK?: number
   threshold?: number
-}): Promise<{ ok: true; chunks: RetrievedChunk[]; context: string } | { ok: false; error: string }> {
+}): Promise<{ ok: true; chunks: RetrievedChunk[]; context: string; tokensUsed: number } | { ok: false; error: string }> {
   const supabase = createAdminSupabase(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -36,7 +36,7 @@ export async function retrieveContext(params: {
       .eq('agent_id', params.agentId)
 
     if (!agentDocs || agentDocs.length === 0) {
-      return { ok: true, chunks: [], context: '' }
+      return { ok: true, chunks: [], context: '', tokensUsed: 0 }
     }
 
     // Filtrer uniquement les documents prêts
@@ -48,7 +48,7 @@ export async function retrieveContext(params: {
       .eq('status', 'ready')
 
     if (!readyDocs || readyDocs.length === 0) {
-      return { ok: true, chunks: [], context: '' }
+      return { ok: true, chunks: [], context: '', tokensUsed: 0 }
     }
 
     const readyDocIds = readyDocs.map((d) => d.id)
@@ -90,7 +90,7 @@ export async function retrieveContext(params: {
       ? chunks.map((c) => c.content).join('\n\n---\n\n')
       : ''
 
-    return { ok: true, chunks, context }
+    return { ok: true, chunks, context, tokensUsed: embResult.tokensUsed }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Erreur de récupération inconnue'
     console.error('[Knowledge Retriever] Error:', message)

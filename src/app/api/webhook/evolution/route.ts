@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { processAIResponse } from '@/lib/openai/process-ai-response'
 import { processMediaMessage } from '@/lib/openai/media-processor'
+import { recordTokenUsage } from '@/lib/openai/token-tracker'
 import { evolution } from '@/lib/evolution/client'
 import { syncContactsFromWhatsApp } from '@/lib/evolution/sync-contacts'
 import { encryptMessage } from '@/lib/crypto/encryption'
@@ -164,6 +165,13 @@ export async function POST(req: NextRequest) {
         )
         const content = mediaResult.content
         const messageType = mediaResult.messageType
+
+        // Enregistrer les tokens utilisés par le traitement média (transcription, vision)
+        if (mediaResult.tokensUsed > 0 && session.user_id) {
+          recordTokenUsage(session.user_id, mediaResult.tokensUsed).catch(err =>
+            console.error('[Webhook] Token recording error:', err)
+          )
+        }
 
         // Ignorer seulement les messages texte vides sans payload
         if (!content && messageType === 'text' && !messageData.message) break

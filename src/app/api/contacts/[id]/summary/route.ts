@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { generateAgentResponse } from '@/lib/openai/client'
+import { checkTokenLimit, recordTokenUsage } from '@/lib/openai/token-tracker'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { decryptMessage } from '@/lib/crypto/encryption'
 
@@ -68,6 +69,12 @@ export async function POST(
     return NextResponse.json({ error: 'Aucun message à résumer' }, { status: 400 })
   }
 
+  // Vérifier la limite de tokens
+  const tokenCheck = await checkTokenLimit(user.id)
+  if (!tokenCheck.allowed) {
+    return NextResponse.json({ error: 'Limite de tokens IA atteinte. Achetez des tokens supplémentaires.' }, { status: 429 })
+  }
+
   // Formater le transcript - déchiffrer les messages avant de les envoyer à l'IA
   const transcript = messages
     .filter((m): m is typeof m & { content: string } => !!m.content)
@@ -119,6 +126,9 @@ Sois concis et factuel. Maximum 400 mots au total.`,
       { status: 500 }
     )
   }
+
+  // Enregistrer l'utilisation des tokens
+  await recordTokenUsage(user.id, result.tokensUsed)
 
   // Sauvegarder le résumé
   const { data: updated, error: updateError } = await supabase

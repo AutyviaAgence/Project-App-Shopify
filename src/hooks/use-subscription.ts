@@ -11,6 +11,10 @@ type SubscriptionInfo = {
   isActive: boolean
   isTrialExpired: boolean
   isSubscriptionExpired: boolean
+  tokensUsed: number
+  tokensLimit: number
+  tokensRemaining: number
+  usagePercentage: number
 }
 
 export function useSubscription() {
@@ -42,6 +46,12 @@ export function useSubscription() {
           (data.data.subscription_status === 'trial' && trialEndsAt && trialEndsAt > now) ||
           (data.data.subscription_status === 'active' && (!subscriptionEndsAt || subscriptionEndsAt > now))
 
+        // Token usage
+        const tokensUsed = data.data.tokens_used || 0
+        const tokensLimit = data.data.tokens_limit || 0
+        const tokensRemaining = Math.max(0, tokensLimit - tokensUsed)
+        const usagePercentage = tokensLimit > 0 ? Math.round((tokensUsed / tokensLimit) * 100) : 100
+
         setSubscription({
           status: data.data.subscription_status,
           trialEndsAt,
@@ -50,6 +60,10 @@ export function useSubscription() {
           isActive: isActive || false,
           isTrialExpired: isTrialExpired || false,
           isSubscriptionExpired: isSubscriptionExpired || false,
+          tokensUsed,
+          tokensLimit,
+          tokensRemaining,
+          usagePercentage,
         })
       }
     } catch (error) {

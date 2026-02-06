@@ -26,7 +26,7 @@ export type ChatMessage = {
 export async function transcribeAudio(
   audioBuffer: Buffer,
   mimeType: string
-): Promise<{ ok: true; text: string } | { ok: false; error: string }> {
+): Promise<{ ok: true; text: string; tokensUsed: number } | { ok: false; error: string }> {
   try {
     const openai = getClient()
     const ext = mimeType.includes('ogg') ? 'ogg'
@@ -42,7 +42,8 @@ export async function transcribeAudio(
       model: 'whisper-1',
     })
 
-    return { ok: true, text: transcription.text }
+    // Whisper ne retourne pas de token count — estimation ~100 tokens
+    return { ok: true, text: transcription.text, tokensUsed: 100 }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown Whisper error'
     console.error('[OpenAI Whisper] Error:', message)
@@ -56,7 +57,7 @@ export async function transcribeAudio(
 export async function describeImage(
   base64Data: string,
   mimeType: string = 'image/jpeg'
-): Promise<{ ok: true; description: string } | { ok: false; error: string }> {
+): Promise<{ ok: true; description: string; tokensUsed: number } | { ok: false; error: string }> {
   try {
     const openai = getClient()
     const response = await openai.chat.completions.create({
@@ -86,7 +87,7 @@ export async function describeImage(
     if (!description) {
       return { ok: false, error: 'Empty response from Vision' }
     }
-    return { ok: true, description }
+    return { ok: true, description, tokensUsed: response.usage?.total_tokens || 0 }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown Vision error'
     console.error('[OpenAI Vision] Error:', message)
@@ -99,7 +100,7 @@ export async function generateAgentResponse(params: {
   temperature: number
   systemPrompt: string
   messages: ChatMessage[]
-}): Promise<{ ok: true; content: string } | { ok: false; error: string }> {
+}): Promise<{ ok: true; content: string; tokensUsed: number } | { ok: false; error: string }> {
   try {
     const openai = getClient()
     const response = await openai.chat.completions.create({
@@ -116,7 +117,7 @@ export async function generateAgentResponse(params: {
     if (!content) {
       return { ok: false, error: 'Empty response from OpenAI' }
     }
-    return { ok: true, content }
+    return { ok: true, content, tokensUsed: response.usage?.total_tokens || 0 }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown OpenAI error'
     console.error('[OpenAI] Error:', message)

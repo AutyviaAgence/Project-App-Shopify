@@ -42,6 +42,54 @@ export async function POST(req: NextRequest) {
         const session = event.data.object as Stripe.Checkout.Session
         console.log('[Stripe Webhook] checkout.session.completed - mode:', session.mode, 'subscription:', session.subscription)
 
+        // Achat de tokens supplémentaires (mode payment)
+        if (session.mode === 'payment' && session.metadata?.type === 'token_purchase') {
+          const userId = session.metadata?.user_id
+          const tokensToAdd = parseInt(session.metadata?.tokens || '500000', 10)
+
+          if (userId) {
+            // Incrémenter la limite de tokens
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('tokens_limit')
+              .eq('id', userId)
+              .single()
+
+            if (profile) {
+              await supabase
+                .from('profiles')
+                .update({ tokens_limit: profile.tokens_limit + tokensToAdd })
+                .eq('id', userId)
+            }
+
+            // Enregistrer le paiement
+            await supabase.from('payment_history').insert({
+              user_id: userId,
+              amount: session.amount_total || 5000,
+              currency: session.currency || 'eur',
+              status: 'succeeded',
+              stripe_payment_intent_id: session.payment_intent as string || null,
+              description: `Achat de ${tokensToAdd.toLocaleString()} tokens IA`,
+              metadata: {
+                checkout_session_id: session.id,
+                type: 'token_purchase',
+                tokens: tokensToAdd,
+              },
+            })
+
+            await supabase.from('user_alerts').insert({
+              user_id: userId,
+              alert_type: 'info',
+              title: 'Tokens ajoutés',
+              message: `${tokensToAdd.toLocaleString()} tokens IA ont été ajoutés à votre compte.`,
+              metadata: { type: 'token_purchase', tokens: tokensToAdd },
+            })
+
+            console.log('[Stripe Webhook] Token purchase completed for user:', userId, '+', tokensToAdd)
+          }
+          break
+        }
+
         if (session.mode === 'subscription' && session.subscription) {
           const stripe = getStripe()
           const subscription = await stripe.subscriptions.retrieve(session.subscription as string) as Stripe.Subscription
@@ -80,6 +128,9 @@ export async function POST(req: NextRequest) {
                 subscription_status: 'active',
                 subscription_ends_at: subscriptionEndsAt.toISOString(),
                 stripe_subscription_id: subscription.id,
+                tokens_used: 0,
+                tokens_limit: 5000000,
+                token_usage_period_start: new Date().toISOString(),
               })
               .eq('id', resolvedUserId)
 
@@ -141,6 +192,8 @@ export async function POST(req: NextRequest) {
               .update({
                 subscription_status: 'active',
                 subscription_ends_at: subscriptionEndsAt.toISOString(),
+                tokens_used: 0,
+                token_usage_period_start: new Date().toISOString(),
               })
               .eq('id', userId)
 

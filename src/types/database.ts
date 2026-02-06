@@ -12,6 +12,9 @@ export type Profile = {
   subscription_ends_at: string | null
   stripe_customer_id: string | null
   stripe_subscription_id: string | null
+  tokens_used: number
+  tokens_limit: number
+  token_usage_period_start: string | null
   created_at: string
   updated_at: string
 }
@@ -216,7 +219,7 @@ export type WebhookLog = {
 export type UserAlert = {
   id: string
   user_id: string
-  alert_type: 'session_disconnected' | 'quota_reached' | 'ai_error' | 'webhook_error' | 'info' | 'campaign_opt_out' | 'agent_started' | 'agent_stopped' | 'booking_click'
+  alert_type: 'session_disconnected' | 'quota_reached' | 'ai_error' | 'webhook_error' | 'info' | 'campaign_opt_out' | 'agent_started' | 'agent_stopped' | 'booking_click' | 'token_limit_reached'
   title: string
   message: string
   metadata: Record<string, unknown> | null
@@ -598,6 +601,16 @@ export type Database = {
             }
           }
         }
+      }
+      increment_token_usage: {
+        Args: {
+          p_user_id: string
+          p_tokens: number
+        }
+        Returns: {
+          new_total: number
+          token_limit: number
+        }[]
       }
       get_campaign_eligible_contacts: {
         Args: {

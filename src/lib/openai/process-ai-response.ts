@@ -1,6 +1,7 @@
 import 'server-only'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { generateAgentResponse, type ChatMessage } from './client'
+import { checkTokenLimit, recordTokenUsage } from './token-tracker'
 import { evolution } from '@/lib/evolution/client'
 import { retrieveContext } from '@/lib/knowledge/retriever'
 import { encryptMessage, decryptMessage } from '@/lib/crypto/encryption'
@@ -39,6 +40,30 @@ export async function processAIResponse(params: {
     }
 
     console.log('[AI] Agent trouvé:', agent.name, '| model:', agent.model)
+
+    // 1.1. Récupérer le userId et vérifier la limite de tokens
+    const { data: sessionForTokens } = await supabase
+      .from('whatsapp_sessions')
+      .select('user_id')
+      .eq('id', params.sessionId)
+      .single()
+
+    const userId = sessionForTokens?.user_id
+    if (userId) {
+      const tokenCheck = await checkTokenLimit(userId)
+      if (!tokenCheck.allowed) {
+        console.log('[AI] Limite de tokens atteinte pour user:', userId, `(${tokenCheck.used}/${tokenCheck.limit})`)
+        // Envoyer un message de notification au contact
+        await evolution.sendText(
+          params.instanceName,
+          params.contactPhoneNumber,
+          "Désolé, notre assistant IA est temporairement indisponible. Veuillez réessayer plus tard ou contacter directement notre équipe."
+        )
+        return
+      }
+    }
+
+    let totalTokensUsed = 0
 
     // 1.5. Vérifier l'escalation (garde-fou) sur le dernier message entrant
     if (agent.escalation_enabled && agent.escalation_keywords?.length > 0) {
@@ -152,6 +177,7 @@ export async function processAIResponse(params: {
       })
       if (ragResult.ok && ragResult.context) {
         knowledgeContext = ragResult.context
+        totalTokensUsed += ragResult.tokensUsed
         console.log('[AI] RAG contexte récupéré:', ragResult.chunks.length, 'chunks')
       } else if (!ragResult.ok) {
         console.warn('[AI] RAG erreur:', ragResult.error)
@@ -213,6 +239,7 @@ export async function processAIResponse(params: {
       return
     }
 
+    totalTokensUsed += result.tokensUsed
     const aiResponseText = result.content
     console.log('[AI] Réponse OpenAI reçue:', aiResponseText.slice(0, 80) + '...')
 
@@ -281,6 +308,10 @@ Sois strict : la condition doit être explicitement satisfaite.`,
         ],
       })
 
+      if (stopCheckResult.ok) {
+        totalTokensUsed += stopCheckResult.tokensUsed
+      }
+
       if (stopCheckResult.ok && stopCheckResult.content.trim().toUpperCase().startsWith('OUI')) {
         console.log('[AI] Condition d\'arrêt remplie:', agent.stop_condition)
 
@@ -319,8 +350,19 @@ Sois strict : la condition doit être explicitement satisfaite.`,
         }
 
         console.log('[AI] Conversation arrêtée suite à la condition d\'arrêt')
+        // Enregistrer les tokens avant de return
+        if (userId && totalTokensUsed > 0) {
+          await recordTokenUsage(userId, totalTokensUsed)
+          console.log('[AI] Tokens enregistrés (stop):', totalTokensUsed)
+        }
         return
       }
+    }
+
+    // 7.9. Enregistrer l'utilisation des tokens
+    if (userId && totalTokensUsed > 0) {
+      await recordTokenUsage(userId, totalTokensUsed)
+      console.log('[AI] Tokens enregistrés:', totalTokensUsed)
     }
 
     // 8. Mettre à jour l'aperçu de la conversation
