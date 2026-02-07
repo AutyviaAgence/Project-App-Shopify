@@ -41,6 +41,7 @@ export type WhatsAppSession = {
   display_name: string | null
   status: 'connected' | 'disconnected' | 'qr_pending' | 'error'
   qr_code: string | null
+  pairing_code: string | null
   phone_number: string | null
   daily_ai_message_limit: number | null
   created_at: string

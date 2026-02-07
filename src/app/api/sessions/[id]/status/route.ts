@@ -72,6 +72,7 @@ export async function GET(
     const updateData: Record<string, unknown> = { status: newStatus, ...phoneUpdate }
     if (newStatus === 'connected') {
       updateData.qr_code = null
+      updateData.pairing_code = null
 
       // Auto-configure webhook when session becomes connected
       if (newStatus !== session.status) {

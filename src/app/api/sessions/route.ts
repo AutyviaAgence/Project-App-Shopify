@@ -14,7 +14,12 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => ({}))
-  const { team_id, team_ids } = body as { team_id?: string; team_ids?: string[] }
+  const { team_id, team_ids, connection_method, phone_number } = body as {
+    team_id?: string
+    team_ids?: string[]
+    connection_method?: 'qr' | 'pairing'
+    phone_number?: string
+  }
 
   // Support des deux formats: team_id (legacy) et team_ids (nouveau)
   const selectedTeamIds = team_ids || (team_id ? [team_id] : [])
@@ -28,10 +33,24 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Validation pairing code
+  const cleanNumber = connection_method === 'pairing'
+    ? phone_number?.replace(/\D/g, '')
+    : undefined
+
+  if (connection_method === 'pairing') {
+    if (!cleanNumber || cleanNumber.length < 10 || cleanNumber.length > 15) {
+      return NextResponse.json(
+        { error: 'Numéro de téléphone invalide. Format : indicatif + numéro (ex: 33612345678)' },
+        { status: 400 }
+      )
+    }
+  }
+
   const instanceName = `wa-${user.id.slice(0, 8)}-${Date.now()}`
 
   // 1. Créer l'instance sur Evolution API
-  const evoResult = await evolution.createInstance(instanceName)
+  const evoResult = await evolution.createInstance(instanceName, cleanNumber)
   if (!evoResult.ok) {
     return NextResponse.json({ error: evoResult.error }, { status: 502 })
   }
@@ -42,7 +61,10 @@ export async function POST(req: NextRequest) {
 
   // 3. Sauvegarder en BDD
   const evoData = evoResult.data as Record<string, unknown>
-  const qrcode = evoData?.qrcode as { base64?: string } | undefined
+  const qrcode = evoData?.qrcode as { base64?: string; pairingCode?: string } | undefined
+  const pairingCode = (evoData?.pairingCode as string)
+    || qrcode?.pairingCode
+    || null
 
   const { data: session, error: dbError } = await supabase
     .from('whatsapp_sessions')
@@ -52,7 +74,9 @@ export async function POST(req: NextRequest) {
       instance_name: instanceName,
       instance_id: (evoData?.instance as Record<string, unknown>)?.instanceId as string || null,
       status: 'qr_pending' as const,
-      qr_code: qrcode?.base64 || null,
+      qr_code: connection_method !== 'pairing' ? (qrcode?.base64 || null) : null,
+      pairing_code: pairingCode,
+      phone_number: cleanNumber || null,
     })
     .select()
     .single()

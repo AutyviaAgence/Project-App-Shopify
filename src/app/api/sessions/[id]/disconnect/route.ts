@@ -32,7 +32,7 @@ export async function POST(
   // Mettre à jour en BDD
   await supabase
     .from('whatsapp_sessions')
-    .update({ status: 'disconnected', qr_code: null })
+    .update({ status: 'disconnected', qr_code: null, pairing_code: null })
     .eq('id', id)
 
   return NextResponse.json({ data: { status: 'disconnected' } })

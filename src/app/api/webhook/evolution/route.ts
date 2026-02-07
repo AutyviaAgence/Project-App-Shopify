@@ -93,6 +93,7 @@ export async function POST(req: NextRequest) {
         const updateData: Record<string, unknown> = { status }
         if (status === 'connected') {
           updateData.qr_code = null
+          updateData.pairing_code = null
           // Récupérer le numéro de téléphone si disponible
           const owner = payload.data?.instance?.owner || payload.data?.instance?.ownerJid
           if (owner) {

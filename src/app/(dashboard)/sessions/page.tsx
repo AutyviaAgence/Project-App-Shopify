@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import { toast } from 'sonner'
 import {
   Plus,
@@ -66,6 +67,8 @@ export default function SessionsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [sessionToDelete, setSessionToDelete] = useState<SessionWithTeamIds | null>(null)
   const [syncingContacts, setSyncingContacts] = useState<string | null>(null)
+  const [connectionMethod, setConnectionMethod] = useState<'qr' | 'pairing'>('qr')
+  const [phoneNumber, setPhoneNumber] = useState('')
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -136,30 +139,47 @@ export default function SessionsPage() {
 
   function openCreateDialog() {
     setSelectedTeamIds([])
+    setConnectionMethod('qr')
+    setPhoneNumber('')
     setCreateDialogOpen(true)
   }
 
   async function handleCreate() {
     setCreating(true)
     try {
+      const body: Record<string, unknown> = {
+        team_ids: selectedTeamIds,
+      }
+      if (connectionMethod === 'pairing') {
+        body.connection_method = 'pairing'
+        body.phone_number = phoneNumber.replace(/\D/g, '')
+      }
+
       const res = await fetch('/api/sessions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          team_ids: selectedTeamIds,
-        }),
+        body: JSON.stringify(body),
       })
       const json = await res.json()
       if (!res.ok) {
         toast.error(json.error || 'Erreur lors de la création')
         return
       }
-      const newSession = json.data as WhatsAppSession
+      const newSession = json.data as SessionWithTeamIds
       setSessions((prev) => [newSession, ...prev])
       setCreateDialogOpen(false)
-      // Open QR dialog immediately
+      // Open connection dialog immediately
       setQrSession(newSession)
-      toast.success('Session créée, scannez le QR code')
+
+      if (connectionMethod === 'pairing' && newSession.pairing_code) {
+        toast.success('Session créée, entrez le code dans WhatsApp')
+      } else {
+        toast.success('Session créée, scannez le QR code')
+      }
+
+      // Reset form
+      setPhoneNumber('')
+      setConnectionMethod('qr')
     } catch {
       toast.error('Erreur réseau')
     } finally {
@@ -172,12 +192,17 @@ export default function SessionsPage() {
     try {
       const res = await fetch(`/api/sessions/${sessionId}/qr`)
       const json = await res.json()
-      if (res.ok && json.data?.qr_code) {
-        setQrSession((prev) =>
-          prev ? { ...prev, qr_code: json.data.qr_code } : prev
-        )
+      if (res.ok && json.data) {
+        setQrSession((prev) => {
+          if (!prev) return prev
+          return {
+            ...prev,
+            qr_code: json.data.qr_code || prev.qr_code,
+            pairing_code: json.data.pairing_code || prev.pairing_code,
+          }
+        })
       } else {
-        toast.error('Impossible de récupérer le QR code')
+        toast.error('Impossible de récupérer le code de connexion')
       }
     } catch {
       toast.error('Erreur réseau')
@@ -195,7 +220,7 @@ export default function SessionsPage() {
       if (res.ok) {
         setSessions((prev) =>
           prev.map((s) =>
-            s.id === sessionId ? { ...s, status: 'disconnected' as const, qr_code: null } : s
+            s.id === sessionId ? { ...s, status: 'disconnected' as const, qr_code: null, pairing_code: null } : s
           )
         )
         toast.success('Session déconnectée')
@@ -419,7 +444,9 @@ export default function SessionsPage() {
                   </CardTitle>
                   <Badge variant={config.variant} className="w-fit">
                     <StatusIcon className="mr-1 h-3 w-3" />
-                    {config.label}
+                    {session.status === 'qr_pending' && session.pairing_code
+                      ? 'Code en attente'
+                      : config.label}
                   </Badge>
                 </CardHeader>
                 <CardContent>
@@ -456,8 +483,17 @@ export default function SessionsPage() {
                         variant="outline"
                         onClick={() => setQrSession(session)}
                       >
-                        <QrCode className="mr-1 h-3 w-3" />
-                        QR Code
+                        {session.pairing_code ? (
+                          <>
+                            <Smartphone className="mr-1 h-3 w-3" />
+                            Code de jumelage
+                          </>
+                        ) : (
+                          <>
+                            <QrCode className="mr-1 h-3 w-3" />
+                            QR Code
+                          </>
+                        )}
                       </Button>
                     )}
 
@@ -557,7 +593,7 @@ export default function SessionsPage() {
         </div>
       )}
 
-      {/* QR Code Dialog */}
+      {/* Connection Dialog (QR Code or Pairing Code) */}
       <Dialog
         open={!!qrSession}
         onOpenChange={(open) => {
@@ -566,10 +602,13 @@ export default function SessionsPage() {
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Scanner le QR Code</DialogTitle>
+            <DialogTitle>
+              {qrSession?.pairing_code ? 'Code de jumelage' : 'Scanner le QR Code'}
+            </DialogTitle>
             <DialogDescription>
-              Ouvrez WhatsApp sur votre téléphone, allez dans Appareils liés, et
-              scannez ce QR code.
+              {qrSession?.pairing_code
+                ? 'Ouvrez WhatsApp, allez dans Appareils liés, puis entrez ce code.'
+                : 'Ouvrez WhatsApp sur votre téléphone, allez dans Appareils liés, et scannez ce QR code.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -586,6 +625,44 @@ export default function SessionsPage() {
                   </p>
                 )}
               </div>
+            ) : qrSession?.pairing_code ? (
+              <>
+                <div className="rounded-lg border-2 border-dashed border-primary/30 bg-primary/5 px-8 py-6">
+                  <p className="text-center font-mono text-3xl font-bold tracking-[0.3em] text-primary">
+                    {qrSession.pairing_code}
+                  </p>
+                </div>
+                <div className="mt-4 space-y-3 text-center">
+                  <div className="rounded-md bg-muted p-3">
+                    <p className="text-sm font-medium mb-2">Comment utiliser ce code :</p>
+                    <ol className="text-xs text-muted-foreground text-left space-y-1 list-decimal list-inside">
+                      <li>Ouvrez WhatsApp sur votre téléphone</li>
+                      <li>Allez dans <strong>Paramètres &gt; Appareils liés</strong></li>
+                      <li>Appuyez sur <strong>Lier un appareil</strong></li>
+                      <li>Appuyez sur <strong>&laquo; Lier avec le numéro de téléphone &raquo;</strong></li>
+                      <li>Entrez le code ci-dessus</li>
+                    </ol>
+                  </div>
+                  <div className="flex items-center gap-2 justify-center">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleRefreshQR(qrSession.id)}
+                      disabled={qrLoading}
+                    >
+                      {qrLoading ? (
+                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                      ) : (
+                        <RefreshCw className="mr-1 h-3 w-3" />
+                      )}
+                      Nouveau code
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      Le code expire après quelques minutes
+                    </p>
+                  </div>
+                </div>
+              </>
             ) : qrSession?.qr_code ? (
               <>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -617,7 +694,7 @@ export default function SessionsPage() {
               <div className="flex flex-col items-center gap-3">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 <p className="text-sm text-muted-foreground">
-                  Chargement du QR code...
+                  Chargement...
                 </p>
                 <Button
                   variant="outline"
@@ -630,7 +707,7 @@ export default function SessionsPage() {
                   ) : (
                     <RefreshCw className="mr-1 h-3 w-3" />
                   )}
-                  Récupérer le QR
+                  Récupérer le code
                 </Button>
               </div>
             )}
@@ -716,10 +793,50 @@ export default function SessionsPage() {
           <DialogHeader>
             <DialogTitle>Nouvelle session WhatsApp</DialogTitle>
             <DialogDescription>
-              Créez une nouvelle session WhatsApp. Vous pourrez scanner le QR code ensuite.
+              Choisissez votre méthode de connexion.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            <Tabs
+              defaultValue="qr"
+              value={connectionMethod}
+              onValueChange={(v) => setConnectionMethod(v as 'qr' | 'pairing')}
+            >
+              <TabsList className="w-full">
+                <TabsTrigger value="qr" className="flex-1">
+                  <QrCode className="mr-1 h-4 w-4" />
+                  QR Code
+                </TabsTrigger>
+                <TabsTrigger value="pairing" className="flex-1">
+                  <Smartphone className="mr-1 h-4 w-4" />
+                  Code de jumelage
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="qr">
+                <p className="text-sm text-muted-foreground">
+                  Scannez le QR code avec WhatsApp pour connecter votre numéro.
+                </p>
+              </TabsContent>
+
+              <TabsContent value="pairing">
+                <div className="space-y-2">
+                  <Label htmlFor="phone-number">Numéro de téléphone</Label>
+                  <Input
+                    id="phone-number"
+                    type="tel"
+                    placeholder="33612345678"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Entrez votre numéro avec l&apos;indicatif pays, sans le + ni espaces.
+                    Exemple : 33612345678
+                  </p>
+                </div>
+              </TabsContent>
+            </Tabs>
+
             <MultiTeamSelect
               teams={teams}
               selectedTeamIds={selectedTeamIds}
@@ -728,7 +845,11 @@ export default function SessionsPage() {
               description="Les membres des équipes sélectionnées pourront accéder à cette session selon leurs permissions."
               emptyDescription="Cette session sera uniquement accessible par vous."
             />
-            <Button onClick={handleCreate} disabled={creating} className="w-full">
+            <Button
+              onClick={handleCreate}
+              disabled={creating || (connectionMethod === 'pairing' && !phoneNumber.trim())}
+              className="w-full"
+            >
               {creating ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (

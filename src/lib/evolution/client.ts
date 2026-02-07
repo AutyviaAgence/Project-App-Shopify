@@ -50,21 +50,31 @@ async function request<T = unknown>(
 }
 
 export const evolution = {
-  /** Créer une instance + récupérer le QR code */
-  createInstance(instanceName: string) {
+  /** Créer une instance + récupérer le QR code ou pairing code */
+  createInstance(instanceName: string, phoneNumber?: string) {
+    const body: Record<string, unknown> = {
+      instanceName,
+      qrcode: true,
+      integration: 'WHATSAPP-BAILEYS',
+    }
+    if (phoneNumber) {
+      body.number = phoneNumber
+    }
     return request('/instance/create', {
       method: 'POST',
-      body: JSON.stringify({
-        instanceName,
-        qrcode: true,
-        integration: 'WHATSAPP-BAILEYS',
-      }),
+      body: JSON.stringify(body),
     })
   },
 
-  /** Récupérer le QR code d'une instance */
+  /** Récupérer le QR code ou pairing code d'une instance */
+  getConnectionCode(instanceName: string, phoneNumber?: string) {
+    const query = phoneNumber ? `?number=${phoneNumber}` : ''
+    return request(`/instance/connect/${instanceName}${query}`, { method: 'GET' })
+  },
+
+  /** Récupérer le QR code d'une instance (alias) */
   getQRCode(instanceName: string) {
-    return request(`/instance/connect/${instanceName}`, { method: 'GET' })
+    return this.getConnectionCode(instanceName)
   },
 
   /** Vérifier l'état de connexion */
