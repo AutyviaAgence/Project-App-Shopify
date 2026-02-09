@@ -196,25 +196,25 @@ export default function SessionsPage() {
       }
       const newSession = json.data as SessionWithTeamIds
       setSessions((prev) => [newSession, ...prev])
-      setCreateDialogOpen(false)
 
       if (sessionType === 'waba') {
         toast.success('Session WhatsApp API créée et connectée !')
-        // Show webhook configuration instructions
+        // Show webhook configuration instructions (keep dialog open)
         const appDomain = window.location.origin
         setWabaWebhookInfo({
           url: `${appDomain}/api/webhook/waba`,
           token: 'autyvia_waba_verify',
         })
-        return // Don't close dialog — show webhook instructions
+        return
+      }
+
+      setCreateDialogOpen(false)
+      // Open connection dialog immediately
+      setQrSession(newSession)
+      if (connectionMethod === 'pairing' && newSession.pairing_code) {
+        toast.success('Session créée, entrez le code dans WhatsApp')
       } else {
-        // Open connection dialog immediately
-        setQrSession(newSession)
-        if (connectionMethod === 'pairing' && newSession.pairing_code) {
-          toast.success('Session créée, entrez le code dans WhatsApp')
-        } else {
-          toast.success('Session créée, scannez le QR code')
-        }
+        toast.success('Session créée, scannez le QR code')
       }
 
       // Reset form
@@ -549,7 +549,7 @@ export default function SessionsPage() {
                       </Button>
                     )}
 
-                    {session.status === 'disconnected' && (
+                    {session.status === 'disconnected' && session.integration_type !== 'waba' && (
                       <Button
                         size="sm"
                         variant="outline"
@@ -565,33 +565,37 @@ export default function SessionsPage() {
 
                     {session.status === 'connected' && (
                       <>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleSyncContacts(session.id)}
-                          disabled={syncingContacts === session.id}
-                          title="Importer les contacts WhatsApp existants"
-                        >
-                          {syncingContacts === session.id ? (
-                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                          ) : (
-                            <Download className="mr-1 h-3 w-3" />
-                          )}
-                          Contacts
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleConfigureWebhook(session.id)}
-                          disabled={webhookConfiguring === session.id}
-                        >
-                          {webhookConfiguring === session.id ? (
-                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                          ) : (
-                            <Globe className="mr-1 h-3 w-3" />
-                          )}
-                          Webhook
-                        </Button>
+                        {session.integration_type !== 'waba' && (
+                          <>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleSyncContacts(session.id)}
+                              disabled={syncingContacts === session.id}
+                              title="Importer les contacts WhatsApp existants"
+                            >
+                              {syncingContacts === session.id ? (
+                                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                              ) : (
+                                <Download className="mr-1 h-3 w-3" />
+                              )}
+                              Contacts
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleConfigureWebhook(session.id)}
+                              disabled={webhookConfiguring === session.id}
+                            >
+                              {webhookConfiguring === session.id ? (
+                                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                              ) : (
+                                <Globe className="mr-1 h-3 w-3" />
+                              )}
+                              Webhook
+                            </Button>
+                          </>
+                        )}
                         <Button
                           size="sm"
                           variant="outline"
