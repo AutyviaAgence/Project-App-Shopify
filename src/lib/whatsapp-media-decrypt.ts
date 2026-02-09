@@ -76,32 +76,9 @@ function hkdfDerive(mediaKey: Buffer, infoStr: string): { iv: Buffer; cipherKey:
 }
 
 /**
- * Download and decrypt a WhatsApp media file from CDN.
- *
- * @param url - The WhatsApp CDN URL (from audioMessage.url, imageMessage.url, etc.)
- * @param mediaKey - The media encryption key (from audioMessage.mediaKey)
- * @param mediaType - The type of media (audio, image, video, document, sticker)
- * @returns Decrypted Buffer or null on failure
+ * Download encrypted content from a URL with proper headers.
  */
-export async function downloadAndDecryptMedia(
-  url: string,
-  mediaKey: Record<string, number> | Buffer | Uint8Array | null | undefined,
-  mediaType: string
-): Promise<Buffer | null> {
-  const keyBuffer = byteObjectToBuffer(mediaKey)
-  if (!keyBuffer || keyBuffer.length === 0) {
-    console.warn('[WADecrypt] No mediaKey provided')
-    return null
-  }
-
-  const infoStr = MEDIA_HKDF_INFO[mediaType]
-  if (!infoStr) {
-    console.warn('[WADecrypt] Unknown media type:', mediaType)
-    return null
-  }
-
-  // Download encrypted file from WhatsApp CDN
-  let encData: Buffer
+async function fetchEncryptedContent(url: string): Promise<Buffer | null> {
   try {
     const controller = new AbortController()
     const timeoutId = setTimeout(() => controller.abort(), 30000)
@@ -116,23 +93,32 @@ export async function downloadAndDecryptMedia(
     clearTimeout(timeoutId)
 
     if (!res.ok) {
-      console.error('[WADecrypt] CDN download failed:', res.status, res.statusText)
+      console.error('[WADecrypt] CDN download failed:', res.status, res.statusText, 'url:', url.substring(0, 80))
       return null
     }
 
     const arrayBuffer = await res.arrayBuffer()
-    encData = Buffer.from(arrayBuffer)
-    console.log('[WADecrypt] Downloaded encrypted media, size:', encData.length)
+    const buf = Buffer.from(arrayBuffer)
+    console.log('[WADecrypt] Downloaded encrypted media, size:', buf.length, 'from:', url.substring(0, 80))
+    return buf
   } catch (err) {
     console.error('[WADecrypt] CDN download error:', err instanceof Error ? err.message : err)
     return null
   }
+}
 
+/**
+ * Decrypt an encrypted media buffer using derived keys.
+ */
+function decryptMediaBuffer(
+  encData: Buffer,
+  keyBuffer: Buffer,
+  infoStr: string
+): Buffer | null {
   // Derive keys from mediaKey using HKDF
   const { iv, cipherKey, macKey } = hkdfDerive(keyBuffer, infoStr)
 
   // The encrypted file is: [enc_data][mac_10_bytes]
-  // Last 10 bytes are the HMAC (truncated)
   if (encData.length <= 10) {
     console.error('[WADecrypt] Encrypted data too small:', encData.length)
     return null
@@ -141,14 +127,12 @@ export async function downloadAndDecryptMedia(
   const enc = encData.subarray(0, encData.length - 10)
   const mac = encData.subarray(encData.length - 10)
 
-  // Verify HMAC
+  // Verify HMAC (optional — some implementations differ)
   const hmacInput = Buffer.concat([iv, enc])
   const hmacCalc = crypto.createHmac('sha256', macKey).update(hmacInput).digest()
   const hmacTrunc = hmacCalc.subarray(0, 10)
-
   if (!hmacTrunc.equals(mac)) {
-    console.warn('[WADecrypt] HMAC verification failed, attempting decryption anyway')
-    // Don't return null — some implementations have slight HMAC differences
+    console.warn('[WADecrypt] HMAC mismatch, attempting decryption anyway')
   }
 
   // Decrypt with AES-256-CBC
@@ -156,9 +140,70 @@ export async function downloadAndDecryptMedia(
     const decipher = crypto.createDecipheriv('aes-256-cbc', cipherKey, iv)
     const decrypted = Buffer.concat([decipher.update(enc), decipher.final()])
     console.log('[WADecrypt] Decrypted media, size:', decrypted.length)
-    return decrypted
+    return decrypted.length > 0 ? decrypted : null
   } catch (err) {
     console.error('[WADecrypt] Decryption failed:', err instanceof Error ? err.message : err)
     return null
   }
+}
+
+/**
+ * Download and decrypt a WhatsApp media file from CDN.
+ *
+ * Tries multiple URL strategies:
+ * 1. The direct url from the message (if provided and starts with https://)
+ * 2. Constructed URL from directPath: https://mmg.whatsapp.net{directPath}
+ *
+ * @param mediaInfo - Object containing url, directPath, and mediaKey from the message
+ * @param mediaType - The type of media (audio, image, video, document, sticker)
+ * @returns Decrypted Buffer or null on failure
+ */
+export async function downloadAndDecryptMedia(
+  mediaInfo: {
+    url?: string
+    directPath?: string
+    mediaKey?: Record<string, number> | Buffer | Uint8Array | null
+  },
+  mediaType: string
+): Promise<Buffer | null> {
+  const keyBuffer = byteObjectToBuffer(mediaInfo.mediaKey as Record<string, number> | Buffer | Uint8Array | null | undefined)
+  if (!keyBuffer || keyBuffer.length === 0) {
+    console.warn('[WADecrypt] No mediaKey provided')
+    return null
+  }
+
+  const infoStr = MEDIA_HKDF_INFO[mediaType]
+  if (!infoStr) {
+    console.warn('[WADecrypt] Unknown media type:', mediaType)
+    return null
+  }
+
+  // Build list of URLs to try
+  const urls: string[] = []
+  if (mediaInfo.directPath) {
+    urls.push(`https://mmg.whatsapp.net${mediaInfo.directPath}`)
+  }
+  if (mediaInfo.url && mediaInfo.url.startsWith('https://')) {
+    // Avoid duplicate if url was constructed from directPath
+    if (!urls.includes(mediaInfo.url)) {
+      urls.push(mediaInfo.url)
+    }
+  }
+
+  if (urls.length === 0) {
+    console.warn('[WADecrypt] No URL or directPath available')
+    return null
+  }
+
+  // Try each URL
+  for (const url of urls) {
+    const encData = await fetchEncryptedContent(url)
+    if (!encData || encData.length <= 10) continue
+
+    const decrypted = decryptMediaBuffer(encData, keyBuffer, infoStr)
+    if (decrypted) return decrypted
+  }
+
+  console.warn('[WADecrypt] All CDN URLs failed for media type:', mediaType)
+  return null
 }
