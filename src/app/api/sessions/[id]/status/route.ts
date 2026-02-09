@@ -32,8 +32,8 @@ export async function GET(
   if (session.integration_type === 'waba') {
     try {
       const phoneInfo = await wabaClient.getPhoneNumber(
-        session.waba_phone_number_id,
-        session.waba_access_token
+        session.waba_phone_number_id!,
+        session.waba_access_token!
       )
       const newStatus = phoneInfo.ok ? 'connected' : 'disconnected'
       if (newStatus !== session.status) {
