@@ -33,6 +33,8 @@ import {
   Users,
   Download,
   Cloud,
+  Copy,
+  CheckCircle2,
 } from 'lucide-react'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { MultiTeamSelect } from '@/components/multi-team-select'
@@ -74,6 +76,14 @@ export default function SessionsPage() {
   const [wabaPhoneNumberId, setWabaPhoneNumberId] = useState('')
   const [wabaBusinessAccountId, setWabaBusinessAccountId] = useState('')
   const [wabaAccessToken, setWabaAccessToken] = useState('')
+  const [wabaWebhookInfo, setWabaWebhookInfo] = useState<{ url: string; token: string } | null>(null)
+  const [copiedField, setCopiedField] = useState<string | null>(null)
+
+  async function copyToClipboard(text: string, field: string) {
+    await navigator.clipboard.writeText(text)
+    setCopiedField(field)
+    setTimeout(() => setCopiedField(null), 2000)
+  }
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -150,6 +160,8 @@ export default function SessionsPage() {
     setWabaPhoneNumberId('')
     setWabaBusinessAccountId('')
     setWabaAccessToken('')
+    setWabaWebhookInfo(null)
+    setCopiedField(null)
     setCreateDialogOpen(true)
   }
 
@@ -188,6 +200,13 @@ export default function SessionsPage() {
 
       if (sessionType === 'waba') {
         toast.success('Session WhatsApp API créée et connectée !')
+        // Show webhook configuration instructions
+        const appDomain = window.location.origin
+        setWabaWebhookInfo({
+          url: `${appDomain}/api/webhook/waba`,
+          token: 'autyvia_waba_verify',
+        })
+        return // Don't close dialog — show webhook instructions
       } else {
         // Open connection dialog immediately
         setQrSession(newSession)
@@ -883,69 +902,142 @@ export default function SessionsPage() {
               </TabsContent>
 
               <TabsContent value="waba">
-                <div className="space-y-3">
-                  <p className="text-sm text-muted-foreground">
-                    Connectez via l&apos;API officielle WhatsApp Business (Meta Cloud API).
-                  </p>
-                  <div className="space-y-2">
-                    <Label htmlFor="waba-phone-id">Phone Number ID</Label>
-                    <Input
-                      id="waba-phone-id"
-                      placeholder="806014969271207"
-                      value={wabaPhoneNumberId}
-                      onChange={(e) => setWabaPhoneNumberId(e.target.value)}
-                    />
+                {wabaWebhookInfo ? (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 text-green-600">
+                      <CheckCircle2 className="h-5 w-5" />
+                      <p className="text-sm font-medium">Session créée avec succès !</p>
+                    </div>
+                    <div className="rounded-md border bg-muted/50 p-4 space-y-3">
+                      <p className="text-sm font-medium">Configurez le webhook dans Meta Business Suite :</p>
+                      <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
+                        <li>Allez dans <strong>Meta Business Suite &gt; WhatsApp &gt; Configuration</strong></li>
+                        <li>Section <strong>Webhooks</strong>, cliquez sur <strong>Modifier</strong></li>
+                        <li>Collez les informations ci-dessous</li>
+                        <li>Abonnez-vous au champ <strong>messages</strong></li>
+                      </ol>
+                      <div className="space-y-2 pt-2">
+                        <Label className="text-xs">URL de rappel (Callback URL)</Label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            readOnly
+                            value={wabaWebhookInfo.url}
+                            className="text-xs font-mono bg-background"
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => copyToClipboard(wabaWebhookInfo.url, 'url')}
+                          >
+                            {copiedField === 'url' ? (
+                              <CheckCircle2 className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <Copy className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label className="text-xs">Jeton de vérification (Verify Token)</Label>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            readOnly
+                            value={wabaWebhookInfo.token}
+                            className="text-xs font-mono bg-background"
+                          />
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => copyToClipboard(wabaWebhookInfo.token, 'token')}
+                          >
+                            {copiedField === 'token' ? (
+                              <CheckCircle2 className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <Copy className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                    <Button
+                      onClick={() => {
+                        setCreateDialogOpen(false)
+                        setWabaWebhookInfo(null)
+                      }}
+                      className="w-full"
+                    >
+                      Terminé
+                    </Button>
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="waba-business-id">Business Account ID</Label>
-                    <Input
-                      id="waba-business-id"
-                      placeholder="838878661876293"
-                      value={wabaBusinessAccountId}
-                      onChange={(e) => setWabaBusinessAccountId(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="waba-token">Access Token (Meta)</Label>
-                    <Input
-                      id="waba-token"
-                      type="password"
-                      placeholder="EAAh..."
-                      value={wabaAccessToken}
-                      onChange={(e) => setWabaAccessToken(e.target.value)}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Token d&apos;accès permanent depuis Meta Business Suite (System User).
+                ) : (
+                  <div className="space-y-3">
+                    <p className="text-sm text-muted-foreground">
+                      Connectez via l&apos;API officielle WhatsApp Business (Meta Cloud API).
                     </p>
+                    <div className="space-y-2">
+                      <Label htmlFor="waba-phone-id">Phone Number ID</Label>
+                      <Input
+                        id="waba-phone-id"
+                        placeholder="806014969271207"
+                        value={wabaPhoneNumberId}
+                        onChange={(e) => setWabaPhoneNumberId(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="waba-business-id">Business Account ID</Label>
+                      <Input
+                        id="waba-business-id"
+                        placeholder="838878661876293"
+                        value={wabaBusinessAccountId}
+                        onChange={(e) => setWabaBusinessAccountId(e.target.value)}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="waba-token">Access Token (Meta)</Label>
+                      <Input
+                        id="waba-token"
+                        type="password"
+                        placeholder="EAAh..."
+                        value={wabaAccessToken}
+                        onChange={(e) => setWabaAccessToken(e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Token d&apos;accès permanent depuis Meta Business Suite (System User).
+                      </p>
+                    </div>
                   </div>
-                </div>
+                )}
               </TabsContent>
             </Tabs>
 
-            <MultiTeamSelect
-              teams={teams}
-              selectedTeamIds={selectedTeamIds}
-              onTeamIdsChange={setSelectedTeamIds}
-              label="Équipes (optionnel)"
-              description="Les membres des équipes sélectionnées pourront accéder à cette session selon leurs permissions."
-              emptyDescription="Cette session sera uniquement accessible par vous."
-            />
-            <Button
-              onClick={handleCreate}
-              disabled={
-                creating ||
-                (sessionType === 'evolution' && connectionMethod === 'pairing' && !phoneNumber.trim()) ||
-                (sessionType === 'waba' && (!wabaPhoneNumberId.trim() || !wabaBusinessAccountId.trim() || !wabaAccessToken.trim()))
-              }
-              className="w-full"
-            >
-              {creating ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Plus className="mr-2 h-4 w-4" />
-              )}
-              Créer la session
-            </Button>
+            {!wabaWebhookInfo && (
+              <>
+                <MultiTeamSelect
+                  teams={teams}
+                  selectedTeamIds={selectedTeamIds}
+                  onTeamIdsChange={setSelectedTeamIds}
+                  label="Équipes (optionnel)"
+                  description="Les membres des équipes sélectionnées pourront accéder à cette session selon leurs permissions."
+                  emptyDescription="Cette session sera uniquement accessible par vous."
+                />
+                <Button
+                  onClick={handleCreate}
+                  disabled={
+                    creating ||
+                    (sessionType === 'evolution' && connectionMethod === 'pairing' && !phoneNumber.trim()) ||
+                    (sessionType === 'waba' && (!wabaPhoneNumberId.trim() || !wabaBusinessAccountId.trim() || !wabaAccessToken.trim()))
+                  }
+                  className="w-full"
+                >
+                  {creating ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Plus className="mr-2 h-4 w-4" />
+                  )}
+                  Créer la session
+                </Button>
+              </>
+            )}
           </div>
         </DialogContent>
       </Dialog>
