@@ -39,7 +39,19 @@ export function detectMessageType(message: MessagePayload): {
 }
 
 /**
+ * Strip data URI prefix (e.g. "data:audio/ogg;base64,AAAA..." → "AAAA...")
+ */
+function stripDataUri(input: string): string {
+  const commaIndex = input.indexOf(',')
+  if (commaIndex !== -1 && input.startsWith('data:')) {
+    return input.slice(commaIndex + 1)
+  }
+  return input
+}
+
+/**
  * Récupère le base64 depuis le payload webhook ou via l'API Evolution.
+ * Retourne du base64 pur (sans préfixe data URI).
  */
 export async function getBase64Data(
   message: MessagePayload,
@@ -49,16 +61,18 @@ export async function getBase64Data(
 ): Promise<string | null> {
   // 1. Check webhook payload (if WEBHOOK_BASE64 is enabled or injected)
   if (typeof message.base64 === 'string' && message.base64.length > 0) {
-    console.log('[MediaProcessor] Using base64 from webhook payload, length:', message.base64.length)
-    return message.base64
+    const raw = stripDataUri(message.base64)
+    console.log('[MediaProcessor] Using base64 from webhook payload, length:', raw.length)
+    return raw
   }
 
   // 2. Fallback: download via Evolution API
   try {
     const result = await evolution.getBase64FromMediaMessage(instanceName, messageId, remoteJid)
     if (result.ok && result.data?.base64) {
-      console.log('[MediaProcessor] Got base64 from API, length:', result.data.base64.length)
-      return result.data.base64
+      const raw = stripDataUri(result.data.base64)
+      console.log('[MediaProcessor] Got base64 from API, length:', raw.length)
+      return raw
     }
     console.warn('[MediaProcessor] API returned no base64 for:', messageId, '| result.ok:', result.ok)
   } catch (err) {
