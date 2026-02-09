@@ -287,9 +287,22 @@ export async function POST(req: NextRequest) {
             .eq('id', conversation.id)
         }
 
-        // 3. Insérer le message (dédupliqué via index unique wa_message_id)
+        // 3. Insérer le message (dédupliqué via wa_message_id)
         // Chiffrer le contenu du message si la clé est configurée
         const encryptedContent = content ? encryptMessage(content) : ''
+
+        // Vérifier si le message existe déjà (reconnexion = messages historiques renvoyés)
+        if (waMessageId) {
+          const { data: existing } = await supabase
+            .from('messages')
+            .select('id')
+            .eq('wa_message_id', waMessageId)
+            .maybeSingle()
+          if (existing) {
+            console.log(`[Webhook] Message already exists, skipping: ${waMessageId}`)
+            break
+          }
+        }
 
         const { data: insertedMessage } = await supabase
           .from('messages')
