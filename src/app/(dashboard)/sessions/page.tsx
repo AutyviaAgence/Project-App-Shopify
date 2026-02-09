@@ -78,6 +78,30 @@ export default function SessionsPage() {
   const [wabaAccessToken, setWabaAccessToken] = useState('')
   const [wabaWebhookInfo, setWabaWebhookInfo] = useState<{ url: string; token: string } | null>(null)
   const [copiedField, setCopiedField] = useState<string | null>(null)
+  const [reconnecting, setReconnecting] = useState<string | null>(null)
+
+  async function handleReconnectWaba(sessionId: string) {
+    setReconnecting(sessionId)
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}/status`)
+      const json = await res.json()
+      if (res.ok && json.data) {
+        const updated = json.data as WhatsAppSession
+        setSessions((prev) => prev.map((s) => (s.id === updated.id ? updated : s)))
+        if (updated.status === 'connected') {
+          toast.success('Session WABA reconnectée !')
+        } else {
+          toast.error('Token Meta invalide ou expiré. Vérifiez votre Access Token.')
+        }
+      } else {
+        toast.error(json.error || 'Erreur lors de la vérification')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setReconnecting(null)
+    }
+  }
 
   async function copyToClipboard(text: string, field: string) {
     await navigator.clipboard.writeText(text)
@@ -394,9 +418,10 @@ export default function SessionsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessions.length > 0])
 
-  // Poll status for all non-connected sessions (fallback when webhook can't reach localhost)
+  // Poll status for non-connected Evolution sessions (fallback when webhook can't reach localhost)
+  // WABA sessions don't need polling — reconnection is manual via button
   useEffect(() => {
-    const pendingSessions = sessions.filter((s) => s.status !== 'connected')
+    const pendingSessions = sessions.filter((s) => s.status !== 'connected' && s.integration_type !== 'waba')
     if (pendingSessions.length === 0) return
 
     const poll = async () => {
@@ -559,6 +584,22 @@ export default function SessionsPage() {
                         }}
                       >
                         <RefreshCw className="mr-1 h-3 w-3" />
+                        Reconnecter
+                      </Button>
+                    )}
+
+                    {session.status === 'disconnected' && session.integration_type === 'waba' && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleReconnectWaba(session.id)}
+                        disabled={reconnecting === session.id}
+                      >
+                        {reconnecting === session.id ? (
+                          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                        ) : (
+                          <RefreshCw className="mr-1 h-3 w-3" />
+                        )}
                         Reconnecter
                       </Button>
                     )}

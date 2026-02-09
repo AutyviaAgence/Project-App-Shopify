@@ -35,6 +35,11 @@ export async function POST(
     }
   }
 
+  // Les sessions WABA n'utilisent pas ce webhook (configuré dans Meta Business Suite)
+  if (session.integration_type === 'waba') {
+    return NextResponse.json({ data: { webhook: 'configured_in_meta', type: 'waba' } })
+  }
+
   // Construire l'URL du webhook depuis NEXT_PUBLIC_APP_URL (production)
   const appUrl = process.env.NEXT_PUBLIC_APP_URL
   if (!appUrl) {

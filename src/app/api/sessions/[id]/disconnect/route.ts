@@ -26,8 +26,10 @@ export async function POST(
     return NextResponse.json({ error: 'Session introuvable' }, { status: 404 })
   }
 
-  // Déconnecter sur Evolution API
-  await evolution.disconnect(session.instance_name)
+  // Déconnecter sur Evolution API (seulement pour les sessions Evolution)
+  if (session.integration_type !== 'waba') {
+    await evolution.disconnect(session.instance_name)
+  }
 
   // Mettre à jour en BDD
   await supabase
@@ -62,9 +64,11 @@ export async function DELETE(
     return NextResponse.json({ error: 'Session introuvable' }, { status: 404 })
   }
 
-  // Supprimer sur Evolution API
-  await evolution.disconnect(session.instance_name)
-  await evolution.deleteInstance(session.instance_name)
+  // Supprimer sur Evolution API (seulement pour les sessions Evolution)
+  if (session.integration_type !== 'waba') {
+    await evolution.disconnect(session.instance_name)
+    await evolution.deleteInstance(session.instance_name)
+  }
 
   // Supprimer en BDD (CASCADE supprime contacts, conversations, messages)
   await supabase

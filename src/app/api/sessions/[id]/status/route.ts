@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { evolution } from '@/lib/evolution/client'
+import { wabaClient } from '@/lib/whatsapp-cloud/client'
 
 /** GET /api/sessions/[id]/status — Vérifier le status d'une session */
 export async function GET(
@@ -27,7 +28,35 @@ export async function GET(
     return NextResponse.json({ error: 'Session introuvable' }, { status: 404 })
   }
 
-  // Vérifier le status sur Evolution API
+  // WABA : vérifier le token en appelant Meta Graph API
+  if (session.integration_type === 'waba') {
+    try {
+      const phoneInfo = await wabaClient.getPhoneNumber(
+        session.waba_phone_number_id,
+        session.waba_access_token
+      )
+      const newStatus = phoneInfo.ok ? 'connected' : 'disconnected'
+      if (newStatus !== session.status) {
+        const updateData: Record<string, unknown> = { status: newStatus }
+        if (phoneInfo.ok) {
+          const data = phoneInfo.data as Record<string, unknown>
+          if (data.display_phone_number) {
+            updateData.phone_number = (data.display_phone_number as string).replace(/[^0-9]/g, '')
+          }
+        }
+        await supabase
+          .from('whatsapp_sessions')
+          .update(updateData)
+          .eq('id', id)
+        return NextResponse.json({ data: { ...session, ...updateData } })
+      }
+      return NextResponse.json({ data: session })
+    } catch {
+      return NextResponse.json({ data: session })
+    }
+  }
+
+  // Evolution : vérifier le status sur Evolution API
   const evoResult = await evolution.getConnectionState(session.instance_name)
 
   if (!evoResult.ok) {
