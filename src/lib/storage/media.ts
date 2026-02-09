@@ -25,6 +25,28 @@ function getExtensionFromMime(mimeType: string): string {
   return 'bin'
 }
 
+/** Ensure the media bucket exists (auto-create if missing) */
+let bucketChecked = false
+async function ensureBucket() {
+  if (bucketChecked) return
+  const supabase = getAdminClient()
+  const { data: buckets } = await supabase.storage.listBuckets()
+  const exists = buckets?.some(b => b.name === BUCKET)
+  if (!exists) {
+    console.log('[MediaStorage] Bucket "media" not found, creating...')
+    const { error } = await supabase.storage.createBucket(BUCKET, {
+      public: false,
+      fileSizeLimit: 50 * 1024 * 1024, // 50 MB
+    })
+    if (error) {
+      console.error('[MediaStorage] Failed to create bucket:', error.message)
+      return
+    }
+    console.log('[MediaStorage] Bucket "media" created successfully')
+  }
+  bucketChecked = true
+}
+
 /**
  * Upload un média dans Supabase Storage.
  * Path : {sessionId}/{messageId}.{ext}
@@ -35,6 +57,8 @@ export async function uploadMedia(params: {
   buffer: Buffer
   mimeType: string
 }): Promise<{ ok: true; storagePath: string } | { ok: false; error: string }> {
+  await ensureBucket()
+
   const ext = getExtensionFromMime(params.mimeType)
   const storagePath = `${params.sessionId}/${params.messageId}.${ext}`
 
@@ -43,14 +67,15 @@ export async function uploadMedia(params: {
     .from(BUCKET)
     .upload(storagePath, params.buffer, {
       contentType: params.mimeType,
-      upsert: false,
+      upsert: true,
     })
 
   if (error) {
-    console.error('[MediaStorage] Upload error:', error.message)
+    console.error('[MediaStorage] Upload error:', error.message, '| path:', storagePath, '| size:', params.buffer.length)
     return { ok: false, error: error.message }
   }
 
+  console.log('[MediaStorage] Uploaded:', storagePath, '| size:', params.buffer.length)
   return { ok: true, storagePath }
 }
 

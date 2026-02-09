@@ -47,16 +47,24 @@ async function getBase64Data(
   messageId: string,
   remoteJid: string
 ): Promise<string | null> {
+  // 1. Check webhook payload (if WEBHOOK_BASE64 is enabled or injected)
   if (typeof message.base64 === 'string' && message.base64.length > 0) {
+    console.log('[MediaProcessor] Using base64 from webhook payload, length:', message.base64.length)
     return message.base64
   }
 
-  const result = await evolution.getBase64FromMediaMessage(instanceName, messageId, remoteJid)
-  if (result.ok && result.data?.base64) {
-    return result.data.base64
+  // 2. Fallback: download via Evolution API
+  try {
+    const result = await evolution.getBase64FromMediaMessage(instanceName, messageId, remoteJid)
+    if (result.ok && result.data?.base64) {
+      console.log('[MediaProcessor] Got base64 from API, length:', result.data.base64.length)
+      return result.data.base64
+    }
+    console.warn('[MediaProcessor] API returned no base64 for:', messageId, '| result.ok:', result.ok)
+  } catch (err) {
+    console.error('[MediaProcessor] getBase64FromMediaMessage error:', err)
   }
 
-  console.warn('[MediaProcessor] Could not get base64 data for message:', messageId)
   return null
 }
 

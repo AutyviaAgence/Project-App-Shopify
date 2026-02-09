@@ -159,8 +159,13 @@ export async function POST(req: NextRequest) {
         const pushName = messageData.pushName as string | undefined
 
         // Traitement média : détecte le type et extrait/transcrit/décrit le contenu
+        // Fusionner le base64 du payload.data dans message si présent (Evolution API v2)
+        const messagePayload = messageData.message || {}
+        if (messageData.base64 && !messagePayload.base64) {
+          messagePayload.base64 = messageData.base64
+        }
         const mediaResult = await processMediaMessage(
-          messageData.message || {},
+          messagePayload,
           instanceName,
           waMessageId,
           remoteJid
