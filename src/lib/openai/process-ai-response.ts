@@ -2,9 +2,10 @@ import 'server-only'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { generateAgentResponse, type ChatMessage } from './client'
 import { checkTokenLimit, recordTokenUsage } from './token-tracker'
-import { evolution } from '@/lib/evolution/client'
+import { sendMessage, sendPresence } from '@/lib/messaging/send'
 import { retrieveContext } from '@/lib/knowledge/retriever'
 import { encryptMessage, decryptMessage } from '@/lib/crypto/encryption'
+import type { WhatsAppSession } from '@/types/database'
 
 const MAX_CONTEXT_MESSAGES = 50
 
@@ -19,6 +20,7 @@ export async function processAIResponse(params: {
   instanceName: string
   contactPhoneNumber: string
   agentId: string
+  session?: Pick<WhatsAppSession, 'integration_type' | 'instance_name' | 'waba_phone_number_id' | 'waba_access_token'>
 }) {
   const supabase = createAdminSupabase(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -41,21 +43,33 @@ export async function processAIResponse(params: {
 
     console.log('[AI] Agent trouvé:', agent.name, '| model:', agent.model)
 
-    // 1.1. Récupérer le userId et vérifier la limite de tokens
+    // 1.1. Récupérer la session complète pour les tokens + intégration
     const { data: sessionForTokens } = await supabase
       .from('whatsapp_sessions')
-      .select('user_id')
+      .select('user_id, integration_type, instance_name, waba_phone_number_id, waba_access_token')
       .eq('id', params.sessionId)
       .single()
 
     const userId = sessionForTokens?.user_id
+    // Utiliser la session passée en paramètre ou celle récupérée de la DB
+    const sessionCtx = params.session || (sessionForTokens ? {
+      integration_type: (sessionForTokens.integration_type || 'evolution') as 'evolution' | 'waba',
+      instance_name: sessionForTokens.instance_name || params.instanceName,
+      waba_phone_number_id: sessionForTokens.waba_phone_number_id,
+      waba_access_token: sessionForTokens.waba_access_token,
+    } : {
+      integration_type: 'evolution' as const,
+      instance_name: params.instanceName,
+      waba_phone_number_id: null,
+      waba_access_token: null,
+    })
     if (userId) {
       const tokenCheck = await checkTokenLimit(userId)
       if (!tokenCheck.allowed) {
         console.log('[AI] Limite de tokens atteinte pour user:', userId, `(${tokenCheck.used}/${tokenCheck.limit})`)
         // Envoyer un message de notification au contact
-        await evolution.sendText(
-          params.instanceName,
+        await sendMessage(
+          sessionCtx,
           params.contactPhoneNumber,
           "Désolé, notre assistant IA est temporairement indisponible. Veuillez réessayer plus tard ou contacter directement notre équipe."
         )
@@ -88,8 +102,8 @@ export async function processAIResponse(params: {
 
           // Envoyer le message d'escalation si configuré
           if (agent.escalation_message) {
-            await evolution.sendText(
-              params.instanceName,
+            await sendMessage(
+              sessionCtx,
               params.contactPhoneNumber,
               agent.escalation_message
             )
@@ -224,7 +238,7 @@ export async function processAIResponse(params: {
     console.log('[AI] Contexte:', chatMessages.length, 'messages', knowledgeContext ? '| RAG actif' : '| sans RAG', agent.auto_detect_language ? '| multi-langue' : '', agent.booking_url ? '| booking' : '', '| Appel OpenAI...')
 
     // 4.5. Envoyer l'indicateur "en train d'écrire" avant d'appeler OpenAI
-    await evolution.sendPresence(params.instanceName, params.contactPhoneNumber, 'composing')
+    await sendPresence(sessionCtx, params.contactPhoneNumber, 'composing')
 
     // 5. Appeler OpenAI
     const result = await generateAgentResponse({
@@ -243,15 +257,15 @@ export async function processAIResponse(params: {
     const aiResponseText = result.content
     console.log('[AI] Réponse OpenAI reçue:', aiResponseText.slice(0, 80) + '...')
 
-    // 6. Envoyer via Evolution API
-    const evoResult = await evolution.sendText(
-      params.instanceName,
+    // 6. Envoyer via l'intégration appropriée (Evolution ou WABA)
+    const sendResult = await sendMessage(
+      sessionCtx,
       params.contactPhoneNumber,
       aiResponseText
     )
 
-    if (!evoResult.ok) {
-      console.error('[AI] Erreur envoi Evolution:', evoResult.error)
+    if (!sendResult.ok) {
+      console.error('[AI] Erreur envoi message:', sendResult.error)
     }
 
     // 7. Sauvegarder le message IA en BDD (chiffré si clé configurée)
@@ -263,7 +277,7 @@ export async function processAIResponse(params: {
       message_type: 'text',
       sent_by: 'ai_agent',
       ai_agent_id: params.agentId,
-      status: evoResult.ok ? 'sent' : 'failed',
+      status: sendResult.ok ? 'sent' : 'failed',
     }).select('id').single()
 
     // 7.1 Tracker si l'agent a proposé un lien de RDV dans sa réponse

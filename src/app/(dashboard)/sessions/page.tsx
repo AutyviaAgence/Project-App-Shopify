@@ -32,6 +32,7 @@ import {
   Save,
   Users,
   Download,
+  Cloud,
 } from 'lucide-react'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { MultiTeamSelect } from '@/components/multi-team-select'
@@ -69,6 +70,10 @@ export default function SessionsPage() {
   const [syncingContacts, setSyncingContacts] = useState<string | null>(null)
   const [connectionMethod, setConnectionMethod] = useState<'qr' | 'pairing'>('qr')
   const [phoneNumber, setPhoneNumber] = useState('')
+  const [sessionType, setSessionType] = useState<'evolution' | 'waba'>('evolution')
+  const [wabaPhoneNumberId, setWabaPhoneNumberId] = useState('')
+  const [wabaBusinessAccountId, setWabaBusinessAccountId] = useState('')
+  const [wabaAccessToken, setWabaAccessToken] = useState('')
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -141,6 +146,10 @@ export default function SessionsPage() {
     setSelectedTeamIds([])
     setConnectionMethod('qr')
     setPhoneNumber('')
+    setSessionType('evolution')
+    setWabaPhoneNumberId('')
+    setWabaBusinessAccountId('')
+    setWabaAccessToken('')
     setCreateDialogOpen(true)
   }
 
@@ -150,9 +159,17 @@ export default function SessionsPage() {
       const body: Record<string, unknown> = {
         team_ids: selectedTeamIds,
       }
-      if (connectionMethod === 'pairing') {
-        body.connection_method = 'pairing'
-        body.phone_number = phoneNumber.replace(/\D/g, '')
+
+      if (sessionType === 'waba') {
+        body.integration_type = 'waba'
+        body.waba_phone_number_id = wabaPhoneNumberId.trim()
+        body.waba_business_account_id = wabaBusinessAccountId.trim()
+        body.waba_access_token = wabaAccessToken.trim()
+      } else {
+        if (connectionMethod === 'pairing') {
+          body.connection_method = 'pairing'
+          body.phone_number = phoneNumber.replace(/\D/g, '')
+        }
       }
 
       const res = await fetch('/api/sessions', {
@@ -168,18 +185,26 @@ export default function SessionsPage() {
       const newSession = json.data as SessionWithTeamIds
       setSessions((prev) => [newSession, ...prev])
       setCreateDialogOpen(false)
-      // Open connection dialog immediately
-      setQrSession(newSession)
 
-      if (connectionMethod === 'pairing' && newSession.pairing_code) {
-        toast.success('Session créée, entrez le code dans WhatsApp')
+      if (sessionType === 'waba') {
+        toast.success('Session WhatsApp API créée et connectée !')
       } else {
-        toast.success('Session créée, scannez le QR code')
+        // Open connection dialog immediately
+        setQrSession(newSession)
+        if (connectionMethod === 'pairing' && newSession.pairing_code) {
+          toast.success('Session créée, entrez le code dans WhatsApp')
+        } else {
+          toast.success('Session créée, scannez le QR code')
+        }
       }
 
       // Reset form
       setPhoneNumber('')
       setConnectionMethod('qr')
+      setSessionType('evolution')
+      setWabaPhoneNumberId('')
+      setWabaBusinessAccountId('')
+      setWabaAccessToken('')
     } catch {
       toast.error('Erreur réseau')
     } finally {
@@ -442,12 +467,20 @@ export default function SessionsPage() {
                       </span>
                     )}
                   </CardTitle>
-                  <Badge variant={config.variant} className="w-fit">
-                    <StatusIcon className="mr-1 h-3 w-3" />
-                    {session.status === 'qr_pending' && session.pairing_code
-                      ? 'Code en attente'
-                      : config.label}
-                  </Badge>
+                  <div className="flex items-center gap-1.5">
+                    {session.integration_type === 'waba' && (
+                      <Badge variant="outline" className="w-fit text-xs gap-1">
+                        <Cloud className="h-3 w-3" />
+                        API
+                      </Badge>
+                    )}
+                    <Badge variant={config.variant} className="w-fit">
+                      <StatusIcon className="mr-1 h-3 w-3" />
+                      {session.status === 'qr_pending' && session.pairing_code
+                        ? 'Code en attente'
+                        : config.label}
+                    </Badge>
+                  </div>
                 </CardHeader>
                 <CardContent>
                   <div className="flex flex-col gap-1 text-xs text-muted-foreground sm:flex-row sm:items-center sm:gap-2">
@@ -793,46 +826,98 @@ export default function SessionsPage() {
           <DialogHeader>
             <DialogTitle>Nouvelle session WhatsApp</DialogTitle>
             <DialogDescription>
-              Choisissez votre méthode de connexion.
+              Choisissez le type de connexion WhatsApp.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            {/* Sélection du type de session */}
             <Tabs
-              defaultValue="qr"
-              value={connectionMethod}
-              onValueChange={(v) => setConnectionMethod(v as 'qr' | 'pairing')}
+              value={sessionType}
+              onValueChange={(v) => setSessionType(v as 'evolution' | 'waba')}
             >
               <TabsList className="w-full">
-                <TabsTrigger value="qr" className="flex-1">
+                <TabsTrigger value="evolution" className="flex-1">
                   <QrCode className="mr-1 h-4 w-4" />
-                  QR Code
+                  WhatsApp QR
                 </TabsTrigger>
-                <TabsTrigger value="pairing" className="flex-1">
-                  <Smartphone className="mr-1 h-4 w-4" />
-                  Code de jumelage
+                <TabsTrigger value="waba" className="flex-1">
+                  <Cloud className="mr-1 h-4 w-4" />
+                  API Business
                 </TabsTrigger>
               </TabsList>
 
-              <TabsContent value="qr">
-                <p className="text-sm text-muted-foreground">
-                  Scannez le QR code avec WhatsApp pour connecter votre numéro.
-                </p>
+              <TabsContent value="evolution">
+                <div className="space-y-4">
+                  <Tabs
+                    value={connectionMethod}
+                    onValueChange={(v) => setConnectionMethod(v as 'qr' | 'pairing')}
+                  >
+                    <TabsList className="w-full">
+                      <TabsTrigger value="qr" className="flex-1">QR Code</TabsTrigger>
+                      <TabsTrigger value="pairing" className="flex-1">Code de jumelage</TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="qr">
+                      <p className="text-sm text-muted-foreground">
+                        Scannez le QR code avec WhatsApp pour connecter votre numéro.
+                      </p>
+                    </TabsContent>
+
+                    <TabsContent value="pairing">
+                      <div className="space-y-2">
+                        <Label htmlFor="phone-number">Numéro de téléphone</Label>
+                        <Input
+                          id="phone-number"
+                          type="tel"
+                          placeholder="33612345678"
+                          value={phoneNumber}
+                          onChange={(e) => setPhoneNumber(e.target.value)}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Entrez votre numéro avec l&apos;indicatif pays, sans le + ni espaces.
+                        </p>
+                      </div>
+                    </TabsContent>
+                  </Tabs>
+                </div>
               </TabsContent>
 
-              <TabsContent value="pairing">
-                <div className="space-y-2">
-                  <Label htmlFor="phone-number">Numéro de téléphone</Label>
-                  <Input
-                    id="phone-number"
-                    type="tel"
-                    placeholder="33612345678"
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Entrez votre numéro avec l&apos;indicatif pays, sans le + ni espaces.
-                    Exemple : 33612345678
+              <TabsContent value="waba">
+                <div className="space-y-3">
+                  <p className="text-sm text-muted-foreground">
+                    Connectez via l&apos;API officielle WhatsApp Business (Meta Cloud API).
                   </p>
+                  <div className="space-y-2">
+                    <Label htmlFor="waba-phone-id">Phone Number ID</Label>
+                    <Input
+                      id="waba-phone-id"
+                      placeholder="806014969271207"
+                      value={wabaPhoneNumberId}
+                      onChange={(e) => setWabaPhoneNumberId(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="waba-business-id">Business Account ID</Label>
+                    <Input
+                      id="waba-business-id"
+                      placeholder="838878661876293"
+                      value={wabaBusinessAccountId}
+                      onChange={(e) => setWabaBusinessAccountId(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="waba-token">Access Token (Meta)</Label>
+                    <Input
+                      id="waba-token"
+                      type="password"
+                      placeholder="EAAh..."
+                      value={wabaAccessToken}
+                      onChange={(e) => setWabaAccessToken(e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Token d&apos;accès permanent depuis Meta Business Suite (System User).
+                    </p>
+                  </div>
                 </div>
               </TabsContent>
             </Tabs>
@@ -847,7 +932,11 @@ export default function SessionsPage() {
             />
             <Button
               onClick={handleCreate}
-              disabled={creating || (connectionMethod === 'pairing' && !phoneNumber.trim())}
+              disabled={
+                creating ||
+                (sessionType === 'evolution' && connectionMethod === 'pairing' && !phoneNumber.trim()) ||
+                (sessionType === 'waba' && (!wabaPhoneNumberId.trim() || !wabaBusinessAccountId.trim() || !wabaAccessToken.trim()))
+              }
               className="w-full"
             >
               {creating ? (

@@ -150,7 +150,7 @@ async function executeCampaign(supabase: any, campaign: Campaign): Promise<void>
     // Récupérer session et contact
     const { data: session } = await supabase
       .from('whatsapp_sessions')
-      .select('id, instance_name, status')
+      .select('id, instance_name, status, integration_type, waba_phone_number_id, waba_access_token')
       .eq('id', recipient.session_id)
       .single()
 
@@ -212,8 +212,8 @@ async function executeCampaign(supabase: any, campaign: Campaign): Promise<void>
       .update({ status: 'sending' })
       .eq('id', recipient.id)
 
-    // Envoyer le message via Evolution API
-    const result = await sendWhatsAppMessage(session.instance_name, contact.phone_number, message)
+    // Envoyer le message via l'intégration appropriée (Evolution ou WABA)
+    const result = await sendWhatsAppMessage(session, contact.phone_number, message)
 
     if (result.success) {
       await supabase
@@ -317,11 +317,37 @@ async function generateAIMessage(agent: AIAgent, contact: Contact, userId: strin
 }
 
 async function sendWhatsAppMessage(
-  instanceName: string,
+  session: { instance_name: string; integration_type?: string; waba_phone_number_id?: string | null; waba_access_token?: string | null },
   phoneNumber: string,
   message: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
+    // WABA : utiliser l'API Meta Graph directement
+    if (session.integration_type === 'waba') {
+      if (!session.waba_phone_number_id || !session.waba_access_token) {
+        return { success: false, error: 'Credentials WABA manquants' }
+      }
+      const response = await fetch(`https://graph.facebook.com/v22.0/${session.waba_phone_number_id}/messages`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.waba_access_token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          messaging_product: 'whatsapp',
+          to: phoneNumber,
+          type: 'text',
+          text: { body: message },
+        }),
+      })
+      if (!response.ok) {
+        const error = await response.text()
+        return { success: false, error }
+      }
+      return { success: true }
+    }
+
+    // Evolution API (par défaut)
     const evolutionUrl = process.env.EVOLUTION_API_URL
     const evolutionKey = process.env.EVOLUTION_API_KEY
 
@@ -329,7 +355,7 @@ async function sendWhatsAppMessage(
       return { success: false, error: 'Evolution API non configurée' }
     }
 
-    const response = await fetch(`${evolutionUrl}/message/sendText/${instanceName}`, {
+    const response = await fetch(`${evolutionUrl}/message/sendText/${session.instance_name}`, {
       method: 'POST',
       headers: {
         'apikey': evolutionKey,

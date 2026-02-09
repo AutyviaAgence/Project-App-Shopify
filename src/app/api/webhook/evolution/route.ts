@@ -534,6 +534,12 @@ export async function POST(req: NextRequest) {
               instanceName: instanceName,
               contactPhoneNumber: phoneNumber,
               agentId: convFresh.ai_agent_id,
+              session: {
+                integration_type: (session.integration_type || 'evolution') as 'evolution' | 'waba',
+                instance_name: session.instance_name,
+                waba_phone_number_id: session.waba_phone_number_id || null,
+                waba_access_token: session.waba_access_token || null,
+              },
             })
 
             // Arrêter l'indicateur de saisie après l'envoi

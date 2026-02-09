@@ -32,6 +32,8 @@ export type PaymentHistory = {
   created_at: string
 }
 
+export type IntegrationType = 'evolution' | 'waba'
+
 export type WhatsAppSession = {
   id: string
   user_id: string
@@ -44,6 +46,10 @@ export type WhatsAppSession = {
   pairing_code: string | null
   phone_number: string | null
   daily_ai_message_limit: number | null
+  integration_type: IntegrationType
+  waba_phone_number_id: string | null
+  waba_business_account_id: string | null
+  waba_access_token: string | null
   created_at: string
   updated_at: string
 }

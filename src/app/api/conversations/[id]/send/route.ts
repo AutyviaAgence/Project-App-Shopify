@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { evolution } from '@/lib/evolution/client'
+import { sendMessage } from '@/lib/messaging/send'
 import { encryptMessage } from '@/lib/crypto/encryption'
 import { canAccessSession } from '@/lib/teams/access'
 
@@ -80,15 +80,11 @@ export async function POST(
     return NextResponse.json({ error: 'Contact sans numéro' }, { status: 400 })
   }
 
-  // Envoyer via Evolution API
-  const evoResult = await evolution.sendText(
-    session.instance_name,
-    contact.phone_number,
-    content.trim()
-  )
+  // Envoyer via l'intégration appropriée (Evolution ou WABA)
+  const sendResult = await sendMessage(session, contact.phone_number, content.trim())
 
-  if (!evoResult.ok) {
-    return NextResponse.json({ error: evoResult.error }, { status: 502 })
+  if (!sendResult.ok) {
+    return NextResponse.json({ error: sendResult.error }, { status: 502 })
   }
 
   // Sauvegarder en BDD (chiffré si clé configurée)

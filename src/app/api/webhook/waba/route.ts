@@ -1,0 +1,284 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient as createAdminSupabase } from '@supabase/supabase-js'
+import { processAIResponse } from '@/lib/openai/process-ai-response'
+import { encryptMessage } from '@/lib/crypto/encryption'
+import { checkRateLimit } from '@/lib/rate-limit'
+
+const VERIFY_TOKEN = process.env.WABA_VERIFY_TOKEN || 'autyvia_waba_verify'
+
+/**
+ * GET /api/webhook/waba
+ * Vérification du webhook Meta (challenge/verify_token)
+ */
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url)
+  const mode = searchParams.get('hub.mode')
+  const token = searchParams.get('hub.verify_token')
+  const challenge = searchParams.get('hub.challenge')
+
+  if (mode === 'subscribe' && token === VERIFY_TOKEN) {
+    console.log('[WABA Webhook] Verification successful')
+    return new NextResponse(challenge, { status: 200 })
+  }
+
+  return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+}
+
+/**
+ * POST /api/webhook/waba
+ * Réception des messages entrants via WhatsApp Cloud API
+ */
+export async function POST(req: NextRequest) {
+  const rateLimitResponse = checkRateLimit(req, 'WEBHOOK')
+  if (rateLimitResponse) return rateLimitResponse
+
+  const startTime = Date.now()
+  const supabase = createAdminSupabase(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+
+  try {
+    const payload = await req.json()
+
+    // Meta envoie un objet avec entry[].changes[].value
+    const entries = payload.entry as Array<{
+      id: string
+      changes: Array<{
+        value: {
+          messaging_product: string
+          metadata: { display_phone_number: string; phone_number_id: string }
+          contacts?: Array<{ profile: { name: string }; wa_id: string }>
+          messages?: Array<{
+            from: string
+            id: string
+            timestamp: string
+            type: string
+            text?: { body: string }
+            image?: { id: string; mime_type: string; caption?: string }
+            audio?: { id: string; mime_type: string }
+            video?: { id: string; mime_type: string; caption?: string }
+            document?: { id: string; mime_type: string; filename?: string; caption?: string }
+            sticker?: { id: string; mime_type: string }
+          }>
+          statuses?: Array<{
+            id: string
+            status: string
+            timestamp: string
+            recipient_id: string
+          }>
+        }
+        field: string
+      }>
+    }>
+
+    if (!entries?.length) {
+      return NextResponse.json({ ok: true })
+    }
+
+    for (const entry of entries) {
+      for (const change of entry.changes) {
+        if (change.field !== 'messages') continue
+
+        const value = change.value
+        const phoneNumberId = value.metadata?.phone_number_id
+
+        if (!phoneNumberId) continue
+
+        // Trouver la session WABA correspondante
+        const { data: session } = await supabase
+          .from('whatsapp_sessions')
+          .select('*')
+          .eq('integration_type', 'waba')
+          .eq('waba_phone_number_id', phoneNumberId)
+          .single()
+
+        if (!session) {
+          console.warn('[WABA Webhook] No session found for phone_number_id:', phoneNumberId)
+          continue
+        }
+
+        // Traiter les statuts de messages (delivered, read, etc.)
+        if (value.statuses) {
+          for (const status of value.statuses) {
+            const waStatus = status.status === 'delivered' ? 'delivered'
+              : status.status === 'read' ? 'read'
+              : status.status === 'sent' ? 'sent'
+              : null
+
+            if (waStatus) {
+              await supabase
+                .from('messages')
+                .update({ status: waStatus })
+                .eq('wa_message_id', status.id)
+            }
+          }
+        }
+
+        // Traiter les messages entrants
+        if (value.messages) {
+          for (const msg of value.messages) {
+            const phoneNumber = msg.from
+            const waMessageId = msg.id
+            const contactProfile = value.contacts?.find(c => c.wa_id === phoneNumber)
+            const pushName = contactProfile?.profile?.name || null
+
+            // Déterminer le type et contenu du message
+            let content = ''
+            let messageType: 'text' | 'image' | 'audio' | 'video' | 'document' | 'sticker' = 'text'
+
+            switch (msg.type) {
+              case 'text':
+                content = msg.text?.body || ''
+                messageType = 'text'
+                break
+              case 'image':
+                content = msg.image?.caption || '[Image]'
+                messageType = 'image'
+                break
+              case 'audio':
+                content = '[Audio]'
+                messageType = 'audio'
+                break
+              case 'video':
+                content = msg.video?.caption || '[Vidéo]'
+                messageType = 'video'
+                break
+              case 'document':
+                content = msg.document?.caption || `[Document: ${msg.document?.filename || ''}]`
+                messageType = 'document'
+                break
+              case 'sticker':
+                content = '[Sticker]'
+                messageType = 'sticker'
+                break
+              default:
+                content = `[${msg.type}]`
+                break
+            }
+
+            if (!content) continue
+
+            // Aperçu adapté au type
+            const previewContent = messageType === 'text'
+              ? content.slice(0, 100)
+              : messageType === 'audio' ? 'Message vocal'
+              : messageType === 'image' ? 'Photo'
+              : messageType === 'video' ? 'Vidéo'
+              : messageType === 'document' ? 'Document'
+              : messageType === 'sticker' ? 'Sticker'
+              : content.slice(0, 100)
+
+            // 1. Upsert contact
+            const { data: contact } = await supabase
+              .from('contacts')
+              .upsert(
+                {
+                  session_id: session.id,
+                  phone_number: phoneNumber,
+                  name: pushName,
+                },
+                { onConflict: 'session_id,phone_number' }
+              )
+              .select()
+              .single()
+
+            if (!contact) continue
+
+            if (pushName && !contact.name) {
+              await supabase
+                .from('contacts')
+                .update({ name: pushName })
+                .eq('id', contact.id)
+            }
+
+            // 2. Upsert conversation
+            const { data: conversation } = await supabase
+              .from('conversations')
+              .upsert(
+                {
+                  session_id: session.id,
+                  contact_id: contact.id,
+                  last_message_at: new Date().toISOString(),
+                  last_message_preview: previewContent,
+                },
+                { onConflict: 'session_id,contact_id' }
+              )
+              .select()
+              .single()
+
+            if (!conversation) continue
+
+            // Incrémenter unread
+            await supabase
+              .from('conversations')
+              .update({
+                unread_count: (conversation.unread_count || 0) + 1,
+                last_message_at: new Date().toISOString(),
+                last_message_preview: previewContent,
+              })
+              .eq('id', conversation.id)
+
+            // 3. Insérer le message
+            const encryptedContent = content ? encryptMessage(content) : ''
+
+            const { data: insertedMessage } = await supabase
+              .from('messages')
+              .insert({
+                conversation_id: conversation.id,
+                session_id: session.id,
+                direction: 'inbound',
+                content: encryptedContent,
+                message_type: messageType,
+                wa_message_id: waMessageId,
+                sent_by: 'contact',
+                status: 'delivered',
+                ai_processed: false,
+              })
+              .select()
+              .single()
+
+            // 4. Auto-réponse IA
+            const { data: convFresh } = await supabase
+              .from('conversations')
+              .select('is_ai_active, ai_agent_id')
+              .eq('id', conversation.id)
+              .single()
+
+            if (convFresh?.is_ai_active && convFresh?.ai_agent_id) {
+              console.log('[WABA Webhook] Triggering AI response...')
+              await processAIResponse({
+                conversationId: conversation.id,
+                sessionId: session.id,
+                instanceName: session.instance_name,
+                contactPhoneNumber: phoneNumber,
+                agentId: convFresh.ai_agent_id,
+                session: {
+                  integration_type: 'waba',
+                  instance_name: session.instance_name,
+                  waba_phone_number_id: session.waba_phone_number_id,
+                  waba_access_token: session.waba_access_token,
+                },
+              })
+            }
+          }
+        }
+
+        // Log webhook
+        await supabase.from('webhook_logs').insert({
+          session_id: session.id,
+          event_type: 'waba_messages',
+          instance_name: session.instance_name,
+          payload: value,
+          status: 'success',
+          processing_time_ms: Date.now() - startTime,
+        })
+      }
+    }
+
+    return NextResponse.json({ ok: true })
+  } catch (error) {
+    console.error('[WABA Webhook] Error:', error)
+    return NextResponse.json({ ok: true }) // Toujours 200 pour éviter les retries Meta
+  }
+}

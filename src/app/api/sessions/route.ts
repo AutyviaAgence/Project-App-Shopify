@@ -14,11 +14,15 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => ({}))
-  const { team_id, team_ids, connection_method, phone_number } = body as {
+  const { team_id, team_ids, connection_method, phone_number, integration_type, waba_phone_number_id, waba_business_account_id, waba_access_token } = body as {
     team_id?: string
     team_ids?: string[]
     connection_method?: 'qr' | 'pairing'
     phone_number?: string
+    integration_type?: 'evolution' | 'waba'
+    waba_phone_number_id?: string
+    waba_business_account_id?: string
+    waba_access_token?: string
   }
 
   // Support des deux formats: team_id (legacy) et team_ids (nouveau)
@@ -33,6 +37,62 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // ========== WABA (WhatsApp Cloud API) ==========
+  if (integration_type === 'waba') {
+    if (!waba_phone_number_id || !waba_business_account_id || !waba_access_token) {
+      return NextResponse.json(
+        { error: 'Phone Number ID, Business Account ID et Access Token sont requis pour WABA' },
+        { status: 400 }
+      )
+    }
+
+    const instanceName = `waba-${user.id.slice(0, 8)}-${Date.now()}`
+
+    // Vérifier le token en récupérant le numéro
+    const { wabaClient } = await import('@/lib/whatsapp-cloud/client')
+    const phoneResult = await wabaClient.getPhoneNumber(waba_phone_number_id, waba_access_token)
+
+    let displayPhone: string | null = null
+    if (phoneResult.ok) {
+      displayPhone = phoneResult.data.display_phone_number
+    }
+
+    const { data: session, error: dbError } = await supabase
+      .from('whatsapp_sessions')
+      .insert({
+        user_id: user.id,
+        team_id: selectedTeamIds[0] || null,
+        instance_name: instanceName,
+        status: 'connected' as const,
+        phone_number: displayPhone?.replace(/\D/g, '') || null,
+        integration_type: 'waba',
+        waba_phone_number_id,
+        waba_business_account_id: waba_business_account_id,
+        waba_access_token,
+      })
+      .select()
+      .single()
+
+    if (dbError) {
+      return NextResponse.json({ error: dbError.message }, { status: 500 })
+    }
+
+    // Créer les associations multi-équipes
+    if (selectedTeamIds.length > 0 && session) {
+      const teamAssociations = selectedTeamIds.map(teamId => ({
+        session_id: session.id,
+        team_id: teamId,
+      }))
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any).from('session_teams').insert(teamAssociations)
+    }
+
+    return NextResponse.json({
+      data: { ...session, team_ids: selectedTeamIds }
+    })
+  }
+
+  // ========== Evolution API (par défaut) ==========
   // Validation pairing code
   const cleanNumber = connection_method === 'pairing'
     ? phone_number?.replace(/\D/g, '')
@@ -77,6 +137,7 @@ export async function POST(req: NextRequest) {
       qr_code: connection_method !== 'pairing' ? (qrcode?.base64 || null) : null,
       pairing_code: pairingCode,
       phone_number: cleanNumber || null,
+      integration_type: 'evolution',
     })
     .select()
     .single()
@@ -136,9 +197,9 @@ export async function GET() {
     permissions
   )
 
-  // Récupérer le numéro pour les sessions connectées sans phone_number
+  // Récupérer le numéro pour les sessions Evolution connectées sans phone_number
   for (const session of sessions) {
-    if (session.status === 'connected' && !session.phone_number) {
+    if (session.status === 'connected' && !session.phone_number && (!session.integration_type || session.integration_type === 'evolution')) {
       const instanceResult = await evolution.fetchInstance(session.instance_name)
       if (instanceResult.ok) {
         const instances = instanceResult.data as Array<Record<string, unknown>>
