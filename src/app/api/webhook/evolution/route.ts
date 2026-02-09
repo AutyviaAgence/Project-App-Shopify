@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { processAIResponse } from '@/lib/openai/process-ai-response'
-import { processMediaMessage } from '@/lib/openai/media-processor'
+import { processMediaMessage, detectMessageType, getBase64Data, getMimeType } from '@/lib/openai/media-processor'
 import { recordTokenUsage } from '@/lib/openai/token-tracker'
 import { evolution } from '@/lib/evolution/client'
 import { syncContactsFromWhatsApp } from '@/lib/evolution/sync-contacts'
@@ -158,12 +158,49 @@ export async function POST(req: NextRequest) {
         const waMessageId = messageData.key.id as string
         const pushName = messageData.pushName as string | undefined
 
-        // Traitement média : détecte le type et extrait/transcrit/décrit le contenu
         // Fusionner le base64 du payload.data dans message si présent (Evolution API v2)
         const messagePayload = messageData.message || {}
         if (messageData.base64 && !messagePayload.base64) {
           messagePayload.base64 = messageData.base64
         }
+
+        // Étape 1 : Détecter le type et télécharger le base64 si média
+        const { type: detectedType, hasMedia } = detectMessageType(messagePayload)
+        let storagePath: string | null = null
+        let downloadedBuffer: Buffer | null = null
+        let detectedMimeType: string | null = null
+
+        if (hasMedia && detectedType !== 'sticker') {
+          // Télécharger le base64 en premier (avant transcription)
+          const base64 = await getBase64Data(messagePayload, instanceName, waMessageId, remoteJid)
+          if (base64) {
+            downloadedBuffer = Buffer.from(base64, 'base64')
+            detectedMimeType = getMimeType(messagePayload, detectedType)
+
+            // Upload IMMÉDIAT dans Supabase Storage (avant transcription IA)
+            if (waMessageId) {
+              try {
+                const uploadResult = await uploadMedia({
+                  sessionId: session.id,
+                  messageId: waMessageId,
+                  buffer: downloadedBuffer,
+                  mimeType: detectedMimeType || 'application/octet-stream',
+                })
+                if (uploadResult.ok) {
+                  storagePath = uploadResult.storagePath
+                } else {
+                  console.warn('[Webhook] Media upload failed:', uploadResult.error)
+                }
+              } catch (uploadErr) {
+                console.error('[Webhook] Media upload error:', uploadErr)
+              }
+            }
+          } else {
+            console.warn('[Webhook] Could not download media for:', waMessageId, '| type:', detectedType)
+          }
+        }
+
+        // Étape 2 : Traitement complet (contenu + transcription IA)
         const mediaResult = await processMediaMessage(
           messagePayload,
           instanceName,
@@ -173,31 +210,14 @@ export async function POST(req: NextRequest) {
         const content = mediaResult.content
         const messageType = mediaResult.messageType
 
+        // Utiliser le storagePath obtenu à l'étape 1 (pas celui du mediaResult)
+        // Le mediaResult.mediaBuffer peut être null si getBase64 est appelé 2 fois et échoue la 2e
+
         // Enregistrer les tokens utilisés par le traitement média (transcription, vision)
         if (mediaResult.tokensUsed > 0 && session.user_id) {
           recordTokenUsage(session.user_id, mediaResult.tokensUsed).catch(err =>
             console.error('[Webhook] Token recording error:', err)
           )
-        }
-
-        // Upload média dans Supabase Storage si le buffer est disponible
-        let storagePath: string | null = null
-        if (mediaResult.mediaBuffer && waMessageId) {
-          try {
-            const uploadResult = await uploadMedia({
-              sessionId: session.id,
-              messageId: waMessageId,
-              buffer: mediaResult.mediaBuffer,
-              mimeType: mediaResult.mediaMimeType || 'application/octet-stream',
-            })
-            if (uploadResult.ok) {
-              storagePath = uploadResult.storagePath
-            } else {
-              console.warn('[Webhook] Media upload failed:', uploadResult.error)
-            }
-          } catch (uploadErr) {
-            console.error('[Webhook] Media upload error:', uploadErr)
-          }
         }
 
         // Ignorer seulement les messages texte vides sans payload
@@ -349,7 +369,7 @@ export async function POST(req: NextRequest) {
           .from('messages')
           .insert({
             ...baseInsert,
-            media_mime_type: mediaResult.mediaMimeType || null,
+            media_mime_type: mediaResult.mediaMimeType || detectedMimeType || null,
             transcription: mediaResult.transcription ? encryptMessage(mediaResult.transcription) : null,
           })
           .select()

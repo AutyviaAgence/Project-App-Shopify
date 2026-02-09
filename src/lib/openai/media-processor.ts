@@ -41,7 +41,7 @@ export function detectMessageType(message: MessagePayload): {
 /**
  * Récupère le base64 depuis le payload webhook ou via l'API Evolution.
  */
-async function getBase64Data(
+export async function getBase64Data(
   message: MessagePayload,
   instanceName: string,
   messageId: string,
@@ -71,7 +71,7 @@ async function getBase64Data(
 /**
  * Détermine le MIME type depuis le payload.
  */
-function getMimeType(message: MessagePayload, type: string): string {
+export function getMimeType(message: MessagePayload, type: string): string {
   const mediaMsg = message[`${type}Message`] as MessagePayload | undefined
   if (mediaMsg?.mimetype) return mediaMsg.mimetype as string
 

@@ -4,6 +4,7 @@ import { processAIResponse } from '@/lib/openai/process-ai-response'
 import { processWabaMediaMessage } from '@/lib/openai/media-processor'
 import { encryptMessage } from '@/lib/crypto/encryption'
 import { uploadMedia } from '@/lib/storage/media'
+import { wabaClient } from '@/lib/whatsapp-cloud/client'
 import { recordTokenUsage } from '@/lib/openai/token-tracker'
 import { checkRateLimit } from '@/lib/rate-limit'
 
@@ -143,42 +144,52 @@ export async function POST(req: NextRequest) {
               const mediaId = mediaObj?.id
 
               if (mediaId && session.waba_access_token) {
-                const mediaResult = await processWabaMediaMessage(
-                  messageType as 'image' | 'audio' | 'video' | 'document' | 'sticker',
-                  mediaId,
-                  session.waba_access_token,
-                  mediaObj?.caption,
-                  (mediaObj as { filename?: string })?.filename
-                )
-                content = mediaResult.content
-                messageType = mediaResult.messageType as typeof messageType
-                transcriptionText = mediaResult.transcription
-                mediaMimeType = mediaResult.mediaMimeType
+                // Étape 1 : Télécharger le média via Meta Graph API
+                const downloadResult = await wabaClient.downloadMedia(mediaId, session.waba_access_token)
 
-                // Upload média dans Supabase Storage
-                if (mediaResult.mediaBuffer && waMessageId) {
-                  try {
-                    const uploadResult = await uploadMedia({
-                      sessionId: session.id,
-                      messageId: waMessageId,
-                      buffer: mediaResult.mediaBuffer,
-                      mimeType: mediaResult.mediaMimeType || 'application/octet-stream',
-                    })
-                    if (uploadResult.ok) {
-                      storagePath = uploadResult.storagePath
-                    } else {
-                      console.warn('[WABA Webhook] Media upload failed:', uploadResult.error)
+                if (downloadResult.ok) {
+                  mediaMimeType = downloadResult.mimeType
+
+                  // Étape 2 : Upload IMMÉDIAT dans Supabase Storage (avant transcription)
+                  if (waMessageId) {
+                    try {
+                      const uploadResult = await uploadMedia({
+                        sessionId: session.id,
+                        messageId: waMessageId,
+                        buffer: downloadResult.buffer,
+                        mimeType: downloadResult.mimeType || 'application/octet-stream',
+                      })
+                      if (uploadResult.ok) {
+                        storagePath = uploadResult.storagePath
+                      } else {
+                        console.warn('[WABA Webhook] Media upload failed:', uploadResult.error)
+                      }
+                    } catch (uploadErr) {
+                      console.error('[WABA Webhook] Media upload error:', uploadErr)
                     }
-                  } catch (uploadErr) {
-                    console.error('[WABA Webhook] Media upload error:', uploadErr)
                   }
-                }
 
-                // Enregistrer les tokens utilisés
-                if (mediaResult.tokensUsed > 0 && session.user_id) {
-                  recordTokenUsage(session.user_id, mediaResult.tokensUsed).catch(err =>
-                    console.error('[WABA Webhook] Token recording error:', err)
+                  // Étape 3 : Transcription IA (optionnelle, ne bloque pas le stockage)
+                  const mediaResult = await processWabaMediaMessage(
+                    messageType as 'image' | 'audio' | 'video' | 'document' | 'sticker',
+                    mediaId,
+                    session.waba_access_token,
+                    mediaObj?.caption,
+                    (mediaObj as { filename?: string })?.filename
                   )
+                  content = mediaResult.content
+                  messageType = mediaResult.messageType as typeof messageType
+                  transcriptionText = mediaResult.transcription
+
+                  // Enregistrer les tokens utilisés
+                  if (mediaResult.tokensUsed > 0 && session.user_id) {
+                    recordTokenUsage(session.user_id, mediaResult.tokensUsed).catch(err =>
+                      console.error('[WABA Webhook] Token recording error:', err)
+                    )
+                  }
+                } else {
+                  console.warn('[WABA Webhook] Media download failed:', downloadResult.error)
+                  content = mediaObj?.caption || `[${msg.type}]`
                 }
               } else {
                 content = mediaObj?.caption || `[${msg.type}]`
