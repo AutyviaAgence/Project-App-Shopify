@@ -3,6 +3,8 @@ import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { processAIResponse } from '@/lib/openai/process-ai-response'
 import { processWabaMediaMessage } from '@/lib/openai/media-processor'
 import { encryptMessage } from '@/lib/crypto/encryption'
+import { uploadMedia } from '@/lib/storage/media'
+import { recordTokenUsage } from '@/lib/openai/token-tracker'
 import { checkRateLimit } from '@/lib/rate-limit'
 
 const VERIFY_TOKEN = process.env.WABA_VERIFY_TOKEN || 'autyvia_waba_verify'
@@ -127,6 +129,9 @@ export async function POST(req: NextRequest) {
             // Déterminer le type et contenu du message
             let content = ''
             let messageType: 'text' | 'image' | 'audio' | 'video' | 'document' | 'sticker' = 'text'
+            let transcriptionText: string | null = null
+            let storagePath: string | null = null
+            let mediaMimeType: string | null = null
 
             const mediaTypes = ['image', 'audio', 'video', 'document', 'sticker'] as const
             if (msg.type === 'text') {
@@ -138,7 +143,6 @@ export async function POST(req: NextRequest) {
               const mediaId = mediaObj?.id
 
               if (mediaId && session.waba_access_token) {
-                // Traiter le média via Meta Graph API (transcription audio, description image, etc.)
                 const mediaResult = await processWabaMediaMessage(
                   messageType as 'image' | 'audio' | 'video' | 'document' | 'sticker',
                   mediaId,
@@ -148,8 +152,31 @@ export async function POST(req: NextRequest) {
                 )
                 content = mediaResult.content
                 messageType = mediaResult.messageType as typeof messageType
+                transcriptionText = mediaResult.transcription
+                mediaMimeType = mediaResult.mediaMimeType
+
+                // Upload média dans Supabase Storage
+                if (mediaResult.mediaBuffer && waMessageId) {
+                  const uploadResult = await uploadMedia({
+                    sessionId: session.id,
+                    messageId: waMessageId,
+                    buffer: mediaResult.mediaBuffer,
+                    mimeType: mediaResult.mediaMimeType || 'application/octet-stream',
+                  })
+                  if (uploadResult.ok) {
+                    storagePath = uploadResult.storagePath
+                  } else {
+                    console.warn('[WABA Webhook] Media upload failed:', uploadResult.error)
+                  }
+                }
+
+                // Enregistrer les tokens utilisés
+                if (mediaResult.tokensUsed > 0 && session.user_id) {
+                  recordTokenUsage(session.user_id, mediaResult.tokensUsed).catch(err =>
+                    console.error('[WABA Webhook] Token recording error:', err)
+                  )
+                }
               } else {
-                // Fallback si pas de media_id
                 content = mediaObj?.caption || `[${msg.type}]`
               }
             } else {
@@ -161,8 +188,8 @@ export async function POST(req: NextRequest) {
             // Aperçu adapté au type
             const previewContent = messageType === 'text'
               ? content.slice(0, 100)
-              : messageType === 'audio' ? (content.includes('transcrit') ? content.slice(0, 100) : 'Message vocal')
-              : messageType === 'image' ? (content.includes('description') ? content.slice(0, 100) : 'Photo')
+              : messageType === 'audio' ? 'Message vocal'
+              : messageType === 'image' ? 'Photo'
               : messageType === 'video' ? 'Vidéo'
               : messageType === 'document' ? 'Document'
               : messageType === 'sticker' ? 'Sticker'
@@ -242,6 +269,9 @@ export async function POST(req: NextRequest) {
                 direction: 'inbound',
                 content: encryptedContent,
                 message_type: messageType,
+                media_url: storagePath,
+                media_mime_type: mediaMimeType,
+                transcription: transcriptionText ? encryptMessage(transcriptionText) : null,
                 wa_message_id: waMessageId,
                 sent_by: 'contact',
                 status: 'delivered',

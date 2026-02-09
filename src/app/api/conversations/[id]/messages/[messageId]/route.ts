@@ -54,6 +54,7 @@ export async function GET(
   const decryptedMessage = {
     ...message,
     content: message.content ? decryptMessage(message.content) : message.content,
+    transcription: message.transcription ? decryptMessage(message.transcription) : null,
   }
 
   return NextResponse.json({ data: decryptedMessage })

@@ -6,11 +6,20 @@ import { transcribeAudio, describeImage } from './client'
 export type MediaExtractionResult = {
   messageType: 'text' | 'image' | 'audio' | 'video' | 'document' | 'sticker' | 'location' | 'contact'
   content: string
+  transcription: string | null
   mediaUrl: string | null
+  mediaMimeType: string | null
+  mediaBuffer: Buffer | null
   tokensUsed: number
 }
 
 type MessagePayload = Record<string, unknown>
+
+const NO_MEDIA: Pick<MediaExtractionResult, 'mediaUrl' | 'mediaMimeType' | 'mediaBuffer'> = {
+  mediaUrl: null,
+  mediaMimeType: null,
+  mediaBuffer: null,
+}
 
 /**
  * Détecte le type de message depuis le payload Evolution API.
@@ -38,12 +47,10 @@ async function getBase64Data(
   messageId: string,
   remoteJid: string
 ): Promise<string | null> {
-  // 1. Base64 directement dans le payload webhook (quand base64: true)
   if (typeof message.base64 === 'string' && message.base64.length > 0) {
     return message.base64
   }
 
-  // 2. Fallback : récupérer via Evolution API
   const result = await evolution.getBase64FromMediaMessage(instanceName, messageId, remoteJid)
   if (result.ok && result.data?.base64) {
     return result.data.base64
@@ -71,7 +78,8 @@ function getMimeType(message: MessagePayload, type: string): string {
 }
 
 /**
- * Traite un message média et retourne une représentation texte pour le contexte IA.
+ * Traite un message média Evolution API.
+ * Retourne le buffer brut + transcription séparée du content.
  */
 export async function processMediaMessage(
   message: MessagePayload,
@@ -86,7 +94,7 @@ export async function processMediaMessage(
     const textContent = (message.conversation as string)
       || ((message.extendedTextMessage as MessagePayload)?.text as string)
       || ''
-    return { messageType: 'text', content: textContent, mediaUrl: null, tokensUsed: 0 }
+    return { messageType: 'text', content: textContent, transcription: null, ...NO_MEDIA, tokensUsed: 0 }
   }
 
   // Location
@@ -97,7 +105,8 @@ export async function processMediaMessage(
     return {
       messageType: 'location',
       content: `[Location partagée : ${lat}, ${lng}]`,
-      mediaUrl: null,
+      transcription: null,
+      ...NO_MEDIA,
       tokensUsed: 0,
     }
   }
@@ -109,31 +118,41 @@ export async function processMediaMessage(
     return {
       messageType: 'contact',
       content: `[Contact partagé : ${displayName}]`,
-      mediaUrl: null,
+      transcription: null,
+      ...NO_MEDIA,
       tokensUsed: 0,
     }
   }
 
   // Sticker
   if (type === 'sticker') {
-    return { messageType: 'sticker', content: '[Sticker reçu]', mediaUrl: null, tokensUsed: 0 }
+    return { messageType: 'sticker', content: '[Sticker reçu]', transcription: null, ...NO_MEDIA, tokensUsed: 0 }
   }
 
-  // Vidéo (pas de traitement lourd)
+  // Vidéo
   if (type === 'video') {
     const videoMsg = message.videoMessage as MessagePayload
     const caption = (videoMsg?.caption as string) || ''
+    const mimeType = getMimeType(message, type)
+
+    // Essayer de récupérer le buffer pour le stockage
+    const base64 = await getBase64Data(message, instanceName, messageId, remoteJid)
+    const videoBuffer = base64 ? Buffer.from(base64, 'base64') : null
+
     return {
       messageType: 'video',
       content: caption ? `[Vidéo reçue avec légende : ${caption}]` : '[Vidéo reçue]',
+      transcription: null,
       mediaUrl: null,
+      mediaMimeType: mimeType,
+      mediaBuffer: videoBuffer,
       tokensUsed: 0,
     }
   }
 
   // --- Médias nécessitant base64 ---
   if (!hasMedia) {
-    return { messageType: type, content: `[${type} reçu]`, mediaUrl: null, tokensUsed: 0 }
+    return { messageType: type, content: `[${type} reçu]`, transcription: null, ...NO_MEDIA, tokensUsed: 0 }
   }
 
   const base64 = await getBase64Data(message, instanceName, messageId, remoteJid)
@@ -144,8 +163,11 @@ export async function processMediaMessage(
     if (!base64) {
       return {
         messageType: 'audio',
-        content: '[Message vocal reçu - transcription impossible]',
+        content: '[Message vocal]',
+        transcription: null,
         mediaUrl: null,
+        mediaMimeType: mimeType,
+        mediaBuffer: null,
         tokensUsed: 0,
       }
     }
@@ -154,10 +176,11 @@ export async function processMediaMessage(
     const result = await transcribeAudio(audioBuffer, mimeType)
     return {
       messageType: 'audio',
-      content: result.ok
-        ? `[Message vocal transcrit] : "${result.text}"`
-        : '[Message vocal reçu - transcription échouée]',
+      content: '[Message vocal]',
+      transcription: result.ok ? result.text : null,
       mediaUrl: null,
+      mediaMimeType: mimeType,
+      mediaBuffer: audioBuffer,
       tokensUsed: result.ok ? result.tokensUsed : 0,
     }
   }
@@ -166,26 +189,28 @@ export async function processMediaMessage(
   if (type === 'image') {
     const imageMsg = message.imageMessage as MessagePayload
     const caption = (imageMsg?.caption as string) || ''
+    const imageBuffer = base64 ? Buffer.from(base64, 'base64') : null
 
     if (!base64) {
       return {
         messageType: 'image',
-        content: caption
-          ? `[Image reçue avec légende : ${caption}]`
-          : '[Image reçue - description impossible]',
+        content: caption ? `[Image reçue] ${caption}` : '[Image reçue]',
+        transcription: null,
         mediaUrl: null,
+        mediaMimeType: mimeType,
+        mediaBuffer: null,
         tokensUsed: 0,
       }
     }
     console.log('[MediaProcessor] Describing image...')
     const result = await describeImage(base64, mimeType)
-    const description = result.ok ? result.description : 'description non disponible'
     return {
       messageType: 'image',
-      content: caption
-        ? `[Image reçue - description : ${description}] Légende : ${caption}`
-        : `[Image reçue - description : ${description}]`,
+      content: caption ? `[Image reçue] ${caption}` : '[Image reçue]',
+      transcription: result.ok ? result.description : null,
       mediaUrl: null,
+      mediaMimeType: mimeType,
+      mediaBuffer: imageBuffer,
       tokensUsed: result.ok ? result.tokensUsed : 0,
     }
   }
@@ -194,21 +219,26 @@ export async function processMediaMessage(
   if (type === 'document') {
     const docMsg = message.documentMessage as MessagePayload
     const fileName = (docMsg?.fileName as string) || 'document'
-    const docMime = (docMsg?.mimetype as string) || 'inconnu'
+    const docBuffer = base64 ? Buffer.from(base64, 'base64') : null
+
     return {
       messageType: 'document',
-      content: `[Document reçu : ${fileName} (${docMime})]`,
+      content: `[Document : ${fileName}]`,
+      transcription: null,
       mediaUrl: null,
+      mediaMimeType: mimeType,
+      mediaBuffer: docBuffer,
       tokensUsed: 0,
     }
   }
 
   // Fallback
-  return { messageType: type, content: `[${type} reçu]`, mediaUrl: null, tokensUsed: 0 }
+  return { messageType: type, content: `[${type} reçu]`, transcription: null, ...NO_MEDIA, tokensUsed: 0 }
 }
 
 /**
- * Traite un message média WABA (WhatsApp Cloud API) en téléchargeant via Meta Graph API.
+ * Traite un message média WABA (WhatsApp Cloud API) via Meta Graph API.
+ * Retourne le buffer brut + transcription séparée du content.
  */
 export async function processWabaMediaMessage(
   msgType: 'image' | 'audio' | 'video' | 'document' | 'sticker',
@@ -217,17 +247,22 @@ export async function processWabaMediaMessage(
   caption?: string,
   filename?: string
 ): Promise<MediaExtractionResult> {
-  // Sticker — pas de traitement lourd
+  // Sticker
   if (msgType === 'sticker') {
-    return { messageType: 'sticker', content: '[Sticker reçu]', mediaUrl: null, tokensUsed: 0 }
+    return { messageType: 'sticker', content: '[Sticker reçu]', transcription: null, ...NO_MEDIA, tokensUsed: 0 }
   }
 
-  // Vidéo — pas de traitement lourd
+  // Vidéo
   if (msgType === 'video') {
+    // Télécharger pour stockage même sans traitement lourd
+    const downloadResult = await wabaClient.downloadMedia(mediaId, accessToken)
     return {
       messageType: 'video',
       content: caption ? `[Vidéo reçue avec légende : ${caption}]` : '[Vidéo reçue]',
+      transcription: null,
       mediaUrl: null,
+      mediaMimeType: downloadResult.ok ? downloadResult.mimeType : 'video/mp4',
+      mediaBuffer: downloadResult.ok ? downloadResult.buffer : null,
       tokensUsed: 0,
     }
   }
@@ -237,27 +272,28 @@ export async function processWabaMediaMessage(
 
   if (!downloadResult.ok) {
     console.warn('[MediaProcessor WABA] Download failed:', downloadResult.error)
-    // Fallback sans média
     if (msgType === 'audio') {
-      return { messageType: 'audio', content: '[Message vocal reçu - transcription impossible]', mediaUrl: null, tokensUsed: 0 }
+      return { messageType: 'audio', content: '[Message vocal]', transcription: null, ...NO_MEDIA, tokensUsed: 0 }
     }
     if (msgType === 'image') {
       return {
         messageType: 'image',
-        content: caption ? `[Image reçue avec légende : ${caption}]` : '[Image reçue - description impossible]',
-        mediaUrl: null,
+        content: caption ? `[Image reçue] ${caption}` : '[Image reçue]',
+        transcription: null,
+        ...NO_MEDIA,
         tokensUsed: 0,
       }
     }
     if (msgType === 'document') {
       return {
         messageType: 'document',
-        content: `[Document reçu : ${filename || 'document'} (téléchargement échoué)]`,
-        mediaUrl: null,
+        content: `[Document : ${filename || 'document'}]`,
+        transcription: null,
+        ...NO_MEDIA,
         tokensUsed: 0,
       }
     }
-    return { messageType: msgType, content: `[${msgType} reçu]`, mediaUrl: null, tokensUsed: 0 }
+    return { messageType: msgType, content: `[${msgType} reçu]`, transcription: null, ...NO_MEDIA, tokensUsed: 0 }
   }
 
   const { buffer, mimeType } = downloadResult
@@ -269,10 +305,11 @@ export async function processWabaMediaMessage(
     const result = await transcribeAudio(buffer, mimeType)
     return {
       messageType: 'audio',
-      content: result.ok
-        ? `[Message vocal transcrit] : "${result.text}"`
-        : '[Message vocal reçu - transcription échouée]',
+      content: '[Message vocal]',
+      transcription: result.ok ? result.text : null,
       mediaUrl: null,
+      mediaMimeType: mimeType,
+      mediaBuffer: buffer,
       tokensUsed: result.ok ? result.tokensUsed : 0,
     }
   }
@@ -281,13 +318,13 @@ export async function processWabaMediaMessage(
   if (msgType === 'image') {
     console.log('[MediaProcessor WABA] Describing image...')
     const result = await describeImage(base64, mimeType)
-    const description = result.ok ? result.description : 'description non disponible'
     return {
       messageType: 'image',
-      content: caption
-        ? `[Image reçue - description : ${description}] Légende : ${caption}`
-        : `[Image reçue - description : ${description}]`,
+      content: caption ? `[Image reçue] ${caption}` : '[Image reçue]',
+      transcription: result.ok ? result.description : null,
       mediaUrl: null,
+      mediaMimeType: mimeType,
+      mediaBuffer: buffer,
       tokensUsed: result.ok ? result.tokensUsed : 0,
     }
   }
@@ -296,11 +333,14 @@ export async function processWabaMediaMessage(
   if (msgType === 'document') {
     return {
       messageType: 'document',
-      content: `[Document reçu : ${filename || 'document'} (${mimeType})]`,
+      content: `[Document : ${filename || 'document'}]`,
+      transcription: null,
       mediaUrl: null,
+      mediaMimeType: mimeType,
+      mediaBuffer: buffer,
       tokensUsed: 0,
     }
   }
 
-  return { messageType: msgType, content: `[${msgType} reçu]`, mediaUrl: null, tokensUsed: 0 }
+  return { messageType: msgType, content: `[${msgType} reçu]`, transcription: null, ...NO_MEDIA, tokensUsed: 0 }
 }

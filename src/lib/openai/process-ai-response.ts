@@ -164,7 +164,7 @@ export async function processAIResponse(params: {
     // 2. Récupérer les N messages les plus récents (desc) puis remettre en ordre chrono
     const { data: recentMessages } = await supabase
       .from('messages')
-      .select('id, content, sent_by, direction, message_type, ai_processed, created_at')
+      .select('id, content, transcription, sent_by, direction, message_type, ai_processed, created_at')
       .eq('conversation_id', params.conversationId)
       .order('created_at', { ascending: false })
       .limit(MAX_CONTEXT_MESSAGES)
@@ -173,11 +173,19 @@ export async function processAIResponse(params: {
     // Déchiffrer les messages pour le contexte IA
     const sorted = (recentMessages || []).reverse()
     const chatMessages: ChatMessage[] = sorted
-      .filter((m) => m.content)
-      .map((m) => ({
-        role: m.sent_by === 'contact' ? ('user' as const) : ('assistant' as const),
-        content: decryptMessage(m.content!),
-      }))
+      .filter((m) => m.content || m.transcription)
+      .map((m) => {
+        let text = m.content ? decryptMessage(m.content) : ''
+        // Ajouter la transcription au contexte pour les messages média
+        if (m.transcription) {
+          const transcriptionText = decryptMessage(m.transcription)
+          text = text ? `${text}\n[Transcription: ${transcriptionText}]` : transcriptionText
+        }
+        return {
+          role: m.sent_by === 'contact' ? ('user' as const) : ('assistant' as const),
+          content: text,
+        }
+      })
 
     // 3.5. RAG : Récupérer le contexte pertinent de la base de connaissances
     let knowledgeContext = ''

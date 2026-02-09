@@ -6,6 +6,7 @@ import { recordTokenUsage } from '@/lib/openai/token-tracker'
 import { evolution } from '@/lib/evolution/client'
 import { syncContactsFromWhatsApp } from '@/lib/evolution/sync-contacts'
 import { encryptMessage } from '@/lib/crypto/encryption'
+import { uploadMedia } from '@/lib/storage/media'
 import { checkRateLimit } from '@/lib/rate-limit'
 
 // Mots-clés opt-out par défaut (synchronisés avec campaign_opt_out_keywords table)
@@ -174,6 +175,22 @@ export async function POST(req: NextRequest) {
           )
         }
 
+        // Upload média dans Supabase Storage si le buffer est disponible
+        let storagePath: string | null = null
+        if (mediaResult.mediaBuffer && waMessageId) {
+          const uploadResult = await uploadMedia({
+            sessionId: session.id,
+            messageId: waMessageId,
+            buffer: mediaResult.mediaBuffer,
+            mimeType: mediaResult.mediaMimeType || 'application/octet-stream',
+          })
+          if (uploadResult.ok) {
+            storagePath = uploadResult.storagePath
+          } else {
+            console.warn('[Webhook] Media upload failed:', uploadResult.error)
+          }
+        }
+
         // Ignorer seulement les messages texte vides sans payload
         if (!content && messageType === 'text' && !messageData.message) break
 
@@ -312,7 +329,9 @@ export async function POST(req: NextRequest) {
             direction: fromMe ? 'outbound' : 'inbound',
             content: encryptedContent,
             message_type: messageType,
-            media_url: mediaResult.mediaUrl,
+            media_url: storagePath,
+            media_mime_type: mediaResult.mediaMimeType || null,
+            transcription: mediaResult.transcription ? encryptMessage(mediaResult.transcription) : null,
             wa_message_id: waMessageId,
             sent_by: fromMe ? 'user' : 'contact',
             status: 'delivered',

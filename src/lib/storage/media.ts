@@ -1,0 +1,91 @@
+import 'server-only'
+import { createClient as createAdminSupabase } from '@supabase/supabase-js'
+
+const BUCKET = 'media'
+
+function getAdminClient() {
+  return createAdminSupabase(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
+
+function getExtensionFromMime(mimeType: string): string {
+  if (mimeType.includes('ogg')) return 'ogg'
+  if (mimeType.includes('mp4')) return 'mp4'
+  if (mimeType.includes('mpeg') || mimeType.includes('mp3')) return 'mp3'
+  if (mimeType.includes('wav')) return 'wav'
+  if (mimeType.includes('webp')) return 'webp'
+  if (mimeType.includes('jpeg') || mimeType.includes('jpg')) return 'jpg'
+  if (mimeType.includes('png')) return 'png'
+  if (mimeType.includes('gif')) return 'gif'
+  if (mimeType.includes('pdf')) return 'pdf'
+  if (mimeType.includes('msword') || mimeType.includes('docx')) return 'docx'
+  if (mimeType.includes('spreadsheet') || mimeType.includes('xlsx')) return 'xlsx'
+  return 'bin'
+}
+
+/**
+ * Upload un média dans Supabase Storage.
+ * Path : {sessionId}/{messageId}.{ext}
+ */
+export async function uploadMedia(params: {
+  sessionId: string
+  messageId: string
+  buffer: Buffer
+  mimeType: string
+}): Promise<{ ok: true; storagePath: string } | { ok: false; error: string }> {
+  const ext = getExtensionFromMime(params.mimeType)
+  const storagePath = `${params.sessionId}/${params.messageId}.${ext}`
+
+  const supabase = getAdminClient()
+  const { error } = await supabase.storage
+    .from(BUCKET)
+    .upload(storagePath, params.buffer, {
+      contentType: params.mimeType,
+      upsert: false,
+    })
+
+  if (error) {
+    console.error('[MediaStorage] Upload error:', error.message)
+    return { ok: false, error: error.message }
+  }
+
+  return { ok: true, storagePath }
+}
+
+/**
+ * Génère une URL signée temporaire pour accéder au média.
+ */
+export async function getSignedMediaUrl(
+  storagePath: string,
+  expiresIn: number = 3600
+): Promise<string | null> {
+  const supabase = getAdminClient()
+  const { data, error } = await supabase.storage
+    .from(BUCKET)
+    .createSignedUrl(storagePath, expiresIn)
+
+  if (error || !data?.signedUrl) return null
+  return data.signedUrl
+}
+
+/**
+ * Télécharge un média depuis le storage (pour transcription on-demand).
+ */
+export async function downloadMediaFromStorage(
+  storagePath: string
+): Promise<{ ok: true; buffer: Buffer; mimeType: string } | { ok: false; error: string }> {
+  const supabase = getAdminClient()
+  const { data, error } = await supabase.storage
+    .from(BUCKET)
+    .download(storagePath)
+
+  if (error || !data) {
+    return { ok: false, error: error?.message || 'Download failed' }
+  }
+
+  const buffer = Buffer.from(await data.arrayBuffer())
+  const mimeType = data.type || 'application/octet-stream'
+  return { ok: true, buffer, mimeType }
+}

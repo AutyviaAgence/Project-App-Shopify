@@ -139,6 +139,8 @@ export type Message = {
   content: string | null
   message_type: 'text' | 'image' | 'audio' | 'video' | 'document' | 'sticker' | 'location' | 'contact'
   media_url: string | null
+  media_mime_type: string | null
+  transcription: string | null
   wa_message_id: string | null
   sent_by: 'user' | 'ai_agent' | 'contact'
   ai_agent_id: string | null

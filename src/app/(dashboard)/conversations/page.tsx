@@ -23,6 +23,7 @@ import {
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { ContactProfilePanel } from '@/components/contact-profile-panel'
+import { MessageBubbleContent } from '@/components/message-bubble-content'
 import {
   MessageSquare,
   Send,
@@ -406,6 +407,8 @@ function ConversationsPageContent() {
       content,
       message_type: 'text',
       media_url: null,
+      media_mime_type: null,
+      transcription: null,
       wa_message_id: null,
       sent_by: 'user',
       ai_agent_id: null,
@@ -1105,9 +1108,7 @@ function ConversationsPageContent() {
                               {(msg as typeof msg & { agent_name?: string }).agent_name || 'Agent IA'}
                             </div>
                           )}
-                          <p className="whitespace-pre-wrap break-words text-sm">
-                            {msg.content}
-                          </p>
+                          <MessageBubbleContent msg={msg} isOutbound={isOutbound} />
                           <p
                             className={cn(
                               'mt-1.5 text-[10px]',

@@ -78,6 +78,7 @@ export async function GET(
   const decryptedMessages = (messages || []).map(msg => ({
     ...msg,
     content: msg.content ? decryptMessage(msg.content) : msg.content,
+    transcription: msg.transcription ? decryptMessage(msg.transcription) : null,
     agent_name: msg.ai_agent_id ? agentsMap[msg.ai_agent_id] || null : null,
   }))
 
