@@ -1,6 +1,7 @@
 import 'server-only'
 import { evolution } from '@/lib/evolution/client'
 import { wabaClient } from '@/lib/whatsapp-cloud/client'
+import { downloadAndDecryptMedia } from '@/lib/whatsapp-media-decrypt'
 import { transcribeAudio, describeImage } from './client'
 
 export type MediaExtractionResult = {
@@ -66,17 +67,44 @@ export async function getBase64Data(
     return raw
   }
 
-  // 2. Fallback: download via Evolution API
+  // 2. Check if message has CDN URL + mediaKey (for direct download)
+  const { type: mediaType } = detectMessageType(message)
+  const mediaMsg = message[`${mediaType}Message`] as MessagePayload | undefined
+  const hasCdnData = !!(mediaMsg?.url && mediaMsg?.mediaKey)
+
+  // 3. Try Evolution API getBase64FromMediaMessage
   try {
-    const result = await evolution.getBase64FromMediaMessage(instanceName, messageId, remoteJid)
-    if (result.ok && result.data?.base64) {
+    const fullMessage = message as Record<string, unknown>
+    const result = await evolution.getBase64FromMediaMessage(instanceName, messageId, remoteJid, fullMessage)
+    if (result.ok && result.data?.base64 && result.data.base64.length > 0) {
       const raw = stripDataUri(result.data.base64)
-      console.log('[MediaProcessor] Got base64 from API, length:', raw.length)
+      console.log('[MediaProcessor] Got base64 from Evolution API, length:', raw.length)
       return raw
     }
-    console.warn('[MediaProcessor] API returned no base64 for:', messageId, '| result.ok:', result.ok)
+    console.warn('[MediaProcessor] Evolution API returned no base64 for:', messageId)
   } catch (err) {
     console.error('[MediaProcessor] getBase64FromMediaMessage error:', err)
+  }
+
+  // 4. Last resort: Download and decrypt directly from WhatsApp CDN
+  // Handles external contacts whose media is not in the Baileys store
+  if (hasCdnData) {
+    console.log('[MediaProcessor] Attempting direct CDN download+decrypt for:', messageId, '| type:', mediaType)
+    try {
+      const decrypted = await downloadAndDecryptMedia(
+        mediaMsg!.url as string,
+        mediaMsg!.mediaKey as Record<string, number>,
+        mediaType
+      )
+      if (decrypted && decrypted.length > 0) {
+        const b64 = decrypted.toString('base64')
+        console.log('[MediaProcessor] CDN decrypt success, base64 length:', b64.length)
+        return b64
+      }
+      console.warn('[MediaProcessor] CDN decrypt returned empty for:', messageId)
+    } catch (err) {
+      console.error('[MediaProcessor] CDN decrypt error:', err)
+    }
   }
 
   return null

@@ -111,17 +111,27 @@ export const evolution = {
   },
 
   /** Récupérer le média en base64 depuis un message (fallback) */
-  getBase64FromMediaMessage(instanceName: string, messageId: string, remoteJid: string) {
+  getBase64FromMediaMessage(
+    instanceName: string,
+    messageId: string,
+    remoteJid: string,
+    fullMessage?: Record<string, unknown>
+  ) {
+    // Pass the full message object if available so Evolution API can
+    // download from WhatsApp CDN using the url + mediaKey even when
+    // the message is not in the Baileys store (external contacts)
+    const messagePayload = fullMessage
+      ? {
+          key: { remoteJid, id: messageId, fromMe: false },
+          message: fullMessage,
+        }
+      : {
+          key: { remoteJid, id: messageId },
+        }
+
     return request<{ base64: string }>(`/chat/getBase64FromMediaMessage/${instanceName}`, {
       method: 'POST',
-      body: JSON.stringify({
-        message: {
-          key: {
-            remoteJid,
-            id: messageId,
-          },
-        },
-      }),
+      body: JSON.stringify({ message: messagePayload }),
     })
   },
 
