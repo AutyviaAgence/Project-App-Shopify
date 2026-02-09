@@ -178,16 +178,20 @@ export async function POST(req: NextRequest) {
         // Upload média dans Supabase Storage si le buffer est disponible
         let storagePath: string | null = null
         if (mediaResult.mediaBuffer && waMessageId) {
-          const uploadResult = await uploadMedia({
-            sessionId: session.id,
-            messageId: waMessageId,
-            buffer: mediaResult.mediaBuffer,
-            mimeType: mediaResult.mediaMimeType || 'application/octet-stream',
-          })
-          if (uploadResult.ok) {
-            storagePath = uploadResult.storagePath
-          } else {
-            console.warn('[Webhook] Media upload failed:', uploadResult.error)
+          try {
+            const uploadResult = await uploadMedia({
+              sessionId: session.id,
+              messageId: waMessageId,
+              buffer: mediaResult.mediaBuffer,
+              mimeType: mediaResult.mediaMimeType || 'application/octet-stream',
+            })
+            if (uploadResult.ok) {
+              storagePath = uploadResult.storagePath
+            } else {
+              console.warn('[Webhook] Media upload failed:', uploadResult.error)
+            }
+          } catch (uploadErr) {
+            console.error('[Webhook] Media upload error:', uploadErr)
           }
         }
 
@@ -321,24 +325,43 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        const { data: insertedMessage } = await supabase
+        // Insérer le message avec les champs média (fallback sans si colonnes absentes)
+        let insertedMessage = null
+        const baseInsert = {
+          conversation_id: conversation.id,
+          session_id: session.id,
+          direction: fromMe ? 'outbound' : 'inbound',
+          content: encryptedContent,
+          message_type: messageType,
+          media_url: storagePath,
+          wa_message_id: waMessageId,
+          sent_by: fromMe ? 'user' : 'contact',
+          status: 'delivered',
+          ai_processed: false,
+        }
+
+        const { data: msg, error: insertErr } = await supabase
           .from('messages')
           .insert({
-            conversation_id: conversation.id,
-            session_id: session.id,
-            direction: fromMe ? 'outbound' : 'inbound',
-            content: encryptedContent,
-            message_type: messageType,
-            media_url: storagePath,
+            ...baseInsert,
             media_mime_type: mediaResult.mediaMimeType || null,
             transcription: mediaResult.transcription ? encryptMessage(mediaResult.transcription) : null,
-            wa_message_id: waMessageId,
-            sent_by: fromMe ? 'user' : 'contact',
-            status: 'delivered',
-            ai_processed: false,
           })
           .select()
           .single()
+
+        if (insertErr) {
+          // Fallback : insérer sans les nouvelles colonnes (migration pas encore appliquée)
+          console.warn('[Webhook] Insert with media fields failed, retrying without:', insertErr.message)
+          const { data: msgFallback } = await supabase
+            .from('messages')
+            .insert(baseInsert)
+            .select()
+            .single()
+          insertedMessage = msgFallback
+        } else {
+          insertedMessage = msg
+        }
 
         // 3b. Détection opt-out pour campagnes
         if (!fromMe && content && messageType === 'text') {

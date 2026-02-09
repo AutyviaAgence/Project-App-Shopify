@@ -172,16 +172,21 @@ export async function processMediaMessage(
       }
     }
     console.log('[MediaProcessor] Transcribing audio...')
-    const audioBuffer = Buffer.from(base64, 'base64')
-    const result = await transcribeAudio(audioBuffer, mimeType)
-    return {
-      messageType: 'audio',
-      content: '[Message vocal]',
-      transcription: result.ok ? result.text : null,
-      mediaUrl: null,
-      mediaMimeType: mimeType,
-      mediaBuffer: audioBuffer,
-      tokensUsed: result.ok ? result.tokensUsed : 0,
+    try {
+      const audioBuffer = Buffer.from(base64, 'base64')
+      const result = await transcribeAudio(audioBuffer, mimeType)
+      return {
+        messageType: 'audio',
+        content: '[Message vocal]',
+        transcription: result.ok ? result.text : null,
+        mediaUrl: null,
+        mediaMimeType: mimeType,
+        mediaBuffer: audioBuffer,
+        tokensUsed: result.ok ? result.tokensUsed : 0,
+      }
+    } catch (err) {
+      console.error('[MediaProcessor] Audio transcription error:', err)
+      return { messageType: 'audio', content: '[Message vocal]', transcription: null, mediaUrl: null, mediaMimeType: mimeType, mediaBuffer: null, tokensUsed: 0 }
     }
   }
 
@@ -203,15 +208,20 @@ export async function processMediaMessage(
       }
     }
     console.log('[MediaProcessor] Describing image...')
-    const result = await describeImage(base64, mimeType)
-    return {
-      messageType: 'image',
-      content: caption ? `[Image reçue] ${caption}` : '[Image reçue]',
-      transcription: result.ok ? result.description : null,
-      mediaUrl: null,
-      mediaMimeType: mimeType,
-      mediaBuffer: imageBuffer,
-      tokensUsed: result.ok ? result.tokensUsed : 0,
+    try {
+      const result = await describeImage(base64, mimeType)
+      return {
+        messageType: 'image',
+        content: caption ? `[Image reçue] ${caption}` : '[Image reçue]',
+        transcription: result.ok ? result.description : null,
+        mediaUrl: null,
+        mediaMimeType: mimeType,
+        mediaBuffer: imageBuffer,
+        tokensUsed: result.ok ? result.tokensUsed : 0,
+      }
+    } catch (err) {
+      console.error('[MediaProcessor] Image description error:', err)
+      return { messageType: 'image', content: caption ? `[Image reçue] ${caption}` : '[Image reçue]', transcription: null, mediaUrl: null, mediaMimeType: mimeType, mediaBuffer: imageBuffer, tokensUsed: 0 }
     }
   }
 
@@ -297,35 +307,45 @@ export async function processWabaMediaMessage(
   }
 
   const { buffer, mimeType } = downloadResult
-  const base64 = buffer.toString('base64')
 
   // Audio → Whisper transcription
   if (msgType === 'audio') {
     console.log('[MediaProcessor WABA] Transcribing audio...')
-    const result = await transcribeAudio(buffer, mimeType)
-    return {
-      messageType: 'audio',
-      content: '[Message vocal]',
-      transcription: result.ok ? result.text : null,
-      mediaUrl: null,
-      mediaMimeType: mimeType,
-      mediaBuffer: buffer,
-      tokensUsed: result.ok ? result.tokensUsed : 0,
+    try {
+      const result = await transcribeAudio(buffer, mimeType)
+      return {
+        messageType: 'audio',
+        content: '[Message vocal]',
+        transcription: result.ok ? result.text : null,
+        mediaUrl: null,
+        mediaMimeType: mimeType,
+        mediaBuffer: buffer,
+        tokensUsed: result.ok ? result.tokensUsed : 0,
+      }
+    } catch (err) {
+      console.error('[MediaProcessor WABA] Audio transcription error:', err)
+      return { messageType: 'audio', content: '[Message vocal]', transcription: null, mediaUrl: null, mediaMimeType: mimeType, mediaBuffer: buffer, tokensUsed: 0 }
     }
   }
 
   // Image → GPT-4o Vision
   if (msgType === 'image') {
     console.log('[MediaProcessor WABA] Describing image...')
-    const result = await describeImage(base64, mimeType)
-    return {
-      messageType: 'image',
-      content: caption ? `[Image reçue] ${caption}` : '[Image reçue]',
-      transcription: result.ok ? result.description : null,
-      mediaUrl: null,
-      mediaMimeType: mimeType,
-      mediaBuffer: buffer,
-      tokensUsed: result.ok ? result.tokensUsed : 0,
+    try {
+      const base64 = buffer.toString('base64')
+      const result = await describeImage(base64, mimeType)
+      return {
+        messageType: 'image',
+        content: caption ? `[Image reçue] ${caption}` : '[Image reçue]',
+        transcription: result.ok ? result.description : null,
+        mediaUrl: null,
+        mediaMimeType: mimeType,
+        mediaBuffer: buffer,
+        tokensUsed: result.ok ? result.tokensUsed : 0,
+      }
+    } catch (err) {
+      console.error('[MediaProcessor WABA] Image description error:', err)
+      return { messageType: 'image', content: caption ? `[Image reçue] ${caption}` : '[Image reçue]', transcription: null, mediaUrl: null, mediaMimeType: mimeType, mediaBuffer: buffer, tokensUsed: 0 }
     }
   }
 

@@ -121,8 +121,8 @@ export async function POST(req: NextRequest) {
         // Traiter les messages entrants
         if (value.messages) {
           for (const msg of value.messages) {
-            const phoneNumber = msg.from
-            const waMessageId = msg.id
+            const phoneNumber: string = msg.from
+            const waMessageId: string = msg.id
             const contactProfile = value.contacts?.find(c => c.wa_id === phoneNumber)
             const pushName = contactProfile?.profile?.name || null
 
@@ -157,16 +157,20 @@ export async function POST(req: NextRequest) {
 
                 // Upload média dans Supabase Storage
                 if (mediaResult.mediaBuffer && waMessageId) {
-                  const uploadResult = await uploadMedia({
-                    sessionId: session.id,
-                    messageId: waMessageId,
-                    buffer: mediaResult.mediaBuffer,
-                    mimeType: mediaResult.mediaMimeType || 'application/octet-stream',
-                  })
-                  if (uploadResult.ok) {
-                    storagePath = uploadResult.storagePath
-                  } else {
-                    console.warn('[WABA Webhook] Media upload failed:', uploadResult.error)
+                  try {
+                    const uploadResult = await uploadMedia({
+                      sessionId: session.id,
+                      messageId: waMessageId,
+                      buffer: mediaResult.mediaBuffer,
+                      mimeType: mediaResult.mediaMimeType || 'application/octet-stream',
+                    })
+                    if (uploadResult.ok) {
+                      storagePath = uploadResult.storagePath
+                    } else {
+                      console.warn('[WABA Webhook] Media upload failed:', uploadResult.error)
+                    }
+                  } catch (uploadErr) {
+                    console.error('[WABA Webhook] Media upload error:', uploadErr)
                   }
                 }
 
@@ -261,24 +265,43 @@ export async function POST(req: NextRequest) {
               }
             }
 
-            const { data: insertedMessage } = await supabase
+            // Insérer le message avec les champs média (fallback sans si colonnes absentes)
+            let insertedMessage = null
+            const baseInsert = {
+              conversation_id: conversation.id,
+              session_id: session.id,
+              direction: 'inbound' as const,
+              content: encryptedContent,
+              message_type: messageType,
+              media_url: storagePath,
+              wa_message_id: waMessageId,
+              sent_by: 'contact' as const,
+              status: 'delivered',
+              ai_processed: false,
+            }
+
+            const { data: insertedMsg, error: insertErr } = await supabase
               .from('messages')
               .insert({
-                conversation_id: conversation.id,
-                session_id: session.id,
-                direction: 'inbound',
-                content: encryptedContent,
-                message_type: messageType,
-                media_url: storagePath,
+                ...baseInsert,
                 media_mime_type: mediaMimeType,
                 transcription: transcriptionText ? encryptMessage(transcriptionText) : null,
-                wa_message_id: waMessageId,
-                sent_by: 'contact',
-                status: 'delivered',
-                ai_processed: false,
               })
               .select()
               .single()
+
+            if (insertErr) {
+              // Fallback : insérer sans les nouvelles colonnes (migration pas encore appliquée)
+              console.warn('[WABA Webhook] Insert with media fields failed, retrying without:', insertErr.message)
+              const { data: fallbackMsg } = await supabase
+                .from('messages')
+                .insert(baseInsert)
+                .select()
+                .single()
+              insertedMessage = fallbackMsg
+            } else {
+              insertedMessage = insertedMsg
+            }
 
             // 4. Auto-réponse IA
             const { data: convFresh } = await supabase
