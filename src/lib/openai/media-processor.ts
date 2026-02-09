@@ -1,7 +1,6 @@
 import 'server-only'
 import { evolution } from '@/lib/evolution/client'
 import { wabaClient } from '@/lib/whatsapp-cloud/client'
-import { downloadAndDecryptMedia } from '@/lib/whatsapp-media-decrypt'
 import { transcribeAudio, describeImage } from './client'
 
 export type MediaExtractionResult = {
@@ -67,46 +66,41 @@ export async function getBase64Data(
     return raw
   }
 
-  // 2. Check if message has CDN URL + mediaKey (for direct download)
-  const { type: mediaType } = detectMessageType(message)
-  const mediaMsg = message[`${mediaType}Message`] as MessagePayload | undefined
-  const hasCdnData = !!(mediaMsg?.url && mediaMsg?.mediaKey)
-
-  // 3. Try Evolution API getBase64FromMediaMessage
+  // 2. Try getBase64FromMediaMessage with the webhook remoteJid
   try {
-    const fullMessage = message as Record<string, unknown>
-    const result = await evolution.getBase64FromMediaMessage(instanceName, messageId, remoteJid, fullMessage)
+    const result = await evolution.getBase64FromMediaMessage(instanceName, messageId, remoteJid)
     if (result.ok && result.data?.base64 && result.data.base64.length > 0) {
       const raw = stripDataUri(result.data.base64)
       console.log('[MediaProcessor] Got base64 from Evolution API, length:', raw.length)
       return raw
     }
-    console.warn('[MediaProcessor] Evolution API returned no base64 for:', messageId)
   } catch (err) {
     console.error('[MediaProcessor] getBase64FromMediaMessage error:', err)
   }
 
-  // 4. Last resort: Download and decrypt directly from WhatsApp CDN
-  // Handles external contacts whose media is not in the Baileys store
-  if (hasCdnData) {
-    console.log('[MediaProcessor] Attempting direct CDN download+decrypt for:', messageId, '| type:', mediaType)
-    try {
-      const decrypted = await downloadAndDecryptMedia(
-        mediaMsg!.url as string,
-        mediaMsg!.mediaKey as Record<string, number>,
-        mediaType
-      )
-      if (decrypted && decrypted.length > 0) {
-        const b64 = decrypted.toString('base64')
-        console.log('[MediaProcessor] CDN decrypt success, base64 length:', b64.length)
-        return b64
+  // 3. Resolve the LID: the webhook sends @s.whatsapp.net but Baileys
+  // stores the message under @lid. Look up the real JID via findMessages.
+  try {
+    const findResult = await evolution.findMessageById(instanceName, messageId)
+    if (findResult.ok && findResult.data?.messages?.records?.length > 0) {
+      const storedKey = findResult.data.messages.records[0].key
+      const lidJid = storedKey.remoteJid
+      if (lidJid && lidJid !== remoteJid) {
+        console.log('[MediaProcessor] Resolved LID:', lidJid, '(webhook had:', remoteJid + ')')
+        const result2 = await evolution.getBase64FromMediaMessage(instanceName, messageId, lidJid)
+        if (result2.ok && result2.data?.base64 && result2.data.base64.length > 0) {
+          const raw = stripDataUri(result2.data.base64)
+          console.log('[MediaProcessor] Got base64 with LID, length:', raw.length)
+          return raw
+        }
+        console.warn('[MediaProcessor] LID lookup succeeded but base64 still empty for:', messageId)
       }
-      console.warn('[MediaProcessor] CDN decrypt returned empty for:', messageId)
-    } catch (err) {
-      console.error('[MediaProcessor] CDN decrypt error:', err)
     }
+  } catch (err) {
+    console.error('[MediaProcessor] findMessageById error:', err)
   }
 
+  console.warn('[MediaProcessor] All methods failed for:', messageId)
   return null
 }
 
