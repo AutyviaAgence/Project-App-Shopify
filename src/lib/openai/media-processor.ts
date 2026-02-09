@@ -49,9 +49,63 @@ function stripDataUri(input: string): string {
   return input
 }
 
+/** Small delay helper */
+function delay(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms))
+}
+
+/**
+ * Tente de récupérer le base64 via getBase64FromMediaMessage avec le JID donné.
+ * Retourne le base64 brut ou null.
+ */
+async function tryGetBase64(
+  instanceName: string,
+  messageId: string,
+  remoteJid: string,
+  label: string
+): Promise<string | null> {
+  try {
+    const result = await evolution.getBase64FromMediaMessage(instanceName, messageId, remoteJid)
+    if (result.ok && result.data?.base64 && result.data.base64.length > 0) {
+      const raw = stripDataUri(result.data.base64)
+      console.log(`[MediaProcessor] ${label} — got base64, length:`, raw.length)
+      return raw
+    }
+  } catch (err) {
+    console.error(`[MediaProcessor] ${label} error:`, err)
+  }
+  return null
+}
+
+/**
+ * Tente de récupérer le base64 en passant le message complet (avec mediaKey).
+ * Ceci permet à Evolution API de re-télécharger le média avec les bonnes clés.
+ */
+async function tryGetBase64WithFullMessage(
+  instanceName: string,
+  fullMessage: { key: Record<string, unknown>; message: Record<string, unknown> },
+  label: string
+): Promise<string | null> {
+  try {
+    const result = await evolution.getBase64FromFullMessage(instanceName, fullMessage)
+    if (result.ok && result.data?.base64 && result.data.base64.length > 0) {
+      const raw = stripDataUri(result.data.base64)
+      console.log(`[MediaProcessor] ${label} — got base64 with full message, length:`, raw.length)
+      return raw
+    }
+  } catch (err) {
+    console.error(`[MediaProcessor] ${label} error:`, err)
+  }
+  return null
+}
+
 /**
  * Récupère le base64 depuis le payload webhook ou via l'API Evolution.
  * Retourne du base64 pur (sans préfixe data URI).
+ *
+ * Stratégie multi-étapes avec retries pour contourner le bug Baileys
+ * où downloadMediaMessage('buffer') retourne un buffer vide pour les
+ * messages de contacts externes.
  */
 export async function getBase64Data(
   message: MessagePayload,
@@ -66,41 +120,77 @@ export async function getBase64Data(
     return raw
   }
 
-  // 2. Try getBase64FromMediaMessage with the webhook remoteJid
-  try {
-    const result = await evolution.getBase64FromMediaMessage(instanceName, messageId, remoteJid)
-    if (result.ok && result.data?.base64 && result.data.base64.length > 0) {
-      const raw = stripDataUri(result.data.base64)
-      console.log('[MediaProcessor] Got base64 from Evolution API, length:', raw.length)
-      return raw
-    }
-  } catch (err) {
-    console.error('[MediaProcessor] getBase64FromMediaMessage error:', err)
-  }
+  // 2. Try immediately with webhook remoteJid
+  const immediate = await tryGetBase64(instanceName, messageId, remoteJid, 'Attempt 1 (webhook JID)')
+  if (immediate) return immediate
 
-  // 3. Resolve the LID: the webhook sends @s.whatsapp.net but Baileys
-  // stores the message under @lid. Look up the real JID via findMessages.
+  // 3. Resolve the LID and get full stored message for retries
+  let lidJid: string | null = null
+  let storedMessage: { key: Record<string, unknown>; message: Record<string, unknown> } | null = null
   try {
     const findResult = await evolution.findMessageById(instanceName, messageId)
     if (findResult.ok && findResult.data?.messages?.records?.length > 0) {
-      const storedKey = findResult.data.messages.records[0].key
-      const lidJid = storedKey.remoteJid
+      const record = findResult.data.messages.records[0]
+      lidJid = record.key.remoteJid
+      storedMessage = { key: record.key as Record<string, unknown>, message: record.message }
       if (lidJid && lidJid !== remoteJid) {
         console.log('[MediaProcessor] Resolved LID:', lidJid, '(webhook had:', remoteJid + ')')
-        const result2 = await evolution.getBase64FromMediaMessage(instanceName, messageId, lidJid)
-        if (result2.ok && result2.data?.base64 && result2.data.base64.length > 0) {
-          const raw = stripDataUri(result2.data.base64)
-          console.log('[MediaProcessor] Got base64 with LID, length:', raw.length)
-          return raw
-        }
-        console.warn('[MediaProcessor] LID lookup succeeded but base64 still empty for:', messageId)
       }
     }
   } catch (err) {
     console.error('[MediaProcessor] findMessageById error:', err)
   }
 
-  console.warn('[MediaProcessor] All methods failed for:', messageId)
+  // 4. Try with LID if different from webhook JID
+  if (lidJid && lidJid !== remoteJid) {
+    const lidResult = await tryGetBase64(instanceName, messageId, lidJid, 'Attempt 2 (LID)')
+    if (lidResult) return lidResult
+  }
+
+  // 5. Try with the FULL stored message (includes mediaKey, directPath etc.)
+  // This allows Evolution API's getBase64FromMediaMessage to use the mediaKey
+  // directly, with proper Uint8Array conversion, which is the fix for the
+  // Baileys empty buffer bug.
+  if (storedMessage) {
+    const fullResult = await tryGetBase64WithFullMessage(instanceName, storedMessage, 'Attempt 3 (full msg)')
+    if (fullResult) return fullResult
+  }
+
+  // 6. RETRY WITH DELAYS — Baileys may need time to finish downloading media
+  // The webhook fires before Baileys finishes the media download.
+  // Wait and retry up to 3 times with increasing delays.
+  const retryDelays = [3000, 5000, 8000]
+  const retryJid = lidJid || remoteJid
+
+  for (let i = 0; i < retryDelays.length; i++) {
+    console.log(`[MediaProcessor] Retry ${i + 1}/${retryDelays.length} — waiting ${retryDelays[i]}ms...`)
+    await delay(retryDelays[i])
+
+    // Re-fetch the stored message (Baileys may have updated it)
+    try {
+      const findResult = await evolution.findMessageById(instanceName, messageId)
+      if (findResult.ok && findResult.data?.messages?.records?.length > 0) {
+        const record = findResult.data.messages.records[0]
+        const freshMessage = { key: record.key as Record<string, unknown>, message: record.message }
+
+        // Try with full message first (best chance of success)
+        const fullRetry = await tryGetBase64WithFullMessage(
+          instanceName, freshMessage, `Retry ${i + 1} (full msg)`
+        )
+        if (fullRetry) return fullRetry
+
+        // Fallback to key-only
+        const keyRetry = await tryGetBase64(
+          instanceName, messageId, record.key.remoteJid, `Retry ${i + 1} (key only)`
+        )
+        if (keyRetry) return keyRetry
+      }
+    } catch (err) {
+      console.error(`[MediaProcessor] Retry ${i + 1} findMessage error:`, err)
+    }
+  }
+
+  console.warn('[MediaProcessor] All methods failed after retries for:', messageId)
   return null
 }
 

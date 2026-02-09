@@ -126,7 +126,7 @@ export const evolution = {
     })
   },
 
-  /** Récupérer le média en base64 depuis un message */
+  /** Récupérer le média en base64 depuis un message (key only) */
   getBase64FromMediaMessage(
     instanceName: string,
     messageId: string,
@@ -137,6 +137,19 @@ export const evolution = {
       body: JSON.stringify({
         message: { key: { remoteJid, id: messageId } },
       }),
+      timeout: 30000,
+    })
+  },
+
+  /** Récupérer le média en base64 en passant le message complet (avec mediaKey etc.) */
+  getBase64FromFullMessage(
+    instanceName: string,
+    fullMessage: { key: Record<string, unknown>; message: Record<string, unknown> },
+  ) {
+    return request<{ base64: string }>(`/chat/getBase64FromMediaMessage/${instanceName}`, {
+      method: 'POST',
+      body: JSON.stringify({ message: fullMessage }),
+      timeout: 30000,
     })
   },
 
