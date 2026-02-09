@@ -102,12 +102,14 @@ export function getMimeType(message: MessagePayload, type: string): string {
 /**
  * Traite un message média Evolution API.
  * Retourne le buffer brut + transcription séparée du content.
+ * @param preloadedBase64 - base64 déjà téléchargé (évite un double appel API)
  */
 export async function processMediaMessage(
   message: MessagePayload,
   instanceName: string,
   messageId: string,
-  remoteJid: string
+  remoteJid: string,
+  preloadedBase64?: string | null
 ): Promise<MediaExtractionResult> {
   const { type, hasMedia } = detectMessageType(message)
 
@@ -157,8 +159,7 @@ export async function processMediaMessage(
     const caption = (videoMsg?.caption as string) || ''
     const mimeType = getMimeType(message, type)
 
-    // Essayer de récupérer le buffer pour le stockage
-    const base64 = await getBase64Data(message, instanceName, messageId, remoteJid)
+    const base64 = preloadedBase64 ?? await getBase64Data(message, instanceName, messageId, remoteJid)
     const videoBuffer = base64 ? Buffer.from(base64, 'base64') : null
 
     return {
@@ -177,7 +178,8 @@ export async function processMediaMessage(
     return { messageType: type, content: `[${type} reçu]`, transcription: null, ...NO_MEDIA, tokensUsed: 0 }
   }
 
-  const base64 = await getBase64Data(message, instanceName, messageId, remoteJid)
+  // Utiliser le base64 pré-chargé ou le télécharger
+  const base64 = preloadedBase64 ?? await getBase64Data(message, instanceName, messageId, remoteJid)
   const mimeType = getMimeType(message, type)
 
   // Audio → Whisper transcription

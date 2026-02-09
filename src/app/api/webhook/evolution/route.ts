@@ -167,14 +167,14 @@ export async function POST(req: NextRequest) {
         // Étape 1 : Détecter le type et télécharger le base64 si média
         const { type: detectedType, hasMedia } = detectMessageType(messagePayload)
         let storagePath: string | null = null
-        let downloadedBuffer: Buffer | null = null
         let detectedMimeType: string | null = null
+        let preloadedBase64: string | null = null
 
         if (hasMedia && detectedType !== 'sticker') {
           // Télécharger le base64 en premier (avant transcription)
-          const base64 = await getBase64Data(messagePayload, instanceName, waMessageId, remoteJid)
-          if (base64) {
-            downloadedBuffer = Buffer.from(base64, 'base64')
+          preloadedBase64 = await getBase64Data(messagePayload, instanceName, waMessageId, remoteJid)
+          if (preloadedBase64) {
+            const downloadedBuffer = Buffer.from(preloadedBase64, 'base64')
             detectedMimeType = getMimeType(messagePayload, detectedType)
 
             // Upload IMMÉDIAT dans Supabase Storage (avant transcription IA)
@@ -201,17 +201,16 @@ export async function POST(req: NextRequest) {
         }
 
         // Étape 2 : Traitement complet (contenu + transcription IA)
+        // Passer le base64 pré-chargé pour éviter un 2ème appel API qui pourrait échouer
         const mediaResult = await processMediaMessage(
           messagePayload,
           instanceName,
           waMessageId,
-          remoteJid
+          remoteJid,
+          preloadedBase64
         )
         const content = mediaResult.content
         const messageType = mediaResult.messageType
-
-        // Utiliser le storagePath obtenu à l'étape 1 (pas celui du mediaResult)
-        // Le mediaResult.mediaBuffer peut être null si getBase64 est appelé 2 fois et échoue la 2e
 
         // Enregistrer les tokens utilisés par le traitement média (transcription, vision)
         if (mediaResult.tokensUsed > 0 && session.user_id) {
