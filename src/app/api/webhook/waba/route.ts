@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { processAIResponse } from '@/lib/openai/process-ai-response'
+import { processWabaMediaMessage } from '@/lib/openai/media-processor'
 import { encryptMessage } from '@/lib/crypto/encryption'
 import { checkRateLimit } from '@/lib/rate-limit'
 
@@ -127,34 +128,32 @@ export async function POST(req: NextRequest) {
             let content = ''
             let messageType: 'text' | 'image' | 'audio' | 'video' | 'document' | 'sticker' = 'text'
 
-            switch (msg.type) {
-              case 'text':
-                content = msg.text?.body || ''
-                messageType = 'text'
-                break
-              case 'image':
-                content = msg.image?.caption || '[Image]'
-                messageType = 'image'
-                break
-              case 'audio':
-                content = '[Audio]'
-                messageType = 'audio'
-                break
-              case 'video':
-                content = msg.video?.caption || '[Vidéo]'
-                messageType = 'video'
-                break
-              case 'document':
-                content = msg.document?.caption || `[Document: ${msg.document?.filename || ''}]`
-                messageType = 'document'
-                break
-              case 'sticker':
-                content = '[Sticker]'
-                messageType = 'sticker'
-                break
-              default:
-                content = `[${msg.type}]`
-                break
+            const mediaTypes = ['image', 'audio', 'video', 'document', 'sticker'] as const
+            if (msg.type === 'text') {
+              content = msg.text?.body || ''
+              messageType = 'text'
+            } else if (mediaTypes.includes(msg.type as typeof mediaTypes[number])) {
+              messageType = msg.type as typeof mediaTypes[number]
+              const mediaObj = msg[msg.type as keyof typeof msg] as { id?: string; caption?: string; filename?: string } | undefined
+              const mediaId = mediaObj?.id
+
+              if (mediaId && session.waba_access_token) {
+                // Traiter le média via Meta Graph API (transcription audio, description image, etc.)
+                const mediaResult = await processWabaMediaMessage(
+                  messageType as 'image' | 'audio' | 'video' | 'document' | 'sticker',
+                  mediaId,
+                  session.waba_access_token,
+                  mediaObj?.caption,
+                  (mediaObj as { filename?: string })?.filename
+                )
+                content = mediaResult.content
+                messageType = mediaResult.messageType as typeof messageType
+              } else {
+                // Fallback si pas de media_id
+                content = mediaObj?.caption || `[${msg.type}]`
+              }
+            } else {
+              content = `[${msg.type}]`
             }
 
             if (!content) continue
@@ -162,8 +161,8 @@ export async function POST(req: NextRequest) {
             // Aperçu adapté au type
             const previewContent = messageType === 'text'
               ? content.slice(0, 100)
-              : messageType === 'audio' ? 'Message vocal'
-              : messageType === 'image' ? 'Photo'
+              : messageType === 'audio' ? (content.includes('transcrit') ? content.slice(0, 100) : 'Message vocal')
+              : messageType === 'image' ? (content.includes('description') ? content.slice(0, 100) : 'Photo')
               : messageType === 'video' ? 'Vidéo'
               : messageType === 'document' ? 'Document'
               : messageType === 'sticker' ? 'Sticker'

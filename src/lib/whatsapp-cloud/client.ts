@@ -103,4 +103,47 @@ export const wabaClient = {
       method: 'GET',
     })
   },
+
+  /** Télécharger un média via son ID (2 étapes : get URL puis download binary) */
+  async downloadMedia(
+    mediaId: string,
+    accessToken: string
+  ): Promise<{ ok: true; buffer: Buffer; mimeType: string } | { ok: false; error: string }> {
+    // Étape 1 : Récupérer l'URL du média
+    const metaResult = await request<{ url: string; mime_type: string; file_size: number }>(
+      `${GRAPH_API_BASE}/${mediaId}`,
+      accessToken,
+      { method: 'GET' }
+    )
+
+    if (!metaResult.ok) {
+      return { ok: false, error: `Failed to get media URL: ${metaResult.error}` }
+    }
+
+    const { url, mime_type } = metaResult.data
+
+    // Étape 2 : Télécharger le fichier binaire
+    try {
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 30000) // 30s pour les gros fichiers
+
+      const res = await fetch(url, {
+        signal: controller.signal,
+        headers: { Authorization: `Bearer ${accessToken}` },
+      })
+      clearTimeout(timeoutId)
+
+      if (!res.ok) {
+        return { ok: false, error: `Failed to download media: HTTP ${res.status}` }
+      }
+
+      const arrayBuffer = await res.arrayBuffer()
+      const buffer = Buffer.from(arrayBuffer)
+
+      return { ok: true, buffer, mimeType: mime_type }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error'
+      return { ok: false, error: `Media download failed: ${message}` }
+    }
+  },
 }

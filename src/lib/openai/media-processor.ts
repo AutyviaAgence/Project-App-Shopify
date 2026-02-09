@@ -1,5 +1,6 @@
 import 'server-only'
 import { evolution } from '@/lib/evolution/client'
+import { wabaClient } from '@/lib/whatsapp-cloud/client'
 import { transcribeAudio, describeImage } from './client'
 
 export type MediaExtractionResult = {
@@ -204,4 +205,102 @@ export async function processMediaMessage(
 
   // Fallback
   return { messageType: type, content: `[${type} reçu]`, mediaUrl: null, tokensUsed: 0 }
+}
+
+/**
+ * Traite un message média WABA (WhatsApp Cloud API) en téléchargeant via Meta Graph API.
+ */
+export async function processWabaMediaMessage(
+  msgType: 'image' | 'audio' | 'video' | 'document' | 'sticker',
+  mediaId: string,
+  accessToken: string,
+  caption?: string,
+  filename?: string
+): Promise<MediaExtractionResult> {
+  // Sticker — pas de traitement lourd
+  if (msgType === 'sticker') {
+    return { messageType: 'sticker', content: '[Sticker reçu]', mediaUrl: null, tokensUsed: 0 }
+  }
+
+  // Vidéo — pas de traitement lourd
+  if (msgType === 'video') {
+    return {
+      messageType: 'video',
+      content: caption ? `[Vidéo reçue avec légende : ${caption}]` : '[Vidéo reçue]',
+      mediaUrl: null,
+      tokensUsed: 0,
+    }
+  }
+
+  // Télécharger le média via Meta Graph API
+  const downloadResult = await wabaClient.downloadMedia(mediaId, accessToken)
+
+  if (!downloadResult.ok) {
+    console.warn('[MediaProcessor WABA] Download failed:', downloadResult.error)
+    // Fallback sans média
+    if (msgType === 'audio') {
+      return { messageType: 'audio', content: '[Message vocal reçu - transcription impossible]', mediaUrl: null, tokensUsed: 0 }
+    }
+    if (msgType === 'image') {
+      return {
+        messageType: 'image',
+        content: caption ? `[Image reçue avec légende : ${caption}]` : '[Image reçue - description impossible]',
+        mediaUrl: null,
+        tokensUsed: 0,
+      }
+    }
+    if (msgType === 'document') {
+      return {
+        messageType: 'document',
+        content: `[Document reçu : ${filename || 'document'} (téléchargement échoué)]`,
+        mediaUrl: null,
+        tokensUsed: 0,
+      }
+    }
+    return { messageType: msgType, content: `[${msgType} reçu]`, mediaUrl: null, tokensUsed: 0 }
+  }
+
+  const { buffer, mimeType } = downloadResult
+  const base64 = buffer.toString('base64')
+
+  // Audio → Whisper transcription
+  if (msgType === 'audio') {
+    console.log('[MediaProcessor WABA] Transcribing audio...')
+    const result = await transcribeAudio(buffer, mimeType)
+    return {
+      messageType: 'audio',
+      content: result.ok
+        ? `[Message vocal transcrit] : "${result.text}"`
+        : '[Message vocal reçu - transcription échouée]',
+      mediaUrl: null,
+      tokensUsed: result.ok ? result.tokensUsed : 0,
+    }
+  }
+
+  // Image → GPT-4o Vision
+  if (msgType === 'image') {
+    console.log('[MediaProcessor WABA] Describing image...')
+    const result = await describeImage(base64, mimeType)
+    const description = result.ok ? result.description : 'description non disponible'
+    return {
+      messageType: 'image',
+      content: caption
+        ? `[Image reçue - description : ${description}] Légende : ${caption}`
+        : `[Image reçue - description : ${description}]`,
+      mediaUrl: null,
+      tokensUsed: result.ok ? result.tokensUsed : 0,
+    }
+  }
+
+  // Document
+  if (msgType === 'document') {
+    return {
+      messageType: 'document',
+      content: `[Document reçu : ${filename || 'document'} (${mimeType})]`,
+      mediaUrl: null,
+      tokensUsed: 0,
+    }
+  }
+
+  return { messageType: msgType, content: `[${msgType} reçu]`, mediaUrl: null, tokensUsed: 0 }
 }
