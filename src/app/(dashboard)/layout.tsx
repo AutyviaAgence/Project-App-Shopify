@@ -27,6 +27,7 @@ import {
   AlertTriangle,
   CreditCard,
   Loader2,
+  Workflow,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { AlertsDropdown } from '@/components/alerts-dropdown'
@@ -43,6 +44,7 @@ const NAV_ITEMS = [
   { href: '/knowledge', label: 'Base de connaissances', icon: BookOpen },
   { href: '/links', label: 'Liens WhatsApp', icon: Link2 },
   { href: '/tags', label: 'Tags', icon: Tag },
+  { href: '/lifecycle', label: 'Lifecycle', icon: Workflow },
   { href: '/teams', label: 'Équipes', icon: Users },
   { href: '/stats', label: 'Statistiques', icon: BarChart3 },
 ]

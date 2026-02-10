@@ -3,7 +3,7 @@
 import { Suspense, useEffect, useState, useCallback, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import type { Message, AIAgent, ConversationTag } from '@/types/database'
+import type { Message, AIAgent, ConversationTag, LifecycleStage } from '@/types/database'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -41,6 +41,8 @@ import {
   Tag,
   Plus,
   Search,
+  Sparkles,
+  Workflow,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -55,6 +57,7 @@ type ConversationWithJoins = {
   last_message_preview: string | null
   unread_count: number
   is_ai_active: boolean
+  lifecycle_stage_id: string | null
   created_at: string
   contact: {
     id: string
@@ -117,12 +120,17 @@ function ConversationsPageContent() {
     '#84CC16', // lime
   ]
 
+  // Lifecycle stages
+  const [lifecycleStages, setLifecycleStages] = useState<LifecycleStage[]>([])
+  const [analyzingConvId, setAnalyzingConvId] = useState<string | null>(null)
+
   // Filters
   const [sessions, setSessions] = useState<{ id: string; instance_name: string; phone_number: string | null }[]>([])
   const [teams, setTeams] = useState<Team[]>([])
   const [filterSession, setFilterSession] = useState<string>('all')
   const [filterAiActive, setFilterAiActive] = useState<string>('all')
   const [filterTeam, setFilterTeam] = useState<string>('all')
+  const [filterLifecycleStage, setFilterLifecycleStage] = useState<string>('all')
   const [showFilters, setShowFilters] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -215,12 +223,25 @@ function ConversationsPageContent() {
     }
   }, [])
 
+  const fetchLifecycleStages = useCallback(async () => {
+    try {
+      const res = await fetch('/api/lifecycle/stages')
+      const json = await res.json()
+      if (res.ok && json.data) {
+        setLifecycleStages(json.data)
+      }
+    } catch {
+      // silently ignore
+    }
+  }, [])
+
   const fetchConversations = useCallback(async () => {
     try {
       const params = new URLSearchParams()
       if (filterSession !== 'all') params.set('session_id', filterSession)
       if (filterAiActive !== 'all') params.set('is_ai_active', filterAiActive)
       if (filterTeam !== 'all') params.set('team_id', filterTeam)
+      if (filterLifecycleStage !== 'all') params.set('lifecycle_stage_id', filterLifecycleStage)
       if (searchQuery.trim()) {
         params.set('search', searchQuery.trim())
         params.set('limit', '100') // Plus de résultats lors d'une recherche
@@ -249,7 +270,7 @@ function ConversationsPageContent() {
     } finally {
       setLoading(false)
     }
-  }, [filterSession, filterAiActive, filterTeam, page, searchQuery, fetchAllConversationTags])
+  }, [filterSession, filterAiActive, filterTeam, filterLifecycleStage, page, searchQuery, fetchAllConversationTags])
 
   useEffect(() => {
     fetchConversations()
@@ -257,7 +278,8 @@ function ConversationsPageContent() {
     fetchSessions()
     fetchTags()
     fetchTeams()
-  }, [fetchConversations, fetchAgents, fetchSessions, fetchTags, fetchTeams])
+    fetchLifecycleStages()
+  }, [fetchConversations, fetchAgents, fetchSessions, fetchTags, fetchTeams, fetchLifecycleStages])
 
   // Gérer le paramètre ?open=conversationId dans l'URL
   useEffect(() => {
@@ -603,6 +625,60 @@ function ConversationsPageContent() {
     }
   }
 
+  async function handleChangeLifecycleStage(convId: string, stageId: string | null) {
+    try {
+      const res = await fetch(`/api/conversations/${convId}/lifecycle`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stage_id: stageId }),
+      })
+      if (res.ok) {
+        setConversations((prev) =>
+          prev.map((c) => (c.id === convId ? { ...c, lifecycle_stage_id: stageId } : c))
+        )
+        if (selectedConv?.id === convId) {
+          setSelectedConv((prev) => prev ? { ...prev, lifecycle_stage_id: stageId } : prev)
+        }
+        const stageName = lifecycleStages.find((s) => s.id === stageId)?.name || 'Non classifié'
+        toast.success(`Stage: ${stageName}`)
+      } else {
+        const json = await res.json()
+        toast.error(json.error || 'Erreur')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    }
+  }
+
+  async function handleAnalyzeConversation(convId: string) {
+    if (analyzingConvId) return
+    setAnalyzingConvId(convId)
+    try {
+      const res = await fetch('/api/lifecycle/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversation_ids: [convId] }),
+      })
+      const json = await res.json()
+      if (res.ok && json.data?.[0]) {
+        const result = json.data[0]
+        setConversations((prev) =>
+          prev.map((c) => (c.id === convId ? { ...c, lifecycle_stage_id: result.stageId } : c))
+        )
+        if (selectedConv?.id === convId) {
+          setSelectedConv((prev) => prev ? { ...prev, lifecycle_stage_id: result.stageId } : prev)
+        }
+        toast.success(`${result.stageName || 'Non classifié'} — ${result.reason}`)
+      } else {
+        toast.error(json.error || 'Erreur d\'analyse')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setAnalyzingConvId(null)
+    }
+  }
+
   // Debounce search - déclenche fetchConversations après 300ms sans frappe
   const [debouncedSearch, setDebouncedSearch] = useState('')
   useEffect(() => {
@@ -657,9 +733,9 @@ function ConversationsPageContent() {
             >
               <Filter className="h-3.5 w-3.5" />
               Filtres
-              {(filterSession !== 'all' || filterAiActive !== 'all' || filterTeam !== 'all') && (
+              {(filterSession !== 'all' || filterAiActive !== 'all' || filterTeam !== 'all' || filterLifecycleStage !== 'all') && (
                 <Badge variant="default" className="ml-1 h-4 w-4 p-0 text-[10px]">
-                  {(filterSession !== 'all' ? 1 : 0) + (filterAiActive !== 'all' ? 1 : 0) + (filterTeam !== 'all' ? 1 : 0)}
+                  {(filterSession !== 'all' ? 1 : 0) + (filterAiActive !== 'all' ? 1 : 0) + (filterTeam !== 'all' ? 1 : 0) + (filterLifecycleStage !== 'all' ? 1 : 0)}
                 </Badge>
               )}
             </Button>
@@ -712,12 +788,33 @@ function ConversationsPageContent() {
                 </SelectContent>
               </Select>
 
-              {(filterSession !== 'all' || filterAiActive !== 'all' || filterTeam !== 'all') && (
+              {lifecycleStages.length > 0 && (
+                <Select value={filterLifecycleStage} onValueChange={(v) => { setFilterLifecycleStage(v); setPage(1) }}>
+                  <SelectTrigger className="h-8 w-[140px] text-xs">
+                    <Workflow className="mr-1 h-3 w-3" />
+                    <SelectValue placeholder="Stage" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Tous stages</SelectItem>
+                    <SelectItem value="none">Non classifié</SelectItem>
+                    {lifecycleStages.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>
+                        <span className="flex items-center gap-1.5">
+                          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: s.color }} />
+                          {s.name}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+
+              {(filterSession !== 'all' || filterAiActive !== 'all' || filterTeam !== 'all' || filterLifecycleStage !== 'all') && (
                 <Button
                   variant="ghost"
                   size="sm"
                   className="h-8 px-2 text-xs"
-                  onClick={() => { setFilterSession('all'); setFilterAiActive('all'); setFilterTeam('all'); setPage(1) }}
+                  onClick={() => { setFilterSession('all'); setFilterAiActive('all'); setFilterTeam('all'); setFilterLifecycleStage('all'); setPage(1) }}
                 >
                   <X className="h-3 w-3 mr-1" />
                   Reset
@@ -830,6 +927,17 @@ function ConversationsPageContent() {
                             IA
                           </Badge>
                         )}
+                        {conv.lifecycle_stage_id && (() => {
+                          const stage = lifecycleStages.find((s) => s.id === conv.lifecycle_stage_id)
+                          return stage ? (
+                            <Badge
+                              className="h-4 px-1.5 text-[9px] border-0"
+                              style={{ backgroundColor: `${stage.color}15`, color: stage.color }}
+                            >
+                              {stage.name}
+                            </Badge>
+                          ) : null
+                        })()}
                       </div>
 
                       {/* Tags */}
@@ -1008,6 +1116,48 @@ function ConversationsPageContent() {
 
               {/* Agent IA controls */}
               <div className="hidden sm:flex items-center gap-2">
+                {/* Lifecycle stage selector */}
+                {lifecycleStages.length > 0 && (
+                  <div className="flex items-center gap-1">
+                    <Select
+                      value={selectedConv.lifecycle_stage_id || 'none'}
+                      onValueChange={(val) =>
+                        handleChangeLifecycleStage(selectedConv.id, val === 'none' ? null : val)
+                      }
+                    >
+                      <SelectTrigger className="h-8 w-[130px] text-xs border-0 bg-muted/50">
+                        <Workflow className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
+                        <SelectValue placeholder="Stage" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">Non classifié</SelectItem>
+                        {lifecycleStages.map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            <span className="flex items-center gap-1.5">
+                              <span className="h-2 w-2 rounded-full" style={{ backgroundColor: s.color }} />
+                              {s.name}
+                            </span>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => handleAnalyzeConversation(selectedConv.id)}
+                      disabled={analyzingConvId === selectedConv.id}
+                      title="Analyser avec l'IA"
+                    >
+                      {analyzingConvId === selectedConv.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                  </div>
+                )}
+
                 <Select
                   value={selectedConv.ai_agent_id || 'none'}
                   onValueChange={(val) =>

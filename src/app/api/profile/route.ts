@@ -77,11 +77,12 @@ export async function PATCH(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { full_name, avatar_url, timezone, data_retention_months } = body as {
+  const { full_name, avatar_url, timezone, data_retention_months, lifecycle_analysis_threshold } = body as {
     full_name?: string
     avatar_url?: string
     timezone?: string
     data_retention_months?: number | null
+    lifecycle_analysis_threshold?: number | null
   }
 
   const updateData: Record<string, unknown> = {}
@@ -89,6 +90,7 @@ export async function PATCH(req: NextRequest) {
   if (avatar_url !== undefined) updateData.avatar_url = avatar_url.trim() || null
   if (timezone !== undefined) updateData.timezone = timezone
   if (data_retention_months !== undefined) updateData.data_retention_months = data_retention_months
+  if (lifecycle_analysis_threshold !== undefined) updateData.lifecycle_analysis_threshold = lifecycle_analysis_threshold
 
   if (Object.keys(updateData).length === 0) {
     return NextResponse.json({ error: 'Rien à modifier' }, { status: 400 })

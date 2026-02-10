@@ -48,6 +48,8 @@ import {
   CreditCard,
   Cpu,
   Zap,
+  Workflow,
+  Sparkles,
   MessageSquare,
   Mic,
   Image as ImageIcon,
@@ -120,6 +122,7 @@ export default function SettingsPage() {
   const [formAvatarUrl, setFormAvatarUrl] = useState('')
   const [formTimezone, setFormTimezone] = useState('Europe/Paris')
   const [formDataRetention, setFormDataRetention] = useState<number | null>(null)
+  const [formLifecycleThreshold, setFormLifecycleThreshold] = useState<number | null>(null)
 
   // Password change state
   const [currentPassword, setCurrentPassword] = useState('')
@@ -167,6 +170,7 @@ export default function SettingsPage() {
           setFormAvatarUrl(json.data.avatar_url || '')
           setFormTimezone(json.data.timezone || 'Europe/Paris')
           setFormDataRetention(json.data.data_retention_months)
+          setFormLifecycleThreshold(json.data.lifecycle_analysis_threshold ?? null)
         }
       } catch {
         toast.error('Erreur lors du chargement du profil')
@@ -202,6 +206,7 @@ export default function SettingsPage() {
           avatar_url: formAvatarUrl.trim(),
           timezone: formTimezone,
           data_retention_months: formDataRetention,
+          lifecycle_analysis_threshold: formLifecycleThreshold,
         }),
       })
       const json = await res.json()
@@ -964,6 +969,56 @@ export default function SettingsPage() {
                   Purger maintenant
                 </Button>
               )}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Analyse Lifecycle */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Workflow className="h-5 w-5" />
+              Analyse Lifecycle
+            </CardTitle>
+            <CardDescription>
+              Configurez la fréquence d&apos;analyse automatique pour classifier vos conversations.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="space-y-2">
+              <Label>Fréquence d&apos;analyse automatique</Label>
+              <Select
+                value={formLifecycleThreshold === null ? 'null' : String(formLifecycleThreshold)}
+                onValueChange={(value) => {
+                  setFormLifecycleThreshold(value === 'null' ? null : Number(value))
+                }}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Sélectionnez une fréquence" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="null">Manuel uniquement</SelectItem>
+                  <SelectItem value="1">Chaque message (~200 tokens/msg)</SelectItem>
+                  <SelectItem value="3">Tous les 3 messages</SelectItem>
+                  <SelectItem value="5">Tous les 5 messages</SelectItem>
+                  <SelectItem value="10">Tous les 10 messages</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {formLifecycleThreshold === null ? (
+                  <>L&apos;analyse ne sera déclenchée que manuellement depuis la page Lifecycle ou Conversations.</>
+                ) : formLifecycleThreshold === 1 ? (
+                  <>
+                    <Sparkles className="inline h-3 w-3 mr-1" />
+                    Chaque message entrant déclenchera une analyse (~200 tokens, ~0.001$ par analyse avec GPT-4o-mini).
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="inline h-3 w-3 mr-1" />
+                    L&apos;analyse se déclenchera tous les {formLifecycleThreshold} messages entrants.
+                  </>
+                )}
+              </p>
             </div>
           </CardContent>
         </Card>

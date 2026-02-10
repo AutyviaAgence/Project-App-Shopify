@@ -7,6 +7,7 @@ export type Profile = {
   avatar_url: string | null
   timezone: string
   data_retention_months: number | null // null = conserver indéfiniment
+  lifecycle_analysis_threshold: number | null // null = manuel, 1/3/5/10 = auto
   subscription_status: SubscriptionStatus
   trial_ends_at: string | null
   subscription_ends_at: string | null
@@ -127,6 +128,9 @@ export type Conversation = {
   last_message_preview: string | null
   unread_count: number
   is_ai_active: boolean
+  lifecycle_stage_id: string | null
+  lifecycle_last_analyzed_at: string | null
+  lifecycle_messages_since_analysis: number
   created_at: string
   updated_at: string
 }
@@ -427,6 +431,32 @@ export type CampaignOptOutKeyword = {
   created_at: string
 }
 
+// =============================================
+// Types Lifecycle
+// =============================================
+
+export type LifecycleStage = {
+  id: string
+  user_id: string
+  name: string
+  color: string
+  icon: string | null
+  position: number
+  description: string | null
+  created_at: string
+}
+
+export type LifecycleHistory = {
+  id: string
+  conversation_id: string
+  from_stage_id: string | null
+  to_stage_id: string | null
+  reason: string | null
+  changed_by: 'ai' | 'user'
+  tokens_used: number
+  created_at: string
+}
+
 // Joined types
 export type ConversationWithContact = Conversation & {
   contact: Contact
@@ -571,6 +601,18 @@ export type Database = {
         Row: CampaignOptOutKeyword
         Insert: Partial<CampaignOptOutKeyword> & Pick<CampaignOptOutKeyword, 'keyword'>
         Update: Partial<CampaignOptOutKeyword>
+        Relationships: []
+      }
+      lifecycle_stages: {
+        Row: LifecycleStage
+        Insert: Partial<LifecycleStage> & Pick<LifecycleStage, 'user_id' | 'name'>
+        Update: Partial<LifecycleStage>
+        Relationships: []
+      }
+      lifecycle_history: {
+        Row: LifecycleHistory
+        Insert: Partial<LifecycleHistory> & Pick<LifecycleHistory, 'conversation_id'>
+        Update: Partial<LifecycleHistory>
         Relationships: []
       }
     }

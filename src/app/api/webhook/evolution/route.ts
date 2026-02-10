@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { processAIResponse } from '@/lib/openai/process-ai-response'
+import { analyzeConversationLifecycle } from '@/lib/openai/lifecycle-analyzer'
 import { processMediaMessage, detectMessageType, getBase64Data, getMimeType } from '@/lib/openai/media-processor'
 import { recordTokenUsage } from '@/lib/openai/token-tracker'
 import { evolution } from '@/lib/evolution/client'
@@ -433,6 +434,31 @@ export async function POST(req: NextRequest) {
             })
 
             console.log(`[Webhook] Contact ${contact.id} added to blacklist`)
+          }
+        }
+
+        // 3c. Lifecycle auto-trigger (non-bloquant)
+        if (!fromMe) {
+          // Incrémenter le compteur de messages depuis la dernière analyse
+          const newCount = (conversation.lifecycle_messages_since_analysis || 0) + 1
+          await supabase
+            .from('conversations')
+            .update({ lifecycle_messages_since_analysis: newCount })
+            .eq('id', conversation.id)
+
+          // Vérifier si le seuil est atteint
+          const { data: userProfile } = await supabase
+            .from('profiles')
+            .select('lifecycle_analysis_threshold')
+            .eq('id', session.user_id)
+            .single()
+
+          const threshold = userProfile?.lifecycle_analysis_threshold
+          if (threshold && threshold > 0 && newCount >= threshold) {
+            // Fire-and-forget: ne bloque pas le webhook
+            analyzeConversationLifecycle(conversation.id, session.user_id).catch((err) =>
+              console.error('[Webhook] Lifecycle analysis error:', err)
+            )
           }
         }
 

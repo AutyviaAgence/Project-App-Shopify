@@ -18,6 +18,7 @@ export async function GET(req: NextRequest) {
   const dateFrom = searchParams.get('date_from')
   const dateTo = searchParams.get('date_to')
   const teamFilter = searchParams.get('team_id')
+  const lifecycleStageFilter = searchParams.get('lifecycle_stage_id')
   const searchQuery = searchParams.get('search')?.trim().toLowerCase()
   const page = parseInt(searchParams.get('page') || '1', 10)
   const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10), 100)
@@ -107,6 +108,13 @@ export async function GET(req: NextRequest) {
     query = query.eq('is_ai_active', true)
   } else if (aiActiveFilter === 'false') {
     query = query.eq('is_ai_active', false)
+  }
+
+  // Filter by lifecycle stage
+  if (lifecycleStageFilter === 'none') {
+    query = query.is('lifecycle_stage_id', null)
+  } else if (lifecycleStageFilter && lifecycleStageFilter !== 'all') {
+    query = query.eq('lifecycle_stage_id', lifecycleStageFilter)
   }
 
   // Filter by date range
