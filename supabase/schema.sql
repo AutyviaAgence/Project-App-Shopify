@@ -142,7 +142,7 @@ CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id
 CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
 CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_wa_id
-  ON messages(wa_message_id) WHERE wa_message_id IS NOT NULL;
+  ON messages(wa_message_id, session_id) WHERE wa_message_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_messages_ai_pending
   ON messages(conversation_id, ai_processed, created_at)
   WHERE direction = 'inbound' AND ai_processed = false;

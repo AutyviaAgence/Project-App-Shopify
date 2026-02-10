@@ -170,9 +170,8 @@ export async function POST(req: NextRequest) {
         let detectedMimeType: string | null = null
         let preloadedBase64: string | null = null
 
-        if (hasMedia && detectedType !== 'sticker' && !fromMe) {
-          // Télécharger le base64 uniquement pour les messages entrants
-          // Les messages fromMe sont traités par la session destinataire
+        if (hasMedia && detectedType !== 'sticker') {
+          // Télécharger le base64 (webhook payload ou API Evolution)
           preloadedBase64 = await getBase64Data(messagePayload, instanceName, waMessageId, remoteJid)
           if (preloadedBase64) {
             const downloadedBuffer = Buffer.from(preloadedBase64, 'base64')
@@ -337,15 +336,16 @@ export async function POST(req: NextRequest) {
         // Chiffrer le contenu du message si la clé est configurée
         const encryptedContent = content ? encryptMessage(content) : ''
 
-        // Vérifier si le message existe déjà (reconnexion = messages historiques renvoyés)
+        // Vérifier si le message existe déjà pour CETTE session (reconnexion = messages renvoyés)
         if (waMessageId) {
           const { data: existing } = await supabase
             .from('messages')
             .select('id')
             .eq('wa_message_id', waMessageId)
+            .eq('session_id', session.id)
             .maybeSingle()
           if (existing) {
-            console.log(`[Webhook] Message already exists, skipping: ${waMessageId}`)
+            console.log(`[Webhook] Message already exists for this session, skipping: ${waMessageId}`)
             break
           }
         }
