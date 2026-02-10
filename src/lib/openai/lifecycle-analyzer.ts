@@ -29,6 +29,19 @@ export type LifecycleAnalysisResult = {
 }
 
 /**
+ * Normalise un nom de stage pour la comparaison (accents, casse, espaces).
+ */
+function normalizeForMatch(str: string): string {
+  return str
+    .toLowerCase()
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Supprimer les accents
+    .replace(/[^a-z0-9\s]/g, '') // Garder uniquement alphanum + espaces
+    .replace(/\s+/g, ' ')
+}
+
+/**
  * Analyse une conversation et la classifie dans un stage du pipeline.
  * Utilise GPT-4o-mini pour rapidité et coût minimal (~0.001$/analyse).
  */
@@ -38,14 +51,28 @@ export async function analyzeConversationLifecycle(
 ): Promise<LifecycleAnalysisResult> {
   const supabase = getAdminClient()
 
+  console.log(`[Lifecycle] Starting analysis for conversation ${conversationId}, user ${userId}`)
+
   // 1. Récupérer les stages de l'utilisateur
-  const { data: stages } = await supabase
+  const { data: stages, error: stagesError } = await supabase
     .from('lifecycle_stages')
     .select('*')
     .eq('user_id', userId)
     .order('position')
 
+  if (stagesError) {
+    console.error('[Lifecycle] Error fetching stages:', stagesError.message)
+    return {
+      conversationId,
+      stageId: null,
+      stageName: null,
+      reason: `Erreur DB stages: ${stagesError.message}`,
+      tokensUsed: 0,
+    }
+  }
+
   if (!stages || stages.length === 0) {
+    console.warn(`[Lifecycle] No stages found for user ${userId}`)
     return {
       conversationId,
       stageId: null,
@@ -54,6 +81,8 @@ export async function analyzeConversationLifecycle(
       tokensUsed: 0,
     }
   }
+
+  console.log(`[Lifecycle] Found ${stages.length} stages: ${stages.map(s => s.name).join(', ')}`)
 
   // 2. Récupérer le stage actuel de la conversation
   const { data: conversation } = await supabase
@@ -65,14 +94,19 @@ export async function analyzeConversationLifecycle(
   const currentStageId = conversation?.lifecycle_stage_id || null
 
   // 3. Récupérer les 20 derniers messages (déchiffrés)
-  const { data: messages } = await supabase
+  const { data: messages, error: msgsError } = await supabase
     .from('messages')
     .select('content, transcription, sent_by, message_type, created_at')
     .eq('conversation_id', conversationId)
     .order('created_at', { ascending: false })
     .limit(20)
 
+  if (msgsError) {
+    console.error('[Lifecycle] Error fetching messages:', msgsError.message)
+  }
+
   if (!messages || messages.length === 0) {
+    console.warn(`[Lifecycle] No messages found for conversation ${conversationId}`)
     return {
       conversationId,
       stageId: null,
@@ -82,12 +116,14 @@ export async function analyzeConversationLifecycle(
     }
   }
 
+  console.log(`[Lifecycle] Found ${messages.length} messages for conversation ${conversationId}`)
+
   // Trier du plus ancien au plus récent pour le contexte
   const orderedMessages = messages.reverse()
 
   // 4. Construire le prompt
-  const stagesList = stages
-    .map((s) => `- ${s.name}: ${s.description || 'Pas de description'}`)
+  const stagesListForPrompt = stages
+    .map((s, i) => `${i + 1}. ${s.name}: ${s.description || 'Pas de description'}`)
     .join('\n')
 
   const messagesList = orderedMessages
@@ -102,15 +138,15 @@ export async function analyzeConversationLifecycle(
   const systemPrompt = `Tu es un assistant de classification de conversations WhatsApp.
 
 Voici les stades du pipeline commercial de l'utilisateur :
-${stagesList}
+${stagesListForPrompt}
 
 Voici les derniers messages de la conversation (du plus ancien au plus récent) :
 ${messagesList}
 
 Quel stade correspond le mieux à cette conversation ?
 Réponds UNIQUEMENT en JSON : { "stage_name": "...", "reason": "..." }
-Le stage_name doit correspondre exactement à un des stades listés ci-dessus.
-La reason doit être une phrase courte expliquant pourquoi.`
+Le stage_name doit correspondre EXACTEMENT à un des noms de stades listés ci-dessus (copie le nom tel quel).
+La reason doit être une phrase courte en français expliquant pourquoi.`
 
   // 5. Appeler GPT-4o-mini
   try {
@@ -124,6 +160,8 @@ La reason doit être une phrase courte expliquant pourquoi.`
 
     const tokensUsed = response.usage?.total_tokens || 0
     const rawContent = response.choices[0]?.message?.content || ''
+
+    console.log(`[Lifecycle] AI response for ${conversationId}: ${rawContent} (${tokensUsed} tokens)`)
 
     // 6. Parser la réponse JSON
     let stageName: string | null = null
@@ -141,15 +179,34 @@ La reason doit être une phrase courte expliquant pourquoi.`
       console.error('[Lifecycle] Failed to parse AI response:', rawContent)
     }
 
-    // 7. Trouver le stage correspondant
-    const matchedStage = stageName
+    // 7. Trouver le stage correspondant (exact match, puis fuzzy)
+    let matchedStage = stageName
       ? stages.find((s) => s.name.toLowerCase() === stageName!.toLowerCase())
       : null
+
+    // Fuzzy match si exact match échoue (accents, espaces, etc.)
+    if (!matchedStage && stageName) {
+      const normalized = normalizeForMatch(stageName)
+      matchedStage = stages.find((s) => normalizeForMatch(s.name) === normalized)
+
+      // Fallback: match partiel (le nom du stage est contenu dans la réponse ou vice-versa)
+      if (!matchedStage) {
+        matchedStage = stages.find(
+          (s) => normalizeForMatch(s.name).includes(normalized) || normalized.includes(normalizeForMatch(s.name))
+        )
+      }
+
+      if (matchedStage) {
+        console.log(`[Lifecycle] Fuzzy matched "${stageName}" → "${matchedStage.name}"`)
+      } else {
+        console.warn(`[Lifecycle] No match found for stage_name "${stageName}". Available: ${stages.map(s => s.name).join(', ')}`)
+      }
+    }
 
     const newStageId = matchedStage?.id || null
 
     // 8. Mettre à jour la conversation
-    await supabase
+    const { error: updateError } = await supabase
       .from('conversations')
       .update({
         lifecycle_stage_id: newStageId,
@@ -158,9 +215,13 @@ La reason doit être une phrase courte expliquant pourquoi.`
       })
       .eq('id', conversationId)
 
+    if (updateError) {
+      console.error(`[Lifecycle] Error updating conversation ${conversationId}:`, updateError.message)
+    }
+
     // 9. Insérer dans l'historique (seulement si le stage a changé)
     if (newStageId !== currentStageId) {
-      await supabase.from('lifecycle_history').insert({
+      const { error: historyError } = await supabase.from('lifecycle_history').insert({
         conversation_id: conversationId,
         from_stage_id: currentStageId,
         to_stage_id: newStageId,
@@ -168,12 +229,17 @@ La reason doit être une phrase courte expliquant pourquoi.`
         changed_by: 'ai',
         tokens_used: tokensUsed,
       })
+      if (historyError) {
+        console.error(`[Lifecycle] Error inserting history:`, historyError.message)
+      }
     }
 
     // 10. Comptabiliser les tokens
     if (tokensUsed > 0) {
       await recordTokenUsage(userId, tokensUsed)
     }
+
+    console.log(`[Lifecycle] ✓ Conversation ${conversationId} → ${matchedStage?.name || 'null'} (${reason})`)
 
     return {
       conversationId,
@@ -207,10 +273,15 @@ export async function analyzeMultipleConversations(
   const batch = conversationIds.slice(0, MAX_BATCH)
   const results: LifecycleAnalysisResult[] = []
 
+  console.log(`[Lifecycle] Bulk analysis: ${batch.length} conversations for user ${userId}`)
+
   for (const convId of batch) {
     const result = await analyzeConversationLifecycle(convId, userId)
     results.push(result)
   }
+
+  const classified = results.filter(r => r.stageId !== null).length
+  console.log(`[Lifecycle] Bulk complete: ${classified}/${results.length} classified`)
 
   return results
 }

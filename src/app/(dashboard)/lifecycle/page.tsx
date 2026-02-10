@@ -270,7 +270,22 @@ export default function LifecyclePage() {
       const res = await fetch('/api/lifecycle/analyze/unanalyzed', { method: 'POST' })
       const json = await res.json()
       if (res.ok) {
-        toast.success(`${json.total_analyzed} conversation(s) analysée(s) — ${json.total_tokens} tokens utilisés`)
+        const classified = (json.data || []).filter((r: { stageId: string | null }) => r.stageId !== null).length
+        const failed = json.total_analyzed - classified
+        if (classified > 0) {
+          toast.success(`${classified} conversation(s) classifiée(s) — ${json.total_tokens} tokens`)
+        }
+        if (failed > 0) {
+          const failedReasons = (json.data || [])
+            .filter((r: { stageId: string | null }) => r.stageId === null)
+            .map((r: { reason: string }) => r.reason)
+            .slice(0, 3)
+          toast.warning(`${failed} conversation(s) non classifiée(s): ${failedReasons.join(', ')}`)
+        }
+        if (json.total_analyzed === 0) {
+          toast.info('Aucune conversation à analyser')
+        }
+        fetchStages()
         fetchUnanalyzed()
         fetchStats()
       } else {
