@@ -43,6 +43,15 @@ CREATE INDEX IF NOT EXISTS idx_lifecycle_history_conversation_id ON lifecycle_hi
 CREATE INDEX IF NOT EXISTS idx_conversations_lifecycle_stage_id ON conversations(lifecycle_stage_id);
 
 -- =============================================
+-- GRANT permissions (requis pour que service_role et authenticated puissent accéder)
+-- =============================================
+
+GRANT ALL ON lifecycle_stages TO authenticated;
+GRANT ALL ON lifecycle_stages TO service_role;
+GRANT ALL ON lifecycle_history TO authenticated;
+GRANT ALL ON lifecycle_history TO service_role;
+
+-- =============================================
 -- RLS Policies
 -- =============================================
 
