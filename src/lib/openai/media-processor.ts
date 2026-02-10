@@ -29,6 +29,7 @@ export function detectMessageType(message: MessagePayload): {
   hasMedia: boolean
 } {
   if (message.audioMessage) return { type: 'audio', hasMedia: true }
+  if (message.pttMessage) return { type: 'audio', hasMedia: true }
   if (message.imageMessage) return { type: 'image', hasMedia: true }
   if (message.videoMessage) return { type: 'video', hasMedia: true }
   if (message.documentMessage) return { type: 'document', hasMedia: true }
@@ -87,7 +88,10 @@ export async function getBase64Data(
  */
 export function getMimeType(message: MessagePayload, type: string): string {
   const mediaMsg = message[`${type}Message`] as MessagePayload | undefined
+  // pttMessage is a voice note variant of audioMessage (WhatsApp Business)
+  const pttMsg = type === 'audio' ? message.pttMessage as MessagePayload | undefined : undefined
   if (mediaMsg?.mimetype) return mediaMsg.mimetype as string
+  if (pttMsg?.mimetype) return pttMsg.mimetype as string
 
   switch (type) {
     case 'audio': return 'audio/ogg; codecs=opus'
