@@ -41,6 +41,12 @@ export async function syncContactsFromWhatsApp(
 
   for (const chat of chats) {
     try {
+      // Ignorer les chats sans id (LID ou chats système)
+      if (!chat.id) {
+        skipped++
+        continue
+      }
+
       // Ignorer les groupes (se terminent par @g.us)
       if (chat.id.endsWith('@g.us')) {
         skipped++
