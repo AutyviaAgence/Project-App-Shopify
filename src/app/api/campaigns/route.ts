@@ -99,6 +99,7 @@ export async function POST(req: NextRequest) {
     filter_tracking_sources,
     filter_link_ids,
     filter_tag_ids,
+    filter_lifecycle_stage_ids,
     filter_inactivity_days,
     filter_exclude_replied,
     max_recipients,
@@ -121,6 +122,7 @@ export async function POST(req: NextRequest) {
     filter_tracking_sources?: string[]
     filter_link_ids?: string[]
     filter_tag_ids?: string[]
+    filter_lifecycle_stage_ids?: string[]
     filter_inactivity_days?: number
     filter_exclude_replied?: boolean
     max_recipients?: number
@@ -193,6 +195,7 @@ export async function POST(req: NextRequest) {
       filter_tracking_sources: filter_tracking_sources || null,
       filter_link_ids: filter_link_ids || null,
       filter_tag_ids: filter_tag_ids || null,
+      filter_lifecycle_stage_ids: filter_lifecycle_stage_ids || null,
       filter_inactivity_days: filter_inactivity_days || null,
       filter_exclude_replied: filter_exclude_replied ?? false,
       max_recipients: max_recipients ?? 50,

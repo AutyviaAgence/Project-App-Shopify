@@ -56,11 +56,37 @@ export async function GET(
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  let contacts = eligibleContacts || []
+
+  // Filtrer par lifecycle stage si spécifié
+  if (campaign.filter_lifecycle_stage_ids && campaign.filter_lifecycle_stage_ids.length > 0) {
+    const stageIds = campaign.filter_lifecycle_stage_ids as string[]
+    // Récupérer les conversation_ids avec leur lifecycle_stage_id
+    const conversationIds = contacts
+      .map((c: { conversation_id: string | null }) => c.conversation_id)
+      .filter(Boolean) as string[]
+
+    if (conversationIds.length > 0) {
+      const { data: convStages } = await supabase
+        .from('conversations')
+        .select('id, lifecycle_stage_id')
+        .in('id', conversationIds)
+        .in('lifecycle_stage_id', stageIds)
+
+      const validConvIds = new Set((convStages || []).map(c => c.id))
+      contacts = contacts.filter((c: { conversation_id: string | null }) =>
+        c.conversation_id && validConvIds.has(c.conversation_id)
+      )
+    } else {
+      contacts = []
+    }
+  }
+
   return NextResponse.json({
     data: {
-      eligible_count: eligibleContacts?.length || 0,
+      eligible_count: contacts.length,
       max_recipients: campaign.max_recipients,
-      contacts: eligibleContacts || [],
+      contacts,
     },
   })
 }
@@ -127,7 +153,32 @@ export async function POST(
     return NextResponse.json({ error: eligibleError.message }, { status: 500 })
   }
 
-  if (!eligibleContacts || eligibleContacts.length === 0) {
+  let filteredContacts = eligibleContacts || []
+
+  // Filtrer par lifecycle stage si spécifié
+  if (campaign.filter_lifecycle_stage_ids && campaign.filter_lifecycle_stage_ids.length > 0) {
+    const stageIds = campaign.filter_lifecycle_stage_ids as string[]
+    const conversationIds = filteredContacts
+      .map((c: { conversation_id: string | null }) => c.conversation_id)
+      .filter(Boolean) as string[]
+
+    if (conversationIds.length > 0) {
+      const { data: convStages } = await supabase
+        .from('conversations')
+        .select('id, lifecycle_stage_id')
+        .in('id', conversationIds)
+        .in('lifecycle_stage_id', stageIds)
+
+      const validConvIds = new Set((convStages || []).map(c => c.id))
+      filteredContacts = filteredContacts.filter((c: { conversation_id: string | null }) =>
+        c.conversation_id && validConvIds.has(c.conversation_id)
+      )
+    } else {
+      filteredContacts = []
+    }
+  }
+
+  if (!filteredContacts || filteredContacts.length === 0) {
     return NextResponse.json(
       { error: 'Aucun contact éligible trouvé' },
       { status: 400 }
@@ -135,7 +186,7 @@ export async function POST(
   }
 
   // Insérer les destinataires
-  const recipients = eligibleContacts.map((contact: {
+  const recipients = filteredContacts.map((contact: {
     contact_id: string
     conversation_id: string | null
     session_id: string

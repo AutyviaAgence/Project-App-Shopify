@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import type { AIAgent, WhatsAppSession, ConversationTag, Team, WALink } from '@/types/database'
+import type { AIAgent, WhatsAppSession, ConversationTag, Team, WALink, LifecycleStage } from '@/types/database'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -32,6 +32,7 @@ import {
   Tag,
   Link2,
   AlertTriangle,
+  Workflow,
 } from 'lucide-react'
 import { getSessionDisplayName } from '@/lib/format-phone'
 
@@ -52,6 +53,7 @@ export default function NewCampaignPage() {
   const [teams, setTeams] = useState<TeamWithRole[]>([])
   const [trackingSources, setTrackingSources] = useState<string[]>([])
   const [links, setLinks] = useState<WALink[]>([])
+  const [lifecycleStages, setLifecycleStages] = useState<LifecycleStage[]>([])
 
   // Form state
   const [name, setName] = useState('')
@@ -66,6 +68,7 @@ export default function NewCampaignPage() {
   const [filterTrackingSources, setFilterTrackingSources] = useState<string[]>([])
   const [filterLinkIds, setFilterLinkIds] = useState<string[]>([])
   const [filterTagIds, setFilterTagIds] = useState<string[]>([])
+  const [filterLifecycleStageIds, setFilterLifecycleStageIds] = useState<string[]>([])
   const [filterInactivityDays, setFilterInactivityDays] = useState<number>(7)
   const [filterExcludeReplied, setFilterExcludeReplied] = useState(false)
 
@@ -80,20 +83,22 @@ export default function NewCampaignPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [sessionsRes, agentsRes, tagsRes, teamsRes, linksRes] = await Promise.all([
+      const [sessionsRes, agentsRes, tagsRes, teamsRes, linksRes, lifecycleRes] = await Promise.all([
         fetch('/api/sessions'),
         fetch('/api/agents'),
         fetch('/api/tags'),
         fetch('/api/teams'),
         fetch('/api/links'),
+        fetch('/api/lifecycle/stages'),
       ])
 
-      const [sessionsJson, agentsJson, tagsJson, teamsJson, linksJson] = await Promise.all([
+      const [sessionsJson, agentsJson, tagsJson, teamsJson, linksJson, lifecycleJson] = await Promise.all([
         sessionsRes.json(),
         agentsRes.json(),
         tagsRes.json(),
         teamsRes.json(),
         linksRes.json(),
+        lifecycleRes.json(),
       ])
 
       if (sessionsJson.data) setSessions(sessionsJson.data)
@@ -106,6 +111,7 @@ export default function NewCampaignPage() {
         setTeams(teamsJson.data.filter((t: TeamWithRole) => t.my_role === 'owner' || t.my_role === 'admin'))
       }
       if (linksJson.data) setLinks(linksJson.data)
+      if (lifecycleJson.data) setLifecycleStages(lifecycleJson.data)
 
       // Récupérer les sources de tracking uniques
       const sourcesRes = await fetch('/api/conversations?tracking_sources=true')
@@ -146,6 +152,7 @@ export default function NewCampaignPage() {
           filter_tracking_sources: filterTrackingSources.length > 0 ? filterTrackingSources : null,
           filter_link_ids: filterLinkIds.length > 0 ? filterLinkIds : null,
           filter_tag_ids: filterTagIds.length > 0 ? filterTagIds : null,
+          filter_lifecycle_stage_ids: filterLifecycleStageIds.length > 0 ? filterLifecycleStageIds : null,
           filter_inactivity_days: filterInactivityDays,
           filter_exclude_replied: filterExcludeReplied,
           max_recipients: maxRecipients,
@@ -228,6 +235,7 @@ export default function NewCampaignPage() {
           filter_tracking_sources: filterTrackingSources.length > 0 ? filterTrackingSources : null,
           filter_link_ids: filterLinkIds.length > 0 ? filterLinkIds : null,
           filter_tag_ids: filterTagIds.length > 0 ? filterTagIds : null,
+          filter_lifecycle_stage_ids: filterLifecycleStageIds.length > 0 ? filterLifecycleStageIds : null,
           filter_inactivity_days: filterInactivityDays,
           filter_exclude_replied: filterExcludeReplied,
           max_recipients: maxRecipients,
@@ -542,6 +550,38 @@ export default function NewCampaignPage() {
                       }}
                     >
                       {tag.name}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Lifecycle stages */}
+            {lifecycleStages.length > 0 && (
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Workflow className="h-4 w-4" />
+                  Stade lifecycle
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Cibler uniquement les contacts dans ces stades de pipeline
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {lifecycleStages.map((stage) => (
+                    <Badge
+                      key={stage.id}
+                      variant={filterLifecycleStageIds.includes(stage.id) ? 'default' : 'outline'}
+                      className="cursor-pointer"
+                      style={{ backgroundColor: filterLifecycleStageIds.includes(stage.id) ? stage.color : undefined }}
+                      onClick={() => {
+                        setFilterLifecycleStageIds((prev) =>
+                          prev.includes(stage.id)
+                            ? prev.filter((id) => id !== stage.id)
+                            : [...prev, stage.id]
+                        )
+                      }}
+                    >
+                      {stage.name}
                     </Badge>
                   ))}
                 </div>

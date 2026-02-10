@@ -91,3 +91,8 @@ CREATE POLICY "lifecycle_history_insert" ON lifecycle_history FOR INSERT
       AND ws.user_id = auth.uid()
     )
   );
+
+-- =============================================
+-- ALTER campaigns — Ajouter filtre lifecycle
+-- =============================================
+ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS filter_lifecycle_stage_ids UUID[] DEFAULT NULL;

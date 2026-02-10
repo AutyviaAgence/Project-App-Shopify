@@ -356,6 +356,7 @@ export type Campaign = {
   filter_tracking_sources: string[] | null
   filter_tag_ids: string[] | null
   filter_link_ids: string[] | null
+  filter_lifecycle_stage_ids: string[] | null
   filter_inactivity_days: number | null
   filter_exclude_replied: boolean
 

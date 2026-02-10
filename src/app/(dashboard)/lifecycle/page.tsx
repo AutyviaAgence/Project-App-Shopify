@@ -30,6 +30,11 @@ import {
   Sparkles,
   ArrowUp,
   ArrowDown,
+  BarChart3,
+  TrendingUp,
+  Zap,
+  History,
+  ArrowRight,
 } from 'lucide-react'
 
 const STAGE_COLORS = [
@@ -66,11 +71,45 @@ type UnanalyzedCounts = {
 
 type StageStats = Record<string, number>
 
+type DistributionItem = {
+  stage_id: string
+  stage_name: string
+  stage_color: string
+  stage_icon: string | null
+  count: number
+  percentage: number
+}
+
+type TransitionItem = {
+  id: string
+  conversation_id: string
+  from_stage_name: string | null
+  from_stage_color: string | null
+  to_stage_name: string | null
+  to_stage_color: string | null
+  reason: string | null
+  changed_by: string
+  tokens_used: number
+  created_at: string
+}
+
+type LifecycleStats = {
+  total_conversations: number
+  classified: number
+  unclassified: number
+  distribution: DistributionItem[]
+  recent_transitions: TransitionItem[]
+  tokens_used_total: number
+  ai_analyses_count: number
+  manual_changes_count: number
+}
+
 export default function LifecyclePage() {
   const [stages, setStages] = useState<LifecycleStage[]>([])
   const [loading, setLoading] = useState(true)
   const [unanalyzed, setUnanalyzed] = useState<UnanalyzedCounts>({ unanalyzed: 0, needs_reanalysis: 0, total: 0 })
   const [stageStats, setStageStats] = useState<StageStats>({})
+  const [lifecycleStats, setLifecycleStats] = useState<LifecycleStats | null>(null)
 
   // Création
   const [newName, setNewName] = useState('')
@@ -123,13 +162,14 @@ export default function LifecyclePage() {
 
   const fetchStats = useCallback(async () => {
     try {
-      const res = await fetch('/api/conversations?limit=100')
+      const res = await fetch('/api/lifecycle/stats')
       const json = await res.json()
       if (res.ok && json.data) {
+        setLifecycleStats(json.data)
+        // Also set stageStats for the pipeline card
         const stats: StageStats = {}
-        for (const conv of json.data) {
-          const stageId = conv.lifecycle_stage_id || 'none'
-          stats[stageId] = (stats[stageId] || 0) + 1
+        for (const d of json.data.distribution) {
+          stats[d.stage_id] = d.count
         }
         setStageStats(stats)
       }
@@ -618,32 +658,178 @@ export default function LifecyclePage() {
           </CardContent>
         </Card>
 
-        {/* Stats rapides */}
-        {stages.length > 0 && (
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Répartition</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-3 grid-cols-2 sm:grid-cols-3">
-                {stages.map((stage) => (
-                  <div key={stage.id} className="flex items-center gap-2 p-2 rounded-md border">
-                    <span
-                      className="h-3 w-3 rounded-full shrink-0"
-                      style={{ backgroundColor: stage.color }}
-                    />
-                    <span className="text-sm truncate">{stage.name}</span>
-                    <span className="text-sm font-bold ml-auto">{stageStats[stage.id] || 0}</span>
+        {/* Statistiques détaillées */}
+        {stages.length > 0 && lifecycleStats && (
+          <>
+            {/* KPIs */}
+            <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
+              <Card>
+                <CardContent className="pt-4 pb-3 px-4">
+                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                    <BarChart3 className="h-4 w-4" />
+                    <span className="text-xs">Total</span>
+                  </div>
+                  <p className="text-2xl font-bold">{lifecycleStats.total_conversations}</p>
+                  <p className="text-xs text-muted-foreground">conversations</p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 pb-3 px-4">
+                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                    <TrendingUp className="h-4 w-4" />
+                    <span className="text-xs">Classifiées</span>
+                  </div>
+                  <p className="text-2xl font-bold text-green-600">{lifecycleStats.classified}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {lifecycleStats.total_conversations > 0
+                      ? `${Math.round((lifecycleStats.classified / lifecycleStats.total_conversations) * 100)}%`
+                      : '0%'}
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 pb-3 px-4">
+                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                    <Zap className="h-4 w-4" />
+                    <span className="text-xs">Analyses IA</span>
+                  </div>
+                  <p className="text-2xl font-bold">{lifecycleStats.ai_analyses_count}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {lifecycleStats.tokens_used_total.toLocaleString()} tokens
+                  </p>
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="pt-4 pb-3 px-4">
+                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                    <Pencil className="h-4 w-4" />
+                    <span className="text-xs">Manuels</span>
+                  </div>
+                  <p className="text-2xl font-bold">{lifecycleStats.manual_changes_count}</p>
+                  <p className="text-xs text-muted-foreground">changements</p>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Répartition avec barres visuelles */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <BarChart3 className="h-4 w-4" />
+                  Répartition du pipeline
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                {lifecycleStats.distribution.map((d) => (
+                  <div key={d.stage_id}>
+                    <div className="flex items-center justify-between mb-1">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className="h-3 w-3 rounded-full shrink-0"
+                          style={{ backgroundColor: d.stage_color }}
+                        />
+                        <span className="text-sm font-medium">{d.stage_name}</span>
+                      </div>
+                      <span className="text-sm text-muted-foreground">
+                        {d.count} ({d.percentage}%)
+                      </span>
+                    </div>
+                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: `${d.percentage}%`,
+                          backgroundColor: d.stage_color,
+                          minWidth: d.count > 0 ? '4px' : '0',
+                        }}
+                      />
+                    </div>
                   </div>
                 ))}
-                <div className="flex items-center gap-2 p-2 rounded-md border border-dashed">
-                  <span className="h-3 w-3 rounded-full shrink-0 bg-muted-foreground/30" />
-                  <span className="text-sm text-muted-foreground truncate">Non classifié</span>
-                  <span className="text-sm font-bold ml-auto">{stageStats['none'] || 0}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+
+            {/* Dernières transitions */}
+            {lifecycleStats.recent_transitions.length > 0 && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <History className="h-4 w-4" />
+                    Dernières transitions
+                  </CardTitle>
+                  <CardDescription>
+                    Les 10 derniers changements de stade
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-2">
+                    {lifecycleStats.recent_transitions.map((t) => (
+                      <div
+                        key={t.id}
+                        className="flex items-center gap-2 p-2 rounded-md border text-sm"
+                      >
+                        {/* From stage */}
+                        {t.from_stage_name ? (
+                          <span
+                            className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium shrink-0"
+                            style={{
+                              backgroundColor: `${t.from_stage_color}20`,
+                              color: t.from_stage_color || undefined,
+                            }}
+                          >
+                            {t.from_stage_name}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium text-muted-foreground bg-muted shrink-0">
+                            —
+                          </span>
+                        )}
+
+                        <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
+
+                        {/* To stage */}
+                        {t.to_stage_name ? (
+                          <span
+                            className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium shrink-0"
+                            style={{
+                              backgroundColor: `${t.to_stage_color}20`,
+                              color: t.to_stage_color || undefined,
+                            }}
+                          >
+                            {t.to_stage_name}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium text-muted-foreground bg-muted shrink-0">
+                            —
+                          </span>
+                        )}
+
+                        {/* Reason */}
+                        <span className="text-xs text-muted-foreground truncate flex-1 min-w-0">
+                          {t.reason}
+                        </span>
+
+                        {/* Changed by + time */}
+                        <span className="text-xs text-muted-foreground shrink-0 flex items-center gap-1">
+                          {t.changed_by === 'ai' ? (
+                            <Sparkles className="h-3 w-3" />
+                          ) : (
+                            <Pencil className="h-3 w-3" />
+                          )}
+                          {new Date(t.created_at).toLocaleDateString('fr-FR', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </>
         )}
       </div>
 

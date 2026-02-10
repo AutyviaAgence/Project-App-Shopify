@@ -68,6 +68,29 @@ export async function GET(
 
   let contacts = eligibleContacts || []
 
+  // Filtrer par lifecycle stage si spécifié
+  if (campaign.filter_lifecycle_stage_ids && campaign.filter_lifecycle_stage_ids.length > 0) {
+    const stageIds = campaign.filter_lifecycle_stage_ids as string[]
+    const conversationIds = contacts
+      .map((c: { conversation_id: string | null }) => c.conversation_id)
+      .filter(Boolean) as string[]
+
+    if (conversationIds.length > 0) {
+      const { data: convStages } = await supabase
+        .from('conversations')
+        .select('id, lifecycle_stage_id')
+        .in('id', conversationIds)
+        .in('lifecycle_stage_id', stageIds)
+
+      const validConvIds = new Set((convStages || []).map(c => c.id))
+      contacts = contacts.filter((c: { conversation_id: string | null }) =>
+        c.conversation_id && validConvIds.has(c.conversation_id)
+      )
+    } else {
+      contacts = []
+    }
+  }
+
   // Appliquer le filtre de recherche côté serveur
   if (search) {
     const searchLower = search.toLowerCase()
@@ -201,8 +224,33 @@ export async function POST(
     }
   )
 
+  let eligibleFiltered = eligibleContacts || []
+
+  // Filtrer par lifecycle stage si spécifié
+  if (campaign.filter_lifecycle_stage_ids && campaign.filter_lifecycle_stage_ids.length > 0) {
+    const stageIds = campaign.filter_lifecycle_stage_ids as string[]
+    const conversationIds = eligibleFiltered
+      .map((c: { conversation_id: string | null }) => c.conversation_id)
+      .filter(Boolean) as string[]
+
+    if (conversationIds.length > 0) {
+      const { data: convStages } = await supabase
+        .from('conversations')
+        .select('id, lifecycle_stage_id')
+        .in('id', conversationIds)
+        .in('lifecycle_stage_id', stageIds)
+
+      const validConvIds = new Set((convStages || []).map(c => c.id))
+      eligibleFiltered = eligibleFiltered.filter((c: { conversation_id: string | null }) =>
+        c.conversation_id && validConvIds.has(c.conversation_id)
+      )
+    } else {
+      eligibleFiltered = []
+    }
+  }
+
   // Filtrer pour ne garder que les contacts sélectionnés
-  const selectedContacts = (eligibleContacts || []).filter(
+  const selectedContacts = eligibleFiltered.filter(
     (c: { contact_id: string }) => contact_ids.includes(c.contact_id)
   )
 
