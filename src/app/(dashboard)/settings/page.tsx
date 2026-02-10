@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTheme } from 'next-themes'
-import type { Profile } from '@/types/database'
+import type { Profile, ConversationTag } from '@/types/database'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -48,6 +48,12 @@ import {
   CreditCard,
   Cpu,
   Zap,
+  MessageSquare,
+  Mic,
+  Image as ImageIcon,
+  Play,
+  FileText,
+  Tag,
 } from 'lucide-react'
 import Link from 'next/link'
 
@@ -61,6 +67,14 @@ const RETENTION_OPTIONS = [
   { value: '24', label: '2 ans', months: 24 },
   { value: '36', label: '3 ans', months: 36 },
 ]
+
+const MESSAGE_TYPE_OPTIONS = [
+  { value: 'text', label: 'Texte', icon: MessageSquare },
+  { value: 'audio', label: 'Audio', icon: Mic },
+  { value: 'image', label: 'Images', icon: ImageIcon },
+  { value: 'video', label: 'Vidéos', icon: Play },
+  { value: 'document', label: 'Documents', icon: FileText },
+] as const
 
 const THEMES = [
   { value: 'light', label: 'Clair', icon: Sun },
@@ -125,10 +139,15 @@ export default function SettingsPage() {
   const [exporting, setExporting] = useState(false)
 
   // Purge state
-  const [purgePreview, setPurgePreview] = useState<{ messages_to_delete: number; cutoff_date: string | null } | null>(null)
+  const [purgePreview, setPurgePreview] = useState<{ messages_to_delete: number; media_to_delete: number; cutoff_date: string | null } | null>(null)
   const [loadingPurgePreview, setLoadingPurgePreview] = useState(false)
   const [purging, setPurging] = useState(false)
   const [purgeDialogOpen, setPurgeDialogOpen] = useState(false)
+
+  // Purge filters
+  const [allTags, setAllTags] = useState<ConversationTag[]>([])
+  const [purgeTagIds, setPurgeTagIds] = useState<string[]>([])
+  const [purgeMessageTypes, setPurgeMessageTypes] = useState<string[]>([])
 
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
@@ -156,6 +175,20 @@ export default function SettingsPage() {
       }
     }
     loadProfile()
+
+    // Charger les tags pour les filtres de purge
+    async function loadTags() {
+      try {
+        const res = await fetch('/api/tags')
+        const json = await res.json()
+        if (res.ok && json.data) {
+          setAllTags(json.data)
+        }
+      } catch {
+        // silently ignore
+      }
+    }
+    loadTags()
   }, [])
 
   async function handleSaveProfile() {
@@ -287,7 +320,11 @@ export default function SettingsPage() {
   async function loadPurgePreview() {
     setLoadingPurgePreview(true)
     try {
-      const res = await fetch('/api/account/purge')
+      const params = new URLSearchParams()
+      if (purgeTagIds.length > 0) params.set('tag_ids', purgeTagIds.join(','))
+      if (purgeMessageTypes.length > 0) params.set('message_types', purgeMessageTypes.join(','))
+      const queryStr = params.toString()
+      const res = await fetch(`/api/account/purge${queryStr ? `?${queryStr}` : ''}`)
       const json = await res.json()
       if (res.ok) {
         setPurgePreview(json)
@@ -304,7 +341,14 @@ export default function SettingsPage() {
   async function handlePurgeData() {
     setPurging(true)
     try {
-      const res = await fetch('/api/account/purge', { method: 'POST' })
+      const res = await fetch('/api/account/purge', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tag_ids: purgeTagIds.length > 0 ? purgeTagIds : undefined,
+          message_types: purgeMessageTypes.length > 0 ? purgeMessageTypes : undefined,
+        }),
+      })
       const json = await res.json()
       if (res.ok) {
         toast.success(json.message || 'Messages supprimés')
@@ -318,6 +362,18 @@ export default function SettingsPage() {
     } finally {
       setPurging(false)
     }
+  }
+
+  function togglePurgeTag(tagId: string) {
+    setPurgeTagIds((prev) =>
+      prev.includes(tagId) ? prev.filter((id) => id !== tagId) : [...prev, tagId]
+    )
+  }
+
+  function togglePurgeMessageType(type: string) {
+    setPurgeMessageTypes((prev) =>
+      prev.includes(type) ? prev.filter((t) => t !== type) : [...prev, type]
+    )
   }
 
   if (loading) {
@@ -785,6 +841,102 @@ export default function SettingsPage() {
               </div>
             )}
 
+            {/* Filtres de purge */}
+            {profile?.data_retention_months && (
+              <Separator />
+            )}
+
+            {profile?.data_retention_months && (
+              <div className="space-y-3">
+                <Label className="flex items-center gap-2">
+                  <Tag className="h-4 w-4" />
+                  Filtres de purge (optionnel)
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Affinez la purge en sélectionnant des tags ou types de messages spécifiques.
+                  Sans filtre, tous les messages anciens seront supprimés.
+                </p>
+
+                {/* Filtre par tags */}
+                {allTags.length > 0 && (
+                  <div className="space-y-1.5">
+                    <p className="text-xs font-medium text-muted-foreground">Par tags de conversation (ET)</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {allTags.map((tag) => {
+                        const isSelected = purgeTagIds.includes(tag.id)
+                        return (
+                          <button
+                            key={tag.id}
+                            onClick={() => togglePurgeTag(tag.id)}
+                            className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium transition-all ${
+                              isSelected
+                                ? 'ring-2 ring-offset-1 ring-offset-background'
+                                : 'opacity-60 hover:opacity-100'
+                            }`}
+                            style={{
+                              backgroundColor: `${tag.color}20`,
+                              color: tag.color,
+                              ...(isSelected ? { ringColor: tag.color } : {}),
+                            }}
+                          >
+                            {tag.name}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Filtre par type de message */}
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-muted-foreground">Par type de message</p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {MESSAGE_TYPE_OPTIONS.map((opt) => {
+                      const Icon = opt.icon
+                      const isSelected = purgeMessageTypes.includes(opt.value)
+                      return (
+                        <button
+                          key={opt.value}
+                          onClick={() => togglePurgeMessageType(opt.value)}
+                          className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all border ${
+                            isSelected
+                              ? 'bg-primary/10 text-primary border-primary/30'
+                              : 'bg-muted/50 text-muted-foreground border-transparent hover:bg-muted'
+                          }`}
+                        >
+                          <Icon className="h-3.5 w-3.5" />
+                          {opt.label}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Résumé des filtres actifs */}
+                {(purgeTagIds.length > 0 || purgeMessageTypes.length > 0) && (
+                  <div className="rounded-lg border bg-muted/30 p-2.5">
+                    <p className="text-xs text-muted-foreground">
+                      La purge ciblera
+                      {purgeMessageTypes.length > 0 && (
+                        <> les messages de type <strong>{purgeMessageTypes.map(t => MESSAGE_TYPE_OPTIONS.find(o => o.value === t)?.label).filter(Boolean).join(', ')}</strong></>
+                      )}
+                      {purgeTagIds.length > 0 && (
+                        <> des conversations avec {purgeTagIds.length > 1 ? 'tous les tags' : 'le tag'} <strong>{purgeTagIds.map(id => allTags.find(t => t.id === id)?.name).filter(Boolean).join(' + ')}</strong></>
+                      )}
+                      {purgeMessageTypes.length === 0 && purgeTagIds.length > 0 && <> (tous types)</>}
+                      .
+                    </p>
+                    <button
+                      onClick={() => { setPurgeTagIds([]); setPurgeMessageTypes([]) }}
+                      className="text-xs text-primary hover:underline mt-1"
+                    >
+                      Réinitialiser les filtres
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+
             <div className="flex gap-2">
               <Button onClick={handleSaveProfile} disabled={saving}>
                 {saving ? (
@@ -933,8 +1085,25 @@ export default function SettingsPage() {
                       Vous êtes sur le point de supprimer définitivement les messages
                       de plus de <strong>{profile?.data_retention_months} mois</strong>.
                     </p>
+
+                    {/* Filtres actifs */}
+                    {(purgeTagIds.length > 0 || purgeMessageTypes.length > 0) && (
+                      <div className="rounded-lg border bg-muted/30 p-2.5 space-y-1">
+                        {purgeTagIds.length > 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            Tags : <strong>{purgeTagIds.map(id => allTags.find(t => t.id === id)?.name).filter(Boolean).join(' + ')}</strong>
+                          </p>
+                        )}
+                        {purgeMessageTypes.length > 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            Types : <strong>{purgeMessageTypes.map(t => MESSAGE_TYPE_OPTIONS.find(o => o.value === t)?.label).filter(Boolean).join(', ')}</strong>
+                          </p>
+                        )}
+                      </div>
+                    )}
+
                     {purgePreview.messages_to_delete > 0 ? (
-                      <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
+                      <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 space-y-1">
                         <p className="text-sm text-amber-600 dark:text-amber-400">
                           <AlertTriangle className="inline-block h-4 w-4 mr-1" />
                           <strong>{purgePreview.messages_to_delete}</strong> message(s) seront supprimés.
@@ -944,6 +1113,11 @@ export default function SettingsPage() {
                             </span>
                           )}
                         </p>
+                        {purgePreview.media_to_delete > 0 && (
+                          <p className="text-xs text-amber-600/80 dark:text-amber-400/80">
+                            Dont <strong>{purgePreview.media_to_delete}</strong> fichier(s) média seront supprimés du stockage.
+                          </p>
+                        )}
                       </div>
                     ) : (
                       <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-3">

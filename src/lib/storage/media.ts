@@ -114,3 +114,35 @@ export async function downloadMediaFromStorage(
   const mimeType = data.type || 'application/octet-stream'
   return { ok: true, buffer, mimeType }
 }
+
+/**
+ * Supprime des fichiers média du storage en batch.
+ * Supabase .remove() supporte les arrays nativement, on batch par 100.
+ */
+export async function deleteMediaFiles(
+  storagePaths: string[]
+): Promise<{ deleted: number; errors: number }> {
+  if (storagePaths.length === 0) return { deleted: 0, errors: 0 }
+
+  const supabase = getAdminClient()
+  let deleted = 0
+  let errors = 0
+  const BATCH_SIZE = 100
+
+  for (let i = 0; i < storagePaths.length; i += BATCH_SIZE) {
+    const batch = storagePaths.slice(i, i + BATCH_SIZE)
+    const { data, error } = await supabase.storage
+      .from(BUCKET)
+      .remove(batch)
+
+    if (error) {
+      console.error('[MediaStorage] Batch delete error:', error.message)
+      errors += batch.length
+    } else {
+      deleted += data?.length || batch.length
+    }
+  }
+
+  console.log(`[MediaStorage] Deleted ${deleted} files, ${errors} errors`)
+  return { deleted, errors }
+}
