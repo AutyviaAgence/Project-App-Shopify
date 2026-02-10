@@ -143,6 +143,8 @@ export async function POST(req: NextRequest) {
               const mediaObj = msg[msg.type as keyof typeof msg] as { id?: string; caption?: string; filename?: string } | undefined
               const mediaId = mediaObj?.id
 
+              console.log(`[WABA Webhook] Media type: ${msg.type}, mediaId: ${mediaId}, hasToken: ${!!session.waba_access_token}`)
+
               if (mediaId && session.waba_access_token) {
                 // Étape 1 : Télécharger le média via Meta Graph API
                 const downloadResult = await wabaClient.downloadMedia(mediaId, session.waba_access_token)
@@ -192,6 +194,7 @@ export async function POST(req: NextRequest) {
                   content = mediaObj?.caption || `[${msg.type}]`
                 }
               } else {
+                console.warn(`[WABA Webhook] No mediaId or no access_token, fallback to [${msg.type}]`)
                 content = mediaObj?.caption || `[${msg.type}]`
               }
             } else {
