@@ -110,23 +110,7 @@ export const evolution = {
     })
   },
 
-  /** Chercher un message dans le store Baileys (pour résoudre le LID) */
-  findMessageById(instanceName: string, messageId: string) {
-    return request<{
-      messages: {
-        total: number
-        records: Array<{
-          key: { id: string; remoteJid: string; fromMe: boolean; remoteJidAlt?: string }
-          message: Record<string, unknown>
-        }>
-      }
-    }>(`/chat/findMessages/${instanceName}`, {
-      method: 'POST',
-      body: JSON.stringify({ where: { key: { id: messageId } } }),
-    })
-  },
-
-  /** Récupérer le média en base64 depuis un message (key only) */
+  /** Récupérer le média en base64 depuis un message */
   getBase64FromMediaMessage(
     instanceName: string,
     messageId: string,
@@ -137,18 +121,6 @@ export const evolution = {
       body: JSON.stringify({
         message: { key: { remoteJid, id: messageId } },
       }),
-      timeout: 30000,
-    })
-  },
-
-  /** Récupérer le média en base64 en passant le message complet (avec mediaKey etc.) */
-  getBase64FromFullMessage(
-    instanceName: string,
-    fullMessage: { key: Record<string, unknown>; message: Record<string, unknown> },
-  ) {
-    return request<{ base64: string }>(`/chat/getBase64FromMediaMessage/${instanceName}`, {
-      method: 'POST',
-      body: JSON.stringify({ message: fullMessage }),
       timeout: 30000,
     })
   },

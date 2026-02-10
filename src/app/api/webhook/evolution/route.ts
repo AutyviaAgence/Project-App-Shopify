@@ -170,8 +170,9 @@ export async function POST(req: NextRequest) {
         let detectedMimeType: string | null = null
         let preloadedBase64: string | null = null
 
-        if (hasMedia && detectedType !== 'sticker') {
-          // Télécharger le base64 en premier (avant transcription)
+        if (hasMedia && detectedType !== 'sticker' && !fromMe) {
+          // Télécharger le base64 uniquement pour les messages entrants
+          // Les messages fromMe sont traités par la session destinataire
           preloadedBase64 = await getBase64Data(messagePayload, instanceName, waMessageId, remoteJid)
           if (preloadedBase64) {
             const downloadedBuffer = Buffer.from(preloadedBase64, 'base64')

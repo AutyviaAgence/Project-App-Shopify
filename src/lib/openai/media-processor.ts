@@ -2,7 +2,6 @@ import 'server-only'
 import { evolution } from '@/lib/evolution/client'
 import { wabaClient } from '@/lib/whatsapp-cloud/client'
 import { transcribeAudio, describeImage } from './client'
-import { downloadAndDecryptMedia } from '@/lib/whatsapp-media-decrypt'
 
 export type MediaExtractionResult = {
   messageType: 'text' | 'image' | 'audio' | 'video' | 'document' | 'sticker' | 'location' | 'contact'
@@ -50,117 +49,9 @@ function stripDataUri(input: string): string {
   return input
 }
 
-/** Small delay helper */
-function delay(ms: number) {
-  return new Promise(resolve => setTimeout(resolve, ms))
-}
-
-/**
- * Extract media info (url, directPath, mediaKey) from a message payload.
- * Works with both webhook message payload and stored message from findMessages.
- */
-function extractMediaInfo(message: MessagePayload): {
-  url?: string
-  directPath?: string
-  mediaKey?: Record<string, number>
-  mediaType?: string
-} | null {
-  const mediaTypes = ['audio', 'image', 'video', 'document', 'sticker']
-  for (const type of mediaTypes) {
-    const mediaMsg = message[`${type}Message`] as MessagePayload | undefined
-    if (mediaMsg) {
-      return {
-        url: mediaMsg.url as string | undefined,
-        directPath: mediaMsg.directPath as string | undefined,
-        mediaKey: mediaMsg.mediaKey as Record<string, number> | undefined,
-        mediaType: type,
-      }
-    }
-  }
-  return null
-}
-
-/**
- * Try to download media directly from WhatsApp CDN and decrypt it.
- * This bypasses Evolution API entirely and uses the mediaKey from the webhook.
- */
-async function tryCdnDecrypt(
-  message: MessagePayload,
-  label: string
-): Promise<string | null> {
-  const info = extractMediaInfo(message)
-  if (!info?.mediaKey || (!info.url && !info.directPath)) {
-    return null
-  }
-
-  try {
-    const decrypted = await downloadAndDecryptMedia(
-      { url: info.url, directPath: info.directPath, mediaKey: info.mediaKey },
-      info.mediaType || 'audio'
-    )
-    if (decrypted && decrypted.length > 0) {
-      const b64 = decrypted.toString('base64')
-      console.log(`[MediaProcessor] ${label} — CDN decrypt success, length:`, b64.length)
-      return b64
-    }
-  } catch (err) {
-    console.error(`[MediaProcessor] ${label} CDN decrypt error:`, err)
-  }
-  return null
-}
-
-/**
- * Tente de récupérer le base64 via getBase64FromMediaMessage avec le JID donné.
- * Retourne le base64 brut ou null.
- */
-async function tryGetBase64(
-  instanceName: string,
-  messageId: string,
-  remoteJid: string,
-  label: string
-): Promise<string | null> {
-  try {
-    const result = await evolution.getBase64FromMediaMessage(instanceName, messageId, remoteJid)
-    if (result.ok && result.data?.base64 && result.data.base64.length > 0) {
-      const raw = stripDataUri(result.data.base64)
-      console.log(`[MediaProcessor] ${label} — got base64, length:`, raw.length)
-      return raw
-    }
-  } catch (err) {
-    console.error(`[MediaProcessor] ${label} error:`, err)
-  }
-  return null
-}
-
-/**
- * Tente de récupérer le base64 en passant le message complet (avec mediaKey).
- * Ceci permet à Evolution API de re-télécharger le média avec les bonnes clés.
- */
-async function tryGetBase64WithFullMessage(
-  instanceName: string,
-  fullMessage: { key: Record<string, unknown>; message: Record<string, unknown> },
-  label: string
-): Promise<string | null> {
-  try {
-    const result = await evolution.getBase64FromFullMessage(instanceName, fullMessage)
-    if (result.ok && result.data?.base64 && result.data.base64.length > 0) {
-      const raw = stripDataUri(result.data.base64)
-      console.log(`[MediaProcessor] ${label} — got base64 with full message, length:`, raw.length)
-      return raw
-    }
-  } catch (err) {
-    console.error(`[MediaProcessor] ${label} error:`, err)
-  }
-  return null
-}
-
 /**
  * Récupère le base64 depuis le payload webhook ou via l'API Evolution.
  * Retourne du base64 pur (sans préfixe data URI).
- *
- * Stratégie multi-étapes avec retries pour contourner le bug Baileys
- * où downloadMediaMessage('buffer') retourne un buffer vide pour les
- * messages de contacts externes.
  */
 export async function getBase64Data(
   message: MessagePayload,
@@ -168,88 +59,26 @@ export async function getBase64Data(
   messageId: string,
   remoteJid: string
 ): Promise<string | null> {
-  // 1. Check webhook payload (if WEBHOOK_BASE64 is enabled or injected)
+  // 1. Check webhook payload (if WEBHOOK_BASE64 is enabled)
   if (typeof message.base64 === 'string' && message.base64.length > 0) {
     const raw = stripDataUri(message.base64)
     console.log('[MediaProcessor] Using base64 from webhook payload, length:', raw.length)
     return raw
   }
 
-  // 2. Try immediately with webhook remoteJid via Evolution API
-  const immediate = await tryGetBase64(instanceName, messageId, remoteJid, 'Attempt 1 (webhook JID)')
-  if (immediate) return immediate
-
-  // 3. Try direct CDN download + decrypt using mediaKey from webhook payload
-  // This bypasses Evolution API's buggy downloadMediaMessage('buffer')
-  // Must be done ASAP before the CDN URL expires (minutes)
-  const cdnResult = await tryCdnDecrypt(message, 'Attempt 2 (CDN decrypt)')
-  if (cdnResult) return cdnResult
-
-  // 4. Resolve the LID and get full stored message for retries
-  let lidJid: string | null = null
-  let storedMessage: { key: Record<string, unknown>; message: Record<string, unknown> } | null = null
+  // 2. Fetch via Evolution API
   try {
-    const findResult = await evolution.findMessageById(instanceName, messageId)
-    if (findResult.ok && findResult.data?.messages?.records?.length > 0) {
-      const record = findResult.data.messages.records[0]
-      lidJid = record.key.remoteJid
-      storedMessage = { key: record.key as Record<string, unknown>, message: record.message }
-      if (lidJid && lidJid !== remoteJid) {
-        console.log('[MediaProcessor] Resolved LID:', lidJid, '(webhook had:', remoteJid + ')')
-      }
+    const result = await evolution.getBase64FromMediaMessage(instanceName, messageId, remoteJid)
+    if (result.ok && result.data?.base64 && result.data.base64.length > 0) {
+      const raw = stripDataUri(result.data.base64)
+      console.log('[MediaProcessor] Got base64 from Evolution API, length:', raw.length)
+      return raw
     }
+    console.warn('[MediaProcessor] Evolution API returned empty base64 for:', messageId)
   } catch (err) {
-    console.error('[MediaProcessor] findMessageById error:', err)
+    console.error('[MediaProcessor] getBase64FromMediaMessage error:', err)
   }
 
-  // 5. Try CDN decrypt with stored message (may have more complete media info)
-  if (storedMessage?.message) {
-    const storedCdn = await tryCdnDecrypt(storedMessage.message as MessagePayload, 'Attempt 3 (CDN stored msg)')
-    if (storedCdn) return storedCdn
-  }
-
-  // 6. Try with LID if different from webhook JID
-  if (lidJid && lidJid !== remoteJid) {
-    const lidResult = await tryGetBase64(instanceName, messageId, lidJid, 'Attempt 4 (LID)')
-    if (lidResult) return lidResult
-  }
-
-  // 7. Try with the FULL stored message via Evolution API
-  if (storedMessage) {
-    const fullResult = await tryGetBase64WithFullMessage(instanceName, storedMessage, 'Attempt 5 (full msg API)')
-    if (fullResult) return fullResult
-  }
-
-  // 8. RETRY WITH DELAYS — last resort
-  // Wait and retry to give Baileys more time
-  const retryDelays = [3000, 6000]
-
-  for (let i = 0; i < retryDelays.length; i++) {
-    console.log(`[MediaProcessor] Retry ${i + 1}/${retryDelays.length} — waiting ${retryDelays[i]}ms...`)
-    await delay(retryDelays[i])
-
-    try {
-      const findResult = await evolution.findMessageById(instanceName, messageId)
-      if (findResult.ok && findResult.data?.messages?.records?.length > 0) {
-        const record = findResult.data.messages.records[0]
-        const freshMessage = { key: record.key as Record<string, unknown>, message: record.message }
-
-        // Try CDN decrypt with fresh stored message
-        const cdnRetry = await tryCdnDecrypt(record.message as MessagePayload, `Retry ${i + 1} (CDN)`)
-        if (cdnRetry) return cdnRetry
-
-        // Try full message via Evolution API
-        const fullRetry = await tryGetBase64WithFullMessage(
-          instanceName, freshMessage, `Retry ${i + 1} (full msg API)`
-        )
-        if (fullRetry) return fullRetry
-      }
-    } catch (err) {
-      console.error(`[MediaProcessor] Retry ${i + 1} error:`, err)
-    }
-  }
-
-  console.warn('[MediaProcessor] All methods failed after retries for:', messageId)
   return null
 }
 
