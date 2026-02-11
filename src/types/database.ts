@@ -47,6 +47,7 @@ export type WhatsAppSession = {
   pairing_code: string | null
   phone_number: string | null
   daily_ai_message_limit: number | null
+  ai_message_delay: number | null
   integration_type: IntegrationType
   waba_phone_number_id: string | null
   waba_business_account_id: string | null

@@ -64,6 +64,7 @@ export default function SessionsPage() {
   const [webhookConfiguring, setWebhookConfiguring] = useState<string | null>(null)
   const [editingSession, setEditingSession] = useState<SessionWithTeamIds | null>(null)
   const [formDailyLimit, setFormDailyLimit] = useState('')
+  const [formAiMessageDelay, setFormAiMessageDelay] = useState('')
   const [formDisplayName, setFormDisplayName] = useState('')
   const [formSessionTeamIds, setFormSessionTeamIds] = useState<string[]>([])
   const [savingSettings, setSavingSettings] = useState(false)
@@ -379,6 +380,7 @@ export default function SessionsPage() {
         body: JSON.stringify({
           display_name: formDisplayName.trim() || null,
           daily_ai_message_limit: formDailyLimit.trim() ? parseInt(formDailyLimit) : null,
+          ai_message_delay: formAiMessageDelay.trim() ? parseInt(formAiMessageDelay) : null,
           team_ids: formSessionTeamIds,
         }),
       })
@@ -547,9 +549,15 @@ export default function SessionsPage() {
                       </div>
                     )}
                   </div>
-                  {session.daily_ai_message_limit != null && (
+                  {(session.daily_ai_message_limit != null || session.ai_message_delay != null) && (
                     <p className="mt-1 text-xs text-muted-foreground">
-                      Limite IA : {session.daily_ai_message_limit.toLocaleString('fr-FR')} msg/jour
+                      {session.daily_ai_message_limit != null && (
+                        <span>Limite IA : {session.daily_ai_message_limit.toLocaleString('fr-FR')} msg/jour</span>
+                      )}
+                      {session.daily_ai_message_limit != null && session.ai_message_delay != null && ' · '}
+                      {session.ai_message_delay != null && (
+                        <span>Délai : {session.ai_message_delay}s entre envois auto</span>
+                      )}
                     </p>
                   )}
 
@@ -662,6 +670,11 @@ export default function SessionsPage() {
                         setFormDailyLimit(
                           session.daily_ai_message_limit != null
                             ? String(session.daily_ai_message_limit)
+                            : ''
+                        )
+                        setFormAiMessageDelay(
+                          session.ai_message_delay != null
+                            ? String(session.ai_message_delay)
                             : ''
                         )
                         setFormSessionTeamIds(session.team_ids || (session.team_id ? [session.team_id] : []))
@@ -866,6 +879,26 @@ export default function SessionsPage() {
               <p className="text-xs text-muted-foreground">
                 Nombre maximum de messages envoyés par l&apos;IA par jour pour
                 cette session. Laisser vide = pas de limite.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="ai-delay">
+                Délai entre envois automatiques (secondes)
+              </Label>
+              <Input
+                id="ai-delay"
+                type="number"
+                min={1}
+                max={60}
+                step={1}
+                placeholder="Pas de délai"
+                value={formAiMessageDelay}
+                onChange={(e) => setFormAiMessageDelay(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                Temps d&apos;attente entre chaque message automatique (IA ou campagne)
+                envoyé depuis cette session. Protège contre la détection anti-spam.
+                Laisser vide = pas de délai.
               </p>
             </div>
             <Button

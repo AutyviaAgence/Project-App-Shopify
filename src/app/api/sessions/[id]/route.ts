@@ -33,9 +33,10 @@ export async function PATCH(
   }
 
   const body = await req.json()
-  const { display_name, daily_ai_message_limit, team_id, team_ids } = body as {
+  const { display_name, daily_ai_message_limit, ai_message_delay, team_id, team_ids } = body as {
     display_name?: string | null
     daily_ai_message_limit?: number | null
+    ai_message_delay?: number | null
     team_id?: string | null
     team_ids?: string[]
   }
@@ -51,6 +52,13 @@ export async function PATCH(
   if (daily_ai_message_limit !== undefined) {
     updateData.daily_ai_message_limit = daily_ai_message_limit != null
       ? Math.max(1, Math.min(100000, Math.floor(daily_ai_message_limit)))
+      : null
+  }
+
+  // Gestion du délai entre envois automatiques
+  if (ai_message_delay !== undefined) {
+    updateData.ai_message_delay = ai_message_delay != null
+      ? Math.max(1, Math.min(60, Math.floor(ai_message_delay)))
       : null
   }
 

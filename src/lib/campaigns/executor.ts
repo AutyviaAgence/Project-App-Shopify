@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { checkTokenLimit, recordTokenUsage } from '@/lib/openai/token-tracker'
+import { withSessionDelay } from '@/lib/messaging/session-queue'
 
 /**
  * Exécuteur de campagnes de relance WhatsApp
@@ -150,7 +151,7 @@ async function executeCampaign(supabase: any, campaign: Campaign): Promise<void>
     // Récupérer session et contact
     const { data: session } = await supabase
       .from('whatsapp_sessions')
-      .select('id, instance_name, status, integration_type, waba_phone_number_id, waba_access_token')
+      .select('id, instance_name, status, integration_type, waba_phone_number_id, waba_access_token, ai_message_delay')
       .eq('id', recipient.session_id)
       .single()
 
@@ -213,7 +214,10 @@ async function executeCampaign(supabase: any, campaign: Campaign): Promise<void>
       .eq('id', recipient.id)
 
     // Envoyer le message via l'intégration appropriée (Evolution ou WABA)
-    const result = await sendWhatsAppMessage(session, contact.phone_number, message)
+    const sessionDelay = session.ai_message_delay ?? 0
+    const result = await withSessionDelay(session.id, sessionDelay, () =>
+      sendWhatsAppMessage(session, contact.phone_number, message)
+    )
 
     if (result.success) {
       await supabase

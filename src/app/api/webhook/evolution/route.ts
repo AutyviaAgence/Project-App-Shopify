@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { processAIResponse } from '@/lib/openai/process-ai-response'
+import { withSessionDelay } from '@/lib/messaging/session-queue'
 import { analyzeConversationLifecycle } from '@/lib/openai/lifecycle-analyzer'
 import { processMediaMessage, detectMessageType, getBase64Data, getMimeType } from '@/lib/openai/media-processor'
 import { recordTokenUsage } from '@/lib/openai/token-tracker'
@@ -634,19 +635,22 @@ export async function POST(req: NextRequest) {
             evolution.sendPresence(instanceName, phoneNumber, 'composing').catch(() => {})
 
             console.log('[Webhook] Triggering AI response...')
-            await processAIResponse({
-              conversationId: conversation.id,
-              sessionId: session.id,
-              instanceName: instanceName,
-              contactPhoneNumber: phoneNumber,
-              agentId: convFresh.ai_agent_id,
-              session: {
-                integration_type: (session.integration_type || 'evolution') as 'evolution' | 'waba',
-                instance_name: session.instance_name,
-                waba_phone_number_id: session.waba_phone_number_id || null,
-                waba_access_token: session.waba_access_token || null,
-              },
-            })
+            const sessionDelay = session.ai_message_delay ?? 0
+            await withSessionDelay(session.id, sessionDelay, () =>
+              processAIResponse({
+                conversationId: conversation.id,
+                sessionId: session.id,
+                instanceName: instanceName,
+                contactPhoneNumber: phoneNumber,
+                agentId: convFresh.ai_agent_id,
+                session: {
+                  integration_type: (session.integration_type || 'evolution') as 'evolution' | 'waba',
+                  instance_name: session.instance_name,
+                  waba_phone_number_id: session.waba_phone_number_id || null,
+                  waba_access_token: session.waba_access_token || null,
+                },
+              })
+            )
 
             // Arrêter l'indicateur de saisie après l'envoi
             evolution.sendPresence(instanceName, phoneNumber, 'paused').catch(() => {})

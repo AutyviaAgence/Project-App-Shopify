@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { processAIResponse } from '@/lib/openai/process-ai-response'
+import { withSessionDelay } from '@/lib/messaging/session-queue'
 import { analyzeConversationLifecycle } from '@/lib/openai/lifecycle-analyzer'
 import { processWabaMediaMessage } from '@/lib/openai/media-processor'
 import { encryptMessage } from '@/lib/crypto/encryption'
@@ -350,19 +351,22 @@ export async function POST(req: NextRequest) {
 
             if (convFresh?.is_ai_active && convFresh?.ai_agent_id) {
               console.log('[WABA Webhook] Triggering AI response...')
-              await processAIResponse({
-                conversationId: conversation.id,
-                sessionId: session.id,
-                instanceName: session.instance_name,
-                contactPhoneNumber: phoneNumber,
-                agentId: convFresh.ai_agent_id,
-                session: {
-                  integration_type: 'waba',
-                  instance_name: session.instance_name,
-                  waba_phone_number_id: session.waba_phone_number_id,
-                  waba_access_token: session.waba_access_token,
-                },
-              })
+              const sessionDelay = session.ai_message_delay ?? 0
+              await withSessionDelay(session.id, sessionDelay, () =>
+                processAIResponse({
+                  conversationId: conversation.id,
+                  sessionId: session.id,
+                  instanceName: session.instance_name,
+                  contactPhoneNumber: phoneNumber,
+                  agentId: convFresh.ai_agent_id,
+                  session: {
+                    integration_type: 'waba',
+                    instance_name: session.instance_name,
+                    waba_phone_number_id: session.waba_phone_number_id,
+                    waba_access_token: session.waba_access_token,
+                  },
+                })
+              )
             }
           }
         }
