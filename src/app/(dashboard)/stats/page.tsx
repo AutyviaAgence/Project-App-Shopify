@@ -35,8 +35,9 @@ import {
   TrendingUp,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
-import { fr } from 'date-fns/locale'
+import { fr, enUS } from 'date-fns/locale'
 import { getSessionDisplayName, formatPhoneNumber } from '@/lib/format-phone'
+import { useTranslation } from '@/i18n/context'
 
 type SessionOption = { id: string; instance_name: string; phone_number?: string | null; display_name?: string | null }
 
@@ -48,11 +49,15 @@ function formatSeconds(s: number): string {
 }
 
 export default function StatsPage() {
+  const { t, locale } = useTranslation()
   const [period, setPeriod] = useState('30')
   const [sessionFilter, setSessionFilter] = useState('all')
   const [sessions, setSessions] = useState<SessionOption[]>([])
   const [stats, setStats] = useState<StatsResponse | null>(null)
   const [loading, setLoading] = useState(true)
+
+  const dateFnsLocale = locale === 'fr' ? fr : enUS
+  const numberLocale = locale === 'fr' ? 'fr-FR' : 'en-US'
 
   // Charger la liste des sessions une seule fois
   useEffect(() => {
@@ -87,14 +92,14 @@ export default function StatsPage() {
       if (res.ok && json.data) {
         setStats(json.data)
       } else {
-        toast.error(json.error || 'Erreur lors du chargement des statistiques')
+        toast.error(json.error || t('stats.load_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setLoading(false)
     }
-  }, [period, sessionFilter])
+  }, [period, sessionFilter, t])
 
   useEffect(() => {
     fetchStats()
@@ -105,9 +110,9 @@ export default function StatsPage() {
       {/* Header */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold">Statistiques</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">{t('stats.title')}</h1>
           <p className="text-sm text-muted-foreground">
-            Analysez vos performances WhatsApp.
+            {t('stats.description')}
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
@@ -116,18 +121,18 @@ export default function StatsPage() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="7">7 jours</SelectItem>
-              <SelectItem value="30">30 jours</SelectItem>
-              <SelectItem value="90">90 jours</SelectItem>
+              <SelectItem value="7">{t('stats.7_days')}</SelectItem>
+              <SelectItem value="30">{t('stats.30_days')}</SelectItem>
+              <SelectItem value="90">{t('stats.90_days')}</SelectItem>
             </SelectContent>
           </Select>
 
           <Select value={sessionFilter} onValueChange={setSessionFilter}>
             <SelectTrigger className="w-full sm:w-[180px]">
-              <SelectValue placeholder="Toutes les sessions" />
+              <SelectValue placeholder={t('stats.all_sessions')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Toutes les sessions</SelectItem>
+              <SelectItem value="all">{t('stats.all_sessions')}</SelectItem>
               {sessions.map((s) => (
                 <SelectItem key={s.id} value={s.id}>
                   {getSessionDisplayName({ display_name: s.display_name || null, phone_number: s.phone_number || null, instance_name: s.instance_name })}
@@ -145,49 +150,49 @@ export default function StatsPage() {
       ) : stats ? (
         <Tabs defaultValue="overview">
           <TabsList>
-            <TabsTrigger value="overview">Vue globale</TabsTrigger>
-            <TabsTrigger value="campaigns">Campagnes</TabsTrigger>
-            <TabsTrigger value="agents">Agents IA</TabsTrigger>
-            <TabsTrigger value="links">Liens WA</TabsTrigger>
-            <TabsTrigger value="contacts">Contacts</TabsTrigger>
+            <TabsTrigger value="overview">{t('stats.overview')}</TabsTrigger>
+            <TabsTrigger value="campaigns">{t('stats.campaigns_tab')}</TabsTrigger>
+            <TabsTrigger value="agents">{t('stats.agents_tab')}</TabsTrigger>
+            <TabsTrigger value="links">{t('stats.links_tab')}</TabsTrigger>
+            <TabsTrigger value="contacts">{t('stats.contacts_tab')}</TabsTrigger>
           </TabsList>
 
           {/* === Vue globale === */}
           <TabsContent value="overview" className="space-y-6">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <KPICard
-                title="Messages total"
+                title={t('stats.total_messages')}
                 value={stats.overview.totalMessages}
                 trend={stats.overview.messagesTrend}
                 icon={MessageSquare}
               />
               <KPICard
-                title="Conversations actives"
+                title={t('stats.active_conversations')}
                 value={stats.overview.activeConversations}
                 trend={stats.overview.conversationsTrend}
                 icon={Users}
               />
               <KPICard
-                title="Nouveaux contacts"
+                title={t('stats.new_contacts')}
                 value={stats.overview.newContacts}
                 trend={stats.overview.contactsTrend}
                 icon={UserPlus}
               />
               <KPICard
-                title="Messages reçus"
+                title={t('stats.messages_received')}
                 value={stats.overview.messagesIn}
                 trend={null}
                 icon={ArrowDownLeft}
               />
               <KPICard
-                title="Taux de réponse IA"
+                title={t('stats.ai_response_rate')}
                 value={stats.overview.responseRate ?? 0}
                 trend={null}
                 icon={Zap}
                 formatValue={(v) => `${v}%`}
               />
               <KPICard
-                title="Temps réponse moyen"
+                title={t('stats.avg_response_time')}
                 value={stats.overview.avgResponseTime ?? 0}
                 trend={null}
                 icon={Clock}
@@ -198,7 +203,7 @@ export default function StatsPage() {
             <div className="grid gap-6 lg:grid-cols-2">
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Messages par jour</CardTitle>
+                  <CardTitle className="text-base">{t('stats.messages_per_day')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <MessagesChart data={stats.charts.messagesOverTime} />
@@ -206,7 +211,7 @@ export default function StatsPage() {
               </Card>
               <Card>
                 <CardHeader>
-                  <CardTitle className="text-base">Nouvelles conversations</CardTitle>
+                  <CardTitle className="text-base">{t('stats.new_conversations')}</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <TimeSeriesChart
@@ -224,7 +229,7 @@ export default function StatsPage() {
             {!stats.campaigns || stats.campaigns.totalCampaigns === 0 ? (
               <Card>
                 <CardContent className="flex h-40 items-center justify-center">
-                  <p className="text-muted-foreground">Aucune campagne créée.</p>
+                  <p className="text-muted-foreground">{t('stats.no_campaigns')}</p>
                 </CardContent>
               </Card>
             ) : (
@@ -232,25 +237,25 @@ export default function StatsPage() {
                 {/* KPIs Campagnes */}
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <KPICard
-                    title="Total campagnes"
+                    title={t('stats.total_campaigns')}
                     value={stats.campaigns.totalCampaigns}
                     trend={null}
                     icon={Megaphone}
                   />
                   <KPICard
-                    title="Messages envoyés"
+                    title={t('stats.messages_sent')}
                     value={stats.campaigns.totalSent}
                     trend={null}
                     icon={Send}
                   />
                   <KPICard
-                    title="Réponses reçues"
+                    title={t('stats.responses_received')}
                     value={stats.campaigns.totalReplied}
                     trend={null}
                     icon={MessageSquare}
                   />
                   <KPICard
-                    title="Taux de réponse"
+                    title={t('stats.response_rate')}
                     value={stats.campaigns.overallResponseRate}
                     trend={null}
                     icon={TrendingUp}
@@ -270,12 +275,12 @@ export default function StatsPage() {
                       cancelled: 'bg-red-100 text-red-700',
                     }
                     const statusLabels: Record<string, string> = {
-                      draft: 'Brouillon',
-                      scheduled: 'Programmée',
-                      running: 'En cours',
-                      paused: 'En pause',
-                      completed: 'Terminée',
-                      cancelled: 'Annulée',
+                      draft: t('stats.status_draft'),
+                      scheduled: t('stats.status_scheduled'),
+                      running: t('stats.status_running'),
+                      paused: t('stats.status_paused'),
+                      completed: t('stats.status_completed'),
+                      cancelled: t('stats.status_cancelled'),
                     }
                     return (
                       <Card key={campaign.id}>
@@ -294,18 +299,18 @@ export default function StatsPage() {
                           <div className="grid grid-cols-2 gap-4">
                             <div>
                               <p className="text-2xl font-bold">
-                                {campaign.sentCount.toLocaleString('fr-FR')}
+                                {campaign.sentCount.toLocaleString(numberLocale)}
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                Envoyés
+                                {t('stats.sent')}
                               </p>
                             </div>
                             <div>
                               <p className="text-2xl font-bold">
-                                {campaign.repliedCount.toLocaleString('fr-FR')}
+                                {campaign.repliedCount.toLocaleString(numberLocale)}
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                Réponses
+                                {t('stats.responses')}
                               </p>
                             </div>
                             <div>
@@ -313,15 +318,15 @@ export default function StatsPage() {
                                 {campaign.responseRate}%
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                Taux de réponse
+                                {t('stats.response_rate')}
                               </p>
                             </div>
                             <div>
                               <p className="text-2xl font-bold">
-                                {campaign.totalRecipients.toLocaleString('fr-FR')}
+                                {campaign.totalRecipients.toLocaleString(numberLocale)}
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                Destinataires
+                                {t('stats.recipients')}
                               </p>
                             </div>
                           </div>
@@ -329,14 +334,14 @@ export default function StatsPage() {
                             <div className="mt-3 pt-3 border-t">
                               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                 <Bot className="h-3 w-3" />
-                                Agent : {campaign.relanceAgentName}
+                                {t('stats.agent')} : {campaign.relanceAgentName}
                               </div>
                             </div>
                           )}
                           {campaign.failedCount > 0 && (
                             <div className="mt-2 flex items-center gap-1 text-xs text-destructive">
                               <XCircle className="h-3 w-3" />
-                              {campaign.failedCount} échec(s)
+                              {t('stats.failures', { count: String(campaign.failedCount) })}
                             </div>
                           )}
                         </CardContent>
@@ -349,18 +354,18 @@ export default function StatsPage() {
                 {stats.campaigns.relanceAgentStats.length > 0 && (
                   <Card>
                     <CardHeader>
-                      <CardTitle className="text-base">Performance des agents de relance</CardTitle>
+                      <CardTitle className="text-base">{t('stats.relance_performance')}</CardTitle>
                     </CardHeader>
                     <CardContent>
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="border-b text-left text-muted-foreground">
-                              <th className="pb-2 pr-4">Agent</th>
-                              <th className="pb-2 pr-4 text-right">Campagnes</th>
-                              <th className="pb-2 pr-4 text-right">Envoyés</th>
-                              <th className="pb-2 pr-4 text-right">Réponses</th>
-                              <th className="pb-2 text-right">Taux</th>
+                              <th className="pb-2 pr-4">{t('stats.agent')}</th>
+                              <th className="pb-2 pr-4 text-right">{t('stats.campaigns_tab')}</th>
+                              <th className="pb-2 pr-4 text-right">{t('stats.sent')}</th>
+                              <th className="pb-2 pr-4 text-right">{t('stats.responses')}</th>
+                              <th className="pb-2 text-right">{t('stats.rate')}</th>
                             </tr>
                           </thead>
                           <tbody>
@@ -376,10 +381,10 @@ export default function StatsPage() {
                                   {agent.campaignsCount}
                                 </td>
                                 <td className="py-2 pr-4 text-right">
-                                  {agent.totalSent.toLocaleString('fr-FR')}
+                                  {agent.totalSent.toLocaleString(numberLocale)}
                                 </td>
                                 <td className="py-2 pr-4 text-right">
-                                  {agent.totalReplied.toLocaleString('fr-FR')}
+                                  {agent.totalReplied.toLocaleString(numberLocale)}
                                 </td>
                                 <td className="py-2 text-right font-medium text-primary">
                                   {agent.responseRate}%
@@ -401,7 +406,7 @@ export default function StatsPage() {
             {stats.agents.length === 0 ? (
               <Card>
                 <CardContent className="flex h-40 items-center justify-center">
-                  <p className="text-muted-foreground">Aucun agent IA configuré.</p>
+                  <p className="text-muted-foreground">{t('stats.no_agents')}</p>
                 </CardContent>
               </Card>
             ) : (
@@ -416,7 +421,7 @@ export default function StatsPage() {
                             {agent.name}
                           </CardTitle>
                           <Badge variant={agent.isActive ? 'default' : 'secondary'}>
-                            {agent.isActive ? 'Actif' : 'Inactif'}
+                            {agent.isActive ? t('common.active') : t('common.inactive')}
                           </Badge>
                         </div>
                       </CardHeader>
@@ -424,18 +429,18 @@ export default function StatsPage() {
                         <div className="grid grid-cols-2 gap-4">
                           <div>
                             <p className="text-2xl font-bold">
-                              {agent.messagesHandled.toLocaleString('fr-FR')}
+                              {agent.messagesHandled.toLocaleString(numberLocale)}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              Messages traités
+                              {t('stats.messages_processed')}
                             </p>
                           </div>
                           <div>
                             <p className="text-2xl font-bold">
-                              {agent.conversationsManaged.toLocaleString('fr-FR')}
+                              {agent.conversationsManaged.toLocaleString(numberLocale)}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              Conversations
+                              {t('stats.conversations')}
                             </p>
                           </div>
                           <div>
@@ -443,7 +448,7 @@ export default function StatsPage() {
                               {agent.responseRate != null ? `${agent.responseRate}%` : '—'}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              Taux de réponse
+                              {t('stats.response_rate')}
                             </p>
                           </div>
                           <div>
@@ -451,16 +456,16 @@ export default function StatsPage() {
                               {agent.avgResponseTime != null ? formatSeconds(agent.avgResponseTime) : '—'}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              Temps moyen
+                              {t('stats.avg_time')}
                             </p>
                           </div>
                           {agent.hasBookingUrl && (
                             <div className="col-span-2 border-t pt-3 mt-2">
                               <p className="text-2xl font-bold text-primary">
-                                {agent.bookingClicks.toLocaleString('fr-FR')}
+                                {agent.bookingClicks.toLocaleString(numberLocale)}
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                Clics lien RDV
+                                {t('stats.booking_clicks')}
                               </p>
                             </div>
                           )}
@@ -472,7 +477,7 @@ export default function StatsPage() {
 
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-base">Comparaison des agents</CardTitle>
+                    <CardTitle className="text-base">{t('stats.agent_comparison')}</CardTitle>
                   </CardHeader>
                   <CardContent>
                     <AgentsComparisonChart data={stats.agents} />
@@ -487,26 +492,26 @@ export default function StatsPage() {
             {stats.links.length === 0 ? (
               <Card>
                 <CardContent className="flex h-40 items-center justify-center">
-                  <p className="text-muted-foreground">Aucun lien WA créé.</p>
+                  <p className="text-muted-foreground">{t('stats.no_links')}</p>
                 </CardContent>
               </Card>
             ) : (
               <>
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   <KPICard
-                    title="Total clics"
+                    title={t('stats.total_clicks')}
                     value={stats.links.reduce((sum, l) => sum + l.totalClicks, 0)}
                     trend={null}
                     icon={MousePointerClick}
                   />
                   <KPICard
-                    title="Total conversions"
+                    title={t('stats.total_conversions')}
                     value={stats.links.reduce((sum, l) => sum + l.conversionsCount, 0)}
                     trend={null}
                     icon={ArrowRightLeft}
                   />
                   <KPICard
-                    title="Taux conversion moyen"
+                    title={t('stats.avg_conversion_rate')}
                     value={(() => {
                       const totalClicks = stats.links.reduce((s, l) => s + l.totalClicks, 0)
                       const totalConv = stats.links.reduce((s, l) => s + l.conversionsCount, 0)
@@ -531,7 +536,7 @@ export default function StatsPage() {
                               {link.name}
                             </CardTitle>
                             <Badge variant={link.isActive ? 'default' : 'secondary'}>
-                              {link.isActive ? 'Actif' : 'Inactif'}
+                              {link.isActive ? t('common.active') : t('common.inactive')}
                             </Badge>
                           </div>
                           {link.slug && (
@@ -544,19 +549,19 @@ export default function StatsPage() {
                           <div className="grid grid-cols-3 gap-2 text-center">
                             <div>
                               <p className="text-xl font-bold">
-                                {link.totalClicks.toLocaleString('fr-FR')}
+                                {link.totalClicks.toLocaleString(numberLocale)}
                               </p>
-                              <p className="text-xs text-muted-foreground">Clics</p>
+                              <p className="text-xs text-muted-foreground">{t('stats.clicks')}</p>
                             </div>
                             <div>
                               <p className="text-xl font-bold">
-                                {link.conversionsCount.toLocaleString('fr-FR')}
+                                {link.conversionsCount.toLocaleString(numberLocale)}
                               </p>
-                              <p className="text-xs text-muted-foreground">Conv.</p>
+                              <p className="text-xs text-muted-foreground">{t('stats.conv')}</p>
                             </div>
                             <div>
                               <p className="text-xl font-bold">{convRate}%</p>
-                              <p className="text-xs text-muted-foreground">Taux</p>
+                              <p className="text-xs text-muted-foreground">{t('stats.rate')}</p>
                             </div>
                           </div>
                         </CardContent>
@@ -572,13 +577,13 @@ export default function StatsPage() {
           <TabsContent value="contacts" className="space-y-6">
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <KPICard
-                title="Total contacts"
+                title={t('stats.total_contacts')}
                 value={stats.overview.totalContacts}
                 trend={null}
                 icon={Users}
               />
               <KPICard
-                title="Nouveaux contacts"
+                title={t('stats.new_contacts')}
                 value={stats.overview.newContacts}
                 trend={stats.overview.contactsTrend}
                 icon={UserPlus}
@@ -587,7 +592,7 @@ export default function StatsPage() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-base">Nouveaux contacts par jour</CardTitle>
+                <CardTitle className="text-base">{t('stats.contacts_per_day')}</CardTitle>
               </CardHeader>
               <CardContent>
                 <TimeSeriesChart
@@ -603,7 +608,7 @@ export default function StatsPage() {
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base">
-                    Top 10 contacts (par messages)
+                    {t('stats.top_10_contacts')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -611,17 +616,17 @@ export default function StatsPage() {
                     <table className="w-full text-sm">
                       <thead>
                         <tr className="border-b text-left text-muted-foreground">
-                          <th className="pb-2 pr-4">Contact</th>
-                          <th className="pb-2 pr-4">Téléphone</th>
-                          <th className="pb-2 pr-4 text-right">Messages</th>
-                          <th className="pb-2 text-right">Dernier message</th>
+                          <th className="pb-2 pr-4">{t('stats.contact')}</th>
+                          <th className="pb-2 pr-4">{t('stats.phone')}</th>
+                          <th className="pb-2 pr-4 text-right">{t('stats.messages')}</th>
+                          <th className="pb-2 text-right">{t('stats.last_message')}</th>
                         </tr>
                       </thead>
                       <tbody>
                         {stats.contacts.topContacts.map((contact) => (
                           <tr key={contact.id} className="border-b last:border-0">
                             <td className="py-2 pr-4 font-medium">
-                              {contact.name || 'Inconnu'}
+                              {contact.name || t('common.unknown')}
                             </td>
                             <td className="py-2 pr-4">
                               <div className="flex items-center gap-1 text-muted-foreground">
@@ -630,13 +635,13 @@ export default function StatsPage() {
                               </div>
                             </td>
                             <td className="py-2 pr-4 text-right font-medium">
-                              {contact.messageCount.toLocaleString('fr-FR')}
+                              {contact.messageCount.toLocaleString(numberLocale)}
                             </td>
                             <td className="py-2 text-right text-muted-foreground">
                               {contact.lastMessageAt
                                 ? formatDistanceToNow(
                                     new Date(contact.lastMessageAt),
-                                    { addSuffix: true, locale: fr }
+                                    { addSuffix: true, locale: dateFnsLocale }
                                   )
                                 : '—'}
                             </td>
@@ -654,7 +659,7 @@ export default function StatsPage() {
               <Card>
                 <CardHeader>
                   <CardTitle className="text-base">
-                    Contacts par session
+                    {t('stats.contacts_per_session')}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -663,7 +668,7 @@ export default function StatsPage() {
                       <div key={s.sessionId} className="flex items-center justify-between">
                         <span className="text-sm">{s.sessionName}</span>
                         <Badge variant="secondary">
-                          {s.contactCount.toLocaleString('fr-FR')} contacts
+                          {s.contactCount.toLocaleString(numberLocale)} {t('stats.contacts_label')}
                         </Badge>
                       </div>
                     ))}

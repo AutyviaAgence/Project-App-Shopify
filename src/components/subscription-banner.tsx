@@ -4,8 +4,10 @@ import { useSubscription } from '@/hooks/use-subscription'
 import { Button } from '@/components/ui/button'
 import { AlertTriangle, Clock, CreditCard, Cpu } from 'lucide-react'
 import Link from 'next/link'
+import { useTranslation } from '@/i18n/context'
 
 export function SubscriptionBanner() {
+  const { t } = useTranslation()
   const { subscription, loading } = useSubscription()
 
   if (loading || !subscription) return null
@@ -18,12 +20,12 @@ export function SubscriptionBanner() {
           <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
             <Cpu className="h-4 w-4" />
             <span className="text-sm font-medium">
-              Limite de tokens IA atteinte — l&apos;IA est suspendue.
+              {t('banner.tokens_exhausted')}
             </span>
           </div>
           <Link href="/subscription">
             <Button size="sm" className="h-7 text-xs bg-red-600 hover:bg-red-700">
-              Acheter des tokens
+              {t('banner.buy_tokens')}
             </Button>
           </Link>
         </div>
@@ -39,12 +41,12 @@ export function SubscriptionBanner() {
           <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
             <Cpu className="h-4 w-4" />
             <span className="text-sm font-medium">
-              {subscription.usagePercentage}% des tokens IA utilisés — {subscription.tokensRemaining.toLocaleString()} restants
+              {t('banner.tokens_warning', { percent: String(subscription.usagePercentage), remaining: subscription.tokensRemaining.toLocaleString() })}
             </span>
           </div>
           <Link href="/subscription">
             <Button size="sm" variant="outline" className="h-7 text-xs border-amber-500/50 hover:bg-amber-500/10">
-              Voir mon utilisation
+              {t('banner.view_usage')}
             </Button>
           </Link>
         </div>
@@ -68,13 +70,13 @@ export function SubscriptionBanner() {
           <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400">
             <Clock className="h-4 w-4" />
             <span className="text-sm font-medium">
-              Période d&apos;essai : {subscription.daysRemaining} jour{subscription.daysRemaining > 1 ? 's' : ''} restant{subscription.daysRemaining > 1 ? 's' : ''}
+              {t('banner.trial_remaining', { days: String(subscription.daysRemaining) })}
             </span>
           </div>
           <Link href="/subscription">
             <Button size="sm" variant="outline" className="h-7 text-xs border-amber-500/50 hover:bg-amber-500/10">
               <CreditCard className="mr-1.5 h-3 w-3" />
-              S&apos;abonner
+              {t('banner.subscribe')}
             </Button>
           </Link>
         </div>
@@ -91,14 +93,14 @@ export function SubscriptionBanner() {
             <AlertTriangle className="h-4 w-4" />
             <span className="text-sm font-medium">
               {subscription.isTrialExpired
-                ? 'Votre période d\'essai est terminée. Abonnez-vous pour continuer à utiliser Autyvia.'
-                : 'Votre abonnement a expiré. Renouvelez pour continuer à utiliser Autyvia.'}
+                ? t('banner.trial_ended')
+                : t('banner.subscription_expired')}
             </span>
           </div>
           <Link href="/subscription">
             <Button size="sm" className="h-8 bg-red-600 hover:bg-red-700">
               <CreditCard className="mr-1.5 h-3.5 w-3.5" />
-              S&apos;abonner maintenant
+              {t('banner.subscribe_now')}
             </Button>
           </Link>
         </div>

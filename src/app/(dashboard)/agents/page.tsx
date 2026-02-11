@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { useTranslation } from '@/i18n/context'
 import type { AIAgent, Team } from '@/types/database'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -66,6 +67,7 @@ type BookingStats = {
 type AgentWithTeamIds = AIAgent & { team_ids?: string[]; booking_stats?: BookingStats }
 
 export default function AgentsPage() {
+  const { t } = useTranslation()
   const [agents, setAgents] = useState<AgentWithTeamIds[]>([])
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -131,11 +133,11 @@ export default function AgentsPage() {
         setAgents(json.data)
       }
     } catch {
-      toast.error('Erreur lors du chargement des agents')
+      toast.error(t('agents.load_error'))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   const fetchTeams = useCallback(async () => {
     try {
@@ -212,13 +214,13 @@ export default function AgentsPage() {
 
   async function handleSave() {
     if (!formName.trim() || !formSystemPrompt.trim()) {
-      toast.error('Nom et prompt système sont requis')
+      toast.error(t('agents.name_prompt_required'))
       return
     }
 
     const temp = parseFloat(formTemperature)
     if (isNaN(temp) || temp < 0 || temp > 2) {
-      toast.error('La température doit être entre 0 et 2')
+      toast.error(t('agents.temp_error'))
       return
     }
 
@@ -257,10 +259,10 @@ export default function AgentsPage() {
         const json = await res.json()
         if (res.ok && json.data) {
           setAgents((prev) => prev.map((a) => (a.id === editing.id ? json.data : a)))
-          toast.success('Agent modifié')
+          toast.success(t('agents.agent_edited'))
           setDialogOpen(false)
         } else {
-          toast.error(json.error || 'Erreur lors de la modification')
+          toast.error(json.error || t('agents.edit_error'))
         }
       } else {
         const res = await fetch('/api/agents', {
@@ -295,14 +297,14 @@ export default function AgentsPage() {
         const json = await res.json()
         if (res.ok && json.data) {
           setAgents((prev) => [json.data, ...prev])
-          toast.success('Agent créé')
+          toast.success(t('agents.agent_created'))
           setDialogOpen(false)
         } else {
-          toast.error(json.error || 'Erreur lors de la création')
+          toast.error(json.error || t('agents.create_error'))
         }
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setSaving(false)
     }
@@ -320,15 +322,15 @@ export default function AgentsPage() {
       const res = await fetch(`/api/agents/${agentToDelete.id}`, { method: 'DELETE' })
       if (res.ok) {
         setAgents((prev) => prev.filter((a) => a.id !== agentToDelete.id))
-        toast.success('Agent supprimé')
+        toast.success(t('agents.agent_deleted'))
         setDeleteDialogOpen(false)
         setAgentToDelete(null)
       } else {
         const json = await res.json()
-        toast.error(json.error || 'Erreur lors de la suppression')
+        toast.error(json.error || t('agents.delete_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setDeleting(null)
     }
@@ -344,10 +346,10 @@ export default function AgentsPage() {
       const json = await res.json()
       if (res.ok && json.data) {
         setAgents((prev) => prev.map((a) => (a.id === agent.id ? json.data : a)))
-        toast.success(json.data.is_active ? 'Agent activé' : 'Agent désactivé')
+        toast.success(json.data.is_active ? t('agents.agent_enabled') : t('agents.agent_disabled'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     }
   }
 
@@ -384,7 +386,7 @@ export default function AgentsPage() {
       const agentJson = await agentRes.json()
 
       if (!agentRes.ok) {
-        toast.error(agentJson.error || 'Erreur lors de la création de l\'agent')
+        toast.error(agentJson.error || t('agents.wizard_create_error'))
         return
       }
 
@@ -402,21 +404,21 @@ export default function AgentsPage() {
           })
 
           if (ragRes.ok) {
-            toast.success('Agent créé avec sa base de connaissances !')
+            toast.success(t('agents.wizard_created_kb'))
           } else {
-            toast.success('Agent créé ! (base de connaissances non créée)')
+            toast.success(t('agents.wizard_created_no_kb'))
           }
         } catch {
-          toast.success('Agent créé ! (base de connaissances non créée)')
+          toast.success(t('agents.wizard_created_no_kb'))
         }
       } else {
-        toast.success('Agent créé avec succès !')
+        toast.success(t('agents.wizard_created'))
       }
 
       setAgents((prev) => [agentJson.data, ...prev])
       setWizardOpen(false)
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setSaving(false)
     }
@@ -424,7 +426,7 @@ export default function AgentsPage() {
 
   async function handleOptimizePrompt() {
     if (!formSystemPrompt.trim() || formSystemPrompt.trim().length < 10) {
-      toast.error('Écrivez d\'abord un prompt d\'au moins 10 caractères')
+      toast.error(t('agents.prompt_min_error'))
       return
     }
 
@@ -447,12 +449,12 @@ export default function AgentsPage() {
 
       if (res.ok && json.data?.optimized) {
         setFormSystemPrompt(json.data.optimized)
-        toast.success('Prompt optimisé avec succès !')
+        toast.success(t('agents.prompt_optimized'))
       } else {
-        toast.error(json.error || 'Erreur lors de l\'optimisation')
+        toast.error(json.error || t('agents.optimize_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setOptimizing(false)
     }
@@ -470,16 +472,16 @@ export default function AgentsPage() {
     <div className="p-4 sm:p-6">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div data-tour="agents-header">
-          <h1 className="text-xl sm:text-2xl font-bold">Agents IA</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">{t('agents.title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Créez des agents intelligents pour répondre automatiquement sur WhatsApp.
+            {t('agents.description')}
           </p>
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button data-tour="new-agent-btn" className="w-full sm:w-auto">
               <Plus className="mr-2 h-4 w-4" />
-              Nouvel agent
+              {t('agents.new_agent')}
               <ChevronDown className="ml-2 h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
@@ -487,15 +489,15 @@ export default function AgentsPage() {
             <DropdownMenuItem onClick={() => setWizardOpen(true)}>
               <Sparkles className="mr-2 h-4 w-4 text-primary" />
               <div>
-                <p className="font-medium">Assistant guidé</p>
-                <p className="text-xs text-muted-foreground">Répondez à quelques questions</p>
+                <p className="font-medium">{t('agents.guided_assistant')}</p>
+                <p className="text-xs text-muted-foreground">{t('agents.guided_desc')}</p>
               </div>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={openCreateDialog}>
               <Settings2 className="mr-2 h-4 w-4" />
               <div>
-                <p className="font-medium">Mode avancé</p>
-                <p className="text-xs text-muted-foreground">Configuration manuelle complète</p>
+                <p className="font-medium">{t('agents.advanced_mode')}</p>
+                <p className="text-xs text-muted-foreground">{t('agents.advanced_desc')}</p>
               </div>
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -506,18 +508,18 @@ export default function AgentsPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Brain className="mb-4 h-12 w-12 text-muted-foreground" />
-            <h3 className="text-lg font-medium">Aucun agent</h3>
+            <h3 className="text-lg font-medium">{t('agents.no_agents')}</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Créez votre premier agent IA pour automatiser vos réponses WhatsApp.
+              {t('agents.no_agents_desc')}
             </p>
             <div className="mt-4 flex flex-col sm:flex-row gap-2">
               <Button onClick={() => setWizardOpen(true)}>
                 <Sparkles className="mr-2 h-4 w-4" />
-                Créer avec l&apos;assistant
+                {t('agents.create_with_assistant')}
               </Button>
               <Button variant="outline" onClick={openCreateDialog}>
                 <Settings2 className="mr-2 h-4 w-4" />
-                Mode avancé
+                {t('agents.advanced_mode')}
               </Button>
             </div>
           </CardContent>
@@ -535,7 +537,7 @@ export default function AgentsPage() {
                     {agent.name}
                   </CardTitle>
                   <Badge variant={agent.is_active ? 'default' : 'secondary'} className="w-fit">
-                    {agent.is_active ? 'Actif' : 'Inactif'}
+                    {agent.is_active ? t('common.active') : t('common.inactive')}
                   </Badge>
                 </CardHeader>
                 <CardContent>
@@ -550,7 +552,7 @@ export default function AgentsPage() {
                       {agent.agent_type === 'relance' && (
                         <Badge variant="secondary" className="gap-1 text-xs">
                           <Megaphone className="h-3 w-3" />
-                          Relance
+                          {t('agents.relance')}
                         </Badge>
                       )}
                       {(agent.team_ids?.length || agent.team_id) && (
@@ -558,7 +560,7 @@ export default function AgentsPage() {
                           {(agent.team_ids || (agent.team_id ? [agent.team_id] : [])).map(tid => (
                             <Badge key={tid} variant="outline" className="gap-1 text-xs font-normal">
                               <Users className="h-3 w-3" />
-                              {teams.find(t => t.id === tid)?.name || 'Équipe'}
+                              {teams.find(tm => tm.id === tid)?.name || t('common.team')}
                             </Badge>
                           ))}
                         </>
@@ -571,17 +573,17 @@ export default function AgentsPage() {
                       </span>
                       {(agent.response_delay_min > 0 || agent.response_delay_max > 0) && (
                         <span className="text-xs text-muted-foreground">
-                          Délai {agent.response_delay_min}–{agent.response_delay_max}s
+                          {t('agents.delay')} {agent.response_delay_min}–{agent.response_delay_max}s
                         </span>
                       )}
                       {agent.max_messages_per_conversation != null && (
                         <span className="text-xs text-muted-foreground">
-                          Max {agent.max_messages_per_conversation} msg
+                          {t('agents.max')} {agent.max_messages_per_conversation} msg
                         </span>
                       )}
                       {agent.inactivity_timeout_minutes != null && (
                         <span className="text-xs text-muted-foreground">
-                          Timeout {agent.inactivity_timeout_minutes}min
+                          {t('agents.timeout')} {agent.inactivity_timeout_minutes}min
                         </span>
                       )}
                       {agent.schedule_enabled && (
@@ -593,13 +595,13 @@ export default function AgentsPage() {
                       {agent.auto_detect_language && (
                         <span className="text-xs text-muted-foreground flex items-center gap-0.5">
                           <Languages className="h-3 w-3" />
-                          Multi-langue
+                          {t('agents.multi_lang')}
                         </span>
                       )}
                       {agent.escalation_enabled && (
                         <span className="text-xs text-muted-foreground flex items-center gap-0.5">
                           <ShieldAlert className="h-3 w-3" />
-                          Garde-fou
+                          {t('agents.guardrail')}
                         </span>
                       )}
                     </div>
@@ -610,7 +612,7 @@ export default function AgentsPage() {
 
                     {agent.objective && (
                       <p className="text-xs text-muted-foreground truncate">
-                        Objectif : {agent.objective}
+                        {t('agents.objective')} : {agent.objective}
                       </p>
                     )}
 
@@ -622,14 +624,14 @@ export default function AgentsPage() {
                           <span className="text-xs font-medium">
                             {agent.booking_stats?.total_proposals || 0}
                           </span>
-                          <span className="text-xs text-muted-foreground">proposés</span>
+                          <span className="text-xs text-muted-foreground">{t('agents.proposed')}</span>
                         </div>
                         <div className="flex items-center gap-1" title="Nombre de clics sur les liens de RDV">
                           <MousePointerClick className="h-3.5 w-3.5 text-primary" />
                           <span className="text-xs font-medium">
                             {agent.booking_stats?.total_clicks || 0}
                           </span>
-                          <span className="text-xs text-muted-foreground">clics</span>
+                          <span className="text-xs text-muted-foreground">{t('dashboard.clicks')}</span>
                         </div>
                         {(agent.booking_stats?.total_proposals || 0) > 0 && (
                           <div className="flex items-center gap-1" title="Taux de conversion (clics / propositions)">
@@ -640,7 +642,7 @@ export default function AgentsPage() {
                             }`}>
                               {agent.booking_stats?.conversion_rate || 0}%
                             </span>
-                            <span className="text-xs text-muted-foreground">taux</span>
+                            <span className="text-xs text-muted-foreground">{t('agents.rate')}</span>
                           </div>
                         )}
                       </div>
@@ -654,7 +656,7 @@ export default function AgentsPage() {
                       onClick={() => openEditDialog(agent)}
                     >
                       <Pencil className="mr-1 h-3 w-3" />
-                      Modifier
+                      {t('common.edit')}
                     </Button>
                     <Button
                       size="sm"
@@ -665,7 +667,7 @@ export default function AgentsPage() {
                       }}
                     >
                       <MessageSquare className="mr-1 h-3 w-3" />
-                      Tester
+                      {t('common.test')}
                     </Button>
                     <Button
                       size="sm"
@@ -679,7 +681,7 @@ export default function AgentsPage() {
                       ) : (
                         <Trash2 className="mr-1 h-3 w-3" />
                       )}
-                      Supprimer
+                      {t('common.delete')}
                     </Button>
                     <div className="ml-auto">
                       <Switch
@@ -699,11 +701,11 @@ export default function AgentsPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>{editing ? 'Modifier l\'agent' : 'Nouvel agent IA'}</DialogTitle>
+            <DialogTitle>{editing ? t('agents.edit_agent') : t('agents.new_agent_title')}</DialogTitle>
             <DialogDescription>
               {editing
-                ? 'Modifiez les paramètres de votre agent.'
-                : 'Configurez un agent IA pour répondre automatiquement sur WhatsApp.'}
+                ? t('agents.edit_desc')
+                : t('agents.create_desc')}
             </DialogDescription>
           </DialogHeader>
 
@@ -712,26 +714,26 @@ export default function AgentsPage() {
               teams={teams}
               selectedTeamIds={formTeamIds}
               onTeamIdsChange={setFormTeamIds}
-              label="Équipes"
-              description="Les membres des équipes sélectionnées pourront utiliser cet agent."
-              emptyDescription="Cet agent est uniquement accessible par vous."
+              label={t('common.teams')}
+              description={t('agents.teams_desc')}
+              emptyDescription={t('agents.teams_empty')}
             />
 
             <div className="space-y-2">
-              <Label htmlFor="agent-name">Nom *</Label>
+              <Label htmlFor="agent-name">{t('agents.name_label')}</Label>
               <Input
                 id="agent-name"
-                placeholder="Ex: Support Client"
+                placeholder={t('agents.name_placeholder')}
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="agent-description">Description</Label>
+              <Label htmlFor="agent-description">{t('agents.description_label')}</Label>
               <Textarea
                 id="agent-description"
-                placeholder="Ex: Agent de support pour répondre aux questions fréquentes"
+                placeholder={t('agents.description_placeholder')}
                 value={formDescription}
                 onChange={(e) => setFormDescription(e.target.value)}
                 rows={2}
@@ -739,24 +741,24 @@ export default function AgentsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="agent-type">Type d&apos;agent</Label>
+              <Label htmlFor="agent-type">{t('agents.agent_type')}</Label>
               <Select value={formAgentType} onValueChange={(v) => setFormAgentType(v as 'conversation' | 'relance')}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="conversation">Conversation (répond aux messages)</SelectItem>
-                  <SelectItem value="relance">Relance (génère premier message)</SelectItem>
+                  <SelectItem value="conversation">{t('agents.type_conversation')}</SelectItem>
+                  <SelectItem value="relance">{t('agents.type_relance')}</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Les agents de type &quot;relance&quot; sont utilisés pour les campagnes de relance.
+                {t('agents.type_help')}
               </p>
             </div>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="agent-prompt">Prompt système *</Label>
+                <Label htmlFor="agent-prompt">{t('agents.system_prompt')}</Label>
                 <Button
                   type="button"
                   variant="outline"
@@ -768,33 +770,33 @@ export default function AgentsPage() {
                   {optimizing ? (
                     <>
                       <Loader2 className="mr-1.5 h-3 w-3 animate-spin" />
-                      Optimisation...
+                      {t('agents.optimizing')}
                     </>
                   ) : (
                     <>
                       <Wand2 className="mr-1.5 h-3 w-3" />
-                      Optimiser avec l&apos;IA
+                      {t('agents.optimize_prompt')}
                     </>
                   )}
                 </Button>
               </div>
               <Textarea
                 id="agent-prompt"
-                placeholder="Ex: Tu es un assistant de support client pour l'entreprise X. Tu réponds de manière professionnelle et concise aux questions des clients..."
+                placeholder={t('agents.prompt_placeholder')}
                 value={formSystemPrompt}
                 onChange={(e) => setFormSystemPrompt(e.target.value)}
                 rows={8}
               />
               <p className="text-xs text-muted-foreground">
-                Instructions données à l&apos;IA pour définir son comportement et sa personnalité.
+                {t('agents.prompt_help')}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="agent-objective">Objectif</Label>
+              <Label htmlFor="agent-objective">{t('agents.objective')}</Label>
               <Input
                 id="agent-objective"
-                placeholder="Ex: Qualifier les leads et prendre des rendez-vous"
+                placeholder={t('agents.objective_placeholder')}
                 value={formObjective}
                 onChange={(e) => setFormObjective(e.target.value)}
               />
@@ -802,7 +804,7 @@ export default function AgentsPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="agent-model">Modèle</Label>
+                <Label htmlFor="agent-model">{t('agents.model')}</Label>
                 <Select value={formModel} onValueChange={setFormModel}>
                   <SelectTrigger>
                     <SelectValue />
@@ -815,7 +817,7 @@ export default function AgentsPage() {
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="agent-temperature">Température</Label>
+                <Label htmlFor="agent-temperature">{t('agents.temperature')}</Label>
                 <Input
                   id="agent-temperature"
                   type="number"
@@ -826,16 +828,16 @@ export default function AgentsPage() {
                   onChange={(e) => setFormTemperature(e.target.value)}
                 />
                 <p className="text-xs text-muted-foreground">
-                  0 = précis, 2 = créatif
+                  {t('agents.temperature_help')}
                 </p>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label>Délai de réponse (secondes)</Label>
+              <Label>{t('agents.response_delay')}</Label>
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <Label htmlFor="agent-delay-min" className="text-xs text-muted-foreground">Minimum</Label>
+                  <Label htmlFor="agent-delay-min" className="text-xs text-muted-foreground">{t('agents.minimum')}</Label>
                   <Input
                     id="agent-delay-min"
                     type="number"
@@ -847,7 +849,7 @@ export default function AgentsPage() {
                   />
                 </div>
                 <div>
-                  <Label htmlFor="agent-delay-max" className="text-xs text-muted-foreground">Maximum</Label>
+                  <Label htmlFor="agent-delay-max" className="text-xs text-muted-foreground">{t('agents.maximum')}</Label>
                   <Input
                     id="agent-delay-max"
                     type="number"
@@ -860,17 +862,16 @@ export default function AgentsPage() {
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                Délai aléatoire entre min et max avant de répondre. Regroupe les messages
-                consécutifs et simule un comportement humain. 0/0 = réponse immédiate.
+                {t('agents.delay_help')}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label className="text-sm font-medium">Limites de conversation</Label>
+              <Label className="text-sm font-medium">{t('agents.conversation_limits')}</Label>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <Label htmlFor="agent-max-messages" className="text-xs text-muted-foreground">
-                    Messages max / conversation
+                    {t('agents.max_messages')}
                   </Label>
                   <Input
                     id="agent-max-messages"
@@ -878,14 +879,14 @@ export default function AgentsPage() {
                     min={1}
                     max={10000}
                     step={1}
-                    placeholder="Illimité"
+                    placeholder={t('common.unlimited')}
                     value={formMaxMessages}
                     onChange={(e) => setFormMaxMessages(e.target.value)}
                   />
                 </div>
                 <div className="space-y-1">
                   <Label htmlFor="agent-inactivity" className="text-xs text-muted-foreground">
-                    Timeout inactivité (min)
+                    {t('agents.inactivity_timeout')}
                   </Label>
                   <Input
                     id="agent-inactivity"
@@ -893,15 +894,14 @@ export default function AgentsPage() {
                     min={1}
                     max={10080}
                     step={1}
-                    placeholder="Désactivé"
+                    placeholder={t('common.disabled')}
                     value={formInactivityTimeout}
                     onChange={(e) => setFormInactivityTimeout(e.target.value)}
                   />
                 </div>
               </div>
               <p className="text-xs text-muted-foreground">
-                L&apos;agent arrête de répondre après N messages ou si la conversation est
-                inactive depuis X minutes. Laisser vide = pas de limite.
+                {t('agents.limits_help')}
               </p>
             </div>
 
@@ -911,10 +911,10 @@ export default function AgentsPage() {
                 <div className="space-y-0.5">
                   <Label className="text-sm font-medium flex items-center gap-1.5">
                     <Clock className="h-4 w-4" />
-                    Horaires d&apos;activité
+                    {t('agents.schedule')}
                   </Label>
                   <p className="text-xs text-muted-foreground">
-                    Limiter l&apos;agent à certaines plages horaires
+                    {t('agents.schedule_limit')}
                   </p>
                 </div>
                 <Switch
@@ -927,7 +927,7 @@ export default function AgentsPage() {
                 <div className="space-y-3 pl-1">
                   <div className="space-y-1">
                     <Label htmlFor="schedule-timezone" className="text-xs text-muted-foreground">
-                      Fuseau horaire
+                      {t('agents.timezone')}
                     </Label>
                     <Select value={formScheduleTimezone} onValueChange={setFormScheduleTimezone}>
                       <SelectTrigger>
@@ -948,7 +948,7 @@ export default function AgentsPage() {
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <Label htmlFor="schedule-start" className="text-xs text-muted-foreground">
-                        Heure de début
+                        {t('agents.start_hour')}
                       </Label>
                       <Input
                         id="schedule-start"
@@ -959,7 +959,7 @@ export default function AgentsPage() {
                     </div>
                     <div className="space-y-1">
                       <Label htmlFor="schedule-end" className="text-xs text-muted-foreground">
-                        Heure de fin
+                        {t('agents.end_hour')}
                       </Label>
                       <Input
                         id="schedule-end"
@@ -971,16 +971,16 @@ export default function AgentsPage() {
                   </div>
 
                   <div className="space-y-1">
-                    <Label className="text-xs text-muted-foreground">Jours actifs</Label>
+                    <Label className="text-xs text-muted-foreground">{t('agents.active_days')}</Label>
                     <div className="flex flex-wrap gap-1">
                       {[
-                        { day: 1, label: 'Lun' },
-                        { day: 2, label: 'Mar' },
-                        { day: 3, label: 'Mer' },
-                        { day: 4, label: 'Jeu' },
-                        { day: 5, label: 'Ven' },
-                        { day: 6, label: 'Sam' },
-                        { day: 0, label: 'Dim' },
+                        { day: 1, label: t('agents.day_mon') },
+                        { day: 2, label: t('agents.day_tue') },
+                        { day: 3, label: t('agents.day_wed') },
+                        { day: 4, label: t('agents.day_thu') },
+                        { day: 5, label: t('agents.day_fri') },
+                        { day: 6, label: t('agents.day_sat') },
+                        { day: 0, label: t('agents.day_sun') },
                       ].map(({ day, label }) => (
                         <Button
                           key={day}
@@ -1010,10 +1010,10 @@ export default function AgentsPage() {
               <div className="space-y-0.5">
                 <Label className="text-sm font-medium flex items-center gap-1.5">
                   <Languages className="h-4 w-4" />
-                  Détection de langue
+                  {t('agents.lang_detection')}
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  Répond automatiquement dans la langue de l&apos;utilisateur
+                  {t('agents.lang_detection_desc')}
                 </p>
               </div>
               <Switch
@@ -1026,21 +1026,21 @@ export default function AgentsPage() {
             <div className="space-y-2 border-t pt-4">
               <Label htmlFor="booking-url" className="text-sm font-medium flex items-center gap-1.5">
                 <CalendarClock className="h-4 w-4" />
-                Lien de rendez-vous
+                {t('agents.booking_link')}
               </Label>
               <div className="relative">
                 <Link2 className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   id="booking-url"
                   type="url"
-                  placeholder="https://calendly.com/votre-lien"
+                  placeholder={t('agents.booking_placeholder')}
                   value={formBookingUrl}
                   onChange={(e) => setFormBookingUrl(e.target.value)}
                   className="pl-10"
                 />
               </div>
               <p className="text-xs text-muted-foreground">
-                URL de prise de RDV (Calendly, Cal.com...). L&apos;agent pourra partager un lien tracké.
+                {t('agents.booking_help')}
               </p>
             </div>
 
@@ -1050,10 +1050,10 @@ export default function AgentsPage() {
                 <div className="space-y-0.5">
                   <Label className="text-sm font-medium flex items-center gap-1.5">
                     <ShieldAlert className="h-4 w-4" />
-                    Garde-fou (Escalation)
+                    {t('agents.escalation')}
                   </Label>
                   <p className="text-xs text-muted-foreground">
-                    Désactive l&apos;IA si le client est contrarié
+                    {t('agents.escalation_desc')}
                   </p>
                 </div>
                 <Switch
@@ -1066,35 +1066,35 @@ export default function AgentsPage() {
                 <div className="space-y-3 pl-1">
                   <div className="space-y-1">
                     <Label htmlFor="escalation-keywords" className="text-xs text-muted-foreground">
-                      Mots-clés déclencheurs (séparés par virgule)
+                      {t('agents.escalation_keywords')}
                     </Label>
                     <Textarea
                       id="escalation-keywords"
-                      placeholder="parler à un humain, énervé, remboursement, plainte..."
+                      placeholder={t('agents.escalation_keywords_placeholder')}
                       value={formEscalationKeywords}
                       onChange={(e) => setFormEscalationKeywords(e.target.value)}
                       rows={3}
                       className="text-sm"
                     />
                     <p className="text-[10px] text-muted-foreground">
-                      L&apos;IA sera désactivée si l&apos;un de ces mots-clés est détecté dans le message du client.
+                      {t('agents.escalation_keywords_help')}
                     </p>
                   </div>
 
                   <div className="space-y-1">
                     <Label htmlFor="escalation-message" className="text-xs text-muted-foreground">
-                      Message d&apos;escalation (optionnel)
+                      {t('agents.escalation_message')}
                     </Label>
                     <Textarea
                       id="escalation-message"
-                      placeholder="Je comprends votre frustration. Un conseiller va prendre le relais..."
+                      placeholder={t('agents.escalation_message_placeholder')}
                       value={formEscalationMessage}
                       onChange={(e) => setFormEscalationMessage(e.target.value)}
                       rows={2}
                       className="text-sm"
                     />
                     <p className="text-[10px] text-muted-foreground">
-                      Ce message sera envoyé au client avant de désactiver l&apos;IA.
+                      {t('agents.escalation_message_help')}
                     </p>
                   </div>
                 </div>
@@ -1105,20 +1105,19 @@ export default function AgentsPage() {
             <div className="space-y-3 pt-4 border-t">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <Clock className="h-4 w-4 text-orange-500" />
-                Condition d&apos;arrêt automatique
+                {t('agents.stop_condition')}
               </div>
               <div className="space-y-2">
                 <Textarea
                   id="stop-condition"
-                  placeholder="Ex: Arrêter la conversation après avoir envoyé le lien de rendez-vous calendly"
+                  placeholder={t('agents.stop_condition_placeholder')}
                   value={formStopCondition}
                   onChange={(e) => setFormStopCondition(e.target.value)}
                   rows={2}
                   className="text-sm"
                 />
                 <p className="text-[10px] text-muted-foreground">
-                  Décrivez en langage naturel quand l&apos;agent doit automatiquement arrêter de répondre.
-                  L&apos;IA analysera chaque réponse pour vérifier si cette condition est remplie.
+                  {t('agents.stop_condition_help')}
                 </p>
               </div>
             </div>
@@ -1133,7 +1132,7 @@ export default function AgentsPage() {
               ) : (
                 <Bot className="mr-2 h-4 w-4" />
               )}
-              {editing ? 'Enregistrer' : 'Créer l\'agent'}
+              {editing ? t('common.save') : t('agents.create_agent')}
             </Button>
           </div>
         </DialogContent>
@@ -1147,8 +1146,8 @@ export default function AgentsPage() {
           if (!open) setAgentToDelete(null)
         }}
         onConfirm={handleConfirmDelete}
-        title="Supprimer l'agent"
-        description={`Êtes-vous sûr de vouloir supprimer l'agent "${agentToDelete?.name}" ? Cette action est irréversible.`}
+        title={t('agents.delete_title')}
+        description={t('agents.delete_desc', { name: agentToDelete?.name || '' })}
         loading={deleting === agentToDelete?.id}
       />
 

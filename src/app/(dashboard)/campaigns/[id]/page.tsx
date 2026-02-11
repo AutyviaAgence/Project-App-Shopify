@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
+import { useTranslation } from '@/i18n/context'
 import type { Campaign, CampaignRecipient, Contact } from '@/types/database'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -52,7 +53,7 @@ import {
   SheetDescription,
 } from '@/components/ui/sheet'
 import { formatDistanceToNow, format } from 'date-fns'
-import { fr } from 'date-fns/locale'
+import { fr, enUS } from 'date-fns/locale'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { CampaignContactSelector } from '@/components/campaign-contact-selector'
 
@@ -80,30 +81,62 @@ type CampaignWithDetails = Campaign & {
   recipients?: RecipientWithContact[]
 }
 
-const statusLabels: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline'; icon: React.ReactNode }> = {
-  draft: { label: 'Brouillon', variant: 'secondary', icon: <Pencil className="h-3 w-3" /> },
-  scheduled: { label: 'Programmée', variant: 'outline', icon: <Clock className="h-3 w-3" /> },
-  running: { label: 'En cours', variant: 'default', icon: <Play className="h-3 w-3" /> },
-  paused: { label: 'En pause', variant: 'outline', icon: <Pause className="h-3 w-3" /> },
-  completed: { label: 'Terminée', variant: 'secondary', icon: <CheckCircle className="h-3 w-3" /> },
-  cancelled: { label: 'Annulée', variant: 'destructive', icon: <XCircle className="h-3 w-3" /> },
+const statusVariants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+  draft: 'secondary',
+  scheduled: 'outline',
+  running: 'default',
+  paused: 'outline',
+  completed: 'secondary',
+  cancelled: 'destructive',
 }
 
-const recipientStatusLabels: Record<string, { label: string; color: string }> = {
-  pending: { label: 'En attente', color: 'text-muted-foreground' },
-  queued: { label: 'En file', color: 'text-blue-500' },
-  sending: { label: 'Envoi...', color: 'text-yellow-500' },
-  sent: { label: 'Envoyé', color: 'text-blue-500' },
-  delivered: { label: 'Reçu', color: 'text-green-500' },
-  replied: { label: 'Répondu', color: 'text-purple-500' },
-  failed: { label: 'Échec', color: 'text-destructive' },
-  skipped: { label: 'Ignoré', color: 'text-muted-foreground' },
+const statusIcons: Record<string, React.ReactNode> = {
+  draft: <Pencil className="h-3 w-3" />,
+  scheduled: <Clock className="h-3 w-3" />,
+  running: <Play className="h-3 w-3" />,
+  paused: <Pause className="h-3 w-3" />,
+  completed: <CheckCircle className="h-3 w-3" />,
+  cancelled: <XCircle className="h-3 w-3" />,
+}
+
+const statusKeys: Record<string, string> = {
+  draft: 'campaigns.draft',
+  scheduled: 'campaigns.scheduled',
+  running: 'campaigns.running',
+  paused: 'campaigns.paused',
+  completed: 'campaigns.completed',
+  cancelled: 'campaigns.cancelled',
+}
+
+const recipientStatusKeys: Record<string, string> = {
+  pending: 'campaigns.pending',
+  queued: 'campaigns.queued',
+  sending: 'campaigns.sending',
+  sent: 'campaigns.sent_status',
+  delivered: 'campaigns.delivered_status',
+  replied: 'campaigns.replied',
+  failed: 'campaigns.failed',
+  skipped: 'campaigns.skipped',
+}
+
+const recipientStatusColors: Record<string, string> = {
+  pending: 'text-muted-foreground',
+  queued: 'text-blue-500',
+  sending: 'text-yellow-500',
+  sent: 'text-blue-500',
+  delivered: 'text-green-500',
+  replied: 'text-purple-500',
+  failed: 'text-destructive',
+  skipped: 'text-muted-foreground',
 }
 
 export default function CampaignDetailPage() {
   const router = useRouter()
   const params = useParams()
   const campaignId = params.id as string
+  const { t, locale } = useTranslation()
+
+  const dateFnsLocale = locale === 'fr' ? fr : enUS
 
   const [campaign, setCampaign] = useState<CampaignWithDetails | null>(null)
   const [loading, setLoading] = useState(true)
@@ -137,11 +170,11 @@ export default function CampaignDetailPage() {
       if (res.ok && json.data) {
         setCampaign(json.data)
       } else {
-        toast.error(json.error || 'Campagne non trouvée')
+        toast.error(json.error || t('campaigns.not_found'))
         router.push('/campaigns')
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -176,10 +209,10 @@ export default function CampaignDetailPage() {
           setCancelDialogOpen(false)
         }
       } else {
-        toast.error(json.error || 'Erreur lors de l\'action')
+        toast.error(json.error || t('campaigns.action_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setActionLoading(false)
     }
@@ -193,13 +226,13 @@ export default function CampaignDetailPage() {
       })
       const json = await res.json()
       if (res.ok && json.data) {
-        toast.success(`${json.data.added_count} contacts ajoutés`)
+        toast.success(t('campaigns.contacts_added', { count: json.data.added_count }))
         fetchCampaign(false)
       } else {
-        toast.error(json.error || 'Erreur lors de la mise à jour')
+        toast.error(json.error || t('campaigns.update_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setRefreshing(false)
     }
@@ -217,15 +250,15 @@ export default function CampaignDetailPage() {
       })
       const json = await res.json()
       if (res.ok && json.data) {
-        toast.success(`${json.data.deleted_count} destinataire(s) supprimé(s)`)
+        toast.success(t('campaigns.recipients_deleted', { count: json.data.deleted_count }))
         setSelectedRecipients(new Set())
         setDeleteDialogOpen(false)
         fetchCampaign(false)
       } else {
-        toast.error(json.error || 'Erreur lors de la suppression')
+        toast.error(json.error || t('campaigns.delete_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setDeleting(false)
     }
@@ -270,11 +303,11 @@ export default function CampaignDetailPage() {
           notes: json.data.notes || '',
         })
       } else {
-        toast.error(json.error || 'Erreur lors du chargement du contact')
+        toast.error(json.error || t('contact_profile.load_error'))
         setContactSheetOpen(false)
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
       setContactSheetOpen(false)
     } finally {
       setLoadingContact(false)
@@ -294,12 +327,12 @@ export default function CampaignDetailPage() {
       const json = await res.json()
       if (res.ok && json.data) {
         setSelectedContact(json.data)
-        toast.success('Contact mis à jour')
+        toast.success(t('contact_profile.contact_saved'))
       } else {
-        toast.error(json.error || 'Erreur lors de la sauvegarde')
+        toast.error(json.error || t('common.error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setSavingContact(false)
     }
@@ -319,36 +352,35 @@ export default function CampaignDetailPage() {
         const updates: string[] = []
 
         const newContact = { ...editedContact }
-        // Remplir uniquement les champs vides (ne pas écraser les valeurs existantes)
         if (extracted.first_name && !editedContact.first_name.trim()) {
           newContact.first_name = extracted.first_name
-          updates.push('prénom')
+          updates.push(t('contact_profile.first_name'))
         }
         if (extracted.last_name && !editedContact.last_name.trim()) {
           newContact.last_name = extracted.last_name
-          updates.push('nom')
+          updates.push(t('contact_profile.last_name'))
         }
         if (extracted.email && !editedContact.email.trim()) {
           newContact.email = extracted.email
-          updates.push('email')
+          updates.push(t('contact_profile.email'))
         }
         if (extracted.notes && !editedContact.notes.trim()) {
           newContact.notes = extracted.notes
-          updates.push('notes')
+          updates.push(t('contact_profile.notes'))
         }
 
         setEditedContact(newContact)
 
         if (updates.length > 0) {
-          toast.success(`Informations extraites : ${updates.join(', ')}`)
+          toast.success(t('contact_profile.info_extracted', { fields: updates.join(', ') }))
         } else {
-          toast.info('Aucune nouvelle information à compléter')
+          toast.info(t('contact_profile.no_new_info'))
         }
       } else {
-        toast.error(json.error || 'Erreur lors de l\'extraction')
+        toast.error(json.error || t('contact_profile.extract_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setExtractingInfo(false)
     }
@@ -365,12 +397,12 @@ export default function CampaignDetailPage() {
       const json = await res.json()
       if (res.ok && json.data) {
         setSelectedContact(json.data)
-        toast.success('Résumé généré')
+        toast.success(t('contact_profile.summary_generated'))
       } else {
-        toast.error(json.error || 'Erreur lors de la génération')
+        toast.error(json.error || t('contact_profile.summary_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setGeneratingSummary(false)
     }
@@ -388,7 +420,11 @@ export default function CampaignDetailPage() {
     return null
   }
 
-  const status = statusLabels[campaign.status] || { label: campaign.status, variant: 'secondary' as const, icon: null }
+  const status = {
+    label: statusKeys[campaign.status] ? t(statusKeys[campaign.status]) : campaign.status,
+    variant: statusVariants[campaign.status] || 'secondary',
+    icon: statusIcons[campaign.status] || null,
+  }
   const canStart = campaign.status === 'draft' || campaign.status === 'scheduled'
   const canPause = campaign.status === 'running'
   const canResume = campaign.status === 'paused'
@@ -417,7 +453,7 @@ export default function CampaignDetailPage() {
               </Badge>
             </div>
             <p className="mt-1 text-sm text-muted-foreground">
-              Créée {formatDistanceToNow(new Date(campaign.created_at), { addSuffix: true, locale: fr })}
+              {formatDistanceToNow(new Date(campaign.created_at), { addSuffix: true, locale: dateFnsLocale })}
             </p>
           </div>
         </div>
@@ -426,7 +462,7 @@ export default function CampaignDetailPage() {
           {canEdit && (
             <Button variant="outline" onClick={() => router.push(`/campaigns/${campaignId}/edit`)}>
               <Pencil className="mr-2 h-4 w-4" />
-              Modifier
+              {t('common.edit')}
             </Button>
           )}
           {canStart && (
@@ -439,7 +475,7 @@ export default function CampaignDetailPage() {
               ) : (
                 <Play className="mr-2 h-4 w-4" />
               )}
-              Démarrer
+              {t('campaigns.start')}
             </Button>
           )}
           {canPause && (
@@ -449,7 +485,7 @@ export default function CampaignDetailPage() {
               ) : (
                 <Pause className="mr-2 h-4 w-4" />
               )}
-              Pause
+              {t('campaigns.pause')}
             </Button>
           )}
           {canResume && (
@@ -459,7 +495,7 @@ export default function CampaignDetailPage() {
               ) : (
                 <Play className="mr-2 h-4 w-4" />
               )}
-              Reprendre
+              {t('campaigns.resume')}
             </Button>
           )}
           {canCancel && (
@@ -469,7 +505,7 @@ export default function CampaignDetailPage() {
               disabled={actionLoading}
             >
               <XCircle className="mr-2 h-4 w-4" />
-              Annuler
+              {t('campaigns.cancel_action')}
             </Button>
           )}
         </div>
@@ -485,7 +521,7 @@ export default function CampaignDetailPage() {
               </div>
               <div>
                 <div className="text-2xl font-bold">{campaign.total_recipients}</div>
-                <div className="text-xs text-muted-foreground">Destinataires</div>
+                <div className="text-xs text-muted-foreground">{t('campaigns.recipients')}</div>
               </div>
             </div>
           </CardContent>
@@ -498,7 +534,7 @@ export default function CampaignDetailPage() {
               </div>
               <div>
                 <div className="text-2xl font-bold">{campaign.sent_count}</div>
-                <div className="text-xs text-muted-foreground">Envoyés</div>
+                <div className="text-xs text-muted-foreground">{t('campaigns.sent')}</div>
               </div>
             </div>
           </CardContent>
@@ -511,7 +547,7 @@ export default function CampaignDetailPage() {
               </div>
               <div>
                 <div className="text-2xl font-bold">{campaign.delivered_count}</div>
-                <div className="text-xs text-muted-foreground">Délivrés</div>
+                <div className="text-xs text-muted-foreground">{t('campaigns.delivered')}</div>
               </div>
             </div>
           </CardContent>
@@ -524,7 +560,7 @@ export default function CampaignDetailPage() {
               </div>
               <div>
                 <div className="text-2xl font-bold">{responseRate}%</div>
-                <div className="text-xs text-muted-foreground">Taux de réponse</div>
+                <div className="text-xs text-muted-foreground">{t('campaigns.response_rate').replace(':', '').trim()}</div>
               </div>
             </div>
           </CardContent>
@@ -537,7 +573,7 @@ export default function CampaignDetailPage() {
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 text-destructive">
               <AlertCircle className="h-5 w-5" />
-              <span className="font-medium">{campaign.failed_count} messages en échec</span>
+              <span className="font-medium">{t('campaigns.failed_messages', { count: campaign.failed_count })}</span>
             </div>
           </CardContent>
         </Card>
@@ -547,73 +583,73 @@ export default function CampaignDetailPage() {
       <div className="grid gap-6 lg:grid-cols-2 mb-6">
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Configuration</CardTitle>
+            <CardTitle className="text-lg">{t('campaigns.configuration')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Message</span>
+              <span className="text-muted-foreground">{t('campaigns.message')}</span>
               <span>
                 {campaign.relance_agent
-                  ? `Agent: ${campaign.relance_agent.name}`
-                  : 'Template fixe'}
+                  ? `${t('campaigns.agent_label')} ${campaign.relance_agent.name}`
+                  : t('campaigns.fixed_template')}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Max destinataires</span>
+              <span className="text-muted-foreground">{t('campaigns.max_recipients_label')}</span>
               <span>{campaign.max_recipients}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Délai entre messages</span>
+              <span className="text-muted-foreground">{t('campaigns.delay_between')}</span>
               <span>{campaign.delay_between_min}–{campaign.delay_between_max}s</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Messages/heure</span>
+              <span className="text-muted-foreground">{t('campaigns.messages_per_hour', { count: '' }).replace(': ', '')}</span>
               <span>{campaign.messages_per_hour}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Plage horaire</span>
+              <span className="text-muted-foreground">{t('campaigns.send_range')}</span>
               <span>{campaign.send_hour_start}h – {campaign.send_hour_end}h</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Inactivité min</span>
-              <span>{campaign.filter_inactivity_days || 'Non défini'} jours</span>
+              <span className="text-muted-foreground">{t('campaigns.min_inactivity')}</span>
+              <span>{campaign.filter_inactivity_days || t('common.none')} {locale === 'fr' ? 'jours' : 'days'}</span>
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Historique</CardTitle>
+            <CardTitle className="text-lg">{t('campaigns.history')}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
             {campaign.scheduled_at && (
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Programmée pour</span>
-                <span>{format(new Date(campaign.scheduled_at), 'dd/MM/yyyy HH:mm', { locale: fr })}</span>
+                <span className="text-muted-foreground">{t('campaigns.scheduled_for_label')}</span>
+                <span>{format(new Date(campaign.scheduled_at), 'dd/MM/yyyy HH:mm', { locale: dateFnsLocale })}</span>
               </div>
             )}
             {campaign.started_at && (
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Démarrée</span>
-                <span>{format(new Date(campaign.started_at), 'dd/MM/yyyy HH:mm', { locale: fr })}</span>
+                <span className="text-muted-foreground">{t('campaigns.started_label')}</span>
+                <span>{format(new Date(campaign.started_at), 'dd/MM/yyyy HH:mm', { locale: dateFnsLocale })}</span>
               </div>
             )}
             {campaign.paused_at && (
               <div className="flex justify-between">
-                <span className="text-muted-foreground">En pause depuis</span>
-                <span>{format(new Date(campaign.paused_at), 'dd/MM/yyyy HH:mm', { locale: fr })}</span>
+                <span className="text-muted-foreground">{t('campaigns.paused_since')}</span>
+                <span>{format(new Date(campaign.paused_at), 'dd/MM/yyyy HH:mm', { locale: dateFnsLocale })}</span>
               </div>
             )}
             {campaign.pause_reason && (
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Raison</span>
+                <span className="text-muted-foreground">{t('campaigns.reason')}</span>
                 <span>{campaign.pause_reason}</span>
               </div>
             )}
             {campaign.completed_at && (
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Terminée</span>
-                <span>{format(new Date(campaign.completed_at), 'dd/MM/yyyy HH:mm', { locale: fr })}</span>
+                <span className="text-muted-foreground">{t('campaigns.completed_label')}</span>
+                <span>{format(new Date(campaign.completed_at), 'dd/MM/yyyy HH:mm', { locale: dateFnsLocale })}</span>
               </div>
             )}
           </CardContent>
@@ -624,7 +660,7 @@ export default function CampaignDetailPage() {
       {campaign.message_template && (
         <Card className="mb-6">
           <CardHeader>
-            <CardTitle className="text-lg">Message template</CardTitle>
+            <CardTitle className="text-lg">{t('campaigns.message_template_title')}</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="p-4 bg-muted rounded-lg whitespace-pre-wrap text-sm">
@@ -638,12 +674,12 @@ export default function CampaignDetailPage() {
       <Card>
         <CardHeader className="flex flex-col gap-4 space-y-0 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <CardTitle className="text-lg">Destinataires</CardTitle>
+            <CardTitle className="text-lg">{t('campaigns.recipients')}</CardTitle>
             <CardDescription>
-              {campaign.recipients?.length || 0} contacts
+              {t('campaigns.contacts_label', { count: campaign.recipients?.length || 0 })}
               {selectedRecipients.size > 0 && (
                 <span className="ml-2 text-primary">
-                  ({selectedRecipients.size} sélectionné{selectedRecipients.size > 1 ? 's' : ''})
+                  ({t('common.x_selected', { count: selectedRecipients.size })})
                 </span>
               )}
             </CardDescription>
@@ -661,7 +697,7 @@ export default function CampaignDetailPage() {
                 ) : (
                   <Trash2 className="mr-2 h-4 w-4" />
                 )}
-                Supprimer ({selectedRecipients.size})
+                {t('common.delete')} ({selectedRecipients.size})
               </Button>
             )}
             <Button
@@ -684,7 +720,7 @@ export default function CampaignDetailPage() {
                   onClick={() => setContactSelectorOpen(true)}
                 >
                   <UserPlus className="mr-2 h-4 w-4" />
-                  Gérer les prospects
+                  {t('campaigns.manage_prospects')}
                 </Button>
                 <Button
                   variant="outline"
@@ -697,7 +733,7 @@ export default function CampaignDetailPage() {
                   ) : (
                     <Users className="mr-2 h-4 w-4" />
                   )}
-                  Auto-ajouter
+                  {t('campaigns.auto_add')}
                 </Button>
               </>
             )}
@@ -707,21 +743,21 @@ export default function CampaignDetailPage() {
           {!campaign.recipients || campaign.recipients.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Users className="mx-auto h-8 w-8 mb-2" />
-              <p>Aucun destinataire</p>
+              <p>{t('campaigns.no_recipients')}</p>
               {canRefreshRecipients && (
                 <div className="flex flex-col gap-2 mt-4">
                   <Button
                     onClick={() => setContactSelectorOpen(true)}
                   >
                     <UserPlus className="mr-2 h-4 w-4" />
-                    Sélectionner des prospects
+                    {t('campaigns.select_prospects')}
                   </Button>
                   <Button
                     variant="link"
                     onClick={handleRefreshRecipients}
                     disabled={refreshing}
                   >
-                    ou ajouter automatiquement les contacts éligibles
+                    {t('campaigns.or_auto_add')}
                   </Button>
                 </div>
               )}
@@ -739,20 +775,23 @@ export default function CampaignDetailPage() {
                             selectedRecipients.size === campaign.recipients.length
                           }
                           onCheckedChange={toggleAllRecipients}
-                          aria-label="Sélectionner tout"
+                          aria-label={t('campaigns.select_all')}
                         />
                       </TableHead>
                     )}
-                    <TableHead>Contact</TableHead>
-                    <TableHead>Statut</TableHead>
-                    <TableHead className="hidden sm:table-cell">Envoyé</TableHead>
-                    <TableHead className="hidden md:table-cell">Message</TableHead>
+                    <TableHead>{t('campaigns.contact')}</TableHead>
+                    <TableHead>{t('campaigns.status')}</TableHead>
+                    <TableHead className="hidden sm:table-cell">{t('campaigns.sent_label')}</TableHead>
+                    <TableHead className="hidden md:table-cell">{t('campaigns.message')}</TableHead>
                     <TableHead className="w-[50px]"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {campaign.recipients.map((recipient) => {
-                    const recipientStatus = recipientStatusLabels[recipient.status] || { label: recipient.status, color: '' }
+                    const recipientStatus = {
+                      label: recipientStatusKeys[recipient.status] ? t(recipientStatusKeys[recipient.status]) : recipient.status,
+                      color: recipientStatusColors[recipient.status] || '',
+                    }
                     const isSelected = selectedRecipients.has(recipient.id)
 
                     return (
@@ -762,7 +801,7 @@ export default function CampaignDetailPage() {
                             <Checkbox
                               checked={isSelected}
                               onCheckedChange={() => toggleRecipient(recipient.id)}
-                              aria-label={`Sélectionner ${recipient.contact?.name || 'contact'}`}
+                              aria-label={`${t('campaigns.select_all')} ${recipient.contact?.name || t('campaigns.contact')}`}
                             />
                           </TableCell>
                         )}
@@ -773,7 +812,7 @@ export default function CampaignDetailPage() {
                             </div>
                             <div>
                               <div className="font-medium">
-                                {recipient.contact?.name || 'Sans nom'}
+                                {recipient.contact?.name || t('common.no_name')}
                               </div>
                               <div className="text-xs text-muted-foreground flex items-center gap-1">
                                 <Phone className="h-3 w-3" />
@@ -794,7 +833,7 @@ export default function CampaignDetailPage() {
                         </TableCell>
                         <TableCell className="text-sm text-muted-foreground hidden sm:table-cell">
                           {recipient.sent_at
-                            ? format(new Date(recipient.sent_at), 'dd/MM HH:mm', { locale: fr })
+                            ? format(new Date(recipient.sent_at), 'dd/MM HH:mm', { locale: dateFnsLocale })
                             : '-'}
                         </TableCell>
                         <TableCell className="max-w-[200px] hidden md:table-cell">
@@ -812,7 +851,7 @@ export default function CampaignDetailPage() {
                               variant="ghost"
                               size="icon"
                               onClick={() => handleViewContact(recipient.contact!.id)}
-                              title="Voir le profil"
+                              title={t('contact_profile.title')}
                             >
                               <User className="h-4 w-4" />
                             </Button>
@@ -833,10 +872,10 @@ export default function CampaignDetailPage() {
         open={cancelDialogOpen}
         onOpenChange={setCancelDialogOpen}
         onConfirm={() => handleAction('cancel')}
-        title="Annuler la campagne"
-        description="Êtes-vous sûr de vouloir annuler cette campagne ? Les messages non envoyés seront abandonnés."
+        title={t('campaigns.cancel_campaign_title')}
+        description={t('campaigns.cancel_campaign_desc')}
         loading={actionLoading}
-        confirmText="Annuler la campagne"
+        confirmText={t('campaigns.cancel_confirm')}
       />
 
       {/* Confirm Delete Recipients Dialog */}
@@ -844,10 +883,10 @@ export default function CampaignDetailPage() {
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
         onConfirm={handleDeleteRecipients}
-        title="Supprimer les destinataires"
-        description={`Êtes-vous sûr de vouloir supprimer ${selectedRecipients.size} destinataire(s) de cette campagne ?`}
+        title={t('campaigns.delete_recipients_title')}
+        description={t('campaigns.delete_recipients_desc', { count: selectedRecipients.size })}
         loading={deleting}
-        confirmText="Supprimer"
+        confirmText={t('common.delete')}
       />
 
       {/* Contact Profile Sheet */}
@@ -865,7 +904,7 @@ export default function CampaignDetailPage() {
                   {selectedContact.profile_picture_url ? (
                     <img
                       src={selectedContact.profile_picture_url}
-                      alt={selectedContact.name || 'Contact'}
+                      alt={selectedContact.name || t('campaigns.contact')}
                       className="h-12 w-12 rounded-full object-cover border-2 border-primary-foreground/20"
                     />
                   ) : (
@@ -875,7 +914,7 @@ export default function CampaignDetailPage() {
                   )}
                   <div className="flex-1 min-w-0">
                     <h3 className="font-semibold truncate">
-                      {selectedContact.name || 'Sans nom'}
+                      {selectedContact.name || t('common.no_name')}
                     </h3>
                     <p className="text-sm opacity-80">
                       +{selectedContact.phone_number}
@@ -885,12 +924,12 @@ export default function CampaignDetailPage() {
                 <div className="flex items-center gap-4 mt-3 text-xs opacity-80">
                   <span className="flex items-center gap-1">
                     <Calendar className="h-3 w-3" />
-                    {format(new Date(selectedContact.created_at), 'dd MMM yyyy', { locale: fr })}
+                    {format(new Date(selectedContact.created_at), 'dd MMM yyyy', { locale: dateFnsLocale })}
                   </span>
                   {selectedContact.last_message_at && (
                     <span className="flex items-center gap-1">
                       <MessageSquare className="h-3 w-3" />
-                      {formatDistanceToNow(new Date(selectedContact.last_message_at), { addSuffix: true, locale: fr })}
+                      {formatDistanceToNow(new Date(selectedContact.last_message_at), { addSuffix: true, locale: dateFnsLocale })}
                     </span>
                   )}
                 </div>
@@ -903,7 +942,7 @@ export default function CampaignDetailPage() {
                     <div className="flex items-center justify-between mb-3">
                       <h4 className="text-sm font-medium flex items-center gap-2">
                         <User className="h-4 w-4" />
-                        Informations
+                        {t('contact_profile.information')}
                       </h4>
                       <Button
                         variant="outline"
@@ -916,32 +955,32 @@ export default function CampaignDetailPage() {
                         ) : (
                           <Sparkles className="mr-2 h-3 w-3" />
                         )}
-                        Compléter via IA
+                        {t('contact_profile.complete_ai')}
                       </Button>
                     </div>
 
                     <div className="grid grid-cols-2 gap-3">
                       <div>
                         <Label htmlFor="first_name" className="text-xs text-muted-foreground">
-                          Prénom
+                          {t('contact_profile.first_name')}
                         </Label>
                         <Input
                           id="first_name"
                           value={editedContact.first_name}
                           onChange={(e) => setEditedContact({ ...editedContact, first_name: e.target.value })}
-                          placeholder="Prénom"
+                          placeholder={t('contact_profile.first_name_placeholder')}
                           className="mt-1"
                         />
                       </div>
                       <div>
                         <Label htmlFor="last_name" className="text-xs text-muted-foreground">
-                          Nom
+                          {t('contact_profile.last_name')}
                         </Label>
                         <Input
                           id="last_name"
                           value={editedContact.last_name}
                           onChange={(e) => setEditedContact({ ...editedContact, last_name: e.target.value })}
-                          placeholder="Nom"
+                          placeholder={t('contact_profile.last_name_placeholder')}
                           className="mt-1"
                         />
                       </div>
@@ -949,7 +988,7 @@ export default function CampaignDetailPage() {
 
                     <div className="mt-3">
                       <Label htmlFor="email" className="text-xs text-muted-foreground">
-                        Email
+                        {t('contact_profile.email')}
                       </Label>
                       <div className="relative mt-1">
                         <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -958,7 +997,7 @@ export default function CampaignDetailPage() {
                           type="email"
                           value={editedContact.email}
                           onChange={(e) => setEditedContact({ ...editedContact, email: e.target.value })}
-                          placeholder="email@exemple.com"
+                          placeholder={t('contact_profile.email_placeholder')}
                           className="pl-9"
                         />
                       </div>
@@ -966,13 +1005,13 @@ export default function CampaignDetailPage() {
 
                     <div className="mt-3">
                       <Label htmlFor="notes" className="text-xs text-muted-foreground">
-                        Notes
+                        {t('contact_profile.notes')}
                       </Label>
                       <Textarea
                         id="notes"
                         value={editedContact.notes}
                         onChange={(e) => setEditedContact({ ...editedContact, notes: e.target.value })}
-                        placeholder="Notes sur ce contact..."
+                        placeholder={t('contact_profile.notes_placeholder')}
                         className="mt-1 min-h-[80px]"
                       />
                     </div>
@@ -988,7 +1027,7 @@ export default function CampaignDetailPage() {
                       ) : (
                         <CheckCircle className="mr-2 h-4 w-4" />
                       )}
-                      Enregistrer
+                      {t('common.save')}
                     </Button>
                   </div>
 
@@ -999,7 +1038,7 @@ export default function CampaignDetailPage() {
                     <div className="flex items-center justify-between mb-3">
                       <h4 className="text-sm font-medium flex items-center gap-2">
                         <Sparkles className="h-4 w-4" />
-                        Résumé IA
+                        {t('contact_profile.ai_summary')}
                       </h4>
                       <Button
                         variant="outline"
@@ -1012,7 +1051,7 @@ export default function CampaignDetailPage() {
                         ) : (
                           <RefreshCw className="mr-2 h-3 w-3" />
                         )}
-                        {selectedContact.ai_summary ? 'Regénérer' : 'Générer'}
+                        {selectedContact.ai_summary ? t('contact_profile.regenerate') : t('contact_profile.generate')}
                       </Button>
                     </div>
 
@@ -1023,8 +1062,7 @@ export default function CampaignDetailPage() {
                     ) : (
                       <div className="bg-muted rounded-lg p-4 text-center text-sm text-muted-foreground">
                         <Sparkles className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                        <p>Aucun résumé disponible</p>
-                        <p className="text-xs mt-1">Cliquez sur &quot;Générer&quot; pour créer un résumé IA de la conversation</p>
+                        <p>{t('contact_profile.summary_empty')}</p>
                       </div>
                     )}
                   </div>
@@ -1042,7 +1080,7 @@ export default function CampaignDetailPage() {
                   }}
                 >
                   <MessageSquare className="mr-2 h-4 w-4" />
-                  Voir la conversation
+                  {t('contact_profile.view_conversation')}
                 </Button>
               </div>
             </>

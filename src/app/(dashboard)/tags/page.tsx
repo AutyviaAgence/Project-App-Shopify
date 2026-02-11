@@ -26,6 +26,7 @@ import {
   Check,
   X,
 } from 'lucide-react'
+import { useTranslation } from '@/i18n/context'
 
 // Couleurs prédéfinies pour les tags
 const TAG_COLORS = [
@@ -47,6 +48,7 @@ const TAG_COLORS = [
 ]
 
 export default function TagsPage() {
+  const { t } = useTranslation()
   const [tags, setTags] = useState<ConversationTag[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -73,11 +75,11 @@ export default function TagsPage() {
         setTags(json.data)
       }
     } catch {
-      toast.error('Erreur lors du chargement des tags')
+      toast.error(t('tags.load_error'))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     fetchTags()
@@ -97,12 +99,12 @@ export default function TagsPage() {
         setTags((prev) => [...prev, json.data].sort((a, b) => a.name.localeCompare(b.name)))
         setNewTagName('')
         setNewTagColor('#3B82F6')
-        toast.success('Tag créé')
+        toast.success(t('tags.created'))
       } else {
-        toast.error(json.error || 'Erreur lors de la création')
+        toast.error(json.error || t('tags.create_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setCreating(false)
     }
@@ -133,16 +135,16 @@ export default function TagsPage() {
       if (res.ok && json.data) {
         setTags((prev) =>
           prev
-            .map((t) => (t.id === editingTagId ? json.data : t))
+            .map((tg) => (tg.id === editingTagId ? json.data : tg))
             .sort((a, b) => a.name.localeCompare(b.name))
         )
         cancelEditing()
-        toast.success('Tag modifié')
+        toast.success(t('tags.edited'))
       } else {
-        toast.error(json.error || 'Erreur lors de la modification')
+        toast.error(json.error || t('tags.edit_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setSaving(false)
     }
@@ -156,21 +158,21 @@ export default function TagsPage() {
         method: 'DELETE',
       })
       if (res.ok) {
-        setTags((prev) => prev.filter((t) => t.id !== deleteTagId))
+        setTags((prev) => prev.filter((tg) => tg.id !== deleteTagId))
         setDeleteTagId(null)
-        toast.success('Tag supprimé')
+        toast.success(t('tags.deleted'))
       } else {
         const json = await res.json()
-        toast.error(json.error || 'Erreur lors de la suppression')
+        toast.error(json.error || t('tags.delete_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setDeleting(false)
     }
   }
 
-  const tagToDelete = tags.find((t) => t.id === deleteTagId)
+  const tagToDelete = tags.find((tg) => tg.id === deleteTagId)
 
   if (loading) {
     return (
@@ -183,9 +185,9 @@ export default function TagsPage() {
   return (
     <div className="p-4 sm:p-6">
       <div className="mb-6">
-        <h1 className="text-xl sm:text-2xl font-bold">Tags</h1>
+        <h1 className="text-xl sm:text-2xl font-bold">{t('tags.title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Gérez vos tags pour organiser vos conversations.
+          {t('tags.description')}
         </p>
       </div>
 
@@ -195,10 +197,10 @@ export default function TagsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Plus className="h-5 w-5" />
-              Créer un tag
+              {t('tags.create_section')}
             </CardTitle>
             <CardDescription>
-              Ajoutez un nouveau tag avec un nom et une couleur.
+              {t('tags.create_desc')}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -206,7 +208,7 @@ export default function TagsPage() {
               <Input
                 value={newTagName}
                 onChange={(e) => setNewTagName(e.target.value)}
-                placeholder="Nom du tag..."
+                placeholder={t('tags.tag_placeholder')}
                 className="flex-1"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') {
@@ -221,11 +223,11 @@ export default function TagsPage() {
                 ) : (
                   <Plus className="mr-2 h-4 w-4" />
                 )}
-                Créer
+                {t('common.create')}
               </Button>
             </div>
             <div>
-              <p className="text-sm text-muted-foreground mb-2">Couleur</p>
+              <p className="text-sm text-muted-foreground mb-2">{t('tags.color')}</p>
               <div className="flex flex-wrap gap-2">
                 {TAG_COLORS.map((color) => (
                   <button
@@ -243,7 +245,7 @@ export default function TagsPage() {
             {/* Aperçu */}
             {newTagName.trim() && (
               <div>
-                <p className="text-sm text-muted-foreground mb-2">Aperçu</p>
+                <p className="text-sm text-muted-foreground mb-2">{t('tags.preview')}</p>
                 <span
                   className="inline-flex items-center rounded-full px-3 py-1 text-sm font-medium"
                   style={{ backgroundColor: `${newTagColor}20`, color: newTagColor }}
@@ -260,10 +262,10 @@ export default function TagsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Tag className="h-5 w-5" />
-              Vos tags ({tags.length})
+              {t('tags.your_tags', { count: String(tags.length) })}
             </CardTitle>
             <CardDescription>
-              Modifiez ou supprimez vos tags existants.
+              {t('tags.your_tags_desc')}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -271,10 +273,10 @@ export default function TagsPage() {
               <div className="text-center py-8">
                 <Tag className="h-12 w-12 mx-auto text-muted-foreground/50" />
                 <p className="mt-4 text-sm text-muted-foreground">
-                  Aucun tag créé
+                  {t('tags.no_tags')}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Créez votre premier tag ci-dessus.
+                  {t('tags.no_tags_desc')}
                 </p>
               </div>
             ) : (
@@ -291,7 +293,7 @@ export default function TagsPage() {
                           <Input
                             value={editName}
                             onChange={(e) => setEditName(e.target.value)}
-                            placeholder="Nom du tag..."
+                            placeholder={t('tags.tag_placeholder')}
                             className="h-8"
                             autoFocus
                             onKeyDown={(e) => {
@@ -388,20 +390,19 @@ export default function TagsPage() {
       <AlertDialog open={!!deleteTagId} onOpenChange={(open) => !open && setDeleteTagId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Supprimer ce tag ?</AlertDialogTitle>
+            <AlertDialogTitle>{t('tags.delete_title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Le tag{' '}
+              {t('tags.delete_desc', { name: '' })}{' '}
               <span
                 className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
                 style={{ backgroundColor: `${tagToDelete?.color}20`, color: tagToDelete?.color }}
               >
                 {tagToDelete?.name}
-              </span>{' '}
-              sera supprimé de toutes les conversations. Cette action est irréversible.
+              </span>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Annuler</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting}>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault()
@@ -411,7 +412,7 @@ export default function TagsPage() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Supprimer
+              {t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

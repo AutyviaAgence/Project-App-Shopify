@@ -39,6 +39,7 @@ import {
 import { MultiTeamSelect } from '@/components/multi-team-select'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { getSessionDisplayName } from '@/lib/format-phone'
+import { useTranslation } from '@/i18n/context'
 
 type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
 
@@ -53,6 +54,7 @@ type WALinkWithSession = WALink & {
 }
 
 export default function LinksPage() {
+  const { t } = useTranslation()
   const [links, setLinks] = useState<WALinkWithSession[]>([])
   const [sessions, setSessions] = useState<WhatsAppSession[]>([])
   const [agents, setAgents] = useState<AIAgent[]>([])
@@ -82,11 +84,11 @@ export default function LinksPage() {
         setLinks(json.data)
       }
     } catch {
-      toast.error('Erreur lors du chargement des liens')
+      toast.error(t('links.load_error'))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   const fetchSessions = useCallback(async () => {
     try {
@@ -117,7 +119,7 @@ export default function LinksPage() {
       const res = await fetch('/api/teams')
       const json = await res.json()
       if (res.ok && json.data) {
-        setTeams(json.data.filter((t: TeamWithRole) => t.my_role === 'owner' || t.my_role === 'admin'))
+        setTeams(json.data.filter((tm: TeamWithRole) => tm.my_role === 'owner' || tm.my_role === 'admin'))
       }
     } catch {
       // Silently ignore
@@ -157,7 +159,7 @@ export default function LinksPage() {
 
   async function handleSave() {
     if (!formName.trim() || !formSessionId) {
-      toast.error('Nom et session sont requis')
+      toast.error(t('links.name_required'))
       return
     }
 
@@ -179,10 +181,10 @@ export default function LinksPage() {
         const json = await res.json()
         if (res.ok && json.data) {
           setLinks((prev) => prev.map((l) => (l.id === editing.id ? json.data : l)))
-          toast.success('Lien modifié')
+          toast.success(t('links.link_edited'))
           setDialogOpen(false)
         } else {
-          toast.error(json.error || 'Erreur lors de la modification')
+          toast.error(json.error || t('links.edit_error'))
         }
       } else {
         const res = await fetch('/api/links', {
@@ -201,14 +203,14 @@ export default function LinksPage() {
         const json = await res.json()
         if (res.ok && json.data) {
           setLinks((prev) => [json.data, ...prev])
-          toast.success('Lien créé')
+          toast.success(t('links.link_created'))
           setDialogOpen(false)
         } else {
-          toast.error(json.error || 'Erreur lors de la création')
+          toast.error(json.error || t('links.create_error'))
         }
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setSaving(false)
     }
@@ -226,15 +228,15 @@ export default function LinksPage() {
       const res = await fetch(`/api/links/${linkToDelete.id}`, { method: 'DELETE' })
       if (res.ok) {
         setLinks((prev) => prev.filter((l) => l.id !== linkToDelete.id))
-        toast.success('Lien supprimé')
+        toast.success(t('links.link_deleted'))
         setDeleteDialogOpen(false)
         setLinkToDelete(null)
       } else {
         const json = await res.json()
-        toast.error(json.error || 'Erreur lors de la suppression')
+        toast.error(json.error || t('links.delete_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setDeleting(null)
     }
@@ -250,10 +252,10 @@ export default function LinksPage() {
       const json = await res.json()
       if (res.ok && json.data) {
         setLinks((prev) => prev.map((l) => (l.id === link.id ? json.data : l)))
-        toast.success(json.data.is_active ? 'Lien activé' : 'Lien désactivé')
+        toast.success(json.data.is_active ? t('links.link_enabled') : t('links.link_disabled'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     }
   }
 
@@ -274,14 +276,14 @@ export default function LinksPage() {
 
   function copyLink(slug: string) {
     navigator.clipboard.writeText(getPublicUrl(slug))
-    toast.success('Lien copié !')
+    toast.success(t('links.link_copied'))
   }
 
   function copyDirectLink(link: WALinkWithSession) {
     const url = getDirectWaUrl(link)
     if (url) {
       navigator.clipboard.writeText(url)
-      toast.success('Lien wa.me direct copié !')
+      toast.success(t('links.wame_copied'))
     }
   }
 
@@ -297,14 +299,14 @@ export default function LinksPage() {
     <div className="p-4 sm:p-6">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div data-tour="links-header">
-          <h1 className="text-xl sm:text-2xl font-bold">Liens WhatsApp</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">{t('links.title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Créez des liens wa.me avec tracking et message pré-rempli.
+            {t('links.description')}
           </p>
         </div>
         <Button data-tour="new-link-btn" onClick={openCreateDialog} disabled={sessions.length === 0} className="w-full sm:w-auto">
           <Plus className="mr-2 h-4 w-4" />
-          Nouveau lien
+          {t('links.new_link')}
         </Button>
       </div>
 
@@ -312,7 +314,7 @@ export default function LinksPage() {
         <Card className="mb-4">
           <CardContent className="py-4">
             <p className="text-sm text-muted-foreground">
-              Aucune session WhatsApp connectée. Connectez une session pour créer des liens.
+              {t('links.no_sessions')}
             </p>
           </CardContent>
         </Card>
@@ -322,14 +324,14 @@ export default function LinksPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Link2 className="mb-4 h-12 w-12 text-muted-foreground" />
-            <h3 className="text-lg font-medium">Aucun lien</h3>
+            <h3 className="text-lg font-medium">{t('links.no_links')}</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Créez votre premier lien WhatsApp pour commencer le tracking.
+              {t('links.no_links_desc')}
             </p>
             {sessions.length > 0 && (
               <Button className="mt-4" onClick={openCreateDialog}>
                 <Plus className="mr-2 h-4 w-4" />
-                Créer un lien
+                {t('links.create_link')}
               </Button>
             )}
           </CardContent>
@@ -348,19 +350,19 @@ export default function LinksPage() {
                     {link.name}
                   </CardTitle>
                   <Badge variant={link.is_active ? 'default' : 'secondary'} className="w-fit">
-                    {link.is_active ? 'Actif' : 'Inactif'}
+                    {link.is_active ? t('common.active') : t('common.inactive')}
                   </Badge>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
                     <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
-                      <span>{session ? getSessionDisplayName({ display_name: session.display_name, phone_number: session.phone_number, instance_name: session.instance_name }) : 'Session inconnue'}</span>
+                      <span>{session ? getSessionDisplayName({ display_name: session.display_name, phone_number: session.phone_number, instance_name: session.instance_name }) : t('links.unknown_session')}</span>
                       {(link.team_ids?.length || link.team_id) && (
                         <>
                           {(link.team_ids || (link.team_id ? [link.team_id] : [])).map(tid => (
                             <Badge key={tid} variant="outline" className="gap-1 text-xs font-normal">
                               <Users className="h-3 w-3" />
-                              {teams.find(t => t.id === tid)?.name || 'Équipe'}
+                              {teams.find(tm => tm.id === tid)?.name || t('common.team')}
                             </Badge>
                           ))}
                         </>
@@ -369,13 +371,13 @@ export default function LinksPage() {
 
                     {link.pre_filled_message && (
                       <p className="text-xs text-muted-foreground truncate">
-                        Message : {link.pre_filled_message}
+                        {t('links.message_label')} {link.pre_filled_message}
                       </p>
                     )}
 
                     {link.tracking_source && (
                       <p className="text-xs text-muted-foreground">
-                        Source : {link.tracking_source}
+                        {t('links.source_label')} {link.tracking_source}
                       </p>
                     )}
 
@@ -383,14 +385,14 @@ export default function LinksPage() {
                       <div className="flex items-center gap-1">
                         <Badge variant="outline" className="text-xs text-violet-600 border-violet-300">
                           <Bot className="mr-1 h-3 w-3" />
-                          {agents.find((a) => a.id === link.ai_agent_id)?.name || 'Agent IA'}
+                          {agents.find((a) => a.id === link.ai_agent_id)?.name || t('links.agent_label')}
                         </Badge>
                       </div>
                     )}
 
                     <div className="flex items-center gap-1 text-xs text-muted-foreground">
                       <MousePointerClick className="h-3 w-3" />
-                      {link.click_count} clic{link.click_count !== 1 ? 's' : ''}
+                      {t('links.clicks', { count: String(link.click_count) })}
                     </div>
 
                     {link.slug && (
@@ -412,10 +414,10 @@ export default function LinksPage() {
                       variant="outline"
                       onClick={() => copyLink(link.slug!)}
                       disabled={!link.slug}
-                      title="Copier le lien avec tracking"
+                      title={t('links.copy_tracking')}
                     >
                       <Copy className="mr-1 h-3 w-3" />
-                      Tracking
+                      {t('links.tracking')}
                     </Button>
                     {phone && (
                       <Button
@@ -423,10 +425,10 @@ export default function LinksPage() {
                         variant="outline"
                         onClick={() => copyDirectLink(link)}
                         className="border-green-300 text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-400 dark:hover:bg-green-950"
-                        title="Copier le lien wa.me direct (pour Google My Business, etc.)"
+                        title={t('links.copy_wame')}
                       >
                         <Copy className="mr-1 h-3 w-3" />
-                        wa.me
+                        {t('links.wame')}
                       </Button>
                     )}
                     <Button
@@ -436,7 +438,7 @@ export default function LinksPage() {
                       disabled={!link.slug || !link.is_active}
                     >
                       <ExternalLink className="mr-1 h-3 w-3" />
-                      Tester
+                      {t('common.test')}
                     </Button>
                     <Button
                       size="sm"
@@ -476,11 +478,11 @@ export default function LinksPage() {
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{editing ? 'Modifier le lien' : 'Nouveau lien WhatsApp'}</DialogTitle>
+            <DialogTitle>{editing ? t('links.edit_title') : t('links.new_title')}</DialogTitle>
             <DialogDescription>
               {editing
-                ? 'Modifiez les paramètres de votre lien.'
-                : 'Créez un lien wa.me avec un message pré-rempli et du tracking.'}
+                ? t('links.edit_desc')
+                : t('links.new_desc')}
             </DialogDescription>
           </DialogHeader>
 
@@ -489,16 +491,16 @@ export default function LinksPage() {
               teams={teams}
               selectedTeamIds={formTeamIds}
               onTeamIdsChange={setFormTeamIds}
-              label="Équipes"
-              description="Les membres des équipes sélectionnées pourront voir ce lien."
-              emptyDescription="Ce lien est uniquement accessible par vous."
+              label={t('common.teams')}
+              description={t('links.teams_desc')}
+              emptyDescription={t('links.teams_empty')}
             />
 
             <div className="space-y-2">
-              <Label htmlFor="link-name">Nom du lien *</Label>
+              <Label htmlFor="link-name">{t('links.name_label')}</Label>
               <Input
                 id="link-name"
-                placeholder="Ex: Campagne Facebook"
+                placeholder={t('links.name_placeholder')}
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
               />
@@ -506,10 +508,10 @@ export default function LinksPage() {
 
             {!editing && (
               <div className="space-y-2">
-                <Label htmlFor="link-session">Session WhatsApp *</Label>
+                <Label htmlFor="link-session">{t('links.session_label')}</Label>
                 <Select value={formSessionId} onValueChange={setFormSessionId}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Choisir une session" />
+                    <SelectValue placeholder={t('links.session_placeholder')} />
                   </SelectTrigger>
                   <SelectContent>
                     {sessions.map((s) => (
@@ -523,10 +525,10 @@ export default function LinksPage() {
             )}
 
             <div className="space-y-2">
-              <Label htmlFor="link-message">Message pré-rempli</Label>
+              <Label htmlFor="link-message">{t('links.prefill_message')}</Label>
               <Textarea
                 id="link-message"
-                placeholder="Ex: Bonjour, je viens de votre site web !"
+                placeholder={t('links.prefill_placeholder')}
                 value={formMessage}
                 onChange={(e) => setFormMessage(e.target.value)}
                 rows={3}
@@ -534,22 +536,22 @@ export default function LinksPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="link-source">Source de tracking</Label>
+              <Label htmlFor="link-source">{t('links.tracking_source')}</Label>
               <Input
                 id="link-source"
-                placeholder="Ex: facebook, instagram, flyer"
+                placeholder={t('links.tracking_placeholder')}
                 value={formSource}
                 onChange={(e) => setFormSource(e.target.value)}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="link-slug">Slug personnalisé</Label>
+              <Label htmlFor="link-slug">{t('links.slug_label')}</Label>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground whitespace-nowrap">/api/wa/</span>
                 <Input
                   id="link-slug"
-                  placeholder="auto-généré si vide"
+                  placeholder={t('links.slug_placeholder')}
                   value={formSlug}
                   onChange={(e) => setFormSlug(e.target.value.replace(/[^a-z0-9-]/gi, '').toLowerCase())}
                 />
@@ -557,13 +559,13 @@ export default function LinksPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="link-agent">Agent IA</Label>
+              <Label htmlFor="link-agent">{t('links.agent_label')}</Label>
               <Select value={formAgentId || 'none'} onValueChange={(val) => setFormAgentId(val === 'none' ? '' : val)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Aucun agent" />
+                  <SelectValue placeholder={t('common.no_agent')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Aucun agent</SelectItem>
+                  <SelectItem value="none">{t('common.no_agent')}</SelectItem>
                   {agents.map((a) => (
                     <SelectItem key={a.id} value={a.id}>
                       <Bot className="mr-1 inline h-3 w-3" />
@@ -573,7 +575,7 @@ export default function LinksPage() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                L&apos;agent répondra automatiquement aux conversations initiées via ce lien.
+                {t('links.agent_help')}
               </p>
             </div>
 
@@ -587,7 +589,7 @@ export default function LinksPage() {
               ) : (
                 <Link2 className="mr-2 h-4 w-4" />
               )}
-              {editing ? 'Enregistrer' : 'Créer le lien'}
+              {editing ? t('common.save') : t('links.create_btn')}
             </Button>
           </div>
         </DialogContent>
@@ -601,8 +603,8 @@ export default function LinksPage() {
           if (!open) setLinkToDelete(null)
         }}
         onConfirm={handleConfirmDelete}
-        title="Supprimer le lien"
-        description={`Êtes-vous sûr de vouloir supprimer le lien "${linkToDelete?.name}" ? Cette action est irréversible.`}
+        title={t('links.delete_title')}
+        description={t('links.delete_desc', { name: linkToDelete?.name || '' })}
         loading={deleting === linkToDelete?.id}
       />
     </div>

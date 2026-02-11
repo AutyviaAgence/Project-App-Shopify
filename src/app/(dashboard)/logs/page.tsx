@@ -31,12 +31,17 @@ import {
   Webhook,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
-import { fr } from 'date-fns/locale'
+import { fr, enUS } from 'date-fns/locale'
+import { useTranslation } from '@/i18n/context'
 
 export default function LogsPage() {
+  const { t, locale } = useTranslation()
   const [logs, setLogs] = useState<WebhookLog[]>([])
   const [loading, setLoading] = useState(true)
   const [sessions, setSessions] = useState<{ id: string; instance_name: string }[]>([])
+
+  const dateFnsLocale = locale === 'fr' ? fr : enUS
+  const numberLocale = locale === 'fr' ? 'fr-FR' : 'en-US'
 
   // Filters
   const [filterSession, setFilterSession] = useState<string>('all')
@@ -87,11 +92,11 @@ export default function LogsPage() {
         }
       }
     } catch {
-      toast.error('Erreur lors du chargement des logs')
+      toast.error(t('logs.load_error'))
     } finally {
       setLoading(false)
     }
-  }, [filterSession, filterEvent, filterStatus, page])
+  }, [filterSession, filterEvent, filterStatus, page, t])
 
   useEffect(() => {
     fetchSessions()
@@ -106,13 +111,13 @@ export default function LogsPage() {
       const res = await fetch('/api/webhook-logs', { method: 'DELETE' })
       const json = await res.json()
       if (res.ok) {
-        toast.success(`${json.deleted} logs supprimés`)
+        toast.success(t('logs.cleaned', { count: String(json.deleted) }))
         fetchLogs()
       } else {
-        toast.error(json.error || 'Erreur lors du nettoyage')
+        toast.error(json.error || t('logs.clean_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     }
   }
 
@@ -132,11 +137,11 @@ export default function LogsPage() {
   function getStatusBadge(status: string) {
     switch (status) {
       case 'success':
-        return <Badge variant="outline" className="text-green-600 border-green-300">Succès</Badge>
+        return <Badge variant="outline" className="text-green-600 border-green-300">{t('logs.success')}</Badge>
       case 'error':
-        return <Badge variant="outline" className="text-red-600 border-red-300">Erreur</Badge>
+        return <Badge variant="outline" className="text-red-600 border-red-300">{t('logs.error')}</Badge>
       case 'skipped':
-        return <Badge variant="outline" className="text-yellow-600 border-yellow-300">Ignoré</Badge>
+        return <Badge variant="outline" className="text-yellow-600 border-yellow-300">{t('logs.ignored')}</Badge>
       default:
         return <Badge variant="outline">{status}</Badge>
     }
@@ -167,19 +172,19 @@ export default function LogsPage() {
     <div className="p-4 sm:p-6">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold">Logs Webhook</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">{t('logs.title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Historique des événements reçus de Evolution API
+            {t('logs.description')}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={fetchLogs} disabled={loading}>
             <RefreshCw className={`mr-2 h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
-            Actualiser
+            {t('logs.refresh')}
           </Button>
           <Button variant="outline" size="sm" onClick={handleCleanup}>
             <Trash2 className="mr-2 h-4 w-4" />
-            Nettoyer (+7j)
+            {t('logs.clean_7d')}
           </Button>
         </div>
       </div>
@@ -188,10 +193,10 @@ export default function LogsPage() {
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <Select value={filterSession} onValueChange={(v) => { setFilterSession(v); setPage(1) }}>
           <SelectTrigger className="w-full sm:w-[180px]">
-            <SelectValue placeholder="Session" />
+            <SelectValue placeholder={t('logs.all_sessions')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Toutes les sessions</SelectItem>
+            <SelectItem value="all">{t('logs.all_sessions')}</SelectItem>
             {sessions.map((s) => (
               <SelectItem key={s.id} value={s.id}>{s.instance_name}</SelectItem>
             ))}
@@ -200,10 +205,10 @@ export default function LogsPage() {
 
         <Select value={filterEvent} onValueChange={(v) => { setFilterEvent(v); setPage(1) }}>
           <SelectTrigger className="w-full sm:w-[180px]">
-            <SelectValue placeholder="Événement" />
+            <SelectValue placeholder={t('logs.all_events')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Tous les événements</SelectItem>
+            <SelectItem value="all">{t('logs.all_events')}</SelectItem>
             <SelectItem value="messages.upsert">messages.upsert</SelectItem>
             <SelectItem value="connection.update">connection.update</SelectItem>
             <SelectItem value="qrcode.updated">qrcode.updated</SelectItem>
@@ -212,18 +217,18 @@ export default function LogsPage() {
 
         <Select value={filterStatus} onValueChange={(v) => { setFilterStatus(v); setPage(1) }}>
           <SelectTrigger className="w-full sm:w-[150px]">
-            <SelectValue placeholder="Statut" />
+            <SelectValue placeholder={t('logs.all_statuses')} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Tous les statuts</SelectItem>
-            <SelectItem value="success">Succès</SelectItem>
-            <SelectItem value="error">Erreur</SelectItem>
-            <SelectItem value="skipped">Ignoré</SelectItem>
+            <SelectItem value="all">{t('logs.all_statuses')}</SelectItem>
+            <SelectItem value="success">{t('logs.success')}</SelectItem>
+            <SelectItem value="error">{t('logs.error')}</SelectItem>
+            <SelectItem value="skipped">{t('logs.ignored')}</SelectItem>
           </SelectContent>
         </Select>
 
         <span className="text-sm text-muted-foreground">
-          {totalLogs} log{totalLogs !== 1 ? 's' : ''}
+          {t('logs.log_count', { count: String(totalLogs) })}
         </span>
       </div>
 
@@ -231,9 +236,9 @@ export default function LogsPage() {
       {logs.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-12">
           <Webhook className="mb-4 h-12 w-12 text-muted-foreground" />
-          <h3 className="text-lg font-medium">Aucun log</h3>
+          <h3 className="text-lg font-medium">{t('logs.no_logs')}</h3>
           <p className="mt-1 text-sm text-muted-foreground">
-            Les événements webhook apparaîtront ici.
+            {t('logs.no_logs_desc')}
           </p>
         </div>
       ) : (
@@ -242,12 +247,12 @@ export default function LogsPage() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/50">
-                  <th className="px-3 sm:px-4 py-2 text-left font-medium">Statut</th>
-                  <th className="px-3 sm:px-4 py-2 text-left font-medium">Événement</th>
-                  <th className="px-3 sm:px-4 py-2 text-left font-medium hidden sm:table-cell">Instance</th>
-                  <th className="px-3 sm:px-4 py-2 text-left font-medium hidden md:table-cell">Temps</th>
-                  <th className="px-3 sm:px-4 py-2 text-left font-medium">Date</th>
-                  <th className="px-3 sm:px-4 py-2 text-left font-medium">Actions</th>
+                  <th className="px-3 sm:px-4 py-2 text-left font-medium">{t('logs.status')}</th>
+                  <th className="px-3 sm:px-4 py-2 text-left font-medium">{t('logs.event')}</th>
+                  <th className="px-3 sm:px-4 py-2 text-left font-medium hidden sm:table-cell">{t('logs.instance')}</th>
+                  <th className="px-3 sm:px-4 py-2 text-left font-medium hidden md:table-cell">{t('logs.time')}</th>
+                  <th className="px-3 sm:px-4 py-2 text-left font-medium">{t('logs.date')}</th>
+                  <th className="px-3 sm:px-4 py-2 text-left font-medium">{t('logs.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -265,7 +270,7 @@ export default function LogsPage() {
                       {log.processing_time_ms != null ? `${log.processing_time_ms}ms` : '-'}
                     </td>
                     <td className="px-3 sm:px-4 py-2 text-muted-foreground">
-                      {formatDistanceToNow(new Date(log.created_at), { addSuffix: true, locale: fr })}
+                      {formatDistanceToNow(new Date(log.created_at), { addSuffix: true, locale: dateFnsLocale })}
                     </td>
                     <td className="px-3 sm:px-4 py-2">
                       <Button
@@ -286,7 +291,7 @@ export default function LogsPage() {
           {totalPages > 1 && (
             <div className="mt-4 flex items-center justify-between">
               <span className="text-sm text-muted-foreground">
-                Page {page} sur {totalPages}
+                {t('common.page_x_of_y', { x: String(page), y: String(totalPages) })}
               </span>
               <div className="flex items-center gap-2">
                 <Button
@@ -315,36 +320,36 @@ export default function LogsPage() {
       <Dialog open={!!selectedLog} onOpenChange={() => setSelectedLog(null)}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Détail du log</DialogTitle>
+            <DialogTitle>{t('logs.detail_title')}</DialogTitle>
           </DialogHeader>
           {selectedLog && (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-xs text-muted-foreground">Événement</p>
+                  <p className="text-xs text-muted-foreground">{t('logs.event')}</p>
                   <p className="font-medium">{selectedLog.event_type}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Statut</p>
+                  <p className="text-xs text-muted-foreground">{t('logs.status')}</p>
                   {getStatusBadge(selectedLog.status)}
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Instance</p>
+                  <p className="text-xs text-muted-foreground">{t('logs.instance')}</p>
                   <p className="font-mono text-sm">{selectedLog.instance_name}</p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Temps de traitement</p>
+                  <p className="text-xs text-muted-foreground">{t('logs.processing_time')}</p>
                   <p>{selectedLog.processing_time_ms != null ? `${selectedLog.processing_time_ms}ms` : '-'}</p>
                 </div>
                 <div className="col-span-2">
-                  <p className="text-xs text-muted-foreground">Date</p>
-                  <p>{new Date(selectedLog.created_at).toLocaleString('fr-FR')}</p>
+                  <p className="text-xs text-muted-foreground">{t('logs.date')}</p>
+                  <p>{new Date(selectedLog.created_at).toLocaleString(numberLocale)}</p>
                 </div>
               </div>
 
               {selectedLog.error_message && (
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">Erreur</p>
+                  <p className="text-xs text-muted-foreground mb-1">{t('logs.error')}</p>
                   <p className="text-sm text-red-600 bg-red-50 dark:bg-red-900/20 p-2 rounded">
                     {selectedLog.error_message}
                   </p>
@@ -353,7 +358,7 @@ export default function LogsPage() {
 
               {selectedLog.payload && (
                 <div>
-                  <p className="text-xs text-muted-foreground mb-1">Payload</p>
+                  <p className="text-xs text-muted-foreground mb-1">{t('logs.payload')}</p>
                   <pre className="text-xs bg-muted p-3 rounded overflow-auto max-h-64">
                     {JSON.stringify(selectedLog.payload, null, 2)}
                   </pre>

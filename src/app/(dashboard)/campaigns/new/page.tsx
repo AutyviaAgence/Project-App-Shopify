@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTranslation } from '@/i18n/context'
 import type { AIAgent, WhatsAppSession, ConversationTag, Team, WALink, LifecycleStage } from '@/types/database'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -41,6 +42,7 @@ type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
 
 export default function NewCampaignPage() {
   const router = useRouter()
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [previewing, setPreviewing] = useState(false)
@@ -103,24 +105,22 @@ export default function NewCampaignPage() {
 
       if (sessionsJson.data) setSessions(sessionsJson.data)
       if (agentsJson.data) {
-        // Garder tous les agents pour sélectionner relance ET conversation
         setAgents(agentsJson.data)
       }
       if (tagsJson.data) setTags(tagsJson.data)
       if (teamsJson.data) {
-        setTeams(teamsJson.data.filter((t: TeamWithRole) => t.my_role === 'owner' || t.my_role === 'admin'))
+        setTeams(teamsJson.data.filter((team: TeamWithRole) => team.my_role === 'owner' || team.my_role === 'admin'))
       }
       if (linksJson.data) setLinks(linksJson.data)
       if (lifecycleJson.data) setLifecycleStages(lifecycleJson.data)
 
-      // Récupérer les sources de tracking uniques
       const sourcesRes = await fetch('/api/conversations?tracking_sources=true')
       const sourcesJson = await sourcesRes.json()
       if (sourcesJson.tracking_sources) {
         setTrackingSources(sourcesJson.tracking_sources)
       }
     } catch {
-      toast.error('Erreur lors du chargement des données')
+      toast.error(t('campaigns.load_error'))
     } finally {
       setLoading(false)
     }
@@ -132,13 +132,12 @@ export default function NewCampaignPage() {
 
   async function handlePreview() {
     if (!name.trim()) {
-      toast.error('Veuillez entrer un nom de campagne')
+      toast.error(t('campaigns.enter_name'))
       return
     }
 
     setPreviewing(true)
     try {
-      // Créer temporairement la campagne pour prévisualiser
       const createRes = await fetch('/api/campaigns', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -167,11 +166,10 @@ export default function NewCampaignPage() {
 
       const createJson = await createRes.json()
       if (!createRes.ok) {
-        toast.error(createJson.error || 'Erreur lors de la création')
+        toast.error(createJson.error || t('campaigns.create_error'))
         return
       }
 
-      // Prévisualiser
       const previewRes = await fetch(`/api/campaigns/${createJson.data.id}/preview`)
       const previewJson = await previewRes.json()
 
@@ -179,26 +177,24 @@ export default function NewCampaignPage() {
         setPreviewCount(previewJson.data.eligible_count)
 
         if (previewJson.data.eligible_count > 0) {
-          // Ajouter les destinataires
           const addRes = await fetch(`/api/campaigns/${createJson.data.id}/preview`, {
             method: 'POST',
           })
           const addJson = await addRes.json()
 
           if (addRes.ok) {
-            toast.success(`${addJson.data.added_count} contacts éligibles ajoutés`)
+            toast.success(t('campaigns.contacts_added', { count: addJson.data.added_count }))
             router.push(`/campaigns/${createJson.data.id}`)
           } else {
-            toast.error(addJson.error || 'Erreur lors de l\'ajout des contacts')
+            toast.error(addJson.error || t('campaigns.add_contacts_error'))
           }
         } else {
-          toast.warning('Aucun contact éligible avec ces critères')
-          // Supprimer la campagne vide
+          toast.warning(t('campaigns.no_eligible'))
           await fetch(`/api/campaigns/${createJson.data.id}`, { method: 'DELETE' })
         }
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setPreviewing(false)
     }
@@ -206,17 +202,17 @@ export default function NewCampaignPage() {
 
   async function handleSave() {
     if (!name.trim()) {
-      toast.error('Le nom est requis')
+      toast.error(t('campaigns.name_required'))
       return
     }
 
     if (useAgent && !agentId) {
-      toast.error('Veuillez sélectionner un agent de relance')
+      toast.error(t('campaigns.agent_required'))
       return
     }
 
     if (!useAgent && !messageTemplate.trim()) {
-      toast.error('Le message template est requis')
+      toast.error(t('campaigns.template_required'))
       return
     }
 
@@ -250,13 +246,13 @@ export default function NewCampaignPage() {
 
       const json = await res.json()
       if (res.ok && json.data) {
-        toast.success('Campagne créée')
+        toast.success(t('campaigns.campaign_created'))
         router.push(`/campaigns/${json.data.id}`)
       } else {
-        toast.error(json.error || 'Erreur lors de la création')
+        toast.error(json.error || t('campaigns.create_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setSaving(false)
     }
@@ -280,9 +276,9 @@ export default function NewCampaignPage() {
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold">Nouvelle campagne</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">{t('campaigns.new_title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Configurez une campagne de relance pour vos contacts inactifs.
+            {t('campaigns.new_desc')}
           </p>
         </div>
       </div>
@@ -293,15 +289,15 @@ export default function NewCampaignPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Megaphone className="h-5 w-5" />
-              Informations générales
+              {t('campaigns.general_info')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Nom de la campagne *</Label>
+              <Label htmlFor="name">{t('campaigns.campaign_name')}</Label>
               <Input
                 id="name"
-                placeholder="Ex: Relance clients janvier"
+                placeholder={t('campaigns.campaign_name_placeholder')}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
@@ -309,9 +305,9 @@ export default function NewCampaignPage() {
 
             {teams.length > 0 && (
               <div className="space-y-2">
-                <Label>Équipes (optionnel)</Label>
+                <Label>{t('campaigns.teams_optional')}</Label>
                 <p className="text-xs text-muted-foreground mb-2">
-                  Sélectionnez les équipes qui auront accès à cette campagne
+                  {t('campaigns.teams_desc')}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {teams.map((team) => (
@@ -342,38 +338,38 @@ export default function NewCampaignPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <MessageSquare className="h-5 w-5" />
-              Message de relance
+              {t('campaigns.message_section')}
             </CardTitle>
             <CardDescription>
-              Utilisez un agent IA pour personnaliser chaque message, ou un template fixe.
+              {t('campaigns.message_desc')}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <Label className="flex items-center gap-2">
                 <Bot className="h-4 w-4" />
-                Utiliser un agent IA
+                {t('campaigns.use_ai_agent')}
               </Label>
               <Switch checked={useAgent} onCheckedChange={setUseAgent} />
             </div>
 
             {useAgent ? (
               <div className="space-y-2">
-                <Label>Agent de relance</Label>
+                <Label>{t('campaigns.relance_agent')}</Label>
                 {relanceAgents.length === 0 ? (
                   <div className="p-4 bg-muted rounded-lg text-center">
                     <AlertTriangle className="h-8 w-8 mx-auto mb-2 text-yellow-500" />
                     <p className="text-sm text-muted-foreground">
-                      Aucun agent de type &quot;relance&quot; disponible.
+                      {t('campaigns.no_relance_agent')}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Créez un agent avec le type &quot;relance&quot; dans la page Agents IA.
+                      {t('campaigns.create_relance_help')}
                     </p>
                   </div>
                 ) : (
                   <Select value={agentId} onValueChange={setAgentId}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner un agent" />
+                      <SelectValue placeholder={t('campaigns.select_agent')} />
                     </SelectTrigger>
                     <SelectContent>
                       {relanceAgents.map((agent) => (
@@ -387,16 +383,16 @@ export default function NewCampaignPage() {
               </div>
             ) : (
               <div className="space-y-2">
-                <Label htmlFor="template">Message template *</Label>
+                <Label htmlFor="template">{t('campaigns.message_template')}</Label>
                 <Textarea
                   id="template"
-                  placeholder="Bonjour ! Cela fait un moment que nous n'avons pas échangé..."
+                  placeholder={t('campaigns.message_template_placeholder')}
                   value={messageTemplate}
                   onChange={(e) => setMessageTemplate(e.target.value)}
                   rows={4}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Ce message sera envoyé identique à tous les contacts.
+                  {t('campaigns.message_template_help')}
                 </p>
               </div>
             )}
@@ -405,17 +401,17 @@ export default function NewCampaignPage() {
             <div className="space-y-2 pt-4 border-t">
               <Label className="flex items-center gap-2">
                 <MessageSquare className="h-4 w-4" />
-                Agent de conversation (suivi)
+                {t('campaigns.conversation_agent')}
               </Label>
               <p className="text-xs text-muted-foreground mb-2">
-                Cet agent prendra le relais pour répondre aux contacts après le message de relance.
+                {t('campaigns.conversation_agent_desc')}
               </p>
               <Select value={conversationAgentId || 'none'} onValueChange={(v) => setConversationAgentId(v === 'none' ? '' : v)}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Aucun (agent par défaut de la conversation)" />
+                  <SelectValue placeholder={t('campaigns.keep_current')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Aucun (garder l&apos;agent actuel)</SelectItem>
+                  <SelectItem value="none">{t('campaigns.keep_current')}</SelectItem>
                   {conversationAgents.map((agent) => (
                     <SelectItem key={agent.id} value={agent.id}>
                       {agent.name}
@@ -432,10 +428,10 @@ export default function NewCampaignPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Filter className="h-5 w-5" />
-              Filtres de ciblage
+              {t('campaigns.targeting_filters')}
             </CardTitle>
             <CardDescription>
-              Définissez les critères pour sélectionner les contacts à relancer.
+              {t('campaigns.targeting_desc')}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -443,7 +439,7 @@ export default function NewCampaignPage() {
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
                 <Users className="h-4 w-4" />
-                Sessions WhatsApp
+                {t('campaigns.whatsapp_sessions')}
               </Label>
               <div className="flex flex-wrap gap-2">
                 {sessions.map((session) => (
@@ -464,7 +460,7 @@ export default function NewCampaignPage() {
                 ))}
               </div>
               <p className="text-xs text-muted-foreground">
-                Laisser vide = toutes les sessions accessibles
+                {t('campaigns.sessions_help')}
               </p>
             </div>
 
@@ -473,10 +469,10 @@ export default function NewCampaignPage() {
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
                   <Link2 className="h-4 w-4" />
-                  Liens WhatsApp
+                  {t('campaigns.whatsapp_links')}
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  Cibler les contacts venus via ces liens spécifiques
+                  {t('campaigns.links_help')}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {links.map((link) => (
@@ -504,7 +500,7 @@ export default function NewCampaignPage() {
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
                   <Link2 className="h-4 w-4" />
-                  Sources de tracking (legacy)
+                  {t('campaigns.tracking_sources')}
                 </Label>
                 <div className="flex flex-wrap gap-2">
                   {trackingSources.map((source) => (
@@ -532,7 +528,7 @@ export default function NewCampaignPage() {
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
                   <Tag className="h-4 w-4" />
-                  Tags de conversation
+                  {t('campaigns.conversation_tags')}
                 </Label>
                 <div className="flex flex-wrap gap-2">
                   {tags.map((tag) => (
@@ -561,10 +557,10 @@ export default function NewCampaignPage() {
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
                   <Workflow className="h-4 w-4" />
-                  Stade lifecycle
+                  {t('campaigns.lifecycle_stage')}
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  Cibler uniquement les contacts dans ces stades de pipeline
+                  {t('campaigns.lifecycle_desc')}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {lifecycleStages.map((stage) => (
@@ -590,7 +586,7 @@ export default function NewCampaignPage() {
 
             {/* Inactivity */}
             <div className="space-y-2">
-              <Label>Inactivité minimum : {filterInactivityDays} jours</Label>
+              <Label>{t('campaigns.inactivity_days', { days: filterInactivityDays })}</Label>
               <Slider
                 value={[filterInactivityDays]}
                 onValueChange={([value]) => setFilterInactivityDays(value)}
@@ -599,16 +595,16 @@ export default function NewCampaignPage() {
                 step={1}
               />
               <p className="text-xs text-muted-foreground">
-                Contacts sans message depuis au moins {filterInactivityDays} jours
+                {t('campaigns.inactivity_help', { days: filterInactivityDays })}
               </p>
             </div>
 
             {/* Exclude replied */}
             <div className="flex items-center justify-between">
               <div>
-                <Label>Exclure ceux qui ont répondu</Label>
+                <Label>{t('campaigns.exclude_replied')}</Label>
                 <p className="text-xs text-muted-foreground">
-                  N&apos;inclure que les contacts qui n&apos;ont pas répondu
+                  {t('campaigns.exclude_replied_desc')}
                 </p>
               </div>
               <Switch checked={filterExcludeReplied} onCheckedChange={setFilterExcludeReplied} />
@@ -621,16 +617,16 @@ export default function NewCampaignPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Shield className="h-5 w-5" />
-              Protection anti-ban
+              {t('campaigns.anti_ban')}
             </CardTitle>
             <CardDescription>
-              Limites pour éviter le blocage par WhatsApp.
+              {t('campaigns.anti_ban_desc')}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Destinataires max : {maxRecipients}</Label>
+                <Label>{t('campaigns.max_recipients', { count: maxRecipients })}</Label>
                 <Slider
                   value={[maxRecipients]}
                   onValueChange={([value]) => setMaxRecipients(value)}
@@ -641,7 +637,7 @@ export default function NewCampaignPage() {
               </div>
 
               <div className="space-y-2">
-                <Label>Messages/heure : {messagesPerHour}</Label>
+                <Label>{t('campaigns.messages_per_hour', { count: messagesPerHour })}</Label>
                 <Slider
                   value={[messagesPerHour]}
                   onValueChange={([value]) => setMessagesPerHour(value)}
@@ -653,7 +649,7 @@ export default function NewCampaignPage() {
             </div>
 
             <div className="space-y-2">
-              <Label>Délai entre messages : {delayBetweenMin}–{delayBetweenMax} secondes</Label>
+              <Label>{t('campaigns.delay_range', { min: delayBetweenMin, max: delayBetweenMax })}</Label>
               <div className="flex gap-4">
                 <div className="flex-1">
                   <Input
@@ -679,7 +675,7 @@ export default function NewCampaignPage() {
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
                 <Clock className="h-4 w-4" />
-                Plage horaire d&apos;envoi
+                {t('campaigns.send_hours')}
               </Label>
               <div className="flex items-center gap-2">
                 <Input
@@ -690,7 +686,7 @@ export default function NewCampaignPage() {
                   max={23}
                   className="w-20"
                 />
-                <span>h à</span>
+                <span>{t('campaigns.hour_to')}</span>
                 <Input
                   type="number"
                   value={sendHourEnd}
@@ -699,12 +695,12 @@ export default function NewCampaignPage() {
                   max={23}
                   className="w-20"
                 />
-                <span>h</span>
+                <span>{t('campaigns.hour_suffix')}</span>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label>Jours min depuis dernière campagne : {minDaysSinceLastCampaign}</Label>
+              <Label>{t('campaigns.min_days_since', { days: minDaysSinceLastCampaign })}</Label>
               <Slider
                 value={[minDaysSinceLastCampaign]}
                 onValueChange={([value]) => setMinDaysSinceLastCampaign(value)}
@@ -713,7 +709,7 @@ export default function NewCampaignPage() {
                 step={1}
               />
               <p className="text-xs text-muted-foreground">
-                Ne pas recontacter quelqu&apos;un contacté par campagne il y a moins de {minDaysSinceLastCampaign} jours
+                {t('campaigns.min_days_help', { days: minDaysSinceLastCampaign })}
               </p>
             </div>
           </CardContent>
@@ -733,8 +729,8 @@ export default function NewCampaignPage() {
               <Users className="mr-2 h-4 w-4" />
             )}
             {previewCount !== null
-              ? `${previewCount} contacts éligibles`
-              : 'Prévisualiser et créer'}
+              ? t('campaigns.eligible_contacts', { count: previewCount })
+              : t('campaigns.preview_create')}
           </Button>
           <Button
             className="flex-1"
@@ -746,7 +742,7 @@ export default function NewCampaignPage() {
             ) : (
               <Megaphone className="mr-2 h-4 w-4" />
             )}
-            Créer en brouillon
+            {t('campaigns.create_draft')}
           </Button>
         </div>
       </div>

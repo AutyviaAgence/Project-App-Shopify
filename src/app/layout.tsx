@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import { Toaster } from 'sonner'
 import { ThemeProvider } from 'next-themes'
+import { LanguageProvider } from '@/i18n/context'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -17,7 +18,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="fr" suppressHydrationWarning>
+    <html suppressHydrationWarning>
       <body className={`${inter.className} antialiased`}>
         <ThemeProvider
           attribute="class"
@@ -25,8 +26,10 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
-          {children}
-          <Toaster richColors position="bottom-right" />
+          <LanguageProvider>
+            {children}
+            <Toaster richColors position="bottom-right" />
+          </LanguageProvider>
         </ThemeProvider>
       </body>
     </html>

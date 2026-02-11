@@ -36,6 +36,7 @@ import {
   History,
   ArrowRight,
 } from 'lucide-react'
+import { useTranslation } from '@/i18n/context'
 
 const STAGE_COLORS = [
   '#3B82F6', // blue
@@ -53,14 +54,14 @@ const STAGE_COLORS = [
 ]
 
 const STAGE_ICONS = [
-  { value: 'sparkles', label: 'Nouveau' },
-  { value: 'flame', label: 'Chaud' },
-  { value: 'calendar', label: 'Booking' },
-  { value: 'user', label: 'Client' },
-  { value: 'heart', label: 'Personnel' },
-  { value: 'search', label: 'Qualification' },
-  { value: 'star', label: 'VIP' },
-  { value: 'ban', label: 'Perdu' },
+  { value: 'sparkles', labelKey: 'lifecycle.icon_new' },
+  { value: 'flame', labelKey: 'lifecycle.icon_hot' },
+  { value: 'calendar', labelKey: 'lifecycle.icon_booking' },
+  { value: 'user', labelKey: 'lifecycle.icon_client' },
+  { value: 'heart', labelKey: 'lifecycle.icon_personal' },
+  { value: 'search', labelKey: 'lifecycle.icon_qualification' },
+  { value: 'star', labelKey: 'lifecycle.icon_vip' },
+  { value: 'ban', labelKey: 'lifecycle.icon_lost' },
 ]
 
 type UnanalyzedCounts = {
@@ -105,6 +106,7 @@ type LifecycleStats = {
 }
 
 export default function LifecyclePage() {
+  const { t, locale } = useTranslation()
   const [stages, setStages] = useState<LifecycleStage[]>([])
   const [loading, setLoading] = useState(true)
   const [unanalyzed, setUnanalyzed] = useState<UnanalyzedCounts>({ unanalyzed: 0, needs_reanalysis: 0, total: 0 })
@@ -142,7 +144,7 @@ export default function LifecyclePage() {
         setStages(json.data)
       }
     } catch {
-      toast.error('Erreur lors du chargement des stages')
+      toast.error(t('lifecycle.load_error'))
     } finally {
       setLoading(false)
     }
@@ -206,12 +208,12 @@ export default function LifecyclePage() {
         setNewIcon('')
         setNewDescription('')
         setShowCreate(false)
-        toast.success('Stage créé')
+        toast.success(t('lifecycle.stage_created'))
       } else {
-        toast.error(json.error || 'Erreur lors de la création')
+        toast.error(json.error || t('lifecycle.create_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setCreating(false)
     }
@@ -247,12 +249,12 @@ export default function LifecyclePage() {
       if (res.ok && json.data) {
         setStages((prev) => prev.map((s) => (s.id === editingId ? json.data : s)))
         cancelEditing()
-        toast.success('Stage modifié')
+        toast.success(t('lifecycle.stage_edited'))
       } else {
-        toast.error(json.error || 'Erreur lors de la modification')
+        toast.error(json.error || t('lifecycle.edit_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setSaving(false)
     }
@@ -266,13 +268,13 @@ export default function LifecyclePage() {
       if (res.ok) {
         setStages((prev) => prev.filter((s) => s.id !== deleteId))
         setDeleteId(null)
-        toast.success('Stage supprimé')
+        toast.success(t('lifecycle.stage_deleted'))
       } else {
         const json = await res.json()
-        toast.error(json.error || 'Erreur lors de la suppression')
+        toast.error(json.error || t('lifecycle.delete_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setDeleting(false)
     }
@@ -299,7 +301,7 @@ export default function LifecyclePage() {
     } catch {
       // Rollback
       setStages(stages)
-      toast.error('Erreur lors du réordonnement')
+      toast.error(t('lifecycle.reorder_error'))
     }
   }
 
@@ -313,26 +315,26 @@ export default function LifecyclePage() {
         const classified = (json.data || []).filter((r: { stageId: string | null }) => r.stageId !== null).length
         const failed = json.total_analyzed - classified
         if (classified > 0) {
-          toast.success(`${classified} conversation(s) classifiée(s) — ${json.total_tokens} tokens`)
+          toast.success(t('lifecycle.classified_count', { count: String(classified), tokens: String(json.total_tokens) }))
         }
         if (failed > 0) {
           const failedReasons = (json.data || [])
             .filter((r: { stageId: string | null }) => r.stageId === null)
             .map((r: { reason: string }) => r.reason)
             .slice(0, 3)
-          toast.warning(`${failed} conversation(s) non classifiée(s): ${failedReasons.join(', ')}`)
+          toast.warning(t('lifecycle.unclassified_count', { count: String(failed), reasons: failedReasons.join(', ') }))
         }
         if (json.total_analyzed === 0) {
-          toast.info('Aucune conversation à analyser')
+          toast.info(t('lifecycle.no_conversations_to_analyze'))
         }
         fetchStages()
         fetchUnanalyzed()
         fetchStats()
       } else {
-        toast.error(json.error || 'Erreur lors de l\'analyse')
+        toast.error(json.error || t('lifecycle.analyze_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setAnalyzing(false)
     }
@@ -352,14 +354,14 @@ export default function LifecyclePage() {
     <div className="p-4 sm:p-6">
       <div className="mb-6 flex items-start justify-between">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold">Lifecycle</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">{t('lifecycle.title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Classifiez automatiquement vos conversations en stades de pipeline.
+            {t('lifecycle.description')}
           </p>
         </div>
         <Button onClick={() => setShowCreate(!showCreate)} variant={showCreate ? 'secondary' : 'default'}>
           <Plus className="mr-2 h-4 w-4" />
-          Nouveau stage
+          {t('lifecycle.new_stage')}
         </Button>
       </div>
 
@@ -371,15 +373,15 @@ export default function LifecyclePage() {
               <div>
                 <p className="text-sm font-medium">
                   {unanalyzed.unanalyzed > 0 && (
-                    <span>{unanalyzed.unanalyzed} conversation(s) non classifiée(s)</span>
+                    <span>{t('lifecycle.unclassified_conversations', { count: String(unanalyzed.unanalyzed) })}</span>
                   )}
                   {unanalyzed.unanalyzed > 0 && unanalyzed.needs_reanalysis > 0 && <span> • </span>}
                   {unanalyzed.needs_reanalysis > 0 && (
-                    <span>{unanalyzed.needs_reanalysis} nécessitant une ré-analyse</span>
+                    <span>{t('lifecycle.needs_reanalysis', { count: String(unanalyzed.needs_reanalysis) })}</span>
                   )}
                 </p>
                 <p className="text-xs text-muted-foreground mt-0.5">
-                  L&apos;analyse utilise des tokens IA (~200 tokens par conversation)
+                  {t('lifecycle.analysis_tokens_note')}
                 </p>
               </div>
               <Button onClick={handleBulkAnalyze} disabled={analyzing || stages.length === 0} size="sm">
@@ -388,7 +390,7 @@ export default function LifecyclePage() {
                 ) : (
                   <Sparkles className="mr-2 h-4 w-4" />
                 )}
-                Analyser tout
+                {t('lifecycle.analyze_all')}
               </Button>
             </CardContent>
           </Card>
@@ -400,16 +402,16 @@ export default function LifecyclePage() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
                 <Plus className="h-5 w-5" />
-                Nouveau stage
+                {t('lifecycle.new_stage')}
               </CardTitle>
               <CardDescription>
-                Définissez un stade du pipeline. La description aide l&apos;IA à classifier correctement.
+                {t('lifecycle.new_stage_desc')}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label className="text-sm font-medium mb-1.5 block">Nom *</label>
+                  <label className="text-sm font-medium mb-1.5 block">{t('lifecycle.name_label')}</label>
                   <Input
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
@@ -423,7 +425,7 @@ export default function LifecyclePage() {
                   />
                 </div>
                 <div>
-                  <label className="text-sm font-medium mb-1.5 block">Icône</label>
+                  <label className="text-sm font-medium mb-1.5 block">{t('lifecycle.icon_label')}</label>
                   <div className="flex flex-wrap gap-1.5">
                     {STAGE_ICONS.map((icon) => (
                       <button
@@ -436,7 +438,7 @@ export default function LifecyclePage() {
                             : 'border-border hover:bg-muted'
                         )}
                       >
-                        {icon.label}
+                        {t(icon.labelKey)}
                       </button>
                     ))}
                   </div>
@@ -444,7 +446,7 @@ export default function LifecyclePage() {
               </div>
               <div>
                 <label className="text-sm font-medium mb-1.5 block">
-                  Description (pour l&apos;IA)
+                  {t('lifecycle.description_label')}
                 </label>
                 <Textarea
                   value={newDescription}
@@ -454,7 +456,7 @@ export default function LifecyclePage() {
                 />
               </div>
               <div>
-                <label className="text-sm font-medium mb-1.5 block">Couleur</label>
+                <label className="text-sm font-medium mb-1.5 block">{t('lifecycle.color_label')}</label>
                 <div className="flex flex-wrap gap-2">
                   {STAGE_COLORS.map((color) => (
                     <button
@@ -471,11 +473,11 @@ export default function LifecyclePage() {
               </div>
               <div className="flex justify-end gap-2">
                 <Button variant="ghost" onClick={() => setShowCreate(false)}>
-                  Annuler
+                  {t('common.cancel')}
                 </Button>
                 <Button onClick={handleCreate} disabled={!newName.trim() || creating}>
                   {creating && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Créer
+                  {t('common.create')}
                 </Button>
               </div>
             </CardContent>
@@ -487,10 +489,10 @@ export default function LifecyclePage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Workflow className="h-5 w-5" />
-              Pipeline ({stages.length} stade{stages.length > 1 ? 's' : ''})
+{t('lifecycle.pipeline', { count: String(stages.length) })}
             </CardTitle>
             <CardDescription>
-              Ordonnez vos stades du début à la fin du parcours client. L&apos;IA utilise l&apos;ordre et la description pour classifier.
+{t('lifecycle.pipeline_desc')}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -498,14 +500,14 @@ export default function LifecyclePage() {
               <div className="text-center py-8">
                 <Workflow className="h-12 w-12 mx-auto text-muted-foreground/50" />
                 <p className="mt-4 text-sm text-muted-foreground">
-                  Aucun stage configuré
+                  {t('lifecycle.no_stages')}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Créez vos premiers stades de pipeline pour commencer la classification.
+                  {t('lifecycle.no_stages_desc')}
                 </p>
                 <Button className="mt-4" variant="outline" size="sm" onClick={() => setShowCreate(true)}>
                   <Plus className="mr-2 h-4 w-4" />
-                  Créer un stage
+                  {t('lifecycle.create_stage')}
                 </Button>
               </div>
             ) : (
@@ -544,7 +546,7 @@ export default function LifecyclePage() {
                                     : 'border-border hover:bg-muted'
                                 )}
                               >
-                                {icon.label}
+                                {t(icon.labelKey)}
                               </button>
                             ))}
                           </div>
@@ -570,7 +572,7 @@ export default function LifecyclePage() {
                         </div>
                         <div className="flex justify-end gap-1">
                           <Button size="sm" variant="ghost" onClick={cancelEditing} disabled={saving}>
-                            <X className="mr-1 h-4 w-4" /> Annuler
+                            <X className="mr-1 h-4 w-4" /> {t('common.cancel')}
                           </Button>
                           <Button size="sm" onClick={handleSaveEdit} disabled={!editName.trim() || saving}>
                             {saving ? (
@@ -578,7 +580,7 @@ export default function LifecyclePage() {
                             ) : (
                               <Check className="mr-1 h-4 w-4" />
                             )}
-                            Enregistrer
+                            {t('common.save')}
                           </Button>
                         </div>
                       </div>
@@ -600,7 +602,7 @@ export default function LifecyclePage() {
                             </span>
                             {stage.icon && (
                               <span className="text-xs text-muted-foreground">
-                                ({STAGE_ICONS.find((i) => i.value === stage.icon)?.label || stage.icon})
+                                ({(() => { const found = STAGE_ICONS.find((i) => i.value === stage.icon); return found ? t(found.labelKey) : stage.icon; })()})
                               </span>
                             )}
                             <span className="text-xs text-muted-foreground ml-auto shrink-0">
@@ -667,17 +669,17 @@ export default function LifecyclePage() {
                 <CardContent className="pt-4 pb-3 px-4">
                   <div className="flex items-center gap-2 text-muted-foreground mb-1">
                     <BarChart3 className="h-4 w-4" />
-                    <span className="text-xs">Total</span>
+                    <span className="text-xs">{t('lifecycle.total')}</span>
                   </div>
                   <p className="text-2xl font-bold">{lifecycleStats.total_conversations}</p>
-                  <p className="text-xs text-muted-foreground">conversations</p>
+                  <p className="text-xs text-muted-foreground">{t('lifecycle.conversations')}</p>
                 </CardContent>
               </Card>
               <Card>
                 <CardContent className="pt-4 pb-3 px-4">
                   <div className="flex items-center gap-2 text-muted-foreground mb-1">
                     <TrendingUp className="h-4 w-4" />
-                    <span className="text-xs">Classifiées</span>
+                    <span className="text-xs">{t('lifecycle.classified')}</span>
                   </div>
                   <p className="text-2xl font-bold text-green-600">{lifecycleStats.classified}</p>
                   <p className="text-xs text-muted-foreground">
@@ -691,11 +693,11 @@ export default function LifecyclePage() {
                 <CardContent className="pt-4 pb-3 px-4">
                   <div className="flex items-center gap-2 text-muted-foreground mb-1">
                     <Zap className="h-4 w-4" />
-                    <span className="text-xs">Analyses IA</span>
+                    <span className="text-xs">{t('lifecycle.ai_analyses')}</span>
                   </div>
                   <p className="text-2xl font-bold">{lifecycleStats.ai_analyses_count}</p>
                   <p className="text-xs text-muted-foreground">
-                    {lifecycleStats.tokens_used_total.toLocaleString()} tokens
+                    {lifecycleStats.tokens_used_total.toLocaleString()} {t('lifecycle.tokens')}
                   </p>
                 </CardContent>
               </Card>
@@ -703,10 +705,10 @@ export default function LifecyclePage() {
                 <CardContent className="pt-4 pb-3 px-4">
                   <div className="flex items-center gap-2 text-muted-foreground mb-1">
                     <Pencil className="h-4 w-4" />
-                    <span className="text-xs">Manuels</span>
+                    <span className="text-xs">{t('lifecycle.manual_changes')}</span>
                   </div>
                   <p className="text-2xl font-bold">{lifecycleStats.manual_changes_count}</p>
-                  <p className="text-xs text-muted-foreground">changements</p>
+                  <p className="text-xs text-muted-foreground">{t('lifecycle.changes')}</p>
                 </CardContent>
               </Card>
             </div>
@@ -716,7 +718,7 @@ export default function LifecyclePage() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
                   <BarChart3 className="h-4 w-4" />
-                  Répartition du pipeline
+                  {t('lifecycle.distribution')}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
@@ -755,29 +757,29 @@ export default function LifecyclePage() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-base">
                     <History className="h-4 w-4" />
-                    Dernières transitions
+                    {t('lifecycle.recent_transitions')}
                   </CardTitle>
                   <CardDescription>
-                    Les 10 derniers changements de stade
+                    {t('lifecycle.last_10')}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    {lifecycleStats.recent_transitions.map((t) => (
+                    {lifecycleStats.recent_transitions.map((tr) => (
                       <div
-                        key={t.id}
+                        key={tr.id}
                         className="flex items-center gap-2 p-2 rounded-md border text-sm"
                       >
                         {/* From stage */}
-                        {t.from_stage_name ? (
+                        {tr.from_stage_name ? (
                           <span
                             className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium shrink-0"
                             style={{
-                              backgroundColor: `${t.from_stage_color}20`,
-                              color: t.from_stage_color || undefined,
+                              backgroundColor: `${tr.from_stage_color}20`,
+                              color: tr.from_stage_color || undefined,
                             }}
                           >
-                            {t.from_stage_name}
+                            {tr.from_stage_name}
                           </span>
                         ) : (
                           <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium text-muted-foreground bg-muted shrink-0">
@@ -788,15 +790,15 @@ export default function LifecyclePage() {
                         <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
 
                         {/* To stage */}
-                        {t.to_stage_name ? (
+                        {tr.to_stage_name ? (
                           <span
                             className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium shrink-0"
                             style={{
-                              backgroundColor: `${t.to_stage_color}20`,
-                              color: t.to_stage_color || undefined,
+                              backgroundColor: `${tr.to_stage_color}20`,
+                              color: tr.to_stage_color || undefined,
                             }}
                           >
-                            {t.to_stage_name}
+                            {tr.to_stage_name}
                           </span>
                         ) : (
                           <span className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium text-muted-foreground bg-muted shrink-0">
@@ -806,17 +808,17 @@ export default function LifecyclePage() {
 
                         {/* Reason */}
                         <span className="text-xs text-muted-foreground truncate flex-1 min-w-0">
-                          {t.reason}
+                          {tr.reason}
                         </span>
 
                         {/* Changed by + time */}
                         <span className="text-xs text-muted-foreground shrink-0 flex items-center gap-1">
-                          {t.changed_by === 'ai' ? (
+                          {tr.changed_by === 'ai' ? (
                             <Sparkles className="h-3 w-3" />
                           ) : (
                             <Pencil className="h-3 w-3" />
                           )}
-                          {new Date(t.created_at).toLocaleDateString('fr-FR', {
+                          {new Date(tr.created_at).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', {
                             day: '2-digit',
                             month: '2-digit',
                             hour: '2-digit',
@@ -837,20 +839,13 @@ export default function LifecyclePage() {
       <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Supprimer ce stage ?</AlertDialogTitle>
+            <AlertDialogTitle>{t('lifecycle.delete_stage_title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Le stage{' '}
-              <span
-                className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
-                style={{ backgroundColor: `${stageToDelete?.color}20`, color: stageToDelete?.color }}
-              >
-                {stageToDelete?.name}
-              </span>{' '}
-              sera supprimé. Les conversations associées perdront leur classification. Cette action est irréversible.
+              {t('lifecycle.delete_stage_desc', { name: stageToDelete?.name || '' })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Annuler</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting}>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault()
@@ -860,7 +855,7 @@ export default function LifecyclePage() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Supprimer
+              {t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -45,8 +45,9 @@ import {
   Workflow,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
-import { fr } from 'date-fns/locale'
+import { fr, enUS } from 'date-fns/locale'
 import { getSessionDisplayName, getContactDisplayName } from '@/lib/format-phone'
+import { useTranslation } from '@/i18n/context'
 
 type ConversationWithJoins = {
   id: string
@@ -85,6 +86,7 @@ type Team = {
 function ConversationsPageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
+  const { t, locale } = useTranslation()
   const [conversations, setConversations] = useState<ConversationWithJoins[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedConv, setSelectedConv] = useState<ConversationWithJoins | null>(null)
@@ -266,7 +268,7 @@ function ConversationsPageContent() {
         }
       }
     } catch {
-      toast.error('Erreur lors du chargement des conversations')
+      toast.error(t('conversations.load_error'))
     } finally {
       setLoading(false)
     }
@@ -312,7 +314,7 @@ function ConversationsPageContent() {
               }
             }
           } catch {
-            toast.error('Conversation introuvable')
+            toast.error(t('conversations.conversation_not_found'))
           }
           setPendingOpenConvId(null)
         }
@@ -335,7 +337,7 @@ function ConversationsPageContent() {
         )
       }
     } catch {
-      toast.error('Erreur lors du chargement des messages')
+      toast.error(t('conversations.messages_load_error'))
     } finally {
       setMessagesLoading(false)
     }
@@ -449,7 +451,7 @@ function ConversationsPageContent() {
       const json = await res.json()
 
       if (!res.ok) {
-        toast.error(json.error || 'Erreur lors de l\'envoi')
+        toast.error(json.error || t('conversations.send_error'))
         setMessages((prev) => prev.filter((m) => m.id !== optimistic.id))
         setNewMessage(content)
         return
@@ -461,7 +463,7 @@ function ConversationsPageContent() {
         )
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
       setMessages((prev) => prev.filter((m) => m.id !== optimistic.id))
       setNewMessage(content)
     } finally {
@@ -493,14 +495,14 @@ function ConversationsPageContent() {
             prev ? { ...prev, ai_agent_id: json.data.ai_agent_id, is_ai_active: json.data.is_ai_active } : prev
           )
         }
-        toast.success(agentId ? 'Agent assigné' : 'Agent retiré')
+        toast.success(agentId ? t('conversations.agent_assigned') : t('conversations.agent_removed'))
       } else {
         console.error('[Conversations] Erreur assignation agent:', json.error)
-        toast.error(json.error || 'Erreur lors de l\'assignation')
+        toast.error(json.error || t('conversations.agent_assign_error'))
       }
     } catch (err) {
       console.error('[Conversations] Erreur réseau assignation agent:', err)
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     }
   }
 
@@ -523,10 +525,10 @@ function ConversationsPageContent() {
             prev ? { ...prev, is_ai_active: json.data.is_ai_active } : prev
           )
         }
-        toast.success(isActive ? 'IA activée' : 'IA désactivée')
+        toast.success(isActive ? t('conversations.ai_enabled') : t('conversations.ai_disabled'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     }
   }
 
@@ -568,7 +570,7 @@ function ConversationsPageContent() {
       setCopiedMessageId(messageId)
       setTimeout(() => setCopiedMessageId(null), 2000)
     } catch {
-      toast.error('Impossible de copier')
+      toast.error(t('conversations.copy_error'))
     }
   }
 
@@ -586,12 +588,12 @@ function ConversationsPageContent() {
         setAllTags((prev) => [...prev, json.data].sort((a, b) => a.name.localeCompare(b.name)))
         setNewTagName('')
         setNewTagColor('#3B82F6')
-        toast.success('Tag créé')
+        toast.success(t('conversations.tag_created'))
       } else {
-        toast.error(json.error || 'Erreur lors de la création')
+        toast.error(json.error || t('conversations.tag_create_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setCreatingTag(false)
     }
@@ -617,11 +619,11 @@ function ConversationsPageContent() {
       })
       if (!res.ok) {
         setConversationTags((prev) => ({ ...prev, [convId]: currentTags }))
-        toast.error('Erreur lors de la mise à jour')
+        toast.error(t('conversations.tag_update_error'))
       }
     } catch {
       setConversationTags((prev) => ({ ...prev, [convId]: currentTags }))
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     }
   }
 
@@ -639,14 +641,14 @@ function ConversationsPageContent() {
         if (selectedConv?.id === convId) {
           setSelectedConv((prev) => prev ? { ...prev, lifecycle_stage_id: stageId } : prev)
         }
-        const stageName = lifecycleStages.find((s) => s.id === stageId)?.name || 'Non classifié'
-        toast.success(`Stage: ${stageName}`)
+        const stageName = lifecycleStages.find((s) => s.id === stageId)?.name || t('conversations.unclassified')
+        toast.success(t('conversations.stage_label', { name: stageName }))
       } else {
         const json = await res.json()
-        toast.error(json.error || 'Erreur')
+        toast.error(json.error || t('common.error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     }
   }
 
@@ -668,12 +670,12 @@ function ConversationsPageContent() {
         if (selectedConv?.id === convId) {
           setSelectedConv((prev) => prev ? { ...prev, lifecycle_stage_id: result.stageId } : prev)
         }
-        toast.success(`${result.stageName || 'Non classifié'} — ${result.reason}`)
+        toast.success(`${result.stageName || t('conversations.unclassified')} — ${result.reason}`)
       } else {
-        toast.error(json.error || 'Erreur d\'analyse')
+        toast.error(json.error || t('conversations.analysis_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setAnalyzingConvId(null)
     }
@@ -716,7 +718,7 @@ function ConversationsPageContent() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Rechercher par nom ou numéro..."
+              placeholder={t('conversations.search_placeholder')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 h-10 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary"
@@ -732,7 +734,7 @@ function ConversationsPageContent() {
               onClick={() => setShowFilters(!showFilters)}
             >
               <Filter className="h-3.5 w-3.5" />
-              Filtres
+              {t('conversations.filters')}
               {(filterSession !== 'all' || filterAiActive !== 'all' || filterTeam !== 'all' || filterLifecycleStage !== 'all') && (
                 <Badge variant="default" className="ml-1 h-4 w-4 p-0 text-[10px]">
                   {(filterSession !== 'all' ? 1 : 0) + (filterAiActive !== 'all' ? 1 : 0) + (filterTeam !== 'all' ? 1 : 0) + (filterLifecycleStage !== 'all' ? 1 : 0)}
@@ -740,7 +742,7 @@ function ConversationsPageContent() {
               )}
             </Button>
             <span className="text-xs text-muted-foreground">
-              {totalConversations} conversation{totalConversations !== 1 ? 's' : ''}
+              {t('conversations.conversations_count', { count: totalConversations })}
             </span>
           </div>
 
@@ -749,14 +751,14 @@ function ConversationsPageContent() {
               {teams.length > 0 && (
                 <Select value={filterTeam} onValueChange={(v) => { setFilterTeam(v); setPage(1) }}>
                   <SelectTrigger className="h-8 w-[140px] text-xs">
-                    <SelectValue placeholder="Équipe" />
+                    <SelectValue placeholder={t('conversations.team')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Toutes</SelectItem>
-                    <SelectItem value="personal">Personnelles</SelectItem>
-                    {teams.map((t) => (
-                      <SelectItem key={t.id} value={t.id}>
-                        {t.name}
+                    <SelectItem value="all">{t('conversations.all_teams')}</SelectItem>
+                    <SelectItem value="personal">{t('conversations.personal')}</SelectItem>
+                    {teams.map((tm) => (
+                      <SelectItem key={tm.id} value={tm.id}>
+                        {tm.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -765,10 +767,10 @@ function ConversationsPageContent() {
 
               <Select value={filterSession} onValueChange={(v) => { setFilterSession(v); setPage(1) }}>
                 <SelectTrigger className="h-8 w-[140px] text-xs">
-                  <SelectValue placeholder="Session" />
+                  <SelectValue placeholder={t('conversations.session')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Toutes</SelectItem>
+                  <SelectItem value="all">{t('conversations.all_sessions')}</SelectItem>
                   {sessions.map((s) => (
                     <SelectItem key={s.id} value={s.id}>
                       {s.phone_number ? `+${s.phone_number}` : s.instance_name}
@@ -779,12 +781,12 @@ function ConversationsPageContent() {
 
               <Select value={filterAiActive} onValueChange={(v) => { setFilterAiActive(v); setPage(1) }}>
                 <SelectTrigger className="h-8 w-[120px] text-xs">
-                  <SelectValue placeholder="Statut IA" />
+                  <SelectValue placeholder={t('conversations.ai_status')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Tous</SelectItem>
-                  <SelectItem value="true">IA active</SelectItem>
-                  <SelectItem value="false">IA inactive</SelectItem>
+                  <SelectItem value="all">{t('conversations.all_statuses')}</SelectItem>
+                  <SelectItem value="true">{t('conversations.ai_active')}</SelectItem>
+                  <SelectItem value="false">{t('conversations.ai_inactive')}</SelectItem>
                 </SelectContent>
               </Select>
 
@@ -792,11 +794,11 @@ function ConversationsPageContent() {
                 <Select value={filterLifecycleStage} onValueChange={(v) => { setFilterLifecycleStage(v); setPage(1) }}>
                   <SelectTrigger className="h-8 w-[140px] text-xs">
                     <Workflow className="mr-1 h-3 w-3" />
-                    <SelectValue placeholder="Stage" />
+                    <SelectValue placeholder={t('conversations.stage')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Tous stages</SelectItem>
-                    <SelectItem value="none">Non classifié</SelectItem>
+                    <SelectItem value="all">{t('conversations.all_stages')}</SelectItem>
+                    <SelectItem value="none">{t('conversations.unclassified')}</SelectItem>
                     {lifecycleStages.map((s) => (
                       <SelectItem key={s.id} value={s.id}>
                         <span className="flex items-center gap-1.5">
@@ -817,7 +819,7 @@ function ConversationsPageContent() {
                   onClick={() => { setFilterSession('all'); setFilterAiActive('all'); setFilterTeam('all'); setFilterLifecycleStage('all'); setPage(1) }}
                 >
                   <X className="h-3 w-3 mr-1" />
-                  Reset
+                  {t('common.reset')}
                 </Button>
               )}
             </div>
@@ -831,10 +833,10 @@ function ConversationsPageContent() {
               <MessageSquare className="h-7 w-7 text-muted-foreground" />
             </div>
             <p className="mt-4 text-sm font-medium text-foreground">
-              Aucune conversation
+              {t('conversations.no_conversations')}
             </p>
             <p className="mt-1 text-xs text-muted-foreground text-center">
-              Les messages reçus apparaîtront ici.
+              {t('conversations.no_conversations_desc')}
             </p>
           </div>
         ) : (
@@ -879,7 +881,7 @@ function ConversationsPageContent() {
                         </span>
                         {conv.last_message_at && (
                           <span className="shrink-0 text-[10px] text-muted-foreground">
-                            {formatDistanceToNow(new Date(conv.last_message_at), { addSuffix: false, locale: fr })}
+                            {formatDistanceToNow(new Date(conv.last_message_at), { addSuffix: false, locale: locale === 'fr' ? fr : enUS })}
                           </span>
                         )}
                       </div>
@@ -894,7 +896,7 @@ function ConversationsPageContent() {
                             onClick={(e) => {
                               e.stopPropagation()
                               navigator.clipboard.writeText(`+${conv.contact.phone_number}`)
-                              toast.success('Numéro copié')
+                              toast.success(t('conversations.number_copied'))
                             }}
                             className="opacity-0 group-hover/phone:opacity-100 transition-opacity p-0.5 hover:bg-muted rounded"
                           >
@@ -907,7 +909,7 @@ function ConversationsPageContent() {
                         'mt-0.5 truncate text-xs',
                         conv.unread_count > 0 ? 'text-foreground' : 'text-muted-foreground'
                       )}>
-                        {conv.last_message_preview || 'Pas de message'}
+                        {conv.last_message_preview || t('conversations.no_message')}
                       </p>
 
                       {/* Meta row */}
@@ -924,7 +926,7 @@ function ConversationsPageContent() {
                         {conv.is_ai_active && (
                           <Badge className="h-4 px-1.5 text-[9px] bg-[#7DC2A5]/10 text-[#7DC2A5] hover:bg-[#7DC2A5]/20 border-0">
                             <Bot className="mr-0.5 h-2.5 w-2.5" />
-                            IA
+                            {locale === 'fr' ? 'IA' : 'AI'}
                           </Badge>
                         )}
                         {conv.lifecycle_stage_id && (() => {
@@ -997,7 +999,7 @@ function ConversationsPageContent() {
                                   )
                                 })}
                                 {allTags.length === 0 && (
-                                  <p className="text-xs text-muted-foreground py-2 text-center">Aucun tag</p>
+                                  <p className="text-xs text-muted-foreground py-2 text-center">{t('conversations.no_tags')}</p>
                                 )}
                               </div>
                               <div className="border-t pt-2 space-y-2">
@@ -1005,7 +1007,7 @@ function ConversationsPageContent() {
                                   <Input
                                     value={newTagName}
                                     onChange={(e) => setNewTagName(e.target.value)}
-                                    placeholder="Nouveau tag..."
+                                    placeholder={t('conversations.new_tag_placeholder')}
                                     className="h-7 text-xs"
                                     onKeyDown={(e) => {
                                       if (e.key === 'Enter') {
@@ -1127,10 +1129,10 @@ function ConversationsPageContent() {
                     >
                       <SelectTrigger className="h-8 w-[130px] text-xs border-0 bg-muted/50">
                         <Workflow className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
-                        <SelectValue placeholder="Stage" />
+                        <SelectValue placeholder={t('conversations.stage')} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="none">Non classifié</SelectItem>
+                        <SelectItem value="none">{t('conversations.unclassified')}</SelectItem>
                         {lifecycleStages.map((s) => (
                           <SelectItem key={s.id} value={s.id}>
                             <span className="flex items-center gap-1.5">
@@ -1147,7 +1149,7 @@ function ConversationsPageContent() {
                       className="h-8 w-8"
                       onClick={() => handleAnalyzeConversation(selectedConv.id)}
                       disabled={analyzingConvId === selectedConv.id}
-                      title="Analyser avec l'IA"
+                      title={t('conversations.analyze_ai')}
                     >
                       {analyzingConvId === selectedConv.id ? (
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1166,10 +1168,10 @@ function ConversationsPageContent() {
                 >
                   <SelectTrigger className="h-8 w-[140px] text-xs border-0 bg-muted/50">
                     <Bot className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
-                    <SelectValue placeholder="Agent IA" />
+                    <SelectValue placeholder={t('conversations.agent_ia')} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">Aucun agent</SelectItem>
+                    <SelectItem value="none">{t('common.no_agent')}</SelectItem>
                     {agents.map((a) => (
                       <SelectItem key={a.id} value={a.id}>
                         {a.name}
@@ -1209,7 +1211,7 @@ function ConversationsPageContent() {
                     <MessageSquare className="h-7 w-7 text-muted-foreground" />
                   </div>
                   <p className="mt-4 text-sm text-muted-foreground">
-                    Démarrez la conversation
+                    {t('conversations.start_conversation')}
                   </p>
                 </div>
               ) : (
@@ -1255,7 +1257,7 @@ function ConversationsPageContent() {
                           {isAI && (
                             <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-medium text-[#7DC2A5]">
                               <Bot className="h-3 w-3" />
-                              {(msg as typeof msg & { agent_name?: string }).agent_name || 'Agent IA'}
+                              {(msg as typeof msg & { agent_name?: string }).agent_name || t('conversations.agent_ia')}
                             </div>
                           )}
                           <MessageBubbleContent msg={msg} isOutbound={isOutbound} />
@@ -1269,11 +1271,11 @@ function ConversationsPageContent() {
                                   : 'text-muted-foreground'
                             )}
                           >
-                            {new Date(msg.created_at).toLocaleTimeString('fr-FR', {
+                            {new Date(msg.created_at).toLocaleTimeString(locale === 'fr' ? 'fr-FR' : 'en-US', {
                               hour: '2-digit',
                               minute: '2-digit',
                             })}
-                            {msg.status === 'pending' && ' · envoi...'}
+                            {msg.status === 'pending' && ` · ${t('conversations.sending')}`}
                           </p>
                         </div>
 
@@ -1304,7 +1306,7 @@ function ConversationsPageContent() {
                 <div className="flex items-center gap-2">
                   <Bot className="h-4 w-4 text-muted-foreground" />
                   <span className="text-xs text-muted-foreground">
-                    {agents.find(a => a.id === selectedConv.ai_agent_id)?.name || 'Agent IA'}
+                    {agents.find(a => a.id === selectedConv.ai_agent_id)?.name || t('conversations.agent_ia')}
                   </span>
                 </div>
                 <Switch
@@ -1324,7 +1326,7 @@ function ConversationsPageContent() {
                     ref={inputRef}
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
-                    placeholder="Écrivez un message..."
+                    placeholder={t('conversations.write_message')}
                     disabled={sending}
                     maxLength={4096}
                     className="pr-12 h-11 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary rounded-full"
@@ -1352,10 +1354,10 @@ function ConversationsPageContent() {
             </div>
             <div className="text-center">
               <p className="text-lg font-medium text-foreground">
-                Vos conversations
+                {t('conversations.your_conversations')}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Sélectionnez une conversation pour commencer
+                {t('conversations.select_conversation')}
               </p>
             </div>
           </div>

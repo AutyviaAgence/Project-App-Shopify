@@ -58,6 +58,7 @@ import {
   Megaphone,
 } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
+import { useTranslation } from '@/i18n/context'
 
 type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
 
@@ -111,6 +112,7 @@ function MemberAvatar({ member, size = 'md' }: { member: TeamMemberWithProfile; 
 }
 
 export default function TeamsPage() {
+  const { t } = useTranslation()
   const [teams, setTeams] = useState<TeamWithRole[]>([])
   const [loading, setLoading] = useState(true)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
@@ -175,11 +177,11 @@ export default function TeamsPage() {
         setTeams(json.data)
       }
     } catch {
-      toast.error('Erreur lors du chargement des équipes')
+      toast.error(t('teams.load_error'))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   useEffect(() => {
     fetchTeams()
@@ -194,7 +196,7 @@ export default function TeamsPage() {
         setMembers(json.data)
       }
     } catch {
-      toast.error('Erreur lors du chargement des membres')
+      toast.error(t('teams.members_error'))
     } finally {
       setMembersLoading(false)
     }
@@ -233,7 +235,6 @@ export default function TeamsPage() {
     setGeneratedCode(null)
     setInviteDialogOpen(true)
 
-    // Charger les ressources et invitations existantes
     setResourcesLoading(true)
     setInvitationsLoading(true)
 
@@ -254,14 +255,13 @@ export default function TeamsPage() {
         invitationsRes.json()
       ])
 
-      // Filtrer uniquement les ressources appartenant à cette équipe
       setSessions(sessionsJson.data?.filter((s: WhatsAppSession) => s.team_id === team.id) || [])
       setAgents(agentsJson.data?.filter((a: AIAgent) => a.team_id === team.id) || [])
       setLinks(linksJson.data?.filter((l: WALink) => l.team_id === team.id) || [])
       setCampaigns(campaignsJson.data?.filter((c: Campaign) => c.team_id === team.id) || [])
       setInvitations(invitationsJson.data || [])
     } catch {
-      toast.error('Erreur lors du chargement des ressources')
+      toast.error(t('teams.resources_error'))
     } finally {
       setResourcesLoading(false)
       setInvitationsLoading(false)
@@ -288,12 +288,12 @@ export default function TeamsPage() {
       if (res.ok && json.data) {
         setGeneratedCode(json.data.code)
         setInvitations(prev => [json.data, ...prev])
-        toast.success('Code d\'invitation généré !')
+        toast.success(t('teams.code_generated'))
       } else {
-        toast.error(json.error || 'Erreur lors de la génération')
+        toast.error(json.error || t('teams.code_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setGeneratingInvite(false)
     }
@@ -308,13 +308,13 @@ export default function TeamsPage() {
       })
       if (res.ok) {
         setInvitations(prev => prev.filter(i => i.id !== invitationId))
-        toast.success('Invitation supprimée')
+        toast.success(t('teams.invite_deleted'))
       } else {
         const json = await res.json()
-        toast.error(json.error || 'Erreur')
+        toast.error(json.error || t('common.error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     }
   }
 
@@ -352,7 +352,7 @@ export default function TeamsPage() {
 
   async function handleCreate() {
     if (!formName.trim()) {
-      toast.error('Nom requis')
+      toast.error(t('teams.name_required'))
       return
     }
 
@@ -366,13 +366,13 @@ export default function TeamsPage() {
       const json = await res.json()
       if (res.ok && json.data) {
         setTeams((prev) => [json.data, ...prev])
-        toast.success('Équipe créée')
+        toast.success(t('teams.team_created'))
         setCreateDialogOpen(false)
       } else {
-        toast.error(json.error || 'Erreur lors de la création')
+        toast.error(json.error || t('teams.create_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setSaving(false)
     }
@@ -390,14 +390,14 @@ export default function TeamsPage() {
       })
       const json = await res.json()
       if (res.ok && json.data) {
-        setTeams((prev) => prev.map((t) => (t.id === selectedTeam.id ? json.data : t)))
-        toast.success('Équipe modifiée')
+        setTeams((prev) => prev.map((tm) => (tm.id === selectedTeam.id ? json.data : tm)))
+        toast.success(t('teams.team_edited'))
         setEditDialogOpen(false)
       } else {
-        toast.error(json.error || 'Erreur lors de la modification')
+        toast.error(json.error || t('teams.edit_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setSaving(false)
     }
@@ -410,15 +410,15 @@ export default function TeamsPage() {
     try {
       const res = await fetch(`/api/teams/${selectedTeam.id}`, { method: 'DELETE' })
       if (res.ok) {
-        setTeams((prev) => prev.filter((t) => t.id !== selectedTeam.id))
-        toast.success('Équipe supprimée')
+        setTeams((prev) => prev.filter((tm) => tm.id !== selectedTeam.id))
+        toast.success(t('teams.team_deleted'))
         setDeleteDialogOpen(false)
       } else {
         const json = await res.json()
-        toast.error(json.error || 'Erreur lors de la suppression')
+        toast.error(json.error || t('teams.delete_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setSaving(false)
     }
@@ -426,7 +426,7 @@ export default function TeamsPage() {
 
   async function handleJoinWithCode() {
     if (!joinCode.trim()) {
-      toast.error('Entrez un code')
+      toast.error(t('teams.enter_code'))
       return
     }
 
@@ -439,14 +439,14 @@ export default function TeamsPage() {
       })
       const json = await res.json()
       if (res.ok && json.data) {
-        toast.success(`Vous avez rejoint l'équipe ${json.data.team.name}`)
+        toast.success(t('teams.joined_team', { name: json.data.team.name }))
         setJoinCode('')
         fetchTeams()
       } else {
-        toast.error(json.error || 'Code invalide')
+        toast.error(json.error || t('teams.invalid_code'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setJoining(false)
     }
@@ -461,13 +461,13 @@ export default function TeamsPage() {
       })
       if (res.ok) {
         setMembers((prev) => prev.filter((m) => m.id !== memberId))
-        toast.success('Membre retiré')
+        toast.success(t('teams.member_removed'))
       } else {
         const json = await res.json()
-        toast.error(json.error || 'Erreur')
+        toast.error(json.error || t('common.error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     }
   }
 
@@ -483,12 +483,12 @@ export default function TeamsPage() {
       const json = await res.json()
       if (res.ok && json.data) {
         setMembers((prev) => prev.map((m) => (m.id === memberId ? { ...m, role } : m)))
-        toast.success('Rôle modifié')
+        toast.success(t('teams.role_changed'))
       } else {
-        toast.error(json.error || 'Erreur')
+        toast.error(json.error || t('common.error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     }
   }
 
@@ -499,7 +499,6 @@ export default function TeamsPage() {
     setResourcesLoading(true)
     setPermissionsDialogOpen(true)
 
-    // Déterminer le mode (tout accès ou spécifique)
     const memberWithCampaigns = member as TeamMemberWithProfile & { allowed_campaign_ids?: string[] | null }
     const hasAllAccess = member.allowed_session_ids === null &&
       member.allowed_agent_ids === null &&
@@ -507,13 +506,11 @@ export default function TeamsPage() {
       memberWithCampaigns.allowed_campaign_ids === null
     setPermissionsMode(hasAllAccess ? 'all' : 'specific')
 
-    // Initialiser les sélections avec les permissions actuelles
     setEditingSessions(member.allowed_session_ids || [])
     setEditingAgents(member.allowed_agent_ids || [])
     setEditingLinks(member.allowed_link_ids || [])
     setEditingCampaigns(memberWithCampaigns.allowed_campaign_ids || [])
 
-    // Initialiser les permissions granulaires
     const m = member as TeamMemberWithProfile & {
       can_view_stats?: boolean
       can_view_knowledge?: boolean
@@ -550,14 +547,13 @@ export default function TeamsPage() {
         campaignsRes.json(),
       ])
 
-      // Filtrer les ressources de l'équipe
       setSessions(sessionsJson.data?.filter((s: WhatsAppSession) => s.team_id === selectedTeam.id) || [])
       setAgents(agentsJson.data?.filter((a: AIAgent) => a.team_id === selectedTeam.id) || [])
       setLinks(linksJson.data?.filter((l: WALink) => l.team_id === selectedTeam.id) || [])
       setKnowledgeDocs(knowledgeJson.data?.filter((k: KnowledgeDocument) => k.team_id === selectedTeam.id) || [])
       setCampaigns(campaignsJson.data?.filter((c: Campaign) => c.team_id === selectedTeam.id) || [])
     } catch {
-      toast.error('Erreur lors du chargement des ressources')
+      toast.error(t('teams.resources_error'))
     } finally {
       setResourcesLoading(false)
     }
@@ -611,13 +607,13 @@ export default function TeamsPage() {
               : m
           )
         )
-        toast.success('Permissions mises à jour')
+        toast.success(t('teams.permissions_saved'))
         setPermissionsDialogOpen(false)
       } else {
-        toast.error(json.error || 'Erreur')
+        toast.error(json.error || t('common.error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setSaving(false)
     }
@@ -655,34 +651,34 @@ export default function TeamsPage() {
 
   function getPermissionsSummary(member: TeamMemberWithProfile): string {
     if (member.role === 'owner' || member.role === 'admin') {
-      return 'Accès complet'
+      return t('teams.full_access')
     }
     const hasAllSessions = member.allowed_session_ids === null
     const hasAllAgents = member.allowed_agent_ids === null
     const hasAllLinks = member.allowed_link_ids === null
 
     if (hasAllSessions && hasAllAgents && hasAllLinks) {
-      return 'Toutes les ressources'
+      return t('teams.all_resources')
     }
 
     const parts: string[] = []
     if (!hasAllSessions) {
-      parts.push(`${member.allowed_session_ids?.length || 0} session(s)`)
+      parts.push(t('teams.sessions_count', { count: String(member.allowed_session_ids?.length || 0) }))
     }
     if (!hasAllAgents) {
-      parts.push(`${member.allowed_agent_ids?.length || 0} agent(s)`)
+      parts.push(t('teams.agents_count', { count: String(member.allowed_agent_ids?.length || 0) }))
     }
     if (!hasAllLinks) {
-      parts.push(`${member.allowed_link_ids?.length || 0} lien(s)`)
+      parts.push(t('teams.links_count', { count: String(member.allowed_link_ids?.length || 0) }))
     }
 
-    return parts.length > 0 ? parts.join(', ') : 'Aucun accès'
+    return parts.length > 0 ? parts.join(', ') : t('teams.no_access')
   }
 
   function copyCode(code: string) {
     navigator.clipboard.writeText(code)
     setCopiedCode(code)
-    toast.success('Code copié !')
+    toast.success(t('teams.code_copied'))
     setTimeout(() => setCopiedCode(null), 2000)
   }
 
@@ -700,11 +696,11 @@ export default function TeamsPage() {
   function getRoleBadge(role: string) {
     switch (role) {
       case 'owner':
-        return <Badge className="gap-1 bg-[#7DC2A5] hover:bg-[#7DC2A5]/80"><Crown className="h-3 w-3" />Propriétaire</Badge>
+        return <Badge className="gap-1 bg-[#7DC2A5] hover:bg-[#7DC2A5]/80"><Crown className="h-3 w-3" />{t('teams.owner')}</Badge>
       case 'admin':
-        return <Badge variant="secondary" className="gap-1"><Shield className="h-3 w-3" />Admin</Badge>
+        return <Badge variant="secondary" className="gap-1"><Shield className="h-3 w-3" />{t('teams.admin')}</Badge>
       default:
-        return <Badge variant="outline" className="gap-1"><UserIcon className="h-3 w-3" />Membre</Badge>
+        return <Badge variant="outline" className="gap-1"><UserIcon className="h-3 w-3" />{t('teams.member')}</Badge>
     }
   }
 
@@ -720,9 +716,9 @@ export default function TeamsPage() {
     <div className="p-4 md:p-6 pb-20 md:pb-6 space-y-6">
       {/* Header */}
       <div data-tour="teams-header" className="flex flex-col gap-1">
-        <h1 className="text-xl md:text-2xl font-bold">Équipes</h1>
+        <h1 className="text-xl md:text-2xl font-bold">{t('teams.title')}</h1>
         <p className="text-sm text-muted-foreground">
-          Créez ou rejoignez une équipe pour partager vos ressources.
+          {t('teams.description')}
         </p>
       </div>
 
@@ -732,12 +728,12 @@ export default function TeamsPage() {
           <div className="flex flex-col sm:flex-row gap-3">
             <div className="flex-1">
               <Label htmlFor="join-code" className="text-xs text-muted-foreground">
-                Rejoindre avec un code
+                {t('teams.join_code')}
               </Label>
               <div className="flex gap-2 mt-1">
                 <Input
                   id="join-code"
-                  placeholder="ABC123"
+                  placeholder={t('teams.join_placeholder')}
                   value={joinCode}
                   onChange={(e) => setJoinCode(e.target.value.toUpperCase())}
                   className="font-mono"
@@ -745,7 +741,7 @@ export default function TeamsPage() {
                 />
                 <Button onClick={handleJoinWithCode} disabled={joining || !joinCode.trim()}>
                   {joining ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4 mr-2" />}
-                  Rejoindre
+                  {t('teams.join')}
                 </Button>
               </div>
             </div>
@@ -753,7 +749,7 @@ export default function TeamsPage() {
             <div className="flex items-end">
               <Button onClick={openCreateDialog} variant="outline">
                 <Plus className="mr-2 h-4 w-4" />
-                Créer une équipe
+                {t('teams.create_team')}
               </Button>
             </div>
           </div>
@@ -767,9 +763,9 @@ export default function TeamsPage() {
             <div className="flex h-16 w-16 items-center justify-center rounded-full bg-muted">
               <Users className="h-8 w-8 text-muted-foreground" />
             </div>
-            <h3 className="mt-4 text-lg font-medium">Aucune équipe</h3>
+            <h3 className="mt-4 text-lg font-medium">{t('teams.no_teams')}</h3>
             <p className="mt-1 text-sm text-muted-foreground text-center">
-              Créez une équipe ou rejoignez-en une avec un code.
+              {t('teams.no_teams_desc')}
             </p>
           </CardContent>
         </Card>
@@ -792,7 +788,7 @@ export default function TeamsPage() {
                     className="h-8"
                   >
                     <Users className="mr-1.5 h-3.5 w-3.5" />
-                    Membres
+                    {t('teams.members')}
                   </Button>
                   {(team.my_role === 'owner' || team.my_role === 'admin') && (
                     <>
@@ -803,7 +799,7 @@ export default function TeamsPage() {
                         className="h-8"
                       >
                         <Ticket className="mr-1.5 h-3.5 w-3.5" />
-                        Inviter
+                        {t('teams.invite')}
                       </Button>
                       <Button
                         size="sm"
@@ -836,17 +832,17 @@ export default function TeamsPage() {
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Nouvelle équipe</DialogTitle>
+            <DialogTitle>{t('teams.new_team_title')}</DialogTitle>
             <DialogDescription>
-              Créez une équipe puis invitez des membres avec des codes d&apos;invitation.
+              {t('teams.new_team_desc')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label htmlFor="team-name">Nom de l&apos;équipe</Label>
+              <Label htmlFor="team-name">{t('teams.team_name')}</Label>
               <Input
                 id="team-name"
-                placeholder="Mon équipe"
+                placeholder={t('teams.team_placeholder')}
                 value={formName}
                 onChange={(e) => setFormName(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
@@ -854,7 +850,7 @@ export default function TeamsPage() {
             </div>
             <Button onClick={handleCreate} disabled={saving || !formName.trim()} className="w-full">
               {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
-              Créer l&apos;équipe
+              {t('teams.create_btn')}
             </Button>
           </div>
         </DialogContent>
@@ -864,11 +860,11 @@ export default function TeamsPage() {
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Modifier l&apos;équipe</DialogTitle>
+            <DialogTitle>{t('teams.edit_team')}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label htmlFor="edit-team-name">Nom de l&apos;équipe</Label>
+              <Label htmlFor="edit-team-name">{t('teams.team_name')}</Label>
               <Input
                 id="edit-team-name"
                 value={formName}
@@ -878,7 +874,7 @@ export default function TeamsPage() {
             </div>
             <Button onClick={handleEdit} disabled={saving || !formName.trim()} className="w-full">
               {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Pencil className="mr-2 h-4 w-4" />}
-              Enregistrer
+              {t('common.save')}
             </Button>
           </div>
         </DialogContent>
@@ -888,9 +884,9 @@ export default function TeamsPage() {
       <Dialog open={membersDialogOpen} onOpenChange={setMembersDialogOpen}>
         <DialogContent className="sm:max-w-xl">
           <DialogHeader>
-            <DialogTitle>Membres de {selectedTeam?.name}</DialogTitle>
+            <DialogTitle>{t('teams.members_title', { name: selectedTeam?.name || '' })}</DialogTitle>
             <DialogDescription>
-              Gérez les membres et leurs permissions.
+              {t('teams.members_desc')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -910,7 +906,7 @@ export default function TeamsPage() {
                         <MemberAvatar member={member} size="md" />
                         <div className="min-w-0">
                           <p className="text-sm font-medium truncate">
-                            {member.profile?.full_name || member.invited_email?.split('@')[0] || 'Utilisateur'}
+                            {member.profile?.full_name || member.invited_email?.split('@')[0] || t('common.unknown')}
                           </p>
                           <p className="text-xs text-muted-foreground truncate">
                             {member.profile?.email || member.invited_email}
@@ -927,13 +923,13 @@ export default function TeamsPage() {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="admin">Admin</SelectItem>
-                              <SelectItem value="member">Membre</SelectItem>
+                              <SelectItem value="admin">{t('teams.admin')}</SelectItem>
+                              <SelectItem value="member">{t('teams.member')}</SelectItem>
                             </SelectContent>
                           </Select>
                         )}
                         {member.role === 'owner' && (
-                          <Badge className="h-7 bg-[#7DC2A5]">Propriétaire</Badge>
+                          <Badge className="h-7 bg-[#7DC2A5]">{t('teams.owner')}</Badge>
                         )}
                         {member.role !== 'owner' && (selectedTeam?.my_role === 'owner' || selectedTeam?.my_role === 'admin') && (
                           <Button
@@ -963,7 +959,7 @@ export default function TeamsPage() {
                             onClick={() => openPermissionsDialog(member)}
                           >
                             <Pencil className="h-3 w-3 mr-1" />
-                            Permissions
+                            {t('teams.permissions')}
                           </Button>
                         )}
                       </div>
@@ -972,7 +968,7 @@ export default function TeamsPage() {
                 ))}
                 {members.filter(m => m.status === 'accepted').length === 0 && (
                   <p className="text-center text-sm text-muted-foreground py-4">
-                    Aucun membre
+                    {t('teams.no_members')}
                   </p>
                 )}
               </div>
@@ -985,16 +981,16 @@ export default function TeamsPage() {
       <Dialog open={inviteDialogOpen} onOpenChange={setInviteDialogOpen}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Inviter un membre</DialogTitle>
+            <DialogTitle>{t('teams.invite_title')}</DialogTitle>
             <DialogDescription>
-              Générez un code d&apos;invitation à usage unique avec les permissions souhaitées.
+              {t('teams.invite_desc')}
             </DialogDescription>
           </DialogHeader>
 
           {generatedCode ? (
             <div className="space-y-4 py-4">
               <div className="flex flex-col items-center gap-4 p-6 bg-muted/50 rounded-xl">
-                <p className="text-sm text-muted-foreground">Code d&apos;invitation généré :</p>
+                <p className="text-sm text-muted-foreground">{t('teams.invite_code_label')}</p>
                 <div className="flex items-center gap-3">
                   <span className="text-3xl font-mono font-bold tracking-wider">{generatedCode}</span>
                   <Button
@@ -1010,7 +1006,7 @@ export default function TeamsPage() {
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground text-center">
-                  Partagez ce code. Il ne peut être utilisé qu&apos;une seule fois.
+                  {t('teams.invite_code_help')}
                 </p>
               </div>
               <Button
@@ -1019,21 +1015,21 @@ export default function TeamsPage() {
                 onClick={() => setGeneratedCode(null)}
               >
                 <Plus className="mr-2 h-4 w-4" />
-                Générer un autre code
+                {t('teams.generate_another')}
               </Button>
             </div>
           ) : (
             <div className="space-y-6 py-2">
               {/* Role selection */}
               <div className="space-y-2">
-                <Label>Rôle</Label>
+                <Label>{t('teams.role')}</Label>
                 <Select value={inviteRole} onValueChange={(v) => setInviteRole(v as 'admin' | 'member')}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="member">Membre</SelectItem>
-                    <SelectItem value="admin">Admin</SelectItem>
+                    <SelectItem value="member">{t('teams.member')}</SelectItem>
+                    <SelectItem value="admin">{t('teams.admin')}</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -1048,9 +1044,9 @@ export default function TeamsPage() {
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 text-sm font-medium">
                       <MessageSquare className="h-4 w-4 text-[#7DC2A5]" />
-                      Sessions WhatsApp
+                      {t('teams.sessions_section')}
                       <Badge variant="secondary" className="ml-auto text-xs">
-                        {selectedSessions.length === 0 ? 'Toutes' : `${selectedSessions.length}/${sessions.length}`}
+                        {selectedSessions.length === 0 ? t('common.all') : `${selectedSessions.length}/${sessions.length}`}
                       </Badge>
                     </div>
                     {sessions.length > 0 ? (
@@ -1072,10 +1068,10 @@ export default function TeamsPage() {
                         ))}
                       </div>
                     ) : (
-                      <p className="text-xs text-muted-foreground pl-6">Aucune session dans cette équipe</p>
+                      <p className="text-xs text-muted-foreground pl-6">{t('teams.no_sessions_team')}</p>
                     )}
                     <p className="text-xs text-muted-foreground pl-6">
-                      {selectedSessions.length === 0 ? 'Accès à toutes les sessions' : 'Accès limité aux sessions sélectionnées'}
+                      {selectedSessions.length === 0 ? t('teams.all_sessions') : t('teams.access_limited', { resource: 'sessions' })}
                     </p>
                   </div>
 
@@ -1083,9 +1079,9 @@ export default function TeamsPage() {
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 text-sm font-medium">
                       <Bot className="h-4 w-4 text-[#40E9BE]" />
-                      Agents IA
+                      {t('teams.agents_section')}
                       <Badge variant="secondary" className="ml-auto text-xs">
-                        {selectedAgents.length === 0 ? 'Tous' : `${selectedAgents.length}/${agents.length}`}
+                        {selectedAgents.length === 0 ? t('common.all') : `${selectedAgents.length}/${agents.length}`}
                       </Badge>
                     </div>
                     {agents.length > 0 ? (
@@ -1104,10 +1100,10 @@ export default function TeamsPage() {
                         ))}
                       </div>
                     ) : (
-                      <p className="text-xs text-muted-foreground pl-6">Aucun agent dans cette équipe</p>
+                      <p className="text-xs text-muted-foreground pl-6">{t('teams.no_agents_team')}</p>
                     )}
                     <p className="text-xs text-muted-foreground pl-6">
-                      {selectedAgents.length === 0 ? 'Accès à tous les agents' : 'Accès limité aux agents sélectionnés'}
+                      {selectedAgents.length === 0 ? t('teams.all_agents') : t('teams.access_limited', { resource: 'agents' })}
                     </p>
                   </div>
 
@@ -1115,9 +1111,9 @@ export default function TeamsPage() {
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 text-sm font-medium">
                       <Link2 className="h-4 w-4 text-[#7DC2A5]" />
-                      Liens WhatsApp
+                      {t('teams.links_section')}
                       <Badge variant="secondary" className="ml-auto text-xs">
-                        {selectedLinks.length === 0 ? 'Tous' : `${selectedLinks.length}/${links.length}`}
+                        {selectedLinks.length === 0 ? t('common.all') : `${selectedLinks.length}/${links.length}`}
                       </Badge>
                     </div>
                     {links.length > 0 ? (
@@ -1136,10 +1132,10 @@ export default function TeamsPage() {
                         ))}
                       </div>
                     ) : (
-                      <p className="text-xs text-muted-foreground pl-6">Aucun lien dans cette équipe</p>
+                      <p className="text-xs text-muted-foreground pl-6">{t('teams.no_links_team')}</p>
                     )}
                     <p className="text-xs text-muted-foreground pl-6">
-                      {selectedLinks.length === 0 ? 'Accès à tous les liens' : 'Accès limité aux liens sélectionnés'}
+                      {selectedLinks.length === 0 ? t('teams.all_links') : t('teams.access_limited', { resource: 'links' })}
                     </p>
                   </div>
 
@@ -1147,9 +1143,9 @@ export default function TeamsPage() {
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 text-sm font-medium">
                       <Megaphone className="h-4 w-4 text-[#40E9BE]" />
-                      Campagnes de relance
+                      {t('teams.campaigns_section')}
                       <Badge variant="secondary" className="ml-auto text-xs">
-                        {selectedCampaigns.length === 0 ? 'Toutes' : `${selectedCampaigns.length}/${campaigns.length}`}
+                        {selectedCampaigns.length === 0 ? t('common.all') : `${selectedCampaigns.length}/${campaigns.length}`}
                       </Badge>
                     </div>
                     {campaigns.length > 0 ? (
@@ -1171,10 +1167,10 @@ export default function TeamsPage() {
                         ))}
                       </div>
                     ) : (
-                      <p className="text-xs text-muted-foreground pl-6">Aucune campagne dans cette équipe</p>
+                      <p className="text-xs text-muted-foreground pl-6">{t('teams.no_campaigns_team')}</p>
                     )}
                     <p className="text-xs text-muted-foreground pl-6">
-                      {selectedCampaigns.length === 0 ? 'Accès à toutes les campagnes' : 'Accès limité aux campagnes sélectionnées'}
+                      {selectedCampaigns.length === 0 ? t('teams.all_campaigns') : t('teams.access_limited', { resource: 'campaigns' })}
                     </p>
                   </div>
                 </>
@@ -1190,13 +1186,13 @@ export default function TeamsPage() {
                 ) : (
                   <Ticket className="mr-2 h-4 w-4" />
                 )}
-                Générer le code
+                {t('teams.generate_code')}
               </Button>
 
               {/* Existing invitations */}
               {!invitationsLoading && invitations.filter(i => !i.used_by).length > 0 && (
                 <div className="space-y-3 pt-4 border-t">
-                  <p className="text-sm font-medium text-muted-foreground">Codes actifs</p>
+                  <p className="text-sm font-medium text-muted-foreground">{t('teams.active_codes')}</p>
                   <div className="space-y-2">
                     {invitations.filter(i => !i.used_by).map(invitation => (
                       <div
@@ -1245,19 +1241,19 @@ export default function TeamsPage() {
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Supprimer l&apos;équipe ?</AlertDialogTitle>
+            <AlertDialogTitle>{t('teams.delete_team_title')}</AlertDialogTitle>
             <AlertDialogDescription>
-              Cette action est irréversible. Les membres perdront l&apos;accès aux ressources partagées.
+              {t('teams.delete_team_desc')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className="mr-2 h-4 w-4" />}
-              Supprimer
+              {t('common.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1267,9 +1263,9 @@ export default function TeamsPage() {
       <Dialog open={permissionsDialogOpen} onOpenChange={setPermissionsDialogOpen}>
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Permissions de {selectedMember?.profile?.full_name || 'membre'}</DialogTitle>
+            <DialogTitle>{t('teams.permissions_title', { name: selectedMember?.profile?.full_name || t('teams.member') })}</DialogTitle>
             <DialogDescription>
-              Définissez les ressources auxquelles ce membre peut accéder.
+              {t('teams.permissions_desc')}
             </DialogDescription>
           </DialogHeader>
 
@@ -1281,7 +1277,7 @@ export default function TeamsPage() {
             <div className="space-y-6 py-2">
               {/* Mode selection */}
               <div className="space-y-3">
-                <Label>Mode d&apos;accès</Label>
+                <Label>{t('teams.access_mode')}</Label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     type="button"
@@ -1292,8 +1288,8 @@ export default function TeamsPage() {
                         : 'border-border hover:border-muted-foreground/50'
                     }`}
                   >
-                    <p className="text-sm font-medium">Accès complet</p>
-                    <p className="text-xs text-muted-foreground">Toutes les ressources de l&apos;équipe</p>
+                    <p className="text-sm font-medium">{t('teams.access_full')}</p>
+                    <p className="text-xs text-muted-foreground">{t('teams.access_full_desc')}</p>
                   </button>
                   <button
                     type="button"
@@ -1304,41 +1300,41 @@ export default function TeamsPage() {
                         : 'border-border hover:border-muted-foreground/50'
                     }`}
                   >
-                    <p className="text-sm font-medium">Accès limité</p>
-                    <p className="text-xs text-muted-foreground">Sélectionner les ressources</p>
+                    <p className="text-sm font-medium">{t('teams.access_limited_mode')}</p>
+                    <p className="text-xs text-muted-foreground">{t('teams.access_limited_desc')}</p>
                   </button>
                 </div>
               </div>
 
               {/* Granular permissions */}
               <div className="space-y-4 border-t pt-4">
-                <p className="text-sm font-medium">Droits d&apos;accès</p>
+                <p className="text-sm font-medium">{t('teams.access_rights')}</p>
 
                 {/* View permissions */}
                 <div className="space-y-3">
                   <p className="text-xs text-muted-foreground flex items-center gap-2">
                     <Eye className="h-3.5 w-3.5" />
-                    Vision (lecture seule)
+                    {t('teams.view_read')}
                   </p>
                   <div className="grid gap-3 pl-5">
                     <label className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <BarChart3 className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">Statistiques</span>
+                        <span className="text-sm">{t('teams.perm_stats')}</span>
                       </div>
                       <Switch checked={canViewStats} onCheckedChange={setCanViewStats} />
                     </label>
                     <label className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <BookOpen className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">Base de connaissances</span>
+                        <span className="text-sm">{t('teams.perm_knowledge')}</span>
                       </div>
                       <Switch checked={canViewKnowledge} onCheckedChange={setCanViewKnowledge} />
                     </label>
                     <label className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">Messages</span>
+                        <span className="text-sm">{t('teams.perm_messages')}</span>
                       </div>
                       <Switch checked={canViewMessages} onCheckedChange={setCanViewMessages} />
                     </label>
@@ -1349,41 +1345,41 @@ export default function TeamsPage() {
                 <div className="space-y-3">
                   <p className="text-xs text-muted-foreground flex items-center gap-2">
                     <Settings className="h-3.5 w-3.5" />
-                    Modification (écriture)
+                    {t('teams.edit_write')}
                   </p>
                   <div className="grid gap-3 pl-5">
                     <label className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <MessageSquare className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">Gérer les sessions</span>
+                        <span className="text-sm">{t('teams.perm_manage_sessions')}</span>
                       </div>
                       <Switch checked={canManageSessions} onCheckedChange={setCanManageSessions} />
                     </label>
                     <label className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Bot className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">Gérer les agents IA</span>
+                        <span className="text-sm">{t('teams.perm_manage_agents')}</span>
                       </div>
                       <Switch checked={canManageAgents} onCheckedChange={setCanManageAgents} />
                     </label>
                     <label className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <BookOpen className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">Gérer la base de connaissances</span>
+                        <span className="text-sm">{t('teams.perm_manage_knowledge')}</span>
                       </div>
                       <Switch checked={canManageKnowledge} onCheckedChange={setCanManageKnowledge} />
                     </label>
                     <label className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Link2 className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">Gérer les liens WA</span>
+                        <span className="text-sm">{t('teams.perm_manage_links')}</span>
                       </div>
                       <Switch checked={canManageLinks} onCheckedChange={setCanManageLinks} />
                     </label>
                     <label className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <Send className="h-4 w-4 text-muted-foreground" />
-                        <span className="text-sm">Envoyer des messages</span>
+                        <span className="text-sm">{t('teams.perm_send_messages')}</span>
                       </div>
                       <Switch checked={canSendMessages} onCheckedChange={setCanSendMessages} />
                     </label>
@@ -1397,7 +1393,7 @@ export default function TeamsPage() {
                   <div className="space-y-3 border-t pt-4">
                     <div className="flex items-center gap-2 text-sm font-medium">
                       <MessageSquare className="h-4 w-4 text-[#7DC2A5]" />
-                      Sessions WhatsApp autorisées
+                      {t('teams.sessions_section')}
                       <Badge variant="secondary" className="ml-auto text-xs">
                         {editingSessions.length}/{sessions.length}
                       </Badge>
@@ -1421,7 +1417,7 @@ export default function TeamsPage() {
                         ))}
                       </div>
                     ) : (
-                      <p className="text-xs text-muted-foreground pl-6">Aucune session dans cette équipe</p>
+                      <p className="text-xs text-muted-foreground pl-6">{t('teams.no_sessions_team')}</p>
                     )}
                   </div>
 
@@ -1429,7 +1425,7 @@ export default function TeamsPage() {
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 text-sm font-medium">
                       <Bot className="h-4 w-4 text-[#40E9BE]" />
-                      Agents IA
+                      {t('teams.agents_section')}
                       <Badge variant="secondary" className="ml-auto text-xs">
                         {editingAgents.length}/{agents.length}
                       </Badge>
@@ -1450,7 +1446,7 @@ export default function TeamsPage() {
                         ))}
                       </div>
                     ) : (
-                      <p className="text-xs text-muted-foreground pl-6">Aucun agent dans cette équipe</p>
+                      <p className="text-xs text-muted-foreground pl-6">{t('teams.no_agents_team')}</p>
                     )}
                   </div>
 
@@ -1458,7 +1454,7 @@ export default function TeamsPage() {
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 text-sm font-medium">
                       <Link2 className="h-4 w-4 text-[#7DC2A5]" />
-                      Liens WhatsApp
+                      {t('teams.links_section')}
                       <Badge variant="secondary" className="ml-auto text-xs">
                         {editingLinks.length}/{links.length}
                       </Badge>
@@ -1479,7 +1475,7 @@ export default function TeamsPage() {
                         ))}
                       </div>
                     ) : (
-                      <p className="text-xs text-muted-foreground pl-6">Aucun lien dans cette équipe</p>
+                      <p className="text-xs text-muted-foreground pl-6">{t('teams.no_links_team')}</p>
                     )}
                   </div>
 
@@ -1487,7 +1483,7 @@ export default function TeamsPage() {
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 text-sm font-medium">
                       <BookOpen className="h-4 w-4 text-[#40E9BE]" />
-                      Base de connaissances
+                      {t('teams.perm_knowledge')}
                       <Badge variant="secondary" className="ml-auto text-xs">
                         {editingKnowledge.length}/{knowledgeDocs.length}
                       </Badge>
@@ -1511,7 +1507,7 @@ export default function TeamsPage() {
                         ))}
                       </div>
                     ) : (
-                      <p className="text-xs text-muted-foreground pl-6">Aucun document dans cette équipe</p>
+                      <p className="text-xs text-muted-foreground pl-6">{t('teams.no_knowledge_team')}</p>
                     )}
                   </div>
 
@@ -1519,7 +1515,7 @@ export default function TeamsPage() {
                   <div className="space-y-3">
                     <div className="flex items-center gap-2 text-sm font-medium">
                       <Megaphone className="h-4 w-4 text-[#7DC2A5]" />
-                      Campagnes de relance
+                      {t('teams.campaigns_section')}
                       <Badge variant="secondary" className="ml-auto text-xs">
                         {editingCampaigns.length}/{campaigns.length}
                       </Badge>
@@ -1543,7 +1539,7 @@ export default function TeamsPage() {
                         ))}
                       </div>
                     ) : (
-                      <p className="text-xs text-muted-foreground pl-6">Aucune campagne dans cette équipe</p>
+                      <p className="text-xs text-muted-foreground pl-6">{t('teams.no_campaigns_team')}</p>
                     )}
                   </div>
                 </>
@@ -1555,7 +1551,7 @@ export default function TeamsPage() {
                 ) : (
                   <Check className="mr-2 h-4 w-4" />
                 )}
-                Enregistrer les permissions
+                {t('teams.save_permissions')}
               </Button>
             </div>
           )}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { WhatsAppSession, Team } from '@/types/database'
 import { Button } from '@/components/ui/button'
@@ -39,18 +39,20 @@ import {
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { MultiTeamSelect } from '@/components/multi-team-select'
 import { getSessionDisplayName, formatPhoneNumber } from '@/lib/format-phone'
+import { useTranslation } from '@/i18n/context'
 
 type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
 type SessionWithTeamIds = WhatsAppSession & { team_ids?: string[] }
 
-const STATUS_CONFIG = {
-  connected: { label: 'Connecté', variant: 'default' as const, icon: Wifi },
-  disconnected: { label: 'Déconnecté', variant: 'secondary' as const, icon: WifiOff },
-  qr_pending: { label: 'QR en attente', variant: 'outline' as const, icon: QrCode },
-  error: { label: 'Erreur', variant: 'destructive' as const, icon: AlertCircle },
-}
-
 export default function SessionsPage() {
+  const { t, locale } = useTranslation()
+
+  const STATUS_CONFIG = useMemo(() => ({
+    connected: { label: t('sessions.connected'), variant: 'default' as const, icon: Wifi },
+    disconnected: { label: t('sessions.disconnected'), variant: 'secondary' as const, icon: WifiOff },
+    qr_pending: { label: t('sessions.qr_pending'), variant: 'outline' as const, icon: QrCode },
+    error: { label: t('sessions.error'), variant: 'destructive' as const, icon: AlertCircle },
+  }), [t])
   const [sessions, setSessions] = useState<SessionWithTeamIds[]>([])
   const [loading, setLoading] = useState(true)
   const [creating, setCreating] = useState(false)
@@ -90,15 +92,15 @@ export default function SessionsPage() {
         const updated = json.data as WhatsAppSession
         setSessions((prev) => prev.map((s) => (s.id === updated.id ? updated : s)))
         if (updated.status === 'connected') {
-          toast.success('Session WABA reconnectée !')
+          toast.success(t('sessions.waba_reconnected'))
         } else {
-          toast.error('Token Meta invalide ou expiré. Vérifiez votre Access Token.')
+          toast.error(t('sessions.invalid_token'))
         }
       } else {
-        toast.error(json.error || 'Erreur lors de la vérification')
+        toast.error(json.error || t('sessions.verification_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setReconnecting(null)
     }
@@ -118,10 +120,11 @@ export default function SessionsPage() {
         setSessions(json.data)
       }
     } catch {
-      toast.error('Erreur lors du chargement des sessions')
+      toast.error(t('sessions.load_error'))
     } finally {
       setLoading(false)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const fetchTeams = useCallback(async () => {
@@ -161,7 +164,7 @@ export default function SessionsPage() {
             if (qrSession?.id === updated.id) {
               setQrSession(updated)
               if (updated.status === 'connected') {
-                toast.success('WhatsApp connecté !')
+                toast.success(t('sessions.whatsapp_connected'))
               }
             }
           } else if (payload.eventType === 'DELETE') {
@@ -216,14 +219,14 @@ export default function SessionsPage() {
       })
       const json = await res.json()
       if (!res.ok) {
-        toast.error(json.error || 'Erreur lors de la création')
+        toast.error(json.error || t('sessions.create_error'))
         return
       }
       const newSession = json.data as SessionWithTeamIds
       setSessions((prev) => [newSession, ...prev])
 
       if (sessionType === 'waba') {
-        toast.success('Session WhatsApp API créée et connectée !')
+        toast.success(t('sessions.waba_created'))
         // Show webhook configuration instructions (keep dialog open)
         const appDomain = window.location.origin
         setWabaWebhookInfo({
@@ -237,9 +240,9 @@ export default function SessionsPage() {
       // Open connection dialog immediately
       setQrSession(newSession)
       if (connectionMethod === 'pairing' && newSession.pairing_code) {
-        toast.success('Session créée, entrez le code dans WhatsApp')
+        toast.success(t('sessions.session_created_pairing'))
       } else {
-        toast.success('Session créée, scannez le QR code')
+        toast.success(t('sessions.session_created_qr'))
       }
 
       // Reset form
@@ -250,7 +253,7 @@ export default function SessionsPage() {
       setWabaBusinessAccountId('')
       setWabaAccessToken('')
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setCreating(false)
     }
@@ -271,10 +274,10 @@ export default function SessionsPage() {
           }
         })
       } else {
-        toast.error('Impossible de récupérer le code de connexion')
+        toast.error(t('sessions.qr_fetch_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setQrLoading(false)
     }
@@ -292,13 +295,13 @@ export default function SessionsPage() {
             s.id === sessionId ? { ...s, status: 'disconnected' as const, qr_code: null, pairing_code: null } : s
           )
         )
-        toast.success('Session déconnectée')
+        toast.success(t('sessions.session_disconnected'))
       } else {
         const json = await res.json()
-        toast.error(json.error || 'Erreur lors de la déconnexion')
+        toast.error(json.error || t('sessions.disconnect_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setDisconnecting(null)
     }
@@ -312,12 +315,12 @@ export default function SessionsPage() {
       })
       const json = await res.json()
       if (res.ok) {
-        toast.success('Webhook configuré !')
+        toast.success(t('sessions.webhook_configured'))
       } else {
-        toast.error(json.error || 'Erreur lors de la configuration du webhook')
+        toast.error(json.error || t('sessions.webhook_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setWebhookConfiguring(null)
     }
@@ -337,15 +340,15 @@ export default function SessionsPage() {
       })
       if (res.ok) {
         setSessions((prev) => prev.filter((s) => s.id !== sessionToDelete.id))
-        toast.success('Session supprimée')
+        toast.success(t('sessions.session_deleted'))
         setDeleteDialogOpen(false)
         setSessionToDelete(null)
       } else {
         const json = await res.json()
-        toast.error(json.error || 'Erreur lors de la suppression')
+        toast.error(json.error || t('sessions.delete_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setDeleting(null)
     }
@@ -359,12 +362,12 @@ export default function SessionsPage() {
       })
       const json = await res.json()
       if (res.ok && json.data) {
-        toast.success(`${json.data.synced} contacts synchronisés`)
+        toast.success(t('sessions.contacts_synced', { count: json.data.synced }))
       } else {
-        toast.error(json.error || 'Erreur lors de la synchronisation')
+        toast.error(json.error || t('sessions.sync_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setSyncingContacts(null)
     }
@@ -387,13 +390,13 @@ export default function SessionsPage() {
       const json = await res.json()
       if (res.ok && json.data) {
         setSessions((prev) => prev.map((s) => (s.id === editingSession.id ? json.data : s)))
-        toast.success('Paramètres de session mis à jour')
+        toast.success(t('sessions.settings_saved'))
         setEditingSession(null)
       } else {
-        toast.error(json.error || 'Erreur lors de la mise à jour')
+        toast.error(json.error || t('sessions.settings_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setSavingSettings(false)
     }
@@ -441,7 +444,7 @@ export default function SessionsPage() {
                 setQrSession(updated)
               }
               if (updated.status === 'connected') {
-                toast.success(`WhatsApp connecté : ${getSessionDisplayName(updated)}`)
+                toast.success(t('sessions.connected_toast', { name: getSessionDisplayName(updated) }))
               }
             }
           }
@@ -469,14 +472,14 @@ export default function SessionsPage() {
     <div className="p-4 sm:p-6">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div data-tour="sessions-header">
-          <h1 className="text-xl sm:text-2xl font-bold">Sessions WhatsApp</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">{t('sessions.title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Gérez vos connexions WhatsApp. Chaque session correspond à un numéro.
+            {t('sessions.description')}
           </p>
         </div>
         <Button data-tour="new-session-btn" onClick={openCreateDialog} className="w-full sm:w-auto">
           <Plus className="mr-2 h-4 w-4" />
-          Nouvelle session
+          {t('sessions.new_session')}
         </Button>
       </div>
 
@@ -484,13 +487,13 @@ export default function SessionsPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Smartphone className="mb-4 h-12 w-12 text-muted-foreground" />
-            <h3 className="text-lg font-medium">Aucune session</h3>
+            <h3 className="text-lg font-medium">{t('sessions.no_sessions')}</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Créez votre première session WhatsApp pour commencer.
+              {t('sessions.no_sessions_desc')}
             </p>
             <Button className="mt-4" onClick={openCreateDialog}>
               <Plus className="mr-2 h-4 w-4" />
-              Créer une session
+              {t('sessions.create_session')}
             </Button>
           </CardContent>
         </Card>
@@ -523,7 +526,7 @@ export default function SessionsPage() {
                     <Badge variant={config.variant} className="w-fit">
                       <StatusIcon className="mr-1 h-3 w-3" />
                       {session.status === 'qr_pending' && session.pairing_code
-                        ? 'Code en attente'
+                        ? t('sessions.code_pending')
                         : config.label}
                     </Badge>
                   </div>
@@ -531,11 +534,12 @@ export default function SessionsPage() {
                 <CardContent>
                   <div className="flex flex-col gap-1 text-xs text-muted-foreground sm:flex-row sm:items-center sm:gap-2">
                     <span>
-                      Créée le{' '}
-                      {new Date(session.created_at).toLocaleDateString('fr-FR', {
-                        day: 'numeric',
-                        month: 'long',
-                        year: 'numeric',
+                      {t('sessions.created_on', {
+                        date: new Date(session.created_at).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', {
+                          day: 'numeric',
+                          month: 'long',
+                          year: 'numeric',
+                        })
                       })}
                     </span>
                     {(session.team_ids?.length || session.team_id) && (
@@ -543,7 +547,7 @@ export default function SessionsPage() {
                         {(session.team_ids || (session.team_id ? [session.team_id] : [])).map(tid => (
                           <Badge key={tid} variant="outline" className="gap-1 text-xs font-normal">
                             <Users className="h-3 w-3" />
-                            {teams.find(t => t.id === tid)?.name || 'Équipe'}
+                            {teams.find(tm => tm.id === tid)?.name || t('common.team')}
                           </Badge>
                         ))}
                       </div>
@@ -552,11 +556,11 @@ export default function SessionsPage() {
                   {(session.daily_ai_message_limit != null || session.ai_message_delay != null) && (
                     <p className="mt-1 text-xs text-muted-foreground">
                       {session.daily_ai_message_limit != null && (
-                        <span>Limite IA : {session.daily_ai_message_limit.toLocaleString('fr-FR')} msg/jour</span>
+                        <span>{t('sessions.ai_limit', { limit: session.daily_ai_message_limit.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US') })}</span>
                       )}
                       {session.daily_ai_message_limit != null && session.ai_message_delay != null && ' · '}
                       {session.ai_message_delay != null && (
-                        <span>Délai : {session.ai_message_delay}s entre envois auto</span>
+                        <span>{t('sessions.delay_display', { seconds: session.ai_message_delay })}</span>
                       )}
                     </p>
                   )}
@@ -571,12 +575,12 @@ export default function SessionsPage() {
                         {session.pairing_code ? (
                           <>
                             <Smartphone className="mr-1 h-3 w-3" />
-                            Code de jumelage
+                            {t('sessions.pairing_code')}
                           </>
                         ) : (
                           <>
                             <QrCode className="mr-1 h-3 w-3" />
-                            QR Code
+                            {t('sessions.qr_code')}
                           </>
                         )}
                       </Button>
@@ -592,7 +596,7 @@ export default function SessionsPage() {
                         }}
                       >
                         <RefreshCw className="mr-1 h-3 w-3" />
-                        Reconnecter
+                        {t('sessions.reconnect')}
                       </Button>
                     )}
 
@@ -608,7 +612,7 @@ export default function SessionsPage() {
                         ) : (
                           <RefreshCw className="mr-1 h-3 w-3" />
                         )}
-                        Reconnecter
+                        {t('sessions.reconnect')}
                       </Button>
                     )}
 
@@ -621,14 +625,14 @@ export default function SessionsPage() {
                               variant="outline"
                               onClick={() => handleSyncContacts(session.id)}
                               disabled={syncingContacts === session.id}
-                              title="Importer les contacts WhatsApp existants"
+                              title={t('sessions.contacts')}
                             >
                               {syncingContacts === session.id ? (
                                 <Loader2 className="mr-1 h-3 w-3 animate-spin" />
                               ) : (
                                 <Download className="mr-1 h-3 w-3" />
                               )}
-                              Contacts
+                              {t('sessions.contacts')}
                             </Button>
                             <Button
                               size="sm"
@@ -641,7 +645,7 @@ export default function SessionsPage() {
                               ) : (
                                 <Globe className="mr-1 h-3 w-3" />
                               )}
-                              Webhook
+                              {t('sessions.webhook')}
                             </Button>
                           </>
                         )}
@@ -656,7 +660,7 @@ export default function SessionsPage() {
                           ) : (
                             <WifiOff className="mr-1 h-3 w-3" />
                           )}
-                          Déconnecter
+                          {t('sessions.disconnect')}
                         </Button>
                       </>
                     )}
@@ -713,12 +717,12 @@ export default function SessionsPage() {
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {qrSession?.pairing_code ? 'Code de jumelage' : 'Scanner le QR Code'}
+              {qrSession?.pairing_code ? t('sessions.pairing_title') : t('sessions.scan_qr_title')}
             </DialogTitle>
             <DialogDescription>
               {qrSession?.pairing_code
-                ? 'Ouvrez WhatsApp, allez dans Appareils liés, puis entrez ce code.'
-                : 'Ouvrez WhatsApp sur votre téléphone, allez dans Appareils liés, et scannez ce QR code.'}
+                ? t('sessions.pairing_desc')
+                : t('sessions.scan_qr_desc')}
             </DialogDescription>
           </DialogHeader>
 
@@ -727,7 +731,7 @@ export default function SessionsPage() {
               <div className="flex flex-col items-center gap-3">
                 <Wifi className="h-16 w-16 text-green-500" />
                 <p className="text-sm font-medium text-green-600">
-                  WhatsApp connecté !
+                  {t('sessions.connected_label')}
                 </p>
                 {qrSession.phone_number && (
                   <p className="text-sm text-muted-foreground">
@@ -744,13 +748,13 @@ export default function SessionsPage() {
                 </div>
                 <div className="mt-4 space-y-3 text-center">
                   <div className="rounded-md bg-muted p-3">
-                    <p className="text-sm font-medium mb-2">Comment utiliser ce code :</p>
+                    <p className="text-sm font-medium mb-2">{t('sessions.pairing_instructions_title')}</p>
                     <ol className="text-xs text-muted-foreground text-left space-y-1 list-decimal list-inside">
-                      <li>Ouvrez WhatsApp sur votre téléphone</li>
-                      <li>Allez dans <strong>Paramètres &gt; Appareils liés</strong></li>
-                      <li>Appuyez sur <strong>Lier un appareil</strong></li>
-                      <li>Appuyez sur <strong>&laquo; Lier avec le numéro de téléphone &raquo;</strong></li>
-                      <li>Entrez le code ci-dessus</li>
+                      <li>{t('sessions.pairing_step1')}</li>
+                      <li>{t('sessions.pairing_step2')}</li>
+                      <li>{t('sessions.pairing_step3')}</li>
+                      <li>{t('sessions.pairing_step4')}</li>
+                      <li>{t('sessions.pairing_step5')}</li>
                     </ol>
                   </div>
                   <div className="flex items-center gap-2 justify-center">
@@ -765,10 +769,10 @@ export default function SessionsPage() {
                       ) : (
                         <RefreshCw className="mr-1 h-3 w-3" />
                       )}
-                      Nouveau code
+                      {t('sessions.new_code')}
                     </Button>
                     <p className="text-xs text-muted-foreground">
-                      Le code expire après quelques minutes
+                      {t('sessions.code_expires')}
                     </p>
                   </div>
                 </div>
@@ -793,10 +797,10 @@ export default function SessionsPage() {
                     ) : (
                       <RefreshCw className="mr-1 h-3 w-3" />
                     )}
-                    Rafraîchir
+                    {t('sessions.refresh')}
                   </Button>
                   <p className="text-xs text-muted-foreground">
-                    Rafraîchissement auto toutes les 20s
+                    {t('sessions.auto_refresh')}
                   </p>
                 </div>
               </>
@@ -804,7 +808,7 @@ export default function SessionsPage() {
               <div className="flex flex-col items-center gap-3">
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 <p className="text-sm text-muted-foreground">
-                  Chargement...
+                  {t('common.loading')}
                 </p>
                 <Button
                   variant="outline"
@@ -817,7 +821,7 @@ export default function SessionsPage() {
                   ) : (
                     <RefreshCw className="mr-1 h-3 w-3" />
                   )}
-                  Récupérer le code
+                  {t('sessions.fetch_code')}
                 </Button>
               </div>
             )}
@@ -834,15 +838,15 @@ export default function SessionsPage() {
       >
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Paramètres de la session</DialogTitle>
+            <DialogTitle>{t('sessions.settings_title')}</DialogTitle>
             <DialogDescription>
-              Configurez les paramètres pour {editingSession ? getSessionDisplayName(editingSession) : ''}
+              {t('sessions.settings_desc', { name: editingSession ? getSessionDisplayName(editingSession) : '' })}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
               <Label htmlFor="display-name">
-                Nom de la session
+                {t('sessions.session_name')}
               </Label>
               <Input
                 id="display-name"
@@ -851,20 +855,20 @@ export default function SessionsPage() {
                 onChange={(e) => setFormDisplayName(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                Nom personnalisé pour identifier facilement cette session.
+                {t('sessions.session_name_desc')}
               </p>
             </div>
             <MultiTeamSelect
               teams={teams}
               selectedTeamIds={formSessionTeamIds}
               onTeamIdsChange={setFormSessionTeamIds}
-              label="Équipes"
-              description="Les membres des équipes sélectionnées pourront accéder à cette session selon leurs permissions."
-              emptyDescription="Cette session est uniquement accessible par vous."
+              label={t('sessions.teams_label')}
+              description={t('sessions.teams_desc')}
+              emptyDescription={t('sessions.teams_empty')}
             />
             <div className="space-y-2">
               <Label htmlFor="daily-limit">
-                Limite quotidienne de messages IA
+                {t('sessions.daily_limit')}
               </Label>
               <Input
                 id="daily-limit"
@@ -872,18 +876,17 @@ export default function SessionsPage() {
                 min={1}
                 max={100000}
                 step={1}
-                placeholder="Illimité"
+                placeholder={t('sessions.daily_limit_placeholder')}
                 value={formDailyLimit}
                 onChange={(e) => setFormDailyLimit(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                Nombre maximum de messages envoyés par l&apos;IA par jour pour
-                cette session. Laisser vide = pas de limite.
+                {t('sessions.daily_limit_desc')}
               </p>
             </div>
             <div className="space-y-2">
               <Label htmlFor="ai-delay">
-                Délai entre envois automatiques (secondes)
+                {t('sessions.delay_label')}
               </Label>
               <Input
                 id="ai-delay"
@@ -891,14 +894,12 @@ export default function SessionsPage() {
                 min={1}
                 max={60}
                 step={1}
-                placeholder="Pas de délai"
+                placeholder={t('sessions.delay_placeholder')}
                 value={formAiMessageDelay}
                 onChange={(e) => setFormAiMessageDelay(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                Temps d&apos;attente entre chaque message automatique (IA ou campagne)
-                envoyé depuis cette session. Protège contre la détection anti-spam.
-                Laisser vide = pas de délai.
+                {t('sessions.delay_desc')}
               </p>
             </div>
             <Button
@@ -911,7 +912,7 @@ export default function SessionsPage() {
               ) : (
                 <Save className="mr-2 h-4 w-4" />
               )}
-              Enregistrer
+              {t('common.save')}
             </Button>
           </div>
         </DialogContent>
@@ -921,9 +922,9 @@ export default function SessionsPage() {
       <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Nouvelle session WhatsApp</DialogTitle>
+            <DialogTitle>{t('sessions.new_session_title')}</DialogTitle>
             <DialogDescription>
-              Choisissez le type de connexion WhatsApp.
+              {t('sessions.new_session_desc')}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -935,11 +936,11 @@ export default function SessionsPage() {
               <TabsList className="w-full">
                 <TabsTrigger value="evolution" className="flex-1">
                   <QrCode className="mr-1 h-4 w-4" />
-                  WhatsApp QR
+                  {t('sessions.whatsapp_qr')}
                 </TabsTrigger>
                 <TabsTrigger value="waba" className="flex-1">
                   <Cloud className="mr-1 h-4 w-4" />
-                  API Business
+                  {t('sessions.api_business')}
                 </TabsTrigger>
               </TabsList>
 
@@ -950,28 +951,28 @@ export default function SessionsPage() {
                     onValueChange={(v) => setConnectionMethod(v as 'qr' | 'pairing')}
                   >
                     <TabsList className="w-full">
-                      <TabsTrigger value="qr" className="flex-1">QR Code</TabsTrigger>
-                      <TabsTrigger value="pairing" className="flex-1">Code de jumelage</TabsTrigger>
+                      <TabsTrigger value="qr" className="flex-1">{t('sessions.qr_code_tab')}</TabsTrigger>
+                      <TabsTrigger value="pairing" className="flex-1">{t('sessions.pairing_code_tab')}</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="qr">
                       <p className="text-sm text-muted-foreground">
-                        Scannez le QR code avec WhatsApp pour connecter votre numéro.
+                        {t('sessions.qr_desc')}
                       </p>
                     </TabsContent>
 
                     <TabsContent value="pairing">
                       <div className="space-y-2">
-                        <Label htmlFor="phone-number">Numéro de téléphone</Label>
+                        <Label htmlFor="phone-number">{t('sessions.phone_number')}</Label>
                         <Input
                           id="phone-number"
                           type="tel"
-                          placeholder="33612345678"
+                          placeholder={t('sessions.phone_placeholder')}
                           value={phoneNumber}
                           onChange={(e) => setPhoneNumber(e.target.value)}
                         />
                         <p className="text-xs text-muted-foreground">
-                          Entrez votre numéro avec l&apos;indicatif pays, sans le + ni espaces.
+                          {t('sessions.phone_desc')}
                         </p>
                       </div>
                     </TabsContent>
@@ -984,18 +985,18 @@ export default function SessionsPage() {
                   <div className="space-y-4">
                     <div className="flex items-center gap-2 text-green-600">
                       <CheckCircle2 className="h-5 w-5" />
-                      <p className="text-sm font-medium">Session créée avec succès !</p>
+                      <p className="text-sm font-medium">{t('sessions.waba_success')}</p>
                     </div>
                     <div className="rounded-md border bg-muted/50 p-4 space-y-3">
-                      <p className="text-sm font-medium">Configurez le webhook dans Meta Business Suite :</p>
+                      <p className="text-sm font-medium">{t('sessions.waba_webhook_title')}</p>
                       <ol className="text-sm text-muted-foreground space-y-1 list-decimal list-inside">
-                        <li>Allez dans <strong>Meta Business Suite &gt; WhatsApp &gt; Configuration</strong></li>
-                        <li>Section <strong>Webhooks</strong>, cliquez sur <strong>Modifier</strong></li>
-                        <li>Collez les informations ci-dessous</li>
-                        <li>Abonnez-vous au champ <strong>messages</strong></li>
+                        <li>{t('sessions.waba_step1')}</li>
+                        <li>{t('sessions.waba_step2')}</li>
+                        <li>{t('sessions.waba_step3')}</li>
+                        <li>{t('sessions.waba_step4')}</li>
                       </ol>
                       <div className="space-y-2 pt-2">
-                        <Label className="text-xs">URL de rappel (Callback URL)</Label>
+                        <Label className="text-xs">{t('sessions.callback_url')}</Label>
                         <div className="flex items-center gap-2">
                           <Input
                             readOnly
@@ -1016,7 +1017,7 @@ export default function SessionsPage() {
                         </div>
                       </div>
                       <div className="space-y-2">
-                        <Label className="text-xs">Jeton de vérification (Verify Token)</Label>
+                        <Label className="text-xs">{t('sessions.verify_token')}</Label>
                         <div className="flex items-center gap-2">
                           <Input
                             readOnly
@@ -1044,13 +1045,13 @@ export default function SessionsPage() {
                       }}
                       className="w-full"
                     >
-                      Terminé
+                      {t('common.done')}
                     </Button>
                   </div>
                 ) : (
                   <div className="space-y-3">
                     <p className="text-sm text-muted-foreground">
-                      Connectez via l&apos;API officielle WhatsApp Business (Meta Cloud API).
+                      {t('sessions.waba_desc')}
                     </p>
                     <div className="space-y-2">
                       <Label htmlFor="waba-phone-id">Phone Number ID</Label>
@@ -1080,7 +1081,7 @@ export default function SessionsPage() {
                         onChange={(e) => setWabaAccessToken(e.target.value)}
                       />
                       <p className="text-xs text-muted-foreground">
-                        Token d&apos;accès permanent depuis Meta Business Suite (System User).
+                        {t('sessions.waba_token_desc')}
                       </p>
                     </div>
                   </div>
@@ -1094,9 +1095,9 @@ export default function SessionsPage() {
                   teams={teams}
                   selectedTeamIds={selectedTeamIds}
                   onTeamIdsChange={setSelectedTeamIds}
-                  label="Équipes (optionnel)"
-                  description="Les membres des équipes sélectionnées pourront accéder à cette session selon leurs permissions."
-                  emptyDescription="Cette session sera uniquement accessible par vous."
+                  label={t('sessions.teams_optional')}
+                  description={t('sessions.teams_optional_desc')}
+                  emptyDescription={t('sessions.teams_optional_empty')}
                 />
                 <Button
                   onClick={handleCreate}
@@ -1112,7 +1113,7 @@ export default function SessionsPage() {
                   ) : (
                     <Plus className="mr-2 h-4 w-4" />
                   )}
-                  Créer la session
+                  {t('sessions.create_session')}
                 </Button>
               </>
             )}
@@ -1128,8 +1129,8 @@ export default function SessionsPage() {
           if (!open) setSessionToDelete(null)
         }}
         onConfirm={handleConfirmDelete}
-        title="Supprimer la session"
-        description={`Êtes-vous sûr de vouloir supprimer la session "${sessionToDelete ? getSessionDisplayName(sessionToDelete) : ''}" ? Cette action déconnectera le numéro WhatsApp et supprimera toutes les données associées.`}
+        title={t('sessions.delete_title')}
+        description={t('sessions.delete_desc', { name: sessionToDelete ? getSessionDisplayName(sessionToDelete) : '' })}
         loading={deleting === sessionToDelete?.id}
       />
     </div>

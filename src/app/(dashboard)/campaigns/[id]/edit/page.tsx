@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, use } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTranslation } from '@/i18n/context'
 import type { AIAgent, WhatsAppSession, ConversationTag, Team, Campaign, WALink } from '@/types/database'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -44,6 +45,7 @@ type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
 export default function EditCampaignPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [campaign, setCampaign] = useState<Campaign | null>(null)
@@ -86,7 +88,6 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
 
   const fetchData = useCallback(async () => {
     try {
-      // Charger la campagne et les options en parallèle
       const [campaignRes, sessionsRes, agentsRes, tagsRes, teamsRes, linksRes] = await Promise.all([
         fetch(`/api/campaigns/${id}`),
         fetch('/api/sessions'),
@@ -106,7 +107,7 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
       ])
 
       if (!campaignRes.ok || !campaignJson.data) {
-        toast.error('Campagne non trouvée')
+        toast.error(t('campaigns.not_found'))
         router.push('/campaigns')
         return
       }
@@ -114,9 +115,7 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
       const c = campaignJson.data as Campaign
       setCampaign(c)
 
-      // Remplir le formulaire avec les données existantes
       setName(c.name)
-      // Utiliser team_ids si disponible, sinon fallback sur team_id
       const existingTeamIds = (c as unknown as { team_ids?: string[] }).team_ids
       setTeamIds(existingTeamIds || (c.team_id ? [c.team_id] : []))
       setUseAgent(!!c.relance_agent_id)
@@ -137,7 +136,6 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
       setSendHourEnd(c.send_hour_end || 21)
       setMinDaysSinceLastCampaign(c.min_days_since_last_campaign || 7)
       if (c.scheduled_at) {
-        // Convertir en format datetime-local
         const date = new Date(c.scheduled_at)
         setScheduledAt(date.toISOString().slice(0, 16))
       }
@@ -146,18 +144,17 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
       if (agentsJson.data) setAgents(agentsJson.data)
       if (tagsJson.data) setTags(tagsJson.data)
       if (teamsJson.data) {
-        setTeams(teamsJson.data.filter((t: TeamWithRole) => t.my_role === 'owner' || t.my_role === 'admin'))
+        setTeams(teamsJson.data.filter((team: TeamWithRole) => team.my_role === 'owner' || team.my_role === 'admin'))
       }
       if (linksJson.data) setLinks(linksJson.data)
 
-      // Récupérer les sources de tracking uniques
       const sourcesRes = await fetch('/api/conversations?tracking_sources=true')
       const sourcesJson = await sourcesRes.json()
       if (sourcesJson.tracking_sources) {
         setTrackingSources(sourcesJson.tracking_sources)
       }
     } catch {
-      toast.error('Erreur lors du chargement des données')
+      toast.error(t('campaigns.load_error'))
     } finally {
       setLoading(false)
     }
@@ -169,17 +166,17 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
 
   async function handleSave() {
     if (!name.trim()) {
-      toast.error('Le nom est requis')
+      toast.error(t('campaigns.name_required'))
       return
     }
 
     if (useAgent && !agentId) {
-      toast.error('Veuillez sélectionner un agent de relance')
+      toast.error(t('campaigns.agent_required'))
       return
     }
 
     if (!useAgent && !messageTemplate.trim()) {
-      toast.error('Le message template est requis')
+      toast.error(t('campaigns.template_required'))
       return
     }
 
@@ -213,13 +210,13 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
 
       const json = await res.json()
       if (res.ok && json.data) {
-        toast.success('Campagne mise à jour')
+        toast.success(t('campaigns.campaign_updated'))
         router.push(`/campaigns/${id}`)
       } else {
-        toast.error(json.error || 'Erreur lors de la mise à jour')
+        toast.error(json.error || t('campaigns.update_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setSaving(false)
     }
@@ -237,7 +234,6 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
     return null
   }
 
-  // Ne pas permettre l'édition si la campagne n'est pas en brouillon
   const canEdit = campaign.status === 'draft' || campaign.status === 'scheduled'
 
   const relanceAgents = agents.filter(a => a.agent_type === 'relance')
@@ -249,11 +245,11 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
           <ArrowLeft className="h-4 w-4" />
         </Button>
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold">Modifier la campagne</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">{t('campaigns.edit_title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {canEdit
-              ? 'Modifiez les paramètres de votre campagne.'
-              : 'Cette campagne ne peut plus être modifiée (en cours ou terminée).'}
+              ? t('campaigns.edit_desc')
+              : t('campaigns.edit_locked')}
           </p>
         </div>
       </div>
@@ -263,7 +259,7 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 text-yellow-600">
               <AlertTriangle className="h-5 w-5" />
-              <p>Cette campagne est en statut &quot;{campaign.status}&quot; et ne peut pas être modifiée.</p>
+              <p>{t('campaigns.edit_status_locked', { status: campaign.status })}</p>
             </div>
           </CardContent>
         </Card>
@@ -275,15 +271,15 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Megaphone className="h-5 w-5" />
-              Informations générales
+              {t('campaigns.general_info')}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Nom de la campagne *</Label>
+              <Label htmlFor="name">{t('campaigns.campaign_name')}</Label>
               <Input
                 id="name"
-                placeholder="Ex: Relance clients janvier"
+                placeholder={t('campaigns.campaign_name_placeholder')}
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 disabled={!canEdit}
@@ -292,9 +288,9 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
 
             {teams.length > 0 && (
               <div className="space-y-2">
-                <Label>Équipes (optionnel)</Label>
+                <Label>{t('campaigns.teams_optional')}</Label>
                 <p className="text-xs text-muted-foreground mb-2">
-                  Sélectionnez les équipes qui auront accès à cette campagne
+                  {t('campaigns.teams_desc')}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {teams.map((team) => (
@@ -306,7 +302,7 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
                         if (!canEdit) return
                         setTeamIds((prev) =>
                           prev.includes(team.id)
-                            ? prev.filter((id) => id !== team.id)
+                            ? prev.filter((tid) => tid !== team.id)
                             : [...prev, team.id]
                         )
                       }}
@@ -326,38 +322,38 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <MessageSquare className="h-5 w-5" />
-              Message de relance
+              {t('campaigns.message_section')}
             </CardTitle>
             <CardDescription>
-              Utilisez un agent IA pour personnaliser chaque message, ou un template fixe.
+              {t('campaigns.message_desc')}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <Label className="flex items-center gap-2">
                 <Bot className="h-4 w-4" />
-                Utiliser un agent IA
+                {t('campaigns.use_ai_agent')}
               </Label>
               <Switch checked={useAgent} onCheckedChange={setUseAgent} disabled={!canEdit} />
             </div>
 
             {useAgent ? (
               <div className="space-y-2">
-                <Label>Agent de relance</Label>
+                <Label>{t('campaigns.relance_agent')}</Label>
                 {relanceAgents.length === 0 ? (
                   <div className="p-4 bg-muted rounded-lg text-center">
                     <AlertTriangle className="h-8 w-8 mx-auto mb-2 text-yellow-500" />
                     <p className="text-sm text-muted-foreground">
-                      Aucun agent de type &quot;relance&quot; disponible.
+                      {t('campaigns.no_relance_agent')}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Créez un agent avec le type &quot;relance&quot; dans la page Agents IA.
+                      {t('campaigns.create_relance_help')}
                     </p>
                   </div>
                 ) : (
                   <Select value={agentId} onValueChange={setAgentId} disabled={!canEdit}>
                     <SelectTrigger>
-                      <SelectValue placeholder="Sélectionner un agent" />
+                      <SelectValue placeholder={t('campaigns.select_agent')} />
                     </SelectTrigger>
                     <SelectContent>
                       {relanceAgents.map((agent) => (
@@ -371,17 +367,17 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
               </div>
             ) : (
               <div className="space-y-2">
-                <Label htmlFor="template">Message template *</Label>
+                <Label htmlFor="template">{t('campaigns.message_template')}</Label>
                 <Textarea
                   id="template"
-                  placeholder="Bonjour ! Cela fait un moment que nous n'avons pas échangé..."
+                  placeholder={t('campaigns.message_template_placeholder')}
                   value={messageTemplate}
                   onChange={(e) => setMessageTemplate(e.target.value)}
                   rows={4}
                   disabled={!canEdit}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Ce message sera envoyé identique à tous les contacts.
+                  {t('campaigns.message_template_help')}
                 </p>
               </div>
             )}
@@ -390,10 +386,10 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
             <div className="space-y-2 pt-4 border-t">
               <Label className="flex items-center gap-2">
                 <MessageCircle className="h-4 w-4" />
-                Agent de conversation (suivi)
+                {t('campaigns.conversation_agent')}
               </Label>
               <p className="text-xs text-muted-foreground">
-                Cet agent prendra le relais pour répondre aux contacts après le message de relance.
+                {t('campaigns.conversation_agent_desc')}
               </p>
               <Select
                 value={conversationAgentId || 'none'}
@@ -401,10 +397,10 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
                 disabled={!canEdit}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Garder l'agent actuel" />
+                  <SelectValue placeholder={t('campaigns.keep_current')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Garder l&apos;agent actuel de chaque conversation</SelectItem>
+                  <SelectItem value="none">{t('campaigns.keep_current')}</SelectItem>
                   {agents
                     .filter((a) => a.agent_type === 'conversation')
                     .map((agent) => (
@@ -423,10 +419,10 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Filter className="h-5 w-5" />
-              Filtres de ciblage
+              {t('campaigns.targeting_filters')}
             </CardTitle>
             <CardDescription>
-              Définissez les critères pour sélectionner les contacts à relancer.
+              {t('campaigns.targeting_desc')}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -434,7 +430,7 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
                 <Users className="h-4 w-4" />
-                Sessions WhatsApp
+                {t('campaigns.whatsapp_sessions')}
               </Label>
               <div className="flex flex-wrap gap-2">
                 {sessions.map((session) => (
@@ -456,7 +452,7 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
                 ))}
               </div>
               <p className="text-xs text-muted-foreground">
-                Laisser vide = toutes les sessions accessibles
+                {t('campaigns.sessions_help')}
               </p>
             </div>
 
@@ -465,7 +461,7 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
                   <Link2 className="h-4 w-4" />
-                  Sources de tracking
+                  {t('campaigns.tracking_sources')}
                 </Label>
                 <div className="flex flex-wrap gap-2">
                   {trackingSources.map((source) => (
@@ -494,7 +490,7 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
                   <Link2 className="h-4 w-4" />
-                  Liens WhatsApp
+                  {t('campaigns.whatsapp_links')}
                 </Label>
                 <div className="flex flex-wrap gap-2">
                   {links.map((link) => (
@@ -516,7 +512,7 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
                   ))}
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Cibler les contacts venus via ces liens spécifiques
+                  {t('campaigns.links_help')}
                 </p>
               </div>
             )}
@@ -526,7 +522,7 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
                   <Tag className="h-4 w-4" />
-                  Tags de conversation
+                  {t('campaigns.conversation_tags')}
                 </Label>
                 <div className="flex flex-wrap gap-2">
                   {tags.map((tag) => (
@@ -553,7 +549,7 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
 
             {/* Inactivity */}
             <div className="space-y-2">
-              <Label>Inactivité minimum : {filterInactivityDays} jours</Label>
+              <Label>{t('campaigns.inactivity_days', { days: filterInactivityDays })}</Label>
               <Slider
                 value={[filterInactivityDays]}
                 onValueChange={([value]) => setFilterInactivityDays(value)}
@@ -563,16 +559,16 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
                 disabled={!canEdit}
               />
               <p className="text-xs text-muted-foreground">
-                Contacts sans message depuis au moins {filterInactivityDays} jours
+                {t('campaigns.inactivity_help', { days: filterInactivityDays })}
               </p>
             </div>
 
             {/* Exclude replied */}
             <div className="flex items-center justify-between">
               <div>
-                <Label>Exclure ceux qui ont répondu</Label>
+                <Label>{t('campaigns.exclude_replied')}</Label>
                 <p className="text-xs text-muted-foreground">
-                  N&apos;inclure que les contacts qui n&apos;ont pas répondu
+                  {t('campaigns.exclude_replied_desc')}
                 </p>
               </div>
               <Switch checked={filterExcludeReplied} onCheckedChange={setFilterExcludeReplied} disabled={!canEdit} />
@@ -585,16 +581,16 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Shield className="h-5 w-5" />
-              Protection anti-ban
+              {t('campaigns.anti_ban')}
             </CardTitle>
             <CardDescription>
-              Limites pour éviter le blocage par WhatsApp.
+              {t('campaigns.anti_ban_desc')}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>Destinataires max : {maxRecipients}</Label>
+                <Label>{t('campaigns.max_recipients', { count: maxRecipients })}</Label>
                 <Slider
                   value={[maxRecipients]}
                   onValueChange={([value]) => setMaxRecipients(value)}
@@ -606,7 +602,7 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
               </div>
 
               <div className="space-y-2">
-                <Label>Messages/heure : {messagesPerHour}</Label>
+                <Label>{t('campaigns.messages_per_hour', { count: messagesPerHour })}</Label>
                 <Slider
                   value={[messagesPerHour]}
                   onValueChange={([value]) => setMessagesPerHour(value)}
@@ -619,7 +615,7 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
             </div>
 
             <div className="space-y-2">
-              <Label>Délai entre messages : {delayBetweenMin}–{delayBetweenMax} secondes</Label>
+              <Label>{t('campaigns.delay_range', { min: delayBetweenMin, max: delayBetweenMax })}</Label>
               <div className="flex gap-4">
                 <div className="flex-1">
                   <Input
@@ -647,7 +643,7 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
             <div className="space-y-2">
               <Label className="flex items-center gap-2">
                 <Clock className="h-4 w-4" />
-                Plage horaire d&apos;envoi
+                {t('campaigns.send_hours')}
               </Label>
               <div className="flex items-center gap-2">
                 <Input
@@ -659,7 +655,7 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
                   className="w-20"
                   disabled={!canEdit}
                 />
-                <span>h à</span>
+                <span>{t('campaigns.hour_to')}</span>
                 <Input
                   type="number"
                   value={sendHourEnd}
@@ -669,12 +665,12 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
                   className="w-20"
                   disabled={!canEdit}
                 />
-                <span>h</span>
+                <span>{t('campaigns.hour_suffix')}</span>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label>Jours min depuis dernière campagne : {minDaysSinceLastCampaign}</Label>
+              <Label>{t('campaigns.min_days_since', { days: minDaysSinceLastCampaign })}</Label>
               <Slider
                 value={[minDaysSinceLastCampaign]}
                 onValueChange={([value]) => setMinDaysSinceLastCampaign(value)}
@@ -684,7 +680,7 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
                 disabled={!canEdit}
               />
               <p className="text-xs text-muted-foreground">
-                Ne pas recontacter quelqu&apos;un contacté par campagne il y a moins de {minDaysSinceLastCampaign} jours
+                {t('campaigns.min_days_help', { days: minDaysSinceLastCampaign })}
               </p>
             </div>
           </CardContent>
@@ -695,15 +691,15 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Calendar className="h-5 w-5" />
-              Programmation
+              {t('campaigns.scheduling')}
             </CardTitle>
             <CardDescription>
-              Optionnel : planifiez le lancement de la campagne.
+              {t('campaigns.scheduling_desc')}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              <Label htmlFor="scheduled">Date et heure de lancement</Label>
+              <Label htmlFor="scheduled">{t('campaigns.schedule_date')}</Label>
               <Input
                 id="scheduled"
                 type="datetime-local"
@@ -712,7 +708,7 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
                 disabled={!canEdit}
               />
               <p className="text-xs text-muted-foreground">
-                Laisser vide pour un lancement manuel.
+                {t('campaigns.schedule_help')}
               </p>
             </div>
           </CardContent>
@@ -726,7 +722,7 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
               className="flex-1"
               onClick={() => router.back()}
             >
-              Annuler
+              {t('common.cancel')}
             </Button>
             <Button
               className="flex-1"
@@ -738,7 +734,7 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
               ) : (
                 <Save className="mr-2 h-4 w-4" />
               )}
-              Enregistrer
+              {t('common.save')}
             </Button>
           </div>
         )}

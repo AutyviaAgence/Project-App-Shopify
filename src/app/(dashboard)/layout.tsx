@@ -34,24 +34,25 @@ import { AlertsDropdown } from '@/components/alerts-dropdown'
 import { TourProvider } from '@/components/guided-tour'
 import { SubscriptionBanner } from '@/components/subscription-banner'
 import { useSubscription } from '@/hooks/use-subscription'
+import { useTranslation } from '@/i18n/context'
 
-const NAV_ITEMS = [
-  { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/conversations', label: 'Conversations', icon: MessageSquare },
-  { href: '/sessions', label: 'Sessions', icon: Smartphone },
-  { href: '/agents', label: 'Agents IA', icon: Bot },
-  { href: '/campaigns', label: 'Campagnes', icon: Megaphone },
-  { href: '/knowledge', label: 'Base de connaissances', icon: BookOpen },
-  { href: '/links', label: 'Liens WhatsApp', icon: Link2 },
-  { href: '/tags', label: 'Tags', icon: Tag },
-  { href: '/lifecycle', label: 'Lifecycle', icon: Workflow },
-  { href: '/teams', label: 'Équipes', icon: Users },
-  { href: '/stats', label: 'Statistiques', icon: BarChart3 },
+const NAV_ITEMS_KEYS = [
+  { href: '/dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
+  { href: '/conversations', labelKey: 'nav.conversations', icon: MessageSquare },
+  { href: '/sessions', labelKey: 'nav.sessions', icon: Smartphone },
+  { href: '/agents', labelKey: 'nav.agents', icon: Bot },
+  { href: '/campaigns', labelKey: 'nav.campaigns', icon: Megaphone },
+  { href: '/knowledge', labelKey: 'nav.knowledge', icon: BookOpen },
+  { href: '/links', labelKey: 'nav.links', icon: Link2 },
+  { href: '/tags', labelKey: 'nav.tags', icon: Tag },
+  { href: '/lifecycle', labelKey: 'nav.lifecycle', icon: Workflow },
+  { href: '/teams', labelKey: 'nav.teams', icon: Users },
+  { href: '/stats', labelKey: 'nav.stats', icon: BarChart3 },
 ]
 
-const BOTTOM_NAV_ITEMS = [
-  { href: '/logs', label: 'Logs', icon: ScrollText },
-  { href: '/settings', label: 'Paramètres', icon: Settings },
+const BOTTOM_NAV_KEYS = [
+  { href: '/logs', labelKey: 'nav.logs', icon: ScrollText },
+  { href: '/settings', labelKey: 'nav.settings', icon: Settings },
 ]
 
 // Pages accessibles même sans abonnement actif
@@ -63,6 +64,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const { subscription, loading: subscriptionLoading } = useSubscription()
+  const { t } = useTranslation()
+
+  const NAV_ITEMS = NAV_ITEMS_KEYS.map(item => ({ ...item, label: t(item.labelKey) }))
+  const BOTTOM_NAV_ITEMS = BOTTOM_NAV_KEYS.map(item => ({ ...item, label: t(item.labelKey) }))
 
   // Vérifier si la page actuelle est accessible sans abonnement
   const isAllowedPage = ALLOWED_WITHOUT_SUBSCRIPTION.some(
@@ -88,7 +93,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const supabase = createClient()
     const { error } = await supabase.auth.signOut()
     if (error) {
-      toast.error('Erreur lors de la déconnexion')
+      toast.error(t('nav.signout_error'))
       return
     }
     router.push('/login')
@@ -183,10 +188,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               'group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/70 transition-all duration-200 hover:bg-white/10 hover:text-white',
               collapsed && 'justify-center'
             )}
-            title={collapsed ? 'Déconnexion' : undefined}
+            title={collapsed ? t('nav.signout') : undefined}
           >
             <LogOut className="h-5 w-5 shrink-0" />
-            {!collapsed && <span>Déconnexion</span>}
+            {!collapsed && <span>{t('nav.signout')}</span>}
           </button>
         </div>
 
@@ -248,13 +253,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <AlertTriangle className="h-8 w-8 text-red-600 dark:text-red-400" />
                 </div>
                 <div className="space-y-2">
-                  <h2 className="text-2xl font-bold text-foreground">Accès suspendu</h2>
+                  <h2 className="text-2xl font-bold text-foreground">{t('blocked.title')}</h2>
                   <p className="text-muted-foreground">
                     {subscription?.status === 'cancelled'
-                      ? 'Votre abonnement a été annulé. Réabonnez-vous pour accéder à la plateforme.'
+                      ? t('blocked.cancelled')
                       : subscription?.status === 'expired'
-                        ? 'Votre abonnement a expiré. Renouvelez-le pour continuer à utiliser Autyvia.'
-                        : 'Votre période d\'essai est terminée. Abonnez-vous pour continuer à utiliser Autyvia.'}
+                        ? t('blocked.expired')
+                        : t('blocked.trial_ended')}
                   </p>
                 </div>
                 <Link
@@ -262,7 +267,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
                 >
                   <CreditCard className="h-5 w-5" />
-                  Gérer mon abonnement
+                  {t('blocked.manage_subscription')}
                 </Link>
               </div>
             </div>
@@ -277,11 +282,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Mobile bottom navigation */}
       <nav className="fixed bottom-0 left-0 right-0 z-30 flex h-16 items-center justify-around border-t bg-background safe-area-bottom md:hidden">
         {[
-          { href: '/dashboard', icon: LayoutDashboard, label: 'Home' },
-          { href: '/conversations', icon: MessageSquare, label: 'Chat' },
-          { href: '/agents', icon: Bot, label: 'Agents' },
-          { href: '/sessions', icon: Smartphone, label: 'Sessions' },
-          { href: '/settings', icon: Settings, label: 'Config' },
+          { href: '/dashboard', icon: LayoutDashboard, label: t('nav.home') },
+          { href: '/conversations', icon: MessageSquare, label: t('nav.chat') },
+          { href: '/agents', icon: Bot, label: t('common.agents') },
+          { href: '/sessions', icon: Smartphone, label: t('nav.sessions') },
+          { href: '/settings', icon: Settings, label: t('nav.config') },
         ].map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
           return (

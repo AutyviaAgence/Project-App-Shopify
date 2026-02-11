@@ -5,6 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { X, ChevronRight, ChevronLeft, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTranslation } from '@/i18n/context'
 
 // Types
 interface TourStep {
@@ -28,23 +29,23 @@ interface TourContextType {
   goToStep: (index: number) => void
 }
 
-// Tour steps configuration (12 étapes détaillées)
+// Tour steps configuration (12 steps) - title/description hold i18n keys
 const TOUR_STEPS: TourStep[] = [
-  // Dashboard - Bienvenue
+  // Dashboard - Welcome
   {
     id: 'welcome',
     page: '/dashboard',
     target: '[data-tour="header"]',
-    title: 'Bienvenue sur Autyvia !',
-    description: 'Ce guide vous accompagne pas à pas pour configurer votre système d\'automatisation WhatsApp. Vous pouvez naviguer avec les flèches du clavier ou les boutons.',
+    title: 'tour.welcome_title',
+    description: 'tour.welcome_desc',
     position: 'bottom'
   },
   {
     id: 'dashboard-kpi',
     page: '/dashboard',
     target: '[data-tour="kpi-cards"]',
-    title: 'Tableau de bord',
-    description: 'Visualisez vos statistiques clés : messages envoyés/reçus, conversations actives, nouveaux contacts et taux de réponse de l\'IA. Ces données se mettent à jour en temps réel.',
+    title: 'tour.dashboard_title',
+    description: 'tour.dashboard_desc',
     position: 'bottom'
   },
   // Sessions
@@ -52,16 +53,16 @@ const TOUR_STEPS: TourStep[] = [
     id: 'sessions-page',
     page: '/sessions',
     target: '[data-tour="sessions-header"]',
-    title: 'Sessions WhatsApp',
-    description: 'Une session = un compte WhatsApp connecté. Vous pouvez connecter plusieurs numéros pour gérer différentes activités ou équipes.',
+    title: 'tour.sessions_title',
+    description: 'tour.sessions_desc',
     position: 'bottom'
   },
   {
     id: 'sessions-new',
     page: '/sessions',
     target: '[data-tour="new-session-btn"]',
-    title: 'Connecter WhatsApp',
-    description: 'Cliquez ici pour connecter un nouveau compte. Un QR code apparaîtra : scannez-le avec WhatsApp sur votre téléphone (Paramètres > Appareils connectés).',
+    title: 'tour.connect_title',
+    description: 'tour.connect_desc',
     position: 'left'
   },
   // Agents
@@ -69,16 +70,16 @@ const TOUR_STEPS: TourStep[] = [
     id: 'agents-page',
     page: '/agents',
     target: '[data-tour="agents-header"]',
-    title: 'Agents IA',
-    description: 'Les agents IA répondent automatiquement à vos clients 24h/24. Chaque agent a sa propre personnalité, ses horaires et son comportement.',
+    title: 'tour.agents_title',
+    description: 'tour.agents_desc',
     position: 'bottom'
   },
   {
     id: 'agents-new',
     page: '/agents',
     target: '[data-tour="new-agent-btn"]',
-    title: 'Créer un agent',
-    description: 'Créez un agent en définissant : son nom, sa personnalité (prompt système), ses horaires actifs, et les sessions WhatsApp qu\'il gère.',
+    title: 'tour.create_agent_title',
+    description: 'tour.create_agent_desc',
     position: 'left'
   },
   // Knowledge
@@ -86,16 +87,16 @@ const TOUR_STEPS: TourStep[] = [
     id: 'knowledge-page',
     page: '/knowledge',
     target: '[data-tour="knowledge-header"]',
-    title: 'Base de connaissances',
-    description: 'Enrichissez vos agents avec des documents. L\'IA utilisera ces informations pour répondre précisément aux questions de vos clients.',
+    title: 'tour.knowledge_title',
+    description: 'tour.knowledge_desc',
     position: 'bottom'
   },
   {
     id: 'knowledge-upload',
     page: '/knowledge',
     target: '[data-tour="upload-btn"]',
-    title: 'Ajouter un document',
-    description: 'Uploadez un PDF (FAQ, catalogue, tarifs, conditions) ou collez du texte. Assignez ensuite le document aux agents qui doivent l\'utiliser.',
+    title: 'tour.add_doc_title',
+    description: 'tour.add_doc_desc',
     position: 'left'
   },
   // Conversations
@@ -103,8 +104,8 @@ const TOUR_STEPS: TourStep[] = [
     id: 'conversations-page',
     page: '/conversations',
     target: '[data-tour="conversations-header"]',
-    title: 'Conversations',
-    description: 'Consultez toutes vos conversations WhatsApp. Voyez les messages échangés, l\'historique avec chaque contact, et les réponses de l\'IA.',
+    title: 'tour.conversations_title',
+    description: 'tour.conversations_desc',
     position: 'bottom'
   },
   // Links
@@ -112,8 +113,8 @@ const TOUR_STEPS: TourStep[] = [
     id: 'links-page',
     page: '/links',
     target: '[data-tour="links-header"]',
-    title: 'Liens WhatsApp',
-    description: 'Créez des liens wa.me personnalisés pour tracker l\'origine de vos contacts. Chaque lien peut avoir un message pré-rempli et un agent assigné.',
+    title: 'tour.links_title',
+    description: 'tour.links_desc',
     position: 'bottom'
   },
   // Campaigns
@@ -121,8 +122,8 @@ const TOUR_STEPS: TourStep[] = [
     id: 'campaigns-page',
     page: '/campaigns',
     target: '[data-tour="campaigns-header"]',
-    title: 'Campagnes',
-    description: 'Envoyez des messages de relance à vos contacts inactifs. Filtrez par tags, source, ou durée d\'inactivité. Protections anti-spam intégrées.',
+    title: 'tour.campaigns_title',
+    description: 'tour.campaigns_desc',
     position: 'bottom'
   },
   // End
@@ -130,8 +131,8 @@ const TOUR_STEPS: TourStep[] = [
     id: 'tour-end',
     page: '/dashboard',
     target: '[data-tour="header"]',
-    title: 'Prêt à démarrer !',
-    description: 'Commencez par : 1) Connecter une session WhatsApp, 2) Créer un agent IA, 3) Optionnellement ajouter des documents. L\'IA répondra ensuite automatiquement !',
+    title: 'tour.ready_title',
+    description: 'tour.ready_desc',
     position: 'bottom'
   }
 ]
@@ -226,6 +227,7 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
 // Overlay component that highlights elements
 function TourOverlay() {
   const { currentStep, steps, nextStep, prevStep, endTour } = useTour()
+  const { t } = useTranslation()
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null)
   const [tooltipStyle, setTooltipStyle] = useState<React.CSSProperties>({})
 
@@ -329,7 +331,7 @@ function TourOverlay() {
   if (!targetRect) {
     return (
       <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/30">
-        <div className="animate-pulse text-white">Chargement...</div>
+        <div className="animate-pulse text-white">{t('common.loading')}</div>
       </div>
     )
   }
@@ -386,7 +388,7 @@ function TourOverlay() {
           <div className="flex items-center gap-2 text-white">
             <Sparkles className="h-4 w-4" />
             <span className="text-sm font-medium">
-              Étape {currentStep + 1} / {steps.length}
+              {t('tour.step_x_of_y', { x: String(currentStep + 1), y: String(steps.length) })}
             </span>
           </div>
           <button
@@ -399,9 +401,9 @@ function TourOverlay() {
 
         {/* Content */}
         <div className="p-4">
-          <h3 className="text-lg font-semibold mb-2">{step.title}</h3>
+          <h3 className="text-lg font-semibold mb-2">{t(step.title)}</h3>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            {step.description}
+            {t(step.description)}
           </p>
         </div>
 
@@ -432,7 +434,7 @@ function TourOverlay() {
             className="gap-1"
           >
             <ChevronLeft className="h-4 w-4" />
-            Précédent
+            {t('common.previous')}
           </Button>
 
           <Button
@@ -440,7 +442,7 @@ function TourOverlay() {
             onClick={nextStep}
             className="gap-1 bg-[#7DC2A5] hover:bg-[#6BB294] text-white"
           >
-            {isLastStep ? 'Terminer' : 'Suivant'}
+            {isLastStep ? t('common.finish') : t('common.next')}
             {!isLastStep && <ChevronRight className="h-4 w-4" />}
           </Button>
         </div>
@@ -452,6 +454,7 @@ function TourOverlay() {
 // Button to start tour
 export function StartTourButton({ className }: { className?: string }) {
   const { startTour } = useTour()
+  const { t } = useTranslation()
 
   return (
     <Button
@@ -461,7 +464,7 @@ export function StartTourButton({ className }: { className?: string }) {
       className={cn('gap-2', className)}
     >
       <Sparkles className="h-4 w-4" />
-      <span className="hidden sm:inline">Guide interactif</span>
+      <span className="hidden sm:inline">{t('tour.interactive_guide')}</span>
     </Button>
   )
 }

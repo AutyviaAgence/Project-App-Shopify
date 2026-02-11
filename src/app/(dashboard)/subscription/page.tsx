@@ -25,20 +25,25 @@ import {
   Cpu,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTranslation } from '@/i18n/context'
+import type { LucideIcon } from 'lucide-react'
 
-const FEATURES = [
-  { icon: MessageSquare, text: 'Conversations WhatsApp illimitées' },
-  { icon: Bot, text: 'Agents IA personnalisés' },
-  { icon: Users, text: 'Gestion des équipes' },
-  { icon: BarChart, text: 'Statistiques avancées' },
-  { icon: Zap, text: 'Automatisation des réponses' },
-  { icon: Shield, text: 'Chiffrement des messages' },
+const FEATURES: { icon: LucideIcon; textKey: string }[] = [
+  { icon: MessageSquare, textKey: 'subscription.feature_conversations' },
+  { icon: Bot, textKey: 'subscription.feature_agents' },
+  { icon: Users, textKey: 'subscription.feature_teams' },
+  { icon: BarChart, textKey: 'subscription.feature_stats' },
+  { icon: Zap, textKey: 'subscription.feature_automation' },
+  { icon: Shield, textKey: 'subscription.feature_encryption' },
 ]
 
 function SubscriptionContent() {
+  const { t, locale } = useTranslation()
   const searchParams = useSearchParams()
   const { subscription, loading, refetch } = useSubscription()
   const [isProcessing, setIsProcessing] = useState(false)
+
+  const dateLocale = locale === 'fr' ? 'fr-FR' : 'en-US'
 
   // Gérer les redirections depuis Stripe
   useEffect(() => {
@@ -46,14 +51,14 @@ function SubscriptionContent() {
       // Synchroniser l'abonnement depuis Stripe (fallback si le webhook n'a pas fonctionné)
       fetch('/api/subscription/sync', { method: 'POST' })
         .then(() => refetch())
-        .then(() => toast.success('Paiement réussi ! Votre abonnement est maintenant actif.'))
+        .then(() => toast.success(t('subscription.payment_success')))
         .catch(() => refetch())
     } else if (searchParams.get('cancelled') === 'true') {
-      toast.info('Paiement annulé.')
+      toast.info(t('subscription.payment_cancelled'))
     } else if (searchParams.get('tokens_success') === 'true') {
-      refetch().then(() => toast.success('Tokens ajoutés avec succès !'))
+      refetch().then(() => toast.success(t('subscription.tokens_added')))
     }
-  }, [searchParams, refetch])
+  }, [searchParams, refetch, t])
 
   const handleSubscribe = async () => {
     setIsProcessing(true)
@@ -64,12 +69,12 @@ function SubscriptionContent() {
       const data = await res.json()
 
       if (!res.ok) {
-        throw new Error(data.error || 'Erreur lors de la création de la session')
+        throw new Error(data.error || t('subscription.payment_error'))
       }
 
       // Si l'abonnement est déjà actif côté Stripe, rafraîchir
       if (data.already_active) {
-        toast.success('Votre abonnement est déjà actif ! Profil resynchronisé.')
+        toast.success(t('subscription.already_synced'))
         await refetch()
         setIsProcessing(false)
         return
@@ -79,7 +84,7 @@ function SubscriptionContent() {
       window.location.href = data.url
     } catch (error) {
       console.error('[Subscription] Error:', error)
-      toast.error('Erreur lors de la redirection vers le paiement')
+      toast.error(t('subscription.payment_error'))
       setIsProcessing(false)
     }
   }
@@ -94,7 +99,7 @@ function SubscriptionContent() {
 
   const formatDate = (date: Date | null) => {
     if (!date) return '-'
-    return date.toLocaleDateString('fr-FR', {
+    return date.toLocaleDateString(dateLocale, {
       day: 'numeric',
       month: 'long',
       year: 'numeric',
@@ -104,9 +109,9 @@ function SubscriptionContent() {
   return (
     <div className="container max-w-4xl mx-auto py-8 px-4">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold">Abonnement</h1>
+        <h1 className="text-3xl font-bold">{t('subscription.title')}</h1>
         <p className="mt-2 text-muted-foreground">
-          Gérez votre abonnement Autyvia
+          {t('subscription.description')}
         </p>
       </div>
 
@@ -115,14 +120,14 @@ function SubscriptionContent() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Calendar className="h-5 w-5" />
-            Votre abonnement
+            {t('subscription.your_subscription')}
           </CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">Statut :</span>
+                <span className="text-sm text-muted-foreground">{t('subscription.status_label')}</span>
                 <Badge
                   variant={subscription?.isActive ? 'default' : 'destructive'}
                   className={cn(
@@ -130,26 +135,26 @@ function SubscriptionContent() {
                     subscription?.status === 'active' && 'bg-green-500 hover:bg-green-600'
                   )}
                 >
-                  {subscription?.status === 'trial' && 'Période d\'essai'}
-                  {subscription?.status === 'active' && 'Actif'}
-                  {subscription?.status === 'expired' && 'Expiré'}
-                  {subscription?.status === 'cancelled' && 'Annulé'}
+                  {subscription?.status === 'trial' && t('subscription.trial')}
+                  {subscription?.status === 'active' && t('subscription.active')}
+                  {subscription?.status === 'expired' && t('subscription.expired')}
+                  {subscription?.status === 'cancelled' && t('subscription.cancelled')}
                 </Badge>
               </div>
 
               {subscription?.status === 'trial' && subscription.trialEndsAt && (
                 <p className="text-sm">
-                  <span className="text-muted-foreground">Fin de l&apos;essai :</span>{' '}
+                  <span className="text-muted-foreground">{t('subscription.trial_ends')}</span>{' '}
                   <span className="font-medium">{formatDate(subscription.trialEndsAt)}</span>
                   {subscription.daysRemaining !== null && (
-                    <span className="text-muted-foreground"> ({subscription.daysRemaining} jour{subscription.daysRemaining > 1 ? 's' : ''} restant{subscription.daysRemaining > 1 ? 's' : ''})</span>
+                    <span className="text-muted-foreground"> ({t('subscription.days_remaining', { count: String(subscription.daysRemaining) })})</span>
                   )}
                 </p>
               )}
 
               {subscription?.status === 'active' && subscription.subscriptionEndsAt && (
                 <p className="text-sm">
-                  <span className="text-muted-foreground">Valide jusqu&apos;au :</span>{' '}
+                  <span className="text-muted-foreground">{t('subscription.valid_until')}</span>{' '}
                   <span className="font-medium">{formatDate(subscription.subscriptionEndsAt)}</span>
                 </p>
               )}
@@ -159,12 +164,12 @@ function SubscriptionContent() {
               {subscription?.isActive ? (
                 <div className="flex items-center gap-1.5 text-green-600">
                   <CheckCircle className="h-5 w-5" />
-                  <span className="text-sm font-medium">Accès actif</span>
+                  <span className="text-sm font-medium">{t('subscription.access_active')}</span>
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5 text-red-600">
                   <XCircle className="h-5 w-5" />
-                  <span className="text-sm font-medium">Accès expiré</span>
+                  <span className="text-sm font-medium">{t('subscription.access_expired')}</span>
                 </div>
               )}
             </div>
@@ -178,14 +183,14 @@ function SubscriptionContent() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Cpu className="h-5 w-5" />
-              Utilisation des tokens IA
+              {t('subscription.token_usage')}
             </CardTitle>
             <CardDescription>
               {subscription.status === 'trial'
-                ? 'Période d\'essai : 200 000 tokens inclus'
+                ? t('subscription.trial_tokens')
                 : subscription.status === 'active'
-                  ? 'Abonnement : 5 000 000 tokens/mois inclus'
-                  : 'Aucun quota actif'}
+                  ? t('subscription.active_tokens')
+                  : t('subscription.no_quota')}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -215,7 +220,7 @@ function SubscriptionContent() {
 
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">
-                {subscription.tokensRemaining.toLocaleString()} tokens restants
+                {t('subscription.tokens_remaining', { count: subscription.tokensRemaining.toLocaleString() })}
               </span>
               {subscription.usagePercentage >= 90 && (
                 <Button
@@ -229,12 +234,12 @@ function SubscriptionContent() {
                       if (!res.ok) throw new Error(data.error)
                       window.location.href = data.url
                     } catch {
-                      toast.error('Erreur lors de la création du paiement')
+                      toast.error(t('subscription.buy_tokens_error'))
                     }
                   }}
                 >
                   <Zap className="mr-1 h-3 w-3" />
-                  Acheter 500K tokens
+                  {t('subscription.buy_tokens')}
                 </Button>
               )}
             </div>
@@ -248,15 +253,15 @@ function SubscriptionContent() {
           <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
             <Zap className="h-6 w-6 text-primary" />
           </div>
-          <CardTitle className="text-2xl">Abonnement Autyvia</CardTitle>
+          <CardTitle className="text-2xl">{t('subscription.offer_title')}</CardTitle>
           <CardDescription>
-            Accès complet à toutes les fonctionnalités
+            {t('subscription.offer_desc')}
           </CardDescription>
         </CardHeader>
         <CardContent className="text-center">
           <div className="mb-6">
-            <span className="text-5xl font-bold">150€</span>
-            <span className="text-muted-foreground">/mois</span>
+            <span className="text-5xl font-bold">{t('subscription.price')}</span>
+            <span className="text-muted-foreground">{t('subscription.per_month')}</span>
           </div>
 
           <div className="grid gap-3 text-left mb-6">
@@ -265,7 +270,7 @@ function SubscriptionContent() {
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
                   <feature.icon className="h-4 w-4 text-primary" />
                 </div>
-                <span className="text-sm">{feature.text}</span>
+                <span className="text-sm">{t(feature.textKey)}</span>
               </div>
             ))}
           </div>
@@ -274,7 +279,7 @@ function SubscriptionContent() {
           {subscription?.status === 'active' ? (
             <Button className="w-full" size="lg" disabled>
               <Check className="mr-2 h-5 w-5" />
-              Abonnement actif
+              {t('subscription.already_active')}
             </Button>
           ) : (
             <Button
@@ -286,12 +291,12 @@ function SubscriptionContent() {
               {isProcessing ? (
                 <>
                   <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  Redirection...
+                  {t('subscription.redirecting')}
                 </>
               ) : (
                 <>
                   <CreditCard className="mr-2 h-5 w-5" />
-                  S&apos;abonner maintenant
+                  {t('subscription.subscribe_now')}
                 </>
               )}
             </Button>
@@ -302,7 +307,7 @@ function SubscriptionContent() {
       {/* Note */}
       <p className="mt-6 text-center text-sm text-muted-foreground">
         <Clock className="inline-block h-4 w-4 mr-1" />
-        Paiement sécurisé par Stripe. Vous pouvez annuler à tout moment.
+        {t('subscription.stripe_note')}
       </p>
     </div>
   )

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useTranslation } from '@/i18n/context'
 import type { StatsResponse } from '@/types/stats'
 import type { WhatsAppSession } from '@/types/database'
 import { Badge } from '@/components/ui/badge'
@@ -31,6 +32,7 @@ function formatSeconds(s: number): string {
 }
 
 export default function DashboardPage() {
+  const { t, locale } = useTranslation()
   const [stats, setStats] = useState<StatsResponse | null>(null)
   const [sessions, setSessions] = useState<WhatsAppSession[]>([])
   const [loading, setLoading] = useState(true)
@@ -52,7 +54,7 @@ export default function DashboardPage() {
         setSessions(sessionsJson.data)
       }
     } catch {
-      toast.error('Erreur lors du chargement du dashboard')
+      toast.error(t('dashboard.load_error'))
     } finally {
       setLoading(false)
     }
@@ -74,10 +76,10 @@ export default function DashboardPage() {
       <div data-tour="header" className="flex items-start justify-between gap-4">
         <div className="flex flex-col gap-1">
           <h1 className="text-xl md:text-2xl font-bold text-foreground">
-            Bonjour !
+            {t('dashboard.greeting')}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Aperçu de votre activité des 7 derniers jours
+            {t('dashboard.overview')}
           </p>
         </div>
         <StartTourButton />
@@ -92,28 +94,28 @@ export default function DashboardPage() {
           {/* KPI Cards */}
           <div data-tour="kpi-cards" className="grid gap-4 grid-cols-2 lg:grid-cols-4">
             <KPICard
-              title="Messages"
+              title={t('dashboard.messages')}
               value={stats.overview.totalMessages}
               trend={stats.overview.messagesTrend}
               icon={MessageSquare}
               color="green"
             />
             <KPICard
-              title="Conversations"
+              title={t('dashboard.conversations')}
               value={stats.overview.activeConversations}
               trend={stats.overview.conversationsTrend}
               icon={Users}
               color="blue"
             />
             <KPICard
-              title="Nouveaux contacts"
+              title={t('dashboard.new_contacts')}
               value={stats.overview.newContacts}
               trend={stats.overview.contactsTrend}
               icon={UserPlus}
               color="purple"
             />
             <KPICard
-              title="Taux IA"
+              title={t('dashboard.ai_rate')}
               value={stats.overview.responseRate ?? 0}
               trend={null}
               icon={Zap}
@@ -127,34 +129,34 @@ export default function DashboardPage() {
             <QuickStatCard
               href="/sessions"
               icon={Smartphone}
-              label="Sessions WhatsApp"
+              label={t('dashboard.whatsapp_sessions')}
               value={`${connectedSessions}/${sessions.length}`}
               status={connectedSessions > 0 ? 'success' : 'inactive'}
-              statusLabel={connectedSessions > 0 ? 'Connectée' : 'Aucune'}
+              statusLabel={connectedSessions > 0 ? t('dashboard.connected') : t('dashboard.none_female')}
             />
             <QuickStatCard
               href="/agents"
               icon={Bot}
-              label="Agents IA"
+              label={t('dashboard.ai_agents')}
               value={`${activeAgents}/${totalAgents}`}
               status={activeAgents > 0 ? 'success' : 'inactive'}
-              statusLabel={activeAgents > 0 ? 'Actif' : 'Aucun'}
+              statusLabel={activeAgents > 0 ? t('common.active') : t('dashboard.none_male')}
               subtitle={
                 stats.overview.avgResponseTime != null && stats.overview.avgResponseTime > 0
-                  ? `Temps moyen : ${formatSeconds(stats.overview.avgResponseTime)}`
+                  ? t('dashboard.avg_time', { time: formatSeconds(stats.overview.avgResponseTime) })
                   : undefined
               }
             />
             <QuickStatCard
               href="/links"
               icon={Link2}
-              label="Liens WhatsApp"
+              label={t('dashboard.whatsapp_links')}
               value={`${activeLinks}/${totalLinks}`}
               status={activeLinks > 0 ? 'success' : 'inactive'}
-              statusLabel={activeLinks > 0 ? 'Actif' : 'Aucun'}
+              statusLabel={activeLinks > 0 ? t('common.active') : t('dashboard.none_male')}
               subtitle={
                 totalLinks > 0
-                  ? `${stats.links.reduce((s, l) => s + l.totalClicks, 0).toLocaleString('fr-FR')} clics`
+                  ? `${stats.links.reduce((s, l) => s + l.totalClicks, 0).toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')} ${t('dashboard.clicks')}`
                   : undefined
               }
             />
@@ -163,11 +165,11 @@ export default function DashboardPage() {
           {/* Charts */}
           <div className="grid gap-6 lg:grid-cols-2">
             <div className="rounded-xl border bg-card p-4 md:p-6">
-              <h3 className="text-sm font-semibold mb-4">Messages par jour</h3>
+              <h3 className="text-sm font-semibold mb-4">{t('dashboard.messages_per_day')}</h3>
               <MessagesChart data={stats.charts.messagesOverTime} />
             </div>
             <div className="rounded-xl border bg-card p-4 md:p-6">
-              <h3 className="text-sm font-semibold mb-4">Nouvelles conversations</h3>
+              <h3 className="text-sm font-semibold mb-4">{t('dashboard.new_conversations')}</h3>
               <TimeSeriesChart
                 data={stats.charts.conversationsOverTime}
                 title=""
@@ -184,9 +186,9 @@ export default function DashboardPage() {
                   <Clock className="h-5 w-5 text-[#7DC2A5]" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium">Performance IA</p>
+                  <p className="text-sm font-medium">{t('dashboard.ai_performance')}</p>
                   <p className="text-xs text-muted-foreground">
-                    Temps de réponse moyen : {formatSeconds(stats.overview.avgResponseTime)}
+                    {t('dashboard.avg_response_time', { time: formatSeconds(stats.overview.avgResponseTime) })}
                   </p>
                 </div>
               </div>

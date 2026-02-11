@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Loader2, Send, Bot, User, Trash2, AlertCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTranslation } from '@/i18n/context'
 
 type Message = {
   role: 'user' | 'assistant'
@@ -25,6 +26,7 @@ type AgentTestChatProps = {
 }
 
 export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentTestChatProps) {
+  const { t } = useTranslation()
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -76,10 +78,10 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
       if (res.ok && json.data?.response) {
         setMessages(prev => [...prev, { role: 'assistant', content: json.data.response }])
       } else {
-        setError(json.error || 'Erreur lors de la génération de la réponse')
+        setError(json.error || t('test_chat.generation_error'))
       }
     } catch {
-      setError('Erreur réseau')
+      setError(t('test_chat.network_error'))
     } finally {
       setLoading(false)
     }
@@ -104,7 +106,7 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
           <div className="flex items-center justify-between">
             <DialogTitle className="flex items-center gap-2">
               <Bot className="h-5 w-5 text-primary" />
-              Tester : {agentName}
+              {t('test_chat.title', { name: agentName })}
             </DialogTitle>
             {messages.length > 0 && (
               <Button
@@ -114,12 +116,12 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
                 className="h-8 text-muted-foreground hover:text-destructive"
               >
                 <Trash2 className="mr-1.5 h-4 w-4" />
-                Effacer
+                {t('test_chat.clear')}
               </Button>
             )}
           </div>
           <p className="text-sm text-muted-foreground">
-            Testez les réponses de votre agent en temps réel
+            {t('test_chat.subtitle')}
           </p>
         </DialogHeader>
 
@@ -129,9 +131,9 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
             {messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
                 <Bot className="mb-4 h-12 w-12 opacity-50" />
-                <p className="text-sm">Envoyez un message pour commencer</p>
+                <p className="text-sm">{t('test_chat.empty_message')}</p>
                 <p className="mt-1 text-xs">
-                  Simulez une conversation WhatsApp avec votre agent
+                  {t('test_chat.empty_hint')}
                 </p>
               </div>
             ) : (
@@ -175,7 +177,7 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
                 </div>
                 <div className="flex items-center gap-2 rounded-2xl bg-muted px-4 py-2.5">
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-sm text-muted-foreground">Réflexion...</span>
+                  <span className="text-sm text-muted-foreground">{t('test_chat.thinking')}</span>
                 </div>
               </div>
             )}
@@ -195,7 +197,7 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
           <div className="flex gap-2">
             <Input
               ref={inputRef}
-              placeholder="Écrivez un message..."
+              placeholder={t('test_chat.input_placeholder')}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -215,7 +217,7 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
             </Button>
           </div>
           <p className="mt-2 text-center text-xs text-muted-foreground">
-            Appuyez sur Entrée pour envoyer
+            {t('test_chat.press_enter')}
           </p>
         </div>
       </DialogContent>

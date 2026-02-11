@@ -10,8 +10,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'sonner'
+import { useTranslation } from '@/i18n/context'
 
 function LoginForm() {
+  const { t } = useTranslation()
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirect = searchParams.get('redirect')
@@ -42,17 +44,17 @@ function LoginForm() {
         <div className="flex justify-center mb-4">
           <Image src="/logo.svg" alt="Autyvia" width={64} height={64} className="h-16 w-16" />
         </div>
-        <CardTitle className="text-2xl font-bold">Connexion</CardTitle>
-        <CardDescription>Connectez-vous à votre compte Autyvia</CardDescription>
+        <CardTitle className="text-2xl font-bold">{t('auth.login')}</CardTitle>
+        <CardDescription>{t('auth.login_desc')}</CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">{t('auth.email')}</Label>
             <Input
               id="email"
               type="email"
-              placeholder="vous@exemple.com"
+              placeholder={t('auth.email_placeholder')}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -60,7 +62,7 @@ function LoginForm() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Mot de passe</Label>
+            <Label htmlFor="password">{t('auth.password')}</Label>
             <Input
               id="password"
               type="password"
@@ -73,23 +75,23 @@ function LoginForm() {
         </CardContent>
         <CardFooter className="flex flex-col gap-4 pt-2">
           <Button type="submit" className="w-full mt-2" disabled={loading}>
-            {loading ? 'Connexion...' : 'Se connecter'}
+            {loading ? t('auth.signing_in') : t('auth.sign_in')}
           </Button>
           <div className="flex justify-between text-sm w-full">
             <Link href="/forgot-password" className="text-muted-foreground hover:underline">
-              Mot de passe oublié ?
+              {t('auth.forgot_password')}
             </Link>
             {/* <Link href="/register" className="text-muted-foreground hover:underline">
               Créer un compte
             </Link> */}
           </div>
-          {/* Liens juridiques */}
+          {/* Legal links */}
           <div className="flex flex-wrap justify-center gap-3 text-xs text-muted-foreground pt-2 border-t w-full">
-            <Link href="/cgu" className="hover:underline">CGU</Link>
+            <Link href="/cgu" className="hover:underline">{t('auth.terms')}</Link>
             <span>•</span>
-            <Link href="/privacy" className="hover:underline">Confidentialité</Link>
+            <Link href="/privacy" className="hover:underline">{t('auth.privacy')}</Link>
             <span>•</span>
-            <Link href="/legal" className="hover:underline">Mentions légales</Link>
+            <Link href="/legal" className="hover:underline">{t('auth.legal')}</Link>
           </div>
         </CardFooter>
       </form>
@@ -100,7 +102,7 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
-      <Suspense fallback={<div className="animate-pulse">Chargement...</div>}>
+      <Suspense fallback={<div className="animate-pulse">Loading...</div>}>
         <LoginForm />
       </Suspense>
     </div>

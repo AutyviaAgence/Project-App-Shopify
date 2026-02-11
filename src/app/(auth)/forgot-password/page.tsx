@@ -9,8 +9,10 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'sonner'
+import { useTranslation } from '@/i18n/context'
 
 export default function ForgotPasswordPage() {
+  const { t } = useTranslation()
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
@@ -42,14 +44,14 @@ export default function ForgotPasswordPage() {
             <div className="flex justify-center mb-4">
               <Image src="/logo.svg" alt="Autyvia" width={64} height={64} className="h-16 w-16" />
             </div>
-            <CardTitle>Email envoyé</CardTitle>
+            <CardTitle>{t('auth.email_sent')}</CardTitle>
             <CardDescription>
-              Vérifiez votre boîte mail pour réinitialiser votre mot de passe.
+              {t('auth.email_sent_desc')}
             </CardDescription>
           </CardHeader>
           <CardFooter className="justify-center">
             <Link href="/login" className="text-sm text-muted-foreground hover:underline">
-              Retour à la connexion
+              {t('auth.back_to_login')}
             </Link>
           </CardFooter>
         </Card>
@@ -64,17 +66,17 @@ export default function ForgotPasswordPage() {
           <div className="flex justify-center mb-4">
             <Image src="/logo.svg" alt="Autyvia" width={64} height={64} className="h-16 w-16" />
           </div>
-          <CardTitle className="text-2xl font-bold">Mot de passe oublié</CardTitle>
-          <CardDescription>Entrez votre email pour recevoir un lien de réinitialisation</CardDescription>
+          <CardTitle className="text-2xl font-bold">{t('auth.forgot_title')}</CardTitle>
+          <CardDescription>{t('auth.forgot_desc')}</CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="email">{t('auth.email')}</Label>
               <Input
                 id="email"
                 type="email"
-                placeholder="vous@exemple.com"
+                placeholder={t('auth.email_placeholder')}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -84,10 +86,10 @@ export default function ForgotPasswordPage() {
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
             <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Envoi...' : 'Envoyer le lien'}
+              {loading ? t('auth.sending') : t('auth.send_link')}
             </Button>
             <Link href="/login" className="text-sm text-muted-foreground hover:underline">
-              Retour à la connexion
+              {t('auth.back_to_login')}
             </Link>
           </CardFooter>
         </form>

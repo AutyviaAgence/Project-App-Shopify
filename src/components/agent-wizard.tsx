@@ -36,6 +36,7 @@ import {
   MessageCircle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTranslation } from '@/i18n/context'
 
 // Types pour le wizard
 export interface WizardData {
@@ -104,76 +105,76 @@ interface AgentWizardProps {
 }
 
 const BUSINESS_SECTORS = [
-  { value: 'restaurant', label: 'Restaurant / Restauration' },
-  { value: 'coiffure', label: 'Salon de coiffure / Beauté' },
-  { value: 'ecommerce', label: 'E-commerce / Boutique en ligne' },
-  { value: 'immobilier', label: 'Immobilier' },
-  { value: 'sante', label: 'Santé / Médical' },
-  { value: 'services-b2b', label: 'Services B2B' },
-  { value: 'services-b2c', label: 'Services aux particuliers' },
-  { value: 'formation', label: 'Formation / Coaching' },
-  { value: 'artisan', label: 'Artisan / BTP' },
-  { value: 'autre', label: 'Autre' },
+  { value: 'restaurant', labelKey: 'wizard.sector_restaurant' },
+  { value: 'coiffure', labelKey: 'wizard.sector_beauty' },
+  { value: 'ecommerce', labelKey: 'wizard.sector_ecommerce' },
+  { value: 'immobilier', labelKey: 'wizard.sector_realestate' },
+  { value: 'sante', labelKey: 'wizard.sector_health' },
+  { value: 'services-b2b', labelKey: 'wizard.sector_b2b' },
+  { value: 'services-b2c', labelKey: 'wizard.sector_services' },
+  { value: 'formation', labelKey: 'wizard.sector_training' },
+  { value: 'artisan', labelKey: 'wizard.sector_craft' },
+  { value: 'autre', labelKey: 'wizard.sector_other' },
 ]
 
 const CONVERSATION_ROLES = [
-  { value: 'questions', label: 'Répondre aux questions' },
-  { value: 'rdv', label: 'Prendre des rendez-vous' },
-  { value: 'qualify', label: 'Qualifier des leads' },
-  { value: 'support', label: 'Support client' },
-  { value: 'info', label: 'Informer sur les produits/services' },
-  { value: 'devis', label: 'Faire des devis' },
+  { value: 'questions', labelKey: 'wizard.mission_questions' },
+  { value: 'rdv', labelKey: 'wizard.mission_booking' },
+  { value: 'qualify', labelKey: 'wizard.mission_qualify' },
+  { value: 'support', labelKey: 'wizard.mission_support' },
+  { value: 'info', labelKey: 'wizard.mission_inform' },
+  { value: 'devis', labelKey: 'wizard.mission_quotes' },
 ]
 
 const ESCALATION_TRIGGERS = [
-  { value: 'reclamation', label: 'Réclamations' },
-  { value: 'complex', label: 'Questions complexes' },
-  { value: 'urgent', label: 'Demandes urgentes' },
-  { value: 'humain', label: 'Sur demande du client' },
-  { value: 'prix-special', label: 'Prix personnalisés' },
+  { value: 'reclamation', labelKey: 'wizard.escalation_complaints' },
+  { value: 'complex', labelKey: 'wizard.escalation_complex' },
+  { value: 'urgent', labelKey: 'wizard.escalation_urgent' },
+  { value: 'humain', labelKey: 'wizard.escalation_request' },
+  { value: 'prix-special', labelKey: 'wizard.escalation_prices' },
 ]
 
 const CAMPAIGN_OBJECTIVES = [
-  { value: 'reactivation', label: 'Réactiver des clients inactifs' },
-  { value: 'promo', label: 'Proposer une offre/promotion' },
-  { value: 'rappel-rdv', label: 'Rappel de rendez-vous' },
-  { value: 'avis', label: 'Demande d\'avis client' },
-  { value: 'nouveaute', label: 'Annoncer une nouveauté' },
-  { value: 'fidelite', label: 'Programme de fidélité' },
+  { value: 'reactivation', labelKey: 'wizard.objective_reactivate' },
+  { value: 'promo', labelKey: 'wizard.objective_offer' },
+  { value: 'rappel-rdv', labelKey: 'wizard.objective_reminder' },
+  { value: 'avis', labelKey: 'wizard.objective_review' },
+  { value: 'nouveaute', labelKey: 'wizard.objective_news' },
+  { value: 'fidelite', labelKey: 'wizard.objective_loyalty' },
 ]
 
 const TONES = [
-  { value: 'professionnel', label: 'Professionnel', description: 'Sérieux et corporate' },
-  { value: 'amical', label: 'Amical', description: 'Chaleureux et accessible' },
-  { value: 'decontracte', label: 'Décontracté', description: 'Cool et moderne' },
-  { value: 'premium', label: 'Luxe / Premium', description: 'Élégant et raffiné' },
+  { value: 'professionnel', labelKey: 'wizard.tone_professional', descKey: 'wizard.tone_professional_desc' },
+  { value: 'amical', labelKey: 'wizard.tone_friendly', descKey: 'wizard.tone_friendly_desc' },
+  { value: 'decontracte', labelKey: 'wizard.tone_casual', descKey: 'wizard.tone_casual_desc' },
+  { value: 'premium', labelKey: 'wizard.tone_luxury', descKey: 'wizard.tone_luxury_desc' },
 ]
 
 const FORMALITY = [
-  { value: 'vouvoiement', label: 'Vouvoiement' },
-  { value: 'tutoiement', label: 'Tutoiement' },
-  { value: 'adaptatif', label: 'S\'adapter au client' },
+  { value: 'vouvoiement', labelKey: 'wizard.formality_formal' },
+  { value: 'tutoiement', labelKey: 'wizard.formality_informal' },
+  { value: 'adaptatif', labelKey: 'wizard.formality_adaptive' },
 ]
 
 const EMOJI_USAGE = [
-  { value: 'jamais', label: 'Jamais' },
-  { value: 'parfois', label: 'Parfois (1-2 max)' },
-  { value: 'souvent', label: 'Souvent' },
+  { value: 'jamais', labelKey: 'wizard.emoji_never' },
+  { value: 'parfois', labelKey: 'wizard.emoji_sometimes' },
+  { value: 'souvent', labelKey: 'wizard.emoji_often' },
 ]
 
 const RESPONSE_LENGTHS = [
-  { value: 'courte', label: 'Courtes (1-2 phrases)' },
-  { value: 'moyenne', label: 'Moyennes (3-4 phrases)' },
-  { value: 'detaillee', label: 'Détaillées' },
+  { value: 'courte', labelKey: 'wizard.length_short' },
+  { value: 'moyenne', labelKey: 'wizard.length_medium' },
+  { value: 'detaillee', labelKey: 'wizard.length_detailed' },
 ]
 
 const STEPS = [
-  { id: 1, title: 'Type', icon: Bot },
-  { id: 2, title: 'Identité', icon: Building2 },
-  { id: 3, title: 'Rôle', icon: Target },
-  { id: 4, title: 'Ton', icon: MessageSquare },
-  { id: 5, title: 'Métier', icon: Building2 },
-  { id: 6, title: 'Limites', icon: Shield },
+  { id: 1, titleKey: 'wizard.step_type', icon: Bot },
+  { id: 2, titleKey: 'wizard.step_identity', icon: Building2 },
+  { id: 3, titleKey: 'wizard.step_role', icon: Target },
+  { id: 4, titleKey: 'wizard.step_tone', icon: MessageSquare },
+  { id: 5, titleKey: 'wizard.step_business', icon: Building2 },
+  { id: 6, titleKey: 'wizard.step_limits', icon: Shield },
 ]
 
 const DEFAULT_DATA: WizardData = {
@@ -205,6 +206,7 @@ const DEFAULT_DATA: WizardData = {
 }
 
 export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps) {
+  const { t } = useTranslation()
   const [step, setStep] = useState(1)
   const [data, setData] = useState<WizardData>(DEFAULT_DATA)
   const [generating, setGenerating] = useState(false)
@@ -343,7 +345,7 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
     const parts: string[] = []
 
     parts.push(`# Informations sur ${data.businessName}`)
-    parts.push(`\nSecteur : ${BUSINESS_SECTORS.find(s => s.value === data.businessSector)?.label || data.businessSector}`)
+    parts.push(`\nSecteur : ${(() => { const found = BUSINESS_SECTORS.find(s => s.value === data.businessSector); return found ? t(found.labelKey) : data.businessSector; })()}`)
 
     if (data.businessDescription) {
       parts.push(`\n## Description`)
@@ -403,7 +405,7 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
         : getCampaignObjectiveDescription(data.campaignObjective),
       agent_type: data.agentType,
       escalation_enabled: data.escalationTriggers.length > 0,
-      escalation_keywords: data.escalationTriggers.flatMap(t => getEscalationKeywords(t)),
+      escalation_keywords: data.escalationTriggers.flatMap(trigger => getEscalationKeywords(trigger)),
       escalation_message: data.fallbackMessage || 'Je comprends. Un conseiller va prendre le relais pour mieux vous aider.',
       booking_url: data.canBookAppointments ? data.bookingUrl : '',
       schedule_enabled: !!data.businessHours,
@@ -433,17 +435,17 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-primary" />
-            Assistant de création d&apos;agent
+            {t('wizard.title')}
           </DialogTitle>
           <DialogDescription>
-            Répondez à quelques questions pour configurer votre agent IA automatiquement.
+            {t('wizard.description')}
           </DialogDescription>
         </DialogHeader>
 
         {/* Progress */}
         <div className="space-y-2">
           <div className="flex justify-between text-xs text-muted-foreground">
-            <span>Étape {step} sur {totalSteps}</span>
+            <span>{t('wizard.step_x_of_y', { x: String(step), y: String(totalSteps) })}</span>
             <span>{Math.round(progress)}%</span>
           </div>
           <Progress value={progress} className="h-2" />
@@ -465,7 +467,7 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
                 >
                   {step > s.id ? <Check className="h-4 w-4" /> : <s.icon className="h-4 w-4" />}
                 </div>
-                <span className="hidden sm:block">{s.title}</span>
+                <span className="hidden sm:block">{t(s.titleKey)}</span>
               </div>
             ))}
           </div>
@@ -476,7 +478,7 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
           {/* Étape 1: Type d'agent */}
           {step === 1 && (
             <div className="space-y-4">
-              <h3 className="font-medium">Quel type d&apos;agent souhaitez-vous créer ?</h3>
+              <h3 className="font-medium">{t('wizard.type_question')}</h3>
               <div className="grid gap-3">
                 <button
                   type="button"
@@ -488,10 +490,9 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
                 >
                   <MessageCircle className="h-6 w-6 text-primary mt-0.5" />
                   <div>
-                    <p className="font-medium">Agent de conversation</p>
+                    <p className="font-medium">{t('wizard.type_conversation')}</p>
                     <p className="text-sm text-muted-foreground">
-                      Répond automatiquement aux messages entrants. Idéal pour le support client,
-                      la prise de rendez-vous, ou répondre aux questions.
+                      {t('wizard.type_conversation_desc')}
                     </p>
                   </div>
                 </button>
@@ -505,10 +506,9 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
                 >
                   <Megaphone className="h-6 w-6 text-primary mt-0.5" />
                   <div>
-                    <p className="font-medium">Agent de relance (campagnes)</p>
+                    <p className="font-medium">{t('wizard.type_relance')}</p>
                     <p className="text-sm text-muted-foreground">
-                      Envoie le premier message pour réactiver des clients, proposer des offres,
-                      ou faire des rappels. Utilisé dans les campagnes.
+                      {t('wizard.type_relance_desc')}
                     </p>
                   </div>
                 </button>
@@ -519,28 +519,28 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
           {/* Étape 2: Identité */}
           {step === 2 && (
             <div className="space-y-4">
-              <h3 className="font-medium">Parlez-nous de votre entreprise</h3>
+              <h3 className="font-medium">{t('wizard.identity_title')}</h3>
 
               <div className="space-y-2">
-                <Label htmlFor="businessName">Nom de l&apos;entreprise *</Label>
+                <Label htmlFor="businessName">{t('wizard.company_name')}</Label>
                 <Input
                   id="businessName"
-                  placeholder="Ex: Salon Marie Coiffure"
+                  placeholder={t('wizard.company_placeholder')}
                   value={data.businessName}
                   onChange={(e) => updateData('businessName', e.target.value)}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="businessSector">Secteur d&apos;activité *</Label>
+                <Label htmlFor="businessSector">{t('wizard.sector')}</Label>
                 <Select value={data.businessSector} onValueChange={(v) => updateData('businessSector', v)}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Sélectionnez votre secteur" />
+                    <SelectValue placeholder={t('wizard.sector_placeholder')} />
                   </SelectTrigger>
                   <SelectContent>
                     {BUSINESS_SECTORS.map((sector) => (
                       <SelectItem key={sector.value} value={sector.value}>
-                        {sector.label}
+                        {t(sector.labelKey)}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -548,10 +548,10 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="businessDescription">Description (optionnel)</Label>
+                <Label htmlFor="businessDescription">{t('wizard.company_desc')}</Label>
                 <Textarea
                   id="businessDescription"
-                  placeholder="Ex: Salon de coiffure mixte spécialisé dans les colorations et les soins capillaires, situé en centre-ville."
+                  placeholder={t('wizard.company_desc_placeholder')}
                   value={data.businessDescription}
                   onChange={(e) => updateData('businessDescription', e.target.value)}
                   rows={3}
@@ -565,10 +565,10 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
             <div className="space-y-4">
               {data.agentType === 'conversation' ? (
                 <>
-                  <h3 className="font-medium">Quel sera le rôle de l&apos;agent ?</h3>
+                  <h3 className="font-medium">{t('wizard.role_title')}</h3>
 
                   <div className="space-y-2">
-                    <Label>Missions principales *</Label>
+                    <Label>{t('wizard.missions')}</Label>
                     <div className="grid grid-cols-2 gap-2">
                       {CONVERSATION_ROLES.map((role) => (
                         <button
@@ -581,7 +581,7 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
                           )}
                         >
                           <Checkbox checked={data.roles.includes(role.value)} />
-                          {role.label}
+                          {t(role.labelKey)}
                         </button>
                       ))}
                     </div>
@@ -590,8 +590,8 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
                   <div className="space-y-3 border-t pt-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <Label>L&apos;agent peut-il donner des prix ?</Label>
-                        <p className="text-xs text-muted-foreground">Communiquer les tarifs de vos services</p>
+                        <Label>{t('wizard.can_give_prices')}</Label>
+                        <p className="text-xs text-muted-foreground">{t('wizard.prices_desc')}</p>
                       </div>
                       <Checkbox
                         checked={data.canGivePrices}
@@ -601,8 +601,8 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
 
                     <div className="flex items-center justify-between">
                       <div>
-                        <Label>L&apos;agent peut-il prendre des RDV ?</Label>
-                        <p className="text-xs text-muted-foreground">Partager un lien de prise de rendez-vous</p>
+                        <Label>{t('wizard.can_book')}</Label>
+                        <p className="text-xs text-muted-foreground">{t('wizard.book_desc')}</p>
                       </div>
                       <Checkbox
                         checked={data.canBookAppointments}
@@ -612,11 +612,11 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
 
                     {data.canBookAppointments && (
                       <div className="space-y-2 pl-4">
-                        <Label htmlFor="bookingUrl">Lien de prise de RDV</Label>
+                        <Label htmlFor="bookingUrl">{t('wizard.booking_link')}</Label>
                         <Input
                           id="bookingUrl"
                           type="url"
-                          placeholder="https://calendly.com/votre-lien"
+                          placeholder={t('wizard.booking_placeholder')}
                           value={data.bookingUrl}
                           onChange={(e) => updateData('bookingUrl', e.target.value)}
                         />
@@ -625,7 +625,7 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
                   </div>
 
                   <div className="space-y-2">
-                    <Label>Quand passer la main à un humain ?</Label>
+                    <Label>{t('wizard.escalation_title')}</Label>
                     <div className="grid grid-cols-2 gap-2">
                       {ESCALATION_TRIGGERS.map((trigger) => (
                         <button
@@ -638,7 +638,7 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
                           )}
                         >
                           <Checkbox checked={data.escalationTriggers.includes(trigger.value)} />
-                          {trigger.label}
+                          {t(trigger.labelKey)}
                         </button>
                       ))}
                     </div>
@@ -646,18 +646,18 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
                 </>
               ) : (
                 <>
-                  <h3 className="font-medium">Configurez votre agent de relance</h3>
+                  <h3 className="font-medium">{t('wizard.relance_config_title')}</h3>
 
                   <div className="space-y-2">
-                    <Label>Objectif de la campagne *</Label>
+                    <Label>{t('wizard.campaign_objective')}</Label>
                     <Select value={data.campaignObjective} onValueChange={(v) => updateData('campaignObjective', v)}>
                       <SelectTrigger>
-                        <SelectValue placeholder="Sélectionnez l'objectif" />
+                        <SelectValue placeholder={t('wizard.objective_placeholder')} />
                       </SelectTrigger>
                       <SelectContent>
                         {CAMPAIGN_OBJECTIVES.map((obj) => (
                           <SelectItem key={obj.value} value={obj.value}>
-                            {obj.label}
+                            {t(obj.labelKey)}
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -665,24 +665,24 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="hookMessage">Message d&apos;accroche (optionnel)</Label>
+                    <Label htmlFor="hookMessage">{t('wizard.hook_message')}</Label>
                     <Textarea
                       id="hookMessage"
-                      placeholder="Ex: Bonjour ! Cela fait un moment que nous ne vous avons pas vu au salon. Nous avons pensé à vous..."
+                      placeholder={t('wizard.hook_placeholder')}
                       value={data.hookMessage}
                       onChange={(e) => updateData('hookMessage', e.target.value)}
                       rows={3}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Ce message servira de base pour le premier contact. L&apos;IA l&apos;adaptera.
+                      {t('wizard.hook_help')}
                     </p>
                   </div>
 
                   <div className="flex items-center justify-between pt-2">
                     <div>
-                      <Label>Continuer la conversation après la relance ?</Label>
+                      <Label>{t('wizard.continue_conversation')}</Label>
                       <p className="text-xs text-muted-foreground">
-                        L&apos;agent peut répondre aux messages suivants
+                        {t('wizard.continue_desc')}
                       </p>
                     </div>
                     <Checkbox
@@ -698,10 +698,10 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
           {/* Étape 4: Ton & Personnalité */}
           {step === 4 && (
             <div className="space-y-4">
-              <h3 className="font-medium">Définissez le ton de l&apos;agent</h3>
+              <h3 className="font-medium">{t('wizard.tone_title')}</h3>
 
               <div className="space-y-2">
-                <Label>Ton général *</Label>
+                <Label>{t('wizard.general_tone')}</Label>
                 <div className="grid grid-cols-2 gap-2">
                   {TONES.map((tone) => (
                     <button
@@ -713,15 +713,15 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
                         data.tone === tone.value && 'border-primary bg-primary/5'
                       )}
                     >
-                      <span className="font-medium">{tone.label}</span>
-                      <span className="text-xs text-muted-foreground">{tone.description}</span>
+                      <span className="font-medium">{t(tone.labelKey)}</span>
+                      <span className="text-xs text-muted-foreground">{t(tone.descKey)}</span>
                     </button>
                   ))}
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label>Vouvoiement / Tutoiement *</Label>
+                <Label>{t('wizard.formality')}</Label>
                 <div className="grid grid-cols-3 gap-2">
                   {FORMALITY.map((f) => (
                     <button
@@ -733,14 +733,14 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
                         data.formality === f.value && 'border-primary bg-primary/5'
                       )}
                     >
-                      {f.label}
+                      {t(f.labelKey)}
                     </button>
                   ))}
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label>Utilisation d&apos;emojis</Label>
+                <Label>{t('wizard.emoji_usage')}</Label>
                 <div className="grid grid-cols-3 gap-2">
                   {EMOJI_USAGE.map((e) => (
                     <button
@@ -752,14 +752,14 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
                         data.useEmojis === e.value && 'border-primary bg-primary/5'
                       )}
                     >
-                      {e.label}
+                      {t(e.labelKey)}
                     </button>
                   ))}
                 </div>
               </div>
 
               <div className="space-y-2">
-                <Label>Longueur des réponses</Label>
+                <Label>{t('wizard.response_length')}</Label>
                 <div className="grid grid-cols-3 gap-2">
                   {RESPONSE_LENGTHS.map((l) => (
                     <button
@@ -771,7 +771,7 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
                         data.responseLength === l.value && 'border-primary bg-primary/5'
                       )}
                     >
-                      {l.label}
+                      {t(l.labelKey)}
                     </button>
                   ))}
                 </div>
@@ -782,16 +782,16 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
           {/* Étape 5: Informations métier */}
           {step === 5 && (
             <div className="space-y-4">
-              <h3 className="font-medium">Informations sur votre activité</h3>
+              <h3 className="font-medium">{t('wizard.business_title')}</h3>
               <p className="text-sm text-muted-foreground">
-                Ces informations seront utilisées par l&apos;agent pour répondre aux questions.
+                {t('wizard.business_desc')}
               </p>
 
               <div className="space-y-2">
-                <Label htmlFor="mainServices">Services / Produits principaux *</Label>
+                <Label htmlFor="mainServices">{t('wizard.services')}</Label>
                 <Textarea
                   id="mainServices"
-                  placeholder="Ex:&#10;- Coupe femme : à partir de 35€&#10;- Coupe homme : 25€&#10;- Coloration : à partir de 60€&#10;- Balayage : à partir de 80€"
+                  placeholder={t('wizard.services_placeholder')}
                   value={data.mainServices}
                   onChange={(e) => updateData('mainServices', e.target.value)}
                   rows={4}
@@ -800,10 +800,10 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
 
               {data.canGivePrices && (
                 <div className="space-y-2">
-                  <Label htmlFor="mainPrices">Tarifs détaillés</Label>
+                  <Label htmlFor="mainPrices">{t('wizard.pricing')}</Label>
                   <Textarea
                     id="mainPrices"
-                    placeholder="Détaillez vos tarifs si nécessaire..."
+                    placeholder={t('wizard.pricing_placeholder')}
                     value={data.mainPrices}
                     onChange={(e) => updateData('mainPrices', e.target.value)}
                     rows={3}
@@ -812,10 +812,10 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="businessHours">Horaires d&apos;ouverture</Label>
+                <Label htmlFor="businessHours">{t('wizard.hours')}</Label>
                 <Textarea
                   id="businessHours"
-                  placeholder="Ex:&#10;Lundi - Vendredi : 9h00 - 19h00&#10;Samedi : 9h00 - 17h00&#10;Dimanche : Fermé"
+                  placeholder={t('wizard.hours_placeholder')}
                   value={data.businessHours}
                   onChange={(e) => updateData('businessHours', e.target.value)}
                   rows={3}
@@ -823,20 +823,20 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="businessAddress">Adresse / Zone d&apos;intervention</Label>
+                <Label htmlFor="businessAddress">{t('wizard.address')}</Label>
                 <Input
                   id="businessAddress"
-                  placeholder="Ex: 123 rue de la Paix, 75001 Paris"
+                  placeholder={t('wizard.address_placeholder')}
                   value={data.businessAddress}
                   onChange={(e) => updateData('businessAddress', e.target.value)}
                 />
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="currentPromotions">Promotions en cours (optionnel)</Label>
+                <Label htmlFor="currentPromotions">{t('wizard.promotions')}</Label>
                 <Textarea
                   id="currentPromotions"
-                  placeholder="Ex: -20% sur les colorations jusqu'au 31 mars"
+                  placeholder={t('wizard.promotions_placeholder')}
                   value={data.currentPromotions}
                   onChange={(e) => updateData('currentPromotions', e.target.value)}
                   rows={2}
@@ -848,13 +848,13 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
           {/* Étape 6: Limites */}
           {step === 6 && (
             <div className="space-y-4">
-              <h3 className="font-medium">Limites et sécurité</h3>
+              <h3 className="font-medium">{t('wizard.limits_title')}</h3>
 
               <div className="space-y-2">
-                <Label htmlFor="forbiddenTopics">Sujets à ne jamais aborder (optionnel)</Label>
+                <Label htmlFor="forbiddenTopics">{t('wizard.forbidden_topics')}</Label>
                 <Textarea
                   id="forbiddenTopics"
-                  placeholder="Ex: concurrents, politique, religion, informations personnelles des autres clients..."
+                  placeholder={t('wizard.forbidden_placeholder')}
                   value={data.forbiddenTopics}
                   onChange={(e) => updateData('forbiddenTopics', e.target.value)}
                   rows={2}
@@ -862,10 +862,10 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="fallbackMessage">Message si l&apos;agent ne sait pas répondre</Label>
+                <Label htmlFor="fallbackMessage">{t('wizard.fallback_message')}</Label>
                 <Textarea
                   id="fallbackMessage"
-                  placeholder="Ex: Je vais transmettre votre question à un conseiller qui vous répondra rapidement."
+                  placeholder={t('wizard.fallback_placeholder')}
                   value={data.fallbackMessage}
                   onChange={(e) => updateData('fallbackMessage', e.target.value)}
                   rows={2}
@@ -874,7 +874,7 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
 
               {data.agentType === 'conversation' && (
                 <div className="space-y-2">
-                  <Label htmlFor="maxExchanges">Alerter un humain après N échanges sans solution</Label>
+                  <Label htmlFor="maxExchanges">{t('wizard.alert_threshold')}</Label>
                   <Input
                     id="maxExchanges"
                     type="number"
@@ -884,24 +884,24 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
                     onChange={(e) => updateData('maxExchangesBeforeEscalation', parseInt(e.target.value) || 5)}
                   />
                   <p className="text-xs text-muted-foreground">
-                    Si la conversation dépasse ce nombre d&apos;échanges, un humain sera alerté.
+                    {t('wizard.alert_help')}
                   </p>
                 </div>
               )}
 
-              {/* Résumé */}
+              {/* Summary */}
               <div className="rounded-lg border bg-muted/50 p-4 mt-6">
-                <h4 className="font-medium mb-2">Résumé de votre agent</h4>
+                <h4 className="font-medium mb-2">{t('wizard.summary')}</h4>
                 <ul className="text-sm space-y-1 text-muted-foreground">
-                  <li>• <strong>Type :</strong> {data.agentType === 'conversation' ? 'Conversation' : 'Relance'}</li>
-                  <li>• <strong>Entreprise :</strong> {data.businessName}</li>
-                  <li>• <strong>Ton :</strong> {TONES.find(t => t.value === data.tone)?.label}</li>
-                  <li>• <strong>Style :</strong> {FORMALITY.find(f => f.value === data.formality)?.label}</li>
+                  <li>• <strong>{t('wizard.summary_type')}</strong> {data.agentType === 'conversation' ? t('wizard.type_conversation_label') : t('wizard.type_relance_label')}</li>
+                  <li>• <strong>{t('wizard.summary_company')}</strong> {data.businessName}</li>
+                  <li>• <strong>{t('wizard.summary_tone')}</strong> {(() => { const found = TONES.find(item => item.value === data.tone); return found ? t(found.labelKey) : ''; })()}</li>
+                  <li>• <strong>{t('wizard.summary_style')}</strong> {(() => { const found = FORMALITY.find(item => item.value === data.formality); return found ? t(found.labelKey) : ''; })()}</li>
                   {data.agentType === 'conversation' && data.roles.length > 0 && (
-                    <li>• <strong>Missions :</strong> {data.roles.map(r => CONVERSATION_ROLES.find(cr => cr.value === r)?.label).join(', ')}</li>
+                    <li>• <strong>{t('wizard.summary_missions')}</strong> {data.roles.map(r => { const found = CONVERSATION_ROLES.find(cr => cr.value === r); return found ? t(found.labelKey) : ''; }).join(', ')}</li>
                   )}
                   {data.agentType === 'relance' && (
-                    <li>• <strong>Objectif :</strong> {CAMPAIGN_OBJECTIVES.find(o => o.value === data.campaignObjective)?.label}</li>
+                    <li>• <strong>{t('wizard.summary_objective')}</strong> {(() => { const found = CAMPAIGN_OBJECTIVES.find(o => o.value === data.campaignObjective); return found ? t(found.labelKey) : ''; })()}</li>
                   )}
                 </ul>
               </div>
@@ -916,12 +916,12 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
             onClick={() => step > 1 ? setStep(step - 1) : handleClose()}
           >
             <ChevronLeft className="mr-2 h-4 w-4" />
-            {step > 1 ? 'Précédent' : 'Annuler'}
+            {step > 1 ? t('common.previous') : t('common.cancel')}
           </Button>
 
           {step < totalSteps ? (
             <Button onClick={() => setStep(step + 1)} disabled={!canProceed()}>
-              Suivant
+              {t('common.next')}
               <ChevronRight className="ml-2 h-4 w-4" />
             </Button>
           ) : (
@@ -929,12 +929,12 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
               {generating ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Génération...
+                  {t('wizard.generating')}
                 </>
               ) : (
                 <>
                   <Sparkles className="mr-2 h-4 w-4" />
-                  Créer l&apos;agent
+                  {t('wizard.create_agent')}
                 </>
               )}
             </Button>

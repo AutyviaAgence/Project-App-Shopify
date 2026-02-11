@@ -58,31 +58,32 @@ import {
   Tag,
 } from 'lucide-react'
 import Link from 'next/link'
+import { useTranslation } from '@/i18n/context'
+import type { Locale } from '@/i18n/context'
 
-// Options de rétention des données
-const RETENTION_OPTIONS = [
-  { value: 'null', label: 'Conserver indéfiniment', months: null },
-  { value: '1', label: '1 mois', months: 1 },
-  { value: '3', label: '3 mois', months: 3 },
-  { value: '6', label: '6 mois', months: 6 },
-  { value: '12', label: '1 an', months: 12 },
-  { value: '24', label: '2 ans', months: 24 },
-  { value: '36', label: '3 ans', months: 36 },
+const RETENTION_KEYS = [
+  { value: 'null', labelKey: 'settings.retention_keep', months: null },
+  { value: '1', labelKey: 'settings.retention_1m', months: 1 },
+  { value: '3', labelKey: 'settings.retention_3m', months: 3 },
+  { value: '6', labelKey: 'settings.retention_6m', months: 6 },
+  { value: '12', labelKey: 'settings.retention_1y', months: 12 },
+  { value: '24', labelKey: 'settings.retention_2y', months: 24 },
+  { value: '36', labelKey: 'settings.retention_3y', months: 36 },
 ]
 
-const MESSAGE_TYPE_OPTIONS = [
-  { value: 'text', label: 'Texte', icon: MessageSquare },
-  { value: 'audio', label: 'Audio', icon: Mic },
-  { value: 'image', label: 'Images', icon: ImageIcon },
-  { value: 'video', label: 'Vidéos', icon: Play },
-  { value: 'document', label: 'Documents', icon: FileText },
-] as const
+const MESSAGE_TYPE_KEYS = [
+  { value: 'text', labelKey: 'settings.msg_type_text', icon: MessageSquare },
+  { value: 'audio', labelKey: 'settings.msg_type_audio', icon: Mic },
+  { value: 'image', labelKey: 'settings.msg_type_image', icon: ImageIcon },
+  { value: 'video', labelKey: 'settings.msg_type_video', icon: Play },
+  { value: 'document', labelKey: 'settings.msg_type_document', icon: FileText },
+]
 
-const THEMES = [
-  { value: 'light', label: 'Clair', icon: Sun },
-  { value: 'dark', label: 'Sombre', icon: Moon },
-  { value: 'system', label: 'Système', icon: Monitor },
-] as const
+const THEME_KEYS = [
+  { value: 'light', labelKey: 'settings.theme_light', icon: Sun },
+  { value: 'dark', labelKey: 'settings.theme_dark', icon: Moon },
+  { value: 'system', labelKey: 'settings.theme_system', icon: Monitor },
+]
 
 // Timezones les plus courants, groupés par région
 const TIMEZONES = [
@@ -115,6 +116,7 @@ const TIMEZONES = [
 
 export default function SettingsPage() {
   const router = useRouter()
+  const { t, locale, setLocale } = useTranslation()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -173,7 +175,7 @@ export default function SettingsPage() {
           setFormLifecycleThreshold(json.data.lifecycle_analysis_threshold ?? null)
         }
       } catch {
-        toast.error('Erreur lors du chargement du profil')
+        toast.error(t('settings.load_error'))
       } finally {
         setLoading(false)
       }
@@ -212,12 +214,12 @@ export default function SettingsPage() {
       const json = await res.json()
       if (res.ok && json.data) {
         setProfile(json.data)
-        toast.success('Profil mis à jour')
+        toast.success(t('settings.profile_saved'))
       } else {
-        toast.error(json.error || 'Erreur lors de la mise à jour')
+        toast.error(json.error || t('settings.profile_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setSaving(false)
     }
@@ -225,15 +227,15 @@ export default function SettingsPage() {
 
   async function handleChangePassword() {
     if (!currentPassword || !newPassword) {
-      toast.error('Veuillez remplir tous les champs')
+      toast.error(t('settings.fill_all_fields'))
       return
     }
     if (newPassword !== confirmPassword) {
-      toast.error('Les mots de passe ne correspondent pas')
+      toast.error(t('settings.passwords_mismatch'))
       return
     }
     if (newPassword.length < 8) {
-      toast.error('Le nouveau mot de passe doit contenir au moins 8 caractères')
+      toast.error(t('settings.password_too_short'))
       return
     }
 
@@ -246,15 +248,15 @@ export default function SettingsPage() {
       })
       const json = await res.json()
       if (res.ok) {
-        toast.success('Mot de passe modifié avec succès')
+        toast.success(t('settings.password_changed'))
         setCurrentPassword('')
         setNewPassword('')
         setConfirmPassword('')
       } else {
-        toast.error(json.error || 'Erreur lors du changement de mot de passe')
+        toast.error(json.error || t('settings.password_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setChangingPassword(false)
     }
@@ -262,11 +264,11 @@ export default function SettingsPage() {
 
   async function handleDeleteAccount() {
     if (!deletePassword) {
-      toast.error('Veuillez entrer votre mot de passe')
+      toast.error(t('settings.delete_password_required'))
       return
     }
-    if (deleteConfirmation !== 'SUPPRIMER') {
-      toast.error('Veuillez taper SUPPRIMER pour confirmer')
+    if (deleteConfirmation !== (locale === 'fr' ? 'SUPPRIMER' : 'DELETE')) {
+      toast.error(t('settings.delete_confirm_required'))
       return
     }
 
@@ -282,13 +284,13 @@ export default function SettingsPage() {
       })
       const json = await res.json()
       if (res.ok) {
-        toast.success('Compte supprimé')
+        toast.success(t('settings.account_deleted'))
         router.push('/login')
       } else {
-        toast.error(json.error || 'Erreur lors de la suppression')
+        toast.error(json.error || t('settings.delete_account_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setDeleting(false)
     }
@@ -300,7 +302,7 @@ export default function SettingsPage() {
       const res = await fetch('/api/account/export')
       if (!res.ok) {
         const json = await res.json()
-        throw new Error(json.error || 'Erreur lors de l\'export')
+        throw new Error(json.error || t('settings.export_error'))
       }
 
       // Télécharger le fichier ZIP
@@ -314,9 +316,9 @@ export default function SettingsPage() {
       window.URL.revokeObjectURL(url)
       document.body.removeChild(a)
 
-      toast.success('Export téléchargé avec succès')
+      toast.success(t('settings.export_success'))
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Erreur lors de l\'export')
+      toast.error(error instanceof Error ? error.message : t('settings.export_error'))
     } finally {
       setExporting(false)
     }
@@ -334,10 +336,10 @@ export default function SettingsPage() {
       if (res.ok) {
         setPurgePreview(json)
       } else {
-        toast.error(json.error || 'Erreur lors du chargement')
+        toast.error(json.error || t('settings.purge_load_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setLoadingPurgePreview(false)
     }
@@ -360,10 +362,10 @@ export default function SettingsPage() {
         setPurgeDialogOpen(false)
         setPurgePreview(null)
       } else {
-        toast.error(json.error || 'Erreur lors de la purge')
+        toast.error(json.error || t('settings.purge_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setPurging(false)
     }
@@ -398,6 +400,10 @@ export default function SettingsPage() {
         .slice(0, 2)
     : profile?.email?.charAt(0).toUpperCase() || '?'
 
+  const RETENTION_OPTIONS = RETENTION_KEYS.map(o => ({ ...o, label: t(o.labelKey) }))
+  const MESSAGE_TYPE_OPTIONS = MESSAGE_TYPE_KEYS.map(o => ({ ...o, label: t(o.labelKey) }))
+  const THEMES = THEME_KEYS.map(o => ({ ...o, label: t(o.labelKey) }))
+
   // Grouper les timezones par région
   const timezonesByRegion = TIMEZONES.reduce((acc, tz) => {
     if (!acc[tz.region]) acc[tz.region] = []
@@ -405,12 +411,14 @@ export default function SettingsPage() {
     return acc
   }, {} as Record<string, typeof TIMEZONES>)
 
+  const deleteWord = locale === 'fr' ? 'SUPPRIMER' : 'DELETE'
+
   return (
     <div className="p-4 sm:p-6">
       <div className="mb-6">
-        <h1 className="text-xl sm:text-2xl font-bold">Paramètres</h1>
+        <h1 className="text-xl sm:text-2xl font-bold">{t('settings.title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Gérez votre profil et vos préférences.
+          {t('settings.description')}
         </p>
       </div>
 
@@ -418,8 +426,8 @@ export default function SettingsPage() {
         {/* Profil */}
         <Card>
           <CardHeader>
-            <CardTitle>Profil</CardTitle>
-            <CardDescription>Vos informations personnelles.</CardDescription>
+            <CardTitle>{t('settings.profile')}</CardTitle>
+            <CardDescription>{t('settings.profile_desc')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-4">
@@ -428,7 +436,7 @@ export default function SettingsPage() {
                 <AvatarFallback className="text-lg">{initials}</AvatarFallback>
               </Avatar>
               <div className="flex-1 space-y-1">
-                <p className="text-sm font-medium">{profile?.full_name || 'Sans nom'}</p>
+                <p className="text-sm font-medium">{profile?.full_name || t('settings.no_name')}</p>
                 <p className="text-xs text-muted-foreground">{profile?.email}</p>
               </div>
             </div>
@@ -436,7 +444,7 @@ export default function SettingsPage() {
             <Separator />
 
             <div className="space-y-2">
-              <Label htmlFor="profile-email">Email</Label>
+              <Label htmlFor="profile-email">{t('settings.email_label')}</Label>
               <Input
                 id="profile-email"
                 value={profile?.email || ''}
@@ -444,22 +452,22 @@ export default function SettingsPage() {
                 className="bg-muted"
               />
               <p className="text-xs text-muted-foreground">
-                L&apos;email ne peut pas être modifié ici.
+                {t('settings.email_note')}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="profile-name">Nom complet</Label>
+              <Label htmlFor="profile-name">{t('settings.full_name')}</Label>
               <Input
                 id="profile-name"
-                placeholder="Votre nom"
+                placeholder={t('settings.name_placeholder')}
                 value={formFullName}
                 onChange={(e) => setFormFullName(e.target.value)}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="profile-avatar">URL de l&apos;avatar</Label>
+              <Label htmlFor="profile-avatar">{t('settings.avatar_url')}</Label>
               <Input
                 id="profile-avatar"
                 placeholder="https://example.com/avatar.png"
@@ -467,7 +475,7 @@ export default function SettingsPage() {
                 onChange={(e) => setFormAvatarUrl(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                URL d&apos;une image pour votre photo de profil.
+                {t('settings.avatar_note')}
               </p>
             </div>
 
@@ -477,7 +485,7 @@ export default function SettingsPage() {
               ) : (
                 <Save className="mr-2 h-4 w-4" />
               )}
-              Enregistrer
+              {t('common.save')}
             </Button>
           </CardContent>
         </Card>
@@ -487,18 +495,18 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <CreditCard className="h-5 w-5" />
-              Abonnement
+              {t('settings.subscription_title')}
             </CardTitle>
-            <CardDescription>Gérez votre abonnement Autyvia.</CardDescription>
+            <CardDescription>{t('settings.subscription_desc')}</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground mb-4">
-              Consultez le statut de votre abonnement, souscrivez ou gérez votre paiement.
+              {t('settings.subscription_info')}
             </p>
             <Link href="/subscription">
               <Button variant="outline">
                 <CreditCard className="mr-2 h-4 w-4" />
-                Gérer mon abonnement
+                {t('settings.manage_subscription')}
               </Button>
             </Link>
           </CardContent>
@@ -509,19 +517,18 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Cpu className="h-5 w-5" />
-              Tokens IA supplémentaires
+              {t('settings.tokens_title')}
             </CardTitle>
-            <CardDescription>Achetez des tokens supplémentaires pour l&apos;IA.</CardDescription>
+            <CardDescription>{t('settings.tokens_desc')}</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground mb-4">
-              Si vous atteignez votre limite de tokens, vous pouvez acheter des tokens supplémentaires.
-              Les tokens achetés s&apos;ajoutent à votre quota mensuel.
+              {t('settings.tokens_info')}
             </p>
             <div className="flex items-center justify-between rounded-lg border p-4">
               <div>
-                <p className="font-medium">500 000 tokens IA</p>
-                <p className="text-sm text-muted-foreground">Paiement unique</p>
+                <p className="font-medium">{t('settings.tokens_amount')}</p>
+                <p className="text-sm text-muted-foreground">{t('settings.tokens_payment')}</p>
               </div>
               <div className="text-right">
                 <p className="text-2xl font-bold">50&euro;</p>
@@ -535,12 +542,12 @@ export default function SettingsPage() {
                       if (!res.ok) throw new Error(data.error)
                       window.location.href = data.url
                     } catch {
-                      toast.error('Erreur lors de la création du paiement')
+                      toast.error(t('settings.tokens_buy_error'))
                     }
                   }}
                 >
                   <Zap className="mr-2 h-4 w-4" />
-                  Acheter
+                  {t('settings.tokens_buy')}
                 </Button>
               </div>
             </div>
@@ -552,17 +559,39 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Globe className="h-5 w-5" />
-              Préférences
+              {t('settings.preferences')}
             </CardTitle>
-            <CardDescription>Personnalisez votre expérience.</CardDescription>
+            <CardDescription>{t('settings.preferences_desc')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Language */}
+            <div className="space-y-2">
+              <Label>{t('settings.language')}</Label>
+              <div className="flex gap-2">
+                {([
+                  { value: 'fr' as Locale, label: 'Français', flag: '🇫🇷' },
+                  { value: 'en' as Locale, label: 'English', flag: '🇬🇧' },
+                ]).map(({ value, label, flag }) => (
+                  <Button
+                    key={value}
+                    variant={locale === value ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setLocale(value)}
+                    className="gap-2"
+                  >
+                    <span>{flag}</span>
+                    {label}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
             {/* Timezone */}
             <div className="space-y-2">
-              <Label htmlFor="timezone">Fuseau horaire</Label>
+              <Label htmlFor="timezone">{t('settings.timezone_label')}</Label>
               <Select value={formTimezone} onValueChange={setFormTimezone}>
                 <SelectTrigger id="timezone">
-                  <SelectValue placeholder="Sélectionnez un fuseau horaire" />
+                  <SelectValue placeholder={t('settings.timezone_placeholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {Object.entries(timezonesByRegion).map(([region, tzs]) => (
@@ -580,13 +609,13 @@ export default function SettingsPage() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Utilisé pour l&apos;affichage des dates et la planification des campagnes.
+                {t('settings.timezone_note')}
               </p>
             </div>
 
             {/* Thème */}
             <div className="space-y-2">
-              <Label>Thème</Label>
+              <Label>{t('settings.theme')}</Label>
               {mounted ? (
                 <div className="flex gap-2">
                   {THEMES.map(({ value, label, icon: Icon }) => (
@@ -619,7 +648,7 @@ export default function SettingsPage() {
                 </div>
               )}
               <p className="text-xs text-muted-foreground">
-                Le thème &laquo; Système &raquo; suit les préférences de votre navigateur.
+                {t('settings.theme_note')}
               </p>
             </div>
 
@@ -629,7 +658,7 @@ export default function SettingsPage() {
               ) : (
                 <Save className="mr-2 h-4 w-4" />
               )}
-              Enregistrer les préférences
+              {t('settings.save_preferences')}
             </Button>
           </CardContent>
         </Card>
@@ -639,13 +668,13 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Lock className="h-5 w-5" />
-              Sécurité
+              {t('settings.security')}
             </CardTitle>
-            <CardDescription>Modifiez votre mot de passe.</CardDescription>
+            <CardDescription>{t('settings.security_desc')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="current-password">Mot de passe actuel</Label>
+              <Label htmlFor="current-password">{t('settings.current_password')}</Label>
               <div className="relative">
                 <Input
                   id="current-password"
@@ -671,7 +700,7 @@ export default function SettingsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="new-password">Nouveau mot de passe</Label>
+              <Label htmlFor="new-password">{t('settings.new_password')}</Label>
               <div className="relative">
                 <Input
                   id="new-password"
@@ -695,12 +724,12 @@ export default function SettingsPage() {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground">
-                Minimum 8 caractères
+                {t('settings.min_chars')}
               </p>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirm-password">Confirmer le nouveau mot de passe</Label>
+              <Label htmlFor="confirm-password">{t('settings.confirm_password')}</Label>
               <Input
                 id="confirm-password"
                 type="password"
@@ -719,7 +748,7 @@ export default function SettingsPage() {
               ) : (
                 <Lock className="mr-2 h-4 w-4" />
               )}
-              Changer le mot de passe
+              {t('settings.change_password')}
             </Button>
           </CardContent>
         </Card>
@@ -729,16 +758,15 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileArchive className="h-5 w-5" />
-              Vos données
+              {t('settings.data_title')}
             </CardTitle>
             <CardDescription>
-              Exportez toutes vos données personnelles (RGPD).
+              {t('settings.data_desc')}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground mb-4">
-              Téléchargez une archive ZIP contenant toutes vos données : profil, sessions,
-              contacts, conversations, messages, agents IA, documents, campagnes et équipes.
+              {t('settings.data_info')}
             </p>
             <Button onClick={handleExportData} disabled={exporting} variant="outline">
               {exporting ? (
@@ -746,7 +774,7 @@ export default function SettingsPage() {
               ) : (
                 <Download className="mr-2 h-4 w-4" />
               )}
-              Exporter mes données
+              {t('settings.export_data')}
             </Button>
           </CardContent>
         </Card>
@@ -756,10 +784,10 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Scale className="h-5 w-5" />
-              Documents juridiques
+              {t('settings.legal_title')}
             </CardTitle>
             <CardDescription>
-              Consultez nos documents légaux et notre politique de confidentialité.
+              {t('settings.legal_desc')}
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -769,7 +797,7 @@ export default function SettingsPage() {
                 target="_blank"
                 className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
               >
-                <span className="text-sm font-medium">Politique de confidentialité</span>
+                <span className="text-sm font-medium">{t('settings.privacy_policy')}</span>
                 <ExternalLink className="h-4 w-4 text-muted-foreground" />
               </Link>
               <Link
@@ -777,7 +805,7 @@ export default function SettingsPage() {
                 target="_blank"
                 className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
               >
-                <span className="text-sm font-medium">Conditions Générales d&apos;Utilisation</span>
+                <span className="text-sm font-medium">{t('settings.terms')}</span>
                 <ExternalLink className="h-4 w-4 text-muted-foreground" />
               </Link>
               <Link
@@ -785,7 +813,7 @@ export default function SettingsPage() {
                 target="_blank"
                 className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
               >
-                <span className="text-sm font-medium">Conditions Générales de Vente</span>
+                <span className="text-sm font-medium">{t('settings.sales_terms')}</span>
                 <ExternalLink className="h-4 w-4 text-muted-foreground" />
               </Link>
               <Link
@@ -793,7 +821,7 @@ export default function SettingsPage() {
                 target="_blank"
                 className="flex items-center justify-between p-3 rounded-lg border hover:bg-muted/50 transition-colors"
               >
-                <span className="text-sm font-medium">Mentions légales</span>
+                <span className="text-sm font-medium">{t('settings.legal_notice')}</span>
                 <ExternalLink className="h-4 w-4 text-muted-foreground" />
               </Link>
             </div>
@@ -805,15 +833,15 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Clock className="h-5 w-5" />
-              Rétention des données
+              {t('settings.retention_title')}
             </CardTitle>
             <CardDescription>
-              Définissez la durée de conservation de vos messages.
+              {t('settings.retention_desc')}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="data-retention">Durée de conservation</Label>
+              <Label htmlFor="data-retention">{t('settings.retention_label')}</Label>
               <Select
                 value={formDataRetention === null ? 'null' : String(formDataRetention)}
                 onValueChange={(value) => {
@@ -821,7 +849,7 @@ export default function SettingsPage() {
                 }}
               >
                 <SelectTrigger id="data-retention">
-                  <SelectValue placeholder="Sélectionnez une durée" />
+                  <SelectValue placeholder={t('settings.retention_placeholder')} />
                 </SelectTrigger>
                 <SelectContent>
                   {RETENTION_OPTIONS.map((option) => (
@@ -832,8 +860,7 @@ export default function SettingsPage() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Les messages plus anciens que cette durée seront automatiquement supprimés.
-                Les conversations et contacts seront conservés.
+                {t('settings.retention_note')}
               </p>
             </div>
 
@@ -841,7 +868,7 @@ export default function SettingsPage() {
               <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
                 <p className="text-sm text-amber-600 dark:text-amber-400">
                   <AlertTriangle className="inline-block h-4 w-4 mr-1" />
-                  Les messages de plus de {formDataRetention} mois seront purgés automatiquement.
+                  {t('settings.retention_warning', { months: String(formDataRetention) })}
                 </p>
               </div>
             )}
@@ -855,17 +882,16 @@ export default function SettingsPage() {
               <div className="space-y-3">
                 <Label className="flex items-center gap-2">
                   <Tag className="h-4 w-4" />
-                  Filtres de purge (optionnel)
+                  {t('settings.purge_filters')}
                 </Label>
                 <p className="text-xs text-muted-foreground">
-                  Affinez la purge en sélectionnant des tags ou types de messages spécifiques.
-                  Sans filtre, tous les messages anciens seront supprimés.
+                  {t('settings.purge_filters_desc')}
                 </p>
 
                 {/* Filtre par tags */}
                 {allTags.length > 0 && (
                   <div className="space-y-1.5">
-                    <p className="text-xs font-medium text-muted-foreground">Par tags de conversation (ET)</p>
+                    <p className="text-xs font-medium text-muted-foreground">{t('settings.purge_by_tags')}</p>
                     <div className="flex flex-wrap gap-1.5">
                       {allTags.map((tag) => {
                         const isSelected = purgeTagIds.includes(tag.id)
@@ -894,7 +920,7 @@ export default function SettingsPage() {
 
                 {/* Filtre par type de message */}
                 <div className="space-y-1.5">
-                  <p className="text-xs font-medium text-muted-foreground">Par type de message</p>
+                  <p className="text-xs font-medium text-muted-foreground">{t('settings.purge_by_type')}</p>
                   <div className="flex flex-wrap gap-1.5">
                     {MESSAGE_TYPE_OPTIONS.map((opt) => {
                       const Icon = opt.icon
@@ -921,21 +947,19 @@ export default function SettingsPage() {
                 {(purgeTagIds.length > 0 || purgeMessageTypes.length > 0) && (
                   <div className="rounded-lg border bg-muted/30 p-2.5">
                     <p className="text-xs text-muted-foreground">
-                      La purge ciblera
                       {purgeMessageTypes.length > 0 && (
-                        <> les messages de type <strong>{purgeMessageTypes.map(t => MESSAGE_TYPE_OPTIONS.find(o => o.value === t)?.label).filter(Boolean).join(', ')}</strong></>
+                        <> {t('settings.purge_summary_types')} <strong>{purgeMessageTypes.map(mt => MESSAGE_TYPE_OPTIONS.find(o => o.value === mt)?.label).filter(Boolean).join(', ')}</strong></>
                       )}
                       {purgeTagIds.length > 0 && (
-                        <> des conversations avec {purgeTagIds.length > 1 ? 'tous les tags' : 'le tag'} <strong>{purgeTagIds.map(id => allTags.find(t => t.id === id)?.name).filter(Boolean).join(' + ')}</strong></>
+                        <> {purgeTagIds.length > 1 ? t('settings.purge_summary_tags_plural') : t('settings.purge_summary_tags_single')} <strong>{purgeTagIds.map(id => allTags.find(tg => tg.id === id)?.name).filter(Boolean).join(' + ')}</strong></>
                       )}
-                      {purgeMessageTypes.length === 0 && purgeTagIds.length > 0 && <> (tous types)</>}
-                      .
+                      {purgeMessageTypes.length === 0 && purgeTagIds.length > 0 && <> {t('settings.purge_summary_all_types')}</>}
                     </p>
                     <button
                       onClick={() => { setPurgeTagIds([]); setPurgeMessageTypes([]) }}
                       className="text-xs text-primary hover:underline mt-1"
                     >
-                      Réinitialiser les filtres
+                      {t('settings.purge_reset_filters')}
                     </button>
                   </div>
                 )}
@@ -949,7 +973,7 @@ export default function SettingsPage() {
                 ) : (
                   <Save className="mr-2 h-4 w-4" />
                 )}
-                Enregistrer
+                {t('common.save')}
               </Button>
 
               {profile?.data_retention_months && (
@@ -966,7 +990,7 @@ export default function SettingsPage() {
                   ) : (
                     <Trash2 className="mr-2 h-4 w-4" />
                   )}
-                  Purger maintenant
+                  {t('settings.purge_now')}
                 </Button>
               )}
             </div>
@@ -978,15 +1002,15 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Workflow className="h-5 w-5" />
-              Analyse Lifecycle
+              {t('settings.lifecycle_title')}
             </CardTitle>
             <CardDescription>
-              Configurez la fréquence d&apos;analyse automatique pour classifier vos conversations.
+              {t('settings.lifecycle_desc')}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>Fréquence d&apos;analyse automatique</Label>
+              <Label>{t('settings.lifecycle_frequency')}</Label>
               <Select
                 value={formLifecycleThreshold === null ? 'null' : String(formLifecycleThreshold)}
                 onValueChange={(value) => {
@@ -994,28 +1018,28 @@ export default function SettingsPage() {
                 }}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Sélectionnez une fréquence" />
+                  <SelectValue placeholder={t('settings.lifecycle_frequency_placeholder')} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="null">Manuel uniquement</SelectItem>
-                  <SelectItem value="1">Chaque message (~200 tokens/msg)</SelectItem>
-                  <SelectItem value="3">Tous les 3 messages</SelectItem>
-                  <SelectItem value="5">Tous les 5 messages</SelectItem>
-                  <SelectItem value="10">Tous les 10 messages</SelectItem>
+                  <SelectItem value="null">{t('settings.lifecycle_manual')}</SelectItem>
+                  <SelectItem value="1">{t('settings.lifecycle_every_msg')}</SelectItem>
+                  <SelectItem value="3">{t('settings.lifecycle_every_3')}</SelectItem>
+                  <SelectItem value="5">{t('settings.lifecycle_every_5')}</SelectItem>
+                  <SelectItem value="10">{t('settings.lifecycle_every_10')}</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
                 {formLifecycleThreshold === null ? (
-                  <>L&apos;analyse ne sera déclenchée que manuellement depuis la page Lifecycle ou Conversations.</>
+                  <>{t('settings.lifecycle_manual_note')}</>
                 ) : formLifecycleThreshold === 1 ? (
                   <>
                     <Sparkles className="inline h-3 w-3 mr-1" />
-                    Chaque message entrant déclenchera une analyse (~200 tokens, ~0.001$ par analyse avec GPT-4o-mini).
+                    {t('settings.lifecycle_every_note')}
                   </>
                 ) : (
                   <>
                     <Sparkles className="inline h-3 w-3 mr-1" />
-                    L&apos;analyse se déclenchera tous les {formLifecycleThreshold} messages entrants.
+                    {t('settings.lifecycle_n_note', { n: String(formLifecycleThreshold) })}
                   </>
                 )}
               </p>
@@ -1028,19 +1052,17 @@ export default function SettingsPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-destructive">
               <AlertTriangle className="h-5 w-5" />
-              Zone de danger
+              {t('settings.danger_zone')}
             </CardTitle>
             <CardDescription>
-              Actions irréversibles sur votre compte.
+              {t('settings.danger_desc')}
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="rounded-lg border border-destructive/20 bg-destructive/5 p-4">
-              <h4 className="font-medium text-destructive">Supprimer le compte</h4>
+              <h4 className="font-medium text-destructive">{t('settings.delete_account')}</h4>
               <p className="mt-1 text-sm text-muted-foreground">
-                Cette action supprimera définitivement votre compte et toutes vos données :
-                sessions WhatsApp, contacts, conversations, agents IA, documents, campagnes, etc.
-                Cette action est irréversible.
+                {t('settings.delete_account_info')}
               </p>
               <Button
                 variant="destructive"
@@ -1048,7 +1070,7 @@ export default function SettingsPage() {
                 onClick={() => setDeleteDialogOpen(true)}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
-                Supprimer mon compte
+                {t('settings.delete_my_account')}
               </Button>
             </div>
           </CardContent>
@@ -1061,35 +1083,34 @@ export default function SettingsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2 text-destructive">
               <AlertTriangle className="h-5 w-5" />
-              Supprimer votre compte
+              {t('settings.delete_dialog_title')}
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-4">
                 <p>
-                  Cette action est <strong>irréversible</strong>. Toutes vos données seront
-                  définitivement supprimées.
+                  {t('settings.delete_dialog_warning')}
                 </p>
 
                 <div className="space-y-2">
-                  <Label htmlFor="delete-password">Mot de passe</Label>
+                  <Label htmlFor="delete-password">{t('settings.delete_password_label')}</Label>
                   <Input
                     id="delete-password"
                     type="password"
                     value={deletePassword}
                     onChange={(e) => setDeletePassword(e.target.value)}
-                    placeholder="Entrez votre mot de passe"
+                    placeholder={t('settings.delete_password_placeholder')}
                   />
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="delete-confirmation">
-                    Tapez <strong>SUPPRIMER</strong> pour confirmer
+                    {t('settings.delete_confirm_label')}
                   </Label>
                   <Input
                     id="delete-confirmation"
                     value={deleteConfirmation}
                     onChange={(e) => setDeleteConfirmation(e.target.value)}
-                    placeholder="SUPPRIMER"
+                    placeholder={t('settings.delete_confirm_placeholder')}
                   />
                 </div>
               </div>
@@ -1103,18 +1124,18 @@ export default function SettingsPage() {
                 setDeleteConfirmation('')
               }}
             >
-              Annuler
+              {t('common.cancel')}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault()
                 handleDeleteAccount()
               }}
-              disabled={deleting || !deletePassword || deleteConfirmation !== 'SUPPRIMER'}
+              disabled={deleting || !deletePassword || deleteConfirmation !== deleteWord}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Supprimer définitivement
+              {t('settings.delete_confirm_btn')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1126,7 +1147,7 @@ export default function SettingsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle className="flex items-center gap-2">
               <Clock className="h-5 w-5" />
-              Purger les anciens messages
+              {t('settings.purge_title')}
             </AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-4">
@@ -1137,8 +1158,7 @@ export default function SettingsPage() {
                 ) : purgePreview ? (
                   <>
                     <p>
-                      Vous êtes sur le point de supprimer définitivement les messages
-                      de plus de <strong>{profile?.data_retention_months} mois</strong>.
+                      {t('settings.purge_confirm', { months: String(profile?.data_retention_months) })}
                     </p>
 
                     {/* Filtres actifs */}
@@ -1151,7 +1171,7 @@ export default function SettingsPage() {
                         )}
                         {purgeMessageTypes.length > 0 && (
                           <p className="text-xs text-muted-foreground">
-                            Types : <strong>{purgeMessageTypes.map(t => MESSAGE_TYPE_OPTIONS.find(o => o.value === t)?.label).filter(Boolean).join(', ')}</strong>
+                            Types : <strong>{purgeMessageTypes.map(mt => MESSAGE_TYPE_OPTIONS.find(o => o.value === mt)?.label).filter(Boolean).join(', ')}</strong>
                           </p>
                         )}
                       </div>
@@ -1161,35 +1181,35 @@ export default function SettingsPage() {
                       <div className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 space-y-1">
                         <p className="text-sm text-amber-600 dark:text-amber-400">
                           <AlertTriangle className="inline-block h-4 w-4 mr-1" />
-                          <strong>{purgePreview.messages_to_delete}</strong> message(s) seront supprimés.
+                          {t('settings.purge_count', { count: String(purgePreview.messages_to_delete) })}
                           {purgePreview.cutoff_date && (
                             <span className="block mt-1 text-xs">
-                              Messages antérieurs au {new Date(purgePreview.cutoff_date).toLocaleDateString('fr-FR')}
+                              {t('settings.purge_cutoff', { date: new Date(purgePreview.cutoff_date).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US') })}
                             </span>
                           )}
                         </p>
                         {purgePreview.media_to_delete > 0 && (
                           <p className="text-xs text-amber-600/80 dark:text-amber-400/80">
-                            Dont <strong>{purgePreview.media_to_delete}</strong> fichier(s) média seront supprimés du stockage.
+                            {t('settings.purge_media', { count: String(purgePreview.media_to_delete) })}
                           </p>
                         )}
                       </div>
                     ) : (
                       <div className="rounded-lg border border-green-500/20 bg-green-500/5 p-3">
                         <p className="text-sm text-green-600 dark:text-green-400">
-                          Aucun message à supprimer. Tous vos messages sont récents.
+                          {t('settings.purge_none')}
                         </p>
                       </div>
                     )}
                   </>
                 ) : (
-                  <p>Erreur lors du chargement de l&apos;aperçu.</p>
+                  <p>{t('settings.purge_preview_error')}</p>
                 )}
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={purging}>Annuler</AlertDialogCancel>
+            <AlertDialogCancel disabled={purging}>{t('common.cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault()
@@ -1199,7 +1219,7 @@ export default function SettingsPage() {
               className="bg-amber-600 text-white hover:bg-amber-700"
             >
               {purging && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Purger les messages
+              {t('settings.purge_messages')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

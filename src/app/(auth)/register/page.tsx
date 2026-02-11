@@ -11,8 +11,10 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
+import { useTranslation } from '@/i18n/context'
 
 function RegisterForm() {
+  const { t } = useTranslation()
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirect = searchParams.get('redirect')
@@ -26,7 +28,7 @@ function RegisterForm() {
     e.preventDefault()
 
     if (!acceptedTerms) {
-      toast.error('Veuillez accepter les conditions d\'utilisation')
+      toast.error(t('auth.accept_required'))
       return
     }
 
@@ -47,7 +49,7 @@ function RegisterForm() {
       return
     }
 
-    toast.success('Compte créé ! Vérifiez votre email.')
+    toast.success(t('auth.account_created'))
     router.push(redirect ? `/login?redirect=${encodeURIComponent(redirect)}` : '/login')
   }
 
@@ -57,17 +59,17 @@ function RegisterForm() {
         <div className="flex justify-center mb-4">
           <Image src="/logo.svg" alt="Autyvia" width={64} height={64} className="h-16 w-16" />
         </div>
-        <CardTitle className="text-2xl font-bold">Créer un compte</CardTitle>
-        <CardDescription>Inscrivez-vous sur Autyvia</CardDescription>
+        <CardTitle className="text-2xl font-bold">{t('auth.register')}</CardTitle>
+        <CardDescription>{t('auth.register_desc')}</CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="fullName">Nom complet</Label>
+            <Label htmlFor="fullName">{t('auth.full_name')}</Label>
             <Input
               id="fullName"
               type="text"
-              placeholder="Jean Dupont"
+              placeholder={t('auth.name_placeholder')}
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               required
@@ -75,11 +77,11 @@ function RegisterForm() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label htmlFor="email">{t('auth.email')}</Label>
             <Input
               id="email"
               type="email"
-              placeholder="vous@exemple.com"
+              placeholder={t('auth.email_placeholder')}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
@@ -87,11 +89,11 @@ function RegisterForm() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Mot de passe</Label>
+            <Label htmlFor="password">{t('auth.password')}</Label>
             <Input
               id="password"
               type="password"
-              placeholder="Minimum 6 caractères"
+              placeholder={t('auth.min_chars')}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -100,7 +102,7 @@ function RegisterForm() {
             />
           </div>
 
-          {/* Case à cocher RGPD */}
+          {/* GDPR checkbox */}
           <div className="flex items-start space-x-2">
             <Checkbox
               id="terms"
@@ -112,25 +114,23 @@ function RegisterForm() {
               htmlFor="terms"
               className="text-sm text-muted-foreground leading-tight cursor-pointer"
             >
-              J&apos;accepte les{' '}
+              {t('auth.accept_terms')}{' '}
               <Link href="/cgu" className="text-primary hover:underline" target="_blank">
-                Conditions Générales d&apos;Utilisation
+                {t('auth.terms_link')}
               </Link>{' '}
-              et la{' '}
+              &amp;{' '}
               <Link href="/privacy" className="text-primary hover:underline" target="_blank">
-                Politique de Confidentialité
+                {t('auth.privacy_link')}
               </Link>
-              . Je comprends que mes messages WhatsApp seront traités par une intelligence artificielle
-              pour générer des réponses automatiques.
             </label>
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-4 pt-2">
           <Button type="submit" className="w-full mt-2" disabled={loading || !acceptedTerms}>
-            {loading ? 'Création...' : "S'inscrire"}
+            {loading ? t('auth.signing_up') : t('auth.sign_up')}
           </Button>
           <Link href="/login" className="text-sm text-muted-foreground hover:underline">
-            Déjà un compte ? Se connecter
+            {t('auth.already_account')}
           </Link>
         </CardFooter>
       </form>
@@ -141,7 +141,7 @@ function RegisterForm() {
 export default function RegisterPage() {
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
-      <Suspense fallback={<div className="animate-pulse">Chargement...</div>}>
+      <Suspense fallback={<div className="animate-pulse">Loading...</div>}>
         <RegisterForm />
       </Suspense>
     </div>

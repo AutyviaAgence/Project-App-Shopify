@@ -34,45 +34,13 @@ import {
 } from 'lucide-react'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { MultiTeamSelect } from '@/components/multi-team-select'
+import { useTranslation } from '@/i18n/context'
 
 type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
 type DocWithTeamIds = KnowledgeDocument & { team_ids?: string[] }
 
-function statusBadge(status: string) {
-  switch (status) {
-    case 'ready':
-      return <Badge className="bg-green-600 text-white">Prêt</Badge>
-    case 'processing':
-      return (
-        <Badge className="bg-blue-600 text-white">
-          <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-          Traitement...
-        </Badge>
-      )
-    case 'pending':
-      return <Badge variant="secondary">En attente</Badge>
-    case 'error':
-      return <Badge variant="destructive">Erreur</Badge>
-    default:
-      return <Badge variant="secondary">{status}</Badge>
-  }
-}
-
-function typeBadge(docType: string) {
-  return docType === 'pdf' ? (
-    <Badge variant="outline" className="text-xs">
-      <Upload className="mr-1 h-3 w-3" />
-      PDF
-    </Badge>
-  ) : (
-    <Badge variant="outline" className="text-xs">
-      <FileText className="mr-1 h-3 w-3" />
-      Texte
-    </Badge>
-  )
-}
-
 export default function KnowledgePage() {
+  const { t } = useTranslation()
   const [documents, setDocuments] = useState<DocWithTeamIds[]>([])
   const [agents, setAgents] = useState<AIAgent[]>([])
   const [teams, setTeams] = useState<TeamWithRole[]>([])
@@ -109,6 +77,40 @@ export default function KnowledgePage() {
   // Polling ref
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  function statusBadge(status: string) {
+    switch (status) {
+      case 'ready':
+        return <Badge className="bg-green-600 text-white">{t('knowledge.ready')}</Badge>
+      case 'processing':
+        return (
+          <Badge className="bg-blue-600 text-white">
+            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+            {t('knowledge.processing')}
+          </Badge>
+        )
+      case 'pending':
+        return <Badge variant="secondary">{t('knowledge.pending')}</Badge>
+      case 'error':
+        return <Badge variant="destructive">{t('knowledge.error')}</Badge>
+      default:
+        return <Badge variant="secondary">{status}</Badge>
+    }
+  }
+
+  function typeBadge(docType: string) {
+    return docType === 'pdf' ? (
+      <Badge variant="outline" className="text-xs">
+        <Upload className="mr-1 h-3 w-3" />
+        {t('knowledge.pdf')}
+      </Badge>
+    ) : (
+      <Badge variant="outline" className="text-xs">
+        <FileText className="mr-1 h-3 w-3" />
+        {t('knowledge.text')}
+      </Badge>
+    )
+  }
+
   const fetchDocuments = useCallback(async () => {
     try {
       const res = await fetch('/api/knowledge')
@@ -117,11 +119,11 @@ export default function KnowledgePage() {
         setDocuments(json.data)
       }
     } catch {
-      toast.error('Erreur lors du chargement des documents')
+      toast.error(t('knowledge.load_error'))
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [t])
 
   const fetchAgents = useCallback(async () => {
     try {
@@ -140,8 +142,7 @@ export default function KnowledgePage() {
       const res = await fetch('/api/teams')
       const json = await res.json()
       if (res.ok && json.data) {
-        // Filtrer les équipes où l'utilisateur peut gérer la knowledge (owner/admin ou can_manage_knowledge)
-        setTeams(json.data.filter((t: TeamWithRole) => t.my_role === 'owner' || t.my_role === 'admin'))
+        setTeams(json.data.filter((tm: TeamWithRole) => tm.my_role === 'owner' || tm.my_role === 'admin'))
       }
     } catch {
       // Silently ignore
@@ -202,14 +203,13 @@ export default function KnowledgePage() {
 
   async function handleSave() {
     if (!formName.trim()) {
-      toast.error('Le nom est requis')
+      toast.error(t('knowledge.name_required'))
       return
     }
 
     setSaving(true)
     try {
       if (editing) {
-        // PATCH : modifier le document existant
         const body: Record<string, unknown> = {
           name: formName.trim(),
           description: formDescription.trim(),
@@ -229,16 +229,15 @@ export default function KnowledgePage() {
           setDocuments((prev) =>
             prev.map((d) => (d.id === editing.id ? json.data : d))
           )
-          toast.success('Document modifié')
+          toast.success(t('knowledge.doc_edited'))
           setDialogOpen(false)
         } else {
-          toast.error(json.error || 'Erreur lors de la modification')
+          toast.error(json.error || t('knowledge.doc_edit_error'))
         }
       } else {
-        // POST : créer un nouveau document
         if (formTab === 'pdf') {
           if (!formFile) {
-            toast.error('Veuillez sélectionner un fichier PDF')
+            toast.error(t('knowledge.pdf_required'))
             setSaving(false)
             return
           }
@@ -257,14 +256,14 @@ export default function KnowledgePage() {
           const json = await res.json()
           if (res.ok && json.data) {
             setDocuments((prev) => [json.data, ...prev])
-            toast.success('PDF uploadé, traitement en cours...')
+            toast.success(t('knowledge.pdf_uploaded'))
             setDialogOpen(false)
           } else {
-            toast.error(json.error || 'Erreur lors de l\'upload')
+            toast.error(json.error || t('knowledge.upload_error'))
           }
         } else {
           if (!formTextContent.trim()) {
-            toast.error('Le contenu est requis')
+            toast.error(t('knowledge.content_required'))
             setSaving(false)
             return
           }
@@ -281,15 +280,15 @@ export default function KnowledgePage() {
           const json = await res.json()
           if (res.ok && json.data) {
             setDocuments((prev) => [json.data, ...prev])
-            toast.success('Document créé, traitement en cours...')
+            toast.success(t('knowledge.doc_created'))
             setDialogOpen(false)
           } else {
-            toast.error(json.error || 'Erreur lors de la création')
+            toast.error(json.error || t('knowledge.create_error'))
           }
         }
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setSaving(false)
     }
@@ -307,15 +306,15 @@ export default function KnowledgePage() {
       const res = await fetch(`/api/knowledge/${docToDelete.id}`, { method: 'DELETE' })
       if (res.ok) {
         setDocuments((prev) => prev.filter((d) => d.id !== docToDelete.id))
-        toast.success('Document supprimé')
+        toast.success(t('knowledge.doc_deleted'))
         setDeleteDialogOpen(false)
         setDocToDelete(null)
       } else {
         const json = await res.json()
-        toast.error(json.error || 'Erreur lors de la suppression')
+        toast.error(json.error || t('knowledge.doc_delete_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setDeleting(null)
     }
@@ -333,12 +332,12 @@ export default function KnowledgePage() {
         setDocuments((prev) =>
           prev.map((d) => (d.id === id ? json.data : d))
         )
-        toast.success('Re-traitement lancé')
+        toast.success(t('knowledge.reprocess_started'))
       } else {
-        toast.error(json.error || 'Erreur')
+        toast.error(json.error || t('common.error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     }
   }
 
@@ -346,7 +345,6 @@ export default function KnowledgePage() {
     setSelectedDoc(doc)
     setAgentDialogOpen(true)
 
-    // Charger les agents associés
     try {
       const res = await fetch(`/api/knowledge/${doc.id}/agents`)
       const json = await res.json()
@@ -377,14 +375,14 @@ export default function KnowledgePage() {
         body: JSON.stringify({ agent_ids: docAgentIds }),
       })
       if (res.ok) {
-        toast.success('Agents mis à jour')
+        toast.success(t('knowledge.agents_updated'))
         setAgentDialogOpen(false)
       } else {
         const json = await res.json()
-        toast.error(json.error || 'Erreur')
+        toast.error(json.error || t('common.error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setSavingAgents(false)
     }
@@ -395,15 +393,13 @@ export default function KnowledgePage() {
       const res = await fetch(`/api/knowledge/${doc.id}/download`)
       const json = await res.json()
       if (!res.ok) {
-        toast.error(json.error || 'Erreur lors du téléchargement')
+        toast.error(json.error || t('knowledge.download_error'))
         return
       }
 
       if (json.type === 'pdf') {
-        // Ouvrir l'URL signée dans un nouvel onglet (visualisation / téléchargement)
         window.open(json.url, '_blank')
       } else {
-        // Document texte : télécharger en fichier .txt
         const blob = new Blob([json.content], { type: 'text/plain;charset=utf-8' })
         const url = URL.createObjectURL(blob)
         const a = document.createElement('a')
@@ -413,18 +409,16 @@ export default function KnowledgePage() {
         URL.revokeObjectURL(url)
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     }
   }
 
   async function handleView(doc: KnowledgeDocument) {
     if (doc.doc_type === 'pdf') {
-      // Pour les PDF, ouvrir directement dans un nouvel onglet
       handleDownload(doc)
       return
     }
 
-    // Pour les documents texte, afficher dans un dialog
     setViewLoading(true)
     setViewDialogOpen(true)
     setViewDoc(null)
@@ -434,11 +428,11 @@ export default function KnowledgePage() {
       if (res.ok) {
         setViewDoc({ name: json.name, content: json.content })
       } else {
-        toast.error(json.error || 'Erreur lors du chargement')
+        toast.error(json.error || t('knowledge.load_error'))
         setViewDialogOpen(false)
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
       setViewDialogOpen(false)
     } finally {
       setViewLoading(false)
@@ -457,14 +451,14 @@ export default function KnowledgePage() {
     <div className="p-4 sm:p-6">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div data-tour="knowledge-header">
-          <h1 className="text-xl sm:text-2xl font-bold">Base de connaissances</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">{t('knowledge.title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Ajoutez des documents que vos agents IA pourront consulter pour enrichir leurs réponses.
+            {t('knowledge.description')}
           </p>
         </div>
         <Button data-tour="upload-btn" onClick={openCreateDialog} className="w-full sm:w-auto">
           <Plus className="mr-2 h-4 w-4" />
-          Nouveau document
+          {t('knowledge.new_document')}
         </Button>
       </div>
 
@@ -472,13 +466,13 @@ export default function KnowledgePage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <BookOpen className="mb-4 h-12 w-12 text-muted-foreground" />
-            <h3 className="text-lg font-medium">Aucun document</h3>
+            <h3 className="text-lg font-medium">{t('knowledge.no_documents')}</h3>
             <p className="mt-1 text-sm text-muted-foreground">
-              Ajoutez votre premier document pour enrichir les connaissances de vos agents IA.
+              {t('knowledge.no_documents_desc')}
             </p>
             <Button className="mt-4" onClick={openCreateDialog}>
               <Plus className="mr-2 h-4 w-4" />
-              Ajouter un document
+              {t('knowledge.add_document')}
             </Button>
           </CardContent>
         </Card>
@@ -511,7 +505,7 @@ export default function KnowledgePage() {
                           {(doc.team_ids || (doc.team_id ? [doc.team_id] : [])).map(tid => (
                             <Badge key={tid} variant="outline" className="text-xs">
                               <Users className="mr-1 h-3 w-3" />
-                              {teams.find((t) => t.id === tid)?.name || 'Équipe'}
+                              {teams.find((tm) => tm.id === tid)?.name || t('common.team')}
                             </Badge>
                           ))}
                         </>
@@ -519,10 +513,10 @@ export default function KnowledgePage() {
                       {doc.status === 'ready' && (
                         <>
                           <span className="text-xs text-muted-foreground">
-                            {doc.chunk_count} chunks
+                            {doc.chunk_count} {t('knowledge.chunks')}
                           </span>
                           <span className="text-xs text-muted-foreground">
-                            {doc.char_count.toLocaleString()} car.
+                            {doc.char_count.toLocaleString()} {t('knowledge.chars')}
                           </span>
                         </>
                       )}
@@ -542,7 +536,7 @@ export default function KnowledgePage() {
                       onClick={() => handleView(doc)}
                     >
                       <Eye className="mr-1 h-3 w-3" />
-                      Voir
+                      {t('common.view')}
                     </Button>
 
                     {doc.doc_type === 'pdf' && (
@@ -552,7 +546,7 @@ export default function KnowledgePage() {
                         onClick={() => handleDownload(doc)}
                       >
                         <Download className="mr-1 h-3 w-3" />
-                        Télécharger
+                        {t('common.download')}
                       </Button>
                     )}
 
@@ -563,7 +557,7 @@ export default function KnowledgePage() {
                         onClick={() => openEditDialog(doc)}
                       >
                         <Pencil className="mr-1 h-3 w-3" />
-                        Modifier
+                        {t('common.edit')}
                       </Button>
                     )}
 
@@ -574,7 +568,7 @@ export default function KnowledgePage() {
                         onClick={() => openEditDialog(doc)}
                       >
                         <Users className="mr-1 h-3 w-3" />
-                        Équipe
+                        {t('common.team')}
                       </Button>
                     )}
 
@@ -584,7 +578,7 @@ export default function KnowledgePage() {
                       onClick={() => openAgentDialog(doc)}
                     >
                       <Bot className="mr-1 h-3 w-3" />
-                      Agents
+                      {t('common.agents')}
                     </Button>
 
                     {(doc.status === 'error' || doc.status === 'ready') && (
@@ -594,7 +588,7 @@ export default function KnowledgePage() {
                         onClick={() => handleReprocess(doc.id)}
                       >
                         <RefreshCw className="mr-1 h-3 w-3" />
-                        Re-traiter
+                        {t('knowledge.reprocess')}
                       </Button>
                     )}
 
@@ -610,7 +604,7 @@ export default function KnowledgePage() {
                       ) : (
                         <Trash2 className="mr-1 h-3 w-3" />
                       )}
-                      Supprimer
+                      {t('common.delete')}
                     </Button>
                   </div>
                 </CardContent>
@@ -625,25 +619,24 @@ export default function KnowledgePage() {
         <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
-              {editing ? 'Modifier le document' : 'Nouveau document'}
+              {editing ? t('knowledge.edit_document') : t('knowledge.new_document_title')}
             </DialogTitle>
             <DialogDescription>
               {editing
-                ? 'Modifiez le contenu de votre document.'
-                : 'Ajoutez un document texte ou un fichier PDF à votre base de connaissances.'}
+                ? t('knowledge.edit_document_desc')
+                : t('knowledge.new_document_desc')}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            {/* Sélecteur multi-équipes */}
             {teams.length > 0 && (
               <MultiTeamSelect
                 teams={teams}
                 selectedTeamIds={formTeamIds}
                 onTeamIdsChange={setFormTeamIds}
-                label="Équipes (optionnel)"
-                description="Les membres des équipes sélectionnées pourront accéder à ce document."
-                emptyDescription="Ce document est uniquement accessible par vous."
+                label={t('knowledge.teams_label')}
+                description={t('knowledge.teams_desc')}
+                emptyDescription={t('knowledge.teams_empty')}
               />
             )}
 
@@ -652,69 +645,69 @@ export default function KnowledgePage() {
                 <TabsList className="grid w-full grid-cols-2">
                   <TabsTrigger value="text">
                     <FileText className="mr-2 h-4 w-4" />
-                    Texte
+                    {t('knowledge.text')}
                   </TabsTrigger>
                   <TabsTrigger value="pdf">
                     <Upload className="mr-2 h-4 w-4" />
-                    PDF
+                    {t('knowledge.pdf')}
                   </TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="text" className="space-y-4 mt-4">
                   <div className="space-y-2">
-                    <Label htmlFor="doc-name-text">Nom *</Label>
+                    <Label htmlFor="doc-name-text">{t('knowledge.name_label')}</Label>
                     <Input
                       id="doc-name-text"
-                      placeholder="Ex: FAQ Entreprise"
+                      placeholder={t('knowledge.name_placeholder')}
                       value={formName}
                       onChange={(e) => setFormName(e.target.value)}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="doc-desc-text">Description</Label>
+                    <Label htmlFor="doc-desc-text">{t('knowledge.description_label')}</Label>
                     <Input
                       id="doc-desc-text"
-                      placeholder="Ex: Questions fréquemment posées par les clients"
+                      placeholder={t('knowledge.description_placeholder')}
                       value={formDescription}
                       onChange={(e) => setFormDescription(e.target.value)}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="doc-content">Contenu *</Label>
+                    <Label htmlFor="doc-content">{t('knowledge.content_label')}</Label>
                     <Textarea
                       id="doc-content"
-                      placeholder="Collez ici le contenu de votre document : informations sur l'entreprise, FAQ, descriptions de produits..."
+                      placeholder={t('knowledge.content_placeholder')}
                       value={formTextContent}
                       onChange={(e) => setFormTextContent(e.target.value)}
                       rows={12}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Le texte sera découpé en morceaux et indexé pour la recherche sémantique.
+                      {t('knowledge.content_help')}
                     </p>
                   </div>
                 </TabsContent>
 
                 <TabsContent value="pdf" className="space-y-4 mt-4">
                   <div className="space-y-2">
-                    <Label htmlFor="doc-name-pdf">Nom *</Label>
+                    <Label htmlFor="doc-name-pdf">{t('knowledge.name_label')}</Label>
                     <Input
                       id="doc-name-pdf"
-                      placeholder="Ex: Catalogue Produits"
+                      placeholder={t('knowledge.name_placeholder_new')}
                       value={formName}
                       onChange={(e) => setFormName(e.target.value)}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="doc-desc-pdf">Description</Label>
+                    <Label htmlFor="doc-desc-pdf">{t('knowledge.description_label')}</Label>
                     <Input
                       id="doc-desc-pdf"
-                      placeholder="Ex: Catalogue complet des produits et services"
+                      placeholder={t('knowledge.description_placeholder_new')}
                       value={formDescription}
                       onChange={(e) => setFormDescription(e.target.value)}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="doc-file">Fichier PDF *</Label>
+                    <Label htmlFor="doc-file">{t('knowledge.pdf_label')}</Label>
                     <Input
                       ref={fileInputRef}
                       id="doc-file"
@@ -723,7 +716,7 @@ export default function KnowledgePage() {
                       onChange={(e) => setFormFile(e.target.files?.[0] || null)}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Max 10 Mo. Le texte sera extrait automatiquement du PDF.
+                      {t('knowledge.pdf_help')}
                     </p>
                   </div>
                 </TabsContent>
@@ -733,7 +726,7 @@ export default function KnowledgePage() {
             {editing && (
               <>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-name">Nom *</Label>
+                  <Label htmlFor="edit-name">{t('knowledge.name_label')}</Label>
                   <Input
                     id="edit-name"
                     value={formName}
@@ -741,7 +734,7 @@ export default function KnowledgePage() {
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="edit-desc">Description</Label>
+                  <Label htmlFor="edit-desc">{t('knowledge.description_label')}</Label>
                   <Input
                     id="edit-desc"
                     value={formDescription}
@@ -750,7 +743,7 @@ export default function KnowledgePage() {
                 </div>
                 {editing.doc_type === 'text' && (
                   <div className="space-y-2">
-                    <Label htmlFor="edit-content">Contenu *</Label>
+                    <Label htmlFor="edit-content">{t('knowledge.content_label')}</Label>
                     <Textarea
                       id="edit-content"
                       value={formTextContent}
@@ -758,7 +751,7 @@ export default function KnowledgePage() {
                       rows={12}
                     />
                     <p className="text-xs text-muted-foreground">
-                      La modification du contenu relancera le traitement (chunking + embeddings).
+                      {t('knowledge.edit_help')}
                     </p>
                   </div>
                 )}
@@ -775,7 +768,7 @@ export default function KnowledgePage() {
               ) : (
                 <BookOpen className="mr-2 h-4 w-4" />
               )}
-              {editing ? 'Enregistrer' : 'Ajouter le document'}
+              {editing ? t('common.save') : t('knowledge.add_btn')}
             </Button>
           </div>
         </DialogContent>
@@ -785,16 +778,16 @@ export default function KnowledgePage() {
       <Dialog open={agentDialogOpen} onOpenChange={setAgentDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Assigner aux agents</DialogTitle>
+            <DialogTitle>{t('knowledge.assign_agents_title')}</DialogTitle>
             <DialogDescription>
-              Sélectionnez les agents IA qui pourront accéder à ce document.
+              {t('knowledge.assign_agents_desc')}
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-3 py-2">
             {agents.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">
-                Aucun agent IA créé. Créez un agent pour l&apos;associer à ce document.
+                {t('knowledge.no_agents_for_kb')}
               </p>
             ) : (
               agents.map((agent) => {
@@ -824,7 +817,7 @@ export default function KnowledgePage() {
                         <Bot className="h-4 w-4 shrink-0" />
                         <span className="text-sm font-medium truncate">{agent.name}</span>
                         {!agent.is_active && (
-                          <Badge variant="secondary" className="text-xs">Inactif</Badge>
+                          <Badge variant="secondary" className="text-xs">{t('common.inactive')}</Badge>
                         )}
                       </div>
                       {agent.description && (
@@ -848,7 +841,7 @@ export default function KnowledgePage() {
               ) : (
                 <Check className="mr-2 h-4 w-4" />
               )}
-              Enregistrer
+              {t('common.save')}
             </Button>
           </div>
         </DialogContent>
@@ -863,7 +856,7 @@ export default function KnowledgePage() {
               {viewDoc?.name || 'Document'}
             </DialogTitle>
             <DialogDescription>
-              Contenu du document texte
+              {t('knowledge.document_content')}
             </DialogDescription>
           </DialogHeader>
 
@@ -889,8 +882,8 @@ export default function KnowledgePage() {
           if (!open) setDocToDelete(null)
         }}
         onConfirm={handleConfirmDelete}
-        title="Supprimer le document"
-        description={`Êtes-vous sûr de vouloir supprimer le document "${docToDelete?.name}" ? Cette action supprimera également tous les chunks et embeddings associés.`}
+        title={t('knowledge.delete_title')}
+        description={t('knowledge.delete_desc', { name: docToDelete?.name || '' })}
         loading={deleting === docToDelete?.id}
       />
     </div>

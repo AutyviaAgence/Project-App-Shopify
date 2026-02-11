@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { useTranslation } from '@/i18n/context'
 import type { Campaign } from '@/types/database'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -32,23 +33,33 @@ import {
 } from 'lucide-react'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { formatDistanceToNow } from 'date-fns'
-import { fr } from 'date-fns/locale'
+import { fr, enUS } from 'date-fns/locale'
 
 type CampaignWithAgent = Campaign & {
   relance_agent?: { id: string; name: string } | null
 }
 
-const statusLabels: Record<string, { label: string; variant: 'default' | 'secondary' | 'destructive' | 'outline' }> = {
-  draft: { label: 'Brouillon', variant: 'secondary' },
-  scheduled: { label: 'Programmée', variant: 'outline' },
-  running: { label: 'En cours', variant: 'default' },
-  paused: { label: 'En pause', variant: 'outline' },
-  completed: { label: 'Terminée', variant: 'secondary' },
-  cancelled: { label: 'Annulée', variant: 'destructive' },
+const statusVariants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+  draft: 'secondary',
+  scheduled: 'outline',
+  running: 'default',
+  paused: 'outline',
+  completed: 'secondary',
+  cancelled: 'destructive',
+}
+
+const statusKeys: Record<string, string> = {
+  draft: 'campaigns.draft',
+  scheduled: 'campaigns.scheduled',
+  running: 'campaigns.running',
+  paused: 'campaigns.paused',
+  completed: 'campaigns.completed',
+  cancelled: 'campaigns.cancelled',
 }
 
 export default function CampaignsPage() {
   const router = useRouter()
+  const { t, locale } = useTranslation()
   const [campaigns, setCampaigns] = useState<CampaignWithAgent[]>([])
   const [loading, setLoading] = useState(true)
   const [statusFilter, setStatusFilter] = useState<string>('all')
@@ -68,7 +79,7 @@ export default function CampaignsPage() {
         setCampaigns(json.data)
       }
     } catch {
-      toast.error('Erreur lors du chargement des campagnes')
+      toast.error(t('campaigns.load_error'))
     } finally {
       setLoading(false)
     }
@@ -91,15 +102,15 @@ export default function CampaignsPage() {
       const res = await fetch(`/api/campaigns/${campaignToDelete.id}`, { method: 'DELETE' })
       if (res.ok) {
         setCampaigns((prev) => prev.filter((c) => c.id !== campaignToDelete.id))
-        toast.success('Campagne supprimée')
+        toast.success(t('campaigns.campaign_deleted'))
         setDeleteDialogOpen(false)
         setCampaignToDelete(null)
       } else {
         const json = await res.json()
-        toast.error(json.error || 'Erreur lors de la suppression')
+        toast.error(json.error || t('campaigns.delete_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setDeleting(null)
     }
@@ -118,10 +129,10 @@ export default function CampaignsPage() {
         setCampaigns((prev) => prev.map((c) => c.id === campaignId ? { ...c, ...json.data } : c))
         toast.success(json.message)
       } else {
-        toast.error(json.error || 'Erreur lors de l\'action')
+        toast.error(json.error || t('campaigns.action_error'))
       }
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('common.network_error'))
     } finally {
       setActionLoading(null)
     }
@@ -139,29 +150,29 @@ export default function CampaignsPage() {
     <div className="p-4 sm:p-6">
       <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div data-tour="campaigns-header">
-          <h1 className="text-xl sm:text-2xl font-bold">Campagnes de relance</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">{t('campaigns.title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Relancez vos contacts inactifs avec des messages personnalisés.
+            {t('campaigns.description')}
           </p>
         </div>
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-full sm:w-[180px]">
-              <SelectValue placeholder="Filtrer par statut" />
+              <SelectValue placeholder={t('campaigns.filter_status')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Tous les statuts</SelectItem>
-              <SelectItem value="draft">Brouillons</SelectItem>
-              <SelectItem value="scheduled">Programmées</SelectItem>
-              <SelectItem value="running">En cours</SelectItem>
-              <SelectItem value="paused">En pause</SelectItem>
-              <SelectItem value="completed">Terminées</SelectItem>
-              <SelectItem value="cancelled">Annulées</SelectItem>
+              <SelectItem value="all">{t('campaigns.all_statuses')}</SelectItem>
+              <SelectItem value="draft">{t('campaigns.draft')}</SelectItem>
+              <SelectItem value="scheduled">{t('campaigns.scheduled')}</SelectItem>
+              <SelectItem value="running">{t('campaigns.running')}</SelectItem>
+              <SelectItem value="paused">{t('campaigns.paused')}</SelectItem>
+              <SelectItem value="completed">{t('campaigns.completed')}</SelectItem>
+              <SelectItem value="cancelled">{t('campaigns.cancelled')}</SelectItem>
             </SelectContent>
           </Select>
           <Button data-tour="new-campaign-btn" onClick={() => router.push('/campaigns/new')} className="w-full sm:w-auto">
             <Plus className="mr-2 h-4 w-4" />
-            Nouvelle campagne
+            {t('campaigns.new_campaign')}
           </Button>
         </div>
       </div>
@@ -170,20 +181,20 @@ export default function CampaignsPage() {
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Megaphone className="mb-4 h-12 w-12 text-muted-foreground" />
-            <h3 className="text-lg font-medium">Aucune campagne</h3>
+            <h3 className="text-lg font-medium">{t('campaigns.no_campaigns')}</h3>
             <p className="mt-1 text-sm text-muted-foreground text-center">
-              Créez votre première campagne pour relancer vos contacts inactifs.
+              {t('campaigns.no_campaigns_desc')}
             </p>
             <Button className="mt-4" onClick={() => router.push('/campaigns/new')}>
               <Plus className="mr-2 h-4 w-4" />
-              Créer une campagne
+              {t('campaigns.create_campaign')}
             </Button>
           </CardContent>
         </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {campaigns.map((campaign) => {
-            const status = statusLabels[campaign.status] || { label: campaign.status, variant: 'secondary' as const }
+            const status = { label: statusKeys[campaign.status] ? t(statusKeys[campaign.status]) : campaign.status, variant: statusVariants[campaign.status] || 'secondary' }
             const isLoading = actionLoading === campaign.id
             const canStart = campaign.status === 'draft' || campaign.status === 'scheduled'
             const canPause = campaign.status === 'running'
@@ -205,32 +216,32 @@ export default function CampaignsPage() {
                       <div className="space-y-1">
                         <Users className="mx-auto h-4 w-4 text-muted-foreground" />
                         <div className="text-lg font-semibold">{campaign.total_recipients}</div>
-                        <div className="text-[10px] text-muted-foreground">Cibles</div>
+                        <div className="text-[10px] text-muted-foreground">{t('campaigns.targets')}</div>
                       </div>
                       <div className="space-y-1">
                         <Send className="mx-auto h-4 w-4 text-blue-500" />
                         <div className="text-lg font-semibold">{campaign.sent_count}</div>
-                        <div className="text-[10px] text-muted-foreground">Envoyés</div>
+                        <div className="text-[10px] text-muted-foreground">{t('campaigns.sent')}</div>
                       </div>
                       <div className="space-y-1">
                         <CheckCircle className="mx-auto h-4 w-4 text-green-500" />
                         <div className="text-lg font-semibold">{campaign.delivered_count}</div>
-                        <div className="text-[10px] text-muted-foreground">Reçus</div>
+                        <div className="text-[10px] text-muted-foreground">{t('campaigns.delivered')}</div>
                       </div>
                       <div className="space-y-1">
                         <MessageSquare className="mx-auto h-4 w-4 text-purple-500" />
                         <div className="text-lg font-semibold">{campaign.replied_count}</div>
-                        <div className="text-[10px] text-muted-foreground">Réponses</div>
+                        <div className="text-[10px] text-muted-foreground">{t('campaigns.responses')}</div>
                       </div>
                     </div>
 
                     {/* Taux de réponse */}
                     {campaign.sent_count > 0 && (
                       <div className="text-xs text-muted-foreground text-center">
-                        Taux de réponse : {((campaign.replied_count / campaign.sent_count) * 100).toFixed(1)}%
+                        {t('campaigns.response_rate')} {((campaign.replied_count / campaign.sent_count) * 100).toFixed(1)}%
                         {campaign.failed_count > 0 && (
                           <span className="ml-2 text-destructive">
-                            ({campaign.failed_count} échecs)
+                            ({campaign.failed_count} {t('campaigns.failures')})
                           </span>
                         )}
                       </div>
@@ -239,11 +250,11 @@ export default function CampaignsPage() {
                     {/* Agent ou template */}
                     <div className="text-xs text-muted-foreground">
                       {campaign.relance_agent ? (
-                        <span>Agent : {campaign.relance_agent.name}</span>
+                        <span>{t('campaigns.agent_label')} {campaign.relance_agent.name}</span>
                       ) : campaign.message_template ? (
-                        <span className="line-clamp-2">Template : {campaign.message_template}</span>
+                        <span className="line-clamp-2">{t('campaigns.template_label')} {campaign.message_template}</span>
                       ) : (
-                        <span className="text-destructive">Pas de message configuré</span>
+                        <span className="text-destructive">{t('campaigns.no_message')}</span>
                       )}
                     </div>
 
@@ -252,13 +263,13 @@ export default function CampaignsPage() {
                       {campaign.scheduled_at && (
                         <span className="flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
-                          Programmée : {new Date(campaign.scheduled_at).toLocaleDateString('fr-FR')}
+                          {t('campaigns.scheduled_for')} {new Date(campaign.scheduled_at).toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US')}
                         </span>
                       )}
                       {campaign.started_at && (
                         <span className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
-                          Démarrée {formatDistanceToNow(new Date(campaign.started_at), { addSuffix: true, locale: fr })}
+                          {t('campaigns.started_at')} {formatDistanceToNow(new Date(campaign.started_at), { addSuffix: true, locale: locale === 'fr' ? fr : enUS })}
                         </span>
                       )}
                     </div>
@@ -271,7 +282,7 @@ export default function CampaignsPage() {
                         onClick={() => router.push(`/campaigns/${campaign.id}`)}
                       >
                         <Eye className="mr-1 h-3 w-3" />
-                        Détails
+                        {t('campaigns.details')}
                       </Button>
 
                       {canStart && (
@@ -286,7 +297,7 @@ export default function CampaignsPage() {
                           ) : (
                             <Play className="mr-1 h-3 w-3" />
                           )}
-                          Démarrer
+                          {t('campaigns.start')}
                         </Button>
                       )}
 
@@ -302,7 +313,7 @@ export default function CampaignsPage() {
                           ) : (
                             <Pause className="mr-1 h-3 w-3" />
                           )}
-                          Pause
+                          {t('campaigns.pause')}
                         </Button>
                       )}
 
@@ -318,7 +329,7 @@ export default function CampaignsPage() {
                           ) : (
                             <Play className="mr-1 h-3 w-3" />
                           )}
-                          Reprendre
+                          {t('campaigns.resume')}
                         </Button>
                       )}
 
@@ -335,7 +346,7 @@ export default function CampaignsPage() {
                           ) : (
                             <Trash2 className="mr-1 h-3 w-3" />
                           )}
-                          Supprimer
+                          {t('common.delete')}
                         </Button>
                       )}
 
@@ -352,7 +363,7 @@ export default function CampaignsPage() {
                           ) : (
                             <XCircle className="mr-1 h-3 w-3" />
                           )}
-                          Annuler
+                          {t('campaigns.cancel_action')}
                         </Button>
                       )}
                     </div>
@@ -372,8 +383,8 @@ export default function CampaignsPage() {
           if (!open) setCampaignToDelete(null)
         }}
         onConfirm={handleConfirmDelete}
-        title="Supprimer la campagne"
-        description={`Êtes-vous sûr de vouloir supprimer la campagne "${campaignToDelete?.name}" ? Cette action est irréversible.`}
+        title={t('campaigns.delete_title')}
+        description={t('campaigns.delete_desc', { name: campaignToDelete?.name || '' })}
         loading={deleting === campaignToDelete?.id}
       />
     </div>
