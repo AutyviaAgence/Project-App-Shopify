@@ -17,7 +17,6 @@ export function MessageBubbleContent({ msg, isOutbound }: { msg: ExtendedMessage
   const [showTranscription, setShowTranscription] = useState(false)
   const [transcribing, setTranscribing] = useState(false)
   const [lightboxOpen, setLightboxOpen] = useState(false)
-  const [videoError, setVideoError] = useState(false)
 
   const isMediaType = ['image', 'audio', 'video', 'document'].includes(msg.message_type)
   const hasStoredMedia = !!msg.media_url
@@ -137,25 +136,12 @@ export function MessageBubbleContent({ msg, isOutbound }: { msg: ExtendedMessage
             <div className="w-[240px] h-[160px] bg-muted/50 rounded-lg animate-pulse flex items-center justify-center">
               <Play className="h-6 w-6 text-muted-foreground/50" />
             </div>
-          ) : mediaUrl && !videoError ? (
-            <video
-              controls
-              className="max-w-[280px] rounded-lg"
-              preload="metadata"
-              onError={() => setVideoError(true)}
-            >
+          ) : mediaUrl ? (
+            <video controls className="max-w-[280px] rounded-lg" preload="metadata">
               <source src={mediaUrl} type={msg.media_mime_type || 'video/mp4'} />
             </video>
           ) : (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Play className="h-4 w-4" />
-              <span>{videoError ? 'Vidéo impossible à lire' : (msg.content || '[Vidéo]')}</span>
-              {videoError && mediaUrl && (
-                <a href={mediaUrl} target="_blank" rel="noopener noreferrer">
-                  <Download className="h-4 w-4 hover:text-foreground transition-colors" />
-                </a>
-              )}
-            </div>
+            <p className="whitespace-pre-wrap break-words text-sm">{msg.content}</p>
           )
         ) : (
           <p className="whitespace-pre-wrap break-words text-sm">{msg.content}</p>
@@ -201,8 +187,8 @@ export function MessageBubbleContent({ msg, isOutbound }: { msg: ExtendedMessage
         </div>
       )}
 
-      {/* Caption pour images/vidéos avec légende */}
-      {['image', 'video'].includes(msg.message_type) && msg.content && !msg.content.startsWith('[') && (
+      {/* Caption pour images avec légende */}
+      {msg.message_type === 'image' && msg.content && !msg.content.startsWith('[') && (
         <p className="whitespace-pre-wrap break-words text-sm">{msg.content}</p>
       )}
 
