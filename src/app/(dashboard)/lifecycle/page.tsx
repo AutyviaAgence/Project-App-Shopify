@@ -352,7 +352,7 @@ export default function LifecyclePage() {
 
   return (
     <div className="p-4 sm:p-6">
-      <div className="mb-6 flex items-start justify-between">
+      <div data-tour="lifecycle-header" className="mb-6 flex items-start justify-between">
         <div>
           <h1 className="text-xl sm:text-2xl font-bold">{t('lifecycle.title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">

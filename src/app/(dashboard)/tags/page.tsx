@@ -184,7 +184,7 @@ export default function TagsPage() {
 
   return (
     <div className="p-4 sm:p-6">
-      <div className="mb-6">
+      <div data-tour="tags-header" className="mb-6">
         <h1 className="text-xl sm:text-2xl font-bold">{t('tags.title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {t('tags.description')}

@@ -415,7 +415,7 @@ export default function SettingsPage() {
 
   return (
     <div className="p-4 sm:p-6">
-      <div className="mb-6">
+      <div data-tour="settings-header" className="mb-6">
         <h1 className="text-xl sm:text-2xl font-bold">{t('settings.title')}</h1>
         <p className="mt-1 text-sm text-muted-foreground">
           {t('settings.description')}

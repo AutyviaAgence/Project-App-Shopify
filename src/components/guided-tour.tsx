@@ -29,7 +29,7 @@ interface TourContextType {
   goToStep: (index: number) => void
 }
 
-// Tour steps configuration (12 steps) - title/description hold i18n keys
+// Tour steps configuration - title/description hold i18n keys
 const TOUR_STEPS: TourStep[] = [
   // Dashboard - Welcome
   {
@@ -124,6 +124,51 @@ const TOUR_STEPS: TourStep[] = [
     target: '[data-tour="campaigns-header"]',
     title: 'tour.campaigns_title',
     description: 'tour.campaigns_desc',
+    position: 'bottom'
+  },
+  // Tags
+  {
+    id: 'tags-page',
+    page: '/tags',
+    target: '[data-tour="tags-header"]',
+    title: 'tour.tags_title',
+    description: 'tour.tags_desc',
+    position: 'bottom'
+  },
+  // Lifecycle
+  {
+    id: 'lifecycle-page',
+    page: '/lifecycle',
+    target: '[data-tour="lifecycle-header"]',
+    title: 'tour.lifecycle_title',
+    description: 'tour.lifecycle_desc',
+    position: 'bottom'
+  },
+  // Teams
+  {
+    id: 'teams-page',
+    page: '/teams',
+    target: '[data-tour="teams-header"]',
+    title: 'tour.teams_title',
+    description: 'tour.teams_desc',
+    position: 'bottom'
+  },
+  // Stats
+  {
+    id: 'stats-page',
+    page: '/stats',
+    target: '[data-tour="stats-header"]',
+    title: 'tour.stats_title',
+    description: 'tour.stats_desc',
+    position: 'bottom'
+  },
+  // Settings
+  {
+    id: 'settings-page',
+    page: '/settings',
+    target: '[data-tour="settings-header"]',
+    title: 'tour.settings_title',
+    description: 'tour.settings_desc',
     position: 'bottom'
   },
   // End
