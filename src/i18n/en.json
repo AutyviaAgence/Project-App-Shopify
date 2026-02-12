@@ -1003,7 +1003,14 @@
     "tokens_added": "Tokens added successfully!",
     "already_synced": "Your subscription is already active! Profile re-synced.",
     "payment_error": "Error redirecting to payment",
-    "buy_tokens_error": "Error creating payment"
+    "buy_tokens_error": "Error creating payment",
+    "cancel_subscription": "Cancel subscription",
+    "cancel_confirm_title": "Cancel your subscription?",
+    "cancel_confirm_desc": "Your subscription will remain active until the end of the current billing period, then it will not be renewed. You can resubscribe at any time.",
+    "cancel_keep": "Keep my subscription",
+    "cancel_confirm": "Confirm cancellation",
+    "cancel_success": "Your subscription will be cancelled at the end of the current period.",
+    "cancel_error": "Error cancelling subscription"
   },
   "auth": {
     "login": "Login",

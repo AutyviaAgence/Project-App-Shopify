@@ -1003,7 +1003,14 @@
     "tokens_added": "Tokens ajoutés avec succès !",
     "already_synced": "Votre abonnement est déjà actif ! Profil resynchronisé.",
     "payment_error": "Erreur lors de la redirection vers le paiement",
-    "buy_tokens_error": "Erreur lors de la création du paiement"
+    "buy_tokens_error": "Erreur lors de la création du paiement",
+    "cancel_subscription": "Annuler l'abonnement",
+    "cancel_confirm_title": "Annuler votre abonnement ?",
+    "cancel_confirm_desc": "Votre abonnement restera actif jusqu'à la fin de la période en cours, puis ne sera pas renouvelé. Vous pourrez vous réabonner à tout moment.",
+    "cancel_keep": "Garder mon abonnement",
+    "cancel_confirm": "Confirmer l'annulation",
+    "cancel_success": "Votre abonnement sera annulé à la fin de la période en cours.",
+    "cancel_error": "Erreur lors de l'annulation de l'abonnement"
   },
   "auth": {
     "login": "Connexion",

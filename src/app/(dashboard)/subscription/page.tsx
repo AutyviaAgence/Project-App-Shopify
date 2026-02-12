@@ -9,6 +9,17 @@ import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { Progress } from '@/components/ui/progress'
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
+import {
   Check,
   CreditCard,
   Loader2,
@@ -23,6 +34,7 @@ import {
   CheckCircle,
   XCircle,
   Cpu,
+  Ban,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/i18n/context'
@@ -42,6 +54,7 @@ function SubscriptionContent() {
   const searchParams = useSearchParams()
   const { subscription, loading, refetch } = useSubscription()
   const [isProcessing, setIsProcessing] = useState(false)
+  const [isCancelling, setIsCancelling] = useState(false)
 
   const dateLocale = locale === 'fr' ? 'fr-FR' : 'en-US'
 
@@ -86,6 +99,21 @@ function SubscriptionContent() {
       console.error('[Subscription] Error:', error)
       toast.error(t('subscription.payment_error'))
       setIsProcessing(false)
+    }
+  }
+
+  const handleCancel = async () => {
+    setIsCancelling(true)
+    try {
+      const res = await fetch('/api/stripe/cancel-subscription', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast.success(t('subscription.cancel_success'))
+      await refetch()
+    } catch {
+      toast.error(t('subscription.cancel_error'))
+    } finally {
+      setIsCancelling(false)
     }
   }
 
@@ -275,12 +303,45 @@ function SubscriptionContent() {
             ))}
           </div>
         </CardContent>
-        <CardFooter>
+        <CardFooter className="flex-col gap-3">
           {subscription?.status === 'active' ? (
-            <Button className="w-full" size="lg" disabled>
-              <Check className="mr-2 h-5 w-5" />
-              {t('subscription.already_active')}
-            </Button>
+            <>
+              <Button className="w-full" size="lg" disabled>
+                <Check className="mr-2 h-5 w-5" />
+                {t('subscription.already_active')}
+              </Button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
+                    <Ban className="mr-2 h-4 w-4" />
+                    {t('subscription.cancel_subscription')}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>{t('subscription.cancel_confirm_title')}</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {t('subscription.cancel_confirm_desc')}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>{t('subscription.cancel_keep')}</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleCancel}
+                      disabled={isCancelling}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      {isCancelling ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <Ban className="mr-2 h-4 w-4" />
+                      )}
+                      {t('subscription.cancel_confirm')}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </>
           ) : (
             <Button
               className="w-full"
