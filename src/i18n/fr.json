@@ -935,7 +935,20 @@
     "recipients": "Destinataires",
     "failures": "{count} échec(s)",
     "contact": "Contact",
-    "messages": "Messages"
+    "messages": "Messages",
+    "lifecycle_tab": "Lifecycle",
+    "no_lifecycle": "Aucun stade lifecycle configuré.",
+    "all_stages": "Tous les stades",
+    "lc_total_conversations": "Conversations totales",
+    "lc_classified": "Classifiées",
+    "lc_ai_analyses": "Analyses IA",
+    "lc_tokens_used": "Tokens utilisés",
+    "lc_distribution": "Distribution par stade",
+    "lc_response_rate": "Taux de réponse par stade",
+    "lc_transitions": "Transitions dans le temps",
+    "lc_details": "Détails par stade",
+    "lc_stage": "Stade",
+    "lc_inbound": "Messages reçus"
   },
   "logs": {
     "title": "Logs Webhook",

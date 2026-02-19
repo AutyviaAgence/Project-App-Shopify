@@ -11,8 +11,9 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  Cell,
 } from 'recharts'
-import type { StatsMessagePoint, StatsTimePoint } from '@/types/stats'
+import type { StatsMessagePoint, StatsTimePoint, StatsLifecycleStage } from '@/types/stats'
 
 // Autyvia brand colors
 const COLORS = {
@@ -262,6 +263,151 @@ export function ContactsOverTimeChart({ data }: { data: StatsTimePoint[] }) {
           fill="url(#gradient-contacts)"
           strokeWidth={2}
         />
+      </AreaChart>
+    </ResponsiveContainer>
+  )
+}
+
+// --- Stage Distribution Horizontal Bar Chart ---
+
+type StageDistributionChartProps = {
+  data: { name: string; count: number; color: string }[]
+}
+
+export function StageDistributionChart({ data }: StageDistributionChartProps) {
+  if (data.length === 0) return null
+
+  return (
+    <ResponsiveContainer width="100%" height={Math.max(200, data.length * 50)}>
+      <BarChart data={data} layout="vertical" margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke={COLORS.gridLine} opacity={0.3} />
+        <XAxis
+          type="number"
+          tick={{ fill: COLORS.grayMuted, fontSize: 12 }}
+          axisLine={{ stroke: COLORS.gridLine }}
+          tickLine={{ stroke: COLORS.gridLine }}
+          allowDecimals={false}
+        />
+        <YAxis
+          type="category"
+          dataKey="name"
+          width={120}
+          tick={{ fill: COLORS.grayMuted, fontSize: 12 }}
+          axisLine={{ stroke: COLORS.gridLine }}
+          tickLine={{ stroke: COLORS.gridLine }}
+        />
+        <Tooltip
+          content={<CustomTooltip />}
+          cursor={{ fill: 'rgba(125, 194, 165, 0.1)' }}
+        />
+        <Bar dataKey="count" name="Conversations" radius={[0, 4, 4, 0]}>
+          {data.map((entry, index) => (
+            <Cell key={index} fill={entry.color} />
+          ))}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  )
+}
+
+// --- Response Rate by Stage Bar Chart ---
+
+type ResponseRateByStageChartProps = {
+  data: { name: string; responseRate: number; color: string }[]
+}
+
+export function ResponseRateByStageChart({ data }: ResponseRateByStageChartProps) {
+  if (data.length === 0) return null
+
+  return (
+    <ResponsiveContainer width="100%" height={Math.max(200, data.length * 50)}>
+      <BarChart data={data} layout="vertical" margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke={COLORS.gridLine} opacity={0.3} />
+        <XAxis
+          type="number"
+          domain={[0, 100]}
+          tick={{ fill: COLORS.grayMuted, fontSize: 12 }}
+          axisLine={{ stroke: COLORS.gridLine }}
+          tickLine={{ stroke: COLORS.gridLine }}
+          tickFormatter={(v) => `${v}%`}
+        />
+        <YAxis
+          type="category"
+          dataKey="name"
+          width={120}
+          tick={{ fill: COLORS.grayMuted, fontSize: 12 }}
+          axisLine={{ stroke: COLORS.gridLine }}
+          tickLine={{ stroke: COLORS.gridLine }}
+        />
+        <Tooltip
+          content={<CustomTooltip />}
+          cursor={{ fill: 'rgba(125, 194, 165, 0.1)' }}
+        />
+        <Bar dataKey="responseRate" name="Taux de réponse" radius={[0, 4, 4, 0]}>
+          {data.map((entry, index) => (
+            <Cell key={index} fill={entry.color} />
+          ))}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  )
+}
+
+// --- Transitions Over Time Stacked Area Chart ---
+
+type TransitionsOverTimeChartProps = {
+  data: Record<string, number | string>[]
+  stages: { id: string; name: string; color: string }[]
+}
+
+export function TransitionsOverTimeChart({ data, stages }: TransitionsOverTimeChartProps) {
+  if (data.length === 0 || stages.length === 0) return null
+
+  return (
+    <ResponsiveContainer width="100%" height={280}>
+      <AreaChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke={COLORS.gridLine} opacity={0.3} />
+        <XAxis
+          dataKey="date"
+          tickFormatter={formatDate}
+          tick={{ fill: COLORS.grayMuted, fontSize: 12 }}
+          axisLine={{ stroke: COLORS.gridLine }}
+          tickLine={{ stroke: COLORS.gridLine }}
+        />
+        <YAxis
+          tick={{ fill: COLORS.grayMuted, fontSize: 12 }}
+          axisLine={{ stroke: COLORS.gridLine }}
+          tickLine={{ stroke: COLORS.gridLine }}
+          allowDecimals={false}
+        />
+        <Tooltip
+          content={<CustomTooltip labelFormatter={formatDate} />}
+          cursor={{ stroke: COLORS.grayMuted, strokeWidth: 1, strokeDasharray: '3 3' }}
+        />
+        <Legend
+          wrapperStyle={{ paddingTop: 16 }}
+          formatter={(value) => <span className="text-sm text-muted-foreground">{value}</span>}
+        />
+        <defs>
+          {stages.map((stage) => (
+            <linearGradient key={stage.id} id={`gradient-lc-${stage.id}`} x1="0" y1="0" x2="0" y2="1">
+              <stop offset="5%" stopColor={stage.color} stopOpacity={0.4} />
+              <stop offset="95%" stopColor={stage.color} stopOpacity={0.05} />
+            </linearGradient>
+          ))}
+        </defs>
+        {stages.map((stage) => (
+          <Area
+            key={stage.id}
+            type="monotone"
+            dataKey={stage.id}
+            name={stage.name}
+            stackId="lifecycle"
+            stroke={stage.color}
+            fill={`url(#gradient-lc-${stage.id})`}
+            strokeWidth={2}
+          />
+        ))}
       </AreaChart>
     </ResponsiveContainer>
   )

@@ -935,7 +935,20 @@
     "recipients": "Recipients",
     "failures": "{count} failure(s)",
     "contact": "Contact",
-    "messages": "Messages"
+    "messages": "Messages",
+    "lifecycle_tab": "Lifecycle",
+    "no_lifecycle": "No lifecycle stages configured.",
+    "all_stages": "All stages",
+    "lc_total_conversations": "Total conversations",
+    "lc_classified": "Classified",
+    "lc_ai_analyses": "AI analyses",
+    "lc_tokens_used": "Tokens used",
+    "lc_distribution": "Distribution by stage",
+    "lc_response_rate": "Response rate by stage",
+    "lc_transitions": "Transitions over time",
+    "lc_details": "Details by stage",
+    "lc_stage": "Stage",
+    "lc_inbound": "Messages received"
   },
   "logs": {
     "title": "Webhook Logs",

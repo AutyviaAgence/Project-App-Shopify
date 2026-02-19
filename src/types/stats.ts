@@ -107,6 +107,35 @@ export type StatsRelanceAgent = {
   responseRate: number
 }
 
+export type StatsLifecycleStage = {
+  id: string
+  name: string
+  color: string
+  icon: string | null
+  conversationCount: number
+  percentage: number
+  inboundMessages: number
+  aiProcessedMessages: number
+  responseRate: number | null
+  avgResponseTime: number | null
+}
+
+export type StatsLifecycleTransitionPoint = {
+  date: string
+  [stageId: string]: number | string
+}
+
+export type StatsLifecycle = {
+  totalConversations: number
+  classifiedCount: number
+  classifiedPercent: number
+  aiAnalysesCount: number
+  manualChangesCount: number
+  tokensUsed: number
+  stages: StatsLifecycleStage[]
+  transitionsOverTime: StatsLifecycleTransitionPoint[]
+}
+
 export type StatsResponse = {
   overview: StatsOverview
   agents: StatsAgent[]
@@ -114,4 +143,5 @@ export type StatsResponse = {
   contacts: StatsContacts
   charts: StatsCharts
   campaigns?: StatsCampaigns
+  lifecycle?: StatsLifecycle
 }

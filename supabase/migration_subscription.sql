@@ -27,7 +27,11 @@ WHERE trial_ends_at IS NULL;
 
 -- 3. Mettre à jour le trigger pour initialiser la période d'essai lors de l'inscription
 CREATE OR REPLACE FUNCTION handle_new_user()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
   INSERT INTO profiles (id, email, full_name, avatar_url, subscription_status, trial_ends_at)
   VALUES (
@@ -47,7 +51,7 @@ BEGIN
     updated_at = NOW();
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$;
 
 -- 3. Créer une table pour l'historique des paiements
 CREATE TABLE IF NOT EXISTS payment_history (

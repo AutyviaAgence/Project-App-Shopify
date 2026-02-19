@@ -13,7 +13,14 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { KPICard } from '@/components/stats/kpi-card'
-import { MessagesChart, TimeSeriesChart, AgentsComparisonChart } from '@/components/stats/charts'
+import {
+  MessagesChart,
+  TimeSeriesChart,
+  AgentsComparisonChart,
+  StageDistributionChart,
+  ResponseRateByStageChart,
+  TransitionsOverTimeChart,
+} from '@/components/stats/charts'
 import { toast } from 'sonner'
 import {
   MessageSquare,
@@ -33,6 +40,10 @@ import {
   CheckCircle,
   XCircle,
   TrendingUp,
+  Activity,
+  Filter,
+  Sparkles,
+  Coins,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { fr, enUS } from 'date-fns/locale'
@@ -55,6 +66,7 @@ export default function StatsPage() {
   const [sessions, setSessions] = useState<SessionOption[]>([])
   const [stats, setStats] = useState<StatsResponse | null>(null)
   const [loading, setLoading] = useState(true)
+  const [lifecycleFilter, setLifecycleFilter] = useState<string[]>([])
 
   const dateFnsLocale = locale === 'fr' ? fr : enUS
   const numberLocale = locale === 'fr' ? 'fr-FR' : 'en-US'
@@ -155,6 +167,7 @@ export default function StatsPage() {
             <TabsTrigger value="agents">{t('stats.agents_tab')}</TabsTrigger>
             <TabsTrigger value="links">{t('stats.links_tab')}</TabsTrigger>
             <TabsTrigger value="contacts">{t('stats.contacts_tab')}</TabsTrigger>
+            <TabsTrigger value="lifecycle">{t('stats.lifecycle_tab')}</TabsTrigger>
           </TabsList>
 
           {/* === Vue globale === */}
@@ -675,6 +688,201 @@ export default function StatsPage() {
                   </div>
                 </CardContent>
               </Card>
+            )}
+          </TabsContent>
+
+          {/* === Lifecycle === */}
+          <TabsContent value="lifecycle" className="space-y-6">
+            {!stats.lifecycle || stats.lifecycle.stages.length === 0 ? (
+              <Card>
+                <CardContent className="flex h-40 items-center justify-center">
+                  <p className="text-muted-foreground">{t('stats.no_lifecycle')}</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                {/* Filtre par stade */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <Filter className="h-4 w-4 text-muted-foreground" />
+                  <button
+                    onClick={() => setLifecycleFilter([])}
+                    className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                      lifecycleFilter.length === 0
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                    }`}
+                  >
+                    {t('stats.all_stages')}
+                  </button>
+                  {stats.lifecycle.stages.map((stage) => {
+                    const isSelected = lifecycleFilter.includes(stage.id)
+                    return (
+                      <button
+                        key={stage.id}
+                        onClick={() => {
+                          setLifecycleFilter((prev) =>
+                            isSelected
+                              ? prev.filter((id) => id !== stage.id)
+                              : [...prev, stage.id]
+                          )
+                        }}
+                        className="rounded-full px-3 py-1 text-xs font-medium transition-colors"
+                        style={{
+                          backgroundColor: isSelected ? stage.color : undefined,
+                          color: isSelected ? '#fff' : stage.color,
+                          border: `1.5px solid ${stage.color}`,
+                        }}
+                      >
+                        {stage.name}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* KPI Cards */}
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <KPICard
+                    title={t('stats.lc_total_conversations')}
+                    value={stats.lifecycle.totalConversations}
+                    trend={null}
+                    icon={Users}
+                  />
+                  <KPICard
+                    title={t('stats.lc_classified')}
+                    value={stats.lifecycle.classifiedPercent}
+                    trend={null}
+                    icon={Activity}
+                    formatValue={(v) => `${v}%`}
+                  />
+                  <KPICard
+                    title={t('stats.lc_ai_analyses')}
+                    value={stats.lifecycle.aiAnalysesCount}
+                    trend={null}
+                    icon={Sparkles}
+                  />
+                  <KPICard
+                    title={t('stats.lc_tokens_used')}
+                    value={stats.lifecycle.tokensUsed}
+                    trend={null}
+                    icon={Coins}
+                    formatValue={(v) => v.toLocaleString(numberLocale)}
+                  />
+                </div>
+
+                {/* Charts côte à côte */}
+                {(() => {
+                  const filteredStages = lifecycleFilter.length > 0
+                    ? stats.lifecycle!.stages.filter((s) => lifecycleFilter.includes(s.id))
+                    : stats.lifecycle!.stages
+
+                  const distributionData = filteredStages.map((s) => ({
+                    name: s.name,
+                    count: s.conversationCount,
+                    color: s.color,
+                  }))
+
+                  const responseRateData = filteredStages
+                    .filter((s) => s.responseRate != null)
+                    .map((s) => ({
+                      name: s.name,
+                      responseRate: s.responseRate!,
+                      color: s.color,
+                    }))
+
+                  const transitionStages = filteredStages.map((s) => ({
+                    id: s.id,
+                    name: s.name,
+                    color: s.color,
+                  }))
+
+                  return (
+                    <>
+                      <div className="grid gap-6 lg:grid-cols-2">
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-base">{t('stats.lc_distribution')}</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <StageDistributionChart data={distributionData} />
+                          </CardContent>
+                        </Card>
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-base">{t('stats.lc_response_rate')}</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <ResponseRateByStageChart data={responseRateData} />
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-base">{t('stats.lc_transitions')}</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <TransitionsOverTimeChart
+                            data={stats.lifecycle!.transitionsOverTime}
+                            stages={transitionStages}
+                          />
+                        </CardContent>
+                      </Card>
+                    </>
+                  )
+                })()}
+
+                {/* Table détaillée */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">{t('stats.lc_details')}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b text-left text-muted-foreground">
+                            <th className="pb-2 pr-4">{t('stats.lc_stage')}</th>
+                            <th className="pb-2 pr-4 text-right">{t('stats.conversations')}</th>
+                            <th className="pb-2 pr-4 text-right">{t('stats.lc_inbound')}</th>
+                            <th className="pb-2 pr-4 text-right">{t('stats.response_rate')}</th>
+                            <th className="pb-2 text-right">{t('stats.avg_time')}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(lifecycleFilter.length > 0
+                            ? stats.lifecycle.stages.filter((s) => lifecycleFilter.includes(s.id))
+                            : stats.lifecycle.stages
+                          ).map((stage) => (
+                            <tr key={stage.id} className="border-b last:border-0">
+                              <td className="py-2 pr-4 font-medium">
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className="w-3 h-3 rounded-sm"
+                                    style={{ backgroundColor: stage.color }}
+                                  />
+                                  {stage.name}
+                                </div>
+                              </td>
+                              <td className="py-2 pr-4 text-right">
+                                {stage.conversationCount.toLocaleString(numberLocale)}
+                              </td>
+                              <td className="py-2 pr-4 text-right">
+                                {stage.inboundMessages.toLocaleString(numberLocale)}
+                              </td>
+                              <td className="py-2 pr-4 text-right font-medium text-primary">
+                                {stage.responseRate != null ? `${stage.responseRate}%` : '—'}
+                              </td>
+                              <td className="py-2 text-right text-muted-foreground">
+                                {stage.avgResponseTime != null ? formatSeconds(stage.avgResponseTime) : '—'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
             )}
           </TabsContent>
         </Tabs>

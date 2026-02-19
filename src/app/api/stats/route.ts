@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getDateRange, computeTrend, groupByDate, groupMessagesByDate } from '@/lib/stats/helpers'
+import { getDateRange, computeTrend, groupByDate, groupMessagesByDate, groupTransitionsByDate } from '@/lib/stats/helpers'
 import { getUserTeamPermissions } from '@/lib/teams/access'
-import type { StatsResponse, StatsAgent, StatsLink, StatsTopContact, StatsContactsBySession, StatsCampaign, StatsCampaigns, StatsRelanceAgent } from '@/types/stats'
+import type { StatsResponse, StatsAgent, StatsLink, StatsTopContact, StatsContactsBySession, StatsCampaign, StatsCampaigns, StatsRelanceAgent, StatsLifecycle, StatsLifecycleStage, StatsLifecycleTransitionPoint } from '@/types/stats'
 
 /** GET /api/stats?period=30&session_id=all */
 export async function GET(req: NextRequest) {
@@ -63,6 +63,7 @@ export async function GET(req: NextRequest) {
     agentsRes,
     linksRes,
     campaignsRes,
+    lifecycleStagesRes,
   ] = await Promise.all([
     // Messages période courante
     supabase
@@ -81,7 +82,7 @@ export async function GET(req: NextRequest) {
     // Conversations
     supabase
       .from('conversations')
-      .select('id, contact_id, ai_agent_id, wa_link_id, last_message_at, created_at')
+      .select('id, contact_id, ai_agent_id, wa_link_id, last_message_at, created_at, lifecycle_stage_id')
       .in('session_id', sessionIds),
     // Conversations période précédente (count)
     supabase
@@ -117,6 +118,12 @@ export async function GET(req: NextRequest) {
       .from('campaigns')
       .select('id, name, status, total_recipients, sent_count, delivered_count, replied_count, failed_count, relance_agent_id, started_at, completed_at')
       .or(accessFilter),
+    // Lifecycle stages
+    supabase
+      .from('lifecycle_stages')
+      .select('id, name, color, icon, position')
+      .eq('user_id', user.id)
+      .order('position'),
   ])
 
   const messages = messagesRes.data || []
@@ -125,6 +132,22 @@ export async function GET(req: NextRequest) {
   const agents = agentsRes.data || []
   const links = linksRes.data || []
   const campaigns = campaignsRes.data || []
+  const lifecycleStages = lifecycleStagesRes.data || []
+
+  // Lifecycle history (batch 2 - dépend des convIds)
+  let lifecycleHistory: { id: string; conversation_id: string; from_stage_id: string | null; to_stage_id: string | null; changed_by: string; tokens_used: number; created_at: string }[] = []
+  if (lifecycleStages.length > 0) {
+    const convIds = conversations.map((c) => c.id)
+    if (convIds.length > 0) {
+      const { data: historyData } = await supabase
+        .from('lifecycle_history')
+        .select('id, conversation_id, from_stage_id, to_stage_id, changed_by, tokens_used, created_at')
+        .in('conversation_id', convIds)
+        .gte('created_at', from)
+        .lte('created_at', to)
+      lifecycleHistory = historyData || []
+    }
+  }
 
   // Récupérer les clics de booking par agent (pour la période)
   const agentIds = agents.map((a) => a.id)
@@ -407,6 +430,74 @@ export async function GET(req: NextRequest) {
     relanceAgentStats,
   }
 
+  // --- Lifecycle ---
+  let lifecycleData: StatsLifecycle | undefined
+  if (lifecycleStages.length > 0) {
+    const totalConvs = conversations.length
+    const classifiedConvs = conversations.filter((c) => c.lifecycle_stage_id).length
+
+    const stageStats: StatsLifecycleStage[] = lifecycleStages.map((stage) => {
+      const stageConvIds = new Set(
+        conversations.filter((c) => c.lifecycle_stage_id === stage.id).map((c) => c.id)
+      )
+      const stageInbound = inboundMessages.filter((m) => stageConvIds.has(m.conversation_id))
+      const stageProcessed = stageInbound.filter((m) => m.ai_processed)
+      const stageResponseRate = stageInbound.length > 0
+        ? Math.round((stageProcessed.length / stageInbound.length) * 100)
+        : null
+
+      // Temps de réponse par stade
+      const stageResponseTimes: number[] = []
+      for (const convoId of stageConvIds) {
+        const convoMsgs = msgsByConvoForTime.get(convoId) || []
+        for (let i = 0; i < convoMsgs.length; i++) {
+          const msg = convoMsgs[i]
+          if (msg.direction !== 'inbound' || !msg.ai_processed) continue
+          for (let j = i + 1; j < convoMsgs.length; j++) {
+            const next = convoMsgs[j]
+            if (next.direction === 'outbound' && next.sent_by === 'ai_agent') {
+              const delta = (new Date(next.created_at).getTime() - new Date(msg.created_at).getTime()) / 1000
+              if (delta > 0 && delta < 86400) stageResponseTimes.push(delta)
+              break
+            }
+            if (next.direction === 'inbound') break
+          }
+        }
+      }
+
+      return {
+        id: stage.id,
+        name: stage.name,
+        color: stage.color,
+        icon: stage.icon,
+        conversationCount: stageConvIds.size,
+        percentage: totalConvs > 0 ? Math.round((stageConvIds.size / totalConvs) * 100) : 0,
+        inboundMessages: stageInbound.length,
+        aiProcessedMessages: stageProcessed.length,
+        responseRate: stageResponseRate,
+        avgResponseTime: stageResponseTimes.length > 0
+          ? Math.round(stageResponseTimes.reduce((s, v) => s + v, 0) / stageResponseTimes.length)
+          : null,
+      }
+    })
+
+    const transitionsOverTime = groupTransitionsByDate(lifecycleHistory, lifecycleStages, from, to) as StatsLifecycleTransitionPoint[]
+    const aiAnalyses = lifecycleHistory.filter((h) => h.changed_by === 'ai').length
+    const manualChanges = lifecycleHistory.filter((h) => h.changed_by === 'user').length
+    const tokensUsed = lifecycleHistory.reduce((sum, h) => sum + (h.tokens_used || 0), 0)
+
+    lifecycleData = {
+      totalConversations: totalConvs,
+      classifiedCount: classifiedConvs,
+      classifiedPercent: totalConvs > 0 ? Math.round((classifiedConvs / totalConvs) * 100) : 0,
+      aiAnalysesCount: aiAnalyses,
+      manualChangesCount: manualChanges,
+      tokensUsed,
+      stages: stageStats,
+      transitionsOverTime,
+    }
+  }
+
   // --- Charts ---
   const messagesOverTime = groupMessagesByDate(messages, from, to)
   const conversationsOverTime = groupByDate(
@@ -448,6 +539,7 @@ export async function GET(req: NextRequest) {
       newContactsOverTime,
     },
     campaigns: campaignsData,
+    lifecycle: lifecycleData,
   }
 
   return NextResponse.json({ data: response })

@@ -104,3 +104,41 @@ export function groupMessagesByDate(
     outbound: outMap.get(date) || 0,
   }))
 }
+
+/**
+ * Agrège les transitions lifecycle par date avec un compteur par stade.
+ */
+export function groupTransitionsByDate(
+  history: { to_stage_id: string | null; created_at: string }[],
+  stages: { id: string }[],
+  from: string,
+  to: string
+): Record<string, number | string>[] {
+  const dateSeries = generateDateSeries(from, to)
+  const stageIds = stages.map((s) => s.id)
+
+  const dateCounts = new Map<string, Map<string, number>>()
+  for (const d of dateSeries) {
+    const stageMap = new Map<string, number>()
+    for (const sid of stageIds) stageMap.set(sid, 0)
+    dateCounts.set(d, stageMap)
+  }
+
+  for (const h of history) {
+    if (!h.to_stage_id) continue
+    const day = h.created_at.slice(0, 10)
+    const dayMap = dateCounts.get(day)
+    if (dayMap) {
+      dayMap.set(h.to_stage_id, (dayMap.get(h.to_stage_id) || 0) + 1)
+    }
+  }
+
+  return dateSeries.map((date) => {
+    const dayMap = dateCounts.get(date)!
+    const point: Record<string, number | string> = { date }
+    for (const sid of stageIds) {
+      point[sid] = dayMap.get(sid) || 0
+    }
+    return point
+  })
+}
