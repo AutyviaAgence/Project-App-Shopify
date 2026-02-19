@@ -890,6 +890,8 @@
     "agents_tab": "Agents IA",
     "links_tab": "Liens WA",
     "contacts_tab": "Contacts",
+    "section_activity": "Activité",
+    "section_performance": "Performance",
     "total_messages": "Messages total",
     "active_conversations": "Conversations actives",
     "new_contacts": "Nouveaux contacts",

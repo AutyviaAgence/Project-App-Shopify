@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { KPICard } from '@/components/stats/kpi-card'
 import {
@@ -37,7 +38,6 @@ import {
   Clock,
   Megaphone,
   Send,
-  CheckCircle,
   XCircle,
   TrendingUp,
   Activity,
@@ -122,14 +122,14 @@ export default function StatsPage() {
       {/* Header */}
       <div data-tour="stats-header" className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl sm:text-2xl font-bold">{t('stats.title')}</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="text-2xl font-bold tracking-tight">{t('stats.title')}</h1>
+          <p className="text-sm text-muted-foreground mt-1">
             {t('stats.description')}
           </p>
         </div>
-        <div className="flex flex-wrap gap-3">
+        <div className="flex items-center gap-3">
           <Select value={period} onValueChange={setPeriod}>
-            <SelectTrigger className="w-full sm:w-[120px]">
+            <SelectTrigger className="w-[130px] h-9">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -140,7 +140,7 @@ export default function StatsPage() {
           </Select>
 
           <Select value={sessionFilter} onValueChange={setSessionFilter}>
-            <SelectTrigger className="w-full sm:w-[180px]">
+            <SelectTrigger className="w-[200px] h-9">
               <SelectValue placeholder={t('stats.all_sessions')} />
             </SelectTrigger>
             <SelectContent>
@@ -171,55 +171,76 @@ export default function StatsPage() {
           </TabsList>
 
           {/* === Vue globale === */}
-          <TabsContent value="overview" className="space-y-6">
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              <KPICard
-                title={t('stats.total_messages')}
-                value={stats.overview.totalMessages}
-                trend={stats.overview.messagesTrend}
-                icon={MessageSquare}
-              />
-              <KPICard
-                title={t('stats.active_conversations')}
-                value={stats.overview.activeConversations}
-                trend={stats.overview.conversationsTrend}
-                icon={Users}
-              />
-              <KPICard
-                title={t('stats.new_contacts')}
-                value={stats.overview.newContacts}
-                trend={stats.overview.contactsTrend}
-                icon={UserPlus}
-              />
-              <KPICard
-                title={t('stats.messages_received')}
-                value={stats.overview.messagesIn}
-                trend={null}
-                icon={ArrowDownLeft}
-              />
-              <KPICard
-                title={t('stats.contact_response_rate')}
-                value={stats.overview.contactResponseRate ?? 0}
-                trend={null}
-                icon={TrendingUp}
-                formatValue={(v) => `${v}%`}
-              />
-              <KPICard
-                title={t('stats.ai_response_rate')}
-                value={stats.overview.responseRate ?? 0}
-                trend={null}
-                icon={Zap}
-                formatValue={(v) => `${v}%`}
-              />
-              <KPICard
-                title={t('stats.avg_response_time')}
-                value={stats.overview.avgResponseTime ?? 0}
-                trend={null}
-                icon={Clock}
-                formatValue={(v) => v > 0 ? formatSeconds(v) : '—'}
-              />
+          <TabsContent value="overview" className="space-y-8">
+            {/* Section 1: Activité */}
+            <div>
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                {t('stats.section_activity')}
+              </h3>
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                <KPICard
+                  title={t('stats.total_messages')}
+                  value={stats.overview.totalMessages}
+                  trend={stats.overview.messagesTrend}
+                  icon={MessageSquare}
+                />
+                <KPICard
+                  title={t('stats.messages_received')}
+                  value={stats.overview.messagesIn}
+                  trend={null}
+                  icon={ArrowDownLeft}
+                  color="blue"
+                />
+                <KPICard
+                  title={t('stats.active_conversations')}
+                  value={stats.overview.activeConversations}
+                  trend={stats.overview.conversationsTrend}
+                  icon={Users}
+                  color="purple"
+                />
+                <KPICard
+                  title={t('stats.new_contacts')}
+                  value={stats.overview.newContacts}
+                  trend={stats.overview.contactsTrend}
+                  icon={UserPlus}
+                  color="orange"
+                />
+              </div>
             </div>
 
+            {/* Section 2: Performance */}
+            <div>
+              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
+                {t('stats.section_performance')}
+              </h3>
+              <div className="grid gap-4 sm:grid-cols-3">
+                <KPICard
+                  title={t('stats.contact_response_rate')}
+                  value={stats.overview.contactResponseRate ?? 0}
+                  trend={null}
+                  icon={TrendingUp}
+                  formatValue={(v) => `${v}%`}
+                />
+                <KPICard
+                  title={t('stats.ai_response_rate')}
+                  value={stats.overview.responseRate ?? 0}
+                  trend={null}
+                  icon={Zap}
+                  formatValue={(v) => `${v}%`}
+                  color="blue"
+                />
+                <KPICard
+                  title={t('stats.avg_response_time')}
+                  value={stats.overview.avgResponseTime ?? 0}
+                  trend={null}
+                  icon={Clock}
+                  formatValue={(v) => v > 0 ? formatSeconds(v) : '—'}
+                  color="purple"
+                />
+              </div>
+            </div>
+
+            {/* Section 3: Graphiques */}
             <div className="grid gap-6 lg:grid-cols-2">
               <Card>
                 <CardHeader>
@@ -261,12 +282,14 @@ export default function StatsPage() {
                     value={stats.campaigns.totalCampaigns}
                     trend={null}
                     icon={Megaphone}
+                    color="purple"
                   />
                   <KPICard
                     title={t('stats.messages_sent')}
                     value={stats.campaigns.totalSent}
                     trend={null}
                     icon={Send}
+                    color="blue"
                   />
                   <KPICard
                     title={t('stats.responses_received')}
@@ -280,6 +303,7 @@ export default function StatsPage() {
                     trend={null}
                     icon={TrendingUp}
                     formatValue={(v) => `${v}%`}
+                    color="orange"
                   />
                 </div>
 
@@ -380,33 +404,33 @@ export default function StatsPage() {
                       <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead>
-                            <tr className="border-b text-left text-muted-foreground">
-                              <th className="pb-2 pr-4">{t('stats.agent')}</th>
-                              <th className="pb-2 pr-4 text-right">{t('stats.campaigns_tab')}</th>
-                              <th className="pb-2 pr-4 text-right">{t('stats.sent')}</th>
-                              <th className="pb-2 pr-4 text-right">{t('stats.responses')}</th>
-                              <th className="pb-2 text-right">{t('stats.rate')}</th>
+                            <tr className="border-b bg-muted/30 text-left text-muted-foreground">
+                              <th className="px-4 py-3 font-medium">{t('stats.agent')}</th>
+                              <th className="px-4 py-3 font-medium text-right">{t('stats.campaigns_tab')}</th>
+                              <th className="px-4 py-3 font-medium text-right">{t('stats.sent')}</th>
+                              <th className="px-4 py-3 font-medium text-right">{t('stats.responses')}</th>
+                              <th className="px-4 py-3 font-medium text-right">{t('stats.rate')}</th>
                             </tr>
                           </thead>
                           <tbody>
-                            {stats.campaigns.relanceAgentStats.map((agent) => (
-                              <tr key={agent.id} className="border-b last:border-0">
-                                <td className="py-2 pr-4 font-medium">
+                            {stats.campaigns.relanceAgentStats.map((agent, i) => (
+                              <tr key={agent.id} className={cn('border-b last:border-0', i % 2 === 0 ? '' : 'bg-muted/10')}>
+                                <td className="px-4 py-3 font-medium">
                                   <div className="flex items-center gap-2">
                                     <Bot className="h-4 w-4 text-muted-foreground" />
                                     {agent.name}
                                   </div>
                                 </td>
-                                <td className="py-2 pr-4 text-right">
+                                <td className="px-4 py-3 text-right">
                                   {agent.campaignsCount}
                                 </td>
-                                <td className="py-2 pr-4 text-right">
+                                <td className="px-4 py-3 text-right">
                                   {agent.totalSent.toLocaleString(numberLocale)}
                                 </td>
-                                <td className="py-2 pr-4 text-right">
+                                <td className="px-4 py-3 text-right">
                                   {agent.totalReplied.toLocaleString(numberLocale)}
                                 </td>
-                                <td className="py-2 text-right font-medium text-primary">
+                                <td className="px-4 py-3 text-right font-semibold text-primary">
                                   {agent.responseRate}%
                                 </td>
                               </tr>
@@ -517,12 +541,13 @@ export default function StatsPage() {
               </Card>
             ) : (
               <>
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-3">
                   <KPICard
                     title={t('stats.total_clicks')}
                     value={stats.links.reduce((sum, l) => sum + l.totalClicks, 0)}
                     trend={null}
                     icon={MousePointerClick}
+                    color="blue"
                   />
                   <KPICard
                     title={t('stats.total_conversions')}
@@ -539,6 +564,8 @@ export default function StatsPage() {
                     })()}
                     trend={null}
                     icon={Link2}
+                    formatValue={(v) => `${v}%`}
+                    color="orange"
                   />
                 </div>
 
@@ -595,7 +622,7 @@ export default function StatsPage() {
 
           {/* === Contacts === */}
           <TabsContent value="contacts" className="space-y-6">
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 sm:grid-cols-2">
               <KPICard
                 title={t('stats.total_contacts')}
                 value={stats.overview.totalContacts}
@@ -607,6 +634,7 @@ export default function StatsPage() {
                 value={stats.overview.newContacts}
                 trend={stats.overview.contactsTrend}
                 icon={UserPlus}
+                color="purple"
               />
             </div>
 
@@ -635,29 +663,29 @@ export default function StatsPage() {
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="border-b text-left text-muted-foreground">
-                          <th className="pb-2 pr-4">{t('stats.contact')}</th>
-                          <th className="pb-2 pr-4">{t('stats.phone')}</th>
-                          <th className="pb-2 pr-4 text-right">{t('stats.messages')}</th>
-                          <th className="pb-2 text-right">{t('stats.last_message')}</th>
+                        <tr className="border-b bg-muted/30 text-left text-muted-foreground">
+                          <th className="px-4 py-3 font-medium">{t('stats.contact')}</th>
+                          <th className="px-4 py-3 font-medium">{t('stats.phone')}</th>
+                          <th className="px-4 py-3 font-medium text-right">{t('stats.messages')}</th>
+                          <th className="px-4 py-3 font-medium text-right">{t('stats.last_message')}</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {stats.contacts.topContacts.map((contact) => (
-                          <tr key={contact.id} className="border-b last:border-0">
-                            <td className="py-2 pr-4 font-medium">
+                        {stats.contacts.topContacts.map((contact, i) => (
+                          <tr key={contact.id} className={cn('border-b last:border-0', i % 2 === 0 ? '' : 'bg-muted/10')}>
+                            <td className="px-4 py-3 font-medium">
                               {contact.name || t('common.unknown')}
                             </td>
-                            <td className="py-2 pr-4">
-                              <div className="flex items-center gap-1 text-muted-foreground">
-                                <Phone className="h-3 w-3" />
+                            <td className="px-4 py-3">
+                              <div className="flex items-center gap-1.5 text-muted-foreground">
+                                <Phone className="h-3.5 w-3.5" />
                                 {formatPhoneNumber(contact.phoneNumber)}
                               </div>
                             </td>
-                            <td className="py-2 pr-4 text-right font-medium">
+                            <td className="px-4 py-3 text-right font-semibold">
                               {contact.messageCount.toLocaleString(numberLocale)}
                             </td>
-                            <td className="py-2 text-right text-muted-foreground">
+                            <td className="px-4 py-3 text-right text-muted-foreground">
                               {contact.lastMessageAt
                                 ? formatDistanceToNow(
                                     new Date(contact.lastMessageAt),
@@ -760,12 +788,14 @@ export default function StatsPage() {
                     trend={null}
                     icon={Activity}
                     formatValue={(v) => `${v}%`}
+                    color="blue"
                   />
                   <KPICard
                     title={t('stats.lc_ai_analyses')}
                     value={stats.lifecycle.aiAnalysesCount}
                     trend={null}
                     icon={Sparkles}
+                    color="purple"
                   />
                   <KPICard
                     title={t('stats.lc_tokens_used')}
@@ -773,6 +803,7 @@ export default function StatsPage() {
                     trend={null}
                     icon={Coins}
                     formatValue={(v) => v.toLocaleString(numberLocale)}
+                    color="orange"
                   />
                 </div>
 
@@ -847,21 +878,21 @@ export default function StatsPage() {
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
-                          <tr className="border-b text-left text-muted-foreground">
-                            <th className="pb-2 pr-4">{t('stats.lc_stage')}</th>
-                            <th className="pb-2 pr-4 text-right">{t('stats.conversations')}</th>
-                            <th className="pb-2 pr-4 text-right">{t('stats.lc_inbound')}</th>
-                            <th className="pb-2 pr-4 text-right">{t('stats.response_rate')}</th>
-                            <th className="pb-2 text-right">{t('stats.avg_time')}</th>
+                          <tr className="border-b bg-muted/30 text-left text-muted-foreground">
+                            <th className="px-4 py-3 font-medium">{t('stats.lc_stage')}</th>
+                            <th className="px-4 py-3 font-medium text-right">{t('stats.conversations')}</th>
+                            <th className="px-4 py-3 font-medium text-right">{t('stats.lc_inbound')}</th>
+                            <th className="px-4 py-3 font-medium text-right">{t('stats.response_rate')}</th>
+                            <th className="px-4 py-3 font-medium text-right">{t('stats.avg_time')}</th>
                           </tr>
                         </thead>
                         <tbody>
                           {(lifecycleFilter.length > 0
                             ? stats.lifecycle.stages.filter((s) => lifecycleFilter.includes(s.id))
                             : stats.lifecycle.stages
-                          ).map((stage) => (
-                            <tr key={stage.id} className="border-b last:border-0">
-                              <td className="py-2 pr-4 font-medium">
+                          ).map((stage, i) => (
+                            <tr key={stage.id} className={cn('border-b last:border-0', i % 2 === 0 ? '' : 'bg-muted/10')}>
+                              <td className="px-4 py-3 font-medium">
                                 <div className="flex items-center gap-2">
                                   <div
                                     className="w-3 h-3 rounded-sm"
@@ -870,16 +901,16 @@ export default function StatsPage() {
                                   {stage.name}
                                 </div>
                               </td>
-                              <td className="py-2 pr-4 text-right">
+                              <td className="px-4 py-3 text-right">
                                 {stage.conversationCount.toLocaleString(numberLocale)}
                               </td>
-                              <td className="py-2 pr-4 text-right">
+                              <td className="px-4 py-3 text-right">
                                 {stage.inboundMessages.toLocaleString(numberLocale)}
                               </td>
-                              <td className="py-2 pr-4 text-right font-medium text-primary">
+                              <td className="px-4 py-3 text-right font-semibold text-primary">
                                 {stage.responseRate != null ? `${stage.responseRate}%` : '—'}
                               </td>
-                              <td className="py-2 text-right text-muted-foreground">
+                              <td className="px-4 py-3 text-right text-muted-foreground">
                                 {stage.avgResponseTime != null ? formatSeconds(stage.avgResponseTime) : '—'}
                               </td>
                             </tr>
