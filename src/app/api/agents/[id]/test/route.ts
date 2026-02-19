@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { canAccessResource } from '@/lib/teams/access'
 import { generateAgentResponse, type ChatMessage } from '@/lib/openai/client'
 import { checkTokenLimit, recordTokenUsage } from '@/lib/openai/token-tracker'
+import { retrieveContext } from '@/lib/knowledge/retriever'
 
 export async function POST(
   req: NextRequest,
@@ -55,11 +56,37 @@ export async function POST(
     { role: 'user', content: message.trim() }
   ]
 
+  // RAG : Récupérer le contexte pertinent de la base de connaissances
+  let knowledgeContext = ''
+  let ragTokens = 0
+  const ragResult = await retrieveContext({
+    agentId: id,
+    query: message.trim(),
+    topK: 5,
+    threshold: 0.7,
+  })
+  if (ragResult.ok && ragResult.context) {
+    knowledgeContext = ragResult.context
+    ragTokens = ragResult.tokensUsed
+  }
+
+  // Construire le prompt système complet (même logique que processAIResponse)
+  let systemPrompt = agent.system_prompt
+  if (agent.objective) {
+    systemPrompt += `\n\nObjectif principal : ${agent.objective}`
+  }
+  if (knowledgeContext) {
+    systemPrompt += `\n\n--- Base de connaissances ---\nUtilise les informations suivantes pour répondre de manière précise. Si l'information demandée ne se trouve pas dans la base de connaissances, dis-le honnêtement.\n\n${knowledgeContext}\n--- Fin de la base de connaissances ---`
+  }
+  if (agent.auto_detect_language) {
+    systemPrompt += `\n\n--- Instruction de langue ---\nIMPORTANT : Détecte automatiquement la langue utilisée par l'utilisateur dans son dernier message et réponds TOUJOURS dans cette même langue. Si l'utilisateur écrit en anglais, réponds en anglais. Si l'utilisateur écrit en espagnol, réponds en espagnol. Adapte-toi à la langue de chaque message.`
+  }
+
   // Générer la réponse
   const result = await generateAgentResponse({
     model: agent.model || 'gpt-4o-mini',
     temperature: agent.temperature || 0.7,
-    systemPrompt: agent.system_prompt,
+    systemPrompt,
     messages,
   })
 
@@ -67,8 +94,8 @@ export async function POST(
     return NextResponse.json({ error: result.error }, { status: 500 })
   }
 
-  // Enregistrer l'utilisation des tokens
-  await recordTokenUsage(user.id, result.tokensUsed)
+  // Enregistrer l'utilisation des tokens (LLM + RAG embedding)
+  await recordTokenUsage(user.id, result.tokensUsed + ragTokens)
 
   return NextResponse.json({
     data: {
