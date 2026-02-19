@@ -3,7 +3,7 @@ import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { generateEmbedding } from '@/lib/openai/embeddings'
 
 const DEFAULT_TOP_K = 5
-const DEFAULT_THRESHOLD = 0.7
+const DEFAULT_THRESHOLD = 0.35
 
 export type RetrievedChunk = {
   id: string
