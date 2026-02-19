@@ -97,13 +97,22 @@ export async function GET(req: NextRequest) {
   let searchContactIds: string[] | null = null
   let searchConvPreviewIds: string[] | null = null
   if (searchQuery) {
-    // Chercher dans les contacts par phone, name, first_name, last_name
-    const searchPattern = `%${searchQuery}%`
+    // Normaliser le numéro pour la recherche :
+    // - Retirer +, espaces, tirets, parenthèses
+    // - Convertir 0X... → 33X... (format français)
+    const cleanedSearch = searchQuery.replace(/[\s+\-()]/g, '')
+    const phoneSearch = cleanedSearch.startsWith('0') && cleanedSearch.length >= 2
+      ? '33' + cleanedSearch.slice(1)
+      : cleanedSearch
+
+    // Chercher dans les contacts par phone (normalisé), name, first_name, last_name
+    const phonePattern = `%${phoneSearch}%`
+    const namePattern = `%${searchQuery}%`
     const { data: matchingContacts } = await supabase
       .from('contacts')
       .select('id')
       .in('session_id', sessionIds)
-      .or(`phone_number.ilike.${searchPattern},name.ilike.${searchPattern},first_name.ilike.${searchPattern},last_name.ilike.${searchPattern}`)
+      .or(`phone_number.ilike.${phonePattern},name.ilike.${namePattern},first_name.ilike.${namePattern},last_name.ilike.${namePattern}`)
 
     searchContactIds = (matchingContacts || []).map((c) => c.id)
 
@@ -112,7 +121,7 @@ export async function GET(req: NextRequest) {
       .from('conversations')
       .select('id')
       .in('session_id', sessionIds)
-      .ilike('last_message_preview', searchPattern)
+      .ilike('last_message_preview', namePattern)
 
     searchConvPreviewIds = (matchingConvs || []).map((c) => c.id)
   }
