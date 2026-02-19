@@ -190,6 +190,29 @@ export async function GET(req: NextRequest) {
     ? Math.round((inboundProcessed.length / inboundMessages.length) * 100)
     : null
 
+  // --- Taux de réponse contact (conversations initiées par nous → contact a répondu) ---
+  const msgsByConvo = new Map<string, typeof messages>()
+  for (const m of messages) {
+    const arr = msgsByConvo.get(m.conversation_id) || []
+    arr.push(m)
+    msgsByConvo.set(m.conversation_id, arr)
+  }
+
+  let outboundFirstConvos = 0
+  let contactRepliedConvos = 0
+  for (const convoMsgs of msgsByConvo.values()) {
+    convoMsgs.sort((a, b) => a.created_at.localeCompare(b.created_at))
+    if (convoMsgs[0]?.direction === 'outbound') {
+      outboundFirstConvos++
+      if (convoMsgs.some((m) => m.direction === 'inbound')) {
+        contactRepliedConvos++
+      }
+    }
+  }
+  const contactResponseRate = outboundFirstConvos > 0
+    ? Math.round((contactRepliedConvos / outboundFirstConvos) * 100)
+    : null
+
   // --- Temps de réponse moyen (global) ---
   // Grouper les messages par conversation pour calculer les deltas
   const msgsByConvoForTime = new Map<string, typeof messages>()
@@ -522,6 +545,7 @@ export async function GET(req: NextRequest) {
       totalContacts,
       newContacts,
       responseRate,
+      contactResponseRate,
       avgResponseTime,
       messagesTrend: computeTrend(totalMessages, prevMessageCount),
       conversationsTrend: computeTrend(activeConversations, prevActiveConvos),
@@ -555,6 +579,7 @@ function emptyResponse(): StatsResponse {
       totalContacts: 0,
       newContacts: 0,
       responseRate: null,
+      contactResponseRate: null,
       avgResponseTime: null,
       messagesTrend: null,
       conversationsTrend: null,

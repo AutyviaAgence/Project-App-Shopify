@@ -6,6 +6,7 @@ export type StatsOverview = {
   totalContacts: number
   newContacts: number
   responseRate: number | null
+  contactResponseRate: number | null
   avgResponseTime: number | null
   messagesTrend: number | null
   conversationsTrend: number | null

@@ -198,6 +198,13 @@ export default function StatsPage() {
                 icon={ArrowDownLeft}
               />
               <KPICard
+                title={t('stats.contact_response_rate')}
+                value={stats.overview.contactResponseRate ?? 0}
+                trend={null}
+                icon={TrendingUp}
+                formatValue={(v) => `${v}%`}
+              />
+              <KPICard
                 title={t('stats.ai_response_rate')}
                 value={stats.overview.responseRate ?? 0}
                 trend={null}

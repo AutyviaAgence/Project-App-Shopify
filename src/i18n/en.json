@@ -892,6 +892,7 @@
     "active_conversations": "Active conversations",
     "new_contacts": "New contacts",
     "messages_received": "Messages received",
+    "contact_response_rate": "Contact response rate",
     "ai_response_rate": "AI response rate",
     "avg_response_time": "Avg response time",
     "messages_per_day": "Messages per day",
