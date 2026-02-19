@@ -52,26 +52,47 @@ export async function GET(req: NextRequest) {
 
   const sessionsMap = Object.fromEntries(sessions.map((s) => [s.id, s.instance_name]))
 
+  // Helper : paginer une query Supabase qui peut dépasser 1000 lignes
+  async function fetchAllRows<T>(
+    buildQuery: (offset: number, limit: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>
+  ): Promise<T[]> {
+    const PAGE = 1000
+    let all: T[] = []
+    let offset = 0
+    while (true) {
+      const { data, error } = await buildQuery(offset, PAGE)
+      if (error || !data) break
+      all = all.concat(data)
+      if (data.length < PAGE) break
+      offset += PAGE
+    }
+    return all
+  }
+
   // 2-8. Requêtes en parallèle
   const [
-    messagesRes,
+    messages,
     prevMessagesRes,
-    conversationsRes,
+    conversations,
     prevConversationsRes,
-    contactsRes,
+    contacts,
     prevContactsRes,
     agentsRes,
     linksRes,
     campaignsRes,
     lifecycleStagesRes,
   ] = await Promise.all([
-    // Messages période courante
-    supabase
-      .from('messages')
-      .select('id, direction, sent_by, ai_agent_id, ai_processed, conversation_id, created_at')
-      .in('session_id', sessionIds)
-      .gte('created_at', from)
-      .lte('created_at', to),
+    // Messages période courante (paginé - peut dépasser 1000)
+    fetchAllRows<{ id: string; direction: string; sent_by: string; ai_agent_id: string | null; ai_processed: boolean; conversation_id: string; created_at: string }>(
+      (offset, limit) => supabase
+        .from('messages')
+        .select('id, direction, sent_by, ai_agent_id, ai_processed, conversation_id, created_at')
+        .in('session_id', sessionIds)
+        .gte('created_at', from)
+        .lte('created_at', to)
+        .order('created_at')
+        .range(offset, offset + limit - 1)
+    ),
     // Messages période précédente (count)
     supabase
       .from('messages')
@@ -79,11 +100,15 @@ export async function GET(req: NextRequest) {
       .in('session_id', sessionIds)
       .gte('created_at', prevFrom)
       .lt('created_at', from),
-    // Conversations
-    supabase
-      .from('conversations')
-      .select('id, contact_id, ai_agent_id, wa_link_id, last_message_at, created_at, lifecycle_stage_id')
-      .in('session_id', sessionIds),
+    // Conversations (paginé - peut dépasser 1000)
+    fetchAllRows<{ id: string; contact_id: string; ai_agent_id: string | null; wa_link_id: string | null; last_message_at: string | null; created_at: string; lifecycle_stage_id: string | null }>(
+      (offset, limit) => supabase
+        .from('conversations')
+        .select('id, contact_id, ai_agent_id, wa_link_id, last_message_at, created_at, lifecycle_stage_id')
+        .in('session_id', sessionIds)
+        .order('created_at')
+        .range(offset, offset + limit - 1)
+    ),
     // Conversations période précédente (count)
     supabase
       .from('conversations')
@@ -91,11 +116,15 @@ export async function GET(req: NextRequest) {
       .in('session_id', sessionIds)
       .gte('created_at', prevFrom)
       .lt('created_at', from),
-    // Contacts
-    supabase
-      .from('contacts')
-      .select('id, session_id, phone_number, name, first_name, last_name, created_at')
-      .in('session_id', sessionIds),
+    // Contacts (paginé - peut dépasser 1000)
+    fetchAllRows<{ id: string; session_id: string; phone_number: string; name: string | null; first_name: string | null; last_name: string | null; created_at: string }>(
+      (offset, limit) => supabase
+        .from('contacts')
+        .select('id, session_id, phone_number, name, first_name, last_name, created_at')
+        .in('session_id', sessionIds)
+        .order('created_at')
+        .range(offset, offset + limit - 1)
+    ),
     // Contacts période précédente (count)
     supabase
       .from('contacts')
@@ -126,9 +155,6 @@ export async function GET(req: NextRequest) {
       .order('position'),
   ])
 
-  const messages = messagesRes.data || []
-  const conversations = conversationsRes.data || []
-  const contacts = contactsRes.data || []
   const agents = agentsRes.data || []
   const links = linksRes.data || []
   const campaigns = campaignsRes.data || []
