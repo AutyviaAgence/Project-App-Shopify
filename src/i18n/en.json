@@ -201,6 +201,8 @@
     "ai_inactive": "AI inactive",
     "all_stages": "All stages",
     "unclassified": "Unclassified",
+    "filter_tags": "Tags",
+    "filter_tags_count": "{count} tag(s)",
     "no_conversations": "No conversations",
     "no_conversations_desc": "Incoming messages will appear here.",
     "load_error": "Error loading conversations",

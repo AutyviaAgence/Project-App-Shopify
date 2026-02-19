@@ -133,6 +133,7 @@ function ConversationsPageContent() {
   const [filterAiActive, setFilterAiActive] = useState<string>('all')
   const [filterTeam, setFilterTeam] = useState<string>('all')
   const [filterLifecycleStage, setFilterLifecycleStage] = useState<string>('all')
+  const [filterTags, setFilterTags] = useState<string[]>([])
   const [showFilters, setShowFilters] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
 
@@ -244,13 +245,10 @@ function ConversationsPageContent() {
       if (filterAiActive !== 'all') params.set('is_ai_active', filterAiActive)
       if (filterTeam !== 'all') params.set('team_id', filterTeam)
       if (filterLifecycleStage !== 'all') params.set('lifecycle_stage_id', filterLifecycleStage)
-      if (searchQuery.trim()) {
-        params.set('search', searchQuery.trim())
-        params.set('limit', '100') // Plus de résultats lors d'une recherche
-      } else {
-        params.set('page', page.toString())
-        params.set('limit', ITEMS_PER_PAGE.toString())
-      }
+      if (filterTags.length > 0) params.set('tag_ids', filterTags.join(','))
+      if (searchQuery.trim()) params.set('search', searchQuery.trim())
+      params.set('page', page.toString())
+      params.set('limit', ITEMS_PER_PAGE.toString())
 
       const url = `/api/conversations?${params.toString()}`
       const res = await fetch(url)
@@ -272,7 +270,7 @@ function ConversationsPageContent() {
     } finally {
       setLoading(false)
     }
-  }, [filterSession, filterAiActive, filterTeam, filterLifecycleStage, page, searchQuery, fetchAllConversationTags])
+  }, [filterSession, filterAiActive, filterTeam, filterLifecycleStage, filterTags, page, searchQuery, fetchAllConversationTags])
 
   useEffect(() => {
     fetchConversations()
@@ -735,9 +733,9 @@ function ConversationsPageContent() {
             >
               <Filter className="h-3.5 w-3.5" />
               {t('conversations.filters')}
-              {(filterSession !== 'all' || filterAiActive !== 'all' || filterTeam !== 'all' || filterLifecycleStage !== 'all') && (
+              {(filterSession !== 'all' || filterAiActive !== 'all' || filterTeam !== 'all' || filterLifecycleStage !== 'all' || filterTags.length > 0) && (
                 <Badge variant="default" className="ml-1 h-4 w-4 p-0 text-[10px]">
-                  {(filterSession !== 'all' ? 1 : 0) + (filterAiActive !== 'all' ? 1 : 0) + (filterTeam !== 'all' ? 1 : 0) + (filterLifecycleStage !== 'all' ? 1 : 0)}
+                  {(filterSession !== 'all' ? 1 : 0) + (filterAiActive !== 'all' ? 1 : 0) + (filterTeam !== 'all' ? 1 : 0) + (filterLifecycleStage !== 'all' ? 1 : 0) + (filterTags.length > 0 ? 1 : 0)}
                 </Badge>
               )}
             </Button>
@@ -811,12 +809,70 @@ function ConversationsPageContent() {
                 </Select>
               )}
 
-              {(filterSession !== 'all' || filterAiActive !== 'all' || filterTeam !== 'all' || filterLifecycleStage !== 'all') && (
+              {allTags.length > 0 && (
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={filterTags.length > 0 ? 'secondary' : 'outline'}
+                      size="sm"
+                      className="h-8 gap-1.5 text-xs"
+                    >
+                      <Tag className="h-3 w-3" />
+                      {filterTags.length > 0
+                        ? t('conversations.filter_tags_count', { count: String(filterTags.length) })
+                        : t('conversations.filter_tags')}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-56 p-2" align="start">
+                    <div className="space-y-1 max-h-48 overflow-y-auto">
+                      {allTags.map((tag) => {
+                        const isSelected = filterTags.includes(tag.id)
+                        return (
+                          <button
+                            key={tag.id}
+                            onClick={() => {
+                              setFilterTags((prev) =>
+                                isSelected
+                                  ? prev.filter((id) => id !== tag.id)
+                                  : [...prev, tag.id]
+                              )
+                              setPage(1)
+                            }}
+                            className={cn(
+                              'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted transition-colors',
+                              isSelected && 'bg-muted'
+                            )}
+                          >
+                            <span
+                              className="h-2.5 w-2.5 rounded-full shrink-0"
+                              style={{ backgroundColor: tag.color }}
+                            />
+                            <span className="truncate">{tag.name}</span>
+                            {isSelected && <Check className="h-3 w-3 ml-auto text-primary shrink-0" />}
+                          </button>
+                        )
+                      })}
+                    </div>
+                    {filterTags.length > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="w-full mt-1 h-7 text-xs"
+                        onClick={() => { setFilterTags([]); setPage(1) }}
+                      >
+                        {t('common.reset')}
+                      </Button>
+                    )}
+                  </PopoverContent>
+                </Popover>
+              )}
+
+              {(filterSession !== 'all' || filterAiActive !== 'all' || filterTeam !== 'all' || filterLifecycleStage !== 'all' || filterTags.length > 0) && (
                 <Button
                   variant="ghost"
                   size="sm"
                   className="h-8 px-2 text-xs"
-                  onClick={() => { setFilterSession('all'); setFilterAiActive('all'); setFilterTeam('all'); setFilterLifecycleStage('all'); setPage(1) }}
+                  onClick={() => { setFilterSession('all'); setFilterAiActive('all'); setFilterTeam('all'); setFilterLifecycleStage('all'); setFilterTags([]); setPage(1) }}
                 >
                   <X className="h-3 w-3 mr-1" />
                   {t('common.reset')}

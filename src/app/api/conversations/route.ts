@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
   const teamFilter = searchParams.get('team_id')
   const lifecycleStageFilter = searchParams.get('lifecycle_stage_id')
   const searchQuery = searchParams.get('search')?.trim().toLowerCase()
+  const tagIdsParam = searchParams.get('tag_ids')
   const page = parseInt(searchParams.get('page') || '1', 10)
   const limit = Math.min(parseInt(searchParams.get('limit') || '20', 10), 100)
 
@@ -92,6 +93,51 @@ export async function GET(req: NextRequest) {
   const sessionIds = sessions.map((s) => s.id)
   const sessionsMap = Object.fromEntries(sessions.map((s) => [s.id, s]))
 
+  // --- Recherche côté DB : trouver les contact_ids matchants AVANT la query conversations ---
+  let searchContactIds: string[] | null = null
+  let searchConvPreviewIds: string[] | null = null
+  if (searchQuery) {
+    // Chercher dans les contacts par phone, name, first_name, last_name
+    const searchPattern = `%${searchQuery}%`
+    const { data: matchingContacts } = await supabase
+      .from('contacts')
+      .select('id')
+      .in('session_id', sessionIds)
+      .or(`phone_number.ilike.${searchPattern},name.ilike.${searchPattern},first_name.ilike.${searchPattern},last_name.ilike.${searchPattern}`)
+
+    searchContactIds = (matchingContacts || []).map((c) => c.id)
+
+    // Chercher aussi dans last_message_preview des conversations
+    const { data: matchingConvs } = await supabase
+      .from('conversations')
+      .select('id')
+      .in('session_id', sessionIds)
+      .ilike('last_message_preview', searchPattern)
+
+    searchConvPreviewIds = (matchingConvs || []).map((c) => c.id)
+  }
+
+  // --- Filtre par tags : trouver les conversation_ids matchants ---
+  let tagConvIds: string[] | null = null
+  if (tagIdsParam) {
+    const tagIds = tagIdsParam.split(',').filter(Boolean)
+    if (tagIds.length > 0) {
+      const { data: tagAssignments } = await supabase
+        .from('conversation_tag_assignments')
+        .select('conversation_id')
+        .in('tag_id', tagIds)
+
+      tagConvIds = [...new Set((tagAssignments || []).map((a) => a.conversation_id))]
+      if (tagConvIds.length === 0) {
+        // Aucune conversation ne matche ces tags
+        return NextResponse.json({
+          data: [],
+          pagination: { page, limit, total: 0, totalPages: 0 },
+        })
+      }
+    }
+  }
+
   // Build query with filters (with count for pagination)
   let query = supabase
     .from('conversations')
@@ -125,6 +171,31 @@ export async function GET(req: NextRequest) {
     query = query.lte('last_message_at', dateTo)
   }
 
+  // Filter by search (DB-side) — conversations whose contact matches OR whose preview matches
+  if (searchQuery && searchContactIds !== null && searchConvPreviewIds !== null) {
+    const allMatchingIds = [...new Set([...searchContactIds, ...searchConvPreviewIds])]
+    if (allMatchingIds.length === 0) {
+      // Aucun résultat de recherche
+      return NextResponse.json({
+        data: [],
+        pagination: { page, limit, total: 0, totalPages: 0 },
+      })
+    }
+    // Combiner : contact_id dans les contacts matchants OU id dans les conversations avec preview matchant
+    if (searchContactIds.length > 0 && searchConvPreviewIds.length > 0) {
+      query = query.or(`contact_id.in.(${searchContactIds.join(',')}),id.in.(${searchConvPreviewIds.join(',')})`)
+    } else if (searchContactIds.length > 0) {
+      query = query.in('contact_id', searchContactIds)
+    } else {
+      query = query.in('id', searchConvPreviewIds)
+    }
+  }
+
+  // Filter by tags
+  if (tagConvIds !== null) {
+    query = query.in('id', tagConvIds)
+  }
+
   // Pagination: calculate offset
   const offset = (page - 1) * limit
 
@@ -138,7 +209,10 @@ export async function GET(req: NextRequest) {
   }
 
   if (!conversations || conversations.length === 0) {
-    return NextResponse.json({ data: [] })
+    return NextResponse.json({
+      data: [],
+      pagination: { page, limit, total: count || 0, totalPages: Math.ceil((count || 0) / limit) },
+    })
   }
 
   // Récupérer les contacts
@@ -162,7 +236,7 @@ export async function GET(req: NextRequest) {
   }
 
   // Assembler les données
-  let result = conversations.map((conv) => {
+  const result = conversations.map((conv) => {
     const session = sessionsMap[conv.session_id]
     return {
       ...conv,
@@ -177,30 +251,13 @@ export async function GET(req: NextRequest) {
     }
   })
 
-  // Filtrer par recherche (côté serveur après avoir récupéré les contacts)
-  let filteredCount = count || 0
-  if (searchQuery) {
-    result = result.filter((conv) => {
-      const contact = conv.contact
-      if (!contact) return false
-      return (
-        contact.phone_number?.includes(searchQuery) ||
-        contact.name?.toLowerCase().includes(searchQuery) ||
-        contact.first_name?.toLowerCase().includes(searchQuery) ||
-        contact.last_name?.toLowerCase().includes(searchQuery) ||
-        conv.last_message_preview?.toLowerCase().includes(searchQuery)
-      )
-    })
-    filteredCount = result.length
-  }
-
   return NextResponse.json({
     data: result,
     pagination: {
       page,
       limit,
-      total: searchQuery ? filteredCount : (count || 0),
-      totalPages: Math.ceil((searchQuery ? filteredCount : (count || 0)) / limit),
+      total: count || 0,
+      totalPages: Math.ceil((count || 0) / limit),
     },
   })
 }
