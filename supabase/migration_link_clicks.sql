@@ -32,3 +32,8 @@ CREATE POLICY "Users can delete own link clicks"
 
 -- Service role can insert (public click endpoint uses service_role)
 -- No INSERT policy needed for authenticated users since clicks are inserted via service_role
+
+-- GRANTs nécessaires pour que PostgREST puisse accéder à la table
+GRANT ALL ON link_clicks TO anon;
+GRANT ALL ON link_clicks TO authenticated;
+GRANT ALL ON link_clicks TO service_role;
