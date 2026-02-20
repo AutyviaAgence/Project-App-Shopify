@@ -58,7 +58,9 @@ export async function GET(
       ip_hash: ipHash,
       referer: referer,
     })
-    .then()
+    .then(({ error: clickErr }) => {
+      if (clickErr) console.error('[wa/slug] link_clicks insert error:', clickErr.message)
+    })
 
   // Construire l'URL wa.me
   let waUrl = `https://wa.me/${phone}`
