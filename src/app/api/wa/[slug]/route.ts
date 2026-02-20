@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
+import crypto from 'crypto'
 
 /**
  * GET /api/wa/[slug]
  * Endpoint public (pas d'auth) — redirige vers wa.me avec le bon numéro et message.
- * Incrémente le compteur de clics.
+ * Incrémente le compteur de clics et log le clic dans link_clicks.
  */
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
   const { slug } = await params
@@ -36,11 +37,27 @@ export async function GET(
     return NextResponse.json({ error: 'Session non configurée' }, { status: 404 })
   }
 
-  // Incrémenter le compteur de clics (fire-and-forget)
+  // Collecter les métadonnées du clic
+  const userAgent = req.headers.get('user-agent') || null
+  const referer = req.headers.get('referer') || null
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || null
+  const ipHash = ip ? crypto.createHash('sha256').update(ip).digest('hex').slice(0, 16) : null
+
+  // Incrémenter le compteur + logger le clic (fire-and-forget)
   supabase
     .from('wa_links')
     .update({ click_count: (link.click_count || 0) + 1 })
     .eq('id', link.id)
+    .then()
+
+  supabase
+    .from('link_clicks')
+    .insert({
+      link_id: link.id,
+      user_agent: userAgent,
+      ip_hash: ipHash,
+      referer: referer,
+    })
     .then()
 
   // Construire l'URL wa.me

@@ -25,6 +25,11 @@ export type StatsAgent = {
   hasBookingUrl: boolean
 }
 
+export type StatsLinkClick = {
+  clicked_at: string
+  referer: string | null
+}
+
 export type StatsLink = {
   id: string
   slug: string | null
@@ -32,6 +37,8 @@ export type StatsLink = {
   totalClicks: number
   conversionsCount: number
   isActive: boolean
+  recentClicks: StatsLinkClick[]
+  clicksPerDay: StatsTimePoint[]
 }
 
 export type StatsTopContact = {

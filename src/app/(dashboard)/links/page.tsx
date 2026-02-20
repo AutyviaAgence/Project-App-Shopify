@@ -35,6 +35,7 @@ import {
   ExternalLink,
   Bot,
   Users,
+  RotateCcw,
 } from 'lucide-react'
 import { MultiTeamSelect } from '@/components/multi-team-select'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
@@ -66,6 +67,7 @@ export default function LinksPage() {
   const [deleting, setDeleting] = useState<string | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [linkToDelete, setLinkToDelete] = useState<WALinkWithSession | null>(null)
+  const [resetting, setResetting] = useState<string | null>(null)
 
   // Form state
   const [formTeamIds, setFormTeamIds] = useState<string[]>([])
@@ -259,6 +261,24 @@ export default function LinksPage() {
     }
   }
 
+  async function handleResetClicks(link: WALinkWithSession) {
+    setResetting(link.id)
+    try {
+      const res = await fetch(`/api/links/${link.id}/reset-clicks`, { method: 'POST' })
+      if (res.ok) {
+        setLinks((prev) => prev.map((l) => (l.id === link.id ? { ...l, click_count: 0 } : l)))
+        toast.success(t('links.clicks_reset'))
+      } else {
+        const json = await res.json()
+        toast.error(json.error || t('common.network_error'))
+      }
+    } catch {
+      toast.error(t('common.network_error'))
+    } finally {
+      setResetting(null)
+    }
+  }
+
   function getPublicUrl(slug: string) {
     const base = typeof window !== 'undefined' ? window.location.origin : ''
     return `${base}/api/wa/${slug}`
@@ -390,9 +410,26 @@ export default function LinksPage() {
                       </div>
                     )}
 
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                      <MousePointerClick className="h-3 w-3" />
-                      {t('links.clicks', { count: String(link.click_count) })}
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <MousePointerClick className="h-3 w-3" />
+                        {t('links.clicks', { count: String(link.click_count) })}
+                      </div>
+                      {link.click_count > 0 && (
+                        <button
+                          onClick={() => handleResetClicks(link)}
+                          disabled={resetting === link.id}
+                          className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+                          title={t('links.reset_clicks')}
+                        >
+                          {resetting === link.id ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                          ) : (
+                            <RotateCcw className="h-3 w-3" />
+                          )}
+                          {t('links.reset')}
+                        </button>
+                      )}
                     </div>
 
                     {link.slug && (

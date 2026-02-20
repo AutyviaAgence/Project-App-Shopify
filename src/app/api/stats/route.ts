@@ -326,10 +326,49 @@ export async function GET(req: NextRequest) {
   })
 
   // --- Links ---
+  // Récupérer l'historique des clics pour les liens
+  const linkIds = links.map((l) => l.id)
+  let allLinkClicks: { link_id: string; clicked_at: string; referer: string | null }[] = []
+  if (linkIds.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sb = supabase as any
+    allLinkClicks = await fetchAllRows<{ link_id: string; clicked_at: string; referer: string | null }>(
+      (offset, limit) => sb
+        .from('link_clicks')
+        .select('link_id, clicked_at, referer')
+        .in('link_id', linkIds)
+        .gte('clicked_at', from)
+        .lte('clicked_at', to)
+        .order('clicked_at', { ascending: false })
+        .range(offset, offset + limit - 1)
+    )
+  }
+
+  // Grouper les clics par lien
+  const clicksByLink = new Map<string, typeof allLinkClicks>()
+  for (const click of allLinkClicks) {
+    const arr = clicksByLink.get(click.link_id) || []
+    arr.push(click)
+    clicksByLink.set(click.link_id, arr)
+  }
+
   const linkStats: StatsLink[] = links.map((link) => {
     const conversionsCount = conversations.filter(
       (c) => c.wa_link_id === link.id
     ).length
+
+    const clicks = clicksByLink.get(link.id) || []
+
+    // Clics par jour
+    const clicksByDay = new Map<string, number>()
+    for (const click of clicks) {
+      const day = click.clicked_at.slice(0, 10)
+      clicksByDay.set(day, (clicksByDay.get(day) || 0) + 1)
+    }
+    const clicksPerDay: { date: string; count: number }[] = Array.from(clicksByDay.entries())
+      .map(([date, count]) => ({ date, count }))
+      .sort((a, b) => a.date.localeCompare(b.date))
+
     return {
       id: link.id,
       slug: link.slug,
@@ -337,6 +376,11 @@ export async function GET(req: NextRequest) {
       totalClicks: link.click_count || 0,
       conversionsCount,
       isActive: link.is_active,
+      recentClicks: clicks.slice(0, 50).map((c) => ({
+        clicked_at: c.clicked_at,
+        referer: c.referer,
+      })),
+      clicksPerDay,
     }
   })
 
