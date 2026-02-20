@@ -932,6 +932,7 @@
     "click_date": "Date & Heure",
     "click_link": "Lien",
     "click_referer": "Source (referer)",
+    "no_click_data": "Les clics détaillés seront enregistrés à partir de maintenant. Cliquez sur un de vos liens pour tester.",
     "total_contacts": "Total contacts",
     "top_10_contacts": "Top 10 contacts (par messages)",
     "phone": "Téléphone",

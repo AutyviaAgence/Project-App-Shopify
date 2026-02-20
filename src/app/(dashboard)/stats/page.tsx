@@ -629,16 +629,20 @@ export default function StatsPage() {
                     .map(([date, count]) => ({ date, count }))
                     .sort((a, b) => a.date.localeCompare(b.date))
 
-                  return chartData.length > 0 ? (
+                  return (
                     <Card>
                       <CardHeader>
                         <CardTitle className="text-base">{t('stats.clicks_per_day')}</CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <TimeSeriesChart data={chartData} title="" color="#3B82F6" />
+                        {chartData.length > 0 ? (
+                          <TimeSeriesChart data={chartData} title="" color="#3B82F6" />
+                        ) : (
+                          <p className="text-sm text-muted-foreground py-4 text-center">{t('stats.no_click_data')}</p>
+                        )}
                       </CardContent>
                     </Card>
-                  ) : null
+                  )
                 })()}
 
                 {/* Historique des clics récents */}
@@ -654,60 +658,64 @@ export default function StatsPage() {
                     .sort((a, b) => b.clicked_at.localeCompare(a.clicked_at))
                     .slice(0, 50)
 
-                  return allClicks.length > 0 ? (
+                  return (
                     <Card>
                       <CardHeader>
                         <CardTitle className="text-base">{t('stats.click_history')}</CardTitle>
                       </CardHeader>
                       <CardContent>
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-sm">
-                            <thead>
-                              <tr className="border-b bg-muted/30 text-left text-muted-foreground">
-                                <th className="px-4 py-3 font-medium">{t('stats.click_date')}</th>
-                                <th className="px-4 py-3 font-medium">{t('stats.click_link')}</th>
-                                <th className="px-4 py-3 font-medium">{t('stats.click_referer')}</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {allClicks.map((click, i) => {
-                                const d = new Date(click.clicked_at)
-                                const dateStr = d.toLocaleDateString(numberLocale, {
-                                  day: '2-digit',
-                                  month: '2-digit',
-                                  year: 'numeric',
-                                })
-                                const timeStr = d.toLocaleTimeString(numberLocale, {
-                                  hour: '2-digit',
-                                  minute: '2-digit',
-                                })
-                                return (
-                                  <tr key={`${click.clicked_at}-${i}`} className={cn('border-b last:border-0', i % 2 === 0 ? '' : 'bg-muted/10')}>
-                                    <td className="px-4 py-3 whitespace-nowrap">
-                                      <span className="font-medium">{dateStr}</span>
-                                      <span className="text-muted-foreground ml-2">{timeStr}</span>
-                                    </td>
-                                    <td className="px-4 py-3">
-                                      <div className="flex items-center gap-1.5">
-                                        <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
-                                        {click.linkName}
-                                        {click.linkSlug && (
-                                          <span className="text-xs text-muted-foreground">/{click.linkSlug}</span>
-                                        )}
-                                      </div>
-                                    </td>
-                                    <td className="px-4 py-3 text-muted-foreground truncate max-w-[200px]">
-                                      {click.referer || '—'}
-                                    </td>
-                                  </tr>
-                                )
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
+                        {allClicks.length > 0 ? (
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="border-b bg-muted/30 text-left text-muted-foreground">
+                                  <th className="px-4 py-3 font-medium">{t('stats.click_date')}</th>
+                                  <th className="px-4 py-3 font-medium">{t('stats.click_link')}</th>
+                                  <th className="px-4 py-3 font-medium">{t('stats.click_referer')}</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {allClicks.map((click, i) => {
+                                  const d = new Date(click.clicked_at)
+                                  const dateStr = d.toLocaleDateString(numberLocale, {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: 'numeric',
+                                  })
+                                  const timeStr = d.toLocaleTimeString(numberLocale, {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })
+                                  return (
+                                    <tr key={`${click.clicked_at}-${i}`} className={cn('border-b last:border-0', i % 2 === 0 ? '' : 'bg-muted/10')}>
+                                      <td className="px-4 py-3 whitespace-nowrap">
+                                        <span className="font-medium">{dateStr}</span>
+                                        <span className="text-muted-foreground ml-2">{timeStr}</span>
+                                      </td>
+                                      <td className="px-4 py-3">
+                                        <div className="flex items-center gap-1.5">
+                                          <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
+                                          {click.linkName}
+                                          {click.linkSlug && (
+                                            <span className="text-xs text-muted-foreground">/{click.linkSlug}</span>
+                                          )}
+                                        </div>
+                                      </td>
+                                      <td className="px-4 py-3 text-muted-foreground truncate max-w-[200px]">
+                                        {click.referer || '—'}
+                                      </td>
+                                    </tr>
+                                  )
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground py-4 text-center">{t('stats.no_click_data')}</p>
+                        )}
                       </CardContent>
                     </Card>
-                  ) : null
+                  )
                 })()}
               </>
             )}
