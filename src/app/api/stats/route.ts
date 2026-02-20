@@ -326,17 +326,24 @@ export async function GET(req: NextRequest) {
   })
 
   // --- Links ---
-  // Récupérer l'historique des clics pour les liens
+  // Récupérer l'historique des clics enrichis pour les liens
+  type LinkClick = {
+    link_id: string; clicked_at: string; referer: string | null
+    ip_hash: string | null; country: string | null; city: string | null
+    device_type: string | null; os: string | null; browser: string | null
+    utm_source: string | null; utm_medium: string | null; utm_campaign: string | null
+    is_unique: boolean | null
+  }
   const linkIds = links.map((l) => l.id)
-  let allLinkClicks: { link_id: string; clicked_at: string; referer: string | null }[] = []
+  let allLinkClicks: LinkClick[] = []
   if (linkIds.length > 0) {
     // Use admin client to bypass RLS (access already secured by filtering on user's own linkIds)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const adminSb = await createAdminClient() as any
-    allLinkClicks = await fetchAllRows<{ link_id: string; clicked_at: string; referer: string | null }>(
+    allLinkClicks = await fetchAllRows<LinkClick>(
       (offset, limit) => adminSb
         .from('link_clicks')
-        .select('link_id, clicked_at, referer')
+        .select('link_id, clicked_at, referer, ip_hash, country, city, device_type, os, browser, utm_source, utm_medium, utm_campaign, is_unique')
         .in('link_id', linkIds)
         .gte('clicked_at', from)
         .lte('clicked_at', to)
@@ -346,7 +353,7 @@ export async function GET(req: NextRequest) {
   }
 
   // Grouper les clics par lien
-  const clicksByLink = new Map<string, typeof allLinkClicks>()
+  const clicksByLink = new Map<string, LinkClick[]>()
   for (const click of allLinkClicks) {
     const arr = clicksByLink.get(click.link_id) || []
     arr.push(click)
@@ -366,22 +373,80 @@ export async function GET(req: NextRequest) {
       const day = click.clicked_at.slice(0, 10)
       clicksByDay.set(day, (clicksByDay.get(day) || 0) + 1)
     }
-    const clicksPerDay: { date: string; count: number }[] = Array.from(clicksByDay.entries())
+    const clicksPerDay = Array.from(clicksByDay.entries())
       .map(([date, count]) => ({ date, count }))
       .sort((a, b) => a.date.localeCompare(b.date))
+
+    // Visiteurs uniques
+    const uniqueVisitors = clicks.filter((c) => c.is_unique === true).length
+
+    // Répartition appareils
+    const deviceMap = new Map<string, number>()
+    for (const c of clicks) {
+      const d = c.device_type ?? 'unknown'
+      deviceMap.set(d, (deviceMap.get(d) || 0) + 1)
+    }
+    const deviceBreakdown = Array.from(deviceMap.entries())
+      .map(([type, count]) => ({ type, count }))
+      .sort((a, b) => b.count - a.count)
+
+    // Répartition pays (top 10)
+    const countryMap = new Map<string, number>()
+    for (const c of clicks) {
+      const co = c.country ?? 'unknown'
+      countryMap.set(co, (countryMap.get(co) || 0) + 1)
+    }
+    const countryBreakdown = Array.from(countryMap.entries())
+      .map(([country, count]) => ({ country, count }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10)
+
+    // Sources UTM
+    const utmMap = new Map<string, number>()
+    for (const c of clicks) {
+      const u = c.utm_source ?? '(direct)'
+      utmMap.set(u, (utmMap.get(u) || 0) + 1)
+    }
+    const utmBreakdown = Array.from(utmMap.entries())
+      .map(([source, count]) => ({ source, count }))
+      .sort((a, b) => b.count - a.count)
+
+    // Heures de pointe (0-23)
+    const hourMap = new Map<number, number>()
+    for (let h = 0; h < 24; h++) hourMap.set(h, 0)
+    for (const c of clicks) {
+      const hour = new Date(c.clicked_at).getUTCHours()
+      hourMap.set(hour, (hourMap.get(hour) || 0) + 1)
+    }
+    const peakHours = Array.from(hourMap.entries())
+      .map(([hour, count]) => ({ hour, count }))
+      .sort((a, b) => a.hour - b.hour)
 
     return {
       id: link.id,
       slug: link.slug,
       name: link.name,
       totalClicks: link.click_count || 0,
+      uniqueVisitors,
       conversionsCount,
       isActive: link.is_active,
       recentClicks: clicks.slice(0, 50).map((c) => ({
         clicked_at: c.clicked_at,
         referer: c.referer,
+        country: c.country,
+        city: c.city,
+        device_type: c.device_type,
+        os: c.os,
+        browser: c.browser,
+        utm_source: c.utm_source,
+        utm_campaign: c.utm_campaign,
+        is_unique: c.is_unique,
       })),
       clicksPerDay,
+      deviceBreakdown,
+      countryBreakdown,
+      utmBreakdown,
+      peakHours,
     }
   })
 

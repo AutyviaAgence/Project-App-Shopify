@@ -28,6 +28,34 @@ export type StatsAgent = {
 export type StatsLinkClick = {
   clicked_at: string
   referer: string | null
+  country: string | null
+  city: string | null
+  device_type: string | null
+  os: string | null
+  browser: string | null
+  utm_source: string | null
+  utm_campaign: string | null
+  is_unique: boolean | null
+}
+
+export type StatsDevicePoint = {
+  type: string
+  count: number
+}
+
+export type StatsCountryPoint = {
+  country: string
+  count: number
+}
+
+export type StatsUtmPoint = {
+  source: string
+  count: number
+}
+
+export type StatsPeakHourPoint = {
+  hour: number
+  count: number
 }
 
 export type StatsLink = {
@@ -35,10 +63,15 @@ export type StatsLink = {
   slug: string | null
   name: string
   totalClicks: number
+  uniqueVisitors: number
   conversionsCount: number
   isActive: boolean
   recentClicks: StatsLinkClick[]
   clicksPerDay: StatsTimePoint[]
+  deviceBreakdown: StatsDevicePoint[]
+  countryBreakdown: StatsCountryPoint[]
+  utmBreakdown: StatsUtmPoint[]
+  peakHours: StatsPeakHourPoint[]
 }
 
 export type StatsTopContact = {

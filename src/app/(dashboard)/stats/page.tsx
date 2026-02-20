@@ -21,6 +21,10 @@ import {
   StageDistributionChart,
   ResponseRateByStageChart,
   TransitionsOverTimeChart,
+  DeviceBreakdownChart,
+  CountryBreakdownChart,
+  UtmBreakdownChart,
+  PeakHoursChart,
 } from '@/components/stats/charts'
 import { toast } from 'sonner'
 import {
@@ -44,6 +48,9 @@ import {
   Filter,
   Sparkles,
   Coins,
+  Smartphone,
+  Globe,
+  BarChart2,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { fr, enUS } from 'date-fns/locale'
@@ -541,13 +548,20 @@ export default function StatsPage() {
               </Card>
             ) : (
               <>
-                <div className="grid gap-4 sm:grid-cols-3">
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                   <KPICard
                     title={t('stats.total_clicks')}
                     value={stats.links.reduce((sum, l) => sum + l.totalClicks, 0)}
                     trend={null}
                     icon={MousePointerClick}
                     color="blue"
+                  />
+                  <KPICard
+                    title={t('stats.unique_visitors')}
+                    value={stats.links.reduce((sum, l) => sum + l.uniqueVisitors, 0)}
+                    trend={null}
+                    icon={Users}
+                    color="purple"
                   />
                   <KPICard
                     title={t('stats.total_conversions')}
@@ -568,6 +582,40 @@ export default function StatsPage() {
                     color="orange"
                   />
                 </div>
+
+                {/* Entonnoir de conversion */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <ArrowRightLeft className="h-4 w-4" />
+                      {t('stats.conversion_funnel')}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1 rounded-lg bg-blue-500/10 border border-blue-500/20 p-4 text-center">
+                        <p className="text-2xl font-bold text-blue-500">
+                          {stats.links.reduce((s, l) => s + l.totalClicks, 0).toLocaleString(numberLocale)}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">{t('stats.clicks')}</p>
+                      </div>
+                      <div className="text-muted-foreground text-2xl">→</div>
+                      <div className="flex-1 rounded-lg bg-purple-500/10 border border-purple-500/20 p-4 text-center">
+                        <p className="text-2xl font-bold text-purple-500">
+                          {stats.links.reduce((s, l) => s + l.uniqueVisitors, 0).toLocaleString(numberLocale)}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">{t('stats.unique_visitors')}</p>
+                      </div>
+                      <div className="text-muted-foreground text-2xl">→</div>
+                      <div className="flex-1 rounded-lg bg-primary/10 border border-primary/20 p-4 text-center">
+                        <p className="text-2xl font-bold text-primary">
+                          {stats.links.reduce((s, l) => s + l.conversionsCount, 0).toLocaleString(numberLocale)}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">{t('stats.conversations')}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
 
                 <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                   {stats.links.map((link) => {
@@ -593,12 +641,18 @@ export default function StatsPage() {
                           )}
                         </CardHeader>
                         <CardContent>
-                          <div className="grid grid-cols-3 gap-2 text-center">
+                          <div className="grid grid-cols-2 gap-2 text-center">
                             <div>
                               <p className="text-xl font-bold">
                                 {link.totalClicks.toLocaleString(numberLocale)}
                               </p>
                               <p className="text-xs text-muted-foreground">{t('stats.clicks')}</p>
+                            </div>
+                            <div>
+                              <p className="text-xl font-bold">
+                                {link.uniqueVisitors.toLocaleString(numberLocale)}
+                              </p>
+                              <p className="text-xs text-muted-foreground">{t('stats.unique')}</p>
                             </div>
                             <div>
                               <p className="text-xl font-bold">
@@ -645,6 +699,118 @@ export default function StatsPage() {
                   )
                 })()}
 
+                {/* Répartition appareils + pays */}
+                {(() => {
+                  const deviceAgg = new Map<string, number>()
+                  for (const link of stats.links) {
+                    for (const d of link.deviceBreakdown) {
+                      deviceAgg.set(d.type, (deviceAgg.get(d.type) || 0) + d.count)
+                    }
+                  }
+                  const deviceData = Array.from(deviceAgg.entries())
+                    .map(([type, count]) => ({ type, count }))
+                    .sort((a, b) => b.count - a.count)
+
+                  const countryAgg = new Map<string, number>()
+                  for (const link of stats.links) {
+                    for (const c of link.countryBreakdown) {
+                      countryAgg.set(c.country, (countryAgg.get(c.country) || 0) + c.count)
+                    }
+                  }
+                  const countryData = Array.from(countryAgg.entries())
+                    .map(([country, count]) => ({ country, count }))
+                    .sort((a, b) => b.count - a.count)
+                    .slice(0, 10)
+
+                  return (
+                    <div className="grid gap-6 lg:grid-cols-2">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2 text-base">
+                            <Smartphone className="h-4 w-4" />
+                            {t('stats.device_breakdown')}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          {deviceData.length > 0
+                            ? <DeviceBreakdownChart data={deviceData} />
+                            : <p className="text-sm text-muted-foreground py-4 text-center">{t('stats.no_click_data')}</p>
+                          }
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2 text-base">
+                            <Globe className="h-4 w-4" />
+                            {t('stats.country_breakdown')}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          {countryData.length > 0
+                            ? <CountryBreakdownChart data={countryData} />
+                            : <p className="text-sm text-muted-foreground py-4 text-center">{t('stats.no_click_data')}</p>
+                          }
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )
+                })()}
+
+                {/* Sources UTM + Heures de pointe */}
+                {(() => {
+                  const utmAgg = new Map<string, number>()
+                  for (const link of stats.links) {
+                    for (const u of link.utmBreakdown) {
+                      utmAgg.set(u.source, (utmAgg.get(u.source) || 0) + u.count)
+                    }
+                  }
+                  const utmData = Array.from(utmAgg.entries())
+                    .map(([source, count]) => ({ source, count }))
+                    .sort((a, b) => b.count - a.count)
+
+                  const hourAgg = new Map<number, number>()
+                  for (let h = 0; h < 24; h++) hourAgg.set(h, 0)
+                  for (const link of stats.links) {
+                    for (const p of link.peakHours) {
+                      hourAgg.set(p.hour, (hourAgg.get(p.hour) || 0) + p.count)
+                    }
+                  }
+                  const peakData = Array.from(hourAgg.entries())
+                    .map(([hour, count]) => ({ hour, count }))
+                    .sort((a, b) => a.hour - b.hour)
+
+                  return (
+                    <div className="grid gap-6 lg:grid-cols-2">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2 text-base">
+                            <BarChart2 className="h-4 w-4" />
+                            {t('stats.utm_breakdown')}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          {utmData.length > 0
+                            ? <UtmBreakdownChart data={utmData} />
+                            : <p className="text-sm text-muted-foreground py-4 text-center">{t('stats.no_utm_data')}</p>
+                          }
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2 text-base">
+                            <Clock className="h-4 w-4" />
+                            {t('stats.peak_hours')}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-xs text-muted-foreground mb-2">{t('stats.peak_hours_note')}</p>
+                          <PeakHoursChart data={peakData} />
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )
+                })()}
+
                 {/* Historique des clics récents */}
                 {(() => {
                   const allClicks = stats.links
@@ -671,6 +837,9 @@ export default function StatsPage() {
                                 <tr className="border-b bg-muted/30 text-left text-muted-foreground">
                                   <th className="px-4 py-3 font-medium">{t('stats.click_date')}</th>
                                   <th className="px-4 py-3 font-medium">{t('stats.click_link')}</th>
+                                  <th className="px-4 py-3 font-medium">{t('stats.click_country')}</th>
+                                  <th className="px-4 py-3 font-medium">{t('stats.click_device')}</th>
+                                  <th className="px-4 py-3 font-medium">{t('stats.click_utm')}</th>
                                   <th className="px-4 py-3 font-medium">{t('stats.click_referer')}</th>
                                 </tr>
                               </thead>
@@ -700,6 +869,20 @@ export default function StatsPage() {
                                             <span className="text-xs text-muted-foreground">/{click.linkSlug}</span>
                                           )}
                                         </div>
+                                      </td>
+                                      <td className="px-4 py-3 whitespace-nowrap">
+                                        {click.country ? `${click.country}${click.city ? ` · ${click.city}` : ''}` : '—'}
+                                      </td>
+                                      <td className="px-4 py-3 whitespace-nowrap">
+                                        {click.device_type ? (
+                                          <span className="flex items-center gap-1">
+                                            {click.device_type}
+                                            {click.os && <span className="text-muted-foreground text-xs">({click.os})</span>}
+                                          </span>
+                                        ) : '—'}
+                                      </td>
+                                      <td className="px-4 py-3 whitespace-nowrap">
+                                        {click.utm_source ? `${click.utm_source}${click.utm_campaign ? ` / ${click.utm_campaign}` : ''}` : '—'}
                                       </td>
                                       <td className="px-4 py-3 text-muted-foreground truncate max-w-[200px]">
                                         {click.referer || '—'}

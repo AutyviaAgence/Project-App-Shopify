@@ -13,7 +13,7 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts'
-import type { StatsMessagePoint, StatsTimePoint, StatsLifecycleStage } from '@/types/stats'
+import type { StatsMessagePoint, StatsTimePoint, StatsLifecycleStage, StatsDevicePoint, StatsCountryPoint, StatsUtmPoint, StatsPeakHourPoint } from '@/types/stats'
 
 // Autyvia brand colors
 const COLORS = {
@@ -409,6 +409,96 @@ export function TransitionsOverTimeChart({ data, stages }: TransitionsOverTimeCh
           />
         ))}
       </AreaChart>
+    </ResponsiveContainer>
+  )
+}
+
+// --- Device Breakdown Horizontal Bar Chart ---
+
+const DEVICE_COLORS: Record<string, string> = {
+  mobile: COLORS.turquoise,
+  desktop: COLORS.blue,
+  tablet: COLORS.purple,
+  unknown: COLORS.grayMuted,
+}
+
+export function DeviceBreakdownChart({ data }: { data: StatsDevicePoint[] }) {
+  if (data.length === 0) return null
+
+  return (
+    <ResponsiveContainer width="100%" height={Math.max(150, data.length * 50)}>
+      <BarChart data={data} layout="vertical" margin={{ top: 5, right: 20, left: 10, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke={COLORS.gridLine} opacity={0.3} />
+        <XAxis type="number" tick={{ fill: COLORS.grayMuted, fontSize: 12 }} allowDecimals={false} />
+        <YAxis type="category" dataKey="type" width={80} tick={{ fill: COLORS.grayMuted, fontSize: 12 }} />
+        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(125,194,165,0.1)' }} />
+        <Bar dataKey="count" name="Clics" radius={[0, 4, 4, 0]}>
+          {data.map((entry, i) => (
+            <Cell key={i} fill={DEVICE_COLORS[entry.type] ?? COLORS.grayMuted} />
+          ))}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
+  )
+}
+
+// --- Country Breakdown Horizontal Bar Chart ---
+
+export function CountryBreakdownChart({ data }: { data: StatsCountryPoint[] }) {
+  if (data.length === 0) return null
+
+  return (
+    <ResponsiveContainer width="100%" height={Math.max(200, data.length * 40)}>
+      <BarChart data={data} layout="vertical" margin={{ top: 5, right: 20, left: 20, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke={COLORS.gridLine} opacity={0.3} />
+        <XAxis type="number" tick={{ fill: COLORS.grayMuted, fontSize: 12 }} allowDecimals={false} />
+        <YAxis type="category" dataKey="country" width={50} tick={{ fill: COLORS.grayMuted, fontSize: 12 }} />
+        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(125,194,165,0.1)' }} />
+        <Bar dataKey="count" name="Clics" fill={COLORS.green} radius={[0, 4, 4, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  )
+}
+
+// --- UTM Source Breakdown Horizontal Bar Chart ---
+
+export function UtmBreakdownChart({ data }: { data: StatsUtmPoint[] }) {
+  if (data.length === 0) return null
+
+  return (
+    <ResponsiveContainer width="100%" height={Math.max(150, data.length * 45)}>
+      <BarChart data={data} layout="vertical" margin={{ top: 5, right: 20, left: 80, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke={COLORS.gridLine} opacity={0.3} />
+        <XAxis type="number" tick={{ fill: COLORS.grayMuted, fontSize: 12 }} allowDecimals={false} />
+        <YAxis type="category" dataKey="source" width={80} tick={{ fill: COLORS.grayMuted, fontSize: 12 }} />
+        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(125,194,165,0.1)' }} />
+        <Bar dataKey="count" name="Clics" fill={COLORS.purple} radius={[0, 4, 4, 0]} />
+      </BarChart>
+    </ResponsiveContainer>
+  )
+}
+
+// --- Peak Hours Bar Chart (24 bars, 0h-23h) ---
+
+export function PeakHoursChart({ data }: { data: StatsPeakHourPoint[] }) {
+  if (data.length === 0) return null
+
+  return (
+    <ResponsiveContainer width="100%" height={220}>
+      <BarChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+        <CartesianGrid strokeDasharray="3 3" stroke={COLORS.gridLine} opacity={0.3} />
+        <XAxis
+          dataKey="hour"
+          tickFormatter={(h: number) => `${h}h`}
+          tick={{ fill: COLORS.grayMuted, fontSize: 11 }}
+        />
+        <YAxis tick={{ fill: COLORS.grayMuted, fontSize: 12 }} allowDecimals={false} />
+        <Tooltip
+          content={<CustomTooltip labelFormatter={(h) => `${h}h00`} />}
+          cursor={{ fill: 'rgba(64,233,190,0.1)' }}
+        />
+        <Bar dataKey="count" name="Clics" fill={COLORS.turquoise} radius={[3, 3, 0, 0]} />
+      </BarChart>
     </ResponsiveContainer>
   )
 }
