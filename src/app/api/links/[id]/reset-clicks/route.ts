@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { canAccessResource } from '@/lib/teams/access'
 
 /** POST /api/links/[id]/reset-clicks — Réinitialiser le compteur de clics */
@@ -41,9 +41,10 @@ export async function POST(
     return NextResponse.json({ error: updateError.message }, { status: 500 })
   }
 
-  // Supprimer l'historique des clics
+  // Supprimer l'historique des clics (admin client pour bypass RLS)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  await (supabase as any).from('link_clicks').delete().eq('link_id', id)
+  const adminSb = await createAdminClient() as any
+  await adminSb.from('link_clicks').delete().eq('link_id', id)
 
   return NextResponse.json({ ok: true })
 }

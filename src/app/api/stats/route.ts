@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { getDateRange, computeTrend, groupByDate, groupMessagesByDate, groupTransitionsByDate } from '@/lib/stats/helpers'
 import { getUserTeamPermissions } from '@/lib/teams/access'
 import type { StatsResponse, StatsAgent, StatsLink, StatsTopContact, StatsContactsBySession, StatsCampaign, StatsCampaigns, StatsRelanceAgent, StatsLifecycle, StatsLifecycleStage, StatsLifecycleTransitionPoint } from '@/types/stats'
@@ -330,10 +330,11 @@ export async function GET(req: NextRequest) {
   const linkIds = links.map((l) => l.id)
   let allLinkClicks: { link_id: string; clicked_at: string; referer: string | null }[] = []
   if (linkIds.length > 0) {
+    // Use admin client to bypass RLS (access already secured by filtering on user's own linkIds)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const sb = supabase as any
+    const adminSb = await createAdminClient() as any
     allLinkClicks = await fetchAllRows<{ link_id: string; clicked_at: string; referer: string | null }>(
-      (offset, limit) => sb
+      (offset, limit) => adminSb
         .from('link_clicks')
         .select('link_id, clicked_at, referer')
         .in('link_id', linkIds)
