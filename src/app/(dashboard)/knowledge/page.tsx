@@ -784,7 +784,7 @@ export default function KnowledgePage() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3 py-2">
+          <div className="space-y-3 py-2 max-h-[60vh] overflow-y-auto">
             {agents.length === 0 ? (
               <p className="text-sm text-muted-foreground text-center py-4">
                 {t('knowledge.no_agents_for_kb')}
@@ -821,7 +821,7 @@ export default function KnowledgePage() {
                         )}
                       </div>
                       {agent.description && (
-                        <p className="text-xs text-muted-foreground truncate mt-0.5">
+                        <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
                           {agent.description}
                         </p>
                       )}
