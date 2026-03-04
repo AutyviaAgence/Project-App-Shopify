@@ -103,6 +103,28 @@ export const evolution = {
     })
   },
 
+  /** Envoyer un média (image, audio, document, vidéo) */
+  sendMedia(instanceName: string, number: string, opts: {
+    mediatype: 'image' | 'audio' | 'document' | 'video'
+    media: string  // base64
+    mimetype: string
+    caption?: string
+    fileName?: string
+  }) {
+    return request(`/message/sendMedia/${instanceName}`, {
+      method: 'POST',
+      body: JSON.stringify({
+        number,
+        mediatype: opts.mediatype,
+        media: opts.media,
+        mimetype: opts.mimetype,
+        caption: opts.caption,
+        fileName: opts.fileName,
+      }),
+      timeout: 60000, // 60s pour les gros fichiers
+    })
+  },
+
   /** Récupérer les infos d'une instance (owner, profileName, etc.) */
   fetchInstance(instanceName: string) {
     return request(`/instance/fetchInstances?instanceName=${instanceName}`, {

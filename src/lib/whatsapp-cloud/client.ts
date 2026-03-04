@@ -104,6 +104,97 @@ export const wabaClient = {
     })
   },
 
+  /** Uploader un média vers Meta (retourne un media_id) */
+  async uploadMedia(
+    phoneNumberId: string,
+    accessToken: string,
+    buffer: Buffer,
+    mimeType: string,
+    fileName: string
+  ): Promise<{ ok: true; data: { id: string } } | { ok: false; error: string }> {
+    try {
+      const blob = new Blob([new Uint8Array(buffer)], { type: mimeType })
+      const formData = new FormData()
+      formData.append('file', blob, fileName)
+      formData.append('messaging_product', 'whatsapp')
+      formData.append('type', mimeType)
+
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 60000)
+
+      const res = await fetch(`${GRAPH_API_BASE}/${phoneNumberId}/media`, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: formData,
+      })
+      clearTimeout(timeoutId)
+
+      if (!res.ok) {
+        const text = await res.text()
+        return { ok: false, error: `Upload failed: HTTP ${res.status}: ${text}` }
+      }
+
+      const data = await res.json()
+      return { ok: true, data: { id: data.id } }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error'
+      return { ok: false, error: `Media upload failed: ${message}` }
+    }
+  },
+
+  /** Envoyer une image via media_id */
+  sendImage(phoneNumberId: string, accessToken: string, to: string, mediaId: string, caption?: string) {
+    return request(`${GRAPH_API_BASE}/${phoneNumberId}/messages`, accessToken, {
+      method: 'POST',
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to,
+        type: 'image',
+        image: { id: mediaId, ...(caption ? { caption } : {}) },
+      }),
+    })
+  },
+
+  /** Envoyer un audio via media_id */
+  sendAudio(phoneNumberId: string, accessToken: string, to: string, mediaId: string) {
+    return request(`${GRAPH_API_BASE}/${phoneNumberId}/messages`, accessToken, {
+      method: 'POST',
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to,
+        type: 'audio',
+        audio: { id: mediaId },
+      }),
+    })
+  },
+
+  /** Envoyer un document via media_id */
+  sendDocument(phoneNumberId: string, accessToken: string, to: string, mediaId: string, fileName?: string) {
+    return request(`${GRAPH_API_BASE}/${phoneNumberId}/messages`, accessToken, {
+      method: 'POST',
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to,
+        type: 'document',
+        document: { id: mediaId, ...(fileName ? { filename: fileName } : {}) },
+      }),
+    })
+  },
+
+  /** Envoyer une vidéo via media_id */
+  sendVideo(phoneNumberId: string, accessToken: string, to: string, mediaId: string, caption?: string) {
+    return request(`${GRAPH_API_BASE}/${phoneNumberId}/messages`, accessToken, {
+      method: 'POST',
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to,
+        type: 'video',
+        video: { id: mediaId, ...(caption ? { caption } : {}) },
+      }),
+    })
+  },
+
   /** Télécharger un média via son ID (2 étapes : get URL puis download binary) */
   async downloadMedia(
     mediaId: string,
