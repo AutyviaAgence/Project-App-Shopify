@@ -123,6 +123,8 @@ CREATE TABLE IF NOT EXISTS contacts (
 
 CREATE INDEX IF NOT EXISTS idx_contacts_session ON contacts(session_id);
 CREATE INDEX IF NOT EXISTS idx_contacts_phone ON contacts(phone_number);
+CREATE INDEX IF NOT EXISTS idx_contacts_name ON contacts(name);
+CREATE INDEX IF NOT EXISTS idx_contacts_first_last_name ON contacts(first_name, last_name);
 
 -- Conversations
 CREATE TABLE IF NOT EXISTS conversations (
@@ -166,6 +168,7 @@ CREATE TABLE IF NOT EXISTS messages (
 CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
 CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
 CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_messages_conv_created ON messages(conversation_id, created_at DESC);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_wa_id
   ON messages(wa_message_id, session_id) WHERE wa_message_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS idx_messages_ai_pending
