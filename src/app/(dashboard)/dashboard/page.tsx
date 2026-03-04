@@ -6,7 +6,10 @@ import type { StatsResponse } from '@/types/stats'
 import type { WhatsAppSession } from '@/types/database'
 import { Badge } from '@/components/ui/badge'
 import { KPICard } from '@/components/stats/kpi-card'
-import { MessagesChart, TimeSeriesChart } from '@/components/stats/charts'
+import dynamic from 'next/dynamic'
+
+const MessagesChart = dynamic(() => import('@/components/stats/charts').then(m => ({ default: m.MessagesChart })))
+const TimeSeriesChart = dynamic(() => import('@/components/stats/charts').then(m => ({ default: m.TimeSeriesChart })))
 import { toast } from 'sonner'
 import {
   MessageSquare,

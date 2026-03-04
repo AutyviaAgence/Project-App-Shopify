@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter } from 'next/navigation'
@@ -66,8 +66,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { subscription, loading: subscriptionLoading } = useSubscription()
   const { t } = useTranslation()
 
-  const NAV_ITEMS = NAV_ITEMS_KEYS.map(item => ({ ...item, label: t(item.labelKey) }))
-  const BOTTOM_NAV_ITEMS = BOTTOM_NAV_KEYS.map(item => ({ ...item, label: t(item.labelKey) }))
+  const NAV_ITEMS = useMemo(() => NAV_ITEMS_KEYS.map(item => ({ ...item, label: t(item.labelKey) })), [t])
+  const BOTTOM_NAV_ITEMS = useMemo(() => BOTTOM_NAV_KEYS.map(item => ({ ...item, label: t(item.labelKey) })), [t])
 
   // Vérifier si la page actuelle est accessible sans abonnement
   const isAllowedPage = ALLOWED_WITHOUT_SUBSCRIPTION.some(
@@ -75,12 +75,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   )
   const isBlocked = subscription && !subscription.isActive && !isAllowedPage
 
-  // Close sidebar on route change (mobile)
+  // Close sidebar on route change (mobile) + escape key
   useEffect(() => {
     setSidebarOpen(false)
   }, [pathname])
 
-  // Handle escape key to close sidebar
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') setSidebarOpen(false)
@@ -89,7 +88,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return () => window.removeEventListener('keydown', handleEsc)
   }, [])
 
-  async function handleSignOut() {
+  const handleSignOut = useCallback(async () => {
     const supabase = createClient()
     const { error } = await supabase.auth.signOut()
     if (error) {
@@ -98,7 +97,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
     router.push('/login')
     router.refresh()
-  }
+  }, [router, t])
 
   const NavLink = ({ item, showLabel = true }: { item: typeof NAV_ITEMS[0]; showLabel?: boolean }) => {
     const isActive = pathname === item.href || pathname.startsWith(item.href + '/')

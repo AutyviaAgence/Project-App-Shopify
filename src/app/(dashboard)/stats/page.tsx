@@ -14,18 +14,18 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { KPICard } from '@/components/stats/kpi-card'
-import {
-  MessagesChart,
-  TimeSeriesChart,
-  AgentsComparisonChart,
-  StageDistributionChart,
-  ResponseRateByStageChart,
-  TransitionsOverTimeChart,
-  DeviceBreakdownChart,
-  CountryBreakdownChart,
-  UtmBreakdownChart,
-  PeakHoursChart,
-} from '@/components/stats/charts'
+import dynamic from 'next/dynamic'
+
+const MessagesChart = dynamic(() => import('@/components/stats/charts').then(m => ({ default: m.MessagesChart })))
+const TimeSeriesChart = dynamic(() => import('@/components/stats/charts').then(m => ({ default: m.TimeSeriesChart })))
+const AgentsComparisonChart = dynamic(() => import('@/components/stats/charts').then(m => ({ default: m.AgentsComparisonChart })))
+const StageDistributionChart = dynamic(() => import('@/components/stats/charts').then(m => ({ default: m.StageDistributionChart })))
+const ResponseRateByStageChart = dynamic(() => import('@/components/stats/charts').then(m => ({ default: m.ResponseRateByStageChart })))
+const TransitionsOverTimeChart = dynamic(() => import('@/components/stats/charts').then(m => ({ default: m.TransitionsOverTimeChart })))
+const DeviceBreakdownChart = dynamic(() => import('@/components/stats/charts').then(m => ({ default: m.DeviceBreakdownChart })))
+const CountryBreakdownChart = dynamic(() => import('@/components/stats/charts').then(m => ({ default: m.CountryBreakdownChart })))
+const UtmBreakdownChart = dynamic(() => import('@/components/stats/charts').then(m => ({ default: m.UtmBreakdownChart })))
+const PeakHoursChart = dynamic(() => import('@/components/stats/charts').then(m => ({ default: m.PeakHoursChart })))
 import { toast } from 'sonner'
 import {
   MessageSquare,
