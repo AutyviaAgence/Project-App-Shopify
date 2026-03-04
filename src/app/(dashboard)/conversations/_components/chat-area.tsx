@@ -68,10 +68,19 @@ export function ChatArea({
   const { t, locale } = useTranslation()
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
+  const prevMessageCountRef = useRef(0)
+
+  // Reset counter when conversation changes
+  useEffect(() => {
+    prevMessageCountRef.current = 0
+  }, [selectedConv?.id])
 
   // Scroll to bottom when messages change
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    // Instant scroll on initial load / conversation switch, smooth for new messages
+    const isInitialLoad = prevMessageCountRef.current === 0 && messages.length > 0
+    messagesEndRef.current?.scrollIntoView({ behavior: isInitialLoad ? 'instant' : 'smooth' })
+    prevMessageCountRef.current = messages.length
   }, [messages])
 
   function getContactDisplay(conv: ConversationWithJoins) {
