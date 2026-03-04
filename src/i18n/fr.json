@@ -272,6 +272,7 @@
     "timeout": "Timeout",
     "multi_lang": "Multi-langue",
     "guardrail": "Garde-fou",
+    "linked_knowledge": "Bases de connaissances",
     "proposed": "proposés",
     "rate": "taux",
     "edit_agent": "Modifier l'agent",

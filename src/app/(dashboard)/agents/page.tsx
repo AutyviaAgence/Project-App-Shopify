@@ -77,6 +77,7 @@ export default function AgentsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [agentToDelete, setAgentToDelete] = useState<AgentWithTeamIds | null>(null)
   const [teams, setTeams] = useState<TeamWithRole[]>([])
+  const [agentKnowledge, setAgentKnowledge] = useState<Record<string, { id: string; name: string }[]>>({})
 
   // Form state
   const [formTeamIds, setFormTeamIds] = useState<string[]>([])
@@ -131,6 +132,22 @@ export default function AgentsPage() {
       const json = await res.json()
       if (res.ok && json.data) {
         setAgents(json.data)
+        // Fetch knowledge bases for each agent in parallel
+        const kbMap: Record<string, { id: string; name: string }[]> = {}
+        await Promise.all(
+          (json.data as AgentWithTeamIds[]).map(async (agent) => {
+            try {
+              const kbRes = await fetch(`/api/agents/${agent.id}/knowledge`)
+              const kbJson = await kbRes.json()
+              if (kbRes.ok && kbJson.data?.length > 0) {
+                kbMap[agent.id] = kbJson.data.map((d: { id: string; name: string }) => ({ id: d.id, name: d.name }))
+              }
+            } catch {
+              // Silently ignore KB fetch errors
+            }
+          })
+        )
+        setAgentKnowledge(kbMap)
       }
     } catch {
       toast.error(t('agents.load_error'))
@@ -605,6 +622,18 @@ export default function AgentsPage() {
                         </span>
                       )}
                     </div>
+
+                    {/* Knowledge bases */}
+                    {agentKnowledge[agent.id]?.length > 0 && (
+                      <div className="flex flex-wrap gap-1">
+                        {agentKnowledge[agent.id].map((kb) => (
+                          <Badge key={kb.id} variant="outline" className="gap-1 text-xs font-normal">
+                            <Brain className="h-3 w-3 text-[#7DC2A5]" />
+                            {kb.name}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
 
                     <p className="text-xs text-muted-foreground line-clamp-2">
                       {agent.system_prompt}
