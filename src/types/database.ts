@@ -129,6 +129,7 @@ export type Conversation = {
   last_message_preview: string | null
   unread_count: number
   is_ai_active: boolean
+  is_pinned: boolean
   lifecycle_stage_id: string | null
   lifecycle_last_analyzed_at: string | null
   lifecycle_messages_since_analysis: number

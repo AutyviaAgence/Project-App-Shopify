@@ -210,6 +210,7 @@ export async function GET(req: NextRequest) {
 
   // Execute query with pagination
   const { data: conversations, error, count } = await query
+    .order('is_pinned', { ascending: false })
     .order('last_message_at', { ascending: false, nullsFirst: false })
     .range(offset, offset + limit - 1)
 

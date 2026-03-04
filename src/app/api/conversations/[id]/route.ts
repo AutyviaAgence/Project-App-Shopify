@@ -95,3 +95,66 @@ export async function GET(
     },
   })
 }
+
+/** PATCH /api/conversations/[id] — Toggle pin */
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params
+  const supabase = await createClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  }
+
+  const body = await req.json()
+  const { is_pinned } = body
+
+  if (typeof is_pinned !== 'boolean') {
+    return NextResponse.json({ error: 'is_pinned requis (boolean)' }, { status: 400 })
+  }
+
+  // Vérifier que la conversation existe et que l'utilisateur y a accès
+  const { data: conversation } = await supabase
+    .from('conversations')
+    .select('id, session_id')
+    .eq('id', id)
+    .single()
+
+  if (!conversation) {
+    return NextResponse.json({ error: 'Conversation introuvable' }, { status: 404 })
+  }
+
+  const { data: session } = await supabase
+    .from('whatsapp_sessions')
+    .select('user_id, team_id')
+    .eq('id', conversation.session_id)
+    .single()
+
+  if (!session) {
+    return NextResponse.json({ error: 'Session introuvable' }, { status: 404 })
+  }
+
+  const teamIds = await getUserTeamIds(supabase, user.id)
+  const isOwner = session.user_id === user.id
+  const isTeamMember = session.team_id && teamIds.includes(session.team_id)
+
+  if (!isOwner && !isTeamMember) {
+    return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+  }
+
+  const { data: updated, error } = await supabase
+    .from('conversations')
+    .update({ is_pinned })
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  return NextResponse.json({ data: updated })
+}

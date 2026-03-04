@@ -43,6 +43,7 @@ import {
   Search,
   Sparkles,
   Workflow,
+  Pin,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { fr, enUS } from 'date-fns/locale'
@@ -58,6 +59,7 @@ type ConversationWithJoins = {
   last_message_preview: string | null
   unread_count: number
   is_ai_active: boolean
+  is_pinned: boolean
   lifecycle_stage_id: string | null
   created_at: string
   contact: {
@@ -271,6 +273,33 @@ function ConversationsPageContent() {
       setLoading(false)
     }
   }, [filterSession, filterAiActive, filterTeam, filterLifecycleStage, filterTags, page, searchQuery, fetchAllConversationTags])
+
+  const togglePin = useCallback(async (convId: string, currentPinned: boolean) => {
+    try {
+      const res = await fetch(`/api/conversations/${convId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_pinned: !currentPinned }),
+      })
+      if (res.ok) {
+        setConversations((prev) => {
+          const updated = prev.map((c) =>
+            c.id === convId ? { ...c, is_pinned: !currentPinned } : c
+          )
+          // Re-sort: pinned first, then by last_message_at
+          return updated.sort((a, b) => {
+            if (a.is_pinned !== b.is_pinned) return a.is_pinned ? -1 : 1
+            const dateA = a.last_message_at ? new Date(a.last_message_at).getTime() : 0
+            const dateB = b.last_message_at ? new Date(b.last_message_at).getTime() : 0
+            return dateB - dateA
+          })
+        })
+        toast.success(!currentPinned ? t('conversations.pinned') : t('conversations.unpinned'))
+      }
+    } catch {
+      toast.error(t('common.error'))
+    }
+  }, [t])
 
   useEffect(() => {
     fetchConversations()
@@ -905,7 +934,7 @@ function ConversationsPageContent() {
                     key={conv.id}
                     onClick={() => { setSelectedConv(conv); setProfileOpen(false) }}
                     className={cn(
-                      'flex w-full items-start gap-3 p-3 text-left transition-all hover:bg-muted/50',
+                      'group/conv flex w-full items-start gap-3 p-3 text-left transition-all hover:bg-muted/50',
                       isSelected && 'bg-primary/5 border-l-2 border-l-primary'
                     )}
                   >
@@ -935,11 +964,25 @@ function ConversationsPageContent() {
                         )}>
                           {getContactDisplay(conv)}
                         </span>
-                        {conv.last_message_at && (
-                          <span className="shrink-0 text-[10px] text-muted-foreground">
-                            {formatDistanceToNow(new Date(conv.last_message_at), { addSuffix: false, locale: locale === 'fr' ? fr : enUS })}
+                        <div className="flex items-center gap-1 shrink-0">
+                          <span
+                            role="button"
+                            tabIndex={-1}
+                            onClick={(e) => { e.stopPropagation(); togglePin(conv.id, conv.is_pinned) }}
+                            className={cn(
+                              'p-0.5 rounded hover:bg-muted transition-opacity',
+                              conv.is_pinned ? 'opacity-100 text-primary' : 'opacity-0 group-hover/conv:opacity-100 text-muted-foreground'
+                            )}
+                            title={conv.is_pinned ? t('conversations.unpin_conversation') : t('conversations.pin_conversation')}
+                          >
+                            <Pin className={cn('h-3 w-3', conv.is_pinned && 'fill-current')} />
                           </span>
-                        )}
+                          {conv.last_message_at && (
+                            <span className="text-[10px] text-muted-foreground">
+                              {formatDistanceToNow(new Date(conv.last_message_at), { addSuffix: false, locale: locale === 'fr' ? fr : enUS })}
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       {/* Numéro de téléphone - toujours visible si le contact a un nom */}
