@@ -664,7 +664,7 @@ export default function LifecyclePage() {
         {stages.length > 0 && lifecycleStats && (
           <>
             {/* KPIs */}
-            <div className="grid gap-3 grid-cols-2 sm:grid-cols-4">
+            <div className="grid gap-3 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
               <Card>
                 <CardContent className="pt-4 pb-3 px-4">
                   <div className="flex items-center gap-2 text-muted-foreground mb-1">

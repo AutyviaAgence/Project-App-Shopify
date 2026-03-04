@@ -212,7 +212,7 @@ export default function CampaignsPage() {
                 <CardContent>
                   <div className="space-y-3">
                     {/* Stats */}
-                    <div className="grid grid-cols-4 gap-2 text-center">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center">
                       <div className="space-y-1">
                         <Users className="mx-auto h-4 w-4 text-muted-foreground" />
                         <div className="text-lg font-semibold">{campaign.total_recipients}</div>

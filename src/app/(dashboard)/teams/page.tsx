@@ -1278,7 +1278,7 @@ export default function TeamsPage() {
               {/* Mode selection */}
               <div className="space-y-3">
                 <Label>{t('teams.access_mode')}</Label>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <button
                     type="button"
                     onClick={() => setPermissionsMode('all')}

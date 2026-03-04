@@ -802,7 +802,7 @@ export default function AgentsPage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="agent-model">{t('agents.model')}</Label>
                 <Select value={formModel} onValueChange={setFormModel}>
@@ -835,7 +835,7 @@ export default function AgentsPage() {
 
             <div className="space-y-2">
               <Label>{t('agents.response_delay')}</Label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
                   <Label htmlFor="agent-delay-min" className="text-xs text-muted-foreground">{t('agents.minimum')}</Label>
                   <Input
@@ -868,7 +868,7 @@ export default function AgentsPage() {
 
             <div className="space-y-2">
               <Label className="text-sm font-medium">{t('agents.conversation_limits')}</Label>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1">
                   <Label htmlFor="agent-max-messages" className="text-xs text-muted-foreground">
                     {t('agents.max_messages')}
@@ -945,7 +945,7 @@ export default function AgentsPage() {
                     </Select>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="space-y-1">
                       <Label htmlFor="schedule-start" className="text-xs text-muted-foreground">
                         {t('agents.start_hour')}
