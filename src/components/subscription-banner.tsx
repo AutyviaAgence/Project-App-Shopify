@@ -1,16 +1,24 @@
 'use client'
 
-import { useSubscription } from '@/hooks/use-subscription'
 import { Button } from '@/components/ui/button'
 import { AlertTriangle, Clock, CreditCard, Cpu } from 'lucide-react'
 import Link from 'next/link'
 import { useTranslation } from '@/i18n/context'
 
-export function SubscriptionBanner() {
-  const { t } = useTranslation()
-  const { subscription, loading } = useSubscription()
+type SubscriptionInfo = {
+  status: string
+  isActive: boolean
+  isTrialExpired: boolean
+  isSubscriptionExpired: boolean
+  daysRemaining: number | null
+  usagePercentage: number
+  tokensRemaining: number
+}
 
-  if (loading || !subscription) return null
+export function SubscriptionBanner({ subscription }: { subscription: SubscriptionInfo | null }) {
+  const { t } = useTranslation()
+
+  if (!subscription) return null
 
   // Token limit reached (100%) — red banner
   if (subscription.isActive && subscription.usagePercentage >= 100) {

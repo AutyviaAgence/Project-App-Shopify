@@ -31,7 +31,11 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { AlertsDropdown } from '@/components/alerts-dropdown'
-import { TourProvider } from '@/components/guided-tour'
+import dynamic from 'next/dynamic'
+
+const TourProvider = dynamic(() => import('@/components/guided-tour').then(m => ({ default: m.TourProvider })), {
+  ssr: false,
+})
 import { SubscriptionBanner } from '@/components/subscription-banner'
 import { useSubscription } from '@/hooks/use-subscription'
 import { useTranslation } from '@/i18n/context'
@@ -237,7 +241,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </header>
 
         {/* Subscription banner */}
-        <SubscriptionBanner />
+        <SubscriptionBanner subscription={subscription} />
 
         {/* Page content */}
         <main className="flex-1 overflow-auto bg-[#F5F7FA] dark:bg-[#1A252C]">

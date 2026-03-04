@@ -469,12 +469,14 @@ function ConversationsPageContent() {
 
   // --- Effects ---
   useEffect(() => {
-    fetchConversations()
-    fetchAgents()
-    fetchSessions()
-    fetchTags()
-    fetchTeams()
-    fetchLifecycleStages()
+    Promise.all([
+      fetchConversations(),
+      fetchAgents(),
+      fetchSessions(),
+      fetchTags(),
+      fetchTeams(),
+      fetchLifecycleStages(),
+    ])
   }, [fetchConversations, fetchAgents, fetchSessions, fetchTags, fetchTeams, fetchLifecycleStages])
 
   // Handle ?open=conversationId URL param

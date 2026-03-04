@@ -67,19 +67,22 @@ export async function GET() {
   }> = {}
 
   if (agentIds.length > 0) {
-    // Récupérer les propositions de RDV
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: bookingProposals } = await (supabase as any)
-      .from('booking_proposals')
-      .select('agent_id, clicked')
-      .in('agent_id', agentIds) as { data: { agent_id: string; clicked: boolean }[] | null }
-
-    // Récupérer les clics
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: bookingClicks } = await (supabase as any)
-      .from('booking_link_clicks')
-      .select('agent_id, contact_id')
-      .in('agent_id', agentIds) as { data: { agent_id: string; contact_id: string | null }[] | null }
+    // Récupérer les propositions et clics en parallèle
+    const [
+      { data: bookingProposals },
+      { data: bookingClicks },
+    ] = await Promise.all([
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any)
+        .from('booking_proposals')
+        .select('agent_id, clicked')
+        .in('agent_id', agentIds) as Promise<{ data: { agent_id: string; clicked: boolean }[] | null }>,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (supabase as any)
+        .from('booking_link_clicks')
+        .select('agent_id, contact_id')
+        .in('agent_id', agentIds) as Promise<{ data: { agent_id: string; contact_id: string | null }[] | null }>,
+    ])
 
     // Compter les propositions par agent
     if (bookingProposals) {

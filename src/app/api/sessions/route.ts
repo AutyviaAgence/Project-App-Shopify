@@ -197,25 +197,33 @@ export async function GET() {
     permissions
   )
 
-  // Récupérer le numéro pour les sessions Evolution connectées sans phone_number
-  for (const session of sessions) {
-    if (session.status === 'connected' && !session.phone_number && (!session.integration_type || session.integration_type === 'evolution')) {
-      const instanceResult = await evolution.fetchInstance(session.instance_name)
-      if (instanceResult.ok) {
-        const instances = instanceResult.data as Array<Record<string, unknown>>
-        const instance = Array.isArray(instances) ? instances[0] : instances
-        const owner = (instance as Record<string, unknown>)?.ownerJid as string | undefined
-        if (owner) {
-          const phoneNumber = owner.split('@')[0]
-          session.phone_number = phoneNumber
-          // Sauvegarder en BDD pour les prochains appels
-          await supabase
-            .from('whatsapp_sessions')
-            .update({ phone_number: phoneNumber })
-            .eq('id', session.id)
+  // Récupérer le numéro pour les sessions Evolution connectées sans phone_number (en parallèle)
+  const sessionsNeedingPhone = sessions.filter(
+    (s) => s.status === 'connected' && !s.phone_number && (!s.integration_type || s.integration_type === 'evolution')
+  )
+  if (sessionsNeedingPhone.length > 0) {
+    const phoneResults = await Promise.all(
+      sessionsNeedingPhone.map(async (session) => {
+        const instanceResult = await evolution.fetchInstance(session.instance_name)
+        if (instanceResult.ok) {
+          const instances = instanceResult.data as Array<Record<string, unknown>>
+          const instance = Array.isArray(instances) ? instances[0] : instances
+          const owner = (instance as Record<string, unknown>)?.ownerJid as string | undefined
+          if (owner) {
+            return { session, phoneNumber: owner.split('@')[0] }
+          }
         }
-      }
-    }
+        return null
+      })
+    )
+    // Apply results and save to DB in parallel
+    const dbUpdates = phoneResults
+      .filter((r): r is { session: typeof sessions[0]; phoneNumber: string } => r !== null)
+      .map((r) => {
+        r.session.phone_number = r.phoneNumber
+        return supabase.from('whatsapp_sessions').update({ phone_number: r.phoneNumber }).eq('id', r.session.id)
+      })
+    if (dbUpdates.length > 0) await Promise.all(dbUpdates)
   }
 
   // Récupérer les team_ids pour chaque session

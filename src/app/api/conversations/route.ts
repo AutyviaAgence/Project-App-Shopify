@@ -225,25 +225,19 @@ export async function GET(req: NextRequest) {
     })
   }
 
-  // Récupérer les contacts
+  // Récupérer les contacts et équipes en parallèle
   const contactIds = [...new Set(conversations.map((c) => c.contact_id))]
-  const { data: contacts } = await supabase
-    .from('contacts')
-    .select('*')
-    .in('id', contactIds)
+  const sessionTeamIds = [...new Set(sessions.map((s) => s.team_id).filter(Boolean))] as string[]
+
+  const [{ data: contacts }, teamsResult] = await Promise.all([
+    supabase.from('contacts').select('*').in('id', contactIds),
+    sessionTeamIds.length > 0
+      ? supabase.from('teams').select('id, name').in('id', sessionTeamIds)
+      : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+  ])
 
   const contactsMap = Object.fromEntries((contacts || []).map((c) => [c.id, c]))
-
-  // Récupérer les noms des équipes
-  const sessionTeamIds = [...new Set(sessions.map((s) => s.team_id).filter(Boolean))] as string[]
-  let teamsMap: Record<string, { id: string; name: string }> = {}
-  if (sessionTeamIds.length > 0) {
-    const { data: teams } = await supabase
-      .from('teams')
-      .select('id, name')
-      .in('id', sessionTeamIds)
-    teamsMap = Object.fromEntries((teams || []).map((t) => [t.id, t]))
-  }
+  const teamsMap = Object.fromEntries((teamsResult.data || []).map((t) => [t.id, t]))
 
   // Assembler les données
   const result = conversations.map((conv) => {
