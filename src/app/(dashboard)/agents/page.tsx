@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useTranslation } from '@/i18n/context'
+import { cn } from '@/lib/utils'
 import type { AIAgent, Team } from '@/types/database'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -547,9 +548,9 @@ export default function AgentsPage() {
             const isDeleting = deleting === agent.id
 
             return (
-              <Card key={agent.id} className={!agent.is_active ? 'opacity-60' : ''}>
+              <Card key={agent.id} className={cn('overflow-hidden', !agent.is_active && 'opacity-60')}>
                 <CardHeader className="flex flex-col gap-2 space-y-0 pb-2 sm:flex-row sm:items-center sm:justify-between">
-                  <CardTitle className="text-sm font-medium truncate">
+                  <CardTitle className="text-sm font-medium truncate min-w-0">
                     <Bot className="mr-1 inline h-4 w-4" />
                     {agent.name}
                   </CardTitle>
@@ -557,8 +558,8 @@ export default function AgentsPage() {
                     {agent.is_active ? t('common.active') : t('common.inactive')}
                   </Badge>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
+                <CardContent className="min-w-0">
+                  <div className="space-y-2 min-w-0">
                     {agent.description && (
                       <p className="text-xs text-muted-foreground truncate">
                         {agent.description}
@@ -635,12 +636,12 @@ export default function AgentsPage() {
                       </div>
                     )}
 
-                    <p className="text-xs text-muted-foreground line-clamp-2">
+                    <p className="text-xs text-muted-foreground line-clamp-2 break-words">
                       {agent.system_prompt}
                     </p>
 
                     {agent.objective && (
-                      <p className="text-xs text-muted-foreground truncate">
+                      <p className="text-xs text-muted-foreground truncate break-all">
                         {t('agents.objective')} : {agent.objective}
                       </p>
                     )}
