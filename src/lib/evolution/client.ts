@@ -125,6 +125,15 @@ export const evolution = {
     })
   },
 
+  /** Envoyer un audio WhatsApp en tant que vocal (PTT) */
+  sendWhatsAppAudio(instanceName: string, number: string, audio: string) {
+    return request(`/message/sendWhatsAppAudio/${instanceName}`, {
+      method: 'POST',
+      body: JSON.stringify({ number, audio }),
+      timeout: 60000,
+    })
+  },
+
   /** Récupérer les infos d'une instance (owner, profileName, etc.) */
   fetchInstance(instanceName: string) {
     return request(`/instance/fetchInstances?instanceName=${instanceName}`, {

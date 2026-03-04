@@ -79,6 +79,13 @@ export async function sendMediaMessage(
 
   // Evolution API : convertir buffer en base64
   const base64 = opts.buffer.toString('base64')
+
+  // Pour les vocaux, utiliser l'endpoint dédié sendWhatsAppAudio (PTT)
+  if (opts.mediatype === 'audio') {
+    const dataUri = `data:${opts.mimetype};base64,${base64}`
+    return evolution.sendWhatsAppAudio(session.instance_name, phoneNumber, dataUri)
+  }
+
   return evolution.sendMedia(session.instance_name, phoneNumber, {
     mediatype: opts.mediatype,
     media: base64,
