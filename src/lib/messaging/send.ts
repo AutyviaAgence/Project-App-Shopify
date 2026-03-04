@@ -82,8 +82,7 @@ export async function sendMediaMessage(
 
   // Pour les vocaux, utiliser l'endpoint dédié sendWhatsAppAudio (PTT)
   if (opts.mediatype === 'audio') {
-    const dataUri = `data:${opts.mimetype};base64,${base64}`
-    return evolution.sendWhatsAppAudio(session.instance_name, phoneNumber, dataUri)
+    return evolution.sendWhatsAppAudio(session.instance_name, phoneNumber, base64)
   }
 
   return evolution.sendMedia(session.instance_name, phoneNumber, {
