@@ -275,6 +275,7 @@ async function executeGoogleCalendar(
     )
     const data = await res.json()
     const events = (data.items || []).map((e: any) => ({
+      id: e.id,
       title: e.summary,
       start: e.start?.dateTime || e.start?.date,
       end: e.end?.dateTime || e.end?.date,
