@@ -589,7 +589,7 @@ async function logExecution(
     durationMs: number
   }
 ) {
-  await supabase.from('tool_execution_logs').insert({
+  const { error: logError } = await supabase.from('tool_execution_logs').insert({
     user_id: params.userId,
     agent_id: params.agentId,
     tool_id: params.toolId,
@@ -601,6 +601,9 @@ async function logExecution(
     error_message: params.errorMessage,
     duration_ms: params.durationMs,
   })
+  if (logError) {
+    console.error('[Tools] logExecution insert error:', logError.message, '| convId:', params.conversationId, '| userId:', params.userId)
+  }
 }
 
 // ============================================================

@@ -75,11 +75,13 @@ export async function GET(
   }
 
   // Charger les tool execution logs pour cette conversation
-  const { data: toolLogs } = await supabase
+  const { data: toolLogs, error: toolLogsError } = await supabase
     .from('tool_execution_logs')
     .select('id, function_name, parameters, result, status, error_message, duration_ms, created_at')
     .eq('conversation_id', id)
     .order('created_at', { ascending: true })
+
+  console.log(`[Messages] Conv ${id}: ${toolLogs?.length ?? 0} tool logs found${toolLogsError ? ` (error: ${toolLogsError.message})` : ''}`)
 
   // Grouper les tool executions par message AI (le message AI est créé juste après les tool calls)
   // On associe chaque tool execution au message AI dont le created_at est juste après (dans les 60s)
