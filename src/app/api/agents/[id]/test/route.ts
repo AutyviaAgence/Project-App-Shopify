@@ -4,6 +4,7 @@ import { canAccessResource } from '@/lib/teams/access'
 import { generateAgentResponse, type ChatMessage } from '@/lib/openai/client'
 import { checkTokenLimit, recordTokenUsage } from '@/lib/openai/token-tracker'
 import { retrieveContext } from '@/lib/knowledge/retriever'
+import { getAgentTools, buildOpenAITools, executeToolCall } from '@/lib/tools/executor'
 
 export async function POST(
   req: NextRequest,
@@ -82,24 +83,65 @@ export async function POST(
     systemPrompt += `\n\n--- Instruction de langue ---\nIMPORTANT : Détecte automatiquement la langue utilisée par l'utilisateur dans son dernier message et réponds TOUJOURS dans cette même langue. Si l'utilisateur écrit en anglais, réponds en anglais. Si l'utilisateur écrit en espagnol, réponds en espagnol. Adapte-toi à la langue de chaque message.`
   }
 
-  // Générer la réponse
-  const result = await generateAgentResponse({
-    model: agent.model || 'gpt-4o-mini',
-    temperature: agent.temperature || 0.7,
-    systemPrompt,
-    messages,
-  })
+  // Charger les outils de l'agent
+  const agentTools = await getAgentTools(id)
+  const { openaiTools, functionMap } = buildOpenAITools(agentTools)
 
-  if (!result.ok) {
-    return NextResponse.json({ error: result.error }, { status: 500 })
+  // Boucle de tool calling (max 5 rounds)
+  let totalTokens = ragTokens
+  const MAX_TOOL_ROUNDS = 5
+  const conversationMessages = [...messages]
+
+  for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+    const result = await generateAgentResponse({
+      model: agent.model || 'gpt-4o-mini',
+      temperature: agent.temperature || 0.7,
+      systemPrompt,
+      messages: conversationMessages,
+      tools: openaiTools.length > 0 ? openaiTools : undefined,
+    })
+
+    if (!result.ok) {
+      return NextResponse.json({ error: result.error }, { status: 500 })
+    }
+
+    totalTokens += result.tokensUsed
+
+    // Réponse texte finale (pas de tool calls)
+    if (!result.toolCalls) {
+      await recordTokenUsage(user.id, totalTokens)
+      return NextResponse.json({ data: { response: result.content } })
+    }
+
+    // Exécuter les tool calls
+    conversationMessages.push({
+      role: 'assistant',
+      content: JSON.stringify(result.rawMessage),
+    })
+
+    for (const tc of result.toolCalls) {
+      const mapping = functionMap.get(tc.functionName)
+      if (!mapping) {
+        conversationMessages.push({
+          role: 'user',
+          content: `[Tool result for ${tc.functionName}]: Function not found.`,
+        })
+        continue
+      }
+
+      const execResult = await executeToolCall(mapping.tool, mapping.fn, tc.arguments, {
+        userId: user.id,
+        agentId: id,
+      })
+
+      conversationMessages.push({
+        role: 'user',
+        content: `[Tool result for ${tc.functionName}]: ${execResult.result}`,
+      })
+    }
   }
 
-  // Enregistrer l'utilisation des tokens (LLM + RAG embedding)
-  await recordTokenUsage(user.id, result.tokensUsed + ragTokens)
-
-  return NextResponse.json({
-    data: {
-      response: result.content,
-    }
-  })
+  // Fallback si max rounds atteint
+  await recordTokenUsage(user.id, totalTokens)
+  return NextResponse.json({ data: { response: 'Désolé, la requête a nécessité trop d\'appels. Veuillez reformuler.' } })
 }
