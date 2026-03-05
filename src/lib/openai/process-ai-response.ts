@@ -254,6 +254,8 @@ export async function processAIResponse(params: {
     const { openaiTools, functionMap } = buildOpenAITools(agentTools)
     if (openaiTools.length > 0) {
       console.log('[AI] Outils chargés:', openaiTools.length, 'fonctions')
+      const toolNames = openaiTools.map(t => t.function.name).join(', ')
+      systemPrompt += `\n\n--- Outils disponibles ---\nTu disposes des outils suivants que tu DOIS utiliser quand la demande correspond : ${toolNames}.\nQuand l'utilisateur demande des informations ou actions liées à ces outils, utilise TOUJOURS l'outil approprié via un function call. Ne dis JAMAIS que tu ne peux pas accéder à ces données — appelle l'outil.\n--- Fin des outils ---`
     }
 
     // 5. Appeler OpenAI (avec boucle tool calling si outils disponibles)

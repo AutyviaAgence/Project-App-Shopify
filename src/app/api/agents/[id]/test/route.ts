@@ -87,6 +87,12 @@ export async function POST(
   const agentTools = await getAgentTools(id)
   const { openaiTools, functionMap } = buildOpenAITools(agentTools)
 
+  // Ajouter instruction outils au system prompt
+  if (openaiTools.length > 0) {
+    const toolNames = openaiTools.map(t => t.function.name).join(', ')
+    systemPrompt += `\n\n--- Outils disponibles ---\nTu disposes des outils suivants que tu DOIS utiliser quand la demande correspond : ${toolNames}.\nQuand l'utilisateur demande des informations ou actions liées à ces outils, utilise TOUJOURS l'outil approprié via un function call. Ne dis JAMAIS que tu ne peux pas accéder à ces données — appelle l'outil.\n--- Fin des outils ---`
+  }
+
   // Boucle de tool calling (max 5 rounds)
   let totalTokens = ragTokens
   const MAX_TOOL_ROUNDS = 5
