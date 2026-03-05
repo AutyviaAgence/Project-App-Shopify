@@ -38,6 +38,8 @@ import {
   Eye,
   Pencil,
   ChevronLeft,
+  ExternalLink,
+  CheckCircle,
 } from 'lucide-react'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 
@@ -136,7 +138,20 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
   useEffect(() => {
     fetchTools()
     fetchTemplates()
-  }, [fetchTools, fetchTemplates])
+
+    // Handle OAuth callback params
+    const params = new URLSearchParams(window.location.search)
+    const oauthSuccess = params.get('oauth_success')
+    const oauthError = params.get('oauth_error')
+    if (oauthSuccess) {
+      toast.success(t('tools.oauth_connected'))
+      // Clean URL
+      window.history.replaceState({}, '', window.location.pathname)
+    } else if (oauthError) {
+      toast.error(`OAuth: ${oauthError}`)
+      window.history.replaceState({}, '', window.location.pathname)
+    }
+  }, [fetchTools, fetchTemplates, t])
 
   function openCatalog() {
     setCatalogOpen(true)
@@ -185,12 +200,68 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
       const json = await res.json()
       if (!res.ok) throw new Error(json.error)
 
+      // For OAuth tools, trigger the OAuth flow immediately after saving
+      if (selectedTemplate.auth_type === 'oauth2' && formConfig.client_id && formConfig.client_secret) {
+        const toolId = json.data?.id
+        if (toolId) {
+          await startOAuthFlow(toolId, selectedTemplate.type)
+          return // Don't close dialog yet, redirect will happen
+        }
+      }
+
       toast.success(t('tools.tool_created'))
       setConfigOpen(false)
       fetchTools()
     } catch (err: any) {
       toast.error(err.message || t('tools.create_error'))
     } finally {
+      setSaving(false)
+    }
+  }
+
+  async function startOAuthFlow(toolId: string, toolType: string) {
+    try {
+      const res = await fetch('/api/oauth/google/authorize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId: formConfig.client_id,
+          clientSecret: formConfig.client_secret,
+          toolId,
+          agentId,
+          toolType,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error)
+
+      // Redirect to Google OAuth consent screen
+      window.location.href = json.url
+    } catch (err: any) {
+      toast.error(err.message || 'OAuth error')
+      setSaving(false)
+    }
+  }
+
+  async function handleReconnectOAuth(tool: AgentTool) {
+    setSaving(true)
+    try {
+      const res = await fetch('/api/oauth/google/authorize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId: tool.config.client_id || '',
+          clientSecret: tool.config.client_secret || '',
+          toolId: tool.id,
+          agentId,
+          toolType: tool.tool_type,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error)
+      window.location.href = json.url
+    } catch (err: any) {
+      toast.error(err.message || 'OAuth error')
       setSaving(false)
     }
   }
@@ -318,6 +389,19 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                       <Badge variant="outline" className="text-xs shrink-0">
                         {tool.permissions === 'read_write' ? 'R/W' : tool.permissions === 'write' ? 'W' : 'R'}
                       </Badge>
+                      {isOAuthTool(tool.tool_type) && (
+                        tool.config.oauth_connected ? (
+                          <Badge variant="default" className="text-[10px] shrink-0 gap-1 bg-green-600">
+                            <CheckCircle className="h-2.5 w-2.5" />
+                            {t('tools.connected')}
+                          </Badge>
+                        ) : (
+                          <Button size="sm" variant="outline" className="h-5 text-[10px] px-2 gap-1" onClick={() => handleReconnectOAuth(tool)}>
+                            <ExternalLink className="h-2.5 w-2.5" />
+                            {t('tools.connect')}
+                          </Button>
+                        )
+                      )}
                     </div>
                     <p className="text-xs text-muted-foreground truncate">{tool.description}</p>
                   </div>
@@ -505,7 +589,12 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
               {/* Save */}
               <Button className="w-full" onClick={handleSaveTool} disabled={saving || !formName}>
                 {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {t('tools.save_tool')}
+                {selectedTemplate?.auth_type === 'oauth2' ? (
+                  <>
+                    <ExternalLink className="mr-2 h-4 w-4" />
+                    {t('tools.save_and_connect')}
+                  </>
+                ) : t('tools.save_tool')}
               </Button>
             </div>
           )}
@@ -565,6 +654,10 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
       />
     </div>
   )
+}
+
+function isOAuthTool(type: string): boolean {
+  return type === 'google_calendar' || type === 'google_sheets'
 }
 
 function getIconForType(type: string): string {

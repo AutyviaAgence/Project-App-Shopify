@@ -3,6 +3,7 @@ import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { encryptMessage, decryptMessage } from '@/lib/crypto/encryption'
 import { validateToolUrl, truncateResponse, sanitizeParams } from './security'
 import { TOOL_TEMPLATES, toOpenAIFunction, buildCustomFunctions, type ToolFunction } from './templates'
+import { refreshAccessToken } from '@/lib/oauth/google'
 import type { AgentTool } from '@/types/database'
 
 const TOOL_TIMEOUT_MS = 10_000
@@ -130,7 +131,7 @@ export async function executeToolCall(
     if (tool.tool_type === 'custom') {
       result = await executeCustomTool(config, fn.name, cleanArgs)
     } else {
-      result = await executeTemplateTool(tool.tool_type, config, fn.name, cleanArgs)
+      result = await executeTemplateTool(tool, tool.tool_type, config, fn.name, cleanArgs)
     }
 
     const truncated = truncateResponse(result, MAX_RESPONSE_BYTES)
@@ -172,10 +173,65 @@ export async function executeToolCall(
 }
 
 // ============================================================
+// OAuth auto-refresh
+// ============================================================
+
+async function ensureValidAccessToken(
+  tool: AgentTool,
+  config: Record<string, unknown>
+): Promise<string> {
+  const accessToken = config.access_token as string
+  const refreshToken = config.refresh_token as string
+  const expiresAt = config.token_expires_at as string | undefined
+  const clientId = config.client_id as string
+  const clientSecret = config.client_secret as string
+
+  // If no expiry info or no refresh token, return what we have
+  if (!refreshToken || !clientId || !clientSecret) {
+    return accessToken || ''
+  }
+
+  // Check if token is expired (with 5min buffer)
+  if (expiresAt) {
+    const expiresDate = new Date(expiresAt)
+    const now = new Date(Date.now() + 5 * 60 * 1000) // 5min buffer
+    if (expiresDate > now) {
+      return accessToken
+    }
+  }
+
+  // Token expired or no expiry info — refresh it
+  console.log(`[Tools] Refreshing OAuth token for tool ${tool.id}`)
+  try {
+    const tokens = await refreshAccessToken({ refreshToken, clientId, clientSecret })
+    const newExpiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString()
+
+    // Update config in DB with new token
+    const supabase = getAdminClient()
+    const updatedConfig = encryptToolConfig({
+      ...config,
+      access_token: tokens.access_token,
+      token_expires_at: newExpiresAt,
+    })
+
+    await supabase
+      .from('agent_tools')
+      .update({ config: updatedConfig, updated_at: new Date().toISOString() })
+      .eq('id', tool.id)
+
+    return tokens.access_token
+  } catch (err) {
+    console.error('[Tools] Failed to refresh OAuth token:', err)
+    throw new Error('OAuth token expired and refresh failed. Please reconnect the tool.')
+  }
+}
+
+// ============================================================
 // Template executors
 // ============================================================
 
 async function executeTemplateTool(
+  tool: AgentTool,
   toolType: string,
   config: Record<string, unknown>,
   functionName: string,
@@ -183,7 +239,7 @@ async function executeTemplateTool(
 ): Promise<string> {
   switch (toolType) {
     case 'google_calendar':
-      return executeGoogleCalendar(config, functionName, args)
+      return executeGoogleCalendar(tool, config, functionName, args)
     case 'shopify':
       return executeShopify(config, functionName, args)
     case 'woocommerce':
@@ -191,7 +247,7 @@ async function executeTemplateTool(
     case 'stripe':
       return executeStripe(config, functionName, args)
     case 'google_sheets':
-      return executeGoogleSheets(config, functionName, args)
+      return executeGoogleSheets(tool, config, functionName, args)
     default:
       throw new Error(`Unknown template: ${toolType}`)
   }
@@ -199,11 +255,12 @@ async function executeTemplateTool(
 
 // --- Google Calendar ---
 async function executeGoogleCalendar(
+  tool: AgentTool,
   config: Record<string, unknown>,
   functionName: string,
   args: Record<string, unknown>
 ): Promise<string> {
-  const accessToken = config.access_token as string
+  const accessToken = await ensureValidAccessToken(tool, config)
   const calendarId = (config.calendar_id as string) || 'primary'
   const baseUrl = 'https://www.googleapis.com/calendar/v3'
 
@@ -383,11 +440,12 @@ async function executeStripe(
 
 // --- Google Sheets ---
 async function executeGoogleSheets(
+  tool: AgentTool,
   config: Record<string, unknown>,
   functionName: string,
   args: Record<string, unknown>
 ): Promise<string> {
-  const accessToken = config.access_token as string
+  const accessToken = await ensureValidAccessToken(tool, config)
   const spreadsheetId = config.spreadsheet_id as string
   const baseUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}`
   const headers = { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }

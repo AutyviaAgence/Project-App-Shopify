@@ -56,8 +56,8 @@ export const TOOL_TEMPLATES: Record<Exclude<AgentToolType, 'custom'>, ToolTempla
     auth: {
       type: 'oauth2',
       fields: [
-        { key: 'access_token', label: 'Access Token', placeholder: '', secret: true },
-        { key: 'refresh_token', label: 'Refresh Token', placeholder: '', secret: true },
+        { key: 'client_id', label: 'Client ID', placeholder: 'xxxx.apps.googleusercontent.com', secret: false },
+        { key: 'client_secret', label: 'Client Secret', placeholder: 'GOCSPX-...', secret: true },
         { key: 'calendar_id', label: 'Calendar ID', placeholder: 'primary', secret: false },
       ],
       oauth_url: 'https://accounts.google.com/o/oauth2/v2/auth',
@@ -220,8 +220,8 @@ export const TOOL_TEMPLATES: Record<Exclude<AgentToolType, 'custom'>, ToolTempla
     auth: {
       type: 'oauth2',
       fields: [
-        { key: 'access_token', label: 'Access Token', placeholder: '', secret: true },
-        { key: 'refresh_token', label: 'Refresh Token', placeholder: '', secret: true },
+        { key: 'client_id', label: 'Client ID', placeholder: 'xxxx.apps.googleusercontent.com', secret: false },
+        { key: 'client_secret', label: 'Client Secret', placeholder: 'GOCSPX-...', secret: true },
         { key: 'spreadsheet_id', label: 'Spreadsheet ID', placeholder: 'From the sheet URL', secret: false },
       ],
       oauth_url: 'https://accounts.google.com/o/oauth2/v2/auth',
