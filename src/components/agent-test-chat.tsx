@@ -174,15 +174,20 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
                     {msg.toolExecutions && msg.toolExecutions.length > 0 && (
                       <div className="space-y-1">
                         {msg.toolExecutions.map((te, j) => (
-                          <div key={j} className="flex items-center gap-1.5 rounded-lg border border-dashed px-3 py-1.5 text-[11px]">
-                            <Wrench className="h-3 w-3 text-muted-foreground shrink-0" />
-                            <span className="font-mono font-medium truncate">{te.name}</span>
-                            {te.success ? (
-                              <CheckCircle className="h-3 w-3 text-green-500 shrink-0" />
-                            ) : (
-                              <XCircle className="h-3 w-3 text-red-500 shrink-0" />
+                          <div key={j} className="rounded-lg border border-dashed px-3 py-1.5 text-[11px]">
+                            <div className="flex items-center gap-1.5">
+                              <Wrench className="h-3 w-3 text-muted-foreground shrink-0" />
+                              <span className="font-mono font-medium truncate">{te.name}</span>
+                              {te.success ? (
+                                <CheckCircle className="h-3 w-3 text-green-500 shrink-0" />
+                              ) : (
+                                <XCircle className="h-3 w-3 text-red-500 shrink-0" />
+                              )}
+                              <span className="text-muted-foreground shrink-0">{te.durationMs}ms</span>
+                            </div>
+                            {te.result && (
+                              <pre className="mt-1 max-h-20 overflow-auto whitespace-pre-wrap break-all text-[10px] text-muted-foreground bg-muted/50 rounded px-2 py-1">{te.result}</pre>
                             )}
-                            <span className="text-muted-foreground shrink-0">{te.durationMs}ms</span>
                           </div>
                         ))}
                       </div>
