@@ -11,6 +11,33 @@
 -- =============================================
 
 -- =============================================
+-- CLEANUP: Drop "Webhook can ..." policies (created in Supabase UI, give anon access)
+-- Webhooks use service_role which bypasses RLS — no anon policy needed
+-- =============================================
+DROP POLICY IF EXISTS "Webhook can view sessions" ON whatsapp_sessions;
+DROP POLICY IF EXISTS "Webhook can update sessions" ON whatsapp_sessions;
+DROP POLICY IF EXISTS "Webhook can view agents" ON ai_agents;
+DROP POLICY IF EXISTS "Webhook can view contacts" ON contacts;
+DROP POLICY IF EXISTS "Webhook can insert contacts" ON contacts;
+DROP POLICY IF EXISTS "Webhook can update contacts" ON contacts;
+DROP POLICY IF EXISTS "Webhook can view conversations" ON conversations;
+DROP POLICY IF EXISTS "Webhook can insert conversations" ON conversations;
+DROP POLICY IF EXISTS "Webhook can update conversations" ON conversations;
+DROP POLICY IF EXISTS "Webhook can view links" ON wa_links;
+DROP POLICY IF EXISTS "Webhook can view documents" ON knowledge_documents;
+DROP POLICY IF EXISTS "Webhook can view chunks" ON knowledge_chunks;
+
+-- CLEANUP: Drop old "TO public" policies (created in Supabase UI)
+DROP POLICY IF EXISTS "Users can create sessions" ON whatsapp_sessions;
+DROP POLICY IF EXISTS "Users can create agents" ON ai_agents;
+DROP POLICY IF EXISTS "Users can delete own agents" ON ai_agents;
+DROP POLICY IF EXISTS "Users can delete own contacts" ON contacts;
+DROP POLICY IF EXISTS "Users can delete own conversations" ON conversations;
+DROP POLICY IF EXISTS "Users can create links" ON wa_links;
+DROP POLICY IF EXISTS "Users can create documents" ON knowledge_documents;
+DROP POLICY IF EXISTS "Users can manage documents" ON knowledge_documents;
+
+-- =============================================
 -- 0a. whatsapp_sessions — DROP all old policies, recreate TO authenticated
 -- =============================================
 DROP POLICY IF EXISTS "Users can view own sessions" ON whatsapp_sessions;
