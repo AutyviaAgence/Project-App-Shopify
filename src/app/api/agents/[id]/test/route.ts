@@ -99,6 +99,7 @@ export async function POST(
   const conversationMessages: OpenAIMessage[] = [
     ...messages.map(m => ({ role: m.role, content: m.content }) as OpenAIMessage),
   ]
+  const toolExecutions: Array<{ name: string; args: Record<string, unknown>; result: string; success: boolean; durationMs: number }> = []
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     const result = await generateAgentResponse({
@@ -118,7 +119,12 @@ export async function POST(
     // Réponse texte finale (pas de tool calls)
     if (!result.toolCalls) {
       await recordTokenUsage(user.id, totalTokens)
-      return NextResponse.json({ data: { response: result.content } })
+      return NextResponse.json({
+        data: {
+          response: result.content,
+          toolExecutions: toolExecutions.length > 0 ? toolExecutions : undefined,
+        }
+      })
     }
 
     // Add the assistant message with tool_calls (native format)
@@ -133,6 +139,7 @@ export async function POST(
           tool_call_id: tc.toolCallId,
           content: 'Error: Unknown function',
         })
+        toolExecutions.push({ name: tc.functionName, args: tc.arguments, result: 'Unknown function', success: false, durationMs: 0 })
         continue
       }
 
@@ -146,10 +153,18 @@ export async function POST(
         tool_call_id: tc.toolCallId,
         content: execResult.result,
       })
+
+      toolExecutions.push({
+        name: tc.functionName,
+        args: tc.arguments,
+        result: execResult.result.slice(0, 500),
+        success: execResult.success,
+        durationMs: execResult.durationMs,
+      })
     }
   }
 
   // Fallback si max rounds atteint
   await recordTokenUsage(user.id, totalTokens)
-  return NextResponse.json({ data: { response: 'Désolé, la requête a nécessité trop d\'appels. Veuillez reformuler.' } })
+  return NextResponse.json({ data: { response: 'Désolé, la requête a nécessité trop d\'appels. Veuillez reformuler.', toolExecutions } })
 }

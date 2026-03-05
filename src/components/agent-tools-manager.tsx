@@ -95,6 +95,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
   const [catalogOpen, setCatalogOpen] = useState(false)
   const [configOpen, setConfigOpen] = useState(false)
   const [selectedTemplate, setSelectedTemplate] = useState<ToolTemplate | null>(null)
+  const [editingTool, setEditingTool] = useState<AgentTool | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [toolToDelete, setToolToDelete] = useState<AgentTool | null>(null)
   const [logsOpen, setLogsOpen] = useState(false)
@@ -159,6 +160,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
 
   function selectTemplate(template: ToolTemplate) {
     setSelectedTemplate(template)
+    setEditingTool(null)
     setFormName(template.name)
     setFormDescription(template.description)
     setFormPermissions('read')
@@ -169,12 +171,38 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
     setConfigOpen(true)
   }
 
+  function openEditTool(tool: AgentTool) {
+    // Find matching template
+    const template = templates.find(t => t.type === tool.tool_type)
+    if (!template) return
+
+    setSelectedTemplate(template)
+    setEditingTool(tool)
+    setFormName(tool.name)
+    setFormDescription(tool.description)
+    setFormPermissions(tool.permissions)
+    setFormRateLimit(String(tool.rate_limit))
+    // Pre-fill config (masked secrets show as empty — user can leave blank to keep existing)
+    const configEntries: Record<string, string> = {}
+    for (const field of template.auth_fields) {
+      const val = tool.config[field.key]
+      configEntries[field.key] = field.secret ? '' : (typeof val === 'string' ? val : '')
+    }
+    setFormConfig(configEntries)
+    setCustomFunctions([])
+    setConfigOpen(true)
+  }
+
   async function handleSaveTool() {
     if (!selectedTemplate) return
     setSaving(true)
 
     try {
-      const config: Record<string, unknown> = { ...formConfig }
+      const config: Record<string, unknown> = {}
+      // Only include non-empty values (empty secret fields = keep existing)
+      for (const [key, value] of Object.entries(formConfig)) {
+        if (value !== '') config[key] = value
+      }
 
       // Add custom functions if custom API
       if (selectedTemplate.type === 'custom' && customFunctions.length > 0) {
@@ -184,34 +212,58 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
         }))
       }
 
-      const res = await fetch(`/api/agents/${agentId}/tools`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tool_type: selectedTemplate.type,
-          name: formName,
-          description: formDescription,
-          config,
-          permissions: formPermissions,
-          rate_limit: parseInt(formRateLimit) || 60,
-        }),
-      })
+      if (editingTool) {
+        // UPDATE existing tool
+        const res = await fetch(`/api/agents/${agentId}/tools/${editingTool.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: formName,
+            description: formDescription,
+            config: Object.keys(config).length > 0 ? config : undefined,
+            permissions: formPermissions,
+            rate_limit: parseInt(formRateLimit) || 60,
+          }),
+        })
 
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error)
+        const json = await res.json()
+        if (!res.ok) throw new Error(json.error)
 
-      // For OAuth tools, trigger the OAuth flow immediately after saving
-      if (selectedTemplate.auth_type === 'oauth2' && formConfig.client_id && formConfig.client_secret) {
-        const toolId = json.data?.id
-        if (toolId) {
-          await startOAuthFlow(toolId, selectedTemplate.type)
-          return // Don't close dialog yet, redirect will happen
+        toast.success(t('tools.tool_updated'))
+        setConfigOpen(false)
+        setEditingTool(null)
+        fetchTools()
+      } else {
+        // CREATE new tool
+        const res = await fetch(`/api/agents/${agentId}/tools`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tool_type: selectedTemplate.type,
+            name: formName,
+            description: formDescription,
+            config,
+            permissions: formPermissions,
+            rate_limit: parseInt(formRateLimit) || 60,
+          }),
+        })
+
+        const json = await res.json()
+        if (!res.ok) throw new Error(json.error)
+
+        // For OAuth tools, trigger the OAuth flow immediately after saving
+        if (selectedTemplate.auth_type === 'oauth2' && formConfig.client_id && formConfig.client_secret) {
+          const toolId = json.data?.id
+          if (toolId) {
+            await startOAuthFlow(toolId, selectedTemplate.type)
+            return
+          }
         }
-      }
 
-      toast.success(t('tools.tool_created'))
-      setConfigOpen(false)
-      fetchTools()
+        toast.success(t('tools.tool_created'))
+        setConfigOpen(false)
+        fetchTools()
+      }
     } catch (err: any) {
       toast.error(err.message || t('tools.create_error'))
     } finally {
@@ -409,6 +461,14 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                     <Button
                       size="sm"
                       variant="ghost"
+                      className="h-7 w-7 p-0"
+                      onClick={() => openEditTool(tool)}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
                       className="h-7 w-7 p-0 text-destructive hover:text-destructive"
                       onClick={() => { setToolToDelete(tool); setDeleteDialogOpen(true) }}
                     >
@@ -465,12 +525,14 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
         <DialogContent className="sm:max-w-2xl w-[95vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <button onClick={() => { setConfigOpen(false); setCatalogOpen(true) }} className="hover:opacity-70">
-                <ChevronLeft className="h-4 w-4" />
-              </button>
-              {selectedTemplate?.name}
+              {!editingTool && (
+                <button onClick={() => { setConfigOpen(false); setCatalogOpen(true) }} className="hover:opacity-70">
+                  <ChevronLeft className="h-4 w-4" />
+                </button>
+              )}
+              {editingTool ? t('tools.edit_tool') : selectedTemplate?.name}
             </DialogTitle>
-            <DialogDescription>{t('tools.config_desc')}</DialogDescription>
+            <DialogDescription>{editingTool ? t('tools.edit_desc') : t('tools.config_desc')}</DialogDescription>
           </DialogHeader>
 
           {selectedTemplate && (
@@ -510,12 +572,15 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
               {/* Auth fields */}
               <div className="space-y-3 border-t pt-3">
                 <Label className="text-xs font-medium">{t('tools.credentials')}</Label>
+                {editingTool && (
+                  <p className="text-[10px] text-muted-foreground">{t('tools.edit_secret_hint')}</p>
+                )}
                 {selectedTemplate.auth_fields.map(field => (
                   <div key={field.key} className="space-y-1">
                     <Label className="text-xs text-muted-foreground">{field.label}</Label>
                     <Input
                       type={field.secret ? 'password' : 'text'}
-                      placeholder={field.placeholder}
+                      placeholder={editingTool && field.secret ? '••••••••' : field.placeholder}
                       value={formConfig[field.key] || ''}
                       onChange={e => setFormConfig(prev => ({ ...prev, [field.key]: e.target.value }))}
                     />
@@ -589,12 +654,14 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
               {/* Save */}
               <Button className="w-full" onClick={handleSaveTool} disabled={saving || !formName}>
                 {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {selectedTemplate?.auth_type === 'oauth2' ? (
-                  <>
-                    <ExternalLink className="mr-2 h-4 w-4" />
-                    {t('tools.save_and_connect')}
-                  </>
-                ) : t('tools.save_tool')}
+                {editingTool
+                  ? t('tools.update_tool')
+                  : selectedTemplate?.auth_type === 'oauth2' ? (
+                    <>
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                      {t('tools.save_and_connect')}
+                    </>
+                  ) : t('tools.save_tool')}
               </Button>
             </div>
           )}

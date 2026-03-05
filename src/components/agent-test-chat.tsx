@@ -9,13 +9,22 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Loader2, Send, Bot, User, Trash2, AlertCircle } from 'lucide-react'
+import { Loader2, Send, Bot, User, Trash2, AlertCircle, Wrench, CheckCircle, XCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/i18n/context'
+
+type ToolExecution = {
+  name: string
+  args: Record<string, unknown>
+  result: string
+  success: boolean
+  durationMs: number
+}
 
 type Message = {
   role: 'user' | 'assistant'
   content: string
+  toolExecutions?: ToolExecution[]
 }
 
 type AgentTestChatProps = {
@@ -76,7 +85,11 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
       const json = await res.json()
 
       if (res.ok && json.data?.response) {
-        setMessages(prev => [...prev, { role: 'assistant', content: json.data.response }])
+        setMessages(prev => [...prev, {
+          role: 'assistant',
+          content: json.data.response,
+          toolExecutions: json.data.toolExecutions,
+        }])
       } else {
         setError(json.error || t('test_chat.generation_error'))
       }
@@ -150,15 +163,35 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
                       <Bot className="h-4 w-4 text-primary" />
                     </div>
                   )}
-                  <div
-                    className={cn(
-                      'max-w-[80%] rounded-2xl px-4 py-2.5 text-sm',
-                      msg.role === 'user'
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted'
+                  <div className="max-w-[80%] space-y-1.5">
+                    {/* Tool executions */}
+                    {msg.toolExecutions && msg.toolExecutions.length > 0 && (
+                      <div className="space-y-1">
+                        {msg.toolExecutions.map((te, j) => (
+                          <div key={j} className="flex items-center gap-1.5 rounded-lg border border-dashed px-3 py-1.5 text-[11px]">
+                            <Wrench className="h-3 w-3 text-muted-foreground shrink-0" />
+                            <span className="font-mono font-medium truncate">{te.name}</span>
+                            {te.success ? (
+                              <CheckCircle className="h-3 w-3 text-green-500 shrink-0" />
+                            ) : (
+                              <XCircle className="h-3 w-3 text-red-500 shrink-0" />
+                            )}
+                            <span className="text-muted-foreground shrink-0">{te.durationMs}ms</span>
+                          </div>
+                        ))}
+                      </div>
                     )}
-                  >
-                    <p className="whitespace-pre-wrap">{msg.content}</p>
+                    {/* Message content */}
+                    <div
+                      className={cn(
+                        'rounded-2xl px-4 py-2.5 text-sm',
+                        msg.role === 'user'
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-muted'
+                      )}
+                    >
+                      <p className="whitespace-pre-wrap">{msg.content}</p>
+                    </div>
                   </div>
                   {msg.role === 'user' && (
                     <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-muted">
