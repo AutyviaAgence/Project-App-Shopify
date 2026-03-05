@@ -74,12 +74,53 @@ export async function GET(
     agentsMap = Object.fromEntries((agents || []).map(a => [a.id, a.name]))
   }
 
-  // Déchiffrer les messages et ajouter le nom de l'agent
+  // Charger les tool execution logs pour cette conversation
+  const { data: toolLogs } = await supabase
+    .from('tool_execution_logs')
+    .select('id, function_name, parameters, result, status, error_message, duration_ms, created_at')
+    .eq('conversation_id', id)
+    .order('created_at', { ascending: true })
+
+  // Grouper les tool executions par message AI (le message AI est créé juste après les tool calls)
+  // On associe chaque tool execution au message AI dont le created_at est juste après (dans les 60s)
+  const aiMessages = (messages || []).filter(m => m.sent_by === 'ai_agent')
+  const toolExecsByMessage: Record<string, typeof toolLogs> = {}
+
+  if (toolLogs && toolLogs.length > 0 && aiMessages.length > 0) {
+    for (const log of toolLogs) {
+      const logTime = new Date(log.created_at).getTime()
+      // Find the closest AI message that was created AFTER this tool execution (within 60s)
+      let bestMsg: (typeof aiMessages)[0] | null = null
+      let bestDiff = Infinity
+      for (const msg of aiMessages) {
+        const msgTime = new Date(msg.created_at).getTime()
+        const diff = msgTime - logTime
+        if (diff >= 0 && diff < 60000 && diff < bestDiff) {
+          bestDiff = diff
+          bestMsg = msg
+        }
+      }
+      if (bestMsg) {
+        if (!toolExecsByMessage[bestMsg.id]) toolExecsByMessage[bestMsg.id] = []
+        toolExecsByMessage[bestMsg.id]!.push(log)
+      }
+    }
+  }
+
+  // Déchiffrer les messages et ajouter le nom de l'agent + tool executions
   const decryptedMessages = (messages || []).map(msg => ({
     ...msg,
     content: msg.content ? decryptMessage(msg.content) : msg.content,
     transcription: msg.transcription ? decryptMessage(msg.transcription) : null,
     agent_name: msg.ai_agent_id ? agentsMap[msg.ai_agent_id] || null : null,
+    tool_executions: toolExecsByMessage[msg.id]?.map(log => ({
+      name: log.function_name,
+      result: log.status === 'success'
+        ? (typeof log.result === 'object' ? JSON.stringify(log.result) : String(log.result || ''))
+        : (log.error_message || log.status),
+      success: log.status === 'success',
+      durationMs: log.duration_ms || 0,
+    })) || undefined,
   }))
 
   // Marquer comme lu (reset unread)
