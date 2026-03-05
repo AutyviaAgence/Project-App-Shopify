@@ -283,6 +283,7 @@ async function executeGoogleCalendar(
   }
 
   if (functionName === 'create_event') {
+    const timeZone = (config.timezone as string) || 'Europe/Paris'
     const res = await fetchWithTimeout(
       `${baseUrl}/calendars/${encodeURIComponent(calendarId)}/events`,
       {
@@ -290,8 +291,8 @@ async function executeGoogleCalendar(
         headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           summary: args.title,
-          start: { dateTime: args.start_datetime },
-          end: { dateTime: args.end_datetime },
+          start: { dateTime: args.start_datetime, timeZone },
+          end: { dateTime: args.end_datetime, timeZone },
           description: args.description || '',
           attendees: args.attendee_email ? [{ email: args.attendee_email }] : [],
         }),

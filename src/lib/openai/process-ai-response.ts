@@ -208,7 +208,12 @@ export async function processAIResponse(params: {
     }
 
     // 4. Construire le prompt système (inclure l'objectif + connaissances si disponibles)
+    const now = new Date()
+    const dateStr = now.toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Europe/Paris' })
+    const timeStr = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' })
+
     let systemPrompt = agent.system_prompt
+    systemPrompt += `\n\n--- Date et heure actuelles ---\nNous sommes le ${dateStr}, il est ${timeStr} (fuseau horaire : Europe/Paris).\nUtilise TOUJOURS cette date comme référence. "Demain" = le jour suivant cette date. Pour les dates et heures dans les outils, utilise le format ISO 8601 avec timezone, par exemple : 2026-03-06T15:00:00+01:00.`
     if (agent.objective) {
       systemPrompt += `\n\nObjectif principal : ${agent.objective}`
     }
