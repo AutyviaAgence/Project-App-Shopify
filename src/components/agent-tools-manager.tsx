@@ -344,7 +344,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
 
       {/* Catalog Dialog */}
       <Dialog open={catalogOpen} onOpenChange={setCatalogOpen}>
-        <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl w-[95vw] max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t('tools.catalog_title')}</DialogTitle>
             <DialogDescription>{t('tools.catalog_desc')}</DialogDescription>
@@ -378,7 +378,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
 
       {/* Config Dialog */}
       <Dialog open={configOpen} onOpenChange={setConfigOpen}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl w-[95vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <button onClick={() => { setConfigOpen(false); setCatalogOpen(true) }} className="hover:opacity-70">

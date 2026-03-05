@@ -1223,7 +1223,7 @@ export default function AgentsPage() {
         setToolsOpen(open)
         if (!open) setToolsAgent(null)
       }}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl w-[95vw] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Wrench className="h-4 w-4" />
