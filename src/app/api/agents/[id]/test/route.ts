@@ -88,36 +88,28 @@ export async function POST(
     systemPrompt += `\n\n--- Instruction de langue ---\nIMPORTANT : Détecte automatiquement la langue utilisée par l'utilisateur dans son dernier message et réponds TOUJOURS dans cette même langue. Si l'utilisateur écrit en anglais, réponds en anglais. Si l'utilisateur écrit en espagnol, réponds en espagnol. Adapte-toi à la langue de chaque message.`
   }
 
-  // Charger les outils de l'agent (d'abord via le client auth, fallback admin)
-  console.log(`[Test Chat] SUPABASE_SERVICE_ROLE_KEY set: ${!!process.env.SUPABASE_SERVICE_ROLE_KEY}`)
+  // Charger les outils de l'agent
   let agentTools = await getAgentTools(id)
-  console.log(`[Test Chat] Agent ${id}: ${agentTools.length} tools via admin client`)
 
-  // Fallback: query via authenticated supabase client (bypasses potential service key issues)
+  // Fallback: query via authenticated supabase client if admin client returns empty
   if (agentTools.length === 0) {
     const { data: toolsFromAuth } = await supabase
       .from('agent_tools')
       .select('*')
       .eq('agent_id', id)
       .eq('is_active', true)
-    console.log(`[Test Chat] Fallback auth query: ${toolsFromAuth?.length ?? 0} tools found`)
     if (toolsFromAuth && toolsFromAuth.length > 0) {
       agentTools = toolsFromAuth as any
     }
   }
 
-  console.log(`[Test Chat] Final: ${agentTools.length} tools`, agentTools.map(t => ({ id: t.id, name: t.name, type: t.tool_type, active: t.is_active, permissions: t.permissions })))
   const { openaiTools, functionMap } = buildOpenAITools(agentTools)
-  console.log(`[Test Chat] OpenAI tools built: ${openaiTools.length}`, openaiTools.map(t => t.function.name))
 
   // Ajouter instruction outils au system prompt
   if (openaiTools.length > 0) {
     const toolNames = openaiTools.map(t => t.function.name).join(', ')
     systemPrompt += `\n\n--- Outils disponibles ---\nTu disposes des outils suivants que tu DOIS utiliser quand la demande correspond : ${toolNames}.\nQuand l'utilisateur demande des informations ou actions liées à ces outils, utilise TOUJOURS l'outil approprié via un function call. Ne dis JAMAIS que tu ne peux pas accéder à ces données — appelle l'outil.\n--- Fin des outils ---`
   }
-
-  console.log(`[Test Chat] System prompt (last 300 chars): ...${systemPrompt.slice(-300)}`)
-  console.log(`[Test Chat] Tools passed to OpenAI: ${openaiTools.length > 0 ? 'YES' : 'NO'}`)
 
   // Boucle de tool calling (max 5 rounds)
   let totalTokens = ragTokens
@@ -149,14 +141,6 @@ export async function POST(
         data: {
           response: result.content,
           toolExecutions: toolExecutions.length > 0 ? toolExecutions : undefined,
-          _debug: {
-            agentId: id,
-            serviceRoleKeySet: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-            toolsLoaded: agentTools.length,
-            openaiToolsBuilt: openaiTools.length,
-            toolNames: openaiTools.map(t => t.function.name),
-            agentToolTypes: agentTools.map(t => ({ name: t.name, type: t.tool_type, permissions: t.permissions, active: t.is_active })),
-          }
         }
       })
     }
