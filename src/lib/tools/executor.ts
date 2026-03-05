@@ -326,28 +326,69 @@ async function executeShopify(
   functionName: string,
   args: Record<string, unknown>
 ): Promise<string> {
-  const shopUrl = (config.shop_url as string).replace(/\/$/, '')
+  const shopUrl = (config.shop_url as string).replace(/^https?:\/\//, '').replace(/\/$/, '')
   const token = config.access_token as string
   const baseUrl = `https://${shopUrl}/admin/api/2024-01`
   const headers = { 'X-Shopify-Access-Token': token, 'Content-Type': 'application/json' }
 
   if (functionName === 'search_product') {
-    const res = await fetchWithTimeout(`${baseUrl}/products.json?title=${encodeURIComponent(args.query as string)}&limit=5`, { headers })
+    const limit = Math.min((args.limit as number) || 5, 20)
+    const res = await fetchWithTimeout(`${baseUrl}/products.json?title=${encodeURIComponent(args.query as string)}&limit=${limit}`, { headers })
     const data = await res.json()
     const products = (data.products || []).map((p: any) => ({
-      id: p.id, title: p.title, price: p.variants?.[0]?.price, available: p.variants?.[0]?.inventory_quantity > 0,
+      id: String(p.id),
+      title: p.title,
+      description: p.body_html?.replace(/<[^>]*>/g, '').slice(0, 150) || '',
+      price: p.variants?.[0]?.price,
+      compare_at_price: p.variants?.[0]?.compare_at_price || null,
+      available: p.variants?.[0]?.inventory_quantity > 0,
       inventory: p.variants?.[0]?.inventory_quantity,
+      image_url: p.image?.src || p.images?.[0]?.src || null,
+      variants_count: p.variants?.length || 0,
+      vendor: p.vendor || null,
+      product_type: p.product_type || null,
     }))
-    return JSON.stringify({ products })
+    return JSON.stringify({ products, total: products.length })
+  }
+
+  if (functionName === 'get_product_details') {
+    const res = await fetchWithTimeout(`${baseUrl}/products/${args.product_id}.json`, { headers })
+    const data = await res.json()
+    const p = data.product
+    if (!p) return JSON.stringify({ error: 'Product not found' })
+    return JSON.stringify({
+      id: String(p.id),
+      title: p.title,
+      description: p.body_html?.replace(/<[^>]*>/g, '').slice(0, 500) || '',
+      vendor: p.vendor,
+      product_type: p.product_type,
+      tags: p.tags,
+      images: (p.images || []).slice(0, 5).map((img: any) => img.src),
+      variants: (p.variants || []).map((v: any) => ({
+        id: String(v.id),
+        title: v.title,
+        price: v.price,
+        compare_at_price: v.compare_at_price,
+        sku: v.sku,
+        available: v.inventory_quantity > 0,
+        inventory: v.inventory_quantity,
+        option1: v.option1,
+        option2: v.option2,
+        option3: v.option3,
+      })),
+    })
   }
 
   if (functionName === 'check_stock') {
     const res = await fetchWithTimeout(`${baseUrl}/products/${args.product_id}.json`, { headers })
     const data = await res.json()
-    const variants = (data.product?.variants || []).map((v: any) => ({
-      title: v.title, price: v.price, available: v.inventory_quantity > 0, quantity: v.inventory_quantity,
+    if (!data.product) return JSON.stringify({ error: 'Product not found' })
+    const variants = (data.product.variants || []).map((v: any) => ({
+      title: v.title, price: v.price, sku: v.sku,
+      available: v.inventory_quantity > 0, quantity: v.inventory_quantity,
     }))
-    return JSON.stringify({ product: data.product?.title, variants })
+    const totalStock = variants.reduce((sum: number, v: any) => sum + (v.quantity || 0), 0)
+    return JSON.stringify({ product: data.product.title, total_stock: totalStock, in_stock: totalStock > 0, variants })
   }
 
   if (functionName === 'get_order_status') {
@@ -357,9 +398,32 @@ async function executeShopify(
     const order = data.orders?.[0]
     if (!order) return JSON.stringify({ found: false, order_number: orderNum })
     return JSON.stringify({
-      found: true, order_number: order.name, status: order.financial_status,
-      fulfillment: order.fulfillment_status || 'unfulfilled', total: order.total_price, currency: order.currency,
+      found: true,
+      order_number: order.name,
+      status: order.financial_status,
+      fulfillment: order.fulfillment_status || 'unfulfilled',
+      total: order.total_price,
+      currency: order.currency,
+      created_at: order.created_at,
+      line_items: (order.line_items || []).slice(0, 10).map((li: any) => ({
+        title: li.title, quantity: li.quantity, price: li.price,
+      })),
+      tracking: order.fulfillments?.[0] ? {
+        company: order.fulfillments[0].tracking_company,
+        number: order.fulfillments[0].tracking_number,
+        url: order.fulfillments[0].tracking_url,
+      } : null,
     })
+  }
+
+  if (functionName === 'list_collections') {
+    const limit = Math.min((args.limit as number) || 10, 50)
+    const res = await fetchWithTimeout(`${baseUrl}/custom_collections.json?limit=${limit}`, { headers })
+    const data = await res.json()
+    const collections = (data.custom_collections || []).map((c: any) => ({
+      id: String(c.id), title: c.title, products_count: c.products_count || null,
+    }))
+    return JSON.stringify({ collections, total: collections.length })
   }
 
   throw new Error(`Unknown function: ${functionName}`)
@@ -378,23 +442,103 @@ async function executeWooCommerce(
   const authParams = `consumer_key=${ck}&consumer_secret=${cs}`
 
   if (functionName === 'search_product') {
-    const res = await fetchWithTimeout(`${baseUrl}/products?search=${encodeURIComponent(args.query as string)}&per_page=5&${authParams}`)
+    const limit = Math.min((args.limit as number) || 5, 20)
+    let url = `${baseUrl}/products?search=${encodeURIComponent(args.query as string)}&per_page=${limit}&${authParams}`
+    if (args.category_id) url += `&category=${args.category_id}`
+    const res = await fetchWithTimeout(url)
     const products = await res.json()
-    return JSON.stringify((products || []).map((p: any) => ({
-      id: p.id, name: p.name, price: p.price, in_stock: p.in_stock, stock_quantity: p.stock_quantity,
-    })))
+    return JSON.stringify({
+      products: (products || []).map((p: any) => ({
+        id: String(p.id),
+        name: p.name,
+        description: p.short_description?.replace(/<[^>]*>/g, '').slice(0, 150) || '',
+        price: p.price,
+        regular_price: p.regular_price,
+        sale_price: p.sale_price || null,
+        in_stock: p.in_stock,
+        stock_quantity: p.stock_quantity,
+        image_url: p.images?.[0]?.src || null,
+        categories: (p.categories || []).map((c: any) => c.name),
+        on_sale: p.on_sale || false,
+      })),
+      total: (products || []).length,
+    })
+  }
+
+  if (functionName === 'get_product_details') {
+    const res = await fetchWithTimeout(`${baseUrl}/products/${args.product_id}?${authParams}`)
+    const p = await res.json()
+    if (p.code) return JSON.stringify({ error: p.message || 'Product not found' })
+    return JSON.stringify({
+      id: String(p.id),
+      name: p.name,
+      description: p.description?.replace(/<[^>]*>/g, '').slice(0, 500) || '',
+      short_description: p.short_description?.replace(/<[^>]*>/g, '') || '',
+      price: p.price,
+      regular_price: p.regular_price,
+      sale_price: p.sale_price || null,
+      on_sale: p.on_sale,
+      in_stock: p.in_stock,
+      stock_quantity: p.stock_quantity,
+      categories: (p.categories || []).map((c: any) => ({ id: String(c.id), name: c.name })),
+      images: (p.images || []).slice(0, 5).map((img: any) => img.src),
+      attributes: (p.attributes || []).map((a: any) => ({ name: a.name, options: a.options })),
+      variations_count: p.variations?.length || 0,
+    })
   }
 
   if (functionName === 'check_stock') {
     const res = await fetchWithTimeout(`${baseUrl}/products/${args.product_id}?${authParams}`)
     const p = await res.json()
-    return JSON.stringify({ id: p.id, name: p.name, price: p.price, in_stock: p.in_stock, stock_quantity: p.stock_quantity })
+    if (p.code) return JSON.stringify({ error: p.message || 'Product not found' })
+    return JSON.stringify({
+      id: String(p.id),
+      name: p.name,
+      price: p.price,
+      in_stock: p.in_stock,
+      stock_quantity: p.stock_quantity,
+      stock_status: p.stock_status,
+      manage_stock: p.manage_stock,
+      backorders_allowed: p.backorders_allowed,
+    })
   }
 
   if (functionName === 'get_order_status') {
     const res = await fetchWithTimeout(`${baseUrl}/orders/${args.order_id}?${authParams}`)
     const o = await res.json()
-    return JSON.stringify({ id: o.id, status: o.status, total: o.total, currency: o.currency, date: o.date_created })
+    if (o.code) return JSON.stringify({ error: o.message || 'Order not found' })
+    return JSON.stringify({
+      id: o.id,
+      status: o.status,
+      total: o.total,
+      currency: o.currency,
+      date: o.date_created,
+      payment_method: o.payment_method_title,
+      line_items: (o.line_items || []).slice(0, 10).map((li: any) => ({
+        name: li.name, quantity: li.quantity, total: li.total,
+      })),
+      shipping: o.shipping ? {
+        name: `${o.shipping.first_name} ${o.shipping.last_name}`.trim(),
+        city: o.shipping.city,
+        country: o.shipping.country,
+      } : null,
+    })
+  }
+
+  if (functionName === 'list_categories') {
+    const limit = Math.min((args.limit as number) || 20, 100)
+    const res = await fetchWithTimeout(`${baseUrl}/products/categories?per_page=${limit}&${authParams}`)
+    const categories = await res.json()
+    return JSON.stringify({
+      categories: (categories || []).map((c: any) => ({
+        id: String(c.id),
+        name: c.name,
+        slug: c.slug,
+        count: c.count,
+        parent_id: c.parent ? String(c.parent) : null,
+      })),
+      total: (categories || []).length,
+    })
   }
 
   throw new Error(`Unknown function: ${functionName}`)
@@ -407,29 +551,59 @@ async function executeStripe(
   args: Record<string, unknown>
 ): Promise<string> {
   const apiKey = config.api_key as string
+  const defaultCurrency = (config.currency as string) || 'eur'
   const headers = { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/x-www-form-urlencoded' }
 
   if (functionName === 'get_payment_status') {
-    if (args.payment_intent_id) {
-      const res = await fetchWithTimeout(`https://api.stripe.com/v1/payment_intents/${args.payment_intent_id}`, { headers })
-      const pi = await res.json()
-      return JSON.stringify({ id: pi.id, status: pi.status, amount: pi.amount, currency: pi.currency })
-    }
-    if (args.customer_email) {
-      const res = await fetchWithTimeout(
-        `https://api.stripe.com/v1/payment_intents?limit=5`,
-        { headers }
-      )
-      const data = await res.json()
-      return JSON.stringify({ recent_payments: (data.data || []).slice(0, 5).map((pi: any) => ({
-        id: pi.id, status: pi.status, amount: pi.amount, currency: pi.currency, created: pi.created,
-      }))})
-    }
-    return JSON.stringify({ error: 'Provide payment_intent_id or customer_email' })
+    const res = await fetchWithTimeout(`https://api.stripe.com/v1/payment_intents/${args.payment_intent_id}`, { headers })
+    const pi = await res.json()
+    if (pi.error) return JSON.stringify({ error: pi.error.message })
+    return JSON.stringify({
+      id: pi.id,
+      status: pi.status,
+      amount: pi.amount,
+      amount_formatted: `${(pi.amount / 100).toFixed(2)} ${(pi.currency || '').toUpperCase()}`,
+      currency: pi.currency,
+      payment_method: pi.payment_method_types?.[0] || null,
+      created: new Date(pi.created * 1000).toISOString(),
+      customer_email: pi.receipt_email || null,
+    })
+  }
+
+  if (functionName === 'search_customer_payments') {
+    // First find the customer by email
+    const custRes = await fetchWithTimeout(
+      `https://api.stripe.com/v1/customers?email=${encodeURIComponent(args.customer_email as string)}&limit=1`,
+      { headers }
+    )
+    const custData = await custRes.json()
+    const customer = custData.data?.[0]
+    if (!customer) return JSON.stringify({ found: false, customer_email: args.customer_email, payments: [] })
+
+    const limit = Math.min((args.limit as number) || 5, 10)
+    const piRes = await fetchWithTimeout(
+      `https://api.stripe.com/v1/payment_intents?customer=${customer.id}&limit=${limit}`,
+      { headers }
+    )
+    const piData = await piRes.json()
+    return JSON.stringify({
+      found: true,
+      customer_email: args.customer_email,
+      customer_name: customer.name || null,
+      payments: (piData.data || []).map((pi: any) => ({
+        id: pi.id,
+        status: pi.status,
+        amount: pi.amount,
+        amount_formatted: `${(pi.amount / 100).toFixed(2)} ${(pi.currency || '').toUpperCase()}`,
+        currency: pi.currency,
+        created: new Date(pi.created * 1000).toISOString(),
+        description: pi.description || null,
+      })),
+    })
   }
 
   if (functionName === 'create_payment_link') {
-    const currency = (args.currency as string) || 'eur'
+    const currency = (args.currency as string) || defaultCurrency
     const body = new URLSearchParams({
       'line_items[0][price_data][currency]': currency,
       'line_items[0][price_data][product_data][name]': args.description as string,
@@ -440,7 +614,47 @@ async function executeStripe(
       method: 'POST', headers, body: body.toString(),
     })
     const link = await res.json()
-    return JSON.stringify({ url: link.url, id: link.id })
+    if (link.error) return JSON.stringify({ error: link.error.message })
+    const amountFormatted = `${((args.amount_cents as number) / 100).toFixed(2)} ${currency.toUpperCase()}`
+    return JSON.stringify({ url: link.url, id: link.id, amount: amountFormatted })
+  }
+
+  if (functionName === 'get_balance') {
+    const res = await fetchWithTimeout('https://api.stripe.com/v1/balance', { headers })
+    const balance = await res.json()
+    if (balance.error) return JSON.stringify({ error: balance.error.message })
+    return JSON.stringify({
+      available: (balance.available || []).map((b: any) => ({
+        amount: b.amount,
+        amount_formatted: `${(b.amount / 100).toFixed(2)} ${b.currency.toUpperCase()}`,
+        currency: b.currency,
+      })),
+      pending: (balance.pending || []).map((b: any) => ({
+        amount: b.amount,
+        amount_formatted: `${(b.amount / 100).toFixed(2)} ${b.currency.toUpperCase()}`,
+        currency: b.currency,
+      })),
+    })
+  }
+
+  if (functionName === 'list_recent_charges') {
+    const limit = Math.min((args.limit as number) || 10, 25)
+    const res = await fetchWithTimeout(`https://api.stripe.com/v1/charges?limit=${limit}`, { headers })
+    const data = await res.json()
+    if (data.error) return JSON.stringify({ error: data.error.message })
+    return JSON.stringify({
+      charges: (data.data || []).map((c: any) => ({
+        id: c.id,
+        amount: c.amount,
+        amount_formatted: `${(c.amount / 100).toFixed(2)} ${(c.currency || '').toUpperCase()}`,
+        status: c.status,
+        paid: c.paid,
+        description: c.description || null,
+        customer_email: c.receipt_email || c.billing_details?.email || null,
+        created: new Date(c.created * 1000).toISOString(),
+      })),
+      total: (data.data || []).length,
+    })
   }
 
   throw new Error(`Unknown function: ${functionName}`)
@@ -458,29 +672,64 @@ async function executeGoogleSheets(
   const baseUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}`
   const headers = { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
 
+  if (functionName === 'list_sheets') {
+    const res = await fetchWithTimeout(
+      `${baseUrl}?fields=sheets.properties.title,sheets.properties.sheetId,sheets.properties.gridProperties`,
+      { headers }
+    )
+    const data = await res.json()
+    const sheets = (data.sheets || []).map((s: any) => ({
+      name: s.properties.title,
+      id: s.properties.sheetId,
+      rows: s.properties.gridProperties?.rowCount || 0,
+      columns: s.properties.gridProperties?.columnCount || 0,
+    }))
+    return JSON.stringify({ sheets, total: sheets.length })
+  }
+
   if (functionName === 'read_range') {
     const res = await fetchWithTimeout(
       `${baseUrl}/values/${encodeURIComponent(args.range as string)}`,
       { headers }
     )
     const data = await res.json()
-    return JSON.stringify({ range: data.range, values: data.values || [] })
+    if (data.error) return JSON.stringify({ error: data.error.message })
+    const values = data.values || []
+    return JSON.stringify({ range: data.range, rows: values.length, columns: values[0]?.length || 0, values })
   }
 
   if (functionName === 'search') {
-    const sheetName = (args.sheet_name as string) || 'Sheet1'
+    // If no sheet_name, get the first sheet name dynamically
+    let sheetName: string = (args.sheet_name as string) || ''
+    if (!sheetName) {
+      const metaRes = await fetchWithTimeout(
+        `${baseUrl}?fields=sheets.properties.title`,
+        { headers }
+      )
+      const metaData = await metaRes.json()
+      sheetName = metaData.sheets?.[0]?.properties?.title || 'Sheet1'
+    }
+
     const res = await fetchWithTimeout(
       `${baseUrl}/values/${encodeURIComponent(sheetName)}`,
       { headers }
     )
     const data = await res.json()
+    if (data.error) return JSON.stringify({ error: data.error.message, hint: 'Call list_sheets first to get the correct sheet name' })
     const rows = (data.values || []) as string[][]
     const query = (args.query as string).toLowerCase()
+    const headerRow = rows[0] || []
     const matches = rows
       .map((row, i) => ({ row, index: i }))
       .filter(({ row }) => row.some(cell => String(cell).toLowerCase().includes(query)))
-      .slice(0, 10)
-    return JSON.stringify({ query: args.query, matches: matches.map(m => ({ row: m.index + 1, data: m.row })) })
+      .slice(0, 15)
+    return JSON.stringify({
+      query: args.query,
+      sheet: sheetName,
+      headers: headerRow,
+      matches: matches.map(m => ({ row_number: m.index + 1, data: m.row })),
+      total_matches: matches.length,
+    })
   }
 
   if (functionName === 'write_row') {
@@ -491,7 +740,22 @@ async function executeGoogleSheets(
       { method: 'POST', headers, body: JSON.stringify({ values: [values] }) }
     )
     const data = await res.json()
-    return JSON.stringify({ appended: true, updatedRange: data.updates?.updatedRange })
+    if (data.error) return JSON.stringify({ error: data.error.message })
+    return JSON.stringify({ appended: true, updatedRange: data.updates?.updatedRange, rows_added: 1 })
+  }
+
+  if (functionName === 'update_cell') {
+    const range = args.range as string
+    const values = args.values as unknown[]
+    // Wrap in array if single value
+    const body = Array.isArray(values[0]) ? { values } : { values: [values] }
+    const res = await fetchWithTimeout(
+      `${baseUrl}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED`,
+      { method: 'PUT', headers, body: JSON.stringify(body) }
+    )
+    const data = await res.json()
+    if (data.error) return JSON.stringify({ error: data.error.message })
+    return JSON.stringify({ updated: true, updatedRange: data.updatedRange, updatedCells: data.updatedCells })
   }
 
   throw new Error(`Unknown function: ${functionName}`)

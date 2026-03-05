@@ -99,7 +99,7 @@ export const TOOL_TEMPLATES: Record<Exclude<AgentToolType, 'custom'>, ToolTempla
   shopify: {
     type: 'shopify',
     name: 'Shopify',
-    description: 'Check stock, search products, get order status',
+    description: 'Search products, check stock, get order status, list collections',
     icon: 'shopping-bag',
     auth: {
       type: 'api_key',
@@ -111,25 +111,42 @@ export const TOOL_TEMPLATES: Record<Exclude<AgentToolType, 'custom'>, ToolTempla
     functions: [
       {
         name: 'search_product',
-        description: 'Search for a product by name or keyword',
+        description: 'Search for products by name, keyword or collection. Returns product ID, title, price, stock, image URL and variants. Use this first when a customer asks about a product.',
         parameters: [
           { name: 'query', type: 'string', description: 'Product name or keyword to search', required: true },
+          { name: 'limit', type: 'number', description: 'Max results to return (default 5, max 20)', required: false },
+        ],
+        permission: 'read',
+      },
+      {
+        name: 'get_product_details',
+        description: 'Get full details of a specific product including all variants, images, description and stock. IMPORTANT: You MUST first call search_product to get the real product ID. Never guess a product ID.',
+        parameters: [
+          { name: 'product_id', type: 'string', description: 'The Shopify product ID obtained from search_product', required: true },
         ],
         permission: 'read',
       },
       {
         name: 'check_stock',
-        description: 'Check if a specific product is in stock and its available quantity',
+        description: 'Check if a specific product is in stock and get available quantity per variant. IMPORTANT: You MUST first call search_product to get the real product ID.',
         parameters: [
-          { name: 'product_id', type: 'string', description: 'The Shopify product ID', required: true },
+          { name: 'product_id', type: 'string', description: 'The Shopify product ID obtained from search_product', required: true },
         ],
         permission: 'read',
       },
       {
         name: 'get_order_status',
-        description: 'Get the status of an order by order number',
+        description: 'Get the status of a customer order by order number (e.g. #1001). Returns payment status, fulfillment status, tracking info and line items.',
         parameters: [
-          { name: 'order_number', type: 'string', description: 'The order number (e.g. #1001)', required: true },
+          { name: 'order_number', type: 'string', description: 'The order number (e.g. #1001 or 1001)', required: true },
+        ],
+        permission: 'read',
+      },
+      {
+        name: 'list_collections',
+        description: 'List product collections/categories available in the shop. Useful when a customer asks about product categories.',
+        parameters: [
+          { name: 'limit', type: 'number', description: 'Max results (default 10)', required: false },
         ],
         permission: 'read',
       },
@@ -139,7 +156,7 @@ export const TOOL_TEMPLATES: Record<Exclude<AgentToolType, 'custom'>, ToolTempla
   woocommerce: {
     type: 'woocommerce',
     name: 'WooCommerce',
-    description: 'Check stock, search products, get order status',
+    description: 'Search products, check stock, get order status, list categories',
     icon: 'shopping-cart',
     auth: {
       type: 'consumer_keys',
@@ -152,25 +169,43 @@ export const TOOL_TEMPLATES: Record<Exclude<AgentToolType, 'custom'>, ToolTempla
     functions: [
       {
         name: 'search_product',
-        description: 'Search for a product by name or keyword',
+        description: 'Search for products by name or keyword. Returns product ID, name, price, stock status, image and short description. Use this first when a customer asks about a product.',
         parameters: [
           { name: 'query', type: 'string', description: 'Product name or keyword to search', required: true },
+          { name: 'category_id', type: 'string', description: 'Filter by category ID (get IDs from list_categories)', required: false },
+          { name: 'limit', type: 'number', description: 'Max results (default 5, max 20)', required: false },
+        ],
+        permission: 'read',
+      },
+      {
+        name: 'get_product_details',
+        description: 'Get full details of a specific product including description, images, attributes, variations and stock. IMPORTANT: You MUST first call search_product to get the real product ID.',
+        parameters: [
+          { name: 'product_id', type: 'string', description: 'The WooCommerce product ID obtained from search_product', required: true },
         ],
         permission: 'read',
       },
       {
         name: 'check_stock',
-        description: 'Check if a specific product is in stock',
+        description: 'Check if a specific product is in stock and get available quantity. IMPORTANT: You MUST first call search_product to get the real product ID.',
         parameters: [
-          { name: 'product_id', type: 'string', description: 'The WooCommerce product ID', required: true },
+          { name: 'product_id', type: 'string', description: 'The WooCommerce product ID obtained from search_product', required: true },
         ],
         permission: 'read',
       },
       {
         name: 'get_order_status',
-        description: 'Get the status of an order',
+        description: 'Get the status of a customer order by order ID. Returns payment status, shipping status, line items and tracking info.',
         parameters: [
-          { name: 'order_id', type: 'string', description: 'The order ID', required: true },
+          { name: 'order_id', type: 'string', description: 'The WooCommerce order ID', required: true },
+        ],
+        permission: 'read',
+      },
+      {
+        name: 'list_categories',
+        description: 'List product categories available in the shop. Useful when a customer asks about product categories or to filter search results.',
+        parameters: [
+          { name: 'limit', type: 'number', description: 'Max results (default 20)', required: false },
         ],
         permission: 'read',
       },
@@ -180,34 +215,57 @@ export const TOOL_TEMPLATES: Record<Exclude<AgentToolType, 'custom'>, ToolTempla
   stripe: {
     type: 'stripe',
     name: 'Stripe',
-    description: 'Check payment status, create payment links',
+    description: 'Check payments, search customers, create payment links, list invoices',
     icon: 'credit-card',
     auth: {
       type: 'api_key',
       fields: [
         { key: 'api_key', label: 'Restricted API Key', placeholder: 'rk_live_...', secret: true },
+        { key: 'currency', label: 'Default Currency', placeholder: 'eur', secret: false },
       ],
     },
     base_url: 'https://api.stripe.com/v1',
     functions: [
       {
         name: 'get_payment_status',
-        description: 'Check the status of a payment by payment intent ID or customer email',
+        description: 'Check the status of a payment by its Payment Intent ID (pi_...). Returns amount, status, payment method and customer info.',
         parameters: [
-          { name: 'payment_intent_id', type: 'string', description: 'The payment intent ID (pi_...)', required: false },
-          { name: 'customer_email', type: 'string', description: 'Customer email to look up recent payments', required: false },
+          { name: 'payment_intent_id', type: 'string', description: 'The payment intent ID (starts with pi_)', required: true },
+        ],
+        permission: 'read',
+      },
+      {
+        name: 'search_customer_payments',
+        description: 'Search recent payments for a customer by their email address. Returns up to 10 most recent payment intents.',
+        parameters: [
+          { name: 'customer_email', type: 'string', description: 'Customer email address to search', required: true },
+          { name: 'limit', type: 'number', description: 'Max results (default 5, max 10)', required: false },
         ],
         permission: 'read',
       },
       {
         name: 'create_payment_link',
-        description: 'Create a payment link for a given amount. Always confirm with the user before creating.',
+        description: 'Create a one-time payment link for a given amount. The customer will receive a URL to pay. Always confirm the amount and description with the user before creating.',
         parameters: [
-          { name: 'amount_cents', type: 'number', description: 'Amount in cents (e.g. 5000 = 50€)', required: true },
-          { name: 'description', type: 'string', description: 'Payment description', required: true },
-          { name: 'currency', type: 'string', description: 'Currency code (default eur)', required: false },
+          { name: 'amount_cents', type: 'number', description: 'Amount in cents (e.g. 5000 = 50.00€, 1250 = 12.50€)', required: true },
+          { name: 'description', type: 'string', description: 'Product or service description shown on payment page', required: true },
+          { name: 'currency', type: 'string', description: 'Currency code: eur, usd, gbp, etc. (uses default if not set)', required: false },
         ],
         permission: 'write',
+      },
+      {
+        name: 'get_balance',
+        description: 'Get the current Stripe account balance. Shows available and pending amounts.',
+        parameters: [],
+        permission: 'read',
+      },
+      {
+        name: 'list_recent_charges',
+        description: 'List the most recent charges/payments. Useful for an overview of recent transactions.',
+        parameters: [
+          { name: 'limit', type: 'number', description: 'Number of charges to return (default 10, max 25)', required: false },
+        ],
+        permission: 'read',
       },
     ],
   },
@@ -215,7 +273,7 @@ export const TOOL_TEMPLATES: Record<Exclude<AgentToolType, 'custom'>, ToolTempla
   google_sheets: {
     type: 'google_sheets',
     name: 'Google Sheets',
-    description: 'Read, write and search data in Google Sheets',
+    description: 'Read, write, search and update data in Google Sheets',
     icon: 'table',
     auth: {
       type: 'oauth2',
@@ -229,28 +287,43 @@ export const TOOL_TEMPLATES: Record<Exclude<AgentToolType, 'custom'>, ToolTempla
     base_url: 'https://sheets.googleapis.com/v4/spreadsheets',
     functions: [
       {
+        name: 'list_sheets',
+        description: 'List all sheet tabs in the spreadsheet with their names. Call this first to know which sheets exist before reading or searching.',
+        parameters: [],
+        permission: 'read',
+      },
+      {
         name: 'read_range',
-        description: 'Read data from a specific range in the spreadsheet',
+        description: 'Read data from a specific range in the spreadsheet. Use A1 notation. Call list_sheets first to get correct sheet names.',
         parameters: [
-          { name: 'range', type: 'string', description: 'The A1 notation range (e.g. Sheet1!A1:D10)', required: true },
+          { name: 'range', type: 'string', description: 'The A1 notation range (e.g. "Feuil1!A1:D10" or "Clients!A:C"). Use the exact sheet name from list_sheets.', required: true },
         ],
         permission: 'read',
       },
       {
         name: 'search',
-        description: 'Search for a value across the spreadsheet',
+        description: 'Search for a value across all cells of a sheet. Returns matching rows with their row numbers. Call list_sheets first to get the correct sheet name.',
         parameters: [
-          { name: 'query', type: 'string', description: 'The value to search for', required: true },
-          { name: 'sheet_name', type: 'string', description: 'Sheet name to search in (default: first sheet)', required: false },
+          { name: 'query', type: 'string', description: 'The value to search for (case-insensitive)', required: true },
+          { name: 'sheet_name', type: 'string', description: 'Sheet name to search in. IMPORTANT: Use the exact name from list_sheets (e.g. "Feuil1", not "Sheet1")', required: false },
         ],
         permission: 'read',
       },
       {
         name: 'write_row',
-        description: 'Append a new row to the spreadsheet. Always confirm with the user before writing.',
+        description: 'Append a new row at the end of a sheet. Always confirm the values with the user before writing. Call list_sheets first to get the correct sheet name.',
         parameters: [
-          { name: 'sheet_name', type: 'string', description: 'Sheet name to write to', required: true },
-          { name: 'values', type: 'array', description: 'Array of values for each column', required: true },
+          { name: 'sheet_name', type: 'string', description: 'Sheet name to append to (exact name from list_sheets)', required: true },
+          { name: 'values', type: 'array', description: 'Array of values for each column, in order (e.g. ["John", "Doe", "john@email.com"])', required: true },
+        ],
+        permission: 'write',
+      },
+      {
+        name: 'update_cell',
+        description: 'Update a specific cell or range with new values. Always confirm with the user before updating. Call list_sheets first to get the correct sheet name.',
+        parameters: [
+          { name: 'range', type: 'string', description: 'The A1 notation cell or range to update (e.g. "Feuil1!B3" or "Clients!C5:D5")', required: true },
+          { name: 'values', type: 'array', description: 'Array of values to write (single value for one cell, array for range)', required: true },
         ],
         permission: 'write',
       },
