@@ -189,6 +189,39 @@ export type AgentKnowledgeDocument = {
   created_at: string
 }
 
+export type AgentToolType = 'google_calendar' | 'shopify' | 'woocommerce' | 'stripe' | 'google_sheets' | 'custom'
+export type ToolPermission = 'read' | 'write' | 'read_write'
+
+export type AgentTool = {
+  id: string
+  agent_id: string
+  user_id: string
+  tool_type: AgentToolType
+  name: string
+  description: string
+  config: Record<string, unknown>
+  permissions: ToolPermission
+  is_active: boolean
+  rate_limit: number
+  created_at: string
+  updated_at: string
+}
+
+export type ToolExecutionLog = {
+  id: string
+  agent_id: string
+  tool_id: string
+  user_id: string
+  conversation_id: string | null
+  function_name: string
+  parameters: Record<string, unknown> | null
+  result: Record<string, unknown> | null
+  status: 'success' | 'error' | 'denied' | 'rate_limited' | 'timeout'
+  error_message: string | null
+  duration_ms: number | null
+  created_at: string
+}
+
 export type ConversationTag = {
   id: string
   user_id: string
@@ -540,6 +573,18 @@ export type Database = {
         Update: Partial<AgentKnowledgeDocument>
         Relationships: []
       }
+      agent_tools: {
+        Row: AgentTool
+        Insert: Partial<AgentTool> & Pick<AgentTool, 'agent_id' | 'user_id' | 'name' | 'description'>
+        Update: Partial<AgentTool>
+        Relationships: []
+      }
+      tool_execution_logs: {
+        Row: ToolExecutionLog
+        Insert: Partial<ToolExecutionLog> & Pick<ToolExecutionLog, 'agent_id' | 'tool_id' | 'user_id' | 'function_name'>
+        Update: Partial<ToolExecutionLog>
+        Relationships: []
+      }
       conversation_tags: {
         Row: ConversationTag
         Insert: Partial<ConversationTag> & Pick<ConversationTag, 'user_id' | 'name'>
@@ -687,6 +732,13 @@ export type Database = {
           days_inactive: number
           tracking_source: string | null
         }[]
+      }
+      check_tool_rate_limit: {
+        Args: {
+          p_tool_id: string
+          p_rate_limit: number
+        }
+        Returns: boolean
       }
     }
   }

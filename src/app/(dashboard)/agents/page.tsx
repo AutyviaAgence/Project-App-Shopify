@@ -46,6 +46,7 @@ import {
   ChevronDown,
   Wand2,
   MessageSquare,
+  Wrench,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -57,6 +58,7 @@ import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { MultiTeamSelect } from '@/components/multi-team-select'
 import { AgentWizard, type GeneratedAgentConfig } from '@/components/agent-wizard'
 import { AgentTestChat } from '@/components/agent-test-chat'
+import { AgentToolsManager } from '@/components/agent-tools-manager'
 
 type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
 type BookingStats = {
@@ -126,6 +128,10 @@ export default function AgentsPage() {
   // Test chat state
   const [testChatOpen, setTestChatOpen] = useState(false)
   const [testingAgent, setTestingAgent] = useState<AIAgent | null>(null)
+
+  // Tools state
+  const [toolsOpen, setToolsOpen] = useState(false)
+  const [toolsAgent, setToolsAgent] = useState<AgentWithTeamIds | null>(null)
 
   const fetchAgents = useCallback(async () => {
     try {
@@ -702,6 +708,17 @@ export default function AgentsPage() {
                     <Button
                       size="sm"
                       variant="ghost"
+                      onClick={() => {
+                        setToolsAgent(agent)
+                        setToolsOpen(true)
+                      }}
+                    >
+                      <Wrench className="mr-1 h-3 w-3" />
+                      {t('tools.title')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
                       className="text-destructive hover:text-destructive"
                       onClick={() => openDeleteDialog(agent)}
                       disabled={isDeleting}
@@ -1200,6 +1217,25 @@ export default function AgentsPage() {
           agentName={testingAgent.name}
         />
       )}
+
+      {/* Agent Tools Dialog */}
+      <Dialog open={toolsOpen} onOpenChange={(open) => {
+        setToolsOpen(open)
+        if (!open) setToolsAgent(null)
+      }}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Wrench className="h-4 w-4" />
+              {t('tools.title')} — {toolsAgent?.name}
+            </DialogTitle>
+            <DialogDescription>{t('tools.dialog_desc')}</DialogDescription>
+          </DialogHeader>
+          {toolsAgent && (
+            <AgentToolsManager agentId={toolsAgent.id} agentName={toolsAgent.name} />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

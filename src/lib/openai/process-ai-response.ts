@@ -5,6 +5,7 @@ import { checkTokenLimit, recordTokenUsage } from './token-tracker'
 import { sendMessage, sendPresence } from '@/lib/messaging/send'
 import { retrieveContext } from '@/lib/knowledge/retriever'
 import { encryptMessage, decryptMessage } from '@/lib/crypto/encryption'
+import { getAgentTools, buildOpenAITools, executeToolCall } from '@/lib/tools/executor'
 import type { WhatsAppSession } from '@/types/database'
 
 const MAX_CONTEXT_MESSAGES = 50
@@ -248,21 +249,83 @@ export async function processAIResponse(params: {
     // 4.5. Envoyer l'indicateur "en train d'écrire" avant d'appeler OpenAI
     await sendPresence(sessionCtx, params.contactPhoneNumber, 'composing')
 
-    // 5. Appeler OpenAI
-    const result = await generateAgentResponse({
-      model: agent.model,
-      temperature: agent.temperature,
-      systemPrompt,
-      messages: chatMessages,
-    })
+    // 4.6. Charger les outils de l'agent (function calling)
+    const agentTools = await getAgentTools(params.agentId)
+    const { openaiTools, functionMap } = buildOpenAITools(agentTools)
+    if (openaiTools.length > 0) {
+      console.log('[AI] Outils chargés:', openaiTools.length, 'fonctions')
+    }
 
-    if (!result.ok) {
-      console.error('[AI] Erreur OpenAI:', result.error)
+    // 5. Appeler OpenAI (avec boucle tool calling si outils disponibles)
+    const MAX_TOOL_ROUNDS = 5
+    const toolMessages: ChatMessage[] = []
+    let aiResponseText = ''
+
+    for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+      const result = await generateAgentResponse({
+        model: agent.model,
+        temperature: agent.temperature,
+        systemPrompt,
+        messages: [...chatMessages, ...toolMessages],
+        tools: openaiTools.length > 0 ? openaiTools : undefined,
+      })
+
+      if (!result.ok) {
+        console.error('[AI] Erreur OpenAI:', result.error)
+        return
+      }
+
+      totalTokensUsed += result.tokensUsed
+
+      // If no tool calls, we have our final response
+      if (!result.toolCalls) {
+        aiResponseText = result.content
+        break
+      }
+
+      // Process tool calls
+      console.log('[AI] Tool calls reçus:', result.toolCalls.length)
+
+      // Add the assistant message with tool_calls to context
+      toolMessages.push({ role: 'assistant' as const, content: JSON.stringify(result.rawMessage) })
+
+      for (const tc of result.toolCalls) {
+        const mapping = functionMap.get(tc.functionName)
+        if (!mapping) {
+          toolMessages.push({
+            role: 'user' as const,
+            content: `[Tool result for ${tc.functionName}]: Error: Unknown function`,
+          })
+          continue
+        }
+
+        const { tool, fn } = mapping
+        console.log('[AI] Exécution outil:', tool.name, '→', fn.name, '| args:', JSON.stringify(tc.arguments))
+
+        const execResult = await executeToolCall(tool, fn, tc.arguments, {
+          userId: userId!,
+          agentId: params.agentId,
+          conversationId: params.conversationId,
+        })
+
+        console.log('[AI] Résultat outil:', execResult.success ? 'OK' : 'ERREUR', `(${execResult.durationMs}ms)`)
+
+        // Add tool result as a user message (OpenAI expects tool role but we simplify)
+        toolMessages.push({
+          role: 'user' as const,
+          content: `[Tool result for ${tc.functionName}]: ${execResult.result}`,
+        })
+      }
+
+      // Refresh typing indicator between rounds
+      await sendPresence(sessionCtx, params.contactPhoneNumber, 'composing')
+    }
+
+    if (!aiResponseText) {
+      console.error('[AI] Pas de réponse après', MAX_TOOL_ROUNDS, 'rounds de tool calling')
       return
     }
 
-    totalTokensUsed += result.tokensUsed
-    const aiResponseText = result.content
     console.log('[AI] Réponse OpenAI reçue:', aiResponseText.slice(0, 80) + '...')
 
     // 6. Envoyer via l'intégration appropriée (Evolution ou WABA)
@@ -334,7 +397,7 @@ Sois strict : la condition doit être explicitement satisfaite.`,
         totalTokensUsed += stopCheckResult.tokensUsed
       }
 
-      if (stopCheckResult.ok && stopCheckResult.content.trim().toUpperCase().startsWith('OUI')) {
+      if (stopCheckResult.ok && stopCheckResult.content?.trim().toUpperCase().startsWith('OUI')) {
         console.log('[AI] Condition d\'arrêt remplie:', agent.stop_condition)
 
         // Récupérer les infos de la session pour la notification

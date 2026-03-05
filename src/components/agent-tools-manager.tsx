@@ -1,0 +1,580 @@
+'use client'
+
+import { useEffect, useState, useCallback } from 'react'
+import { useTranslation } from '@/i18n/context'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
+import { toast } from 'sonner'
+import {
+  Plus,
+  Trash2,
+  Loader2,
+  Calendar,
+  ShoppingBag,
+  ShoppingCart,
+  CreditCard,
+  Table,
+  Plug,
+  Wrench,
+  Eye,
+  Pencil,
+  ChevronLeft,
+} from 'lucide-react'
+import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
+
+type ToolTemplate = {
+  type: string
+  name: string
+  description: string
+  icon: string
+  auth_type: string
+  auth_fields: { key: string; label: string; placeholder: string; secret: boolean }[]
+  functions: { name: string; description: string; permission: string; parameters: unknown[] }[]
+}
+
+type AgentTool = {
+  id: string
+  agent_id: string
+  tool_type: string
+  name: string
+  description: string
+  config: Record<string, unknown>
+  permissions: string
+  is_active: boolean
+  rate_limit: number
+  created_at: string
+}
+
+const TOOL_ICONS: Record<string, React.ReactNode> = {
+  calendar: <Calendar className="h-5 w-5" />,
+  'shopping-bag': <ShoppingBag className="h-5 w-5" />,
+  'shopping-cart': <ShoppingCart className="h-5 w-5" />,
+  'credit-card': <CreditCard className="h-5 w-5" />,
+  table: <Table className="h-5 w-5" />,
+  plug: <Plug className="h-5 w-5" />,
+}
+
+const TOOL_COLORS: Record<string, string> = {
+  google_calendar: 'text-blue-500',
+  shopify: 'text-green-500',
+  woocommerce: 'text-purple-500',
+  stripe: 'text-indigo-500',
+  google_sheets: 'text-emerald-500',
+  custom: 'text-orange-500',
+}
+
+export function AgentToolsManager({ agentId, agentName }: { agentId: string; agentName: string }) {
+  const { t } = useTranslation()
+  const [tools, setTools] = useState<AgentTool[]>([])
+  const [templates, setTemplates] = useState<ToolTemplate[]>([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  // Dialog states
+  const [catalogOpen, setCatalogOpen] = useState(false)
+  const [configOpen, setConfigOpen] = useState(false)
+  const [selectedTemplate, setSelectedTemplate] = useState<ToolTemplate | null>(null)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [toolToDelete, setToolToDelete] = useState<AgentTool | null>(null)
+  const [logsOpen, setLogsOpen] = useState(false)
+  const [logs, setLogs] = useState<any[]>([])
+  const [logsLoading, setLogsLoading] = useState(false)
+
+  // Config form
+  const [formName, setFormName] = useState('')
+  const [formDescription, setFormDescription] = useState('')
+  const [formPermissions, setFormPermissions] = useState('read')
+  const [formRateLimit, setFormRateLimit] = useState('60')
+  const [formConfig, setFormConfig] = useState<Record<string, string>>({})
+
+  // Custom API form
+  const [customFunctions, setCustomFunctions] = useState<Array<{
+    name: string; description: string; method: string; endpoint: string; permission: string
+  }>>([])
+
+  const fetchTools = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/agents/${agentId}/tools`)
+      const json = await res.json()
+      if (res.ok) setTools(json.data || [])
+    } catch {
+      // Silent
+    } finally {
+      setLoading(false)
+    }
+  }, [agentId])
+
+  const fetchTemplates = useCallback(async () => {
+    try {
+      const res = await fetch('/api/tools/templates')
+      const json = await res.json()
+      if (res.ok) setTemplates(json.data || [])
+    } catch {
+      // Silent
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchTools()
+    fetchTemplates()
+  }, [fetchTools, fetchTemplates])
+
+  function openCatalog() {
+    setCatalogOpen(true)
+  }
+
+  function selectTemplate(template: ToolTemplate) {
+    setSelectedTemplate(template)
+    setFormName(template.name)
+    setFormDescription(template.description)
+    setFormPermissions('read')
+    setFormRateLimit('60')
+    setFormConfig({})
+    setCustomFunctions([])
+    setCatalogOpen(false)
+    setConfigOpen(true)
+  }
+
+  async function handleSaveTool() {
+    if (!selectedTemplate) return
+    setSaving(true)
+
+    try {
+      const config: Record<string, unknown> = { ...formConfig }
+
+      // Add custom functions if custom API
+      if (selectedTemplate.type === 'custom' && customFunctions.length > 0) {
+        config.functions = customFunctions.map(fn => ({
+          ...fn,
+          parameters: [],
+        }))
+      }
+
+      const res = await fetch(`/api/agents/${agentId}/tools`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tool_type: selectedTemplate.type,
+          name: formName,
+          description: formDescription,
+          config,
+          permissions: formPermissions,
+          rate_limit: parseInt(formRateLimit) || 60,
+        }),
+      })
+
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error)
+
+      toast.success(t('tools.tool_created'))
+      setConfigOpen(false)
+      fetchTools()
+    } catch (err: any) {
+      toast.error(err.message || t('tools.create_error'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleToggleTool(tool: AgentTool) {
+    try {
+      const res = await fetch(`/api/agents/${agentId}/tools/${tool.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_active: !tool.is_active }),
+      })
+      if (!res.ok) throw new Error()
+      setTools(prev => prev.map(t => t.id === tool.id ? { ...t, is_active: !t.is_active } : t))
+    } catch {
+      toast.error(t('tools.update_error'))
+    }
+  }
+
+  async function handleDeleteTool() {
+    if (!toolToDelete) return
+
+    try {
+      const res = await fetch(`/api/agents/${agentId}/tools/${toolToDelete.id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error()
+      setTools(prev => prev.filter(t => t.id !== toolToDelete.id))
+      toast.success(t('tools.tool_deleted'))
+    } catch {
+      toast.error(t('tools.delete_error'))
+    } finally {
+      setDeleteDialogOpen(false)
+      setToolToDelete(null)
+    }
+  }
+
+  async function fetchLogs() {
+    setLogsLoading(true)
+    try {
+      const res = await fetch(`/api/agents/${agentId}/tools/logs?limit=50`)
+      const json = await res.json()
+      if (res.ok) setLogs(json.data || [])
+    } catch {
+      // Silent
+    } finally {
+      setLogsLoading(false)
+    }
+  }
+
+  function openLogs() {
+    setLogsOpen(true)
+    fetchLogs()
+  }
+
+  function addCustomFunction() {
+    setCustomFunctions(prev => [...prev, {
+      name: '', description: '', method: 'GET', endpoint: '/', permission: 'read',
+    }])
+  }
+
+  function updateCustomFunction(index: number, field: string, value: string) {
+    setCustomFunctions(prev => prev.map((fn, i) =>
+      i === index ? { ...fn, [field]: value } : fn
+    ))
+  }
+
+  function removeCustomFunction(index: number) {
+    setCustomFunctions(prev => prev.filter((_, i) => i !== index))
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-medium flex items-center gap-1.5">
+            <Wrench className="h-4 w-4" />
+            {t('tools.title')}
+          </h3>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            {t('tools.subtitle')}
+          </p>
+        </div>
+        <div className="flex gap-2">
+          {tools.length > 0 && (
+            <Button size="sm" variant="outline" onClick={openLogs}>
+              <Eye className="mr-1 h-3 w-3" />
+              {t('tools.logs')}
+            </Button>
+          )}
+          <Button size="sm" onClick={openCatalog}>
+            <Plus className="mr-1 h-3 w-3" />
+            {t('tools.add_tool')}
+          </Button>
+        </div>
+      </div>
+
+      {/* Tools list */}
+      {tools.length === 0 ? (
+        <div className="text-center py-6 border rounded-lg border-dashed">
+          <Wrench className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+          <p className="text-sm text-muted-foreground">{t('tools.no_tools')}</p>
+          <Button size="sm" variant="link" onClick={openCatalog} className="mt-1">
+            {t('tools.add_first_tool')}
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {tools.map((tool) => (
+            <Card key={tool.id} className={!tool.is_active ? 'opacity-60' : ''}>
+              <CardContent className="py-3 px-4">
+                <div className="flex items-center gap-3">
+                  <div className={TOOL_COLORS[tool.tool_type] || 'text-muted-foreground'}>
+                    {TOOL_ICONS[getIconForType(tool.tool_type)] || <Plug className="h-5 w-5" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium truncate">{tool.name}</span>
+                      <Badge variant="outline" className="text-xs shrink-0">
+                        {tool.permissions === 'read_write' ? 'R/W' : tool.permissions === 'write' ? 'W' : 'R'}
+                      </Badge>
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate">{tool.description}</p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                      onClick={() => { setToolToDelete(tool); setDeleteDialogOpen(true) }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                    <Switch
+                      checked={tool.is_active}
+                      onCheckedChange={() => handleToggleTool(tool)}
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {/* Catalog Dialog */}
+      <Dialog open={catalogOpen} onOpenChange={setCatalogOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{t('tools.catalog_title')}</DialogTitle>
+            <DialogDescription>{t('tools.catalog_desc')}</DialogDescription>
+          </DialogHeader>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+            {templates.map((template) => (
+              <button
+                key={template.type}
+                onClick={() => selectTemplate(template)}
+                className="p-4 rounded-lg border text-left transition-colors hover:border-[#7DC2A5] hover:bg-[#7DC2A5]/5"
+              >
+                <div className={`mb-2 ${TOOL_COLORS[template.type] || 'text-muted-foreground'}`}>
+                  {TOOL_ICONS[template.icon] || <Plug className="h-5 w-5" />}
+                </div>
+                <p className="text-sm font-medium">{template.name}</p>
+                <p className="text-xs text-muted-foreground mt-1">{template.description}</p>
+                {template.functions.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-2">
+                    {template.functions.map(fn => (
+                      <Badge key={fn.name} variant="secondary" className="text-[10px]">
+                        {fn.name}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+              </button>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Config Dialog */}
+      <Dialog open={configOpen} onOpenChange={setConfigOpen}>
+        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <button onClick={() => { setConfigOpen(false); setCatalogOpen(true) }} className="hover:opacity-70">
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              {selectedTemplate?.name}
+            </DialogTitle>
+            <DialogDescription>{t('tools.config_desc')}</DialogDescription>
+          </DialogHeader>
+
+          {selectedTemplate && (
+            <div className="space-y-4 mt-2">
+              {/* Name & Description */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs">{t('tools.tool_name')}</Label>
+                  <Input value={formName} onChange={e => setFormName(e.target.value)} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs">{t('tools.rate_limit')}</Label>
+                  <Input type="number" value={formRateLimit} onChange={e => setFormRateLimit(e.target.value)} />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs">{t('tools.tool_description')}</Label>
+                <Textarea value={formDescription} onChange={e => setFormDescription(e.target.value)} rows={2} />
+              </div>
+
+              {/* Permissions */}
+              <div className="space-y-1">
+                <Label className="text-xs">{t('tools.permissions')}</Label>
+                <Select value={formPermissions} onValueChange={setFormPermissions}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="read">{t('tools.read_only')}</SelectItem>
+                    <SelectItem value="write">{t('tools.write_only')}</SelectItem>
+                    <SelectItem value="read_write">{t('tools.read_write')}</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Auth fields */}
+              <div className="space-y-3 border-t pt-3">
+                <Label className="text-xs font-medium">{t('tools.credentials')}</Label>
+                {selectedTemplate.auth_fields.map(field => (
+                  <div key={field.key} className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">{field.label}</Label>
+                    <Input
+                      type={field.secret ? 'password' : 'text'}
+                      placeholder={field.placeholder}
+                      value={formConfig[field.key] || ''}
+                      onChange={e => setFormConfig(prev => ({ ...prev, [field.key]: e.target.value }))}
+                    />
+                  </div>
+                ))}
+              </div>
+
+              {/* Custom API functions */}
+              {selectedTemplate.type === 'custom' && (
+                <div className="space-y-3 border-t pt-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-medium">{t('tools.functions')}</Label>
+                    <Button size="sm" variant="outline" onClick={addCustomFunction}>
+                      <Plus className="mr-1 h-3 w-3" />
+                      {t('tools.add_function')}
+                    </Button>
+                  </div>
+                  {customFunctions.map((fn, i) => (
+                    <div key={i} className="space-y-2 p-3 border rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium">{t('tools.function')} {i + 1}</span>
+                        <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-destructive" onClick={() => removeCustomFunction(i)}>
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <Input placeholder={t('tools.function_name')} value={fn.name} onChange={e => updateCustomFunction(i, 'name', e.target.value)} />
+                        <Select value={fn.method} onValueChange={v => updateCustomFunction(i, 'method', v)}>
+                          <SelectTrigger><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="GET">GET</SelectItem>
+                            <SelectItem value="POST">POST</SelectItem>
+                            <SelectItem value="PUT">PUT</SelectItem>
+                            <SelectItem value="PATCH">PATCH</SelectItem>
+                            <SelectItem value="DELETE">DELETE</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <Input placeholder={t('tools.endpoint')} value={fn.endpoint} onChange={e => updateCustomFunction(i, 'endpoint', e.target.value)} />
+                      <Textarea placeholder={t('tools.function_desc')} value={fn.description} onChange={e => updateCustomFunction(i, 'description', e.target.value)} rows={2} />
+                      <Select value={fn.permission} onValueChange={v => updateCustomFunction(i, 'permission', v)}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="read">{t('tools.read_only')}</SelectItem>
+                          <SelectItem value="write">{t('tools.write_only')}</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Available functions (for templates) */}
+              {selectedTemplate.type !== 'custom' && selectedTemplate.functions.length > 0 && (
+                <div className="space-y-2 border-t pt-3">
+                  <Label className="text-xs font-medium">{t('tools.available_functions')}</Label>
+                  {selectedTemplate.functions.map(fn => (
+                    <div key={fn.name} className="flex items-center gap-2 p-2 rounded border">
+                      <Badge variant={fn.permission === 'write' ? 'destructive' : 'secondary'} className="text-[10px] shrink-0">
+                        {fn.permission}
+                      </Badge>
+                      <div className="min-w-0">
+                        <p className="text-xs font-medium">{fn.name}</p>
+                        <p className="text-[10px] text-muted-foreground truncate">{fn.description}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Save */}
+              <Button className="w-full" onClick={handleSaveTool} disabled={saving || !formName}>
+                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {t('tools.save_tool')}
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Logs Dialog */}
+      <Dialog open={logsOpen} onOpenChange={setLogsOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{t('tools.logs_title')}</DialogTitle>
+            <DialogDescription>{agentName}</DialogDescription>
+          </DialogHeader>
+          {logsLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : logs.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-8">{t('tools.no_logs')}</p>
+          ) : (
+            <div className="space-y-2">
+              {logs.map(log => (
+                <div key={log.id} className="p-3 border rounded-lg text-xs">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Badge variant={
+                      log.status === 'success' ? 'default' :
+                      log.status === 'error' ? 'destructive' :
+                      'secondary'
+                    } className="text-[10px]">
+                      {log.status}
+                    </Badge>
+                    <span className="font-medium">{log.function_name}</span>
+                    <span className="text-muted-foreground ml-auto">
+                      {log.duration_ms}ms
+                    </span>
+                  </div>
+                  <p className="text-muted-foreground">
+                    {new Date(log.created_at).toLocaleString()}
+                  </p>
+                  {log.error_message && (
+                    <p className="text-destructive mt-1">{log.error_message}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation */}
+      <ConfirmDeleteDialog
+        open={deleteDialogOpen}
+        onOpenChange={setDeleteDialogOpen}
+        onConfirm={handleDeleteTool}
+        title={t('tools.delete_title')}
+        description={t('tools.delete_desc', { name: toolToDelete?.name || '' })}
+      />
+    </div>
+  )
+}
+
+function getIconForType(type: string): string {
+  const iconMap: Record<string, string> = {
+    google_calendar: 'calendar',
+    shopify: 'shopping-bag',
+    woocommerce: 'shopping-cart',
+    stripe: 'credit-card',
+    google_sheets: 'table',
+    custom: 'plug',
+  }
+  return iconMap[type] || 'plug'
+}
