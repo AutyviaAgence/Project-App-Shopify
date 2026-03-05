@@ -607,7 +607,8 @@ async function logExecution(
 // Fetch active tools for an agent
 // ============================================================
 
-export async function getAgentTools(agentId: string, externalClient?: ReturnType<typeof createAdminSupabase>): Promise<AgentTool[]> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function getAgentTools(agentId: string, externalClient?: any): Promise<AgentTool[]> {
   const supabase = externalClient || getAdminClient()
   const { data, error } = await supabase
     .from('agent_tools')
