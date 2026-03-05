@@ -83,9 +83,25 @@ export async function POST(
     systemPrompt += `\n\n--- Instruction de langue ---\nIMPORTANT : Détecte automatiquement la langue utilisée par l'utilisateur dans son dernier message et réponds TOUJOURS dans cette même langue. Si l'utilisateur écrit en anglais, réponds en anglais. Si l'utilisateur écrit en espagnol, réponds en espagnol. Adapte-toi à la langue de chaque message.`
   }
 
-  // Charger les outils de l'agent
-  const agentTools = await getAgentTools(id)
-  console.log(`[Test Chat] Agent ${id}: ${agentTools.length} tools loaded`, agentTools.map(t => ({ id: t.id, name: t.name, type: t.tool_type, active: t.is_active, permissions: t.permissions })))
+  // Charger les outils de l'agent (d'abord via le client auth, fallback admin)
+  console.log(`[Test Chat] SUPABASE_SERVICE_ROLE_KEY set: ${!!process.env.SUPABASE_SERVICE_ROLE_KEY}`)
+  let agentTools = await getAgentTools(id)
+  console.log(`[Test Chat] Agent ${id}: ${agentTools.length} tools via admin client`)
+
+  // Fallback: query via authenticated supabase client (bypasses potential service key issues)
+  if (agentTools.length === 0) {
+    const { data: toolsFromAuth } = await supabase
+      .from('agent_tools')
+      .select('*')
+      .eq('agent_id', id)
+      .eq('is_active', true)
+    console.log(`[Test Chat] Fallback auth query: ${toolsFromAuth?.length ?? 0} tools found`)
+    if (toolsFromAuth && toolsFromAuth.length > 0) {
+      agentTools = toolsFromAuth as any
+    }
+  }
+
+  console.log(`[Test Chat] Final: ${agentTools.length} tools`, agentTools.map(t => ({ id: t.id, name: t.name, type: t.tool_type, active: t.is_active, permissions: t.permissions })))
   const { openaiTools, functionMap } = buildOpenAITools(agentTools)
   console.log(`[Test Chat] OpenAI tools built: ${openaiTools.length}`, openaiTools.map(t => t.function.name))
 
@@ -129,6 +145,8 @@ export async function POST(
           response: result.content,
           toolExecutions: toolExecutions.length > 0 ? toolExecutions : undefined,
           _debug: {
+            agentId: id,
+            serviceRoleKeySet: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
             toolsLoaded: agentTools.length,
             openaiToolsBuilt: openaiTools.length,
             toolNames: openaiTools.map(t => t.function.name),
