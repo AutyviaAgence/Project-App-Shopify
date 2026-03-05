@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { canAccessResource } from '@/lib/teams/access'
-import { generateAgentResponse, type ChatMessage } from '@/lib/openai/client'
+import { generateAgentResponse, type ChatMessage, type OpenAIMessage } from '@/lib/openai/client'
 import { checkTokenLimit, recordTokenUsage } from '@/lib/openai/token-tracker'
 import { retrieveContext } from '@/lib/knowledge/retriever'
 import { getAgentTools, buildOpenAITools, executeToolCall } from '@/lib/tools/executor'
@@ -90,7 +90,9 @@ export async function POST(
   // Boucle de tool calling (max 5 rounds)
   let totalTokens = ragTokens
   const MAX_TOOL_ROUNDS = 5
-  const conversationMessages = [...messages]
+  const conversationMessages: OpenAIMessage[] = [
+    ...messages.map(m => ({ role: m.role, content: m.content }) as OpenAIMessage),
+  ]
 
   for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
     const result = await generateAgentResponse({
@@ -113,18 +115,17 @@ export async function POST(
       return NextResponse.json({ data: { response: result.content } })
     }
 
-    // Exécuter les tool calls
-    conversationMessages.push({
-      role: 'assistant',
-      content: JSON.stringify(result.rawMessage),
-    })
+    // Add the assistant message with tool_calls (native format)
+    conversationMessages.push(result.rawMessage as OpenAIMessage)
 
+    // Execute each tool call and add result with role: "tool"
     for (const tc of result.toolCalls) {
       const mapping = functionMap.get(tc.functionName)
       if (!mapping) {
         conversationMessages.push({
-          role: 'user',
-          content: `[Tool result for ${tc.functionName}]: Function not found.`,
+          role: 'tool',
+          tool_call_id: tc.toolCallId,
+          content: 'Error: Unknown function',
         })
         continue
       }
@@ -135,8 +136,9 @@ export async function POST(
       })
 
       conversationMessages.push({
-        role: 'user',
-        content: `[Tool result for ${tc.functionName}]: ${execResult.result}`,
+        role: 'tool',
+        tool_call_id: tc.toolCallId,
+        content: execResult.result,
       })
     }
   }

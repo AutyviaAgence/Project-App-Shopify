@@ -1,6 +1,6 @@
 import 'server-only'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
-import { generateAgentResponse, type ChatMessage } from './client'
+import { generateAgentResponse, type ChatMessage, type OpenAIMessage } from './client'
 import { checkTokenLimit, recordTokenUsage } from './token-tracker'
 import { sendMessage, sendPresence } from '@/lib/messaging/send'
 import { retrieveContext } from '@/lib/knowledge/retriever'
@@ -258,7 +258,7 @@ export async function processAIResponse(params: {
 
     // 5. Appeler OpenAI (avec boucle tool calling si outils disponibles)
     const MAX_TOOL_ROUNDS = 5
-    const toolMessages: ChatMessage[] = []
+    const toolMessages: OpenAIMessage[] = []
     let aiResponseText = ''
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
@@ -286,15 +286,16 @@ export async function processAIResponse(params: {
       // Process tool calls
       console.log('[AI] Tool calls reçus:', result.toolCalls.length)
 
-      // Add the assistant message with tool_calls to context
-      toolMessages.push({ role: 'assistant' as const, content: JSON.stringify(result.rawMessage) })
+      // Add the assistant message with tool_calls (native OpenAI format)
+      toolMessages.push(result.rawMessage as OpenAIMessage)
 
       for (const tc of result.toolCalls) {
         const mapping = functionMap.get(tc.functionName)
         if (!mapping) {
           toolMessages.push({
-            role: 'user' as const,
-            content: `[Tool result for ${tc.functionName}]: Error: Unknown function`,
+            role: 'tool',
+            tool_call_id: tc.toolCallId,
+            content: 'Error: Unknown function',
           })
           continue
         }
@@ -310,10 +311,11 @@ export async function processAIResponse(params: {
 
         console.log('[AI] Résultat outil:', execResult.success ? 'OK' : 'ERREUR', `(${execResult.durationMs}ms)`)
 
-        // Add tool result as a user message (OpenAI expects tool role but we simplify)
+        // Add tool result with proper "tool" role and tool_call_id
         toolMessages.push({
-          role: 'user' as const,
-          content: `[Tool result for ${tc.functionName}]: ${execResult.result}`,
+          role: 'tool',
+          tool_call_id: tc.toolCallId,
+          content: execResult.result,
         })
       }
 

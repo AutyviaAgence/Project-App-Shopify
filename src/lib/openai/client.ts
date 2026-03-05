@@ -20,6 +20,9 @@ export type ChatMessage = {
   content: string
 }
 
+/** Native OpenAI message type for tool calling conversations */
+export type OpenAIMessage = OpenAI.Chat.ChatCompletionMessageParam
+
 /**
  * Transcrit un audio en texte via Whisper.
  */
@@ -105,7 +108,7 @@ export async function generateAgentResponse(params: {
   model: string
   temperature: number
   systemPrompt: string
-  messages: ChatMessage[]
+  messages: (ChatMessage | OpenAIMessage)[]
   tools?: Array<{ type: 'function'; function: { name: string; description: string; parameters: Record<string, unknown> } }>
 }): Promise<
   | { ok: true; content: string; tokensUsed: number; toolCalls?: undefined }
@@ -119,7 +122,7 @@ export async function generateAgentResponse(params: {
       temperature: params.temperature,
       messages: [
         { role: 'system', content: params.systemPrompt },
-        ...params.messages,
+        ...(params.messages as OpenAI.Chat.ChatCompletionMessageParam[]),
       ],
       max_tokens: 1024,
     }
