@@ -10,10 +10,14 @@ const TOOL_TIMEOUT_MS = 10_000
 const MAX_RESPONSE_BYTES = 50_000
 
 function getAdminClient() {
-  return createAdminSupabase(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!
+  if (!key) {
+    console.error('[Tools] SUPABASE_SERVICE_ROLE_KEY is not set!')
+  }
+  return createAdminSupabase(url, key, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
 }
 
 // ============================================================
@@ -603,13 +607,17 @@ async function logExecution(
 // Fetch active tools for an agent
 // ============================================================
 
-export async function getAgentTools(agentId: string): Promise<AgentTool[]> {
-  const supabase = getAdminClient()
-  const { data } = await supabase
+export async function getAgentTools(agentId: string, externalClient?: ReturnType<typeof createAdminSupabase>): Promise<AgentTool[]> {
+  const supabase = externalClient || getAdminClient()
+  const { data, error } = await supabase
     .from('agent_tools')
     .select('*')
     .eq('agent_id', agentId)
     .eq('is_active', true)
+
+  if (error) {
+    console.error('[Tools] getAgentTools error:', error.message)
+  }
 
   return (data || []) as AgentTool[]
 }

@@ -255,7 +255,7 @@ export async function processAIResponse(params: {
     await sendPresence(sessionCtx, params.contactPhoneNumber, 'composing')
 
     // 4.6. Charger les outils de l'agent (function calling)
-    const agentTools = await getAgentTools(params.agentId)
+    const agentTools = await getAgentTools(params.agentId, supabase)
     const { openaiTools, functionMap } = buildOpenAITools(agentTools)
     if (openaiTools.length > 0) {
       console.log('[AI] Outils chargés:', openaiTools.length, 'fonctions')
