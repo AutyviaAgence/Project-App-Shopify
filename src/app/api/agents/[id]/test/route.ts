@@ -85,13 +85,18 @@ export async function POST(
 
   // Charger les outils de l'agent
   const agentTools = await getAgentTools(id)
+  console.log(`[Test Chat] Agent ${id}: ${agentTools.length} tools loaded`, agentTools.map(t => ({ id: t.id, name: t.name, type: t.tool_type, active: t.is_active, permissions: t.permissions })))
   const { openaiTools, functionMap } = buildOpenAITools(agentTools)
+  console.log(`[Test Chat] OpenAI tools built: ${openaiTools.length}`, openaiTools.map(t => t.function.name))
 
   // Ajouter instruction outils au system prompt
   if (openaiTools.length > 0) {
     const toolNames = openaiTools.map(t => t.function.name).join(', ')
     systemPrompt += `\n\n--- Outils disponibles ---\nTu disposes des outils suivants que tu DOIS utiliser quand la demande correspond : ${toolNames}.\nQuand l'utilisateur demande des informations ou actions liées à ces outils, utilise TOUJOURS l'outil approprié via un function call. Ne dis JAMAIS que tu ne peux pas accéder à ces données — appelle l'outil.\n--- Fin des outils ---`
   }
+
+  console.log(`[Test Chat] System prompt (last 300 chars): ...${systemPrompt.slice(-300)}`)
+  console.log(`[Test Chat] Tools passed to OpenAI: ${openaiTools.length > 0 ? 'YES' : 'NO'}`)
 
   // Boucle de tool calling (max 5 rounds)
   let totalTokens = ragTokens
@@ -123,6 +128,12 @@ export async function POST(
         data: {
           response: result.content,
           toolExecutions: toolExecutions.length > 0 ? toolExecutions : undefined,
+          _debug: {
+            toolsLoaded: agentTools.length,
+            openaiToolsBuilt: openaiTools.length,
+            toolNames: openaiTools.map(t => t.function.name),
+            agentToolTypes: agentTools.map(t => ({ name: t.name, type: t.tool_type, permissions: t.permissions, active: t.is_active })),
+          }
         }
       })
     }

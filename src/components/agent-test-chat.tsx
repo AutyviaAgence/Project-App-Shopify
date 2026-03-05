@@ -85,9 +85,15 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
       const json = await res.json()
 
       if (res.ok && json.data?.response) {
+        // Temporary debug: show tool loading info
+        const debug = json.data._debug
+        let debugContent = json.data.response
+        if (debug) {
+          debugContent += `\n\n---\n🔧 DEBUG: ${debug.toolsLoaded} tools loaded, ${debug.openaiToolsBuilt} OpenAI tools built\nTool names: ${debug.toolNames?.join(', ') || 'none'}\nAgent tools: ${JSON.stringify(debug.agentToolTypes)}`
+        }
         setMessages(prev => [...prev, {
           role: 'assistant',
-          content: json.data.response,
+          content: debugContent,
           toolExecutions: json.data.toolExecutions,
         }])
       } else {
