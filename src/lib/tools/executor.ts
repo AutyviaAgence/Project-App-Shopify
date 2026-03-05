@@ -14,6 +14,8 @@ function getAdminClient() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!
   if (!key) {
     console.error('[Tools] SUPABASE_SERVICE_ROLE_KEY is not set!')
+  } else {
+    console.log('[Tools] Admin client using service role key:', key.substring(0, 20) + '...')
   }
   return createAdminSupabase(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
@@ -610,9 +612,8 @@ async function logExecution(
 // Fetch active tools for an agent
 // ============================================================
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function getAgentTools(agentId: string, externalClient?: any): Promise<AgentTool[]> {
-  const supabase = externalClient || getAdminClient()
+export async function getAgentTools(agentId: string): Promise<AgentTool[]> {
+  const supabase = getAdminClient()
   const { data, error } = await supabase
     .from('agent_tools')
     .select('*')
