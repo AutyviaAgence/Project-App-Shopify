@@ -87,9 +87,9 @@ export const TOOL_TEMPLATES: Record<Exclude<AgentToolType, 'custom'>, ToolTempla
       },
       {
         name: 'cancel_event',
-        description: 'Cancel/delete a calendar event. Always confirm with the user before cancelling.',
+        description: 'Cancel/delete a calendar event. IMPORTANT: You MUST first call check_availability to get the real event ID from the events list. Never guess or invent an event_id. Always confirm with the user before cancelling.',
         parameters: [
-          { name: 'event_id', type: 'string', description: 'The event ID to cancel', required: true },
+          { name: 'event_id', type: 'string', description: 'The real event ID obtained from check_availability response (e.g. "abc123xyz"). Never invent this value.', required: true },
         ],
         permission: 'write',
       },
