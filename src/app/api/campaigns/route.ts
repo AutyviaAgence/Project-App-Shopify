@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getUserTeamIds, getUserTeamPermissions, filterCampaignsByPermissions } from '@/lib/teams/access'
+import { getUserTeamIds, getUserTeamPermissions, buildAccessFilter, filterCampaignsByPermissions } from '@/lib/teams/access'
 import type { CampaignStatus } from '@/types/database'
 
 const VALID_STATUSES: CampaignStatus[] = ['draft', 'scheduled', 'running', 'paused', 'completed', 'cancelled']
@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
 
   // Filtrer par accès (proprio ou équipe)
   if (teamIds.length > 0) {
-    query = query.or(`user_id.eq.${user.id},team_id.in.(${teamIds.join(',')})`)
+    query = query.or(buildAccessFilter(user.id, teamIds))
   } else {
     query = query.eq('user_id', user.id)
   }

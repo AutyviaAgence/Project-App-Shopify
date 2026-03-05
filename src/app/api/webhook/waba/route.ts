@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
+import { createHmac } from 'crypto'
 import { processAIResponse } from '@/lib/openai/process-ai-response'
 import { withSessionDelay } from '@/lib/messaging/session-queue'
 import { analyzeConversationLifecycle } from '@/lib/openai/lifecycle-analyzer'
@@ -31,10 +32,34 @@ export async function GET(req: NextRequest) {
 }
 
 /**
+ * Validate Meta webhook signature (X-Hub-Signature-256)
+ * Returns the raw body if valid, null if invalid
+ */
+async function validateWebhookSignature(req: NextRequest): Promise<{ valid: boolean; body: string }> {
+  const appSecret = process.env.WABA_APP_SECRET
+  if (!appSecret) return { valid: true, body: '' } // No secret configured = skip validation
+
+  const signature = req.headers.get('x-hub-signature-256')
+  if (!signature) return { valid: false, body: '' }
+
+  const body = await req.text()
+  const expectedSig = 'sha256=' + createHmac('sha256', appSecret).update(body).digest('hex')
+  return { valid: signature === expectedSig, body }
+}
+
+/**
  * POST /api/webhook/waba
  * Réception des messages entrants via WhatsApp Cloud API
+ * Validates X-Hub-Signature-256 from Meta if WABA_APP_SECRET is configured
  */
 export async function POST(req: NextRequest) {
+  // Validate Meta webhook signature
+  const sigResult = await validateWebhookSignature(req)
+  if (!sigResult.valid) {
+    console.warn('[WABA Webhook] Invalid or missing X-Hub-Signature-256')
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   const rateLimitResponse = checkRateLimit(req, 'WEBHOOK')
   if (rateLimitResponse) return rateLimitResponse
 
@@ -45,7 +70,8 @@ export async function POST(req: NextRequest) {
   )
 
   try {
-    const payload = await req.json()
+    // If signature validation read the body, parse it; otherwise read from request
+    const payload = sigResult.body ? JSON.parse(sigResult.body) : await req.json()
 
     // Meta envoie un objet avec entry[].changes[].value
     const entries = payload.entry as Array<{

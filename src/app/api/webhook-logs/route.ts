@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getUserTeamIds } from '@/lib/teams/access'
+import { getUserTeamIds, buildAccessFilter } from '@/lib/teams/access'
 
 /** GET /api/webhook-logs — Liste des logs webhook de l'utilisateur */
 export async function GET(req: NextRequest) {
@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
     .select('id')
 
   if (teamIds.length > 0) {
-    sessionsQuery = sessionsQuery.or(`user_id.eq.${user.id},team_id.in.(${teamIds.join(',')})`)
+    sessionsQuery = sessionsQuery.or(buildAccessFilter(user.id, teamIds))
   } else {
     sessionsQuery = sessionsQuery.eq('user_id', user.id)
   }
@@ -96,7 +96,7 @@ export async function DELETE() {
     .select('id')
 
   if (teamIds.length > 0) {
-    sessionsQuery = sessionsQuery.or(`user_id.eq.${user.id},team_id.in.(${teamIds.join(',')})`)
+    sessionsQuery = sessionsQuery.or(buildAccessFilter(user.id, teamIds))
   } else {
     sessionsQuery = sessionsQuery.eq('user_id', user.id)
   }

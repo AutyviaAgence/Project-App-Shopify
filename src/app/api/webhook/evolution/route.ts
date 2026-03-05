@@ -36,6 +36,14 @@ function containsOptOutKeyword(message: string, keywords: string[]): string | nu
  * Utilise le service_role car pas d'auth utilisateur ici
  */
 export async function POST(req: NextRequest) {
+  // Validate webhook API key — Evolution API sends the key in the apikey header
+  const apiKey = req.headers.get('apikey')
+  const expectedKey = process.env.EVOLUTION_API_KEY
+  if (expectedKey && apiKey !== expectedKey) {
+    console.warn('[Evolution Webhook] Invalid API key rejected')
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   // Rate limiting pour le webhook (1000/min)
   const rateLimitResponse = checkRateLimit(req, 'WEBHOOK')
   if (rateLimitResponse) return rateLimitResponse

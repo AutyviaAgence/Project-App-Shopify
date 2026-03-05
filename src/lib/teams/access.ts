@@ -154,15 +154,21 @@ export async function isTeamOwner(
   return role === 'owner'
 }
 
+// UUID v4 regex for input validation
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 /**
  * Construit une condition OR pour filtrer les ressources
  * accessibles par l'utilisateur (ses propres ressources + celles de ses équipes)
+ * Validates UUIDs to prevent PostgREST filter injection
  */
 export function buildAccessFilter(userId: string, teamIds: string[]): string {
-  if (teamIds.length === 0) {
+  if (!UUID_RE.test(userId)) throw new Error('Invalid userId format')
+  const safeTeamIds = teamIds.filter(id => UUID_RE.test(id))
+  if (safeTeamIds.length === 0) {
     return `user_id.eq.${userId}`
   }
-  return `user_id.eq.${userId},team_id.in.(${teamIds.join(',')})`
+  return `user_id.eq.${userId},team_id.in.(${safeTeamIds.join(',')})`
 }
 
 /**

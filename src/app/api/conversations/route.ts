@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getUserTeamIds, getUserTeamPermissions, filterSessionsByPermissions } from '@/lib/teams/access'
+import { getUserTeamIds, getUserTeamPermissions, buildAccessFilter, filterSessionsByPermissions } from '@/lib/teams/access'
 
 /** GET /api/conversations — Lister les conversations de l'utilisateur */
 export async function GET(req: NextRequest) {
@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
     .select('*')
 
   if (teamIds.length > 0) {
-    sessionsQuery = sessionsQuery.or(`user_id.eq.${user.id},team_id.in.(${teamIds.join(',')})`)
+    sessionsQuery = sessionsQuery.or(buildAccessFilter(user.id, teamIds))
   } else {
     sessionsQuery = sessionsQuery.eq('user_id', user.id)
   }

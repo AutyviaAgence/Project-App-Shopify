@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getUserTeamIds } from '@/lib/teams/access'
+import { getUserTeamIds, buildAccessFilter } from '@/lib/teams/access'
 
 /** POST /api/conversations/tags/batch — Récupérer les tags de plusieurs conversations */
 export async function POST(req: NextRequest) {
@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     .select('id')
 
   if (teamIds.length > 0) {
-    sessionsQuery = sessionsQuery.or(`user_id.eq.${user.id},team_id.in.(${teamIds.join(',')})`)
+    sessionsQuery = sessionsQuery.or(buildAccessFilter(user.id, teamIds))
   } else {
     sessionsQuery = sessionsQuery.eq('user_id', user.id)
   }

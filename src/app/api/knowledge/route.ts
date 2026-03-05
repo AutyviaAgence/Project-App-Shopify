@@ -125,7 +125,12 @@ export async function POST(req: NextRequest) {
     }
 
     // Upload vers Supabase Storage
-    const storagePath = `${user.id}/${Date.now()}_${file.name}`
+    // Sanitize filename: remove accents, replace special chars with underscores
+    const sanitizedName = file.name
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Remove accents
+      .replace(/[^a-zA-Z0-9._-]/g, '_') // Replace special chars (spaces, parens, etc.)
+      .replace(/_+/g, '_') // Collapse multiple underscores
+    const storagePath = `${user.id}/${Date.now()}_${sanitizedName}`
     const { error: uploadError } = await supabase.storage
       .from('knowledge')
       .upload(storagePath, file, { contentType: 'application/pdf' })
