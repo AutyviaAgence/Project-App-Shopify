@@ -286,7 +286,8 @@ export function ChatArea({
                       {/* Message bubble */}
                       <div
                         className={cn(
-                          'max-w-[80%] rounded-2xl px-4 py-2.5',
+                          'relative max-w-[80%] rounded-2xl px-4 py-2.5',
+                          msg.reaction_emoji && 'mb-3',
                           isAI
                             ? 'bubble-ai'
                             : isOutbound
@@ -335,6 +336,15 @@ export function ChatArea({
                           })}
                           {msg.status === 'pending' && ` · ${t('conversations.sending')}`}
                         </p>
+                        {/* Reaction emoji badge */}
+                        {msg.reaction_emoji && (
+                          <span className={cn(
+                            'absolute -bottom-3 text-base bg-background border rounded-full px-1 shadow-sm',
+                            isOutbound ? 'right-2' : 'left-2'
+                          )}>
+                            {msg.reaction_emoji}
+                          </span>
+                        )}
                       </div>
 
                       {/* Copy button (right for inbound) */}

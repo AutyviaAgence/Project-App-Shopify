@@ -151,6 +151,7 @@ export type Message = {
   sent_by: 'user' | 'ai_agent' | 'contact'
   ai_agent_id: string | null
   status: 'pending' | 'sent' | 'delivered' | 'read' | 'failed'
+  reaction_emoji: string | null
   ai_processed: boolean
   created_at: string
 }

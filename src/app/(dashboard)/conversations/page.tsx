@@ -217,6 +217,7 @@ function ConversationsPageContent() {
       sent_by: 'user',
       ai_agent_id: null,
       status: 'pending',
+      reaction_emoji: null,
       ai_processed: false,
       created_at: new Date().toISOString(),
     }
@@ -272,6 +273,7 @@ function ConversationsPageContent() {
       sent_by: 'user',
       ai_agent_id: null,
       status: 'pending',
+      reaction_emoji: null,
       ai_processed: false,
       created_at: new Date().toISOString(),
     }

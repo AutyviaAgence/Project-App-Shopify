@@ -4,7 +4,7 @@ import { wabaClient } from '@/lib/whatsapp-cloud/client'
 import { transcribeAudio, describeImage } from './client'
 
 export type MediaExtractionResult = {
-  messageType: 'text' | 'image' | 'audio' | 'video' | 'document' | 'sticker' | 'location' | 'contact'
+  messageType: 'text' | 'image' | 'audio' | 'video' | 'document' | 'sticker' | 'location' | 'contact' | 'reaction'
   content: string
   transcription: string | null
   mediaUrl: string | null
@@ -28,6 +28,7 @@ export function detectMessageType(message: MessagePayload): {
   type: MediaExtractionResult['messageType']
   hasMedia: boolean
 } {
+  if (message.reactionMessage) return { type: 'reaction', hasMedia: false }
   if (message.audioMessage) return { type: 'audio', hasMedia: true }
   if (message.pttMessage) return { type: 'audio', hasMedia: true }
   if (message.imageMessage) return { type: 'image', hasMedia: true }

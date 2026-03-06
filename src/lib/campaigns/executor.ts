@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { checkTokenLimit, recordTokenUsage } from '@/lib/openai/token-tracker'
 import { withSessionDelay } from '@/lib/messaging/session-queue'
+import { evolution } from '@/lib/evolution/client'
 
 /**
  * Exécuteur de campagnes de relance WhatsApp
@@ -249,11 +250,27 @@ async function executeCampaign(supabase: any, campaign: Campaign): Promise<void>
       .update({ status: 'sending' })
       .eq('id', recipient.id)
 
+    // Simuler la saisie (typing indicator) avant l'envoi — Evolution API uniquement
+    if (session.integration_type !== 'waba' && session.instance_name) {
+      const typingDelay = session.ai_message_delay ?? 3
+      try {
+        await evolution.sendPresence(session.instance_name, contact.phone_number, 'composing', typingDelay * 1000)
+        if (typingDelay > 0) await sleep(typingDelay * 1000)
+      } catch (e) {
+        console.warn(`[Campaign ${campaignId}] Typing indicator failed:`, e)
+      }
+    }
+
     // Envoyer le message via l'intégration appropriée (Evolution ou WABA)
     const sessionDelay = session.ai_message_delay ?? 0
     const result = await withSessionDelay(session.id, sessionDelay, () =>
       sendWhatsAppMessage(session, contact.phone_number, message)
     )
+
+    // Arrêter le typing après envoi
+    if (session.integration_type !== 'waba' && session.instance_name) {
+      evolution.sendPresence(session.instance_name, contact.phone_number, 'paused').catch(() => {})
+    }
 
     if (result.success) {
       await supabase

@@ -214,8 +214,36 @@ export async function POST(req: NextRequest) {
           messagePayload.base64 = messageData.base64
         }
 
-        // Étape 1 : Détecter le type et télécharger le base64 si média
+        // Étape 0 : Gérer les réactions (emoji) séparément
         const { type: detectedType, hasMedia } = detectMessageType(messagePayload)
+        if (detectedType === 'reaction') {
+          const reaction = messagePayload.reactionMessage as { key?: { id?: string }; text?: string } | undefined
+          const targetMsgId = reaction?.key?.id
+          const emoji = reaction?.text || ''
+
+          if (targetMsgId) {
+            // Mettre à jour le message original avec l'emoji (ou supprimer si emoji vide = retrait de réaction)
+            if (emoji) {
+              await supabase
+                .from('messages')
+                .update({ reaction_emoji: emoji })
+                .eq('wa_message_id', targetMsgId)
+                .eq('session_id', session.id)
+              console.log(`[Webhook] Reaction "${emoji}" on message ${targetMsgId}`)
+            } else {
+              // Emoji vide = suppression de la réaction
+              await supabase
+                .from('messages')
+                .update({ reaction_emoji: null })
+                .eq('wa_message_id', targetMsgId)
+                .eq('session_id', session.id)
+              console.log(`[Webhook] Reaction removed on message ${targetMsgId}`)
+            }
+          }
+          break // Ne pas insérer de message pour les réactions
+        }
+
+        // Étape 1 : Télécharger le base64 si média
         let storagePath: string | null = null
         let detectedMimeType: string | null = null
         let preloadedBase64: string | null = null
