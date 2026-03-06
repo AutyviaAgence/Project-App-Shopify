@@ -125,6 +125,17 @@ export async function GET(
     }
   }
 
+  // Valider l'URL de booking avant de rediriger (éviter open redirect)
+  let bookingUrl: URL
+  try {
+    bookingUrl = new URL(agent.booking_url)
+    if (!['http:', 'https:'].includes(bookingUrl.protocol)) {
+      return NextResponse.json({ error: 'URL de rendez-vous invalide' }, { status: 400 })
+    }
+  } catch {
+    return NextResponse.json({ error: 'URL de rendez-vous invalide' }, { status: 400 })
+  }
+
   // Rediriger vers le lien de RDV
-  return NextResponse.redirect(agent.booking_url, 302)
+  return NextResponse.redirect(bookingUrl.toString(), 302)
 }

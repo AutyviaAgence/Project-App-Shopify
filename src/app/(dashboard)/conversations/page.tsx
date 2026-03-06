@@ -528,8 +528,9 @@ function ConversationsPageContent() {
   useEffect(() => {
     const supabase = createClient()
 
+    const channelId = `messages-realtime-${crypto.randomUUID()}`
     const channel = supabase
-      .channel('messages-realtime')
+      .channel(channelId)
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'messages' },

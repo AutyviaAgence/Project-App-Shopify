@@ -27,9 +27,11 @@ export async function GET(req: NextRequest) {
     .filter((p) => p.role === 'owner' || p.role === 'admin' || p.can_view_stats)
     .map((p) => p.team_id)
 
-  // Construire le filtre d'accès pour les sessions
-  const accessFilter = allowedTeamIds.length > 0
-    ? `user_id.eq.${user.id},team_id.in.(${allowedTeamIds.join(',')})`
+  // Construire le filtre d'accès pour les sessions (UUIDs validés car issus de la DB)
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  const safeTeamIds = allowedTeamIds.filter(id => uuidRegex.test(id))
+  const accessFilter = safeTeamIds.length > 0
+    ? `user_id.eq.${user.id},team_id.in.(${safeTeamIds.join(',')})`
     : `user_id.eq.${user.id}`
 
   // 1. Sessions de l'utilisateur + équipes avec permission

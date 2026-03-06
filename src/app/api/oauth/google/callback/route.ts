@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { exchangeCodeForTokens } from '@/lib/oauth/google'
 import { encryptToolConfig } from '@/lib/tools/executor'
+import { createHmac } from 'crypto'
 
 /**
  * GET /api/oauth/google/callback
@@ -28,10 +29,32 @@ export async function GET(req: NextRequest) {
     )
   }
 
-  // Decode state
-  let state: { toolId: string; agentId: string; userId: string }
+  // Decode state and verify HMAC signature (prevent CSRF)
+  let state: { toolId: string; agentId: string; userId: string; ts?: number }
   try {
-    state = JSON.parse(Buffer.from(stateB64, 'base64url').toString())
+    const stateWrapper = JSON.parse(Buffer.from(stateB64, 'base64url').toString())
+
+    // Support new signed format { d, s } and legacy unsigned format
+    if (stateWrapper.d && stateWrapper.s) {
+      const hmacSecret = process.env.SUPABASE_SERVICE_ROLE_KEY || 'fallback-secret'
+      const expectedSig = createHmac('sha256', hmacSecret).update(stateWrapper.d).digest('hex').slice(0, 16)
+      if (stateWrapper.s !== expectedSig) {
+        return NextResponse.redirect(
+          `${appUrl}/agents?oauth_error=${encodeURIComponent('Invalid state signature')}`
+        )
+      }
+      state = JSON.parse(stateWrapper.d)
+
+      // Reject states older than 15 minutes
+      if (state.ts && Date.now() - state.ts > 15 * 60 * 1000) {
+        return NextResponse.redirect(
+          `${appUrl}/agents?oauth_error=${encodeURIComponent('State expired')}`
+        )
+      }
+    } else {
+      // Legacy unsigned format (backwards compatibility)
+      state = stateWrapper
+    }
   } catch {
     return NextResponse.redirect(
       `${appUrl}/agents?oauth_error=${encodeURIComponent('Invalid state')}`

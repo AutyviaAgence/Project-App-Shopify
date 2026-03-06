@@ -89,12 +89,18 @@ export async function GET(
     isUnique = (count ?? 0) === 0
   }
 
-  // --- Incrémenter le compteur (fire-and-forget) ---
-  supabase
-    .from('wa_links')
-    .update({ click_count: (link.click_count || 0) + 1 })
-    .eq('id', link.id)
-    .then()
+  // --- Incrémenter le compteur atomiquement (fire-and-forget) ---
+  supabase.rpc('increment_click_count', { p_link_id: link.id })
+    .then(({ error: rpcErr }: { error: unknown }) => {
+      if (rpcErr) {
+        // Fallback si RPC pas encore déployée
+        supabase
+          .from('wa_links')
+          .update({ click_count: (link.click_count || 0) + 1 })
+          .eq('id', link.id)
+          .then()
+      }
+    })
 
   // --- Logger le clic enrichi (fire-and-forget) ---
   supabase

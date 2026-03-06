@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import JSZip from 'jszip'
+import { decryptMessage } from '@/lib/crypto/encryption'
 
 /** GET /api/account/export — Exporter toutes les données de l'utilisateur (RGPD) */
 export async function GET() {
@@ -76,9 +77,15 @@ export async function GET() {
             .order('created_at', { ascending: true })
 
           if (messages && messages.length > 0) {
+            // Déchiffrer les messages pour l'export GDPR (portabilité des données)
+            const decryptedMessages = messages.map(msg => ({
+              ...msg,
+              content: msg.content ? decryptMessage(msg.content) : msg.content,
+            }))
+
             // Grouper par conversation
-            const messagesByConv: Record<string, typeof messages> = {}
-            for (const msg of messages) {
+            const messagesByConv: Record<string, typeof decryptedMessages> = {}
+            for (const msg of decryptedMessages) {
               if (!messagesByConv[msg.conversation_id]) {
                 messagesByConv[msg.conversation_id] = []
               }

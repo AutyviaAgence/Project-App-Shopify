@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 /** POST /api/account/password — Changer le mot de passe */
 export async function POST(req: NextRequest) {
+  // Rate limiting strict — empêcher le brute-force du mot de passe actuel
+  const rateLimitResponse = checkRateLimit(req, 'AUTH')
+  if (rateLimitResponse) return rateLimitResponse
+
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
 

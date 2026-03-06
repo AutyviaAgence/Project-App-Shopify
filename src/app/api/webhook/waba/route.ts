@@ -37,7 +37,10 @@ export async function GET(req: NextRequest) {
  */
 async function validateWebhookSignature(req: NextRequest): Promise<{ valid: boolean; body: string }> {
   const appSecret = process.env.WABA_APP_SECRET
-  if (!appSecret) return { valid: true, body: '' } // No secret configured = skip validation
+  if (!appSecret) {
+    console.error('[WABA Webhook] WABA_APP_SECRET is not configured — rejecting request (fail-closed)')
+    return { valid: false, body: '' }
+  }
 
   const signature = req.headers.get('x-hub-signature-256')
   if (!signature) return { valid: false, body: '' }
@@ -281,15 +284,23 @@ export async function POST(req: NextRequest) {
 
             if (!conversation) continue
 
-            // Incrémenter unread
-            await supabase
-              .from('conversations')
-              .update({
-                unread_count: (conversation.unread_count || 0) + 1,
-                last_message_at: new Date().toISOString(),
-                last_message_preview: previewContent,
-              })
-              .eq('id', conversation.id)
+            // Incrémenter unread (atomique via RPC pour éviter race conditions)
+            const { error: rpcErr } = await supabase.rpc('increment_unread_count', {
+              p_conversation_id: conversation.id,
+              p_last_message_at: new Date().toISOString(),
+              p_last_message_preview: previewContent,
+            })
+            if (rpcErr) {
+              // Fallback si RPC pas encore déployée
+              await supabase
+                .from('conversations')
+                .update({
+                  unread_count: (conversation.unread_count || 0) + 1,
+                  last_message_at: new Date().toISOString(),
+                  last_message_preview: previewContent,
+                })
+                .eq('id', conversation.id)
+            }
 
             // 3. Insérer le message (dédupliqué via wa_message_id)
             const encryptedContent = content ? encryptMessage(content) : ''

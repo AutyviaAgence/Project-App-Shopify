@@ -35,15 +35,29 @@ interface Contact {
   name: string | null
 }
 
+// Lock in-memory pour éviter l'exécution concurrente d'une même campagne
+const runningCampaigns = new Set<string>()
+
 /**
  * Lance l'exécution d'une campagne en arrière-plan
  * Appelé depuis /api/campaigns/[id]/actions quand action = start ou resume
  */
 export function startCampaignExecution(campaignId: string): void {
+  // Vérifier le lock pour éviter double exécution (double-click, retry réseau)
+  if (runningCampaigns.has(campaignId)) {
+    console.warn(`[Campaign ${campaignId}] Already running, skipping duplicate execution`)
+    return
+  }
+  runningCampaigns.add(campaignId)
+
   // Fire & forget - on ne bloque pas la réponse HTTP
-  executeCampaignById(campaignId).catch((err) => {
-    console.error(`[Campaign ${campaignId}] Execution error:`, err)
-  })
+  executeCampaignById(campaignId)
+    .catch((err) => {
+      console.error(`[Campaign ${campaignId}] Execution error:`, err)
+    })
+    .finally(() => {
+      runningCampaigns.delete(campaignId)
+    })
 }
 
 async function executeCampaignById(campaignId: string): Promise<void> {

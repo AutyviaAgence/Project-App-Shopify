@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getUserTeamIds, buildAccessFilter } from '@/lib/teams/access'
 
 /** GET /api/contacts/[id] — Détail d'un contact */
 export async function GET(
@@ -14,26 +15,27 @@ export async function GET(
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
+  // Récupérer les sessions accessibles (perso + team)
+  const teamIds = await getUserTeamIds(supabase, user.id)
+  let sessionsQuery = supabase.from('whatsapp_sessions').select('id')
+  if (teamIds.length > 0) {
+    sessionsQuery = sessionsQuery.or(buildAccessFilter(user.id, teamIds))
+  } else {
+    sessionsQuery = sessionsQuery.eq('user_id', user.id)
+  }
+  const { data: sessions } = await sessionsQuery
+  const sessionIds = sessions?.map(s => s.id) || []
+
+  // Requête unique : contact + vérification d'accès (réponse uniforme pour éviter IDOR oracle)
   const { data: contact, error } = await supabase
     .from('contacts')
     .select('*')
     .eq('id', id)
+    .in('session_id', sessionIds)
     .single()
 
   if (error || !contact) {
     return NextResponse.json({ error: 'Contact introuvable' }, { status: 404 })
-  }
-
-  // Vérifier que la session appartient à l'utilisateur
-  const { data: session } = await supabase
-    .from('whatsapp_sessions')
-    .select('id')
-    .eq('id', contact.session_id)
-    .eq('user_id', user.id)
-    .single()
-
-  if (!session) {
-    return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 
   return NextResponse.json({ data: contact })
@@ -60,26 +62,26 @@ export async function PATCH(
     notes?: string
   }
 
-  // Vérifier que le contact existe et appartient à l'utilisateur
+  // Vérifier que le contact existe et appartient à l'utilisateur (réponse uniforme)
+  const teamIds = await getUserTeamIds(supabase, user.id)
+  let sessionsQuery = supabase.from('whatsapp_sessions').select('id')
+  if (teamIds.length > 0) {
+    sessionsQuery = sessionsQuery.or(buildAccessFilter(user.id, teamIds))
+  } else {
+    sessionsQuery = sessionsQuery.eq('user_id', user.id)
+  }
+  const { data: sessions } = await sessionsQuery
+  const sessionIds = sessions?.map(s => s.id) || []
+
   const { data: contact } = await supabase
     .from('contacts')
     .select('id, session_id')
     .eq('id', id)
+    .in('session_id', sessionIds)
     .single()
 
   if (!contact) {
     return NextResponse.json({ error: 'Contact introuvable' }, { status: 404 })
-  }
-
-  const { data: session } = await supabase
-    .from('whatsapp_sessions')
-    .select('id')
-    .eq('id', contact.session_id)
-    .eq('user_id', user.id)
-    .single()
-
-  if (!session) {
-    return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 
   const updateData: Record<string, unknown> = {}
@@ -119,27 +121,26 @@ export async function DELETE(
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  // Vérifier que le contact existe
+  // Vérifier que le contact existe et appartient à l'utilisateur (réponse uniforme)
+  const teamIds = await getUserTeamIds(supabase, user.id)
+  let sessionsQuery = supabase.from('whatsapp_sessions').select('id')
+  if (teamIds.length > 0) {
+    sessionsQuery = sessionsQuery.or(buildAccessFilter(user.id, teamIds))
+  } else {
+    sessionsQuery = sessionsQuery.eq('user_id', user.id)
+  }
+  const { data: sessions } = await sessionsQuery
+  const sessionIds = sessions?.map(s => s.id) || []
+
   const { data: contact } = await supabase
     .from('contacts')
     .select('id, session_id, phone_number')
     .eq('id', id)
+    .in('session_id', sessionIds)
     .single()
 
   if (!contact) {
     return NextResponse.json({ error: 'Contact introuvable' }, { status: 404 })
-  }
-
-  // Vérifier que la session appartient à l'utilisateur
-  const { data: session } = await supabase
-    .from('whatsapp_sessions')
-    .select('id')
-    .eq('id', contact.session_id)
-    .eq('user_id', user.id)
-    .single()
-
-  if (!session) {
-    return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 
   // Supprimer le contact (les conversations et messages seront supprimés en cascade via FK)

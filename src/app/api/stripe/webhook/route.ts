@@ -4,6 +4,13 @@ import { getSubscriptionEndDate } from '@/lib/stripe/helpers'
 import { createClient } from '@supabase/supabase-js'
 import type Stripe from 'stripe'
 
+// Stripe v20+ a supprimé subscription/payment_intent de Invoice,
+// mais les webhooks les envoient toujours dans le payload.
+type InvoiceWithLegacy = Stripe.Invoice & {
+  subscription?: string | null
+  payment_intent?: string | null
+}
+
 export async function POST(req: NextRequest) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
   if (!webhookSecret) {
@@ -176,8 +183,8 @@ export async function POST(req: NextRequest) {
 
       case 'invoice.payment_succeeded': {
         // Renouvellement d'abonnement réussi
-        const invoice = event.data.object as Stripe.Invoice
-        const subscriptionId = (invoice as any).subscription as string
+        const invoice = event.data.object as InvoiceWithLegacy
+        const subscriptionId = invoice.subscription as string
 
         if (subscriptionId && invoice.billing_reason === 'subscription_cycle') {
           const stripe = getStripe()
@@ -202,7 +209,7 @@ export async function POST(req: NextRequest) {
               amount: invoice.amount_paid,
               currency: invoice.currency,
               status: 'succeeded',
-              stripe_payment_intent_id: (invoice as any).payment_intent as string || null,
+              stripe_payment_intent_id: invoice.payment_intent as string || null,
               description: 'Renouvellement abonnement Autyvia',
               metadata: {
                 invoice_id: invoice.id,
@@ -229,8 +236,8 @@ export async function POST(req: NextRequest) {
 
       case 'invoice.payment_failed': {
         // Échec de paiement d'abonnement
-        const invoice = event.data.object as Stripe.Invoice
-        const subscriptionId = (invoice as any).subscription as string
+        const invoice = event.data.object as InvoiceWithLegacy
+        const subscriptionId = invoice.subscription as string
 
         if (subscriptionId) {
           const stripe = getStripe()
@@ -243,7 +250,7 @@ export async function POST(req: NextRequest) {
               amount: invoice.amount_due,
               currency: invoice.currency,
               status: 'failed',
-              stripe_payment_intent_id: (invoice as any).payment_intent as string || null,
+              stripe_payment_intent_id: invoice.payment_intent as string || null,
               description: 'Échec renouvellement abonnement',
               metadata: {
                 invoice_id: invoice.id,

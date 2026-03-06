@@ -54,6 +54,12 @@ export async function withSessionDelay<T>(
     .catch(() => {
       // Ne jamais casser la chaîne
     })
+    .finally(() => {
+      // Nettoyer l'entrée si c'est toujours la queue actuelle (évite fuite mémoire)
+      if (sessionChains.get(sessionId) === newTail) {
+        sessionChains.delete(sessionId)
+      }
+    })
 
   sessionChains.set(sessionId, newTail)
 

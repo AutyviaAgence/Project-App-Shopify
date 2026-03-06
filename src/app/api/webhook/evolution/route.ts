@@ -11,6 +11,39 @@ import { encryptMessage } from '@/lib/crypto/encryption'
 import { uploadMedia } from '@/lib/storage/media'
 import { checkRateLimit } from '@/lib/rate-limit'
 
+/** Sanitize webhook payload before storing in logs (remove sensitive/large data) */
+function sanitizePayloadForLog(payload: Record<string, unknown>): Record<string, unknown> {
+  const sanitized = { ...payload }
+  // Remove base64 media data (can be very large)
+  if (sanitized.data && typeof sanitized.data === 'object') {
+    const data = { ...(sanitized.data as Record<string, unknown>) }
+    delete data.base64
+    // Remove message content (stored encrypted in messages table instead)
+    if (data.message && typeof data.message === 'object') {
+      const msg = { ...(data.message as Record<string, unknown>) }
+      delete msg.base64
+      // Keep structure but remove raw media buffers
+      for (const mediaType of ['imageMessage', 'audioMessage', 'videoMessage', 'documentMessage']) {
+        if (msg[mediaType] && typeof msg[mediaType] === 'object') {
+          const media = { ...(msg[mediaType] as Record<string, unknown>) }
+          delete media.jpegThumbnail
+          delete media.thumbnailDirectPath
+          msg[mediaType] = media
+        }
+      }
+      data.message = msg
+    }
+    // Remove QR code base64 from qrcode.updated events
+    if (data.qrcode && typeof data.qrcode === 'object') {
+      const qr = { ...(data.qrcode as Record<string, unknown>) }
+      if (qr.base64) qr.base64 = '[REDACTED]'
+      data.qrcode = qr
+    }
+    sanitized.data = data
+  }
+  return sanitized
+}
+
 // Mots-clés opt-out par défaut (synchronisés avec campaign_opt_out_keywords table)
 const DEFAULT_OPT_OUT_KEYWORDS = [
   'stop', 'arrêter', 'arreter', 'désabonner', 'desabonner',
@@ -40,13 +73,15 @@ export async function POST(req: NextRequest) {
   // Evolution API can send a secret via webhook-secret header (if configured)
   // or we validate via a ?secret= query parameter in the webhook URL
   const webhookSecret = process.env.EVOLUTION_WEBHOOK_SECRET
-  if (webhookSecret) {
-    const urlSecret = new URL(req.url).searchParams.get('secret')
-    const headerSecret = req.headers.get('webhook-secret')
-    if (urlSecret !== webhookSecret && headerSecret !== webhookSecret) {
-      console.warn('[Evolution Webhook] Invalid webhook secret rejected')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+  if (!webhookSecret) {
+    console.error('[Evolution Webhook] EVOLUTION_WEBHOOK_SECRET is not configured — rejecting request (fail-closed)')
+    return NextResponse.json({ error: 'Webhook not configured' }, { status: 500 })
+  }
+  const urlSecret = new URL(req.url).searchParams.get('secret')
+  const headerSecret = req.headers.get('webhook-secret')
+  if (urlSecret !== webhookSecret && headerSecret !== webhookSecret) {
+    console.warn('[Evolution Webhook] Invalid webhook secret rejected')
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   // Rate limiting pour le webhook (1000/min)
@@ -87,7 +122,7 @@ export async function POST(req: NextRequest) {
         session_id: null,
         event_type: event,
         instance_name: instanceName,
-        payload,
+        payload: sanitizePayloadForLog(payload),
         status: logStatus,
         error_message: logError,
         processing_time_ms: Date.now() - startTime,
@@ -335,16 +370,24 @@ export async function POST(req: NextRequest) {
           }
         }
 
-        // Incrémenter unread si message entrant
+        // Incrémenter unread si message entrant (atomique via RPC pour éviter race conditions)
         if (!fromMe) {
-          await supabase
-            .from('conversations')
-            .update({
-              unread_count: (conversation.unread_count || 0) + 1,
-              last_message_at: new Date().toISOString(),
-              last_message_preview: previewContent,
-            })
-            .eq('id', conversation.id)
+          const { error: rpcErr } = await supabase.rpc('increment_unread_count', {
+            p_conversation_id: conversation.id,
+            p_last_message_at: new Date().toISOString(),
+            p_last_message_preview: previewContent,
+          })
+          if (rpcErr) {
+            // Fallback si RPC pas encore déployée
+            await supabase
+              .from('conversations')
+              .update({
+                unread_count: (conversation.unread_count || 0) + 1,
+                last_message_at: new Date().toISOString(),
+                last_message_preview: previewContent,
+              })
+              .eq('id', conversation.id)
+          }
         }
 
         // 3. Insérer le message (dédupliqué via wa_message_id)
@@ -393,11 +436,15 @@ export async function POST(req: NextRequest) {
         if (insertErr) {
           // Fallback : insérer sans les nouvelles colonnes (migration pas encore appliquée)
           console.warn('[Webhook] Insert with media fields failed, retrying without:', insertErr.message)
-          const { data: msgFallback } = await supabase
+          const { data: msgFallback, error: fallbackErr } = await supabase
             .from('messages')
             .insert(baseInsert)
             .select()
             .single()
+          if (fallbackErr) {
+            console.error('[Webhook] Message insert failed completely:', fallbackErr.message)
+            return NextResponse.json({ error: 'Message insert failed' }, { status: 500 })
+          }
           insertedMessage = msgFallback
         } else {
           insertedMessage = msg
@@ -680,7 +727,7 @@ export async function POST(req: NextRequest) {
       session_id: sessionId,
       event_type: event,
       instance_name: instanceName,
-      payload,
+      payload: sanitizePayloadForLog(payload),
       status: logStatus,
       error_message: logError,
       processing_time_ms: Date.now() - startTime,

@@ -38,7 +38,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ data: [], pagination: { page, limit, total: 0, totalPages: 0 } })
   }
 
-  const sessionIds = sessions.map((s) => s.id)
+  // Validate UUIDs to prevent injection via .or() string interpolation
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  const sessionIds = sessions.map((s) => s.id).filter(id => uuidRegex.test(id))
 
   // Build query - include logs with null session_id (orphaned) OR matching sessions
   let query = supabase
@@ -107,7 +109,7 @@ export async function DELETE() {
     return NextResponse.json({ deleted: 0 })
   }
 
-  const sessionIds = sessions.map((s) => s.id)
+  const sessionIds = sessions.map((s) => s.id).filter(id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))
   const cutoffDate = new Date()
   cutoffDate.setDate(cutoffDate.getDate() - 7)
 

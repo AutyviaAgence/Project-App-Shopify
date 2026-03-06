@@ -180,9 +180,10 @@ export async function GET() {
   ])
 
   // Construire la requête avec filtre d'accès basique (équipes)
+  // Ne pas sélectionner les champs sensibles (waba_access_token, etc.)
   const { data: allSessions, error } = await supabase
     .from('whatsapp_sessions')
-    .select('*')
+    .select('id, user_id, team_id, instance_name, instance_id, status, phone_number, display_name, qr_code, pairing_code, integration_type, waba_phone_number_id, waba_business_account_id, daily_ai_message_limit, ai_message_delay, created_at, updated_at')
     .or(buildAccessFilter(user.id, teamIds))
     .order('created_at', { ascending: false })
 

@@ -3,6 +3,12 @@ import { createClient } from '@/lib/supabase/server'
 import { evolution } from '@/lib/evolution/client'
 import { wabaClient } from '@/lib/whatsapp-cloud/client'
 
+/** Strip sensitive fields before sending session data to client */
+function sanitizeSession(session: Record<string, unknown>) {
+  const { waba_access_token, ...safe } = session
+  return safe
+}
+
 /** GET /api/sessions/[id]/status — Vérifier le status d'une session */
 export async function GET(
   _req: NextRequest,
@@ -16,10 +22,10 @@ export async function GET(
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  // Récupérer la session
+  // Récupérer la session (sans exposer waba_access_token dans la réponse)
   const { data: session, error: dbError } = await supabase
     .from('whatsapp_sessions')
-    .select('*')
+    .select('id, user_id, team_id, instance_name, instance_id, status, phone_number, display_name, qr_code, pairing_code, integration_type, waba_phone_number_id, waba_business_account_id, waba_access_token, daily_ai_message_limit, ai_message_delay, created_at, updated_at')
     .eq('id', id)
     .eq('user_id', user.id)
     .single()
@@ -48,11 +54,11 @@ export async function GET(
           .from('whatsapp_sessions')
           .update(updateData)
           .eq('id', id)
-        return NextResponse.json({ data: { ...session, ...updateData } })
+        return NextResponse.json({ data: sanitizeSession({ ...session, ...updateData }) })
       }
-      return NextResponse.json({ data: session })
+      return NextResponse.json({ data: sanitizeSession(session) })
     } catch {
-      return NextResponse.json({ data: session })
+      return NextResponse.json({ data: sanitizeSession(session) })
     }
   }
 
@@ -61,7 +67,7 @@ export async function GET(
 
   if (!evoResult.ok) {
     console.warn('[Status] Evolution API error:', evoResult.error)
-    return NextResponse.json({ data: session })
+    return NextResponse.json({ data: sanitizeSession(session) })
   }
 
   // Evolution API peut renvoyer différentes structures selon la version
@@ -123,8 +129,8 @@ export async function GET(
       .update(updateData)
       .eq('id', id)
 
-    return NextResponse.json({ data: { ...session, ...updateData } })
+    return NextResponse.json({ data: sanitizeSession({ ...session, ...updateData }) })
   }
 
-  return NextResponse.json({ data: session })
+  return NextResponse.json({ data: sanitizeSession(session) })
 }
