@@ -23,6 +23,8 @@ import {
   UserCircle,
   Copy,
   Check,
+  CheckCheck,
+  Clock,
   Sparkles,
   Workflow,
   Wrench,
@@ -334,7 +336,20 @@ export function ChatArea({
                             hour: '2-digit',
                             minute: '2-digit',
                           })}
-                          {msg.status === 'pending' && ` · ${t('conversations.sending')}`}
+                          {isOutbound && (
+                            <>
+                              {' '}
+                              {msg.status === 'read' ? (
+                                <CheckCheck className="inline h-3.5 w-3.5 text-blue-500" />
+                              ) : msg.status === 'delivered' ? (
+                                <CheckCheck className="inline h-3.5 w-3.5" />
+                              ) : msg.status === 'sent' ? (
+                                <Check className="inline h-3.5 w-3.5" />
+                              ) : (
+                                <Clock className="inline h-3 w-3" />
+                              )}
+                            </>
+                          )}
                         </p>
                         {/* Reaction emoji badge */}
                         {msg.reaction_emoji && (

@@ -748,6 +748,40 @@ export async function POST(req: NextRequest) {
 
         break
       }
+
+      case 'messages.update': {
+        // Mise à jour du statut de lecture des messages (vu / delivered / sent)
+        // Evolution API envoie: { keyId, remoteJid, fromMe, status }
+        // status: 'READ' | 'DELIVERY_ACK' | 'PLAYED' | 'SERVER_ACK'
+        const updates = Array.isArray(payload.data) ? payload.data : [payload.data]
+
+        for (const update of updates) {
+          const keyId = update?.keyId || update?.key?.id
+          const status = (update?.status || '').toString().toUpperCase()
+
+          if (!keyId) continue
+
+          // Mapper les statuts Evolution API vers nos statuts
+          let newStatus: string | null = null
+          if (status === 'READ' || status === 'PLAYED' || status === '4' || status === '5') {
+            newStatus = 'read'
+          } else if (status === 'DELIVERY_ACK' || status === '3') {
+            newStatus = 'delivered'
+          } else if (status === 'SERVER_ACK' || status === '2') {
+            newStatus = 'sent'
+          }
+
+          if (newStatus) {
+            await supabase
+              .from('messages')
+              .update({ status: newStatus })
+              .eq('wa_message_id', keyId)
+              .eq('session_id', session.id)
+              .eq('direction', 'outbound')
+          }
+        }
+        break
+      }
     }
 
     // Log webhook success
