@@ -45,7 +45,9 @@ export async function POST(
   if (!appUrl) {
     return NextResponse.json({ error: 'NEXT_PUBLIC_APP_URL non configurée' }, { status: 500 })
   }
-  const fullUrl = `${appUrl.replace(/\/$/, '')}/api/webhook/evolution`
+  const webhookSecret = process.env.EVOLUTION_WEBHOOK_SECRET
+  const secretParam = webhookSecret ? `?secret=${webhookSecret}` : ''
+  const fullUrl = `${appUrl.replace(/\/$/, '')}/api/webhook/evolution${secretParam}`
 
   const result = await evolution.setWebhook(session.instance_name, fullUrl)
 

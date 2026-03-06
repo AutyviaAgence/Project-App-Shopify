@@ -115,9 +115,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: evoResult.error }, { status: 502 })
   }
 
-  // 2. Configurer le webhook
+  // 2. Configurer le webhook (avec secret si configuré)
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-  await evolution.setWebhook(instanceName, `${appUrl}/api/webhook/evolution`)
+  const webhookSecret = process.env.EVOLUTION_WEBHOOK_SECRET
+  const secretParam = webhookSecret ? `?secret=${webhookSecret}` : ''
+  await evolution.setWebhook(instanceName, `${appUrl}/api/webhook/evolution${secretParam}`)
 
   // 3. Sauvegarder en BDD
   const evoData = evoResult.data as Record<string, unknown>

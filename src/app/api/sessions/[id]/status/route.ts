@@ -113,7 +113,9 @@ export async function GET(
       if (newStatus !== session.status) {
         const appUrl = process.env.NEXT_PUBLIC_APP_URL
         if (appUrl) {
-          const webhookUrl = `${appUrl.replace(/\/$/, '')}/api/webhook/evolution`
+          const wSecret = process.env.EVOLUTION_WEBHOOK_SECRET
+          const sParam = wSecret ? `?secret=${wSecret}` : ''
+          const webhookUrl = `${appUrl.replace(/\/$/, '')}/api/webhook/evolution${sParam}`
           const webhookResult = await evolution.setWebhook(session.instance_name, webhookUrl)
           if (webhookResult.ok) {
             console.log(`[Status] Webhook auto-configured: ${webhookUrl}`)
