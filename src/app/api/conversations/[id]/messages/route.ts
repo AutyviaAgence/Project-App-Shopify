@@ -5,10 +5,15 @@ import { canAccessSession, checkTeamPermission } from '@/lib/teams/access'
 
 /** GET /api/conversations/[id]/messages — Lister les messages d'une conversation */
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
+
+  // Pagination (par défaut: 100 derniers messages, max 200)
+  const searchParams = req.nextUrl.searchParams
+  const limit = Math.max(1, Math.min(parseInt(searchParams.get('limit') || '100') || 100, 200))
+  const before = searchParams.get('before') // cursor: created_at ISO pour charger les messages précédents
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
 
@@ -52,19 +57,31 @@ export async function GET(
     }
   }
 
-  // Récupérer les messages
-  const { data: messages, error } = await supabase
+  // Récupérer les messages (paginés, les plus récents en dernier)
+  let query = supabase
     .from('messages')
     .select('*')
     .eq('conversation_id', id)
-    .order('created_at', { ascending: true })
+
+  if (before) {
+    query = query.lt('created_at', before)
+  }
+
+  // On récupère limit+1 pour savoir s'il y a des messages plus anciens
+  const { data: messages, error } = await query
+    .order('created_at', { ascending: false })
+    .limit(limit + 1)
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  // Vérifier s'il y a des messages plus anciens
+  const hasMore = (messages || []).length > limit
+  const paginatedMessages = (messages || []).slice(0, limit).reverse() // Remettre en ordre chronologique
+
   // Récupérer les noms des agents IA pour les messages envoyés par des agents
-  const agentIds = [...new Set((messages || []).filter(m => m.ai_agent_id).map(m => m.ai_agent_id).filter((id): id is string => id !== null))]
+  const agentIds = [...new Set(paginatedMessages.filter(m => m.ai_agent_id).map(m => m.ai_agent_id).filter((id): id is string => id !== null))]
   let agentsMap: Record<string, string> = {}
   if (agentIds.length > 0) {
     const { data: agents } = await supabase
@@ -85,7 +102,7 @@ export async function GET(
 
   // Grouper les tool executions par message AI (le message AI est créé juste après les tool calls)
   // On associe chaque tool execution au message AI dont le created_at est juste après (dans les 60s)
-  const aiMessages = (messages || []).filter(m => m.sent_by === 'ai_agent')
+  const aiMessages = paginatedMessages.filter(m => m.sent_by === 'ai_agent')
   const toolExecsByMessage: Record<string, typeof toolLogs> = {}
 
   if (toolLogs && toolLogs.length > 0 && aiMessages.length > 0) {
@@ -110,7 +127,7 @@ export async function GET(
   }
 
   // Déchiffrer les messages et ajouter le nom de l'agent + tool executions
-  const decryptedMessages = (messages || []).map(msg => ({
+  const decryptedMessages = paginatedMessages.map(msg => ({
     ...msg,
     content: msg.content ? decryptMessage(msg.content) : msg.content,
     transcription: msg.transcription ? decryptMessage(msg.transcription) : null,
@@ -131,5 +148,9 @@ export async function GET(
     .update({ unread_count: 0 })
     .eq('id', id)
 
-  return NextResponse.json({ data: decryptedMessages })
+  return NextResponse.json({
+    data: decryptedMessages,
+    hasMore,
+    nextCursor: hasMore ? paginatedMessages[0]?.created_at : null,
+  })
 }

@@ -69,6 +69,27 @@ export async function POST(req: NextRequest) {
   })
 
   try {
+    // Supprimer les fichiers médias du storage avant de supprimer les sessions
+    const { data: userSessions } = await adminSupabase
+      .from('whatsapp_sessions')
+      .select('id')
+      .eq('user_id', user.id)
+
+    if (userSessions && userSessions.length > 0) {
+      for (const session of userSessions) {
+        // Lister et supprimer tous les fichiers du dossier de la session
+        const { data: files } = await adminSupabase.storage
+          .from('media')
+          .list(session.id, { limit: 1000 })
+
+        if (files && files.length > 0) {
+          const paths = files.map(f => `${session.id}/${f.name}`)
+          await adminSupabase.storage.from('media').remove(paths)
+          console.log(`[Account Delete] Deleted ${paths.length} media files for session ${session.id}`)
+        }
+      }
+    }
+
     // Supprimer les données utilisateur (les FK CASCADE supprimeront les données liées)
     // L'ordre est important pour respecter les contraintes FK
 

@@ -69,11 +69,11 @@ export async function POST(
       .from('campaign_recipients')
       .select('id', { count: 'exact', head: true })
       .eq('campaign_id', id)
-      .eq('status', 'pending')
+      .in('status', ['pending', 'queued'])
 
-    if ((count || 0) === 0 && action === 'start') {
+    if ((count || 0) === 0) {
       return NextResponse.json(
-        { error: 'Aucun destinataire en attente. Utilisez /preview pour ajouter des contacts.' },
+        { error: 'Aucun destinataire en attente ou en queue. Ajoutez des contacts avant de démarrer.' },
         { status: 400 }
       )
     }

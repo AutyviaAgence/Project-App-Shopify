@@ -90,6 +90,14 @@ async function executeCampaign(supabase: any, campaign: Campaign): Promise<void>
   const campaignId = campaign.id
   console.log(`[Campaign ${campaignId}] Starting execution...`)
 
+  // Récupérer le timezone de l'utilisateur
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('timezone')
+    .eq('id', campaign.user_id)
+    .single()
+  const userTimezone = profile?.timezone || 'Europe/Paris'
+
   // Récupérer l'agent IA si configuré
   let agent: AIAgent | null = null
   if (campaign.relance_agent_id) {
@@ -122,22 +130,26 @@ async function executeCampaign(supabase: any, campaign: Campaign): Promise<void>
 
   let sentThisHour = 0
   let hourStart = Date.now()
+  let recipientIndex = 0
 
   for (const recipient of recipients) {
-    // Vérifier si la campagne est toujours running
-    const { data: currentCampaign } = await supabase
-      .from('campaigns')
-      .select('status')
-      .eq('id', campaignId)
-      .single()
+    // Vérifier si la campagne est toujours running (tous les 10 destinataires pour limiter les queries DB)
+    if (recipientIndex % 10 === 0) {
+      const { data: currentCampaign } = await supabase
+        .from('campaigns')
+        .select('status')
+        .eq('id', campaignId)
+        .single()
 
-    if (currentCampaign?.status !== 'running') {
-      console.log(`[Campaign ${campaignId}] Status changed to ${currentCampaign?.status}, stopping`)
-      break
+      if (currentCampaign?.status !== 'running') {
+        console.log(`[Campaign ${campaignId}] Status changed to ${currentCampaign?.status}, stopping`)
+        break
+      }
     }
+    recipientIndex++
 
     // Vérifier les heures d'envoi
-    if (!isWithinSendingHours(campaign.send_hour_start, campaign.send_hour_end)) {
+    if (!isWithinSendingHours(campaign.send_hour_start, campaign.send_hour_end, userTimezone)) {
       console.log(`[Campaign ${campaignId}] Outside sending hours, pausing`)
       await supabase
         .from('campaigns')
@@ -197,8 +209,16 @@ async function executeCampaign(supabase: any, campaign: Campaign): Promise<void>
       // Vérifier la limite de tokens avant de générer
       const tokenCheck = await checkTokenLimit(campaign.user_id)
       if (!tokenCheck.allowed) {
-        console.log(`[Campaign ${campaignId}] Token limit reached, using template`)
-        message = campaign.message_template || ''
+        console.log(`[Campaign ${campaignId}] Token limit reached, pausing campaign`)
+        await supabase
+          .from('campaigns')
+          .update({
+            status: 'paused',
+            paused_at: new Date().toISOString(),
+            pause_reason: 'Limite de tokens IA atteinte'
+          })
+          .eq('id', campaignId)
+        break
       } else {
         try {
           message = await generateAIMessage(agent, contact, campaign.user_id)
@@ -208,9 +228,11 @@ async function executeCampaign(supabase: any, campaign: Campaign): Promise<void>
         }
       }
     } else {
+      const safeName = sanitizeForPrompt(contact.name || 'Client')
+      const safePhone = contact.phone_number.replace(/[^0-9+]/g, '')
       message = (campaign.message_template || '')
-        .replace(/{contact_name}/g, contact.name || 'Client')
-        .replace(/{phone_number}/g, contact.phone_number)
+        .replace(/{contact_name}/g, safeName)
+        .replace(/{phone_number}/g, safePhone)
     }
 
     if (!message) {
@@ -300,10 +322,23 @@ async function executeCampaign(supabase: any, campaign: Campaign): Promise<void>
   }
 }
 
+/** Sanitize contact data to prevent prompt injection */
+function sanitizeForPrompt(value: string): string {
+  // Remove control characters and limit length
+  return value
+    .replace(/[\x00-\x1f\x7f]/g, '')
+    .replace(/[{}]/g, '')
+    .slice(0, 100)
+    .trim()
+}
+
 async function generateAIMessage(agent: AIAgent, contact: Contact, userId: string): Promise<string> {
+  const safeName = sanitizeForPrompt(contact.name || 'Client')
+  const safePhone = contact.phone_number.replace(/[^0-9+]/g, '')
+
   const systemPrompt = agent.system_prompt
-    .replace(/{contact_name}/g, contact.name || 'Client')
-    .replace(/{phone_number}/g, contact.phone_number)
+    .replace(/{contact_name}/g, safeName)
+    .replace(/{phone_number}/g, safePhone)
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -317,7 +352,7 @@ async function generateAIMessage(agent: AIAgent, contact: Contact, userId: strin
       max_tokens: 500,
       messages: [
         { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Génère un message de relance personnalisé pour ${contact.name || 'ce contact'}.` }
+        { role: 'user', content: `Génère un message de relance personnalisé pour ${safeName}.` }
       ]
     })
   })
@@ -396,9 +431,12 @@ async function sendWhatsAppMessage(
   }
 }
 
-function isWithinSendingHours(startHour: number, endHour: number): boolean {
+function isWithinSendingHours(startHour: number, endHour: number, timezone: string): boolean {
   const now = new Date()
-  const hour = now.getHours()
+  // Use Intl to get the current hour in the user's timezone
+  const hour = parseInt(
+    new Intl.DateTimeFormat('en-US', { hour: 'numeric', hour12: false, timeZone: timezone }).format(now)
+  )
   return hour >= startHour && hour < endHour
 }
 
