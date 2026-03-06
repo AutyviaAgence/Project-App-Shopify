@@ -112,6 +112,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
   // Custom API form
   const [customFunctions, setCustomFunctions] = useState<Array<{
     name: string; description: string; method: string; endpoint: string; permission: string
+    parameters: Array<{ name: string; type: string; description: string; required: boolean }>
   }>>([])
 
   const fetchTools = useCallback(async () => {
@@ -189,7 +190,26 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
       configEntries[field.key] = field.secret ? '' : (typeof val === 'string' ? val : '')
     }
     setFormConfig(configEntries)
-    setCustomFunctions([])
+    // Pre-fill custom functions with parameters when editing
+    if (tool.tool_type === 'custom' && Array.isArray(tool.config.functions)) {
+      setCustomFunctions(
+        (tool.config.functions as Array<Record<string, unknown>>).map(fn => ({
+          name: (fn.name as string) || '',
+          description: (fn.description as string) || '',
+          method: (fn.method as string) || 'GET',
+          endpoint: (fn.endpoint as string) || '/',
+          permission: (fn.permission as string) || 'read',
+          parameters: Array.isArray(fn.parameters) ? (fn.parameters as Array<Record<string, unknown>>).map(p => ({
+            name: (p.name as string) || '',
+            type: (p.type as string) || 'string',
+            description: (p.description as string) || '',
+            required: !!p.required,
+          })) : [],
+        }))
+      )
+    } else {
+      setCustomFunctions([])
+    }
     setConfigOpen(true)
   }
 
@@ -208,7 +228,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
       if (selectedTemplate.type === 'custom' && customFunctions.length > 0) {
         config.functions = customFunctions.map(fn => ({
           ...fn,
-          parameters: [],
+          parameters: fn.parameters.filter(p => p.name.trim() !== ''),
         }))
       }
 
@@ -369,7 +389,29 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
   function addCustomFunction() {
     setCustomFunctions(prev => [...prev, {
       name: '', description: '', method: 'GET', endpoint: '/', permission: 'read',
+      parameters: [],
     }])
+  }
+
+  function addFunctionParam(fnIndex: number) {
+    setCustomFunctions(prev => prev.map((fn, i) =>
+      i === fnIndex ? { ...fn, parameters: [...fn.parameters, { name: '', type: 'string', description: '', required: false }] } : fn
+    ))
+  }
+
+  function updateFunctionParam(fnIndex: number, paramIndex: number, field: string, value: string | boolean) {
+    setCustomFunctions(prev => prev.map((fn, i) =>
+      i === fnIndex ? {
+        ...fn,
+        parameters: fn.parameters.map((p, j) => j === paramIndex ? { ...p, [field]: value } : p),
+      } : fn
+    ))
+  }
+
+  function removeFunctionParam(fnIndex: number, paramIndex: number) {
+    setCustomFunctions(prev => prev.map((fn, i) =>
+      i === fnIndex ? { ...fn, parameters: fn.parameters.filter((_, j) => j !== paramIndex) } : fn
+    ))
   }
 
   function updateCustomFunction(index: number, field: string, value: string) {
@@ -628,6 +670,57 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                           <SelectItem value="write">{t('tools.write_only')}</SelectItem>
                         </SelectContent>
                       </Select>
+
+                      {/* Parameters */}
+                      <div className="space-y-2 mt-1">
+                        <div className="flex items-center justify-between">
+                          <Label className="text-[10px] text-muted-foreground">{t('tools.parameters')}</Label>
+                          <Button size="sm" variant="ghost" className="h-5 text-[10px] px-1.5" onClick={() => addFunctionParam(i)}>
+                            <Plus className="mr-0.5 h-2.5 w-2.5" />
+                            {t('tools.add_param')}
+                          </Button>
+                        </div>
+                        {fn.parameters.map((param, j) => (
+                          <div key={j} className="grid grid-cols-[1fr_auto] gap-1.5 p-2 bg-muted/30 rounded-md">
+                            <div className="grid grid-cols-2 gap-1.5">
+                              <Input
+                                className="h-7 text-xs"
+                                placeholder={t('tools.param_name')}
+                                value={param.name}
+                                onChange={e => updateFunctionParam(i, j, 'name', e.target.value)}
+                              />
+                              <Select value={param.type} onValueChange={v => updateFunctionParam(i, j, 'type', v)}>
+                                <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                  <SelectItem value="string">string</SelectItem>
+                                  <SelectItem value="number">number</SelectItem>
+                                  <SelectItem value="boolean">boolean</SelectItem>
+                                  <SelectItem value="array">array</SelectItem>
+                                  <SelectItem value="object">object</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-destructive" onClick={() => removeFunctionParam(i, j)}>
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                            <Input
+                              className="h-7 text-xs col-span-2"
+                              placeholder={t('tools.param_desc')}
+                              value={param.description}
+                              onChange={e => updateFunctionParam(i, j, 'description', e.target.value)}
+                            />
+                            <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground col-span-2">
+                              <input
+                                type="checkbox"
+                                checked={param.required}
+                                onChange={e => updateFunctionParam(i, j, 'required', e.target.checked)}
+                                className="rounded"
+                              />
+                              {t('tools.param_required')}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   ))}
                 </div>
