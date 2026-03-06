@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getTeamRole, isTeamAdmin } from '@/lib/teams/access'
+import { checkRateLimit } from '@/lib/rate-limit'
 import crypto from 'crypto'
 
 /** GET /api/teams/[id]/members — Lister les membres d'une équipe */
@@ -67,6 +68,10 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // Rate limit invitation creation
+  const rateLimitResponse = checkRateLimit(req, 'CREATE')
+  if (rateLimitResponse) return rateLimitResponse
+
   const { id } = await params
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()

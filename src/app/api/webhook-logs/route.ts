@@ -16,8 +16,8 @@ export async function GET(req: NextRequest) {
   const sessionFilter = searchParams.get('session_id')
   const eventFilter = searchParams.get('event_type')
   const statusFilter = searchParams.get('status')
-  const page = parseInt(searchParams.get('page') || '1', 10)
-  const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10), 100)
+  const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1)
+  const limit = Math.max(1, Math.min(parseInt(searchParams.get('limit') || '50', 10) || 50, 100))
 
   // Get user's sessions (personal + team)
   const teamIds = await getUserTeamIds(supabase, user.id)

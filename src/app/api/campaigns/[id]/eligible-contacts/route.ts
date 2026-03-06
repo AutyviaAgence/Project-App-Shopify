@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getUserTeamIds } from '@/lib/teams/access'
 
+const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 /**
  * GET /api/campaigns/[id]/eligible-contacts
  * Récupère les contacts éligibles avec filtres avancés
@@ -21,8 +23,8 @@ export async function GET(
   // Récupérer les paramètres de recherche
   const searchParams = req.nextUrl.searchParams
   const search = searchParams.get('search') || ''
-  const page = parseInt(searchParams.get('page') || '1')
-  const limit = parseInt(searchParams.get('limit') || '50')
+  const page = Math.max(1, parseInt(searchParams.get('page') || '1') || 1)
+  const limit = Math.max(1, Math.min(parseInt(searchParams.get('limit') || '50') || 50, 100))
   const offset = (page - 1) * limit
 
   // Récupérer la campagne
@@ -70,12 +72,12 @@ export async function GET(
 
   // Filtrer par lifecycle stage si spécifié
   if (campaign.filter_lifecycle_stage_ids && campaign.filter_lifecycle_stage_ids.length > 0) {
-    const stageIds = campaign.filter_lifecycle_stage_ids as string[]
+    const stageIds = (campaign.filter_lifecycle_stage_ids as string[]).filter(id => uuidRegex.test(id))
     const conversationIds = contacts
       .map((c: { conversation_id: string | null }) => c.conversation_id)
       .filter(Boolean) as string[]
 
-    if (conversationIds.length > 0) {
+    if (conversationIds.length > 0 && stageIds.length > 0) {
       const { data: convStages } = await supabase
         .from('conversations')
         .select('id, lifecycle_stage_id')
@@ -228,12 +230,12 @@ export async function POST(
 
   // Filtrer par lifecycle stage si spécifié
   if (campaign.filter_lifecycle_stage_ids && campaign.filter_lifecycle_stage_ids.length > 0) {
-    const stageIds = campaign.filter_lifecycle_stage_ids as string[]
+    const stageIds = (campaign.filter_lifecycle_stage_ids as string[]).filter(id => uuidRegex.test(id))
     const conversationIds = eligibleFiltered
       .map((c: { conversation_id: string | null }) => c.conversation_id)
       .filter(Boolean) as string[]
 
-    if (conversationIds.length > 0) {
+    if (conversationIds.length > 0 && stageIds.length > 0) {
       const { data: convStages } = await supabase
         .from('conversations')
         .select('id, lifecycle_stage_id')

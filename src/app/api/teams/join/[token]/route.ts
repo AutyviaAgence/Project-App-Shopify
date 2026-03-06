@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 /** GET /api/teams/join/[token] — Récupérer les infos de l'invitation */
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ token: string }> }
 ) {
+  // Rate limit to prevent token brute-force
+  const rateLimitResponse = checkRateLimit(_req, 'AUTH')
+  if (rateLimitResponse) return rateLimitResponse
+
   const { token } = await params
   const supabase = await createClient()
 
@@ -43,6 +48,10 @@ export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ token: string }> }
 ) {
+  // Rate limit to prevent token brute-force
+  const rateLimitResponse = checkRateLimit(_req, 'AUTH')
+  if (rateLimitResponse) return rateLimitResponse
+
   const { token } = await params
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()

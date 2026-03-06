@@ -6,6 +6,7 @@ CREATE OR REPLACE FUNCTION increment_unread_count(
 )
 RETURNS void
 LANGUAGE sql
+SET search_path = public
 AS $$
   UPDATE conversations
   SET unread_count = COALESCE(unread_count, 0) + 1,
@@ -20,6 +21,7 @@ CREATE OR REPLACE FUNCTION increment_click_count(
 )
 RETURNS void
 LANGUAGE sql
+SET search_path = public
 AS $$
   UPDATE wa_links
   SET click_count = COALESCE(click_count, 0) + 1

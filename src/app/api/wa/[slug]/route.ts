@@ -3,6 +3,7 @@ import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import crypto from 'crypto'
 import geoip from 'geoip-lite'
 import { UAParser } from 'ua-parser-js'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 /**
  * GET /api/wa/[slug]
@@ -13,6 +14,10 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
+  // Rate limit public endpoint
+  const rateLimitResponse = checkRateLimit(req, 'STANDARD')
+  if (rateLimitResponse) return rateLimitResponse
+
   const { slug } = await params
 
   const supabase = createAdminSupabase(
@@ -37,6 +42,11 @@ export async function GET(
 
   if (!phone) {
     return NextResponse.json({ error: 'Session non configurée' }, { status: 404 })
+  }
+
+  // Valider le format du numéro de téléphone
+  if (!/^[0-9]{1,15}$/.test(phone)) {
+    return NextResponse.json({ error: 'Numéro WhatsApp invalide' }, { status: 500 })
   }
 
   // --- Collecter les métadonnées du clic ---

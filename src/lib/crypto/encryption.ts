@@ -77,10 +77,10 @@ export function decryptMessage(ciphertext: string): string {
     decrypted = Buffer.concat([decrypted, decipher.final()])
 
     return decrypted.toString('utf8')
-  } catch {
-    // Échec du déchiffrement (mauvaise clé, format invalide, etc.)
-    // Retourner le texte tel quel (peut-être pas chiffré)
-    return ciphertext
+  } catch (err) {
+    // Échec du déchiffrement (mauvaise clé, corruption, etc.)
+    console.error('[Crypto] Decryption failed:', err instanceof Error ? err.message : err)
+    return '[Message non déchiffrable]'
   }
 }
 

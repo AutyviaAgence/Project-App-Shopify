@@ -68,8 +68,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Nom trop long (max 100 caractères)' }, { status: 400 })
   }
 
-  // Générer un slug si non fourni
-  const finalSlug = slug?.trim().toLowerCase().replace(/[^a-z0-9-]/g, '') || null
+  // Générer un slug si non fourni — normaliser pour éviter les collisions subtiles
+  const finalSlug = slug?.trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || null
 
   // Créer l'équipe (le trigger ajoutera automatiquement l'owner comme membre)
   const { data: team, error } = await supabase
@@ -84,7 +87,7 @@ export async function POST(req: Request) {
 
   if (error) {
     if (error.code === '23505') {
-      return NextResponse.json({ error: 'Ce slug est déjà utilisé' }, { status: 409 })
+      return NextResponse.json({ error: `Le slug "${finalSlug}" est déjà utilisé. Essayez un autre nom.` }, { status: 409 })
     }
     return NextResponse.json({ error: error.message }, { status: 500 })
   }

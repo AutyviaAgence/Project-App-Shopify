@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import crypto from 'crypto'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 /** GET /api/booking/[agentId] — Redirection trackée vers le lien de RDV */
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ agentId: string }> }
 ) {
+  // Rate limit public endpoint
+  const rateLimitResponse = checkRateLimit(req, 'STANDARD')
+  if (rateLimitResponse) return rateLimitResponse
+
   const { agentId } = await params
 
   // Utiliser le client admin pour contourner les RLS (visiteurs non authentifiés)
