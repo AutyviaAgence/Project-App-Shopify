@@ -564,6 +564,10 @@ export default function TeamsPage() {
 
     setSaving(true)
     try {
+      // In 'specific' mode, an empty array [] means "no access".
+      // To avoid accidentally revoking access to resources the admin didn't intend to restrict,
+      // we keep null (= full access) for resource types that were originally null and left empty.
+      const memberWithCampaigns = selectedMember as TeamMemberWithProfile & { allowed_campaign_ids?: string[] | null }
       const resourcePermissions = permissionsMode === 'all'
         ? {
             allowed_session_ids: null,
@@ -572,10 +576,10 @@ export default function TeamsPage() {
             allowed_campaign_ids: null,
           }
         : {
-            allowed_session_ids: editingSessions,
-            allowed_agent_ids: editingAgents,
-            allowed_link_ids: editingLinks,
-            allowed_campaign_ids: editingCampaigns,
+            allowed_session_ids: editingSessions.length > 0 ? editingSessions : (selectedMember.allowed_session_ids === null ? null : []),
+            allowed_agent_ids: editingAgents.length > 0 ? editingAgents : (selectedMember.allowed_agent_ids === null ? null : []),
+            allowed_link_ids: editingLinks.length > 0 ? editingLinks : (selectedMember.allowed_link_ids === null ? null : []),
+            allowed_campaign_ids: editingCampaigns.length > 0 ? editingCampaigns : (memberWithCampaigns.allowed_campaign_ids === null ? null : []),
           }
 
       const body = {
