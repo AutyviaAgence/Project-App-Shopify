@@ -94,7 +94,7 @@ export default function JoinTeamPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F5F7FA] dark:bg-[#1A252C]">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     )
@@ -102,7 +102,7 @@ export default function JoinTeamPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F5F7FA] dark:bg-[#1A252C] p-4">
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <div className="max-w-md w-full bg-card rounded-2xl shadow-lg p-8 text-center">
           <div className="flex h-16 w-16 mx-auto items-center justify-center rounded-full bg-red-100 dark:bg-red-900/20">
             <XCircle className="h-8 w-8 text-red-500" />
@@ -121,7 +121,7 @@ export default function JoinTeamPage() {
 
   if (success) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F5F7FA] dark:bg-[#1A252C] p-4">
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <div className="max-w-md w-full bg-card rounded-2xl shadow-lg p-8 text-center">
           <div className="flex h-16 w-16 mx-auto items-center justify-center rounded-full bg-[#7DC2A5]/10">
             <CheckCircle className="h-8 w-8 text-[#7DC2A5]" />
@@ -140,7 +140,7 @@ export default function JoinTeamPage() {
 
   if (needsAuth) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F5F7FA] dark:bg-[#1A252C] p-4">
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <div className="max-w-md w-full bg-card rounded-2xl shadow-lg p-8 text-center">
           <div className="flex h-16 w-16 mx-auto items-center justify-center rounded-full bg-[#7DC2A5]/10">
             <LogIn className="h-8 w-8 text-[#7DC2A5]" />
@@ -167,7 +167,7 @@ export default function JoinTeamPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#F5F7FA] dark:bg-[#1A252C] p-4">
+    <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <div className="max-w-md w-full bg-card rounded-2xl shadow-lg p-8">
         {/* Header */}
         <div className="text-center">

@@ -124,7 +124,7 @@ export function ChatArea({
   return (
     <div
       className={cn(
-        'flex flex-1 flex-col bg-[#F5F7FA] dark:bg-[#1A252C]',
+        'flex flex-1 flex-col bg-background',
         !selectedConv ? 'hidden md:flex' : 'flex'
       )}
     >
