@@ -4,6 +4,7 @@ import './globals.css'
 import { Toaster } from 'sonner'
 import { ThemeProvider } from 'next-themes'
 import { LanguageProvider } from '@/i18n/context'
+import { TenantProvider } from '@/lib/tenant/context'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -27,8 +28,10 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <LanguageProvider>
-            {children}
-            <Toaster richColors position="bottom-right" />
+            <TenantProvider>
+              {children}
+              <Toaster richColors position="bottom-right" />
+            </TenantProvider>
           </LanguageProvider>
         </ThemeProvider>
       </body>

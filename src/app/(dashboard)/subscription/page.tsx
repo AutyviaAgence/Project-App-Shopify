@@ -38,6 +38,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/i18n/context'
+import { useTenant } from '@/lib/tenant/context'
 import type { LucideIcon } from 'lucide-react'
 
 const FEATURES: { icon: LucideIcon; textKey: string }[] = [
@@ -51,6 +52,7 @@ const FEATURES: { icon: LucideIcon; textKey: string }[] = [
 
 function SubscriptionContent() {
   const { t, locale } = useTranslation()
+  const tenant = useTenant()
   const searchParams = useSearchParams()
   const { subscription, loading, refetch } = useSubscription()
   const [isProcessing, setIsProcessing] = useState(false)
@@ -139,7 +141,7 @@ function SubscriptionContent() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold">{t('subscription.title')}</h1>
         <p className="mt-2 text-muted-foreground">
-          {t('subscription.description')}
+          {t('subscription.description', { appName: tenant.appName })}
         </p>
       </div>
 
@@ -281,7 +283,7 @@ function SubscriptionContent() {
           <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
             <Zap className="h-6 w-6 text-primary" />
           </div>
-          <CardTitle className="text-2xl">{t('subscription.offer_title')}</CardTitle>
+          <CardTitle className="text-2xl">{t('subscription.offer_title', { appName: tenant.appName })}</CardTitle>
           <CardDescription>
             {t('subscription.offer_desc')}
           </CardDescription>

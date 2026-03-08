@@ -59,6 +59,7 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 import { useTranslation } from '@/i18n/context'
+import { useTenant } from '@/lib/tenant/context'
 import type { Locale } from '@/i18n/context'
 
 const RETENTION_KEYS = [
@@ -117,6 +118,7 @@ const TIMEZONES = [
 export default function SettingsPage() {
   const router = useRouter()
   const { t, locale, setLocale } = useTranslation()
+  const tenant = useTenant()
   const [profile, setProfile] = useState<Profile | null>(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -497,7 +499,7 @@ export default function SettingsPage() {
               <CreditCard className="h-5 w-5" />
               {t('settings.subscription_title')}
             </CardTitle>
-            <CardDescription>{t('settings.subscription_desc')}</CardDescription>
+            <CardDescription>{t('settings.subscription_desc', { appName: tenant.appName })}</CardDescription>
           </CardHeader>
           <CardContent>
             <p className="text-sm text-muted-foreground mb-4">

@@ -1,5 +1,21 @@
 export type SubscriptionStatus = 'trial' | 'active' | 'expired' | 'cancelled'
 
+export type Tenant = {
+  id: string
+  slug: string
+  domain: string | null
+  app_name: string
+  logo_url: string
+  favicon_url: string | null
+  primary_color: string
+  accent_color: string
+  sidebar_color: string
+  support_email: string | null
+  is_default: boolean
+  created_at: string
+  updated_at: string
+}
+
 export type Profile = {
   id: string
   email: string
@@ -16,6 +32,7 @@ export type Profile = {
   tokens_used: number
   tokens_limit: number
   token_usage_period_start: string | null
+  tenant_id: string | null
   created_at: string
   updated_at: string
 }

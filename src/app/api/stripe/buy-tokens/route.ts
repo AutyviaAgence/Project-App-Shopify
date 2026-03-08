@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getStripe } from '@/lib/stripe/client'
+import { getTenantFromCookies } from '@/lib/tenant/server'
 
 const TOKEN_PRICE_CENTS = 5000 // 50€
 const TOKEN_AMOUNT = 500000
@@ -26,6 +27,7 @@ export async function POST() {
 
   try {
     const stripe = getStripe()
+    const tenant = await getTenantFromCookies()
 
     let customerId = profile.stripe_customer_id
     if (!customerId) {
@@ -54,7 +56,7 @@ export async function POST() {
             currency: 'eur',
             product_data: {
               name: '500 000 tokens IA',
-              description: 'Tokens supplémentaires pour l\'IA Autyvia',
+              description: `Tokens supplémentaires pour l'IA ${tenant.appName}`,
             },
             unit_amount: TOKEN_PRICE_CENTS,
           },

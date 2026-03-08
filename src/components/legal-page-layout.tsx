@@ -15,6 +15,7 @@ import {
   MapPin,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useTenant } from '@/lib/tenant/context'
 
 const LEGAL_PAGES = [
   { href: '/privacy', label: 'Politique de confidentialité', icon: Shield },
@@ -32,6 +33,7 @@ interface LegalPageLayoutProps {
 
 export function LegalPageLayout({ children, title, description, lastUpdated }: LegalPageLayoutProps) {
   const pathname = usePathname()
+  const tenant = useTenant()
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white dark:from-slate-950 dark:to-slate-900">
@@ -39,8 +41,8 @@ export function LegalPageLayout({ children, title, description, lastUpdated }: L
       <header className="sticky top-0 z-50 border-b bg-white/80 backdrop-blur-sm dark:bg-slate-950/80">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <Link href="/" className="flex items-center gap-3 transition-opacity hover:opacity-80">
-            <Image src="/logo.svg" alt="Autyvia" width={36} height={36} className="h-9 w-9" />
-            <span className="text-xl font-bold text-slate-900 dark:text-white">Autyvia</span>
+            <Image src={tenant.logoUrl} alt={tenant.appName} width={36} height={36} className="h-9 w-9" />
+            <span className="text-xl font-bold text-slate-900 dark:text-white">{tenant.appName}</span>
           </Link>
           <Button variant="outline" size="sm" asChild>
             <Link href="/login">

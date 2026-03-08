@@ -11,6 +11,27 @@ type InvoiceWithLegacy = Stripe.Invoice & {
   payment_intent?: string | null
 }
 
+/** Get tenant app name for a user (for dynamic branding in alerts) */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function getTenantAppName(supabase: any, userId: string): Promise<string> {
+  try {
+    const { data } = await supabase
+      .from('profiles')
+      .select('tenant_id')
+      .eq('id', userId)
+      .single() as { data: { tenant_id: string | null } | null }
+    if (data?.tenant_id) {
+      const { data: tenant } = await supabase
+        .from('tenants')
+        .select('app_name')
+        .eq('id', data.tenant_id)
+        .single() as { data: { app_name: string } | null }
+      if (tenant?.app_name) return tenant.app_name
+    }
+  } catch { /* fallback */ }
+  return 'Autyvia'
+}
+
 export async function POST(req: NextRequest) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
   if (!webhookSecret) {
@@ -154,7 +175,7 @@ export async function POST(req: NextRequest) {
               currency: session.currency || 'eur',
               status: 'succeeded',
               stripe_payment_intent_id: session.payment_intent as string || null,
-              description: 'Abonnement Autyvia - Mensuel',
+              description: `Abonnement ${await getTenantAppName(supabase, resolvedUserId)} - Mensuel`,
               metadata: {
                 checkout_session_id: session.id,
                 subscription_id: subscription.id,
@@ -166,7 +187,7 @@ export async function POST(req: NextRequest) {
               user_id: resolvedUserId,
               alert_type: 'info',
               title: 'Abonnement activé',
-              message: `Votre abonnement Autyvia a été activé. Prochain renouvellement le ${subscriptionEndsAt.toLocaleDateString('fr-FR')}.`,
+              message: `Votre abonnement a été activé. Prochain renouvellement le ${subscriptionEndsAt.toLocaleDateString('fr-FR')}.`,
               metadata: {
                 type: 'subscription_created',
                 amount: session.amount_total,
@@ -210,7 +231,7 @@ export async function POST(req: NextRequest) {
               currency: invoice.currency,
               status: 'succeeded',
               stripe_payment_intent_id: invoice.payment_intent as string || null,
-              description: 'Renouvellement abonnement Autyvia',
+              description: `Renouvellement abonnement ${await getTenantAppName(supabase, userId)}`,
               metadata: {
                 invoice_id: invoice.id,
                 subscription_id: subscriptionId,
@@ -293,7 +314,7 @@ export async function POST(req: NextRequest) {
             user_id: userId,
             alert_type: 'warning',
             title: 'Abonnement annulé',
-            message: 'Votre abonnement Autyvia a été annulé. Vous pouvez vous réabonner à tout moment.',
+            message: 'Votre abonnement a été annulé. Vous pouvez vous réabonner à tout moment.',
             metadata: {
               type: 'subscription_cancelled',
             },

@@ -10,9 +10,11 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { toast } from 'sonner'
 import { useTranslation } from '@/i18n/context'
+import { useTenant } from '@/lib/tenant/context'
 
 export default function ForgotPasswordPage() {
   const { t } = useTranslation()
+  const tenant = useTenant()
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
@@ -42,7 +44,7 @@ export default function ForgotPasswordPage() {
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
             <div className="flex justify-center mb-4">
-              <Image src="/logo.svg" alt="Autyvia" width={64} height={64} className="h-16 w-16" />
+              <Image src={tenant.logoUrl} alt={tenant.appName} width={64} height={64} className="h-16 w-16" />
             </div>
             <CardTitle>{t('auth.email_sent')}</CardTitle>
             <CardDescription>
@@ -64,7 +66,7 @@ export default function ForgotPasswordPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
-            <Image src="/logo.svg" alt="Autyvia" width={64} height={64} className="h-16 w-16" />
+            <Image src={tenant.logoUrl} alt={tenant.appName} width={64} height={64} className="h-16 w-16" />
           </div>
           <CardTitle className="text-2xl font-bold">{t('auth.forgot_title')}</CardTitle>
           <CardDescription>{t('auth.forgot_desc')}</CardDescription>

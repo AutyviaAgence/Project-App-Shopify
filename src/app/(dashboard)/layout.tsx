@@ -39,6 +39,7 @@ const TourProvider = dynamic(() => import('@/components/guided-tour').then(m => 
 import { SubscriptionBanner } from '@/components/subscription-banner'
 import { useSubscription } from '@/hooks/use-subscription'
 import { useTranslation } from '@/i18n/context'
+import { useTenant } from '@/lib/tenant/context'
 
 const NAV_ITEMS_KEYS = [
   { href: '/dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
@@ -69,6 +70,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [collapsed, setCollapsed] = useState(false)
   const { subscription, loading: subscriptionLoading } = useSubscription()
   const { t } = useTranslation()
+  const tenant = useTenant()
 
   const NAV_ITEMS = useMemo(() => NAV_ITEMS_KEYS.map(item => ({ ...item, label: t(item.labelKey) })), [t])
   const BOTTOM_NAV_ITEMS = useMemo(() => BOTTOM_NAV_KEYS.map(item => ({ ...item, label: t(item.labelKey) })), [t])
@@ -111,7 +113,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         className={cn(
           'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
           isActive
-            ? 'bg-[#7DC2A5] text-white shadow-sm'
+            ? 'bg-primary text-white shadow-sm'
             : 'text-white/70 hover:bg-white/10 hover:text-white'
         )}
         title={!showLabel ? item.label : undefined}
@@ -143,7 +145,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex flex-col bg-[#2D3E48] transition-all duration-300 md:relative',
+          'fixed inset-y-0 left-0 z-50 flex flex-col bg-[var(--sidebar)] transition-all duration-300 md:relative',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
           collapsed ? 'w-[72px]' : 'w-64'
         )}
@@ -155,13 +157,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         )}>
           {!collapsed && (
             <Link href="/dashboard" className="flex items-center gap-2">
-              <Image src="/logo.svg" alt="Autyvia" width={32} height={32} className="h-8 w-8" />
-              <span className="text-lg font-semibold text-white">Autyvia</span>
+              <Image src={tenant.logoUrl} alt={tenant.appName} width={32} height={32} className="h-8 w-8" />
+              <span className="text-lg font-semibold text-white">{tenant.appName}</span>
             </Link>
           )}
           {collapsed && (
             <Link href="/dashboard">
-              <Image src="/logo.svg" alt="Autyvia" width={32} height={32} className="h-8 w-8" />
+              <Image src={tenant.logoUrl} alt={tenant.appName} width={32} height={32} className="h-8 w-8" />
             </Link>
           )}
           <button
@@ -201,7 +203,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Collapse toggle (desktop only) */}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="absolute -right-3 top-20 hidden h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-[#2D3E48] text-white/70 shadow-sm transition-colors hover:bg-[#3D4E58] hover:text-white md:flex"
+          className="absolute -right-3 top-20 hidden h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-[var(--sidebar)] text-white/70 shadow-sm transition-colors hover:bg-white/10 hover:text-white md:flex"
         >
           {collapsed ? (
             <ChevronRight className="h-3 w-3" />
@@ -229,7 +231,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               <h1 className="text-lg font-semibold text-foreground">
                 {NAV_ITEMS.find(i => pathname === i.href || pathname.startsWith(i.href + '/'))?.label ||
                  BOTTOM_NAV_ITEMS.find(i => pathname === i.href || pathname.startsWith(i.href + '/'))?.label ||
-                 'Autyvia'}
+                 tenant.appName}
               </h1>
             </div>
           </div>
@@ -261,8 +263,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     {subscription?.status === 'cancelled'
                       ? t('blocked.cancelled')
                       : subscription?.status === 'expired'
-                        ? t('blocked.expired')
-                        : t('blocked.trial_ended')}
+                        ? t('blocked.expired', { appName: tenant.appName })
+                        : t('blocked.trial_ended', { appName: tenant.appName })}
                   </p>
                 </div>
                 <Link
@@ -298,7 +300,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               href={item.href}
               className={cn(
                 'flex flex-col items-center justify-center gap-1 px-3 py-2 transition-colors',
-                isActive ? 'text-[#7DC2A5]' : 'text-muted-foreground'
+                isActive ? 'text-primary' : 'text-muted-foreground'
               )}
             >
               <item.icon className="h-5 w-5" />

@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { X, ChevronRight, ChevronLeft, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/i18n/context'
+import { useTenant } from '@/lib/tenant/context'
 
 // Types
 interface TourStep {
@@ -273,6 +274,7 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
 function TourOverlay() {
   const { currentStep, steps, nextStep, prevStep, endTour } = useTour()
   const { t } = useTranslation()
+  const tenant = useTenant()
   const [targetRect, setTargetRect] = useState<DOMRect | null>(null)
   const [tooltipStyle, setTooltipStyle] = useState<React.CSSProperties>({})
 
@@ -446,9 +448,9 @@ function TourOverlay() {
 
         {/* Content */}
         <div className="p-4">
-          <h3 className="text-lg font-semibold mb-2">{t(step.title)}</h3>
+          <h3 className="text-lg font-semibold mb-2">{t(step.title, { appName: tenant.appName })}</h3>
           <p className="text-sm text-muted-foreground leading-relaxed">
-            {t(step.description)}
+            {t(step.description, { appName: tenant.appName })}
           </p>
         </div>
 

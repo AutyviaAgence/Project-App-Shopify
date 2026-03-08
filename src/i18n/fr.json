@@ -64,8 +64,8 @@
   "blocked": {
     "title": "Accès suspendu",
     "cancelled": "Votre abonnement a été annulé. Réabonnez-vous pour accéder à la plateforme.",
-    "expired": "Votre abonnement a expiré. Renouvelez-le pour continuer à utiliser Autyvia.",
-    "trial_ended": "Votre période d'essai est terminée. Abonnez-vous pour continuer à utiliser Autyvia.",
+    "expired": "Votre abonnement a expiré. Renouvelez-le pour continuer à utiliser {appName}.",
+    "trial_ended": "Votre période d'essai est terminée. Abonnez-vous pour continuer à utiliser {appName}.",
     "manage_subscription": "Gérer mon abonnement"
   },
   "dashboard": {
@@ -508,7 +508,7 @@
     "profile_error": "Erreur lors de la mise à jour",
     "load_error": "Erreur lors du chargement du profil",
     "subscription_title": "Abonnement",
-    "subscription_desc": "Gérez votre abonnement Autyvia.",
+    "subscription_desc": "Gérez votre abonnement {appName}.",
     "subscription_info": "Consultez le statut de votre abonnement, souscrivez ou gérez votre paiement.",
     "manage_subscription": "Gérer mon abonnement",
     "tokens_title": "Tokens IA supplémentaires",
@@ -1069,7 +1069,7 @@
   },
   "subscription": {
     "title": "Abonnement",
-    "description": "Gérez votre abonnement Autyvia",
+    "description": "Gérez votre abonnement {appName}",
     "your_subscription": "Votre abonnement",
     "status_label": "Statut :",
     "trial": "Période d'essai",
@@ -1087,7 +1087,7 @@
     "no_quota": "Aucun quota actif",
     "tokens_remaining": "{count} tokens restants",
     "buy_tokens": "Acheter 500K tokens",
-    "offer_title": "Abonnement Autyvia",
+    "offer_title": "Abonnement {appName}",
     "offer_desc": "Accès complet à toutes les fonctionnalités",
     "price": "150€",
     "per_month": "/mois",
@@ -1117,7 +1117,7 @@
   },
   "auth": {
     "login": "Connexion",
-    "login_desc": "Connectez-vous à votre compte Autyvia",
+    "login_desc": "Connectez-vous à votre compte {appName}",
     "email": "Email",
     "email_placeholder": "vous@exemple.com",
     "password": "Mot de passe",
@@ -1128,7 +1128,7 @@
     "privacy": "Confidentialité",
     "legal": "Mentions légales",
     "register": "Créer un compte",
-    "register_desc": "Inscrivez-vous sur Autyvia",
+    "register_desc": "Inscrivez-vous sur {appName}",
     "full_name": "Nom complet",
     "name_placeholder": "Jean Dupont",
     "min_chars": "Minimum 6 caractères",
@@ -1149,7 +1149,7 @@
     "email_sent_desc": "Vérifiez votre boîte mail pour réinitialiser votre mot de passe."
   },
   "tour": {
-    "welcome_title": "Bienvenue sur Autyvia !",
+    "welcome_title": "Bienvenue sur {appName} !",
     "welcome_desc": "Ce guide vous accompagne pas à pas pour configurer votre système d'automatisation WhatsApp. Vous pouvez naviguer avec les flèches du clavier ou les boutons.",
     "dashboard_title": "Tableau de bord",
     "dashboard_desc": "Visualisez vos statistiques clés : messages envoyés/reçus, conversations actives, nouveaux contacts et taux de réponse de l'IA. Ces données se mettent à jour en temps réel.",
@@ -1180,7 +1180,7 @@
     "stats_title": "Statistiques",
     "stats_desc": "Analysez vos performances : volume de messages, temps de réponse, activité par session. Filtrez par période et par session.",
     "settings_title": "Paramètres",
-    "settings_desc": "Configurez votre profil, changez la langue, gérez les notifications et personnalisez votre expérience Autyvia.",
+    "settings_desc": "Configurez votre profil, changez la langue, gérez les notifications et personnalisez votre expérience {appName}.",
     "ready_title": "Prêt à démarrer !",
     "ready_desc": "Commencez par : 1) Connecter une session WhatsApp, 2) Créer un agent IA, 3) Optionnellement ajouter des documents. L'IA répondra ensuite automatiquement !",
     "interactive_guide": "Guide interactif",
@@ -1312,8 +1312,8 @@
     "view_usage": "Voir mon utilisation",
     "trial_remaining": "Période d'essai : {days} jour(s) restant(s)",
     "subscribe": "S'abonner",
-    "trial_ended": "Votre période d'essai est terminée. Abonnez-vous pour continuer à utiliser Autyvia.",
-    "subscription_expired": "Votre abonnement a expiré. Renouvelez pour continuer à utiliser Autyvia.",
+    "trial_ended": "Votre période d'essai est terminée. Abonnez-vous pour continuer à utiliser {appName}.",
+    "subscription_expired": "Votre abonnement a expiré. Renouvelez pour continuer à utiliser {appName}.",
     "subscribe_now": "S'abonner maintenant"
   },
   "contact_profile": {

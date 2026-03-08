@@ -12,9 +12,11 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
 import { useTranslation } from '@/i18n/context'
+import { useTenant } from '@/lib/tenant/context'
 
 function RegisterForm() {
   const { t } = useTranslation()
+  const tenant = useTenant()
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirect = searchParams.get('redirect')
@@ -39,7 +41,7 @@ function RegisterForm() {
       email,
       password,
       options: {
-        data: { full_name: fullName },
+        data: { full_name: fullName, ...(tenant.id ? { tenant_id: tenant.id } : {}) },
       },
     })
 
@@ -57,10 +59,10 @@ function RegisterForm() {
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
         <div className="flex justify-center mb-4">
-          <Image src="/logo.svg" alt="Autyvia" width={64} height={64} className="h-16 w-16" />
+          <Image src={tenant.logoUrl} alt={tenant.appName} width={64} height={64} className="h-16 w-16" />
         </div>
         <CardTitle className="text-2xl font-bold">{t('auth.register')}</CardTitle>
-        <CardDescription>{t('auth.register_desc')}</CardDescription>
+        <CardDescription>{t('auth.register_desc', { appName: tenant.appName })}</CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">

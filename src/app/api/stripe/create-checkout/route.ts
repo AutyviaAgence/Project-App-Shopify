@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { getStripe, SUBSCRIPTION_PRICE_CENTS } from '@/lib/stripe/client'
 import { getSubscriptionEndDate } from '@/lib/stripe/helpers'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { getTenantFromCookies } from '@/lib/tenant/server'
 
 /** POST /api/stripe/create-checkout — Créer une session Stripe Checkout */
 export async function POST() {
@@ -26,6 +27,7 @@ export async function POST() {
 
   try {
     const stripe = getStripe()
+    const tenant = await getTenantFromCookies()
 
     // Créer ou récupérer le client Stripe
     let customerId = profile.stripe_customer_id
@@ -93,8 +95,8 @@ export async function POST() {
           price_data: {
             currency: 'eur',
             product_data: {
-              name: 'Abonnement Autyvia',
-              description: 'Accès complet à la plateforme Autyvia - Automatisation WhatsApp IA',
+              name: `Abonnement ${tenant.appName}`,
+              description: `Accès complet à la plateforme ${tenant.appName} - Automatisation WhatsApp IA`,
             },
             unit_amount: SUBSCRIPTION_PRICE_CENTS,
             recurring: {

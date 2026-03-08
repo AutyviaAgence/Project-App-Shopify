@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button'
 import { AlertTriangle, Clock, CreditCard, Cpu } from 'lucide-react'
 import Link from 'next/link'
 import { useTranslation } from '@/i18n/context'
+import { useTenant } from '@/lib/tenant/context'
 
 type SubscriptionInfo = {
   status: string
@@ -17,6 +18,7 @@ type SubscriptionInfo = {
 
 export function SubscriptionBanner({ subscription }: { subscription: SubscriptionInfo | null }) {
   const { t } = useTranslation()
+  const tenant = useTenant()
 
   if (!subscription) return null
 
@@ -101,8 +103,8 @@ export function SubscriptionBanner({ subscription }: { subscription: Subscriptio
             <AlertTriangle className="h-4 w-4" />
             <span className="text-sm font-medium">
               {subscription.isTrialExpired
-                ? t('banner.trial_ended')
-                : t('banner.subscription_expired')}
+                ? t('banner.trial_ended', { appName: tenant.appName })
+                : t('banner.subscription_expired', { appName: tenant.appName })}
             </span>
           </div>
           <Link href="/subscription">
