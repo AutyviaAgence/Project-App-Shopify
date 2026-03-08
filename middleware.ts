@@ -75,10 +75,7 @@ const DEFAULT_TENANT = {
 async function resolveTenantDirect(domain: string) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  if (!supabaseUrl || !supabaseKey) {
-    console.error('[Tenant] Missing env vars:', { supabaseUrl: !!supabaseUrl, supabaseKey: !!supabaseKey })
-    return DEFAULT_TENANT
-  }
+  if (!supabaseUrl || !supabaseKey) return DEFAULT_TENANT
 
   const columns = 'id,slug,app_name,logo_url,favicon_url,primary_color,accent_color,sidebar_color,support_email'
 
@@ -93,9 +90,10 @@ async function resolveTenantDirect(domain: string) {
     }
   )
 
-  const body = await res.json()
-  console.log('[Tenant] query domain=', domain, 'status=', res.status, 'rows=', JSON.stringify(body))
-  if (res.ok && Array.isArray(body) && body.length > 0) return mapTenant(body[0])
+  if (res.ok) {
+    const rows = await res.json()
+    if (rows.length > 0) return mapTenant(rows[0])
+  }
 
   // Fallback: default tenant
   const fallback = await fetch(
