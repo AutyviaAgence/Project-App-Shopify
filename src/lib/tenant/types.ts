@@ -1,3 +1,19 @@
+export type ThemePalette = {
+  primary?: string
+  accent?: string
+  sidebar?: string
+  background?: string
+  foreground?: string
+  card?: string
+  muted?: string
+  border?: string
+}
+
+export type ThemeConfig = {
+  light?: ThemePalette
+  dark?: ThemePalette
+}
+
 export type TenantConfig = {
   id: string
   slug: string
@@ -10,6 +26,7 @@ export type TenantConfig = {
   bgColor: string | null
   textColor: string | null
   supportEmail: string | null
+  themeConfig: ThemeConfig | null
 }
 
 export const DEFAULT_TENANT: TenantConfig = {
@@ -24,4 +41,5 @@ export const DEFAULT_TENANT: TenantConfig = {
   bgColor: null,
   textColor: null,
   supportEmail: null,
+  themeConfig: null,
 }

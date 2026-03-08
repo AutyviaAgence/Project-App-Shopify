@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers'
-import { DEFAULT_TENANT, type TenantConfig } from './types'
+import { DEFAULT_TENANT, type TenantConfig, type ThemePalette } from './types'
 
 /**
  * Read tenant config from the x-tenant cookie (server-side).
@@ -27,6 +27,7 @@ export async function getTenantFromCookies(): Promise<TenantConfig> {
       bgColor: sanitizeColor(parsed.bgColor) || null,
       textColor: sanitizeColor(parsed.textColor) || null,
       supportEmail: parsed.supportEmail,
+      themeConfig: sanitizeThemeConfig(parsed.themeConfig),
     }
   } catch {
     return DEFAULT_TENANT
@@ -37,4 +38,23 @@ export async function getTenantFromCookies(): Promise<TenantConfig> {
 function sanitizeColor(color: string | undefined | null): string | null {
   if (!color) return null
   return /^#[0-9a-fA-F]{3,8}$/.test(color) ? color : null
+}
+
+function sanitizePalette(palette: ThemePalette | undefined | null): ThemePalette | undefined {
+  if (!palette || typeof palette !== 'object') return undefined
+  const clean: ThemePalette = {}
+  const keys: (keyof ThemePalette)[] = ['primary', 'accent', 'sidebar', 'background', 'foreground', 'card', 'muted', 'border']
+  for (const key of keys) {
+    const val = sanitizeColor(palette[key])
+    if (val) clean[key] = val
+  }
+  return Object.keys(clean).length > 0 ? clean : undefined
+}
+
+function sanitizeThemeConfig(config: TenantConfig['themeConfig']): TenantConfig['themeConfig'] {
+  if (!config || typeof config !== 'object') return null
+  const light = sanitizePalette(config.light)
+  const dark = sanitizePalette(config.dark)
+  if (!light && !dark) return null
+  return { light, dark }
 }

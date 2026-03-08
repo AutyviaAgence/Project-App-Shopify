@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
-import { DEFAULT_TENANT, type TenantConfig } from './types'
+import { DEFAULT_TENANT, type TenantConfig, type ThemePalette } from './types'
 
 const TenantContext = createContext<TenantConfig>(DEFAULT_TENANT)
 
@@ -27,13 +27,8 @@ export function TenantProvider({ children }: { children: ReactNode }) {
           parsed.sidebarColor = sanitizeColor(parsed.sidebarColor) || DEFAULT_TENANT.sidebarColor
           parsed.bgColor = sanitizeColor(parsed.bgColor) || null
           parsed.textColor = sanitizeColor(parsed.textColor) || null
+          parsed.themeConfig = sanitizeThemeConfig(parsed.themeConfig)
           setTenant(parsed)
-
-          // Force dark mode when tenant has a dark background
-          if (parsed.bgColor && isDarkColor(parsed.bgColor)) {
-            document.documentElement.classList.add('dark')
-            document.documentElement.style.colorScheme = 'dark'
-          }
         }
       }
     } catch {
@@ -53,6 +48,89 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
 /** Build CSS variable overrides from tenant config */
 function buildCssVars(tenant: TenantConfig): string {
+  if (tenant.themeConfig) {
+    // New system: per-theme colors
+    const rules: string[] = []
+    const { light, dark } = tenant.themeConfig
+
+    if (light) {
+      rules.push(`:root { ${paletteToVars(light, tenant)}; }`)
+    }
+    if (dark) {
+      rules.push(`.dark { ${paletteToVars(dark, tenant)}; }`)
+    }
+
+    return rules.join('\n')
+  }
+
+  // Legacy fallback: single set of colors (bgColor/textColor)
+  return `:root { ${buildLegacyVars(tenant)}; }`
+}
+
+/** Convert a ThemePalette to CSS variable declarations */
+function paletteToVars(palette: ThemePalette, tenant: TenantConfig): string {
+  const primary = palette.primary || tenant.primaryColor
+  const accent = palette.accent || tenant.accentColor
+  const sidebar = palette.sidebar || tenant.sidebarColor
+  const bg = palette.background
+  const fg = palette.foreground
+
+  const vars: string[] = [
+    `--primary: ${primary}`,
+    `--accent: ${accent}`,
+    `--autyvia-green: ${primary}`,
+    `--autyvia-turquoise: ${accent}`,
+    `--autyvia-turquoise-dark: ${adjustColor(accent, -20)}`,
+    `--ring: ${primary}`,
+    `--chart-1: ${primary}`,
+    `--chart-2: ${accent}`,
+    `--chart-3: ${adjustColor(primary, -15)}`,
+    `--bubble-outgoing: ${primary}`,
+    `--bubble-outgoing-text: #FFFFFF`,
+    // Sidebar
+    `--sidebar: ${sidebar}`,
+    `--sidebar-primary: ${primary}`,
+    `--sidebar-ring: ${primary}`,
+    `--sidebar-accent: ${adjustColor(sidebar, 10)}`,
+    `--sidebar-border: ${adjustColor(sidebar, 15)}`,
+  ]
+
+  if (bg) {
+    const card = palette.card || adjustColor(bg, 8)
+    const muted = palette.muted || adjustColor(bg, 12)
+    const border = palette.border || adjustColor(bg, 18)
+
+    vars.push(
+      `--background: ${bg}`,
+      `--card: ${card}`,
+      `--popover: ${card}`,
+      `--secondary: ${muted}`,
+      `--muted: ${muted}`,
+      `--border: ${border}`,
+      `--input: ${border}`,
+      `--bubble-incoming: ${adjustColor(bg, 12)}`,
+      `--bubble-incoming-text: ${fg || '#F5F7FA'}`,
+    )
+  }
+
+  if (fg) {
+    vars.push(
+      `--foreground: ${fg}`,
+      `--card-foreground: ${fg}`,
+      `--popover-foreground: ${fg}`,
+      `--secondary-foreground: ${fg}`,
+      `--accent-foreground: ${fg}`,
+      `--muted-foreground: ${adjustColor(fg, -20)}`,
+      `--sidebar-foreground: ${fg}`,
+      `--sidebar-accent-foreground: ${fg}`,
+    )
+  }
+
+  return vars.join('; ')
+}
+
+/** Legacy single-palette injection (for tenants without themeConfig) */
+function buildLegacyVars(tenant: TenantConfig): string {
   const vars: string[] = [
     `--primary: ${tenant.primaryColor}`,
     `--accent: ${tenant.accentColor}`,
@@ -66,15 +144,10 @@ function buildCssVars(tenant: TenantConfig): string {
     `--chart-1: ${tenant.primaryColor}`,
     `--chart-2: ${tenant.accentColor}`,
     `--chart-3: ${adjustColor(tenant.primaryColor, -15)}`,
-  ]
-
-  // Message bubble colors — always set (derived from primary/accent)
-  vars.push(
     `--bubble-outgoing: ${tenant.primaryColor}`,
     `--bubble-outgoing-text: #FFFFFF`,
-  )
+  ]
 
-  // Extended branding: background + text color
   if (tenant.bgColor) {
     vars.push(
       `--background: ${tenant.bgColor}`,
@@ -87,7 +160,6 @@ function buildCssVars(tenant: TenantConfig): string {
       `--sidebar: ${tenant.sidebarColor}`,
       `--sidebar-accent: ${adjustColor(tenant.sidebarColor, 10)}`,
       `--sidebar-border: ${adjustColor(tenant.sidebarColor, 15)}`,
-      // Bubble colors for dark backgrounds
       `--bubble-incoming: ${adjustColor(tenant.bgColor, 12)}`,
       `--bubble-incoming-text: ${tenant.textColor || '#F5F7FA'}`,
     )
@@ -106,22 +178,28 @@ function buildCssVars(tenant: TenantConfig): string {
     )
   }
 
-  return `:root { ${vars.join('; ')}; }`
+  return vars.join('; ')
 }
 
-/** Check if a hex color is dark (luminance < 50%) */
-function isDarkColor(hex: string): boolean {
-  try {
-    const num = parseInt(hex.replace('#', ''), 16)
-    const r = (num >> 16) & 0xff
-    const g = (num >> 8) & 0xff
-    const b = num & 0xff
-    // Relative luminance formula
-    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
-    return luminance < 0.5
-  } catch {
-    return false
+/** Sanitize a ThemePalette object — validate all color fields */
+function sanitizePalette(palette: ThemePalette | undefined | null): ThemePalette | undefined {
+  if (!palette || typeof palette !== 'object') return undefined
+  const clean: ThemePalette = {}
+  const keys: (keyof ThemePalette)[] = ['primary', 'accent', 'sidebar', 'background', 'foreground', 'card', 'muted', 'border']
+  for (const key of keys) {
+    const val = sanitizeColor(palette[key])
+    if (val) clean[key] = val
   }
+  return Object.keys(clean).length > 0 ? clean : undefined
+}
+
+/** Sanitize the full themeConfig object */
+function sanitizeThemeConfig(config: TenantConfig['themeConfig']): TenantConfig['themeConfig'] {
+  if (!config || typeof config !== 'object') return null
+  const light = sanitizePalette(config.light)
+  const dark = sanitizePalette(config.dark)
+  if (!light && !dark) return null
+  return { light, dark }
 }
 
 /** Validate hex color to prevent CSS injection */
