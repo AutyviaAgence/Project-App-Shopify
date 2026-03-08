@@ -87,12 +87,15 @@ function paletteToVars(palette: ThemePalette, tenant: TenantConfig): string {
     `--chart-3: ${adjustColor(primary, -15)}`,
     `--bubble-outgoing: ${primary}`,
     `--bubble-outgoing-text: #FFFFFF`,
-    // Sidebar
+    // Sidebar — derive foreground from sidebar lightness
     `--sidebar: ${sidebar}`,
+    `--sidebar-foreground: ${isDarkColor(sidebar) ? '#F5F7FA' : '#1A252C'}`,
     `--sidebar-primary: ${primary}`,
+    `--sidebar-primary-foreground: ${isDarkColor(primary) ? '#FFFFFF' : '#1A252C'}`,
     `--sidebar-ring: ${primary}`,
-    `--sidebar-accent: ${adjustColor(sidebar, 10)}`,
-    `--sidebar-border: ${adjustColor(sidebar, 15)}`,
+    `--sidebar-accent: ${adjustColor(sidebar, isDarkColor(sidebar) ? 10 : -5)}`,
+    `--sidebar-accent-foreground: ${isDarkColor(sidebar) ? '#F5F7FA' : '#1A252C'}`,
+    `--sidebar-border: ${adjustColor(sidebar, isDarkColor(sidebar) ? 15 : -10)}`,
   ]
 
   if (bg) {
@@ -135,6 +138,7 @@ function buildLegacyVars(tenant: TenantConfig): string {
     `--primary: ${tenant.primaryColor}`,
     `--accent: ${tenant.accentColor}`,
     `--sidebar: ${tenant.sidebarColor}`,
+    `--sidebar-foreground: ${isDarkColor(tenant.sidebarColor) ? '#F5F7FA' : '#1A252C'}`,
     `--autyvia-green: ${tenant.primaryColor}`,
     `--autyvia-turquoise: ${tenant.accentColor}`,
     `--autyvia-turquoise-dark: ${adjustColor(tenant.accentColor, -20)}`,
@@ -206,6 +210,19 @@ function sanitizeThemeConfig(config: TenantConfig['themeConfig']): TenantConfig[
 function sanitizeColor(color: string | undefined | null): string | null {
   if (!color) return null
   return /^#[0-9a-fA-F]{3,8}$/.test(color) ? color : null
+}
+
+/** Check if a hex color is dark (luminance < 128) */
+function isDarkColor(hex: string): boolean {
+  try {
+    const num = parseInt(hex.replace('#', ''), 16)
+    const r = (num >> 16) & 0xff
+    const g = (num >> 8) & 0xff
+    const b = num & 0xff
+    return (r * 299 + g * 587 + b * 114) / 1000 < 128
+  } catch {
+    return true
+  }
 }
 
 /** Lighten/darken a hex color by a percentage (-100 to +100) */
