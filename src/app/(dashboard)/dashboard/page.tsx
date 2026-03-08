@@ -176,17 +176,17 @@ export default function DashboardPage() {
               <TimeSeriesChart
                 data={stats.charts.conversationsOverTime}
                 title=""
-                color="#40E9BE"
+                color="var(--accent, #40E9BE)"
               />
             </div>
           </div>
 
           {/* Activity Summary */}
           {stats.overview.avgResponseTime != null && stats.overview.avgResponseTime > 0 && (
-            <div className="rounded-xl bg-gradient-to-br from-[#7DC2A5]/10 to-[#40E9BE]/10 border border-[#7DC2A5]/20 p-4 md:p-6">
+            <div className="rounded-xl bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/20 p-4 md:p-6">
               <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[#7DC2A5]/20">
-                  <Clock className="h-5 w-5 text-[#7DC2A5]" />
+                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/20">
+                  <Clock className="h-5 w-5 text-primary" />
                 </div>
                 <div>
                   <p className="text-sm font-medium">{t('dashboard.ai_performance')}</p>
@@ -229,11 +229,11 @@ function QuickStatCard({
       <div className="flex items-center gap-3">
         <div className={cn(
           'flex h-10 w-10 items-center justify-center rounded-lg',
-          status === 'success' ? 'bg-[#7DC2A5]/10' : 'bg-muted'
+          status === 'success' ? 'bg-primary/10' : 'bg-muted'
         )}>
           <Icon className={cn(
             'h-5 w-5',
-            status === 'success' ? 'text-[#7DC2A5]' : 'text-muted-foreground'
+            status === 'success' ? 'text-primary' : 'text-muted-foreground'
           )} />
         </div>
         <div>
@@ -244,7 +244,7 @@ function QuickStatCard({
               variant={status === 'success' ? 'default' : 'secondary'}
               className={cn(
                 'text-[10px] px-1.5',
-                status === 'success' && 'bg-[#7DC2A5] hover:bg-[#7DC2A5]/80'
+                status === 'success' && 'bg-primary hover:bg-primary/80'
               )}
             >
               {statusLabel}

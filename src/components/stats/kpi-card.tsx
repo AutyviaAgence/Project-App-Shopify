@@ -15,9 +15,9 @@ type KPICardProps = {
 
 const colorClasses = {
   green: {
-    bg: 'bg-[#7DC2A5]/10',
-    icon: 'text-[#7DC2A5]',
-    border: 'border-[#7DC2A5]/20',
+    bg: 'bg-primary/10',
+    icon: 'text-primary',
+    border: 'border-primary/20',
   },
   blue: {
     bg: 'bg-blue-500/10',
