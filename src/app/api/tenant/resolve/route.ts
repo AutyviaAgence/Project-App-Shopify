@@ -1,15 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  { auth: { persistSession: false, autoRefreshToken: false } }
-)
+// Lazy init to avoid crashing at build time when env vars are missing
+let _supabase: SupabaseClient | null = null
+function getSupabase() {
+  if (!_supabase) {
+    _supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { persistSession: false, autoRefreshToken: false } }
+    )
+  }
+  return _supabase
+}
 
 // In-memory cache to avoid hitting DB on every request
 const cache = new Map<string, { data: string; expiry: number }>()
 const CACHE_TTL = 3600_000 // 1 hour
+
+export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
   const domain = req.nextUrl.searchParams.get('domain')
@@ -24,6 +33,8 @@ export async function GET(req: NextRequest) {
   }
 
   // Query DB
+  const supabase = getSupabase()
+
   const { data: tenant } = await supabase
     .from('tenants')
     .select('id, slug, app_name, logo_url, favicon_url, primary_color, accent_color, sidebar_color, support_email')
