@@ -68,7 +68,7 @@ function isTenantCookieValid(cookieValue: string, host: string): boolean {
 const DEFAULT_TENANT = {
   id: '', slug: 'autyvia', appName: 'Autyvia', logoUrl: '/logo.svg',
   faviconUrl: null, primaryColor: '#7DC2A5', accentColor: '#40E9BE',
-  sidebarColor: '#2D3E48', supportEmail: null,
+  sidebarColor: '#2D3E48', bgColor: null, textColor: null, supportEmail: null,
 }
 
 /** Resolve tenant by querying Supabase REST API directly (works in Edge Runtime) */
@@ -77,7 +77,7 @@ async function resolveTenantDirect(domain: string) {
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   if (!supabaseUrl || !supabaseKey) return DEFAULT_TENANT
 
-  const columns = 'id,slug,app_name,logo_url,favicon_url,primary_color,accent_color,sidebar_color,support_email'
+  const columns = 'id,slug,app_name,logo_url,favicon_url,primary_color,accent_color,sidebar_color,bg_color,text_color,support_email'
 
   // Try to find tenant by domain
   const res = await fetch(
@@ -124,6 +124,8 @@ function mapTenant(t: Record<string, unknown>) {
     primaryColor: t.primary_color as string,
     accentColor: t.accent_color as string,
     sidebarColor: t.sidebar_color as string,
+    bgColor: (t.bg_color as string) || null,
+    textColor: (t.text_color as string) || null,
     supportEmail: (t.support_email as string) || null,
   }
 }

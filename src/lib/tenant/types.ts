@@ -7,6 +7,8 @@ export type TenantConfig = {
   primaryColor: string
   accentColor: string
   sidebarColor: string
+  bgColor: string | null
+  textColor: string | null
   supportEmail: string | null
 }
 
@@ -19,5 +21,7 @@ export const DEFAULT_TENANT: TenantConfig = {
   primaryColor: '#7DC2A5',
   accentColor: '#40E9BE',
   sidebarColor: '#2D3E48',
+  bgColor: null,
+  textColor: null,
   supportEmail: null,
 }

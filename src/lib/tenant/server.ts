@@ -24,6 +24,8 @@ export async function getTenantFromCookies(): Promise<TenantConfig> {
       primaryColor: sanitizeColor(parsed.primaryColor) || DEFAULT_TENANT.primaryColor,
       accentColor: sanitizeColor(parsed.accentColor) || DEFAULT_TENANT.accentColor,
       sidebarColor: sanitizeColor(parsed.sidebarColor) || DEFAULT_TENANT.sidebarColor,
+      bgColor: sanitizeColor(parsed.bgColor) || null,
+      textColor: sanitizeColor(parsed.textColor) || null,
       supportEmail: parsed.supportEmail,
     }
   } catch {
@@ -32,7 +34,7 @@ export async function getTenantFromCookies(): Promise<TenantConfig> {
 }
 
 /** Validate that a color value is a safe hex color */
-function sanitizeColor(color: string | undefined): string | null {
+function sanitizeColor(color: string | undefined | null): string | null {
   if (!color) return null
   return /^#[0-9a-fA-F]{3,8}$/.test(color) ? color : null
 }

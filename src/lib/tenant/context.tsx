@@ -1,6 +1,6 @@
 'use client'
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { DEFAULT_TENANT, type TenantConfig } from './types'
 
 const TenantContext = createContext<TenantConfig>(DEFAULT_TENANT)
@@ -25,6 +25,8 @@ export function TenantProvider({ children }: { children: ReactNode }) {
           parsed.primaryColor = sanitizeColor(parsed.primaryColor) || DEFAULT_TENANT.primaryColor
           parsed.accentColor = sanitizeColor(parsed.accentColor) || DEFAULT_TENANT.accentColor
           parsed.sidebarColor = sanitizeColor(parsed.sidebarColor) || DEFAULT_TENANT.sidebarColor
+          parsed.bgColor = sanitizeColor(parsed.bgColor) || null
+          parsed.textColor = sanitizeColor(parsed.textColor) || null
           setTenant(parsed)
         }
       }
@@ -33,32 +35,73 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const cssVars = useMemo(() => buildCssVars(tenant), [tenant])
+
   return (
     <TenantContext.Provider value={tenant}>
-      {/* Inject tenant CSS variables */}
-      <style>{`
-        :root {
-          --primary: ${tenant.primaryColor};
-          --accent: ${tenant.accentColor};
-          --sidebar: ${tenant.sidebarColor};
-          --autyvia-green: ${tenant.primaryColor};
-          --autyvia-turquoise: ${tenant.accentColor};
-          --autyvia-turquoise-dark: ${adjustColor(tenant.accentColor, -20)};
-        }
-      `}</style>
+      <style>{cssVars}</style>
       {children}
     </TenantContext.Provider>
   )
 }
 
+/** Build CSS variable overrides from tenant config */
+function buildCssVars(tenant: TenantConfig): string {
+  const vars: string[] = [
+    `--primary: ${tenant.primaryColor}`,
+    `--accent: ${tenant.accentColor}`,
+    `--sidebar: ${tenant.sidebarColor}`,
+    `--autyvia-green: ${tenant.primaryColor}`,
+    `--autyvia-turquoise: ${tenant.accentColor}`,
+    `--autyvia-turquoise-dark: ${adjustColor(tenant.accentColor, -20)}`,
+    `--ring: ${tenant.primaryColor}`,
+    `--sidebar-primary: ${tenant.primaryColor}`,
+    `--sidebar-ring: ${tenant.primaryColor}`,
+    `--chart-1: ${tenant.primaryColor}`,
+    `--chart-2: ${tenant.accentColor}`,
+    `--chart-3: ${adjustColor(tenant.primaryColor, -15)}`,
+  ]
+
+  // Extended branding: background + text color
+  if (tenant.bgColor) {
+    vars.push(
+      `--background: ${tenant.bgColor}`,
+      `--card: ${adjustColor(tenant.bgColor, 8)}`,
+      `--popover: ${adjustColor(tenant.bgColor, 8)}`,
+      `--secondary: ${adjustColor(tenant.bgColor, 12)}`,
+      `--muted: ${adjustColor(tenant.bgColor, 12)}`,
+      `--border: ${adjustColor(tenant.bgColor, 18)}`,
+      `--input: ${adjustColor(tenant.bgColor, 18)}`,
+      `--sidebar: ${tenant.sidebarColor}`,
+      `--sidebar-accent: ${adjustColor(tenant.sidebarColor, 10)}`,
+      `--sidebar-border: ${adjustColor(tenant.sidebarColor, 15)}`,
+    )
+  }
+
+  if (tenant.textColor) {
+    vars.push(
+      `--foreground: ${tenant.textColor}`,
+      `--card-foreground: ${tenant.textColor}`,
+      `--popover-foreground: ${tenant.textColor}`,
+      `--secondary-foreground: ${tenant.textColor}`,
+      `--accent-foreground: ${tenant.textColor}`,
+      `--muted-foreground: ${adjustColor(tenant.textColor, -20)}`,
+      `--sidebar-foreground: ${tenant.textColor}`,
+      `--sidebar-accent-foreground: ${tenant.textColor}`,
+    )
+  }
+
+  return `:root { ${vars.join('; ')}; }`
+}
+
 /** Validate hex color to prevent CSS injection */
-function sanitizeColor(color: string | undefined): string | null {
+function sanitizeColor(color: string | undefined | null): string | null {
   if (!color) return null
   return /^#[0-9a-fA-F]{3,8}$/.test(color) ? color : null
 }
 
-/** Darken a hex color by a percentage */
-function adjustColor(hex: string, percent: number): string {
+/** Lighten/darken a hex color by a percentage (-100 to +100) */
+export function adjustColor(hex: string, percent: number): string {
   try {
     const num = parseInt(hex.replace('#', ''), 16)
     const r = Math.max(0, Math.min(255, ((num >> 16) & 0xff) + Math.round(2.55 * percent)))

@@ -13,18 +13,24 @@ import {
   ResponsiveContainer,
   Cell,
 } from 'recharts'
+import { useTenant, adjustColor } from '@/lib/tenant/context'
 import type { StatsMessagePoint, StatsTimePoint, StatsLifecycleStage, StatsDevicePoint, StatsCountryPoint, StatsUtmPoint, StatsPeakHourPoint } from '@/types/stats'
 
-// Autyvia brand colors
-const COLORS = {
-  green: '#7DC2A5',
-  turquoise: '#40E9BE',
-  turquoiseDark: '#33B89A',
-  grayDark: '#2D3E48',
-  grayMuted: '#9CAAB5',
-  purple: '#8B5CF6',
-  blue: '#3B82F6',
-  gridLine: '#3D4E58',
+/** Derive chart colors from tenant branding */
+function useChartColors() {
+  const tenant = useTenant()
+  const muted = tenant.textColor ? adjustColor(tenant.textColor, -30) : '#9CAAB5'
+  const grid = tenant.bgColor ? adjustColor(tenant.bgColor, 18) : '#3D4E58'
+  return {
+    primary: tenant.primaryColor,
+    accent: tenant.accentColor,
+    accentDark: adjustColor(tenant.accentColor, -15),
+    muted,
+    purple: '#8B5CF6',
+    blue: '#3B82F6',
+    grid,
+    cursorFill: `${tenant.primaryColor}18`,
+  }
 }
 
 function formatDate(dateStr: string) {
@@ -74,25 +80,26 @@ type MessagesChartProps = {
 }
 
 export function MessagesChart({ data }: MessagesChartProps) {
+  const c = useChartColors()
   return (
     <ResponsiveContainer width="100%" height={280}>
       <BarChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke={COLORS.gridLine} opacity={0.3} />
+        <CartesianGrid strokeDasharray="3 3" stroke={c.grid} opacity={0.3} />
         <XAxis
           dataKey="date"
           tickFormatter={formatDate}
-          tick={{ fill: COLORS.grayMuted, fontSize: 12 }}
-          axisLine={{ stroke: COLORS.gridLine }}
-          tickLine={{ stroke: COLORS.gridLine }}
+          tick={{ fill: c.muted, fontSize: 12 }}
+          axisLine={{ stroke: c.grid }}
+          tickLine={{ stroke: c.grid }}
         />
         <YAxis
-          tick={{ fill: COLORS.grayMuted, fontSize: 12 }}
-          axisLine={{ stroke: COLORS.gridLine }}
-          tickLine={{ stroke: COLORS.gridLine }}
+          tick={{ fill: c.muted, fontSize: 12 }}
+          axisLine={{ stroke: c.grid }}
+          tickLine={{ stroke: c.grid }}
         />
         <Tooltip
           content={<CustomTooltip labelFormatter={formatDate} />}
-          cursor={{ fill: 'rgba(125, 194, 165, 0.1)' }}
+          cursor={{ fill: c.cursorFill }}
         />
         <Legend
           wrapperStyle={{ paddingTop: 16 }}
@@ -102,14 +109,14 @@ export function MessagesChart({ data }: MessagesChartProps) {
           dataKey="outbound"
           name="Envoyés"
           stackId="messages"
-          fill={COLORS.green}
+          fill={c.primary}
           radius={[0, 0, 0, 0]}
         />
         <Bar
           dataKey="inbound"
           name="Reçus"
           stackId="messages"
-          fill={COLORS.turquoise}
+          fill={c.accent}
           radius={[4, 4, 0, 0]}
         />
       </BarChart>
@@ -128,43 +135,44 @@ type TimeSeriesChartProps = {
 export function TimeSeriesChart({
   data,
   title,
-  color = COLORS.turquoise,
+  color,
 }: TimeSeriesChartProps) {
-  // Generate unique gradient ID based on title or random
+  const c = useChartColors()
+  const chartColor = color || c.accent
   const gradientId = `gradient-${title.replace(/\s+/g, '-') || 'default'}`
 
   return (
     <ResponsiveContainer width="100%" height={280}>
       <AreaChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke={COLORS.gridLine} opacity={0.3} />
+        <CartesianGrid strokeDasharray="3 3" stroke={c.grid} opacity={0.3} />
         <XAxis
           dataKey="date"
           tickFormatter={formatDate}
-          tick={{ fill: COLORS.grayMuted, fontSize: 12 }}
-          axisLine={{ stroke: COLORS.gridLine }}
-          tickLine={{ stroke: COLORS.gridLine }}
+          tick={{ fill: c.muted, fontSize: 12 }}
+          axisLine={{ stroke: c.grid }}
+          tickLine={{ stroke: c.grid }}
         />
         <YAxis
-          tick={{ fill: COLORS.grayMuted, fontSize: 12 }}
-          axisLine={{ stroke: COLORS.gridLine }}
-          tickLine={{ stroke: COLORS.gridLine }}
+          tick={{ fill: c.muted, fontSize: 12 }}
+          axisLine={{ stroke: c.grid }}
+          tickLine={{ stroke: c.grid }}
           allowDecimals={false}
         />
         <Tooltip
           content={<CustomTooltip labelFormatter={formatDate} />}
-          cursor={{ stroke: color, strokeWidth: 1, strokeDasharray: '3 3' }}
+          cursor={{ stroke: chartColor, strokeWidth: 1, strokeDasharray: '3 3' }}
         />
         <defs>
           <linearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor={color} stopOpacity={0.4} />
-            <stop offset="95%" stopColor={color} stopOpacity={0.05} />
+            <stop offset="5%" stopColor={chartColor} stopOpacity={0.4} />
+            <stop offset="95%" stopColor={chartColor} stopOpacity={0.05} />
           </linearGradient>
         </defs>
         <Area
           type="monotone"
           dataKey="count"
           name="Nombre"
-          stroke={color}
+          stroke={chartColor}
           fill={`url(#${gradientId})`}
           strokeWidth={2}
         />
@@ -180,29 +188,30 @@ type AgentsComparisonChartProps = {
 }
 
 export function AgentsComparisonChart({ data }: AgentsComparisonChartProps) {
+  const c = useChartColors()
   if (data.length === 0) return null
 
   return (
     <ResponsiveContainer width="100%" height={Math.max(200, data.length * 60)}>
       <BarChart data={data} layout="vertical" margin={{ top: 10, right: 10, left: 10, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke={COLORS.gridLine} opacity={0.3} />
+        <CartesianGrid strokeDasharray="3 3" stroke={c.grid} opacity={0.3} />
         <XAxis
           type="number"
-          tick={{ fill: COLORS.grayMuted, fontSize: 12 }}
-          axisLine={{ stroke: COLORS.gridLine }}
-          tickLine={{ stroke: COLORS.gridLine }}
+          tick={{ fill: c.muted, fontSize: 12 }}
+          axisLine={{ stroke: c.grid }}
+          tickLine={{ stroke: c.grid }}
         />
         <YAxis
           type="category"
           dataKey="name"
           width={120}
-          tick={{ fill: COLORS.grayMuted, fontSize: 12 }}
-          axisLine={{ stroke: COLORS.gridLine }}
-          tickLine={{ stroke: COLORS.gridLine }}
+          tick={{ fill: c.muted, fontSize: 12 }}
+          axisLine={{ stroke: c.grid }}
+          tickLine={{ stroke: c.grid }}
         />
         <Tooltip
           content={<CustomTooltip />}
-          cursor={{ fill: 'rgba(125, 194, 165, 0.1)' }}
+          cursor={{ fill: c.cursorFill }}
         />
         <Legend
           wrapperStyle={{ paddingTop: 16 }}
@@ -211,13 +220,13 @@ export function AgentsComparisonChart({ data }: AgentsComparisonChartProps) {
         <Bar
           dataKey="conversationsManaged"
           name="Conversations"
-          fill={COLORS.green}
+          fill={c.primary}
           radius={[0, 4, 4, 0]}
         />
         <Bar
           dataKey="messagesHandled"
           name="Messages traités"
-          fill={COLORS.turquoise}
+          fill={c.accent}
           radius={[0, 4, 4, 0]}
         />
       </BarChart>
@@ -228,38 +237,39 @@ export function AgentsComparisonChart({ data }: AgentsComparisonChartProps) {
 // --- Contacts Over Time Area Chart ---
 
 export function ContactsOverTimeChart({ data }: { data: StatsTimePoint[] }) {
+  const c = useChartColors()
   return (
     <ResponsiveContainer width="100%" height={280}>
       <AreaChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke={COLORS.gridLine} opacity={0.3} />
+        <CartesianGrid strokeDasharray="3 3" stroke={c.grid} opacity={0.3} />
         <XAxis
           dataKey="date"
           tickFormatter={formatDate}
-          tick={{ fill: COLORS.grayMuted, fontSize: 12 }}
-          axisLine={{ stroke: COLORS.gridLine }}
-          tickLine={{ stroke: COLORS.gridLine }}
+          tick={{ fill: c.muted, fontSize: 12 }}
+          axisLine={{ stroke: c.grid }}
+          tickLine={{ stroke: c.grid }}
         />
         <YAxis
-          tick={{ fill: COLORS.grayMuted, fontSize: 12 }}
-          axisLine={{ stroke: COLORS.gridLine }}
-          tickLine={{ stroke: COLORS.gridLine }}
+          tick={{ fill: c.muted, fontSize: 12 }}
+          axisLine={{ stroke: c.grid }}
+          tickLine={{ stroke: c.grid }}
           allowDecimals={false}
         />
         <Tooltip
           content={<CustomTooltip labelFormatter={formatDate} />}
-          cursor={{ stroke: COLORS.purple, strokeWidth: 1, strokeDasharray: '3 3' }}
+          cursor={{ stroke: c.purple, strokeWidth: 1, strokeDasharray: '3 3' }}
         />
         <defs>
           <linearGradient id="gradient-contacts" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor={COLORS.purple} stopOpacity={0.4} />
-            <stop offset="95%" stopColor={COLORS.purple} stopOpacity={0.05} />
+            <stop offset="5%" stopColor={c.purple} stopOpacity={0.4} />
+            <stop offset="95%" stopColor={c.purple} stopOpacity={0.05} />
           </linearGradient>
         </defs>
         <Area
           type="monotone"
           dataKey="count"
           name="Nouveaux contacts"
-          stroke={COLORS.purple}
+          stroke={c.purple}
           fill="url(#gradient-contacts)"
           strokeWidth={2}
         />
@@ -275,30 +285,31 @@ type StageDistributionChartProps = {
 }
 
 export function StageDistributionChart({ data }: StageDistributionChartProps) {
+  const c = useChartColors()
   if (data.length === 0) return null
 
   return (
     <ResponsiveContainer width="100%" height={Math.max(200, data.length * 50)}>
       <BarChart data={data} layout="vertical" margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke={COLORS.gridLine} opacity={0.3} />
+        <CartesianGrid strokeDasharray="3 3" stroke={c.grid} opacity={0.3} />
         <XAxis
           type="number"
-          tick={{ fill: COLORS.grayMuted, fontSize: 12 }}
-          axisLine={{ stroke: COLORS.gridLine }}
-          tickLine={{ stroke: COLORS.gridLine }}
+          tick={{ fill: c.muted, fontSize: 12 }}
+          axisLine={{ stroke: c.grid }}
+          tickLine={{ stroke: c.grid }}
           allowDecimals={false}
         />
         <YAxis
           type="category"
           dataKey="name"
           width={120}
-          tick={{ fill: COLORS.grayMuted, fontSize: 12 }}
-          axisLine={{ stroke: COLORS.gridLine }}
-          tickLine={{ stroke: COLORS.gridLine }}
+          tick={{ fill: c.muted, fontSize: 12 }}
+          axisLine={{ stroke: c.grid }}
+          tickLine={{ stroke: c.grid }}
         />
         <Tooltip
           content={<CustomTooltip />}
-          cursor={{ fill: 'rgba(125, 194, 165, 0.1)' }}
+          cursor={{ fill: c.cursorFill }}
         />
         <Bar dataKey="count" name="Conversations" radius={[0, 4, 4, 0]}>
           {data.map((entry, index) => (
@@ -317,31 +328,32 @@ type ResponseRateByStageChartProps = {
 }
 
 export function ResponseRateByStageChart({ data }: ResponseRateByStageChartProps) {
+  const c = useChartColors()
   if (data.length === 0) return null
 
   return (
     <ResponsiveContainer width="100%" height={Math.max(200, data.length * 50)}>
       <BarChart data={data} layout="vertical" margin={{ top: 10, right: 20, left: 10, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke={COLORS.gridLine} opacity={0.3} />
+        <CartesianGrid strokeDasharray="3 3" stroke={c.grid} opacity={0.3} />
         <XAxis
           type="number"
           domain={[0, 100]}
-          tick={{ fill: COLORS.grayMuted, fontSize: 12 }}
-          axisLine={{ stroke: COLORS.gridLine }}
-          tickLine={{ stroke: COLORS.gridLine }}
+          tick={{ fill: c.muted, fontSize: 12 }}
+          axisLine={{ stroke: c.grid }}
+          tickLine={{ stroke: c.grid }}
           tickFormatter={(v) => `${v}%`}
         />
         <YAxis
           type="category"
           dataKey="name"
           width={120}
-          tick={{ fill: COLORS.grayMuted, fontSize: 12 }}
-          axisLine={{ stroke: COLORS.gridLine }}
-          tickLine={{ stroke: COLORS.gridLine }}
+          tick={{ fill: c.muted, fontSize: 12 }}
+          axisLine={{ stroke: c.grid }}
+          tickLine={{ stroke: c.grid }}
         />
         <Tooltip
           content={<CustomTooltip />}
-          cursor={{ fill: 'rgba(125, 194, 165, 0.1)' }}
+          cursor={{ fill: c.cursorFill }}
         />
         <Bar dataKey="responseRate" name="Taux de réponse" radius={[0, 4, 4, 0]}>
           {data.map((entry, index) => (
@@ -361,28 +373,29 @@ type TransitionsOverTimeChartProps = {
 }
 
 export function TransitionsOverTimeChart({ data, stages }: TransitionsOverTimeChartProps) {
+  const c = useChartColors()
   if (data.length === 0 || stages.length === 0) return null
 
   return (
     <ResponsiveContainer width="100%" height={280}>
       <AreaChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke={COLORS.gridLine} opacity={0.3} />
+        <CartesianGrid strokeDasharray="3 3" stroke={c.grid} opacity={0.3} />
         <XAxis
           dataKey="date"
           tickFormatter={formatDate}
-          tick={{ fill: COLORS.grayMuted, fontSize: 12 }}
-          axisLine={{ stroke: COLORS.gridLine }}
-          tickLine={{ stroke: COLORS.gridLine }}
+          tick={{ fill: c.muted, fontSize: 12 }}
+          axisLine={{ stroke: c.grid }}
+          tickLine={{ stroke: c.grid }}
         />
         <YAxis
-          tick={{ fill: COLORS.grayMuted, fontSize: 12 }}
-          axisLine={{ stroke: COLORS.gridLine }}
-          tickLine={{ stroke: COLORS.gridLine }}
+          tick={{ fill: c.muted, fontSize: 12 }}
+          axisLine={{ stroke: c.grid }}
+          tickLine={{ stroke: c.grid }}
           allowDecimals={false}
         />
         <Tooltip
           content={<CustomTooltip labelFormatter={formatDate} />}
-          cursor={{ stroke: COLORS.grayMuted, strokeWidth: 1, strokeDasharray: '3 3' }}
+          cursor={{ stroke: c.muted, strokeWidth: 1, strokeDasharray: '3 3' }}
         />
         <Legend
           wrapperStyle={{ paddingTop: 16 }}
@@ -415,26 +428,27 @@ export function TransitionsOverTimeChart({ data, stages }: TransitionsOverTimeCh
 
 // --- Device Breakdown Horizontal Bar Chart ---
 
-const DEVICE_COLORS: Record<string, string> = {
-  mobile: COLORS.turquoise,
-  desktop: COLORS.blue,
-  tablet: COLORS.purple,
-  unknown: COLORS.grayMuted,
-}
-
 export function DeviceBreakdownChart({ data }: { data: StatsDevicePoint[] }) {
+  const c = useChartColors()
+  const deviceColors: Record<string, string> = {
+    mobile: c.accent,
+    desktop: c.blue,
+    tablet: c.purple,
+    unknown: c.muted,
+  }
+
   if (data.length === 0) return null
 
   return (
     <ResponsiveContainer width="100%" height={Math.max(150, data.length * 50)}>
       <BarChart data={data} layout="vertical" margin={{ top: 5, right: 20, left: 10, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke={COLORS.gridLine} opacity={0.3} />
-        <XAxis type="number" tick={{ fill: COLORS.grayMuted, fontSize: 12 }} allowDecimals={false} />
-        <YAxis type="category" dataKey="type" width={80} tick={{ fill: COLORS.grayMuted, fontSize: 12 }} />
-        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(125,194,165,0.1)' }} />
+        <CartesianGrid strokeDasharray="3 3" stroke={c.grid} opacity={0.3} />
+        <XAxis type="number" tick={{ fill: c.muted, fontSize: 12 }} allowDecimals={false} />
+        <YAxis type="category" dataKey="type" width={80} tick={{ fill: c.muted, fontSize: 12 }} />
+        <Tooltip content={<CustomTooltip />} cursor={{ fill: c.cursorFill }} />
         <Bar dataKey="count" name="Clics" radius={[0, 4, 4, 0]}>
           {data.map((entry, i) => (
-            <Cell key={i} fill={DEVICE_COLORS[entry.type] ?? COLORS.grayMuted} />
+            <Cell key={i} fill={deviceColors[entry.type] ?? c.muted} />
           ))}
         </Bar>
       </BarChart>
@@ -445,16 +459,17 @@ export function DeviceBreakdownChart({ data }: { data: StatsDevicePoint[] }) {
 // --- Country Breakdown Horizontal Bar Chart ---
 
 export function CountryBreakdownChart({ data }: { data: StatsCountryPoint[] }) {
+  const c = useChartColors()
   if (data.length === 0) return null
 
   return (
     <ResponsiveContainer width="100%" height={Math.max(200, data.length * 40)}>
       <BarChart data={data} layout="vertical" margin={{ top: 5, right: 20, left: 20, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke={COLORS.gridLine} opacity={0.3} />
-        <XAxis type="number" tick={{ fill: COLORS.grayMuted, fontSize: 12 }} allowDecimals={false} />
-        <YAxis type="category" dataKey="country" width={50} tick={{ fill: COLORS.grayMuted, fontSize: 12 }} />
-        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(125,194,165,0.1)' }} />
-        <Bar dataKey="count" name="Clics" fill={COLORS.green} radius={[0, 4, 4, 0]} />
+        <CartesianGrid strokeDasharray="3 3" stroke={c.grid} opacity={0.3} />
+        <XAxis type="number" tick={{ fill: c.muted, fontSize: 12 }} allowDecimals={false} />
+        <YAxis type="category" dataKey="country" width={50} tick={{ fill: c.muted, fontSize: 12 }} />
+        <Tooltip content={<CustomTooltip />} cursor={{ fill: c.cursorFill }} />
+        <Bar dataKey="count" name="Clics" fill={c.primary} radius={[0, 4, 4, 0]} />
       </BarChart>
     </ResponsiveContainer>
   )
@@ -463,16 +478,17 @@ export function CountryBreakdownChart({ data }: { data: StatsCountryPoint[] }) {
 // --- UTM Source Breakdown Horizontal Bar Chart ---
 
 export function UtmBreakdownChart({ data }: { data: StatsUtmPoint[] }) {
+  const c = useChartColors()
   if (data.length === 0) return null
 
   return (
     <ResponsiveContainer width="100%" height={Math.max(150, data.length * 45)}>
       <BarChart data={data} layout="vertical" margin={{ top: 5, right: 20, left: 80, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke={COLORS.gridLine} opacity={0.3} />
-        <XAxis type="number" tick={{ fill: COLORS.grayMuted, fontSize: 12 }} allowDecimals={false} />
-        <YAxis type="category" dataKey="source" width={80} tick={{ fill: COLORS.grayMuted, fontSize: 12 }} />
-        <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(125,194,165,0.1)' }} />
-        <Bar dataKey="count" name="Clics" fill={COLORS.purple} radius={[0, 4, 4, 0]} />
+        <CartesianGrid strokeDasharray="3 3" stroke={c.grid} opacity={0.3} />
+        <XAxis type="number" tick={{ fill: c.muted, fontSize: 12 }} allowDecimals={false} />
+        <YAxis type="category" dataKey="source" width={80} tick={{ fill: c.muted, fontSize: 12 }} />
+        <Tooltip content={<CustomTooltip />} cursor={{ fill: c.cursorFill }} />
+        <Bar dataKey="count" name="Clics" fill={c.purple} radius={[0, 4, 4, 0]} />
       </BarChart>
     </ResponsiveContainer>
   )
@@ -481,23 +497,24 @@ export function UtmBreakdownChart({ data }: { data: StatsUtmPoint[] }) {
 // --- Peak Hours Bar Chart (24 bars, 0h-23h) ---
 
 export function PeakHoursChart({ data }: { data: StatsPeakHourPoint[] }) {
+  const c = useChartColors()
   if (data.length === 0) return null
 
   return (
     <ResponsiveContainer width="100%" height={220}>
       <BarChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke={COLORS.gridLine} opacity={0.3} />
+        <CartesianGrid strokeDasharray="3 3" stroke={c.grid} opacity={0.3} />
         <XAxis
           dataKey="hour"
           tickFormatter={(h: number) => `${h}h`}
-          tick={{ fill: COLORS.grayMuted, fontSize: 11 }}
+          tick={{ fill: c.muted, fontSize: 11 }}
         />
-        <YAxis tick={{ fill: COLORS.grayMuted, fontSize: 12 }} allowDecimals={false} />
+        <YAxis tick={{ fill: c.muted, fontSize: 12 }} allowDecimals={false} />
         <Tooltip
           content={<CustomTooltip labelFormatter={(h) => `${h}h00`} />}
-          cursor={{ fill: 'rgba(64,233,190,0.1)' }}
+          cursor={{ fill: c.cursorFill }}
         />
-        <Bar dataKey="count" name="Clics" fill={COLORS.turquoise} radius={[3, 3, 0, 0]} />
+        <Bar dataKey="count" name="Clics" fill={c.accent} radius={[3, 3, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>
   )

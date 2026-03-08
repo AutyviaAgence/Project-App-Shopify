@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
 
   const { data: tenant } = await supabase
     .from('tenants')
-    .select('id, slug, app_name, logo_url, favicon_url, primary_color, accent_color, sidebar_color, support_email')
+    .select('id, slug, app_name, logo_url, favicon_url, primary_color, accent_color, sidebar_color, bg_color, text_color, support_email')
     .eq('domain', domain)
     .single()
 
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
     // Fallback to default tenant
     const { data: defaultTenant } = await supabase
       .from('tenants')
-      .select('id, slug, app_name, logo_url, favicon_url, primary_color, accent_color, sidebar_color, support_email')
+      .select('id, slug, app_name, logo_url, favicon_url, primary_color, accent_color, sidebar_color, bg_color, text_color, support_email')
       .eq('is_default', true)
       .single()
 
@@ -71,6 +71,8 @@ function mapTenantConfig(tenant: Record<string, unknown> | null) {
       primaryColor: '#7DC2A5',
       accentColor: '#40E9BE',
       sidebarColor: '#2D3E48',
+      bgColor: null,
+      textColor: null,
       supportEmail: null,
     }
   }
@@ -83,6 +85,8 @@ function mapTenantConfig(tenant: Record<string, unknown> | null) {
     primaryColor: tenant.primary_color as string,
     accentColor: tenant.accent_color as string,
     sidebarColor: tenant.sidebar_color as string,
+    bgColor: (tenant.bg_color as string) || null,
+    textColor: (tenant.text_color as string) || null,
     supportEmail: (tenant.support_email as string) || null,
   }
 }
