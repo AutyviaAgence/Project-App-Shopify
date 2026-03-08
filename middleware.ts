@@ -20,25 +20,15 @@ export async function middleware(request: NextRequest) {
   // Resolve tenant if no cookie or host changed
   if (!tenantCookie || !isTenantCookieValid(tenantCookie.value, host)) {
     try {
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${host}`
-      const resolveUrl = new URL('/api/tenant/resolve', appUrl)
-      resolveUrl.searchParams.set('domain', host.split(':')[0]) // strip port
-
-      const res = await fetch(resolveUrl.toString(), {
-        headers: { 'x-middleware-internal': '1' },
+      const domain = host.split(':')[0] // strip port
+      const tenantConfig = await resolveTenantDirect(domain)
+      const cookieValue = JSON.stringify({ ...tenantConfig, _host: domain })
+      supabaseResponse.cookies.set('x-tenant', cookieValue, {
+        path: '/',
+        maxAge: 3600, // 1 hour
+        httpOnly: false, // needs to be readable by client JS
+        sameSite: 'lax',
       })
-
-      if (res.ok) {
-        const tenantConfig = await res.json()
-        // Store in cookie with host for validation
-        const cookieValue = JSON.stringify({ ...tenantConfig, _host: host.split(':')[0] })
-        supabaseResponse.cookies.set('x-tenant', cookieValue, {
-          path: '/',
-          maxAge: 3600, // 1 hour
-          httpOnly: false, // needs to be readable by client JS
-          sameSite: 'lax',
-        })
-      }
     } catch {
       // Continue without tenant — will use defaults
     }
@@ -72,6 +62,69 @@ function isTenantCookieValid(cookieValue: string, host: string): boolean {
     return parsed._host === host.split(':')[0]
   } catch {
     return false
+  }
+}
+
+const DEFAULT_TENANT = {
+  id: '', slug: 'autyvia', appName: 'Autyvia', logoUrl: '/logo.svg',
+  faviconUrl: null, primaryColor: '#7DC2A5', accentColor: '#40E9BE',
+  sidebarColor: '#2D3E48', supportEmail: null,
+}
+
+/** Resolve tenant by querying Supabase REST API directly (works in Edge Runtime) */
+async function resolveTenantDirect(domain: string) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  if (!supabaseUrl || !supabaseKey) return DEFAULT_TENANT
+
+  const columns = 'id,slug,app_name,logo_url,favicon_url,primary_color,accent_color,sidebar_color,support_email'
+
+  // Try to find tenant by domain
+  const res = await fetch(
+    `${supabaseUrl}/rest/v1/tenants?select=${columns}&domain=eq.${encodeURIComponent(domain)}&limit=1`,
+    {
+      headers: {
+        apikey: supabaseKey,
+        Authorization: `Bearer ${supabaseKey}`,
+      },
+    }
+  )
+
+  if (res.ok) {
+    const rows = await res.json()
+    if (rows.length > 0) return mapTenant(rows[0])
+  }
+
+  // Fallback: default tenant
+  const fallback = await fetch(
+    `${supabaseUrl}/rest/v1/tenants?select=${columns}&is_default=eq.true&limit=1`,
+    {
+      headers: {
+        apikey: supabaseKey,
+        Authorization: `Bearer ${supabaseKey}`,
+      },
+    }
+  )
+
+  if (fallback.ok) {
+    const rows = await fallback.json()
+    if (rows.length > 0) return mapTenant(rows[0])
+  }
+
+  return DEFAULT_TENANT
+}
+
+function mapTenant(t: Record<string, unknown>) {
+  return {
+    id: t.id as string,
+    slug: t.slug as string,
+    appName: t.app_name as string,
+    logoUrl: t.logo_url as string,
+    faviconUrl: (t.favicon_url as string) || null,
+    primaryColor: t.primary_color as string,
+    accentColor: t.accent_color as string,
+    sidebarColor: t.sidebar_color as string,
+    supportEmail: (t.support_email as string) || null,
   }
 }
 
