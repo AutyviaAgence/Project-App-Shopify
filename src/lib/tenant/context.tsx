@@ -28,6 +28,12 @@ export function TenantProvider({ children }: { children: ReactNode }) {
           parsed.bgColor = sanitizeColor(parsed.bgColor) || null
           parsed.textColor = sanitizeColor(parsed.textColor) || null
           setTenant(parsed)
+
+          // Force dark mode when tenant has a dark background
+          if (parsed.bgColor && isDarkColor(parsed.bgColor)) {
+            document.documentElement.classList.add('dark')
+            document.documentElement.style.colorScheme = 'dark'
+          }
         }
       }
     } catch {
@@ -101,6 +107,21 @@ function buildCssVars(tenant: TenantConfig): string {
   }
 
   return `:root { ${vars.join('; ')}; }`
+}
+
+/** Check if a hex color is dark (luminance < 50%) */
+function isDarkColor(hex: string): boolean {
+  try {
+    const num = parseInt(hex.replace('#', ''), 16)
+    const r = (num >> 16) & 0xff
+    const g = (num >> 8) & 0xff
+    const b = num & 0xff
+    // Relative luminance formula
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+    return luminance < 0.5
+  } catch {
+    return false
+  }
 }
 
 /** Validate hex color to prevent CSS injection */
