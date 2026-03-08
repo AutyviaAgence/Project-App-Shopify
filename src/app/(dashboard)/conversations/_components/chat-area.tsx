@@ -143,7 +143,7 @@ export function ChatArea({
               onClick={onOpenProfile}
               className="flex items-center gap-3 flex-1 min-w-0 hover:opacity-80 transition-opacity"
             >
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-[#7DC2A5] to-[#40E9BE] text-white text-sm font-medium">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full text-white text-sm font-medium" style={{ background: `linear-gradient(to bottom right, var(--primary, #7DC2A5), var(--accent, #40E9BE))` }}>
                 {getContactInitials(selectedConv)}
               </div>
               <div className="min-w-0 flex-1 text-left">
@@ -298,26 +298,26 @@ export function ChatArea({
                         )}
                       >
                         {isAI && (
-                          <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-medium text-[#7DC2A5]">
+                          <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-medium text-[var(--primary,#7DC2A5)]">
                             <Bot className="h-3 w-3" />
                             {(msg as typeof msg & { agent_name?: string }).agent_name || t('conversations.agent_ia')}
                           </div>
                         )}
                         {/* Tool executions */}
                         {(msg as typeof msg & { tool_executions?: { name: string; result: string; success: boolean; durationMs: number }[] }).tool_executions?.map((te, j) => (
-                          <div key={j} className="mb-1.5 rounded-lg border border-dashed border-[#7DC2A5]/30 px-2.5 py-1 text-[10px]">
+                          <div key={j} className="mb-1.5 rounded-lg border border-dashed border-[var(--primary,#7DC2A5)]/30 px-2.5 py-1 text-[10px]">
                             <div className="flex items-center gap-1.5">
-                              <Wrench className="h-3 w-3 text-[#7DC2A5]/70 shrink-0" />
-                              <span className="font-mono font-medium text-[#7DC2A5]/90 truncate">{te.name}</span>
+                              <Wrench className="h-3 w-3 text-[var(--primary,#7DC2A5)]/70 shrink-0" />
+                              <span className="font-mono font-medium text-[var(--primary,#7DC2A5)]/90 truncate">{te.name}</span>
                               {te.success ? (
                                 <CheckCircle className="h-3 w-3 text-green-400 shrink-0" />
                               ) : (
                                 <XCircle className="h-3 w-3 text-red-400 shrink-0" />
                               )}
-                              <span className="text-[#7DC2A5]/50 shrink-0">{te.durationMs}ms</span>
+                              <span className="text-[var(--primary,#7DC2A5)]/50 shrink-0">{te.durationMs}ms</span>
                             </div>
                             {te.result && (
-                              <pre className="mt-0.5 max-h-16 overflow-auto whitespace-pre-wrap break-all text-[9px] text-[#7DC2A5]/50 bg-black/10 rounded px-1.5 py-0.5">{te.result.slice(0, 300)}</pre>
+                              <pre className="mt-0.5 max-h-16 overflow-auto whitespace-pre-wrap break-all text-[9px] text-[var(--primary,#7DC2A5)]/50 bg-black/10 rounded px-1.5 py-0.5">{te.result.slice(0, 300)}</pre>
                             )}
                           </div>
                         ))}
@@ -326,7 +326,7 @@ export function ChatArea({
                           className={cn(
                             'mt-1.5 text-[10px]',
                             isAI
-                              ? 'text-[#7DC2A5]/70'
+                              ? 'text-[var(--primary,#7DC2A5)]/70'
                               : isOutbound
                                 ? 'text-white/70'
                                 : 'text-muted-foreground'

@@ -62,6 +62,12 @@ function buildCssVars(tenant: TenantConfig): string {
     `--chart-3: ${adjustColor(tenant.primaryColor, -15)}`,
   ]
 
+  // Message bubble colors — always set (derived from primary/accent)
+  vars.push(
+    `--bubble-outgoing: ${tenant.primaryColor}`,
+    `--bubble-outgoing-text: #FFFFFF`,
+  )
+
   // Extended branding: background + text color
   if (tenant.bgColor) {
     vars.push(
@@ -75,6 +81,9 @@ function buildCssVars(tenant: TenantConfig): string {
       `--sidebar: ${tenant.sidebarColor}`,
       `--sidebar-accent: ${adjustColor(tenant.sidebarColor, 10)}`,
       `--sidebar-border: ${adjustColor(tenant.sidebarColor, 15)}`,
+      // Bubble colors for dark backgrounds
+      `--bubble-incoming: ${adjustColor(tenant.bgColor, 12)}`,
+      `--bubble-incoming-text: ${tenant.textColor || '#F5F7FA'}`,
     )
   }
 

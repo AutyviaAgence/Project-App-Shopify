@@ -220,25 +220,33 @@
     display: none;
   }
 
-  /* Message bubbles */
+  /* Message bubbles — uses CSS vars from tenant for theming */
   .bubble-incoming {
-    @apply bg-[#F5F7FA] text-[#2D3E48] rounded-2xl rounded-bl-md;
+    @apply rounded-2xl rounded-bl-md;
+    background: var(--bubble-incoming, #F5F7FA);
+    color: var(--bubble-incoming-text, #2D3E48);
   }
 
   .dark .bubble-incoming {
-    @apply bg-[#3D4E58] text-[#F5F7FA];
+    background: var(--bubble-incoming, #3D4E58);
+    color: var(--bubble-incoming-text, #F5F7FA);
   }
 
   .bubble-outgoing {
-    @apply bg-[#7DC2A5] text-white rounded-2xl rounded-br-md;
+    @apply rounded-2xl rounded-br-md;
+    background: var(--bubble-outgoing, var(--primary, #7DC2A5));
+    color: var(--bubble-outgoing-text, #FFFFFF);
   }
 
   .bubble-ai {
-    @apply bg-gradient-to-br from-[#7DC2A5]/10 to-[#40E9BE]/10 border border-[#7DC2A5]/20 text-[#2D3E48] rounded-2xl rounded-bl-md;
+    @apply border rounded-2xl rounded-bl-md;
+    background: linear-gradient(to bottom right, color-mix(in srgb, var(--primary, #7DC2A5) 10%, transparent), color-mix(in srgb, var(--accent, #40E9BE) 10%, transparent));
+    border-color: color-mix(in srgb, var(--primary, #7DC2A5) 20%, transparent);
+    color: var(--bubble-incoming-text, #2D3E48);
   }
 
   .dark .bubble-ai {
-    @apply text-[#F5F7FA];
+    color: var(--bubble-incoming-text, #F5F7FA);
   }
 }
 

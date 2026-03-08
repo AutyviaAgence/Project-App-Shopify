@@ -369,7 +369,7 @@ export function ConversationList({
                       'flex h-11 w-11 items-center justify-center rounded-full text-sm font-medium',
                       isSelected
                         ? 'bg-primary text-primary-foreground'
-                        : 'bg-gradient-to-br from-[#7DC2A5] to-[#40E9BE] text-white'
+                        : 'text-white' + ' bg-gradient-to-br from-[var(--primary,#7DC2A5)] to-[var(--accent,#40E9BE)]'
                     )}>
                       {getContactInitials(conv)}
                     </div>
@@ -448,7 +448,7 @@ export function ConversationList({
                         </Badge>
                       )}
                       {conv.is_ai_active && (
-                        <Badge className="h-4 px-1.5 text-[9px] bg-[#7DC2A5]/10 text-[#7DC2A5] hover:bg-[#7DC2A5]/20 border-0">
+                        <Badge className="h-4 px-1.5 text-[9px] bg-primary/10 text-primary hover:bg-primary/20 border-0">
                           <Bot className="mr-0.5 h-2.5 w-2.5" />
                           {locale === 'fr' ? 'IA' : 'AI'}
                         </Badge>
