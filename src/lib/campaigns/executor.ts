@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { checkTokenLimit, recordTokenUsage } from '@/lib/openai/token-tracker'
 import { withSessionDelay } from '@/lib/messaging/session-queue'
 import { evolution } from '@/lib/evolution/client'
+import { decryptMessage } from '@/lib/crypto/encryption'
 
 /**
  * Exécuteur de campagnes de relance WhatsApp
@@ -394,13 +395,14 @@ async function sendWhatsAppMessage(
   try {
     // WABA : utiliser l'API Meta Graph directement
     if (session.integration_type === 'waba') {
-      if (!session.waba_phone_number_id || !session.waba_access_token) {
+      const token = session.waba_access_token ? decryptMessage(session.waba_access_token) : null
+      if (!session.waba_phone_number_id || !token) {
         return { success: false, error: 'Credentials WABA manquants' }
       }
       const response = await fetch(`https://graph.facebook.com/v22.0/${session.waba_phone_number_id}/messages`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${session.waba_access_token}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({

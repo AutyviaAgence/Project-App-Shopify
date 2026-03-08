@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { evolution } from '@/lib/evolution/client'
 import { wabaClient } from '@/lib/whatsapp-cloud/client'
+import { decryptMessage } from '@/lib/crypto/encryption'
 
 /** Strip sensitive fields before sending session data to client */
 function sanitizeSession(session: Record<string, unknown>) {
@@ -37,9 +38,10 @@ export async function GET(
   // WABA : vérifier le token en appelant Meta Graph API
   if (session.integration_type === 'waba') {
     try {
+      const decryptedToken = session.waba_access_token ? decryptMessage(session.waba_access_token) : ''
       const phoneInfo = await wabaClient.getPhoneNumber(
         session.waba_phone_number_id!,
-        session.waba_access_token!
+        decryptedToken
       )
       const newStatus = phoneInfo.ok ? 'connected' : 'disconnected'
       if (newStatus !== session.status) {

@@ -1,5 +1,6 @@
 -- Migration: Link new users to their tenant on signup
--- The tenant_id is passed via user metadata from the registration form
+-- The tenant is resolved server-side from the signup_domain metadata (hostname)
+-- This prevents tenant_id spoofing via client-controlled metadata
 
 CREATE OR REPLACE FUNCTION handle_new_user()
 RETURNS TRIGGER
@@ -9,11 +10,16 @@ SET search_path = public
 AS $$
 DECLARE
   resolved_tenant_id UUID;
+  signup_host TEXT;
 BEGIN
-  -- Try to get tenant_id from user metadata (set during registration)
-  resolved_tenant_id := (NEW.raw_user_meta_data->>'tenant_id')::UUID;
+  -- Resolve tenant from the domain the user signed up from
+  signup_host := NEW.raw_user_meta_data->>'signup_domain';
 
-  -- Fallback to default tenant if not specified
+  IF signup_host IS NOT NULL AND signup_host != '' THEN
+    SELECT id INTO resolved_tenant_id FROM tenants WHERE domain = signup_host LIMIT 1;
+  END IF;
+
+  -- Fallback to default tenant if domain not found
   IF resolved_tenant_id IS NULL THEN
     SELECT id INTO resolved_tenant_id FROM tenants WHERE is_default = true LIMIT 1;
   END IF;

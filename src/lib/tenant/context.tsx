@@ -21,6 +21,10 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         const value = decodeURIComponent(tenantCookie.split('=').slice(1).join('='))
         const parsed = JSON.parse(value) as TenantConfig
         if (parsed.slug) {
+          // Sanitize color values to prevent CSS injection
+          parsed.primaryColor = sanitizeColor(parsed.primaryColor) || DEFAULT_TENANT.primaryColor
+          parsed.accentColor = sanitizeColor(parsed.accentColor) || DEFAULT_TENANT.accentColor
+          parsed.sidebarColor = sanitizeColor(parsed.sidebarColor) || DEFAULT_TENANT.sidebarColor
           setTenant(parsed)
         }
       }
@@ -45,6 +49,12 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       {children}
     </TenantContext.Provider>
   )
+}
+
+/** Validate hex color to prevent CSS injection */
+function sanitizeColor(color: string | undefined): string | null {
+  if (!color) return null
+  return /^#[0-9a-fA-F]{3,8}$/.test(color) ? color : null
 }
 
 /** Darken a hex color by a percentage */

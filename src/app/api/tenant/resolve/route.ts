@@ -1,22 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 
-// Lazy init to avoid crashing at build time when env vars are missing
+// Use anon key (least privilege — tenants table has public read RLS)
 let _supabase: SupabaseClient | null = null
 function getSupabase() {
   if (!_supabase) {
     _supabase = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       { auth: { persistSession: false, autoRefreshToken: false } }
     )
   }
   return _supabase
 }
 
-// In-memory cache to avoid hitting DB on every request
+// In-memory cache with size limit to prevent memory exhaustion
 const cache = new Map<string, { data: string; expiry: number }>()
 const CACHE_TTL = 3600_000 // 1 hour
+const MAX_CACHE_SIZE = 100
 
 export const dynamic = 'force-dynamic'
 
@@ -87,6 +88,11 @@ function mapTenantConfig(tenant: Record<string, unknown> | null) {
 }
 
 function cacheResult(domain: string, config: Record<string, unknown>) {
+  // Evict oldest entries if cache is full
+  if (cache.size >= MAX_CACHE_SIZE) {
+    const firstKey = cache.keys().next().value
+    if (firstKey) cache.delete(firstKey)
+  }
   cache.set(domain, {
     data: JSON.stringify(config),
     expiry: Date.now() + CACHE_TTL,

@@ -41,7 +41,7 @@ function RegisterForm() {
       email,
       password,
       options: {
-        data: { full_name: fullName, ...(tenant.id ? { tenant_id: tenant.id } : {}) },
+        data: { full_name: fullName, signup_domain: window.location.hostname },
       },
     })
 

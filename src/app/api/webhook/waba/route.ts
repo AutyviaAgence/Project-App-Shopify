@@ -5,7 +5,7 @@ import { processAIResponse } from '@/lib/openai/process-ai-response'
 import { withSessionDelay } from '@/lib/messaging/session-queue'
 import { analyzeConversationLifecycle } from '@/lib/openai/lifecycle-analyzer'
 import { processWabaMediaMessage } from '@/lib/openai/media-processor'
-import { encryptMessage } from '@/lib/crypto/encryption'
+import { encryptMessage, decryptMessage } from '@/lib/crypto/encryption'
 import { uploadMedia } from '@/lib/storage/media'
 import { wabaClient } from '@/lib/whatsapp-cloud/client'
 import { recordTokenUsage } from '@/lib/openai/token-tracker'
@@ -131,6 +131,11 @@ export async function POST(req: NextRequest) {
         if (!session) {
           console.warn('[WABA Webhook] No session found for phone_number_id:', phoneNumberId)
           continue
+        }
+
+        // Decrypt waba_access_token if encrypted
+        if (session.waba_access_token) {
+          session.waba_access_token = decryptMessage(session.waba_access_token)
         }
 
         // Traiter les statuts de messages (delivered, read, etc.)

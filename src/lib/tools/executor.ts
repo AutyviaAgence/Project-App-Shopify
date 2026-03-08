@@ -14,8 +14,6 @@ function getAdminClient() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY!
   if (!key) {
     console.error('[Tools] SUPABASE_SERVICE_ROLE_KEY is not set!')
-  } else {
-    console.log('[Tools] Admin client using service role key:', key.substring(0, 20) + '...')
   }
   return createAdminSupabase(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },

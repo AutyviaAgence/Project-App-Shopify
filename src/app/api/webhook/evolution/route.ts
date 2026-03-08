@@ -7,7 +7,7 @@ import { processMediaMessage, detectMessageType, getBase64Data, getMimeType } fr
 import { recordTokenUsage } from '@/lib/openai/token-tracker'
 import { evolution } from '@/lib/evolution/client'
 import { syncContactsFromWhatsApp } from '@/lib/evolution/sync-contacts'
-import { encryptMessage } from '@/lib/crypto/encryption'
+import { encryptMessage, decryptMessage } from '@/lib/crypto/encryption'
 import { uploadMedia } from '@/lib/storage/media'
 import { checkRateLimit } from '@/lib/rate-limit'
 
@@ -735,7 +735,7 @@ export async function POST(req: NextRequest) {
                   integration_type: (session.integration_type || 'evolution') as 'evolution' | 'waba',
                   instance_name: session.instance_name,
                   waba_phone_number_id: session.waba_phone_number_id || null,
-                  waba_access_token: session.waba_access_token || null,
+                  waba_access_token: session.waba_access_token ? decryptMessage(session.waba_access_token) : null,
                 },
               })
             )

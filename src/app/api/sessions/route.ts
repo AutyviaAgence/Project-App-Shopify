@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { evolution } from '@/lib/evolution/client'
+import { encryptMessage } from '@/lib/crypto/encryption'
 import { getUserTeamIds, getUserTeamPermissions, buildAccessFilter, filterSessionsByPermissions } from '@/lib/teams/access'
 import type { WhatsAppSession } from '@/types/database'
 
@@ -68,7 +69,7 @@ export async function POST(req: NextRequest) {
         integration_type: 'waba',
         waba_phone_number_id,
         waba_business_account_id: waba_business_account_id,
-        waba_access_token,
+        waba_access_token: encryptMessage(waba_access_token),
       })
       .select()
       .single()

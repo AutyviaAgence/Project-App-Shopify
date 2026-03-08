@@ -2,7 +2,14 @@ import 'server-only'
 
 import { evolution } from '@/lib/evolution/client'
 import { wabaClient } from '@/lib/whatsapp-cloud/client'
+import { decryptMessage } from '@/lib/crypto/encryption'
 import type { WhatsAppSession } from '@/types/database'
+
+/** Decrypt waba_access_token if it's encrypted */
+export function decryptWabaToken(session: Pick<WhatsAppSession, 'waba_access_token'>): string | null {
+  if (!session.waba_access_token) return null
+  return decryptMessage(session.waba_access_token)
+}
 
 type SendResult = { ok: true; data: unknown } | { ok: false; error: string }
 
@@ -16,12 +23,13 @@ export async function sendMessage(
   text: string
 ): Promise<SendResult> {
   if (session.integration_type === 'waba') {
-    if (!session.waba_phone_number_id || !session.waba_access_token) {
+    const token = decryptWabaToken(session)
+    if (!session.waba_phone_number_id || !token) {
       return { ok: false, error: 'Credentials WABA manquants sur la session' }
     }
     return wabaClient.sendText(
       session.waba_phone_number_id,
-      session.waba_access_token,
+      token,
       phoneNumber,
       text
     )
@@ -46,14 +54,15 @@ export async function sendMediaMessage(
   }
 ): Promise<SendResult> {
   if (session.integration_type === 'waba') {
-    if (!session.waba_phone_number_id || !session.waba_access_token) {
+    const token = decryptWabaToken(session)
+    if (!session.waba_phone_number_id || !token) {
       return { ok: false, error: 'Credentials WABA manquants sur la session' }
     }
 
     // Étape 1 : Upload vers Meta
     const uploadResult = await wabaClient.uploadMedia(
       session.waba_phone_number_id,
-      session.waba_access_token,
+      token,
       opts.buffer,
       opts.mimetype,
       opts.fileName || 'file'
@@ -67,13 +76,13 @@ export async function sendMediaMessage(
     // Étape 2 : Envoyer le message avec le media_id
     switch (opts.mediatype) {
       case 'image':
-        return wabaClient.sendImage(session.waba_phone_number_id, session.waba_access_token, phoneNumber, mediaId, opts.caption)
+        return wabaClient.sendImage(session.waba_phone_number_id, token, phoneNumber, mediaId, opts.caption)
       case 'audio':
-        return wabaClient.sendAudio(session.waba_phone_number_id, session.waba_access_token, phoneNumber, mediaId)
+        return wabaClient.sendAudio(session.waba_phone_number_id, token, phoneNumber, mediaId)
       case 'video':
-        return wabaClient.sendVideo(session.waba_phone_number_id, session.waba_access_token, phoneNumber, mediaId, opts.caption)
+        return wabaClient.sendVideo(session.waba_phone_number_id, token, phoneNumber, mediaId, opts.caption)
       case 'document':
-        return wabaClient.sendDocument(session.waba_phone_number_id, session.waba_access_token, phoneNumber, mediaId, opts.fileName)
+        return wabaClient.sendDocument(session.waba_phone_number_id, token, phoneNumber, mediaId, opts.fileName)
     }
   }
 
