@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient, createAdminClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { encryptMessage, decryptMessage } from '@/lib/crypto/encryption'
 
 /** GET /api/credentials/[id] — Get a single credential */
@@ -116,16 +117,27 @@ export async function DELETE(
     return NextResponse.json({ error: 'Credential introuvable' }, { status: 404 })
   }
 
-  // Use admin client to bypass RLS for delete (RLS verified above via ownership check)
-  const adminSupabase = await createAdminClient()
-  const { error } = await adminSupabase
+  // Use a pure admin client (no cookies/SSR) to bypass RLS for delete
+  const adminSupabase = createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+
+  const { data: deleted, error } = await adminSupabase
     .from('oauth_credentials')
     .delete()
     .eq('id', id)
     .eq('user_id', user.id)
+    .select('id')
+
+  console.log(`[DELETE credential] id=${id} user=${user.id} deleted=`, deleted, 'error=', error)
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  if (!deleted || deleted.length === 0) {
+    return NextResponse.json({ error: 'Suppression échouée — aucune ligne affectée' }, { status: 500 })
   }
 
   return NextResponse.json({ ok: true })

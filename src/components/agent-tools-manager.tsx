@@ -683,12 +683,13 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                         if (!confirm(`Supprimer "${cred.name}" ? Les outils associés perdront leur connexion OAuth.`)) return
                         try {
                           const res = await fetch(`/api/credentials/${cred.id}`, { method: 'DELETE' })
-                          if (!res.ok) throw new Error()
+                          const body = await res.json()
+                          if (!res.ok) throw new Error(body?.error || 'Erreur inconnue')
                           toast.success('Credential supprimé')
                           fetchCredentials()
                           fetchTools() // refresh tools that may have lost their credential
-                        } catch {
-                          toast.error('Erreur lors de la suppression')
+                        } catch (err) {
+                          toast.error(`Erreur : ${err instanceof Error ? err.message : 'suppression échouée'}`)
                         }
                       }}
                     >
