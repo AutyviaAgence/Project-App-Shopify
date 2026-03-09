@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import crypto from 'crypto'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { validateToolUrl } from '@/lib/tools/security'
 
 /** GET /api/booking/[agentId] — Redirection trackée vers le lien de RDV */
 export async function GET(
@@ -130,17 +131,12 @@ export async function GET(
     }
   }
 
-  // Valider l'URL de booking avant de rediriger (éviter open redirect)
-  let bookingUrl: URL
-  try {
-    bookingUrl = new URL(agent.booking_url)
-    if (!['http:', 'https:'].includes(bookingUrl.protocol)) {
-      return NextResponse.json({ error: 'URL de rendez-vous invalide' }, { status: 400 })
-    }
-  } catch {
-    return NextResponse.json({ error: 'URL de rendez-vous invalide' }, { status: 400 })
+  // Validate booking URL — block SSRF (private IPs, localhost) and open redirect
+  const urlCheck = validateToolUrl(agent.booking_url)
+  if (!urlCheck.valid) {
+    return NextResponse.json({ error: urlCheck.error || 'URL de rendez-vous invalide' }, { status: 400 })
   }
 
   // Rediriger vers le lien de RDV
-  return NextResponse.redirect(bookingUrl.toString(), 302)
+  return NextResponse.redirect(agent.booking_url, 302)
 }

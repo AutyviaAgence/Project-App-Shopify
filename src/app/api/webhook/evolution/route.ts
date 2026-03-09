@@ -69,18 +69,29 @@ function containsOptOutKeyword(message: string, keywords: string[]): string | nu
  * Utilise le service_role car pas d'auth utilisateur ici
  */
 export async function POST(req: NextRequest) {
-  // Validate webhook secret — check URL token or header
-  // Evolution API can send a secret via webhook-secret header (if configured)
-  // or we validate via a ?secret= query parameter in the webhook URL
+  // Validate webhook secret via header (preferred) or URL param (legacy)
   const webhookSecret = process.env.EVOLUTION_WEBHOOK_SECRET
   if (!webhookSecret) {
     console.error('[Evolution Webhook] EVOLUTION_WEBHOOK_SECRET is not configured — rejecting request (fail-closed)')
     return NextResponse.json({ error: 'Webhook not configured' }, { status: 500 })
   }
-  const urlSecret = new URL(req.url).searchParams.get('secret')
   const headerSecret = req.headers.get('webhook-secret')
-  if (urlSecret !== webhookSecret && headerSecret !== webhookSecret) {
-    console.warn('[Evolution Webhook] Invalid webhook secret rejected')
+  const urlSecret = new URL(req.url).searchParams.get('secret')
+  // Prefer header-based auth; URL param kept for backward compat but logged as deprecation
+  if (headerSecret) {
+    if (headerSecret !== webhookSecret) {
+      console.warn('[Evolution Webhook] Invalid header secret rejected')
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+  } else if (urlSecret) {
+    if (urlSecret !== webhookSecret) {
+      console.warn('[Evolution Webhook] Invalid URL secret rejected')
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    // URL secret works but is less secure (visible in logs/proxies)
+    console.warn('[Evolution Webhook] Using deprecated URL-based secret — migrate to header-based webhook-secret')
+  } else {
+    console.warn('[Evolution Webhook] No secret provided — rejected')
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
-import { createHmac } from 'crypto'
+import { createHmac, timingSafeEqual } from 'crypto'
 import { processAIResponse } from '@/lib/openai/process-ai-response'
 import { withSessionDelay } from '@/lib/messaging/session-queue'
 import { analyzeConversationLifecycle } from '@/lib/openai/lifecycle-analyzer'
@@ -47,7 +47,11 @@ async function validateWebhookSignature(req: NextRequest): Promise<{ valid: bool
 
   const body = await req.text()
   const expectedSig = 'sha256=' + createHmac('sha256', appSecret).update(body).digest('hex')
-  return { valid: signature === expectedSig, body }
+  // Use timing-safe comparison to prevent timing oracle attacks
+  const sigBuf = Buffer.from(signature)
+  const expectedBuf = Buffer.from(expectedSig)
+  const valid = sigBuf.length === expectedBuf.length && timingSafeEqual(sigBuf, expectedBuf)
+  return { valid, body }
 }
 
 /**

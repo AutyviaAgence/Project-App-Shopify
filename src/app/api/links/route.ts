@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { randomBytes } from 'crypto'
 import { createClient } from '@/lib/supabase/server'
 import { getUserTeamIds, getUserTeamPermissions, buildAccessFilter, filterLinksByPermissions } from '@/lib/teams/access'
 import type { WALink } from '@/types/database'
@@ -119,7 +120,7 @@ export async function POST(req: Request) {
   }
 
   // Générer un slug si non fourni
-  const finalSlug = slug?.trim() || Math.random().toString(36).substring(2, 10)
+  const finalSlug = slug?.trim() || randomBytes(6).toString('base64url')
 
   const { data: link, error } = await supabase
     .from('wa_links')

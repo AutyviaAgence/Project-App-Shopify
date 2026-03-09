@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getStripe } from '@/lib/stripe/client'
 import { getSubscriptionEndDate } from '@/lib/stripe/helpers'
 import { createClient } from '@supabase/supabase-js'
+import { checkRateLimit } from '@/lib/rate-limit'
 import type Stripe from 'stripe'
 
 // Stripe v20+ a supprimé subscription/payment_intent de Invoice,
@@ -33,6 +34,10 @@ async function getTenantAppName(supabase: any, userId: string): Promise<string> 
 }
 
 export async function POST(req: NextRequest) {
+  // Rate limit webhook endpoint
+  const rateLimitResponse = checkRateLimit(req, 'WEBHOOK')
+  if (rateLimitResponse) return rateLimitResponse
+
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET
   if (!webhookSecret) {
     console.error('[Stripe Webhook] STRIPE_WEBHOOK_SECRET is not set')

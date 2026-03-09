@@ -21,6 +21,7 @@ export async function GET(
       id,
       role,
       status,
+      created_at,
       teams (
         id,
         name,
@@ -33,6 +34,12 @@ export async function GET(
 
   if (error || !invitation) {
     return NextResponse.json({ error: 'Invitation introuvable ou expirée' }, { status: 404 })
+  }
+
+  // Reject invitations older than 7 days
+  const INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000
+  if (Date.now() - new Date(invitation.created_at).getTime() > INVITATION_TTL_MS) {
+    return NextResponse.json({ error: 'Invitation expirée' }, { status: 410 })
   }
 
   return NextResponse.json({
@@ -70,6 +77,12 @@ export async function POST(
 
   if (invError || !invitation) {
     return NextResponse.json({ error: 'Invitation introuvable ou expirée' }, { status: 404 })
+  }
+
+  // Reject invitations older than 7 days
+  const INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000
+  if (Date.now() - new Date(invitation.created_at).getTime() > INVITATION_TTL_MS) {
+    return NextResponse.json({ error: 'Invitation expirée' }, { status: 410 })
   }
 
   // Vérifier si l'utilisateur n'est pas déjà membre

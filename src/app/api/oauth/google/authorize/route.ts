@@ -30,7 +30,10 @@ export async function POST(req: NextRequest) {
     userId: user.id,
     ts: Date.now(),
   })
-  const hmacSecret = process.env.SUPABASE_SERVICE_ROLE_KEY || 'fallback-secret'
+  const hmacSecret = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!hmacSecret) {
+    return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 })
+  }
   const signature = createHmac('sha256', hmacSecret).update(stateData).digest('hex').slice(0, 16)
   const statePayload = JSON.stringify({ d: stateData, s: signature })
   const state = Buffer.from(statePayload).toString('base64url')
