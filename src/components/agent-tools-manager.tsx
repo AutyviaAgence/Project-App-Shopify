@@ -40,6 +40,8 @@ import {
   ChevronLeft,
   ExternalLink,
   CheckCircle,
+  Copy,
+  Check,
 } from 'lucide-react'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 
@@ -611,6 +613,11 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                 </Select>
               </div>
 
+              {/* OAuth redirect URI helper */}
+              {isOAuthTool(selectedTemplate.type) && (
+                <OAuthRedirectUri />
+              )}
+
               {/* Auth fields */}
               <div className="space-y-3 border-t pt-3">
                 <Label className="text-xs font-medium">{t('tools.credentials')}</Label>
@@ -812,6 +819,34 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
         title={t('tools.delete_title')}
         description={t('tools.delete_desc', { name: toolToDelete?.name || '' })}
       />
+    </div>
+  )
+}
+
+function OAuthRedirectUri() {
+  const [copied, setCopied] = useState(false)
+  const redirectUri = `${window.location.origin}/api/oauth/google/callback`
+
+  function handleCopy() {
+    navigator.clipboard.writeText(redirectUri)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <div className="space-y-2 border-t pt-3">
+      <Label className="text-xs font-medium">URI de redirection autorisée</Label>
+      <p className="text-[10px] text-muted-foreground">
+        Copiez cette URL et ajoutez-la dans <strong>Google Cloud Console</strong> → Identifiants → votre Client OAuth → <strong>URI de redirection autorisés</strong>
+      </p>
+      <div className="flex items-center gap-2">
+        <code className="flex-1 text-[11px] bg-muted px-3 py-2 rounded-md border break-all select-all">
+          {redirectUri}
+        </code>
+        <Button size="sm" variant="outline" className="h-8 w-8 p-0 shrink-0" onClick={handleCopy}>
+          {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+        </Button>
+      </div>
     </div>
   )
 }
