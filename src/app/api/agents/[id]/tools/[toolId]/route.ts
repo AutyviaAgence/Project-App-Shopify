@@ -75,7 +75,7 @@ export async function DELETE(
 
   // Verify ownership via agent (old tools may have user_id = NULL)
   const { data: agent } = await supabase
-    .from('agents')
+    .from('ai_agents')
     .select('id')
     .eq('id', id)
     .eq('user_id', user.id)
