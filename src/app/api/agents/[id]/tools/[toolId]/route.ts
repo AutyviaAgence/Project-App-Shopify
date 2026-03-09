@@ -73,17 +73,16 @@ export async function DELETE(
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  // Verify ownership first
-  const { data: existing } = await supabase
-    .from('agent_tools')
+  // Verify ownership via agent (old tools may have user_id = NULL)
+  const { data: agent } = await supabase
+    .from('agents')
     .select('id')
-    .eq('id', toolId)
-    .eq('agent_id', id)
+    .eq('id', id)
     .eq('user_id', user.id)
     .single()
 
-  if (!existing) {
-    return NextResponse.json({ error: 'Outil introuvable' }, { status: 404 })
+  if (!agent) {
+    return NextResponse.json({ error: 'Agent introuvable' }, { status: 404 })
   }
 
   // Use pure admin client (no cookies) to bypass RLS for delete
@@ -97,7 +96,6 @@ export async function DELETE(
     .delete()
     .eq('id', toolId)
     .eq('agent_id', id)
-    .eq('user_id', user.id)
     .select('id')
 
   if (error) {
