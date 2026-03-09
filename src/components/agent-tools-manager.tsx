@@ -802,19 +802,19 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                       <Button
                         size="sm"
                         variant={credentialMode === 'existing' ? 'default' : 'outline'}
-                        className="flex-1 text-xs h-8"
+                        className="flex-1 text-xs h-8 min-w-0"
                         onClick={() => setCredentialMode('existing')}
                         disabled={credentials.filter(c => c.provider === 'google').length === 0}
                       >
-                        Credential existant
+                        Existant
                       </Button>
                       <Button
                         size="sm"
                         variant={credentialMode === 'new' ? 'default' : 'outline'}
-                        className="flex-1 text-xs h-8"
+                        className="flex-1 text-xs h-8 min-w-0"
                         onClick={() => setCredentialMode('new')}
                       >
-                        Nouveau credential
+                        Nouveau
                       </Button>
                     </div>
 
