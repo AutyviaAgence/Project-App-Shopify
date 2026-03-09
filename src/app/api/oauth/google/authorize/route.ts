@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { buildGoogleAuthUrl } from '@/lib/oauth/google'
+import { decryptMessage } from '@/lib/crypto/encryption'
 import { createHmac } from 'crypto'
 
 /**
  * POST /api/oauth/google/authorize
- * Body: { clientId, clientSecret, toolId, agentId, toolType }
- * Stores credentials temporarily in the tool config, then redirects to Google OAuth
+ * Body: { clientId, clientSecret, toolId, agentId, toolType, credentialId? }
+ * When credentialId is provided, reads client_id/secret from oauth_credentials.
  */
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -17,10 +18,32 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { clientId, clientSecret, toolId, agentId, toolType, credentialId } = body
+  const { toolId, agentId, toolType, credentialId } = body
+  let { clientId, clientSecret } = body
 
-  if (!clientId || !clientSecret || !toolId || !agentId) {
+  if (!toolId || !agentId) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+  }
+
+  // If using a shared credential, resolve client_id/secret from DB
+  if (credentialId) {
+    const { data: cred, error: credError } = await supabase
+      .from('oauth_credentials')
+      .select('client_id, client_secret')
+      .eq('id', credentialId)
+      .eq('user_id', user.id)
+      .single()
+
+    if (credError || !cred) {
+      return NextResponse.json({ error: 'Credential introuvable' }, { status: 404 })
+    }
+
+    clientId = cred.client_id
+    clientSecret = decryptMessage(cred.client_secret)
+  }
+
+  if (!clientId || !clientSecret) {
+    return NextResponse.json({ error: 'Missing client_id or client_secret' }, { status: 400 })
   }
 
   // Build state payload with HMAC signature to prevent CSRF/forgery

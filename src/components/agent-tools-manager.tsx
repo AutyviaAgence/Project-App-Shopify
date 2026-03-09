@@ -359,13 +359,11 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
         if (needsOAuth) {
           const toolId = json.data?.id
           if (toolId) {
-            // Get client_id/secret from credential or form
-            const oauthClientId = clientIdForOAuth || formConfig.client_id
-            const oauthClientSecret = clientSecretForOAuth || formConfig.client_secret
-            if (oauthClientId && oauthClientSecret) {
-              await startOAuthFlow(toolId, selectedTemplate.type, credentialId, oauthClientId, oauthClientSecret)
-              return
-            }
+            // When using shared credential, server resolves client_id/secret from DB
+            const oauthClientId = clientIdForOAuth || formConfig.client_id || ''
+            const oauthClientSecret = clientSecretForOAuth || formConfig.client_secret || ''
+            await startOAuthFlow(toolId, selectedTemplate.type, credentialId, oauthClientId, oauthClientSecret)
+            return
           }
         }
 
