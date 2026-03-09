@@ -221,6 +221,25 @@ export type AgentTool = {
   permissions: ToolPermission
   is_active: boolean
   rate_limit: number
+  credential_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+export type OAuthCredential = {
+  id: string
+  user_id: string
+  team_id: string | null
+  name: string
+  provider: string
+  client_id: string
+  client_secret: string
+  access_token: string | null
+  refresh_token: string | null
+  token_expires_at: string | null
+  scopes: string | null
+  metadata: Record<string, unknown>
+  is_connected: boolean
   created_at: string
   updated_at: string
 }
@@ -595,6 +614,12 @@ export type Database = {
         Row: AgentTool
         Insert: Partial<AgentTool> & Pick<AgentTool, 'agent_id' | 'user_id' | 'name' | 'description'>
         Update: Partial<AgentTool>
+        Relationships: []
+      }
+      oauth_credentials: {
+        Row: OAuthCredential
+        Insert: Partial<OAuthCredential> & Pick<OAuthCredential, 'user_id' | 'name' | 'client_id' | 'client_secret'>
+        Update: Partial<OAuthCredential>
         Relationships: []
       }
       tool_execution_logs: {

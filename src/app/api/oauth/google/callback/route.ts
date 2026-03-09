@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { exchangeCodeForTokens } from '@/lib/oauth/google'
 import { encryptToolConfig } from '@/lib/tools/executor'
+import { encryptMessage } from '@/lib/crypto/encryption'
 import { createHmac } from 'crypto'
 
 /**
@@ -30,7 +31,7 @@ export async function GET(req: NextRequest) {
   }
 
   // Decode state and verify HMAC signature (prevent CSRF)
-  let state: { toolId: string; agentId: string; userId: string; ts?: number }
+  let state: { toolId: string; agentId: string; userId: string; credentialId?: string; ts?: number }
   try {
     const stateWrapper = JSON.parse(Buffer.from(stateB64, 'base64url').toString())
 
@@ -70,30 +71,53 @@ export async function GET(req: NextRequest) {
     )
   }
 
-  // Fetch the tool to get client_id and client_secret
-  const { data: tool, error: toolError } = await supabase
-    .from('agent_tools')
-    .select('*')
-    .eq('id', state.toolId)
-    .eq('agent_id', state.agentId)
-    .eq('user_id', user.id)
-    .single()
+  // Resolve client_id / client_secret from credential or tool config
+  let clientId: string
+  let clientSecret: string
 
-  if (toolError || !tool) {
-    return NextResponse.redirect(
-      `${appUrl}/agents?oauth_error=${encodeURIComponent('Tool not found')}`
-    )
+  if (state.credentialId) {
+    // Shared credential — get client_id/secret from oauth_credentials
+    const { decryptMessage } = await import('@/lib/crypto/encryption')
+    const { data: cred, error: credError } = await supabase
+      .from('oauth_credentials')
+      .select('client_id, client_secret')
+      .eq('id', state.credentialId)
+      .eq('user_id', user.id)
+      .single()
+
+    if (credError || !cred) {
+      return NextResponse.redirect(
+        `${appUrl}/agents?oauth_error=${encodeURIComponent('Credential not found')}`
+      )
+    }
+
+    clientId = cred.client_id
+    clientSecret = decryptMessage(cred.client_secret)
+  } else {
+    // Legacy — get from tool config
+    const { data: tool, error: toolError } = await supabase
+      .from('agent_tools')
+      .select('*')
+      .eq('id', state.toolId)
+      .eq('agent_id', state.agentId)
+      .eq('user_id', user.id)
+      .single()
+
+    if (toolError || !tool) {
+      return NextResponse.redirect(
+        `${appUrl}/agents?oauth_error=${encodeURIComponent('Tool not found')}`
+      )
+    }
+
+    const { decryptToolConfig } = await import('@/lib/tools/executor')
+    const config = decryptToolConfig(tool.config as Record<string, unknown>)
+    clientId = config.client_id as string
+    clientSecret = config.client_secret as string
   }
-
-  // Decrypt existing config to get client_id / client_secret
-  const { decryptToolConfig } = await import('@/lib/tools/executor')
-  const config = decryptToolConfig(tool.config as Record<string, unknown>)
-  const clientId = config.client_id as string
-  const clientSecret = config.client_secret as string
 
   if (!clientId || !clientSecret) {
     return NextResponse.redirect(
-      `${appUrl}/agents?oauth_error=${encodeURIComponent('Missing OAuth credentials in tool config')}`
+      `${appUrl}/agents?oauth_error=${encodeURIComponent('Missing OAuth credentials')}`
     )
   }
 
@@ -107,23 +131,60 @@ export async function GET(req: NextRequest) {
       redirectUri,
     })
 
-    // Update tool config with tokens
-    const updatedConfig = encryptToolConfig({
-      ...config,
-      access_token: tokens.access_token,
-      refresh_token: tokens.refresh_token,
-      token_expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
-      oauth_connected: true,
-    })
+    const tokenExpiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString()
 
-    await supabase
-      .from('agent_tools')
-      .update({
-        config: updatedConfig,
-        updated_at: new Date().toISOString(),
+    if (state.credentialId) {
+      // Store tokens in the shared credential
+      await supabase
+        .from('oauth_credentials')
+        .update({
+          access_token: encryptMessage(tokens.access_token),
+          refresh_token: encryptMessage(tokens.refresh_token),
+          token_expires_at: tokenExpiresAt,
+          is_connected: true,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', state.credentialId)
+        .eq('user_id', user.id)
+
+      // Mark the tool as oauth_connected too
+      await supabase
+        .from('agent_tools')
+        .update({
+          config: { oauth_connected: true },
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', state.toolId)
+        .eq('user_id', user.id)
+    } else {
+      // Legacy: store tokens in tool config
+      const { data: tool } = await supabase
+        .from('agent_tools')
+        .select('config')
+        .eq('id', state.toolId)
+        .eq('user_id', user.id)
+        .single()
+
+      const { decryptToolConfig } = await import('@/lib/tools/executor')
+      const existingConfig = tool ? decryptToolConfig(tool.config as Record<string, unknown>) : {}
+
+      const updatedConfig = encryptToolConfig({
+        ...existingConfig,
+        access_token: tokens.access_token,
+        refresh_token: tokens.refresh_token,
+        token_expires_at: tokenExpiresAt,
+        oauth_connected: true,
       })
-      .eq('id', state.toolId)
-      .eq('user_id', user.id)
+
+      await supabase
+        .from('agent_tools')
+        .update({
+          config: updatedConfig,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', state.toolId)
+        .eq('user_id', user.id)
+    }
 
     return NextResponse.redirect(
       `${appUrl}/agents?oauth_success=true&tool_id=${state.toolId}`

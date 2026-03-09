@@ -90,7 +90,7 @@ export async function POST(
   }
 
   const body = await req.json()
-  const { tool_type, name, description, config, permissions, rate_limit } = body
+  const { tool_type, name, description, config, permissions, rate_limit, credential_id } = body
 
   if (!name || !description || !tool_type) {
     return NextResponse.json({ error: 'name, description et tool_type sont requis' }, { status: 400 })
@@ -118,6 +118,7 @@ export async function POST(
       config: encryptedConfig,
       permissions: permissions || 'read',
       rate_limit: rate_limit || 60,
+      credential_id: credential_id || null,
     })
     .select()
     .single()

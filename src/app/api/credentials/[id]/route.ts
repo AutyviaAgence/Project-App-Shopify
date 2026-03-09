@@ -1,0 +1,123 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+import { encryptMessage, decryptMessage } from '@/lib/crypto/encryption'
+
+/** GET /api/credentials/[id] — Get a single credential */
+export async function GET(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params
+  const supabase = await createClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  }
+
+  const { data: cred, error } = await supabase
+    .from('oauth_credentials')
+    .select('*')
+    .eq('id', id)
+    .eq('user_id', user.id)
+    .single()
+
+  if (error || !cred) {
+    return NextResponse.json({ error: 'Credential introuvable' }, { status: 404 })
+  }
+
+  return NextResponse.json({
+    data: {
+      ...cred,
+      client_secret: maskSecret(decryptMessage(cred.client_secret)),
+      access_token: cred.access_token ? '••••••••' : null,
+      refresh_token: cred.refresh_token ? '••••••••' : null,
+    },
+  })
+}
+
+/** PATCH /api/credentials/[id] — Update a credential */
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params
+  const supabase = await createClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  }
+
+  // Verify ownership
+  const { data: existing } = await supabase
+    .from('oauth_credentials')
+    .select('id')
+    .eq('id', id)
+    .eq('user_id', user.id)
+    .single()
+
+  if (!existing) {
+    return NextResponse.json({ error: 'Credential introuvable' }, { status: 404 })
+  }
+
+  const body = await req.json()
+  const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
+
+  if (body.name) updates.name = body.name
+  if (body.client_id) updates.client_id = body.client_id
+  if (body.client_secret) updates.client_secret = encryptMessage(body.client_secret)
+  if (body.team_id !== undefined) updates.team_id = body.team_id || null
+
+  const { data: updated, error } = await supabase
+    .from('oauth_credentials')
+    .update(updates)
+    .eq('id', id)
+    .eq('user_id', user.id)
+    .select()
+    .single()
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  return NextResponse.json({
+    data: {
+      ...updated,
+      client_secret: '••••••••',
+      access_token: updated.access_token ? '••••••••' : null,
+      refresh_token: updated.refresh_token ? '••••••••' : null,
+    },
+  })
+}
+
+/** DELETE /api/credentials/[id] — Delete a credential */
+export async function DELETE(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params
+  const supabase = await createClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  }
+
+  const { error } = await supabase
+    .from('oauth_credentials')
+    .delete()
+    .eq('id', id)
+    .eq('user_id', user.id)
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  return NextResponse.json({ ok: true })
+}
+
+function maskSecret(value: string): string {
+  if (!value || value.length <= 8) return '••••••••'
+  return value.slice(0, 4) + '••••' + value.slice(-4)
+}

@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { clientId, clientSecret, toolId, agentId, toolType } = body
+  const { clientId, clientSecret, toolId, agentId, toolType, credentialId } = body
 
   if (!clientId || !clientSecret || !toolId || !agentId) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -28,6 +28,7 @@ export async function POST(req: NextRequest) {
     toolId,
     agentId,
     userId: user.id,
+    credentialId: credentialId || undefined,
     ts: Date.now(),
   })
   const hmacSecret = process.env.SUPABASE_SERVICE_ROLE_KEY

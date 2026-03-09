@@ -97,6 +97,45 @@ export function buildOpenAITools(tools: AgentTool[]) {
 // Execute a tool call
 // ============================================================
 
+// ============================================================
+// Credential resolution (shared oauth_credentials or inline)
+// ============================================================
+
+async function resolveToolConfig(
+  tool: AgentTool
+): Promise<{ config: Record<string, unknown>; credentialId: string | null }> {
+  const baseConfig = decryptToolConfig(tool.config)
+
+  if (!tool.credential_id) {
+    return { config: baseConfig, credentialId: null }
+  }
+
+  const supabase = getAdminClient()
+  const { data: cred, error } = await supabase
+    .from('oauth_credentials')
+    .select('*')
+    .eq('id', tool.credential_id)
+    .single()
+
+  if (error || !cred) {
+    console.error('[Tools] Credential not found:', tool.credential_id)
+    throw new Error('Referenced OAuth credential not found. Please reconnect.')
+  }
+
+  // Merge credential fields into config (credential wins over inline)
+  return {
+    config: {
+      ...baseConfig,
+      client_id: cred.client_id,
+      client_secret: decryptMessage(cred.client_secret),
+      access_token: cred.access_token ? decryptMessage(cred.access_token) : baseConfig.access_token,
+      refresh_token: cred.refresh_token ? decryptMessage(cred.refresh_token) : baseConfig.refresh_token,
+      token_expires_at: cred.token_expires_at || baseConfig.token_expires_at,
+    },
+    credentialId: cred.id,
+  }
+}
+
 export async function executeToolCall(
   tool: AgentTool,
   fn: ToolFunction,
@@ -105,7 +144,7 @@ export async function executeToolCall(
 ): Promise<{ success: boolean; result: string; durationMs: number }> {
   const startTime = Date.now()
   const supabase = getAdminClient()
-  const config = decryptToolConfig(tool.config)
+  const { config, credentialId } = await resolveToolConfig(tool)
   const cleanArgs = sanitizeParams(args)
 
   // Check rate limit
@@ -135,7 +174,7 @@ export async function executeToolCall(
     if (tool.tool_type === 'custom') {
       result = await executeCustomTool(config, fn.name, cleanArgs)
     } else {
-      result = await executeTemplateTool(tool, tool.tool_type, config, fn.name, cleanArgs)
+      result = await executeTemplateTool(tool, tool.tool_type, config, fn.name, cleanArgs, credentialId)
     }
 
     const truncated = truncateResponse(result, MAX_RESPONSE_BYTES)
@@ -182,7 +221,8 @@ export async function executeToolCall(
 
 async function ensureValidAccessToken(
   tool: AgentTool,
-  config: Record<string, unknown>
+  config: Record<string, unknown>,
+  credentialId?: string | null
 ): Promise<string> {
   const accessToken = config.access_token as string
   const refreshToken = config.refresh_token as string
@@ -205,23 +245,36 @@ async function ensureValidAccessToken(
   }
 
   // Token expired or no expiry info — refresh it
-  console.log(`[Tools] Refreshing OAuth token for tool ${tool.id}`)
+  console.log(`[Tools] Refreshing OAuth token for tool ${tool.id}${credentialId ? ` (credential ${credentialId})` : ''}`)
   try {
     const tokens = await refreshAccessToken({ refreshToken, clientId, clientSecret })
     const newExpiresAt = new Date(Date.now() + tokens.expires_in * 1000).toISOString()
 
-    // Update config in DB with new token
     const supabase = getAdminClient()
-    const updatedConfig = encryptToolConfig({
-      ...config,
-      access_token: tokens.access_token,
-      token_expires_at: newExpiresAt,
-    })
 
-    await supabase
-      .from('agent_tools')
-      .update({ config: updatedConfig, updated_at: new Date().toISOString() })
-      .eq('id', tool.id)
+    if (credentialId) {
+      // Update the shared credential
+      await supabase
+        .from('oauth_credentials')
+        .update({
+          access_token: encryptMessage(tokens.access_token),
+          token_expires_at: newExpiresAt,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', credentialId)
+    } else {
+      // Legacy: update inline in agent_tools
+      const updatedConfig = encryptToolConfig({
+        ...config,
+        access_token: tokens.access_token,
+        token_expires_at: newExpiresAt,
+      })
+
+      await supabase
+        .from('agent_tools')
+        .update({ config: updatedConfig, updated_at: new Date().toISOString() })
+        .eq('id', tool.id)
+    }
 
     return tokens.access_token
   } catch (err) {
@@ -239,11 +292,12 @@ async function executeTemplateTool(
   toolType: string,
   config: Record<string, unknown>,
   functionName: string,
-  args: Record<string, unknown>
+  args: Record<string, unknown>,
+  credentialId?: string | null
 ): Promise<string> {
   switch (toolType) {
     case 'google_calendar':
-      return executeGoogleCalendar(tool, config, functionName, args)
+      return executeGoogleCalendar(tool, config, functionName, args, credentialId)
     case 'shopify':
       return executeShopify(config, functionName, args)
     case 'woocommerce':
@@ -251,7 +305,7 @@ async function executeTemplateTool(
     case 'stripe':
       return executeStripe(config, functionName, args)
     case 'google_sheets':
-      return executeGoogleSheets(tool, config, functionName, args)
+      return executeGoogleSheets(tool, config, functionName, args, credentialId)
     default:
       throw new Error(`Unknown template: ${toolType}`)
   }
@@ -262,9 +316,10 @@ async function executeGoogleCalendar(
   tool: AgentTool,
   config: Record<string, unknown>,
   functionName: string,
-  args: Record<string, unknown>
+  args: Record<string, unknown>,
+  credentialId?: string | null
 ): Promise<string> {
-  const accessToken = await ensureValidAccessToken(tool, config)
+  const accessToken = await ensureValidAccessToken(tool, config, credentialId)
   const calendarId = (config.calendar_id as string) || 'primary'
   const baseUrl = 'https://www.googleapis.com/calendar/v3'
 
@@ -663,9 +718,10 @@ async function executeGoogleSheets(
   tool: AgentTool,
   config: Record<string, unknown>,
   functionName: string,
-  args: Record<string, unknown>
+  args: Record<string, unknown>,
+  credentialId?: string | null
 ): Promise<string> {
-  const accessToken = await ensureValidAccessToken(tool, config)
+  const accessToken = await ensureValidAccessToken(tool, config, credentialId)
   const spreadsheetId = config.spreadsheet_id as string
   const baseUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}`
   const headers = { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }

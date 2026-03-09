@@ -24,6 +24,7 @@ export async function PATCH(
   if (body.permissions !== undefined) updates.permissions = body.permissions
   if (body.is_active !== undefined) updates.is_active = body.is_active
   if (body.rate_limit !== undefined) updates.rate_limit = body.rate_limit
+  if (body.credential_id !== undefined) updates.credential_id = body.credential_id || null
 
   if (body.config !== undefined) {
     // Validate URLs for custom tools
