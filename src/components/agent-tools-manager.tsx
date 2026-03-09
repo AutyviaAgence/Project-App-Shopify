@@ -463,11 +463,12 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
 
     try {
       const res = await fetch(`/api/agents/${agentId}/tools/${toolToDelete.id}`, { method: 'DELETE' })
-      if (!res.ok) throw new Error()
+      const body = await res.json()
+      if (!res.ok) throw new Error(body?.error || 'Erreur inconnue')
       setTools(prev => prev.filter(t => t.id !== toolToDelete.id))
       toast.success(t('tools.tool_deleted'))
-    } catch {
-      toast.error(t('tools.delete_error'))
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : t('tools.delete_error'))
     } finally {
       setDeleteDialogOpen(false)
       setToolToDelete(null)
