@@ -42,6 +42,7 @@ import {
   CheckCircle,
   Copy,
   Check,
+  KeyRound,
 } from 'lucide-react'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 
@@ -638,6 +639,66 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
               </CardContent>
             </Card>
           ))}
+        </div>
+      )}
+
+      {/* OAuth Credentials */}
+      {credentials.length > 0 && (
+        <div className="space-y-2 mt-6">
+          <h3 className="text-sm font-medium flex items-center gap-1.5">
+            <KeyRound className="h-4 w-4" />
+            Credentials OAuth
+          </h3>
+          <p className="text-xs text-muted-foreground">
+            Vos credentials Google réutilisables sur tous vos agents.
+          </p>
+          <div className="space-y-2">
+            {credentials.map(cred => (
+              <Card key={cred.id}>
+                <CardContent className="py-3 px-4">
+                  <div className="flex items-center gap-3">
+                    <KeyRound className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium truncate">{cred.name}</span>
+                        <Badge variant="outline" className="text-[10px] shrink-0">{cred.provider}</Badge>
+                        {cred.is_connected ? (
+                          <Badge variant="default" className="text-[10px] shrink-0 gap-1 bg-green-600">
+                            <CheckCircle className="h-2.5 w-2.5" />
+                            Connecté
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-[10px] shrink-0">Non connecté</Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">
+                        Client ID: {cred.client_id.slice(0, 25)}...
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 w-7 p-0 text-destructive hover:text-destructive shrink-0"
+                      onClick={async () => {
+                        if (!confirm(`Supprimer "${cred.name}" ? Les outils associés perdront leur connexion OAuth.`)) return
+                        try {
+                          const res = await fetch(`/api/credentials/${cred.id}`, { method: 'DELETE' })
+                          if (!res.ok) throw new Error()
+                          toast.success('Credential supprimé')
+                          fetchCredentials()
+                          fetchTools() // refresh tools that may have lost their credential
+                        } catch {
+                          toast.error('Erreur lors de la suppression')
+                        }
+                      }}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
       )}
 
