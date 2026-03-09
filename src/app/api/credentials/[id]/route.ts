@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { encryptMessage, decryptMessage } from '@/lib/crypto/encryption'
 
 /** GET /api/credentials/[id] — Get a single credential */
@@ -104,7 +104,21 @@ export async function DELETE(
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  const { error } = await supabase
+  // Verify the credential exists and belongs to this user
+  const { data: existing, error: findError } = await supabase
+    .from('oauth_credentials')
+    .select('id')
+    .eq('id', id)
+    .eq('user_id', user.id)
+    .single()
+
+  if (findError || !existing) {
+    return NextResponse.json({ error: 'Credential introuvable' }, { status: 404 })
+  }
+
+  // Use admin client to bypass RLS for delete (RLS verified above via ownership check)
+  const adminSupabase = await createAdminClient()
+  const { error } = await adminSupabase
     .from('oauth_credentials')
     .delete()
     .eq('id', id)
