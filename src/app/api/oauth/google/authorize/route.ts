@@ -46,8 +46,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Missing client_id or client_secret' }, { status: 400 })
   }
 
-  console.log(`[OAuth Authorize] client_id: ${clientId.slice(0, 15)}..., secret length: ${clientSecret.length}, credentialId: ${credentialId || 'none'}`)
-
   // Build state payload with HMAC signature to prevent CSRF/forgery
   const stateData = JSON.stringify({
     toolId,

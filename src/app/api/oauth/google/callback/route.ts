@@ -121,9 +121,6 @@ export async function GET(req: NextRequest) {
     )
   }
 
-  // Debug: log partial client_id to verify correct credential is being used
-  console.log(`[OAuth Callback] client_id: ${clientId.slice(0, 15)}..., secret length: ${clientSecret.length}, credentialId: ${state.credentialId || 'inline'}`)
-
   const redirectUri = `${appUrl}/api/oauth/google/callback`
 
   try {

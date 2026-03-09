@@ -785,9 +785,30 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                         {selectedCredentialId && (() => {
                           const cred = credentials.find(c => c.id === selectedCredentialId)
                           return cred ? (
-                            <p className="text-[10px] text-muted-foreground">
-                              Client ID: {cred.client_id.slice(0, 20)}... — {cred.is_connected ? 'Connecté' : 'Non connecté'}
-                            </p>
+                            <div className="flex items-center justify-between">
+                              <p className="text-[10px] text-muted-foreground">
+                                Client ID: {cred.client_id.slice(0, 20)}... — {cred.is_connected ? 'Connecté' : 'Non connecté'}
+                              </p>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                                onClick={async () => {
+                                  if (!confirm('Supprimer ce credential ? Les outils associés perdront leur connexion OAuth.')) return
+                                  try {
+                                    const res = await fetch(`/api/credentials/${cred.id}`, { method: 'DELETE' })
+                                    if (!res.ok) throw new Error('Erreur suppression')
+                                    toast.success('Credential supprimé')
+                                    setSelectedCredentialId(null)
+                                    fetchCredentials()
+                                  } catch {
+                                    toast.error('Erreur lors de la suppression')
+                                  }
+                                }}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
                           ) : null
                         })()}
 
