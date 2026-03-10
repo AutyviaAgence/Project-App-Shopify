@@ -177,7 +177,8 @@ function filterProducts(allProducts: SSProduct[], params: Record<string, unknown
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
+    let body: Record<string, unknown> = {}
+    try { body = await req.json() } catch { /* empty body */ }
     const creds = extractCredentials(req, body)
     if (!creds) {
       return NextResponse.json({ error: 'Missing Stanley Stella credentials' }, { status: 400 })
