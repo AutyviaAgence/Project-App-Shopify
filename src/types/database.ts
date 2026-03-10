@@ -207,7 +207,7 @@ export type AgentKnowledgeDocument = {
   created_at: string
 }
 
-export type AgentToolType = 'google_calendar' | 'google_gmail' | 'shopify' | 'woocommerce' | 'stripe' | 'google_sheets' | 'custom'
+export type AgentToolType = 'google_calendar' | 'google_gmail' | 'whatsapp_message' | 'shopify' | 'woocommerce' | 'stripe' | 'google_sheets' | 'custom'
 export type ToolPermission = 'read' | 'write' | 'read_write'
 
 export type AgentTool = {

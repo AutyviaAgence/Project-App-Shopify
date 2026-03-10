@@ -174,7 +174,7 @@ export async function executeToolCall(
     if (tool.tool_type === 'custom') {
       result = await executeCustomTool(config, fn.name, cleanArgs)
     } else {
-      result = await executeTemplateTool(tool, tool.tool_type, config, fn.name, cleanArgs, credentialId)
+      result = await executeTemplateTool(tool, tool.tool_type, config, fn.name, cleanArgs, credentialId, context)
     }
 
     const truncated = truncateResponse(result, MAX_RESPONSE_BYTES)
@@ -293,7 +293,8 @@ async function executeTemplateTool(
   config: Record<string, unknown>,
   functionName: string,
   args: Record<string, unknown>,
-  credentialId?: string | null
+  credentialId?: string | null,
+  context?: { userId: string; agentId: string; conversationId?: string }
 ): Promise<string> {
   switch (toolType) {
     case 'google_calendar':
@@ -308,6 +309,8 @@ async function executeTemplateTool(
       return executeGoogleSheets(tool, config, functionName, args, credentialId)
     case 'google_gmail':
       return executeGoogleGmail(tool, config, functionName, args, credentialId)
+    case 'whatsapp_message':
+      return executeWhatsAppMessage(config, functionName, args, context)
     default:
       throw new Error(`Unknown template: ${toolType}`)
   }
@@ -935,6 +938,72 @@ async function executeGoogleGmail(
   }
 
   throw new Error(`Unknown Gmail function: ${functionName}`)
+}
+
+// --- WhatsApp Message ---
+type WhatsAppContact = { name: string; phone: string }
+
+async function executeWhatsAppMessage(
+  config: Record<string, unknown>,
+  functionName: string,
+  args: Record<string, unknown>,
+  context?: { userId: string; agentId: string; conversationId?: string }
+): Promise<string> {
+  // Parse contacts from config
+  let contacts: WhatsAppContact[] = []
+  try {
+    const raw = config.contacts as string
+    contacts = typeof raw === 'string' ? JSON.parse(raw) : (raw as unknown as WhatsAppContact[]) || []
+  } catch {
+    return JSON.stringify({ error: 'Invalid contacts configuration. Expected JSON array.' })
+  }
+
+  if (functionName === 'list_contacts') {
+    return JSON.stringify({
+      contacts: contacts.map(c => ({ name: c.name, phone: c.phone })),
+      count: contacts.length,
+    })
+  }
+
+  if (functionName === 'send_whatsapp') {
+    const contactName = args.contact_name as string
+    const message = args.message as string
+
+    if (!message) return JSON.stringify({ error: 'Message is required' })
+
+    // Find contact by name (case-insensitive)
+    const contact = contacts.find(c => c.name.toLowerCase() === contactName?.toLowerCase())
+    if (!contact) {
+      return JSON.stringify({
+        error: `Contact "${contactName}" not found. Available contacts: ${contacts.map(c => c.name).join(', ')}`,
+      })
+    }
+
+    if (!context?.agentId) {
+      return JSON.stringify({ error: 'Missing agent context' })
+    }
+
+    // Parse optional send delay (seconds)
+    const sendDelay = Number(config.send_delay) || 0
+
+    // Call the internal WhatsApp send proxy
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || 'http://localhost:3000'
+    const res = await fetchWithTimeout(`${baseUrl}/api/tools/whatsapp-send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        agent_id: context.agentId,
+        contact_name: contact.name,
+        phone_number: contact.phone,
+        message,
+        send_delay: sendDelay,
+      }),
+    })
+    const data = await res.json()
+    return JSON.stringify(data)
+  }
+
+  throw new Error(`Unknown WhatsApp function: ${functionName}`)
 }
 
 // --- Custom API ---

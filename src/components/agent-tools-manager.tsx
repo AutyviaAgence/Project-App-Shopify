@@ -43,6 +43,8 @@ import {
   Copy,
   Check,
   KeyRound,
+  MessageSquare,
+  Mail,
 } from 'lucide-react'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 
@@ -85,6 +87,8 @@ const TOOL_ICONS: Record<string, React.ReactNode> = {
   'shopping-cart': <ShoppingCart className="h-5 w-5" />,
   'credit-card': <CreditCard className="h-5 w-5" />,
   table: <Table className="h-5 w-5" />,
+  mail: <Mail className="h-5 w-5" />,
+  'message-square': <MessageSquare className="h-5 w-5" />,
   plug: <Plug className="h-5 w-5" />,
 }
 
@@ -95,6 +99,7 @@ const TOOL_COLORS: Record<string, string> = {
   woocommerce: 'text-purple-500',
   stripe: 'text-indigo-500',
   google_sheets: 'text-emerald-500',
+  whatsapp_message: 'text-green-600',
   custom: 'text-orange-500',
 }
 
@@ -1170,6 +1175,7 @@ function getIconForType(type: string): string {
     woocommerce: 'shopping-cart',
     stripe: 'credit-card',
     google_sheets: 'table',
+    whatsapp_message: 'message-square',
     custom: 'plug',
   }
   return iconMap[type] || 'plug'

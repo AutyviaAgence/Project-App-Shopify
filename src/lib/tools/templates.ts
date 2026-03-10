@@ -377,6 +377,37 @@ export const TOOL_TEMPLATES: Record<Exclude<AgentToolType, 'custom'>, ToolTempla
       },
     ],
   },
+
+  whatsapp_message: {
+    type: 'whatsapp_message',
+    name: 'WhatsApp Message',
+    description: 'Send WhatsApp messages to pre-configured contacts (e.g. manager, support, warehouse).',
+    icon: 'message-circle',
+    auth: {
+      type: 'api_key',
+      fields: [
+        { key: 'contacts', label: 'Contacts (JSON)', placeholder: '[{"name":"Responsable","phone":"+32483386301"},{"name":"Support","phone":"+33612345678"}]', secret: false },
+        { key: 'send_delay', label: 'Délai avant envoi (secondes)', placeholder: '0', secret: false },
+      ],
+    },
+    functions: [
+      {
+        name: 'send_whatsapp',
+        description: 'Send a WhatsApp message to a pre-configured contact. Always confirm the message and recipient with the user before sending.',
+        parameters: [
+          { name: 'contact_name', type: 'string', description: 'Name of the contact to send to (e.g. "Responsable", "Support"). Must match a configured contact.', required: true },
+          { name: 'message', type: 'string', description: 'The message text to send', required: true },
+        ],
+        permission: 'write',
+      },
+      {
+        name: 'list_contacts',
+        description: 'List all available contacts that messages can be sent to.',
+        parameters: [],
+        permission: 'read',
+      },
+    ],
+  },
 }
 
 /**
