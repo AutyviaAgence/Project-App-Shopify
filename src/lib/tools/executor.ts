@@ -849,8 +849,13 @@ async function executeCustomTool(
     const headerName = (config.api_key_header as string) || 'X-API-Key'
     headers[headerName] = config.api_key as string
   } else if (authType === 'basic') {
-    const creds = Buffer.from(`${config.username}:${config.password}`).toString('base64')
-    headers['Authorization'] = `Basic ${creds}`
+    // Support both username:password fields and api_key as "user:pass"
+    const username = config.username || (config.api_key as string)?.split(':')[0]
+    const password = config.password || (config.api_key as string)?.split(':').slice(1).join(':')
+    if (username && password) {
+      const creds = Buffer.from(`${username}:${password}`).toString('base64')
+      headers['Authorization'] = `Basic ${creds}`
+    }
   }
 
   // Add custom headers
