@@ -791,7 +791,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
 
       {/* Catalog Dialog */}
       <Dialog open={catalogOpen} onOpenChange={setCatalogOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto overflow-x-hidden">
           <DialogHeader>
             <DialogTitle>{t('tools.catalog_title')}</DialogTitle>
             <DialogDescription>{t('tools.catalog_desc')}</DialogDescription>
@@ -825,7 +825,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
 
       {/* Config Dialog */}
       <Dialog open={configOpen} onOpenChange={setConfigOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {!editingTool && (
@@ -1276,7 +1276,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
 
       {/* Logs Dialog */}
       <Dialog open={logsOpen} onOpenChange={setLogsOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto overflow-x-hidden">
           <DialogHeader>
             <DialogTitle>{t('tools.logs_title')}</DialogTitle>
             <DialogDescription>{agentName}</DialogDescription>
