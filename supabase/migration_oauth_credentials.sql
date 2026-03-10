@@ -37,8 +37,8 @@ ALTER TABLE public.oauth_credentials ENABLE ROW LEVEL SECURITY;
 CREATE POLICY "Users can manage own credentials"
   ON public.oauth_credentials
   FOR ALL
-  USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
+  USING ((select auth.uid()) = user_id)
+  WITH CHECK ((select auth.uid()) = user_id);
 
 -- 3. Indexes
 CREATE INDEX IF NOT EXISTS idx_oauth_credentials_user ON public.oauth_credentials(user_id);

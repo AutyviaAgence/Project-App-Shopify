@@ -106,7 +106,7 @@ export async function PATCH(
     booking_url?: string
     team_id?: string | null
     team_ids?: string[]
-    agent_type?: 'conversation' | 'relance'
+    agent_type?: 'conversation' | 'relance' | 'qualifier'
     stop_condition?: string | null
   }
 
@@ -191,7 +191,7 @@ export async function PATCH(
 
   // Type d'agent (conversation ou relance)
   if (agent_type !== undefined) {
-    const validAgentTypes = ['conversation', 'relance'] as const
+    const validAgentTypes = ['conversation', 'relance', 'qualifier'] as const
     if (validAgentTypes.includes(agent_type)) {
       updateData.agent_type = agent_type
     }

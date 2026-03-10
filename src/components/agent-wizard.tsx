@@ -85,7 +85,7 @@ export interface GeneratedAgentConfig {
   description: string
   system_prompt: string
   objective: string
-  agent_type: 'conversation' | 'relance'
+  agent_type: 'conversation' | 'relance' | 'qualifier'
   escalation_enabled: boolean
   escalation_keywords: string[]
   escalation_message: string

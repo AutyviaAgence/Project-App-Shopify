@@ -69,6 +69,7 @@ export type WhatsAppSession = {
   waba_phone_number_id: string | null
   waba_business_account_id: string | null
   waba_access_token: string | null
+  qualifier_agent_id: string | null
   created_at: string
   updated_at: string
 }
@@ -98,7 +99,7 @@ export type AIAgent = {
   escalation_keywords: string[]
   escalation_message: string | null
   booking_url: string | null
-  agent_type: 'conversation' | 'relance'
+  agent_type: 'conversation' | 'relance' | 'qualifier'
   stop_condition: string | null
   created_at: string
   updated_at: string
@@ -530,6 +531,22 @@ export type LifecycleHistory = {
   created_at: string
 }
 
+// =============================================
+// Types Qualifier (routeur intelligent)
+// =============================================
+
+export type QualifierRoute = {
+  id: string
+  agent_id: string
+  target_agent_id: string
+  name: string
+  description: string
+  priority: number
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
 // Joined types
 export type ConversationWithContact = Conversation & {
   contact: Contact
@@ -704,6 +721,12 @@ export type Database = {
         Row: LifecycleHistory
         Insert: Partial<LifecycleHistory> & Pick<LifecycleHistory, 'conversation_id'>
         Update: Partial<LifecycleHistory>
+        Relationships: []
+      }
+      qualifier_routes: {
+        Row: QualifierRoute
+        Insert: Partial<QualifierRoute> & Pick<QualifierRoute, 'agent_id' | 'target_agent_id' | 'name' | 'description'>
+        Update: Partial<QualifierRoute>
         Relationships: []
       }
     }

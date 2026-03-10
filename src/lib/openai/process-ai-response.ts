@@ -254,9 +254,49 @@ export async function processAIResponse(params: {
     // 4.5. Envoyer l'indicateur "en train d'écrire" avant d'appeler OpenAI
     await sendPresence(sessionCtx, params.contactPhoneNumber, 'composing')
 
-    // 4.6. Charger les outils de l'agent (function calling)
+    // 4.6. Qualifier : injecter les routes de redirection dans le system prompt
+    let qualifierRoutes: { id: string; target_agent_id: string; name: string; description: string }[] = []
+    if (agent.agent_type === 'qualifier') {
+      const { data: routes } = await supabase
+        .from('qualifier_routes')
+        .select('id, target_agent_id, name, description')
+        .eq('agent_id', params.agentId)
+        .eq('is_active', true)
+        .order('priority', { ascending: true })
+
+      qualifierRoutes = routes || []
+      if (qualifierRoutes.length > 0) {
+        const routesList = qualifierRoutes.map((r, i) => `${i + 1}. "${r.name}" — ${r.description}`).join('\n')
+        systemPrompt += `\n\n--- Agent Qualificateur ---\nTu es un agent qualificateur. Ton rôle est d'analyser les messages entrants et de rediriger vers le bon agent spécialisé.\n\nScénarios de redirection disponibles :\n${routesList}\n\nQuand tu identifies avec certitude le scénario correspondant, utilise la fonction "route_to_agent" avec le nom exact du scénario.\nSi tu n'es pas sûr, pose des questions pour qualifier le besoin avant de rediriger.\nNe redirige JAMAIS sans être certain du scénario. Continue la conversation pour qualifier si nécessaire.\n--- Fin qualificateur ---`
+      }
+    }
+
+    // 4.7. Charger les outils de l'agent (function calling)
     const agentTools = await getAgentTools(params.agentId)
     const { openaiTools, functionMap } = buildOpenAITools(agentTools)
+    // Add qualifier route_to_agent tool if qualifier with routes
+    if (agent.agent_type === 'qualifier' && qualifierRoutes.length > 0) {
+      const routeNames = qualifierRoutes.map(r => r.name)
+      openaiTools.push({
+        type: 'function' as const,
+        function: {
+          name: 'route_to_agent',
+          description: 'Redirige la conversation vers un agent spécialisé selon le scénario identifié. Utilise cette fonction UNIQUEMENT quand tu es certain du scénario.',
+          parameters: {
+            type: 'object',
+            properties: {
+              scenario_name: {
+                type: 'string',
+                description: `Le nom exact du scénario de redirection. Valeurs possibles : ${routeNames.map(n => `"${n}"`).join(', ')}`,
+                enum: routeNames,
+              },
+            },
+            required: ['scenario_name'],
+          },
+        },
+      })
+    }
+
     if (openaiTools.length > 0) {
       console.log('[AI] Outils chargés:', openaiTools.length, 'fonctions')
       const toolNames = openaiTools.map(t => t.function.name).join(', ')
@@ -267,6 +307,7 @@ export async function processAIResponse(params: {
     const MAX_TOOL_ROUNDS = 5
     const toolMessages: OpenAIMessage[] = []
     let aiResponseText = ''
+    let qualifierRouteTriggered: { routeName: string; targetAgentId: string } | null = null
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
       const result = await generateAgentResponse({
@@ -297,6 +338,28 @@ export async function processAIResponse(params: {
       toolMessages.push(result.rawMessage as OpenAIMessage)
 
       for (const tc of result.toolCalls) {
+        // Handle qualifier route_to_agent special tool
+        if (tc.functionName === 'route_to_agent' && agent.agent_type === 'qualifier') {
+          const args = tc.arguments as { scenario_name?: string }
+          const matchedRoute = qualifierRoutes.find(r => r.name === args.scenario_name)
+          if (matchedRoute) {
+            console.log('[AI] Qualifier routing to:', matchedRoute.name, '→ agent:', matchedRoute.target_agent_id)
+            qualifierRouteTriggered = { routeName: matchedRoute.name, targetAgentId: matchedRoute.target_agent_id }
+            toolMessages.push({
+              role: 'tool',
+              tool_call_id: tc.toolCallId,
+              content: `Redirection effectuée vers le scénario "${matchedRoute.name}". L'agent spécialisé va maintenant prendre le relais.`,
+            })
+          } else {
+            toolMessages.push({
+              role: 'tool',
+              tool_call_id: tc.toolCallId,
+              content: `Erreur: Scénario "${args.scenario_name}" introuvable. Scénarios disponibles : ${qualifierRoutes.map(r => r.name).join(', ')}`,
+            })
+          }
+          continue
+        }
+
         const mapping = functionMap.get(tc.functionName)
         if (!mapping) {
           toolMessages.push({
@@ -359,6 +422,57 @@ export async function processAIResponse(params: {
       ai_agent_id: params.agentId,
       status: sendResult.ok ? 'sent' : 'failed',
     }).select('id').single()
+
+    // 7.0.1 Qualifier routing: si le qualifier a décidé de rediriger, effectuer le handoff
+    if (qualifierRouteTriggered) {
+      const { routeName, targetAgentId } = qualifierRouteTriggered
+
+      // Vérifier que l'agent cible existe et est actif
+      const { data: targetAgent } = await supabase
+        .from('ai_agents')
+        .select('id, name, is_active')
+        .eq('id', targetAgentId)
+        .single()
+
+      if (targetAgent?.is_active) {
+        // Basculer la conversation vers l'agent cible
+        await supabase
+          .from('conversations')
+          .update({
+            ai_agent_id: targetAgentId,
+            is_ai_active: true,
+          })
+          .eq('id', params.conversationId)
+
+        console.log(`[AI] Qualifier handoff: "${routeName}" → agent "${targetAgent.name}" (${targetAgentId})`)
+
+        // Notification
+        if (userId) {
+          await supabase.from('user_alerts').insert({
+            user_id: userId,
+            alert_type: 'info',
+            title: 'Qualification réussie',
+            message: `Le qualificateur "${agent.name}" a redirigé une conversation vers l'agent "${targetAgent.name}" (scénario : ${routeName})`,
+            metadata: {
+              conversation_id: params.conversationId,
+              session_id: params.sessionId,
+              qualifier_agent_id: params.agentId,
+              target_agent_id: targetAgentId,
+              route_name: routeName,
+            },
+          })
+        }
+
+        // Enregistrer les tokens et terminer
+        if (userId && totalTokensUsed > 0) {
+          await recordTokenUsage(userId, totalTokensUsed)
+          console.log('[AI] Tokens enregistrés (qualifier handoff):', totalTokensUsed)
+        }
+        return
+      } else {
+        console.warn('[AI] Qualifier: agent cible introuvable ou inactif:', targetAgentId)
+      }
+    }
 
     // 7.1 Tracker si l'agent a proposé un lien de RDV dans sa réponse
     if (agent.booking_url) {

@@ -180,7 +180,7 @@ export async function POST(req: Request) {
     booking_url?: string
     team_id?: string
     team_ids?: string[]
-    agent_type?: 'conversation' | 'relance'
+    agent_type?: 'conversation' | 'relance' | 'qualifier'
     stop_condition?: string
   }
 
@@ -224,7 +224,7 @@ export async function POST(req: Request) {
     : undefined
 
   // Valider le type d'agent
-  const validAgentTypes = ['conversation', 'relance'] as const
+  const validAgentTypes = ['conversation', 'relance', 'qualifier'] as const
   const finalAgentType = agent_type && validAgentTypes.includes(agent_type) ? agent_type : 'conversation'
 
   const { data: agent, error } = await supabase

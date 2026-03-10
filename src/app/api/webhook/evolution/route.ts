@@ -754,6 +754,44 @@ export async function POST(req: NextRequest) {
             // Arrêter l'indicateur de saisie après l'envoi
             evolution.sendPresence(instanceName, phoneNumber, 'paused').catch(() => {})
             console.log('[Webhook] AI response done')
+          } else if (!convFresh?.ai_agent_id) {
+            // Pas d'agent assigné : vérifier si la session a un agent qualifier
+            const qualifierAgentId = session.qualifier_agent_id
+            if (qualifierAgentId) {
+              console.log('[Webhook] No agent assigned, triggering qualifier agent:', qualifierAgentId)
+
+              // Activer le qualifier sur cette conversation
+              await supabase
+                .from('conversations')
+                .update({
+                  ai_agent_id: qualifierAgentId,
+                  is_ai_active: true,
+                })
+                .eq('id', conversation.id)
+
+              // Activer l'indicateur de saisie
+              evolution.sendPresence(instanceName, phoneNumber, 'composing').catch(() => {})
+
+              const sessionDelay = session.ai_message_delay ?? 0
+              await withSessionDelay(session.id, sessionDelay, () =>
+                processAIResponse({
+                  conversationId: conversation.id,
+                  sessionId: session.id,
+                  instanceName: instanceName,
+                  contactPhoneNumber: phoneNumber,
+                  agentId: qualifierAgentId,
+                  session: {
+                    integration_type: (session.integration_type || 'evolution') as 'evolution' | 'waba',
+                    instance_name: session.instance_name,
+                    waba_phone_number_id: session.waba_phone_number_id || null,
+                    waba_access_token: session.waba_access_token ? decryptMessage(session.waba_access_token) : null,
+                  },
+                })
+              )
+
+              evolution.sendPresence(instanceName, phoneNumber, 'paused').catch(() => {})
+              console.log('[Webhook] Qualifier response done')
+            }
           }
         }
 

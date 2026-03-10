@@ -114,10 +114,15 @@ export default function AgentsPage() {
   const [formBookingUrl, setFormBookingUrl] = useState('')
 
   // Type d'agent
-  const [formAgentType, setFormAgentType] = useState<'conversation' | 'relance'>('conversation')
+  const [formAgentType, setFormAgentType] = useState<'conversation' | 'relance' | 'qualifier'>('conversation')
 
   // Condition d'arrêt
   const [formStopCondition, setFormStopCondition] = useState('')
+
+  // Qualifier routes
+  type QualifierRouteForm = { id?: string; name: string; description: string; target_agent_id: string; priority: number }
+  const [qualifierRoutes, setQualifierRoutes] = useState<QualifierRouteForm[]>([])
+  const [loadingRoutes, setLoadingRoutes] = useState(false)
 
   // Wizard state
   const [wizardOpen, setWizardOpen] = useState(false)
@@ -205,6 +210,7 @@ export default function AgentsPage() {
     setFormBookingUrl('')
     setFormAgentType('conversation')
     setFormStopCondition('')
+    setQualifierRoutes([])
     setDialogOpen(true)
   }
 
@@ -233,7 +239,79 @@ export default function AgentsPage() {
     setFormBookingUrl(agent.booking_url ?? '')
     setFormAgentType(agent.agent_type ?? 'conversation')
     setFormStopCondition(agent.stop_condition ?? '')
+    setQualifierRoutes([])
     setDialogOpen(true)
+
+    // Load qualifier routes if qualifier type
+    if (agent.agent_type === 'qualifier') {
+      setLoadingRoutes(true)
+      fetch(`/api/agents/${agent.id}/qualifier-routes`)
+        .then(res => res.json())
+        .then(json => {
+          if (json.data) {
+            setQualifierRoutes(json.data.map((r: { id: string; name: string; description: string; target_agent_id: string; priority: number }) => ({
+              id: r.id,
+              name: r.name,
+              description: r.description,
+              target_agent_id: r.target_agent_id,
+              priority: r.priority,
+            })))
+          }
+        })
+        .catch(() => {})
+        .finally(() => setLoadingRoutes(false))
+    }
+  }
+
+  async function syncQualifierRoutes(agentId: string) {
+    try {
+      // Fetch existing routes
+      const existingRes = await fetch(`/api/agents/${agentId}/qualifier-routes`)
+      const existingJson = await existingRes.json()
+      const existingRoutes: { id: string }[] = existingJson.data || []
+
+      // Delete routes that are no longer in the form
+      const formRouteIds = qualifierRoutes.filter(r => r.id).map(r => r.id!)
+      for (const existing of existingRoutes) {
+        if (!formRouteIds.includes(existing.id)) {
+          await fetch(`/api/agents/${agentId}/qualifier-routes/${existing.id}`, { method: 'DELETE' })
+        }
+      }
+
+      // Create or update routes
+      for (let i = 0; i < qualifierRoutes.length; i++) {
+        const route = qualifierRoutes[i]
+        if (!route.name.trim() || !route.description.trim() || !route.target_agent_id) continue
+
+        if (route.id) {
+          // Update existing
+          await fetch(`/api/agents/${agentId}/qualifier-routes/${route.id}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: route.name.trim(),
+              description: route.description.trim(),
+              target_agent_id: route.target_agent_id,
+              priority: i,
+            }),
+          })
+        } else {
+          // Create new
+          await fetch(`/api/agents/${agentId}/qualifier-routes`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              target_agent_id: route.target_agent_id,
+              name: route.name.trim(),
+              description: route.description.trim(),
+              priority: i,
+            }),
+          })
+        }
+      }
+    } catch (err) {
+      console.error('Error syncing qualifier routes:', err)
+    }
   }
 
   async function handleSave() {
@@ -282,6 +360,10 @@ export default function AgentsPage() {
         })
         const json = await res.json()
         if (res.ok && json.data) {
+          // Save qualifier routes if qualifier type
+          if (formAgentType === 'qualifier') {
+            await syncQualifierRoutes(editing.id)
+          }
           setAgents((prev) => prev.map((a) => (a.id === editing.id ? json.data : a)))
           toast.success(t('agents.agent_edited'))
           setDialogOpen(false)
@@ -320,6 +402,10 @@ export default function AgentsPage() {
         })
         const json = await res.json()
         if (res.ok && json.data) {
+          // Save qualifier routes if qualifier type
+          if (formAgentType === 'qualifier' && qualifierRoutes.length > 0) {
+            await syncQualifierRoutes(json.data.id)
+          }
           setAgents((prev) => [json.data, ...prev])
           toast.success(t('agents.agent_created'))
           setDialogOpen(false)
@@ -579,6 +665,12 @@ export default function AgentsPage() {
                           {t('agents.relance')}
                         </Badge>
                       )}
+                      {agent.agent_type === 'qualifier' && (
+                        <Badge variant="secondary" className="gap-1 text-xs bg-purple-500/10 text-purple-500">
+                          <Sparkles className="h-3 w-3" />
+                          {t('agents.qualifier')}
+                        </Badge>
+                      )}
                       {(agent.team_ids?.length || agent.team_id) && (
                         <>
                           {(agent.team_ids || (agent.team_id ? [agent.team_id] : [])).map(tid => (
@@ -796,12 +888,101 @@ export default function AgentsPage() {
                 <SelectContent>
                   <SelectItem value="conversation">{t('agents.type_conversation')}</SelectItem>
                   <SelectItem value="relance">{t('agents.type_relance')}</SelectItem>
+                  <SelectItem value="qualifier">{t('agents.type_qualifier')}</SelectItem>
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
                 {t('agents.type_help')}
               </p>
             </div>
+
+            {/* Qualifier Routes Section */}
+            {formAgentType === 'qualifier' && (
+              <div className="space-y-3 pt-4 border-t">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <Sparkles className="h-4 w-4 text-purple-500" />
+                    {t('agents.qualifier_routes')}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => setQualifierRoutes(prev => [...prev, { name: '', description: '', target_agent_id: '', priority: prev.length }])}
+                  >
+                    <Plus className="mr-1 h-3 w-3" />
+                    {t('agents.qualifier_route_add')}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {t('agents.qualifier_routes_help')}
+                </p>
+
+                {loadingRoutes && (
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Chargement...
+                  </div>
+                )}
+
+                {qualifierRoutes.length === 0 && !loadingRoutes && (
+                  <p className="text-xs text-muted-foreground italic py-2">
+                    {t('agents.qualifier_route_none')}
+                  </p>
+                )}
+
+                {qualifierRoutes.map((route, idx) => (
+                  <div key={idx} className="space-y-2 p-3 border rounded-lg relative">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute top-1 right-1 h-6 w-6 p-0"
+                      onClick={() => setQualifierRoutes(prev => prev.filter((_, i) => i !== idx))}
+                    >
+                      <Trash2 className="h-3 w-3 text-destructive" />
+                    </Button>
+                    <div className="space-y-1">
+                      <Label className="text-xs">{t('agents.qualifier_route_name')}</Label>
+                      <Input
+                        placeholder={t('agents.qualifier_route_name_placeholder')}
+                        value={route.name}
+                        onChange={e => setQualifierRoutes(prev => prev.map((r, i) => i === idx ? { ...r, name: e.target.value } : r))}
+                        className="h-8 text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">{t('agents.qualifier_route_description')}</Label>
+                      <Textarea
+                        placeholder={t('agents.qualifier_route_description_placeholder')}
+                        value={route.description}
+                        onChange={e => setQualifierRoutes(prev => prev.map((r, i) => i === idx ? { ...r, description: e.target.value } : r))}
+                        rows={2}
+                        className="text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs">{t('agents.qualifier_route_target')}</Label>
+                      <Select
+                        value={route.target_agent_id || 'none'}
+                        onValueChange={v => setQualifierRoutes(prev => prev.map((r, i) => i === idx ? { ...r, target_agent_id: v === 'none' ? '' : v } : r))}
+                      >
+                        <SelectTrigger className="h-8 text-sm">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">—</SelectItem>
+                          {agents.filter(a => a.agent_type !== 'qualifier' && a.id !== editing?.id).map(a => (
+                            <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
