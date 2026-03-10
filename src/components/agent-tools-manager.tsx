@@ -669,9 +669,9 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                   <div className={TOOL_COLORS[tool.tool_type] || 'text-muted-foreground'}>
                     {TOOL_ICONS[getIconForType(tool.tool_type)] || <Plug className="h-5 w-5" />}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium truncate">{tool.name}</span>
+                  <div className="flex-1 min-w-0 overflow-hidden">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-medium truncate max-w-[150px]">{tool.name}</span>
                       <Badge variant="outline" className="text-xs shrink-0">
                         {tool.permissions === 'read_write' ? 'R/W' : tool.permissions === 'write' ? 'W' : 'R'}
                       </Badge>
@@ -744,9 +744,9 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                 <CardContent className="py-3 px-4">
                   <div className="flex items-center gap-3">
                     <KeyRound className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium truncate">{cred.name}</span>
+                    <div className="flex-1 min-w-0 overflow-hidden">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium truncate max-w-[180px]">{cred.name}</span>
                         <Badge variant="outline" className="text-[10px] shrink-0">{cred.provider}</Badge>
                         {cred.is_connected ? (
                           <Badge variant="default" className="text-[10px] shrink-0 gap-1 bg-green-600">
