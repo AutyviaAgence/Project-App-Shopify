@@ -6,7 +6,7 @@ import { TOOL_TEMPLATES, toOpenAIFunction, buildCustomFunctions, type ToolFuncti
 import { refreshAccessToken } from '@/lib/oauth/google'
 import type { AgentTool } from '@/types/database'
 
-const TOOL_TIMEOUT_MS = 35_000
+const TOOL_TIMEOUT_MS = 60_000
 const MAX_RESPONSE_BYTES = 50_000
 
 function getAdminClient() {

@@ -55,7 +55,7 @@ async function fetchAllProducts(user: string, password: string): Promise<SSProdu
       },
       id: 0,
     }),
-    signal: AbortSignal.timeout(30_000),
+    signal: AbortSignal.timeout(60_000),
   })
 
   if (!res.ok) {
