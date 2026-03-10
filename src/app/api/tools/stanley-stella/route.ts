@@ -74,9 +74,19 @@ export async function POST(req: NextRequest) {
     const body = await req.json()
     const { action, query, sku, style_code, category, color, size } = body
 
-    // Credentials from env or request
-    const user = process.env.STANLEY_STELLA_USER || body.user
-    const password = process.env.STANLEY_STELLA_PASSWORD || body.password
+    // Credentials: from Basic Auth header, env vars, or request body
+    let user = process.env.STANLEY_STELLA_USER || body.user
+    let password = process.env.STANLEY_STELLA_PASSWORD || body.password
+
+    const authHeader = req.headers.get('authorization')
+    if (authHeader?.startsWith('Basic ')) {
+      const decoded = Buffer.from(authHeader.slice(6), 'base64').toString()
+      const [u, ...pParts] = decoded.split(':')
+      if (u && pParts.length) {
+        user = u
+        password = pParts.join(':') // password may contain ':'
+      }
+    }
 
     if (!user || !password) {
       return NextResponse.json({ error: 'Missing Stanley Stella credentials' }, { status: 400 })
