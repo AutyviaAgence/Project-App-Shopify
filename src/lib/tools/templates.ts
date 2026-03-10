@@ -386,7 +386,8 @@ export const TOOL_TEMPLATES: Record<Exclude<AgentToolType, 'custom'>, ToolTempla
     auth: {
       type: 'api_key',
       fields: [
-        { key: 'contacts', label: 'Contacts (JSON)', placeholder: '[{"name":"Responsable","phone":"+32483386301"},{"name":"Support","phone":"+33612345678"}]', secret: false },
+        { key: 'session_id', label: 'Session WhatsApp', placeholder: '', secret: false },
+        { key: 'contacts', label: 'Contacts', placeholder: '[]', secret: false },
         { key: 'send_delay', label: 'Délai avant envoi (secondes)', placeholder: '0', secret: false },
       ],
     },

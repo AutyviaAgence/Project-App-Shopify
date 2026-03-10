@@ -12,7 +12,7 @@ import { decryptMessage } from '@/lib/crypto/encryption'
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json()
-    const { agent_id, contact_name, phone_number, message, send_delay } = body
+    const { agent_id, session_id: explicitSessionId, contact_name, phone_number, message, send_delay } = body
 
     if (!agent_id || !message) {
       return NextResponse.json({ error: 'agent_id and message are required' }, { status: 400 })
@@ -22,28 +22,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'contact_name or phone_number is required' }, { status: 400 })
     }
 
-    // Use admin client to fetch session linked to agent
+    // Use admin client to fetch session
     const supabase = createSupabaseClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    // Find the WhatsApp session linked to this agent via wa_links
-    const { data: link } = await supabase
-      .from('wa_links')
-      .select('session_id')
-      .eq('agent_id', agent_id)
-      .limit(1)
-      .single()
-
-    if (!link) {
-      return NextResponse.json({ error: 'No WhatsApp session linked to this agent' }, { status: 404 })
+    // Resolve session: prefer explicit session_id from tool config, fallback to wa_links
+    let sessionId = explicitSessionId as string | undefined
+    if (!sessionId) {
+      const { data: link } = await supabase
+        .from('wa_links')
+        .select('session_id')
+        .eq('agent_id', agent_id)
+        .limit(1)
+        .single()
+      if (!link) {
+        return NextResponse.json({ error: 'No WhatsApp session linked to this agent' }, { status: 404 })
+      }
+      sessionId = link.session_id
     }
 
     const { data: session } = await supabase
       .from('whatsapp_sessions')
       .select('integration_type, instance_name, waba_phone_number_id, waba_access_token, daily_ai_message_limit, ai_message_delay')
-      .eq('id', link.session_id)
+      .eq('id', sessionId)
       .single()
 
     if (!session) {
@@ -58,7 +61,7 @@ export async function POST(req: NextRequest) {
       const { count } = await supabase
         .from('messages')
         .select('id', { count: 'exact', head: true })
-        .eq('session_id', link.session_id)
+        .eq('session_id', sessionId)
         .eq('sent_by', 'ai_agent')
         .gte('created_at', todayStart.toISOString())
 

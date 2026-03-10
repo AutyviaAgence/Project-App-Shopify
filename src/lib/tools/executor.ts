@@ -983,8 +983,9 @@ async function executeWhatsAppMessage(
       return JSON.stringify({ error: 'Missing agent context' })
     }
 
-    // Parse optional send delay (seconds)
+    // Parse optional send delay (seconds) and session_id
     const sendDelay = Number(config.send_delay) || 0
+    const sessionId = config.session_id as string | undefined
 
     // Call the internal WhatsApp send proxy
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || 'http://localhost:3000'
@@ -993,6 +994,7 @@ async function executeWhatsAppMessage(
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         agent_id: context.agentId,
+        session_id: sessionId,
         contact_name: contact.name,
         phone_number: contact.phone,
         message,

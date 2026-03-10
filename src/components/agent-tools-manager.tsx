@@ -46,7 +46,25 @@ import {
   MessageSquare,
   Mail,
 } from 'lucide-react'
+import { Checkbox } from '@/components/ui/checkbox'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
+
+type WASession = {
+  id: string
+  instance_name: string
+  display_name: string | null
+  phone_number: string | null
+  status: string
+  integration_type: string
+}
+
+type WAContact = {
+  id: string
+  phone_number: string
+  name: string | null
+  first_name: string | null
+  last_name: string | null
+}
 
 type ToolTemplate = {
   type: string
@@ -140,6 +158,32 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
     parameters: Array<{ name: string; type: string; description: string; required: boolean }>
   }>>([])
 
+  // WhatsApp Message tool
+  const [waSessions, setWaSessions] = useState<WASession[]>([])
+  const [waContacts, setWaContacts] = useState<WAContact[]>([])
+  const [waContactsLoading, setWaContactsLoading] = useState(false)
+  const [waSelectedContacts, setWaSelectedContacts] = useState<Set<string>>(new Set())
+  const [waContactSearch, setWaContactSearch] = useState('')
+
+  const fetchWaSessions = useCallback(async () => {
+    try {
+      const res = await fetch('/api/sessions')
+      const json = await res.json()
+      if (res.ok) setWaSessions((json.data || []).filter((s: WASession) => s.status === 'connected'))
+    } catch { /* silent */ }
+  }, [])
+
+  const fetchWaContacts = useCallback(async (sessionId: string) => {
+    if (!sessionId) { setWaContacts([]); return }
+    setWaContactsLoading(true)
+    try {
+      const res = await fetch(`/api/sessions/${sessionId}/contacts`)
+      const json = await res.json()
+      if (res.ok) setWaContacts(json.data || [])
+    } catch { /* silent */ }
+    finally { setWaContactsLoading(false) }
+  }, [])
+
   const fetchTools = useCallback(async () => {
     try {
       const res = await fetch(`/api/agents/${agentId}/tools`)
@@ -206,6 +250,11 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
     setCustomFunctions([])
     setSelectedCredentialId(null)
     setNewCredName('')
+    // WhatsApp Message: reset and load sessions
+    setWaContacts([])
+    setWaSelectedContacts(new Set())
+    setWaContactSearch('')
+    if (template.type === 'whatsapp_message') fetchWaSessions()
     // Default to existing if credentials available for OAuth tools
     const providerCreds = credentials.filter(c => c.provider === 'google')
     setCredentialMode(isOAuthTool(template.type) && providerCreds.length > 0 ? 'existing' : 'new')
@@ -260,6 +309,24 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
     } else {
       setCustomFunctions([])
     }
+    // WhatsApp Message: restore session + contacts
+    setWaContactSearch('')
+    if (tool.tool_type === 'whatsapp_message') {
+      fetchWaSessions()
+      const sid = tool.config.session_id as string
+      if (sid) {
+        // Load contacts from session to display checkboxes
+        fetchWaContacts(sid).then(() => {
+          // Restore previously selected contacts from config
+          try {
+            const raw = tool.config.contacts as string
+            const parsed: Array<{ name: string; phone: string; contact_id?: string }> = typeof raw === 'string' ? JSON.parse(raw) : (raw || [])
+            const ids = new Set(parsed.map(c => c.contact_id).filter(Boolean) as string[])
+            setWaSelectedContacts(ids)
+          } catch { setWaSelectedContacts(new Set()) }
+        })
+      }
+    }
     setConfigOpen(true)
   }
 
@@ -272,6 +339,18 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
       // Only include non-empty values (empty secret fields = keep existing)
       for (const [key, value] of Object.entries(formConfig)) {
         if (value !== '') config[key] = value
+      }
+
+      // WhatsApp Message: serialize selected contacts into config
+      if (selectedTemplate.type === 'whatsapp_message' && waSelectedContacts.size > 0) {
+        const selectedArr = waContacts
+          .filter(c => waSelectedContacts.has(c.id))
+          .map(c => ({
+            contact_id: c.id,
+            name: c.name || [c.first_name, c.last_name].filter(Boolean).join(' ') || c.phone_number,
+            phone: c.phone_number,
+          }))
+        config.contacts = JSON.stringify(selectedArr)
       }
 
       // Add custom functions if custom API
@@ -928,8 +1007,8 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                   </div>
                 )}
 
-                {/* Non-OAuth auth fields (Shopify, WooCommerce, Stripe, Custom) */}
-                {!isOAuthTool(selectedTemplate.type) && (
+                {/* Non-OAuth auth fields (Shopify, WooCommerce, Stripe, Custom — NOT whatsapp_message) */}
+                {!isOAuthTool(selectedTemplate.type) && selectedTemplate.type !== 'whatsapp_message' && (
                   <>
                     {editingTool && (
                       <p className="text-[10px] text-muted-foreground">{t('tools.edit_secret_hint')}</p>
@@ -946,6 +1025,121 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                       </div>
                     ))}
                   </>
+                )}
+
+                {/* WhatsApp Message — session selector + contact picker + delay */}
+                {selectedTemplate.type === 'whatsapp_message' && (
+                  <div className="space-y-4">
+                    {/* Session selector */}
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Session WhatsApp (compte d&apos;envoi)</Label>
+                      <Select
+                        value={formConfig.session_id || ''}
+                        onValueChange={(v) => {
+                          setFormConfig(prev => ({ ...prev, session_id: v }))
+                          setWaContacts([])
+                          setWaSelectedContacts(new Set())
+                          setWaContactSearch('')
+                          if (v) fetchWaContacts(v)
+                        }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Choisir une session..." />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {waSessions.map(s => (
+                            <SelectItem key={s.id} value={s.id}>
+                              <span className="flex items-center gap-2">
+                                {s.display_name || s.instance_name}
+                                {s.phone_number && (
+                                  <span className="text-muted-foreground text-xs">({s.phone_number})</span>
+                                )}
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {waSessions.length === 0 && (
+                        <p className="text-[10px] text-muted-foreground">Aucune session connectée trouvée</p>
+                      )}
+                    </div>
+
+                    {/* Contact picker */}
+                    {formConfig.session_id && (
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">
+                          Contacts autorisés ({waSelectedContacts.size} sélectionné{waSelectedContacts.size > 1 ? 's' : ''})
+                        </Label>
+                        <Input
+                          placeholder="Rechercher un contact..."
+                          value={waContactSearch}
+                          onChange={e => setWaContactSearch(e.target.value)}
+                          className="h-8 text-xs"
+                        />
+                        <div className="border rounded-lg max-h-48 overflow-y-auto">
+                          {waContactsLoading ? (
+                            <div className="flex items-center justify-center py-4">
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            </div>
+                          ) : waContacts.length === 0 ? (
+                            <p className="text-xs text-muted-foreground p-3">Aucun contact pour cette session</p>
+                          ) : (
+                            waContacts
+                              .filter(c => {
+                                if (!waContactSearch) return true
+                                const search = waContactSearch.toLowerCase()
+                                const displayName = c.name || [c.first_name, c.last_name].filter(Boolean).join(' ') || c.phone_number
+                                return displayName.toLowerCase().includes(search) || c.phone_number.includes(search)
+                              })
+                              .map(c => {
+                                const displayName = c.name || [c.first_name, c.last_name].filter(Boolean).join(' ') || c.phone_number
+                                const isSelected = waSelectedContacts.has(c.id)
+                                return (
+                                  <label
+                                    key={c.id}
+                                    className="flex items-center gap-3 px-3 py-2 hover:bg-muted/50 cursor-pointer border-b last:border-b-0"
+                                  >
+                                    <Checkbox
+                                      checked={isSelected}
+                                      onCheckedChange={(checked) => {
+                                        setWaSelectedContacts(prev => {
+                                          const next = new Set(prev)
+                                          if (checked) next.add(c.id)
+                                          else next.delete(c.id)
+                                          return next
+                                        })
+                                      }}
+                                    />
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-xs font-medium truncate">{displayName}</p>
+                                      {displayName !== c.phone_number && (
+                                        <p className="text-[10px] text-muted-foreground">{c.phone_number}</p>
+                                      )}
+                                    </div>
+                                  </label>
+                                )
+                              })
+                          )}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Send delay */}
+                    <div className="space-y-1">
+                      <Label className="text-xs text-muted-foreground">Délai avant envoi (secondes)</Label>
+                      <Input
+                        type="number"
+                        min="0"
+                        max="300"
+                        placeholder="0"
+                        value={formConfig.send_delay || ''}
+                        onChange={e => setFormConfig(prev => ({ ...prev, send_delay: e.target.value }))}
+                      />
+                      <p className="text-[10px] text-muted-foreground">
+                        Temps d&apos;attente avant l&apos;envoi du message (0 = immédiat, max 300s)
+                      </p>
+                    </div>
+                  </div>
                 )}
               </div>
 
