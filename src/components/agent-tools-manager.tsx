@@ -625,19 +625,19 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex items-center justify-between gap-2">
+        <div className="min-w-0 flex-1">
           <h3 className="text-sm font-medium flex items-center gap-1.5">
-            <Wrench className="h-4 w-4" />
+            <Wrench className="h-4 w-4 shrink-0" />
             {t('tools.title')}
           </h3>
-          <p className="text-xs text-muted-foreground mt-0.5">
+          <p className="text-xs text-muted-foreground mt-0.5 truncate">
             {t('tools.subtitle')}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 shrink-0 mr-6">
           {tools.length > 0 && (
             <Button size="sm" variant="outline" onClick={openLogs}>
               <Eye className="mr-1 h-3 w-3" />
