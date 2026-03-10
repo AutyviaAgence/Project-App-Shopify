@@ -41,7 +41,7 @@ import { useTranslation } from '@/i18n/context'
 // Types pour le wizard
 export interface WizardData {
   // Étape 1: Type d'agent
-  agentType: 'conversation' | 'relance'
+  agentType: 'conversation' | 'relance' | 'qualifier'
 
   // Étape 2: Identité
   businessName: string
@@ -237,6 +237,9 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
         if (data.agentType === 'conversation') {
           return data.roles.length > 0
         }
+        if (data.agentType === 'qualifier') {
+          return true // Qualifier doesn't need step 3 specifics, roles are configured after creation
+        }
         return !!data.campaignObjective
       case 4:
         return !!data.tone && !!data.formality
@@ -264,6 +267,9 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
       if (data.continueConversation) {
         parts.push('Après ton message initial, tu peux continuer la conversation normalement.')
       }
+    } else if (data.agentType === 'qualifier') {
+      parts.push('\nTu es un agent qualificateur. Ton rôle est d\'accueillir les nouveaux contacts, comprendre leur besoin, et les rediriger vers le bon agent spécialisé.')
+      parts.push('Pose des questions pour bien identifier le besoin avant de rediriger. Ne redirige jamais sans être certain du scénario.')
     }
 
     // Ton et personnalité
@@ -395,13 +401,17 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
     await new Promise(resolve => setTimeout(resolve, 800))
 
     const config: GeneratedAgentConfig = {
-      name: `Agent ${data.businessName}`,
+      name: data.agentType === 'qualifier' ? `Qualificateur ${data.businessName}` : `Agent ${data.businessName}`,
       description: data.agentType === 'conversation'
         ? `Agent de conversation pour ${data.businessName}`
+        : data.agentType === 'qualifier'
+        ? `Agent qualificateur pour ${data.businessName} — redirige vers le bon agent`
         : `Agent de relance pour ${data.businessName} - ${getCampaignObjectiveDescription(data.campaignObjective)}`,
       system_prompt: generatePrompt(),
       objective: data.agentType === 'conversation'
         ? data.roles.map(r => getRoleDescription(r)).join(', ')
+        : data.agentType === 'qualifier'
+        ? 'Qualifier les demandes et rediriger vers le bon agent spécialisé'
         : getCampaignObjectiveDescription(data.campaignObjective),
       agent_type: data.agentType,
       escalation_enabled: data.escalationTriggers.length > 0,
@@ -509,6 +519,22 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
                     <p className="font-medium">{t('wizard.type_relance')}</p>
                     <p className="text-sm text-muted-foreground">
                       {t('wizard.type_relance_desc')}
+                    </p>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => updateData('agentType', 'qualifier')}
+                  className={cn(
+                    'flex items-start gap-4 rounded-lg border p-4 text-left transition-all hover:border-primary',
+                    data.agentType === 'qualifier' && 'border-primary bg-primary/5'
+                  )}
+                >
+                  <Sparkles className="h-6 w-6 text-purple-500 mt-0.5" />
+                  <div>
+                    <p className="font-medium">{t('wizard.type_qualifier')}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {t('wizard.type_qualifier_desc')}
                     </p>
                   </div>
                 </button>
@@ -644,7 +670,7 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
                     </div>
                   </div>
                 </>
-              ) : (
+              ) : data.agentType === 'relance' ? (
                 <>
                   <h3 className="font-medium">{t('wizard.relance_config_title')}</h3>
 
@@ -691,7 +717,28 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
                     />
                   </div>
                 </>
-              )}
+              ) : data.agentType === 'qualifier' ? (
+                <>
+                  <h3 className="font-medium">{t('wizard.qualifier_config_title')}</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {t('wizard.qualifier_config_desc')}
+                  </p>
+                  <div className="rounded-lg border bg-purple-500/5 p-4 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-purple-500" />
+                      <p className="text-sm font-medium">{t('wizard.qualifier_how_it_works')}</p>
+                    </div>
+                    <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc">
+                      <li>{t('wizard.qualifier_step_1')}</li>
+                      <li>{t('wizard.qualifier_step_2')}</li>
+                      <li>{t('wizard.qualifier_step_3')}</li>
+                    </ul>
+                  </div>
+                  <p className="text-xs text-muted-foreground italic">
+                    {t('wizard.qualifier_routes_later')}
+                  </p>
+                </>
+              ) : null}
             </div>
           )}
 
@@ -893,7 +940,7 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
               <div className="rounded-lg border bg-muted/50 p-4 mt-6">
                 <h4 className="font-medium mb-2">{t('wizard.summary')}</h4>
                 <ul className="text-sm space-y-1 text-muted-foreground">
-                  <li>• <strong>{t('wizard.summary_type')}</strong> {data.agentType === 'conversation' ? t('wizard.type_conversation_label') : t('wizard.type_relance_label')}</li>
+                  <li>• <strong>{t('wizard.summary_type')}</strong> {data.agentType === 'conversation' ? t('wizard.type_conversation_label') : data.agentType === 'qualifier' ? t('wizard.type_qualifier_label') : t('wizard.type_relance_label')}</li>
                   <li>• <strong>{t('wizard.summary_company')}</strong> {data.businessName}</li>
                   <li>• <strong>{t('wizard.summary_tone')}</strong> {(() => { const found = TONES.find(item => item.value === data.tone); return found ? t(found.labelKey) : ''; })()}</li>
                   <li>• <strong>{t('wizard.summary_style')}</strong> {(() => { const found = FORMALITY.find(item => item.value === data.formality); return found ? t(found.labelKey) : ''; })()}</li>
