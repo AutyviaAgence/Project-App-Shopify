@@ -90,6 +90,7 @@ const TOOL_ICONS: Record<string, React.ReactNode> = {
 
 const TOOL_COLORS: Record<string, string> = {
   google_calendar: 'text-blue-500',
+  google_gmail: 'text-red-500',
   shopify: 'text-green-500',
   woocommerce: 'text-purple-500',
   stripe: 'text-indigo-500',
@@ -1158,12 +1159,13 @@ function OAuthRedirectUri() {
 }
 
 function isOAuthTool(type: string): boolean {
-  return type === 'google_calendar' || type === 'google_sheets'
+  return type === 'google_calendar' || type === 'google_sheets' || type === 'google_gmail'
 }
 
 function getIconForType(type: string): string {
   const iconMap: Record<string, string> = {
     google_calendar: 'calendar',
+    google_gmail: 'mail',
     shopify: 'shopping-bag',
     woocommerce: 'shopping-cart',
     stripe: 'credit-card',

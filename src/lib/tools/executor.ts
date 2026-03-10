@@ -306,6 +306,8 @@ async function executeTemplateTool(
       return executeStripe(config, functionName, args)
     case 'google_sheets':
       return executeGoogleSheets(tool, config, functionName, args, credentialId)
+    case 'google_gmail':
+      return executeGoogleGmail(tool, config, functionName, args, credentialId)
     default:
       throw new Error(`Unknown template: ${toolType}`)
   }
@@ -813,6 +815,126 @@ async function executeGoogleSheets(
   }
 
   throw new Error(`Unknown function: ${functionName}`)
+}
+
+// --- Gmail ---
+async function executeGoogleGmail(
+  tool: AgentTool,
+  config: Record<string, unknown>,
+  functionName: string,
+  args: Record<string, unknown>,
+  credentialId?: string | null
+): Promise<string> {
+  const accessToken = await ensureValidAccessToken(tool, config, credentialId)
+  const baseUrl = 'https://gmail.googleapis.com/gmail/v1/users/me'
+  const headers = { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' }
+
+  if (functionName === 'send_email') {
+    const to = args.to as string
+    const subject = args.subject as string
+    const body = args.body as string
+    const cc = args.cc as string | undefined
+    const bcc = args.bcc as string | undefined
+    const isHtml = args.is_html as boolean | undefined
+
+    // Build RFC 2822 MIME message
+    const mimeLines = [
+      `To: ${to}`,
+      ...(cc ? [`Cc: ${cc}`] : []),
+      ...(bcc ? [`Bcc: ${bcc}`] : []),
+      `Subject: =?UTF-8?B?${Buffer.from(subject).toString('base64')}?=`,
+      `MIME-Version: 1.0`,
+      `Content-Type: ${isHtml ? 'text/html' : 'text/plain'}; charset=UTF-8`,
+      `Content-Transfer-Encoding: base64`,
+      '',
+      Buffer.from(body).toString('base64'),
+    ]
+    const rawMessage = Buffer.from(mimeLines.join('\r\n'))
+      .toString('base64')
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '')
+
+    const res = await fetchWithTimeout(`${baseUrl}/messages/send`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ raw: rawMessage }),
+    })
+    const data = await res.json()
+    if (data.error) return JSON.stringify({ error: data.error.message })
+    return JSON.stringify({ sent: true, messageId: data.id, threadId: data.threadId, to, subject })
+  }
+
+  if (functionName === 'list_emails') {
+    const query = args.query as string | undefined
+    const maxResults = Math.min(Number(args.max_results) || 5, 10)
+    const params = new URLSearchParams({ maxResults: String(maxResults) })
+    if (query) params.set('q', query)
+
+    const listRes = await fetchWithTimeout(`${baseUrl}/messages?${params}`, { headers })
+    const listData = await listRes.json()
+    if (listData.error) return JSON.stringify({ error: listData.error.message })
+
+    const messages = listData.messages || []
+    if (messages.length === 0) return JSON.stringify({ emails: [], count: 0 })
+
+    // Fetch headers for each message
+    const emails = await Promise.all(
+      messages.slice(0, maxResults).map(async (msg: { id: string }) => {
+        const msgRes = await fetchWithTimeout(
+          `${baseUrl}/messages/${msg.id}?format=metadata&metadataHeaders=From&metadataHeaders=To&metadataHeaders=Subject&metadataHeaders=Date`,
+          { headers }
+        )
+        const msgData = await msgRes.json()
+        const hdrs = msgData.payload?.headers || []
+        const getHeader = (name: string) => hdrs.find((h: { name: string; value: string }) => h.name === name)?.value || ''
+        return {
+          id: msg.id,
+          from: getHeader('From'),
+          to: getHeader('To'),
+          subject: getHeader('Subject'),
+          date: getHeader('Date'),
+          snippet: msgData.snippet || '',
+        }
+      })
+    )
+
+    return JSON.stringify({ emails, count: emails.length, totalEstimate: listData.resultSizeEstimate })
+  }
+
+  if (functionName === 'read_email') {
+    const emailId = args.email_id as string
+    const res = await fetchWithTimeout(`${baseUrl}/messages/${emailId}?format=full`, { headers })
+    const data = await res.json()
+    if (data.error) return JSON.stringify({ error: data.error.message })
+
+    const hdrs = data.payload?.headers || []
+    const getHeader = (name: string) => hdrs.find((h: { name: string; value: string }) => h.name === name)?.value || ''
+
+    // Extract body
+    let bodyText = ''
+    const parts = data.payload?.parts || [data.payload]
+    for (const part of parts) {
+      if (part?.mimeType === 'text/plain' && part.body?.data) {
+        bodyText = Buffer.from(part.body.data, 'base64').toString('utf-8')
+        break
+      }
+      if (part?.mimeType === 'text/html' && part.body?.data && !bodyText) {
+        bodyText = Buffer.from(part.body.data, 'base64').toString('utf-8')
+      }
+    }
+
+    return JSON.stringify({
+      id: emailId,
+      from: getHeader('From'),
+      to: getHeader('To'),
+      subject: getHeader('Subject'),
+      date: getHeader('Date'),
+      body: bodyText.slice(0, 5000),
+    })
+  }
+
+  throw new Error(`Unknown Gmail function: ${functionName}`)
 }
 
 // --- Custom API ---

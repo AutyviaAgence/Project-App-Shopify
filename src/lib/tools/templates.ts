@@ -270,6 +270,54 @@ export const TOOL_TEMPLATES: Record<Exclude<AgentToolType, 'custom'>, ToolTempla
     ],
   },
 
+  google_gmail: {
+    type: 'google_gmail',
+    name: 'Gmail',
+    description: 'Send emails via Gmail. The AI can compose and send emails to specific recipients.',
+    icon: 'mail',
+    auth: {
+      type: 'oauth2',
+      fields: [
+        { key: 'client_id', label: 'Client ID', placeholder: 'xxxx.apps.googleusercontent.com', secret: false },
+        { key: 'client_secret', label: 'Client Secret', placeholder: 'GOCSPX-...', secret: true },
+      ],
+      oauth_url: 'https://accounts.google.com/o/oauth2/v2/auth',
+    },
+    base_url: 'https://gmail.googleapis.com/gmail/v1',
+    functions: [
+      {
+        name: 'send_email',
+        description: 'Send an email to a recipient. Always confirm the recipient, subject and content with the user before sending.',
+        parameters: [
+          { name: 'to', type: 'string', description: 'Recipient email address', required: true },
+          { name: 'subject', type: 'string', description: 'Email subject line', required: true },
+          { name: 'body', type: 'string', description: 'Email body content (plain text or HTML)', required: true },
+          { name: 'cc', type: 'string', description: 'CC email address (optional)', required: false },
+          { name: 'bcc', type: 'string', description: 'BCC email address (optional)', required: false },
+          { name: 'is_html', type: 'boolean', description: 'Set to true if body contains HTML (default: false)', required: false },
+        ],
+        permission: 'write',
+      },
+      {
+        name: 'list_emails',
+        description: 'List recent emails from the inbox. Use to check recent messages or find a specific email.',
+        parameters: [
+          { name: 'query', type: 'string', description: 'Search query (e.g. "from:john@example.com" or "subject:invoice")', required: false },
+          { name: 'max_results', type: 'number', description: 'Maximum number of emails to return (default: 5, max: 10)', required: false },
+        ],
+        permission: 'read',
+      },
+      {
+        name: 'read_email',
+        description: 'Read the full content of a specific email by its ID. Use list_emails first to get the ID.',
+        parameters: [
+          { name: 'email_id', type: 'string', description: 'The email ID from list_emails', required: true },
+        ],
+        permission: 'read',
+      },
+    ],
+  },
+
   google_sheets: {
     type: 'google_sheets',
     name: 'Google Sheets',

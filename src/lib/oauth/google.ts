@@ -3,7 +3,7 @@ import 'server-only'
 const GOOGLE_AUTH_URL = 'https://accounts.google.com/o/oauth2/v2/auth'
 const GOOGLE_TOKEN_URL = 'https://oauth2.googleapis.com/token'
 
-// Scopes for Calendar + Sheets
+// Scopes per Google tool type
 const SCOPES: Record<string, string[]> = {
   google_calendar: [
     'https://www.googleapis.com/auth/calendar.readonly',
@@ -11,6 +11,10 @@ const SCOPES: Record<string, string[]> = {
   ],
   google_sheets: [
     'https://www.googleapis.com/auth/spreadsheets',
+  ],
+  google_gmail: [
+    'https://www.googleapis.com/auth/gmail.send',
+    'https://www.googleapis.com/auth/gmail.readonly',
   ],
 }
 
