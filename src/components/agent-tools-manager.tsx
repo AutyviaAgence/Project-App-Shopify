@@ -839,7 +839,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
           </DialogHeader>
 
           {selectedTemplate && (
-            <div className="space-y-4 mt-2">
+            <div className="space-y-4 mt-2 overflow-hidden">
               {/* Name & Description */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
@@ -1244,13 +1244,13 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                 <div className="space-y-2 border-t pt-3">
                   <Label className="text-xs font-medium">{t('tools.available_functions')}</Label>
                   {selectedTemplate.functions.map(fn => (
-                    <div key={fn.name} className="flex items-center gap-2 p-2 rounded border">
-                      <Badge variant={fn.permission === 'write' ? 'destructive' : 'secondary'} className="text-[10px] shrink-0">
+                    <div key={fn.name} className="flex items-start gap-2 p-2 rounded border overflow-hidden">
+                      <Badge variant={fn.permission === 'write' ? 'destructive' : 'secondary'} className="text-[10px] shrink-0 mt-0.5">
                         {fn.permission}
                       </Badge>
-                      <div className="min-w-0">
-                        <p className="text-xs font-medium">{fn.name}</p>
-                        <p className="text-[10px] text-muted-foreground truncate">{fn.description}</p>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-medium break-all">{fn.name}</p>
+                        <p className="text-[10px] text-muted-foreground line-clamp-2">{fn.description}</p>
                       </div>
                     </div>
                   ))}
@@ -1258,14 +1258,14 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
               )}
 
               {/* Save */}
-              <Button className="w-full" onClick={handleSaveTool} disabled={saving || !formName}>
-                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              <Button className="w-full truncate" onClick={handleSaveTool} disabled={saving || !formName}>
+                {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin shrink-0" />}
                 {editingTool
                   ? t('tools.update_tool')
                   : selectedTemplate?.auth_type === 'oauth2' ? (
                     <>
-                      <ExternalLink className="mr-2 h-4 w-4" />
-                      {t('tools.save_and_connect')}
+                      <ExternalLink className="mr-2 h-4 w-4 shrink-0" />
+                      <span className="truncate">{t('tools.save_and_connect')}</span>
                     </>
                   ) : t('tools.save_tool')}
               </Button>
