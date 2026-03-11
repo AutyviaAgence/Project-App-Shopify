@@ -816,7 +816,7 @@ async function executeGoogleSheets(
       { headers }
     )
     const data = await res.json()
-    if (data.error) return JSON.stringify({ error: data.error.message, hint: 'Call list_sheets first to get the correct sheet name' })
+    if (data.error) return JSON.stringify({ error: data.error.message, hint: `Sheet "${sheetName}" not found. Call list_sheets first to get the correct sheet name.` })
     const rows = (data.values || []) as string[][]
     const query = (args.query as string).toLowerCase()
     const headerRow = rows[0] || []
@@ -1100,7 +1100,16 @@ async function executeCustomTool(
   const method = (fnDef.method || 'GET').toUpperCase()
   const fetchOpts: RequestInit = { method, headers }
 
-  if (method !== 'GET' && method !== 'HEAD' && Object.keys(args).length > 0) {
+  if ((method === 'GET' || method === 'HEAD') && Object.keys(args).length > 0) {
+    // Add remaining args as query string params (path params already replaced above)
+    const urlObj = new URL(url)
+    for (const [key, value] of Object.entries(args)) {
+      if (value !== undefined && value !== null && !url.includes(`/${encodeURIComponent(String(value))}`)) {
+        urlObj.searchParams.set(key, String(value))
+      }
+    }
+    url = urlObj.toString()
+  } else if (method !== 'GET' && method !== 'HEAD' && Object.keys(args).length > 0) {
     fetchOpts.body = JSON.stringify(args)
   }
 
