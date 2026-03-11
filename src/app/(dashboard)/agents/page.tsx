@@ -47,6 +47,8 @@ import {
   Wand2,
   MessageSquare,
   Wrench,
+  Pin,
+  PinOff,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -463,6 +465,22 @@ export default function AgentsPage() {
     }
   }
 
+  async function handleTogglePin(agent: AIAgent) {
+    try {
+      const res = await fetch(`/api/agents/${agent.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_pinned: !agent.is_pinned }),
+      })
+      const json = await res.json()
+      if (res.ok && json.data) {
+        setAgents((prev) => prev.map((a) => (a.id === agent.id ? json.data : a)))
+      }
+    } catch {
+      toast.error(t('common.network_error'))
+    }
+  }
+
   async function handleWizardComplete(config: GeneratedAgentConfig) {
     setSaving(true)
     try {
@@ -636,15 +654,25 @@ export default function AgentsPage() {
         </Card>
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {agents.map((agent) => {
+          {[...agents].sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0)).map((agent) => {
             const isDeleting = deleting === agent.id
 
             return (
-              <Card key={agent.id} className={cn('overflow-hidden', !agent.is_active && 'opacity-60')}>
+              <Card key={agent.id} className={cn('overflow-hidden', !agent.is_active && 'opacity-60', agent.is_pinned && 'ring-1 ring-primary/30')}>
                 <CardHeader className="flex flex-col gap-2 space-y-0 pb-2 sm:flex-row sm:items-center sm:justify-between">
-                  <CardTitle className="text-sm font-medium truncate min-w-0">
-                    <Bot className="mr-1 inline h-4 w-4" />
-                    {agent.name}
+                  <CardTitle className="text-sm font-medium truncate min-w-0 flex items-center gap-1">
+                    <Bot className="mr-1 inline h-4 w-4 shrink-0" />
+                    <span className="truncate">{agent.name}</span>
+                    <button
+                      onClick={() => handleTogglePin(agent)}
+                      className={cn(
+                        'ml-1 shrink-0 rounded p-0.5 transition-colors hover:bg-muted',
+                        agent.is_pinned ? 'text-primary' : 'text-muted-foreground/40 hover:text-muted-foreground'
+                      )}
+                      title={agent.is_pinned ? t('agents.unpin') : t('agents.pin')}
+                    >
+                      {agent.is_pinned ? <Pin className="h-3.5 w-3.5" /> : <PinOff className="h-3.5 w-3.5" />}
+                    </button>
                   </CardTitle>
                   <Badge variant={agent.is_active ? 'default' : 'secondary'} className="w-fit">
                     {agent.is_active ? t('common.active') : t('common.inactive')}

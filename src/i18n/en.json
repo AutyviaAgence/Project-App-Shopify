@@ -266,6 +266,8 @@
     "agent_deleted": "Agent deleted",
     "agent_enabled": "Agent enabled",
     "agent_disabled": "Agent disabled",
+    "pin": "Pin",
+    "unpin": "Unpin",
     "relance": "Follow-up",
     "delay": "Delay",
     "max": "Max",

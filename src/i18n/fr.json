@@ -266,6 +266,8 @@
     "agent_deleted": "Agent supprimé",
     "agent_enabled": "Agent activé",
     "agent_disabled": "Agent désactivé",
+    "pin": "Épingler",
+    "unpin": "Désépingler",
     "relance": "Relance",
     "delay": "Délai",
     "max": "Max",

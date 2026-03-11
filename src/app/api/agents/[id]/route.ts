@@ -77,7 +77,7 @@ export async function PATCH(
 
   const body = await req.json()
   const {
-    name, description, system_prompt, objective, model, temperature, is_active,
+    name, description, system_prompt, objective, model, temperature, is_active, is_pinned,
     response_delay_min, response_delay_max, max_messages_per_conversation, inactivity_timeout_minutes,
     schedule_enabled, schedule_timezone, schedule_start_time, schedule_end_time, schedule_days,
     auto_detect_language, escalation_enabled, escalation_keywords, escalation_message, booking_url,
@@ -90,6 +90,7 @@ export async function PATCH(
     model?: string
     temperature?: number
     is_active?: boolean
+    is_pinned?: boolean
     response_delay_min?: number
     response_delay_max?: number
     max_messages_per_conversation?: number | null
@@ -122,6 +123,7 @@ export async function PATCH(
     updateData.temperature = Math.max(0, Math.min(2, Number(temperature) || 0.7))
   }
   if (is_active !== undefined) updateData.is_active = is_active
+  if (is_pinned !== undefined) updateData.is_pinned = is_pinned
   if (response_delay_min !== undefined) {
     updateData.response_delay_min = Math.max(0, Math.min(30, Math.floor(Number(response_delay_min) || 0)))
   }
