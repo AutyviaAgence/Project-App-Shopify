@@ -91,8 +91,8 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    clientId = cred.client_id
-    clientSecret = decryptMessage(cred.client_secret)
+    clientId = cred.client_id!
+    clientSecret = cred.client_secret ? decryptMessage(cred.client_secret) : ''
   } else {
     // Legacy — get from tool config
     const { data: tool, error: toolError } = await supabase

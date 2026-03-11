@@ -94,7 +94,8 @@ type OAuthCred = {
   id: string
   name: string
   provider: string
-  client_id: string
+  credential_type: string
+  client_id: string | null
   is_connected: boolean
   created_at: string
 }
@@ -255,9 +256,12 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
     setWaSelectedContacts(new Set())
     setWaContactSearch('')
     if (template.type === 'whatsapp_message') fetchWaSessions()
-    // Default to existing if credentials available for OAuth tools
-    const providerCreds = credentials.filter(c => c.provider === 'google')
-    setCredentialMode(isOAuthTool(template.type) && providerCreds.length > 0 ? 'existing' : 'new')
+    // Default to existing if matching credentials are available
+    const mapping = getCredentialMapping(template.type, template.auth_type)
+    const matchingCreds = credentials.filter(c =>
+      (c.credential_type || 'oauth2') === mapping.credentialType && c.provider === mapping.provider
+    )
+    setCredentialMode(supportsCredentials(template.type) && matchingCreds.length > 0 ? 'existing' : 'new')
     setCatalogOpen(false)
     setConfigOpen(true)
   }
@@ -279,7 +283,11 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
       setCredentialMode('existing')
     } else {
       setSelectedCredentialId(null)
-      setCredentialMode(isOAuthTool(tool.tool_type) && credentials.filter(c => c.provider === 'google').length > 0 ? 'existing' : 'new')
+      const editMapping = getCredentialMapping(tool.tool_type, template.auth_type)
+      const editMatchingCreds = credentials.filter(c =>
+        (c.credential_type || 'oauth2') === editMapping.credentialType && c.provider === editMapping.provider
+      )
+      setCredentialMode(editMatchingCreds.length > 0 ? 'existing' : 'new')
     }
     setNewCredName('')
     // Pre-fill config (masked secrets show as empty — user can leave blank to keep existing)
@@ -361,40 +369,70 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
         }))
       }
 
-      // Resolve credential_id for OAuth tools
+      // Resolve credential_id (OAuth and non-OAuth)
       let credentialId: string | null = null
       let clientIdForOAuth: string | undefined
       let clientSecretForOAuth: string | undefined
 
-      if (isOAuthTool(selectedTemplate.type)) {
+      if (supportsCredentials(selectedTemplate.type)) {
         if (credentialMode === 'existing' && selectedCredentialId) {
           credentialId = selectedCredentialId
-          // Remove client_id/client_secret from tool config (they live in the credential)
-          delete config.client_id
-          delete config.client_secret
-        } else if (credentialMode === 'new' && formConfig.client_id && formConfig.client_secret) {
-          // Create new shared credential
-          const credName = newCredName || `${selectedTemplate.name} - ${formName}`
-          const credRes = await fetch('/api/credentials', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              name: credName,
-              provider: 'google',
-              client_id: formConfig.client_id,
-              client_secret: formConfig.client_secret,
-            }),
-          })
-          const credJson = await credRes.json()
-          if (!credRes.ok) throw new Error(credJson.error || 'Erreur création credential')
-          credentialId = credJson.data.id
-          clientIdForOAuth = formConfig.client_id
-          clientSecretForOAuth = formConfig.client_secret
-          // Remove from tool config
-          delete config.client_id
-          delete config.client_secret
-          // Refresh credentials list
-          fetchCredentials()
+          // Remove secret fields from tool config (they live in the credential)
+          for (const field of selectedTemplate.auth_fields) {
+            if (field.secret) delete config[field.key]
+          }
+          if (isOAuthTool(selectedTemplate.type)) {
+            delete config.client_id
+            delete config.client_secret
+          }
+        } else if (credentialMode === 'new') {
+          const mapping = getCredentialMapping(selectedTemplate.type, formConfig.auth_type || selectedTemplate.auth_type)
+          const secrets = extractSecrets(selectedTemplate.auth_fields, formConfig)
+
+          if (isOAuthTool(selectedTemplate.type) && formConfig.client_id && formConfig.client_secret) {
+            // OAuth credential
+            const credName = newCredName || `${selectedTemplate.name} - ${formName}`
+            const credRes = await fetch('/api/credentials', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                name: credName,
+                provider: 'google',
+                credential_type: 'oauth2',
+                client_id: formConfig.client_id,
+                client_secret: formConfig.client_secret,
+              }),
+            })
+            const credJson = await credRes.json()
+            if (!credRes.ok) throw new Error(credJson.error || 'Erreur création credential')
+            credentialId = credJson.data.id
+            clientIdForOAuth = formConfig.client_id
+            clientSecretForOAuth = formConfig.client_secret
+            delete config.client_id
+            delete config.client_secret
+            fetchCredentials()
+          } else if (!isOAuthTool(selectedTemplate.type) && secrets && newCredName) {
+            // Non-OAuth credential — create shared credential with secrets in metadata
+            const credRes = await fetch('/api/credentials', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                name: newCredName,
+                provider: mapping.provider,
+                credential_type: mapping.credentialType,
+                secrets,
+              }),
+            })
+            const credJson = await credRes.json()
+            if (!credRes.ok) throw new Error(credJson.error || 'Erreur création credential')
+            credentialId = credJson.data.id
+            // Remove secret fields from tool config
+            for (const field of selectedTemplate.auth_fields) {
+              if (field.secret) delete config[field.key]
+            }
+            fetchCredentials()
+          }
+          // If no credential name given for non-OAuth, secrets stay inline in config (backward compat)
         }
       }
 
@@ -504,7 +542,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
 
       if (tool.credential_id) {
         const cred = credentials.find(c => c.id === tool.credential_id)
-        if (cred) clientId = cred.client_id
+        if (cred) clientId = cred.client_id || ''
         // client_secret is masked — the authorize endpoint reads it from the credential
       }
 
@@ -758,7 +796,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                         )}
                       </div>
                       <p className="text-xs text-muted-foreground truncate">
-                        Client ID: {cred.client_id.slice(0, 25)}...
+                        Client ID: {cred.client_id?.slice(0, 25)}...
                       </p>
                     </div>
                     <Button
@@ -878,11 +916,19 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
               )}
 
               {/* Auth fields */}
+              {supportsCredentials(selectedTemplate.type) && (
               <div className="space-y-3 border-t pt-3">
                 <Label className="text-xs font-medium">{t('tools.credentials')}</Label>
 
-                {/* Credential selector for OAuth tools */}
-                {isOAuthTool(selectedTemplate.type) && (
+                {/* Unified credential selector for all tool types */}
+                {(() => {
+                  const mapping = getCredentialMapping(selectedTemplate.type, formConfig.auth_type || selectedTemplate.auth_type)
+                  const matchingCreds = credentials.filter(c =>
+                    (c.credential_type || 'oauth2') === mapping.credentialType && c.provider === mapping.provider
+                  )
+                  const hasSecretFields = selectedTemplate.auth_fields.some(f => f.secret)
+
+                  return hasSecretFields ? (
                   <div className="space-y-3">
                     {/* Mode toggle */}
                     <div className="flex gap-2">
@@ -891,9 +937,9 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                         variant={credentialMode === 'existing' ? 'default' : 'outline'}
                         className="flex-1 text-xs h-8 min-w-0"
                         onClick={() => setCredentialMode('existing')}
-                        disabled={credentials.filter(c => c.provider === 'google').length === 0}
+                        disabled={matchingCreds.length === 0}
                       >
-                        Existant
+                        {t('tools.cred_existing')}
                       </Button>
                       <Button
                         size="sm"
@@ -901,24 +947,22 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                         className="flex-1 text-xs h-8 min-w-0"
                         onClick={() => setCredentialMode('new')}
                       >
-                        Nouveau
+                        {t('tools.cred_new')}
                       </Button>
                     </div>
 
                     {credentialMode === 'existing' ? (
                       <div className="space-y-2">
-                        <Label className="text-xs text-muted-foreground">Sélectionner un credential Google</Label>
+                        <Label className="text-xs text-muted-foreground">{t('tools.select_credential')}</Label>
                         <Select
                           value={selectedCredentialId || ''}
                           onValueChange={(v) => setSelectedCredentialId(v || null)}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Choisir un credential..." />
+                            <SelectValue placeholder={t('tools.choose_credential')} />
                           </SelectTrigger>
                           <SelectContent>
-                            {credentials
-                              .filter(c => c.provider === 'google')
-                              .map(c => (
+                            {matchingCreds.map(c => (
                                 <SelectItem key={c.id} value={c.id}>
                                   <span className="flex items-center gap-2">
                                     {c.name}
@@ -935,22 +979,23 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                           return cred ? (
                             <div className="flex items-center justify-between">
                               <p className="text-[10px] text-muted-foreground">
-                                Client ID: {cred.client_id.slice(0, 20)}... — {cred.is_connected ? 'Connecté' : 'Non connecté'}
+                                {cred.client_id ? `Client ID: ${cred.client_id.slice(0, 20)}...` : cred.name}
+                                {' — '}{cred.is_connected ? t('tools.connected') : t('tools.not_connected')}
                               </p>
                               <Button
                                 size="sm"
                                 variant="ghost"
                                 className="h-6 w-6 p-0 text-destructive hover:text-destructive"
                                 onClick={async () => {
-                                  if (!confirm('Supprimer ce credential ? Les outils associés perdront leur connexion OAuth.')) return
+                                  if (!confirm(t('tools.delete_credential_confirm'))) return
                                   try {
                                     const res = await fetch(`/api/credentials/${cred.id}`, { method: 'DELETE' })
                                     if (!res.ok) throw new Error('Erreur suppression')
-                                    toast.success('Credential supprimé')
+                                    toast.success(t('tools.credential_deleted'))
                                     setSelectedCredentialId(null)
                                     fetchCredentials()
                                   } catch {
-                                    toast.error('Erreur lors de la suppression')
+                                    toast.error(t('tools.credential_delete_error'))
                                   }
                                 }}
                               >
@@ -960,15 +1005,15 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                           ) : null
                         })()}
 
-                        {/* Show non-OAuth fields (e.g. calendar_id, spreadsheet_id) */}
+                        {/* Show non-secret fields (e.g. calendar_id, shop_url, base_url) */}
                         {selectedTemplate.auth_fields
-                          .filter(f => f.key !== 'client_id' && f.key !== 'client_secret')
+                          .filter(f => !f.secret && f.key !== 'client_id' && f.key !== 'client_secret')
                           .map(field => (
                             <div key={field.key} className="space-y-1">
                               <Label className="text-xs text-muted-foreground">{field.label}</Label>
                               <Input
-                                type={field.secret ? 'password' : 'text'}
-                                placeholder={editingTool && field.secret ? '••••••••' : field.placeholder}
+                                type="text"
+                                placeholder={field.placeholder}
                                 value={formConfig[field.key] || ''}
                                 onChange={e => setFormConfig(prev => ({ ...prev, [field.key]: e.target.value }))}
                               />
@@ -978,14 +1023,14 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                     ) : (
                       <div className="space-y-2">
                         <div className="space-y-1">
-                          <Label className="text-xs text-muted-foreground">Nom du credential</Label>
+                          <Label className="text-xs text-muted-foreground">{t('tools.cred_name')}</Label>
                           <Input
-                            placeholder="Ex: Mon Google Workspace"
+                            placeholder={isOAuthTool(selectedTemplate.type) ? 'Ex: Mon Google Workspace' : `Ex: ${selectedTemplate.name} credentials`}
                             value={newCredName}
                             onChange={e => setNewCredName(e.target.value)}
                           />
                           <p className="text-[10px] text-muted-foreground">
-                            Ce credential sera réutilisable sur d&apos;autres agents
+                            {t('tools.cred_reusable_hint')}
                           </p>
                         </div>
                         {editingTool && (
@@ -1005,27 +1050,24 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                       </div>
                     )}
                   </div>
-                )}
-
-                {/* Non-OAuth auth fields (Shopify, WooCommerce, Stripe, Custom — NOT whatsapp_message) */}
-                {!isOAuthTool(selectedTemplate.type) && selectedTemplate.type !== 'whatsapp_message' && (
-                  <>
-                    {editingTool && (
-                      <p className="text-[10px] text-muted-foreground">{t('tools.edit_secret_hint')}</p>
-                    )}
-                    {selectedTemplate.auth_fields.map(field => (
-                      <div key={field.key} className="space-y-1">
-                        <Label className="text-xs text-muted-foreground">{field.label}</Label>
-                        <Input
-                          type={field.secret ? 'password' : 'text'}
-                          placeholder={editingTool && field.secret ? '••••••••' : field.placeholder}
-                          value={formConfig[field.key] || ''}
-                          onChange={e => setFormConfig(prev => ({ ...prev, [field.key]: e.target.value }))}
-                        />
-                      </div>
-                    ))}
-                  </>
-                )}
+                  ) : (
+                    // No secret fields — just show non-secret config fields
+                    <>
+                      {selectedTemplate.auth_fields.map(field => (
+                        <div key={field.key} className="space-y-1">
+                          <Label className="text-xs text-muted-foreground">{field.label}</Label>
+                          <Input
+                            placeholder={field.placeholder}
+                            value={formConfig[field.key] || ''}
+                            onChange={e => setFormConfig(prev => ({ ...prev, [field.key]: e.target.value }))}
+                          />
+                        </div>
+                      ))}
+                    </>
+                  )
+                })()}
+              </div>
+              )}
 
                 {/* WhatsApp Message — session selector + contact picker + delay */}
                 {selectedTemplate.type === 'whatsapp_message' && (
@@ -1141,7 +1183,6 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                     </div>
                   </div>
                 )}
-              </div>
 
               {/* Custom API functions */}
               {selectedTemplate.type === 'custom' && (
@@ -1359,6 +1400,41 @@ function OAuthRedirectUri() {
 
 function isOAuthTool(type: string): boolean {
   return type === 'google_calendar' || type === 'google_sheets' || type === 'google_gmail'
+}
+
+/** Returns true if the tool type supports shared credentials (all except whatsapp_message) */
+function supportsCredentials(type: string): boolean {
+  return type !== 'whatsapp_message'
+}
+
+/** Maps tool type → credential_type and provider for filtering shared credentials */
+function getCredentialMapping(toolType: string, authType?: string): { credentialType: string; provider: string } {
+  if (isOAuthTool(toolType)) return { credentialType: 'oauth2', provider: 'google' }
+  if (toolType === 'shopify') return { credentialType: 'api_key', provider: 'shopify' }
+  if (toolType === 'stripe') return { credentialType: 'api_key', provider: 'stripe' }
+  if (toolType === 'woocommerce') return { credentialType: 'api_key', provider: 'woocommerce' }
+  // Custom: match by auth_type
+  if (authType === 'basic') return { credentialType: 'basic', provider: 'custom' }
+  if (authType === 'bearer') return { credentialType: 'bearer', provider: 'custom' }
+  return { credentialType: 'api_key', provider: 'custom' }
+}
+
+/** Get secret fields from auth_fields to store in credential metadata */
+function extractSecrets(authFields: { key: string; secret: boolean }[], formConfig: Record<string, string>): Record<string, string> | null {
+  const secrets: Record<string, string> = {}
+  let hasValue = false
+  for (const field of authFields) {
+    if (field.secret && formConfig[field.key]) {
+      secrets[field.key] = formConfig[field.key]
+      hasValue = true
+    }
+  }
+  return hasValue ? secrets : null
+}
+
+/** Get non-secret fields from auth_fields (e.g. shop_url, calendar_id) */
+function getNonSecretFields(authFields: { key: string; secret: boolean }[]): string[] {
+  return authFields.filter(f => !f.secret && f.key !== 'auth_type').map(f => f.key)
 }
 
 function getIconForType(type: string): string {

@@ -119,19 +119,61 @@ async function resolveToolConfig(
 
   if (error || !cred) {
     console.error('[Tools] Credential not found:', tool.credential_id)
-    throw new Error('Referenced OAuth credential not found. Please reconnect.')
+    throw new Error('Referenced credential not found. Please reconnect.')
   }
 
-  // Merge credential fields into config (credential wins over inline)
+  const credType = cred.credential_type || 'oauth2'
+
+  if (credType === 'oauth2') {
+    // OAuth2: merge client_id, client_secret, tokens
+    return {
+      config: {
+        ...baseConfig,
+        client_id: cred.client_id,
+        client_secret: cred.client_secret ? decryptMessage(cred.client_secret) : baseConfig.client_secret,
+        access_token: cred.access_token ? decryptMessage(cred.access_token) : baseConfig.access_token,
+        refresh_token: cred.refresh_token ? decryptMessage(cred.refresh_token) : baseConfig.refresh_token,
+        token_expires_at: cred.token_expires_at || baseConfig.token_expires_at,
+      },
+      credentialId: cred.id,
+    }
+  }
+
+  // Non-OAuth: decrypt secrets from metadata and merge into config
+  const metadata = (cred.metadata || {}) as Record<string, unknown>
+  const decryptedSecrets: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(metadata)) {
+    if (typeof value === 'string' && isSecretField(key)) {
+      try {
+        decryptedSecrets[key] = decryptMessage(value)
+      } catch {
+        decryptedSecrets[key] = value
+      }
+    } else {
+      decryptedSecrets[key] = value
+    }
+  }
+
+  // Map credential type to the expected config fields
+  const mergedConfig = { ...baseConfig, ...decryptedSecrets }
+
+  // For basic auth, also set auth_type so executeCustomTool knows
+  if (credType === 'basic') {
+    mergedConfig.auth_type = mergedConfig.auth_type || 'basic'
+    // Map username/password to the fields custom tool executor expects
+    if (decryptedSecrets.username && decryptedSecrets.password) {
+      mergedConfig.api_key = `${decryptedSecrets.username}:${decryptedSecrets.password}`
+    }
+  } else if (credType === 'api_key') {
+    mergedConfig.auth_type = mergedConfig.auth_type || 'api_key'
+    if (decryptedSecrets.api_key) mergedConfig.api_key = decryptedSecrets.api_key
+  } else if (credType === 'bearer') {
+    mergedConfig.auth_type = mergedConfig.auth_type || 'bearer'
+    if (decryptedSecrets.token) mergedConfig.api_key = decryptedSecrets.token
+  }
+
   return {
-    config: {
-      ...baseConfig,
-      client_id: cred.client_id,
-      client_secret: decryptMessage(cred.client_secret),
-      access_token: cred.access_token ? decryptMessage(cred.access_token) : baseConfig.access_token,
-      refresh_token: cred.refresh_token ? decryptMessage(cred.refresh_token) : baseConfig.refresh_token,
-      token_expires_at: cred.token_expires_at || baseConfig.token_expires_at,
-    },
+    config: mergedConfig,
     credentialId: cred.id,
   }
 }

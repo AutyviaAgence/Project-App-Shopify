@@ -227,14 +227,17 @@ export type AgentTool = {
   updated_at: string
 }
 
+export type CredentialType = 'oauth2' | 'api_key' | 'basic' | 'bearer'
+
 export type OAuthCredential = {
   id: string
   user_id: string
   team_id: string | null
   name: string
   provider: string
-  client_id: string
-  client_secret: string
+  credential_type: CredentialType
+  client_id: string | null
+  client_secret: string | null
   access_token: string | null
   refresh_token: string | null
   token_expires_at: string | null
@@ -635,7 +638,7 @@ export type Database = {
       }
       oauth_credentials: {
         Row: OAuthCredential
-        Insert: Partial<OAuthCredential> & Pick<OAuthCredential, 'user_id' | 'name' | 'client_id' | 'client_secret'>
+        Insert: Partial<OAuthCredential> & Pick<OAuthCredential, 'user_id' | 'name'>
         Update: Partial<OAuthCredential>
         Relationships: []
       }

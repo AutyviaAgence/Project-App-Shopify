@@ -38,8 +38,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Credential introuvable' }, { status: 404 })
     }
 
-    clientId = cred.client_id
-    clientSecret = decryptMessage(cred.client_secret)
+    clientId = cred.client_id!
+    clientSecret = cred.client_secret ? decryptMessage(cred.client_secret) : ''
   }
 
   if (!clientId || !clientSecret) {

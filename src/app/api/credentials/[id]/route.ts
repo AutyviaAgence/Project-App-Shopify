@@ -3,6 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { encryptMessage, decryptMessage } from '@/lib/crypto/encryption'
 
+const SECRET_METADATA_KEYS = ['api_key', 'token', 'password', 'consumer_key', 'consumer_secret', 'secret']
+
 /** GET /api/credentials/[id] — Get a single credential */
 export async function GET(
   _req: NextRequest,
@@ -30,9 +32,10 @@ export async function GET(
   return NextResponse.json({
     data: {
       ...cred,
-      client_secret: maskSecret(decryptMessage(cred.client_secret)),
+      client_secret: cred.client_secret ? maskSecret(decryptMessage(cred.client_secret)) : null,
       access_token: cred.access_token ? '••••••••' : null,
       refresh_token: cred.refresh_token ? '••••••••' : null,
+      metadata: maskMetadataSecrets(cred.metadata),
     },
   })
 }
@@ -53,7 +56,7 @@ export async function PATCH(
   // Verify ownership
   const { data: existing } = await supabase
     .from('oauth_credentials')
-    .select('id')
+    .select('id, metadata')
     .eq('id', id)
     .eq('user_id', user.id)
     .single()
@@ -70,6 +73,20 @@ export async function PATCH(
   if (body.client_secret) updates.client_secret = encryptMessage(body.client_secret)
   if (body.team_id !== undefined) updates.team_id = body.team_id || null
 
+  // Handle non-OAuth secrets update (merge into existing metadata)
+  if (body.secrets) {
+    const existingMetadata = (existing.metadata || {}) as Record<string, unknown>
+    const encryptedSecrets: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(body.secrets)) {
+      if (typeof value === 'string' && SECRET_METADATA_KEYS.includes(key)) {
+        encryptedSecrets[key] = encryptMessage(value)
+      } else {
+        encryptedSecrets[key] = value
+      }
+    }
+    updates.metadata = { ...existingMetadata, ...encryptedSecrets }
+  }
+
   const { data: updated, error } = await supabase
     .from('oauth_credentials')
     .update(updates)
@@ -85,9 +102,10 @@ export async function PATCH(
   return NextResponse.json({
     data: {
       ...updated,
-      client_secret: '••••••••',
+      client_secret: updated.client_secret ? '••••••••' : null,
       access_token: updated.access_token ? '••••••••' : null,
       refresh_token: updated.refresh_token ? '••••••••' : null,
+      metadata: maskMetadataSecrets(updated.metadata),
     },
   })
 }
@@ -146,4 +164,22 @@ export async function DELETE(
 function maskSecret(value: string): string {
   if (!value || value.length <= 8) return '••••••••'
   return value.slice(0, 4) + '••••' + value.slice(-4)
+}
+
+function maskMetadataSecrets(metadata: Record<string, unknown> | null): Record<string, unknown> {
+  if (!metadata) return {}
+  const result: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(metadata)) {
+    if (typeof value === 'string' && SECRET_METADATA_KEYS.includes(key)) {
+      try {
+        const decrypted = decryptMessage(value)
+        result[key] = maskSecret(decrypted)
+      } catch {
+        result[key] = '••••••••'
+      }
+    } else {
+      result[key] = value
+    }
+  }
+  return result
 }
