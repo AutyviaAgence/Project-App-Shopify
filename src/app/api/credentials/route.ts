@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { encryptMessage, decryptMessage } from '@/lib/crypto/encryption'
 import type { CredentialType } from '@/types/database'
 
-const SECRET_METADATA_KEYS = ['api_key', 'token', 'password', 'consumer_key', 'consumer_secret', 'secret']
+const SECRET_METADATA_KEYS = ['api_key', 'access_token', 'token', 'password', 'consumer_key', 'consumer_secret', 'secret', 'refresh_token']
 
 /** GET /api/credentials — List user's credentials (all types) */
 export async function GET(_req: NextRequest) {
@@ -67,17 +67,10 @@ export async function POST(req: NextRequest) {
     if (!client_id || !client_secret) {
       return NextResponse.json({ error: 'client_id et client_secret sont requis pour OAuth' }, { status: 400 })
     }
-  } else if (credential_type === 'api_key') {
-    if (!secrets?.api_key) {
-      return NextResponse.json({ error: 'secrets.api_key est requis' }, { status: 400 })
-    }
-  } else if (credential_type === 'basic') {
-    if (!secrets?.username || !secrets?.password) {
-      return NextResponse.json({ error: 'secrets.username et secrets.password sont requis' }, { status: 400 })
-    }
-  } else if (credential_type === 'bearer') {
-    if (!secrets?.token) {
-      return NextResponse.json({ error: 'secrets.token est requis' }, { status: 400 })
+  } else {
+    // Non-OAuth: must have at least one secret in the secrets object
+    if (!secrets || typeof secrets !== 'object' || Object.keys(secrets).length === 0) {
+      return NextResponse.json({ error: 'secrets est requis pour les credentials non-OAuth' }, { status: 400 })
     }
   }
 

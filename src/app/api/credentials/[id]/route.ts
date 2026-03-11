@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { encryptMessage, decryptMessage } from '@/lib/crypto/encryption'
 
-const SECRET_METADATA_KEYS = ['api_key', 'token', 'password', 'consumer_key', 'consumer_secret', 'secret']
+const SECRET_METADATA_KEYS = ['api_key', 'access_token', 'token', 'password', 'consumer_key', 'consumer_secret', 'secret', 'refresh_token']
 
 /** GET /api/credentials/[id] — Get a single credential */
 export async function GET(
