@@ -923,9 +923,13 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                 {/* Unified credential selector for all tool types */}
                 {(() => {
                   const mapping = getCredentialMapping(selectedTemplate.type, formConfig.auth_type || selectedTemplate.auth_type)
-                  const matchingCreds = credentials.filter(c =>
-                    (c.credential_type || 'oauth2') === mapping.credentialType && c.provider === mapping.provider
-                  )
+                  const matchingCreds = credentials.filter(c => {
+                    const credType = c.credential_type || 'oauth2'
+                    // For custom tools, show all non-OAuth credentials
+                    if (selectedTemplate.type === 'custom') return credType !== 'oauth2'
+                    // For template tools, match by credential_type and provider
+                    return credType === mapping.credentialType && c.provider === mapping.provider
+                  })
                   const hasSecretFields = selectedTemplate.auth_fields.some(f => f.secret)
 
                   return hasSecretFields ? (
