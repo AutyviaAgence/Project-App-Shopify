@@ -49,6 +49,7 @@ import {
   Wrench,
   Pin,
   PinOff,
+  Copy,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -481,6 +482,53 @@ export default function AgentsPage() {
     }
   }
 
+  async function handleDuplicate(agent: AIAgent) {
+    try {
+      setSaving(true)
+      const res = await fetch('/api/agents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: `${agent.name} (copie)`,
+          description: agent.description,
+          system_prompt: agent.system_prompt,
+          objective: agent.objective,
+          model: agent.model,
+          temperature: agent.temperature,
+          response_delay_min: agent.response_delay_min,
+          response_delay_max: agent.response_delay_max,
+          max_messages_per_conversation: agent.max_messages_per_conversation,
+          inactivity_timeout_minutes: agent.inactivity_timeout_minutes,
+          escalation_enabled: agent.escalation_enabled,
+          escalation_keywords: agent.escalation_keywords,
+          escalation_message: agent.escalation_message,
+          booking_url: agent.booking_url,
+          agent_type: agent.agent_type,
+          stop_condition: agent.stop_condition,
+          team_ids: (agent as AIAgent & { team_ids?: string[] }).team_ids || (agent.team_id ? [agent.team_id] : []),
+          is_active: false,
+          schedule_enabled: agent.schedule_enabled,
+          schedule_timezone: agent.schedule_timezone,
+          schedule_start_time: agent.schedule_start_time,
+          schedule_end_time: agent.schedule_end_time,
+          schedule_days: agent.schedule_days,
+          auto_detect_language: agent.auto_detect_language,
+        }),
+      })
+      const json = await res.json()
+      if (res.ok && json.data) {
+        setAgents((prev) => [json.data, ...prev])
+        toast.success(t('agents.duplicated'))
+      } else {
+        toast.error(json.error || t('common.error'))
+      }
+    } catch {
+      toast.error(t('common.network_error'))
+    } finally {
+      setSaving(false)
+    }
+  }
+
   async function handleWizardComplete(config: GeneratedAgentConfig) {
     setSaving(true)
     try {
@@ -835,6 +883,15 @@ export default function AgentsPage() {
                     >
                       <Wrench className="mr-1 h-3 w-3" />
                       {t('tools.title')}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleDuplicate(agent)}
+                      disabled={saving}
+                    >
+                      <Copy className="mr-1 h-3 w-3" />
+                      {t('common.duplicate')}
                     </Button>
                     <Button
                       size="sm"
