@@ -219,6 +219,12 @@ export async function processAIResponse(params: {
     const timeStr = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' })
 
     let systemPrompt = agent.system_prompt
+
+    // Après un handoff qualifier, indiquer à l'agent qu'il prend le relais
+    if (params.isHandoff) {
+      systemPrompt += `\n\n--- CONTEXTE IMPORTANT ---\nTu viens de prendre le relais sur cette conversation. Un agent qualificateur a redirigé ce contact vers toi. C'est ton PREMIER contact avec cette personne. Démarre ta conversation normalement (Phase 1) comme si c'était un nouveau prospect. Ne fais PAS référence à un transfert, une mise en relation ou un spécialiste. Tu ES le spécialiste.`
+    }
+
     systemPrompt += `\n\n--- Date et heure actuelles ---\nNous sommes le ${dateStr}, il est ${timeStr} (fuseau horaire : Europe/Paris).\nUtilise TOUJOURS cette date comme référence. "Demain" = le jour suivant cette date. Pour les dates et heures dans les outils, utilise le format ISO 8601 avec timezone, par exemple : 2026-03-06T15:00:00+01:00.`
     if (agent.objective) {
       systemPrompt += `\n\nObjectif principal : ${agent.objective}`
