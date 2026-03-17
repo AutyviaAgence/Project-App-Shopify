@@ -334,31 +334,26 @@ export async function processAIResponse(params: {
       // Process tool calls
       console.log('[AI] Tool calls reçus:', result.toolCalls.length)
 
-      // Add the assistant message with tool_calls (native OpenAI format)
-      toolMessages.push(result.rawMessage as OpenAIMessage)
-
-      for (const tc of result.toolCalls) {
-        // Handle qualifier route_to_agent special tool
-        if (tc.functionName === 'route_to_agent' && agent.agent_type === 'qualifier') {
-          const args = tc.arguments as { scenario_name?: string }
+      // Check for qualifier route_to_agent BEFORE adding messages to the loop
+      if (agent.agent_type === 'qualifier') {
+        const routeCall = result.toolCalls.find(tc => tc.functionName === 'route_to_agent')
+        if (routeCall) {
+          const args = routeCall.arguments as { scenario_name?: string }
           const matchedRoute = qualifierRoutes.find(r => r.name === args.scenario_name)
           if (matchedRoute) {
             console.log('[AI] Qualifier routing to:', matchedRoute.name, '→ agent:', matchedRoute.target_agent_id)
             qualifierRouteTriggered = { routeName: matchedRoute.name, targetAgentId: matchedRoute.target_agent_id }
-            toolMessages.push({
-              role: 'tool',
-              tool_call_id: tc.toolCallId,
-              content: `Redirection effectuée vers le scénario "${matchedRoute.name}". L'agent spécialisé va maintenant prendre le relais.`,
-            })
-          } else {
-            toolMessages.push({
-              role: 'tool',
-              tool_call_id: tc.toolCallId,
-              content: `Erreur: Scénario "${args.scenario_name}" introuvable. Scénarios disponibles : ${qualifierRoutes.map(r => r.name).join(', ')}`,
-            })
+            break // Sort de la boucle for-round immédiatement, pas de 2ème appel OpenAI
           }
-          continue
         }
+      }
+
+      // Add the assistant message with tool_calls (native OpenAI format)
+      toolMessages.push(result.rawMessage as OpenAIMessage)
+
+      for (const tc of result.toolCalls) {
+        // Skip route_to_agent (handled above before pushing to toolMessages)
+        if (tc.functionName === 'route_to_agent') continue
 
         const mapping = functionMap.get(tc.functionName)
         if (!mapping) {
@@ -389,41 +384,21 @@ export async function processAIResponse(params: {
         })
       }
 
+      // Si handoff qualifier déclenché, sortir de la boucle immédiatement
+      if (qualifierRouteTriggered) break
+
       // Refresh typing indicator between rounds
       await sendPresence(sessionCtx, params.contactPhoneNumber, 'composing')
     }
 
-    if (!aiResponseText) {
+    if (!aiResponseText && !qualifierRouteTriggered) {
       console.error('[AI] Pas de réponse après', MAX_TOOL_ROUNDS, 'rounds de tool calling')
       return
     }
 
     console.log('[AI] Réponse OpenAI reçue:', aiResponseText.slice(0, 80) + '...')
 
-    // 6. Envoyer via l'intégration appropriée (Evolution ou WABA)
-    const sendResult = await sendMessage(
-      sessionCtx,
-      params.contactPhoneNumber,
-      aiResponseText
-    )
-
-    if (!sendResult.ok) {
-      console.error('[AI] Erreur envoi message:', sendResult.error)
-    }
-
-    // 7. Sauvegarder le message IA en BDD (chiffré si clé configurée)
-    const { data: savedMessage } = await supabase.from('messages').insert({
-      conversation_id: params.conversationId,
-      session_id: params.sessionId,
-      direction: 'outbound',
-      content: encryptMessage(aiResponseText),
-      message_type: 'text',
-      sent_by: 'ai_agent',
-      ai_agent_id: params.agentId,
-      status: sendResult.ok ? 'sent' : 'failed',
-    }).select('id').single()
-
-    // 7.0.1 Qualifier routing: si le qualifier a décidé de rediriger, effectuer le handoff
+    // 6.0 Qualifier silent handoff: si le qualifier redirige, ne PAS envoyer de message — l'agent cible répond directement
     if (qualifierRouteTriggered) {
       const { routeName, targetAgentId } = qualifierRouteTriggered
 
@@ -463,16 +438,50 @@ export async function processAIResponse(params: {
           })
         }
 
-        // Enregistrer les tokens et terminer
+        // Enregistrer les tokens du qualifier (pas d'envoi de message)
         if (userId && totalTokensUsed > 0) {
           await recordTokenUsage(userId, totalTokensUsed)
           console.log('[AI] Tokens enregistrés (qualifier handoff):', totalTokensUsed)
         }
+
+        // Déclencher immédiatement l'agent cible — c'est LUI qui répond au contact, pas le qualifier
+        console.log(`[AI] Qualifier silent handoff → agent "${targetAgent.name}" responds directly`)
+        await processAIResponse({
+          conversationId: params.conversationId,
+          sessionId: params.sessionId,
+          instanceName: params.instanceName,
+          contactPhoneNumber: params.contactPhoneNumber,
+          agentId: targetAgentId,
+          session: params.session,
+        })
         return
       } else {
         console.warn('[AI] Qualifier: agent cible introuvable ou inactif:', targetAgentId)
       }
     }
+
+    // 6. Envoyer via l'intégration appropriée (Evolution ou WABA)
+    const sendResult = await sendMessage(
+      sessionCtx,
+      params.contactPhoneNumber,
+      aiResponseText
+    )
+
+    if (!sendResult.ok) {
+      console.error('[AI] Erreur envoi message:', sendResult.error)
+    }
+
+    // 7. Sauvegarder le message IA en BDD (chiffré si clé configurée)
+    const { data: savedMessage } = await supabase.from('messages').insert({
+      conversation_id: params.conversationId,
+      session_id: params.sessionId,
+      direction: 'outbound',
+      content: encryptMessage(aiResponseText),
+      message_type: 'text',
+      sent_by: 'ai_agent',
+      ai_agent_id: params.agentId,
+      status: sendResult.ok ? 'sent' : 'failed',
+    }).select('id').single()
 
     // 7.1 Tracker si l'agent a proposé un lien de RDV dans sa réponse
     if (agent.booking_url) {
