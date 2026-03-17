@@ -538,6 +538,17 @@ function ConversationsPageContent() {
         { event: 'INSERT', schema: 'public', table: 'messages' },
         async (payload) => {
           const newMsg = payload.new as Message
+
+          // Check if this message belongs to a conversation we don't have yet (new conversation)
+          setConversations((prev) => {
+            const exists = prev.some((c) => c.id === newMsg.conversation_id)
+            if (!exists) {
+              // New conversation detected — re-fetch full list
+              fetchConversations()
+            }
+            return prev
+          })
+
           if (selectedConv && newMsg.conversation_id === selectedConv.id) {
             // Check if already present (optimistic update)
             setMessages((prev) => {
@@ -606,7 +617,7 @@ function ConversationsPageContent() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [selectedConv?.id, loadMessages])
+  }, [selectedConv?.id, loadMessages, fetchConversations])
 
   // Debounce search
   const [debouncedSearch, setDebouncedSearch] = useState('')
