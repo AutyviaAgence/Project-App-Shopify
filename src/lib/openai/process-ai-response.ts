@@ -22,6 +22,8 @@ export async function processAIResponse(params: {
   contactPhoneNumber: string
   agentId: string
   session?: Pick<WhatsAppSession, 'integration_type' | 'instance_name' | 'waba_phone_number_id' | 'waba_access_token'>
+  /** If true, exclude previous AI messages from context (used after qualifier handoff) */
+  isHandoff?: boolean
 }) {
   const supabase = createAdminSupabase(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -173,7 +175,11 @@ export async function processAIResponse(params: {
     // 3. Remettre en ordre chronologique et construire les messages pour OpenAI
     // Déchiffrer les messages pour le contexte IA
     const sorted = (recentMessages || []).reverse()
-    const chatMessages: ChatMessage[] = sorted
+    // After a qualifier handoff, only keep contact messages so the new agent starts fresh
+    const filtered = params.isHandoff
+      ? sorted.filter((m) => m.sent_by === 'contact')
+      : sorted
+    const chatMessages: ChatMessage[] = filtered
       .filter((m) => m.content || m.transcription)
       .map((m) => {
         let text = m.content ? decryptMessage(m.content) : ''
@@ -453,6 +459,7 @@ export async function processAIResponse(params: {
           contactPhoneNumber: params.contactPhoneNumber,
           agentId: targetAgentId,
           session: params.session,
+          isHandoff: true,
         })
         return
       } else {
