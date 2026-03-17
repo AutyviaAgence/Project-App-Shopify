@@ -175,10 +175,9 @@ export async function processAIResponse(params: {
     // 3. Remettre en ordre chronologique et construire les messages pour OpenAI
     // Déchiffrer les messages pour le contexte IA
     const sorted = (recentMessages || []).reverse()
-    // After a qualifier handoff, only keep contact messages so the new agent starts fresh
-    const filtered = params.isHandoff
-      ? sorted.filter((m) => m.sent_by === 'contact')
-      : sorted
+    // After a qualifier handoff, keep all messages so the agent sees the full conversation context
+    // (the system prompt instruction tells it not to repeat greetings)
+    const filtered = sorted
     const chatMessages: ChatMessage[] = filtered
       .filter((m) => m.content || m.transcription)
       .map((m) => {
@@ -223,7 +222,7 @@ export async function processAIResponse(params: {
     // Après un handoff qualifier, indiquer à l'agent qu'il prend le relais
     if (params.isHandoff) {
       console.log('[AI] Handoff mode — injecting fresh start context for agent:', agent.name)
-      systemPrompt = `--- INSTRUCTION PRIORITAIRE ---\nCeci est ton PREMIER message à ce prospect. Tu n'as JAMAIS parlé à cette personne avant. Démarre directement avec ta Phase 1 (demander le prénom). Ne dis JAMAIS "je vous mets en relation", "notre spécialiste", "transfert" ou toute référence à un autre agent. TU es l'agent principal. Commence comme si le prospect venait de t'écrire pour la première fois.\n--- FIN INSTRUCTION PRIORITAIRE ---\n\n` + systemPrompt
+      systemPrompt = `--- INSTRUCTION PRIORITAIRE ---\nTu prends le relais sur cette conversation. Un agent qualificateur a déjà accueilli le prospect. NE redis PAS bonjour, NE te re-présente PAS, NE dis PAS "bienvenue". Le prospect a déjà été salué. Lis les messages précédents pour comprendre le contexte et enchaîne naturellement. Démarre directement avec ta première question utile (ex: demander le prénom). Ne fais JAMAIS référence à un transfert, une mise en relation ou un spécialiste. TU es l'agent principal.\n--- FIN INSTRUCTION PRIORITAIRE ---\n\n` + systemPrompt
     }
 
     systemPrompt += `\n\n--- Date et heure actuelles ---\nNous sommes le ${dateStr}, il est ${timeStr} (fuseau horaire : Europe/Paris).\nUtilise TOUJOURS cette date comme référence. "Demain" = le jour suivant cette date. Pour les dates et heures dans les outils, utilise le format ISO 8601 avec timezone, par exemple : 2026-03-06T15:00:00+01:00.`
