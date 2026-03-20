@@ -279,7 +279,7 @@ export async function processAIResponse(params: {
       qualifierRoutes = routes || []
       if (qualifierRoutes.length > 0) {
         const routesList = qualifierRoutes.map((r, i) => `${i + 1}. "${r.name}" — ${r.description}`).join('\n')
-        systemPrompt += `\n\n--- Agent Qualificateur ---\nTu es un agent qualificateur. Ton rôle est d'analyser les messages entrants et de rediriger vers le bon agent spécialisé.\n\nScénarios de redirection disponibles :\n${routesList}\n\nQuand tu identifies avec certitude le scénario correspondant, utilise la fonction "route_to_agent" avec le nom exact du scénario.\nSi tu n'es pas sûr, pose des questions pour qualifier le besoin avant de rediriger.\nNe redirige JAMAIS sans être certain du scénario. Continue la conversation pour qualifier si nécessaire.\n--- Fin qualificateur ---`
+        systemPrompt += `\n\n--- Agent Qualificateur ---\nScénarios de redirection disponibles :\n${routesList}\n\nPour rediriger, appelle la fonction "route_to_agent" avec le nom exact du scénario.\nDès que le contact montre un intérêt (même vague) pour un service, appelle route_to_agent IMMÉDIATEMENT sans envoyer de message texte.\nN'écris JAMAIS le nom de la fonction dans ton texte — appelle-la via function call.\n--- Fin qualificateur ---`
       }
     }
 
@@ -293,7 +293,7 @@ export async function processAIResponse(params: {
         type: 'function' as const,
         function: {
           name: 'route_to_agent',
-          description: 'Redirige la conversation vers un agent spécialisé selon le scénario identifié. Utilise cette fonction UNIQUEMENT quand tu es certain du scénario.',
+          description: 'Redirige la conversation vers un agent spécialisé. Appelle cette fonction dès que le contact montre un intérêt pour un service. Ne génère AUCUN texte quand tu appelles cette fonction.',
           parameters: {
             type: 'object',
             properties: {

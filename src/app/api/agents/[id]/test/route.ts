@@ -105,6 +105,43 @@ export async function POST(
 
   const { openaiTools, functionMap } = buildOpenAITools(agentTools)
 
+  // Qualifier : ajouter route_to_agent + injection system prompt
+  let qualifierRoutes: { id: string; target_agent_id: string; name: string; description: string }[] = []
+  if (agent.agent_type === 'qualifier') {
+    const { data: routes } = await supabase
+      .from('qualifier_routes')
+      .select('id, target_agent_id, name, description')
+      .eq('agent_id', id)
+      .eq('is_active', true)
+      .order('priority', { ascending: true })
+
+    qualifierRoutes = routes || []
+    if (qualifierRoutes.length > 0) {
+      const routesList = qualifierRoutes.map((r, i) => `${i + 1}. "${r.name}" — ${r.description}`).join('\n')
+      systemPrompt += `\n\n--- Agent Qualificateur ---\nScénarios de redirection disponibles :\n${routesList}\n\nPour rediriger, appelle la fonction "route_to_agent" avec le nom exact du scénario.\nDès que le contact montre un intérêt (même vague) pour un service, appelle route_to_agent IMMÉDIATEMENT sans envoyer de message texte.\nN'écris JAMAIS le nom de la fonction dans ton texte — appelle-la via function call.\n--- Fin qualificateur ---`
+
+      const routeNames = qualifierRoutes.map(r => r.name)
+      openaiTools.push({
+        type: 'function' as const,
+        function: {
+          name: 'route_to_agent',
+          description: 'Redirige la conversation vers un agent spécialisé. Appelle cette fonction dès que le contact montre un intérêt pour un service. Ne génère AUCUN texte quand tu appelles cette fonction.',
+          parameters: {
+            type: 'object',
+            properties: {
+              scenario_name: {
+                type: 'string',
+                description: `Le nom exact du scénario de redirection. Valeurs possibles : ${routeNames.map(n => `"${n}"`).join(', ')}`,
+                enum: routeNames,
+              },
+            },
+            required: ['scenario_name'],
+          },
+        },
+      })
+    }
+  }
+
   // Ajouter instruction outils au system prompt
   if (openaiTools.length > 0) {
     const toolNames = openaiTools.map(t => t.function.name).join(', ')
@@ -145,11 +182,48 @@ export async function POST(
       })
     }
 
+    // Qualifier : détecter route_to_agent avant de continuer la boucle
+    if (agent.agent_type === 'qualifier') {
+      const routeCall = result.toolCalls.find(tc => tc.functionName === 'route_to_agent')
+      if (routeCall) {
+        const args = routeCall.arguments as { scenario_name?: string }
+        const matchedRoute = qualifierRoutes.find(r => r.name === args.scenario_name)
+        if (matchedRoute) {
+          // Récupérer le nom de l'agent cible
+          const { data: targetAgent } = await supabase
+            .from('ai_agents')
+            .select('name')
+            .eq('id', matchedRoute.target_agent_id)
+            .single()
+
+          await recordTokenUsage(user.id, totalTokens)
+          return NextResponse.json({
+            data: {
+              response: '',
+              event: 'route',
+              routeTo: targetAgent?.name || matchedRoute.name,
+              routeScenario: matchedRoute.name,
+              toolExecutions: [{
+                name: 'route_to_agent',
+                args: routeCall.arguments,
+                result: `Redirigé vers "${targetAgent?.name || matchedRoute.name}"`,
+                success: true,
+                durationMs: 0,
+              }],
+            }
+          })
+        }
+      }
+    }
+
     // Add the assistant message with tool_calls (native format)
     conversationMessages.push(result.rawMessage as OpenAIMessage)
 
     // Execute each tool call and add result with role: "tool"
     for (const tc of result.toolCalls) {
+      // Skip route_to_agent (handled above for qualifier)
+      if (tc.functionName === 'route_to_agent') continue
+
       const mapping = functionMap.get(tc.functionName)
       if (!mapping) {
         conversationMessages.push({

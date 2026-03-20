@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Loader2, Send, Bot, User, Trash2, AlertCircle, Wrench, CheckCircle, XCircle } from 'lucide-react'
+import { Loader2, Send, Bot, User, Trash2, AlertCircle, Wrench, CheckCircle, XCircle, ArrowRightCircle, StopCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/i18n/context'
 
@@ -21,10 +21,17 @@ type ToolExecution = {
   durationMs: number
 }
 
+type ChatEvent = {
+  type: 'route' | 'stop'
+  routeTo?: string
+  routeScenario?: string
+}
+
 type Message = {
   role: 'user' | 'assistant'
   content: string
   toolExecutions?: ToolExecution[]
+  event?: ChatEvent
 }
 
 type AgentTestChatProps = {
@@ -84,12 +91,23 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
 
       const json = await res.json()
 
-      if (res.ok && json.data?.response) {
-        setMessages(prev => [...prev, {
-          role: 'assistant',
-          content: json.data.response,
-          toolExecutions: json.data.toolExecutions,
-        }])
+      if (res.ok && json.data) {
+        const data = json.data
+        // Qualifier route event
+        if (data.event === 'route') {
+          setMessages(prev => [...prev, {
+            role: 'assistant',
+            content: '',
+            toolExecutions: data.toolExecutions,
+            event: { type: 'route', routeTo: data.routeTo, routeScenario: data.routeScenario },
+          }])
+        } else if (data.response) {
+          setMessages(prev => [...prev, {
+            role: 'assistant',
+            content: data.response,
+            toolExecutions: data.toolExecutions,
+          }])
+        }
       } else {
         setError(json.error || t('test_chat.generation_error'))
       }
@@ -186,17 +204,28 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
                         ))}
                       </div>
                     )}
-                    {/* Message content */}
-                    <div
-                      className={cn(
-                        'rounded-2xl px-4 py-2.5 text-sm',
-                        msg.role === 'user'
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted'
-                      )}
-                    >
-                      <p className="whitespace-pre-wrap">{msg.content}</p>
-                    </div>
+                    {/* Route event */}
+                    {msg.event?.type === 'route' && (
+                      <div className="flex items-center gap-2 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-2.5 text-sm">
+                        <ArrowRightCircle className="h-4 w-4 text-blue-500 shrink-0" />
+                        <span className="text-blue-700 dark:text-blue-300">
+                          Redirection vers <span className="font-semibold">{msg.event.routeTo}</span>
+                        </span>
+                      </div>
+                    )}
+                    {/* Message content (skip if empty route event) */}
+                    {msg.content && (
+                      <div
+                        className={cn(
+                          'rounded-2xl px-4 py-2.5 text-sm',
+                          msg.role === 'user'
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted'
+                        )}
+                      >
+                        <p className="whitespace-pre-wrap">{msg.content}</p>
+                      </div>
+                    )}
                   </div>
                   {msg.role === 'user' && (
                     <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-muted">
