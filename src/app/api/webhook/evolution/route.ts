@@ -760,13 +760,16 @@ export async function POST(req: NextRequest) {
             if (qualifierAgentId) {
               // Ne déclencher le qualifier QUE sur le tout premier message de la conversation
               // Si d'autres messages existent déjà (outbound user, ou même inbound précédents), on skip
-              const { count: totalMessageCount } = await supabase
+              const { count: totalMessageCount, error: countErr } = await supabase
                 .from('messages')
                 .select('id', { count: 'exact', head: true })
                 .eq('conversation_id', conversation.id)
 
+              console.log('[Webhook] Qualifier check — message count:', totalMessageCount, 'error:', countErr?.message)
+
               // totalMessageCount inclut le message qu'on vient d'insérer, donc > 1 = conversation existante
-              if (totalMessageCount && totalMessageCount > 1) {
+              // Note: count peut être null en cas d'erreur, on skip par sécurité
+              if (totalMessageCount === null || totalMessageCount > 1) {
                 console.log('[Webhook] Skipping qualifier — conversation already has', totalMessageCount, 'messages (not a first message)')
                 break
               }
