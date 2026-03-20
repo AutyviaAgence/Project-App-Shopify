@@ -760,18 +760,22 @@ export async function POST(req: NextRequest) {
             if (qualifierAgentId) {
               // Ne déclencher le qualifier QUE sur le tout premier message inbound de la conversation
               // Vérifier qu'il n'existe AUCUN autre message (ni de l'utilisateur, ni du contact)
+              const currentMsgId = insertedMessage?.id
               const { data: existingMessages, error: countErr } = await supabase
                 .from('messages')
                 .select('id, direction, sent_by')
                 .eq('conversation_id', conversation.id)
-                .neq('id', insertedMessage?.id || '') // Exclure le message qu'on vient d'insérer
-                .limit(1)
+                .order('created_at', { ascending: false })
+                .limit(10)
 
-              console.log('[Webhook] Qualifier check — existing messages (excluding current):', existingMessages?.length, 'error:', countErr?.message)
+              // Filtrer manuellement pour exclure le message courant (plus fiable que .neq)
+              const otherMessages = (existingMessages || []).filter(m => m.id !== currentMsgId)
+
+              console.log('[Webhook] Qualifier check — conv:', conversation.id, '| currentMsgId:', currentMsgId, '| total messages:', existingMessages?.length, '| other messages:', otherMessages.length, '| others:', JSON.stringify(otherMessages.map(m => ({ id: m.id, dir: m.direction, by: m.sent_by }))), '| error:', countErr?.message)
 
               // S'il existe au moins 1 autre message dans la conversation, ne pas déclencher le qualifier
-              if (countErr || !existingMessages || existingMessages.length > 0) {
-                console.log('[Webhook] Skipping qualifier — conversation already has previous messages')
+              if (countErr || otherMessages.length > 0) {
+                console.log('[Webhook] Skipping qualifier — conversation already has', otherMessages.length, 'previous messages')
                 break
               }
 
