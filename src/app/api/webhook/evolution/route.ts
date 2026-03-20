@@ -758,24 +758,17 @@ export async function POST(req: NextRequest) {
             // Pas d'agent assigné : vérifier si la session a un agent qualifier
             const qualifierAgentId = session.qualifier_agent_id
             if (qualifierAgentId) {
-              // Ne déclencher le qualifier QUE sur le tout premier message inbound de la conversation
-              // Vérifier qu'il n'existe AUCUN autre message (ni de l'utilisateur, ni du contact)
-              const currentMsgId = insertedMessage?.id
-              const { data: existingMessages, error: countErr } = await supabase
-                .from('messages')
-                .select('id, direction, sent_by')
-                .eq('conversation_id', conversation.id)
-                .order('created_at', { ascending: false })
-                .limit(10)
+              // Ne déclencher le qualifier QUE si la conversation vient d'être créée (premier contact)
+              // Si la conversation existait déjà (créée il y a > 30s), c'est que l'utilisateur
+              // a déjà envoyé un message (vocal, texte via API, etc.) — ne pas déclencher
+              const convCreatedAt = new Date(conversation.created_at).getTime()
+              const now = Date.now()
+              const convAgeSeconds = (now - convCreatedAt) / 1000
 
-              // Filtrer manuellement pour exclure le message courant (plus fiable que .neq)
-              const otherMessages = (existingMessages || []).filter(m => m.id !== currentMsgId)
+              console.log('[Webhook] Qualifier check — conv:', conversation.id, '| created_at:', conversation.created_at, '| age:', convAgeSeconds.toFixed(1), 's')
 
-              console.log('[Webhook] Qualifier check — conv:', conversation.id, '| currentMsgId:', currentMsgId, '| total messages:', existingMessages?.length, '| other messages:', otherMessages.length, '| others:', JSON.stringify(otherMessages.map(m => ({ id: m.id, dir: m.direction, by: m.sent_by }))), '| error:', countErr?.message)
-
-              // S'il existe au moins 1 autre message dans la conversation, ne pas déclencher le qualifier
-              if (countErr || otherMessages.length > 0) {
-                console.log('[Webhook] Skipping qualifier — conversation already has', otherMessages.length, 'previous messages')
+              if (convAgeSeconds > 30) {
+                console.log('[Webhook] Skipping qualifier — conversation is', convAgeSeconds.toFixed(0), 's old (not new)')
                 break
               }
 
