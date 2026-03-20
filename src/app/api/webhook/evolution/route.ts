@@ -758,16 +758,16 @@ export async function POST(req: NextRequest) {
             // Pas d'agent assigné : vérifier si la session a un agent qualifier
             const qualifierAgentId = session.qualifier_agent_id
             if (qualifierAgentId) {
-              // Ne PAS déclencher le qualifier si l'utilisateur a déjà répondu manuellement
-              const { count: userMessageCount } = await supabase
+              // Ne déclencher le qualifier QUE sur le tout premier message de la conversation
+              // Si d'autres messages existent déjà (outbound user, ou même inbound précédents), on skip
+              const { count: totalMessageCount } = await supabase
                 .from('messages')
                 .select('id', { count: 'exact', head: true })
                 .eq('conversation_id', conversation.id)
-                .eq('direction', 'outbound')
-                .eq('sent_by', 'user')
 
-              if (userMessageCount && userMessageCount > 0) {
-                console.log('[Webhook] Skipping qualifier — user already replied manually to this conversation')
+              // totalMessageCount inclut le message qu'on vient d'insérer, donc > 1 = conversation existante
+              if (totalMessageCount && totalMessageCount > 1) {
+                console.log('[Webhook] Skipping qualifier — conversation already has', totalMessageCount, 'messages (not a first message)')
                 break
               }
 
