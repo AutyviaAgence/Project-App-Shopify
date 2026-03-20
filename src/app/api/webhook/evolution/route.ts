@@ -758,19 +758,17 @@ export async function POST(req: NextRequest) {
             // Pas d'agent assigné : vérifier si la session a un agent qualifier
             const qualifierAgentId = session.qualifier_agent_id
             if (qualifierAgentId) {
-              // Ne déclencher le qualifier QUE si la conversation vient d'être créée (premier contact)
-              // Si la conversation existait déjà (créée il y a > 30s), c'est que l'utilisateur
-              // a déjà envoyé un message (vocal, texte via API, etc.) — ne pas déclencher
-              const convCreatedAt = new Date(conversation.created_at).getTime()
-              const now = Date.now()
-              const convAgeSeconds = (now - convCreatedAt) / 1000
+              // Ne déclencher le qualifier QUE si c'est un premier contact (aucun message envoyé par nous)
+              // Vérifier dans le store Baileys (Evolution API) si des messages fromMe existent
+              // Cela couvre les messages envoyés via API externe, téléphone, ou autre app
+              const contactJid = `${phoneNumber}@s.whatsapp.net`
+              const fromMeCheck = await evolution.findMessages(instanceName, contactJid, { fromMe: true, limit: 1 })
 
-              console.log('[Webhook] Qualifier check — conv:', conversation.id, '| created_at:', conversation.created_at, '| age:', convAgeSeconds.toFixed(1), 's')
-
-              if (convAgeSeconds > 30) {
-                console.log('[Webhook] Skipping qualifier — conversation is', convAgeSeconds.toFixed(0), 's old (not new)')
+              if (fromMeCheck.ok && fromMeCheck.data && fromMeCheck.data.length > 0) {
+                console.log('[Webhook] Skipping qualifier — found fromMe messages in Baileys store for', phoneNumber)
                 break
               }
+              console.log('[Webhook] Qualifier check — no fromMe messages found in Baileys for', phoneNumber, '| result:', fromMeCheck.ok ? 'ok' : fromMeCheck.error)
 
               console.log('[Webhook] No agent assigned, triggering qualifier agent:', qualifierAgentId)
 

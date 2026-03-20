@@ -186,6 +186,22 @@ export const evolution = {
     })
   },
 
+  /** Vérifier si des messages fromMe existent dans un chat (via le store Baileys) */
+  findMessages(instanceName: string, remoteJid: string, opts?: { limit?: number; fromMe?: boolean }) {
+    const where: Record<string, unknown> = { key: { remoteJid } }
+    if (opts?.fromMe !== undefined) {
+      where.key = { ...where.key as object, fromMe: opts.fromMe }
+    }
+    return request<Array<{ key: { id: string; fromMe: boolean; remoteJid: string }; messageTimestamp?: number }>>(`/chat/findMessages/${instanceName}`, {
+      method: 'POST',
+      body: JSON.stringify({
+        where,
+        limit: opts?.limit ?? 1,
+      }),
+      timeout: 10000,
+    })
+  },
+
   /** Récupérer la liste des chats/contacts WhatsApp */
   findChats(instanceName: string) {
     return request<Array<{
