@@ -417,16 +417,18 @@ export async function POST(req: NextRequest) {
               // Pas d'agent assigné : vérifier si la session a un agent qualifier
               const qualifierAgentId = session.qualifier_agent_id
               if (qualifierAgentId) {
-                // Ne déclencher le qualifier QUE sur le tout premier message de la conversation
-                const { count: totalMessageCount, error: countErr } = await supabase
+                // Ne déclencher le qualifier QUE sur le tout premier message inbound de la conversation
+                const { data: existingMessages, error: countErr } = await supabase
                   .from('messages')
-                  .select('id', { count: 'exact', head: true })
+                  .select('id, direction, sent_by')
                   .eq('conversation_id', conversation.id)
+                  .neq('id', insertedMessage?.id || '')
+                  .limit(1)
 
-                console.log('[WABA Webhook] Qualifier check — message count:', totalMessageCount, 'error:', countErr?.message)
+                console.log('[WABA Webhook] Qualifier check — existing messages (excluding current):', existingMessages?.length, 'error:', countErr?.message)
 
-                if (totalMessageCount === null || totalMessageCount > 1) {
-                  console.log('[WABA Webhook] Skipping qualifier — conversation already has', totalMessageCount, 'messages (not a first message)')
+                if (countErr || !existingMessages || existingMessages.length > 0) {
+                  console.log('[WABA Webhook] Skipping qualifier — conversation already has previous messages')
                   break
                 }
 

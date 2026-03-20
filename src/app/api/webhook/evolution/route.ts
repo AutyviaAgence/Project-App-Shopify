@@ -758,19 +758,20 @@ export async function POST(req: NextRequest) {
             // Pas d'agent assigné : vérifier si la session a un agent qualifier
             const qualifierAgentId = session.qualifier_agent_id
             if (qualifierAgentId) {
-              // Ne déclencher le qualifier QUE sur le tout premier message de la conversation
-              // Si d'autres messages existent déjà (outbound user, ou même inbound précédents), on skip
-              const { count: totalMessageCount, error: countErr } = await supabase
+              // Ne déclencher le qualifier QUE sur le tout premier message inbound de la conversation
+              // Vérifier qu'il n'existe AUCUN autre message (ni de l'utilisateur, ni du contact)
+              const { data: existingMessages, error: countErr } = await supabase
                 .from('messages')
-                .select('id', { count: 'exact', head: true })
+                .select('id, direction, sent_by')
                 .eq('conversation_id', conversation.id)
+                .neq('id', insertedMessage?.id || '') // Exclure le message qu'on vient d'insérer
+                .limit(1)
 
-              console.log('[Webhook] Qualifier check — message count:', totalMessageCount, 'error:', countErr?.message)
+              console.log('[Webhook] Qualifier check — existing messages (excluding current):', existingMessages?.length, 'error:', countErr?.message)
 
-              // totalMessageCount inclut le message qu'on vient d'insérer, donc > 1 = conversation existante
-              // Note: count peut être null en cas d'erreur, on skip par sécurité
-              if (totalMessageCount === null || totalMessageCount > 1) {
-                console.log('[Webhook] Skipping qualifier — conversation already has', totalMessageCount, 'messages (not a first message)')
+              // S'il existe au moins 1 autre message dans la conversation, ne pas déclencher le qualifier
+              if (countErr || !existingMessages || existingMessages.length > 0) {
+                console.log('[Webhook] Skipping qualifier — conversation already has previous messages')
                 break
               }
 
