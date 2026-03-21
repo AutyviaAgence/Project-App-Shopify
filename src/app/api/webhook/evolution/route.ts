@@ -794,25 +794,40 @@ export async function POST(req: NextRequest) {
                 })
                 .eq('id', conversation.id)
 
-              // Activer l'indicateur de saisie
-              evolution.sendPresence(instanceName, phoneNumber, 'composing').catch(() => {})
+              // Récupérer le délai configuré sur l'agent qualifier
+              const { data: qualifierConfig } = await supabase
+                .from('ai_agents')
+                .select('response_delay_min, response_delay_max')
+                .eq('id', qualifierAgentId)
+                .single()
 
-              const sessionDelay = session.ai_message_delay ?? 0
-              await withSessionDelay(session.id, sessionDelay, () =>
-                processAIResponse({
-                  conversationId: conversation.id,
-                  sessionId: session.id,
-                  instanceName: instanceName,
-                  contactPhoneNumber: phoneNumber,
-                  agentId: qualifierAgentId,
-                  session: {
-                    integration_type: (session.integration_type || 'evolution') as 'evolution' | 'waba',
-                    instance_name: session.instance_name,
-                    waba_phone_number_id: session.waba_phone_number_id || null,
-                    waba_access_token: session.waba_access_token ? decryptMessage(session.waba_access_token) : null,
-                  },
-                })
-              )
+              const qDelayMin = qualifierConfig?.response_delay_min ?? 0
+              const qDelayMax = qualifierConfig?.response_delay_max ?? 0
+              const qDelay = qDelayMax > qDelayMin
+                ? qDelayMin + Math.random() * (qDelayMax - qDelayMin)
+                : qDelayMin
+
+              // Activer l'indicateur de saisie
+              evolution.sendPresence(instanceName, phoneNumber, 'composing', qDelay > 0 ? Math.round(qDelay * 1000) : undefined).catch(() => {})
+
+              if (qDelay > 0) {
+                console.log(`[Webhook] Qualifier waiting ${qDelay.toFixed(1)}s (delay ${qDelayMin}-${qDelayMax}s)...`)
+                await new Promise(resolve => setTimeout(resolve, qDelay * 1000))
+              }
+
+              await processAIResponse({
+                conversationId: conversation.id,
+                sessionId: session.id,
+                instanceName: instanceName,
+                contactPhoneNumber: phoneNumber,
+                agentId: qualifierAgentId,
+                session: {
+                  integration_type: (session.integration_type || 'evolution') as 'evolution' | 'waba',
+                  instance_name: session.instance_name,
+                  waba_phone_number_id: session.waba_phone_number_id || null,
+                  waba_access_token: session.waba_access_token ? decryptMessage(session.waba_access_token) : null,
+                },
+              })
 
               evolution.sendPresence(instanceName, phoneNumber, 'paused').catch(() => {})
               console.log('[Webhook] Qualifier response done')
