@@ -417,15 +417,16 @@ export async function POST(req: NextRequest) {
               // Pas d'agent assigné : vérifier si la session a un agent qualifier
               const qualifierAgentId = session.qualifier_agent_id
               if (qualifierAgentId) {
-                // Ne déclencher le qualifier QUE si la conversation vient d'être créée (premier contact)
-                const convCreatedAt = new Date(conversation.created_at).getTime()
-                const now = Date.now()
-                const convAgeSeconds = (now - convCreatedAt) / 1000
+                // GUARD : Vérifier si la conversation a DÉJÀ eu des messages sortants
+                const { data: outboundMessages } = await supabase
+                  .from('messages')
+                  .select('id')
+                  .eq('conversation_id', conversation.id)
+                  .eq('direction', 'outbound')
+                  .limit(1)
 
-                console.log('[WABA Webhook] Qualifier check — conv:', conversation.id, '| age:', convAgeSeconds.toFixed(1), 's')
-
-                if (convAgeSeconds > 30) {
-                  console.log('[WABA Webhook] Skipping qualifier — conversation is', convAgeSeconds.toFixed(0), 's old (not new)')
+                if (outboundMessages && outboundMessages.length > 0) {
+                  console.log('[WABA Webhook] Skipping qualifier — conversation already has outbound messages')
                   break
                 }
 

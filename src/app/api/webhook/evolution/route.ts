@@ -758,9 +758,22 @@ export async function POST(req: NextRequest) {
             // Pas d'agent assigné : vérifier si la session a un agent qualifier
             const qualifierAgentId = session.qualifier_agent_id
             if (qualifierAgentId) {
-              // Ne déclencher le qualifier QUE si c'est un premier contact (aucun message envoyé par nous)
-              // Vérifier dans le store Baileys (Evolution API) si des messages fromMe existent
-              // Cela couvre les messages envoyés via API externe, téléphone, ou autre app
+              // GUARD 1 : Vérifier si la conversation a DÉJÀ eu des messages sortants (humain ou IA)
+              // Si oui, c'est une conversation existante — ne JAMAIS déclencher le qualifier
+              const { data: outboundMessages } = await supabase
+                .from('messages')
+                .select('id')
+                .eq('conversation_id', conversation.id)
+                .eq('direction', 'outbound')
+                .limit(1)
+
+              if (outboundMessages && outboundMessages.length > 0) {
+                console.log('[Webhook] Skipping qualifier — conversation already has outbound messages in DB')
+                break
+              }
+
+              // GUARD 2 : Vérifier dans le store Baileys si des messages fromMe existent
+              // Couvre les messages envoyés via API externe, téléphone, autre app (pas en DB Autyvia)
               const contactJid = `${phoneNumber}@s.whatsapp.net`
               const fromMeCheck = await evolution.findMessages(instanceName, contactJid, { fromMe: true, limit: 1 })
 
@@ -768,7 +781,7 @@ export async function POST(req: NextRequest) {
                 console.log('[Webhook] Skipping qualifier — found fromMe messages in Baileys store for', phoneNumber)
                 break
               }
-              console.log('[Webhook] Qualifier check — no fromMe messages found in Baileys for', phoneNumber, '| result:', fromMeCheck.ok ? 'ok' : fromMeCheck.error)
+              console.log('[Webhook] Qualifier check passed — no outbound messages found anywhere for', phoneNumber)
 
               console.log('[Webhook] No agent assigned, triggering qualifier agent:', qualifierAgentId)
 
