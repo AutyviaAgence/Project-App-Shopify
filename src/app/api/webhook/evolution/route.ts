@@ -217,6 +217,8 @@ export async function POST(req: NextRequest) {
         const phoneNumber = remoteJid.split('@')[0]
         const fromMe = messageData.key.fromMe as boolean
         const waMessageId = messageData.key.id as string
+
+        console.log('[Webhook] messages.upsert:', { phoneNumber, fromMe, waMessageId, messageType: messageData.messageType, hasMessage: !!messageData.message, messageKeys: messageData.message ? Object.keys(messageData.message) : [] })
         const pushName = messageData.pushName as string | undefined
 
         // Fusionner le base64 du payload.data dans message si présent (Evolution API v2)
@@ -308,8 +310,8 @@ export async function POST(req: NextRequest) {
           )
         }
 
-        // Ignorer seulement les messages texte vides sans payload
-        if (!content && messageType === 'text' && !messageData.message) break
+        // Ignorer les messages texte vides sans payload (sauf fromMe qu'on veut toujours enregistrer)
+        if (!content && messageType === 'text' && !messageData.message && !fromMe) break
 
         // Aperçu adapté au type pour la conversation
         const previewContent = messageType === 'text'
