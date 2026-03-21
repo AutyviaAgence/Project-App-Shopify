@@ -113,6 +113,8 @@ export async function POST(req: NextRequest) {
     const event = payload.event as string
     const instanceName = payload.instance as string
 
+    console.log('[Webhook] Event received:', event, '| instance:', instanceName, '| fromMe:', payload.data?.key?.fromMe)
+
     if (!event || !instanceName) {
       return NextResponse.json({ error: 'Missing event or instance' }, { status: 400 })
     }
