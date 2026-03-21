@@ -187,12 +187,12 @@ export const evolution = {
   },
 
   /** Vérifier si des messages fromMe existent dans un chat (via le store Baileys) */
-  findMessages(instanceName: string, remoteJid: string, opts?: { limit?: number; fromMe?: boolean }) {
+  async findMessages(instanceName: string, remoteJid: string, opts?: { limit?: number; fromMe?: boolean }): Promise<{ ok: true; data: Array<{ key: { id: string; fromMe: boolean; remoteJid: string }; messageTimestamp?: number }> } | { ok: false; error: string }> {
     const where: Record<string, unknown> = { key: { remoteJid } }
     if (opts?.fromMe !== undefined) {
       where.key = { ...where.key as object, fromMe: opts.fromMe }
     }
-    return request<Array<{ key: { id: string; fromMe: boolean; remoteJid: string }; messageTimestamp?: number }>>(`/chat/findMessages/${instanceName}`, {
+    const result = await request<{ messages: { total: number; records: Array<{ key: { id: string; fromMe: boolean; remoteJid: string }; messageTimestamp?: number }> } }>(`/chat/findMessages/${instanceName}`, {
       method: 'POST',
       body: JSON.stringify({
         where,
@@ -200,6 +200,10 @@ export const evolution = {
       }),
       timeout: 10000,
     })
+    if (!result.ok) return result
+    // Extraire les records depuis la structure { messages: { records: [...] } }
+    const records = result.data?.messages?.records || []
+    return { ok: true, data: records }
   },
 
   /** Récupérer la liste des chats/contacts WhatsApp */
