@@ -574,19 +574,23 @@ function ConversationsPageContent() {
             }
           }
 
-          // Update conversation preview locally instead of re-fetching all
+          // Update conversation timestamp and unread count locally
+          // Note: last_message_preview is NOT updated here because newMsg.content
+          // is encrypted. The preview will be updated by the conversations UPDATE event
+          // which contains the decrypted preview set by the webhook.
           setConversations((prev) =>
             prev.map((c) => {
               if (c.id !== newMsg.conversation_id) return c
+              // Use media type label for preview (content is encrypted so we can't use it)
+              const tempPreview = newMsg.message_type === 'text' ? c.last_message_preview
+                : newMsg.message_type === 'image' ? '📷 Image'
+                : newMsg.message_type === 'audio' ? '🎤 Audio'
+                : newMsg.message_type === 'video' ? '🎥 Vidéo'
+                : '📎 Fichier'
               return {
                 ...c,
                 last_message_at: newMsg.created_at,
-                last_message_preview: newMsg.content?.slice(0, 100) || (
-                  newMsg.message_type === 'image' ? '📷 Image'
-                  : newMsg.message_type === 'audio' ? '🎤 Audio'
-                  : newMsg.message_type === 'video' ? '🎥 Vidéo'
-                  : '📎 Fichier'
-                ),
+                last_message_preview: tempPreview,
                 unread_count: selectedConv?.id === c.id ? c.unread_count : c.unread_count + 1,
               }
             }).sort((a, b) => {
