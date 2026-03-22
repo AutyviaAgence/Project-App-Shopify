@@ -417,7 +417,7 @@ export async function POST(req: NextRequest) {
               // Pas d'agent assigné : vérifier si la session a un agent qualifier
               const qualifierAgentId = session.qualifier_agent_id
               if (qualifierAgentId) {
-                // GUARD : Vérifier si la conversation a DÉJÀ eu des messages sortants
+                // GUARD 1 : Vérifier si la conversation a DÉJÀ eu des messages sortants (humain ou IA)
                 const { data: outboundMessages } = await supabase
                   .from('messages')
                   .select('id')
@@ -426,7 +426,17 @@ export async function POST(req: NextRequest) {
                   .limit(1)
 
                 if (outboundMessages && outboundMessages.length > 0) {
-                  console.log('[WABA Webhook] Skipping qualifier — conversation already has outbound messages')
+                  console.log('[WABA Webhook] Skipping qualifier — conversation already has outbound messages in DB')
+                  break
+                }
+
+                // GUARD 2 : Vérifier l'âge de la conversation
+                // WABA n'a pas de store Baileys, mais si la conversation existe depuis > 30s
+                // c'est que l'utilisateur a déjà initié un contact (via téléphone, autre app, etc.)
+                const convCreatedAt = new Date(conversation.created_at).getTime()
+                const convAgeSeconds = (Date.now() - convCreatedAt) / 1000
+                if (convAgeSeconds > 30) {
+                  console.log('[WABA Webhook] Skipping qualifier — conversation is', convAgeSeconds.toFixed(0), 's old (not new)')
                   break
                 }
 
@@ -440,22 +450,37 @@ export async function POST(req: NextRequest) {
                   })
                   .eq('id', conversation.id)
 
-                const sessionDelay = session.ai_message_delay ?? 0
-                await withSessionDelay(session.id, sessionDelay, () =>
-                  processAIResponse({
-                    conversationId: conversation.id,
-                    sessionId: session.id,
-                    instanceName: session.instance_name,
-                    contactPhoneNumber: phoneNumber,
-                    agentId: qualifierAgentId,
-                    session: {
-                      integration_type: 'waba',
-                      instance_name: session.instance_name,
-                      waba_phone_number_id: session.waba_phone_number_id,
-                      waba_access_token: session.waba_access_token,
-                    },
-                  })
-                )
+                // Récupérer le délai configuré sur l'agent qualifier
+                const { data: qualifierConfig } = await supabase
+                  .from('ai_agents')
+                  .select('response_delay_min, response_delay_max')
+                  .eq('id', qualifierAgentId)
+                  .single()
+
+                const qDelayMin = qualifierConfig?.response_delay_min ?? 0
+                const qDelayMax = qualifierConfig?.response_delay_max ?? 0
+                const qDelay = qDelayMax > qDelayMin
+                  ? qDelayMin + Math.random() * (qDelayMax - qDelayMin)
+                  : qDelayMin
+
+                if (qDelay > 0) {
+                  console.log(`[WABA Webhook] Qualifier waiting ${qDelay.toFixed(1)}s (delay ${qDelayMin}-${qDelayMax}s)...`)
+                  await new Promise(resolve => setTimeout(resolve, qDelay * 1000))
+                }
+
+                await processAIResponse({
+                  conversationId: conversation.id,
+                  sessionId: session.id,
+                  instanceName: session.instance_name,
+                  contactPhoneNumber: phoneNumber,
+                  agentId: qualifierAgentId,
+                  session: {
+                    integration_type: 'waba',
+                    instance_name: session.instance_name,
+                    waba_phone_number_id: session.waba_phone_number_id,
+                    waba_access_token: session.waba_access_token,
+                  },
+                })
                 console.log('[WABA Webhook] Qualifier response done')
               }
             }
