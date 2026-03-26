@@ -35,19 +35,32 @@ import {
   XCircle,
   Cpu,
   Ban,
+  Rocket,
+  Phone,
+  Settings2,
+  ArrowRight,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/i18n/context'
 import { useTenant } from '@/lib/tenant/context'
 import type { LucideIcon } from 'lucide-react'
 
-const FEATURES: { icon: LucideIcon; textKey: string }[] = [
+const ESSENTIALS_FEATURES: { icon: LucideIcon; textKey: string }[] = [
   { icon: MessageSquare, textKey: 'subscription.feature_conversations' },
   { icon: Bot, textKey: 'subscription.feature_agents' },
   { icon: Users, textKey: 'subscription.feature_teams' },
   { icon: BarChart, textKey: 'subscription.feature_stats' },
   { icon: Zap, textKey: 'subscription.feature_automation' },
   { icon: Shield, textKey: 'subscription.feature_encryption' },
+]
+
+const CUSTOM_FEATURES: { icon: LucideIcon; text: string }[] = [
+  { icon: Check, text: 'Tout le plan Essentials inclus' },
+  { icon: Settings2, text: 'Intégrations CRM & e-commerce sur mesure' },
+  { icon: Bot, text: 'Configuration des agents IA personnalisée' },
+  { icon: Rocket, text: 'Workflows & automatisations avancées' },
+  { icon: Phone, text: 'Accompagnement dédié par visio' },
+  { icon: Shield, text: 'Support prioritaire' },
 ]
 
 function SubscriptionContent() {
@@ -72,6 +85,8 @@ function SubscriptionContent() {
       toast.info(t('subscription.payment_cancelled'))
     } else if (searchParams.get('tokens_success') === 'true') {
       refetch().then(() => toast.success(t('subscription.tokens_added')))
+    } else if (searchParams.get('custom_success') === 'true') {
+      toast.success('Acompte regle avec succes ! Reservez votre appel d\'on-boarding.')
     }
   }, [searchParams, refetch, t])
 
@@ -137,7 +152,7 @@ function SubscriptionContent() {
   }
 
   return (
-    <div className="container max-w-4xl mx-auto py-8 px-4">
+    <div className="container max-w-5xl mx-auto py-8 px-4">
       <div className="mb-8">
         <h1 className="text-3xl font-bold">{t('subscription.title')}</h1>
         <p className="mt-2 text-muted-foreground">
@@ -277,78 +292,158 @@ function SubscriptionContent() {
         </Card>
       )}
 
-      {/* Offre d'abonnement */}
-      <Card className="border-2 border-primary/20">
-        <CardHeader className="text-center pb-2">
-          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-            <Zap className="h-6 w-6 text-primary" />
-          </div>
-          <CardTitle className="text-2xl">{t('subscription.offer_title', { appName: tenant.appName })}</CardTitle>
-          <CardDescription>
-            {t('subscription.offer_desc')}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="text-center">
-          <div className="mb-6">
-            <span className="text-5xl font-bold">{t('subscription.price')}</span>
-            <span className="text-muted-foreground">{t('subscription.per_month')}</span>
-          </div>
+      {/* Plans */}
+      <div className="grid md:grid-cols-2 gap-6">
+        {/* Plan Essentials */}
+        <Card className="border-2 border-primary/20 flex flex-col">
+          <CardHeader className="text-center pb-2">
+            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
+              <Zap className="h-6 w-6 text-primary" />
+            </div>
+            <Badge variant="secondary" className="mx-auto mb-2">Essentials</Badge>
+            <CardTitle className="text-2xl">{t('subscription.offer_title', { appName: tenant.appName })}</CardTitle>
+            <CardDescription>
+              {t('subscription.offer_desc')}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-center flex-1">
+            <div className="mb-6">
+              <span className="text-5xl font-bold">{t('subscription.price')}</span>
+              <span className="text-muted-foreground">{t('subscription.per_month')}</span>
+            </div>
 
-          <div className="grid gap-3 text-left mb-6">
-            {FEATURES.map((feature, index) => (
-              <div key={index} className="flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-                  <feature.icon className="h-4 w-4 text-primary" />
+            <div className="grid gap-3 text-left mb-6">
+              {ESSENTIALS_FEATURES.map((feature, index) => (
+                <div key={index} className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
+                    <feature.icon className="h-4 w-4 text-primary" />
+                  </div>
+                  <span className="text-sm">{t(feature.textKey)}</span>
                 </div>
-                <span className="text-sm">{t(feature.textKey)}</span>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-        <CardFooter className="flex-col gap-3">
-          {subscription?.status === 'active' ? (
-            <>
-              <Button className="w-full" size="lg" disabled>
-                <Check className="mr-2 h-5 w-5" />
-                {t('subscription.already_active')}
+              ))}
+            </div>
+          </CardContent>
+          <CardFooter className="flex-col gap-3">
+            {subscription?.status === 'active' ? (
+              <>
+                <Button className="w-full" size="lg" disabled>
+                  <Check className="mr-2 h-5 w-5" />
+                  {t('subscription.already_active')}
+                </Button>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
+                      <Ban className="mr-2 h-4 w-4" />
+                      {t('subscription.cancel_subscription')}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>{t('subscription.cancel_confirm_title')}</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        {t('subscription.cancel_confirm_desc')}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>{t('subscription.cancel_keep')}</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleCancel}
+                        disabled={isCancelling}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        {isCancelling ? (
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        ) : (
+                          <Ban className="mr-2 h-4 w-4" />
+                        )}
+                        {t('subscription.cancel_confirm')}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </>
+            ) : (
+              <Button
+                className="w-full"
+                size="lg"
+                onClick={handleSubscribe}
+                disabled={isProcessing}
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    {t('subscription.redirecting')}
+                  </>
+                ) : (
+                  <>
+                    <CreditCard className="mr-2 h-5 w-5" />
+                    {t('subscription.subscribe_now')}
+                  </>
+                )}
               </Button>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
-                    <Ban className="mr-2 h-4 w-4" />
-                    {t('subscription.cancel_subscription')}
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>{t('subscription.cancel_confirm_title')}</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      {t('subscription.cancel_confirm_desc')}
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>{t('subscription.cancel_keep')}</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={handleCancel}
-                      disabled={isCancelling}
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    >
-                      {isCancelling ? (
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      ) : (
-                        <Ban className="mr-2 h-4 w-4" />
-                      )}
-                      {t('subscription.cancel_confirm')}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </>
-          ) : (
+            )}
+          </CardFooter>
+        </Card>
+
+        {/* Plan Custom */}
+        <Card className="border-2 border-sky-500/30 bg-gradient-to-b from-sky-500/5 to-transparent flex flex-col relative overflow-hidden">
+          <div className="absolute top-0 right-0 bg-sky-500 text-white text-xs font-semibold px-3 py-1 rounded-bl-lg">
+            Accompagnement
+          </div>
+          <CardHeader className="text-center pb-2">
+            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-sky-500/10">
+              <Rocket className="h-6 w-6 text-sky-500" />
+            </div>
+            <Badge variant="secondary" className="mx-auto mb-2 bg-sky-500/10 text-sky-600">Custom</Badge>
+            <CardTitle className="text-2xl">Setup sur mesure</CardTitle>
+            <CardDescription>
+              On configure tout pour vous, integralement personnalise
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="text-center flex-1">
+            <div className="mb-2">
+              <span className="text-5xl font-bold">1 500</span>
+              <span className="text-muted-foreground">€</span>
+            </div>
+            <p className="text-sm text-muted-foreground mb-6">
+              Payable en 2x 750€ + abonnement 150€/mois
+            </p>
+
+            <div className="grid gap-3 text-left mb-6">
+              {CUSTOM_FEATURES.map((feature, index) => (
+                <div key={index} className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-500/10">
+                    <feature.icon className="h-4 w-4 text-sky-500" />
+                  </div>
+                  <span className="text-sm">{feature.text}</span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+          <CardFooter className="flex-col gap-3">
             <Button
-              className="w-full"
+              className="w-full bg-sky-500 hover:bg-sky-600"
               size="lg"
-              onClick={handleSubscribe}
+              onClick={async () => {
+                setIsProcessing(true)
+                try {
+                  const res = await fetch('/api/stripe/custom-setup', { method: 'POST' })
+                  const data = await res.json()
+                  if (!res.ok) {
+                    if (data.booking_url) {
+                      toast.info('Setup deja regle ! Reservez votre appel.')
+                      window.open(data.booking_url, '_blank')
+                      return
+                    }
+                    throw new Error(data.error)
+                  }
+                  window.location.href = data.url
+                } catch (error: any) {
+                  toast.error(error?.message || 'Erreur')
+                } finally {
+                  setIsProcessing(false)
+                }
+              }}
               disabled={isProcessing}
             >
               {isProcessing ? (
@@ -359,13 +454,23 @@ function SubscriptionContent() {
               ) : (
                 <>
                   <CreditCard className="mr-2 h-5 w-5" />
-                  {t('subscription.subscribe_now')}
+                  Payer le 1er acompte (750€)
                 </>
               )}
             </Button>
-          )}
-        </CardFooter>
-      </Card>
+            <a
+              href="https://cal.com/autyvia/appel-decouverte"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-sm text-sky-600 hover:text-sky-700 hover:underline"
+            >
+              <Phone className="h-3.5 w-3.5" />
+              Reserver un appel decouverte
+              <ArrowRight className="h-3.5 w-3.5" />
+            </a>
+          </CardFooter>
+        </Card>
+      </div>
 
       {/* Note */}
       <p className="mt-6 text-center text-sm text-muted-foreground">
