@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { headers } from 'next/headers'
 
 /** GET /auth/callback — Handle OAuth callback from Supabase */
 export async function GET(request: Request) {
@@ -12,5 +13,13 @@ export async function GET(request: Request) {
     await supabase.auth.exchangeCodeForSession(code)
   }
 
-  return NextResponse.redirect(new URL(redirect || '/dashboard', requestUrl.origin))
+  // Use forwarded host (from Traefik/reverse proxy) or APP_URL to avoid 0.0.0.0
+  const headersList = await headers()
+  const forwardedHost = headersList.get('x-forwarded-host')
+  const forwardedProto = headersList.get('x-forwarded-proto') || 'https'
+  const origin = forwardedHost
+    ? `${forwardedProto}://${forwardedHost}`
+    : process.env.NEXT_PUBLIC_APP_URL || requestUrl.origin
+
+  return NextResponse.redirect(new URL(redirect || '/dashboard', origin))
 }
