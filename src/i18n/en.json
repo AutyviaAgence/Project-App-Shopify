@@ -1176,7 +1176,10 @@
     "email_sent_desc": "Check your inbox to reset your password.",
     "no_account": "No account yet?",
     "check_email": "Check your email",
-    "confirmation_sent": "A confirmation email has been sent to {email}. Click the link in the email to activate your account and start your 14-day free trial."
+    "confirmation_sent": "A confirmation email has been sent to {email}. Click the link in the email to activate your account and start your 14-day free trial.",
+    "or": "or",
+    "google_login": "Sign in with Google",
+    "google_signup": "Sign up with Google"
   },
   "tour": {
     "welcome_title": "Welcome to {appName}!",

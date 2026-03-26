@@ -1176,7 +1176,10 @@
     "email_sent_desc": "Vérifiez votre boîte mail pour réinitialiser votre mot de passe.",
     "no_account": "Pas encore de compte ?",
     "check_email": "Vérifiez votre email",
-    "confirmation_sent": "Un email de confirmation a été envoyé à {email}. Cliquez sur le lien dans l'email pour activer votre compte et commencer votre essai gratuit de 14 jours."
+    "confirmation_sent": "Un email de confirmation a été envoyé à {email}. Cliquez sur le lien dans l'email pour activer votre compte et commencer votre essai gratuit de 14 jours.",
+    "or": "ou",
+    "google_login": "Se connecter avec Google",
+    "google_signup": "S'inscrire avec Google"
   },
   "tour": {
     "welcome_title": "Bienvenue sur {appName} !",
