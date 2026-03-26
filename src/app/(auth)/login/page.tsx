@@ -83,9 +83,9 @@ function LoginForm() {
             <Link href="/forgot-password" className="text-muted-foreground hover:underline">
               {t('auth.forgot_password')}
             </Link>
-            {/* <Link href="/register" className="text-muted-foreground hover:underline">
-              Créer un compte
-            </Link> */}
+            <Link href="/register" className="text-muted-foreground hover:underline">
+              {t('auth.no_account')}
+            </Link>
           </div>
           {/* Legal links */}
           <div className="flex flex-wrap justify-center gap-3 text-xs text-muted-foreground pt-2 border-t w-full">

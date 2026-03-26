@@ -1173,7 +1173,10 @@
     "sending": "Sending...",
     "back_to_login": "Back to login",
     "email_sent": "Email sent",
-    "email_sent_desc": "Check your inbox to reset your password."
+    "email_sent_desc": "Check your inbox to reset your password.",
+    "no_account": "No account yet?",
+    "check_email": "Check your email",
+    "confirmation_sent": "A confirmation email has been sent to {email}. Click the link in the email to activate your account and start your 14-day free trial."
   },
   "tour": {
     "welcome_title": "Welcome to {appName}!",

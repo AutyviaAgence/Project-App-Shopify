@@ -25,6 +25,7 @@ function RegisterForm() {
   const [password, setPassword] = useState('')
   const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [emailSent, setEmailSent] = useState(false)
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -42,6 +43,7 @@ function RegisterForm() {
       password,
       options: {
         data: { full_name: fullName, signup_domain: window.location.hostname },
+        emailRedirectTo: `${window.location.origin}/login`,
       },
     })
 
@@ -51,8 +53,28 @@ function RegisterForm() {
       return
     }
 
-    toast.success(t('auth.account_created'))
-    router.push(redirect ? `/login?redirect=${encodeURIComponent(redirect)}` : '/login')
+    setEmailSent(true)
+  }
+
+  if (emailSent) {
+    return (
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <div className="flex justify-center mb-4">
+            <Image src={tenant.logoUrl} alt={tenant.appName} width={64} height={64} className="h-16 w-16" />
+          </div>
+          <CardTitle className="text-2xl font-bold">{t('auth.check_email')}</CardTitle>
+          <CardDescription className="mt-2">
+            {t('auth.confirmation_sent', { email })}
+          </CardDescription>
+        </CardHeader>
+        <CardFooter className="flex flex-col gap-4 pt-2">
+          <Link href="/login" className="text-sm text-muted-foreground hover:underline">
+            {t('auth.back_to_login')}
+          </Link>
+        </CardFooter>
+      </Card>
+    )
   }
 
   return (
