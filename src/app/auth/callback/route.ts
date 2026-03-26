@@ -21,5 +21,14 @@ export async function GET(request: Request) {
     ? `${forwardedProto}://${forwardedHost}`
     : process.env.NEXT_PUBLIC_APP_URL || requestUrl.origin
 
-  return NextResponse.redirect(new URL(redirect || '/dashboard', origin))
+  // Validate redirect to prevent open redirect
+  let redirectPath = '/dashboard'
+  if (redirect) {
+    // Only allow relative paths starting with /
+    if (redirect.startsWith('/') && !redirect.startsWith('//')) {
+      redirectPath = redirect
+    }
+  }
+
+  return NextResponse.redirect(new URL(redirectPath, origin))
 }

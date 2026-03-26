@@ -222,6 +222,8 @@ export function filterSessionsByPermissions<T extends ResourceWithId>(
       // Pour les membres, vérifier les permissions granulaires
       // null = accès à toutes les sessions de l'équipe
       if (memberPerm.allowed_session_ids === null) return true
+      // empty array = no access
+      if (memberPerm.allowed_session_ids.length === 0) return false
       // Sinon, vérifier si la session est dans la liste
       return memberPerm.allowed_session_ids.includes(session.id)
     }
@@ -248,6 +250,7 @@ export function filterAgentsByPermissions<T extends ResourceWithId>(
       if (memberPerm.role === 'owner' || memberPerm.role === 'admin') return true
 
       if (memberPerm.allowed_agent_ids === null) return true
+      if (memberPerm.allowed_agent_ids.length === 0) return false
       return memberPerm.allowed_agent_ids.includes(agent.id)
     }
 
@@ -273,6 +276,7 @@ export function filterLinksByPermissions<T extends ResourceWithId>(
       if (memberPerm.role === 'owner' || memberPerm.role === 'admin') return true
 
       if (memberPerm.allowed_link_ids === null) return true
+      if (memberPerm.allowed_link_ids.length === 0) return false
       return memberPerm.allowed_link_ids.includes(link.id)
     }
 
@@ -298,6 +302,7 @@ export function filterCampaignsByPermissions<T extends ResourceWithId>(
       if (memberPerm.role === 'owner' || memberPerm.role === 'admin') return true
 
       if (memberPerm.allowed_campaign_ids === null) return true
+      if (memberPerm.allowed_campaign_ids.length === 0) return false
       return memberPerm.allowed_campaign_ids.includes(campaign.id)
     }
 
@@ -337,6 +342,8 @@ export async function canAccessSession(
     // Pour les membres, vérifier les permissions granulaires
     // null = accès à toutes les sessions
     if (membership.allowed_session_ids === null) return true
+    // empty array = no access
+    if (membership.allowed_session_ids.length === 0) return false
 
     // Sinon, vérifier si la session est dans la liste
     return membership.allowed_session_ids.includes(session.id)
@@ -467,6 +474,8 @@ export async function canAccessCampaign(
     // Pour les membres, vérifier les permissions granulaires
     // null = accès à toutes les campagnes
     if (membership.allowed_campaign_ids === null) return true
+    // empty array = no access
+    if (membership.allowed_campaign_ids.length === 0) return false
 
     // Sinon, vérifier si la campagne est dans la liste
     return membership.allowed_campaign_ids.includes(campaign.id)

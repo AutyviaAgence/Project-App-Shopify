@@ -4,6 +4,7 @@ import { encryptMessage, decryptMessage } from '@/lib/crypto/encryption'
 import { validateToolUrl, truncateResponse, sanitizeParams } from './security'
 import { TOOL_TEMPLATES, toOpenAIFunction, buildCustomFunctions, type ToolFunction } from './templates'
 import { refreshAccessToken } from '@/lib/oauth/google'
+import { isValidExternalUrl } from '@/lib/security/url-validator'
 import type { AgentTool } from '@/types/database'
 
 const TOOL_TIMEOUT_MS = 60_000
@@ -427,6 +428,10 @@ async function executeShopify(
   args: Record<string, unknown>
 ): Promise<string> {
   const shopUrl = (config.shop_url as string).replace(/^https?:\/\//, '').replace(/\/$/, '')
+  const shopFullUrl = `https://${shopUrl}`
+  if (!isValidExternalUrl(shopFullUrl)) {
+    return JSON.stringify({ success: false, error: 'Invalid or blocked URL' })
+  }
   const token = config.access_token as string
   const baseUrl = `https://${shopUrl}/admin/api/2024-01`
   const headers = { 'X-Shopify-Access-Token': token, 'Content-Type': 'application/json' }
@@ -536,6 +541,9 @@ async function executeWooCommerce(
   args: Record<string, unknown>
 ): Promise<string> {
   const siteUrl = (config.site_url as string).replace(/\/$/, '')
+  if (!isValidExternalUrl(siteUrl)) {
+    return JSON.stringify({ success: false, error: 'Invalid or blocked URL' })
+  }
   const ck = config.consumer_key as string
   const cs = config.consumer_secret as string
   const baseUrl = `${siteUrl}/wp-json/wc/v3`

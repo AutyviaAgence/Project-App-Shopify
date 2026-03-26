@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
+import { createClient } from '@/lib/supabase/server'
 import { sendMessage } from '@/lib/messaging/send'
 import { decryptMessage } from '@/lib/crypto/encryption'
 
@@ -11,6 +12,13 @@ import { decryptMessage } from '@/lib/crypto/encryption'
 
 export async function POST(req: NextRequest) {
   try {
+    // Auth check: require authenticated user
+    const supabaseAuth = await createClient()
+    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const body = await req.json()
     const { agent_id, session_id: explicitSessionId, contact_name, phone_number, message, send_delay } = body
 

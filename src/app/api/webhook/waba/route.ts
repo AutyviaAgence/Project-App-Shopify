@@ -11,13 +11,18 @@ import { wabaClient } from '@/lib/whatsapp-cloud/client'
 import { recordTokenUsage } from '@/lib/openai/token-tracker'
 import { checkRateLimit } from '@/lib/rate-limit'
 
-const VERIFY_TOKEN = process.env.WABA_VERIFY_TOKEN || 'autyvia_waba_verify'
+const VERIFY_TOKEN = process.env.WABA_VERIFY_TOKEN
 
 /**
  * GET /api/webhook/waba
  * Vérification du webhook Meta (challenge/verify_token)
  */
 export async function GET(req: NextRequest) {
+  if (!VERIFY_TOKEN) {
+    console.error('[WABA Webhook] WABA_VERIFY_TOKEN not configured')
+    return new Response('Server misconfigured', { status: 500 })
+  }
+
   const { searchParams } = new URL(req.url)
   const mode = searchParams.get('hub.mode')
   const token = searchParams.get('hub.verify_token')

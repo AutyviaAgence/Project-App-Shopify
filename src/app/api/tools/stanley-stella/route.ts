@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 
 /**
  * GET & POST /api/tools/stanley-stella
@@ -177,6 +178,12 @@ function filterProducts(allProducts: SSProduct[], params: Record<string, unknown
 
 export async function POST(req: NextRequest) {
   try {
+    const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     let body: Record<string, unknown> = {}
     try { body = await req.json() } catch { /* empty body */ }
     const creds = extractCredentials(req, body)
@@ -194,6 +201,12 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
+    const supabase = await createClient()
+    const { data: { user }, error: authError } = await supabase.auth.getUser()
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+
     const url = new URL(req.url)
     const params: Record<string, unknown> = {}
     for (const [key, value] of url.searchParams) {

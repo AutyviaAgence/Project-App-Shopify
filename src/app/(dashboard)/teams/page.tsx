@@ -79,6 +79,17 @@ type TeamInvitation = {
   created_at: string
 }
 
+function isValidAvatarUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url)
+    if (parsed.protocol !== 'https:') return false
+    const trustedDomains = ['lh3.googleusercontent.com', 'jdeslkxwbtqkeifrlmnf.supabase.co', 'avatars.githubusercontent.com']
+    return trustedDomains.some(d => parsed.hostname === d || parsed.hostname.endsWith('.' + d))
+  } catch {
+    return false
+  }
+}
+
 // Composant Avatar avec fallback
 function MemberAvatar({ member, size = 'md' }: { member: TeamMemberWithProfile; size?: 'sm' | 'md' | 'lg' }) {
   const sizeClasses = {
@@ -87,7 +98,7 @@ function MemberAvatar({ member, size = 'md' }: { member: TeamMemberWithProfile; 
     lg: 'h-12 w-12 text-base'
   }
 
-  if (member.profile?.avatar_url) {
+  if (member.profile?.avatar_url && isValidAvatarUrl(member.profile.avatar_url)) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img

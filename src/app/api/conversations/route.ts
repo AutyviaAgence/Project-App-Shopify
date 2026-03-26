@@ -19,7 +19,9 @@ export async function GET(req: NextRequest) {
   const dateTo = searchParams.get('date_to')
   const teamFilter = searchParams.get('team_id')
   const lifecycleStageFilter = searchParams.get('lifecycle_stage_id')
-  const searchQuery = searchParams.get('search')?.trim().toLowerCase()
+  const rawSearch = searchParams.get('search')?.trim().toLowerCase()
+  // Sanitize search to prevent PostgREST injection
+  const searchQuery = rawSearch ? rawSearch.replace(/[%_\\]/g, '\\$&').slice(0, 100) : undefined
   const tagIdsParam = searchParams.get('tag_ids')
   const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1)
   const limit = Math.max(1, Math.min(parseInt(searchParams.get('limit') || '20', 10) || 20, 100))
