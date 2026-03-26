@@ -203,7 +203,7 @@ export default function StatsPage() {
                   value={stats.overview.activeConversations}
                   trend={stats.overview.conversationsTrend}
                   icon={Users}
-                  color="purple"
+                  color="teal"
                 />
                 <KPICard
                   title={t('stats.new_contacts')}
@@ -242,7 +242,7 @@ export default function StatsPage() {
                   trend={null}
                   icon={Clock}
                   formatValue={(v) => v > 0 ? formatSeconds(v) : '—'}
-                  color="purple"
+                  color="teal"
                 />
               </div>
             </div>
@@ -289,7 +289,7 @@ export default function StatsPage() {
                     value={stats.campaigns.totalCampaigns}
                     trend={null}
                     icon={Megaphone}
-                    color="purple"
+                    color="teal"
                   />
                   <KPICard
                     title={t('stats.messages_sent')}
@@ -322,7 +322,7 @@ export default function StatsPage() {
                       scheduled: 'bg-blue-100 text-blue-700',
                       running: 'bg-green-100 text-green-700',
                       paused: 'bg-yellow-100 text-yellow-700',
-                      completed: 'bg-purple-100 text-purple-700',
+                      completed: 'bg-sky-100 text-sky-700',
                       cancelled: 'bg-red-100 text-red-700',
                     }
                     const statusLabels: Record<string, string> = {
@@ -561,7 +561,7 @@ export default function StatsPage() {
                     value={stats.links.reduce((sum, l) => sum + l.uniqueVisitors, 0)}
                     trend={null}
                     icon={Users}
-                    color="purple"
+                    color="teal"
                   />
                   <KPICard
                     title={t('stats.total_conversions')}
@@ -600,8 +600,8 @@ export default function StatsPage() {
                         <p className="text-xs text-muted-foreground mt-1">{t('stats.clicks')}</p>
                       </div>
                       <div className="text-muted-foreground text-2xl">→</div>
-                      <div className="flex-1 rounded-lg bg-purple-500/10 border border-purple-500/20 p-4 text-center">
-                        <p className="text-2xl font-bold text-purple-500">
+                      <div className="flex-1 rounded-lg bg-sky-500/10 border border-sky-500/20 p-4 text-center">
+                        <p className="text-2xl font-bold text-sky-500">
                           {stats.links.reduce((s, l) => s + l.uniqueVisitors, 0).toLocaleString(numberLocale)}
                         </p>
                         <p className="text-xs text-muted-foreground mt-1">{t('stats.unique_visitors')}</p>
@@ -918,7 +918,7 @@ export default function StatsPage() {
                 value={stats.overview.newContacts}
                 trend={stats.overview.contactsTrend}
                 icon={UserPlus}
-                color="purple"
+                color="teal"
               />
             </div>
 
@@ -1079,7 +1079,7 @@ export default function StatsPage() {
                     value={stats.lifecycle.aiAnalysesCount}
                     trend={null}
                     icon={Sparkles}
-                    color="purple"
+                    color="teal"
                   />
                   <KPICard
                     title={t('stats.lc_tokens_used')}

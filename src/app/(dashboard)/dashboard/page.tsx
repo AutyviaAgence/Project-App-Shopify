@@ -115,7 +115,7 @@ export default function DashboardPage() {
               value={stats.overview.newContacts}
               trend={stats.overview.contactsTrend}
               icon={UserPlus}
-              color="purple"
+              color="teal"
             />
             <KPICard
               title={t('dashboard.ai_rate')}

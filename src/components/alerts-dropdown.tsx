@@ -34,7 +34,7 @@ const ALERT_COLORS: Record<string, string> = {
   ai_error: 'text-red-500',
   webhook_error: 'text-red-500',
   info: 'text-blue-500',
-  campaign_opt_out: 'text-purple-500',
+  campaign_opt_out: 'text-sky-500',
   agent_started: 'text-green-500',
   agent_stopped: 'text-orange-500',
   booking_click: 'text-emerald-500',

@@ -125,7 +125,7 @@ const recipientStatusColors: Record<string, string> = {
   sending: 'text-yellow-500',
   sent: 'text-blue-500',
   delivered: 'text-green-500',
-  replied: 'text-purple-500',
+  replied: 'text-sky-500',
   failed: 'text-destructive',
   skipped: 'text-muted-foreground',
 }
@@ -555,8 +555,8 @@ export default function CampaignDetailPage() {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-4">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <MessageSquare className="h-5 w-5 text-purple-500" />
+              <div className="p-2 bg-sky-100 rounded-lg">
+                <MessageSquare className="h-5 w-5 text-sky-500" />
               </div>
               <div>
                 <div className="text-2xl font-bold">{responseRate}%</div>

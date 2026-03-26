@@ -43,14 +43,14 @@ const STAGE_COLORS = [
   '#10B981', // green
   '#F59E0B', // amber
   '#EF4444', // red
-  '#8B5CF6', // violet
+  '#0EA5E9', // sky
   '#EC4899', // pink
   '#06B6D4', // cyan
   '#F97316', // orange
   '#6366F1', // indigo
   '#84CC16', // lime
   '#14B8A6', // teal
-  '#A855F7', // purple
+  '#0EA5E9', // sky-alt
 ]
 
 const STAGE_ICONS = [

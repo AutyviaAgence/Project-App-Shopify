@@ -150,7 +150,7 @@ export default function LogsPage() {
   function getEventBadge(event: string) {
     const colors: Record<string, string> = {
       'messages.upsert': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-      'connection.update': 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',
+      'connection.update': 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
       'qrcode.updated': 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400',
     }
     return (

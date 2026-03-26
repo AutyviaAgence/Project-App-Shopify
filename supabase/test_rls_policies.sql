@@ -18,7 +18,7 @@ WHERE schemaname = 'public' AND rowsecurity = false
   AND tablename NOT LIKE 'pg_%'
   AND tablename NOT LIKE '_prisma%';
 
--- =============================================
+-- =====a========================================
 -- 2. Liste COMPLÈTE de toutes les policies par table
 -- =============================================
 SELECT

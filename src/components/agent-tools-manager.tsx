@@ -115,7 +115,7 @@ const TOOL_COLORS: Record<string, string> = {
   google_calendar: 'text-blue-500',
   google_gmail: 'text-red-500',
   shopify: 'text-green-500',
-  woocommerce: 'text-purple-500',
+  woocommerce: 'text-sky-500',
   stripe: 'text-indigo-500',
   google_sheets: 'text-emerald-500',
   whatsapp_message: 'text-green-600',

@@ -10,7 +10,7 @@ type KPICardProps = {
   trend?: number | null
   icon: LucideIcon
   formatValue?: (value: number) => string
-  color?: 'green' | 'blue' | 'purple' | 'orange'
+  color?: 'green' | 'blue' | 'teal' | 'orange'
 }
 
 const colorClasses = {
@@ -24,10 +24,10 @@ const colorClasses = {
     icon: 'text-blue-500',
     border: 'border-blue-500/20',
   },
-  purple: {
-    bg: 'bg-violet-500/10',
-    icon: 'text-violet-500',
-    border: 'border-violet-500/20',
+  teal: {
+    bg: 'bg-sky-500/10',
+    icon: 'text-sky-500',
+    border: 'border-sky-500/20',
   },
   orange: {
     bg: 'bg-orange-500/10',

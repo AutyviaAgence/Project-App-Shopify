@@ -229,7 +229,7 @@ export default function CampaignsPage() {
                         <div className="text-[10px] text-muted-foreground">{t('campaigns.delivered')}</div>
                       </div>
                       <div className="space-y-1">
-                        <MessageSquare className="mx-auto h-4 w-4 text-purple-500" />
+                        <MessageSquare className="mx-auto h-4 w-4 text-sky-500" />
                         <div className="text-lg font-semibold">{campaign.replied_count}</div>
                         <div className="text-[10px] text-muted-foreground">{t('campaigns.responses')}</div>
                       </div>

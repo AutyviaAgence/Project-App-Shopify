@@ -742,7 +742,7 @@ export default function AgentsPage() {
                         </Badge>
                       )}
                       {agent.agent_type === 'qualifier' && (
-                        <Badge variant="secondary" className="gap-1 text-xs bg-purple-500/10 text-purple-500">
+                        <Badge variant="secondary" className="gap-1 text-xs bg-sky-500/10 text-sky-500">
                           <Sparkles className="h-3 w-3" />
                           {t('agents.qualifier')}
                         </Badge>
@@ -986,7 +986,7 @@ export default function AgentsPage() {
               <div className="space-y-3 pt-4 border-t">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-sm font-medium">
-                    <Sparkles className="h-4 w-4 text-purple-500" />
+                    <Sparkles className="h-4 w-4 text-sky-500" />
                     {t('agents.qualifier_routes')}
                   </div>
                   <Button

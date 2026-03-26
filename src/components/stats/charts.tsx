@@ -26,7 +26,7 @@ function useChartColors() {
     accent: tenant.accentColor,
     accentDark: adjustColor(tenant.accentColor, -15),
     muted,
-    purple: '#8B5CF6',
+    sky: '#0EA5E9',
     blue: '#3B82F6',
     grid,
     cursorFill: `${tenant.primaryColor}18`,
@@ -257,19 +257,19 @@ export function ContactsOverTimeChart({ data }: { data: StatsTimePoint[] }) {
         />
         <Tooltip
           content={<CustomTooltip labelFormatter={formatDate} />}
-          cursor={{ stroke: c.purple, strokeWidth: 1, strokeDasharray: '3 3' }}
+          cursor={{ stroke: c.sky, strokeWidth: 1, strokeDasharray: '3 3' }}
         />
         <defs>
           <linearGradient id="gradient-contacts" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="5%" stopColor={c.purple} stopOpacity={0.4} />
-            <stop offset="95%" stopColor={c.purple} stopOpacity={0.05} />
+            <stop offset="5%" stopColor={c.sky} stopOpacity={0.4} />
+            <stop offset="95%" stopColor={c.sky} stopOpacity={0.05} />
           </linearGradient>
         </defs>
         <Area
           type="monotone"
           dataKey="count"
           name="Nouveaux contacts"
-          stroke={c.purple}
+          stroke={c.sky}
           fill="url(#gradient-contacts)"
           strokeWidth={2}
         />
@@ -433,7 +433,7 @@ export function DeviceBreakdownChart({ data }: { data: StatsDevicePoint[] }) {
   const deviceColors: Record<string, string> = {
     mobile: c.accent,
     desktop: c.blue,
-    tablet: c.purple,
+    tablet: c.sky,
     unknown: c.muted,
   }
 
@@ -488,7 +488,7 @@ export function UtmBreakdownChart({ data }: { data: StatsUtmPoint[] }) {
         <XAxis type="number" tick={{ fill: c.muted, fontSize: 12 }} allowDecimals={false} />
         <YAxis type="category" dataKey="source" width={80} tick={{ fill: c.muted, fontSize: 12 }} />
         <Tooltip content={<CustomTooltip />} cursor={{ fill: c.cursorFill }} />
-        <Bar dataKey="count" name="Clics" fill={c.purple} radius={[0, 4, 4, 0]} />
+        <Bar dataKey="count" name="Clics" fill={c.sky} radius={[0, 4, 4, 0]} />
       </BarChart>
     </ResponsiveContainer>
   )

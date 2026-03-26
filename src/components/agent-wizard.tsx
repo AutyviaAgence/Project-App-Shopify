@@ -530,7 +530,7 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
                     data.agentType === 'qualifier' && 'border-primary bg-primary/5'
                   )}
                 >
-                  <Sparkles className="h-6 w-6 text-purple-500 mt-0.5" />
+                  <Sparkles className="h-6 w-6 text-sky-500 mt-0.5" />
                   <div>
                     <p className="font-medium">{t('wizard.type_qualifier')}</p>
                     <p className="text-sm text-muted-foreground">
@@ -723,9 +723,9 @@ export function AgentWizard({ open, onOpenChange, onComplete }: AgentWizardProps
                   <p className="text-sm text-muted-foreground">
                     {t('wizard.qualifier_config_desc')}
                   </p>
-                  <div className="rounded-lg border bg-purple-500/5 p-4 space-y-2">
+                  <div className="rounded-lg border bg-sky-500/5 p-4 space-y-2">
                     <div className="flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-purple-500" />
+                      <Sparkles className="h-4 w-4 text-sky-500" />
                       <p className="text-sm font-medium">{t('wizard.qualifier_how_it_works')}</p>
                     </div>
                     <ul className="text-sm text-muted-foreground space-y-1 ml-6 list-disc">
