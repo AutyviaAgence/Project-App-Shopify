@@ -26,7 +26,8 @@ export async function middleware(request: NextRequest) {
       supabaseResponse.cookies.set('x-tenant', cookieValue, {
         path: '/',
         maxAge: 3600, // 1 hour
-        httpOnly: false, // needs to be readable by client JS
+        httpOnly: false, // must stay false — TenantProvider reads via document.cookie (public theming data only)
+        secure: process.env.NODE_ENV === 'production',
         sameSite: 'lax',
       })
     } catch (err) {

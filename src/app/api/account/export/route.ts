@@ -1,10 +1,15 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import JSZip from 'jszip'
 import { decryptMessage } from '@/lib/crypto/encryption'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 /** GET /api/account/export — Exporter toutes les données de l'utilisateur (RGPD) */
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // Rate limiting — prevent abuse of heavy data export endpoint
+  const rateLimitResponse = checkRateLimit(req, 'HEAVY')
+  if (rateLimitResponse) return rateLimitResponse
+
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
 
