@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { evolution } from '@/lib/evolution/client'
 import { encryptMessage } from '@/lib/crypto/encryption'
 import { getUserTeamIds, getUserTeamPermissions, buildAccessFilter, filterSessionsByPermissions } from '@/lib/teams/access'
@@ -201,33 +202,74 @@ export async function GET() {
     permissions
   )
 
-  // Récupérer le numéro pour les sessions Evolution connectées sans phone_number (en parallèle)
-  const sessionsNeedingPhone = sessions.filter(
-    (s) => s.status === 'connected' && !s.phone_number && (!s.integration_type || s.integration_type === 'evolution')
+  // Health check: sync Evolution sessions status, detect deleted instances, fill missing phone numbers
+  const evoSessions = sessions.filter(
+    (s) => (!s.integration_type || s.integration_type === 'evolution') && s.status !== 'error'
   )
-  if (sessionsNeedingPhone.length > 0) {
-    const phoneResults = await Promise.all(
-      sessionsNeedingPhone.map(async (session) => {
-        const instanceResult = await evolution.fetchInstance(session.instance_name)
-        if (instanceResult.ok) {
-          const instances = instanceResult.data as Array<Record<string, unknown>>
-          const instance = Array.isArray(instances) ? instances[0] : instances
-          const owner = (instance as Record<string, unknown>)?.ownerJid as string | undefined
-          if (owner) {
-            return { session, phoneNumber: owner.split('@')[0] }
-          }
-        }
-        return null
-      })
+  if (evoSessions.length > 0) {
+    // Fetch all instances from Evolution API in one call
+    const allInstancesResult = await evolution.fetchAllInstances()
+    const instanceMap = new Map<string, { connectionStatus: string; ownerJid?: string }>()
+    if (allInstancesResult.ok) {
+      for (const inst of allInstancesResult.data) {
+        instanceMap.set(inst.name, inst)
+      }
+    }
+
+    const adminSupabase = createAdminSupabase(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
-    // Apply results and save to DB in parallel
-    const dbUpdates = phoneResults
-      .filter((r): r is { session: typeof sessions[0]; phoneNumber: string } => r !== null)
-      .map((r) => {
-        r.session.phone_number = r.phoneNumber
-        return supabase.from('whatsapp_sessions').update({ phone_number: r.phoneNumber }).eq('id', r.session.id)
-      })
-    if (dbUpdates.length > 0) await Promise.all(dbUpdates)
+
+    await Promise.all(evoSessions.map(async (session) => {
+      const evoInstance = instanceMap.get(session.instance_name)
+
+      // Instance deleted from Evolution API → mark disconnected + alert
+      if (!evoInstance && allInstancesResult.ok) {
+        if (session.status === 'connected' || session.status === 'qr_pending') {
+          session.status = 'disconnected' as WhatsAppSession['status']
+          await Promise.all([
+            adminSupabase.from('whatsapp_sessions').update({ status: 'disconnected' }).eq('id', session.id),
+            adminSupabase.from('user_alerts').insert({
+              user_id: session.user_id,
+              alert_type: 'session_disconnected',
+              title: 'Session supprimée',
+              message: `L'instance "${session.instance_name}" n'existe plus sur Evolution API. Créez une nouvelle session pour reconnecter ce numéro.`,
+              metadata: { session_id: session.id, instance_name: session.instance_name, detected_by: 'session_list_sync', reason: 'instance_deleted' },
+            }),
+          ])
+        }
+        return
+      }
+
+      if (!evoInstance) return
+
+      // Sync connection status
+      const evoStatus = evoInstance.connectionStatus
+      if (session.status === 'connected' && evoStatus !== 'open') {
+        const newStatus = evoStatus === 'connecting' ? 'qr_pending' : 'disconnected'
+        session.status = newStatus as WhatsAppSession['status']
+        await Promise.all([
+          adminSupabase.from('whatsapp_sessions').update({ status: newStatus }).eq('id', session.id),
+          newStatus === 'disconnected'
+            ? adminSupabase.from('user_alerts').insert({
+                user_id: session.user_id,
+                alert_type: 'session_disconnected',
+                title: 'Session déconnectée',
+                message: `La session "${session.instance_name}" est déconnectée. Reconnectez-vous via le QR code.`,
+                metadata: { session_id: session.id, instance_name: session.instance_name, detected_by: 'session_list_sync', evolution_status: evoStatus },
+              })
+            : Promise.resolve(),
+        ])
+      }
+
+      // Fill missing phone number
+      if (session.status === 'connected' && !session.phone_number && evoInstance.ownerJid) {
+        const phoneNumber = evoInstance.ownerJid.split('@')[0]
+        session.phone_number = phoneNumber
+        await adminSupabase.from('whatsapp_sessions').update({ phone_number: phoneNumber }).eq('id', session.id)
+      }
+    }))
   }
 
   // Récupérer les team_ids pour chaque session

@@ -141,6 +141,13 @@ export const evolution = {
     })
   },
 
+  /** Récupérer toutes les instances sur Evolution API */
+  fetchAllInstances() {
+    return request<Array<{ name: string; connectionStatus: string; ownerJid?: string; id?: string }>>('/instance/fetchInstances', {
+      method: 'GET',
+    })
+  },
+
   /** Récupérer le média en base64 depuis un message */
   getBase64FromMediaMessage(
     instanceName: string,

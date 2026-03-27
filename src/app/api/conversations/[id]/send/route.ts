@@ -1,9 +1,53 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { sendMessage, sendMediaMessage } from '@/lib/messaging/send'
 import { encryptMessage } from '@/lib/crypto/encryption'
 import { canAccessSession } from '@/lib/teams/access'
 import { uploadMedia } from '@/lib/storage/media'
+
+/**
+ * Detect if a send error indicates the WhatsApp session is disconnected.
+ * If so, update session status to 'disconnected' and create a user alert.
+ */
+async function handleDisconnectedSession(
+  error: string,
+  session: { id: string; user_id: string; instance_name: string; status: string }
+): Promise<boolean> {
+  const disconnectPatterns = [
+    'Connection Closed',
+    'connection closed',
+    'Unauthorized',
+    'not connected',
+    'instance not found',
+    'QR code not read',
+  ]
+
+  const isDisconnected = disconnectPatterns.some(p => error.includes(p))
+  if (!isDisconnected || session.status === 'disconnected') return false
+
+  const adminSupabase = createAdminSupabase(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+
+  await Promise.all([
+    adminSupabase
+      .from('whatsapp_sessions')
+      .update({ status: 'disconnected' })
+      .eq('id', session.id),
+    adminSupabase.from('user_alerts').insert({
+      user_id: session.user_id,
+      alert_type: 'session_disconnected',
+      title: 'Session déconnectée',
+      message: `La session "${session.instance_name}" est déconnectée. Reconnectez-vous via le QR code.`,
+      metadata: { session_id: session.id, instance_name: session.instance_name, detected_by: 'send_failure', error },
+    }),
+  ])
+
+  console.warn(`[Send] Session ${session.instance_name} detected as disconnected — status updated`)
+  return true
+}
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024 // 50 MB
 
@@ -110,7 +154,11 @@ export async function POST(
     })
 
     if (!sendResult.ok) {
-      return NextResponse.json({ error: sendResult.error }, { status: 502 })
+      const wasDisconnected = await handleDisconnectedSession(sendResult.error, session)
+      return NextResponse.json(
+        { error: sendResult.error, disconnected: wasDisconnected },
+        { status: wasDisconnected ? 409 : 502 }
+      )
     }
 
     // Générer un ID temporaire pour le stockage
@@ -193,7 +241,11 @@ export async function POST(
   const sendResult = await sendMessage(session, contact.phone_number, content.trim())
 
   if (!sendResult.ok) {
-    return NextResponse.json({ error: sendResult.error }, { status: 502 })
+    const wasDisconnected = await handleDisconnectedSession(sendResult.error, session)
+    return NextResponse.json(
+      { error: sendResult.error, disconnected: wasDisconnected },
+      { status: wasDisconnected ? 409 : 502 }
+    )
   }
 
   // Sauvegarder en BDD (chiffré si clé configurée)

@@ -69,6 +69,16 @@ export async function GET(
 
   if (!evoResult.ok) {
     console.warn('[Status] Evolution API error:', evoResult.error)
+    // If instance not found (404), mark as disconnected
+    if (evoResult.error.includes('404') || evoResult.error.includes('not found')) {
+      if (session.status === 'connected' || session.status === 'qr_pending') {
+        await supabase
+          .from('whatsapp_sessions')
+          .update({ status: 'disconnected' })
+          .eq('id', id)
+        return NextResponse.json({ data: sanitizeSession({ ...session, status: 'disconnected' }) })
+      }
+    }
     return NextResponse.json({ data: sanitizeSession(session) })
   }
 
