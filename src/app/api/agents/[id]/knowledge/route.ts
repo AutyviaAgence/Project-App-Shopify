@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { canAccessResource } from '@/lib/teams/access'
 
 /** GET /api/agents/[id]/knowledge — Liste des documents associés à un agent */
 export async function GET(
@@ -14,16 +15,20 @@ export async function GET(
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  // Vérifier la propriété de l'agent
+  // Vérifier l'accès à l'agent (propriétaire ou membre d'équipe)
   const { data: agent } = await supabase
     .from('ai_agents')
-    .select('id')
+    .select('id, user_id, team_id')
     .eq('id', id)
-    .eq('user_id', user.id)
     .single()
 
   if (!agent) {
     return NextResponse.json({ error: 'Agent introuvable' }, { status: 404 })
+  }
+
+  const hasAccess = await canAccessResource(supabase, user.id, agent.user_id, agent.team_id)
+  if (!hasAccess) {
+    return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 
   // Récupérer les document_ids associés

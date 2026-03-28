@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { canAccessResource, getUserTeamIds } from '@/lib/teams/access'
 
 /** GET /api/knowledge/[id]/agents — Liste des agents associés au document */
 export async function GET(
@@ -14,16 +15,20 @@ export async function GET(
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  // Vérifier la propriété du document
+  // Vérifier l'accès au document (propriétaire ou membre d'équipe)
   const { data: doc } = await supabase
     .from('knowledge_documents')
-    .select('id')
+    .select('id, user_id, team_id')
     .eq('id', id)
-    .eq('user_id', user.id)
     .single()
 
   if (!doc) {
     return NextResponse.json({ error: 'Document introuvable' }, { status: 404 })
+  }
+
+  const hasAccess = await canAccessResource(supabase, user.id, doc.user_id, doc.team_id)
+  if (!hasAccess) {
+    return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 
   const { data: associations, error } = await supabase
@@ -58,27 +63,36 @@ export async function PUT(
     return NextResponse.json({ error: 'agent_ids doit être un tableau' }, { status: 400 })
   }
 
-  // Vérifier la propriété du document
+  // Vérifier l'accès au document (propriétaire ou membre d'équipe)
   const { data: doc } = await supabase
     .from('knowledge_documents')
-    .select('id')
+    .select('id, user_id, team_id')
     .eq('id', id)
-    .eq('user_id', user.id)
     .single()
 
   if (!doc) {
     return NextResponse.json({ error: 'Document introuvable' }, { status: 404 })
   }
 
-  // Vérifier que tous les agents appartiennent à l'utilisateur
+  const hasAccess = await canAccessResource(supabase, user.id, doc.user_id, doc.team_id)
+  if (!hasAccess) {
+    return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+  }
+
+  // Vérifier que tous les agents sont accessibles (propriétaire ou équipe)
   if (agent_ids.length > 0) {
-    const { data: userAgents } = await supabase
+    const teamIds = await getUserTeamIds(supabase, user.id)
+    const accessFilter = teamIds.length > 0
+      ? `user_id.eq.${user.id},team_id.in.(${teamIds.join(',')})`
+      : `user_id.eq.${user.id}`
+
+    const { data: accessibleAgents } = await supabase
       .from('ai_agents')
       .select('id')
-      .eq('user_id', user.id)
+      .or(accessFilter)
       .in('id', agent_ids)
 
-    if (!userAgents || userAgents.length !== agent_ids.length) {
+    if (!accessibleAgents || accessibleAgents.length !== agent_ids.length) {
       return NextResponse.json({ error: 'Un ou plusieurs agents introuvables' }, { status: 404 })
     }
   }
