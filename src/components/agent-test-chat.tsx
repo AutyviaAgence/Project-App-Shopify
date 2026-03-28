@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Loader2, Send, Bot, User, Trash2, AlertCircle, Wrench, CheckCircle, XCircle, ArrowRightCircle, StopCircle } from 'lucide-react'
+import { Loader2, Send, Bot, User, Trash2, AlertCircle, Wrench, CheckCircle, XCircle, ArrowRightCircle, StopCircle, BookOpen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/i18n/context'
 
@@ -19,6 +19,12 @@ type ToolExecution = {
   result: string
   success: boolean
   durationMs: number
+}
+
+type RagInfo = {
+  chunksUsed: number
+  documentNames: string[]
+  error?: string
 }
 
 type ChatEvent = {
@@ -32,6 +38,7 @@ type Message = {
   content: string
   toolExecutions?: ToolExecution[]
   event?: ChatEvent
+  rag?: RagInfo | null
 }
 
 type AgentTestChatProps = {
@@ -100,12 +107,14 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
             content: '',
             toolExecutions: data.toolExecutions,
             event: { type: 'route', routeTo: data.routeTo, routeScenario: data.routeScenario },
+            rag: data.rag || null,
           }])
         } else if (data.response) {
           setMessages(prev => [...prev, {
             role: 'assistant',
             content: data.response,
             toolExecutions: data.toolExecutions,
+            rag: data.rag || null,
           }])
         }
       } else {
@@ -182,6 +191,31 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
                     </div>
                   )}
                   <div className="max-w-[80%] space-y-1.5">
+                    {/* RAG info */}
+                    {msg.rag && (
+                      <div className={cn(
+                        "flex items-center gap-2 rounded-lg border border-dashed px-3 py-1.5 text-[11px]",
+                        msg.rag.error
+                          ? "border-red-500/30 bg-red-500/5"
+                          : msg.rag.chunksUsed > 0
+                          ? "border-emerald-500/30 bg-emerald-500/5"
+                          : "border-muted-foreground/20 bg-muted/30"
+                      )}>
+                        <BookOpen className={cn(
+                          "h-3 w-3 shrink-0",
+                          msg.rag.error ? "text-red-500" : msg.rag.chunksUsed > 0 ? "text-emerald-500" : "text-muted-foreground"
+                        )} />
+                        {msg.rag.error ? (
+                          <span className="text-red-600 dark:text-red-400">RAG erreur : {msg.rag.error}</span>
+                        ) : msg.rag.chunksUsed > 0 ? (
+                          <span className="text-emerald-700 dark:text-emerald-300">
+                            Base de connaissances : {msg.rag.chunksUsed} extrait{msg.rag.chunksUsed > 1 ? 's' : ''} trouvé{msg.rag.chunksUsed > 1 ? 's' : ''} dans {msg.rag.documentNames.join(', ')}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">Base de connaissances : aucun résultat pertinent</span>
+                        )}
+                      </div>
+                    )}
                     {/* Tool executions */}
                     {msg.toolExecutions && msg.toolExecutions.length > 0 && (
                       <div className="space-y-1">

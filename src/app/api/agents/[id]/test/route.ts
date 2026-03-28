@@ -60,6 +60,7 @@ export async function POST(
   // RAG : Récupérer le contexte pertinent de la base de connaissances
   let knowledgeContext = ''
   let ragTokens = 0
+  let ragInfo: { chunksUsed: number; documentNames: string[]; error?: string } | null = null
   const ragResult = await retrieveContext({
     agentId: id,
     query: message.trim(),
@@ -69,6 +70,24 @@ export async function POST(
   if (ragResult.ok && ragResult.context) {
     knowledgeContext = ragResult.context
     ragTokens = ragResult.tokensUsed
+
+    // Récupérer les noms des documents sources
+    const docIds = [...new Set(ragResult.chunks.map(c => c.document_id))]
+    if (docIds.length > 0) {
+      const { data: docs } = await supabase
+        .from('knowledge_documents')
+        .select('id, name')
+        .in('id', docIds)
+      ragInfo = {
+        chunksUsed: ragResult.chunks.length,
+        documentNames: docs?.map(d => d.name) || [],
+      }
+    }
+  } else if (ragResult.ok && ragResult.chunks.length === 0) {
+    // RAG actif mais aucun résultat pertinent trouvé
+    ragInfo = { chunksUsed: 0, documentNames: [] }
+  } else if (!ragResult.ok) {
+    ragInfo = { chunksUsed: 0, documentNames: [], error: ragResult.error }
   }
 
   // Construire le prompt système complet (même logique que processAIResponse)
@@ -178,6 +197,7 @@ export async function POST(
         data: {
           response: result.content,
           toolExecutions: toolExecutions.length > 0 ? toolExecutions : undefined,
+          rag: ragInfo,
         }
       })
     }
@@ -203,6 +223,7 @@ export async function POST(
               event: 'route',
               routeTo: targetAgent?.name || matchedRoute.name,
               routeScenario: matchedRoute.name,
+              rag: ragInfo,
               toolExecutions: [{
                 name: 'route_to_agent',
                 args: routeCall.arguments,
@@ -258,5 +279,5 @@ export async function POST(
 
   // Fallback si max rounds atteint
   await recordTokenUsage(user.id, totalTokens)
-  return NextResponse.json({ data: { response: 'Désolé, la requête a nécessité trop d\'appels. Veuillez reformuler.', toolExecutions } })
+  return NextResponse.json({ data: { response: 'Désolé, la requête a nécessité trop d\'appels. Veuillez reformuler.', toolExecutions, rag: ragInfo } })
 }
