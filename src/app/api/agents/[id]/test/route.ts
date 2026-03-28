@@ -65,7 +65,7 @@ export async function POST(
     agentId: id,
     query: message.trim(),
     topK: 5,
-    threshold: 0.7,
+    threshold: 0.35,
   })
   if (ragResult.ok && ragResult.context) {
     knowledgeContext = ragResult.context

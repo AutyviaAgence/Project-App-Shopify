@@ -201,7 +201,7 @@ export async function processAIResponse(params: {
         agentId: params.agentId,
         query: lastUserMessage.content,
         topK: 5,
-        threshold: 0.7,
+        threshold: 0.35,
       })
       if (ragResult.ok && ragResult.context) {
         knowledgeContext = ragResult.context
