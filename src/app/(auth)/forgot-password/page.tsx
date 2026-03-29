@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
@@ -12,20 +12,63 @@ import { toast } from 'sonner'
 import { useTranslation } from '@/i18n/context'
 import { useTenant } from '@/lib/tenant/context'
 
+const TURNSTILE_SITE_KEY = '0x4AAAAAACxrGN3L2YWh3XHJ'
+
 export default function ForgotPasswordPage() {
   const { t } = useTranslation()
   const tenant = useTenant()
   const [email, setEmail] = useState('')
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const turnstileRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (document.getElementById('cf-turnstile-script')) {
+      // Script already loaded, render widget
+      if (turnstileRef.current && (window as any).turnstile) {
+        ;(window as any).turnstile.render(turnstileRef.current, {
+          sitekey: TURNSTILE_SITE_KEY,
+          callback: (token: string) => setCaptchaToken(token),
+          'expired-callback': () => setCaptchaToken(null),
+          theme: 'auto',
+        })
+      }
+      return
+    }
+    const script = document.createElement('script')
+    script.id = 'cf-turnstile-script'
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js'
+    script.async = true
+    script.defer = true
+    document.head.appendChild(script)
+
+    script.onload = () => {
+      if (turnstileRef.current && (window as any).turnstile) {
+        ;(window as any).turnstile.render(turnstileRef.current, {
+          sitekey: TURNSTILE_SITE_KEY,
+          callback: (token: string) => setCaptchaToken(token),
+          'expired-callback': () => setCaptchaToken(null),
+          theme: 'auto',
+        })
+      }
+    }
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
+
+    if (!captchaToken) {
+      toast.error('Veuillez compléter la vérification de sécurité.')
+      return
+    }
+
     setLoading(true)
 
     const supabase = createClient()
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/update-password`,
+      captchaToken,
     })
 
     if (error) {
@@ -87,7 +130,8 @@ export default function ForgotPasswordPage() {
             </div>
           </CardContent>
           <CardFooter className="flex flex-col gap-4">
-            <Button type="submit" className="w-full" disabled={loading}>
+            <div ref={turnstileRef} className="flex justify-center" />
+            <Button type="submit" className="w-full" disabled={loading || !captchaToken}>
               {loading ? t('auth.sending') : t('auth.send_link')}
             </Button>
             <Link href="/login" className="text-sm text-muted-foreground hover:underline">
