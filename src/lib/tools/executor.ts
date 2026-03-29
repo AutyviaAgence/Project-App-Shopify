@@ -808,8 +808,8 @@ async function executeGoogleSheets(
   }
 
   if (functionName === 'search') {
-    // If no sheet_name, get the first sheet name dynamically
-    let sheetName: string = (args.sheet_name as string) || ''
+    // If no sheet_name, use default_sheet from config, then fallback to first sheet dynamically
+    let sheetName: string = (args.sheet_name as string) || (config.default_sheet as string) || ''
     if (!sheetName) {
       const metaRes = await fetchWithTimeout(
         `${baseUrl}?fields=sheets.properties.title`,
