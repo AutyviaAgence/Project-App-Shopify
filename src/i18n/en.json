@@ -220,6 +220,8 @@
     "file_too_large": "File too large (max 50 MB)",
     "caption_placeholder": "Add a caption...",
     "mic_permission_error": "Microphone access denied",
+    "today": "Today",
+    "yesterday": "Yesterday",
     "copy_error": "Unable to copy",
     "number_copied": "Number copied",
     "tag_created": "Tag created",

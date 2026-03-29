@@ -258,14 +258,46 @@ export function ChatArea({
               </div>
             ) : (
               <div className="space-y-3 max-w-3xl mx-auto">
-                {messages.map((msg) => {
+                {messages.map((msg, idx) => {
                   const isAI = msg.sent_by === 'ai_agent'
                   const isOutbound = msg.direction === 'outbound'
                   const isCopied = copiedMessageId === msg.id
 
+                  // Date separator
+                  const msgDate = new Date(msg.created_at)
+                  const prevMsg = idx > 0 ? messages[idx - 1] : null
+                  const prevDate = prevMsg ? new Date(prevMsg.created_at) : null
+                  const showDateSeparator = !prevDate ||
+                    msgDate.toDateString() !== prevDate.toDateString()
+
+                  let dateLabel = ''
+                  if (showDateSeparator) {
+                    const today = new Date()
+                    const yesterday = new Date()
+                    yesterday.setDate(yesterday.getDate() - 1)
+                    if (msgDate.toDateString() === today.toDateString()) {
+                      dateLabel = t('conversations.today') || "Aujourd'hui"
+                    } else if (msgDate.toDateString() === yesterday.toDateString()) {
+                      dateLabel = t('conversations.yesterday') || 'Hier'
+                    } else {
+                      dateLabel = msgDate.toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: msgDate.getFullYear() !== today.getFullYear() ? 'numeric' : undefined,
+                      })
+                    }
+                  }
+
                   return (
+                    <div key={msg.id}>
+                      {showDateSeparator && (
+                        <div className="flex items-center justify-center my-4">
+                          <span className="rounded-full bg-muted px-3 py-1 text-[11px] text-muted-foreground font-medium">
+                            {dateLabel}
+                          </span>
+                        </div>
+                      )}
                     <div
-                      key={msg.id}
                       className={cn(
                         'group flex items-end gap-2',
                         isOutbound ? 'justify-end' : 'justify-start'
@@ -375,6 +407,7 @@ export function ChatArea({
                           )}
                         </button>
                       )}
+                    </div>
                     </div>
                   )
                 })}
