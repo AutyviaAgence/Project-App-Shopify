@@ -129,7 +129,7 @@ export default function ForgotPasswordPage() {
               />
             </div>
           </CardContent>
-          <CardFooter className="flex flex-col gap-4">
+          <CardFooter className="flex flex-col gap-4 pt-4">
             <div ref={turnstileRef} className="flex justify-center" />
             <Button type="submit" className="w-full" disabled={loading || !captchaToken}>
               {loading ? t('auth.sending') : t('auth.send_link')}
