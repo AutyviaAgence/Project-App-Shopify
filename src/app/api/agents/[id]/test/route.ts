@@ -169,7 +169,7 @@ export async function POST(
 
   // Boucle de tool calling (max 5 rounds)
   let totalTokens = ragTokens
-  const MAX_TOOL_ROUNDS = 5
+  const MAX_TOOL_ROUNDS = 10
   const conversationMessages: OpenAIMessage[] = [
     ...messages.map(m => ({ role: m.role, content: m.content }) as OpenAIMessage),
   ]

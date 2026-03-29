@@ -316,7 +316,7 @@ export async function processAIResponse(params: {
     }
 
     // 5. Appeler OpenAI (avec boucle tool calling si outils disponibles)
-    const MAX_TOOL_ROUNDS = 5
+    const MAX_TOOL_ROUNDS = 10
     const toolMessages: OpenAIMessage[] = []
     let aiResponseText = ''
     let qualifierRouteTriggered: { routeName: string; targetAgentId: string } | null = null
