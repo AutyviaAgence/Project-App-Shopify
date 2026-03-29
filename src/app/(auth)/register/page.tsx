@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, Suspense } from 'react'
+import { useState, useRef, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -13,6 +13,8 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
 import { useTranslation } from '@/i18n/context'
 import { useTenant } from '@/lib/tenant/context'
+
+const TURNSTILE_SITE_KEY = '0x4AAAAAACxrGN3L2YWh3XHJ'
 
 function RegisterForm() {
   const { t } = useTranslation()
@@ -27,12 +29,60 @@ function RegisterForm() {
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const turnstileRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    // Load Turnstile script
+    if (document.getElementById('cf-turnstile-script')) return
+    const script = document.createElement('script')
+    script.id = 'cf-turnstile-script'
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js'
+    script.async = true
+    script.defer = true
+    document.head.appendChild(script)
+
+    script.onload = () => {
+      if (turnstileRef.current && (window as any).turnstile) {
+        ;(window as any).turnstile.render(turnstileRef.current, {
+          sitekey: TURNSTILE_SITE_KEY,
+          callback: (token: string) => setCaptchaToken(token),
+          'expired-callback': () => setCaptchaToken(null),
+          theme: 'auto',
+        })
+      }
+    }
+
+    return () => {
+      // Cleanup not needed — script stays loaded
+    }
+  }, [])
+
+  // Re-render turnstile when ref is available (after emailSent toggle)
+  useEffect(() => {
+    if (!emailSent && turnstileRef.current && (window as any).turnstile) {
+      // Check if already rendered
+      if (turnstileRef.current.children.length === 0) {
+        ;(window as any).turnstile.render(turnstileRef.current, {
+          sitekey: TURNSTILE_SITE_KEY,
+          callback: (token: string) => setCaptchaToken(token),
+          'expired-callback': () => setCaptchaToken(null),
+          theme: 'auto',
+        })
+      }
+    }
+  }, [emailSent])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
 
     if (!acceptedTerms) {
       toast.error(t('auth.accept_required'))
+      return
+    }
+
+    if (!captchaToken) {
+      toast.error('Veuillez compléter la vérification de sécurité.')
       return
     }
 
@@ -45,6 +95,7 @@ function RegisterForm() {
       options: {
         data: { full_name: fullName, signup_domain: window.location.hostname },
         emailRedirectTo: `${window.location.origin}/login`,
+        captchaToken,
       },
     })
 
@@ -151,7 +202,10 @@ function RegisterForm() {
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-4 pt-2">
-          <Button type="submit" className="w-full mt-2" disabled={loading || !acceptedTerms || googleLoading}>
+          {/* Cloudflare Turnstile CAPTCHA */}
+          <div ref={turnstileRef} className="flex justify-center" />
+
+          <Button type="submit" className="w-full mt-2" disabled={loading || !acceptedTerms || !captchaToken || googleLoading}>
             {loading ? t('auth.signing_up') : t('auth.sign_up')}
           </Button>
 
