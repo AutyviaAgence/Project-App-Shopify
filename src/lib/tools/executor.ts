@@ -1041,7 +1041,10 @@ async function executeWhatsAppMessage(
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.NEXTAUTH_URL || 'http://localhost:3000'
     const res = await fetchWithTimeout(`${baseUrl}/api/tools/whatsapp-send`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'x-internal-secret': process.env.SUPABASE_SERVICE_ROLE_KEY || '',
+      },
       body: JSON.stringify({
         agent_id: context.agentId,
         session_id: sessionId,

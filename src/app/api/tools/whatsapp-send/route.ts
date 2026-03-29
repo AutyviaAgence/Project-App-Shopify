@@ -12,14 +12,18 @@ import { decryptMessage } from '@/lib/crypto/encryption'
 
 export async function POST(req: NextRequest) {
   try {
-    // Auth check: require authenticated user
-    const supabaseAuth = await createClient()
-    const { data: { user }, error: authError } = await supabaseAuth.auth.getUser()
-    if (authError || !user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const body = await req.json()
+
+    // Auth: internal server calls use X-Internal-Secret header, browser calls use Supabase session
+    const internalSecret = req.headers.get('x-internal-secret')
+    const isInternalCall = internalSecret === process.env.SUPABASE_SERVICE_ROLE_KEY
+    if (!isInternalCall) {
+      const supabaseAuth = await createClient()
+      const { data: { user }, error: authError } = await supabaseAuth.auth.getUser()
+      if (authError || !user) {
+        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      }
+    }
     const { agent_id, session_id: explicitSessionId, contact_name, phone_number, message, send_delay } = body
 
     if (!agent_id || !message) {
