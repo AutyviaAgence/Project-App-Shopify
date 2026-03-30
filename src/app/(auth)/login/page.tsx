@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, Suspense } from 'react'
+import { useState, useRef, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
@@ -13,6 +13,8 @@ import { toast } from 'sonner'
 import { useTranslation } from '@/i18n/context'
 import { useTenant } from '@/lib/tenant/context'
 
+const TURNSTILE_SITE_KEY = '0x4AAAAAACxrGN3L2YWh3XHJ'
+
 function LoginForm() {
   const { t } = useTranslation()
   const tenant = useTenant()
@@ -23,13 +25,40 @@ function LoginForm() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const turnstileRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function renderWidget() {
+      if (turnstileRef.current && (window as any).turnstile && turnstileRef.current.children.length === 0) {
+        ;(window as any).turnstile.render(turnstileRef.current, {
+          sitekey: TURNSTILE_SITE_KEY,
+          callback: (token: string) => setCaptchaToken(token),
+          'expired-callback': () => setCaptchaToken(null),
+          theme: 'auto',
+        })
+      }
+    }
+
+    if (document.getElementById('cf-turnstile-script')) {
+      renderWidget()
+      return
+    }
+    const script = document.createElement('script')
+    script.id = 'cf-turnstile-script'
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js'
+    script.async = true
+    script.defer = true
+    document.head.appendChild(script)
+    script.onload = renderWidget
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
 
     const supabase = createClient()
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error } = await supabase.auth.signInWithPassword({ email, password, options: { captchaToken: captchaToken || undefined } })
 
     if (error) {
       toast.error(error.message)
@@ -92,7 +121,8 @@ function LoginForm() {
           </div>
         </CardContent>
         <CardFooter className="flex flex-col gap-4 pt-2">
-          <Button type="submit" className="w-full mt-2" disabled={loading || googleLoading}>
+          <div ref={turnstileRef} className="flex justify-center" />
+          <Button type="submit" className="w-full mt-2" disabled={loading || googleLoading || !captchaToken}>
             {loading ? t('auth.signing_in') : t('auth.sign_in')}
           </Button>
 
