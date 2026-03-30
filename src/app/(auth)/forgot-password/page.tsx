@@ -22,18 +22,29 @@ export default function ForgotPasswordPage() {
   const [sent, setSent] = useState(false)
   const [captchaToken, setCaptchaToken] = useState<string | null>(null)
   const turnstileRef = useRef<HTMLDivElement>(null)
+  const widgetIdRef = useRef<string | null>(null)
+
+  function resetCaptcha() {
+    setCaptchaToken(null)
+    if (widgetIdRef.current && (window as any).turnstile) {
+      ;(window as any).turnstile.reset(widgetIdRef.current)
+    }
+  }
 
   useEffect(() => {
-    if (document.getElementById('cf-turnstile-script')) {
-      // Script already loaded, render widget
-      if (turnstileRef.current && (window as any).turnstile) {
-        ;(window as any).turnstile.render(turnstileRef.current, {
+    function renderWidget() {
+      if (turnstileRef.current && (window as any).turnstile && turnstileRef.current.children.length === 0) {
+        widgetIdRef.current = (window as any).turnstile.render(turnstileRef.current, {
           sitekey: TURNSTILE_SITE_KEY,
           callback: (token: string) => setCaptchaToken(token),
           'expired-callback': () => setCaptchaToken(null),
           theme: 'auto',
         })
       }
+    }
+
+    if (document.getElementById('cf-turnstile-script')) {
+      renderWidget()
       return
     }
     const script = document.createElement('script')
@@ -42,17 +53,7 @@ export default function ForgotPasswordPage() {
     script.async = true
     script.defer = true
     document.head.appendChild(script)
-
-    script.onload = () => {
-      if (turnstileRef.current && (window as any).turnstile) {
-        ;(window as any).turnstile.render(turnstileRef.current, {
-          sitekey: TURNSTILE_SITE_KEY,
-          callback: (token: string) => setCaptchaToken(token),
-          'expired-callback': () => setCaptchaToken(null),
-          theme: 'auto',
-        })
-      }
-    }
+    script.onload = renderWidget
   }, [])
 
   async function handleSubmit(e: React.FormEvent) {
@@ -73,6 +74,7 @@ export default function ForgotPasswordPage() {
 
     if (error) {
       toast.error(error.message)
+      resetCaptcha()
       setLoading(false)
       return
     }

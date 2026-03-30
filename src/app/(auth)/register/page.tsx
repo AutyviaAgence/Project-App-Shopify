@@ -31,20 +31,19 @@ function RegisterForm() {
   const [emailSent, setEmailSent] = useState(false)
   const [captchaToken, setCaptchaToken] = useState<string | null>(null)
   const turnstileRef = useRef<HTMLDivElement>(null)
+  const widgetIdRef = useRef<string | null>(null)
+
+  function resetCaptcha() {
+    setCaptchaToken(null)
+    if (widgetIdRef.current && (window as any).turnstile) {
+      ;(window as any).turnstile.reset(widgetIdRef.current)
+    }
+  }
 
   useEffect(() => {
-    // Load Turnstile script
-    if (document.getElementById('cf-turnstile-script')) return
-    const script = document.createElement('script')
-    script.id = 'cf-turnstile-script'
-    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js'
-    script.async = true
-    script.defer = true
-    document.head.appendChild(script)
-
-    script.onload = () => {
-      if (turnstileRef.current && (window as any).turnstile) {
-        ;(window as any).turnstile.render(turnstileRef.current, {
+    function renderWidget() {
+      if (turnstileRef.current && (window as any).turnstile && turnstileRef.current.children.length === 0) {
+        widgetIdRef.current = (window as any).turnstile.render(turnstileRef.current, {
           sitekey: TURNSTILE_SITE_KEY,
           callback: (token: string) => setCaptchaToken(token),
           'expired-callback': () => setCaptchaToken(null),
@@ -53,17 +52,24 @@ function RegisterForm() {
       }
     }
 
-    return () => {
-      // Cleanup not needed — script stays loaded
+    if (document.getElementById('cf-turnstile-script')) {
+      renderWidget()
+      return
     }
+    const script = document.createElement('script')
+    script.id = 'cf-turnstile-script'
+    script.src = 'https://challenges.cloudflare.com/turnstile/v0/api.js'
+    script.async = true
+    script.defer = true
+    document.head.appendChild(script)
+    script.onload = renderWidget
   }, [])
 
   // Re-render turnstile when ref is available (after emailSent toggle)
   useEffect(() => {
     if (!emailSent && turnstileRef.current && (window as any).turnstile) {
-      // Check if already rendered
       if (turnstileRef.current.children.length === 0) {
-        ;(window as any).turnstile.render(turnstileRef.current, {
+        widgetIdRef.current = (window as any).turnstile.render(turnstileRef.current, {
           sitekey: TURNSTILE_SITE_KEY,
           callback: (token: string) => setCaptchaToken(token),
           'expired-callback': () => setCaptchaToken(null),
@@ -101,6 +107,7 @@ function RegisterForm() {
 
     if (error) {
       toast.error(error.message)
+      resetCaptcha()
       setLoading(false)
       return
     }

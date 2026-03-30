@@ -27,11 +27,19 @@ function LoginForm() {
   const [googleLoading, setGoogleLoading] = useState(false)
   const [captchaToken, setCaptchaToken] = useState<string | null>(null)
   const turnstileRef = useRef<HTMLDivElement>(null)
+  const widgetIdRef = useRef<string | null>(null)
+
+  function resetCaptcha() {
+    setCaptchaToken(null)
+    if (widgetIdRef.current && (window as any).turnstile) {
+      ;(window as any).turnstile.reset(widgetIdRef.current)
+    }
+  }
 
   useEffect(() => {
     function renderWidget() {
       if (turnstileRef.current && (window as any).turnstile && turnstileRef.current.children.length === 0) {
-        ;(window as any).turnstile.render(turnstileRef.current, {
+        widgetIdRef.current = (window as any).turnstile.render(turnstileRef.current, {
           sitekey: TURNSTILE_SITE_KEY,
           callback: (token: string) => setCaptchaToken(token),
           'expired-callback': () => setCaptchaToken(null),
@@ -62,6 +70,7 @@ function LoginForm() {
 
     if (error) {
       toast.error(error.message)
+      resetCaptcha()
       setLoading(false)
       return
     }
