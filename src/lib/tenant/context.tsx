@@ -36,6 +36,21 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  // Update page title and favicon dynamically
+  useEffect(() => {
+    document.title = `${tenant.appName} — WhatsApp AI Platform`
+
+    // Update favicon
+    const faviconUrl = tenant.faviconUrl || '/favicon-autyvia.ico'
+    let link = document.querySelector("link[rel~='icon']") as HTMLLinkElement | null
+    if (!link) {
+      link = document.createElement('link')
+      link.rel = 'icon'
+      document.head.appendChild(link)
+    }
+    link.href = faviconUrl
+  }, [tenant])
+
   const cssVars = useMemo(() => buildCssVars(tenant), [tenant])
 
   return (

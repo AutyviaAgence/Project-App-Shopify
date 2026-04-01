@@ -13,7 +13,7 @@ import { toast } from 'sonner'
 import { useTranslation } from '@/i18n/context'
 import { useTenant } from '@/lib/tenant/context'
 
-const TURNSTILE_SITE_KEY = '0x4AAAAAACxrGN3L2YWh3XHJ'
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || ''
 
 function LoginForm() {
   const { t } = useTranslation()

@@ -5,32 +5,24 @@ import { Toaster } from 'sonner'
 import { ThemeProvider } from 'next-themes'
 import { LanguageProvider } from '@/i18n/context'
 import { TenantProvider } from '@/lib/tenant/context'
-import { getTenantFromCookies } from '@/lib/tenant/server'
 
 const inter = Inter({ subsets: ['latin'] })
 
-export async function generateMetadata(): Promise<Metadata> {
-  const tenant = await getTenantFromCookies()
-  return {
-    title: `${tenant.appName} — WhatsApp AI Platform`,
-    description: 'Plateforme SaaS WhatsApp multi-session avec agents IA',
-    icons: tenant.faviconUrl ? { icon: tenant.faviconUrl } : undefined,
-  }
+export const metadata: Metadata = {
+  title: 'WhatsApp AI Platform',
+  description: 'Plateforme SaaS WhatsApp multi-session avec agents IA',
 }
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
-  const tenant = await getTenantFromCookies()
   return (
     <html suppressHydrationWarning>
-      {tenant.faviconUrl && (
-        <head>
-          <link rel="icon" href={tenant.faviconUrl} />
-        </head>
-      )}
+      <head>
+        <link rel="icon" href="/favicon-autyvia.ico" />
+      </head>
       <body className={`${inter.className} antialiased`}>
         <ThemeProvider
           attribute="class"
