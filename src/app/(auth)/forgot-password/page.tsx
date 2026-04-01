@@ -21,8 +21,11 @@ export default function ForgotPasswordPage() {
   const [loading, setLoading] = useState(false)
   const [sent, setSent] = useState(false)
   const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const [captchaReady, setCaptchaReady] = useState(false)
   const turnstileRef = useRef<HTMLDivElement>(null)
   const widgetIdRef = useRef<string | null>(null)
+
+  const captchaOk = captchaReady ? !!captchaToken : true
 
   function resetCaptcha() {
     setCaptchaToken(null)
@@ -32,14 +35,18 @@ export default function ForgotPasswordPage() {
   }
 
   useEffect(() => {
+    if (!TURNSTILE_SITE_KEY) return
+
     function renderWidget() {
       if (turnstileRef.current && (window as any).turnstile && turnstileRef.current.children.length === 0) {
         widgetIdRef.current = (window as any).turnstile.render(turnstileRef.current, {
           sitekey: TURNSTILE_SITE_KEY,
-          callback: (token: string) => setCaptchaToken(token),
+          callback: (token: string) => { setCaptchaToken(token); setCaptchaReady(true) },
           'expired-callback': () => setCaptchaToken(null),
+          'error-callback': () => { setCaptchaReady(false) },
           theme: 'auto',
         })
+        setCaptchaReady(true)
       }
     }
 
@@ -59,7 +66,7 @@ export default function ForgotPasswordPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
 
-    if (!captchaToken) {
+    if (captchaReady && !captchaToken) {
       toast.error('Veuillez compléter la vérification de sécurité.')
       return
     }
@@ -69,7 +76,7 @@ export default function ForgotPasswordPage() {
     const supabase = createClient()
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/update-password`,
-      captchaToken,
+      captchaToken: captchaToken || undefined,
     })
 
     if (error) {
@@ -133,7 +140,7 @@ export default function ForgotPasswordPage() {
           </CardContent>
           <CardFooter className="flex flex-col gap-4 pt-4">
             <div ref={turnstileRef} className="flex justify-center" />
-            <Button type="submit" className="w-full" disabled={loading || !captchaToken}>
+            <Button type="submit" className="w-full" disabled={loading || !captchaOk}>
               {loading ? t('auth.sending') : t('auth.send_link')}
             </Button>
             <Link href="/login" className="text-sm text-muted-foreground hover:underline">

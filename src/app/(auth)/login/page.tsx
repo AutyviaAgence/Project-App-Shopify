@@ -13,7 +13,7 @@ import { toast } from 'sonner'
 import { useTranslation } from '@/i18n/context'
 import { useTenant } from '@/lib/tenant/context'
 
-const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || ''
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '0x4AAAAAACxrGN3L2YWh3XHJ'
 
 function LoginForm() {
   const { t } = useTranslation()
@@ -26,8 +26,11 @@ function LoginForm() {
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const [captchaReady, setCaptchaReady] = useState(false)
   const turnstileRef = useRef<HTMLDivElement>(null)
   const widgetIdRef = useRef<string | null>(null)
+
+  const captchaOk = captchaReady ? !!captchaToken : true // if captcha never loaded, don't block
 
   function resetCaptcha() {
     setCaptchaToken(null)
@@ -37,14 +40,18 @@ function LoginForm() {
   }
 
   useEffect(() => {
+    if (!TURNSTILE_SITE_KEY) return
+
     function renderWidget() {
       if (turnstileRef.current && (window as any).turnstile && turnstileRef.current.children.length === 0) {
         widgetIdRef.current = (window as any).turnstile.render(turnstileRef.current, {
           sitekey: TURNSTILE_SITE_KEY,
-          callback: (token: string) => setCaptchaToken(token),
+          callback: (token: string) => { setCaptchaToken(token); setCaptchaReady(true) },
           'expired-callback': () => setCaptchaToken(null),
+          'error-callback': () => { setCaptchaReady(false) },
           theme: 'auto',
         })
+        setCaptchaReady(true)
       }
     }
 
@@ -131,7 +138,7 @@ function LoginForm() {
         </CardContent>
         <CardFooter className="flex flex-col gap-4 pt-2">
           <div ref={turnstileRef} className="flex justify-center" />
-          <Button type="submit" className="w-full mt-2" disabled={loading || googleLoading || !captchaToken}>
+          <Button type="submit" className="w-full mt-2" disabled={loading || googleLoading || !captchaOk}>
             {loading ? t('auth.signing_in') : t('auth.sign_in')}
           </Button>
 

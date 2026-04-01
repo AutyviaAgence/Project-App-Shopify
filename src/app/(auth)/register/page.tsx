@@ -30,8 +30,11 @@ function RegisterForm() {
   const [googleLoading, setGoogleLoading] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
   const [captchaToken, setCaptchaToken] = useState<string | null>(null)
+  const [captchaReady, setCaptchaReady] = useState(false)
   const turnstileRef = useRef<HTMLDivElement>(null)
   const widgetIdRef = useRef<string | null>(null)
+
+  const captchaOk = captchaReady ? !!captchaToken : true
 
   function resetCaptcha() {
     setCaptchaToken(null)
@@ -41,14 +44,18 @@ function RegisterForm() {
   }
 
   useEffect(() => {
+    if (!TURNSTILE_SITE_KEY) return
+
     function renderWidget() {
       if (turnstileRef.current && (window as any).turnstile && turnstileRef.current.children.length === 0) {
         widgetIdRef.current = (window as any).turnstile.render(turnstileRef.current, {
           sitekey: TURNSTILE_SITE_KEY,
-          callback: (token: string) => setCaptchaToken(token),
+          callback: (token: string) => { setCaptchaToken(token); setCaptchaReady(true) },
           'expired-callback': () => setCaptchaToken(null),
+          'error-callback': () => { setCaptchaReady(false) },
           theme: 'auto',
         })
+        setCaptchaReady(true)
       }
     }
 
@@ -67,14 +74,17 @@ function RegisterForm() {
 
   // Re-render turnstile when ref is available (after emailSent toggle)
   useEffect(() => {
+    if (!TURNSTILE_SITE_KEY) return
     if (!emailSent && turnstileRef.current && (window as any).turnstile) {
       if (turnstileRef.current.children.length === 0) {
         widgetIdRef.current = (window as any).turnstile.render(turnstileRef.current, {
           sitekey: TURNSTILE_SITE_KEY,
-          callback: (token: string) => setCaptchaToken(token),
+          callback: (token: string) => { setCaptchaToken(token); setCaptchaReady(true) },
           'expired-callback': () => setCaptchaToken(null),
+          'error-callback': () => { setCaptchaReady(false) },
           theme: 'auto',
         })
+        setCaptchaReady(true)
       }
     }
   }, [emailSent])
@@ -87,7 +97,7 @@ function RegisterForm() {
       return
     }
 
-    if (!captchaToken) {
+    if (captchaReady && !captchaToken) {
       toast.error('Veuillez compléter la vérification de sécurité.')
       return
     }
@@ -101,7 +111,7 @@ function RegisterForm() {
       options: {
         data: { full_name: fullName, signup_domain: window.location.hostname },
         emailRedirectTo: `${window.location.origin}/login`,
-        captchaToken,
+        captchaToken: captchaToken || undefined,
       },
     })
 
@@ -212,7 +222,7 @@ function RegisterForm() {
           {/* Cloudflare Turnstile CAPTCHA */}
           <div ref={turnstileRef} className="flex justify-center" />
 
-          <Button type="submit" className="w-full mt-2" disabled={loading || !acceptedTerms || !captchaToken || googleLoading}>
+          <Button type="submit" className="w-full mt-2" disabled={loading || !acceptedTerms || !captchaOk || googleLoading}>
             {loading ? t('auth.signing_up') : t('auth.sign_up')}
           </Button>
 
