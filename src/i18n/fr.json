@@ -222,6 +222,8 @@
     "mic_permission_error": "Accès au microphone refusé",
     "today": "Aujourd'hui",
     "yesterday": "Hier",
+    "load_older": "Charger les messages precedents",
+    "loading_older": "Chargement...",
     "copy_error": "Impossible de copier",
     "number_copied": "Numéro copié",
     "tag_created": "Tag créé",

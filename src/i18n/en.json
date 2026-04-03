@@ -222,6 +222,8 @@
     "mic_permission_error": "Microphone access denied",
     "today": "Today",
     "yesterday": "Yesterday",
+    "load_older": "Load older messages",
+    "loading_older": "Loading...",
     "copy_error": "Unable to copy",
     "number_copied": "Number copied",
     "tag_created": "Tag created",

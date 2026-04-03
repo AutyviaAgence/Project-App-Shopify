@@ -24,6 +24,8 @@ function ConversationsPageContent() {
   const [pendingOpenConvId, setPendingOpenConvId] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [messagesLoading, setMessagesLoading] = useState(false)
+  const [hasMoreMessages, setHasMoreMessages] = useState(false)
+  const [loadingOlder, setLoadingOlder] = useState(false)
   const [sending, setSending] = useState(false)
   const [agents, setAgents] = useState<AIAgent[]>([])
   const [profileOpen, setProfileOpen] = useState(false)
@@ -183,11 +185,13 @@ function ConversationsPageContent() {
 
   const loadMessages = useCallback(async (convId: string) => {
     setMessagesLoading(true)
+    setHasMoreMessages(false)
     try {
       const res = await fetch(`/api/conversations/${convId}/messages`)
       const json = await res.json()
       if (res.ok && json.data) {
         setMessages(json.data)
+        setHasMoreMessages(!!json.hasMore)
         setConversations((prev) =>
           prev.map((c) => (c.id === convId ? { ...c, unread_count: 0 } : c))
         )
@@ -198,6 +202,24 @@ function ConversationsPageContent() {
       setMessagesLoading(false)
     }
   }, [])
+
+  const loadOlderMessages = useCallback(async () => {
+    if (!selectedConv || loadingOlder || !hasMoreMessages || messages.length === 0) return
+    setLoadingOlder(true)
+    try {
+      const oldestMessage = messages[0]
+      const res = await fetch(`/api/conversations/${selectedConv.id}/messages?before=${encodeURIComponent(oldestMessage.created_at)}`)
+      const json = await res.json()
+      if (res.ok && json.data) {
+        setMessages((prev) => [...json.data, ...prev])
+        setHasMoreMessages(!!json.hasMore)
+      }
+    } catch {
+      toast.error(t('conversations.messages_load_error'))
+    } finally {
+      setLoadingOlder(false)
+    }
+  }, [selectedConv, loadingOlder, hasMoreMessages, messages, t])
 
   const handleSendText = useCallback(async (content: string) => {
     if (!selectedConv || sending) return
@@ -686,6 +708,9 @@ function ConversationsPageContent() {
         agents={agents}
         lifecycleStages={lifecycleStages}
         analyzingConvId={analyzingConvId}
+        hasMoreMessages={hasMoreMessages}
+        loadingOlder={loadingOlder}
+        onLoadOlder={loadOlderMessages}
         onBack={() => { setSelectedConv(null); setProfileOpen(false) }}
         onOpenProfile={() => setProfileOpen(true)}
         onSendText={handleSendText}

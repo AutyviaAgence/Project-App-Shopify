@@ -43,6 +43,9 @@ interface ChatAreaProps {
   agents: AIAgent[]
   lifecycleStages: LifecycleStage[]
   analyzingConvId: string | null
+  hasMoreMessages?: boolean
+  loadingOlder?: boolean
+  onLoadOlder?: () => void
   onBack: () => void
   onOpenProfile: () => void
   onSendText: (content: string) => Promise<void>
@@ -61,6 +64,9 @@ export function ChatArea({
   agents,
   lifecycleStages,
   analyzingConvId,
+  hasMoreMessages,
+  loadingOlder,
+  onLoadOlder,
   onBack,
   onOpenProfile,
   onSendText,
@@ -258,6 +264,23 @@ export function ChatArea({
               </div>
             ) : (
               <div className="space-y-3 max-w-3xl mx-auto">
+                {hasMoreMessages && (
+                  <div className="flex justify-center py-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={onLoadOlder}
+                      disabled={loadingOlder}
+                      className="text-xs text-muted-foreground"
+                    >
+                      {loadingOlder ? (
+                        <><Loader2 className="mr-1.5 h-3 w-3 animate-spin" />{t('conversations.loading_older')}</>
+                      ) : (
+                        <>{t('conversations.load_older')}</>
+                      )}
+                    </Button>
+                  </div>
+                )}
                 {messages.map((msg, idx) => {
                   const isAI = msg.sent_by === 'ai_agent'
                   const isOutbound = msg.direction === 'outbound'
