@@ -1183,7 +1183,19 @@
     "confirmation_sent": "A confirmation email has been sent to {email}. Click the link in the email to activate your account and start your 14-day free trial.",
     "or": "or",
     "google_login": "Sign in with Google",
-    "google_signup": "Sign up with Google"
+    "google_signup": "Sign up with Google",
+    "new_password": "New password",
+    "new_password_desc": "Choose a new password for your account.",
+    "new_password_label": "New password",
+    "confirm_password": "Confirm password",
+    "confirm_password_placeholder": "Re-enter password",
+    "update_password": "Update password",
+    "updating": "Updating...",
+    "password_updated": "Password updated",
+    "password_updated_desc": "Your password has been changed successfully.",
+    "go_to_dashboard": "Go to dashboard",
+    "password_too_short": "Password must be at least 6 characters.",
+    "passwords_mismatch": "Passwords do not match."
   },
   "tour": {
     "welcome_title": "Welcome to {appName}!",

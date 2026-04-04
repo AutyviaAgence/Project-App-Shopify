@@ -1183,7 +1183,19 @@
     "confirmation_sent": "Un email de confirmation a été envoyé à {email}. Cliquez sur le lien dans l'email pour activer votre compte et commencer votre essai gratuit de 14 jours.",
     "or": "ou",
     "google_login": "Se connecter avec Google",
-    "google_signup": "S'inscrire avec Google"
+    "google_signup": "S'inscrire avec Google",
+    "new_password": "Nouveau mot de passe",
+    "new_password_desc": "Choisissez un nouveau mot de passe pour votre compte.",
+    "new_password_label": "Nouveau mot de passe",
+    "confirm_password": "Confirmer le mot de passe",
+    "confirm_password_placeholder": "Retapez le mot de passe",
+    "update_password": "Mettre à jour",
+    "updating": "Mise à jour...",
+    "password_updated": "Mot de passe mis à jour",
+    "password_updated_desc": "Votre mot de passe a été modifié avec succès.",
+    "go_to_dashboard": "Accéder au tableau de bord",
+    "password_too_short": "Le mot de passe doit contenir au moins 6 caractères.",
+    "passwords_mismatch": "Les mots de passe ne correspondent pas."
   },
   "tour": {
     "welcome_title": "Bienvenue sur {appName} !",
