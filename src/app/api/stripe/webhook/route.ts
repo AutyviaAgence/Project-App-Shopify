@@ -154,15 +154,19 @@ export async function POST(req: NextRequest) {
 
           if (resolvedUserId) {
             const subscriptionEndsAt = getSubscriptionEndDate(subscription)
+            const isTrialing = subscription.status === 'trialing'
 
             const { error: updateError } = await supabase
               .from('profiles')
               .update({
-                subscription_status: 'active',
+                subscription_status: isTrialing ? 'trial' : 'active',
                 subscription_ends_at: subscriptionEndsAt.toISOString(),
+                trial_ends_at: isTrialing && subscription.trial_end
+                  ? new Date(subscription.trial_end * 1000).toISOString()
+                  : undefined,
                 stripe_subscription_id: subscription.id,
                 tokens_used: 0,
-                tokens_limit: 5000000,
+                tokens_limit: isTrialing ? 200000 : 5000000,
                 token_usage_period_start: new Date().toISOString(),
               })
               .eq('id', resolvedUserId)
@@ -191,15 +195,17 @@ export async function POST(req: NextRequest) {
             await supabase.from('user_alerts').insert({
               user_id: resolvedUserId,
               alert_type: 'info',
-              title: 'Abonnement activé',
-              message: `Votre abonnement a été activé. Prochain renouvellement le ${subscriptionEndsAt.toLocaleDateString('fr-FR')}.`,
+              title: isTrialing ? 'Essai gratuit activé' : 'Abonnement activé',
+              message: isTrialing
+                ? `Votre essai gratuit de 14 jours a démarré. Vous ne serez débité que le ${subscriptionEndsAt.toLocaleDateString('fr-FR')} si vous ne résiliez pas avant.`
+                : `Votre abonnement a été activé. Prochain renouvellement le ${subscriptionEndsAt.toLocaleDateString('fr-FR')}.`,
               metadata: {
-                type: 'subscription_created',
+                type: isTrialing ? 'trial_started' : 'subscription_created',
                 amount: session.amount_total,
               },
             })
 
-            console.log('[Stripe Webhook] Subscription created for user:', resolvedUserId)
+            console.log('[Stripe Webhook] Subscription created for user:', resolvedUserId, isTrialing ? '(trial)' : '(active)')
           } else {
             console.error('[Stripe Webhook] Could not resolve user_id for session:', session.id)
           }
@@ -337,20 +343,31 @@ export async function POST(req: NextRequest) {
 
         if (userId) {
           const subscriptionEndsAt = getSubscriptionEndDate(subscription)
-          let status: 'active' | 'cancelled' | 'expired' = 'active'
+          let status: 'trial' | 'active' | 'cancelled' | 'expired' = 'active'
 
-          if (subscription.status === 'canceled' || subscription.status === 'unpaid') {
+          if (subscription.status === 'trialing') {
+            status = 'trial'
+          } else if (subscription.status === 'canceled' || subscription.status === 'unpaid') {
             status = 'cancelled'
           } else if (subscription.status === 'past_due') {
             status = 'expired'
           }
 
+          const updateData: Record<string, unknown> = {
+            subscription_status: status,
+            subscription_ends_at: subscriptionEndsAt.toISOString(),
+          }
+
+          // When trial ends and subscription becomes active, upgrade tokens
+          if (subscription.status === 'active') {
+            updateData.tokens_limit = 5000000
+            updateData.tokens_used = 0
+            updateData.token_usage_period_start = new Date().toISOString()
+          }
+
           await supabase
             .from('profiles')
-            .update({
-              subscription_status: status,
-              subscription_ends_at: subscriptionEndsAt.toISOString(),
-            })
+            .update(updateData)
             .eq('id', userId)
 
           console.log('[Stripe Webhook] Subscription updated for user:', userId, 'status:', status)

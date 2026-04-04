@@ -324,15 +324,33 @@ function SubscriptionContent() {
             </div>
           </CardContent>
           <CardFooter className="flex-col gap-3">
-            {subscription?.status === 'active' ? (
+            {(subscription?.status === 'active' || (subscription?.status === 'trial' && subscription?.stripeSubscriptionId)) ? (
               <>
                 <Button className="w-full" size="lg" disabled>
                   <Check className="mr-2 h-5 w-5" />
-                  {t('subscription.already_active')}
+                  {subscription?.status === 'trial' ? 'Essai gratuit en cours' : t('subscription.already_active')}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full"
+                  onClick={async () => {
+                    try {
+                      const res = await fetch('/api/stripe/portal', { method: 'POST' })
+                      const data = await res.json()
+                      if (!res.ok) throw new Error(data.error)
+                      window.location.href = data.url
+                    } catch {
+                      toast.error('Impossible d\'ouvrir la gestion de l\'abonnement')
+                    }
+                  }}
+                >
+                  <CreditCard className="mr-2 h-4 w-4" />
+                  Gérer mon abonnement
                 </Button>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button variant="outline" size="sm" className="text-destructive hover:text-destructive">
+                    <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
                       <Ban className="mr-2 h-4 w-4" />
                       {t('subscription.cancel_subscription')}
                     </Button>
@@ -341,7 +359,9 @@ function SubscriptionContent() {
                     <AlertDialogHeader>
                       <AlertDialogTitle>{t('subscription.cancel_confirm_title')}</AlertDialogTitle>
                       <AlertDialogDescription>
-                        {t('subscription.cancel_confirm_desc')}
+                        {subscription?.status === 'trial'
+                          ? 'Votre essai gratuit sera annulé immédiatement. Vous ne serez jamais débité.'
+                          : t('subscription.cancel_confirm_desc')}
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>

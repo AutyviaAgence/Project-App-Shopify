@@ -112,6 +112,7 @@ export async function POST() {
         user_id: user.id,
       },
       subscription_data: {
+        trial_period_days: 14,
         metadata: {
           user_id: user.id,
         },

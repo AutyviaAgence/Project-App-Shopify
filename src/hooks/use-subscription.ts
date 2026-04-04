@@ -15,6 +15,7 @@ type SubscriptionInfo = {
   tokensLimit: number
   tokensRemaining: number
   usagePercentage: number
+  stripeSubscriptionId: string | null
 }
 
 export function useSubscription() {
@@ -64,6 +65,7 @@ export function useSubscription() {
           tokensLimit,
           tokensRemaining,
           usagePercentage,
+          stripeSubscriptionId: data.data.stripe_subscription_id || null,
         })
       }
     } catch (error) {
