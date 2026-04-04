@@ -41,7 +41,7 @@ export function useSubscription() {
           daysRemaining = Math.max(0, Math.ceil((subscriptionEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
         }
 
-        const isTrialExpired = data.data.subscription_status === 'trial' && trialEndsAt && trialEndsAt < now
+        const isTrialExpired = data.data.subscription_status === 'trial' && (!trialEndsAt || trialEndsAt < now)
         const isSubscriptionExpired = data.data.subscription_status === 'active' && subscriptionEndsAt && subscriptionEndsAt < now
         const isActive =
           (data.data.subscription_status === 'trial' && trialEndsAt && trialEndsAt > now) ||

@@ -277,6 +277,15 @@ export async function POST(req: NextRequest) {
           const userId = subscription.metadata?.user_id
 
           if (userId) {
+            // Block access: set status to expired and tokens to 0
+            await supabase
+              .from('profiles')
+              .update({
+                subscription_status: 'expired',
+                tokens_limit: 0,
+              })
+              .eq('id', userId)
+
             await supabase.from('payment_history').insert({
               user_id: userId,
               amount: invoice.amount_due,
@@ -294,14 +303,14 @@ export async function POST(req: NextRequest) {
               user_id: userId,
               alert_type: 'webhook_error',
               title: 'Échec de paiement',
-              message: 'Le renouvellement de votre abonnement a échoué. Veuillez mettre à jour votre moyen de paiement.',
+              message: 'Le renouvellement de votre abonnement a échoué. Votre accès est suspendu. Veuillez mettre à jour votre moyen de paiement.',
               metadata: {
                 type: 'payment_failed',
                 invoice_id: invoice.id,
               },
             })
 
-            console.log('[Stripe Webhook] Payment failed for user:', userId)
+            console.log('[Stripe Webhook] Payment failed — access suspended for user:', userId)
           }
         }
         break

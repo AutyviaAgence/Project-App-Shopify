@@ -23,17 +23,45 @@ export async function POST() {
 
   try {
     const stripe = getStripe()
-    // Annuler à la fin de la période de facturation (pas immédiatement)
-    const subscription = await stripe.subscriptions.update(profile.stripe_subscription_id, {
-      cancel_at_period_end: true,
-    })
 
-    console.log('[Stripe] Subscription set to cancel at period end for user:', user.id)
+    // Check if subscription is in trial — if so, cancel immediately (no charge)
+    const subscription = await stripe.subscriptions.retrieve(profile.stripe_subscription_id)
+    const isTrialing = subscription.status === 'trialing'
+
+    let result
+    if (isTrialing) {
+      // Immediate cancellation during trial — user is never charged
+      result = await stripe.subscriptions.cancel(profile.stripe_subscription_id)
+      console.log('[Stripe] Trial subscription cancelled immediately for user:', user.id)
+    } else {
+      // Cancel at end of billing period for paid subscriptions
+      result = await stripe.subscriptions.update(profile.stripe_subscription_id, {
+        cancel_at_period_end: true,
+      })
+      console.log('[Stripe] Subscription set to cancel at period end for user:', user.id)
+    }
+
+    // If immediate cancel during trial, update profile now
+    if (isTrialing) {
+      const adminSupabase = (await import('@supabase/supabase-js')).createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      )
+      await adminSupabase
+        .from('profiles')
+        .update({
+          subscription_status: 'cancelled',
+          stripe_subscription_id: null,
+          tokens_limit: 0,
+        })
+        .eq('id', user.id)
+    }
 
     return NextResponse.json({
       ok: true,
-      cancel_at: subscription.cancel_at
-        ? new Date(subscription.cancel_at * 1000).toISOString()
+      immediate: isTrialing,
+      cancel_at: result.cancel_at
+        ? new Date(result.cancel_at * 1000).toISOString()
         : null,
     })
   } catch (error) {

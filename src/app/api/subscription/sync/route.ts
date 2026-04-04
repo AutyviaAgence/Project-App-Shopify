@@ -42,25 +42,47 @@ export async function POST() {
 
     if (activeSubscription) {
       const subscriptionEndsAt = getSubscriptionEndDate(activeSubscription)
+      const isTrialing = activeSubscription.status === 'trialing'
 
       await adminSupabase
         .from('profiles')
         .update({
-          subscription_status: 'active',
+          subscription_status: isTrialing ? 'trial' : 'active',
           subscription_ends_at: subscriptionEndsAt.toISOString(),
           stripe_subscription_id: activeSubscription.id,
+          tokens_limit: isTrialing ? 200000 : 5000000,
         })
         .eq('id', user.id)
 
       return NextResponse.json({
         data: {
-          subscription_status: 'active',
+          subscription_status: isTrialing ? 'trial' : 'active',
           subscription_ends_at: subscriptionEndsAt.toISOString(),
           stripe_subscription_id: activeSubscription.id,
         },
       })
     }
 
+    // No active subscription in Stripe — check if any were canceled
+    const canceledSubscription = subscriptions.data.find(
+      (sub) => sub.status === 'canceled' || sub.status === 'unpaid' || sub.status === 'past_due'
+    )
+
+    if (canceledSubscription || subscriptions.data.length > 0) {
+      // Had a subscription but it's no longer active
+      await adminSupabase
+        .from('profiles')
+        .update({
+          subscription_status: 'cancelled',
+          stripe_subscription_id: null,
+          tokens_limit: 0,
+        })
+        .eq('id', user.id)
+
+      return NextResponse.json({ data: { subscription_status: 'cancelled' } })
+    }
+
+    // Never had a Stripe subscription — keep current status (likely trial)
     return NextResponse.json({ data: { subscription_status: profile.subscription_status } })
   } catch (error) {
     console.error('[Subscription Sync] Error:', error)
