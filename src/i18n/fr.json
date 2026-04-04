@@ -1195,7 +1195,11 @@
     "password_updated_desc": "Votre mot de passe a été modifié avec succès.",
     "go_to_dashboard": "Accéder au tableau de bord",
     "password_too_short": "Le mot de passe doit contenir au moins 6 caractères.",
-    "passwords_mismatch": "Les mots de passe ne correspondent pas."
+    "passwords_mismatch": "Les mots de passe ne correspondent pas.",
+    "link_expired": "Lien expiré",
+    "link_expired_desc": "Ce lien de réinitialisation a expiré ou est invalide. Veuillez en demander un nouveau.",
+    "request_new_link": "Demander un nouveau lien",
+    "verifying_link": "Vérification du lien..."
   },
   "tour": {
     "welcome_title": "Bienvenue sur {appName} !",

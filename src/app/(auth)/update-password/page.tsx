@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { toast } from 'sonner'
 import { useTranslation } from '@/i18n/context'
 import { useTenant } from '@/lib/tenant/context'
-import { CheckCircle } from 'lucide-react'
+import { CheckCircle, Loader2 } from 'lucide-react'
 
 function UpdatePasswordForm() {
   const { t } = useTranslation()
@@ -22,6 +22,36 @@ function UpdatePasswordForm() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [sessionReady, setSessionReady] = useState(false)
+  const [sessionError, setSessionError] = useState(false)
+
+  // Wait for Supabase to pick up the recovery token from the URL hash
+  useEffect(() => {
+    const supabase = createClient()
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN') {
+        setSessionReady(true)
+      }
+    })
+
+    // Also check if already signed in
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) setSessionReady(true)
+    })
+
+    // Timeout: if no session after 5 seconds, show error
+    const timeout = setTimeout(() => {
+      setSessionReady((ready) => {
+        if (!ready) setSessionError(true)
+        return ready
+      })
+    }, 5000)
+
+    return () => {
+      subscription.unsubscribe()
+      clearTimeout(timeout)
+    }
+  }, [])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -48,6 +78,44 @@ function UpdatePasswordForm() {
     }
 
     setSuccess(true)
+  }
+
+  if (sessionError) {
+    return (
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <div className="flex justify-center mb-4">
+            <Image src={tenant.logoUrl} alt={tenant.appName} width={64} height={64} className="h-16 w-16" />
+          </div>
+          <CardTitle className="text-2xl font-bold">{t('auth.link_expired')}</CardTitle>
+          <CardDescription className="mt-2">
+            {t('auth.link_expired_desc')}
+          </CardDescription>
+        </CardHeader>
+        <CardFooter className="flex flex-col gap-4 pt-2">
+          <Button className="w-full" onClick={() => router.push('/forgot-password')}>
+            {t('auth.request_new_link')}
+          </Button>
+        </CardFooter>
+      </Card>
+    )
+  }
+
+  if (!sessionReady) {
+    return (
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <div className="flex justify-center mb-4">
+            <Image src={tenant.logoUrl} alt={tenant.appName} width={64} height={64} className="h-16 w-16" />
+          </div>
+          <CardTitle className="text-2xl font-bold">{t('auth.new_password')}</CardTitle>
+          <CardDescription className="mt-2 flex items-center justify-center gap-2">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            {t('auth.verifying_link')}
+          </CardDescription>
+        </CardHeader>
+      </Card>
+    )
   }
 
   if (success) {

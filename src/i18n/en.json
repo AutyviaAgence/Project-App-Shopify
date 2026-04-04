@@ -1195,7 +1195,11 @@
     "password_updated_desc": "Your password has been changed successfully.",
     "go_to_dashboard": "Go to dashboard",
     "password_too_short": "Password must be at least 6 characters.",
-    "passwords_mismatch": "Passwords do not match."
+    "passwords_mismatch": "Passwords do not match.",
+    "link_expired": "Link expired",
+    "link_expired_desc": "This reset link has expired or is invalid. Please request a new one.",
+    "request_new_link": "Request a new link",
+    "verifying_link": "Verifying link..."
   },
   "tour": {
     "welcome_title": "Welcome to {appName}!",
