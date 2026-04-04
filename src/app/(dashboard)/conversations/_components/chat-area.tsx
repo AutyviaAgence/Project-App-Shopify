@@ -86,11 +86,16 @@ export function ChatArea({
     prevMessageCountRef.current = 0
   }, [selectedConv?.id])
 
-  // Scroll to bottom when messages change
+  // Scroll to bottom only on initial load or new messages (not when loading older)
   useEffect(() => {
-    // Instant scroll on initial load / conversation switch, smooth for new messages
-    const isInitialLoad = prevMessageCountRef.current === 0 && messages.length > 0
-    messagesEndRef.current?.scrollIntoView({ behavior: isInitialLoad ? 'instant' : 'smooth' })
+    const prevCount = prevMessageCountRef.current
+    const isInitialLoad = prevCount === 0 && messages.length > 0
+    // New message appended at the end (count increased, last message is newer)
+    const isNewMessage = prevCount > 0 && messages.length > prevCount &&
+      messages.length - prevCount <= 3 // small increment = new message, not bulk load of older
+    if (isInitialLoad || isNewMessage) {
+      messagesEndRef.current?.scrollIntoView({ behavior: isInitialLoad ? 'instant' : 'smooth' })
+    }
     prevMessageCountRef.current = messages.length
   }, [messages])
 
