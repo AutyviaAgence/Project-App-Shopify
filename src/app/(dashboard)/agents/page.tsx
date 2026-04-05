@@ -110,6 +110,7 @@ export default function AgentsPage() {
 
   // Escalation (garde-fou)
   const [formEscalationEnabled, setFormEscalationEnabled] = useState(false)
+  const [formEscalationMode, setFormEscalationMode] = useState<'keywords' | 'ai' | 'both'>('keywords')
   const [formEscalationKeywords, setFormEscalationKeywords] = useState('')
   const [formEscalationMessage, setFormEscalationMessage] = useState('')
 
@@ -208,6 +209,7 @@ export default function AgentsPage() {
     setFormScheduleDays([1, 2, 3, 4, 5])
     setFormAutoDetectLanguage(false)
     setFormEscalationEnabled(false)
+    setFormEscalationMode('keywords')
     setFormEscalationKeywords('')
     setFormEscalationMessage('')
     setFormBookingUrl('')
@@ -237,6 +239,7 @@ export default function AgentsPage() {
     setFormScheduleDays(agent.schedule_days ?? [1, 2, 3, 4, 5])
     setFormAutoDetectLanguage(agent.auto_detect_language ?? false)
     setFormEscalationEnabled(agent.escalation_enabled ?? false)
+    setFormEscalationMode((agent as any).escalation_mode ?? 'keywords')
     setFormEscalationKeywords(agent.escalation_keywords?.join(', ') ?? '')
     setFormEscalationMessage(agent.escalation_message ?? '')
     setFormBookingUrl(agent.booking_url ?? '')
@@ -353,6 +356,7 @@ export default function AgentsPage() {
             schedule_days: formScheduleDays,
             auto_detect_language: formAutoDetectLanguage,
             escalation_enabled: formEscalationEnabled,
+            escalation_mode: formEscalationMode,
             escalation_keywords: formEscalationKeywords.split(',').map(k => k.trim()).filter(k => k.length > 0),
             escalation_message: formEscalationMessage.trim() || null,
             booking_url: formBookingUrl.trim() || null,
@@ -395,6 +399,7 @@ export default function AgentsPage() {
             schedule_days: formScheduleDays,
             auto_detect_language: formAutoDetectLanguage,
             escalation_enabled: formEscalationEnabled,
+            escalation_mode: formEscalationMode,
             escalation_keywords: formEscalationKeywords.split(',').map(k => k.trim()).filter(k => k.length > 0),
             escalation_message: formEscalationMessage.trim() || null,
             booking_url: formBookingUrl.trim() || null,
@@ -500,6 +505,7 @@ export default function AgentsPage() {
           max_messages_per_conversation: agent.max_messages_per_conversation,
           inactivity_timeout_minutes: agent.inactivity_timeout_minutes,
           escalation_enabled: agent.escalation_enabled,
+          escalation_mode: (agent as any).escalation_mode || 'keywords',
           escalation_keywords: agent.escalation_keywords,
           escalation_message: agent.escalation_message,
           booking_url: agent.booking_url,
@@ -547,6 +553,7 @@ export default function AgentsPage() {
           response_delay_max: 120,
           agent_type: config.agent_type,
           escalation_enabled: config.escalation_enabled,
+          escalation_mode: (config as any).escalation_mode || 'keywords',
           escalation_keywords: config.escalation_keywords,
           escalation_message: config.escalation_message,
           booking_url: config.booking_url || null,
@@ -1378,6 +1385,23 @@ export default function AgentsPage() {
               {formEscalationEnabled && (
                 <div className="space-y-3 pl-1">
                   <div className="space-y-1">
+                    <Label className="text-xs text-muted-foreground">
+                      {t('agents.escalation_mode')}
+                    </Label>
+                    <Select value={formEscalationMode} onValueChange={(v) => setFormEscalationMode(v as 'keywords' | 'ai' | 'both')}>
+                      <SelectTrigger className="text-sm">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="keywords">{t('agents.escalation_mode_keywords')}</SelectItem>
+                        <SelectItem value="ai">{t('agents.escalation_mode_ai')}</SelectItem>
+                        <SelectItem value="both">{t('agents.escalation_mode_both')}</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {(formEscalationMode === 'keywords' || formEscalationMode === 'both') && (
+                  <div className="space-y-1">
                     <Label htmlFor="escalation-keywords" className="text-xs text-muted-foreground">
                       {t('agents.escalation_keywords')}
                     </Label>
@@ -1393,6 +1417,7 @@ export default function AgentsPage() {
                       {t('agents.escalation_keywords_help')}
                     </p>
                   </div>
+                  )}
 
                   <div className="space-y-1">
                     <Label htmlFor="escalation-message" className="text-xs text-muted-foreground">

@@ -96,6 +96,7 @@ export type AIAgent = {
   schedule_days: number[]
   auto_detect_language: boolean
   escalation_enabled: boolean
+  escalation_mode: 'keywords' | 'ai' | 'both'
   escalation_keywords: string[]
   escalation_message: string | null
   booking_url: string | null

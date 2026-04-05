@@ -83,7 +83,7 @@ export async function processAIResponse(params: {
     let totalTokensUsed = 0
 
     // 1.5. Vérifier l'escalation (garde-fou) sur le dernier message entrant
-    if (agent.escalation_enabled && agent.escalation_keywords?.length > 0) {
+    if (agent.escalation_enabled) {
       // Récupérer le dernier message entrant
       const { data: lastInbound } = await supabase
         .from('messages')
@@ -96,12 +96,57 @@ export async function processAIResponse(params: {
 
       if (lastInbound?.content) {
         const messageText = decryptMessage(lastInbound.content).toLowerCase()
-        const triggeredKeyword = (agent.escalation_keywords as string[]).find((kw: string) =>
-          messageText.includes(kw.toLowerCase())
-        )
+        const escalationMode = agent.escalation_mode || 'keywords'
+        let escalationTriggered = false
+        let escalationReason = ''
 
-        if (triggeredKeyword) {
-          console.log('[AI] ESCALATION détectée! Mot-clé:', triggeredKeyword)
+        // Mode 1: Keywords (exact match)
+        if ((escalationMode === 'keywords' || escalationMode === 'both') && agent.escalation_keywords?.length > 0) {
+          const triggeredKeyword = (agent.escalation_keywords as string[]).find((kw: string) =>
+            messageText.includes(kw.toLowerCase())
+          )
+          if (triggeredKeyword) {
+            escalationTriggered = true
+            escalationReason = `Mot-clé: "${triggeredKeyword}"`
+          }
+        }
+
+        // Mode 2: AI detection
+        if (!escalationTriggered && (escalationMode === 'ai' || escalationMode === 'both')) {
+          const aiCheck = await generateAgentResponse({
+            model: 'gpt-4o-mini',
+            temperature: 0,
+            systemPrompt: `Tu es un détecteur de messages problématiques. Analyse le message d'un contact et détermine s'il contient :
+- Des insultes ou injures (même en argot, verlan, abrégé)
+- Un ton agressif ou menaçant
+- Des menaces légales ou physiques
+- Du harcèlement
+- Une demande explicite de parler à un humain
+
+Réponds UNIQUEMENT par "OUI:raison" si le message est problématique, ou "NON" sinon.
+Exemples :
+- "t'es un con" → OUI:insulte
+- "je vais porter plainte" → OUI:menace légale
+- "fdp" → OUI:insulte
+- "passez-moi un responsable" → OUI:demande humain
+- "bonjour je voudrais un renseignement" → NON
+- "c nul votre truc" → OUI:insulte
+- "merci beaucoup" → NON`,
+            messages: [{ role: 'user', content: messageText }],
+          })
+
+          if (aiCheck.ok) {
+            totalTokensUsed += aiCheck.tokensUsed
+            const response = aiCheck.content?.trim() || ''
+            if (response.toUpperCase().startsWith('OUI')) {
+              escalationTriggered = true
+              escalationReason = `IA: ${response.slice(4).trim() || 'message problématique détecté'}`
+            }
+          }
+        }
+
+        if (escalationTriggered) {
+          console.log('[AI] ESCALATION détectée!', escalationReason)
 
           // Envoyer le message d'escalation si configuré
           if (agent.escalation_message) {
@@ -129,7 +174,7 @@ export async function processAIResponse(params: {
             .from('conversations')
             .update({
               is_ai_active: false,
-              escalation_reason: triggeredKeyword,
+              escalation_reason: escalationReason,
               escalated_at: new Date().toISOString(),
               last_message_at: new Date().toISOString(),
               last_message_preview: agent.escalation_message?.slice(0, 100) || 'Escalation automatique',
@@ -148,17 +193,22 @@ export async function processAIResponse(params: {
               user_id: session.user_id,
               alert_type: 'info',
               title: 'Escalation automatique',
-              message: `Une conversation a été automatiquement transférée car le mot-clé "${triggeredKeyword}" a été détecté. L'IA a été désactivée pour cette conversation.`,
+              message: `Une conversation a été automatiquement transférée. Raison : ${escalationReason}. L'IA a été désactivée.`,
               metadata: {
                 conversation_id: params.conversationId,
                 session_id: params.sessionId,
-                keyword: triggeredKeyword,
+                reason: escalationReason,
                 agent_id: params.agentId,
+                mode: escalationMode,
               },
             })
           }
 
           console.log('[AI] Conversation escaladée, IA désactivée')
+          // Enregistrer les tokens avant de return
+          if (userId && totalTokensUsed > 0) {
+            await recordTokenUsage(userId, totalTokensUsed)
+          }
           return
         }
       }
