@@ -445,22 +445,35 @@ export function ChatArea({
           </div>
 
           {/* Mobile AI controls */}
-          {selectedConv.ai_agent_id && (
-            <div className="sm:hidden flex items-center justify-between px-4 py-2 bg-background border-t">
-              <div className="flex items-center gap-2">
-                <Bot className="h-4 w-4 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">
-                  {agents.find(a => a.id === selectedConv.ai_agent_id)?.name || t('conversations.agent_ia')}
-                </span>
-              </div>
+          <div className="sm:hidden flex items-center gap-2 px-4 py-2 bg-background border-t">
+            <Select
+              value={selectedConv.ai_agent_id || 'none'}
+              onValueChange={(val) =>
+                onAssignAgent(selectedConv.id, val === 'none' ? null : val)
+              }
+            >
+              <SelectTrigger className="h-9 flex-1 text-xs border-0 bg-muted/50">
+                <Bot className="mr-1.5 h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                <SelectValue placeholder={t('conversations.agent_ia')} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">{t('common.no_agent')}</SelectItem>
+                {agents.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>
+                    {a.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {selectedConv.ai_agent_id && (
               <Switch
                 checked={selectedConv.is_ai_active}
                 onCheckedChange={(checked) =>
                   onToggleAI(selectedConv.id, checked)
                 }
               />
-            </div>
-          )}
+            )}
+          </div>
 
           {/* Message input */}
           <MessageInput
