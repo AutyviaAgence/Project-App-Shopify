@@ -90,6 +90,11 @@ export const evolution = {
     return request(`/instance/logout/${instanceName}`, { method: 'DELETE' })
   },
 
+  /** Restart une instance (recrée la connexion Baileys sans supprimer les données) */
+  restartInstance(instanceName: string) {
+    return request(`/instance/restart/${instanceName}`, { method: 'PUT' })
+  },
+
   /** Supprimer une instance */
   deleteInstance(instanceName: string) {
     return request(`/instance/delete/${instanceName}`, { method: 'DELETE' })

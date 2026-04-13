@@ -31,19 +31,30 @@ async function handleDisconnectedSession(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  await Promise.all([
-    adminSupabase
-      .from('whatsapp_sessions')
-      .update({ status: 'disconnected' })
-      .eq('id', session.id),
-    adminSupabase.from('user_alerts').insert({
+  await adminSupabase.from('whatsapp_sessions').update({ status: 'disconnected' }).eq('id', session.id)
+
+  // Only create alert if none already exists for this session today
+  const since = new Date()
+  since.setHours(0, 0, 0, 0)
+  const { data: existingAlert } = await adminSupabase
+    .from('user_alerts')
+    .select('id')
+    .eq('user_id', session.user_id)
+    .eq('alert_type', 'session_disconnected')
+    .contains('metadata', { session_id: session.id })
+    .gte('created_at', since.toISOString())
+    .limit(1)
+    .maybeSingle()
+
+  if (!existingAlert) {
+    await adminSupabase.from('user_alerts').insert({
       user_id: session.user_id,
       alert_type: 'session_disconnected',
       title: 'Session déconnectée',
       message: `La session "${session.instance_name}" est déconnectée. Reconnectez-vous via le QR code.`,
       metadata: { session_id: session.id, instance_name: session.instance_name, detected_by: 'send_failure', error },
-    }),
-  ])
+    })
+  }
 
   console.warn(`[Send] Session ${session.instance_name} detected as disconnected — status updated`)
   return true

@@ -221,22 +221,46 @@ export async function GET() {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
+    // Helper: create a session_disconnected alert only if none exists for this session today
+    const alertedSessions = new Set<string>()
+    async function createDisconnectedAlert(userId: string, sessionId: string, instanceName: string, message: string, metadata: Record<string, unknown>) {
+      if (alertedSessions.has(sessionId)) return
+      const since = new Date()
+      since.setHours(0, 0, 0, 0)
+      const { data: existing } = await adminSupabase
+        .from('user_alerts')
+        .select('id')
+        .eq('user_id', userId)
+        .eq('alert_type', 'session_disconnected')
+        .contains('metadata', { session_id: sessionId })
+        .gte('created_at', since.toISOString())
+        .limit(1)
+        .maybeSingle()
+      if (existing) return
+      alertedSessions.add(sessionId)
+      await adminSupabase.from('user_alerts').insert({
+        user_id: userId,
+        alert_type: 'session_disconnected',
+        title: 'Session déconnectée',
+        message,
+        metadata,
+      })
+    }
+
     await Promise.all(evoSessions.map(async (session) => {
       const evoInstance = instanceMap.get(session.instance_name)
 
-      // Instance deleted from Evolution API → mark disconnected + alert
+      // Instance deleted from Evolution API → mark disconnected + alert (once per day)
       if (!evoInstance && allInstancesResult.ok) {
         if (session.status === 'connected' || session.status === 'qr_pending') {
           session.status = 'disconnected' as WhatsAppSession['status']
           await Promise.all([
             adminSupabase.from('whatsapp_sessions').update({ status: 'disconnected' }).eq('id', session.id),
-            adminSupabase.from('user_alerts').insert({
-              user_id: session.user_id,
-              alert_type: 'session_disconnected',
-              title: 'Session supprimée',
-              message: `L'instance "${session.instance_name}" n'existe plus sur Evolution API. Créez une nouvelle session pour reconnecter ce numéro.`,
-              metadata: { session_id: session.id, instance_name: session.instance_name, detected_by: 'session_list_sync', reason: 'instance_deleted' },
-            }),
+            createDisconnectedAlert(
+              session.user_id, session.id, session.instance_name,
+              `L'instance "${session.instance_name}" n'existe plus sur Evolution API. Créez une nouvelle session pour reconnecter ce numéro.`,
+              { session_id: session.id, instance_name: session.instance_name, detected_by: 'session_list_sync', reason: 'instance_deleted' }
+            ),
           ])
         }
         return
@@ -280,18 +304,14 @@ export async function GET() {
       if (session.status === 'connected' && !reallyConnected) {
         const newStatus = evoStatus === 'connecting' ? 'qr_pending' : 'disconnected'
         session.status = newStatus as WhatsAppSession['status']
-        await Promise.all([
-          adminSupabase.from('whatsapp_sessions').update({ status: newStatus }).eq('id', session.id),
-          newStatus === 'disconnected'
-            ? adminSupabase.from('user_alerts').insert({
-                user_id: session.user_id,
-                alert_type: 'session_disconnected',
-                title: 'Session déconnectée',
-                message: `La session "${session.instance_name}" est déconnectée. Reconnectez-vous via le QR code.`,
-                metadata: { session_id: session.id, instance_name: session.instance_name, detected_by: 'session_list_sync', evolution_status: evoStatus },
-              })
-            : Promise.resolve(),
-        ])
+        await adminSupabase.from('whatsapp_sessions').update({ status: newStatus }).eq('id', session.id)
+        if (newStatus === 'disconnected') {
+          await createDisconnectedAlert(
+            session.user_id, session.id, session.instance_name,
+            `La session "${session.instance_name}" est déconnectée. Reconnectez-vous via le QR code.`,
+            { session_id: session.id, instance_name: session.instance_name, detected_by: 'session_list_sync', evolution_status: evoStatus }
+          )
+        }
       } else if (session.status !== 'connected' && evoStatus !== 'open') {
         // Also sync non-connected status (connecting → qr_pending, etc.)
         const newStatus = evoStatus === 'connecting' ? 'qr_pending' : 'disconnected'

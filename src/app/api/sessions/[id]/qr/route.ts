@@ -55,7 +55,17 @@ export async function GET(
   }
 
   // QR code classique
-  const evoResult = await evolution.getQRCode(session.instance_name)
+  // First try to get QR directly. If Baileys is dead ("Connection Closed"),
+  // restart the instance to resurrect the Baileys socket, then retry.
+  let evoResult = await evolution.getQRCode(session.instance_name)
+
+  if (!evoResult.ok && (evoResult.error.includes('Connection Closed') || evoResult.error.includes('connection closed'))) {
+    console.log('[QR] Baileys dead, restarting instance:', session.instance_name)
+    await evolution.restartInstance(session.instance_name)
+    // Wait for Baileys to restart
+    await new Promise(resolve => setTimeout(resolve, 3000))
+    evoResult = await evolution.getQRCode(session.instance_name)
+  }
 
   if (!evoResult.ok) {
     return NextResponse.json({ error: evoResult.error }, { status: 502 })
