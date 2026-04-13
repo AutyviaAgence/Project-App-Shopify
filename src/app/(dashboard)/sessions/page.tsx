@@ -299,12 +299,31 @@ export default function SessionsPage() {
         method: 'POST',
       })
       if (res.ok) {
+        // Backend restarts instance → qr_pending state, show QR to rescan immediately
         setSessions((prev) =>
           prev.map((s) =>
-            s.id === sessionId ? { ...s, status: 'disconnected' as const, qr_code: null, pairing_code: null } : s
+            s.id === sessionId ? { ...s, status: 'qr_pending' as const, qr_code: null, pairing_code: null } : s
           )
         )
         toast.success(t('sessions.session_disconnected'))
+        // Auto-open QR dialog so user can rescan
+        const session = sessions.find(s => s.id === sessionId)
+        if (session) {
+          const qrSessionObj = { ...session, status: 'qr_pending' as const, qr_code: null, pairing_code: null }
+          setQrSession(qrSessionObj)
+          setQrLoading(true)
+          try {
+            const qrRes = await fetch(`/api/sessions/${sessionId}/qr`)
+            if (qrRes.ok) {
+              const qrJson = await qrRes.json()
+              const qrCode = qrJson.data?.qr_code || null
+              setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, qr_code: qrCode } : s))
+              setQrSession(prev => prev ? { ...prev, qr_code: qrCode } : prev)
+            }
+          } finally {
+            setQrLoading(false)
+          }
+        }
       } else {
         const json = await res.json()
         toast.error(json.error || t('sessions.disconnect_error'))

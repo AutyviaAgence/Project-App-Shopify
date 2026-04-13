@@ -28,16 +28,21 @@ export async function POST(
 
   // Déconnecter sur Evolution API (seulement pour les sessions Evolution)
   if (session.integration_type !== 'waba') {
+    // Logout first, then restart to prevent Baileys from auto-reconnecting
+    // and to put the instance back into QR pending state
     await evolution.disconnect(session.instance_name)
+    // Small delay then restart to ensure clean state
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    await evolution.restartInstance(session.instance_name)
   }
 
   // Mettre à jour en BDD
   await supabase
     .from('whatsapp_sessions')
-    .update({ status: 'disconnected', qr_code: null, pairing_code: null })
+    .update({ status: 'qr_pending', qr_code: null, pairing_code: null })
     .eq('id', id)
 
-  return NextResponse.json({ data: { status: 'disconnected' } })
+  return NextResponse.json({ data: { status: 'qr_pending' } })
 }
 
 /** DELETE /api/sessions/[id]/disconnect — Supprimer une session */
