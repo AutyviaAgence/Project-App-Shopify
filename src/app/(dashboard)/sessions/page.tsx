@@ -299,29 +299,37 @@ export default function SessionsPage() {
         method: 'POST',
       })
       if (res.ok) {
-        // Backend restarts instance → qr_pending state, show QR to rescan immediately
+        const json = await res.json()
+        const qrCode = json.data?.qr_code || null
+        const newStatus = json.data?.status || 'qr_pending'
+
         setSessions((prev) =>
           prev.map((s) =>
-            s.id === sessionId ? { ...s, status: 'qr_pending' as const, qr_code: null, pairing_code: null } : s
+            s.id === sessionId ? { ...s, status: newStatus as 'qr_pending' | 'disconnected', qr_code: qrCode, pairing_code: null } : s
           )
         )
         toast.success(t('sessions.session_disconnected'))
-        // Auto-open QR dialog so user can rescan
-        const session = sessions.find(s => s.id === sessionId)
-        if (session) {
-          const qrSessionObj = { ...session, status: 'qr_pending' as const, qr_code: null, pairing_code: null }
-          setQrSession(qrSessionObj)
-          setQrLoading(true)
-          try {
-            const qrRes = await fetch(`/api/sessions/${sessionId}/qr`)
-            if (qrRes.ok) {
-              const qrJson = await qrRes.json()
-              const qrCode = qrJson.data?.qr_code || null
-              setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, qr_code: qrCode } : s))
-              setQrSession(prev => prev ? { ...prev, qr_code: qrCode } : prev)
+
+        // Auto-open QR dialog so user can rescan immediately
+        if (newStatus === 'qr_pending') {
+          const session = sessions.find(s => s.id === sessionId)
+          if (session) {
+            setQrSession({ ...session, status: 'qr_pending', qr_code: qrCode, pairing_code: null })
+            // If no QR yet, fetch it
+            if (!qrCode) {
+              setQrLoading(true)
+              try {
+                const qrRes = await fetch(`/api/sessions/${sessionId}/qr`)
+                if (qrRes.ok) {
+                  const qrJson = await qrRes.json()
+                  const fetchedQr = qrJson.data?.qr_code || null
+                  setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, qr_code: fetchedQr } : s))
+                  setQrSession(prev => prev ? { ...prev, qr_code: fetchedQr } : prev)
+                }
+              } finally {
+                setQrLoading(false)
+              }
             }
-          } finally {
-            setQrLoading(false)
           }
         }
       } else {
