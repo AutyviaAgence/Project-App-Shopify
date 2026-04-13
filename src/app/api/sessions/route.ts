@@ -245,8 +245,39 @@ export async function GET() {
       if (!evoInstance) return
 
       // Sync connection status
+      // NOTE: Evolution API v2.3.7 has a known bug where connectionStatus stays "open"
+      // even when Baileys internal connection is dead ("Connection Closed" on send).
+      // We do a real ping via getConnectionState (more reliable than fetchInstances status),
+      // and if still "open", do a lightweight findMessages call to truly verify Baileys is alive.
       const evoStatus = evoInstance.connectionStatus
-      if (session.status === 'connected' && evoStatus !== 'open') {
+      let reallyConnected = evoStatus === 'open'
+
+      if (session.status === 'connected' && evoStatus === 'open') {
+        // Double-check with getConnectionState — sometimes more up-to-date than fetchInstances
+        const stateResult = await evolution.getConnectionState(session.instance_name)
+        if (stateResult.ok) {
+          const stateData = stateResult.data as Record<string, unknown>
+          const state = ((stateData?.instance as Record<string, unknown>)?.state as string) || (stateData?.state as string) || 'open'
+          if (state !== 'open') {
+            reallyConnected = false
+          }
+        }
+
+        // If still looks "open", do a real Baileys ping via findMessages
+        // This will fail with "Connection Closed" if Baileys socket is dead
+        if (reallyConnected && session.phone_number) {
+          const pingResult = await evolution.findMessages(
+            session.instance_name,
+            `${session.phone_number}@s.whatsapp.net`,
+            { limit: 1 }
+          )
+          if (!pingResult.ok && (pingResult.error.includes('Connection Closed') || pingResult.error.includes('connection closed'))) {
+            reallyConnected = false
+          }
+        }
+      }
+
+      if (session.status === 'connected' && !reallyConnected) {
         const newStatus = evoStatus === 'connecting' ? 'qr_pending' : 'disconnected'
         session.status = newStatus as WhatsAppSession['status']
         await Promise.all([
@@ -261,6 +292,13 @@ export async function GET() {
               })
             : Promise.resolve(),
         ])
+      } else if (session.status !== 'connected' && evoStatus !== 'open') {
+        // Also sync non-connected status (connecting → qr_pending, etc.)
+        const newStatus = evoStatus === 'connecting' ? 'qr_pending' : 'disconnected'
+        if (session.status !== newStatus) {
+          session.status = newStatus as WhatsAppSession['status']
+          await adminSupabase.from('whatsapp_sessions').update({ status: newStatus }).eq('id', session.id)
+        }
       }
 
       // Fill missing phone number
