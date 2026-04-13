@@ -27,34 +27,16 @@ export async function POST(
   }
 
   // Déconnecter sur Evolution API (seulement pour les sessions Evolution)
+  // NOTE: Evolution API v2.3.7 has a bug where Baileys auto-reconnects after logout/restart
+  // because session keys are persisted. The only real fix is to upgrade Evolution API.
+  // For now, we mark the session as qr_pending and try to get a fresh QR code.
   if (session.integration_type !== 'waba') {
-    // Baileys stores credentials locally and auto-reconnects after logout/restart.
-    // The only reliable way to force a full re-scan is to DELETE and RECREATE the instance
-    // on Evolution API — this clears the Baileys session keys.
-    // We keep all DB data (conversations, messages) intact.
-    await evolution.disconnect(session.instance_name).catch(() => {}) // best effort
-    await new Promise(resolve => setTimeout(resolve, 500))
-    await evolution.deleteInstance(session.instance_name).catch(() => {}) // best effort
-    await new Promise(resolve => setTimeout(resolve, 500))
-
-    // Recreate the instance with the same name so webhooks still work
-    const evoResult = await evolution.createInstance(
-      session.instance_name,
-      session.phone_number && session.pairing_code ? session.phone_number : undefined
-    )
-
-    // Re-configure webhook
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
-    const webhookSecret = process.env.EVOLUTION_WEBHOOK_SECRET
-    const secretParam = webhookSecret ? `?secret=${webhookSecret}` : ''
-    if (appUrl) {
-      await evolution.setWebhook(session.instance_name, `${appUrl}/api/webhook/evolution${secretParam}`).catch(() => {})
-    }
-
-    // Extract QR code from createInstance response
+    await evolution.disconnect(session.instance_name).catch(() => {})
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    // Try to get a fresh QR code after logout
+    const evoResult = await evolution.getQRCode(session.instance_name)
     const evoData = evoResult.ok ? (evoResult.data as Record<string, unknown>) : null
-    const qrcode = evoData?.qrcode as { base64?: string; pairingCode?: string } | undefined
-    const newQrCode = qrcode?.base64 || null
+    const newQrCode = (evoData?.base64 as string) || null
 
     await supabase
       .from('whatsapp_sessions')
