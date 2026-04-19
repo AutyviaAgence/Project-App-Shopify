@@ -255,6 +255,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
     setFormRateLimit('60')
     setFormConfig({})
     setCustomFunctions([])
+    setVehiclesList([])
     setSelectedCredentialId(null)
     setNewCredName('')
     // WhatsApp Message: reset and load sessions
@@ -323,6 +324,18 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
     } else {
       setCustomFunctions([])
     }
+    // Distance calculator: restore vehicles list
+    if (tool.tool_type === 'distance_calculator') {
+      try {
+        const raw = tool.config.vehicles as string
+        const parsed: Array<{ name: string; price_per_km: string }> = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : [])
+        setVehiclesList(parsed)
+      } catch {
+        setVehiclesList([])
+      }
+    } else {
+      setVehiclesList([])
+    }
     // WhatsApp Message: restore session + contacts
     setWaContactSearch('')
     if (tool.tool_type === 'whatsapp_message') {
@@ -365,6 +378,11 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
             phone: c.phone_number,
           }))
         config.contacts = JSON.stringify(selectedArr)
+      }
+
+      // Add vehicles list for distance_calculator
+      if (selectedTemplate.type === 'distance_calculator' && vehiclesList.length > 0) {
+        config.vehicles = JSON.stringify(vehiclesList.filter(v => v.name.trim() && v.price_per_km.trim()))
       }
 
       // Add custom functions if custom API
@@ -620,6 +638,22 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
   function openLogs() {
     setLogsOpen(true)
     fetchLogs()
+  }
+
+  // --- Distance calculator vehicles ---
+  const [vehiclesList, setVehiclesList] = useState<Array<{ name: string; price_per_km: string }>>([])
+
+  function addVehicle() {
+    if (vehiclesList.length >= 10) return
+    setVehiclesList(prev => [...prev, { name: '', price_per_km: '' }])
+  }
+
+  function removeVehicle(index: number) {
+    setVehiclesList(prev => prev.filter((_, i) => i !== index))
+  }
+
+  function updateVehicle(index: number, field: 'name' | 'price_per_km', value: string) {
+    setVehiclesList(prev => prev.map((v, i) => i === index ? { ...v, [field]: value } : v))
   }
 
   function addCustomFunction() {
@@ -1193,6 +1227,59 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                     </div>
                   </div>
                 )}
+
+              {/* Distance Calculator — vehicles list */}
+              {selectedTemplate.type === 'distance_calculator' && (
+                <div className="space-y-3 border-t pt-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs font-medium">Véhicules ({vehiclesList.length}/10)</Label>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={addVehicle}
+                      disabled={vehiclesList.length >= 10}
+                    >
+                      <Plus className="mr-1 h-3 w-3" />
+                      Ajouter un véhicule
+                    </Button>
+                  </div>
+                  {vehiclesList.length === 0 && (
+                    <p className="text-xs text-muted-foreground">Aucun véhicule configuré. Ajoutez au moins un véhicule.</p>
+                  )}
+                  {vehiclesList.map((v, i) => (
+                    <div key={i} className="flex items-center gap-2 rounded-lg border p-2">
+                      <div className="flex-1 space-y-1.5">
+                        <Input
+                          placeholder="Nom du véhicule (ex: Berline, Van, Moto...)"
+                          value={v.name}
+                          onChange={e => updateVehicle(i, 'name', e.target.value)}
+                          className="h-7 text-xs"
+                        />
+                        <div className="flex items-center gap-1">
+                          <Input
+                            placeholder="Prix/km (€)"
+                            value={v.price_per_km}
+                            onChange={e => updateVehicle(i, 'price_per_km', e.target.value)}
+                            className="h-7 text-xs"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                          />
+                          <span className="text-xs text-muted-foreground whitespace-nowrap">€/km</span>
+                        </div>
+                      </div>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+                        onClick={() => removeVehicle(i)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {/* Custom API functions */}
               {selectedTemplate.type === 'custom' && (

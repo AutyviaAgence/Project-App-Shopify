@@ -414,15 +414,18 @@ async function executeDistanceCalculator(
   const minimumPrice = parseFloat((config.minimum_price as string) || '120')
   const nightSurcharge = parseFloat((config.night_surcharge as string) || '15') / 100
 
-  // Build vehicle list from configurable fields
+  // Build vehicle list from JSON config (new format: vehicles array)
   const vehicles: Array<{ name: string; pricePerKm: number }> = []
-  for (let i = 1; i <= 3; i++) {
-    const name = (config[`vehicle_${i}_name`] as string)?.trim()
-    const pricePerKm = parseFloat((config[`vehicle_${i}_price_per_km`] as string) || '0')
-    if (name && pricePerKm > 0) {
-      vehicles.push({ name, pricePerKm })
+  try {
+    const raw = config.vehicles as string
+    const parsed: Array<{ name: string; price_per_km: string }> = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : [])
+    for (const v of parsed) {
+      const pricePerKm = parseFloat(v.price_per_km || '0')
+      if (v.name?.trim() && pricePerKm > 0) {
+        vehicles.push({ name: v.name.trim(), pricePerKm })
+      }
     }
-  }
+  } catch { /* ignore parse errors */ }
   // Fallback if no vehicles configured
   if (vehicles.length === 0) {
     vehicles.push({ name: 'Véhicule standard', pricePerKm: 2.50 })
