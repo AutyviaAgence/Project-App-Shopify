@@ -411,11 +411,22 @@ async function executeDistanceCalculator(
   const destination = args.destination as string
   const nightTrip = args.night_trip === true
 
-  const pricePerKmBase = parseFloat((config.price_per_km_base as string) || '2.50')
-  const pricePerKmPremium = parseFloat((config.price_per_km_premium as string) || '3.50')
-  const pricePerKmLarge = parseFloat((config.price_per_km_large as string) || '4.50')
   const minimumPrice = parseFloat((config.minimum_price as string) || '120')
   const nightSurcharge = parseFloat((config.night_surcharge as string) || '15') / 100
+
+  // Build vehicle list from configurable fields
+  const vehicles: Array<{ name: string; pricePerKm: number }> = []
+  for (let i = 1; i <= 3; i++) {
+    const name = (config[`vehicle_${i}_name`] as string)?.trim()
+    const pricePerKm = parseFloat((config[`vehicle_${i}_price_per_km`] as string) || '0')
+    if (name && pricePerKm > 0) {
+      vehicles.push({ name, pricePerKm })
+    }
+  }
+  // Fallback if no vehicles configured
+  if (vehicles.length === 0) {
+    vehicles.push({ name: 'Véhicule standard', pricePerKm: 2.50 })
+  }
 
   // Geocode address via Nominatim (OpenStreetMap)
   async function geocode(address: string): Promise<{ lat: number; lon: number } | null> {
@@ -447,16 +458,17 @@ async function executeDistanceCalculator(
   const distanceKm = Math.round(osrmData.routes[0].distance / 1000 * 10) / 10
   const durationMin = Math.round(osrmData.routes[0].duration / 60)
 
-  // Calculate prices
+  // Calculate prices for each configured vehicle
   const calcPrice = (pricePerKm: number) => {
     let price = distanceKm * pricePerKm
     if (nightTrip) price *= (1 + nightSurcharge)
     return Math.max(minimumPrice, Math.round(price * 100) / 100)
   }
 
-  const priceBase = calcPrice(pricePerKmBase)
-  const pricePremium = calcPrice(pricePerKmPremium)
-  const priceLarge = calcPrice(pricePerKmLarge)
+  const prices: Record<string, number> = {}
+  for (const v of vehicles) {
+    prices[v.name] = calcPrice(v.pricePerKm)
+  }
 
   return JSON.stringify({
     origin,
@@ -464,11 +476,7 @@ async function executeDistanceCalculator(
     distance_km: distanceKm,
     duration_min: durationMin,
     night_surcharge_applied: nightTrip,
-    prices: {
-      base: priceBase,
-      premium: pricePremium,
-      large: priceLarge,
-    },
+    prices,
     minimum_price: minimumPrice,
   })
 }

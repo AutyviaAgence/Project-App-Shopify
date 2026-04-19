@@ -444,9 +444,12 @@ export const TOOL_TEMPLATES: Record<Exclude<AgentToolType, 'custom'>, ToolTempla
     auth: {
       type: 'api_key',
       fields: [
-        { key: 'price_per_km_base', label: 'Prix/km véhicule de base (€)', placeholder: '2.50', secret: false },
-        { key: 'price_per_km_premium', label: 'Prix/km véhicule premium (€)', placeholder: '3.50', secret: false },
-        { key: 'price_per_km_large', label: 'Prix/km grand véhicule (€)', placeholder: '4.50', secret: false },
+        { key: 'vehicle_1_name', label: 'Véhicule 1 — Nom', placeholder: 'ex: Berline, Citadine, Camionnette...', secret: false },
+        { key: 'vehicle_1_price_per_km', label: 'Véhicule 1 — Prix/km (€)', placeholder: '2.50', secret: false },
+        { key: 'vehicle_2_name', label: 'Véhicule 2 — Nom (optionnel)', placeholder: 'ex: Van, SUV, Minibus...', secret: false },
+        { key: 'vehicle_2_price_per_km', label: 'Véhicule 2 — Prix/km (€)', placeholder: '3.50', secret: false },
+        { key: 'vehicle_3_name', label: 'Véhicule 3 — Nom (optionnel)', placeholder: 'ex: Sprinter, Bus, Limousine...', secret: false },
+        { key: 'vehicle_3_price_per_km', label: 'Véhicule 3 — Prix/km (€)', placeholder: '4.50', secret: false },
         { key: 'minimum_price', label: 'Prix minimum (€)', placeholder: '120', secret: false },
         { key: 'night_surcharge', label: 'Supplément nuit % (ex: 15)', placeholder: '15', secret: false },
       ],
