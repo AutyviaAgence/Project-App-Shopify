@@ -410,6 +410,32 @@ export const TOOL_TEMPLATES: Record<Exclude<AgentToolType, 'custom'>, ToolTempla
     ],
   },
 
+  app_notification: {
+    type: 'app_notification',
+    name: 'Notification App',
+    description: 'Envoie une notification personnalisée dans l\'app Autyvia. Utile pour alerter l\'équipe d\'un événement important détecté par l\'agent IA.',
+    icon: 'bell',
+    auth: {
+      type: 'api_key',
+      fields: [
+        { key: 'default_title', label: 'Titre par défaut', placeholder: 'ex: Alerte agent IA', secret: false },
+        { key: 'alert_type', label: 'Type d\'alerte (label interne)', placeholder: 'ex: agent_alert', secret: false },
+      ],
+    },
+    functions: [
+      {
+        name: 'send_notification',
+        description: 'Envoie une notification dans l\'app Autyvia visible par l\'utilisateur. Utilise cet outil pour alerter l\'équipe d\'un événement important : nouvelle commande, problème client, demande urgente, etc.',
+        parameters: [
+          { name: 'title', type: 'string', description: 'Titre court de la notification (ex: "Nouvelle réservation", "Problème client")', required: true },
+          { name: 'message', type: 'string', description: 'Contenu détaillé de la notification', required: true },
+          { name: 'priority', type: 'string', description: 'Priorité : "normal" ou "high". Utilisez "high" pour les urgences.', required: false },
+        ],
+        permission: 'write',
+      },
+    ],
+  },
+
   distance_calculator: {
     type: 'distance_calculator',
     name: 'Calculateur de distance & prix',

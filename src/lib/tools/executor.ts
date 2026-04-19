@@ -356,9 +356,47 @@ async function executeTemplateTool(
       return executeWhatsAppMessage(config, functionName, args, context)
     case 'distance_calculator':
       return executeDistanceCalculator(config, functionName, args)
+    case 'app_notification':
+      return executeAppNotification(config, functionName, args, context)
     default:
       throw new Error(`Unknown template: ${toolType}`)
   }
+}
+
+// --- App Notification ---
+async function executeAppNotification(
+  config: Record<string, unknown>,
+  functionName: string,
+  args: Record<string, unknown>,
+  context?: { userId: string; agentId: string; conversationId?: string }
+): Promise<string> {
+  if (functionName !== 'send_notification') throw new Error(`Unknown function: ${functionName}`)
+
+  if (!context?.userId) return JSON.stringify({ error: 'Missing user context' })
+
+  const title = (args.title as string) || (config.default_title as string) || 'Notification agent IA'
+  const message = args.message as string
+  const priority = (args.priority as string) || 'normal'
+  const alertType = (config.alert_type as string) || 'agent_alert'
+
+  if (!message) return JSON.stringify({ error: 'message is required' })
+
+  const supabase = getAdminClient()
+
+  await supabase.from('user_alerts').insert({
+    user_id: context.userId,
+    alert_type: alertType,
+    title,
+    message,
+    metadata: {
+      agent_id: context.agentId,
+      conversation_id: context.conversationId || null,
+      priority,
+      triggered_by: 'agent_tool',
+    },
+  })
+
+  return JSON.stringify({ sent: true, title, priority })
 }
 
 // --- Distance Calculator (Nominatim + OSRM, 100% gratuit) ---

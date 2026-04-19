@@ -46,6 +46,7 @@ import {
   MessageSquare,
   Mail,
   MapPin,
+  Bell,
 } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
@@ -111,6 +112,7 @@ const TOOL_ICONS: Record<string, React.ReactNode> = {
   'message-square': <MessageSquare className="h-5 w-5" />,
   plug: <Plug className="h-5 w-5" />,
   'map-pin': <MapPin className="h-5 w-5" />,
+  bell: <Bell className="h-5 w-5" />,
 }
 
 const TOOL_COLORS: Record<string, string> = {
@@ -122,6 +124,7 @@ const TOOL_COLORS: Record<string, string> = {
   google_sheets: 'text-emerald-500',
   whatsapp_message: 'text-green-600',
   distance_calculator: 'text-purple-500',
+  app_notification: 'text-yellow-500',
   custom: 'text-orange-500',
 }
 
@@ -1454,6 +1457,7 @@ function getIconForType(type: string): string {
     google_sheets: 'table',
     whatsapp_message: 'message-square',
     distance_calculator: 'map-pin',
+    app_notification: 'bell',
     custom: 'plug',
   }
   return iconMap[type] || 'plug'
