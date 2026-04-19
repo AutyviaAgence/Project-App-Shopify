@@ -275,17 +275,17 @@ Exemples :
       systemPrompt = `--- INSTRUCTION PRIORITAIRE ---\nTu prends le relais sur cette conversation. Un agent qualificateur a déjà accueilli le prospect. NE redis PAS bonjour, NE te re-présente PAS, NE dis PAS "bienvenue". Le prospect a déjà été salué. Lis les messages précédents pour comprendre le contexte et enchaîne naturellement. Démarre directement avec ta première question utile (ex: demander le prénom). Ne fais JAMAIS référence à un transfert, une mise en relation ou un spécialiste. TU es l'agent principal.\n--- FIN INSTRUCTION PRIORITAIRE ---\n\n` + systemPrompt
     }
 
+    // 4.1. Détection automatique de langue — injectée EN PREMIER pour priorité maximale
+    if (agent.auto_detect_language) {
+      systemPrompt = `--- RÈGLE ABSOLUE DE LANGUE ---\nDétecte TOUJOURS la langue du dernier message de l'utilisateur et réponds OBLIGATOIREMENT dans cette même langue. Si l'utilisateur écrit en anglais → réponds en anglais. En espagnol → espagnol. En arabe → arabe. Cette règle prime sur tout le reste du prompt.\n--- FIN RÈGLE DE LANGUE ---\n\n` + systemPrompt
+    }
+
     systemPrompt += `\n\n--- Date et heure actuelles ---\nNous sommes le ${dateStr}, il est ${timeStr} (fuseau horaire : Europe/Paris).\nUtilise TOUJOURS cette date comme référence. "Demain" = le jour suivant cette date. Pour les dates et heures dans les outils, utilise le format ISO 8601 avec timezone, par exemple : 2026-03-06T15:00:00+01:00.`
     if (agent.objective) {
       systemPrompt += `\n\nObjectif principal : ${agent.objective}`
     }
     if (knowledgeContext) {
       systemPrompt += `\n\n--- Base de connaissances (PRIORITAIRE) ---\nIMPORTANT : Avant d'appeler un outil, vérifie TOUJOURS si la réponse se trouve dans la base de connaissances ci-dessous. N'appelle un outil que si l'information n'est PAS disponible ici. Utilise ces informations en priorité pour répondre de manière précise.\n\n${knowledgeContext}\n--- Fin de la base de connaissances ---`
-    }
-
-    // 4.1. Détection automatique de langue
-    if (agent.auto_detect_language) {
-      systemPrompt += `\n\n--- Instruction de langue ---\nIMPORTANT : Détecte automatiquement la langue utilisée par l'utilisateur dans son dernier message et réponds TOUJOURS dans cette même langue. Si l'utilisateur écrit en anglais, réponds en anglais. Si l'utilisateur écrit en espagnol, réponds en espagnol. Adapte-toi à la langue de chaque message.`
     }
 
     // 4.2. Lien de rendez-vous tracké
