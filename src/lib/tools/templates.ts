@@ -409,6 +409,35 @@ export const TOOL_TEMPLATES: Record<Exclude<AgentToolType, 'custom'>, ToolTempla
       },
     ],
   },
+
+  distance_calculator: {
+    type: 'distance_calculator',
+    name: 'Calculateur de distance & prix',
+    description: 'Calcule la distance entre deux adresses et estime le prix selon une grille tarifaire kilométrique. Utilise OpenStreetMap (gratuit, sans clé API).',
+    icon: 'map-pin',
+    auth: {
+      type: 'api_key',
+      fields: [
+        { key: 'price_per_km_base', label: 'Prix/km véhicule de base (€)', placeholder: '2.50', secret: false },
+        { key: 'price_per_km_premium', label: 'Prix/km véhicule premium (€)', placeholder: '3.50', secret: false },
+        { key: 'price_per_km_large', label: 'Prix/km grand véhicule (€)', placeholder: '4.50', secret: false },
+        { key: 'minimum_price', label: 'Prix minimum (€)', placeholder: '120', secret: false },
+        { key: 'night_surcharge', label: 'Supplément nuit % (ex: 15)', placeholder: '15', secret: false },
+      ],
+    },
+    functions: [
+      {
+        name: 'calculate_price',
+        description: 'Calcule la distance en km entre deux adresses et retourne le prix estimé pour chaque véhicule. Utilise ce tool AVANT de donner un prix au client.',
+        parameters: [
+          { name: 'origin', type: 'string', description: 'Adresse de départ (ex: "CDG Terminal 2, Paris", "Gare du Nord, Paris")', required: true },
+          { name: 'destination', type: 'string', description: 'Adresse de destination (ex: "Tour Eiffel, Paris", "Versailles")', required: true },
+          { name: 'night_trip', type: 'boolean', description: 'true si le trajet est entre 22h et 6h (supplément nuit)', required: false },
+        ],
+        permission: 'read',
+      },
+    ],
+  },
 }
 
 /**

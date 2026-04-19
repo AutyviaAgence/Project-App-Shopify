@@ -45,6 +45,7 @@ import {
   KeyRound,
   MessageSquare,
   Mail,
+  MapPin,
 } from 'lucide-react'
 import { Checkbox } from '@/components/ui/checkbox'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
@@ -109,6 +110,7 @@ const TOOL_ICONS: Record<string, React.ReactNode> = {
   mail: <Mail className="h-5 w-5" />,
   'message-square': <MessageSquare className="h-5 w-5" />,
   plug: <Plug className="h-5 w-5" />,
+  'map-pin': <MapPin className="h-5 w-5" />,
 }
 
 const TOOL_COLORS: Record<string, string> = {
@@ -119,6 +121,7 @@ const TOOL_COLORS: Record<string, string> = {
   stripe: 'text-indigo-500',
   google_sheets: 'text-emerald-500',
   whatsapp_message: 'text-green-600',
+  distance_calculator: 'text-purple-500',
   custom: 'text-orange-500',
 }
 
@@ -1450,6 +1453,7 @@ function getIconForType(type: string): string {
     stripe: 'credit-card',
     google_sheets: 'table',
     whatsapp_message: 'message-square',
+    distance_calculator: 'map-pin',
     custom: 'plug',
   }
   return iconMap[type] || 'plug'

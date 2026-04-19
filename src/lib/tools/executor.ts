@@ -354,9 +354,85 @@ async function executeTemplateTool(
       return executeGoogleGmail(tool, config, functionName, args, credentialId)
     case 'whatsapp_message':
       return executeWhatsAppMessage(config, functionName, args, context)
+    case 'distance_calculator':
+      return executeDistanceCalculator(config, functionName, args)
     default:
       throw new Error(`Unknown template: ${toolType}`)
   }
+}
+
+// --- Distance Calculator (Nominatim + OSRM, 100% gratuit) ---
+async function executeDistanceCalculator(
+  config: Record<string, unknown>,
+  functionName: string,
+  args: Record<string, unknown>
+): Promise<string> {
+  if (functionName !== 'calculate_price') throw new Error(`Unknown function: ${functionName}`)
+
+  const origin = args.origin as string
+  const destination = args.destination as string
+  const nightTrip = args.night_trip === true
+
+  const pricePerKmBase = parseFloat((config.price_per_km_base as string) || '2.50')
+  const pricePerKmPremium = parseFloat((config.price_per_km_premium as string) || '3.50')
+  const pricePerKmLarge = parseFloat((config.price_per_km_large as string) || '4.50')
+  const minimumPrice = parseFloat((config.minimum_price as string) || '120')
+  const nightSurcharge = parseFloat((config.night_surcharge as string) || '15') / 100
+
+  // Geocode address via Nominatim (OpenStreetMap)
+  async function geocode(address: string): Promise<{ lat: number; lon: number } | null> {
+    const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1&countrycodes=fr`
+    const res = await fetchWithTimeout(url, {
+      headers: { 'User-Agent': 'AutyviaApp/1.0 (contact@autyvia.fr)' },
+    })
+    const data = await res.json() as Array<{ lat: string; lon: string }>
+    if (!data.length) return null
+    return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) }
+  }
+
+  const [orig, dest] = await Promise.all([geocode(origin), geocode(destination)])
+
+  if (!orig) return JSON.stringify({ error: `Adresse de départ introuvable : "${origin}". Demandez au client de préciser l'adresse.` })
+  if (!dest) return JSON.stringify({ error: `Adresse de destination introuvable : "${destination}". Demandez au client de préciser l'adresse.` })
+
+  // Calculate route distance via OSRM
+  const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${orig.lon},${orig.lat};${dest.lon},${dest.lat}?overview=false`
+  const osrmRes = await fetchWithTimeout(osrmUrl, {
+    headers: { 'User-Agent': 'AutyviaApp/1.0' },
+  })
+  const osrmData = await osrmRes.json() as { routes?: Array<{ distance: number; duration: number }> }
+
+  if (!osrmData.routes?.length) {
+    return JSON.stringify({ error: 'Impossible de calculer l\'itinéraire. Vérifiez les adresses.' })
+  }
+
+  const distanceKm = Math.round(osrmData.routes[0].distance / 1000 * 10) / 10
+  const durationMin = Math.round(osrmData.routes[0].duration / 60)
+
+  // Calculate prices
+  const calcPrice = (pricePerKm: number) => {
+    let price = distanceKm * pricePerKm
+    if (nightTrip) price *= (1 + nightSurcharge)
+    return Math.max(minimumPrice, Math.round(price * 100) / 100)
+  }
+
+  const priceBase = calcPrice(pricePerKmBase)
+  const pricePremium = calcPrice(pricePerKmPremium)
+  const priceLarge = calcPrice(pricePerKmLarge)
+
+  return JSON.stringify({
+    origin,
+    destination,
+    distance_km: distanceKm,
+    duration_min: durationMin,
+    night_surcharge_applied: nightTrip,
+    prices: {
+      base: priceBase,
+      premium: pricePremium,
+      large: priceLarge,
+    },
+    minimum_price: minimumPrice,
+  })
 }
 
 // --- Google Calendar ---
