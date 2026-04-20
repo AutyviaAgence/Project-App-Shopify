@@ -444,7 +444,7 @@ export const TOOL_TEMPLATES: Record<Exclude<AgentToolType, 'custom'>, ToolTempla
     auth: {
       type: 'api_key',
       fields: [
-        { key: 'minimum_price', label: 'Prix minimum (€)', placeholder: '120', secret: false },
+        { key: 'minimum_price', label: 'Prix minimum global (€) — si aucun minimum par véhicule', placeholder: '120', secret: false },
         { key: 'night_surcharge', label: 'Supplément nuit % (ex: 15)', placeholder: '15', secret: false },
       ],
     },

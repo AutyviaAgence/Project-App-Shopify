@@ -415,20 +415,21 @@ async function executeDistanceCalculator(
   const nightSurcharge = parseFloat((config.night_surcharge as string) || '15') / 100
 
   // Build vehicle list from JSON config (new format: vehicles array)
-  const vehicles: Array<{ name: string; pricePerKm: number }> = []
+  const vehicles: Array<{ name: string; pricePerKm: number; minimumPrice: number | null }> = []
   try {
     const raw = config.vehicles as string
-    const parsed: Array<{ name: string; price_per_km: string }> = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : [])
+    const parsed: Array<{ name: string; price_per_km: string; minimum_price?: string }> = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : [])
     for (const v of parsed) {
       const pricePerKm = parseFloat(v.price_per_km || '0')
+      const vehicleMin = v.minimum_price ? parseFloat(v.minimum_price) : null
       if (v.name?.trim() && pricePerKm > 0) {
-        vehicles.push({ name: v.name.trim(), pricePerKm })
+        vehicles.push({ name: v.name.trim(), pricePerKm, minimumPrice: vehicleMin })
       }
     }
   } catch { /* ignore parse errors */ }
   // Fallback if no vehicles configured
   if (vehicles.length === 0) {
-    vehicles.push({ name: 'Véhicule standard', pricePerKm: 2.50 })
+    vehicles.push({ name: 'Véhicule standard', pricePerKm: 2.50, minimumPrice: null })
   }
 
   // Geocode address via Nominatim (OpenStreetMap)
@@ -462,15 +463,17 @@ async function executeDistanceCalculator(
   const durationMin = Math.round(osrmData.routes[0].duration / 60)
 
   // Calculate prices for each configured vehicle
-  const calcPrice = (pricePerKm: number) => {
+  const calcPrice = (pricePerKm: number, vehicleMin: number | null) => {
     let price = distanceKm * pricePerKm
     if (nightTrip) price *= (1 + nightSurcharge)
-    return Math.max(minimumPrice, Math.round(price * 100) / 100)
+    // Use vehicle-specific minimum if set, otherwise global minimum
+    const effectiveMin = vehicleMin !== null ? vehicleMin : minimumPrice
+    return Math.max(effectiveMin, Math.round(price * 100) / 100)
   }
 
   const prices: Record<string, number> = {}
   for (const v of vehicles) {
-    prices[v.name] = calcPrice(v.pricePerKm)
+    prices[v.name] = calcPrice(v.pricePerKm, v.minimumPrice)
   }
 
   return JSON.stringify({

@@ -328,7 +328,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
     if (tool.tool_type === 'distance_calculator') {
       try {
         const raw = tool.config.vehicles as string
-        const parsed: Array<{ name: string; price_per_km: string }> = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : [])
+        const parsed: Array<{ name: string; price_per_km: string; minimum_price: string }> = typeof raw === 'string' ? JSON.parse(raw) : (Array.isArray(raw) ? raw : [])
         setVehiclesList(parsed)
       } catch {
         setVehiclesList([])
@@ -641,18 +641,18 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
   }
 
   // --- Distance calculator vehicles ---
-  const [vehiclesList, setVehiclesList] = useState<Array<{ name: string; price_per_km: string }>>([])
+  const [vehiclesList, setVehiclesList] = useState<Array<{ name: string; price_per_km: string; minimum_price: string }>>([])
 
   function addVehicle() {
     if (vehiclesList.length >= 10) return
-    setVehiclesList(prev => [...prev, { name: '', price_per_km: '' }])
+    setVehiclesList(prev => [...prev, { name: '', price_per_km: '', minimum_price: '' }])
   }
 
   function removeVehicle(index: number) {
     setVehiclesList(prev => prev.filter((_, i) => i !== index))
   }
 
-  function updateVehicle(index: number, field: 'name' | 'price_per_km', value: string) {
+  function updateVehicle(index: number, field: 'name' | 'price_per_km' | 'minimum_price', value: string) {
     setVehiclesList(prev => prev.map((v, i) => i === index ? { ...v, [field]: value } : v))
   }
 
@@ -1255,17 +1255,31 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                           onChange={e => updateVehicle(i, 'name', e.target.value)}
                           className="h-7 text-xs"
                         />
-                        <div className="flex items-center gap-1">
-                          <Input
-                            placeholder="Prix/km (€)"
-                            value={v.price_per_km}
-                            onChange={e => updateVehicle(i, 'price_per_km', e.target.value)}
-                            className="h-7 text-xs"
-                            type="number"
-                            step="0.01"
-                            min="0"
-                          />
-                          <span className="text-xs text-muted-foreground whitespace-nowrap">€/km</span>
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-1 flex-1">
+                            <Input
+                              placeholder="Prix/km"
+                              value={v.price_per_km}
+                              onChange={e => updateVehicle(i, 'price_per_km', e.target.value)}
+                              className="h-7 text-xs"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                            />
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">€/km</span>
+                          </div>
+                          <div className="flex items-center gap-1 flex-1">
+                            <Input
+                              placeholder="Min (€)"
+                              value={v.minimum_price}
+                              onChange={e => updateVehicle(i, 'minimum_price', e.target.value)}
+                              className="h-7 text-xs"
+                              type="number"
+                              step="1"
+                              min="0"
+                            />
+                            <span className="text-xs text-muted-foreground whitespace-nowrap">€ min</span>
+                          </div>
                         </div>
                       </div>
                       <Button
