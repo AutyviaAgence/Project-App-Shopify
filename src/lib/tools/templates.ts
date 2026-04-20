@@ -446,6 +446,7 @@ export const TOOL_TEMPLATES: Record<Exclude<AgentToolType, 'custom'>, ToolTempla
       fields: [
         { key: 'minimum_price', label: 'Prix minimum global (€) — si aucun minimum par véhicule', placeholder: '120', secret: false },
         { key: 'night_surcharge', label: 'Supplément nuit % (ex: 15)', placeholder: '15', secret: false },
+        { key: 'vehicles', label: 'Véhicules (JSON)', placeholder: '[{"name":"Berline","price_per_km":"2.50","minimum_price":"120"},{"name":"Van","price_per_km":"3.20","minimum_price":"150"}]', secret: false },
       ],
     },
     functions: [

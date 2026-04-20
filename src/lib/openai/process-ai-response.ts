@@ -281,6 +281,7 @@ Exemples :
     }
 
     systemPrompt += `\n\n--- Date et heure actuelles ---\nNous sommes le ${dateStr}, il est ${timeStr} (fuseau horaire : Europe/Paris).\nUtilise TOUJOURS cette date comme référence. "Demain" = le jour suivant cette date. Pour les dates et heures dans les outils, utilise le format ISO 8601 avec timezone, par exemple : 2026-03-06T15:00:00+01:00.`
+    systemPrompt += `\n\n--- Contexte de la conversation ---\nNuméro WhatsApp du client : ${params.contactPhoneNumber}\nUtilise ce numéro chaque fois que tu dois le mentionner dans un message ou une notification à l'équipe.`
     if (agent.objective) {
       systemPrompt += `\n\nObjectif principal : ${agent.objective}`
     }
