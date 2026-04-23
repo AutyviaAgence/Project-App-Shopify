@@ -51,6 +51,7 @@ type ClientRow = {
   plan: string | null
   tokens_used: number
   tokens_limit: number
+  role: string | null
   created_at: string
   onboarding_config: OnboardingConfig | null
 }
@@ -161,6 +162,25 @@ export default function AdminPage() {
     }
   }
 
+  const handleUpdateRole = async (userId: string, role: string) => {
+    setActivating(userId)
+    try {
+      const res = await fetch('/api/admin/update-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, role }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast.success(`Rôle changé en ${role}`)
+      fetchClients()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur')
+    } finally {
+      setActivating(null)
+    }
+  }
+
   const handleValidateConfig = async () => {
     if (!configModal) return
     setValidating(true)
@@ -259,6 +279,7 @@ export default function AdminPage() {
               <th className="px-4 py-3 text-left font-semibold">Abonnement</th>
               <th className="px-4 py-3 text-left font-semibold">Plan</th>
               <th className="px-4 py-3 text-left font-semibold">Tokens</th>
+              <th className="px-4 py-3 text-left font-semibold">Rôle</th>
               <th className="px-4 py-3 text-left font-semibold">Configurateur</th>
               <th className="px-4 py-3 text-left font-semibold">Actions</th>
             </tr>
@@ -368,6 +389,23 @@ export default function AdminPage() {
                       </div>
                     </td>
 
+                    {/* Rôle */}
+                    <td className="px-4 py-3">
+                      <Select
+                        value={client.role || 'user'}
+                        onValueChange={v => handleUpdateRole(client.id, v)}
+                        disabled={activating === client.id}
+                      >
+                        <SelectTrigger className="h-6 w-20 text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="user">User</SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </td>
+
                     {/* Configurateur */}
                     <td className="px-4 py-3">
                       {hasConfig ? (
@@ -409,14 +447,14 @@ export default function AdminPage() {
                   {/* Row étendue */}
                   {isExpanded && client.onboarding_config && (
                     <tr key={`${client.id}-expanded`} className="bg-muted/10">
-                      <td colSpan={7} className="px-6 py-4">
+                      <td colSpan={8} className="px-6 py-4">
                         <ConfigDetails config={client.onboarding_config} />
                       </td>
                     </tr>
                   )}
                   {isExpanded && !client.onboarding_config && (
                     <tr key={`${client.id}-expanded-empty`} className="bg-muted/10">
-                      <td colSpan={7} className="px-6 py-4 text-sm text-muted-foreground">
+                      <td colSpan={8} className="px-6 py-4 text-sm text-muted-foreground">
                         Aucun configurateur soumis pour ce client.
                       </td>
                     </tr>
@@ -426,7 +464,7 @@ export default function AdminPage() {
             })}
             {clients.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
                   Aucun client trouvé.
                 </td>
               </tr>

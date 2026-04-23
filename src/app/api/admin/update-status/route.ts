@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => ({}))
-  const { user_id, onboarding_status, subscription_status, plan: rawPlan } = body
+  const { user_id, onboarding_status, subscription_status, plan: rawPlan, role } = body
 
   if (!user_id) {
     return NextResponse.json({ error: 'user_id requis' }, { status: 400 })
@@ -52,6 +52,10 @@ export async function POST(req: NextRequest) {
       nextMonth.setMonth(nextMonth.getMonth() + 1)
       update.subscription_ends_at = nextMonth.toISOString()
     }
+  }
+
+  if (role && ['user', 'admin'].includes(role)) {
+    update.role = role
   }
 
   if (Object.keys(update).length === 0) {
