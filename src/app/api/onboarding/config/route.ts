@@ -32,9 +32,9 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { main_function, behavior, tools, escalation, languages, agent_name, welcome_message } = body
+  const { main_function, behavior, tools, escalation, languages, conversation_example, info_to_collect } = body
 
-  if (!main_function || !behavior || !tools?.length || !escalation || !languages?.length || !agent_name?.trim() || !welcome_message?.trim()) {
+  if (!main_function || !behavior || !tools?.length || !escalation || !languages?.length || !conversation_example?.trim() || !info_to_collect?.trim()) {
     return NextResponse.json({ error: 'Champs manquants' }, { status: 400 })
   }
 
@@ -45,8 +45,8 @@ export async function POST(req: NextRequest) {
     tools,
     escalation,
     languages,
-    agent_name: agent_name.trim(),
-    welcome_message: welcome_message.trim(),
+    conversation_example: conversation_example.trim(),
+    info_to_collect: info_to_collect.trim(),
     submitted_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   }

@@ -121,8 +121,8 @@ export default function ConfigurateurPage() {
     tools: [] as string[],
     escalation: '',
     languages: [] as string[],
-    agent_name: '',
-    welcome_message: '',
+    conversation_example: '',
+    info_to_collect: '',
   })
   const [loading, setLoading] = useState(false)
   const [alreadySubmitted, setAlreadySubmitted] = useState(false)
@@ -139,8 +139,8 @@ export default function ConfigurateurPage() {
             tools: d.data.tools || [],
             escalation: d.data.escalation || '',
             languages: d.data.languages || [],
-            agent_name: d.data.agent_name || '',
-            welcome_message: d.data.welcome_message || '',
+            conversation_example: d.data.conversation_example || '',
+            info_to_collect: d.data.info_to_collect || '',
           })
         }
       })
@@ -153,8 +153,8 @@ export default function ConfigurateurPage() {
     form.tools.length > 0 &&
     form.escalation &&
     form.languages.length > 0 &&
-    form.agent_name.trim().length > 0 &&
-    form.welcome_message.trim().length > 0
+    form.conversation_example.trim().length > 0 &&
+    form.info_to_collect.trim().length > 0
 
   const handleSubmit = async () => {
     if (!isValid) {
@@ -255,27 +255,32 @@ export default function ConfigurateurPage() {
           />
         </section>
 
-        {/* Step 6 — Nom de l'agent */}
+        {/* Step 6 — Exemple de conversation */}
         <section className="space-y-3">
-          <h2 className="font-semibold text-foreground">6. Nom de votre agent</h2>
-          <input
-            type="text"
-            value={form.agent_name}
-            onChange={e => setForm(f => ({ ...f, agent_name: e.target.value }))}
-            placeholder="ex: Léa, Alex, Julie…"
-            className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50"
+          <h2 className="font-semibold text-foreground">6. Exemple de conversation de demande client</h2>
+          <p className="text-xs text-muted-foreground">
+            Décrivez ou copiez un exemple réel de conversation — comment un client vous contacte, ce qu&apos;il demande, et comment vous répondez habituellement.
+          </p>
+          <textarea
+            value={form.conversation_example}
+            onChange={e => setForm(f => ({ ...f, conversation_example: e.target.value }))}
+            rows={6}
+            placeholder={"Client : Bonjour, je voudrais savoir si vous livrez à Paris ?\nNous : Oui bien sûr ! Nous livrons partout en France sous 48h. Vous souhaitez passer commande ?\nClient : Oui, combien ça coûte ?\n…"}
+            className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none font-mono"
           />
         </section>
 
-        {/* Step 7 — Message d'accueil */}
+        {/* Step 7 — Informations à récolter */}
         <section className="space-y-3">
-          <h2 className="font-semibold text-foreground">7. Message d&apos;accueil</h2>
-          <p className="text-xs text-muted-foreground">Le premier message envoyé à chaque nouveau contact.</p>
+          <h2 className="font-semibold text-foreground">7. Informations à récolter auprès du client</h2>
+          <p className="text-xs text-muted-foreground">
+            Listez les informations que l&apos;agent doit systématiquement collecter (nom, email, téléphone, budget, besoin spécifique…).
+          </p>
           <textarea
-            value={form.welcome_message}
-            onChange={e => setForm(f => ({ ...f, welcome_message: e.target.value }))}
-            rows={4}
-            placeholder="Bonjour ! Je suis Léa, l'assistante virtuelle de [votre entreprise]. Comment puis-je vous aider ?"
+            value={form.info_to_collect}
+            onChange={e => setForm(f => ({ ...f, info_to_collect: e.target.value }))}
+            rows={5}
+            placeholder={"- Prénom et nom\n- Numéro de téléphone\n- Email\n- Type de prestation souhaitée\n- Budget estimé\n- Délai souhaité"}
             className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
           />
         </section>
