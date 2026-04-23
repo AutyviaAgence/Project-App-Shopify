@@ -298,6 +298,23 @@ function SubscriptionContent() {
     if (!selectedPlan || !cgvAccepted) return
     setIsProcessing(true)
     try {
+      // Si abonnement actif → changement de plan immédiat (prorata)
+      if (isActive && subscription?.stripeSubscriptionId) {
+        const res = await fetch('/api/stripe/change-plan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ plan: selectedPlan }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error || 'Erreur lors du changement de plan')
+        toast.success(`Plan changé vers ${selectedPlan.charAt(0).toUpperCase() + selectedPlan.slice(1)} avec succès`)
+        await refetch()
+        setSelectedPlan(null)
+        setIsProcessing(false)
+        return
+      }
+
+      // Sinon → nouveau checkout Stripe
       const res = await fetch('/api/stripe/create-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -315,7 +332,7 @@ function SubscriptionContent() {
       window.location.href = data.url
     } catch (error) {
       console.error('[Subscription] Error:', error)
-      toast.error(t('subscription.payment_error'))
+      toast.error(error instanceof Error ? error.message : t('subscription.payment_error'))
       setIsProcessing(false)
     }
   }
@@ -675,26 +692,42 @@ function SubscriptionContent() {
         {t('subscription.stripe_note')}
       </p>
 
-      {/* Modale CGV */}
+      {/* Modale confirmation plan */}
       <Dialog open={!!selectedPlan} onOpenChange={(open) => { if (!open) setSelectedPlan(null) }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Confirmer votre abonnement</DialogTitle>
+            <DialogTitle>
+              {isActive && subscription?.stripeSubscriptionId ? 'Changer de plan' : 'Confirmer votre abonnement'}
+            </DialogTitle>
             <DialogDescription>
-              Lisez et acceptez nos conditions avant de procéder au paiement.
+              {isActive && subscription?.stripeSubscriptionId
+                ? 'Le changement est immédiat. La différence est calculée au prorata du mois en cours.'
+                : 'Lisez et acceptez nos conditions avant de procéder au paiement.'}
             </DialogDescription>
           </DialogHeader>
 
           {planDetails && (
-            <div className="rounded-xl border bg-muted/30 p-4 space-y-1">
+            <div className="rounded-xl border bg-muted/30 p-4 space-y-2">
+              {isActive && subscription?.stripeSubscriptionId && currentPlan && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
+                  <span>{PLANS.find(p => p.id === currentPlan)?.name ?? currentPlan}</span>
+                  <ArrowRight className="h-3.5 w-3.5" />
+                  <span className="font-semibold text-foreground">{planDetails.name}</span>
+                </div>
+              )}
               <div className="flex items-center justify-between">
                 <span className="font-semibold">Plan {planDetails.name}</span>
                 <span className="font-bold">{planDetails.price}€/mois</span>
               </div>
               <p className="text-sm text-muted-foreground">{planDetails.tokens} tokens IA/mois</p>
               {!isActive && (
-                <p className="text-xs text-muted-foreground mt-2">
+                <p className="text-xs text-muted-foreground mt-1">
                   14 jours d&apos;essai gratuit — vous ne serez prélevé qu&apos;à l&apos;issue de la période d&apos;essai.
+                </p>
+              )}
+              {isActive && subscription?.stripeSubscriptionId && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Vos tokens seront remis à zéro avec la limite du nouveau plan.
                 </p>
               )}
             </div>
@@ -726,9 +759,9 @@ function SubscriptionContent() {
             </Button>
             <Button onClick={handleSubscribe} disabled={!cgvAccepted || isProcessing}>
               {isProcessing ? (
-                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Redirection…</>
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{isActive && subscription?.stripeSubscriptionId ? 'Changement…' : 'Redirection…'}</>
               ) : (
-                'Continuer vers le paiement'
+                isActive && subscription?.stripeSubscriptionId ? 'Confirmer le changement' : 'Continuer vers le paiement'
               )}
             </Button>
           </DialogFooter>
