@@ -1,15 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getStripe, PLAN_TOKEN_LIMITS, type PlanId } from '@/lib/stripe/client'
+import { getStripe, PLAN_TOKEN_LIMITS, resolvePlan } from '@/lib/stripe/client'
 import { getSubscriptionEndDate } from '@/lib/stripe/helpers'
 import { createClient } from '@supabase/supabase-js'
 import { checkRateLimit } from '@/lib/rate-limit'
 import type Stripe from 'stripe'
-
-function resolvePlan(metadata: Record<string, string> | null | undefined): PlanId {
-  const p = metadata?.plan
-  if (p === 'starter' || p === 'pro' || p === 'scale') return p
-  return 'scale'
-}
 
 // Stripe v20+ a supprimé subscription/payment_intent de Invoice,
 // mais les webhooks les envoient toujours dans le payload.
@@ -161,7 +155,7 @@ export async function POST(req: NextRequest) {
           if (resolvedUserId) {
             const subscriptionEndsAt = getSubscriptionEndDate(subscription)
             const isTrialing = subscription.status === 'trialing'
-            const plan = resolvePlan(subscription.metadata as Record<string, string> || session.metadata as Record<string, string>)
+            const plan = resolvePlan((subscription.metadata?.plan || session.metadata?.plan) as string | undefined)
             const tokensLimit = isTrialing ? 200_000 : PLAN_TOKEN_LIMITS[plan]
 
             const { error: updateError } = await supabase
@@ -234,6 +228,7 @@ export async function POST(req: NextRequest) {
 
           if (userId) {
             const subscriptionEndsAt = getSubscriptionEndDate(subscription)
+            const plan = resolvePlan(subscription.metadata?.plan as string | undefined)
 
             await supabase
               .from('profiles')
@@ -241,7 +236,9 @@ export async function POST(req: NextRequest) {
                 subscription_status: 'active',
                 subscription_ends_at: subscriptionEndsAt.toISOString(),
                 tokens_used: 0,
+                tokens_limit: PLAN_TOKEN_LIMITS[plan],
                 token_usage_period_start: new Date().toISOString(),
+                plan,
               })
               .eq('id', userId)
 
@@ -378,7 +375,7 @@ export async function POST(req: NextRequest) {
 
           // When trial ends and subscription becomes active, upgrade tokens to plan limit
           if (subscription.status === 'active') {
-            const plan = resolvePlan(subscription.metadata as Record<string, string>)
+            const plan = resolvePlan(subscription.metadata?.plan as string | undefined)
             updateData.tokens_limit = PLAN_TOKEN_LIMITS[plan]
             updateData.tokens_used = 0
             updateData.token_usage_period_start = new Date().toISOString()

@@ -14,7 +14,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
-import type { PlanId } from '@/lib/stripe/client'
+import type { PlanId } from '@/lib/stripe/plans'
 
 const PLANS = [
   {

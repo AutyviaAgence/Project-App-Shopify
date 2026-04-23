@@ -1,4 +1,6 @@
 import Stripe from 'stripe'
+export type { PlanId } from './plans'
+export { PLAN_PRICES_EUR, PLAN_TOKEN_LIMITS, VALID_PLANS, resolvePlan } from './plans'
 
 // Prix de l'abonnement mensuel en centimes (150€) — conservé pour compatibilité
 export const SUBSCRIPTION_PRICE_CENTS = 15000
@@ -10,21 +12,7 @@ export const CUSTOM_SETUP_TOTAL_EUR = 1500
 export const CUSTOM_BOOKING_URL = 'https://cal.com/autyvia/appel-on-boarding'
 export const DISCOVERY_CALL_URL = 'https://cal.com/autyvia/appel-decouverte'
 
-// Plans tarifaires
-export type PlanId = 'starter' | 'pro' | 'scale'
-
-export const PLAN_PRICES_EUR: Record<PlanId, number> = {
-  starter: 39,
-  pro: 79,
-  scale: 150,
-}
-
-export const PLAN_TOKEN_LIMITS: Record<PlanId, number> = {
-  starter: 500_000,
-  pro: 1_500_000,
-  scale: 4_000_000,
-}
-
+import type { PlanId } from './plans'
 export const PLAN_PRICE_IDS: Record<PlanId, string> = {
   starter: process.env.STRIPE_STARTER_PRICE_ID!,
   pro: process.env.STRIPE_PRO_PRICE_ID!,

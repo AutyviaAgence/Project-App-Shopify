@@ -22,6 +22,7 @@ function RegisterForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirect = searchParams.get('redirect')
+  const planParam = searchParams.get('plan')
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -105,12 +106,15 @@ function RegisterForm() {
     setLoading(true)
 
     const supabase = createClient()
+    const afterLogin = planParam
+      ? `${window.location.origin}/subscription?plan=${planParam}`
+      : `${window.location.origin}/login`
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: { full_name: fullName, signup_domain: window.location.hostname },
-        emailRedirectTo: `${window.location.origin}/login`,
+        emailRedirectTo: afterLogin,
         captchaToken: captchaToken || undefined,
       },
     })

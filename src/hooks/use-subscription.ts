@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import type { SubscriptionStatus } from '@/types/database'
-import type { PlanId } from '@/lib/stripe/client'
+import type { PlanId } from '@/lib/stripe/plans'
 
 type SubscriptionInfo = {
   status: SubscriptionStatus

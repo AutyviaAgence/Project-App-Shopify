@@ -15,7 +15,7 @@ import {
 } from '@/components/ui/select'
 import { Loader2, ShieldAlert, Users, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { PlanId } from '@/lib/stripe/client'
+import type { PlanId } from '@/lib/stripe/plans'
 
 type ClientRow = {
   id: string

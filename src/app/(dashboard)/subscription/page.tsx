@@ -49,7 +49,7 @@ import { cn } from '@/lib/utils'
 import { useTranslation } from '@/i18n/context'
 import { useTenant } from '@/lib/tenant/context'
 import Link from 'next/link'
-import type { PlanId } from '@/lib/stripe/client'
+import type { PlanId } from '@/lib/stripe/plans'
 
 const PLANS = [
   {
@@ -124,6 +124,14 @@ function SubscriptionContent() {
   const [isCancelling, setIsCancelling] = useState(false)
   const [selectedPlan, setSelectedPlan] = useState<PlanId | null>(null)
   const [cgvAccepted, setCgvAccepted] = useState(false)
+
+  // Pré-sélectionner le plan depuis l'URL (ex: venant de /register?plan=starter)
+  useEffect(() => {
+    const p = searchParams.get('plan')
+    if (p === 'starter' || p === 'pro' || p === 'scale') {
+      setSelectedPlan(p)
+    }
+  }, [searchParams])
 
   const dateLocale = locale === 'fr' ? 'fr-FR' : 'en-US'
 
