@@ -572,6 +572,11 @@ function SubscriptionContent() {
                     <Check className="mr-2 h-4 w-4" />
                     Plan actuel
                   </Button>
+                ) : onboardingStatus !== 'active' ? (
+                  <Button className="w-full" disabled variant="outline" title="Finalisez la mise en place pour souscrire">
+                    <Workflow className="mr-2 h-4 w-4" />
+                    Mise en place requise
+                  </Button>
                 ) : (
                   <Button
                     className={cn('w-full', plan.buttonClass)}
