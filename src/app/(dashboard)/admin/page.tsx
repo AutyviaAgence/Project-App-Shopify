@@ -32,8 +32,8 @@ type OnboardingConfig = {
   tools: string[]
   escalation: string
   languages: string[]
-  agent_name: string
-  welcome_message: string
+  conversation_example: string
+  info_to_collect: string
   submitted_at: string | null
 }
 
@@ -448,21 +448,21 @@ function ConfigDetails({ config }: { config: OnboardingConfig }) {
           <p className="font-medium">{ESCALATION_LABELS[config.escalation] || config.escalation}</p>
         </div>
         <div className="rounded-lg bg-muted/50 p-3 space-y-0.5">
-          <p className="text-xs text-muted-foreground font-medium">Nom de l&apos;agent</p>
-          <p className="font-medium">{config.agent_name}</p>
+          <p className="text-xs text-muted-foreground font-medium">Langues</p>
+          <p className="font-medium">{config.languages.join(', ') || '—'}</p>
         </div>
       </div>
       <div className="rounded-lg bg-muted/50 p-3 space-y-0.5">
         <p className="text-xs text-muted-foreground font-medium">Outils</p>
         <p className="font-medium">{config.tools.join(', ') || '—'}</p>
       </div>
-      <div className="rounded-lg bg-muted/50 p-3 space-y-0.5">
-        <p className="text-xs text-muted-foreground font-medium">Langues</p>
-        <p className="font-medium">{config.languages.join(', ') || '—'}</p>
+      <div className="rounded-lg bg-muted/50 p-3 space-y-1">
+        <p className="text-xs text-muted-foreground font-medium">Exemple de conversation</p>
+        <pre className="text-xs text-foreground whitespace-pre-wrap font-mono leading-relaxed">{config.conversation_example || '—'}</pre>
       </div>
-      <div className="rounded-lg bg-muted/50 p-3 space-y-0.5">
-        <p className="text-xs text-muted-foreground font-medium">Message d&apos;accueil</p>
-        <p className="text-foreground italic">&ldquo;{config.welcome_message}&rdquo;</p>
+      <div className="rounded-lg bg-muted/50 p-3 space-y-1">
+        <p className="text-xs text-muted-foreground font-medium">Informations à récolter</p>
+        <pre className="text-xs text-foreground whitespace-pre-wrap leading-relaxed">{config.info_to_collect || '—'}</pre>
       </div>
     </div>
   )

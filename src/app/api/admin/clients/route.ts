@@ -42,7 +42,7 @@ export async function GET() {
   if (clientIds.length > 0) {
     const { data: configs } = await adminSupabase
       .from('onboarding_configs')
-      .select('user_id, main_function, behavior, tools, escalation, languages, agent_name, welcome_message, submitted_at')
+      .select('user_id, main_function, behavior, tools, escalation, languages, conversation_example, info_to_collect, submitted_at')
       .in('user_id', clientIds)
     if (configs) {
       for (const c of configs as Array<{ user_id: string }>) {
