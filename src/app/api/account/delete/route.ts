@@ -22,13 +22,6 @@ export async function POST(req: NextRequest) {
     confirmation: string
   }
 
-  if (!password) {
-    return NextResponse.json(
-      { error: 'Mot de passe requis pour confirmer la suppression' },
-      { status: 400 }
-    )
-  }
-
   if (confirmation !== 'SUPPRIMER') {
     return NextResponse.json(
       { error: 'Veuillez taper SUPPRIMER pour confirmer' },
@@ -36,17 +29,29 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Vérifier le mot de passe
-  const { error: signInError } = await supabase.auth.signInWithPassword({
-    email: user.email!,
-    password,
-  })
+  // Détecter si le compte est OAuth (Google, etc.) — pas de mot de passe dans ce cas
+  const isOAuthUser = user.app_metadata?.provider && user.app_metadata.provider !== 'email'
 
-  if (signInError) {
-    return NextResponse.json(
-      { error: 'Mot de passe incorrect' },
-      { status: 400 }
-    )
+  if (!isOAuthUser) {
+    // Compte email/password — vérifier le mot de passe
+    if (!password) {
+      return NextResponse.json(
+        { error: 'Mot de passe requis pour confirmer la suppression' },
+        { status: 400 }
+      )
+    }
+
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email: user.email!,
+      password,
+    })
+
+    if (signInError) {
+      return NextResponse.json(
+        { error: 'Mot de passe incorrect' },
+        { status: 400 }
+      )
+    }
   }
 
   // Créer un client admin pour supprimer l'utilisateur

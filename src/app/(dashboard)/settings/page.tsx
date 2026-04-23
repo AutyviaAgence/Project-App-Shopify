@@ -137,6 +137,7 @@ export default function SettingsPage() {
   const [showNewPassword, setShowNewPassword] = useState(false)
 
   // Account deletion state
+  const [isOAuthUser, setIsOAuthUser] = useState(false)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [deletePassword, setDeletePassword] = useState('')
   const [deleteConfirmation, setDeleteConfirmation] = useState('')
@@ -175,6 +176,7 @@ export default function SettingsPage() {
           setFormTimezone(json.data.timezone || 'Europe/Paris')
           setFormDataRetention(json.data.data_retention_months)
           setFormLifecycleThreshold(json.data.lifecycle_analysis_threshold ?? null)
+          setIsOAuthUser(json.data.auth_provider && json.data.auth_provider !== 'email')
         }
       } catch {
         toast.error(t('settings.load_error'))
@@ -1093,16 +1095,18 @@ export default function SettingsPage() {
                   {t('settings.delete_dialog_warning')}
                 </p>
 
-                <div className="space-y-2">
-                  <Label htmlFor="delete-password">{t('settings.delete_password_label')}</Label>
-                  <Input
-                    id="delete-password"
-                    type="password"
-                    value={deletePassword}
-                    onChange={(e) => setDeletePassword(e.target.value)}
-                    placeholder={t('settings.delete_password_placeholder')}
-                  />
-                </div>
+                {!isOAuthUser && (
+                  <div className="space-y-2">
+                    <Label htmlFor="delete-password">{t('settings.delete_password_label')}</Label>
+                    <Input
+                      id="delete-password"
+                      type="password"
+                      value={deletePassword}
+                      onChange={(e) => setDeletePassword(e.target.value)}
+                      placeholder={t('settings.delete_password_placeholder')}
+                    />
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="delete-confirmation">
@@ -1133,7 +1137,7 @@ export default function SettingsPage() {
                 e.preventDefault()
                 handleDeleteAccount()
               }}
-              disabled={deleting || !deletePassword || deleteConfirmation !== deleteWord}
+              disabled={deleting || (!isOAuthUser && !deletePassword) || deleteConfirmation !== deleteWord}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

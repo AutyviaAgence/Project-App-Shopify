@@ -38,7 +38,7 @@ export async function GET() {
     if (insertError) {
       return NextResponse.json({ error: 'Erreur création profil' }, { status: 500 })
     }
-    return NextResponse.json({ data: newProfile })
+    return NextResponse.json({ data: { ...newProfile, auth_provider: user.app_metadata?.provider || 'email' } })
   }
 
   // Synchroniser si des infos manquent dans le profil mais existent dans auth
@@ -46,6 +46,8 @@ export async function GET() {
     (!existingProfile.full_name && authFullName) ||
     (!existingProfile.avatar_url && authAvatarUrl) ||
     (existingProfile.email !== user.email)
+
+  const authProvider = user.app_metadata?.provider || 'email'
 
   if (needsSync) {
     const { data: updatedProfile, error: updateError } = await supabase
@@ -60,11 +62,11 @@ export async function GET() {
       .single()
 
     if (!updateError && updatedProfile) {
-      return NextResponse.json({ data: updatedProfile })
+      return NextResponse.json({ data: { ...updatedProfile, auth_provider: authProvider } })
     }
   }
 
-  return NextResponse.json({ data: existingProfile })
+  return NextResponse.json({ data: { ...existingProfile, auth_provider: authProvider } })
 }
 
 /** PATCH /api/profile — Modifier le profil */
