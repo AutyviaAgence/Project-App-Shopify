@@ -84,7 +84,7 @@ function OnboardingStatusBadge({ status }: { status: string | null }) {
 }
 
 function SubStatusBadge({ status }: { status: string | null }) {
-  if (!status) return <span className="text-muted-foreground text-xs">—</span>
+  if (!status) return <Badge variant="outline" className="text-muted-foreground border-muted-foreground/30">Aucun abonnement</Badge>
   if (status === 'active') return <Badge className="bg-green-500">Actif</Badge>
   if (status === 'trial') return <Badge className="bg-amber-500">Essai</Badge>
   if (status === 'expired') return <Badge className="bg-red-500">Expiré</Badge>
