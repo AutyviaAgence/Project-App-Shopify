@@ -267,7 +267,7 @@ export default function SettingsPage() {
   }
 
   async function handleDeleteAccount() {
-    if (!deletePassword) {
+    if (!isOAuthUser && !deletePassword) {
       toast.error(t('settings.delete_password_required'))
       return
     }
