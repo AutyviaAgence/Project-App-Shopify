@@ -98,7 +98,7 @@ export default function AdminPage() {
   const [clients, setClients] = useState<ClientRow[]>([])
   const [loading, setLoading] = useState(true)
   const [activating, setActivating] = useState<string | null>(null)
-  const [selectedPlans, setSelectedPlans] = useState<Record<string, PlanId>>({})
+  const [selectedPlans, setSelectedPlans] = useState<Record<string, PlanId | 'none'>>({})
   const [configModal, setConfigModal] = useState<{ config: OnboardingConfig; userId: string } | null>(null)
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
   const [validating, setValidating] = useState(false)
@@ -124,7 +124,8 @@ export default function AdminPage() {
   }, [subscription, fetchClients])
 
   const handleActivate = async (userId: string) => {
-    const plan = selectedPlans[userId] || 'scale'
+    const selectedPlan = selectedPlans[userId] || 'scale'
+    const plan = selectedPlan === 'none' ? null : selectedPlan
     setActivating(userId)
     try {
       const res = await fetch('/api/admin/activate', {
@@ -134,7 +135,7 @@ export default function AdminPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
-      toast.success(`Plan ${plan} activé`)
+      toast.success(plan ? `Plan ${plan} activé` : 'Plan réinitialisé')
       fetchClients()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur')
@@ -351,13 +352,14 @@ export default function AdminPage() {
                         <span className="text-sm font-medium">{PLAN_LABELS[client.plan || ''] || '—'}</span>
                         <div className="flex items-center gap-1.5">
                           <Select
-                            value={selectedPlans[client.id] || client.plan || 'scale'}
-                            onValueChange={v => setSelectedPlans(prev => ({ ...prev, [client.id]: v as PlanId }))}
+                            value={selectedPlans[client.id] || client.plan || 'none'}
+                            onValueChange={v => setSelectedPlans(prev => ({ ...prev, [client.id]: v as PlanId | 'none' }))}
                           >
                             <SelectTrigger className="h-6 w-20 text-xs">
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
+                              <SelectItem value="none">— Aucun —</SelectItem>
                               <SelectItem value="starter">Starter</SelectItem>
                               <SelectItem value="pro">Pro</SelectItem>
                               <SelectItem value="scale">Scale</SelectItem>

@@ -28,14 +28,32 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}))
   const { user_id, plan } = body
 
-  if (!user_id || !VALID_PLANS.includes(plan)) {
-    return NextResponse.json({ error: 'user_id et plan (starter/pro/scale) requis' }, { status: 400 })
+  if (!user_id) {
+    return NextResponse.json({ error: 'user_id requis' }, { status: 400 })
+  }
+
+  if (plan !== null && !VALID_PLANS.includes(plan)) {
+    return NextResponse.json({ error: 'plan doit être starter, pro, scale ou null' }, { status: 400 })
   }
 
   const adminSupabase = createAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
+
+  // plan === null → réinitialiser sans abonnement actif
+  if (plan === null) {
+    const { error: updateError } = await adminSupabase
+      .from('profiles')
+      .update({ plan: null, tokens_limit: 0, tokens_used: 0, subscription_status: 'expired', subscription_ends_at: null })
+      .eq('id', user_id)
+
+    if (updateError) {
+      return NextResponse.json({ error: updateError.message }, { status: 500 })
+    }
+
+    return NextResponse.json({ success: true, plan: null })
+  }
 
   const now = new Date()
   const nextMonth = new Date(now)
