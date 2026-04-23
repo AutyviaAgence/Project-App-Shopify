@@ -28,7 +28,7 @@ export async function GET() {
 
   const { data: clients, error } = await adminSupabase
     .from('profiles')
-    .select('id, email, full_name, subscription_status, plan, tokens_used, tokens_limit, created_at')
+    .select('id, email, full_name, subscription_status, onboarding_status, onboarding_plan, plan, tokens_used, tokens_limit, created_at')
     .order('created_at', { ascending: false })
     .limit(500)
 
@@ -36,5 +36,25 @@ export async function GET() {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  return NextResponse.json({ clients })
+  // Récupérer les configurateurs soumis
+  const clientIds = (clients || []).map((c: { id: string }) => c.id)
+  let configsByUser: Record<string, unknown> = {}
+  if (clientIds.length > 0) {
+    const { data: configs } = await adminSupabase
+      .from('onboarding_configs')
+      .select('user_id, main_function, behavior, tools, escalation, languages, agent_name, welcome_message, submitted_at')
+      .in('user_id', clientIds)
+    if (configs) {
+      for (const c of configs as Array<{ user_id: string }>) {
+        configsByUser[c.user_id] = c
+      }
+    }
+  }
+
+  const enriched = (clients || []).map((c: { id: string }) => ({
+    ...c,
+    onboarding_config: configsByUser[c.id] || null,
+  }))
+
+  return NextResponse.json({ clients: enriched })
 }
