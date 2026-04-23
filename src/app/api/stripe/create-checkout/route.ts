@@ -1,18 +1,23 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getStripe, SUBSCRIPTION_PRICE_CENTS } from '@/lib/stripe/client'
+import { getStripe, PLAN_PRICE_IDS, PLAN_PRICES_EUR, type PlanId } from '@/lib/stripe/client'
 import { getSubscriptionEndDate } from '@/lib/stripe/helpers'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { getTenantFromCookies } from '@/lib/tenant/server'
 
+const VALID_PLANS: PlanId[] = ['starter', 'pro', 'scale']
+
 /** POST /api/stripe/create-checkout — Créer une session Stripe Checkout */
-export async function POST() {
+export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
 
   if (authError || !user) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
+
+  const body = await req.json().catch(() => ({}))
+  const plan: PlanId = VALID_PLANS.includes(body.plan) ? body.plan : 'scale'
 
   // Récupérer le profil
   const { data: profile } = await supabase
@@ -85,6 +90,8 @@ export async function POST() {
 
     // Créer la session Checkout
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const priceId = PLAN_PRICE_IDS[plan]
+    const planNames: Record<PlanId, string> = { starter: 'Starter', pro: 'Pro', scale: 'Scale' }
 
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
@@ -92,28 +99,25 @@ export async function POST() {
       payment_method_types: ['card'],
       line_items: [
         {
-          price_data: {
-            currency: 'eur',
-            product_data: {
-              name: `Abonnement ${tenant.appName}`,
-              description: `Accès complet à la plateforme ${tenant.appName} - Automatisation WhatsApp IA`,
-            },
-            unit_amount: SUBSCRIPTION_PRICE_CENTS,
-            recurring: {
-              interval: 'month',
-            },
-          },
+          price: priceId,
           quantity: 1,
         },
       ],
       success_url: `${baseUrl}/subscription?success=true`,
-      cancel_url: `${baseUrl}/subscription?cancelled=true`,
+      cancel_url: `${baseUrl}/pricing?cancelled=true`,
       metadata: {
         user_id: user.id,
+        plan,
       },
       subscription_data: {
         metadata: {
           user_id: user.id,
+          plan,
+        },
+      },
+      custom_text: {
+        submit: {
+          message: `Plan ${planNames[plan]} — ${PLAN_PRICES_EUR[plan]}€/mois. Vous acceptez les CGV d'${tenant.appName}.`,
         },
       },
     })

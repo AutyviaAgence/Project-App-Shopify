@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import type { SubscriptionStatus } from '@/types/database'
+import type { PlanId } from '@/lib/stripe/client'
 
 type SubscriptionInfo = {
   status: SubscriptionStatus
@@ -16,6 +17,8 @@ type SubscriptionInfo = {
   tokensRemaining: number
   usagePercentage: number
   stripeSubscriptionId: string | null
+  plan: PlanId
+  role: 'user' | 'admin'
 }
 
 export function useSubscription() {
@@ -66,6 +69,8 @@ export function useSubscription() {
           tokensRemaining,
           usagePercentage,
           stripeSubscriptionId: data.data.stripe_subscription_id || null,
+          plan: (data.data.plan || 'scale') as PlanId,
+          role: (data.data.role || 'user') as 'user' | 'admin',
         })
       }
     } catch (error) {

@@ -1,472 +1,660 @@
--- ============================================================================
--- WhatsApp Multi-Session SaaS avec Agents IA - Schema SQL
--- ============================================================================
--- Exécuter ce fichier ENTIER dans le SQL Editor de Supabase.
--- ============================================================================
+-- ============================================================
+-- AUTYVIA — SCHEMA PUBLIC COMPLET
+-- Généré depuis la vraie structure DB (avril 2026)
+-- IMPORTANT : Mettre à jour ce fichier à chaque modification de la structure DB
+-- ============================================================
 
--- Extensions
+-- Extensions requises
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
-CREATE EXTENSION IF NOT EXISTS vector;
+CREATE EXTENSION IF NOT EXISTS "vector";
 
--- ============================================================================
+-- ============================================================
 -- TABLES
--- ============================================================================
+-- ============================================================
 
--- Profils utilisateurs (lié à Supabase Auth)
-CREATE TABLE IF NOT EXISTS profiles (
-  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
-  email TEXT NOT NULL,
-  full_name TEXT,
-  avatar_url TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+CREATE TABLE public.profiles (
+  id uuid NOT NULL PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  email text NOT NULL,
+  full_name text,
+  avatar_url text,
+  timezone text,
+  data_retention_months integer,
+  subscription_status text,
+  trial_ends_at timestamp with time zone,
+  subscription_ends_at timestamp with time zone,
+  stripe_customer_id text,
+  stripe_subscription_id text,
+  tokens_used bigint NOT NULL DEFAULT 0,
+  tokens_limit bigint NOT NULL DEFAULT 100000,
+  token_usage_period_start timestamp with time zone,
+  lifecycle_analysis_threshold integer,
+  tenant_id uuid,
+  plan text DEFAULT 'scale' CHECK (plan IN ('starter', 'pro', 'scale')),
+  role text DEFAULT 'user' CHECK (role IN ('user', 'admin')),
+  is_banned boolean DEFAULT false,
+  banned_at timestamp with time zone,
+  banned_reason text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
 );
 
--- Sessions WhatsApp (connexions Evolution API)
-CREATE TABLE IF NOT EXISTS whatsapp_sessions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  instance_name TEXT NOT NULL UNIQUE,
-  instance_id TEXT,
-  status TEXT DEFAULT 'disconnected' CHECK (status IN ('connected', 'disconnected', 'qr_pending', 'error')),
-  qr_code TEXT,
-  phone_number TEXT,
-  daily_ai_message_limit INTEGER,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+CREATE TABLE public.tenants (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  slug text NOT NULL UNIQUE,
+  domain text,
+  app_name text NOT NULL,
+  logo_url text,
+  favicon_url text,
+  primary_color text,
+  accent_color text,
+  sidebar_color text,
+  bg_color text,
+  text_color text,
+  support_email text,
+  theme_config jsonb,
+  is_default boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_sessions_user ON whatsapp_sessions(user_id);
-CREATE INDEX IF NOT EXISTS idx_sessions_status ON whatsapp_sessions(status);
-
--- Agents IA
-CREATE TABLE IF NOT EXISTS ai_agents (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  description TEXT,
-  system_prompt TEXT NOT NULL,
-  objective TEXT,
-  model TEXT DEFAULT 'gpt-4o-mini',
-  temperature FLOAT DEFAULT 0.7,
-  response_delay_min INTEGER DEFAULT 0,
-  response_delay_max INTEGER DEFAULT 0,
-  max_messages_per_conversation INTEGER,
-  inactivity_timeout_minutes INTEGER,
-  is_active BOOLEAN DEFAULT true,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+CREATE TABLE public.teams (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name text NOT NULL,
+  slug text,
+  owner_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  join_code text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_agents_user ON ai_agents(user_id);
-
--- Liens WhatsApp (wa.me avec pré-message et tracking)
-CREATE TABLE IF NOT EXISTS wa_links (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  session_id UUID NOT NULL REFERENCES whatsapp_sessions(id) ON DELETE CASCADE,
-  ai_agent_id UUID REFERENCES ai_agents(id) ON DELETE SET NULL,
-  name TEXT NOT NULL,
-  slug TEXT UNIQUE,
-  pre_filled_message TEXT,
-  tracking_source TEXT,
-  click_count INT DEFAULT 0,
-  is_active BOOLEAN DEFAULT true,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
+CREATE TABLE public.team_members (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  team_id uuid NOT NULL REFERENCES public.teams(id) ON DELETE CASCADE,
+  user_id uuid REFERENCES public.profiles(id) ON DELETE CASCADE,
+  role text NOT NULL,
+  invitation_token text,
+  invited_email text,
+  status text,
+  allowed_session_ids uuid[],
+  allowed_agent_ids uuid[],
+  allowed_link_ids uuid[],
+  allowed_campaign_ids uuid[],
+  can_view_stats boolean DEFAULT false,
+  can_view_knowledge boolean DEFAULT false,
+  can_view_messages boolean DEFAULT false,
+  can_manage_sessions boolean DEFAULT false,
+  can_manage_agents boolean DEFAULT false,
+  can_manage_knowledge boolean DEFAULT false,
+  can_manage_links boolean DEFAULT false,
+  can_send_messages boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_wa_links_user ON wa_links(user_id);
-CREATE INDEX IF NOT EXISTS idx_wa_links_session ON wa_links(session_id);
-CREATE INDEX IF NOT EXISTS idx_wa_links_slug ON wa_links(slug);
-
--- Historique des clics sur les liens WA
-CREATE TABLE IF NOT EXISTS link_clicks (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  link_id UUID NOT NULL REFERENCES wa_links(id) ON DELETE CASCADE,
-  clicked_at TIMESTAMPTZ DEFAULT NOW(),
-  user_agent TEXT,
-  ip_hash TEXT,
-  referer TEXT,
-  country TEXT,
-  city TEXT,
-  device_type TEXT,
-  os TEXT,
-  browser TEXT,
-  utm_source TEXT,
-  utm_medium TEXT,
-  utm_campaign TEXT,
-  is_unique BOOLEAN DEFAULT true
+CREATE TABLE public.team_invitations (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  team_id uuid NOT NULL REFERENCES public.teams(id) ON DELETE CASCADE,
+  code text NOT NULL UNIQUE,
+  role text NOT NULL,
+  allowed_session_ids uuid[],
+  allowed_agent_ids uuid[],
+  allowed_link_ids uuid[],
+  allowed_campaign_ids uuid[],
+  can_view_stats boolean DEFAULT false,
+  can_view_knowledge boolean DEFAULT false,
+  can_view_messages boolean DEFAULT false,
+  can_manage_sessions boolean DEFAULT false,
+  can_manage_agents boolean DEFAULT false,
+  can_manage_knowledge boolean DEFAULT false,
+  can_manage_links boolean DEFAULT false,
+  can_send_messages boolean DEFAULT false,
+  created_by uuid NOT NULL REFERENCES public.profiles(id),
+  used_by uuid REFERENCES public.profiles(id),
+  used_at timestamp with time zone,
+  expires_at timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_link_clicks_link_id ON link_clicks(link_id);
-CREATE INDEX IF NOT EXISTS idx_link_clicks_clicked_at ON link_clicks(clicked_at);
-CREATE INDEX IF NOT EXISTS idx_link_clicks_link_ip ON link_clicks(link_id, ip_hash);
-
--- Contacts WhatsApp
-CREATE TABLE IF NOT EXISTS contacts (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  session_id UUID NOT NULL REFERENCES whatsapp_sessions(id) ON DELETE CASCADE,
-  phone_number TEXT NOT NULL,
-  name TEXT,
-  first_name TEXT,
-  last_name TEXT,
-  email TEXT,
-  notes TEXT,
-  ai_summary TEXT,
-  ai_summary_updated_at TIMESTAMPTZ,
-  profile_picture TEXT,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(session_id, phone_number)
+CREATE TABLE public.whatsapp_sessions (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  team_id uuid REFERENCES public.teams(id) ON DELETE SET NULL,
+  instance_name text NOT NULL,
+  instance_id text,
+  display_name text,
+  status text,
+  qr_code text,
+  pairing_code text,
+  phone_number text,
+  integration_type text DEFAULT 'evolution',
+  waba_phone_number_id text,
+  waba_business_account_id text,
+  waba_access_token text,
+  daily_ai_message_limit integer,
+  ai_message_delay integer DEFAULT 0,
+  qualifier_agent_id uuid,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_contacts_session ON contacts(session_id);
-CREATE INDEX IF NOT EXISTS idx_contacts_phone ON contacts(phone_number);
-CREATE INDEX IF NOT EXISTS idx_contacts_name ON contacts(name);
-CREATE INDEX IF NOT EXISTS idx_contacts_first_last_name ON contacts(first_name, last_name);
-
--- Conversations
-CREATE TABLE IF NOT EXISTS conversations (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  session_id UUID NOT NULL REFERENCES whatsapp_sessions(id) ON DELETE CASCADE,
-  contact_id UUID NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
-  ai_agent_id UUID REFERENCES ai_agents(id) ON DELETE SET NULL,
-  wa_link_id UUID REFERENCES wa_links(id) ON DELETE SET NULL,
-  last_message_at TIMESTAMPTZ,
-  last_message_preview TEXT,
-  unread_count INT DEFAULT 0,
-  is_ai_active BOOLEAN DEFAULT false,
-  is_pinned BOOLEAN DEFAULT false,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(session_id, contact_id)
+CREATE TABLE public.ai_agents (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  team_id uuid REFERENCES public.teams(id) ON DELETE SET NULL,
+  name text NOT NULL,
+  description text,
+  system_prompt text NOT NULL,
+  objective text,
+  model text DEFAULT 'gpt-4o',
+  temperature double precision DEFAULT 0.7,
+  agent_type text DEFAULT 'standard',
+  is_active boolean DEFAULT true,
+  is_pinned boolean NOT NULL DEFAULT false,
+  response_delay_min integer DEFAULT 0,
+  response_delay_max integer DEFAULT 0,
+  max_messages_per_conversation integer,
+  inactivity_timeout_minutes integer,
+  escalation_enabled boolean DEFAULT false,
+  escalation_mode text DEFAULT 'keywords',
+  escalation_keywords text[],
+  escalation_message text,
+  auto_detect_language boolean DEFAULT false,
+  schedule_enabled boolean DEFAULT false,
+  schedule_timezone text,
+  schedule_start_time time without time zone,
+  schedule_end_time time without time zone,
+  schedule_days text[],
+  booking_url text,
+  stop_condition text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_conversations_session ON conversations(session_id);
-CREATE INDEX IF NOT EXISTS idx_conversations_contact ON conversations(contact_id);
-CREATE INDEX IF NOT EXISTS idx_conversations_last_message ON conversations(last_message_at DESC);
-CREATE INDEX IF NOT EXISTS idx_conversations_pinned ON conversations(is_pinned DESC, last_message_at DESC);
-
--- Messages
-CREATE TABLE IF NOT EXISTS messages (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
-  session_id UUID NOT NULL REFERENCES whatsapp_sessions(id) ON DELETE CASCADE,
-  direction TEXT NOT NULL CHECK (direction IN ('inbound', 'outbound')),
-  content TEXT,
-  message_type TEXT DEFAULT 'text' CHECK (message_type IN ('text', 'image', 'audio', 'video', 'document', 'sticker', 'location', 'contact')),
-  media_url TEXT,
-  wa_message_id TEXT,
-  sent_by TEXT NOT NULL CHECK (sent_by IN ('user', 'ai_agent', 'contact')),
-  ai_agent_id UUID REFERENCES ai_agents(id) ON DELETE SET NULL,
-  status TEXT DEFAULT 'sent' CHECK (status IN ('pending', 'sent', 'delivered', 'read', 'failed')),
-  ai_processed BOOLEAN DEFAULT false,
-  created_at TIMESTAMPTZ DEFAULT NOW()
+CREATE TABLE public.qualifier_routes (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  agent_id uuid NOT NULL REFERENCES public.ai_agents(id) ON DELETE CASCADE,
+  target_agent_id uuid NOT NULL REFERENCES public.ai_agents(id) ON DELETE CASCADE,
+  name text NOT NULL,
+  description text NOT NULL,
+  priority integer DEFAULT 0,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_messages_conversation ON messages(conversation_id);
-CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id);
-CREATE INDEX IF NOT EXISTS idx_messages_created ON messages(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_messages_conv_created ON messages(conversation_id, created_at DESC);
-CREATE UNIQUE INDEX IF NOT EXISTS idx_messages_wa_id
-  ON messages(wa_message_id, session_id) WHERE wa_message_id IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_messages_ai_pending
-  ON messages(conversation_id, ai_processed, created_at)
-  WHERE direction = 'inbound' AND ai_processed = false;
-
--- Statistiques agrégées quotidiennes
-CREATE TABLE IF NOT EXISTS stats_daily (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  session_id UUID REFERENCES whatsapp_sessions(id) ON DELETE CASCADE,
-  ai_agent_id UUID REFERENCES ai_agents(id) ON DELETE SET NULL,
-  wa_link_id UUID REFERENCES wa_links(id) ON DELETE SET NULL,
-  date DATE NOT NULL,
-  messages_sent INT DEFAULT 0,
-  messages_received INT DEFAULT 0,
-  conversations_started INT DEFAULT 0,
-  response_rate FLOAT,
-  avg_response_time_seconds INT,
-  UNIQUE(user_id, session_id, ai_agent_id, wa_link_id, date)
+CREATE TABLE public.oauth_credentials (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  team_id uuid REFERENCES public.teams(id) ON DELETE SET NULL,
+  name text NOT NULL,
+  provider text NOT NULL,
+  credential_type text NOT NULL DEFAULT 'oauth2',
+  client_id text,
+  client_secret text,
+  access_token text,
+  refresh_token text,
+  token_expires_at timestamp with time zone,
+  scopes text,
+  metadata jsonb,
+  is_connected boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
 );
 
-CREATE INDEX IF NOT EXISTS idx_stats_user ON stats_daily(user_id);
-CREATE INDEX IF NOT EXISTS idx_stats_date ON stats_daily(date DESC);
+CREATE TABLE public.agent_tools (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  agent_id uuid NOT NULL REFERENCES public.ai_agents(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  credential_id uuid REFERENCES public.oauth_credentials(id) ON DELETE SET NULL,
+  tool_type text NOT NULL,
+  name text NOT NULL,
+  description text NOT NULL,
+  config jsonb NOT NULL DEFAULT '{}',
+  permissions text NOT NULL DEFAULT 'read',
+  rate_limit integer NOT NULL DEFAULT 100,
+  is_active boolean NOT NULL DEFAULT true,
+  created_at timestamp with time zone NOT NULL DEFAULT now(),
+  updated_at timestamp with time zone NOT NULL DEFAULT now()
+);
 
--- ============================================================================
--- FONCTIONS
--- ============================================================================
+CREATE TABLE public.tool_execution_logs (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  agent_id uuid NOT NULL REFERENCES public.ai_agents(id) ON DELETE CASCADE,
+  tool_id uuid NOT NULL REFERENCES public.agent_tools(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  conversation_id uuid,
+  function_name text NOT NULL,
+  parameters jsonb,
+  result jsonb,
+  status text NOT NULL,
+  error_message text,
+  duration_ms integer,
+  created_at timestamp with time zone NOT NULL DEFAULT now()
+);
 
--- Auto-création profil à l'inscription
-CREATE OR REPLACE FUNCTION handle_new_user()
-RETURNS TRIGGER AS $$
+CREATE TABLE public.contacts (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  session_id uuid NOT NULL REFERENCES public.whatsapp_sessions(id) ON DELETE CASCADE,
+  phone_number text NOT NULL,
+  name text,
+  first_name text,
+  last_name text,
+  email text,
+  notes text,
+  ai_summary text,
+  ai_summary_updated_at timestamp with time zone,
+  profile_picture text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.conversation_tags (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  team_id uuid REFERENCES public.teams(id) ON DELETE SET NULL,
+  name text NOT NULL,
+  color text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.lifecycle_stages (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  name text NOT NULL,
+  color text NOT NULL,
+  icon text,
+  position integer NOT NULL DEFAULT 0,
+  description text,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.conversations (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  session_id uuid NOT NULL REFERENCES public.whatsapp_sessions(id) ON DELETE CASCADE,
+  contact_id uuid NOT NULL REFERENCES public.contacts(id) ON DELETE CASCADE,
+  ai_agent_id uuid REFERENCES public.ai_agents(id) ON DELETE SET NULL,
+  wa_link_id uuid,
+  lifecycle_stage_id uuid REFERENCES public.lifecycle_stages(id) ON DELETE SET NULL,
+  lifecycle_last_analyzed_at timestamp with time zone,
+  lifecycle_messages_since_analysis integer DEFAULT 0,
+  last_message_at timestamp with time zone,
+  last_message_preview text,
+  unread_count integer DEFAULT 0,
+  is_ai_active boolean DEFAULT false,
+  is_pinned boolean DEFAULT false,
+  escalation_reason text,
+  escalated_at timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.conversation_tag_assignments (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  conversation_id uuid NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
+  tag_id uuid NOT NULL REFERENCES public.conversation_tags(id) ON DELETE CASCADE,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.lifecycle_history (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  conversation_id uuid NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
+  from_stage_id uuid REFERENCES public.lifecycle_stages(id) ON DELETE SET NULL,
+  to_stage_id uuid REFERENCES public.lifecycle_stages(id) ON DELETE SET NULL,
+  reason text,
+  changed_by text NOT NULL,
+  tokens_used integer,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.messages (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  conversation_id uuid NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
+  session_id uuid NOT NULL REFERENCES public.whatsapp_sessions(id) ON DELETE CASCADE,
+  ai_agent_id uuid REFERENCES public.ai_agents(id) ON DELETE SET NULL,
+  direction text NOT NULL,
+  content text,
+  message_type text DEFAULT 'text',
+  media_url text,
+  media_mime_type text,
+  transcription text,
+  wa_message_id text,
+  reaction_emoji text,
+  sent_by text NOT NULL,
+  status text DEFAULT 'sent',
+  ai_processed boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.knowledge_documents (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  team_id uuid REFERENCES public.teams(id) ON DELETE SET NULL,
+  name text NOT NULL,
+  description text,
+  doc_type text NOT NULL,
+  text_content text,
+  storage_path text,
+  status text NOT NULL DEFAULT 'pending',
+  error_message text,
+  chunk_count integer DEFAULT 0,
+  char_count integer DEFAULT 0,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.knowledge_chunks (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  document_id uuid NOT NULL REFERENCES public.knowledge_documents(id) ON DELETE CASCADE,
+  user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  chunk_index integer NOT NULL,
+  content text NOT NULL,
+  token_count integer,
+  embedding vector(1536),
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.agent_knowledge_documents (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  agent_id uuid NOT NULL REFERENCES public.ai_agents(id) ON DELETE CASCADE,
+  document_id uuid NOT NULL REFERENCES public.knowledge_documents(id) ON DELETE CASCADE,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.agent_teams (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  agent_id uuid NOT NULL REFERENCES public.ai_agents(id) ON DELETE CASCADE,
+  team_id uuid NOT NULL REFERENCES public.teams(id) ON DELETE CASCADE,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.document_teams (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  document_id uuid NOT NULL REFERENCES public.knowledge_documents(id) ON DELETE CASCADE,
+  team_id uuid NOT NULL REFERENCES public.teams(id) ON DELETE CASCADE,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.session_teams (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  session_id uuid NOT NULL REFERENCES public.whatsapp_sessions(id) ON DELETE CASCADE,
+  team_id uuid NOT NULL REFERENCES public.teams(id) ON DELETE CASCADE,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.wa_links (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  team_id uuid REFERENCES public.teams(id) ON DELETE SET NULL,
+  session_id uuid NOT NULL REFERENCES public.whatsapp_sessions(id) ON DELETE CASCADE,
+  ai_agent_id uuid REFERENCES public.ai_agents(id) ON DELETE SET NULL,
+  name text NOT NULL,
+  slug text UNIQUE,
+  pre_filled_message text,
+  tracking_source text,
+  click_count integer DEFAULT 0,
+  is_active boolean DEFAULT true,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.link_teams (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  link_id uuid NOT NULL REFERENCES public.wa_links(id) ON DELETE CASCADE,
+  team_id uuid NOT NULL REFERENCES public.teams(id) ON DELETE CASCADE,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.link_clicks (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  link_id uuid NOT NULL REFERENCES public.wa_links(id) ON DELETE CASCADE,
+  proposal_id uuid,
+  is_unique boolean DEFAULT false,
+  user_agent text,
+  ip_hash text,
+  referer text,
+  country text,
+  city text,
+  device_type text,
+  os text,
+  browser text,
+  utm_source text,
+  utm_medium text,
+  utm_campaign text,
+  clicked_at timestamp with time zone DEFAULT now(),
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.booking_proposals (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  agent_id uuid NOT NULL REFERENCES public.ai_agents(id) ON DELETE CASCADE,
+  conversation_id uuid REFERENCES public.conversations(id) ON DELETE SET NULL,
+  contact_id uuid REFERENCES public.contacts(id) ON DELETE SET NULL,
+  session_id uuid REFERENCES public.whatsapp_sessions(id) ON DELETE SET NULL,
+  message_id uuid REFERENCES public.messages(id) ON DELETE SET NULL,
+  clicked boolean DEFAULT false,
+  clicked_at timestamp with time zone,
+  proposed_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.booking_link_clicks (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  agent_id uuid NOT NULL REFERENCES public.ai_agents(id) ON DELETE CASCADE,
+  conversation_id uuid REFERENCES public.conversations(id) ON DELETE SET NULL,
+  contact_id uuid REFERENCES public.contacts(id) ON DELETE SET NULL,
+  session_id uuid REFERENCES public.whatsapp_sessions(id) ON DELETE SET NULL,
+  proposal_id uuid REFERENCES public.booking_proposals(id) ON DELETE SET NULL,
+  user_agent text,
+  ip_hash text,
+  referer text,
+  clicked_at timestamp with time zone DEFAULT now(),
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.booking_clicks_stats (
+  agent_id uuid REFERENCES public.ai_agents(id) ON DELETE CASCADE,
+  total_clicks bigint,
+  unique_conversations bigint,
+  unique_contacts bigint,
+  click_date timestamp with time zone
+);
+
+CREATE TABLE public.campaigns (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  team_id uuid REFERENCES public.teams(id) ON DELETE SET NULL,
+  name text NOT NULL,
+  status text DEFAULT 'draft',
+  message_template text,
+  relance_agent_id uuid REFERENCES public.ai_agents(id) ON DELETE SET NULL,
+  conversation_agent_id uuid REFERENCES public.ai_agents(id) ON DELETE SET NULL,
+  filter_session_ids uuid[],
+  filter_tracking_sources text[],
+  filter_tag_ids uuid[],
+  filter_link_ids uuid[],
+  filter_lifecycle_stage_ids uuid[],
+  filter_inactivity_days integer,
+  filter_exclude_replied boolean DEFAULT false,
+  max_recipients integer,
+  delay_between_min integer DEFAULT 5,
+  delay_between_max integer DEFAULT 15,
+  messages_per_hour integer,
+  send_hour_start integer DEFAULT 8,
+  send_hour_end integer DEFAULT 20,
+  min_response_rate double precision,
+  min_days_since_last_campaign integer,
+  total_recipients integer DEFAULT 0,
+  sent_count integer DEFAULT 0,
+  delivered_count integer DEFAULT 0,
+  replied_count integer DEFAULT 0,
+  failed_count integer DEFAULT 0,
+  scheduled_at timestamp with time zone,
+  started_at timestamp with time zone,
+  completed_at timestamp with time zone,
+  paused_at timestamp with time zone,
+  pause_reason text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.campaign_recipients (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  campaign_id uuid NOT NULL REFERENCES public.campaigns(id) ON DELETE CASCADE,
+  contact_id uuid NOT NULL REFERENCES public.contacts(id) ON DELETE CASCADE,
+  session_id uuid NOT NULL REFERENCES public.whatsapp_sessions(id) ON DELETE CASCADE,
+  conversation_id uuid REFERENCES public.conversations(id) ON DELETE SET NULL,
+  status text DEFAULT 'queued',
+  message_sent text,
+  queued_at timestamp with time zone DEFAULT now(),
+  sent_at timestamp with time zone,
+  delivered_at timestamp with time zone,
+  replied_at timestamp with time zone,
+  error_message text,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.campaign_teams (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  campaign_id uuid NOT NULL REFERENCES public.campaigns(id) ON DELETE CASCADE,
+  team_id uuid NOT NULL REFERENCES public.teams(id) ON DELETE CASCADE,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.campaign_blacklist (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  contact_id uuid NOT NULL REFERENCES public.contacts(id) ON DELETE CASCADE,
+  session_id uuid NOT NULL REFERENCES public.whatsapp_sessions(id) ON DELETE CASCADE,
+  reason text,
+  keyword_matched text,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.campaign_opt_out_keywords (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  keyword text NOT NULL UNIQUE,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.stats_daily (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  session_id uuid REFERENCES public.whatsapp_sessions(id) ON DELETE SET NULL,
+  ai_agent_id uuid REFERENCES public.ai_agents(id) ON DELETE SET NULL,
+  wa_link_id uuid REFERENCES public.wa_links(id) ON DELETE SET NULL,
+  date date NOT NULL,
+  messages_sent integer DEFAULT 0,
+  messages_received integer DEFAULT 0,
+  conversations_started integer DEFAULT 0,
+  response_rate double precision,
+  avg_response_time_seconds integer
+);
+
+CREATE TABLE public.user_alerts (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  alert_type text NOT NULL,
+  title text NOT NULL,
+  message text NOT NULL,
+  metadata jsonb,
+  is_read boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.payment_history (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  amount integer NOT NULL,
+  currency text DEFAULT 'eur',
+  status text NOT NULL,
+  stripe_payment_intent_id text,
+  stripe_invoice_id text,
+  description text,
+  metadata jsonb,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.webhook_logs (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  session_id uuid REFERENCES public.whatsapp_sessions(id) ON DELETE SET NULL,
+  event_type text NOT NULL,
+  instance_name text NOT NULL,
+  payload jsonb,
+  status text,
+  error_message text,
+  processing_time_ms integer,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE public.system_config (
+  key text NOT NULL PRIMARY KEY,
+  value jsonb NOT NULL,
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+-- ============================================================
+-- TRIGGER : création automatique du profil à l'inscription
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS trigger
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 BEGIN
-  INSERT INTO profiles (id, email, full_name)
+  INSERT INTO public.profiles (id, email, full_name, avatar_url)
   VALUES (
     NEW.id,
     NEW.email,
-    COALESCE(NEW.raw_user_meta_data->>'full_name', split_part(NEW.email, '@', 1))
+    NEW.raw_user_meta_data->>'full_name',
+    NEW.raw_user_meta_data->>'avatar_url'
   );
   RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
-CREATE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE FUNCTION handle_new_user();
-
--- updated_at automatique
-CREATE OR REPLACE FUNCTION update_updated_at()
-RETURNS TRIGGER AS $$
-BEGIN
-  NEW.updated_at = NOW();
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER update_profiles_updated_at BEFORE UPDATE ON profiles FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-CREATE TRIGGER update_sessions_updated_at BEFORE UPDATE ON whatsapp_sessions FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-CREATE TRIGGER update_agents_updated_at BEFORE UPDATE ON ai_agents FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-CREATE TRIGGER update_wa_links_updated_at BEFORE UPDATE ON wa_links FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-CREATE TRIGGER update_contacts_updated_at BEFORE UPDATE ON contacts FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-CREATE TRIGGER update_conversations_updated_at BEFORE UPDATE ON conversations FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-
--- ============================================================================
--- ROW LEVEL SECURITY
--- ============================================================================
-
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE whatsapp_sessions ENABLE ROW LEVEL SECURITY;
-ALTER TABLE ai_agents ENABLE ROW LEVEL SECURITY;
-ALTER TABLE wa_links ENABLE ROW LEVEL SECURITY;
-ALTER TABLE contacts ENABLE ROW LEVEL SECURITY;
-ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
-ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
-ALTER TABLE stats_daily ENABLE ROW LEVEL SECURITY;
-
--- Profiles
-CREATE POLICY "Users can view own profile" ON profiles
-  FOR SELECT USING (id = auth.uid());
-CREATE POLICY "Users can update own profile" ON profiles
-  FOR UPDATE USING (id = auth.uid());
-
--- WhatsApp sessions
-CREATE POLICY "Users can view own sessions" ON whatsapp_sessions
-  FOR SELECT USING (user_id = auth.uid());
-CREATE POLICY "Users can manage own sessions" ON whatsapp_sessions
-  FOR ALL USING (user_id = auth.uid());
-
--- AI agents
-CREATE POLICY "Users can view own agents" ON ai_agents
-  FOR SELECT USING (user_id = auth.uid());
-CREATE POLICY "Users can manage own agents" ON ai_agents
-  FOR ALL USING (user_id = auth.uid());
-
--- WA links
-CREATE POLICY "Users can view own links" ON wa_links
-  FOR SELECT USING (user_id = auth.uid());
-CREATE POLICY "Users can manage own links" ON wa_links
-  FOR ALL USING (user_id = auth.uid());
-
--- Contacts (via session ownership)
-CREATE POLICY "Users can view contacts of own sessions" ON contacts
-  FOR SELECT USING (session_id IN (SELECT id FROM whatsapp_sessions WHERE user_id = auth.uid()));
-CREATE POLICY "Users can manage contacts of own sessions" ON contacts
-  FOR ALL USING (session_id IN (SELECT id FROM whatsapp_sessions WHERE user_id = auth.uid()));
-
--- Conversations (via session ownership)
-CREATE POLICY "Users can view conversations of own sessions" ON conversations
-  FOR SELECT USING (session_id IN (SELECT id FROM whatsapp_sessions WHERE user_id = auth.uid()));
-CREATE POLICY "Users can manage conversations of own sessions" ON conversations
-  FOR ALL USING (session_id IN (SELECT id FROM whatsapp_sessions WHERE user_id = auth.uid()));
-
--- Messages (via session ownership)
-CREATE POLICY "Users can view messages of own sessions" ON messages
-  FOR SELECT USING (session_id IN (SELECT id FROM whatsapp_sessions WHERE user_id = auth.uid()));
-CREATE POLICY "Users can insert messages for own sessions" ON messages
-  FOR INSERT WITH CHECK (session_id IN (SELECT id FROM whatsapp_sessions WHERE user_id = auth.uid()));
-
--- Stats
-CREATE POLICY "Users can view own stats" ON stats_daily
-  FOR SELECT USING (user_id = auth.uid());
-
--- ============================================================================
--- REALTIME
--- ============================================================================
-
-DO $$
-BEGIN
-  IF EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'messages') THEN
-    ALTER PUBLICATION supabase_realtime DROP TABLE messages;
-  END IF;
-  IF EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'conversations') THEN
-    ALTER PUBLICATION supabase_realtime DROP TABLE conversations;
-  END IF;
-  IF EXISTS (SELECT 1 FROM pg_publication_tables WHERE pubname = 'supabase_realtime' AND tablename = 'whatsapp_sessions') THEN
-    ALTER PUBLICATION supabase_realtime DROP TABLE whatsapp_sessions;
-  END IF;
-END $$;
-
-ALTER PUBLICATION supabase_realtime ADD TABLE messages;
-ALTER PUBLICATION supabase_realtime ADD TABLE conversations;
-ALTER PUBLICATION supabase_realtime ADD TABLE whatsapp_sessions;
-
--- ============================================================================
--- STORAGE
--- ============================================================================
-
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('media', 'media', false)
-ON CONFLICT (id) DO NOTHING;
-
--- ============================================================================
--- RAG - BASE DE CONNAISSANCES
--- ============================================================================
-
--- Documents de la base de connaissances
-CREATE TABLE IF NOT EXISTS knowledge_documents (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  name TEXT NOT NULL,
-  description TEXT,
-  doc_type TEXT NOT NULL DEFAULT 'text' CHECK (doc_type IN ('pdf', 'text')),
-  text_content TEXT,
-  storage_path TEXT,
-  status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'ready', 'error')),
-  error_message TEXT,
-  chunk_count INT DEFAULT 0,
-  char_count INT DEFAULT 0,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_knowledge_docs_user ON knowledge_documents(user_id);
-CREATE INDEX IF NOT EXISTS idx_knowledge_docs_status ON knowledge_documents(status);
-
--- Chunks vectorisés
-CREATE TABLE IF NOT EXISTS knowledge_chunks (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  document_id UUID NOT NULL REFERENCES knowledge_documents(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  chunk_index INT NOT NULL,
-  content TEXT NOT NULL,
-  token_count INT,
-  embedding vector(1536),
-  created_at TIMESTAMPTZ DEFAULT NOW()
-);
-
-CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_document ON knowledge_chunks(document_id);
-CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_user ON knowledge_chunks(user_id);
-CREATE INDEX IF NOT EXISTS idx_knowledge_chunks_embedding
-  ON knowledge_chunks
-  USING ivfflat (embedding vector_cosine_ops)
-  WITH (lists = 100);
-
--- Association agents <-> documents (many-to-many)
-CREATE TABLE IF NOT EXISTS agent_knowledge_documents (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  agent_id UUID NOT NULL REFERENCES ai_agents(id) ON DELETE CASCADE,
-  document_id UUID NOT NULL REFERENCES knowledge_documents(id) ON DELETE CASCADE,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(agent_id, document_id)
-);
-
-CREATE INDEX IF NOT EXISTS idx_akd_agent ON agent_knowledge_documents(agent_id);
-CREATE INDEX IF NOT EXISTS idx_akd_document ON agent_knowledge_documents(document_id);
-
--- RLS
-ALTER TABLE knowledge_documents ENABLE ROW LEVEL SECURITY;
-ALTER TABLE knowledge_chunks ENABLE ROW LEVEL SECURITY;
-ALTER TABLE agent_knowledge_documents ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "Users can view own documents" ON knowledge_documents
-  FOR SELECT USING (user_id = auth.uid());
-CREATE POLICY "Users can insert own documents" ON knowledge_documents
-  FOR INSERT WITH CHECK (user_id = auth.uid());
-CREATE POLICY "Users can update own documents" ON knowledge_documents
-  FOR UPDATE USING (user_id = auth.uid());
-CREATE POLICY "Users can delete own documents" ON knowledge_documents
-  FOR DELETE USING (user_id = auth.uid());
-
-CREATE POLICY "Users can view own chunks" ON knowledge_chunks
-  FOR SELECT USING (user_id = auth.uid());
-CREATE POLICY "Users can insert own chunks" ON knowledge_chunks
-  FOR INSERT WITH CHECK (user_id = auth.uid());
-CREATE POLICY "Users can delete own chunks" ON knowledge_chunks
-  FOR DELETE USING (user_id = auth.uid());
-
-CREATE POLICY "Users can view own agent documents" ON agent_knowledge_documents
-  FOR SELECT USING (agent_id IN (SELECT id FROM ai_agents WHERE user_id = auth.uid()));
-CREATE POLICY "Users can insert own agent documents" ON agent_knowledge_documents
-  FOR INSERT WITH CHECK (agent_id IN (SELECT id FROM ai_agents WHERE user_id = auth.uid()));
-CREATE POLICY "Users can delete own agent documents" ON agent_knowledge_documents
-  FOR DELETE USING (agent_id IN (SELECT id FROM ai_agents WHERE user_id = auth.uid()));
-
--- Trigger updated_at
-CREATE TRIGGER update_knowledge_docs_updated_at
-  BEFORE UPDATE ON knowledge_documents
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
-
--- Fonction de recherche vectorielle (appelée via RPC avec service_role)
-CREATE OR REPLACE FUNCTION match_knowledge_chunks(
-  query_embedding vector(1536),
-  match_document_ids UUID[],
-  match_threshold FLOAT DEFAULT 0.7,
-  match_count INT DEFAULT 5
-)
-RETURNS TABLE (
-  id UUID,
-  document_id UUID,
-  content TEXT,
-  chunk_index INT,
-  similarity FLOAT
-)
-LANGUAGE plpgsql
-AS $$
-BEGIN
-  RETURN QUERY
-  SELECT
-    kc.id,
-    kc.document_id,
-    kc.content,
-    kc.chunk_index,
-    (1 - (kc.embedding <=> query_embedding))::FLOAT AS similarity
-  FROM knowledge_chunks kc
-  WHERE kc.document_id = ANY(match_document_ids)
-    AND 1 - (kc.embedding <=> query_embedding) > match_threshold
-  ORDER BY kc.embedding <=> query_embedding
-  LIMIT match_count;
 END;
 $$;
 
--- Storage bucket pour les PDFs de la base de connaissances
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('knowledge', 'knowledge', false)
-ON CONFLICT (id) DO NOTHING;
+CREATE OR REPLACE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
 
-CREATE POLICY "Users can upload own knowledge files"
-  ON storage.objects FOR INSERT
-  WITH CHECK (
-    bucket_id = 'knowledge'
-    AND (storage.foldername(name))[1] = auth.uid()::text
-  );
+-- ============================================================
+-- RLS (Row Level Security)
+-- ============================================================
 
-CREATE POLICY "Users can view own knowledge files"
-  ON storage.objects FOR SELECT
-  USING (
-    bucket_id = 'knowledge'
-    AND (storage.foldername(name))[1] = auth.uid()::text
-  );
-
-CREATE POLICY "Users can delete own knowledge files"
-  ON storage.objects FOR DELETE
-  USING (
-    bucket_id = 'knowledge'
-    AND (storage.foldername(name))[1] = auth.uid()::text
-  );
-
--- ============================================================================
--- FIN DU SCHEMA
--- ============================================================================
+ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tenants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.teams ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.team_members ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.team_invitations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.whatsapp_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ai_agents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.qualifier_routes ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.oauth_credentials ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.agent_tools ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tool_execution_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.contacts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.conversation_tags ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.lifecycle_stages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.conversations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.conversation_tag_assignments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.lifecycle_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.knowledge_documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.knowledge_chunks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.agent_knowledge_documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.agent_teams ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.document_teams ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.session_teams ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.wa_links ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.link_teams ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.link_clicks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.booking_proposals ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.booking_link_clicks ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.campaigns ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.campaign_recipients ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.campaign_teams ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.campaign_blacklist ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.stats_daily ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_alerts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.payment_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.webhook_logs ENABLE ROW LEVEL SECURITY;

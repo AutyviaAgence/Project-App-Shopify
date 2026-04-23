@@ -28,6 +28,7 @@ import {
   CreditCard,
   Loader2,
   Workflow,
+  ShieldCheck,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { AlertsDropdown } from '@/components/alerts-dropdown'
@@ -72,14 +73,38 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { t } = useTranslation()
   const tenant = useTenant()
 
-  const NAV_ITEMS = useMemo(() => NAV_ITEMS_KEYS.map(item => ({ ...item, label: t(item.labelKey) })), [t])
-  const BOTTOM_NAV_ITEMS = useMemo(() => BOTTOM_NAV_KEYS.map(item => ({ ...item, label: t(item.labelKey) })), [t])
+  const plan = subscription?.plan ?? 'scale'
+
+  const NAV_ITEMS = useMemo(() =>
+    NAV_ITEMS_KEYS
+      .filter(item => {
+        if (item.href === '/campaigns' && plan !== 'scale') return false
+        if (item.href === '/lifecycle' && plan === 'starter') return false
+        return true
+      })
+      .map(item => ({ ...item, label: t(item.labelKey) })),
+    [t, plan]
+  )
+  const BOTTOM_NAV_ITEMS = useMemo(() => {
+    const items = BOTTOM_NAV_KEYS.map(item => ({ ...item, label: t(item.labelKey) }))
+    if (subscription?.role === 'admin') {
+      items.unshift({ href: '/admin', labelKey: 'nav.admin', label: 'Admin', icon: ShieldCheck })
+    }
+    return items
+  }, [t, subscription?.role])
 
   // Vérifier si la page actuelle est accessible sans abonnement
   const isAllowedPage = ALLOWED_WITHOUT_SUBSCRIPTION.some(
     p => pathname === p || pathname.startsWith(p + '/')
   )
   const isBlocked = subscription && !subscription.isActive && !isAllowedPage
+
+  // Feature gating : rediriger si accès direct à une route non autorisée par le plan
+  const isPlanBlocked =
+    subscription &&
+    subscription.isActive &&
+    ((pathname.startsWith('/campaigns') && plan !== 'scale') ||
+     (pathname.startsWith('/lifecycle') && plan === 'starter'))
 
   // Close sidebar on route change (mobile) + escape key
   useEffect(() => {
@@ -250,6 +275,29 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {subscriptionLoading ? (
             <div className="flex h-full items-center justify-center">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : isPlanBlocked ? (
+            <div className="flex h-full items-center justify-center p-6">
+              <div className="max-w-md text-center space-y-6">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
+                  <CreditCard className="h-8 w-8 text-amber-600 dark:text-amber-400" />
+                </div>
+                <div className="space-y-2">
+                  <h2 className="text-2xl font-bold text-foreground">Upgrade requis</h2>
+                  <p className="text-muted-foreground">
+                    {pathname.startsWith('/campaigns')
+                      ? 'Les campagnes broadcast sont disponibles uniquement avec le plan Scale.'
+                      : 'Le module Lifecycle est disponible à partir du plan Pro.'}
+                  </p>
+                </div>
+                <Link
+                  href="/subscription"
+                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+                >
+                  <CreditCard className="h-5 w-5" />
+                  Voir les plans
+                </Link>
+              </div>
             </div>
           ) : isBlocked ? (
             <div className="flex h-full items-center justify-center p-6">
