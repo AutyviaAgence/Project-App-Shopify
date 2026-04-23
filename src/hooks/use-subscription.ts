@@ -14,6 +14,8 @@ type SubscriptionInfo = {
   isSubscriptionExpired: boolean
   tokensUsed: number
   tokensLimit: number
+  tokensExtra: number
+  tokensTotal: number
   tokensRemaining: number
   usagePercentage: number
   stripeSubscriptionId: string | null
@@ -55,8 +57,10 @@ export function useSubscription() {
         // Token usage
         const tokensUsed = data.data.tokens_used || 0
         const tokensLimit = data.data.tokens_limit || 0
-        const tokensRemaining = Math.max(0, tokensLimit - tokensUsed)
-        const usagePercentage = tokensLimit > 0 ? Math.round((tokensUsed / tokensLimit) * 100) : 100
+        const tokensExtra = data.data.tokens_extra || 0
+        const tokensTotal = tokensLimit + tokensExtra
+        const tokensRemaining = Math.max(0, tokensTotal - tokensUsed)
+        const usagePercentage = tokensTotal > 0 ? Math.round((tokensUsed / tokensTotal) * 100) : 100
 
         setSubscription({
           status: data.data.subscription_status,
@@ -68,6 +72,8 @@ export function useSubscription() {
           isSubscriptionExpired: isSubscriptionExpired || false,
           tokensUsed,
           tokensLimit,
+          tokensExtra,
+          tokensTotal,
           tokensRemaining,
           usagePercentage,
           stripeSubscriptionId: data.data.stripe_subscription_id || null,

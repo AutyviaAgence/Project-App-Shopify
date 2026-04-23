@@ -402,68 +402,103 @@ function SubscriptionContent() {
         </Card>
       )}
 
-      {/* Tokens */}
-      {subscription && onboardingStatus === 'active' && (
+      {/* Tokens — visible pour onboarding et active */}
+      {subscription && (onboardingStatus === 'active' || onboardingStatus === 'onboarding') && (
         <Card className="mb-8">
           <CardHeader>
-            <div className="flex items-center gap-2">
-              <Cpu className="h-5 w-5 text-muted-foreground" />
-              <span className="font-semibold">{t('subscription.token_usage')}</span>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Cpu className="h-5 w-5 text-muted-foreground" />
+                <span className="font-semibold">{t('subscription.token_usage')}</span>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs"
+                onClick={async () => {
+                  try {
+                    const res = await fetch('/api/stripe/buy-tokens', { method: 'POST' })
+                    const data = await res.json()
+                    if (!res.ok) throw new Error(data.error)
+                    window.location.href = data.url
+                  } catch {
+                    toast.error(t('subscription.buy_tokens_error'))
+                  }
+                }}
+              >
+                <Zap className="mr-1 h-3 w-3" />
+                Acheter +500k tokens (50€)
+              </Button>
             </div>
           </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">
-                {subscription.tokensUsed.toLocaleString()} / {subscription.tokensLimit.toLocaleString()} tokens
-              </span>
-              <span className={cn(
-                'font-medium',
-                subscription.usagePercentage < 70 && 'text-green-600',
-                subscription.usagePercentage >= 70 && subscription.usagePercentage < 90 && 'text-amber-600',
-                subscription.usagePercentage >= 90 && 'text-red-600',
+          <CardContent className="space-y-4">
+            {/* Barre globale */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-muted-foreground">
+                  {subscription.tokensUsed.toLocaleString()} / {subscription.tokensTotal.toLocaleString()} tokens utilisés
+                </span>
+                <span className={cn(
+                  'font-medium',
+                  subscription.usagePercentage < 70 && 'text-green-600',
+                  subscription.usagePercentage >= 70 && subscription.usagePercentage < 90 && 'text-amber-600',
+                  subscription.usagePercentage >= 90 && 'text-red-600',
+                )}>
+                  {subscription.usagePercentage}%
+                </span>
+              </div>
+              <Progress
+                value={Math.min(subscription.usagePercentage, 100)}
+                className={cn(
+                  'h-2.5',
+                  subscription.usagePercentage >= 90 && '[&>div]:bg-red-500',
+                  subscription.usagePercentage >= 70 && subscription.usagePercentage < 90 && '[&>div]:bg-amber-500',
+                )}
+              />
+              <p className="text-xs text-muted-foreground">
+                {subscription.tokensRemaining.toLocaleString()} tokens restants
+              </p>
+            </div>
+
+            {/* Détail : plan + extra */}
+            <div className="grid grid-cols-2 gap-3 pt-1">
+              <div className="rounded-lg border bg-muted/30 p-3 space-y-0.5">
+                <p className="text-xs text-muted-foreground">Tokens du plan</p>
+                <p className="text-sm font-semibold">{subscription.tokensLimit.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground/70">Remis à zéro chaque mois</p>
+              </div>
+              <div className={cn(
+                'rounded-lg border p-3 space-y-0.5',
+                subscription.tokensExtra > 0 ? 'bg-primary/5 border-primary/20' : 'bg-muted/30',
               )}>
-                {subscription.usagePercentage}%
-              </span>
+                <p className="text-xs text-muted-foreground">Tokens supplémentaires</p>
+                <p className={cn('text-sm font-semibold', subscription.tokensExtra > 0 && 'text-primary')}>
+                  {subscription.tokensExtra.toLocaleString()}
+                </p>
+                <p className="text-xs text-muted-foreground/70">Permanent jusqu&apos;à épuisement</p>
+              </div>
             </div>
-            <Progress
-              value={Math.min(subscription.usagePercentage, 100)}
-              className={cn(
-                'h-3',
-                subscription.usagePercentage >= 90 && '[&>div]:bg-red-500',
-                subscription.usagePercentage >= 70 && subscription.usagePercentage < 90 && '[&>div]:bg-amber-500',
-              )}
-            />
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">
-                {t('subscription.tokens_remaining', { count: subscription.tokensRemaining.toLocaleString() })}
-              </span>
-              {subscription.usagePercentage >= 90 && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="h-7 text-xs"
-                  onClick={async () => {
-                    try {
-                      const res = await fetch('/api/stripe/buy-tokens', { method: 'POST' })
-                      const data = await res.json()
-                      if (!res.ok) throw new Error(data.error)
-                      window.location.href = data.url
-                    } catch {
-                      toast.error(t('subscription.buy_tokens_error'))
-                    }
-                  }}
-                >
-                  <Zap className="mr-1 h-3 w-3" />
-                  {t('subscription.buy_tokens')}
-                </Button>
-              )}
-            </div>
+
+            {subscription.usagePercentage >= 80 && (
+              <div className={cn(
+                'rounded-lg p-3 text-xs',
+                subscription.usagePercentage >= 100 ? 'bg-red-500/10 text-red-700 border border-red-500/20' :
+                subscription.usagePercentage >= 90 ? 'bg-orange-500/10 text-orange-700 border border-orange-500/20' :
+                'bg-amber-500/10 text-amber-700 border border-amber-500/20',
+              )}>
+                {subscription.usagePercentage >= 100
+                  ? "Limite atteinte — l'IA est suspendue. Achetez des tokens pour continuer."
+                  : subscription.usagePercentage >= 90
+                  ? "Vous approchez de la limite. Rechargez maintenant pour éviter une interruption."
+                  : "Vous avez consommé plus de 80% de vos tokens. Pensez à recharger bientôt."}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
 
       {/* Actions abonnement actif */}
-      {isActive && onboardingStatus === 'active' && (
+      {isActive && (onboardingStatus === 'active' || onboardingStatus === 'onboarding') && (
         <Card className="mb-8">
           <CardContent className="pt-6">
             <div className="flex flex-wrap gap-3">

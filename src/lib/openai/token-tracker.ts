@@ -20,7 +20,7 @@ export async function checkTokenLimit(userId: string): Promise<
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('tokens_used, tokens_limit, subscription_status, trial_ends_at, subscription_ends_at')
+    .select('tokens_used, tokens_limit, tokens_extra, subscription_status, trial_ends_at, subscription_ends_at')
     .eq('id', userId)
     .single()
 
@@ -62,10 +62,11 @@ export async function checkTokenLimit(userId: string): Promise<
     return { allowed: false, used: profile.tokens_used, limit: 0, reason: `subscription_${status}` }
   }
 
-  // Check token limit
-  const remaining = profile.tokens_limit - profile.tokens_used
+  // Check token limit (plan + extra balance)
+  const totalLimit = (profile.tokens_limit || 0) + (profile.tokens_extra || 0)
+  const remaining = totalLimit - profile.tokens_used
   if (remaining <= 0) {
-    return { allowed: false, used: profile.tokens_used, limit: profile.tokens_limit }
+    return { allowed: false, used: profile.tokens_used, limit: totalLimit }
   }
 
   return { allowed: true, remaining }
@@ -94,9 +95,26 @@ export async function recordTokenUsage(userId: string, tokensUsed: number): Prom
   const result = data?.[0]
   if (!result) return
 
-  const { new_total, token_limit } = result
-  const usagePercent = token_limit > 0 ? (new_total / token_limit) * 100 : 100
-  const wasBelow = token_limit > 0 ? ((new_total - tokensUsed) / token_limit) * 100 : 100
+  const { new_total, token_limit, tokens_extra } = result
+  const totalLimit = (token_limit || 0) + (tokens_extra || 0)
+  const usagePercent = totalLimit > 0 ? (new_total / totalLimit) * 100 : 100
+  const wasBelow = totalLimit > 0 ? ((new_total - tokensUsed) / totalLimit) * 100 : 100
+
+  // Alerte à 80% (envoyée une seule fois quand on franchit le seuil)
+  if (usagePercent >= 80 && wasBelow < 80) {
+    await supabase.from('user_alerts').insert({
+      user_id: userId,
+      alert_type: 'token_limit_reached' as any,
+      title: 'Tokens à 80%',
+      message: `Vous avez utilisé ${Math.round(usagePercent)}% de vos tokens IA (${new_total.toLocaleString()} / ${totalLimit.toLocaleString()}). Pensez à recharger pour ne pas être interrompu.`,
+      metadata: {
+        tokens_used: new_total,
+        tokens_limit: totalLimit,
+        usage_percent: Math.round(usagePercent),
+      },
+    })
+    console.log('[TokenTracker] Alerte 80% envoyée pour user:', userId)
+  }
 
   // Alerte à 90% (envoyée une seule fois quand on franchit le seuil)
   if (usagePercent >= 90 && wasBelow < 90) {
@@ -104,10 +122,10 @@ export async function recordTokenUsage(userId: string, tokensUsed: number): Prom
       user_id: userId,
       alert_type: 'token_limit_reached' as any,
       title: 'Limite de tokens bientôt atteinte',
-      message: `Vous avez utilisé ${Math.round(usagePercent)}% de vos tokens IA (${new_total.toLocaleString()} / ${token_limit.toLocaleString()}). Achetez des tokens supplémentaires pour éviter une interruption.`,
+      message: `Vous avez utilisé ${Math.round(usagePercent)}% de vos tokens IA (${new_total.toLocaleString()} / ${totalLimit.toLocaleString()}). Achetez des tokens supplémentaires pour éviter une interruption.`,
       metadata: {
         tokens_used: new_total,
-        tokens_limit: token_limit,
+        tokens_limit: totalLimit,
         usage_percent: Math.round(usagePercent),
       },
     })
@@ -115,15 +133,15 @@ export async function recordTokenUsage(userId: string, tokensUsed: number): Prom
   }
 
   // Alerte à 100% (envoyée quand on atteint la limite)
-  if (new_total >= token_limit && (new_total - tokensUsed) < token_limit) {
+  if (new_total >= totalLimit && (new_total - tokensUsed) < totalLimit) {
     await supabase.from('user_alerts').insert({
       user_id: userId,
       alert_type: 'token_limit_reached' as any,
       title: 'Limite de tokens atteinte',
-      message: `Vous avez atteint votre limite de tokens IA (${token_limit.toLocaleString()} tokens). L'IA est suspendue. Achetez des tokens supplémentaires pour continuer.`,
+      message: `Vous avez atteint votre limite de tokens IA (${totalLimit.toLocaleString()} tokens). L'IA est suspendue. Achetez des tokens supplémentaires pour continuer.`,
       metadata: {
         tokens_used: new_total,
-        tokens_limit: token_limit,
+        tokens_limit: totalLimit,
         usage_percent: 100,
       },
     })

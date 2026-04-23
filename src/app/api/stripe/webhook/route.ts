@@ -146,17 +146,17 @@ export async function POST(req: NextRequest) {
           const tokensToAdd = parseInt(session.metadata?.tokens || '500000', 10)
 
           if (userId) {
-            // Incrémenter la limite de tokens
+            // Créditer la balance séparée tokens_extra (ne se réinitialise pas chaque mois)
             const { data: profile } = await supabase
               .from('profiles')
-              .select('tokens_limit')
+              .select('tokens_extra')
               .eq('id', userId)
               .single()
 
             if (profile) {
               await supabase
                 .from('profiles')
-                .update({ tokens_limit: profile.tokens_limit + tokensToAdd })
+                .update({ tokens_extra: (profile.tokens_extra || 0) + tokensToAdd })
                 .eq('id', userId)
             }
 
