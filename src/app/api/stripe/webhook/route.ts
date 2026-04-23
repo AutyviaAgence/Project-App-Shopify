@@ -305,6 +305,7 @@ export async function POST(req: NextRequest) {
                 tokens_limit: PLAN_TOKEN_LIMITS[plan],
                 token_usage_period_start: new Date().toISOString(),
                 plan,
+                pending_plan: null,
               })
               .eq('id', userId)
 

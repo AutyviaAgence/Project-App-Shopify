@@ -367,6 +367,7 @@ function SubscriptionContent() {
 
   const isActive = subscription?.status === 'active' || subscription?.status === 'trial'
   const currentPlan = subscription?.plan ?? 'scale'
+  const pendingPlan = subscription?.pendingPlan ?? null
   const onboardingStatus = subscription?.onboardingStatus ?? 'pending'
   const onboardingPlan = subscription?.onboardingPlan ?? null
   const planDetails = PLANS.find(p => p.id === selectedPlan)
@@ -433,6 +434,24 @@ function SubscriptionContent() {
             </div>
           </CardHeader>
         </Card>
+      )}
+
+      {/* Bandeau changement de plan planifié */}
+      {pendingPlan && isActive && (
+        <div className="mb-6 flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3">
+          <Clock className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
+          <div className="text-sm">
+            <span className="font-medium text-amber-700 dark:text-amber-400">Changement planifié — </span>
+            <span className="text-muted-foreground">
+              Votre plan passera au{' '}
+              <span className="font-semibold text-foreground">{PLANS.find(p => p.id === pendingPlan)?.name ?? pendingPlan}</span>
+              {subscription?.subscriptionEndsAt && (
+                <> le {subscription.subscriptionEndsAt.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</>
+              )}
+              . Votre plan actuel reste actif jusqu&apos;à cette date.
+            </span>
+          </div>
+        </div>
       )}
 
       {/* Tokens — visible pour onboarding et active */}
@@ -592,15 +611,16 @@ function SubscriptionContent() {
       <div className="grid md:grid-cols-3 gap-5 mb-8">
         {PLANS.map((plan) => {
           const Icon = plan.icon
-          const isCurrent = isActive && onboardingStatus === 'active' && currentPlan === plan.id
+          const isCurrent = isActive && onboardingStatus === 'active' && currentPlan === plan.id && !pendingPlan
+          const isPending = pendingPlan === plan.id
           return (
             <Card
               key={plan.id}
               className={cn(
                 'relative border-2 bg-gradient-to-b to-transparent flex flex-col transition-shadow',
                 plan.bgGradient,
-                isCurrent ? 'border-green-500/60 shadow-md' : plan.borderColor,
-                plan.popular && !isCurrent && 'shadow-sm',
+                isCurrent ? 'border-green-500/60 shadow-md' : isPending ? 'border-amber-500/60 shadow-md' : plan.borderColor,
+                plan.popular && !isCurrent && !isPending && 'shadow-sm',
               )}
             >
               {isCurrent && (
@@ -610,7 +630,14 @@ function SubscriptionContent() {
                   </span>
                 </div>
               )}
-              {plan.popular && !isCurrent && (
+              {isPending && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <span className="rounded-full bg-amber-500 px-3 py-1 text-xs font-semibold text-white">
+                    Prochain plan
+                  </span>
+                </div>
+              )}
+              {plan.popular && !isCurrent && !isPending && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                   <span className="rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground">
                     Populaire
@@ -647,6 +674,11 @@ function SubscriptionContent() {
                   <Button className="w-full" disabled variant="outline">
                     <Check className="mr-2 h-4 w-4" />
                     Plan actuel
+                  </Button>
+                ) : isPending ? (
+                  <Button className="w-full" disabled variant="outline">
+                    <Clock className="mr-2 h-4 w-4 text-amber-500" />
+                    Prochain renouvellement
                   </Button>
                 ) : (
                   <Button
@@ -701,7 +733,7 @@ function SubscriptionContent() {
             </DialogTitle>
             <DialogDescription>
               {isActive && subscription?.stripeSubscriptionId
-                ? 'Le changement est immédiat. La différence est calculée au prorata du mois en cours.'
+                ? `Le changement prendra effet à votre prochain renouvellement${subscription?.subscriptionEndsAt ? ` le ${subscription.subscriptionEndsAt.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}` : ''}. Votre plan actuel reste actif jusqu\'à cette date.`
                 : 'Lisez et acceptez nos conditions avant de procéder au paiement.'}
             </DialogDescription>
           </DialogHeader>
@@ -727,7 +759,7 @@ function SubscriptionContent() {
               )}
               {isActive && subscription?.stripeSubscriptionId && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  Vos tokens seront remis à zéro avec la limite du nouveau plan.
+                  Vos tokens actuels restent disponibles jusqu&apos;au renouvellement, puis remis à zéro avec la limite du nouveau plan.
                 </p>
               )}
             </div>

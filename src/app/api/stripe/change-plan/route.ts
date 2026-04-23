@@ -50,14 +50,16 @@ export async function POST(req: NextRequest) {
 
     const newPriceId = PLAN_PRICE_IDS[newPlan]
 
-    // Modifier l'abonnement immédiatement avec proratisation
+    // Planifier le changement au prochain renouvellement (sans prorata ni facture immédiate)
     await stripe.subscriptions.update(profile.stripe_subscription_id, {
       items: [{ id: itemId, price: newPriceId }],
-      proration_behavior: 'always_invoice',
+      proration_behavior: 'none',
       metadata: { plan: newPlan, user_id: user.id },
     })
 
-    // Mettre à jour la BDD immédiatement
+    // Stocker le plan prévu dans la BDD sans l'appliquer encore
+    const renewalDate = new Date(subscription.current_period_end * 1000)
+
     const admin = createAdminClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -65,20 +67,15 @@ export async function POST(req: NextRequest) {
 
     await admin
       .from('profiles')
-      .update({
-        plan: newPlan,
-        tokens_limit: PLAN_TOKEN_LIMITS[newPlan],
-        tokens_used: 0,
-        token_usage_period_start: new Date().toISOString(),
-      })
+      .update({ pending_plan: newPlan })
       .eq('id', user.id)
 
     await admin.from('user_alerts').insert({
       user_id: user.id,
       alert_type: 'info',
-      title: 'Plan modifié',
-      message: `Votre abonnement a été changé vers le plan ${newPlan.charAt(0).toUpperCase() + newPlan.slice(1)}. La différence est calculée au prorata.`,
-      metadata: { type: 'plan_changed', old_plan: profile.plan, new_plan: newPlan },
+      title: 'Changement de plan planifié',
+      message: `Votre plan passera au ${newPlan.charAt(0).toUpperCase() + newPlan.slice(1)} à votre prochain renouvellement le ${renewalDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}. Votre plan actuel reste actif jusqu\'à cette date.`,
+      metadata: { type: 'plan_change_scheduled', old_plan: profile.plan, new_plan: newPlan, effective_date: renewalDate.toISOString() },
     })
 
     return NextResponse.json({ success: true })
