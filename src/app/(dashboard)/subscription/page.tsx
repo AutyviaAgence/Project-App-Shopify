@@ -131,7 +131,7 @@ const ONBOARDING_STEPS = [
   { icon: Rocket, label: 'Accès complet', status: 'pending' },
 ]
 
-function OnboardingSection({ onboardingStatus }: { onboardingStatus: 'pending' | 'onboarding' | 'active' }) {
+function OnboardingSection({ onboardingStatus, onboardingPlan }: { onboardingStatus: 'pending' | 'onboarding' | 'active'; onboardingPlan: string | null }) {
   const [loadingAcompte, setLoadingAcompte] = useState(false)
   const { subscription } = useSubscription()
 
@@ -223,9 +223,24 @@ function OnboardingSection({ onboardingStatus }: { onboardingStatus: 'pending' |
 
         {onboardingStatus === 'onboarding' && (
           <div className="space-y-3 pt-1">
+            {onboardingPlan && (
+              <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
+                {(() => {
+                  const p = PLANS.find(p => p.id === onboardingPlan)
+                  const Icon = p?.icon
+                  return (
+                    <>
+                      {Icon && <Icon className={cn('h-4 w-4 shrink-0', p?.color)} />}
+                      <span className="text-sm font-semibold">Plan sélectionné : {p?.name ?? onboardingPlan}</span>
+                      <span className="ml-auto text-xs text-muted-foreground">{p?.price}€/mois</span>
+                    </>
+                  )
+                })()}
+              </div>
+            )}
             <div className="rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground space-y-1">
               <div className="flex justify-between text-green-600"><span>✓ Acompte setup reçu</span><span className="font-semibold">750€</span></div>
-              <div className="flex justify-between text-muted-foreground/60"><span>J30 — Solde setup + 1er mois abonnement</span><span>750€ + selon plan</span></div>
+              <div className="flex justify-between text-muted-foreground/60"><span>J30 — Solde setup + 1er mois abonnement</span><span>750€ + {onboardingPlan ? `${PLANS.find(p => p.id === onboardingPlan)?.price ?? '?'}€` : 'selon plan'}/mois</span></div>
             </div>
             <div className="flex justify-end">
               <Link href="/onboarding/configurateur">
@@ -336,6 +351,7 @@ function SubscriptionContent() {
   const isActive = subscription?.status === 'active' || subscription?.status === 'trial'
   const currentPlan = subscription?.plan ?? 'scale'
   const onboardingStatus = subscription?.onboardingStatus ?? 'pending'
+  const onboardingPlan = subscription?.onboardingPlan ?? null
   const planDetails = PLANS.find(p => p.id === selectedPlan)
 
   return (
@@ -348,7 +364,7 @@ function SubscriptionContent() {
       </div>
 
       {/* Section onboarding (visible si pas encore active) */}
-      <OnboardingSection onboardingStatus={onboardingStatus} />
+      <OnboardingSection onboardingStatus={onboardingStatus} onboardingPlan={onboardingPlan} />
 
       {/* Statut abonnement (visible uniquement si onboarding active) */}
       {onboardingStatus === 'active' && (
