@@ -128,12 +128,14 @@ export default function ConfigurateurPage() {
   const [cgvAccepted, setCgvAccepted] = useState(false)
   const [loading, setLoading] = useState(false)
   const [alreadySubmitted, setAlreadySubmitted] = useState(false)
+  const [validatedAt, setValidatedAt] = useState<string | null>(null)
 
   useEffect(() => {
     fetch('/api/onboarding/config')
       .then(r => r.json())
       .then(d => {
         if (d.data?.submitted_at) setAlreadySubmitted(true)
+        if (d.data?.admin_validated_at) setValidatedAt(d.data.admin_validated_at)
         if (d.data) {
           setForm({
             main_function: d.data.main_function || '',
@@ -183,6 +185,46 @@ export default function ConfigurateurPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // Si validé par l'admin → afficher page lecture seule
+  if (validatedAt) {
+    return (
+      <div className="min-h-full bg-background p-6 md:p-10">
+        <div className="mx-auto max-w-2xl space-y-6">
+          <div className="rounded-xl border-2 border-green-500/40 bg-green-50 dark:bg-green-900/20 p-6 space-y-3">
+            <div className="flex items-center gap-3">
+              <ShieldCheck className="h-7 w-7 text-green-600 shrink-0" />
+              <div>
+                <h1 className="text-lg font-bold text-green-800 dark:text-green-300">Configurateur validé</h1>
+                <p className="text-sm text-green-700 dark:text-green-400">
+                  Validé par notre équipe le {new Date(validatedAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </p>
+              </div>
+            </div>
+            <p className="text-sm text-green-700 dark:text-green-400">
+              Votre configurateur a été examiné et validé. La configuration de votre agent IA est en cours. Vous serez contacté par notre équipe pour la suite.
+            </p>
+          </div>
+
+          {/* Récap lecture seule */}
+          <div className="space-y-4 opacity-75 pointer-events-none select-none">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Récapitulatif de votre configurateur</h2>
+            <div className="rounded-xl border bg-muted/20 p-5 space-y-4 text-sm">
+              <div className="grid grid-cols-2 gap-3">
+                <div><p className="text-xs text-muted-foreground mb-0.5">Fonction principale</p><p className="font-medium">{form.main_function}</p></div>
+                <div><p className="text-xs text-muted-foreground mb-0.5">Comportement</p><p className="font-medium">{form.behavior}</p></div>
+                <div><p className="text-xs text-muted-foreground mb-0.5">Escalade</p><p className="font-medium">{form.escalation}</p></div>
+                <div><p className="text-xs text-muted-foreground mb-0.5">Langues</p><p className="font-medium">{form.languages.join(', ')}</p></div>
+              </div>
+              <div><p className="text-xs text-muted-foreground mb-0.5">Outils</p><p className="font-medium">{form.tools.join(', ') || '—'}</p></div>
+              <div><p className="text-xs text-muted-foreground mb-1">Exemple de conversation</p><pre className="text-xs font-mono whitespace-pre-wrap bg-muted/40 rounded p-2">{form.conversation_example}</pre></div>
+              <div><p className="text-xs text-muted-foreground mb-1">Informations à récolter</p><pre className="text-xs whitespace-pre-wrap bg-muted/40 rounded p-2">{form.info_to_collect}</pre></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
