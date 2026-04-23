@@ -222,6 +222,7 @@ export async function POST(req: NextRequest) {
               .from('profiles')
               .update({
                 subscription_status: isTrialing ? 'trial' : 'active',
+                onboarding_status: 'active',
                 subscription_ends_at: subscriptionEndsAt.toISOString(),
                 trial_ends_at: isTrialing && subscription.trial_end
                   ? new Date(subscription.trial_end * 1000).toISOString()
