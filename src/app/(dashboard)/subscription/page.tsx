@@ -4,7 +4,7 @@ import { useState, useEffect, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useSubscription } from '@/hooks/use-subscription'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { Progress } from '@/components/ui/progress'
@@ -20,16 +20,20 @@ import {
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from '@/components/ui/dialog'
+import {
   Check,
+  X,
   CreditCard,
   Loader2,
   Calendar,
   Zap,
-  MessageSquare,
-  Bot,
-  Users,
-  BarChart,
-  Shield,
   Clock,
   CheckCircle,
   XCircle,
@@ -37,30 +41,78 @@ import {
   Ban,
   Rocket,
   Phone,
-  Settings2,
+  Crown,
   ArrowRight,
+  ExternalLink,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/i18n/context'
 import { useTenant } from '@/lib/tenant/context'
-import type { LucideIcon } from 'lucide-react'
+import Link from 'next/link'
+import type { PlanId } from '@/lib/stripe/client'
 
-const ESSENTIALS_FEATURES: { icon: LucideIcon; textKey: string }[] = [
-  { icon: MessageSquare, textKey: 'subscription.feature_conversations' },
-  { icon: Bot, textKey: 'subscription.feature_agents' },
-  { icon: Users, textKey: 'subscription.feature_teams' },
-  { icon: BarChart, textKey: 'subscription.feature_stats' },
-  { icon: Zap, textKey: 'subscription.feature_automation' },
-  { icon: Shield, textKey: 'subscription.feature_encryption' },
-]
-
-const CUSTOM_FEATURES: { icon: LucideIcon; text: string }[] = [
-  { icon: Check, text: 'Tout le plan Essentials inclus' },
-  { icon: Settings2, text: 'Intégrations CRM & e-commerce sur mesure' },
-  { icon: Bot, text: 'Configuration des agents IA personnalisée' },
-  { icon: Rocket, text: 'Workflows & automatisations avancées' },
-  { icon: Phone, text: 'Accompagnement dédié par visio' },
-  { icon: Shield, text: 'Support prioritaire' },
+const PLANS = [
+  {
+    id: 'starter' as PlanId,
+    name: 'Starter',
+    price: 39,
+    tokens: '500 000',
+    icon: Zap,
+    color: 'text-blue-500',
+    borderColor: 'border-blue-500/30',
+    bgGradient: 'from-blue-500/5',
+    badgeBg: 'bg-blue-500/10 text-blue-600',
+    buttonClass: 'bg-blue-500 hover:bg-blue-600 text-white',
+    features: [
+      { text: '1 session WhatsApp', included: true },
+      { text: '1 agent IA', included: true },
+      { text: 'Conversations & messages', included: true },
+      { text: 'Base de connaissances', included: true },
+      { text: 'Lifecycle (relances)', included: false },
+      { text: 'Campagnes broadcast', included: false },
+    ],
+  },
+  {
+    id: 'pro' as PlanId,
+    name: 'Pro',
+    price: 79,
+    tokens: '1 500 000',
+    icon: Rocket,
+    color: 'text-primary',
+    borderColor: 'border-primary/50',
+    bgGradient: 'from-primary/5',
+    badgeBg: 'bg-primary/10 text-primary',
+    buttonClass: '',
+    popular: true,
+    features: [
+      { text: '3 sessions WhatsApp', included: true },
+      { text: '3 agents IA', included: true },
+      { text: 'Conversations & messages', included: true },
+      { text: 'Base de connaissances', included: true },
+      { text: 'Lifecycle (relances)', included: true },
+      { text: 'Campagnes broadcast', included: false },
+    ],
+  },
+  {
+    id: 'scale' as PlanId,
+    name: 'Scale',
+    price: 150,
+    tokens: '4 000 000',
+    icon: Crown,
+    color: 'text-sky-500',
+    borderColor: 'border-sky-500/30',
+    bgGradient: 'from-sky-500/5',
+    badgeBg: 'bg-sky-500/10 text-sky-600',
+    buttonClass: 'bg-sky-500 hover:bg-sky-600 text-white',
+    features: [
+      { text: 'Sessions WhatsApp illimitées', included: true },
+      { text: 'Agents IA illimités', included: true },
+      { text: 'Conversations & messages', included: true },
+      { text: 'Base de connaissances', included: true },
+      { text: 'Lifecycle (relances)', included: true },
+      { text: 'Campagnes broadcast', included: true },
+    ],
+  },
 ]
 
 function SubscriptionContent() {
@@ -70,13 +122,13 @@ function SubscriptionContent() {
   const { subscription, loading, refetch } = useSubscription()
   const [isProcessing, setIsProcessing] = useState(false)
   const [isCancelling, setIsCancelling] = useState(false)
+  const [selectedPlan, setSelectedPlan] = useState<PlanId | null>(null)
+  const [cgvAccepted, setCgvAccepted] = useState(false)
 
   const dateLocale = locale === 'fr' ? 'fr-FR' : 'en-US'
 
-  // Gérer les redirections depuis Stripe
   useEffect(() => {
     if (searchParams.get('success') === 'true') {
-      // Synchroniser l'abonnement depuis Stripe (fallback si le webhook n'a pas fonctionné)
       fetch('/api/subscription/sync', { method: 'POST' })
         .then(() => refetch())
         .then(() => toast.success(t('subscription.payment_success')))
@@ -85,32 +137,32 @@ function SubscriptionContent() {
       toast.info(t('subscription.payment_cancelled'))
     } else if (searchParams.get('tokens_success') === 'true') {
       refetch().then(() => toast.success(t('subscription.tokens_added')))
-    } else if (searchParams.get('custom_success') === 'true') {
-      toast.success('Acompte regle avec succes ! Reservez votre appel d\'on-boarding.')
     }
   }, [searchParams, refetch, t])
 
+  const handleSelectPlan = (planId: PlanId) => {
+    setSelectedPlan(planId)
+    setCgvAccepted(false)
+  }
+
   const handleSubscribe = async () => {
+    if (!selectedPlan || !cgvAccepted) return
     setIsProcessing(true)
     try {
       const res = await fetch('/api/stripe/create-checkout', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: selectedPlan }),
       })
       const data = await res.json()
-
-      if (!res.ok) {
-        throw new Error(data.error || t('subscription.payment_error'))
-      }
-
-      // Si l'abonnement est déjà actif côté Stripe, rafraîchir
+      if (!res.ok) throw new Error(data.error || t('subscription.payment_error'))
       if (data.already_active) {
         toast.success(t('subscription.already_synced'))
         await refetch()
+        setSelectedPlan(null)
         setIsProcessing(false)
         return
       }
-
-      // Rediriger vers Stripe Checkout
       window.location.href = data.url
     } catch (error) {
       console.error('[Subscription] Error:', error)
@@ -144,12 +196,12 @@ function SubscriptionContent() {
 
   const formatDate = (date: Date | null) => {
     if (!date) return '-'
-    return date.toLocaleDateString(dateLocale, {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    })
+    return date.toLocaleDateString(dateLocale, { day: 'numeric', month: 'long', year: 'numeric' })
   }
+
+  const isActive = subscription?.status === 'active' || subscription?.status === 'trial'
+  const currentPlan = subscription?.plan ?? 'scale'
+  const planDetails = PLANS.find(p => p.id === selectedPlan)
 
   return (
     <div className="container max-w-5xl mx-auto py-8 px-4">
@@ -163,106 +215,84 @@ function SubscriptionContent() {
       {/* Statut actuel */}
       <Card className="mb-8">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Calendar className="h-5 w-5" />
-            {t('subscription.your_subscription')}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">{t('subscription.status_label')}</span>
-                <Badge
-                  variant={subscription?.isActive ? 'default' : 'destructive'}
-                  className={cn(
-                    subscription?.status === 'trial' && 'bg-amber-500 hover:bg-amber-600',
-                    subscription?.status === 'active' && 'bg-green-500 hover:bg-green-600'
-                  )}
-                >
-                  {subscription?.status === 'trial' && t('subscription.trial')}
-                  {subscription?.status === 'active' && t('subscription.active')}
-                  {subscription?.status === 'expired' && t('subscription.expired')}
-                  {subscription?.status === 'cancelled' && t('subscription.cancelled')}
-                </Badge>
+            <div className="flex items-center gap-3">
+              <Calendar className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <p className="font-semibold">{t('subscription.your_subscription')}</p>
+                {subscription?.status === 'trial' && subscription.trialEndsAt && (
+                  <p className="text-sm text-muted-foreground">
+                    {t('subscription.trial_ends')} {formatDate(subscription.trialEndsAt)}
+                    {subscription.daysRemaining !== null && ` (${subscription.daysRemaining}j restants)`}
+                  </p>
+                )}
+                {subscription?.status === 'active' && subscription.subscriptionEndsAt && (
+                  <p className="text-sm text-muted-foreground">
+                    {t('subscription.valid_until')} {formatDate(subscription.subscriptionEndsAt)}
+                  </p>
+                )}
               </div>
-
-              {subscription?.status === 'trial' && subscription.trialEndsAt && (
-                <p className="text-sm">
-                  <span className="text-muted-foreground">{t('subscription.trial_ends')}</span>{' '}
-                  <span className="font-medium">{formatDate(subscription.trialEndsAt)}</span>
-                  {subscription.daysRemaining !== null && (
-                    <span className="text-muted-foreground"> ({t('subscription.days_remaining', { count: String(subscription.daysRemaining) })})</span>
-                  )}
-                </p>
-              )}
-
-              {subscription?.status === 'active' && subscription.subscriptionEndsAt && (
-                <p className="text-sm">
-                  <span className="text-muted-foreground">{t('subscription.valid_until')}</span>{' '}
-                  <span className="font-medium">{formatDate(subscription.subscriptionEndsAt)}</span>
-                </p>
-              )}
             </div>
-
-            <div className="flex items-center gap-2">
-              {subscription?.isActive ? (
+            <div className="flex items-center gap-3">
+              <Badge
+                className={cn(
+                  subscription?.status === 'trial' && 'bg-amber-500 hover:bg-amber-600',
+                  subscription?.status === 'active' && 'bg-green-500 hover:bg-green-600',
+                  (subscription?.status === 'expired' || subscription?.status === 'cancelled') && 'bg-red-500 hover:bg-red-600',
+                )}
+              >
+                {subscription?.status === 'trial' && `Essai — Plan ${PLANS.find(p => p.id === currentPlan)?.name ?? currentPlan}`}
+                {subscription?.status === 'active' && `Actif — Plan ${PLANS.find(p => p.id === currentPlan)?.name ?? currentPlan}`}
+                {subscription?.status === 'expired' && t('subscription.expired')}
+                {subscription?.status === 'cancelled' && t('subscription.cancelled')}
+              </Badge>
+              {isActive ? (
                 <div className="flex items-center gap-1.5 text-green-600">
-                  <CheckCircle className="h-5 w-5" />
+                  <CheckCircle className="h-4 w-4" />
                   <span className="text-sm font-medium">{t('subscription.access_active')}</span>
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5 text-red-600">
-                  <XCircle className="h-5 w-5" />
+                  <XCircle className="h-4 w-4" />
                   <span className="text-sm font-medium">{t('subscription.access_expired')}</span>
                 </div>
               )}
             </div>
           </div>
-        </CardContent>
+        </CardHeader>
       </Card>
 
-      {/* Utilisation des tokens IA */}
+      {/* Tokens */}
       {subscription && (
         <Card className="mb-8">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Cpu className="h-5 w-5" />
-              {t('subscription.token_usage')}
-            </CardTitle>
-            <CardDescription>
-              {subscription.status === 'trial'
-                ? t('subscription.trial_tokens')
-                : subscription.status === 'active'
-                  ? t('subscription.active_tokens')
-                  : t('subscription.no_quota')}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">
-                  {subscription.tokensUsed.toLocaleString()} / {subscription.tokensLimit.toLocaleString()} tokens
-                </span>
-                <span className={cn(
-                  'font-medium',
-                  subscription.usagePercentage < 70 && 'text-green-600',
-                  subscription.usagePercentage >= 70 && subscription.usagePercentage < 90 && 'text-amber-600',
-                  subscription.usagePercentage >= 90 && 'text-red-600',
-                )}>
-                  {subscription.usagePercentage}%
-                </span>
-              </div>
-              <Progress
-                value={Math.min(subscription.usagePercentage, 100)}
-                className={cn(
-                  'h-3',
-                  subscription.usagePercentage >= 90 && '[&>div]:bg-red-500',
-                  subscription.usagePercentage >= 70 && subscription.usagePercentage < 90 && '[&>div]:bg-amber-500',
-                )}
-              />
+            <div className="flex items-center gap-2">
+              <Cpu className="h-5 w-5 text-muted-foreground" />
+              <span className="font-semibold">{t('subscription.token_usage')}</span>
             </div>
-
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-muted-foreground">
+                {subscription.tokensUsed.toLocaleString()} / {subscription.tokensLimit.toLocaleString()} tokens
+              </span>
+              <span className={cn(
+                'font-medium',
+                subscription.usagePercentage < 70 && 'text-green-600',
+                subscription.usagePercentage >= 70 && subscription.usagePercentage < 90 && 'text-amber-600',
+                subscription.usagePercentage >= 90 && 'text-red-600',
+              )}>
+                {subscription.usagePercentage}%
+              </span>
+            </div>
+            <Progress
+              value={Math.min(subscription.usagePercentage, 100)}
+              className={cn(
+                'h-3',
+                subscription.usagePercentage >= 90 && '[&>div]:bg-red-500',
+                subscription.usagePercentage >= 70 && subscription.usagePercentage < 90 && '[&>div]:bg-amber-500',
+              )}
+            />
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">
                 {t('subscription.tokens_remaining', { count: subscription.tokensRemaining.toLocaleString() })}
@@ -292,211 +322,227 @@ function SubscriptionContent() {
         </Card>
       )}
 
-      {/* Plans */}
-      <div className="grid md:grid-cols-2 gap-6">
-        {/* Plan Essentials */}
-        <Card className="border-2 border-primary/20 flex flex-col">
-          <CardHeader className="text-center pb-2">
-            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-              <Zap className="h-6 w-6 text-primary" />
-            </div>
-            <Badge variant="secondary" className="mx-auto mb-2">Essentials</Badge>
-            <CardTitle className="text-2xl">{t('subscription.offer_title', { appName: tenant.appName })}</CardTitle>
-            <CardDescription>
-              {t('subscription.offer_desc')}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="text-center flex-1">
-            <div className="mb-6">
-              <span className="text-5xl font-bold">{t('subscription.price')}</span>
-              <span className="text-muted-foreground">{t('subscription.per_month')}</span>
-            </div>
-
-            <div className="grid gap-3 text-left mb-6">
-              {ESSENTIALS_FEATURES.map((feature, index) => (
-                <div key={index} className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10">
-                    <feature.icon className="h-4 w-4 text-primary" />
-                  </div>
-                  <span className="text-sm">{t(feature.textKey)}</span>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-          <CardFooter className="flex-col gap-3">
-            {(subscription?.status === 'active' || (subscription?.status === 'trial' && subscription?.stripeSubscriptionId)) ? (
-              <>
-                <Button className="w-full" size="lg" disabled>
-                  <Check className="mr-2 h-5 w-5" />
-                  {subscription?.status === 'trial' ? 'Essai gratuit en cours' : t('subscription.already_active')}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  onClick={async () => {
-                    try {
-                      const res = await fetch('/api/stripe/portal', { method: 'POST' })
-                      const data = await res.json()
-                      if (!res.ok) throw new Error(data.error)
-                      window.location.href = data.url
-                    } catch {
-                      toast.error('Impossible d\'ouvrir la gestion de l\'abonnement')
-                    }
-                  }}
-                >
-                  <CreditCard className="mr-2 h-4 w-4" />
-                  Gérer mon abonnement
-                </Button>
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button variant="ghost" size="sm" className="text-destructive hover:text-destructive">
-                      <Ban className="mr-2 h-4 w-4" />
-                      {t('subscription.cancel_subscription')}
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>{t('subscription.cancel_confirm_title')}</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        {subscription?.status === 'trial'
-                          ? 'Votre essai gratuit sera annulé immédiatement. Vous ne serez jamais débité.'
-                          : t('subscription.cancel_confirm_desc')}
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>{t('subscription.cancel_keep')}</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={handleCancel}
-                        disabled={isCancelling}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                      >
-                        {isCancelling ? (
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        ) : (
-                          <Ban className="mr-2 h-4 w-4" />
-                        )}
-                        {t('subscription.cancel_confirm')}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              </>
-            ) : (
+      {/* Actions abonnement actif */}
+      {isActive && (
+        <Card className="mb-8">
+          <CardContent className="pt-6">
+            <div className="flex flex-wrap gap-3">
               <Button
-                className="w-full"
-                size="lg"
-                onClick={handleSubscribe}
-                disabled={isProcessing}
+                variant="outline"
+                onClick={async () => {
+                  try {
+                    const res = await fetch('/api/stripe/portal', { method: 'POST' })
+                    const data = await res.json()
+                    if (!res.ok) throw new Error(data.error)
+                    window.location.href = data.url
+                  } catch {
+                    toast.error('Impossible d\'ouvrir la gestion de l\'abonnement')
+                  }
+                }}
               >
-                {isProcessing ? (
-                  <>
-                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    {t('subscription.redirecting')}
-                  </>
-                ) : (
-                  <>
-                    <CreditCard className="mr-2 h-5 w-5" />
-                    {t('subscription.subscribe_now')}
-                  </>
-                )}
+                <CreditCard className="mr-2 h-4 w-4" />
+                Gérer mon abonnement
               </Button>
-            )}
-          </CardFooter>
-        </Card>
-
-        {/* Plan Custom */}
-        <Card className="border-2 border-sky-500/30 bg-gradient-to-b from-sky-500/5 to-transparent flex flex-col relative overflow-hidden">
-          <div className="absolute top-0 right-0 bg-sky-500 text-white text-xs font-semibold px-3 py-1 rounded-bl-lg">
-            Accompagnement
-          </div>
-          <CardHeader className="text-center pb-2">
-            <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-sky-500/10">
-              <Rocket className="h-6 w-6 text-sky-500" />
-            </div>
-            <Badge variant="secondary" className="mx-auto mb-2 bg-sky-500/10 text-sky-600">Custom</Badge>
-            <CardTitle className="text-2xl">Setup sur mesure</CardTitle>
-            <CardDescription>
-              On configure tout pour vous, integralement personnalise
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="text-center flex-1">
-            <div className="mb-2">
-              <span className="text-5xl font-bold">1 500</span>
-              <span className="text-muted-foreground">€</span>
-            </div>
-            <p className="text-sm text-muted-foreground mb-6">
-              Payable en 2x 750€ + abonnement 150€/mois
-            </p>
-
-            <div className="grid gap-3 text-left mb-6">
-              {CUSTOM_FEATURES.map((feature, index) => (
-                <div key={index} className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-500/10">
-                    <feature.icon className="h-4 w-4 text-sky-500" />
-                  </div>
-                  <span className="text-sm">{feature.text}</span>
-                </div>
-              ))}
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="ghost" className="text-destructive hover:text-destructive">
+                    <Ban className="mr-2 h-4 w-4" />
+                    {t('subscription.cancel_subscription')}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>{t('subscription.cancel_confirm_title')}</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      {subscription?.status === 'trial'
+                        ? 'Votre essai gratuit sera annulé immédiatement. Vous ne serez jamais débité.'
+                        : t('subscription.cancel_confirm_desc')}
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>{t('subscription.cancel_keep')}</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={handleCancel}
+                      disabled={isCancelling}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      {isCancelling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Ban className="mr-2 h-4 w-4" />}
+                      {t('subscription.cancel_confirm')}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
             </div>
           </CardContent>
-          <CardFooter className="flex-col gap-3">
-            <Button
-              className="w-full bg-sky-500 hover:bg-sky-600"
-              size="lg"
-              onClick={async () => {
-                setIsProcessing(true)
-                try {
-                  const res = await fetch('/api/stripe/custom-setup', { method: 'POST' })
-                  const data = await res.json()
-                  if (!res.ok) {
-                    if (data.booking_url) {
-                      toast.info('Setup deja regle ! Reservez votre appel.')
-                      window.open(data.booking_url, '_blank')
-                      return
-                    }
-                    throw new Error(data.error)
-                  }
-                  window.location.href = data.url
-                } catch (error: any) {
-                  toast.error(error?.message || 'Erreur')
-                } finally {
-                  setIsProcessing(false)
-                }
-              }}
-              disabled={isProcessing}
-            >
-              {isProcessing ? (
-                <>
-                  <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                  {t('subscription.redirecting')}
-                </>
-              ) : (
-                <>
-                  <CreditCard className="mr-2 h-5 w-5" />
-                  Payer le 1er acompte (750€)
-                </>
+        </Card>
+      )}
+
+      {/* Plans */}
+      <h2 className="text-xl font-semibold mb-4">
+        {isActive ? 'Changer de plan' : 'Choisir un plan'}
+      </h2>
+      <div className="grid md:grid-cols-3 gap-5 mb-8">
+        {PLANS.map((plan) => {
+          const Icon = plan.icon
+          const isCurrent = isActive && currentPlan === plan.id
+          return (
+            <Card
+              key={plan.id}
+              className={cn(
+                'relative border-2 bg-gradient-to-b to-transparent flex flex-col transition-shadow',
+                plan.bgGradient,
+                isCurrent ? 'border-green-500/60 shadow-md' : plan.borderColor,
+                plan.popular && !isCurrent && 'shadow-sm',
               )}
-            </Button>
+            >
+              {isCurrent && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <span className="rounded-full bg-green-500 px-3 py-1 text-xs font-semibold text-white">
+                    Plan actuel
+                  </span>
+                </div>
+              )}
+              {plan.popular && !isCurrent && (
+                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                  <span className="rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground">
+                    Populaire
+                  </span>
+                </div>
+              )}
+              <CardHeader className="pb-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Icon className={cn('h-5 w-5', plan.color)} />
+                  <span className={cn('inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold', plan.badgeBg)}>
+                    {plan.name}
+                  </span>
+                </div>
+                <div className="flex items-end gap-1">
+                  <span className="text-3xl font-bold">{plan.price}€</span>
+                  <span className="text-muted-foreground mb-0.5 text-sm">/mois</span>
+                </div>
+                <p className="text-xs text-muted-foreground">{plan.tokens} tokens/mois</p>
+              </CardHeader>
+              <CardContent className="flex-1 pt-0">
+                <ul className="space-y-2">
+                  {plan.features.map((f, i) => (
+                    <li key={i} className="flex items-center gap-2 text-xs">
+                      {f.included
+                        ? <Check className="h-3.5 w-3.5 shrink-0 text-green-500" />
+                        : <X className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />}
+                      <span className={f.included ? '' : 'text-muted-foreground/60'}>{f.text}</span>
+                    </li>
+                  ))}
+                </ul>
+              </CardContent>
+              <CardFooter>
+                {isCurrent ? (
+                  <Button className="w-full" disabled variant="outline">
+                    <Check className="mr-2 h-4 w-4" />
+                    Plan actuel
+                  </Button>
+                ) : (
+                  <Button
+                    className={cn('w-full', plan.buttonClass)}
+                    onClick={() => handleSelectPlan(plan.id)}
+                  >
+                    Choisir {plan.name}
+                    <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                )}
+              </CardFooter>
+            </Card>
+          )
+        })}
+      </div>
+
+      {/* Onboarding setup */}
+      <Card className="border-sky-500/20 bg-gradient-to-r from-sky-500/5 to-transparent mb-6">
+        <CardContent className="pt-5 pb-5">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <p className="font-semibold">Setup & accompagnement sur mesure</p>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                Configuration complète par notre équipe — <strong>1 500 €</strong> (2× 750 €)
+              </p>
+            </div>
             <a
               href="https://cal.com/autyvia/appel-decouverte"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-sm text-sky-600 hover:text-sky-700 hover:underline"
+              className="shrink-0 inline-flex items-center gap-2 rounded-lg border border-sky-500/30 px-4 py-2 text-sm font-medium text-sky-600 hover:bg-sky-500/10 transition-colors"
             >
-              <Phone className="h-3.5 w-3.5" />
-              Reserver un appel decouverte
-              <ArrowRight className="h-3.5 w-3.5" />
+              <Phone className="h-4 w-4" />
+              Réserver un appel découverte
+              <ExternalLink className="h-3.5 w-3.5" />
             </a>
-          </CardFooter>
-        </Card>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
 
-      {/* Note */}
-      <p className="mt-6 text-center text-sm text-muted-foreground">
+      <p className="text-center text-sm text-muted-foreground">
         <Clock className="inline-block h-4 w-4 mr-1" />
         {t('subscription.stripe_note')}
       </p>
+
+      {/* Modale CGV */}
+      <Dialog open={!!selectedPlan} onOpenChange={(open) => { if (!open) setSelectedPlan(null) }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirmer votre abonnement</DialogTitle>
+            <DialogDescription>
+              Lisez et acceptez nos conditions avant de procéder au paiement.
+            </DialogDescription>
+          </DialogHeader>
+
+          {planDetails && (
+            <div className="rounded-xl border bg-muted/30 p-4 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold">Plan {planDetails.name}</span>
+                <span className="font-bold">{planDetails.price}€/mois</span>
+              </div>
+              <p className="text-sm text-muted-foreground">{planDetails.tokens} tokens IA/mois</p>
+              {!isActive && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  14 jours d&apos;essai gratuit — vous ne serez prélevé qu&apos;à l&apos;issue de la période d&apos;essai.
+                </p>
+              )}
+            </div>
+          )}
+
+          <label className="flex items-start gap-3 cursor-pointer group">
+            <input
+              type="checkbox"
+              checked={cgvAccepted}
+              onChange={e => setCgvAccepted(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-border accent-primary"
+            />
+            <span className="text-sm text-muted-foreground leading-relaxed group-hover:text-foreground transition-colors">
+              J&apos;ai lu et j&apos;accepte les{' '}
+              <Link href="/cgv" target="_blank" className="text-primary underline hover:no-underline" onClick={e => e.stopPropagation()}>
+                CGV
+              </Link>{' '}
+              et les{' '}
+              <Link href="/cgu" target="_blank" className="text-primary underline hover:no-underline" onClick={e => e.stopPropagation()}>
+                CGU
+              </Link>
+              .
+            </span>
+          </label>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="ghost" onClick={() => setSelectedPlan(null)} disabled={isProcessing}>
+              Annuler
+            </Button>
+            <Button onClick={handleSubscribe} disabled={!cgvAccepted || isProcessing}>
+              {isProcessing ? (
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Redirection…</>
+              ) : (
+                'Continuer vers le paiement'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
