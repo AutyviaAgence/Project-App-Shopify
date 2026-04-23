@@ -51,15 +51,22 @@ export async function checkTokenLimit(userId: string): Promise<
         .eq('id', userId)
       return { allowed: false, used: profile.tokens_used, limit: 0, reason: 'subscription_expired' }
     }
-  } else if (status === 'expired' || status === 'cancelled') {
-    // Already expired/cancelled — ensure tokens are 0
-    if (profile.tokens_limit > 0) {
-      await supabase
-        .from('profiles')
-        .update({ tokens_limit: 0 })
-        .eq('id', userId)
+  } else if (status === 'cancelled') {
+    // Annulé mais période encore active → accès maintenu
+    const subEnds = profile.subscription_ends_at ? new Date(profile.subscription_ends_at) : null
+    if (subEnds && subEnds > now) {
+      // Accès encore valide jusqu'à fin de période — laisser passer, vérifier tokens ci-dessous
+    } else {
+      if (profile.tokens_limit > 0) {
+        await supabase.from('profiles').update({ tokens_limit: 0 }).eq('id', userId)
+      }
+      return { allowed: false, used: profile.tokens_used, limit: 0, reason: 'subscription_cancelled' }
     }
-    return { allowed: false, used: profile.tokens_used, limit: 0, reason: `subscription_${status}` }
+  } else if (status === 'expired') {
+    if (profile.tokens_limit > 0) {
+      await supabase.from('profiles').update({ tokens_limit: 0 }).eq('id', userId)
+    }
+    return { allowed: false, used: profile.tokens_used, limit: 0, reason: 'subscription_expired' }
   }
 
   // Check token limit (plan + extra balance)

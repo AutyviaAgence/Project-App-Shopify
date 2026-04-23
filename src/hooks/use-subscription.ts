@@ -53,7 +53,9 @@ export function useSubscription() {
         const isSubscriptionExpired = data.data.subscription_status === 'active' && subscriptionEndsAt && subscriptionEndsAt < now
         const isActive =
           (data.data.subscription_status === 'trial' && trialEndsAt && trialEndsAt > now) ||
-          (data.data.subscription_status === 'active' && (!subscriptionEndsAt || subscriptionEndsAt > now))
+          (data.data.subscription_status === 'active' && (!subscriptionEndsAt || subscriptionEndsAt > now)) ||
+          // Annulé mais période encore en cours → accès maintenu jusqu'à la fin
+          (data.data.subscription_status === 'cancelled' && subscriptionEndsAt && subscriptionEndsAt > now)
 
         // Token usage
         const tokensUsed = data.data.tokens_used || 0

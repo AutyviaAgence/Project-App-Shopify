@@ -390,16 +390,23 @@ export async function POST(req: NextRequest) {
       }
 
       case 'customer.subscription.deleted': {
-        // Abonnement annulé
+        // Abonnement annulé — conserver subscription_ends_at pour accès jusqu'à fin de période
         const subscription = event.data.object as Stripe.Subscription
         const userId = subscription.metadata?.user_id
 
         if (userId) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const subAny = subscription as any
+          const endsAt = subAny.current_period_end
+            ? new Date(subAny.current_period_end * 1000).toISOString()
+            : null
+
           await supabase
             .from('profiles')
             .update({
               subscription_status: 'cancelled',
               stripe_subscription_id: null,
+              ...(endsAt ? { subscription_ends_at: endsAt } : {}),
             })
             .eq('id', userId)
 
@@ -407,10 +414,10 @@ export async function POST(req: NextRequest) {
             user_id: userId,
             alert_type: 'warning',
             title: 'Abonnement annulé',
-            message: 'Votre abonnement a été annulé. Vous pouvez vous réabonner à tout moment.',
-            metadata: {
-              type: 'subscription_cancelled',
-            },
+            message: endsAt
+              ? `Votre abonnement a été annulé. Vous conservez l'accès jusqu'au ${new Date(endsAt).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}.`
+              : 'Votre abonnement a été annulé. Vous pouvez vous réabonner à tout moment.',
+            metadata: { type: 'subscription_cancelled', ends_at: endsAt },
           })
 
           console.log('[Stripe Webhook] Subscription cancelled for user:', userId)
