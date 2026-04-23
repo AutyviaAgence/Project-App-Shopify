@@ -37,7 +37,8 @@ export async function POST(req: NextRequest) {
 
   try {
     const stripe = getStripe()
-    const subscription = await stripe.subscriptions.retrieve(profile.stripe_subscription_id)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const subscription = await stripe.subscriptions.retrieve(profile.stripe_subscription_id) as any
 
     if (subscription.status !== 'active' && subscription.status !== 'trialing') {
       return NextResponse.json({ error: 'Abonnement non actif' }, { status: 400 })
@@ -58,7 +59,9 @@ export async function POST(req: NextRequest) {
     })
 
     // Stocker le plan prévu dans la BDD sans l'appliquer encore
-    const renewalDate = new Date(subscription.current_period_end * 1000)
+    const renewalDate = subscription.current_period_end
+      ? new Date(subscription.current_period_end * 1000)
+      : null
 
     const admin = createAdminClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -74,8 +77,8 @@ export async function POST(req: NextRequest) {
       user_id: user.id,
       alert_type: 'info',
       title: 'Changement de plan planifié',
-      message: `Votre plan passera au ${newPlan.charAt(0).toUpperCase() + newPlan.slice(1)} à votre prochain renouvellement le ${renewalDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}. Votre plan actuel reste actif jusqu\'à cette date.`,
-      metadata: { type: 'plan_change_scheduled', old_plan: profile.plan, new_plan: newPlan, effective_date: renewalDate.toISOString() },
+      message: `Votre plan passera au ${newPlan.charAt(0).toUpperCase() + newPlan.slice(1)} à votre prochain renouvellement${renewalDate ? ` le ${renewalDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}` : ''}. Votre plan actuel reste actif jusqu'à cette date.`,
+      metadata: { type: 'plan_change_scheduled', old_plan: profile.plan, new_plan: newPlan, effective_date: renewalDate?.toISOString() ?? null },
     })
 
     return NextResponse.json({ success: true })
