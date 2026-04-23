@@ -299,7 +299,7 @@ function SubscriptionContent() {
     setIsProcessing(true)
     try {
       // Si abonnement actif → changement de plan immédiat (prorata)
-      if (isActive && subscription?.stripeSubscriptionId) {
+      if (isActive && !isCancelled && subscription?.stripeSubscriptionId) {
         const res = await fetch('/api/stripe/change-plan', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -366,8 +366,10 @@ function SubscriptionContent() {
   }
 
   const isActive = subscription?.status === 'active' || subscription?.status === 'trial'
+  const isCancelled = subscription?.status === 'cancelled'
   const currentPlan = subscription?.plan ?? 'scale'
-  const pendingPlan = subscription?.pendingPlan ?? null
+  // For cancelled subscriptions, ignore pending_plan — user needs to re-subscribe fresh
+  const pendingPlan = !isCancelled ? (subscription?.pendingPlan ?? null) : null
   const onboardingStatus = subscription?.onboardingStatus ?? 'pending'
   const onboardingPlan = subscription?.onboardingPlan ?? null
   const planDetails = PLANS.find(p => p.id === selectedPlan)
@@ -606,7 +608,7 @@ function SubscriptionContent() {
 
       {/* Plans */}
       <h2 className="text-xl font-semibold mb-4">
-        {isActive && onboardingStatus === 'active' ? 'Changer de plan' : 'Plans disponibles'}
+        {isCancelled ? 'Se réabonner' : isActive && onboardingStatus === 'active' ? 'Changer de plan' : 'Plans disponibles'}
       </h2>
       <div className="grid md:grid-cols-3 gap-5 mb-8">
         {PLANS.map((plan) => {
@@ -729,18 +731,20 @@ function SubscriptionContent() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {isActive && subscription?.stripeSubscriptionId ? 'Changer de plan' : 'Confirmer votre abonnement'}
+              {isActive && !isCancelled && subscription?.stripeSubscriptionId ? 'Changer de plan' : isCancelled ? 'Se réabonner' : 'Confirmer votre abonnement'}
             </DialogTitle>
             <DialogDescription>
-              {isActive && subscription?.stripeSubscriptionId
+              {isActive && !isCancelled && subscription?.stripeSubscriptionId
                 ? `Le changement prendra effet à votre prochain renouvellement${subscription?.subscriptionEndsAt ? ` le ${subscription.subscriptionEndsAt.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}` : ''}. Votre plan actuel reste actif jusqu\'à cette date.`
+                : isCancelled
+                ? 'Votre abonnement a été annulé. Choisissez un plan pour vous réabonner.'
                 : 'Lisez et acceptez nos conditions avant de procéder au paiement.'}
             </DialogDescription>
           </DialogHeader>
 
           {planDetails && (
             <div className="rounded-xl border bg-muted/30 p-4 space-y-2">
-              {isActive && subscription?.stripeSubscriptionId && currentPlan && (
+              {isActive && !isCancelled && subscription?.stripeSubscriptionId && currentPlan && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
                   <span>{PLANS.find(p => p.id === currentPlan)?.name ?? currentPlan}</span>
                   <ArrowRight className="h-3.5 w-3.5" />
@@ -752,12 +756,12 @@ function SubscriptionContent() {
                 <span className="font-bold">{planDetails.price}€/mois</span>
               </div>
               <p className="text-sm text-muted-foreground">{planDetails.tokens} tokens IA/mois</p>
-              {!isActive && (
+              {!isActive && !isCancelled && (
                 <p className="text-xs text-muted-foreground mt-1">
                   14 jours d&apos;essai gratuit — vous ne serez prélevé qu&apos;à l&apos;issue de la période d&apos;essai.
                 </p>
               )}
-              {isActive && subscription?.stripeSubscriptionId && (
+              {isActive && !isCancelled && subscription?.stripeSubscriptionId && (
                 <p className="text-xs text-muted-foreground mt-1">
                   Vos tokens actuels restent disponibles jusqu&apos;au renouvellement, puis remis à zéro avec la limite du nouveau plan.
                 </p>
@@ -791,9 +795,9 @@ function SubscriptionContent() {
             </Button>
             <Button onClick={handleSubscribe} disabled={!cgvAccepted || isProcessing}>
               {isProcessing ? (
-                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{isActive && subscription?.stripeSubscriptionId ? 'Changement…' : 'Redirection…'}</>
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{isActive && !isCancelled && subscription?.stripeSubscriptionId ? 'Changement…' : 'Redirection…'}</>
               ) : (
-                isActive && subscription?.stripeSubscriptionId ? 'Confirmer le changement' : 'Continuer vers le paiement'
+                isActive && !isCancelled && subscription?.stripeSubscriptionId ? 'Confirmer le changement' : isCancelled ? 'Se réabonner' : 'Continuer vers le paiement'
               )}
             </Button>
           </DialogFooter>
