@@ -83,18 +83,26 @@ export async function POST(req: NextRequest) {
 
           if (userId) {
             if (installment === 1) {
-              // Acompte J0 → accès configurateur
+              // Acompte J0 → accès complet immédiat avec tokens du plan choisi (période audit)
               await supabase
                 .from('profiles')
-                .update({ onboarding_status: 'onboarding', onboarding_plan: plan })
+                .update({
+                  onboarding_status: 'onboarding',
+                  onboarding_plan: plan,
+                  subscription_status: 'active',
+                  plan,
+                  tokens_limit: PLAN_TOKEN_LIMITS[plan],
+                  tokens_used: 0,
+                  token_usage_period_start: new Date().toISOString(),
+                })
                 .eq('id', userId)
 
               await supabase.from('user_alerts').insert({
                 user_id: userId,
                 alert_type: 'info',
-                title: 'Acompte reçu — configurateur ouvert',
-                message: 'Votre acompte de 750€ a été reçu. Vous pouvez maintenant remplir le configurateur.',
-                metadata: { type: 'setup_installment_1' },
+                title: 'Acompte reçu — accès complet activé',
+                message: `Votre acompte de 750€ a été reçu. Vous avez accès à la plateforme avec le plan ${plan} pendant la période de mise en place.`,
+                metadata: { type: 'setup_installment_1', plan },
               })
             } else if (installment === 2) {
               // Solde J30 → onboarding terminé, l'abonnement mensuel sera démarré

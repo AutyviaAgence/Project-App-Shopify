@@ -104,16 +104,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Blocage niveau 1 : pending → uniquement /onboarding autorisé
   const isPending = subscription && onboardingStatus === 'pending' && !isOnboardingPage && !isAllowedPage
 
-  // Blocage niveau 2 : onboarding → uniquement /onboarding/* autorisé
-  const isOnboardingOnly = subscription && onboardingStatus === 'onboarding' && !isOnboardingPage && !isAllowedPage
+  // onboarding = acompte payé → accès complet (période audit avec tokens du plan)
+  const isOnboardingOnly = false
 
-  // Blocage niveau 3 : active mais subscription inactive (expired/cancelled)
-  const isBlocked = subscription && onboardingStatus === 'active' && !subscription.isActive && !isAllowedPage
+  // Blocage niveau 2 : active/onboarding mais subscription inactive (expired/cancelled)
+  const isBlocked = subscription && (onboardingStatus === 'active' || onboardingStatus === 'onboarding') && !subscription.isActive && !isAllowedPage
 
   // Feature gating : rediriger si accès direct à une route non autorisée par le plan
   const isPlanBlocked =
     subscription &&
-    onboardingStatus === 'active' &&
+    (onboardingStatus === 'active' || onboardingStatus === 'onboarding') &&
     subscription.isActive &&
     ((pathname.startsWith('/campaigns') && plan !== 'scale') ||
      (pathname.startsWith('/lifecycle') && plan === 'starter'))
