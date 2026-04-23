@@ -97,25 +97,22 @@ export async function POST(req: NextRequest) {
                 metadata: { type: 'setup_installment_1' },
               })
             } else if (installment === 2) {
-              // Solde J30 → accès complet
+              // Solde J30 → onboarding terminé, l'abonnement mensuel sera démarré
+              // via un checkout Stripe séparé côté client après cette redirection.
               const planId = resolvePlan(session.metadata?.plan)
               await supabase
                 .from('profiles')
                 .update({
                   onboarding_status: 'active',
-                  subscription_status: 'active',
                   plan: planId,
-                  tokens_limit: PLAN_TOKEN_LIMITS[planId],
-                  tokens_used: 0,
-                  token_usage_period_start: new Date().toISOString(),
                 })
                 .eq('id', userId)
 
               await supabase.from('user_alerts').insert({
                 user_id: userId,
                 alert_type: 'info',
-                title: 'Mise en place finalisée — accès complet activé',
-                message: `Votre plateforme Autyvia est prête. Bienvenue sur le plan ${planId} !`,
+                title: 'Solde reçu — démarrez votre abonnement',
+                message: `Votre setup est finalisé. Rendez-vous sur /onboarding/solde pour démarrer votre abonnement ${planId}.`,
                 metadata: { type: 'setup_installment_2', plan: planId },
               })
             }

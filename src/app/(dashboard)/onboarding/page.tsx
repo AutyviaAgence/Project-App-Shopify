@@ -16,11 +16,11 @@ const PLANS: { id: PlanId; name: string; tokens: string; sessions: string; agent
 ]
 
 const STEPS = [
-  { icon: CreditCard, label: 'Acompte 750€', description: 'Réservation de votre mise en place' },
-  { icon: Settings2, label: 'Configurateur', description: 'Paramétrez votre agent WhatsApp IA' },
-  { icon: Settings2, label: 'Config & tests', description: 'Nous préparons votre plateforme (J14–J30)' },
-  { icon: CreditCard, label: 'Solde 750€', description: 'Finalisation avant accès complet' },
-  { icon: Rocket, label: 'Accès complet', description: 'Votre plateforme est en ligne' },
+  { icon: CreditCard, label: 'Acompte 750€', description: 'Réservation de votre mise en place (J0)' },
+  { icon: Settings2, label: 'Configurateur', description: 'Paramétrez votre agent WhatsApp IA (J0–J14)' },
+  { icon: Settings2, label: 'Config & tests', description: 'Notre équipe prépare votre plateforme (J14–J30)' },
+  { icon: CreditCard, label: 'Solde 750€ + 1er mois', description: 'Solde setup + démarrage abonnement mensuel (J30)' },
+  { icon: Rocket, label: 'Accès complet', description: 'Votre plateforme est en ligne, abonnement actif' },
 ]
 
 export default function OnboardingPage() {
@@ -131,13 +131,24 @@ export default function OnboardingPage() {
         </div>
 
         {/* Setup fee notice */}
-        <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-4 flex gap-3">
-          <CreditCard className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-          <div className="text-sm">
-            <p className="font-medium text-amber-800 dark:text-amber-300">Frais de mise en place : 1 500€ (2×750€)</p>
-            <p className="text-amber-700 dark:text-amber-400 mt-0.5">
-              Un acompte de 750€ est requis aujourd&apos;hui pour démarrer. Le solde de 750€ sera demandé à J+30 avant la remise des accès.
-            </p>
+        <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-4 space-y-3">
+          <div className="flex gap-3">
+            <CreditCard className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <p className="font-medium text-amber-800 dark:text-amber-300">Frais de mise en place : 1 500€ (2×750€)</p>
+              <p className="text-amber-700 dark:text-amber-400 mt-0.5">
+                Un acompte de 750€ est requis aujourd&apos;hui. À J+30, vous réglez le solde de 750€ <strong>et</strong> démarrez votre abonnement mensuel en même temps.
+              </p>
+            </div>
+          </div>
+          <div className="ml-8 rounded-lg bg-amber-100 dark:bg-amber-900/40 p-3 text-xs text-amber-800 dark:text-amber-300 space-y-1">
+            <div className="flex justify-between"><span>J0 — Acompte setup</span><span className="font-semibold">750€</span></div>
+            <div className="flex justify-between"><span>J30 — Solde setup</span><span className="font-semibold">750€</span></div>
+            <div className="flex justify-between"><span>J30 — 1er mois abonnement ({PLAN_PRICES_EUR[selectedPlan]}€/mois)</span><span className="font-semibold">{PLAN_PRICES_EUR[selectedPlan]}€</span></div>
+            <div className="border-t border-amber-300 dark:border-amber-700 pt-1 flex justify-between font-semibold">
+              <span>Total à J30</span>
+              <span>{750 + PLAN_PRICES_EUR[selectedPlan]}€</span>
+            </div>
           </div>
         </div>
 

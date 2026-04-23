@@ -205,28 +205,36 @@ function OnboardingSection({ onboardingStatus }: { onboardingStatus: 'pending' |
         </div>
 
         {onboardingStatus === 'pending' && (
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-1">
-            <p className="text-sm text-muted-foreground flex-1">
-              Démarrez la mise en place en réglant l&apos;acompte de <strong>750€</strong> (total : 1 500€ en 2×).
-            </p>
-            <Button onClick={handleAcompte} disabled={loadingAcompte} className="shrink-0">
-              {loadingAcompte ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
-              Payer l&apos;acompte 750€
-            </Button>
+          <div className="space-y-3 pt-1">
+            <div className="rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground space-y-1">
+              <div className="flex justify-between"><span>J0 — Acompte setup</span><span className="font-semibold text-foreground">750€</span></div>
+              <div className="flex justify-between text-muted-foreground/60"><span>J30 — Solde setup</span><span>750€</span></div>
+              <div className="flex justify-between text-muted-foreground/60"><span>J30 — 1er mois abonnement</span><span>selon plan</span></div>
+              <p className="pt-1 text-muted-foreground/70">L&apos;abonnement mensuel démarre en même temps que le solde à J+30.</p>
+            </div>
+            <div className="flex justify-end">
+              <Button onClick={handleAcompte} disabled={loadingAcompte}>
+                {loadingAcompte ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
+                Payer l&apos;acompte 750€
+              </Button>
+            </div>
           </div>
         )}
 
         {onboardingStatus === 'onboarding' && (
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-1">
-            <p className="text-sm text-muted-foreground flex-1">
-              Acompte reçu ✓ — Complétez le configurateur pour que notre équipe prépare votre plateforme.
-            </p>
-            <Link href="/onboarding/configurateur" className="shrink-0">
-              <Button>
-                <Settings2 className="mr-2 h-4 w-4" />
-                Compléter le configurateur
-              </Button>
-            </Link>
+          <div className="space-y-3 pt-1">
+            <div className="rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground space-y-1">
+              <div className="flex justify-between text-green-600"><span>✓ Acompte setup reçu</span><span className="font-semibold">750€</span></div>
+              <div className="flex justify-between text-muted-foreground/60"><span>J30 — Solde setup + 1er mois abonnement</span><span>750€ + selon plan</span></div>
+            </div>
+            <div className="flex justify-end">
+              <Link href="/onboarding/configurateur">
+                <Button>
+                  <Settings2 className="mr-2 h-4 w-4" />
+                  Compléter le configurateur
+                </Button>
+              </Link>
+            </div>
           </div>
         )}
       </CardContent>
