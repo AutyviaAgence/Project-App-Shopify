@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/dialog'
 import {
   Loader2, ShieldAlert, Users, Zap, FileText, ChevronDown, ChevronUp,
-  CheckCircle2, XCircle, Clock, RefreshCw
+  CheckCircle2, XCircle, Clock, RefreshCw, ShieldCheck
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { PlanId } from '@/lib/stripe/plans'
@@ -34,7 +34,11 @@ type OnboardingConfig = {
   languages: string[]
   conversation_example: string
   info_to_collect: string
+  cgv_accepted_at: string | null
   submitted_at: string | null
+  admin_validated_at: string | null
+  admin_validated_by: string | null
+  admin_notes: string | null
 }
 
 type ClientRow = {
@@ -94,8 +98,10 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true)
   const [activating, setActivating] = useState<string | null>(null)
   const [selectedPlans, setSelectedPlans] = useState<Record<string, PlanId>>({})
-  const [configModal, setConfigModal] = useState<OnboardingConfig | null>(null)
+  const [configModal, setConfigModal] = useState<{ config: OnboardingConfig; userId: string } | null>(null)
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
+  const [validating, setValidating] = useState(false)
+  const [adminNotes, setAdminNotes] = useState('')
 
   const fetchClients = useCallback(async () => {
     setLoading(true)
@@ -152,6 +158,28 @@ export default function AdminPage() {
       toast.error(err instanceof Error ? err.message : 'Erreur')
     } finally {
       setActivating(null)
+    }
+  }
+
+  const handleValidateConfig = async () => {
+    if (!configModal) return
+    setValidating(true)
+    try {
+      const res = await fetch('/api/admin/validate-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: configModal.userId, notes: adminNotes }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast.success('Configurateur validé et horodaté')
+      setConfigModal(null)
+      setAdminNotes('')
+      fetchClients()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur')
+    } finally {
+      setValidating(false)
     }
   }
 
@@ -347,10 +375,15 @@ export default function AdminPage() {
                           size="sm"
                           variant="outline"
                           className="h-7 text-xs gap-1.5"
-                          onClick={() => setConfigModal(client.onboarding_config)}
+                          onClick={() => {
+                            setAdminNotes(client.onboarding_config?.admin_notes || '')
+                            setConfigModal({ config: client.onboarding_config!, userId: client.id })
+                          }}
                         >
-                          <FileText className="h-3.5 w-3.5 text-green-500" />
-                          Voir
+                          {client.onboarding_config?.admin_validated_at
+                            ? <ShieldCheck className="h-3.5 w-3.5 text-green-500" />
+                            : <FileText className="h-3.5 w-3.5 text-amber-500" />}
+                          {client.onboarding_config?.admin_validated_at ? 'Validé' : 'À valider'}
                         </Button>
                       ) : (
                         <span className="text-xs text-muted-foreground flex items-center gap-1">
@@ -403,12 +436,68 @@ export default function AdminPage() {
       </div>
 
       {/* Modal configurateur */}
-      <Dialog open={!!configModal} onOpenChange={() => setConfigModal(null)}>
-        <DialogContent className="max-w-lg">
+      <Dialog open={!!configModal} onOpenChange={() => { setConfigModal(null); setAdminNotes('') }}>
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Configurateur client</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              Configurateur client
+              {configModal?.config.admin_validated_at && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-green-500/10 px-2 py-0.5 text-xs font-medium text-green-600">
+                  <ShieldCheck className="h-3 w-3" />
+                  Validé le {new Date(configModal.config.admin_validated_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                </span>
+              )}
+            </DialogTitle>
           </DialogHeader>
-          {configModal && <ConfigDetails config={configModal} />}
+          {configModal && (
+            <div className="space-y-4">
+              <ConfigDetails config={configModal.config} />
+
+              {/* Notes admin */}
+              <div className="space-y-1.5 pt-2 border-t">
+                <label className="text-xs font-medium text-muted-foreground">Notes internes (admin)</label>
+                <textarea
+                  value={adminNotes}
+                  onChange={e => setAdminNotes(e.target.value)}
+                  rows={3}
+                  placeholder="Observations, points à configurer, remarques…"
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
+                />
+              </div>
+
+              {/* Bouton valider */}
+              {!configModal.config.admin_validated_at ? (
+                <Button
+                  className="w-full gap-2"
+                  onClick={handleValidateConfig}
+                  disabled={validating}
+                >
+                  {validating
+                    ? <Loader2 className="h-4 w-4 animate-spin" />
+                    : <ShieldCheck className="h-4 w-4" />}
+                  Valider et horodater ce configurateur
+                </Button>
+              ) : (
+                <div className="space-y-2">
+                  {configModal.config.admin_notes && (
+                    <div className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
+                      <span className="font-medium text-foreground">Notes : </span>
+                      {configModal.config.admin_notes}
+                    </div>
+                  )}
+                  <Button
+                    variant="outline"
+                    className="w-full gap-2 text-xs"
+                    onClick={handleValidateConfig}
+                    disabled={validating}
+                  >
+                    {validating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
+                    Mettre à jour les notes
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
@@ -431,9 +520,17 @@ function ConfigDetails({ config }: { config: OnboardingConfig }) {
 
   return (
     <div className="space-y-3 text-sm">
-      {config.submitted_at && (
-        <p className="text-xs text-muted-foreground">Soumis le {new Date(config.submitted_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>
-      )}
+      <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+        {config.submitted_at && (
+          <span>Soumis le {new Date(config.submitted_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+        )}
+        {config.cgv_accepted_at && (
+          <span className="flex items-center gap-1 text-green-600">
+            <ShieldCheck className="h-3 w-3" />
+            CGV acceptées le {new Date(config.cgv_accepted_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+          </span>
+        )}
+      </div>
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-lg bg-muted/50 p-3 space-y-0.5">
           <p className="text-xs text-muted-foreground font-medium">Fonction principale</p>

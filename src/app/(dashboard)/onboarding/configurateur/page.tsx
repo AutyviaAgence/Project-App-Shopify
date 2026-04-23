@@ -2,9 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { CheckCircle2, ChevronRight, Loader2 } from 'lucide-react'
+import { CheckCircle2, ChevronRight, Loader2, ShieldCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import Link from 'next/link'
 
 type MultiOption = { value: string; label: string }
 
@@ -124,6 +125,7 @@ export default function ConfigurateurPage() {
     conversation_example: '',
     info_to_collect: '',
   })
+  const [cgvAccepted, setCgvAccepted] = useState(false)
   const [loading, setLoading] = useState(false)
   const [alreadySubmitted, setAlreadySubmitted] = useState(false)
 
@@ -154,7 +156,8 @@ export default function ConfigurateurPage() {
     form.escalation &&
     form.languages.length > 0 &&
     form.conversation_example.trim().length > 0 &&
-    form.info_to_collect.trim().length > 0
+    form.info_to_collect.trim().length > 0 &&
+    cgvAccepted
 
   const handleSubmit = async () => {
     if (!isValid) {
@@ -166,7 +169,7 @@ export default function ConfigurateurPage() {
       const res = await fetch('/api/onboarding/config', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, cgv_accepted: cgvAccepted }),
       })
       const data = await res.json()
       if (res.ok) {
@@ -283,6 +286,34 @@ export default function ConfigurateurPage() {
             placeholder={"- Prénom et nom\n- Numéro de téléphone\n- Email\n- Type de prestation souhaitée\n- Budget estimé\n- Délai souhaité"}
             className="w-full rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
           />
+        </section>
+
+        {/* Checkbox CGV */}
+        <section className="space-y-3">
+          <label className={cn(
+            'flex items-start gap-3 cursor-pointer rounded-xl border-2 p-4 transition-all',
+            cgvAccepted ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/40'
+          )}>
+            <input
+              type="checkbox"
+              checked={cgvAccepted}
+              onChange={e => setCgvAccepted(e.target.checked)}
+              className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-border accent-primary"
+            />
+            <div className="space-y-1">
+              <div className="flex items-center gap-1.5 text-sm font-medium">
+                <ShieldCheck className="h-4 w-4 text-primary shrink-0" />
+                Engagement prérequis &amp; conditions de remboursement
+              </div>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                Je confirme avoir lu et accepté les{' '}
+                <Link href="/cgu" target="_blank" className="text-primary underline hover:no-underline">CGU</Link>
+                {' '}et les{' '}
+                <Link href="/cgv" target="_blank" className="text-primary underline hover:no-underline">CGV</Link>.
+                Je comprends que ce formulaire constitue un prérequis à la mise en place et que toute demande de remboursement sera évaluée sur la base des informations fournies ici.
+              </p>
+            </div>
+          </label>
         </section>
 
         {/* Submit */}

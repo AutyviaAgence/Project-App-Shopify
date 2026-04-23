@@ -41,10 +41,14 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json()
-  const { main_function, behavior, tools, escalation, languages, conversation_example, info_to_collect } = body
+  const { main_function, behavior, tools, escalation, languages, conversation_example, info_to_collect, cgv_accepted } = body
 
   if (!main_function || !behavior || !tools?.length || !escalation || !languages?.length || !conversation_example?.trim() || !info_to_collect?.trim()) {
     return NextResponse.json({ error: 'Champs manquants' }, { status: 400 })
+  }
+
+  if (!cgv_accepted) {
+    return NextResponse.json({ error: 'Vous devez accepter les CGV/CGU.' }, { status: 400 })
   }
 
   const payload = {
@@ -56,6 +60,7 @@ export async function POST(req: NextRequest) {
     languages,
     conversation_example: conversation_example.trim(),
     info_to_collect: info_to_collect.trim(),
+    cgv_accepted_at: new Date().toISOString(),
     submitted_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   }
