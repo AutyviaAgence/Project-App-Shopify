@@ -406,6 +406,7 @@ export async function POST(req: NextRequest) {
             .update({
               subscription_status: 'cancelled',
               stripe_subscription_id: null,
+              pending_plan: null,
               ...(endsAt ? { subscription_ends_at: endsAt } : {}),
             })
             .eq('id', userId)
