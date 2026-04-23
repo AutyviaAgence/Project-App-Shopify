@@ -1,10 +1,11 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getStripe, CUSTOM_SETUP_INSTALLMENT_CENTS, CUSTOM_BOOKING_URL } from '@/lib/stripe/client'
+import { resolvePlan } from '@/lib/stripe/plans'
 import { getTenantFromCookies } from '@/lib/tenant/server'
 
 /** POST /api/stripe/custom-setup — Créer une session Stripe pour acompte setup Custom (750€) */
-export async function POST() {
+export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
 
@@ -21,6 +22,9 @@ export async function POST() {
   if (!profile) {
     return NextResponse.json({ error: 'Profil introuvable' }, { status: 404 })
   }
+
+  const body = await req.json().catch(() => ({}))
+  const plan = resolvePlan(body.plan)
 
   try {
     const stripe = getStripe()
@@ -78,12 +82,15 @@ export async function POST() {
           quantity: 1,
         },
       ],
-      success_url: `https://cal.com/autyvia/appel-on-boarding`,
-      cancel_url: `${baseUrl}/subscription?custom_cancelled=true`,
+      success_url: installmentNumber === 1
+        ? `${baseUrl}/onboarding/configurateur?acompte=ok`
+        : `${baseUrl}/onboarding/solde?solde=ok`,
+      cancel_url: `${baseUrl}/onboarding`,
       metadata: {
         user_id: user.id,
         type: 'custom_setup',
         installment: installmentNumber.toString(),
+        plan,
       },
     })
 

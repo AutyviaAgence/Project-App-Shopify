@@ -31,9 +31,26 @@ CREATE TABLE public.profiles (
   tenant_id uuid,
   plan text DEFAULT 'scale' CHECK (plan IN ('starter', 'pro', 'scale')),
   role text DEFAULT 'user' CHECK (role IN ('user', 'admin')),
+  onboarding_status text DEFAULT 'pending' CHECK (onboarding_status IN ('pending', 'onboarding', 'active')),
+  onboarding_plan text CHECK (onboarding_plan IN ('starter', 'pro', 'scale')),
   is_banned boolean DEFAULT false,
   banned_at timestamp with time zone,
   banned_reason text,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS public.onboarding_configs (
+  id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  main_function text NOT NULL CHECK (main_function IN ('sav', 'leads', 'rdv', 'devis')),
+  behavior text NOT NULL CHECK (behavior IN ('direct', 'qualify_transfer', 'qualify_silent')),
+  tools text[] NOT NULL DEFAULT '{}',
+  escalation text NOT NULL CHECK (escalation IN ('never', 'qualified', 'on_demand', 'off_hours')),
+  languages text[] NOT NULL DEFAULT '{}',
+  agent_name text NOT NULL,
+  welcome_message text NOT NULL,
+  submitted_at timestamp with time zone,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now()
 );

@@ -62,7 +62,7 @@ const BOTTOM_NAV_KEYS = [
 ]
 
 // Pages accessibles même sans abonnement actif
-const ALLOWED_WITHOUT_SUBSCRIPTION = ['/subscription', '/settings', '/admin']
+const ALLOWED_WITHOUT_SUBSCRIPTION = ['/subscription', '/settings', '/admin', '/onboarding']
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -93,15 +93,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return items
   }, [t, subscription?.role])
 
+  const onboardingStatus = subscription?.onboardingStatus ?? 'pending'
+  const isOnboardingPage = pathname.startsWith('/onboarding')
+
   // Vérifier si la page actuelle est accessible sans abonnement
   const isAllowedPage = ALLOWED_WITHOUT_SUBSCRIPTION.some(
     p => pathname === p || pathname.startsWith(p + '/')
   )
-  const isBlocked = subscription && !subscription.isActive && !isAllowedPage
+
+  // Blocage niveau 1 : pending → uniquement /onboarding autorisé
+  const isPending = subscription && onboardingStatus === 'pending' && !isOnboardingPage && !isAllowedPage
+
+  // Blocage niveau 2 : onboarding → uniquement /onboarding/* autorisé
+  const isOnboardingOnly = subscription && onboardingStatus === 'onboarding' && !isOnboardingPage && !isAllowedPage
+
+  // Blocage niveau 3 : active mais subscription inactive (expired/cancelled)
+  const isBlocked = subscription && onboardingStatus === 'active' && !subscription.isActive && !isAllowedPage
 
   // Feature gating : rediriger si accès direct à une route non autorisée par le plan
   const isPlanBlocked =
     subscription &&
+    onboardingStatus === 'active' &&
     subscription.isActive &&
     ((pathname.startsWith('/campaigns') && plan !== 'scale') ||
      (pathname.startsWith('/lifecycle') && plan === 'starter'))
@@ -275,6 +287,48 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {subscriptionLoading ? (
             <div className="flex h-full items-center justify-center">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : isPending ? (
+            <div className="flex h-full items-center justify-center p-6">
+              <div className="max-w-md text-center space-y-6">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+                  <Workflow className="h-8 w-8 text-primary" />
+                </div>
+                <div className="space-y-2">
+                  <h2 className="text-2xl font-bold text-foreground">Bienvenue sur {tenant.appName}</h2>
+                  <p className="text-muted-foreground">
+                    Pour accéder à votre espace, démarrez la mise en place de votre plateforme WhatsApp IA.
+                  </p>
+                </div>
+                <Link
+                  href="/onboarding"
+                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+                >
+                  <Workflow className="h-5 w-5" />
+                  Démarrer la mise en place
+                </Link>
+              </div>
+            </div>
+          ) : isOnboardingOnly ? (
+            <div className="flex h-full items-center justify-center p-6">
+              <div className="max-w-md text-center space-y-6">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/30">
+                  <Workflow className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div className="space-y-2">
+                  <h2 className="text-2xl font-bold text-foreground">Mise en place en cours</h2>
+                  <p className="text-muted-foreground">
+                    Votre acompte a été reçu. Complétez le configurateur pour que nous puissions préparer votre plateforme.
+                  </p>
+                </div>
+                <Link
+                  href="/onboarding/configurateur"
+                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+                >
+                  <Workflow className="h-5 w-5" />
+                  Compléter le configurateur
+                </Link>
+              </div>
             </div>
           ) : isPlanBlocked ? (
             <div className="flex h-full items-center justify-center p-6">

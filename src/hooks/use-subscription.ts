@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import type { SubscriptionStatus } from '@/types/database'
+import type { SubscriptionStatus, OnboardingStatus } from '@/types/database'
 import type { PlanId } from '@/lib/stripe/plans'
 
 type SubscriptionInfo = {
@@ -19,6 +19,8 @@ type SubscriptionInfo = {
   stripeSubscriptionId: string | null
   plan: PlanId
   role: 'user' | 'admin'
+  onboardingStatus: OnboardingStatus
+  onboardingPlan: PlanId | null
 }
 
 export function useSubscription() {
@@ -71,6 +73,8 @@ export function useSubscription() {
           stripeSubscriptionId: data.data.stripe_subscription_id || null,
           plan: (data.data.plan || 'scale') as PlanId,
           role: (data.data.role || 'user') as 'user' | 'admin',
+          onboardingStatus: (data.data.onboarding_status || 'pending') as OnboardingStatus,
+          onboardingPlan: (data.data.onboarding_plan || null) as PlanId | null,
         })
       }
     } catch (error) {

@@ -75,6 +75,66 @@ export async function POST(req: NextRequest) {
         const session = event.data.object as Stripe.Checkout.Session
         console.log('[Stripe Webhook] checkout.session.completed - mode:', session.mode, 'subscription:', session.subscription)
 
+        // Paiement setup onboarding (acompte 1 ou solde 2)
+        if (session.mode === 'payment' && session.metadata?.type === 'custom_setup') {
+          const userId = session.metadata?.user_id
+          const installment = parseInt(session.metadata?.installment || '1', 10)
+          const plan = resolvePlan(session.metadata?.plan)
+
+          if (userId) {
+            if (installment === 1) {
+              // Acompte J0 → accès configurateur
+              await supabase
+                .from('profiles')
+                .update({ onboarding_status: 'onboarding', onboarding_plan: plan })
+                .eq('id', userId)
+
+              await supabase.from('user_alerts').insert({
+                user_id: userId,
+                alert_type: 'info',
+                title: 'Acompte reçu — configurateur ouvert',
+                message: 'Votre acompte de 750€ a été reçu. Vous pouvez maintenant remplir le configurateur.',
+                metadata: { type: 'setup_installment_1' },
+              })
+            } else if (installment === 2) {
+              // Solde J30 → accès complet
+              const planId = resolvePlan(session.metadata?.plan)
+              await supabase
+                .from('profiles')
+                .update({
+                  onboarding_status: 'active',
+                  subscription_status: 'active',
+                  plan: planId,
+                  tokens_limit: PLAN_TOKEN_LIMITS[planId],
+                  tokens_used: 0,
+                  token_usage_period_start: new Date().toISOString(),
+                })
+                .eq('id', userId)
+
+              await supabase.from('user_alerts').insert({
+                user_id: userId,
+                alert_type: 'info',
+                title: 'Mise en place finalisée — accès complet activé',
+                message: `Votre plateforme Autyvia est prête. Bienvenue sur le plan ${planId} !`,
+                metadata: { type: 'setup_installment_2', plan: planId },
+              })
+            }
+
+            await supabase.from('payment_history').insert({
+              user_id: userId,
+              amount: session.amount_total || 75000,
+              currency: session.currency || 'eur',
+              status: 'succeeded',
+              stripe_payment_intent_id: session.payment_intent as string || null,
+              description: `Mise en place Autyvia — ${installment === 1 ? 'Acompte' : 'Solde'} (750€)`,
+              metadata: { checkout_session_id: session.id, type: 'custom_setup', installment },
+            })
+
+            console.log('[Stripe Webhook] custom_setup installment', installment, 'for user:', userId)
+          }
+          break
+        }
+
         // Achat de tokens supplémentaires (mode payment)
         if (session.mode === 'payment' && session.metadata?.type === 'token_purchase') {
           const userId = session.metadata?.user_id
