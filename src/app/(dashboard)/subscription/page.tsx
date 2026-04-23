@@ -44,6 +44,8 @@ import {
   Crown,
   ArrowRight,
   ExternalLink,
+  Workflow,
+  Settings2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/i18n/context'
@@ -57,6 +59,7 @@ const PLANS = [
     name: 'Starter',
     price: 39,
     tokens: '500 000',
+    tokensDesc: '~400 conv/mois',
     icon: Zap,
     color: 'text-blue-500',
     borderColor: 'border-blue-500/30',
@@ -64,10 +67,11 @@ const PLANS = [
     badgeBg: 'bg-blue-500/10 text-blue-600',
     buttonClass: 'bg-blue-500 hover:bg-blue-600 text-white',
     features: [
-      { text: '1 session WhatsApp', included: true },
-      { text: '1 agent IA', included: true },
-      { text: 'Conversations & messages', included: true },
-      { text: 'Base de connaissances', included: true },
+      { text: '2 sessions WhatsApp', included: true },
+      { text: '2 agents IA', included: true },
+      { text: '5 docs RAG', included: true },
+      { text: '3 liens WA', included: true },
+      { text: '2 équipes', included: true },
       { text: 'Lifecycle (relances)', included: false },
       { text: 'Campagnes broadcast', included: false },
     ],
@@ -77,6 +81,7 @@ const PLANS = [
     name: 'Pro',
     price: 79,
     tokens: '1 500 000',
+    tokensDesc: '~1 200 conv/mois',
     icon: Rocket,
     color: 'text-primary',
     borderColor: 'border-primary/50',
@@ -85,10 +90,11 @@ const PLANS = [
     buttonClass: '',
     popular: true,
     features: [
-      { text: '3 sessions WhatsApp', included: true },
-      { text: '3 agents IA', included: true },
-      { text: 'Conversations & messages', included: true },
-      { text: 'Base de connaissances', included: true },
+      { text: '4 sessions WhatsApp', included: true },
+      { text: '5 agents IA', included: true },
+      { text: '10 docs RAG', included: true },
+      { text: '8 liens WA', included: true },
+      { text: '4 équipes', included: true },
       { text: 'Lifecycle (relances)', included: true },
       { text: 'Campagnes broadcast', included: false },
     ],
@@ -98,6 +104,7 @@ const PLANS = [
     name: 'Scale',
     price: 150,
     tokens: '4 000 000',
+    tokensDesc: '~3 200 conv/mois',
     icon: Crown,
     color: 'text-sky-500',
     borderColor: 'border-sky-500/30',
@@ -105,15 +112,127 @@ const PLANS = [
     badgeBg: 'bg-sky-500/10 text-sky-600',
     buttonClass: 'bg-sky-500 hover:bg-sky-600 text-white',
     features: [
-      { text: 'Sessions WhatsApp illimitées', included: true },
-      { text: 'Agents IA illimités', included: true },
-      { text: 'Conversations & messages', included: true },
-      { text: 'Base de connaissances', included: true },
+      { text: '10 sessions WhatsApp', included: true },
+      { text: '10 agents IA', included: true },
+      { text: '30 docs RAG', included: true },
+      { text: '15 liens WA', included: true },
+      { text: '10 équipes', included: true },
       { text: 'Lifecycle (relances)', included: true },
       { text: 'Campagnes broadcast', included: true },
     ],
   },
 ]
+
+const ONBOARDING_STEPS = [
+  { icon: CreditCard, label: 'Acompte 750€', status: 'done' },
+  { icon: Settings2, label: 'Configurateur', status: 'current' },
+  { icon: Settings2, label: 'Config & tests (J14–J30)', status: 'pending' },
+  { icon: CreditCard, label: 'Solde 750€', status: 'pending' },
+  { icon: Rocket, label: 'Accès complet', status: 'pending' },
+]
+
+function OnboardingSection({ onboardingStatus }: { onboardingStatus: 'pending' | 'onboarding' | 'active' }) {
+  const [loadingAcompte, setLoadingAcompte] = useState(false)
+  const { subscription } = useSubscription()
+
+  const handleAcompte = async () => {
+    setLoadingAcompte(true)
+    try {
+      const res = await fetch('/api/stripe/custom-setup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ plan: subscription?.plan ?? 'scale' }),
+      })
+      const data = await res.json()
+      if (data.url) window.location.href = data.url
+      else toast.error(data.error || 'Erreur')
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setLoadingAcompte(false)
+    }
+  }
+
+  if (onboardingStatus === 'active') return null
+
+  const stepStates =
+    onboardingStatus === 'pending'
+      ? ['upcoming', 'upcoming', 'upcoming', 'upcoming', 'upcoming']
+      : ['done', 'current', 'upcoming', 'upcoming', 'upcoming']
+
+  return (
+    <Card className="mb-8 border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
+      <CardHeader className="pb-3">
+        <div className="flex items-center gap-2">
+          <Workflow className="h-5 w-5 text-primary" />
+          <span className="font-semibold">Mise en place de votre plateforme</span>
+          <Badge className={cn(
+            onboardingStatus === 'pending' ? 'bg-amber-500' : 'bg-blue-500'
+          )}>
+            {onboardingStatus === 'pending' ? 'Non démarrée' : 'En cours'}
+          </Badge>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-5">
+        {/* Timeline */}
+        <div className="flex items-center gap-1 overflow-x-auto pb-1">
+          {ONBOARDING_STEPS.map((step, i) => {
+            const state = stepStates[i]
+            return (
+              <div key={i} className="flex items-center gap-1 shrink-0">
+                <div className={cn(
+                  'flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold border-2',
+                  state === 'done' && 'border-green-500 bg-green-500 text-white',
+                  state === 'current' && 'border-primary bg-primary text-white',
+                  state === 'upcoming' && 'border-border bg-muted text-muted-foreground',
+                )}>
+                  {state === 'done' ? <Check className="h-3.5 w-3.5" /> : i + 1}
+                </div>
+                <span className={cn(
+                  'text-xs hidden sm:block',
+                  state === 'done' && 'text-green-600',
+                  state === 'current' && 'text-primary font-medium',
+                  state === 'upcoming' && 'text-muted-foreground',
+                )}>
+                  {step.label}
+                </span>
+                {i < ONBOARDING_STEPS.length - 1 && (
+                  <div className={cn('h-px w-4 mx-1', state === 'done' ? 'bg-green-400' : 'bg-border')} />
+                )}
+              </div>
+            )
+          })}
+        </div>
+
+        {onboardingStatus === 'pending' && (
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-1">
+            <p className="text-sm text-muted-foreground flex-1">
+              Démarrez la mise en place en réglant l&apos;acompte de <strong>750€</strong> (total : 1 500€ en 2×).
+            </p>
+            <Button onClick={handleAcompte} disabled={loadingAcompte} className="shrink-0">
+              {loadingAcompte ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
+              Payer l&apos;acompte 750€
+            </Button>
+          </div>
+        )}
+
+        {onboardingStatus === 'onboarding' && (
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-1">
+            <p className="text-sm text-muted-foreground flex-1">
+              Acompte reçu ✓ — Complétez le configurateur pour que notre équipe prépare votre plateforme.
+            </p>
+            <Link href="/onboarding/configurateur" className="shrink-0">
+              <Button>
+                <Settings2 className="mr-2 h-4 w-4" />
+                Compléter le configurateur
+              </Button>
+            </Link>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
 
 function SubscriptionContent() {
   const { t, locale } = useTranslation()
@@ -125,7 +244,6 @@ function SubscriptionContent() {
   const [selectedPlan, setSelectedPlan] = useState<PlanId | null>(null)
   const [cgvAccepted, setCgvAccepted] = useState(false)
 
-  // Pré-sélectionner le plan depuis l'URL (ex: venant de /register?plan=starter)
   useEffect(() => {
     const p = searchParams.get('plan')
     if (p === 'starter' || p === 'pro' || p === 'scale') {
@@ -209,6 +327,7 @@ function SubscriptionContent() {
 
   const isActive = subscription?.status === 'active' || subscription?.status === 'trial'
   const currentPlan = subscription?.plan ?? 'scale'
+  const onboardingStatus = subscription?.onboardingStatus ?? 'pending'
   const planDetails = PLANS.find(p => p.id === selectedPlan)
 
   return (
@@ -220,58 +339,63 @@ function SubscriptionContent() {
         </p>
       </div>
 
-      {/* Statut actuel */}
-      <Card className="mb-8">
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <Calendar className="h-5 w-5 text-muted-foreground" />
-              <div>
-                <p className="font-semibold">{t('subscription.your_subscription')}</p>
-                {subscription?.status === 'trial' && subscription.trialEndsAt && (
-                  <p className="text-sm text-muted-foreground">
-                    {t('subscription.trial_ends')} {formatDate(subscription.trialEndsAt)}
-                    {subscription.daysRemaining !== null && ` (${subscription.daysRemaining}j restants)`}
-                  </p>
-                )}
-                {subscription?.status === 'active' && subscription.subscriptionEndsAt && (
-                  <p className="text-sm text-muted-foreground">
-                    {t('subscription.valid_until')} {formatDate(subscription.subscriptionEndsAt)}
-                  </p>
+      {/* Section onboarding (visible si pas encore active) */}
+      <OnboardingSection onboardingStatus={onboardingStatus} />
+
+      {/* Statut abonnement (visible uniquement si onboarding active) */}
+      {onboardingStatus === 'active' && (
+        <Card className="mb-8">
+          <CardHeader>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <Calendar className="h-5 w-5 text-muted-foreground" />
+                <div>
+                  <p className="font-semibold">{t('subscription.your_subscription')}</p>
+                  {subscription?.status === 'trial' && subscription.trialEndsAt && (
+                    <p className="text-sm text-muted-foreground">
+                      {t('subscription.trial_ends')} {formatDate(subscription.trialEndsAt)}
+                      {subscription.daysRemaining !== null && ` (${subscription.daysRemaining}j restants)`}
+                    </p>
+                  )}
+                  {subscription?.status === 'active' && subscription.subscriptionEndsAt && (
+                    <p className="text-sm text-muted-foreground">
+                      {t('subscription.valid_until')} {formatDate(subscription.subscriptionEndsAt)}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <Badge
+                  className={cn(
+                    subscription?.status === 'trial' && 'bg-amber-500 hover:bg-amber-600',
+                    subscription?.status === 'active' && 'bg-green-500 hover:bg-green-600',
+                    (subscription?.status === 'expired' || subscription?.status === 'cancelled') && 'bg-red-500 hover:bg-red-600',
+                  )}
+                >
+                  {subscription?.status === 'trial' && `Essai — Plan ${PLANS.find(p => p.id === currentPlan)?.name ?? currentPlan}`}
+                  {subscription?.status === 'active' && `Actif — Plan ${PLANS.find(p => p.id === currentPlan)?.name ?? currentPlan}`}
+                  {subscription?.status === 'expired' && t('subscription.expired')}
+                  {subscription?.status === 'cancelled' && t('subscription.cancelled')}
+                </Badge>
+                {isActive ? (
+                  <div className="flex items-center gap-1.5 text-green-600">
+                    <CheckCircle className="h-4 w-4" />
+                    <span className="text-sm font-medium">{t('subscription.access_active')}</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-1.5 text-red-600">
+                    <XCircle className="h-4 w-4" />
+                    <span className="text-sm font-medium">{t('subscription.access_expired')}</span>
+                  </div>
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <Badge
-                className={cn(
-                  subscription?.status === 'trial' && 'bg-amber-500 hover:bg-amber-600',
-                  subscription?.status === 'active' && 'bg-green-500 hover:bg-green-600',
-                  (subscription?.status === 'expired' || subscription?.status === 'cancelled') && 'bg-red-500 hover:bg-red-600',
-                )}
-              >
-                {subscription?.status === 'trial' && `Essai — Plan ${PLANS.find(p => p.id === currentPlan)?.name ?? currentPlan}`}
-                {subscription?.status === 'active' && `Actif — Plan ${PLANS.find(p => p.id === currentPlan)?.name ?? currentPlan}`}
-                {subscription?.status === 'expired' && t('subscription.expired')}
-                {subscription?.status === 'cancelled' && t('subscription.cancelled')}
-              </Badge>
-              {isActive ? (
-                <div className="flex items-center gap-1.5 text-green-600">
-                  <CheckCircle className="h-4 w-4" />
-                  <span className="text-sm font-medium">{t('subscription.access_active')}</span>
-                </div>
-              ) : (
-                <div className="flex items-center gap-1.5 text-red-600">
-                  <XCircle className="h-4 w-4" />
-                  <span className="text-sm font-medium">{t('subscription.access_expired')}</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
+          </CardHeader>
+        </Card>
+      )}
 
       {/* Tokens */}
-      {subscription && (
+      {subscription && onboardingStatus === 'active' && (
         <Card className="mb-8">
           <CardHeader>
             <div className="flex items-center gap-2">
@@ -331,7 +455,7 @@ function SubscriptionContent() {
       )}
 
       {/* Actions abonnement actif */}
-      {isActive && (
+      {isActive && onboardingStatus === 'active' && (
         <Card className="mb-8">
           <CardContent className="pt-6">
             <div className="flex flex-wrap gap-3">
@@ -387,12 +511,12 @@ function SubscriptionContent() {
 
       {/* Plans */}
       <h2 className="text-xl font-semibold mb-4">
-        {isActive ? 'Changer de plan' : 'Choisir un plan'}
+        {isActive && onboardingStatus === 'active' ? 'Changer de plan' : 'Plans disponibles'}
       </h2>
       <div className="grid md:grid-cols-3 gap-5 mb-8">
         {PLANS.map((plan) => {
           const Icon = plan.icon
-          const isCurrent = isActive && currentPlan === plan.id
+          const isCurrent = isActive && onboardingStatus === 'active' && currentPlan === plan.id
           return (
             <Card
               key={plan.id}
@@ -428,7 +552,7 @@ function SubscriptionContent() {
                   <span className="text-3xl font-bold">{plan.price}€</span>
                   <span className="text-muted-foreground mb-0.5 text-sm">/mois</span>
                 </div>
-                <p className="text-xs text-muted-foreground">{plan.tokens} tokens/mois</p>
+                <p className="text-xs text-muted-foreground">{plan.tokens} tokens · {plan.tokensDesc}</p>
               </CardHeader>
               <CardContent className="flex-1 pt-0">
                 <ul className="space-y-2">

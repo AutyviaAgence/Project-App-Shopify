@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getUserTeamPermissions, checkTeamPermission } from '@/lib/teams/access'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { checkPlanQuota } from '@/lib/plan-quota'
 
 /** GET /api/knowledge — Lister les documents de l'utilisateur (+ équipes avec permission) */
 export async function GET() {
@@ -77,6 +78,17 @@ export async function POST(req: NextRequest) {
 
   if (authError || !user) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  }
+
+  // Vérifier le quota de documents selon le plan
+  const docQuota = await checkPlanQuota(supabase, user.id, 'docs')
+  if (!docQuota.allowed) {
+    return NextResponse.json({
+      error: `Limite atteinte : votre plan ${docQuota.plan} inclut ${docQuota.limit} document(s) RAG. Passez à un plan supérieur pour en ajouter davantage.`,
+      quota_exceeded: true,
+      limit: docQuota.limit,
+      current: docQuota.current,
+    }, { status: 403 })
   }
 
   const contentType = req.headers.get('content-type') || ''

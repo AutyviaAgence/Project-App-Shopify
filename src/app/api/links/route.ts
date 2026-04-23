@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { randomBytes } from 'crypto'
 import { createClient } from '@/lib/supabase/server'
 import { getUserTeamIds, getUserTeamPermissions, buildAccessFilter, filterLinksByPermissions } from '@/lib/teams/access'
+import { checkPlanQuota } from '@/lib/plan-quota'
 import type { WALink } from '@/types/database'
 
 /** GET /api/links — Lister les liens WA de l'utilisateur (+ équipes avec permissions) */
@@ -94,6 +95,17 @@ export async function POST(req: Request) {
 
   if (!name || !session_id) {
     return NextResponse.json({ error: 'Nom et session requis' }, { status: 400 })
+  }
+
+  // Vérifier le quota de liens selon le plan
+  const linkQuota = await checkPlanQuota(supabase, user.id, 'links')
+  if (!linkQuota.allowed) {
+    return NextResponse.json({
+      error: `Limite atteinte : votre plan ${linkQuota.plan} inclut ${linkQuota.limit} lien(s) WhatsApp. Passez à un plan supérieur pour en ajouter davantage.`,
+      quota_exceeded: true,
+      limit: linkQuota.limit,
+      current: linkQuota.current,
+    }, { status: 403 })
   }
 
   // Récupérer les équipes de l'utilisateur

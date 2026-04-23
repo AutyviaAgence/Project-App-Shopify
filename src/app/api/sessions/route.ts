@@ -4,6 +4,7 @@ import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { evolution } from '@/lib/evolution/client'
 import { encryptMessage } from '@/lib/crypto/encryption'
 import { getUserTeamIds, getUserTeamPermissions, buildAccessFilter, filterSessionsByPermissions } from '@/lib/teams/access'
+import { checkPlanQuota } from '@/lib/plan-quota'
 import type { WhatsAppSession } from '@/types/database'
 
 /** POST /api/sessions — Créer une nouvelle session WhatsApp */
@@ -29,6 +30,17 @@ export async function POST(req: NextRequest) {
 
   // Support des deux formats: team_id (legacy) et team_ids (nouveau)
   const selectedTeamIds = team_ids || (team_id ? [team_id] : [])
+
+  // Vérifier le quota de sessions selon le plan
+  const sessionQuota = await checkPlanQuota(supabase, user.id, 'sessions')
+  if (!sessionQuota.allowed) {
+    return NextResponse.json({
+      error: `Limite atteinte : votre plan ${sessionQuota.plan} inclut ${sessionQuota.limit} session(s) WhatsApp. Passez à un plan supérieur pour en ajouter davantage.`,
+      quota_exceeded: true,
+      limit: sessionQuota.limit,
+      current: sessionQuota.current,
+    }, { status: 403 })
+  }
 
   // Vérifier que l'utilisateur a accès aux équipes spécifiées
   if (selectedTeamIds.length > 0) {

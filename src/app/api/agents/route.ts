@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getUserTeamIds, getUserTeamPermissions, buildAccessFilter, filterAgentsByPermissions } from '@/lib/teams/access'
+import { checkPlanQuota } from '@/lib/plan-quota'
 import type { AIAgent } from '@/types/database'
 
 const VALID_MODELS = ['gpt-4o-mini', 'gpt-4o']
@@ -182,6 +183,17 @@ export async function POST(req: Request) {
     team_ids?: string[]
     agent_type?: 'conversation' | 'relance' | 'qualifier'
     stop_condition?: string
+  }
+
+  // Vérifier le quota d'agents selon le plan
+  const agentQuota = await checkPlanQuota(supabase, user.id, 'agents')
+  if (!agentQuota.allowed) {
+    return NextResponse.json({
+      error: `Limite atteinte : votre plan ${agentQuota.plan} inclut ${agentQuota.limit} agent(s) IA. Passez à un plan supérieur pour en ajouter davantage.`,
+      quota_exceeded: true,
+      limit: agentQuota.limit,
+      current: agentQuota.current,
+    }, { status: 403 })
   }
 
   // Support des deux formats: team_id (legacy) et team_ids (nouveau)

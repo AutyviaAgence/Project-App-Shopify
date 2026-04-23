@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { checkPlanQuota } from '@/lib/plan-quota'
 
 /** GET /api/teams — Lister les équipes de l'utilisateur */
 export async function GET() {
@@ -66,6 +67,17 @@ export async function POST(req: Request) {
 
   if (name.length > 100) {
     return NextResponse.json({ error: 'Nom trop long (max 100 caractères)' }, { status: 400 })
+  }
+
+  // Vérifier le quota d'équipes selon le plan
+  const teamQuota = await checkPlanQuota(supabase, user.id, 'teams')
+  if (!teamQuota.allowed) {
+    return NextResponse.json({
+      error: `Limite atteinte : votre plan ${teamQuota.plan} inclut ${teamQuota.limit} équipe(s). Passez à un plan supérieur pour en créer davantage.`,
+      quota_exceeded: true,
+      limit: teamQuota.limit,
+      current: teamQuota.current,
+    }, { status: 403 })
   }
 
   // Générer un slug si non fourni — normaliser pour éviter les collisions subtiles
