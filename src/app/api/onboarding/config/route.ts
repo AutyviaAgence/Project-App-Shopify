@@ -1,5 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
+
+function getAdminClient() {
+  return createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
 
 export async function GET() {
   const supabase = await createClient()
@@ -9,8 +17,9 @@ export async function GET() {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
+  const admin = getAdminClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any)
+  const { data, error } = await (admin as any)
     .from('onboarding_configs')
     .select('*')
     .eq('user_id', user.id)
@@ -51,14 +60,15 @@ export async function POST(req: NextRequest) {
     updated_at: new Date().toISOString(),
   }
 
+  const admin = getAdminClient()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+  const { error } = await (admin as any)
     .from('onboarding_configs')
     .upsert(payload, { onConflict: 'user_id' })
 
   if (error) {
     console.error('[Onboarding Config] Error:', error)
-    return NextResponse.json({ error: 'Erreur lors de la sauvegarde' }, { status: 500 })
+    return NextResponse.json({ error: error.message || 'Erreur lors de la sauvegarde' }, { status: 500 })
   }
 
   return NextResponse.json({ success: true })

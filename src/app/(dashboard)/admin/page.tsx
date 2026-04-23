@@ -241,7 +241,7 @@ export default function AdminPage() {
                 ? Math.round((client.tokens_used / client.tokens_limit) * 100)
                 : 0
               const isExpanded = expandedRows.has(client.id)
-              const hasConfig = !!client.onboarding_config?.submitted_at
+              const hasConfig = !!client.onboarding_config
 
               return (
                 <>
