@@ -141,6 +141,17 @@ export default function CGVPage() {
         ses obligations d&apos;onboarding.
       </p>
 
+      <div className="not-prose my-4 rounded-lg border-l-4 border-blue-500 bg-blue-50 p-4 dark:bg-blue-950/30">
+        <p className="font-medium text-slate-900 dark:text-white">Conditions de remboursement du solde de 750 €</p>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+          Le solde n&apos;est pas dû uniquement si les deux conditions suivantes sont réunies
+          <strong> simultanément</strong> : (1) le client a rempli toutes ses obligations d&apos;onboarding
+          listées au présent article, et (2) l&apos;agent livré ne correspond pas aux choix validés dans le
+          configurateur signé. Toute demande de remboursement du solde doit être formulée par écrit dans les
+          <strong> 7 jours suivant la livraison</strong>. Passé ce délai, la livraison est réputée acceptée.
+        </p>
+      </div>
+
       <h3>2.5 Dépassement de quota tokens</h3>
       <p>
         Le quota de tokens IA est réinitialisé à chaque renouvellement mensuel. En cas de dépassement,
