@@ -104,7 +104,8 @@ export default function PrivacyPage() {
 
       <h2>Durée de conservation</h2>
       <ul>
-        <li><strong>Données de compte</strong> : durée de l&apos;inscription + 3 ans après suppression</li>
+        <li><strong>Données de compte (email, nom)</strong> : 3 ans après suppression du compte</li>
+        <li><strong>Conversations, agents, documents, configurations</strong> : 30 jours après résiliation, puis suppression définitive</li>
         <li><strong>Messages WhatsApp</strong> : 2 ans à compter de leur réception</li>
         <li><strong>Documents uploadés</strong> : jusqu&apos;à suppression par l&apos;utilisateur + 30 jours</li>
         <li><strong>Logs techniques</strong> : 6 mois</li>
