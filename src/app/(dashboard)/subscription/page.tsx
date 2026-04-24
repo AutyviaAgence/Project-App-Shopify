@@ -603,10 +603,18 @@ function SubscriptionContent() {
       {/* Actions abonnement actif */}
       {isActive && (onboardingStatus === 'active' || onboardingStatus === 'onboarding') && (
         <Card className="mb-8">
-          <CardContent className="pt-6">
-            <div className="flex flex-wrap gap-3">
+          <CardContent className="pt-6 space-y-4">
+            {/* Portail Stripe */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium">Portail de facturation</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Gérez vos moyens de paiement, téléchargez vos factures et modifiez vos informations de facturation.
+                </p>
+              </div>
               <Button
                 variant="outline"
+                className="shrink-0"
                 onClick={async () => {
                   try {
                     const res = await fetch('/api/stripe/portal', { method: 'POST' })
@@ -621,9 +629,23 @@ function SubscriptionContent() {
                 <CreditCard className="mr-2 h-4 w-4" />
                 Gérer mon abonnement
               </Button>
+            </div>
+
+            <div className="border-t" />
+
+            {/* Résiliation */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div>
+                <p className="text-sm font-medium text-muted-foreground">Zone de danger</p>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {subscription?.status === 'trial'
+                    ? 'L\'annulation est immédiate. Vous ne serez pas débité.'
+                    : 'L\'accès reste actif jusqu\'à la fin de la période en cours. Aucun remboursement au prorata.'}
+                </p>
+              </div>
               <AlertDialog>
                 <AlertDialogTrigger asChild>
-                  <Button variant="ghost" className="text-destructive hover:text-destructive">
+                  <Button variant="outline" className="shrink-0 border-destructive/40 text-destructive hover:bg-destructive/5 hover:border-destructive">
                     <Ban className="mr-2 h-4 w-4" />
                     {t('subscription.cancel_subscription')}
                   </Button>
