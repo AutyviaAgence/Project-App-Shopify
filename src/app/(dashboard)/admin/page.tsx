@@ -21,7 +21,8 @@ import {
 } from '@/components/ui/dialog'
 import {
   Loader2, ShieldAlert, Users, Zap, FileText, ChevronDown, ChevronUp,
-  CheckCircle2, XCircle, Clock, RefreshCw, ShieldCheck
+  CheckCircle2, XCircle, Clock, RefreshCw, ShieldCheck, CreditCard,
+  TrendingUp, AlertCircle, ExternalLink, CheckCircle, Ban, Calendar
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { PlanId } from '@/lib/stripe/plans'
@@ -57,6 +58,37 @@ type ClientRow = {
 }
 
 const PLAN_LABELS: Record<string, string> = { starter: 'Starter', pro: 'Pro', scale: 'Scale' }
+
+type BillingSubscription = {
+  user_id: string
+  email: string
+  full_name: string | null
+  plan: string | null
+  db_status: string | null
+  stripe_status: string
+  stripe_subscription_id: string
+  current_period_start: string | null
+  current_period_end: string | null
+  cancel_at_period_end: boolean
+  amount: number | null
+  currency: string
+}
+
+type BillingInvoice = {
+  id: string
+  user_id: string | null
+  email: string
+  full_name: string | null
+  plan: string | null
+  amount: number
+  currency: string
+  status: string | null
+  created: string
+  period_start: string | null
+  period_end: string | null
+  invoice_url: string | null
+  description: string | null
+}
 
 const MAIN_FUNCTION_LABELS: Record<string, string> = {
   sav: 'Service client / SAV',
@@ -103,6 +135,9 @@ export default function AdminPage() {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
   const [validating, setValidating] = useState(false)
   const [adminNotes, setAdminNotes] = useState('')
+  const [activeTab, setActiveTab] = useState<'clients' | 'billing'>('clients')
+  const [billing, setBilling] = useState<{ subscriptions: BillingSubscription[]; invoices: BillingInvoice[] } | null>(null)
+  const [billingLoading, setBillingLoading] = useState(false)
 
   const fetchClients = useCallback(async () => {
     setLoading(true)
@@ -111,6 +146,18 @@ export default function AdminPage() {
     const data = await res.json()
     setClients(data.clients || [])
     setLoading(false)
+  }, [])
+
+  const fetchBilling = useCallback(async () => {
+    setBillingLoading(true)
+    try {
+      const res = await fetch('/api/admin/billing')
+      if (!res.ok) return
+      const data = await res.json()
+      setBilling(data.data)
+    } finally {
+      setBillingLoading(false)
+    }
   }, [])
 
   useEffect(() => {
@@ -122,6 +169,12 @@ export default function AdminPage() {
   useEffect(() => {
     if (subscription?.role === 'admin') fetchClients()
   }, [subscription, fetchClients])
+
+  useEffect(() => {
+    if (subscription?.role === 'admin' && activeTab === 'billing' && !billing) {
+      fetchBilling()
+    }
+  }, [activeTab, subscription, billing, fetchBilling])
 
   const handleActivate = async (userId: string) => {
     const selectedPlan = selectedPlans[userId] || 'scale'
@@ -248,11 +301,45 @@ export default function AdminPage() {
             <p className="text-sm text-muted-foreground">{clients.length} clients</p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={fetchClients}>
+        <Button variant="outline" size="sm" onClick={activeTab === 'billing' ? fetchBilling : fetchClients}>
           <RefreshCw className="h-4 w-4 mr-2" />
           Actualiser
         </Button>
       </div>
+
+      {/* Onglets */}
+      <div className="flex gap-1 border-b">
+        <button
+          onClick={() => setActiveTab('clients')}
+          className={cn(
+            'flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors',
+            activeTab === 'clients'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          )}
+        >
+          <Users className="h-4 w-4" />
+          Clients
+        </button>
+        <button
+          onClick={() => setActiveTab('billing')}
+          className={cn(
+            'flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors',
+            activeTab === 'billing'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          )}
+        >
+          <CreditCard className="h-4 w-4" />
+          Paiements
+        </button>
+      </div>
+
+      {activeTab === 'billing' && (
+        <BillingTab billing={billing} loading={billingLoading} onRefresh={fetchBilling} />
+      )}
+
+      {activeTab === 'clients' && <>
 
       {/* KPIs */}
       <div className="grid grid-cols-3 gap-4">
@@ -540,6 +627,229 @@ export default function AdminPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      </> /* end activeTab === 'clients' */}
+    </div>
+  )
+}
+
+// ─── Billing Tab ──────────────────────────────────────────────────────────────
+
+function BillingTab({
+  billing,
+  loading,
+  onRefresh,
+}: {
+  billing: { subscriptions: BillingSubscription[]; invoices: BillingInvoice[] } | null
+  loading: boolean
+  onRefresh: () => void
+}) {
+  const fmt = (iso: string | null) =>
+    iso ? new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
+  const fmtAmount = (amount: number | null, currency: string) =>
+    amount !== null ? `${(amount / 100).toFixed(2)} ${currency.toUpperCase()}` : '—'
+
+  if (loading) return (
+    <div className="flex items-center justify-center py-16">
+      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+    </div>
+  )
+
+  if (!billing) return (
+    <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
+      <AlertCircle className="h-8 w-8" />
+      <p>Impossible de charger les données Stripe.</p>
+      <button onClick={onRefresh} className="text-sm text-primary underline">Réessayer</button>
+    </div>
+  )
+
+  const now = new Date()
+
+  // Abonnements avec prochain prélèvement
+  const activeSubscriptions = billing.subscriptions.filter(s => s.stripe_status === 'active' || s.stripe_status === 'trialing')
+  const cancelledSubscriptions = billing.subscriptions.filter(s => s.stripe_status === 'canceled' || s.cancel_at_period_end)
+  const totalMonthly = activeSubscriptions.reduce((acc, s) => acc + (s.amount ?? 0), 0)
+
+  return (
+    <div className="space-y-8">
+
+      {/* KPIs billing */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div className="rounded-xl border p-4 text-center">
+          <p className="text-2xl font-bold text-green-500">{activeSubscriptions.length}</p>
+          <p className="text-xs text-muted-foreground mt-1">Abonnements actifs</p>
+        </div>
+        <div className="rounded-xl border p-4 text-center">
+          <p className="text-2xl font-bold text-primary">{(totalMonthly / 100).toFixed(0)} €</p>
+          <p className="text-xs text-muted-foreground mt-1">MRR estimé</p>
+        </div>
+        <div className="rounded-xl border p-4 text-center">
+          <p className="text-2xl font-bold text-orange-500">{cancelledSubscriptions.length}</p>
+          <p className="text-xs text-muted-foreground mt-1">Annulés / en cours</p>
+        </div>
+        <div className="rounded-xl border p-4 text-center">
+          <p className="text-2xl font-bold text-blue-500">{billing.invoices.filter(i => i.status === 'paid').length}</p>
+          <p className="text-xs text-muted-foreground mt-1">Factures payées</p>
+        </div>
+      </div>
+
+      {/* Abonnements actifs — prochains prélèvements */}
+      <div>
+        <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+          <Calendar className="h-5 w-5 text-green-500" />
+          Prochains renouvellements
+        </h2>
+        <div className="rounded-xl border overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="border-b bg-muted/30">
+              <tr>
+                <th className="px-4 py-3 text-left font-semibold">Client</th>
+                <th className="px-4 py-3 text-left font-semibold">Plan</th>
+                <th className="px-4 py-3 text-left font-semibold">Montant</th>
+                <th className="px-4 py-3 text-left font-semibold">Prochain prélèvement</th>
+                <th className="px-4 py-3 text-left font-semibold">Statut Stripe</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {activeSubscriptions
+                .sort((a, b) => new Date(a.current_period_end ?? '').getTime() - new Date(b.current_period_end ?? '').getTime())
+                .map(s => {
+                  const daysLeft = s.current_period_end
+                    ? Math.ceil((new Date(s.current_period_end).getTime() - now.getTime()) / 86400000)
+                    : null
+                  return (
+                    <tr key={s.stripe_subscription_id} className="hover:bg-muted/20">
+                      <td className="px-4 py-3">
+                        <p className="font-medium">{s.full_name || s.email}</p>
+                        <p className="text-xs text-muted-foreground">{s.email}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="capitalize font-medium">{s.plan ?? '—'}</span>
+                      </td>
+                      <td className="px-4 py-3 font-semibold text-green-600">
+                        {fmtAmount(s.amount, s.currency)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <p>{fmt(s.current_period_end)}</p>
+                        {daysLeft !== null && (
+                          <p className={cn('text-xs', daysLeft <= 3 ? 'text-orange-500 font-medium' : 'text-muted-foreground')}>
+                            dans {daysLeft}j
+                          </p>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {s.cancel_at_period_end ? (
+                          <span className="inline-flex items-center gap-1 text-xs text-orange-600 font-medium">
+                            <Ban className="h-3 w-3" /> Annulation fin de période
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-xs text-green-600 font-medium">
+                            <CheckCircle className="h-3 w-3" /> Actif
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              {activeSubscriptions.length === 0 && (
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">Aucun abonnement actif.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Abonnements annulés */}
+      {billing.subscriptions.filter(s => s.stripe_status === 'canceled' && !s.cancel_at_period_end).length > 0 && (
+        <div>
+          <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+            <XCircle className="h-5 w-5 text-red-500" />
+            Abonnements résiliés
+          </h2>
+          <div className="rounded-xl border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="border-b bg-muted/30">
+                <tr>
+                  <th className="px-4 py-3 text-left font-semibold">Client</th>
+                  <th className="px-4 py-3 text-left font-semibold">Plan</th>
+                  <th className="px-4 py-3 text-left font-semibold">Fin de période</th>
+                  <th className="px-4 py-3 text-left font-semibold">Statut DB</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {billing.subscriptions
+                  .filter(s => s.stripe_status === 'canceled' && !s.cancel_at_period_end)
+                  .map(s => (
+                    <tr key={s.stripe_subscription_id} className="hover:bg-muted/20 opacity-75">
+                      <td className="px-4 py-3">
+                        <p className="font-medium">{s.full_name || s.email}</p>
+                        <p className="text-xs text-muted-foreground">{s.email}</p>
+                      </td>
+                      <td className="px-4 py-3 capitalize">{s.plan ?? '—'}</td>
+                      <td className="px-4 py-3">{fmt(s.current_period_end)}</td>
+                      <td className="px-4 py-3">
+                        <span className="text-xs text-red-500 font-medium">{s.db_status ?? 'cancelled'}</span>
+                      </td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Historique des paiements */}
+      <div>
+        <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+          <TrendingUp className="h-5 w-5 text-blue-500" />
+          Historique des paiements
+        </h2>
+        <div className="rounded-xl border overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="border-b bg-muted/30">
+              <tr>
+                <th className="px-4 py-3 text-left font-semibold">Date</th>
+                <th className="px-4 py-3 text-left font-semibold">Client</th>
+                <th className="px-4 py-3 text-left font-semibold">Plan</th>
+                <th className="px-4 py-3 text-left font-semibold">Montant</th>
+                <th className="px-4 py-3 text-left font-semibold">Statut</th>
+                <th className="px-4 py-3 text-left font-semibold">Facture</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {billing.invoices.map(inv => (
+                <tr key={inv.id} className="hover:bg-muted/20">
+                  <td className="px-4 py-3 text-muted-foreground">{fmt(inv.created)}</td>
+                  <td className="px-4 py-3">
+                    <p className="font-medium">{inv.full_name || inv.email}</p>
+                    <p className="text-xs text-muted-foreground">{inv.email}</p>
+                  </td>
+                  <td className="px-4 py-3 capitalize">{inv.plan ?? '—'}</td>
+                  <td className="px-4 py-3 font-semibold">{fmtAmount(inv.amount, inv.currency)}</td>
+                  <td className="px-4 py-3">
+                    {inv.status === 'paid' && <span className="inline-flex items-center gap-1 text-xs text-green-600 font-medium"><CheckCircle className="h-3 w-3" /> Payé</span>}
+                    {inv.status === 'open' && <span className="inline-flex items-center gap-1 text-xs text-amber-600 font-medium"><Clock className="h-3 w-3" /> En attente</span>}
+                    {inv.status === 'void' && <span className="text-xs text-muted-foreground">Annulé</span>}
+                    {inv.status === 'uncollectible' && <span className="inline-flex items-center gap-1 text-xs text-red-600 font-medium"><XCircle className="h-3 w-3" /> Impayé</span>}
+                  </td>
+                  <td className="px-4 py-3">
+                    {inv.invoice_url && (
+                      <a href={inv.invoice_url} target="_blank" rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                        <ExternalLink className="h-3 w-3" /> Voir
+                      </a>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {billing.invoices.length === 0 && (
+                <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">Aucun paiement trouvé.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
     </div>
   )
 }
