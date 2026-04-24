@@ -22,7 +22,8 @@ import {
 import {
   Loader2, ShieldAlert, Users, Zap, FileText, ChevronDown, ChevronUp,
   CheckCircle2, XCircle, Clock, RefreshCw, ShieldCheck, CreditCard,
-  TrendingUp, AlertCircle, ExternalLink, CheckCircle, Ban, Calendar
+  TrendingUp, AlertCircle, ExternalLink, CheckCircle, Ban, Calendar,
+  Wifi, WifiOff, AlertTriangle, Terminal
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { PlanId } from '@/lib/stripe/plans'
@@ -90,6 +91,18 @@ type BillingInvoice = {
   description: string | null
 }
 
+type SessionRow = {
+  id: string
+  instance_name: string
+  phone_number: string | null
+  status: string
+  integration_type: string
+  user_id: string
+  user_email?: string
+  user_name?: string
+  evolution_state?: string
+}
+
 const MAIN_FUNCTION_LABELS: Record<string, string> = {
   sav: 'Service client / SAV',
   leads: 'Génération de leads',
@@ -135,7 +148,10 @@ export default function AdminPage() {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
   const [validating, setValidating] = useState(false)
   const [adminNotes, setAdminNotes] = useState('')
-  const [activeTab, setActiveTab] = useState<'clients' | 'billing'>('clients')
+  const [activeTab, setActiveTab] = useState<'clients' | 'billing' | 'sessions'>('clients')
+  const [sessions, setSessions] = useState<SessionRow[]>([])
+  const [sessionsLoading, setSessionsLoading] = useState(false)
+  const [checkingZombies, setCheckingZombies] = useState(false)
   const [billing, setBilling] = useState<{ subscriptions: BillingSubscription[]; invoices: BillingInvoice[] } | null>(null)
   const [billingLoading, setBillingLoading] = useState(false)
 
@@ -257,6 +273,38 @@ export default function AdminPage() {
     }
   }
 
+  const fetchSessions = useCallback(async () => {
+    setSessionsLoading(true)
+    try {
+      const res = await fetch('/api/admin/sessions')
+      if (!res.ok) return
+      const data = await res.json()
+      setSessions(data.sessions || [])
+    } finally {
+      setSessionsLoading(false)
+    }
+  }, [])
+
+  const checkZombies = async () => {
+    setCheckingZombies(true)
+    try {
+      const res = await fetch(`/api/cron/check-sessions?secret=${process.env.NEXT_PUBLIC_CRON_SECRET || ''}`, )
+      const data = await res.json()
+      toast.success(`Vérification terminée : ${data.zombies?.length ?? 0} zombie(s) détecté(s)`)
+      fetchSessions()
+    } catch {
+      toast.error('Erreur lors de la vérification')
+    } finally {
+      setCheckingZombies(false)
+    }
+  }
+
+  useEffect(() => {
+    if (subscription?.role === 'admin' && activeTab === 'sessions' && sessions.length === 0) {
+      fetchSessions()
+    }
+  }, [activeTab, subscription, sessions.length, fetchSessions])
+
   const toggleRow = (id: string) => {
     setExpandedRows(prev => {
       const next = new Set(prev)
@@ -333,10 +381,117 @@ export default function AdminPage() {
           <CreditCard className="h-4 w-4" />
           Paiements
         </button>
+        <button
+          onClick={() => setActiveTab('sessions')}
+          className={cn(
+            'flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors',
+            activeTab === 'sessions'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          )}
+        >
+          <Wifi className="h-4 w-4" />
+          Sessions
+        </button>
       </div>
 
       {activeTab === 'billing' && (
         <BillingTab billing={billing} loading={billingLoading} onRefresh={fetchBilling} />
+      )}
+
+      {activeTab === 'sessions' && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-sm text-muted-foreground">{sessions.length} sessions au total</p>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={fetchSessions} disabled={sessionsLoading}>
+                <RefreshCw className={cn('h-4 w-4 mr-2', sessionsLoading && 'animate-spin')} />
+                Actualiser
+              </Button>
+              <Button size="sm" onClick={checkZombies} disabled={checkingZombies} className="gap-2">
+                {checkingZombies ? <Loader2 className="h-4 w-4 animate-spin" /> : <AlertTriangle className="h-4 w-4" />}
+                Détecter zombies
+              </Button>
+            </div>
+          </div>
+
+          {sessionsLoading ? (
+            <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+          ) : (
+            <div className="rounded-xl border overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="border-b bg-muted/30">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Client</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Téléphone</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Type</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Statut DB</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">État Evolution</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">Instance</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {sessions.map(s => {
+                    const isZombie = s.status === 'connected' && s.evolution_state && s.evolution_state !== 'open'
+                    return (
+                      <tr key={s.id} className={cn('hover:bg-muted/20', isZombie && 'bg-red-500/5')}>
+                        <td className="px-4 py-3">
+                          <p className="font-medium text-xs">{s.user_name || '—'}</p>
+                          <p className="text-xs text-muted-foreground">{s.user_email}</p>
+                        </td>
+                        <td className="px-4 py-3 text-xs font-mono">+{s.phone_number}</td>
+                        <td className="px-4 py-3">
+                          <Badge variant="outline" className="text-xs">{s.integration_type}</Badge>
+                        </td>
+                        <td className="px-4 py-3">
+                          {s.status === 'connected' && <Badge className="bg-green-500 text-xs gap-1"><Wifi className="h-3 w-3" />Connecté</Badge>}
+                          {s.status === 'disconnected' && <Badge variant="secondary" className="text-xs gap-1"><WifiOff className="h-3 w-3" />Déconnecté</Badge>}
+                          {s.status === 'qr_pending' && <Badge className="bg-amber-500 text-xs">QR en attente</Badge>}
+                        </td>
+                        <td className="px-4 py-3">
+                          {s.evolution_state === null ? <span className="text-xs text-muted-foreground">—</span>
+                          : s.evolution_state === 'open' ? <span className="text-xs text-green-600 font-medium">open ✓</span>
+                          : isZombie ? <span className="text-xs text-red-600 font-semibold flex items-center gap-1"><AlertTriangle className="h-3 w-3" />zombie ({s.evolution_state})</span>
+                          : <span className="text-xs text-amber-600">{s.evolution_state}</span>}
+                        </td>
+                        <td className="px-4 py-3">
+                          <code className="text-xs text-muted-foreground">{s.instance_name.slice(0, 20)}…</code>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Instructions suppression manuelle zombie */}
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-2">
+            <div className="flex items-center gap-2 text-sm font-semibold text-amber-700 dark:text-amber-400">
+              <Terminal className="h-4 w-4" />
+              Suppression manuelle d&apos;une instance zombie (si Evolution refuse le DELETE)
+            </div>
+            <p className="text-xs text-muted-foreground">Sur le VPS via MobaXterm ou terminal Dokploy :</p>
+            <pre className="text-xs bg-muted rounded p-3 overflow-x-auto">{`# 1. Créer le script
+cat > /tmp/fix.js << 'EOF'
+const {PrismaClient}=require('@prisma/client');
+const p=new PrismaClient();
+p.instance.findFirst({where:{name:'INSTANCE_NAME'}})
+.then(i=>{
+  if(!i) return console.log('NOT FOUND');
+  return p.instance.delete({where:{id:i.id}}).then(()=>console.log('DELETED OK'));
+})
+.catch(e=>console.error('ERR',e.message));
+EOF
+
+# 2. Copier et exécuter dans le container
+docker cp /tmp/fix.js whatsapp-test-evolutionapi-yfoofj-evolution-api-1:/evolution/fix.js
+docker exec -w /evolution whatsapp-test-evolutionapi-yfoofj-evolution-api-1 node fix.js
+
+# 3. Redémarrer le container pour vider le cache
+docker restart whatsapp-test-evolutionapi-yfoofj-evolution-api-1`}</pre>
+          </div>
+        </div>
       )}
 
       {activeTab === 'clients' && <>
