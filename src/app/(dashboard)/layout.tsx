@@ -71,7 +71,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
-  const { subscription, loading: subscriptionLoading } = useSubscription()
+  const { subscription, loading: subscriptionLoading, refetch: refetchSubscription } = useSubscription()
   const { t } = useTranslation()
   const tenant = useTenant()
 
@@ -123,6 +123,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Close sidebar on route change (mobile) + escape key
   useEffect(() => {
     setSidebarOpen(false)
+  }, [pathname])
+
+  // Rafraîchir l'abonnement quand on quitte le configurateur (pour cacher la bannière après soumission)
+  useEffect(() => {
+    if (!pathname.startsWith('/onboarding/configurateur')) {
+      refetchSubscription()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname])
 
   useEffect(() => {
