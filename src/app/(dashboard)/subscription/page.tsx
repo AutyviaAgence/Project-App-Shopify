@@ -604,82 +604,100 @@ function SubscriptionContent() {
       {isActive && (onboardingStatus === 'active' || onboardingStatus === 'onboarding') && (
         <Card className="mb-8">
           <CardContent className="pt-6 space-y-4">
-            {/* Portail Stripe */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium">Portail de facturation</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Gérez vos moyens de paiement, téléchargez vos factures et modifiez vos informations de facturation.
-                </p>
-              </div>
-              <Button
-                variant="outline"
-                className="shrink-0"
-                onClick={async () => {
-                  try {
-                    const res = await fetch('/api/stripe/portal', { method: 'POST' })
-                    const data = await res.json()
-                    if (!res.ok) throw new Error(data.error)
-                    window.location.href = data.url
-                  } catch {
-                    toast.error('Impossible d\'ouvrir la gestion de l\'abonnement')
-                  }
-                }}
-              >
-                <CreditCard className="mr-2 h-4 w-4" />
-                Gérer mon abonnement
-              </Button>
-            </div>
-
-            <div className="border-t" />
-
-            {/* Résiliation */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Zone de danger</p>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {subscription?.status === 'trial'
-                    ? 'L\'annulation est immédiate. Vous ne serez pas débité.'
-                    : 'L\'accès reste actif jusqu\'à la fin de la période en cours. Aucun remboursement au prorata.'}
-                </p>
-              </div>
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="outline" className="shrink-0 border-destructive/40 text-destructive hover:bg-destructive/5 hover:border-destructive">
-                    <Ban className="mr-2 h-4 w-4" />
-                    {t('subscription.cancel_subscription')}
+            {/* Portail Stripe — uniquement si un customer Stripe existe */}
+            {subscription?.stripeCustomerId ? (
+              <>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-medium">Portail de facturation</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      Gérez vos moyens de paiement, téléchargez vos factures et modifiez vos informations de facturation.
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="shrink-0"
+                    onClick={async () => {
+                      try {
+                        const res = await fetch('/api/stripe/portal', { method: 'POST' })
+                        const data = await res.json()
+                        if (!res.ok) throw new Error(data.error)
+                        window.location.href = data.url
+                      } catch {
+                        toast.error('Impossible d\'ouvrir la gestion de l\'abonnement')
+                      }
+                    }}
+                  >
+                    <CreditCard className="mr-2 h-4 w-4" />
+                    Gérer mon abonnement
                   </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>{t('subscription.cancel_confirm_title')}</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      {subscription?.status === 'trial'
-                        ? 'Votre essai gratuit sera annulé immédiatement. Vous ne serez jamais débité.'
-                        : t('subscription.cancel_confirm_desc')}
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel>{t('subscription.cancel_keep')}</AlertDialogCancel>
-                    <AlertDialogAction
-                      onClick={handleCancel}
-                      disabled={isCancelling}
-                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                    >
-                      {isCancelling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Ban className="mr-2 h-4 w-4" />}
-                      {t('subscription.cancel_confirm')}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
+                </div>
+                <div className="border-t" />
+              </>
+            ) : (
+              <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3">
+                <p className="text-sm font-medium text-amber-700 dark:text-amber-400">Abonnement mensuel requis</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Votre accès a été activé manuellement. Pour continuer après la période en cours, souscrivez à un abonnement mensuel ci-dessous.
+                </p>
+              </div>
+            )}
+
+            {/* Résiliation — uniquement si un abonnement Stripe existe */}
+            {subscription?.stripeCustomerId && (
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium text-muted-foreground">Zone de danger</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    {subscription?.status === 'trial'
+                      ? 'L\'annulation est immédiate. Vous ne serez pas débité.'
+                      : 'L\'accès reste actif jusqu\'à la fin de la période en cours. Aucun remboursement au prorata.'}
+                  </p>
+                </div>
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="outline" className="shrink-0 border-destructive/40 text-destructive hover:bg-destructive/5 hover:border-destructive">
+                      <Ban className="mr-2 h-4 w-4" />
+                      {t('subscription.cancel_subscription')}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>{t('subscription.cancel_confirm_title')}</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        {subscription?.status === 'trial'
+                          ? 'Votre essai gratuit sera annulé immédiatement. Vous ne serez jamais débité.'
+                          : t('subscription.cancel_confirm_desc')}
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>{t('subscription.cancel_keep')}</AlertDialogCancel>
+                      <AlertDialogAction
+                        onClick={handleCancel}
+                        disabled={isCancelling}
+                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      >
+                        {isCancelling ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Ban className="mr-2 h-4 w-4" />}
+                        {t('subscription.cancel_confirm')}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
 
       {/* Plans */}
       <h2 className="text-xl font-semibold mb-4">
-        {isCancelled ? 'Se réabonner' : isActive && onboardingStatus === 'active' ? 'Changer de plan' : 'Plans disponibles'}
+        {isCancelled
+          ? 'Se réabonner'
+          : isActive && onboardingStatus === 'active' && !subscription?.stripeCustomerId
+          ? 'Souscrire un abonnement mensuel'
+          : isActive && onboardingStatus === 'active'
+          ? 'Changer de plan'
+          : 'Plans disponibles'}
       </h2>
       <div className="grid md:grid-cols-3 gap-5 mb-8">
         {PLANS.map((plan) => {

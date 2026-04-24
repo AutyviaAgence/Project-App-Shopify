@@ -19,6 +19,7 @@ type SubscriptionInfo = {
   tokensRemaining: number
   usagePercentage: number
   stripeSubscriptionId: string | null
+  stripeCustomerId: string | null
   plan: PlanId
   pendingPlan: PlanId | null
   role: 'user' | 'admin'
@@ -81,6 +82,7 @@ export function useSubscription() {
           tokensRemaining,
           usagePercentage,
           stripeSubscriptionId: data.data.stripe_subscription_id || null,
+          stripeCustomerId: data.data.stripe_customer_id || null,
           plan: (data.data.plan || 'scale') as PlanId,
           pendingPlan: (data.data.pending_plan || null) as PlanId | null,
           role: (data.data.role || 'user') as 'user' | 'admin',
