@@ -179,6 +179,16 @@ export default function CGVPage() {
       <h3>3.3 Facturation</h3>
       <p>Une facture est émise à chaque paiement et accessible depuis l&apos;espace client et le portail Stripe.</p>
 
+      <h3>3.4 Délais de paiement</h3>
+      <p>
+        Pour le parcours accompagné, le solde de 750 € est exigible dans les <strong>30 jours suivant la livraison de l&apos;agent</strong> validé, sauf accord écrit contraire dans la limite de 60 jours conformément à la loi n° 2008-776.
+      </p>
+
+      <h3>3.5 Pénalités de retard</h3>
+      <p>
+        En cas de retard de paiement, des pénalités au taux de <strong>3 fois le taux d&apos;intérêt légal en vigueur</strong> sont applicables de plein droit, à compter du lendemain de la date d&apos;échéance, sans mise en demeure préalable. Une <strong>indemnité forfaitaire de recouvrement de 40 €</strong> est également due, conformément à l&apos;article D.441-5 du Code de commerce.
+      </p>
+
       <h2>Article 4 – Durée et résiliation</h2>
 
       <h3>4.1 Durée</h3>
@@ -200,11 +210,17 @@ export default function CGVPage() {
         et sans remboursement.
       </p>
 
-      <h3>4.4 Données post-résiliation</h3>
+      <h3>4.4 Données post-résiliation et réversibilité</h3>
       <p>
         À la résiliation, les données du client (conversations, agents, documents) sont conservées pendant
-        30 jours, puis définitivement supprimées, conformément au RGPD. Aucune récupération n&apos;est possible
+        <strong> 30 jours</strong>, puis définitivement supprimées, conformément au RGPD. Aucune récupération n&apos;est possible
         après ce délai.
+      </p>
+      <p>
+        Pendant cette période de 30 jours, le client peut demander l&apos;export de ses données (conversations,
+        documents, configuration des agents) par email à{' '}
+        <a href="mailto:autyviaagence@gmail.com">autyviaagence@gmail.com</a>. Autyvia s&apos;engage à fournir
+        cet export dans un format lisible (JSON ou CSV) dans un délai de 7 jours ouvrés.
       </p>
 
       <h2>Article 5 – Acceptation obligatoire</h2>
