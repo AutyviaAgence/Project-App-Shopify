@@ -24,6 +24,7 @@ type SubscriptionInfo = {
   role: 'user' | 'admin'
   onboardingStatus: OnboardingStatus
   onboardingPlan: PlanId | null
+  configurateurSubmitted: boolean
 }
 
 export function useSubscription() {
@@ -85,6 +86,7 @@ export function useSubscription() {
           role: (data.data.role || 'user') as 'user' | 'admin',
           onboardingStatus: (data.data.onboarding_status || 'pending') as OnboardingStatus,
           onboardingPlan: (data.data.onboarding_plan || null) as PlanId | null,
+          configurateurSubmitted: data.data.configurateur_submitted === true,
         })
       }
     } catch (error) {

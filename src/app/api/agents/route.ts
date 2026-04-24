@@ -188,9 +188,13 @@ export async function POST(req: Request) {
   // Vérifier le quota d'agents selon le plan
   const agentQuota = await checkPlanQuota(supabase, user.id, 'agents')
   if (!agentQuota.allowed) {
+    const error = agentQuota.reason === 'no_subscription'
+      ? 'Abonnement requis pour créer un agent IA. Souscrivez à un plan depuis la page Abonnement.'
+      : `Limite atteinte : votre plan ${agentQuota.plan} inclut ${agentQuota.limit} agent(s) IA. Passez à un plan supérieur pour en ajouter davantage.`
     return NextResponse.json({
-      error: `Limite atteinte : votre plan ${agentQuota.plan} inclut ${agentQuota.limit} agent(s) IA. Passez à un plan supérieur pour en ajouter davantage.`,
+      error,
       quota_exceeded: true,
+      reason: agentQuota.reason,
       limit: agentQuota.limit,
       current: agentQuota.current,
     }, { status: 403 })

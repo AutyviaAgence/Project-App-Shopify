@@ -72,9 +72,13 @@ export async function POST(req: Request) {
   // Vérifier le quota d'équipes selon le plan
   const teamQuota = await checkPlanQuota(supabase, user.id, 'teams')
   if (!teamQuota.allowed) {
+    const error = teamQuota.reason === 'no_subscription'
+      ? 'Abonnement requis pour créer une équipe. Souscrivez à un plan depuis la page Abonnement.'
+      : `Limite atteinte : votre plan ${teamQuota.plan} inclut ${teamQuota.limit} équipe(s). Passez à un plan supérieur pour en créer davantage.`
     return NextResponse.json({
-      error: `Limite atteinte : votre plan ${teamQuota.plan} inclut ${teamQuota.limit} équipe(s). Passez à un plan supérieur pour en créer davantage.`,
+      error,
       quota_exceeded: true,
+      reason: teamQuota.reason,
       limit: teamQuota.limit,
       current: teamQuota.current,
     }, { status: 403 })

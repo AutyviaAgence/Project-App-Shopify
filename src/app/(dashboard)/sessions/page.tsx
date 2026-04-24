@@ -35,6 +35,7 @@ import {
   Cloud,
   Copy,
   CheckCircle2,
+  UserCircle,
 } from 'lucide-react'
 import {
   Select,
@@ -49,7 +50,10 @@ import { getSessionDisplayName, formatPhoneNumber } from '@/lib/format-phone'
 import { useTranslation } from '@/i18n/context'
 
 type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
-type SessionWithTeamIds = WhatsAppSession & { team_ids?: string[] }
+type SessionWithTeamIds = WhatsAppSession & {
+  team_ids?: string[]
+  owner_info?: { full_name: string | null; email: string | null } | null
+}
 
 export default function SessionsPage() {
   const { t, locale } = useTranslation()
@@ -541,6 +545,7 @@ export default function SessionsPage() {
             const StatusIcon = config.icon
             const isDisconnecting = disconnecting === session.id
             const isDeleting = deleting === session.id
+            const isShared = !!session.owner_info
 
             return (
               <Card key={session.id}>
@@ -553,11 +558,17 @@ export default function SessionsPage() {
                       </span>
                     )}
                   </CardTitle>
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex flex-wrap items-center gap-1.5">
                     {session.integration_type === 'waba' && (
                       <Badge variant="outline" className="w-fit text-xs gap-1">
                         <Cloud className="h-3 w-3" />
                         API
+                      </Badge>
+                    )}
+                    {isShared && (
+                      <Badge variant="outline" className="w-fit text-xs gap-1 border-violet-300 text-violet-600 dark:border-violet-700 dark:text-violet-400">
+                        <UserCircle className="h-3 w-3" />
+                        {session.owner_info?.full_name || session.owner_info?.email || 'Équipe'}
                       </Badge>
                     )}
                     <Badge variant={config.variant} className="w-fit">
@@ -686,70 +697,76 @@ export default function SessionsPage() {
                             </Button>
                           </>
                         )}
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleDisconnect(session.id)}
-                          disabled={isDisconnecting}
-                        >
-                          {isDisconnecting ? (
-                            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                          ) : (
-                            <WifiOff className="mr-1 h-3 w-3" />
-                          )}
-                          {t('sessions.disconnect')}
-                        </Button>
+                        {!isShared && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleDisconnect(session.id)}
+                            disabled={isDisconnecting}
+                          >
+                            {isDisconnecting ? (
+                              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                            ) : (
+                              <WifiOff className="mr-1 h-3 w-3" />
+                            )}
+                            {t('sessions.disconnect')}
+                          </Button>
+                        )}
                       </>
                     )}
 
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
-                        setEditingSession(session)
-                        setFormDisplayName(session.display_name || '')
-                        setFormDailyLimit(
-                          session.daily_ai_message_limit != null
-                            ? String(session.daily_ai_message_limit)
-                            : ''
-                        )
-                        setFormAiMessageDelay(
-                          session.ai_message_delay != null
-                            ? String(session.ai_message_delay)
-                            : ''
-                        )
-                        setFormSessionTeamIds(session.team_ids || (session.team_id ? [session.team_id] : []))
-                        setFormQualifierAgentId((session as unknown as { qualifier_agent_id: string | null }).qualifier_agent_id || null)
-                        // Load qualifier agents
-                        fetch('/api/agents')
-                          .then(r => r.json())
-                          .then(json => {
-                            if (json.data) {
-                              setQualifierAgents(
-                                (json.data as { id: string; name: string; agent_type: string }[])
-                                  .filter((a) => a.agent_type === 'qualifier')
-                                  .map((a) => ({ id: a.id, name: a.name }))
-                              )
-                            }
-                          })
-                          .catch(() => {})
-                      }}
-                    >
-                      <Settings2 className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-destructive hover:text-destructive"
-                      onClick={() => openDeleteDialog(session)}
-                      disabled={isDeleting}
-                    >
-                      {isDeleting ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-3 w-3" />
-                      )}
-                    </Button>
+                    {!isShared && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setEditingSession(session)
+                          setFormDisplayName(session.display_name || '')
+                          setFormDailyLimit(
+                            session.daily_ai_message_limit != null
+                              ? String(session.daily_ai_message_limit)
+                              : ''
+                          )
+                          setFormAiMessageDelay(
+                            session.ai_message_delay != null
+                              ? String(session.ai_message_delay)
+                              : ''
+                          )
+                          setFormSessionTeamIds(session.team_ids || (session.team_id ? [session.team_id] : []))
+                          setFormQualifierAgentId((session as unknown as { qualifier_agent_id: string | null }).qualifier_agent_id || null)
+                          // Load qualifier agents
+                          fetch('/api/agents')
+                            .then(r => r.json())
+                            .then(json => {
+                              if (json.data) {
+                                setQualifierAgents(
+                                  (json.data as { id: string; name: string; agent_type: string }[])
+                                    .filter((a) => a.agent_type === 'qualifier')
+                                    .map((a) => ({ id: a.id, name: a.name }))
+                                )
+                              }
+                            })
+                            .catch(() => {})
+                        }}
+                      >
+                        <Settings2 className="h-3 w-3" />
+                      </Button>
+                    )}
+                    {!isShared && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive hover:text-destructive"
+                        onClick={() => openDeleteDialog(session)}
+                        disabled={isDeleting}
+                      >
+                        {isDeleting ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-3 w-3" />
+                        )}
+                      </Button>
+                    )}
                   </div>
                 </CardContent>
               </Card>

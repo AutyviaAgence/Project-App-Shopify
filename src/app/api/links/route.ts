@@ -100,9 +100,13 @@ export async function POST(req: Request) {
   // Vérifier le quota de liens selon le plan
   const linkQuota = await checkPlanQuota(supabase, user.id, 'links')
   if (!linkQuota.allowed) {
+    const error = linkQuota.reason === 'no_subscription'
+      ? 'Abonnement requis pour créer un lien WhatsApp. Souscrivez à un plan depuis la page Abonnement.'
+      : `Limite atteinte : votre plan ${linkQuota.plan} inclut ${linkQuota.limit} lien(s) WhatsApp. Passez à un plan supérieur pour en ajouter davantage.`
     return NextResponse.json({
-      error: `Limite atteinte : votre plan ${linkQuota.plan} inclut ${linkQuota.limit} lien(s) WhatsApp. Passez à un plan supérieur pour en ajouter davantage.`,
+      error,
       quota_exceeded: true,
+      reason: linkQuota.reason,
       limit: linkQuota.limit,
       current: linkQuota.current,
     }, { status: 403 })

@@ -34,9 +34,13 @@ export async function POST(req: NextRequest) {
   // Vérifier le quota de sessions selon le plan
   const sessionQuota = await checkPlanQuota(supabase, user.id, 'sessions')
   if (!sessionQuota.allowed) {
+    const error = sessionQuota.reason === 'no_subscription'
+      ? 'Abonnement requis pour créer une session WhatsApp. Souscrivez à un plan depuis la page Abonnement.'
+      : `Limite atteinte : votre plan ${sessionQuota.plan} inclut ${sessionQuota.limit} session(s) WhatsApp. Passez à un plan supérieur pour en ajouter davantage.`
     return NextResponse.json({
-      error: `Limite atteinte : votre plan ${sessionQuota.plan} inclut ${sessionQuota.limit} session(s) WhatsApp. Passez à un plan supérieur pour en ajouter davantage.`,
+      error,
       quota_exceeded: true,
+      reason: sessionQuota.reason,
       limit: sessionQuota.limit,
       current: sessionQuota.current,
     }, { status: 403 })
@@ -363,10 +367,31 @@ export async function GET() {
     }
   }
 
-  // Ajouter team_ids à chaque session
+  // Récupérer les infos des propriétaires pour les sessions partagées via équipe
+  const foreignOwnerIds = [...new Set(sessions.filter(s => s.user_id !== user.id).map(s => s.user_id))]
+  const ownerMap: Record<string, { full_name: string | null; email: string | null }> = {}
+
+  if (foreignOwnerIds.length > 0) {
+    const adminSupabase2 = createAdminSupabase(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+    const { data: owners } = await adminSupabase2
+      .from('profiles')
+      .select('id, full_name, email')
+      .in('id', foreignOwnerIds)
+    if (owners) {
+      for (const o of owners) {
+        ownerMap[o.id] = { full_name: o.full_name, email: o.email }
+      }
+    }
+  }
+
+  // Ajouter team_ids et owner_info à chaque session
   const sessionsWithTeams = sessions.map(s => ({
     ...s,
-    team_ids: sessionTeamsMap[s.id] || (s.team_id ? [s.team_id] : [])
+    team_ids: sessionTeamsMap[s.id] || (s.team_id ? [s.team_id] : []),
+    owner_info: s.user_id !== user.id ? (ownerMap[s.user_id] ?? null) : null,
   }))
 
   return NextResponse.json({ data: sessionsWithTeams })

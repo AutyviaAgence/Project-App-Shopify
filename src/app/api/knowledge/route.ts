@@ -83,9 +83,13 @@ export async function POST(req: NextRequest) {
   // Vérifier le quota de documents selon le plan
   const docQuota = await checkPlanQuota(supabase, user.id, 'docs')
   if (!docQuota.allowed) {
+    const error = docQuota.reason === 'no_subscription'
+      ? 'Abonnement requis pour ajouter un document. Souscrivez à un plan depuis la page Abonnement.'
+      : `Limite atteinte : votre plan ${docQuota.plan} inclut ${docQuota.limit} document(s) RAG. Passez à un plan supérieur pour en ajouter davantage.`
     return NextResponse.json({
-      error: `Limite atteinte : votre plan ${docQuota.plan} inclut ${docQuota.limit} document(s) RAG. Passez à un plan supérieur pour en ajouter davantage.`,
+      error,
       quota_exceeded: true,
+      reason: docQuota.reason,
       limit: docQuota.limit,
       current: docQuota.current,
     }, { status: 403 })

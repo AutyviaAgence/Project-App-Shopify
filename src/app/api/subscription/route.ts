@@ -20,5 +20,17 @@ export async function GET() {
     return NextResponse.json({ error: 'Profil introuvable' }, { status: 404 })
   }
 
-  return NextResponse.json({ data: profile })
+  // Récupérer si le configurateur a été soumis
+  const { data: onboardingConfig } = await supabase
+    .from('onboarding_configs')
+    .select('submitted_at')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  return NextResponse.json({
+    data: {
+      ...profile,
+      configurateur_submitted: !!onboardingConfig?.submitted_at,
+    }
+  })
 }

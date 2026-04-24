@@ -29,6 +29,8 @@ import {
   Loader2,
   Workflow,
   ShieldCheck,
+  ClipboardList,
+  ArrowRight,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { AlertsDropdown } from '@/components/alerts-dropdown'
@@ -278,6 +280,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <AlertsDropdown />
           </div>
         </header>
+
+        {/* Rappel configurateur : affiché pendant l'audit si le formulaire n'a pas été soumis */}
+        {onboardingStatus === 'onboarding' &&
+          subscription &&
+          !subscription.configurateurSubmitted &&
+          !pathname.startsWith('/onboarding') && (
+          <Link
+            href="/onboarding/configurateur"
+            className="flex items-center justify-between gap-3 bg-amber-500 px-4 py-2.5 text-white hover:bg-amber-600 transition-colors"
+          >
+            <div className="flex items-center gap-2 min-w-0">
+              <ClipboardList className="h-4 w-4 shrink-0" />
+              <span className="text-sm font-medium truncate">
+                Action requise : remplissez le configurateur pour que nous puissions préparer votre plateforme.
+              </span>
+            </div>
+            <div className="flex items-center gap-1 shrink-0 text-sm font-semibold">
+              Compléter
+              <ArrowRight className="h-4 w-4" />
+            </div>
+          </Link>
+        )}
 
         {/* Subscription banner */}
         <SubscriptionBanner subscription={subscription} />

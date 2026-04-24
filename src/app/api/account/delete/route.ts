@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { evolution } from '@/lib/evolution/client'
 
 /** POST /api/account/delete — Supprimer le compte utilisateur */
 export async function POST(req: NextRequest) {
@@ -74,14 +75,24 @@ export async function POST(req: NextRequest) {
   })
 
   try {
-    // Supprimer les fichiers médias du storage avant de supprimer les sessions
+    // Récupérer les sessions WhatsApp avec leur instance_name pour nettoyage Evolution API
     const { data: userSessions } = await adminSupabase
       .from('whatsapp_sessions')
-      .select('id')
+      .select('id, instance_name, integration_type')
       .eq('user_id', user.id)
 
     if (userSessions && userSessions.length > 0) {
       for (const session of userSessions) {
+        // Supprimer l'instance Evolution API (Baileys uniquement)
+        if (session.integration_type === 'evolution' && session.instance_name) {
+          const delResult = await evolution.deleteInstance(session.instance_name)
+          if (!delResult.ok) {
+            console.warn(`[Account Delete] Could not delete Evolution instance ${session.instance_name}: ${delResult.error}`)
+          } else {
+            console.log(`[Account Delete] Deleted Evolution instance ${session.instance_name}`)
+          }
+        }
+
         // Lister et supprimer tous les fichiers du dossier de la session
         const { data: files } = await adminSupabase.storage
           .from('media')

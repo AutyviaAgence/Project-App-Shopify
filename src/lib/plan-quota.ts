@@ -13,19 +13,29 @@ const RESOURCE_TABLE: Record<QuotaResource, string> = {
   teams: 'team_members',
 }
 
-/** Returns { allowed: true } or { allowed: false, limit, current, plan } */
+const ACTIVE_STATUSES = new Set(['active', 'trial'])
+
+/** Returns { allowed: true } or { allowed: false, limit, current, plan, reason } */
 export async function checkPlanQuota(
   supabase: SupabaseClient,
   userId: string,
   resource: QuotaResource
-): Promise<{ allowed: true } | { allowed: false; limit: number; current: number; plan: PlanId }> {
+): Promise<{ allowed: true } | { allowed: false; limit: number; current: number; plan: PlanId; reason: 'no_subscription' | 'limit_reached' }> {
   const { data: profile } = await supabase
     .from('profiles')
-    .select('plan')
+    .select('plan, subscription_status')
     .eq('id', userId)
     .single()
 
-  const plan = resolvePlan((profile as { plan?: string } | null)?.plan)
+  const raw = profile as { plan?: string; subscription_status?: string } | null
+  const subscriptionStatus = raw?.subscription_status ?? null
+
+  // Abonnement inactif → aucune création autorisée
+  if (!subscriptionStatus || !ACTIVE_STATUSES.has(subscriptionStatus)) {
+    return { allowed: false, limit: 0, current: 0, plan: resolvePlan(raw?.plan), reason: 'no_subscription' }
+  }
+
+  const plan = resolvePlan(raw?.plan)
   const limit = PLAN_LIMITS[plan][resource]
 
   let countQuery = supabase
@@ -33,7 +43,7 @@ export async function checkPlanQuota(
     .select('id', { count: 'exact', head: true })
 
   if (resource === 'teams') {
-    // Pour les équipes on compte les memberships owner
+    // Pour les équipes on compte les équipes dont l'utilisateur est owner
     countQuery = (supabase as any)
       .from('teams')
       .select('id', { count: 'exact', head: true })
@@ -46,7 +56,7 @@ export async function checkPlanQuota(
   const current = count ?? 0
 
   if (current >= limit) {
-    return { allowed: false, limit, current, plan }
+    return { allowed: false, limit, current, plan, reason: 'limit_reached' }
   }
 
   return { allowed: true }
