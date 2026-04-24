@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createBrowserClient } from '@supabase/ssr'
 import { checkRateLimit } from '@/lib/rate-limit'
 
 /** POST /api/account/password — Changer le mot de passe */
@@ -35,8 +36,13 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Vérifier le mot de passe actuel en essayant de se reconnecter
-  const { error: signInError } = await supabase.auth.signInWithPassword({
+  // Vérifier le mot de passe actuel via un client isolé (sans cookies) pour ne pas
+  // écraser la session active de l'utilisateur
+  const verifyClient = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
+  const { error: signInError } = await verifyClient.auth.signInWithPassword({
     email: user.email!,
     password: currentPassword,
   })
@@ -48,7 +54,7 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Mettre à jour le mot de passe
+  // Mettre à jour le mot de passe via la session originale de l'utilisateur
   const { error: updateError } = await supabase.auth.updateUser({
     password: newPassword,
   })
