@@ -21,11 +21,12 @@ export async function GET() {
   }
 
   // Récupérer si le configurateur a été soumis
-  const { data: onboardingConfig } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: onboardingConfig } = await (supabase as any)
     .from('onboarding_configs')
     .select('submitted_at')
     .eq('user_id', user.id)
-    .maybeSingle()
+    .maybeSingle() as { data: { submitted_at: string | null } | null }
 
   return NextResponse.json({
     data: {
