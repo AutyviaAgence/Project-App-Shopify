@@ -387,74 +387,138 @@ function SubscriptionContent() {
       <OnboardingSection onboardingStatus={onboardingStatus} onboardingPlan={onboardingPlan} />
 
       {/* Statut abonnement (visible uniquement si onboarding active) */}
-      {onboardingStatus === 'active' && (
-        <Card className="mb-8">
-          <CardHeader>
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <Calendar className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="font-semibold">{t('subscription.your_subscription')}</p>
-                  {subscription?.status === 'trial' && subscription.trialEndsAt && (
-                    <p className="text-sm text-muted-foreground">
-                      {t('subscription.trial_ends')} {formatDate(subscription.trialEndsAt)}
-                      {subscription.daysRemaining !== null && ` (${subscription.daysRemaining}j restants)`}
+      {onboardingStatus === 'active' && subscription && (
+        <Card className={cn(
+          'mb-8 border-2',
+          subscription.status === 'active' && 'border-green-500/30',
+          subscription.status === 'trial' && 'border-amber-500/30',
+          subscription.status === 'cancelled' && 'border-orange-500/30',
+          subscription.status === 'expired' && 'border-red-500/30',
+        )}>
+          <CardContent className="pt-6 pb-6">
+            <div className="flex flex-col gap-5">
+
+              {/* Ligne 1 : plan + badge statut */}
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  {(() => {
+                    const planInfo = PLANS.find(p => p.id === currentPlan)
+                    const Icon = planInfo?.icon ?? Cpu
+                    return <Icon className={cn('h-6 w-6', planInfo?.color ?? 'text-muted-foreground')} />
+                  })()}
+                  <div>
+                    <p className="text-lg font-bold">
+                      Plan {PLANS.find(p => p.id === currentPlan)?.name ?? currentPlan}
+                      {pendingPlan && (
+                        <span className="ml-2 text-sm font-normal text-amber-600 dark:text-amber-400">
+                          → {PLANS.find(p => p.id === pendingPlan)?.name ?? pendingPlan} au prochain renouvellement
+                        </span>
+                      )}
                     </p>
+                    <p className="text-sm text-muted-foreground">
+                      {PLANS.find(p => p.id === currentPlan)?.price ?? '—'}€/mois
+                      {pendingPlan && (
+                        <span className="ml-1">
+                          → {PLANS.find(p => p.id === pendingPlan)?.price ?? '—'}€/mois après renouvellement
+                        </span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+                <Badge className={cn(
+                  'text-sm px-3 py-1 self-start sm:self-auto',
+                  subscription.status === 'active' && 'bg-green-500 hover:bg-green-600',
+                  subscription.status === 'trial' && 'bg-amber-500 hover:bg-amber-600',
+                  subscription.status === 'cancelled' && 'bg-orange-500 hover:bg-orange-600',
+                  subscription.status === 'expired' && 'bg-red-500 hover:bg-red-600',
+                )}>
+                  {subscription.status === 'active' && 'Actif'}
+                  {subscription.status === 'trial' && 'Période d\'essai'}
+                  {subscription.status === 'cancelled' && 'Annulé'}
+                  {subscription.status === 'expired' && 'Expiré'}
+                </Badge>
+              </div>
+
+              {/* Ligne 2 : infos clés */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {/* Prochain prélèvement / fin de période */}
+                <div className="rounded-lg border bg-muted/30 p-3 space-y-0.5">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <Calendar className="h-3 w-3" />
+                    {subscription.status === 'cancelled'
+                      ? 'Accès jusqu\'au'
+                      : subscription.status === 'trial'
+                      ? 'Fin d\'essai'
+                      : 'Prochain renouvellement'}
+                  </p>
+                  <p className="text-sm font-semibold">
+                    {subscription.status === 'active' && subscription.subscriptionEndsAt
+                      ? formatDate(subscription.subscriptionEndsAt)
+                      : subscription.status === 'trial' && subscription.trialEndsAt
+                      ? formatDate(subscription.trialEndsAt)
+                      : subscription.status === 'cancelled' && subscription.subscriptionEndsAt
+                      ? formatDate(subscription.subscriptionEndsAt)
+                      : '—'}
+                  </p>
+                  {subscription.daysRemaining !== null && subscription.daysRemaining > 0 && (
+                    <p className="text-xs text-muted-foreground/70">{subscription.daysRemaining} jour{subscription.daysRemaining > 1 ? 's' : ''} restant{subscription.daysRemaining > 1 ? 's' : ''}</p>
                   )}
-                  {subscription?.status === 'active' && subscription.subscriptionEndsAt && (
-                    <p className="text-sm text-muted-foreground">
-                      {t('subscription.valid_until')} {formatDate(subscription.subscriptionEndsAt)}
-                    </p>
+                </div>
+
+                {/* Montant prochain prélèvement */}
+                <div className="rounded-lg border bg-muted/30 p-3 space-y-0.5">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <CreditCard className="h-3 w-3" />
+                    {subscription.status === 'cancelled' || subscription.status === 'expired'
+                      ? 'Prochain paiement'
+                      : 'Montant prélevé'}
+                  </p>
+                  <p className="text-sm font-semibold">
+                    {subscription.status === 'cancelled' || subscription.status === 'expired'
+                      ? '—'
+                      : pendingPlan
+                      ? `${PLANS.find(p => p.id === pendingPlan)?.price ?? '—'}€`
+                      : `${PLANS.find(p => p.id === currentPlan)?.price ?? '—'}€`}
+                  </p>
+                  {(subscription.status === 'active' || subscription.status === 'trial') && !pendingPlan && (
+                    <p className="text-xs text-muted-foreground/70">par mois, hors taxes</p>
+                  )}
+                  {pendingPlan && subscription.status !== 'cancelled' && subscription.status !== 'expired' && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400">nouveau montant</p>
+                  )}
+                  {(subscription.status === 'cancelled' || subscription.status === 'expired') && (
+                    <p className="text-xs text-muted-foreground/70">aucun renouvellement</p>
+                  )}
+                </div>
+
+                {/* Accès */}
+                <div className={cn(
+                  'rounded-lg border p-3 space-y-0.5 col-span-2 sm:col-span-1',
+                  subscription.isActive ? 'bg-green-500/5 border-green-500/20' : 'bg-red-500/5 border-red-500/20',
+                )}>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    {subscription.isActive
+                      ? <CheckCircle className="h-3 w-3 text-green-500" />
+                      : <XCircle className="h-3 w-3 text-red-500" />}
+                    Accès plateforme
+                  </p>
+                  <p className={cn('text-sm font-semibold', subscription.isActive ? 'text-green-600' : 'text-red-600')}>
+                    {subscription.isActive ? 'Actif' : 'Suspendu'}
+                  </p>
+                  {subscription.status === 'cancelled' && subscription.isActive && (
+                    <p className="text-xs text-orange-600 dark:text-orange-400">jusqu&apos;à fin de période</p>
+                  )}
+                  {!subscription.isActive && (
+                    <p className="text-xs text-red-500/70">Réabonnez-vous pour accéder</p>
                   )}
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <Badge
-                  className={cn(
-                    subscription?.status === 'trial' && 'bg-amber-500 hover:bg-amber-600',
-                    subscription?.status === 'active' && 'bg-green-500 hover:bg-green-600',
-                    (subscription?.status === 'expired' || subscription?.status === 'cancelled') && 'bg-red-500 hover:bg-red-600',
-                  )}
-                >
-                  {subscription?.status === 'trial' && `Essai — Plan ${PLANS.find(p => p.id === currentPlan)?.name ?? currentPlan}`}
-                  {subscription?.status === 'active' && `Actif — Plan ${PLANS.find(p => p.id === currentPlan)?.name ?? currentPlan}`}
-                  {subscription?.status === 'expired' && t('subscription.expired')}
-                  {subscription?.status === 'cancelled' && t('subscription.cancelled')}
-                </Badge>
-                {isActive ? (
-                  <div className="flex items-center gap-1.5 text-green-600">
-                    <CheckCircle className="h-4 w-4" />
-                    <span className="text-sm font-medium">{t('subscription.access_active')}</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-1.5 text-red-600">
-                    <XCircle className="h-4 w-4" />
-                    <span className="text-sm font-medium">{t('subscription.access_expired')}</span>
-                  </div>
-                )}
-              </div>
+
             </div>
-          </CardHeader>
+          </CardContent>
         </Card>
       )}
 
-      {/* Bandeau changement de plan planifié */}
-      {pendingPlan && isActive && (
-        <div className="mb-6 flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3">
-          <Clock className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
-          <div className="text-sm">
-            <span className="font-medium text-amber-700 dark:text-amber-400">Changement planifié — </span>
-            <span className="text-muted-foreground">
-              Votre plan passera au{' '}
-              <span className="font-semibold text-foreground">{PLANS.find(p => p.id === pendingPlan)?.name ?? pendingPlan}</span>
-              {subscription?.subscriptionEndsAt && (
-                <> le {subscription.subscriptionEndsAt.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</>
-              )}
-              . Votre plan actuel reste actif jusqu&apos;à cette date.
-            </span>
-          </div>
-        </div>
-      )}
 
       {/* Tokens — visible pour onboarding et active */}
       {subscription && (onboardingStatus === 'active' || onboardingStatus === 'onboarding') && (
