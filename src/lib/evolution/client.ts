@@ -1,10 +1,40 @@
 import 'server-only'
-
-/**
- * Evolution API Client — server-only
- */
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 
 const TIMEOUT = 15000
+
+function isZombieError(error: string): boolean {
+  return error.toLowerCase().includes('connection closed')
+}
+
+// Quand une session zombie est détectée : marque disconnected en DB + tente de supprimer l'instance Prisma
+async function handleZombieSession(instanceName: string): Promise<void> {
+  try {
+    const admin = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+    await admin
+      .from('whatsapp_sessions')
+      .update({ status: 'disconnected' })
+      .eq('instance_name', instanceName)
+
+    console.warn(`[Evolution] Zombie session detected and marked disconnected: ${instanceName}`)
+  } catch (err) {
+    console.error(`[Evolution] Failed to handle zombie session ${instanceName}:`, err)
+  }
+
+  // Tenter de supprimer l'instance d'Evolution (souvent échoue pour les zombies, on ignore)
+  try {
+    const { url, key } = getConfig()
+    await fetch(`${url}/instance/delete/${instanceName}`, {
+      method: 'DELETE',
+      headers: { apikey: key },
+    })
+  } catch {
+    // Ignoré — le container devra être redémarré manuellement si nécessaire
+  }
+}
 
 function getConfig() {
   const url = process.env.EVOLUTION_API_URL
@@ -86,8 +116,12 @@ export const evolution = {
   },
 
   /** Déconnecter (logout) */
-  disconnect(instanceName: string) {
-    return request(`/instance/logout/${instanceName}`, { method: 'DELETE' })
+  async disconnect(instanceName: string) {
+    const result = await request(`/instance/logout/${instanceName}`, { method: 'DELETE' })
+    if (!result.ok && isZombieError(result.error)) {
+      await handleZombieSession(instanceName)
+    }
+    return result
   },
 
   /** Restart une instance (recrée la connexion Baileys sans supprimer les données) */
@@ -101,22 +135,26 @@ export const evolution = {
   },
 
   /** Envoyer un message texte */
-  sendText(instanceName: string, number: string, text: string) {
-    return request(`/message/sendText/${instanceName}`, {
+  async sendText(instanceName: string, number: string, text: string) {
+    const result = await request(`/message/sendText/${instanceName}`, {
       method: 'POST',
       body: JSON.stringify({ number, text }),
     })
+    if (!result.ok && isZombieError(result.error)) {
+      await handleZombieSession(instanceName)
+    }
+    return result
   },
 
   /** Envoyer un média (image, audio, document, vidéo) */
-  sendMedia(instanceName: string, number: string, opts: {
+  async sendMedia(instanceName: string, number: string, opts: {
     mediatype: 'image' | 'audio' | 'document' | 'video'
     media: string  // base64
     mimetype: string
     caption?: string
     fileName?: string
   }) {
-    return request(`/message/sendMedia/${instanceName}`, {
+    const result = await request(`/message/sendMedia/${instanceName}`, {
       method: 'POST',
       body: JSON.stringify({
         number,
@@ -126,17 +164,25 @@ export const evolution = {
         caption: opts.caption,
         fileName: opts.fileName,
       }),
-      timeout: 60000, // 60s pour les gros fichiers
+      timeout: 60000,
     })
+    if (!result.ok && isZombieError(result.error)) {
+      await handleZombieSession(instanceName)
+    }
+    return result
   },
 
   /** Envoyer un audio WhatsApp en tant que vocal (PTT) */
-  sendWhatsAppAudio(instanceName: string, number: string, audio: string) {
-    return request(`/message/sendWhatsAppAudio/${instanceName}`, {
+  async sendWhatsAppAudio(instanceName: string, number: string, audio: string) {
+    const result = await request(`/message/sendWhatsAppAudio/${instanceName}`, {
       method: 'POST',
       body: JSON.stringify({ number, audio }),
       timeout: 60000,
     })
+    if (!result.ok && isZombieError(result.error)) {
+      await handleZombieSession(instanceName)
+    }
+    return result
   },
 
   /** Récupérer les infos d'une instance (owner, profileName, etc.) */
@@ -169,8 +215,8 @@ export const evolution = {
   },
 
   /** Envoyer une présence (composing/paused) pour simuler la saisie */
-  sendPresence(instanceName: string, number: string, presence: 'composing' | 'paused', delay?: number) {
-    return request(`/chat/sendPresence/${instanceName}`, {
+  async sendPresence(instanceName: string, number: string, presence: 'composing' | 'paused', delay?: number) {
+    const result = await request(`/chat/sendPresence/${instanceName}`, {
       method: 'POST',
       body: JSON.stringify({
         number,
@@ -180,6 +226,10 @@ export const evolution = {
         },
       }),
     })
+    if (!result.ok && isZombieError(result.error)) {
+      await handleZombieSession(instanceName)
+    }
+    return result
   },
 
   /** Configurer le webhook */
@@ -212,8 +262,10 @@ export const evolution = {
       }),
       timeout: 10000,
     })
-    if (!result.ok) return result
-    // Extraire les records depuis la structure { messages: { records: [...] } }
+    if (!result.ok) {
+      if (isZombieError(result.error)) await handleZombieSession(instanceName)
+      return result
+    }
     const records = result.data?.messages?.records || []
     return { ok: true, data: records }
   },
