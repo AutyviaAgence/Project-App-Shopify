@@ -179,7 +179,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }
 
   return (
-    <TourProvider>
+    <TourProvider plan={plan}>
     <div className="flex h-[100dvh] overflow-hidden bg-background">
       {/* Mobile overlay */}
       {sidebarOpen && (

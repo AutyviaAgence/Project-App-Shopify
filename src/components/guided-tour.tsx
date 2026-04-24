@@ -17,6 +17,7 @@ interface TourStep {
   description: string
   position?: 'top' | 'bottom' | 'left' | 'right'
   action?: 'click' | 'hover' | 'none'
+  requiredPlan?: 'pro' | 'scale' // step masqué si le plan ne l'autorise pas
 }
 
 interface TourContextType {
@@ -31,7 +32,7 @@ interface TourContextType {
 }
 
 // Tour steps configuration - title/description hold i18n keys
-const TOUR_STEPS: TourStep[] = [
+const ALL_TOUR_STEPS: TourStep[] = [
   // Dashboard - Welcome
   {
     id: 'welcome',
@@ -118,14 +119,15 @@ const TOUR_STEPS: TourStep[] = [
     description: 'tour.links_desc',
     position: 'bottom'
   },
-  // Campaigns
+  // Campaigns — Scale uniquement
   {
     id: 'campaigns-page',
     page: '/campaigns',
     target: '[data-tour="campaigns-header"]',
     title: 'tour.campaigns_title',
     description: 'tour.campaigns_desc',
-    position: 'bottom'
+    position: 'bottom',
+    requiredPlan: 'scale'
   },
   // Tags
   {
@@ -136,14 +138,15 @@ const TOUR_STEPS: TourStep[] = [
     description: 'tour.tags_desc',
     position: 'bottom'
   },
-  // Lifecycle
+  // Lifecycle — Pro et Scale
   {
     id: 'lifecycle-page',
     page: '/lifecycle',
     target: '[data-tour="lifecycle-header"]',
     title: 'tour.lifecycle_title',
     description: 'tour.lifecycle_desc',
-    position: 'bottom'
+    position: 'bottom',
+    requiredPlan: 'pro'
   },
   // Teams
   {
@@ -194,14 +197,24 @@ export function useTour() {
   return context
 }
 
+function filterStepsByPlan(plan: string): TourStep[] {
+  return ALL_TOUR_STEPS.filter(step => {
+    if (!step.requiredPlan) return true
+    if (step.requiredPlan === 'pro') return plan === 'pro' || plan === 'scale'
+    if (step.requiredPlan === 'scale') return plan === 'scale'
+    return true
+  })
+}
+
 // Provider
-export function TourProvider({ children }: { children: React.ReactNode }) {
+export function TourProvider({ children, plan = 'scale' }: { children: React.ReactNode; plan?: string }) {
   const router = useRouter()
   const pathname = usePathname()
   const [isActive, setIsActive] = useState(false)
   const [currentStep, setCurrentStep] = useState(0)
   const [isNavigating, setIsNavigating] = useState(false)
 
+  const TOUR_STEPS = filterStepsByPlan(plan)
   const step = TOUR_STEPS[currentStep]
 
   // Navigate to step's page if needed
@@ -222,10 +235,10 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
   const startTour = useCallback(() => {
     setCurrentStep(0)
     setIsActive(true)
-    if (TOUR_STEPS[0].page !== pathname) {
-      router.push(TOUR_STEPS[0].page)
+    if (TOUR_STEPS[0]?.page !== pathname) {
+      router.push(TOUR_STEPS[0]?.page ?? '/dashboard')
     }
-  }, [pathname, router])
+  }, [pathname, router, TOUR_STEPS])
 
   const endTour = useCallback(() => {
     setIsActive(false)
@@ -239,7 +252,7 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
     } else {
       endTour()
     }
-  }, [currentStep, endTour])
+  }, [currentStep, endTour, TOUR_STEPS.length])
 
   const prevStep = useCallback(() => {
     if (currentStep > 0) {
@@ -251,7 +264,7 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
     if (index >= 0 && index < TOUR_STEPS.length) {
       setCurrentStep(index)
     }
-  }, [])
+  }, [TOUR_STEPS.length])
 
   return (
     <TourContext.Provider value={{
@@ -262,7 +275,7 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
       endTour,
       nextStep,
       prevStep,
-      goToStep
+      goToStep,
     }}>
       {children}
       {isActive && !isNavigating && <TourOverlay />}
