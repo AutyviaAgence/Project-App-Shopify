@@ -5,7 +5,7 @@ export default function CGUPage() {
     <LegalPageLayout
       title="Conditions Générales d'Utilisation"
       description="Modalités d'utilisation des services Autyvia, droits et obligations des utilisateurs."
-      lastUpdated="04 février 2026"
+      lastUpdated="24 avril 2026"
     >
       <h2>Article 1 – Objet</h2>
       <p>
@@ -31,13 +31,19 @@ export default function CGUPage() {
       <h3>3.1 Inscription</h3>
       <p>
         L&apos;accès aux Services nécessite la création d&apos;un compte utilisateur. L&apos;Utilisateur s&apos;engage à fournir
-        des informations exactes et à jour.
-      </p>
-      <p>
-        L&apos;Utilisateur doit être âgé d&apos;au moins 18 ans et avoir la capacité juridique de contracter.
+        des informations exactes et à jour. L&apos;Utilisateur doit être âgé d&apos;au moins 18 ans et avoir la capacité
+        juridique de contracter.
       </p>
 
-      <h3>3.2 Identifiants</h3>
+      <h3>3.2 Niveaux d&apos;accès</h3>
+      <p>L&apos;accès aux fonctionnalités de la plateforme est conditionné au statut du compte :</p>
+      <ul>
+        <li>Compte créé sans paiement : accès à la page tarifaire uniquement, aucune fonctionnalité disponible</li>
+        <li>Acompte de mise en place payé (750 €) : accès au configurateur d&apos;onboarding uniquement</li>
+        <li>Solde de mise en place payé (750 €) ou abonnement self-service actif : accès complet aux fonctionnalités de la gamme souscrite</li>
+      </ul>
+
+      <h3>3.3 Identifiants</h3>
       <p>
         L&apos;Utilisateur est responsable de la confidentialité de ses identifiants de connexion. Toute utilisation
         depuis son compte est réputée avoir été faite par lui.
@@ -69,18 +75,15 @@ export default function CGUPage() {
       </ul>
 
       <h2>Article 5 – Intelligence artificielle</h2>
-      <div className="not-prose my-4 rounded-lg border-l-4 border-amber-500 bg-amber-50 p-4 dark:bg-amber-950/30">
-        <p className="font-medium text-slate-900 dark:text-white">Important</p>
-        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-          L&apos;Utilisateur reconnaît et accepte les points suivants concernant l&apos;utilisation de l&apos;IA :
-        </p>
-      </div>
-      <ul>
-        <li>Les réponses générées par l&apos;IA peuvent contenir des erreurs</li>
-        <li>Il reste responsable des messages envoyés depuis son compte WhatsApp</li>
-        <li>Il doit superviser et paramétrer correctement ses agents IA</li>
-        <li>Autyvia ne garantit pas l&apos;exactitude des réponses générées</li>
-      </ul>
+      <p>
+        L&apos;Utilisateur reconnaît que les réponses générées par l&apos;IA peuvent contenir des erreurs. Il reste
+        responsable des messages envoyés depuis son compte WhatsApp et doit superviser et paramétrer correctement
+        ses agents IA. Autyvia ne garantit pas l&apos;exactitude des réponses générées.
+      </p>
+      <p>
+        Le client configurant lui-même la plateforme sans accompagnement Autyvia (parcours self-service) est seul
+        responsable des résultats obtenus. Autyvia ne peut être tenu responsable d&apos;une mauvaise configuration autonome.
+      </p>
 
       <h2>Article 6 – Connexion WhatsApp et responsabilité Meta</h2>
       <p>L&apos;Utilisateur reconnaît et accepte que :</p>
@@ -119,16 +122,19 @@ export default function CGUPage() {
         <li>Des contenus générés par l&apos;intelligence artificielle</li>
         <li>De la suspension ou fermeture de comptes WhatsApp par Meta</li>
         <li>Des préjudices indirects (perte de chiffre d&apos;affaires, etc.)</li>
+        <li>Des résultats obtenus dans le cadre d&apos;un parcours self-service sans accompagnement</li>
       </ul>
 
-      <h2>Article 9 – Suspension et résiliation</h2>
-      <p>Autyvia peut suspendre ou résilier l&apos;accès aux Services, sans préavis, en cas de :</p>
-      <ul>
-        <li>Violation des présentes CGU</li>
-        <li>Utilisation frauduleuse ou abusive</li>
-        <li>Non-paiement</li>
-        <li>Demande des autorités compétentes</li>
-      </ul>
+      <h2>Article 9 – Suspension, résiliation et données</h2>
+      <p>
+        Autyvia peut suspendre ou résilier l&apos;accès aux Services, sans préavis, en cas de violation des présentes
+        CGU, d&apos;utilisation frauduleuse ou abusive, de non-paiement ou de demande des autorités compétentes.
+      </p>
+      <p>
+        À la résiliation ou suspension définitive, les données du client (conversations, agents, documents, base de
+        connaissances) sont conservées pendant 30 jours, puis définitivement supprimées conformément au RGPD.
+        Aucune récupération n&apos;est possible après ce délai.
+      </p>
 
       <h2>Article 10 – Droit applicable</h2>
       <p>Les présentes CGU sont régies par le droit français.</p>
