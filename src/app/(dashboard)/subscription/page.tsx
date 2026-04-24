@@ -132,25 +132,10 @@ const ONBOARDING_STEPS = [
 ]
 
 function OnboardingSection({ onboardingStatus, onboardingPlan }: { onboardingStatus: 'pending' | 'onboarding' | 'active'; onboardingPlan: string | null }) {
-  const [loadingAcompte, setLoadingAcompte] = useState(false)
   const { subscription } = useSubscription()
 
-  const handleAcompte = async () => {
-    setLoadingAcompte(true)
-    try {
-      const res = await fetch('/api/stripe/custom-setup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: subscription?.plan ?? 'scale' }),
-      })
-      const data = await res.json()
-      if (data.url) window.location.href = data.url
-      else toast.error(data.error || 'Erreur')
-    } catch {
-      toast.error('Erreur réseau')
-    } finally {
-      setLoadingAcompte(false)
-    }
+  const handleAcompte = () => {
+    window.location.href = '/onboarding'
   }
 
   if (onboardingStatus === 'active') return null
@@ -213,9 +198,9 @@ function OnboardingSection({ onboardingStatus, onboardingPlan }: { onboardingSta
               <p className="pt-1 text-muted-foreground/70">L&apos;abonnement mensuel démarre en même temps que le solde à J+30.</p>
             </div>
             <div className="flex justify-end">
-              <Button onClick={handleAcompte} disabled={loadingAcompte}>
-                {loadingAcompte ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CreditCard className="mr-2 h-4 w-4" />}
-                Payer l&apos;acompte 750€
+              <Button onClick={handleAcompte}>
+                <CreditCard className="mr-2 h-4 w-4" />
+                Démarrer l&apos;onboarding
               </Button>
             </div>
           </div>
