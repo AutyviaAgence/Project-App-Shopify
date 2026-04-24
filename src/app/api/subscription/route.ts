@@ -30,7 +30,8 @@ export async function GET() {
 
   return NextResponse.json({
     data: {
-      ...profile,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ...(profile as any),
       configurateur_submitted: !!onboardingConfig?.submitted_at,
     }
   })
