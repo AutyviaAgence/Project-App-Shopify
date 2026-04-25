@@ -20,7 +20,7 @@ type SubscriptionInfo = {
   usagePercentage: number
   stripeSubscriptionId: string | null
   stripeCustomerId: string | null
-  plan: PlanId
+  plan: PlanId | null
   pendingPlan: PlanId | null
   role: 'user' | 'admin'
   onboardingStatus: OnboardingStatus
@@ -83,7 +83,7 @@ export function useSubscription() {
           usagePercentage,
           stripeSubscriptionId: data.data.stripe_subscription_id || null,
           stripeCustomerId: data.data.stripe_customer_id || null,
-          plan: (data.data.plan || 'scale') as PlanId,
+          plan: (data.data.plan || null) as PlanId | null,
           pendingPlan: (data.data.pending_plan || null) as PlanId | null,
           role: (data.data.role || 'user') as 'user' | 'admin',
           onboardingStatus: (data.data.onboarding_status || 'pending') as OnboardingStatus,

@@ -352,7 +352,7 @@ function SubscriptionContent() {
 
   const isActive = subscription?.status === 'active' || subscription?.status === 'trial'
   const isCancelled = subscription?.status === 'cancelled'
-  const currentPlan = subscription?.plan ?? 'scale'
+  const currentPlan = subscription?.plan ?? null
   // For cancelled subscriptions, ignore pending_plan — user needs to re-subscribe fresh
   const pendingPlan = !isCancelled ? (subscription?.pendingPlan ?? null) : null
   const onboardingStatus = subscription?.onboardingStatus ?? 'pending'
@@ -393,7 +393,7 @@ function SubscriptionContent() {
                   })()}
                   <div>
                     <p className="text-lg font-bold">
-                      Plan {PLANS.find(p => p.id === currentPlan)?.name ?? currentPlan}
+                      Plan {PLANS.find(p => p.id === currentPlan)?.name ?? 'Aucun plan'}
                       {pendingPlan && (
                         <span className="ml-2 text-sm font-normal text-amber-600 dark:text-amber-400">
                           → {PLANS.find(p => p.id === pendingPlan)?.name ?? pendingPlan} au prochain renouvellement

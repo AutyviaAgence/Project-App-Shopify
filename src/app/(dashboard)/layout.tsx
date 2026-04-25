@@ -75,13 +75,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { t } = useTranslation()
   const tenant = useTenant()
 
-  const plan = subscription?.plan ?? 'scale'
+  const plan = subscription?.plan ?? null
 
   const NAV_ITEMS = useMemo(() =>
     NAV_ITEMS_KEYS
       .filter(item => {
         if (item.href === '/campaigns' && plan !== 'scale') return false
-        if (item.href === '/lifecycle' && plan === 'starter') return false
+        if (item.href === '/lifecycle' && plan !== 'pro' && plan !== 'scale') return false
         return true
       })
       .map(item => ({ ...item, label: t(item.labelKey) })),
