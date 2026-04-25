@@ -7,32 +7,71 @@ function isZombieError(error: string): boolean {
   return error.toLowerCase().includes('connection closed')
 }
 
-// Quand une session zombie est détectée : marque disconnected en DB + tente de supprimer l'instance Prisma
+// Quand une session zombie est détectée : marque disconnected en DB + notifie le client + supprime l'instance
 async function handleZombieSession(instanceName: string): Promise<void> {
+  const admin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+
   try {
-    const admin = createAdminClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
+    // 1. Récupérer l'user_id de la session
+    const { data: session } = await admin
+      .from('whatsapp_sessions')
+      .select('id, user_id, phone_number')
+      .eq('instance_name', instanceName)
+      .single() as { data: { id: string; user_id: string; phone_number: string | null } | null }
+
+    // 2. Marquer la session comme déconnectée
     await admin
       .from('whatsapp_sessions')
       .update({ status: 'disconnected' })
       .eq('instance_name', instanceName)
 
-    console.warn(`[Evolution] Zombie session detected and marked disconnected: ${instanceName}`)
+    // 3. Créer une notification in-app pour le client
+    if (session?.user_id) {
+      await admin.from('user_alerts').insert({
+        user_id: session.user_id,
+        alert_type: 'warning',
+        title: 'Session WhatsApp déconnectée',
+        message: `Votre session WhatsApp${session.phone_number ? ` (+${session.phone_number})` : ''} s'est déconnectée. Reconnectez-vous depuis la page Sessions pour continuer à recevoir des messages.`,
+        metadata: { type: 'zombie_session', instance_name: instanceName },
+      })
+    }
+
+    console.warn(`[Evolution] Zombie session handled: ${instanceName} (user: ${session?.user_id})`)
   } catch (err) {
     console.error(`[Evolution] Failed to handle zombie session ${instanceName}:`, err)
   }
 
-  // Tenter de supprimer l'instance d'Evolution (souvent échoue pour les zombies, on ignore)
+  // 4. Tenter de supprimer via Evolution API
+  let deletedByEvolution = false
   try {
     const { url, key } = getConfig()
-    await fetch(`${url}/instance/delete/${instanceName}`, {
+    const res = await fetch(`${url}/instance/delete/${instanceName}`, {
       method: 'DELETE',
       headers: { apikey: key },
     })
+    deletedByEvolution = res.ok
   } catch {
-    // Ignoré — le container devra être redémarré manuellement si nécessaire
+    // ignoré
+  }
+
+  // 5. Fallback : appeler le service VPS zombie-cleaner si Evolution a échoué
+  if (!deletedByEvolution) {
+    const cleanerUrl = process.env.ZOMBIE_CLEANER_URL
+    const cleanerSecret = process.env.ZOMBIE_CLEANER_SECRET
+    if (cleanerUrl && cleanerSecret) {
+      try {
+        await fetch(`${cleanerUrl}/instance/${encodeURIComponent(instanceName)}`, {
+          method: 'DELETE',
+          headers: { 'x-zombie-secret': cleanerSecret },
+        })
+        console.log(`[Evolution] Zombie cleaner VPS called for: ${instanceName}`)
+      } catch (err) {
+        console.error(`[Evolution] Zombie cleaner VPS failed for ${instanceName}:`, err)
+      }
+    }
   }
 }
 

@@ -1,0 +1,17 @@
+[Unit]
+Description=Autyvia Zombie Session Cleaner
+After=network.target docker.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/zombie-cleaner
+ExecStart=/usr/bin/node /opt/zombie-cleaner/index.js
+Restart=always
+RestartSec=5
+Environment=PORT=3001
+Environment=ZOMBIE_CLEANER_SECRET=CHANGE_ME_STRONG_SECRET
+Environment=EVOLUTION_CONTAINER=whatsapp-test-evolutionapi-yfoofj-evolution-api-1
+
+[Install]
+WantedBy=multi-user.target
