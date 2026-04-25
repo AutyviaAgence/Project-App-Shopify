@@ -253,9 +253,9 @@ export default function SettingsPage() {
       const json = await res.json()
       if (res.ok) {
         toast.success(t('settings.password_changed'))
-        setCurrentPassword('')
-        setNewPassword('')
-        setConfirmPassword('')
+        const { createClient } = await import('@/lib/supabase/client')
+        await createClient().auth.signOut()
+        router.push('/login')
       } else {
         toast.error(json.error || t('settings.password_error'))
       }
