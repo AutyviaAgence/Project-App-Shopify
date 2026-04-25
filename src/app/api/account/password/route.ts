@@ -36,8 +36,9 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Vérifier le mot de passe actuel via l'API Supabase Auth directement (sans toucher aux cookies)
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+
+  // Vérifier le mot de passe actuel via l'API Supabase Auth directement (sans toucher aux cookies)
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   const verifyRes = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
     method: 'POST',
@@ -49,6 +50,8 @@ export async function POST(req: NextRequest) {
   })
 
   if (!verifyRes.ok) {
+    const errBody = await verifyRes.json().catch(() => ({}))
+    console.error('[password] Supabase verify failed:', verifyRes.status, errBody)
     return NextResponse.json(
       { error: 'Mot de passe actuel incorrect' },
       { status: 400 }
