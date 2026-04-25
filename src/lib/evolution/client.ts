@@ -15,18 +15,25 @@ async function handleZombieSession(instanceName: string): Promise<void> {
   )
 
   try {
-    // 1. Récupérer l'user_id de la session
+    // 1. Récupérer la session — si déjà disconnected, on sort (évite doubles notifications)
     const { data: session } = await admin
       .from('whatsapp_sessions')
-      .select('id, user_id, phone_number')
+      .select('id, user_id, phone_number, status')
       .eq('instance_name', instanceName)
-      .single() as { data: { id: string; user_id: string; phone_number: string | null } | null }
+      .single() as { data: { id: string; user_id: string; phone_number: string | null; status: string } | null }
 
-    // 2. Marquer la session comme déconnectée
-    await admin
+    if (!session || session.status === 'disconnected') return
+
+    // 2. Marquer la session comme déconnectée (filtre sur status=connected pour atomicité)
+    const { data: updated } = await admin
       .from('whatsapp_sessions')
       .update({ status: 'disconnected' })
       .eq('instance_name', instanceName)
+      .eq('status', 'connected')
+      .select('id') as { data: { id: string }[] | null }
+
+    // Si aucune ligne mise à jour, une autre instance a déjà traité ce zombie → on arrête
+    if (!updated || updated.length === 0) return
 
     // 3. Créer une notification in-app pour le client
     if (session?.user_id) {
