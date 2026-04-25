@@ -5,7 +5,7 @@ import { checkRateLimit } from '@/lib/rate-limit'
 
 /** POST /api/account/password — Changer le mot de passe */
 export async function POST(req: NextRequest) {
-  // Rate limiting strict — empêcher le brute-force du mot de passe actuel
+  // Rate limiting strict — empêcher le brute-force
   const rateLimitResponse = checkRateLimit(req, 'AUTH')
   if (rateLimitResponse) return rateLimitResponse
 
@@ -36,33 +36,31 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const admin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
 
-  // Vérifier le mot de passe actuel via l'API Supabase Auth directement (sans toucher aux cookies)
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  const verifyRes = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
+  // Vérifier le mot de passe actuel via la service role key (bypass captcha)
+  // On utilise le endpoint token avec la service_role key comme apikey
+  const verifyRes = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/token?grant_type=password`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'apikey': supabaseAnonKey,
+      'apikey': process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY!}`,
     },
     body: JSON.stringify({ email: user.email!, password: currentPassword }),
   })
 
   if (!verifyRes.ok) {
-    const errBody = await verifyRes.json().catch(() => ({}))
-    console.error('[password] Supabase verify failed:', verifyRes.status, errBody)
     return NextResponse.json(
       { error: 'Mot de passe actuel incorrect' },
       { status: 400 }
     )
   }
 
-  // Mettre à jour le mot de passe via le client admin (pas de contrainte de session)
-  const admin = createAdminClient(
-    supabaseUrl,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+  // Mettre à jour le mot de passe via admin
   const { error: updateError } = await admin.auth.admin.updateUserById(user.id, {
     password: newPassword,
   })
