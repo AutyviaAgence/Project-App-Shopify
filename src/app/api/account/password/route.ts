@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createBrowserClient } from '@supabase/ssr'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { checkRateLimit } from '@/lib/rate-limit'
 
 /** POST /api/account/password — Changer le mot de passe */
@@ -36,26 +36,31 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Vérifier le mot de passe actuel via un client isolé (sans cookies) pour ne pas
-  // écraser la session active de l'utilisateur
-  const verifyClient = createBrowserClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-  )
-  const { error: signInError } = await verifyClient.auth.signInWithPassword({
-    email: user.email!,
-    password: currentPassword,
+  // Vérifier le mot de passe actuel via l'API Supabase Auth directement (sans toucher aux cookies)
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  const verifyRes = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'apikey': supabaseAnonKey,
+    },
+    body: JSON.stringify({ email: user.email!, password: currentPassword }),
   })
 
-  if (signInError) {
+  if (!verifyRes.ok) {
     return NextResponse.json(
       { error: 'Mot de passe actuel incorrect' },
       { status: 400 }
     )
   }
 
-  // Mettre à jour le mot de passe via la session originale de l'utilisateur
-  const { error: updateError } = await supabase.auth.updateUser({
+  // Mettre à jour le mot de passe via le client admin (pas de contrainte de session)
+  const admin = createAdminClient(
+    supabaseUrl,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+  const { error: updateError } = await admin.auth.admin.updateUserById(user.id, {
     password: newPassword,
   })
 
