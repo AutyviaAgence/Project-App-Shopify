@@ -223,11 +223,23 @@ export async function POST(req: NextRequest) {
             const plan = resolvePlan((subscription.metadata?.plan || session.metadata?.plan) as string | undefined)
             const tokensLimit = isTrialing ? 200_000 : PLAN_TOKEN_LIMITS[plan]
 
+            // Lire l'onboarding_status actuel pour ne pas l'écraser si déjà avancé
+            const { data: currentProfile } = await supabase
+              .from('profiles')
+              .select('onboarding_status')
+              .eq('id', resolvedUserId)
+              .single() as { data: { onboarding_status: string | null } | null }
+
+            const currentOnboarding = currentProfile?.onboarding_status ?? 'pending'
+            // Ne passer à 'active' que si le compte est encore en 'pending' (inscription fraîche self-serve)
+            // 'skipped', 'onboarding', 'active', 'observer' → on ne touche pas
+            const newOnboardingStatus = currentOnboarding === 'pending' ? 'active' : currentOnboarding
+
             const { error: updateError } = await supabase
               .from('profiles')
               .update({
                 subscription_status: isTrialing ? 'trial' : 'active',
-                onboarding_status: 'active',
+                onboarding_status: newOnboardingStatus,
                 subscription_ends_at: subscriptionEndsAt.toISOString(),
                 trial_ends_at: isTrialing && subscription.trial_end
                   ? new Date(subscription.trial_end * 1000).toISOString()
