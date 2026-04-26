@@ -1,5 +1,5 @@
 export type SubscriptionStatus = 'trial' | 'active' | 'expired' | 'cancelled'
-export type OnboardingStatus = 'pending' | 'onboarding' | 'active'
+export type OnboardingStatus = 'pending' | 'onboarding' | 'active' | 'skipped' | 'observer'
 
 export type Tenant = {
   id: string
