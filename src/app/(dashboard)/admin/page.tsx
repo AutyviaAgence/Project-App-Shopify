@@ -232,6 +232,25 @@ export default function AdminPage() {
     }
   }
 
+  const handleSetObserver = async (userId: string) => {
+    setActivating(userId)
+    try {
+      const res = await fetch('/api/admin/update-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, subscription_status: 'trial', plan: null, onboarding_status: 'onboarding' }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast.success('Mode observateur activé')
+      fetchClients()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur')
+    } finally {
+      setActivating(null)
+    }
+  }
+
   const handleUpdateRole = async (userId: string, role: string) => {
     setActivating(userId)
     try {
@@ -615,6 +634,16 @@ docker restart whatsapp-test-evolutionapi-yfoofj-evolution-api-1`}</pre>
                             onClick={() => handleActivate(client.id)}
                           >
                             {activating === client.id ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Activer'}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="h-6 px-2 text-xs text-amber-600 hover:text-amber-700"
+                            disabled={activating === client.id}
+                            onClick={() => handleSetObserver(client.id)}
+                            title="Passer en mode observateur (lecture seule)"
+                          >
+                            👁
                           </Button>
                         </div>
                       </div>

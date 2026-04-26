@@ -43,9 +43,15 @@ export async function POST(req: NextRequest) {
   if (subscription_status && ['active', 'trial', 'expired', 'cancelled'].includes(subscription_status)) {
     update.subscription_status = subscription_status
     if (subscription_status === 'active' || subscription_status === 'trial') {
-      const plan = resolvePlan(rawPlan)
-      update.plan = plan
-      update.tokens_limit = PLAN_TOKEN_LIMITS[plan]
+      // rawPlan explicitement null = mode observateur, on ne force pas de plan
+      if (rawPlan === null && body.hasOwnProperty('plan')) {
+        update.plan = null
+        update.tokens_limit = 0
+      } else {
+        const plan = resolvePlan(rawPlan)
+        update.plan = plan
+        update.tokens_limit = PLAN_TOKEN_LIMITS[plan]
+      }
       update.tokens_used = 0
       update.token_usage_period_start = new Date().toISOString()
       const nextMonth = new Date()
