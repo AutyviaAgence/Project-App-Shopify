@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
 
   const update: Record<string, unknown> = {}
 
-  if (onboarding_status && ['pending', 'onboarding', 'active'].includes(onboarding_status)) {
+  if (onboarding_status && ['pending', 'onboarding', 'active', 'skipped', 'observer'].includes(onboarding_status)) {
     update.onboarding_status = onboarding_status
   }
 

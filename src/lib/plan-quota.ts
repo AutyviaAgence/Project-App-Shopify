@@ -34,8 +34,8 @@ export async function checkPlanQuota(
   const raw = profile as { plan?: string | null; subscription_status?: string; onboarding_status?: string } | null
   const subscriptionStatus = raw?.subscription_status ?? null
 
-  // Mode observateur : trial + aucun plan + onboarding actif → lecture seule sauf équipe
-  const isObserver = subscriptionStatus === 'trial' && !raw?.plan && raw?.onboarding_status === 'onboarding'
+  // Mode observateur : onboarding_status = 'observer' → lecture seule sauf équipe
+  const isObserver = raw?.onboarding_status === 'observer'
   if (isObserver) {
     if (OBSERVER_ALLOWED.includes(resource)) return { allowed: true }
     return { allowed: false, limit: 0, current: 0, plan: resolvePlan(null), reason: 'observer_mode' }

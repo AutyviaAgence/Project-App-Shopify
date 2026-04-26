@@ -121,11 +121,18 @@ const ESCALATION_LABELS: Record<string, string> = {
   off_hours: 'Hors horaires',
 }
 
+const ONBOARDING_OPTIONS: { value: string; label: string; description: string; color: string }[] = [
+  { value: 'pending',    label: 'En attente',   description: 'Inscription fraîche — rien de configuré',             color: 'bg-gray-100 text-gray-700' },
+  { value: 'onboarding', label: 'Audit',         description: 'Acompte payé, onboarding en cours avec l\'équipe',   color: 'bg-blue-500 text-white' },
+  { value: 'active',     label: 'Actif',          description: 'Onboarding terminé, client autonome',                color: 'bg-green-500 text-white' },
+  { value: 'skipped',    label: 'Sans onboarding', description: 'A refusé l\'onboarding, accès direct autonome',    color: 'bg-purple-500 text-white' },
+  { value: 'observer',   label: 'Observateur',   description: 'Lecture seule — ne peut pas créer de ressources',    color: 'bg-amber-500 text-white' },
+]
+
 function OnboardingStatusBadge({ status }: { status: string | null }) {
-  if (!status || status === 'pending') return <Badge variant="secondary" className="bg-gray-100 text-gray-600">En attente</Badge>
-  if (status === 'onboarding') return <Badge className="bg-blue-500">Audit</Badge>
-  if (status === 'active') return <Badge className="bg-green-500">Actif</Badge>
-  return <Badge variant="secondary">{status}</Badge>
+  const opt = ONBOARDING_OPTIONS.find(o => o.value === (status || 'pending'))
+  if (!opt) return <Badge variant="secondary">{status}</Badge>
+  return <Badge className={opt.color}>{opt.label}</Badge>
 }
 
 function SubStatusBadge({ status }: { status: string | null }) {
@@ -238,7 +245,7 @@ export default function AdminPage() {
       const res = await fetch('/api/admin/update-status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: userId, subscription_status: 'trial', plan: null, onboarding_status: 'onboarding' }),
+        body: JSON.stringify({ user_id: userId, subscription_status: 'trial', plan: null, onboarding_status: 'observer' }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
@@ -354,6 +361,8 @@ export default function AdminPage() {
   const pending = clients.filter(c => !c.onboarding_status || c.onboarding_status === 'pending')
   const onboarding = clients.filter(c => c.onboarding_status === 'onboarding')
   const active = clients.filter(c => c.onboarding_status === 'active')
+  const skipped = clients.filter(c => c.onboarding_status === 'skipped')
+  const observers = clients.filter(c => c.onboarding_status === 'observer')
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-7xl space-y-8">
@@ -516,18 +525,26 @@ docker restart whatsapp-test-evolutionapi-yfoofj-evolution-api-1`}</pre>
       {activeTab === 'clients' && <>
 
       {/* KPIs */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-5 gap-3">
         <div className="rounded-xl border p-4 text-center">
-          <p className="text-2xl font-bold text-amber-500">{pending.length}</p>
+          <p className="text-2xl font-bold text-gray-500">{pending.length}</p>
           <p className="text-xs text-muted-foreground mt-1">En attente</p>
         </div>
         <div className="rounded-xl border p-4 text-center">
           <p className="text-2xl font-bold text-blue-500">{onboarding.length}</p>
-          <p className="text-xs text-muted-foreground mt-1">Audit (acompte payé)</p>
+          <p className="text-xs text-muted-foreground mt-1">Audit</p>
         </div>
         <div className="rounded-xl border p-4 text-center">
           <p className="text-2xl font-bold text-green-500">{active.length}</p>
           <p className="text-xs text-muted-foreground mt-1">Actifs</p>
+        </div>
+        <div className="rounded-xl border p-4 text-center">
+          <p className="text-2xl font-bold text-purple-500">{skipped.length}</p>
+          <p className="text-xs text-muted-foreground mt-1">Sans onboarding</p>
+        </div>
+        <div className="rounded-xl border p-4 text-center">
+          <p className="text-2xl font-bold text-amber-500">{observers.length}</p>
+          <p className="text-xs text-muted-foreground mt-1">Observateurs</p>
         </div>
       </div>
 
@@ -573,13 +590,18 @@ docker restart whatsapp-test-evolutionapi-yfoofj-evolution-api-1`}</pre>
                           onValueChange={v => handleUpdateStatus(client.id, 'onboarding_status', v)}
                           disabled={activating === client.id}
                         >
-                          <SelectTrigger className="h-6 w-28 text-xs">
+                          <SelectTrigger className="h-6 w-32 text-xs">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="pending">En attente</SelectItem>
-                            <SelectItem value="onboarding">Audit</SelectItem>
-                            <SelectItem value="active">Actif</SelectItem>
+                          <SelectContent className="w-72">
+                            {ONBOARDING_OPTIONS.map(opt => (
+                              <SelectItem key={opt.value} value={opt.value}>
+                                <div>
+                                  <span className="font-medium">{opt.label}</span>
+                                  <p className="text-xs text-muted-foreground">{opt.description}</p>
+                                </div>
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>

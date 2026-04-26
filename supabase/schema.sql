@@ -31,7 +31,7 @@ CREATE TABLE public.profiles (
   tenant_id uuid,
   plan text DEFAULT NULL CHECK (plan IS NULL OR plan IN ('starter', 'pro', 'scale')),
   role text DEFAULT 'user' CHECK (role IN ('user', 'admin')),
-  onboarding_status text DEFAULT 'pending' CHECK (onboarding_status IN ('pending', 'onboarding', 'active')),
+  onboarding_status text DEFAULT 'pending' CHECK (onboarding_status IN ('pending', 'onboarding', 'active', 'skipped', 'observer')),
   onboarding_plan text CHECK (onboarding_plan IN ('starter', 'pro', 'scale')),
   is_banned boolean DEFAULT false,
   banned_at timestamp with time zone,
