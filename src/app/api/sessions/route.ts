@@ -34,7 +34,9 @@ export async function POST(req: NextRequest) {
   // Vérifier le quota de sessions selon le plan
   const sessionQuota = await checkPlanQuota(supabase, user.id, 'sessions')
   if (!sessionQuota.allowed) {
-    const error = sessionQuota.reason === 'no_subscription'
+    const error = sessionQuota.reason === 'observer_mode'
+      ? 'Votre compte est en mode visualisation. Souscrivez à un plan pour créer des sessions WhatsApp.'
+      : sessionQuota.reason === 'no_subscription'
       ? 'Abonnement requis pour créer une session WhatsApp. Souscrivez à un plan depuis la page Abonnement.'
       : `Limite atteinte : votre plan ${sessionQuota.plan} inclut ${sessionQuota.limit} session(s) WhatsApp. Passez à un plan supérieur pour en ajouter davantage.`
     return NextResponse.json({

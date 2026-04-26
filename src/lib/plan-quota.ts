@@ -15,20 +15,31 @@ const RESOURCE_TABLE: Record<QuotaResource, string> = {
 
 const ACTIVE_STATUSES = new Set(['active', 'trial'])
 
+// Mode observateur : trial + aucun plan + onboarding actif
+// Seule la création d'équipe est autorisée, tout le reste est bloqué en lecture seule
+const OBSERVER_ALLOWED: QuotaResource[] = ['teams']
+
 /** Returns { allowed: true } or { allowed: false, limit, current, plan, reason } */
 export async function checkPlanQuota(
   supabase: SupabaseClient,
   userId: string,
   resource: QuotaResource
-): Promise<{ allowed: true } | { allowed: false; limit: number; current: number; plan: PlanId; reason: 'no_subscription' | 'limit_reached' }> {
+): Promise<{ allowed: true } | { allowed: false; limit: number; current: number; plan: PlanId; reason: 'no_subscription' | 'limit_reached' | 'observer_mode' }> {
   const { data: profile } = await supabase
     .from('profiles')
-    .select('plan, subscription_status')
+    .select('plan, subscription_status, onboarding_status')
     .eq('id', userId)
     .single()
 
-  const raw = profile as { plan?: string; subscription_status?: string } | null
+  const raw = profile as { plan?: string | null; subscription_status?: string; onboarding_status?: string } | null
   const subscriptionStatus = raw?.subscription_status ?? null
+
+  // Mode observateur : trial + aucun plan + onboarding actif → lecture seule sauf équipe
+  const isObserver = subscriptionStatus === 'trial' && !raw?.plan && raw?.onboarding_status === 'onboarding'
+  if (isObserver) {
+    if (OBSERVER_ALLOWED.includes(resource)) return { allowed: true }
+    return { allowed: false, limit: 0, current: 0, plan: resolvePlan(null), reason: 'observer_mode' }
+  }
 
   // Abonnement inactif → aucune création autorisée
   if (!subscriptionStatus || !ACTIVE_STATUSES.has(subscriptionStatus)) {
