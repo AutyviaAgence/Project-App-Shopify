@@ -355,7 +355,7 @@ function SubscriptionContent() {
   const currentPlan = subscription?.plan ?? null
   // For cancelled subscriptions, ignore pending_plan — user needs to re-subscribe fresh
   const pendingPlan = !isCancelled ? (subscription?.pendingPlan ?? null) : null
-  const onboardingStatus = subscription?.onboardingStatus ?? 'pending'
+  const onboardingStatus: string = subscription?.onboardingStatus ?? 'pending'
   const onboardingPlan = subscription?.onboardingPlan ?? null
   const planDetails = PLANS.find(p => p.id === selectedPlan)
 
