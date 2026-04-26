@@ -131,14 +131,14 @@ const ONBOARDING_STEPS = [
   { icon: Rocket, label: 'Accès complet', status: 'pending' },
 ]
 
-function OnboardingSection({ onboardingStatus, onboardingPlan }: { onboardingStatus: 'pending' | 'onboarding' | 'active'; onboardingPlan: string | null }) {
+function OnboardingSection({ onboardingStatus, onboardingPlan }: { onboardingStatus: string; onboardingPlan: string | null }) {
   const { subscription } = useSubscription()
 
   const handleAcompte = () => {
     window.location.href = '/onboarding'
   }
 
-  if (onboardingStatus === 'active') return null
+  if (onboardingStatus === 'active' || onboardingStatus === 'skipped') return null
 
   const stepStates =
     onboardingStatus === 'pending'
@@ -371,8 +371,8 @@ function SubscriptionContent() {
       {/* Section onboarding (visible si pas encore active) */}
       <OnboardingSection onboardingStatus={onboardingStatus} onboardingPlan={onboardingPlan} />
 
-      {/* Statut abonnement (visible uniquement si onboarding active) */}
-      {onboardingStatus === 'active' && subscription && (
+      {/* Statut abonnement (visible uniquement si onboarding active ou skipped) */}
+      {(onboardingStatus === 'active' || onboardingStatus === 'skipped') && subscription && (
         <Card className={cn(
           'mb-8 border-2',
           subscription.status === 'active' && 'border-green-500/30',
@@ -505,8 +505,8 @@ function SubscriptionContent() {
       )}
 
 
-      {/* Tokens — visible pour onboarding et active */}
-      {subscription && (onboardingStatus === 'active' || onboardingStatus === 'onboarding') && (
+      {/* Tokens — visible pour onboarding, active et skipped */}
+      {subscription && (onboardingStatus === 'active' || onboardingStatus === 'onboarding' || onboardingStatus === 'skipped') && (
         <Card className="mb-8">
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -601,7 +601,7 @@ function SubscriptionContent() {
       )}
 
       {/* Actions abonnement actif */}
-      {isActive && (onboardingStatus === 'active' || onboardingStatus === 'onboarding') && (
+      {isActive && (onboardingStatus === 'active' || onboardingStatus === 'onboarding' || onboardingStatus === 'skipped') && (
         <Card className="mb-8">
           <CardContent className="pt-6 space-y-4">
             {/* Portail Stripe — uniquement si un customer Stripe existe */}
@@ -693,16 +693,16 @@ function SubscriptionContent() {
       <h2 className="text-xl font-semibold mb-4">
         {isCancelled
           ? 'Se réabonner'
-          : isActive && onboardingStatus === 'active' && !subscription?.stripeCustomerId
+          : isActive && (onboardingStatus === 'active' || onboardingStatus === 'skipped') && !subscription?.stripeCustomerId
           ? 'Souscrire un abonnement mensuel'
-          : isActive && onboardingStatus === 'active'
+          : isActive && (onboardingStatus === 'active' || onboardingStatus === 'skipped')
           ? 'Changer de plan'
           : 'Plans disponibles'}
       </h2>
       <div className="grid md:grid-cols-3 gap-5 mb-8">
         {PLANS.map((plan) => {
           const Icon = plan.icon
-          const isCurrent = isActive && onboardingStatus === 'active' && currentPlan === plan.id && !pendingPlan
+          const isCurrent = isActive && (onboardingStatus === 'active' || onboardingStatus === 'skipped') && currentPlan === plan.id && !pendingPlan
           const isPending = pendingPlan === plan.id
           return (
             <Card
