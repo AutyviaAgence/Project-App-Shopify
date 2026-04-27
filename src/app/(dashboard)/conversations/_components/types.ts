@@ -2,7 +2,9 @@ import type { Message, AIAgent, ConversationTag, LifecycleStage } from '@/types/
 
 export type ConversationWithJoins = {
   id: string
-  session_id: string
+  session_id: string | null
+  email_session_id?: string | null
+  channel?: 'whatsapp' | 'email'
   contact_id: string
   ai_agent_id: string | null
   last_message_at: string | null
@@ -15,11 +17,12 @@ export type ConversationWithJoins = {
   contact: {
     id: string
     phone_number: string
+    email?: string | null
     name: string | null
     first_name: string | null
     last_name: string | null
     profile_picture: string | null
-  }
+  } | null
   session: {
     id: string
     instance_name: string

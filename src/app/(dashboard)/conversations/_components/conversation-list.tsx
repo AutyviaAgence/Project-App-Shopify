@@ -451,7 +451,7 @@ export function ConversationList({
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
-                            navigator.clipboard.writeText(`+${conv.contact.phone_number}`)
+                            navigator.clipboard.writeText(`+${conv.contact?.phone_number ?? ''}`)
                             toast.success(t('conversations.number_copied'))
                           }}
                           className="opacity-0 group-hover/phone:opacity-100 transition-opacity p-0.5 hover:bg-muted rounded"

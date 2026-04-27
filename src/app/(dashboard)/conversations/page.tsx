@@ -230,7 +230,7 @@ function ConversationsPageContent() {
     const optimistic: Message = {
       id: `temp-${Date.now()}`,
       conversation_id: selectedConv.id,
-      session_id: selectedConv.session_id,
+      session_id: selectedConv.session_id ?? '',
       direction: 'outbound',
       content,
       message_type: 'text',
@@ -275,6 +275,52 @@ function ConversationsPageContent() {
     }
   }, [selectedConv, sending, t])
 
+  const handleSendEmail = useCallback(async (content: string, subject: string) => {
+    if (!selectedConv || sending) return
+    setSending(true)
+    const optimistic: Message = {
+      id: `temp-${Date.now()}`,
+      conversation_id: selectedConv.id,
+      session_id: '',
+      direction: 'outbound',
+      content,
+      message_type: 'text',
+      media_url: null,
+      media_mime_type: null,
+      transcription: subject ? `Objet: ${subject}` : null,
+      wa_message_id: null,
+      channel_message_id: null,
+      sent_by: 'user',
+      ai_agent_id: null,
+      status: 'pending',
+      reaction_emoji: null,
+      ai_processed: false,
+      created_at: new Date().toISOString(),
+    }
+    setMessages((prev) => [...prev, optimistic])
+    try {
+      const res = await fetch('/api/email/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversation_id: selectedConv.id, content, subject }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        toast.error(json.error || t('conversations.send_error'))
+        setMessages((prev) => prev.filter((m) => m.id !== optimistic.id))
+        return
+      }
+      if (json.data?.id) {
+        setMessages((prev) => prev.map((m) => (m.id === optimistic.id ? json.data : m)))
+      }
+    } catch {
+      toast.error(t('common.network_error'))
+      setMessages((prev) => prev.filter((m) => m.id !== optimistic.id))
+    } finally {
+      setSending(false)
+    }
+  }, [selectedConv, sending, t])
+
   const handleSendMedia = useCallback(async (file: File, caption?: string) => {
     if (!selectedConv || sending) return
     setSending(true)
@@ -287,7 +333,7 @@ function ConversationsPageContent() {
     const optimistic: Message = {
       id: `temp-${Date.now()}`,
       conversation_id: selectedConv.id,
-      session_id: selectedConv.session_id,
+      session_id: selectedConv.session_id ?? '',
       direction: 'outbound',
       content: caption || null,
       message_type: mediatype,
@@ -721,6 +767,7 @@ function ConversationsPageContent() {
         onOpenProfile={() => setProfileOpen(true)}
         onSendText={handleSendText}
         onSendMedia={handleSendMedia}
+        onSendEmail={handleSendEmail}
         onAssignAgent={handleAssignAgent}
         onToggleAI={handleToggleAI}
         onChangeLifecycleStage={handleChangeLifecycleStage}

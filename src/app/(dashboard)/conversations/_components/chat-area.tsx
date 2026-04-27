@@ -15,6 +15,8 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { MessageBubbleContent } from '@/components/message-bubble-content'
 import { MessageInput } from './message-input'
+import { Textarea } from '@/components/ui/textarea'
+import { Input } from '@/components/ui/input'
 import {
   MessageSquare,
   Loader2,
@@ -30,6 +32,8 @@ import {
   Wrench,
   CheckCircle,
   XCircle,
+  Send,
+  Mail,
 } from 'lucide-react'
 import { getSessionDisplayName, getContactDisplayName } from '@/lib/format-phone'
 import { useTranslation } from '@/i18n/context'
@@ -50,6 +54,7 @@ interface ChatAreaProps {
   onOpenProfile: () => void
   onSendText: (content: string) => Promise<void>
   onSendMedia: (file: File, caption?: string) => Promise<void>
+  onSendEmail: (content: string, subject: string) => Promise<void>
   onAssignAgent: (convId: string, agentId: string | null) => void
   onToggleAI: (convId: string, isActive: boolean) => void
   onChangeLifecycleStage: (convId: string, stageId: string | null) => void
@@ -71,6 +76,7 @@ export function ChatArea({
   onOpenProfile,
   onSendText,
   onSendMedia,
+  onSendEmail,
   onAssignAgent,
   onToggleAI,
   onChangeLifecycleStage,
@@ -80,6 +86,17 @@ export function ChatArea({
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
   const prevMessageCountRef = useRef(0)
+  const [emailSubject, setEmailSubject] = useState('')
+  const [emailBody, setEmailBody] = useState('')
+
+  const isEmail = selectedConv?.channel === 'email'
+
+  const handleSendEmail = async () => {
+    if (!emailBody.trim() || sending) return
+    await onSendEmail(emailBody.trim(), emailSubject.trim() || 'Re:')
+    setEmailBody('')
+    setEmailSubject('')
+  }
 
   // Reset counter when conversation changes
   useEffect(() => {
@@ -100,6 +117,7 @@ export function ChatArea({
   }, [messages])
 
   function getContactDisplay(conv: ConversationWithJoins) {
+    if (!conv.contact) return conv.last_message_preview?.slice(0, 20) || 'Inconnu'
     return getContactDisplayName({
       name: conv.contact.name,
       first_name: conv.contact.first_name,
@@ -109,6 +127,7 @@ export function ChatArea({
   }
 
   function getContactInitials(conv: ConversationWithJoins) {
+    if (!conv.contact) return '?'
     const fullName = [conv.contact.first_name, conv.contact.last_name]
       .filter(Boolean)
       .join(' ')
@@ -162,9 +181,11 @@ export function ChatArea({
                   {getContactDisplay(selectedConv)}
                 </p>
                 <p className="truncate text-xs text-muted-foreground">
-                  {/^\d{8,}$/.test(selectedConv.contact.phone_number)
-                    ? `+${selectedConv.contact.phone_number}`
-                    : selectedConv.contact.phone_number}
+                  {selectedConv.contact?.email
+                    ? selectedConv.contact.email
+                    : selectedConv.contact?.phone_number
+                      ? (/^\d{8,}$/.test(selectedConv.contact.phone_number) ? `+${selectedConv.contact.phone_number}` : selectedConv.contact.phone_number)
+                      : ''}
                 </p>
               </div>
             </button>
@@ -475,12 +496,62 @@ export function ChatArea({
             )}
           </div>
 
-          {/* Message input */}
-          <MessageInput
-            onSendText={onSendText}
-            onSendMedia={onSendMedia}
-            sending={sending}
-          />
+          {/* Zone d'envoi — email ou WhatsApp */}
+          {isEmail ? (
+            <div className="border-t bg-background p-3 space-y-2">
+              {/* From / To / Subject */}
+              <div className="space-y-1.5 text-sm">
+                <div className="flex items-center gap-2">
+                  <span className="w-16 text-xs text-muted-foreground shrink-0">De</span>
+                  <span className="text-xs truncate text-foreground/70">
+                    {selectedConv?.session?.instance_name ?? '—'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-16 text-xs text-muted-foreground shrink-0">À</span>
+                  <span className="text-xs truncate text-foreground/70">
+                    {selectedConv?.contact?.email ?? selectedConv?.contact?.phone_number ?? '—'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="w-16 text-xs text-muted-foreground shrink-0">Objet</span>
+                  <Input
+                    value={emailSubject}
+                    onChange={(e) => setEmailSubject(e.target.value)}
+                    placeholder="Re: ..."
+                    className="h-7 text-xs border-0 border-b rounded-none px-0 focus-visible:ring-0 bg-transparent"
+                  />
+                </div>
+              </div>
+              {/* Corps du message */}
+              <Textarea
+                value={emailBody}
+                onChange={(e) => setEmailBody(e.target.value)}
+                placeholder="Votre réponse..."
+                className="min-h-[100px] resize-none text-sm border-0 focus-visible:ring-0 bg-muted/30 rounded-lg px-3 py-2"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSendEmail()
+                }}
+              />
+              <div className="flex justify-end">
+                <Button
+                  size="sm"
+                  onClick={handleSendEmail}
+                  disabled={!emailBody.trim() || sending}
+                  className="gap-1.5"
+                >
+                  {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                  Envoyer
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <MessageInput
+              onSendText={onSendText}
+              onSendMedia={onSendMedia}
+              sending={sending}
+            />
+          )}
         </>
       ) : (
         <div className="flex h-full flex-col items-center justify-center gap-4">
