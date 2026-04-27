@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { generateAgentResponse } from '@/lib/openai/client'
 import { checkTokenLimit, recordTokenUsage } from '@/lib/openai/token-tracker'
 import { checkRateLimit } from '@/lib/rate-limit'
@@ -23,13 +24,17 @@ export async function POST(
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
+  const adminSupabase = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+
   // Récupérer le contact (WhatsApp ou email)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: contact } = await (supabase as any)
+  const { data: contact } = await adminSupabase
     .from('contacts')
     .select('id, session_id, email_session_id')
     .eq('id', id)
-    .maybeSingle()
+    .maybeSingle() as { data: { id: string; session_id: string | null; email_session_id: string | null } | null }
 
   if (!contact) {
     return NextResponse.json({ error: 'Contact introuvable' }, { status: 404 })
@@ -38,30 +43,21 @@ export async function POST(
   let conversationId: string
 
   if (contact.email_session_id) {
-    // Contact email — vérifier que la session email appartient à l'utilisateur
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: emailSession } = await (supabase as any)
+    const { data: emailSession } = await adminSupabase
       .from('email_sessions')
       .select('id')
       .eq('id', contact.email_session_id)
       .eq('user_id', user.id)
       .maybeSingle()
+    if (!emailSession) return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
 
-    if (!emailSession) {
-      return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
-    }
-
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: conv } = await (supabase as any)
+    const { data: conv } = await adminSupabase
       .from('conversations')
       .select('id')
       .eq('contact_id', id)
       .eq('email_session_id', contact.email_session_id)
       .maybeSingle()
-
-    if (!conv) {
-      return NextResponse.json({ error: 'Conversation introuvable' }, { status: 404 })
-    }
+    if (!conv) return NextResponse.json({ error: 'Conversation introuvable' }, { status: 404 })
     conversationId = conv.id
   } else {
     // Contact WhatsApp — vérification classique
@@ -69,7 +65,7 @@ export async function POST(
     const { data: session } = await supabase
       .from('whatsapp_sessions')
       .select('id')
-      .eq('id', contact.session_id)
+      .eq('id', contact.session_id ?? '')
       .or(buildAccessFilter(user.id, teamIds))
       .single()
 
@@ -81,7 +77,7 @@ export async function POST(
       .from('conversations')
       .select('id')
       .eq('contact_id', id)
-      .eq('session_id', contact.session_id)
+      .eq('session_id', contact.session_id ?? '')
       .single()
 
     if (!conv) {
@@ -91,7 +87,7 @@ export async function POST(
   }
 
   // Récupérer les 200 derniers messages
-  const { data: messages } = await supabase
+  const { data: messages } = await adminSupabase
     .from('messages')
     .select('content, direction, sent_by, created_at')
     .eq('conversation_id', conversationId)
@@ -164,7 +160,7 @@ Sois concis et factuel. Maximum 400 mots au total.`,
   await recordTokenUsage(user.id, result.tokensUsed)
 
   // Sauvegarder le résumé
-  const { data: updated, error: updateError } = await supabase
+  const { data: updated, error: updateError } = await adminSupabase
     .from('contacts')
     .update({
       ai_summary: result.content,

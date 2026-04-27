@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { generateAgentResponse } from '@/lib/openai/client'
 import { checkTokenLimit, recordTokenUsage } from '@/lib/openai/token-tracker'
 import { checkRateLimit } from '@/lib/rate-limit'
@@ -23,47 +24,67 @@ export async function POST(
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  // Récupérer le contact
-  const { data: contact } = await supabase
+  const adminSupabase = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+
+  // Récupérer le contact (WhatsApp ou email)
+  const { data: contact } = await adminSupabase
     .from('contacts')
-    .select('id, session_id, name, first_name, last_name, email, notes')
+    .select('id, session_id, email_session_id, name, first_name, last_name, email, notes')
     .eq('id', id)
-    .single()
+    .maybeSingle() as { data: { id: string; session_id: string | null; email_session_id: string | null; name: string | null; first_name: string | null; last_name: string | null; email: string | null; notes: string | null } | null }
 
   if (!contact) {
     return NextResponse.json({ error: 'Contact introuvable' }, { status: 404 })
   }
 
-  // Vérifier la propriété de la session (owner OU membre d'équipe)
-  const teamIds = await getUserTeamIds(supabase, user.id)
-  const { data: session } = await supabase
-    .from('whatsapp_sessions')
-    .select('id')
-    .eq('id', contact.session_id)
-    .or(buildAccessFilter(user.id, teamIds))
-    .single()
+  // Vérifier l'accès et trouver la conversation
+  let conversationId: string
 
-  if (!session) {
-    return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+  if (contact.email_session_id) {
+    const { data: emailSession } = await adminSupabase
+      .from('email_sessions')
+      .select('id')
+      .eq('id', contact.email_session_id)
+      .eq('user_id', user.id)
+      .maybeSingle()
+    if (!emailSession) return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+
+    const { data: conv } = await adminSupabase
+      .from('conversations')
+      .select('id')
+      .eq('contact_id', id)
+      .eq('email_session_id', contact.email_session_id)
+      .maybeSingle()
+    if (!conv) return NextResponse.json({ error: 'Conversation introuvable' }, { status: 404 })
+    conversationId = conv.id
+  } else {
+    const teamIds = await getUserTeamIds(supabase, user.id)
+    const { data: session } = await supabase
+      .from('whatsapp_sessions')
+      .select('id')
+      .eq('id', contact.session_id ?? '')
+      .or(buildAccessFilter(user.id, teamIds))
+      .single()
+    if (!session) return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+
+    const { data: conv } = await supabase
+      .from('conversations')
+      .select('id')
+      .eq('contact_id', id)
+      .eq('session_id', contact.session_id ?? '')
+      .single()
+    if (!conv) return NextResponse.json({ error: 'Conversation introuvable' }, { status: 404 })
+    conversationId = conv.id
   }
 
-  // Trouver la conversation pour ce contact
-  const { data: conversation } = await supabase
-    .from('conversations')
-    .select('id')
-    .eq('contact_id', id)
-    .eq('session_id', contact.session_id)
-    .single()
-
-  if (!conversation) {
-    return NextResponse.json({ error: 'Conversation introuvable' }, { status: 404 })
-  }
-
-  // Récupérer les 200 derniers messages
-  const { data: messages } = await supabase
+  // Récupérer les 200 derniers messages via adminSupabase (bypass RLS pour email)
+  const { data: messages } = await adminSupabase
     .from('messages')
     .select('content, direction, sent_by, created_at')
-    .eq('conversation_id', conversation.id)
+    .eq('conversation_id', conversationId)
     .order('created_at', { ascending: true })
     .limit(200)
 
