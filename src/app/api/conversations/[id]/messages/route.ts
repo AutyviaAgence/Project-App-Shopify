@@ -32,28 +32,40 @@ export async function GET(
     return NextResponse.json({ error: 'Conversation introuvable' }, { status: 404 })
   }
 
-  // Récupérer la session pour vérifier l'accès
-  const { data: session } = await supabase
-    .from('whatsapp_sessions')
-    .select('id, user_id, team_id')
-    .eq('id', conversation.session_id)
-    .single()
+  // Pour les conversations email, vérifier l'accès via email_sessions
+  if (conversation.channel === 'email') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: emailSession } = await (supabase as any)
+      .from('email_sessions')
+      .select('id, user_id')
+      .eq('id', conversation.email_session_id)
+      .single()
+    if (!emailSession || emailSession.user_id !== user.id) {
+      return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+    }
+  } else {
+    // Récupérer la session WhatsApp pour vérifier l'accès
+    const { data: session } = await supabase
+      .from('whatsapp_sessions')
+      .select('id, user_id, team_id')
+      .eq('id', conversation.session_id)
+      .single()
 
-  if (!session) {
-    return NextResponse.json({ error: 'Session introuvable' }, { status: 404 })
-  }
+    if (!session) {
+      return NextResponse.json({ error: 'Session introuvable' }, { status: 404 })
+    }
 
-  // Vérifier l'accès (propriétaire ou membre avec permissions)
-  const hasAccess = await canAccessSession(supabase, user.id, session)
-  if (!hasAccess) {
-    return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
-  }
+    const hasAccess = await canAccessSession(supabase, user.id, session)
+    if (!hasAccess) {
+      return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+    }
 
-  // Vérifier la permission can_view_messages pour les ressources d'équipe
-  if (session.team_id && session.user_id !== user.id) {
-    const canViewMessages = await checkTeamPermission(supabase, user.id, session.team_id, 'messages_view')
-    if (!canViewMessages) {
-      return NextResponse.json({ error: 'Permission de lecture des messages refusée' }, { status: 403 })
+    // Vérifier la permission can_view_messages pour les ressources d'équipe
+    if (session.team_id && session.user_id !== user.id) {
+      const canViewMessages = await checkTeamPermission(supabase, user.id, session.team_id, 'messages_view')
+      if (!canViewMessages) {
+        return NextResponse.json({ error: 'Permission de lecture des messages refusée' }, { status: 403 })
+      }
     }
   }
 
