@@ -4,14 +4,21 @@ import { pollImapInbox } from '@/lib/email/imap-poller'
 import { pollGmailInbox } from '@/lib/email/gmail-client'
 import { encryptMessage } from '@/lib/crypto/encryption'
 
-/** POST /api/cron/poll-email — Polling IMAP pour les emails entrants */
-export async function POST(req: NextRequest) {
-  const authHeader = req.headers.get('authorization')
+function checkAuth(req: NextRequest): boolean {
   const cronSecret = process.env.CRON_SECRET
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
-  }
+  if (!cronSecret) return true
+  const headerSecret = req.headers.get('x-cron-secret') ?? req.headers.get('authorization')?.replace('Bearer ', '')
+  const querySecret = req.nextUrl.searchParams.get('secret')
+  return headerSecret === cronSecret || querySecret === cronSecret
+}
 
+/** GET /api/cron/poll-email — Polling IMAP pour les emails entrants (SMTP sessions) */
+export async function GET(req: NextRequest) {
+  if (!checkAuth(req)) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+  return runPollEmail()
+}
+
+async function runPollEmail() {
   const adminSupabase = createAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -150,4 +157,10 @@ export async function POST(req: NextRequest) {
     sessions_checked: sessions.length,
     errors: errors.length > 0 ? errors : undefined,
   })
+}
+
+/** POST /api/cron/poll-email */
+export async function POST(req: NextRequest) {
+  if (!checkAuth(req)) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+  return runPollEmail()
 }

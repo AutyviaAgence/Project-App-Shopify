@@ -13,6 +13,12 @@ export type IncomingEmail = {
   receivedAt: Date
 }
 
+function stripSignature(text: string): string {
+  const match = text.match(/^([\s\S]*?)\n--\s*\n/m)
+  if (match) return match[1].trim()
+  return text.trim()
+}
+
 /** Fetch unseen emails from an IMAP inbox */
 export async function pollImapInbox(
   session: EmailSession & { smtp_password_encrypted?: string | null; imap_password_encrypted?: string | null }
@@ -68,7 +74,7 @@ export async function pollImapInbox(
                       from: fromAddr?.address ?? '',
                       fromName: fromAddr?.name ?? null,
                       subject: parsed.subject ?? '(sans objet)',
-                      body: parsed.text ?? (typeof parsed.html === 'string' ? parsed.html : '') ?? '',
+                      body: stripSignature(parsed.text ?? (typeof parsed.html === 'string' ? parsed.html : '') ?? ''),
                       receivedAt: parsed.date ?? new Date(),
                     })
                   } catch { /* ignore parse errors */ }
