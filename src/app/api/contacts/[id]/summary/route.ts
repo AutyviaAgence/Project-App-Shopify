@@ -23,47 +23,78 @@ export async function POST(
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  // Récupérer le contact
-  const { data: contact } = await supabase
+  // Récupérer le contact (WhatsApp ou email)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: contact } = await (supabase as any)
     .from('contacts')
-    .select('id, session_id')
+    .select('id, session_id, email_session_id')
     .eq('id', id)
-    .single()
+    .maybeSingle()
 
   if (!contact) {
     return NextResponse.json({ error: 'Contact introuvable' }, { status: 404 })
   }
 
-  // Vérifier la propriété de la session (owner OU membre d'équipe)
-  const teamIds = await getUserTeamIds(supabase, user.id)
-  const { data: session } = await supabase
-    .from('whatsapp_sessions')
-    .select('id')
-    .eq('id', contact.session_id)
-    .or(buildAccessFilter(user.id, teamIds))
-    .single()
+  let conversationId: string
 
-  if (!session) {
-    return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
-  }
+  if (contact.email_session_id) {
+    // Contact email — vérifier que la session email appartient à l'utilisateur
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: emailSession } = await (supabase as any)
+      .from('email_sessions')
+      .select('id')
+      .eq('id', contact.email_session_id)
+      .eq('user_id', user.id)
+      .maybeSingle()
 
-  // Trouver la conversation pour ce contact
-  const { data: conversation } = await supabase
-    .from('conversations')
-    .select('id')
-    .eq('contact_id', id)
-    .eq('session_id', contact.session_id)
-    .single()
+    if (!emailSession) {
+      return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+    }
 
-  if (!conversation) {
-    return NextResponse.json({ error: 'Conversation introuvable' }, { status: 404 })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: conv } = await (supabase as any)
+      .from('conversations')
+      .select('id')
+      .eq('contact_id', id)
+      .eq('email_session_id', contact.email_session_id)
+      .maybeSingle()
+
+    if (!conv) {
+      return NextResponse.json({ error: 'Conversation introuvable' }, { status: 404 })
+    }
+    conversationId = conv.id
+  } else {
+    // Contact WhatsApp — vérification classique
+    const teamIds = await getUserTeamIds(supabase, user.id)
+    const { data: session } = await supabase
+      .from('whatsapp_sessions')
+      .select('id')
+      .eq('id', contact.session_id)
+      .or(buildAccessFilter(user.id, teamIds))
+      .single()
+
+    if (!session) {
+      return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+    }
+
+    const { data: conv } = await supabase
+      .from('conversations')
+      .select('id')
+      .eq('contact_id', id)
+      .eq('session_id', contact.session_id)
+      .single()
+
+    if (!conv) {
+      return NextResponse.json({ error: 'Conversation introuvable' }, { status: 404 })
+    }
+    conversationId = conv.id
   }
 
   // Récupérer les 200 derniers messages
   const { data: messages } = await supabase
     .from('messages')
     .select('content, direction, sent_by, created_at')
-    .eq('conversation_id', conversation.id)
+    .eq('conversation_id', conversationId)
     .order('created_at', { ascending: true })
     .limit(200)
 
