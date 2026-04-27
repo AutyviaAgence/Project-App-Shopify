@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { exchangeCodeForTokens } from '@/lib/oauth/google'
 import { encryptMessage } from '@/lib/crypto/encryption'
@@ -50,21 +49,15 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(`${appUrl}/sessions?oauth_error=${encodeURIComponent('Invalid state')}`)
   }
 
-  const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-  console.log('[Gmail Session Callback] auth user:', user?.id, 'state userId:', state.userId)
-
-  if (authError || !user || user.id !== state.userId) {
-    console.log('[Gmail Session Callback] Auth failed:', { authError: authError?.message, hasUser: !!user, match: user?.id === state.userId })
-    return NextResponse.redirect(`${appUrl}/sessions?oauth_error=${encodeURIComponent('Non authentifié')}`)
-  }
+  // Le state HMAC signé garantit l'identité — pas besoin de vérifier la session Supabase
+  // (le cookie peut être perdu pendant le redirect Google)
+  const { userId, emailSessionId } = state
 
   const clientId = process.env.GOOGLE_CLIENT_ID!
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET!
   const redirectUri = `${appUrl}/api/oauth/gmail-session/callback`
 
-  console.log('[Gmail Session Callback] exchanging code, redirectUri:', redirectUri)
+  console.log('[Gmail Session Callback] exchanging code, redirectUri:', redirectUri, 'sessionId:', emailSessionId)
   try {
     const tokens = await exchangeCodeForTokens({ code, clientId, clientSecret, redirectUri })
 
@@ -74,13 +67,14 @@ export async function GET(req: NextRequest) {
     })
     const userInfo = await userInfoRes.json() as { email?: string; name?: string }
     const gmailAddress = userInfo.email || 'unknown@gmail.com'
+    console.log('[Gmail Session Callback] gmail address:', gmailAddress)
 
     const adminSupabase = createAdminClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    await adminSupabase
+    const { error: updateError } = await adminSupabase
       .from('email_sessions')
       .update({
         email_address: gmailAddress,
@@ -88,11 +82,12 @@ export async function GET(req: NextRequest) {
         oauth_access_token_encrypted: encryptMessage(tokens.access_token),
         oauth_refresh_token_encrypted: encryptMessage(tokens.refresh_token),
         oauth_expires_at: new Date(Date.now() + tokens.expires_in * 1000).toISOString(),
-        // Mettre à jour le display_name si pas déjà défini
         updated_at: new Date().toISOString(),
       })
-      .eq('id', state.emailSessionId)
-      .eq('user_id', user.id)
+      .eq('id', emailSessionId)
+      .eq('user_id', userId)
+
+    console.log('[Gmail Session Callback] update result:', updateError?.message ?? 'ok')
 
     return NextResponse.redirect(`${appUrl}/sessions?oauth_success=gmail&tab=email`)
   } catch (err) {
@@ -104,7 +99,7 @@ export async function GET(req: NextRequest) {
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
-    await adminSupabase.from('email_sessions').delete().eq('id', state.emailSessionId)
+    await adminSupabase.from('email_sessions').delete().eq('id', emailSessionId)
 
     return NextResponse.redirect(`${appUrl}/sessions?oauth_error=${encodeURIComponent(message)}`)
   }
