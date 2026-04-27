@@ -72,28 +72,9 @@ export function MessageBubbleContent({ msg, isOutbound }: { msg: ExtendedMessage
 
   // Messages texte ou types sans média : rendu simple
   if (msg.message_type === 'text' || !isMediaType) {
-    const content = msg.content || ''
-    const isHtml = /^\s*(<(!doctype|html|body|head)\b|<[a-z]+[^>]*>[\s\S]*<\/[a-z]+>)/i.test(content)
-    if (isHtml) {
-      return (
-        <iframe
-          srcDoc={content}
-          sandbox="allow-same-origin"
-          className="w-full min-h-[120px] max-h-[600px] rounded border-0 bg-white"
-          style={{ colorScheme: 'light' }}
-          onLoad={(e) => {
-            const iframe = e.currentTarget
-            const body = iframe.contentDocument?.body
-            if (body) {
-              iframe.style.height = Math.min(body.scrollHeight + 16, 600) + 'px'
-            }
-          }}
-        />
-      )
-    }
     return (
       <p className="whitespace-pre-wrap break-words text-sm">
-        {content}
+        {msg.content}
       </p>
     )
   }
