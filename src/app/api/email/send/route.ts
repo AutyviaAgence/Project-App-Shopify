@@ -25,12 +25,17 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'conversation_id et content requis' }, { status: 400 })
   }
 
-  // Vérifier la conversation et récupérer la session email
-  const { data: conversation, error: convError } = await supabase
+  const adminSupabase = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+
+  // Utiliser adminSupabase pour bypasser la RLS (conversations email ont session_id = null)
+  const { data: conversation, error: convError } = await adminSupabase
     .from('conversations')
-    .select('id, channel, email_session_id, contact_id, user_id')
+    .select('id, channel, email_session_id, contact_id')
     .eq('id', conversation_id)
-    .single() as { data: { id: string; channel: string; email_session_id: string | null; contact_id: string; user_id?: string } | null; error: unknown }
+    .single() as { data: { id: string; channel: string; email_session_id: string | null; contact_id: string } | null; error: unknown }
 
   if (convError || !conversation) {
     return NextResponse.json({ error: 'Conversation introuvable' }, { status: 404 })
@@ -43,11 +48,6 @@ export async function POST(req: NextRequest) {
   if (!conversation.email_session_id) {
     return NextResponse.json({ error: 'Session email manquante sur la conversation' }, { status: 400 })
   }
-
-  const adminSupabase = createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
 
   // Récupérer la session email avec credentials
   const { data: emailSession, error: sessionError } = await adminSupabase
