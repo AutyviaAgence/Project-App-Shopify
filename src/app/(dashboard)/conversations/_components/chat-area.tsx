@@ -402,7 +402,7 @@ export function ChatArea({
                             )}
                           </div>
                         ))}
-                        <MessageBubbleContent msg={msg} isOutbound={isOutbound} />
+                        <MessageBubbleContent msg={msg} isOutbound={isOutbound} channel={selectedConv.channel} />
                         <p
                           className={cn(
                             'mt-1.5 text-[10px]',

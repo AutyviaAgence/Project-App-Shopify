@@ -9,7 +9,7 @@ type ExtendedMessage = Message & {
   agent_name?: string
 }
 
-export function MessageBubbleContent({ msg, isOutbound }: { msg: ExtendedMessage; isOutbound: boolean }) {
+export function MessageBubbleContent({ msg, isOutbound, channel }: { msg: ExtendedMessage; isOutbound: boolean; channel?: string }) {
   const [mediaUrl, setMediaUrl] = useState<string | null>(null)
   const [mediaLoading, setMediaLoading] = useState(false)
   const [mediaError, setMediaError] = useState(false)
@@ -70,11 +70,52 @@ export function MessageBubbleContent({ msg, isOutbound }: { msg: ExtendedMessage
     }
   }
 
-  // Messages texte ou types sans média : rendu simple
+  // Messages texte ou types sans média
   if (msg.message_type === 'text' || !isMediaType) {
+    const content = msg.content || ''
+    const isEmailInbound = channel === 'email' && !isOutbound
+    const isHtml = isEmailInbound && /(<html|<!doctype|<body|<div|<p|<table|<br)/i.test(content)
+
+    if (isHtml) {
+      // Injecter CSS pour adapter au thème et supprimer les marges excessives
+      const styledHtml = `
+        <style>
+          * { box-sizing: border-box; }
+          html, body {
+            margin: 0; padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            font-size: 13px;
+            line-height: 1.5;
+            color: inherit;
+            background: transparent;
+          }
+          img { max-width: 100%; height: auto; }
+          a { color: #7DC2A5; }
+          p { margin: 0 0 8px 0; }
+          table { max-width: 100%; }
+        </style>
+        ${content}
+      `
+      return (
+        <iframe
+          srcDoc={styledHtml}
+          sandbox="allow-same-origin allow-popups"
+          className="w-full rounded border-0"
+          style={{ minHeight: 60, maxHeight: 400, colorScheme: 'light dark' }}
+          onLoad={(e) => {
+            const iframe = e.currentTarget
+            const body = iframe.contentDocument?.body
+            if (body) {
+              iframe.style.height = Math.min(body.scrollHeight + 8, 400) + 'px'
+            }
+          }}
+        />
+      )
+    }
+
     return (
       <p className="whitespace-pre-wrap break-words text-sm">
-        {msg.content}
+        {content}
       </p>
     )
   }
