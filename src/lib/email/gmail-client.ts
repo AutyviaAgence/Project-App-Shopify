@@ -120,6 +120,7 @@ export async function pollGmailInbox(session: GmailSession): Promise<IncomingGma
   }
 
   const listData = await listRes.json()
+  console.log('[pollGmailInbox]', session.email_address, 'unread count:', listData.messages?.length ?? 0, 'resultSizeEstimate:', listData.resultSizeEstimate)
   const messages: IncomingGmailMessage[] = []
 
   if (!listData.messages || listData.messages.length === 0) return []
