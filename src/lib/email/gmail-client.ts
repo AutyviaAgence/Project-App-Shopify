@@ -137,9 +137,9 @@ function findPart(part: GmailPart, mimeType: string): string {
 export async function pollGmailInbox(session: GmailSession): Promise<IncomingGmailMessage[]> {
   const accessToken = await getValidAccessToken(session)
 
-  // List unread messages in INBOX
+  // List unread messages in INBOX (5 max, last 7 days only)
   const listRes = await fetch(
-    'https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=INBOX&q=is:unread&maxResults=20',
+    'https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=INBOX&q=is:unread%20newer_than:7d&maxResults=5',
     { headers: { Authorization: `Bearer ${accessToken}` } }
   )
 

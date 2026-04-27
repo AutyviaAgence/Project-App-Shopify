@@ -57,7 +57,9 @@ export async function pollImapInbox(
           if (searchErr) { imap.end(); return reject(searchErr) }
           if (!uids || uids.length === 0) { imap.end(); return resolve([]) }
 
-          const fetch = imap.fetch(uids, { bodies: '', markSeen: true })
+          // Take only the 5 most recent unseen messages
+          const recentUids = uids.slice(-5)
+          const fetch = imap.fetch(recentUids, { bodies: '', markSeen: true })
           const pending: Promise<void>[] = []
 
           fetch.on('message', (msg) => {
