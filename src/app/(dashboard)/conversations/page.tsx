@@ -729,7 +729,7 @@ function ConversationsPageContent() {
 
       {/* Contact profile panel */}
       <ContactProfilePanel
-        contactId={selectedConv?.contact.id ?? null}
+        contactId={selectedConv?.contact?.id ?? null}
         open={profileOpen}
         onOpenChange={setProfileOpen}
         onContactDeleted={() => {
