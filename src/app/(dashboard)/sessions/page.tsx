@@ -520,7 +520,7 @@ export default function SessionsPage() {
   // Poll status for non-connected Evolution sessions (fallback when webhook can't reach localhost)
   // WABA sessions don't need polling — reconnection is manual via button
   useEffect(() => {
-    const pendingSessions = sessions.filter((s) => s.status !== 'connected' && s.integration_type !== 'waba')
+    const pendingSessions = sessions.filter((s) => s.status === 'qr_pending' && s.integration_type !== 'waba' && s.integration_type !== 'email')
     if (pendingSessions.length === 0) return
 
     const poll = async () => {
