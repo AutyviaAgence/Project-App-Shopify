@@ -26,15 +26,36 @@ export async function GET(
   const { data: sessions } = await sessionsQuery
   const sessionIds = sessions?.map(s => s.id) || []
 
-  // Requête unique : contact + vérification d'accès (réponse uniforme pour éviter IDOR oracle)
-  const { data: contact, error } = await supabase
-    .from('contacts')
-    .select('*')
-    .eq('id', id)
-    .in('session_id', sessionIds)
-    .single()
+  // Récupérer les sessions email accessibles
+  const { data: emailSessions } = await supabase
+    .from('email_sessions')
+    .select('id')
+    .eq('user_id', user.id)
+  const emailSessionIds = emailSessions?.map(s => s.id) || []
 
-  if (error || !contact) {
+  // Chercher d'abord dans les contacts WhatsApp, puis email
+  let contact = null
+  if (sessionIds.length > 0) {
+    const { data } = await supabase
+      .from('contacts')
+      .select('*')
+      .eq('id', id)
+      .in('session_id', sessionIds)
+      .maybeSingle()
+    contact = data
+  }
+  if (!contact && emailSessionIds.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data } = await (supabase as any)
+      .from('contacts')
+      .select('*')
+      .eq('id', id)
+      .in('email_session_id', emailSessionIds)
+      .maybeSingle()
+    contact = data
+  }
+
+  if (!contact) {
     return NextResponse.json({ error: 'Contact introuvable' }, { status: 404 })
   }
 
@@ -73,14 +94,22 @@ export async function PATCH(
   const { data: sessions } = await sessionsQuery
   const sessionIds = sessions?.map(s => s.id) || []
 
-  const { data: contact } = await supabase
-    .from('contacts')
-    .select('id, session_id')
-    .eq('id', id)
-    .in('session_id', sessionIds)
-    .single()
+  let patchContact = null
+  if (sessionIds.length > 0) {
+    const { data } = await supabase.from('contacts').select('id, session_id').eq('id', id).in('session_id', sessionIds).maybeSingle()
+    patchContact = data
+  }
+  if (!patchContact) {
+    const { data: emailSess } = await supabase.from('email_sessions').select('id').eq('user_id', user.id)
+    const emailSessIds = emailSess?.map(s => s.id) || []
+    if (emailSessIds.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (supabase as any).from('contacts').select('id, session_id').eq('id', id).in('email_session_id', emailSessIds).maybeSingle()
+      patchContact = data
+    }
+  }
 
-  if (!contact) {
+  if (!patchContact) {
     return NextResponse.json({ error: 'Contact introuvable' }, { status: 404 })
   }
 
@@ -132,14 +161,22 @@ export async function DELETE(
   const { data: sessions } = await sessionsQuery
   const sessionIds = sessions?.map(s => s.id) || []
 
-  const { data: contact } = await supabase
-    .from('contacts')
-    .select('id, session_id, phone_number')
-    .eq('id', id)
-    .in('session_id', sessionIds)
-    .single()
+  let deleteContact = null
+  if (sessionIds.length > 0) {
+    const { data } = await supabase.from('contacts').select('id, session_id, phone_number').eq('id', id).in('session_id', sessionIds).maybeSingle()
+    deleteContact = data
+  }
+  if (!deleteContact) {
+    const { data: emailSess } = await supabase.from('email_sessions').select('id').eq('user_id', user.id)
+    const emailSessIds = emailSess?.map(s => s.id) || []
+    if (emailSessIds.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data } = await (supabase as any).from('contacts').select('id, session_id, phone_number').eq('id', id).in('email_session_id', emailSessIds).maybeSingle()
+      deleteContact = data
+    }
+  }
 
-  if (!contact) {
+  if (!deleteContact) {
     return NextResponse.json({ error: 'Contact introuvable' }, { status: 404 })
   }
 

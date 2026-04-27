@@ -99,7 +99,7 @@ export function MessageBubbleContent({ msg, isOutbound, channel }: { msg: Extend
       return (
         <iframe
           srcDoc={styledHtml}
-          sandbox="allow-same-origin allow-popups"
+          sandbox="allow-same-origin allow-popups allow-scripts"
           className="w-full rounded border-0"
           style={{ minHeight: 60, maxHeight: 400, colorScheme: 'light dark' }}
           onLoad={(e) => {
