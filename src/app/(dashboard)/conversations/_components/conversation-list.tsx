@@ -118,6 +118,7 @@ export function ConversationList({
   const [creatingTag, setCreatingTag] = useState(false)
 
   function getContactDisplay(conv: ConversationWithJoins) {
+    if (!conv.contact) return conv.last_message_preview?.slice(0, 30) || 'Inconnu'
     return getContactDisplayName({
       name: conv.contact.name,
       first_name: conv.contact.first_name,
@@ -127,6 +128,7 @@ export function ConversationList({
   }
 
   function getContactInitials(conv: ConversationWithJoins) {
+    if (!conv.contact) return '?'
     const fullName = [conv.contact.first_name, conv.contact.last_name]
       .filter(Boolean)
       .join(' ')
@@ -441,7 +443,7 @@ export function ConversationList({
                     </div>
 
                     {/* Phone number */}
-                    {(conv.contact.first_name || conv.contact.last_name || conv.contact.name) && (
+                    {conv.contact && (conv.contact.first_name || conv.contact.last_name || conv.contact.name) && (
                       <div className="flex items-center gap-1 group/phone">
                         <p className="text-[10px] text-muted-foreground truncate">
                           +{conv.contact.phone_number}
