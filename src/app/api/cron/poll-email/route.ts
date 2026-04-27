@@ -46,14 +46,12 @@ export async function POST(req: NextRequest) {
         // Trouver ou créer un contact basé sur l'adresse email de l'expéditeur
         let contactId: string
 
-        const { data: existingContact, error: contactSearchError } = await adminSupabase
+        const { data: existingContact } = await adminSupabase
           .from('contacts')
           .select('id')
           .eq('email', email.from)
-          .eq('session_id', session.id)
+          .eq('email_session_id', session.id)
           .maybeSingle()
-
-        if (contactSearchError) console.log('[poll-email] contact search error:', contactSearchError.message)
 
         if (existingContact) {
           contactId = existingContact.id
@@ -61,7 +59,8 @@ export async function POST(req: NextRequest) {
           const { data: newContact, error: contactError } = await adminSupabase
             .from('contacts')
             .insert({
-              session_id: session.id,
+              session_id: null,
+              email_session_id: session.id,
               phone_number: email.from,
               email: email.from,
               name: email.fromName,
@@ -101,7 +100,7 @@ export async function POST(req: NextRequest) {
           const { data: newConv, error: convError } = await adminSupabase
             .from('conversations')
             .insert({
-              session_id: session.id,
+              session_id: null,
               contact_id: contactId,
               channel: 'email',
               email_session_id: session.id,
@@ -123,7 +122,7 @@ export async function POST(req: NextRequest) {
 
         const { error: msgInsertError } = await adminSupabase.from('messages').insert({
           conversation_id: conversationId,
-          session_id: session.id,
+          session_id: null,
           direction: 'inbound',
           content: encryptedContent,
           message_type: 'text',
