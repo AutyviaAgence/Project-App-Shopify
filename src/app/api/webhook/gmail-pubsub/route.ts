@@ -81,6 +81,7 @@ export async function POST(req: NextRequest) {
           .select('id')
           .single()
 
+        if (contactError) console.log('[gmail-pubsub] contact error:', contactError.message)
         if (contactError || !newContact) continue
         contactId = newContact.id
       }
@@ -121,12 +122,13 @@ export async function POST(req: NextRequest) {
           .select('id')
           .single()
 
+        if (convError) console.log('[gmail-pubsub] conv error:', convError.message)
         if (convError || !newConv) continue
         conversationId = newConv.id
       }
 
       // Insérer le message
-      await adminSupabase.from('messages').insert({
+      const { error: msgError } = await adminSupabase.from('messages').insert({
         conversation_id: conversationId,
         session_id: null,
         direction: 'inbound',
@@ -138,10 +140,13 @@ export async function POST(req: NextRequest) {
         ai_processed: false,
         ...(email.subject ? { transcription: `Objet: ${email.subject}` } : {}),
       })
+      if (msgError) console.log('[gmail-pubsub] msg error:', msgError.message)
+      else console.log('[gmail-pubsub] email inserted from:', email.from)
     }
 
     return NextResponse.json({ ok: true })
-  } catch {
+  } catch (err) {
+    console.log('[gmail-pubsub] catch error:', err)
     // Toujours ACK pour éviter que Pub/Sub ne réessaie en boucle
     return NextResponse.json({ ok: true })
   }
