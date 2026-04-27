@@ -42,7 +42,6 @@ export async function POST(req: NextRequest) {
       if (emails.length === 0) return
 
       for (const email of emails) {
-        console.log('[poll-email] processing email from:', email.from, 'subject:', email.subject)
         // Trouver ou créer un contact basé sur l'adresse email de l'expéditeur
         let contactId: string
 
@@ -70,7 +69,6 @@ export async function POST(req: NextRequest) {
             .select('id')
             .single()
 
-          if (contactError) console.log('[poll-email] contact insert error:', contactError.message)
           if (contactError || !newContact) continue
           contactId = newContact.id
         }
@@ -111,7 +109,6 @@ export async function POST(req: NextRequest) {
             .select('id')
             .single()
 
-          if (convError) console.log('[poll-email] conv insert error:', convError.message)
           if (convError || !newConv) continue
           conversationId = newConv.id
         }
@@ -134,8 +131,7 @@ export async function POST(req: NextRequest) {
           ...(messageSubject ? { transcription: `Objet: ${messageSubject}` } : {}),
         })
 
-        if (msgInsertError) console.log('[poll-email] message insert error:', msgInsertError.message)
-        else totalEmails++
+        if (!msgInsertError) totalEmails++
       }
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err)
