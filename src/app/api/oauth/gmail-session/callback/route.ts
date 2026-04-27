@@ -77,6 +77,10 @@ export async function GET(req: NextRequest) {
       .eq('id', emailSessionId)
       .eq('user_id', userId)
 
+    // Activer Gmail Watch pour les notifications temps réel
+    const watchRes = await fetch(`${appUrl}/api/email-sessions/watch`, { method: 'POST' })
+    if (!watchRes.ok) console.error('[Gmail Session OAuth] Watch failed:', await watchRes.text())
+
     return NextResponse.redirect(`${appUrl}/sessions?oauth_success=gmail&tab=email`)
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Token exchange failed'
