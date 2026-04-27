@@ -87,11 +87,11 @@ export async function POST(req: NextRequest) {
   const messageId = `out-${Date.now()}-${Math.random().toString(36).slice(2)}`
   const encryptedContent = encryptMessage(content)
 
-  const { data: message, error: msgError } = await supabase
+  const { data: message, error: msgError } = await adminSupabase
     .from('messages')
     .insert({
       conversation_id,
-      session_id: conversation.email_session_id,
+      session_id: null,
       direction: 'outbound',
       content: encryptedContent,
       message_type: 'text',
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Mettre à jour la conversation
-  await supabase
+  await adminSupabase
     .from('conversations')
     .update({
       last_message_at: new Date().toISOString(),
