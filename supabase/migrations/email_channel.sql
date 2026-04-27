@@ -75,3 +75,8 @@ DO $$ BEGIN
       ON public.canned_responses FOR ALL USING (auth.uid() = user_id);
   END IF;
 END $$;
+
+-- 8. Grants service_role (nécessaire pour les routes API server-side)
+GRANT ALL ON public.email_sessions TO service_role;
+GRANT ALL ON public.email_session_teams TO service_role;
+GRANT ALL ON public.canned_responses TO service_role;

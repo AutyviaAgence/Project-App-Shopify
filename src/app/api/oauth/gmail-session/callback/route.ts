@@ -17,15 +17,11 @@ export async function GET(req: NextRequest) {
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
-  console.log('[Gmail Session Callback] received', { code: !!code, state: !!stateB64, error })
-
   if (error) {
-    console.log('[Gmail Session Callback] Google error:', error)
     return NextResponse.redirect(`${appUrl}/sessions?oauth_error=${encodeURIComponent(error)}`)
   }
 
   if (!code || !stateB64) {
-    console.log('[Gmail Session Callback] Missing code or state')
     return NextResponse.redirect(`${appUrl}/sessions?oauth_error=${encodeURIComponent('Missing code or state')}`)
   }
 
@@ -36,16 +32,13 @@ export async function GET(req: NextRequest) {
     const hmacSecret = process.env.SUPABASE_SERVICE_ROLE_KEY!
     const expectedSig = createHmac('sha256', hmacSecret).update(wrapper.d).digest('hex').slice(0, 16)
     if (wrapper.s !== expectedSig) {
-      console.log('[Gmail Session Callback] Invalid state signature')
       return NextResponse.redirect(`${appUrl}/sessions?oauth_error=${encodeURIComponent('Invalid state signature')}`)
     }
     state = JSON.parse(wrapper.d)
     if (Date.now() - state.ts > 15 * 60 * 1000) {
-      console.log('[Gmail Session Callback] State expired')
       return NextResponse.redirect(`${appUrl}/sessions?oauth_error=${encodeURIComponent('State expired')}`)
     }
-  } catch (e) {
-    console.log('[Gmail Session Callback] State parse error:', e)
+  } catch {
     return NextResponse.redirect(`${appUrl}/sessions?oauth_error=${encodeURIComponent('Invalid state')}`)
   }
 
@@ -57,24 +50,21 @@ export async function GET(req: NextRequest) {
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET!
   const redirectUri = `${appUrl}/api/oauth/gmail-session/callback`
 
-  console.log('[Gmail Session Callback] exchanging code, redirectUri:', redirectUri, 'sessionId:', emailSessionId)
   try {
     const tokens = await exchangeCodeForTokens({ code, clientId, clientSecret, redirectUri })
 
-    // Récupérer l'adresse email réelle du compte Google choisi
     const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
       headers: { Authorization: `Bearer ${tokens.access_token}` },
     })
     const userInfo = await userInfoRes.json() as { email?: string; name?: string }
     const gmailAddress = userInfo.email || 'unknown@gmail.com'
-    console.log('[Gmail Session Callback] gmail address:', gmailAddress)
 
     const adminSupabase = createAdminClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
-    const { error: updateError } = await adminSupabase
+    await adminSupabase
       .from('email_sessions')
       .update({
         email_address: gmailAddress,
@@ -86,8 +76,6 @@ export async function GET(req: NextRequest) {
       })
       .eq('id', emailSessionId)
       .eq('user_id', userId)
-
-    console.log('[Gmail Session Callback] update result:', updateError?.message ?? 'ok')
 
     return NextResponse.redirect(`${appUrl}/sessions?oauth_success=gmail&tab=email`)
   } catch (err) {
