@@ -105,6 +105,7 @@ export default function SessionsPage() {
   const [emailCreateOpen, setEmailCreateOpen] = useState(false)
   const [emailCreating, setEmailCreating] = useState(false)
   const [emailDeleting, setEmailDeleting] = useState<string | null>(null)
+  const [emailProviderChoice, setEmailProviderChoice] = useState<'gmail' | 'smtp' | null>(null)
   const [emailForm, setEmailForm] = useState({
     name: '',
     email_address: '',
@@ -578,6 +579,48 @@ export default function SessionsPage() {
       }
     } catch {
       toast.error('Erreur réseau')
+      setEmailCreating(false)
+    }
+  }
+
+  async function handleCreateSmtpSession() {
+    if (!emailForm.name.trim()) { toast.error('Donnez un nom à la session'); return }
+    if (!emailForm.email_address.trim()) { toast.error('Adresse email requise'); return }
+    if (!emailForm.smtp_host.trim() || !emailForm.smtp_user.trim() || !emailForm.smtp_password.trim()) {
+      toast.error('Renseignez les informations SMTP')
+      return
+    }
+    setEmailCreating(true)
+    try {
+      const res = await fetch('/api/email-sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: emailForm.name,
+          email_address: emailForm.email_address,
+          provider: 'smtp',
+          display_name: emailForm.display_name || undefined,
+          smtp_host: emailForm.smtp_host,
+          smtp_port: parseInt(emailForm.smtp_port) || 587,
+          smtp_user: emailForm.smtp_user,
+          smtp_password: emailForm.smtp_password,
+          imap_host: emailForm.imap_host || undefined,
+          imap_port: emailForm.imap_port ? parseInt(emailForm.imap_port) : undefined,
+        }),
+      })
+      const json = await res.json()
+      if (res.ok && json.data) {
+        setEmailSessions((prev) => [{ ...json.data, channel: 'email' as const }, ...prev])
+        setEmailCreateOpen(false)
+        setEmailProviderChoice(null)
+        setEmailForm({ name: '', email_address: '', provider: 'smtp', display_name: '', smtp_host: '', smtp_port: '587', smtp_user: '', smtp_password: '', imap_host: '', imap_port: '993' })
+        toast.success('Session SMTP créée')
+      } else {
+        toast.error(json.error || 'Erreur lors de la création')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
       setEmailCreating(false)
     }
   }
@@ -1434,60 +1477,219 @@ export default function SessionsPage() {
         loading={deleting === sessionToDelete?.id}
       />
 
-      {/* Email Create Dialog — Gmail OAuth */}
-      <Dialog open={emailCreateOpen} onOpenChange={(open) => { setEmailCreateOpen(open); if (!open) setEmailForm((f) => ({ ...f, name: '', display_name: '' })) }}>
-        <DialogContent className="sm:max-w-sm">
+      {/* Email Create Dialog */}
+      <Dialog open={emailCreateOpen} onOpenChange={(open) => {
+        setEmailCreateOpen(open)
+        if (!open) {
+          setEmailProviderChoice(null)
+          setEmailForm({ name: '', email_address: '', provider: 'smtp', display_name: '', smtp_host: '', smtp_port: '587', smtp_user: '', smtp_password: '', imap_host: '', imap_port: '993' })
+        }
+      }}>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Mail className="h-5 w-5 text-blue-500" />
-              Connecter une boîte Gmail
+              Connecter une boîte email
             </DialogTitle>
             <DialogDescription>
-              Vous serez redirigé vers Google pour choisir le compte Gmail à connecter. Vous pouvez choisir n'importe quel compte, même différent de votre compte Autyvia.
+              Choisissez le type de boîte email à connecter.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="email-name">Nom de la session</Label>
-              <Input
-                id="email-name"
-                placeholder="Support client, SAV, Commercial…"
-                value={emailForm.name}
-                onChange={(e) => setEmailForm((f) => ({ ...f, name: e.target.value }))}
-                autoFocus
-              />
-              <p className="text-xs text-muted-foreground">Nom affiché dans l'inbox pour identifier cette boîte.</p>
+
+          {/* Étape 1 : choix du provider */}
+          {!emailProviderChoice && (
+            <div className="grid grid-cols-2 gap-3 py-2">
+              <button
+                onClick={() => setEmailProviderChoice('gmail')}
+                className="flex flex-col items-center gap-3 rounded-xl border-2 border-muted p-5 hover:border-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-colors group"
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-50 dark:bg-red-950/30 group-hover:bg-red-100 dark:group-hover:bg-red-900/40 transition-colors">
+                  {/* Google G icon */}
+                  <svg viewBox="0 0 24 24" className="h-6 w-6" aria-hidden="true">
+                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                  </svg>
+                </div>
+                <div className="text-center">
+                  <p className="text-sm font-semibold">Gmail</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Via OAuth Google</p>
+                </div>
+              </button>
+              <button
+                onClick={() => setEmailProviderChoice('smtp')}
+                className="flex flex-col items-center gap-3 rounded-xl border-2 border-muted p-5 hover:border-gray-400 hover:bg-muted/50 transition-colors group"
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted group-hover:bg-muted/80 transition-colors">
+                  <Server className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <div className="text-center">
+                  <p className="text-sm font-semibold">SMTP / IMAP</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Outlook, OVH, custom…</p>
+                </div>
+              </button>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="email-display-name">Nom d'expéditeur (optionnel)</Label>
-              <Input
-                id="email-display-name"
-                placeholder="Mon Entreprise Support"
-                value={emailForm.display_name}
-                onChange={(e) => setEmailForm((f) => ({ ...f, display_name: e.target.value }))}
-              />
-              <p className="text-xs text-muted-foreground">Apparaît comme nom de l'expéditeur dans les emails envoyés.</p>
+          )}
+
+          {/* Étape 2a : Gmail OAuth */}
+          {emailProviderChoice === 'gmail' && (
+            <div className="space-y-4 py-2">
+              <button onClick={() => setEmailProviderChoice(null)} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+                ← Retour
+              </button>
+              <div className="space-y-2">
+                <Label htmlFor="email-name">Nom de la session</Label>
+                <Input
+                  id="email-name"
+                  placeholder="Support client, SAV, Commercial…"
+                  value={emailForm.name}
+                  onChange={(e) => setEmailForm((f) => ({ ...f, name: e.target.value }))}
+                  autoFocus
+                />
+                <p className="text-xs text-muted-foreground">Nom affiché dans l'inbox pour identifier cette boîte.</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="email-display-name">Nom d'expéditeur (optionnel)</Label>
+                <Input
+                  id="email-display-name"
+                  placeholder="Mon Entreprise Support"
+                  value={emailForm.display_name}
+                  onChange={(e) => setEmailForm((f) => ({ ...f, display_name: e.target.value }))}
+                />
+              </div>
+              <div className="rounded-lg border border-blue-100 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/30 p-3 text-xs text-blue-700 dark:text-blue-300 space-y-1">
+                <p className="font-medium">Google vous demandera de :</p>
+                <ul className="list-disc list-inside space-y-0.5 text-blue-600 dark:text-blue-400">
+                  <li>Choisir un compte Google (libre de choisir n'importe lequel)</li>
+                  <li>Autoriser la lecture et l'envoi d'emails</li>
+                </ul>
+              </div>
+              <Button
+                onClick={handleConnectGmail}
+                disabled={emailCreating || !emailForm.name.trim()}
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {emailCreating ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Mail className="mr-2 h-4 w-4" />
+                )}
+                Connecter avec Google
+              </Button>
             </div>
-            <div className="rounded-lg border border-blue-100 bg-blue-50 dark:border-blue-900 dark:bg-blue-950/30 p-3 text-xs text-blue-700 dark:text-blue-300 space-y-1">
-              <p className="font-medium">Google vous demandera de :</p>
-              <ul className="list-disc list-inside space-y-0.5 text-blue-600 dark:text-blue-400">
-                <li>Choisir un compte Google (libre de choisir n'importe lequel)</li>
-                <li>Autoriser la lecture et l'envoi d'emails</li>
-              </ul>
+          )}
+
+          {/* Étape 2b : SMTP */}
+          {emailProviderChoice === 'smtp' && (
+            <div className="space-y-3 py-2">
+              <button onClick={() => setEmailProviderChoice(null)} className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1">
+                ← Retour
+              </button>
+              <div className="space-y-2">
+                <Label htmlFor="smtp-name">Nom de la session</Label>
+                <Input
+                  id="smtp-name"
+                  placeholder="Support client, SAV…"
+                  value={emailForm.name}
+                  onChange={(e) => setEmailForm((f) => ({ ...f, name: e.target.value }))}
+                  autoFocus
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="smtp-email">Adresse email</Label>
+                <Input
+                  id="smtp-email"
+                  type="email"
+                  placeholder="support@monentreprise.com"
+                  value={emailForm.email_address}
+                  onChange={(e) => setEmailForm((f) => ({ ...f, email_address: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="smtp-display">Nom d'expéditeur (optionnel)</Label>
+                <Input
+                  id="smtp-display"
+                  placeholder="Mon Entreprise Support"
+                  value={emailForm.display_name}
+                  onChange={(e) => setEmailForm((f) => ({ ...f, display_name: e.target.value }))}
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="col-span-2 space-y-2">
+                  <Label htmlFor="smtp-host">Serveur SMTP</Label>
+                  <Input
+                    id="smtp-host"
+                    placeholder="smtp.example.com"
+                    value={emailForm.smtp_host}
+                    onChange={(e) => setEmailForm((f) => ({ ...f, smtp_host: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="smtp-port">Port</Label>
+                  <Input
+                    id="smtp-port"
+                    type="number"
+                    placeholder="587"
+                    value={emailForm.smtp_port}
+                    onChange={(e) => setEmailForm((f) => ({ ...f, smtp_port: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="smtp-user">Identifiant SMTP</Label>
+                <Input
+                  id="smtp-user"
+                  placeholder="support@monentreprise.com"
+                  value={emailForm.smtp_user}
+                  onChange={(e) => setEmailForm((f) => ({ ...f, smtp_user: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="smtp-pass">Mot de passe SMTP</Label>
+                <Input
+                  id="smtp-pass"
+                  type="password"
+                  placeholder="••••••••"
+                  value={emailForm.smtp_password}
+                  onChange={(e) => setEmailForm((f) => ({ ...f, smtp_password: e.target.value }))}
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                <div className="col-span-2 space-y-2">
+                  <Label htmlFor="imap-host">Serveur IMAP (optionnel)</Label>
+                  <Input
+                    id="imap-host"
+                    placeholder="imap.example.com"
+                    value={emailForm.imap_host}
+                    onChange={(e) => setEmailForm((f) => ({ ...f, imap_host: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="imap-port">Port</Label>
+                  <Input
+                    id="imap-port"
+                    type="number"
+                    placeholder="993"
+                    value={emailForm.imap_port}
+                    onChange={(e) => setEmailForm((f) => ({ ...f, imap_port: e.target.value }))}
+                  />
+                </div>
+              </div>
+              <Button
+                onClick={handleCreateSmtpSession}
+                disabled={emailCreating || !emailForm.name.trim() || !emailForm.email_address.trim() || !emailForm.smtp_host.trim() || !emailForm.smtp_user.trim() || !emailForm.smtp_password.trim()}
+                className="w-full"
+              >
+                {emailCreating ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Server className="mr-2 h-4 w-4" />
+                )}
+                Créer la session SMTP
+              </Button>
             </div>
-            <Button
-              onClick={handleConnectGmail}
-              disabled={emailCreating || !emailForm.name.trim()}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              {emailCreating ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Mail className="mr-2 h-4 w-4" />
-              )}
-              Connecter avec Google
-            </Button>
-          </div>
+          )}
         </DialogContent>
       </Dialog>
     </div>
