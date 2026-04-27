@@ -207,8 +207,11 @@ export async function GET(req: NextRequest) {
     .select('*', { count: 'exact' })
     .in('session_id', sessionIds)
 
-  // Filter by channel (default to whatsapp for WA sessions query)
-  if (channelFilter === 'whatsapp' || !channelFilter) {
+  // Filter by channel
+  if (channelFilter === 'whatsapp') {
+    query = query.eq('channel', 'whatsapp')
+  } else if (!channelFilter || channelFilter === 'all') {
+    // "Tous" : on veut uniquement les convs WhatsApp ici (les email sont mergées après)
     query = query.eq('channel', 'whatsapp')
   }
 
@@ -313,6 +316,58 @@ export async function GET(req: NextRequest) {
       },
     }
   })
+
+  // Pour l'onglet "Tous", merger les conversations email
+  if (!channelFilter || channelFilter === 'all') {
+    const emailSessionIds = allEmailSessions.map((s: { id: string }) => s.id)
+    if (emailSessionIds.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: emailConvs } = await (supabase as any)
+        .from('conversations')
+        .select('*')
+        .in('email_session_id', emailSessionIds)
+        .eq('channel', 'email')
+        .order('last_message_at', { ascending: false, nullsFirst: false })
+        .limit(limit)
+
+      if (emailConvs && emailConvs.length > 0) {
+        const emailContactIds = [...new Set(emailConvs.map((c: { contact_id: string }) => c.contact_id))] as string[]
+        const { data: emailContacts } = await supabase.from('contacts').select('*').in('id', emailContactIds)
+        const emailContactsMap = Object.fromEntries((emailContacts || []).map((c) => [c.id, c]))
+        const emailSessionsMap = Object.fromEntries(allEmailSessions.map((s: { id: string; name: string }) => [s.id, s]))
+
+        const emailResult = emailConvs.map((conv: Record<string, unknown>) => ({
+          ...conv,
+          channel: 'email',
+          contact: emailContactsMap[conv.contact_id as string] || null,
+          session: {
+            id: conv.email_session_id,
+            instance_name: (emailSessionsMap[conv.email_session_id as string] as { name?: string })?.name ?? 'Email',
+            phone_number: null,
+            team_id: null,
+            team_name: null,
+          },
+        }))
+
+        // Merger et re-trier par last_message_at
+        const merged = [...result, ...emailResult].sort((a, b) => {
+          const ta = a.last_message_at ? new Date(a.last_message_at).getTime() : 0
+          const tb = b.last_message_at ? new Date(b.last_message_at).getTime() : 0
+          return tb - ta
+        }).slice(0, limit)
+
+        return NextResponse.json({
+          data: merged,
+          pagination: {
+            page,
+            limit,
+            total: (count || 0) + emailConvs.length,
+            totalPages: Math.ceil(((count || 0) + emailConvs.length) / limit),
+          },
+        })
+      }
+    }
+  }
 
   return NextResponse.json({
     data: result,
