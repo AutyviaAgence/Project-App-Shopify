@@ -18,11 +18,15 @@ export async function GET(req: NextRequest) {
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
+  console.log('[Gmail Session Callback] received', { code: !!code, state: !!stateB64, error })
+
   if (error) {
+    console.log('[Gmail Session Callback] Google error:', error)
     return NextResponse.redirect(`${appUrl}/sessions?oauth_error=${encodeURIComponent(error)}`)
   }
 
   if (!code || !stateB64) {
+    console.log('[Gmail Session Callback] Missing code or state')
     return NextResponse.redirect(`${appUrl}/sessions?oauth_error=${encodeURIComponent('Missing code or state')}`)
   }
 
@@ -33,20 +37,26 @@ export async function GET(req: NextRequest) {
     const hmacSecret = process.env.SUPABASE_SERVICE_ROLE_KEY!
     const expectedSig = createHmac('sha256', hmacSecret).update(wrapper.d).digest('hex').slice(0, 16)
     if (wrapper.s !== expectedSig) {
+      console.log('[Gmail Session Callback] Invalid state signature')
       return NextResponse.redirect(`${appUrl}/sessions?oauth_error=${encodeURIComponent('Invalid state signature')}`)
     }
     state = JSON.parse(wrapper.d)
     if (Date.now() - state.ts > 15 * 60 * 1000) {
+      console.log('[Gmail Session Callback] State expired')
       return NextResponse.redirect(`${appUrl}/sessions?oauth_error=${encodeURIComponent('State expired')}`)
     }
-  } catch {
+  } catch (e) {
+    console.log('[Gmail Session Callback] State parse error:', e)
     return NextResponse.redirect(`${appUrl}/sessions?oauth_error=${encodeURIComponent('Invalid state')}`)
   }
 
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
 
+  console.log('[Gmail Session Callback] auth user:', user?.id, 'state userId:', state.userId)
+
   if (authError || !user || user.id !== state.userId) {
+    console.log('[Gmail Session Callback] Auth failed:', { authError: authError?.message, hasUser: !!user, match: user?.id === state.userId })
     return NextResponse.redirect(`${appUrl}/sessions?oauth_error=${encodeURIComponent('Non authentifié')}`)
   }
 
@@ -54,6 +64,7 @@ export async function GET(req: NextRequest) {
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET!
   const redirectUri = `${appUrl}/api/oauth/gmail-session/callback`
 
+  console.log('[Gmail Session Callback] exchanging code, redirectUri:', redirectUri)
   try {
     const tokens = await exchangeCodeForTokens({ code, clientId, clientSecret, redirectUri })
 
