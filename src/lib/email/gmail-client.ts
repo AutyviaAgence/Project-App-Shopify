@@ -104,6 +104,30 @@ export async function sendEmailViaGmail(
   }
 }
 
+type GmailPart = { mimeType?: string; body?: { data?: string }; parts?: GmailPart[] }
+
+function extractBody(payload: GmailPart): string {
+  // Prefer HTML over plain text for rich rendering
+  const html = findPart(payload, 'text/html')
+  if (html) return html
+  const plain = findPart(payload, 'text/plain')
+  if (plain) return plain
+  // Fallback: top-level body
+  if (payload?.body?.data) return Buffer.from(payload.body.data, 'base64').toString('utf-8')
+  return ''
+}
+
+function findPart(part: GmailPart, mimeType: string): string {
+  if (part.mimeType === mimeType && part.body?.data) {
+    return Buffer.from(part.body.data, 'base64').toString('utf-8')
+  }
+  for (const child of part.parts || []) {
+    const result = findPart(child, mimeType)
+    if (result) return result
+  }
+  return ''
+}
+
 /** Poll unread emails from Gmail inbox */
 export async function pollGmailInbox(session: GmailSession): Promise<IncomingGmailMessage[]> {
   const accessToken = await getValidAccessToken(session)
@@ -120,7 +144,6 @@ export async function pollGmailInbox(session: GmailSession): Promise<IncomingGma
   }
 
   const listData = await listRes.json()
-  console.log('[pollGmailInbox]', session.email_address, 'unread count:', listData.messages?.length ?? 0, 'resultSizeEstimate:', listData.resultSizeEstimate)
   const messages: IncomingGmailMessage[] = []
 
   if (!listData.messages || listData.messages.length === 0) return []
@@ -145,15 +168,8 @@ export async function pollGmailInbox(session: GmailSession): Promise<IncomingGma
       const fromName = fromMatch ? fromMatch[1].trim().replace(/^"|"$/g, '') : null
       const fromEmail = fromMatch ? fromMatch[2] : fromRaw
 
-      // Get body — prefer plain text
-      let body = ''
-      const parts = msgData.payload?.parts || []
-      const textPart = parts.find((p: { mimeType: string }) => p.mimeType === 'text/plain')
-      if (textPart?.body?.data) {
-        body = Buffer.from(textPart.body.data, 'base64').toString('utf-8')
-      } else if (msgData.payload?.body?.data) {
-        body = Buffer.from(msgData.payload.body.data, 'base64').toString('utf-8')
-      }
+      // Get body — recursive search through nested multipart, prefer HTML then plain text
+      const body = extractBody(msgData.payload)
 
       messages.push({
         messageId: msg.id,
