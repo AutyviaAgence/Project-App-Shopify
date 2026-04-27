@@ -755,3 +755,7 @@ ALTER TABLE public.conversations ADD COLUMN IF NOT EXISTS channel text DEFAULT '
 UPDATE public.conversations SET channel = 'whatsapp' WHERE channel IS NULL;
 ALTER TABLE public.conversations ADD COLUMN IF NOT EXISTS email_session_id uuid REFERENCES public.email_sessions(id) ON DELETE SET NULL;
 ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS channel_message_id text;
+
+-- MIGRATION — Contacts email : session_id nullable + email_session_id
+ALTER TABLE public.contacts ALTER COLUMN session_id DROP NOT NULL;
+ALTER TABLE public.contacts ADD COLUMN IF NOT EXISTS email_session_id uuid REFERENCES public.email_sessions(id) ON DELETE CASCADE;

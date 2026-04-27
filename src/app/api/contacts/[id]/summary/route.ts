@@ -168,11 +168,11 @@ Sois concis et factuel. Maximum 400 mots au total.`,
     })
     .eq('id', id)
     .select()
-    .single()
+    .maybeSingle()
 
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 500 })
   }
 
-  return NextResponse.json({ data: updated })
+  return NextResponse.json({ data: updated ?? { id, ai_summary: result.content } })
 }
