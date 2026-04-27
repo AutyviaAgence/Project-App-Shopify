@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { pollImapInbox } from '@/lib/email/imap-poller'
+import { pollGmailInbox } from '@/lib/email/gmail-client'
 import { encryptMessage } from '@/lib/crypto/encryption'
 
 /** POST /api/cron/poll-email — Polling IMAP pour les emails entrants */
@@ -35,7 +36,9 @@ export async function POST(req: NextRequest) {
 
   await Promise.all(sessions.map(async (session) => {
     try {
-      const emails = await pollImapInbox(session)
+      const emails = session.provider === 'gmail'
+        ? await pollGmailInbox(session)
+        : await pollImapInbox(session)
       if (emails.length === 0) return
 
       for (const email of emails) {

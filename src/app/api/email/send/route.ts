@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { sendEmailViaSmtp } from '@/lib/email/client'
+import { sendEmailViaGmail } from '@/lib/email/gmail-client'
 import { encryptMessage } from '@/lib/crypto/encryption'
 
 /** POST /api/email/send — Envoyer un email depuis la inbox */
@@ -72,10 +73,14 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    await sendEmailViaSmtp(emailSession, recipientEmail, subject ?? 'Re:', content)
+    if (emailSession.provider === 'gmail') {
+      await sendEmailViaGmail(emailSession, recipientEmail, subject ?? 'Re:', content)
+    } else {
+      await sendEmailViaSmtp(emailSession, recipientEmail, subject ?? 'Re:', content)
+    }
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err)
-    return NextResponse.json({ error: `Erreur envoi SMTP: ${errMsg}` }, { status: 500 })
+    return NextResponse.json({ error: `Erreur envoi email: ${errMsg}` }, { status: 500 })
   }
 
   // Sauvegarder le message dans la DB

@@ -26,6 +26,7 @@ export function buildGoogleAuthUrl(params: {
   redirectUri: string
   toolType: string
   state: string
+  forceAccountSelect?: boolean
 }): string {
   const scopes = SCOPES[params.toolType] || SCOPES.google_calendar
   const url = new URL(GOOGLE_AUTH_URL)
@@ -34,7 +35,7 @@ export function buildGoogleAuthUrl(params: {
   url.searchParams.set('response_type', 'code')
   url.searchParams.set('scope', scopes.join(' '))
   url.searchParams.set('access_type', 'offline')
-  url.searchParams.set('prompt', 'consent')
+  url.searchParams.set('prompt', params.forceAccountSelect ? 'select_account consent' : 'consent')
   url.searchParams.set('state', params.state)
   return url.toString()
 }
