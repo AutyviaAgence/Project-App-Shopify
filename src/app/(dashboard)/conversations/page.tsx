@@ -41,6 +41,7 @@ function ConversationsPageContent() {
   // Filters
   const [sessions, setSessions] = useState<{ id: string; instance_name: string; phone_number: string | null }[]>([])
   const [teams, setTeams] = useState<Team[]>([])
+  const [filterChannel, setFilterChannel] = useState<string>('all')
   const [filterSession, setFilterSession] = useState<string>('all')
   const [filterAiActive, setFilterAiActive] = useState<string>('all')
   const [filterTeam, setFilterTeam] = useState<string>('all')
@@ -129,6 +130,7 @@ function ConversationsPageContent() {
   const fetchConversations = useCallback(async () => {
     try {
       const params = new URLSearchParams()
+      if (filterChannel !== 'all') params.set('channel', filterChannel)
       if (filterSession !== 'all') params.set('session_id', filterSession)
       if (filterAiActive !== 'all') params.set('is_ai_active', filterAiActive)
       if (filterTeam !== 'all') params.set('team_id', filterTeam)
@@ -154,7 +156,7 @@ function ConversationsPageContent() {
     } finally {
       setLoading(false)
     }
-  }, [filterSession, filterAiActive, filterTeam, filterLifecycleStage, filterTags, page, searchQuery, fetchAllConversationTags])
+  }, [filterChannel, filterSession, filterAiActive, filterTeam, filterLifecycleStage, filterTags, page, searchQuery, fetchAllConversationTags])
 
   // --- Actions ---
   const togglePin = useCallback(async (convId: string, currentPinned: boolean) => {
@@ -236,6 +238,7 @@ function ConversationsPageContent() {
       media_mime_type: null,
       transcription: null,
       wa_message_id: null,
+      channel_message_id: null,
       sent_by: 'user',
       ai_agent_id: null,
       status: 'pending',
@@ -292,6 +295,7 @@ function ConversationsPageContent() {
       media_mime_type: file.type,
       transcription: null,
       wa_message_id: null,
+      channel_message_id: null,
       sent_by: 'user',
       ai_agent_id: null,
       status: 'pending',
@@ -681,6 +685,7 @@ function ConversationsPageContent() {
         conversationTags={conversationTags}
         lifecycleStages={lifecycleStages}
         searchQuery={searchQuery}
+        filterChannel={filterChannel}
         filterSession={filterSession}
         filterAiActive={filterAiActive}
         filterTeam={filterTeam}
@@ -690,6 +695,7 @@ function ConversationsPageContent() {
         onTogglePin={togglePin}
         onSetPage={setPage}
         onSetSearchQuery={setSearchQuery}
+        onSetFilterChannel={setFilterChannel}
         onSetFilterSession={setFilterSession}
         onSetFilterAiActive={setFilterAiActive}
         onSetFilterTeam={setFilterTeam}

@@ -53,22 +53,28 @@ export async function checkPlanQuota(
   const plan = resolvePlan(raw?.plan)
   const limit = PLAN_LIMITS[plan][resource]
 
-  let countQuery = supabase
-    .from(RESOURCE_TABLE[resource] as 'whatsapp_sessions')
-    .select('id', { count: 'exact', head: true })
+  let current = 0
 
   if (resource === 'teams') {
-    // Pour les équipes on compte les équipes dont l'utilisateur est owner
-    countQuery = (supabase as any)
+    const { count } = await (supabase as any)
       .from('teams')
       .select('id', { count: 'exact', head: true })
-      .eq('owner_id', userId) as any
+      .eq('owner_id', userId)
+    current = count ?? 0
+  } else if (resource === 'sessions') {
+    // Sessions = WhatsApp + Email combinés
+    const [waResult, emailResult] = await Promise.all([
+      supabase.from('whatsapp_sessions').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+      (supabase as any).from('email_sessions').select('id', { count: 'exact', head: true }).eq('user_id', userId),
+    ])
+    current = (waResult.count ?? 0) + (emailResult.count ?? 0)
   } else {
-    countQuery = (countQuery as any).eq('user_id', userId) as any
+    const { count } = await (supabase as any)
+      .from(RESOURCE_TABLE[resource])
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+    current = count ?? 0
   }
-
-  const { count } = await countQuery
-  const current = count ?? 0
 
   if (current >= limit) {
     return { allowed: false, limit, current, plan, reason: 'limit_reached' }

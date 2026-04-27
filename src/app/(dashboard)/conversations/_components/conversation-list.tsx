@@ -33,6 +33,7 @@ import {
   Search,
   Workflow,
   Pin,
+  Mail,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { fr, enUS } from 'date-fns/locale'
@@ -57,6 +58,7 @@ interface ConversationListProps {
   conversationTags: Record<string, ConversationTag[]>
   lifecycleStages: LifecycleStage[]
   searchQuery: string
+  filterChannel: string
   filterSession: string
   filterAiActive: string
   filterTeam: string
@@ -66,6 +68,7 @@ interface ConversationListProps {
   onTogglePin: (convId: string, currentPinned: boolean) => void
   onSetPage: (page: number) => void
   onSetSearchQuery: (query: string) => void
+  onSetFilterChannel: (value: string) => void
   onSetFilterSession: (value: string) => void
   onSetFilterAiActive: (value: string) => void
   onSetFilterTeam: (value: string) => void
@@ -88,6 +91,7 @@ export function ConversationList({
   conversationTags,
   lifecycleStages,
   searchQuery,
+  filterChannel,
   filterSession,
   filterAiActive,
   filterTeam,
@@ -97,6 +101,7 @@ export function ConversationList({
   onTogglePin,
   onSetPage,
   onSetSearchQuery,
+  onSetFilterChannel,
   onSetFilterSession,
   onSetFilterAiActive,
   onSetFilterTeam,
@@ -158,6 +163,12 @@ export function ConversationList({
   const hasActiveFilters = filterSession !== 'all' || filterAiActive !== 'all' || filterTeam !== 'all' || filterLifecycleStage !== 'all' || filterTags.length > 0
   const activeFilterCount = (filterSession !== 'all' ? 1 : 0) + (filterAiActive !== 'all' ? 1 : 0) + (filterTeam !== 'all' ? 1 : 0) + (filterLifecycleStage !== 'all' ? 1 : 0) + (filterTags.length > 0 ? 1 : 0)
 
+  const channelTabs = [
+    { value: 'all', label: 'Tous', icon: MessageSquare },
+    { value: 'whatsapp', label: 'WhatsApp', icon: Smartphone },
+    { value: 'email', label: 'Email', icon: Mail },
+  ]
+
   return (
     <div
       className={cn(
@@ -175,6 +186,25 @@ export function ConversationList({
             onChange={(e) => onSetSearchQuery(e.target.value)}
             className="pl-9 h-10 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary"
           />
+        </div>
+
+        {/* Channel tabs */}
+        <div className="flex gap-1 rounded-lg bg-muted p-0.5">
+          {channelTabs.map(({ value, label, icon: Icon }) => (
+            <button
+              key={value}
+              onClick={() => { onSetFilterChannel(value); onSetPage(1) }}
+              className={cn(
+                'flex flex-1 items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors',
+                filterChannel === value
+                  ? 'bg-background shadow-sm text-foreground'
+                  : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <Icon className="h-3.5 w-3.5" />
+              {label}
+            </button>
+          ))}
         </div>
 
         {/* Filter bar */}
@@ -438,10 +468,17 @@ export function ConversationList({
 
                     {/* Meta row */}
                     <div className="mt-1.5 flex items-center gap-2">
-                      <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                        <Smartphone className="h-3 w-3" />
-                        {getSessionLabel(conv)}
-                      </span>
+                      {(conv as { channel?: string }).channel === 'email' ? (
+                        <span className="flex items-center gap-1 text-[10px] text-blue-500">
+                          <Mail className="h-3 w-3" />
+                          {getSessionLabel(conv)}
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                          <Smartphone className="h-3 w-3" />
+                          {getSessionLabel(conv)}
+                        </span>
+                      )}
                       {conv.session.team_name && (
                         <Badge variant="outline" className="h-4 px-1.5 text-[9px] border-primary/30 text-primary">
                           {conv.session.team_name}

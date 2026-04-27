@@ -19,6 +19,7 @@ export async function GET(req: NextRequest) {
   const dateTo = searchParams.get('date_to')
   const teamFilter = searchParams.get('team_id')
   const lifecycleStageFilter = searchParams.get('lifecycle_stage_id')
+  const channelFilter = searchParams.get('channel') // 'whatsapp' | 'email' | null (all)
   const rawSearch = searchParams.get('search')?.trim().toLowerCase()
   // Sanitize search to prevent PostgREST injection
   const searchQuery = rawSearch ? rawSearch.replace(/[%_\\]/g, '\\$&').slice(0, 100) : undefined
@@ -59,14 +60,65 @@ export async function GET(req: NextRequest) {
       .eq('team_id', teamFilter)
   }
 
-  const { data: allSessions } = await sessionsQuery
+  // Récupérer les sessions email de l'utilisateur en parallèle
+  const [{ data: allSessions }, { data: emailSessions }] = await Promise.all([
+    sessionsQuery,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (supabase as any).from('email_sessions').select('*').eq('user_id', user.id),
+  ])
 
-  if (!allSessions || allSessions.length === 0) {
+  const allWhatsAppSessions = allSessions ?? []
+  const allEmailSessions = (emailSessions ?? []) as Array<{ id: string; user_id: string; team_id: string | null; name: string; email_address: string; provider: string; status: string }>
+
+  // Si filtre email, retourner uniquement les convs email
+  if (channelFilter === 'email') {
+    if (allEmailSessions.length === 0) {
+      return NextResponse.json({ data: [], pagination: { page, limit: limit, total: 0, totalPages: 0 } })
+    }
+    const emailSessionIds = allEmailSessions.map((s) => s.id)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let emailConvQuery = (supabase as any)
+      .from('conversations')
+      .select('*', { count: 'exact' })
+      .in('email_session_id', emailSessionIds)
+      .eq('channel', 'email')
+    if (sessionFilter && emailSessionIds.includes(sessionFilter)) {
+      emailConvQuery = emailConvQuery.eq('email_session_id', sessionFilter)
+    }
+    const emailOffset = (page - 1) * limit
+    const { data: emailConvs, count: emailCount } = await emailConvQuery
+      .order('last_message_at', { ascending: false, nullsFirst: false })
+      .range(emailOffset, emailOffset + limit - 1)
+    const contactIds = [...new Set((emailConvs || []).map((c: { contact_id: string }) => c.contact_id))] as string[]
+    const { data: emailContacts } = contactIds.length > 0
+      ? await supabase.from('contacts').select('*').in('id', contactIds)
+      : { data: [] }
+    const emailContactsMap = Object.fromEntries((emailContacts || []).map((c) => [c.id, c]))
+    const emailSessionsMap = Object.fromEntries(allEmailSessions.map((s) => [s.id, s]))
+    const emailResult = (emailConvs || []).map((conv: Record<string, unknown>) => ({
+      ...conv,
+      channel: 'email',
+      contact: emailContactsMap[conv.contact_id as string] || null,
+      session: {
+        id: conv.email_session_id,
+        instance_name: emailSessionsMap[conv.email_session_id as string]?.name ?? 'Email',
+        phone_number: null,
+        team_id: null,
+        team_name: null,
+      },
+    }))
+    return NextResponse.json({
+      data: emailResult,
+      pagination: { page, limit, total: emailCount || 0, totalPages: Math.ceil((emailCount || 0) / limit) },
+    })
+  }
+
+  if (allWhatsAppSessions.length === 0 && channelFilter !== 'email') {
     return NextResponse.json({ data: [] })
   }
 
-  // Filtrer les sessions selon les permissions granulaires
-  let sessions = filterSessionsByPermissions(allSessions, user.id, permissions)
+  // Filtrer les sessions WhatsApp selon les permissions granulaires
+  let sessions = filterSessionsByPermissions(allWhatsAppSessions, user.id, permissions)
 
   // Filtrer aussi les sessions où l'utilisateur n'a pas la permission can_view_messages
   sessions = sessions.filter((session) => {
@@ -154,6 +206,11 @@ export async function GET(req: NextRequest) {
     .from('conversations')
     .select('*', { count: 'exact' })
     .in('session_id', sessionIds)
+
+  // Filter by channel (default to whatsapp for WA sessions query)
+  if (channelFilter === 'whatsapp' || !channelFilter) {
+    query = query.eq('channel', 'whatsapp')
+  }
 
   // Filter by session
   if (sessionFilter && sessionIds.includes(sessionFilter)) {

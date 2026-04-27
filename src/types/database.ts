@@ -53,6 +53,39 @@ export type PaymentHistory = {
 
 export type IntegrationType = 'evolution' | 'waba'
 
+export type EmailProvider = 'gmail' | 'outlook' | 'smtp'
+export type EmailSessionStatus = 'connected' | 'disconnected' | 'error'
+export type ChannelType = 'whatsapp' | 'email'
+
+export type EmailSession = {
+  id: string
+  user_id: string
+  team_id: string | null
+  name: string
+  email_address: string
+  provider: EmailProvider
+  status: EmailSessionStatus
+  smtp_host: string | null
+  smtp_port: number | null
+  smtp_user: string | null
+  imap_host: string | null
+  imap_port: number | null
+  display_name: string | null
+  daily_ai_message_limit: number
+  created_at: string
+  updated_at: string
+}
+
+export type CannedResponse = {
+  id: string
+  user_id: string
+  team_id: string | null
+  title: string
+  content: string
+  channels: string[]
+  created_at: string
+}
+
 export type WhatsAppSession = {
   id: string
   user_id: string
@@ -146,6 +179,8 @@ export type Conversation = {
   contact_id: string
   ai_agent_id: string | null
   wa_link_id: string | null
+  channel: ChannelType
+  email_session_id: string | null
   last_message_at: string | null
   last_message_preview: string | null
   unread_count: number
@@ -169,6 +204,7 @@ export type Message = {
   media_mime_type: string | null
   transcription: string | null
   wa_message_id: string | null
+  channel_message_id: string | null
   sent_by: 'user' | 'ai_agent' | 'contact'
   ai_agent_id: string | null
   status: 'pending' | 'sent' | 'delivered' | 'read' | 'failed'
@@ -733,6 +769,18 @@ export type Database = {
         Row: QualifierRoute
         Insert: Partial<QualifierRoute> & Pick<QualifierRoute, 'agent_id' | 'target_agent_id' | 'name' | 'description'>
         Update: Partial<QualifierRoute>
+        Relationships: []
+      }
+      email_sessions: {
+        Row: EmailSession
+        Insert: Partial<EmailSession> & Pick<EmailSession, 'user_id' | 'name' | 'email_address' | 'provider'>
+        Update: Partial<EmailSession>
+        Relationships: []
+      }
+      canned_responses: {
+        Row: CannedResponse
+        Insert: Partial<CannedResponse> & Pick<CannedResponse, 'user_id' | 'title' | 'content'>
+        Update: Partial<CannedResponse>
         Relationships: []
       }
     }

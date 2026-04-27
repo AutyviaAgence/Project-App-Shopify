@@ -285,12 +285,57 @@ CREATE TABLE public.lifecycle_stages (
   created_at timestamp with time zone DEFAULT now()
 );
 
+-- Email sessions (channel Email — parallèle à whatsapp_sessions)
+CREATE TABLE public.email_sessions (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  team_id uuid REFERENCES public.teams(id) ON DELETE SET NULL,
+  name text NOT NULL,
+  email_address text NOT NULL,
+  provider text NOT NULL CHECK (provider IN ('gmail', 'outlook', 'smtp')),
+  status text DEFAULT 'connected' CHECK (status IN ('connected', 'disconnected', 'error')),
+  smtp_host text,
+  smtp_port integer,
+  smtp_user text,
+  smtp_password_encrypted text,
+  imap_host text,
+  imap_port integer,
+  imap_password_encrypted text,
+  oauth_access_token_encrypted text,
+  oauth_refresh_token_encrypted text,
+  oauth_expires_at timestamptz,
+  daily_ai_message_limit integer DEFAULT 1000,
+  display_name text,
+  created_at timestamptz DEFAULT now(),
+  updated_at timestamptz DEFAULT now()
+);
+
+-- Liaison email_sessions ↔ teams (multi-équipes)
+CREATE TABLE public.email_session_teams (
+  email_session_id uuid REFERENCES public.email_sessions(id) ON DELETE CASCADE,
+  team_id uuid REFERENCES public.teams(id) ON DELETE CASCADE,
+  PRIMARY KEY (email_session_id, team_id)
+);
+
+-- Réponses prédéfinies (whatsapp + email)
+CREATE TABLE public.canned_responses (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  team_id uuid REFERENCES public.teams(id) ON DELETE SET NULL,
+  title text NOT NULL,
+  content text NOT NULL,
+  channels text[] DEFAULT '{whatsapp,email}',
+  created_at timestamptz DEFAULT now()
+);
+
 CREATE TABLE public.conversations (
   id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
-  session_id uuid NOT NULL REFERENCES public.whatsapp_sessions(id) ON DELETE CASCADE,
+  session_id uuid REFERENCES public.whatsapp_sessions(id) ON DELETE CASCADE,
   contact_id uuid NOT NULL REFERENCES public.contacts(id) ON DELETE CASCADE,
   ai_agent_id uuid REFERENCES public.ai_agents(id) ON DELETE SET NULL,
   wa_link_id uuid,
+  channel text DEFAULT 'whatsapp' CHECK (channel IN ('whatsapp', 'email')),
+  email_session_id uuid REFERENCES public.email_sessions(id) ON DELETE SET NULL,
   lifecycle_stage_id uuid REFERENCES public.lifecycle_stages(id) ON DELETE SET NULL,
   lifecycle_last_analyzed_at timestamp with time zone,
   lifecycle_messages_since_analysis integer DEFAULT 0,
@@ -335,6 +380,7 @@ CREATE TABLE public.messages (
   media_mime_type text,
   transcription text,
   wa_message_id text,
+  channel_message_id text,
   reaction_emoji text,
   sent_by text NOT NULL,
   status text DEFAULT 'sent',
@@ -639,6 +685,9 @@ CREATE OR REPLACE TRIGGER on_auth_user_created
 -- ============================================================
 
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.email_sessions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.email_session_teams ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.canned_responses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.tenants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.teams ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.team_members ENABLE ROW LEVEL SECURITY;
@@ -676,3 +725,33 @@ ALTER TABLE public.user_alerts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.payment_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.webhook_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.onboarding_configs ENABLE ROW LEVEL SECURITY;
+
+-- ============================================================
+-- RLS POLICIES — Email Sessions, Canned Responses
+-- ============================================================
+
+-- email_sessions : accès uniquement par le propriétaire
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'email_sessions' AND policyname = 'Users can manage their email sessions') THEN
+    CREATE POLICY "Users can manage their email sessions"
+      ON public.email_sessions FOR ALL USING (auth.uid() = user_id);
+  END IF;
+END $$;
+
+-- canned_responses : accès uniquement par le propriétaire
+DO $$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_policies WHERE tablename = 'canned_responses' AND policyname = 'Users can manage their canned responses') THEN
+    CREATE POLICY "Users can manage their canned responses"
+      ON public.canned_responses FOR ALL USING (auth.uid() = user_id);
+  END IF;
+END $$;
+
+-- ============================================================
+-- MIGRATION — Ajouter colonnes channel + email_session_id sur conversations
+-- et channel_message_id sur messages (idempotent)
+-- ============================================================
+
+ALTER TABLE public.conversations ADD COLUMN IF NOT EXISTS channel text DEFAULT 'whatsapp' CHECK (channel IN ('whatsapp', 'email'));
+UPDATE public.conversations SET channel = 'whatsapp' WHERE channel IS NULL;
+ALTER TABLE public.conversations ADD COLUMN IF NOT EXISTS email_session_id uuid REFERENCES public.email_sessions(id) ON DELETE SET NULL;
+ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS channel_message_id text;

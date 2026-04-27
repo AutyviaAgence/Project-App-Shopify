@@ -36,7 +36,10 @@ import {
   Copy,
   CheckCircle2,
   UserCircle,
+  Mail,
+  Server,
 } from 'lucide-react'
+import type { EmailSession } from '@/types/database'
 import {
   Select,
   SelectContent,
@@ -95,6 +98,25 @@ export default function SessionsPage() {
   const [wabaWebhookInfo, setWabaWebhookInfo] = useState<{ url: string; token: string } | null>(null)
   const [copiedField, setCopiedField] = useState<string | null>(null)
   const [reconnecting, setReconnecting] = useState<string | null>(null)
+  const [channelTab, setChannelTab] = useState<'whatsapp' | 'email'>('whatsapp')
+
+  // Email sessions state
+  const [emailSessions, setEmailSessions] = useState<(EmailSession & { channel: 'email' })[]>([])
+  const [emailCreateOpen, setEmailCreateOpen] = useState(false)
+  const [emailCreating, setEmailCreating] = useState(false)
+  const [emailDeleting, setEmailDeleting] = useState<string | null>(null)
+  const [emailForm, setEmailForm] = useState({
+    name: '',
+    email_address: '',
+    provider: 'smtp' as 'smtp' | 'gmail' | 'outlook',
+    display_name: '',
+    smtp_host: '',
+    smtp_port: '587',
+    smtp_user: '',
+    smtp_password: '',
+    imap_host: '',
+    imap_port: '993',
+  })
 
   async function handleReconnectWaba(sessionId: string) {
     setReconnecting(sessionId)
@@ -153,10 +175,23 @@ export default function SessionsPage() {
     }
   }, [])
 
+  const fetchEmailSessions = useCallback(async () => {
+    try {
+      const res = await fetch('/api/email-sessions')
+      const json = await res.json()
+      if (res.ok && json.data) {
+        setEmailSessions(json.data)
+      }
+    } catch {
+      // Silently ignore
+    }
+  }, [])
+
   useEffect(() => {
     fetchSessions()
     fetchTeams()
-  }, [fetchSessions, fetchTeams])
+    fetchEmailSessions()
+  }, [fetchSessions, fetchTeams, fetchEmailSessions])
 
   // Realtime subscription for session status updates
   useEffect(() => {
@@ -501,6 +536,59 @@ export default function SessionsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessions.map((s) => `${s.id}:${s.status}`).join(',')])
 
+  async function handleCreateEmailSession() {
+    setEmailCreating(true)
+    try {
+      const res = await fetch('/api/email-sessions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: emailForm.name,
+          email_address: emailForm.email_address,
+          provider: emailForm.provider,
+          display_name: emailForm.display_name || undefined,
+          smtp_host: emailForm.smtp_host || undefined,
+          smtp_port: emailForm.smtp_port ? Number(emailForm.smtp_port) : undefined,
+          smtp_user: emailForm.smtp_user || undefined,
+          smtp_password: emailForm.smtp_password || undefined,
+          imap_host: emailForm.imap_host || undefined,
+          imap_port: emailForm.imap_port ? Number(emailForm.imap_port) : undefined,
+        }),
+      })
+      const json = await res.json()
+      if (res.ok && json.data) {
+        setEmailSessions((prev) => [json.data, ...prev])
+        setEmailCreateOpen(false)
+        setEmailForm({ name: '', email_address: '', provider: 'smtp', display_name: '', smtp_host: '', smtp_port: '587', smtp_user: '', smtp_password: '', imap_host: '', imap_port: '993' })
+        toast.success('Session email créée avec succès')
+      } else {
+        toast.error(json.error || 'Erreur lors de la création')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setEmailCreating(false)
+    }
+  }
+
+  async function handleDeleteEmailSession(id: string) {
+    setEmailDeleting(id)
+    try {
+      const res = await fetch(`/api/email-sessions/${id}`, { method: 'DELETE' })
+      if (res.ok) {
+        setEmailSessions((prev) => prev.filter((s) => s.id !== id))
+        toast.success('Session email supprimée')
+      } else {
+        const json = await res.json()
+        toast.error(json.error || 'Erreur lors de la suppression')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setEmailDeleting(null)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -518,13 +606,43 @@ export default function SessionsPage() {
             {t('sessions.description')}
           </p>
         </div>
-        <Button data-tour="new-session-btn" onClick={openCreateDialog} className="w-full sm:w-auto">
-          <Plus className="mr-2 h-4 w-4" />
-          {t('sessions.new_session')}
-        </Button>
+        <div className="flex gap-2">
+          {channelTab === 'whatsapp' ? (
+            <Button data-tour="new-session-btn" onClick={openCreateDialog} className="w-full sm:w-auto">
+              <Plus className="mr-2 h-4 w-4" />
+              {t('sessions.new_session')}
+            </Button>
+          ) : (
+            <Button onClick={() => setEmailCreateOpen(true)} className="w-full sm:w-auto">
+              <Plus className="mr-2 h-4 w-4" />
+              Connecter une boîte email
+            </Button>
+          )}
+        </div>
       </div>
 
-      {sessions.length === 0 ? (
+      {/* Channel tabs */}
+      <div className="mb-4 flex gap-2">
+        <button
+          onClick={() => setChannelTab('whatsapp')}
+          className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${channelTab === 'whatsapp' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
+        >
+          <Smartphone className="h-4 w-4" />
+          WhatsApp
+          <span className="rounded-full bg-background/20 px-1.5 text-xs">{sessions.length}</span>
+        </button>
+        <button
+          onClick={() => setChannelTab('email')}
+          className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${channelTab === 'email' ? 'bg-blue-600 text-white' : 'bg-muted text-muted-foreground hover:bg-muted/80'}`}
+        >
+          <Mail className="h-4 w-4" />
+          Email
+          <span className="rounded-full bg-background/20 px-1.5 text-xs">{emailSessions.length}</span>
+        </button>
+      </div>
+
+      {/* WhatsApp sessions */}
+      {channelTab === 'whatsapp' && (sessions.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <Smartphone className="mb-4 h-12 w-12 text-muted-foreground" />
@@ -773,7 +891,90 @@ export default function SessionsPage() {
             )
           })}
         </div>
-      )}
+      ))}
+
+      {/* Email sessions */}
+      {channelTab === 'email' && (emailSessions.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Mail className="mb-4 h-12 w-12 text-muted-foreground" />
+            <h3 className="text-lg font-medium">Aucune boîte email connectée</h3>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Connectez une boîte Gmail, Outlook ou SMTP pour gérer vos emails depuis l'inbox.
+            </p>
+            <Button className="mt-4" onClick={() => setEmailCreateOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Connecter une boîte email
+            </Button>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {emailSessions.map((session) => (
+            <Card key={session.id}>
+              <CardHeader className="flex flex-col gap-2 space-y-0 pb-2 sm:flex-row sm:items-center sm:justify-between">
+                <CardTitle className="text-sm font-medium break-all">
+                  {session.name}
+                  {session.display_name && (
+                    <span className="ml-1 text-xs font-normal text-muted-foreground">
+                      ({session.display_name})
+                    </span>
+                  )}
+                </CardTitle>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Badge variant="outline" className="w-fit text-xs gap-1 border-blue-300 text-blue-600 dark:border-blue-700 dark:text-blue-400">
+                    <Mail className="h-3 w-3" />
+                    Email
+                  </Badge>
+                  <Badge
+                    variant={session.status === 'connected' ? 'default' : session.status === 'error' ? 'destructive' : 'secondary'}
+                    className="w-fit"
+                  >
+                    {session.status === 'connected' ? (
+                      <><Wifi className="mr-1 h-3 w-3" />Connecté</>
+                    ) : session.status === 'error' ? (
+                      <><AlertCircle className="mr-1 h-3 w-3" />Erreur</>
+                    ) : (
+                      <><WifiOff className="mr-1 h-3 w-3" />Déconnecté</>
+                    )}
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <Mail className="h-3 w-3" />
+                    {session.email_address}
+                  </span>
+                  {session.smtp_host && (
+                    <span className="flex items-center gap-1">
+                      <Server className="h-3 w-3" />
+                      {session.smtp_host}:{session.smtp_port}
+                    </span>
+                  )}
+                  <span className="mt-1">
+                    {session.provider.toUpperCase()} · Créé le {new Date(session.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  </span>
+                </div>
+                <div className="mt-4 flex gap-2">
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => handleDeleteEmailSession(session.id)}
+                    disabled={emailDeleting === session.id}
+                  >
+                    {emailDeleting === session.id ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-3 w-3" />
+                    )}
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ))}
 
       {/* Connection Dialog (QR Code or Pairing Code) */}
       <Dialog
@@ -1221,6 +1422,122 @@ export default function SessionsPage() {
         description={t('sessions.delete_desc', { name: sessionToDelete ? getSessionDisplayName(sessionToDelete) : '' })}
         loading={deleting === sessionToDelete?.id}
       />
+
+      {/* Email Create Dialog */}
+      <Dialog open={emailCreateOpen} onOpenChange={setEmailCreateOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Connecter une boîte email</DialogTitle>
+            <DialogDescription>
+              Configurez vos identifiants SMTP/IMAP pour recevoir et envoyer des emails depuis l'inbox.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-2">
+              <Label htmlFor="email-name">Nom de la session</Label>
+              <Input
+                id="email-name"
+                placeholder="Support client"
+                value={emailForm.name}
+                onChange={(e) => setEmailForm((f) => ({ ...f, name: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email-address">Adresse email</Label>
+              <Input
+                id="email-address"
+                type="email"
+                placeholder="support@monentreprise.fr"
+                value={emailForm.email_address}
+                onChange={(e) => setEmailForm((f) => ({ ...f, email_address: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="email-display-name">Nom d'affichage (optionnel)</Label>
+              <Input
+                id="email-display-name"
+                placeholder="Mon Entreprise Support"
+                value={emailForm.display_name}
+                onChange={(e) => setEmailForm((f) => ({ ...f, display_name: e.target.value }))}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-2">
+                <Label htmlFor="smtp-host">Serveur SMTP</Label>
+                <Input
+                  id="smtp-host"
+                  placeholder="smtp.gmail.com"
+                  value={emailForm.smtp_host}
+                  onChange={(e) => setEmailForm((f) => ({ ...f, smtp_host: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="smtp-port">Port SMTP</Label>
+                <Input
+                  id="smtp-port"
+                  type="number"
+                  placeholder="587"
+                  value={emailForm.smtp_port}
+                  onChange={(e) => setEmailForm((f) => ({ ...f, smtp_port: e.target.value }))}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="smtp-user">Identifiant SMTP</Label>
+              <Input
+                id="smtp-user"
+                placeholder="support@monentreprise.fr"
+                value={emailForm.smtp_user}
+                onChange={(e) => setEmailForm((f) => ({ ...f, smtp_user: e.target.value }))}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="smtp-password">Mot de passe SMTP</Label>
+              <Input
+                id="smtp-password"
+                type="password"
+                placeholder="••••••••"
+                value={emailForm.smtp_password}
+                onChange={(e) => setEmailForm((f) => ({ ...f, smtp_password: e.target.value }))}
+              />
+              <p className="text-xs text-muted-foreground">Pour Gmail, utilisez un mot de passe d'application.</p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="space-y-2">
+                <Label htmlFor="imap-host">Serveur IMAP (optionnel)</Label>
+                <Input
+                  id="imap-host"
+                  placeholder="imap.gmail.com"
+                  value={emailForm.imap_host}
+                  onChange={(e) => setEmailForm((f) => ({ ...f, imap_host: e.target.value }))}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="imap-port">Port IMAP</Label>
+                <Input
+                  id="imap-port"
+                  type="number"
+                  placeholder="993"
+                  value={emailForm.imap_port}
+                  onChange={(e) => setEmailForm((f) => ({ ...f, imap_port: e.target.value }))}
+                />
+              </div>
+            </div>
+            <Button
+              onClick={handleCreateEmailSession}
+              disabled={emailCreating || !emailForm.name || !emailForm.email_address || !emailForm.smtp_host || !emailForm.smtp_user || !emailForm.smtp_password}
+              className="w-full"
+            >
+              {emailCreating ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="mr-2 h-4 w-4" />
+              )}
+              Connecter la boîte email
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
