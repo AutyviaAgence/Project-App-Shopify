@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import OpenAI from 'openai'
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-
 /** POST /api/email/improve — Améliorer un texte email avec IA */
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -35,6 +33,7 @@ ${toneInstructions}
 Améliore le texte fourni sans changer son sens. Retourne uniquement le texte amélioré, sans commentaire ni introduction.${context ? `\nContexte de la conversation: ${context}` : ''}`
 
   try {
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
