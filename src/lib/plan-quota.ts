@@ -27,11 +27,15 @@ export async function checkPlanQuota(
 ): Promise<{ allowed: true } | { allowed: false; limit: number; current: number; plan: PlanId; reason: 'no_subscription' | 'limit_reached' | 'observer_mode' }> {
   const { data: profile } = await supabase
     .from('profiles')
-    .select('plan, subscription_status, onboarding_status')
+    .select('plan, subscription_status, onboarding_status, role')
     .eq('id', userId)
     .single()
 
-  const raw = profile as { plan?: string | null; subscription_status?: string; onboarding_status?: string } | null
+  const raw = profile as { plan?: string | null; subscription_status?: string; onboarding_status?: string; role?: string | null } | null
+
+  // Les admins ne sont jamais bloqués par les quotas
+  if (raw?.role === 'admin') return { allowed: true }
+
   const subscriptionStatus = raw?.subscription_status ?? null
 
   // Mode observateur : onboarding_status = 'observer' → lecture seule sauf équipe

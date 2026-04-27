@@ -76,16 +76,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const tenant = useTenant()
 
   const plan = subscription?.plan ?? null
+  const isAdmin = subscription?.role === 'admin'
 
   const NAV_ITEMS = useMemo(() =>
     NAV_ITEMS_KEYS
       .filter(item => {
+        if (isAdmin) return true // admin voit tout
         if (item.href === '/campaigns' && plan !== 'scale') return false
         if (item.href === '/lifecycle' && plan !== 'pro' && plan !== 'scale') return false
         return true
       })
       .map(item => ({ ...item, label: t(item.labelKey) })),
-    [t, plan]
+    [t, plan, isAdmin]
   )
   const BOTTOM_NAV_ITEMS = useMemo(() => {
     const items = BOTTOM_NAV_KEYS.map(item => ({ ...item, label: t(item.labelKey) }))
@@ -103,17 +105,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     p => pathname === p || pathname.startsWith(p + '/')
   )
 
-  // Blocage niveau 1 : pending → uniquement /onboarding autorisé
-  const isPending = subscription && onboardingStatus === 'pending' && !isOnboardingPage && !isAllowedPage
+  // Les admins ne sont jamais bloqués
+  const isPending = !isAdmin && subscription && onboardingStatus === 'pending' && !isOnboardingPage && !isAllowedPage
 
   // onboarding = acompte payé → accès complet (période audit avec tokens du plan)
   const isOnboardingOnly = false
 
   // Blocage niveau 2 : active/onboarding mais subscription inactive (expired/cancelled)
-  const isBlocked = subscription && (onboardingStatus === 'active' || onboardingStatus === 'onboarding') && !subscription.isActive && !isAllowedPage
+  const isBlocked = !isAdmin && subscription && (onboardingStatus === 'active' || onboardingStatus === 'onboarding') && !subscription.isActive && !isAllowedPage
 
   // Feature gating : rediriger si accès direct à une route non autorisée par le plan
   const isPlanBlocked =
+    !isAdmin &&
     subscription &&
     (onboardingStatus === 'active' || onboardingStatus === 'onboarding') &&
     subscription.isActive &&
