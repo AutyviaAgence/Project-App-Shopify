@@ -12,25 +12,26 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => ({}))
-  const { text, context, tone } = body as {
+  const { text, context, action } = body as {
     text?: string
     context?: string
-    tone?: 'professional' | 'friendly' | 'concise'
+    action?: 'grammar' | 'friendly' | 'professional' | 'expand'
   }
 
   if (!text || text.trim().length === 0) {
     return NextResponse.json({ error: 'text requis' }, { status: 400 })
   }
 
-  const toneInstructions = {
-    professional: 'Rends le texte professionnel et formel.',
-    friendly: 'Rends le texte chaleureux et accessible.',
-    concise: 'Rends le texte concis et direct, supprime les parties inutiles.',
-  }[tone ?? 'professional'] ?? 'Rends le texte professionnel et formel.'
+  const actionInstructions = {
+    grammar: 'Corrige uniquement les fautes de grammaire, d\'orthographe et de ponctuation. Ne change pas le ton ni le contenu.',
+    friendly: 'Rends le texte plus chaleureux, sympathique et accessible tout en gardant le sens.',
+    professional: 'Rends le texte plus professionnel, formel et soigné.',
+    expand: 'Développe et enrichis le message pour le rendre plus complet et détaillé, sans répéter.',
+  }[action ?? 'professional']
 
-  const systemPrompt = `Tu es un assistant spécialisé dans la rédaction d'emails professionnels.
-${toneInstructions}
-Améliore le texte fourni sans changer son sens. Retourne uniquement le texte amélioré, sans commentaire ni introduction.${context ? `\nContexte de la conversation: ${context}` : ''}`
+  const systemPrompt = `Tu es un assistant spécialisé dans la rédaction d'emails.
+${actionInstructions}
+Retourne uniquement le texte amélioré, sans commentaire ni introduction.${context ? `\nContexte: ${context}` : ''}`
 
   try {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
@@ -47,12 +48,11 @@ Améliore le texte fourni sans changer son sens. Retourne uniquement le texte am
     const improved = completion.choices[0]?.message?.content ?? text
     const tokensUsed = completion.usage?.total_tokens ?? 0
 
-    // Déduire les tokens utilisés
     if (tokensUsed > 0) {
       await supabase.rpc('increment_token_usage', { p_user_id: user.id, p_tokens: tokensUsed })
     }
 
-    return NextResponse.json({ improved, tokens_used: tokensUsed })
+    return NextResponse.json({ text: improved, tokens_used: tokensUsed })
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err)
     return NextResponse.json({ error: `Erreur IA: ${errMsg}` }, { status: 500 })

@@ -34,6 +34,10 @@ import {
   XCircle,
   Send,
   Mail,
+  SpellCheck,
+  Smile,
+  Briefcase,
+  ALargeSmall,
 } from 'lucide-react'
 import { getSessionDisplayName, getContactDisplayName } from '@/lib/format-phone'
 import { useTranslation } from '@/i18n/context'
@@ -88,6 +92,7 @@ export function ChatArea({
   const prevMessageCountRef = useRef(0)
   const [emailSubject, setEmailSubject] = useState('')
   const [emailBody, setEmailBody] = useState('')
+  const [improving, setImproving] = useState<string | null>(null)
 
   const isEmail = selectedConv?.channel === 'email'
 
@@ -96,6 +101,35 @@ export function ChatArea({
     await onSendEmail(emailBody.trim(), emailSubject.trim() || 'Re:')
     setEmailBody('')
     setEmailSubject('')
+  }
+
+  const IMPROVE_ACTIONS = [
+    { key: 'grammar', label: 'Corriger la grammaire', icon: SpellCheck },
+    { key: 'friendly', label: 'Plus sympa', icon: Smile },
+    { key: 'professional', label: 'Plus professionnel', icon: Briefcase },
+    { key: 'expand', label: 'Étendre le message', icon: ALargeSmall },
+  ] as const
+
+  async function handleImprove(action: 'grammar' | 'friendly' | 'professional' | 'expand') {
+    if (!emailBody.trim() || improving) return
+    setImproving(action)
+    try {
+      const res = await fetch('/api/email/improve', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: emailBody.trim(), action }),
+      })
+      const json = await res.json()
+      if (res.ok && json.text) {
+        setEmailBody(json.text)
+      } else {
+        toast.error(json.error || 'Erreur lors de l\'amélioration')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setImproving(null)
+    }
   }
 
   // Reset counter when conversation changes
@@ -533,6 +567,26 @@ export function ChatArea({
                   if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSendEmail()
                 }}
               />
+              {/* Boutons amélioration IA */}
+              {emailBody.trim() && (
+                <div className="flex flex-wrap gap-1.5">
+                  {IMPROVE_ACTIONS.map(({ key, label, icon: Icon }) => (
+                    <button
+                      key={key}
+                      onClick={() => handleImprove(key)}
+                      disabled={!!improving}
+                      className="flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50"
+                    >
+                      {improving === key ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Icon className="h-3 w-3" />
+                      )}
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="flex justify-end">
                 <Button
                   size="sm"
