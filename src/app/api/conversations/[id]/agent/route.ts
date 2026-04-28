@@ -24,7 +24,7 @@ export async function PATCH(
   // Vérifier que la conversation existe
   const { data: conversation } = await supabase
     .from('conversations')
-    .select('id, session_id')
+    .select('id, session_id, email_session_id, channel')
     .eq('id', id)
     .single()
 
@@ -32,21 +32,35 @@ export async function PATCH(
     return NextResponse.json({ error: 'Conversation introuvable' }, { status: 404 })
   }
 
-  // Récupérer la session
-  const { data: session } = await supabase
-    .from('whatsapp_sessions')
-    .select('id, user_id, team_id')
-    .eq('id', conversation.session_id)
-    .single()
+  // Pour les conversations email, vérifier ownership via email_sessions
+  if (conversation.channel === 'email' || conversation.email_session_id) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: emailSession } = await (supabase as any)
+      .from('email_sessions')
+      .select('id, user_id')
+      .eq('id', conversation.email_session_id)
+      .single()
 
-  if (!session) {
-    return NextResponse.json({ error: 'Session introuvable' }, { status: 404 })
-  }
+    if (!emailSession || emailSession.user_id !== user.id) {
+      return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+    }
+  } else {
+    // Récupérer la session WhatsApp
+    const { data: session } = await supabase
+      .from('whatsapp_sessions')
+      .select('id, user_id, team_id')
+      .eq('id', conversation.session_id)
+      .single()
 
-  // Vérifier l'accès (propriétaire ou membre avec permissions)
-  const hasAccess = await canAccessSession(supabase, user.id, session)
-  if (!hasAccess) {
-    return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+    if (!session) {
+      return NextResponse.json({ error: 'Session introuvable' }, { status: 404 })
+    }
+
+    // Vérifier l'accès (propriétaire ou membre avec permissions)
+    const hasAccess = await canAccessSession(supabase, user.id, session)
+    if (!hasAccess) {
+      return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+    }
   }
 
   // Si on assigne un agent, vérifier qu'il appartient à l'utilisateur ou à une équipe accessible
