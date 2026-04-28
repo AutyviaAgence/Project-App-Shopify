@@ -6,6 +6,7 @@ import { useTheme } from 'next-themes'
 import type { Profile, ConversationTag } from '@/types/database'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Separator } from '@/components/ui/separator'
@@ -56,6 +57,8 @@ import {
   Play,
   FileText,
   Tag,
+  Volume2,
+  VolumeX,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useTranslation } from '@/i18n/context'
@@ -159,6 +162,17 @@ export default function SettingsPage() {
 
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
+  const [soundEnabled, setSoundEnabled] = useState(true)
+
+  useEffect(() => {
+    const stored = localStorage.getItem('autyvia_sound_enabled')
+    if (stored !== null) setSoundEnabled(stored !== 'false')
+  }, [])
+
+  const handleSoundToggle = (enabled: boolean) => {
+    setSoundEnabled(enabled)
+    localStorage.setItem('autyvia_sound_enabled', String(enabled))
+  }
 
   useEffect(() => {
     setMounted(true)
@@ -654,6 +668,18 @@ export default function SettingsPage() {
               <p className="text-xs text-muted-foreground">
                 {t('settings.theme_note')}
               </p>
+            </div>
+
+            {/* Sons de notification */}
+            <div className="flex items-center justify-between rounded-lg border p-4">
+              <div className="flex items-center gap-3">
+                {soundEnabled ? <Volume2 className="h-5 w-5 text-primary" /> : <VolumeX className="h-5 w-5 text-muted-foreground" />}
+                <div>
+                  <p className="text-sm font-medium">Sons de notification</p>
+                  <p className="text-xs text-muted-foreground">Jouer un son à chaque message entrant</p>
+                </div>
+              </div>
+              <Switch checked={soundEnabled} onCheckedChange={handleSoundToggle} />
             </div>
 
             <Button onClick={handleSaveProfile} disabled={saving}>

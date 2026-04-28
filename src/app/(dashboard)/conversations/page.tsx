@@ -14,6 +14,7 @@ import type { ConversationWithJoins, Team, Message, AIAgent, LifecycleStage } fr
 
 function playMessageSound() {
   try {
+    if (localStorage.getItem('autyvia_sound_enabled') === 'false') return
     const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
     const oscillator = ctx.createOscillator()
     const gain = ctx.createGain()
