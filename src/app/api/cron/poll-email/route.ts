@@ -149,7 +149,20 @@ async function runPollEmail() {
       const errMsg = err instanceof Error ? err.message : String(err)
       errors.push({ session_id: session.id, error: errMsg })
       console.error(`[poll-email] Session ${session.id} error:`, errMsg)
-      // Ne pas marquer en erreur pour une erreur réseau temporaire
+
+      // Erreur d'authentification → marquer la session en erreur
+      const isAuthError = errMsg.toLowerCase().includes('authentication failed')
+        || errMsg.toLowerCase().includes('invalid credentials')
+        || errMsg.toLowerCase().includes('auth failed')
+        || errMsg.toLowerCase().includes('[authenticationfailed]')
+      if (isAuthError) {
+        await adminSupabase
+          .from('email_sessions')
+          .update({ status: 'error' })
+          .eq('id', session.id)
+        console.warn(`[poll-email] Session ${session.id} marked as error (auth failed)`)
+      }
+      // Erreurs réseau temporaires (timeout, self-signed cert...) → ne pas changer le statut
     }
   }))
 
