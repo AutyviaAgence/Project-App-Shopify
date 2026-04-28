@@ -184,7 +184,6 @@ export async function POST(req: NextRequest) {
         // Synchroniser les contacts automatiquement à la connexion
         if (state === 'open' && session.status !== 'connected') {
           console.log('[Webhook] Session connected, syncing contacts...')
-          // Lancer la sync en arrière-plan (ne pas bloquer le webhook)
           syncContactsFromWhatsApp(supabase, session.id, instanceName)
             .then(result => {
               console.log(`[Webhook] Contact sync complete: ${result.synced} synced, ${result.skipped} skipped`)
@@ -192,6 +191,11 @@ export async function POST(req: NextRequest) {
             .catch(err => {
               console.error('[Webhook] Contact sync failed:', err)
             })
+
+          // Message de bienvenue à la première connexion
+          if (!session.welcome_sent) {
+            sendWelcomeMessage(supabase, session.id, session.user_id).catch(() => {})
+          }
         }
 
         break
@@ -929,5 +933,67 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({ ok: true }) // Toujours 200 pour éviter les retries Evolution
+  }
+}
+
+async function sendWelcomeMessage(
+  supabase: Awaited<ReturnType<typeof import('@/lib/supabase/server').createClient>>,
+  sessionId: string,
+  userId: string
+) {
+  try {
+    // Marquer welcome_sent immédiatement pour éviter les doublons
+    await supabase
+      .from('whatsapp_sessions')
+      .update({ welcome_sent: true })
+      .eq('id', sessionId)
+
+    // Créer un contact fictif "Autyvia"
+    const { data: contact, error: contactError } = await supabase
+      .from('contacts')
+      .insert({
+        session_id: sessionId,
+        phone_number: 'autyvia-welcome',
+        name: 'Autyvia',
+        first_name: 'Autyvia',
+      })
+      .select('id')
+      .single()
+
+    if (contactError || !contact) return
+
+    // Créer une conversation fictive
+    const { data: conversation, error: convError } = await supabase
+      .from('conversations')
+      .insert({
+        session_id: sessionId,
+        contact_id: contact.id,
+        channel: 'whatsapp',
+        last_message_at: new Date().toISOString(),
+        last_message_preview: 'Bienvenue sur Autyvia !',
+        unread_count: 1,
+      })
+      .select('id')
+      .single()
+
+    if (convError || !conversation) return
+
+    // Insérer le message de bienvenue
+    await supabase.from('messages').insert({
+      conversation_id: conversation.id,
+      session_id: sessionId,
+      direction: 'inbound',
+      content: encryptMessage(
+        'Bienvenue sur Autyvia ! 🎉\n\nVotre session WhatsApp est maintenant connectée. Vous pouvez commencer à recevoir et envoyer des messages.\n\nExplorez le tableau de bord pour configurer votre premier agent IA et automatiser vos conversations.'
+      ),
+      message_type: 'text',
+      sent_by: 'contact',
+      status: 'delivered',
+      ai_processed: false,
+    })
+
+    console.log(`[Webhook] Welcome message sent for session ${sessionId}`)
+  } catch (err) {
+    console.error('[Webhook] Failed to send welcome message:', err)
   }
 }

@@ -105,6 +105,7 @@ export type WhatsAppSession = {
   waba_business_account_id: string | null
   waba_access_token: string | null
   qualifier_agent_id: string | null
+  welcome_sent: boolean
   created_at: string
   updated_at: string
 }
