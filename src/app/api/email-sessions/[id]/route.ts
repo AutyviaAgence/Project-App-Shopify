@@ -39,7 +39,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const { id } = await params
   const body = await req.json().catch(() => ({}))
-  const { name, display_name, smtp_host, smtp_port, smtp_user, smtp_password, imap_host, imap_port, status } = body as {
+  const { name, display_name, smtp_host, smtp_port, smtp_user, smtp_password, imap_host, imap_port, status, email_agent_id } = body as {
     name?: string
     display_name?: string
     smtp_host?: string
@@ -49,6 +49,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     imap_host?: string
     imap_port?: number
     status?: string
+    email_agent_id?: string | null
   }
 
   // Si un nouveau mot de passe est fourni, tester la connexion IMAP avant de sauvegarder
@@ -96,6 +97,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   if (imap_host !== undefined) updates.imap_host = imap_host
   if (imap_port !== undefined) updates.imap_port = imap_port
   if (status !== undefined) updates.status = status
+  if (email_agent_id !== undefined) updates.email_agent_id = email_agent_id || null
   updates.updated_at = new Date().toISOString()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -104,7 +106,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     .update(updates)
     .eq('id', id)
     .eq('user_id', user.id)
-    .select('id, user_id, team_id, name, email_address, provider, status, smtp_host, smtp_port, smtp_user, imap_host, imap_port, display_name, created_at, updated_at')
+    .select('id, user_id, team_id, name, email_address, provider, status, smtp_host, smtp_port, smtp_user, imap_host, imap_port, display_name, email_agent_id, created_at, updated_at')
     .single()
 
   if (error) {

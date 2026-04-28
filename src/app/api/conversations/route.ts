@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
   ])
 
   const allWhatsAppSessions = allSessions ?? []
-  const allEmailSessions = (emailSessions ?? []) as Array<{ id: string; user_id: string; team_id: string | null; name: string; email_address: string; provider: string; status: string }>
+  const allEmailSessions = (emailSessions ?? []) as Array<{ id: string; user_id: string; team_id: string | null; name: string; email_address: string; provider: string; status: string; email_agent_id: string | null }>
 
   // Si filtre email, retourner uniquement les convs email
   if (channelFilter === 'email') {
@@ -105,6 +105,7 @@ export async function GET(req: NextRequest) {
         phone_number: null,
         team_id: null,
         team_name: null,
+        email_agent_id: emailSessionsMap[conv.email_session_id as string]?.email_agent_id ?? null,
       },
     }))
     return NextResponse.json({
@@ -334,7 +335,7 @@ export async function GET(req: NextRequest) {
         const emailContactIds = [...new Set(emailConvs.map((c: { contact_id: string }) => c.contact_id))] as string[]
         const { data: emailContacts } = await supabase.from('contacts').select('*').in('id', emailContactIds)
         const emailContactsMap = Object.fromEntries((emailContacts || []).map((c) => [c.id, c]))
-        const emailSessionsMap = Object.fromEntries(allEmailSessions.map((s: { id: string; name: string }) => [s.id, s]))
+        const emailSessionsMap = Object.fromEntries(allEmailSessions.map((s: { id: string; name: string; email_agent_id?: string | null }) => [s.id, s]))
 
         const emailResult = emailConvs.map((conv: Record<string, unknown>) => ({
           ...conv,
@@ -346,6 +347,7 @@ export async function GET(req: NextRequest) {
             phone_number: null,
             team_id: null,
             team_name: null,
+            email_agent_id: (emailSessionsMap[conv.email_session_id as string] as { email_agent_id?: string | null })?.email_agent_id ?? null,
           },
         }))
 

@@ -72,6 +72,7 @@ export type EmailSession = {
   imap_port: number | null
   display_name: string | null
   daily_ai_message_limit: number
+  email_agent_id: string | null
   created_at: string
   updated_at: string
 }

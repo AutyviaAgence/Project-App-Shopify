@@ -107,8 +107,9 @@ export default function SessionsPage() {
   const [emailDeleting, setEmailDeleting] = useState<string | null>(null)
   const [emailProviderChoice, setEmailProviderChoice] = useState<'gmail' | 'smtp' | null>(null)
   const [editingEmailSession, setEditingEmailSession] = useState<EmailSession | null>(null)
-  const [emailEditForm, setEmailEditForm] = useState({ name: '', display_name: '', smtp_host: '', smtp_port: '', smtp_user: '', smtp_password: '', imap_host: '', imap_port: '' })
+  const [emailEditForm, setEmailEditForm] = useState({ name: '', display_name: '', smtp_host: '', smtp_port: '', smtp_user: '', smtp_password: '', imap_host: '', imap_port: '', email_agent_id: '' })
   const [savingEmailEdit, setSavingEmailEdit] = useState(false)
+  const [allAgents, setAllAgents] = useState<{ id: string; name: string }[]>([])
   const [emailForm, setEmailForm] = useState({
     name: '',
     email_address: '',
@@ -639,7 +640,15 @@ export default function SessionsPage() {
       smtp_password: '',
       imap_host: session.imap_host ?? '',
       imap_port: session.imap_port ? String(session.imap_port) : '',
+      email_agent_id: session.email_agent_id ?? '',
     })
+    // Charger tous les agents
+    fetch('/api/agents')
+      .then(r => r.json())
+      .then(json => {
+        if (json.data) setAllAgents((json.data as { id: string; name: string }[]).map(a => ({ id: a.id, name: a.name })))
+      })
+      .catch(() => {})
   }
 
   async function handleSaveEmailEdit() {
@@ -649,6 +658,7 @@ export default function SessionsPage() {
       const body: Record<string, unknown> = {
         name: emailEditForm.name.trim(),
         display_name: emailEditForm.display_name.trim() || null,
+        email_agent_id: emailEditForm.email_agent_id || null,
       }
       if (editingEmailSession.provider === 'smtp') {
         if (emailEditForm.smtp_host) body.smtp_host = emailEditForm.smtp_host.trim()
@@ -1122,6 +1132,24 @@ export default function SessionsPage() {
             <div className="space-y-1">
               <Label>Nom affiché (optionnel)</Label>
               <Input placeholder="Ex: Support Autyvia" value={emailEditForm.display_name} onChange={(e) => setEmailEditForm((f) => ({ ...f, display_name: e.target.value }))} />
+            </div>
+            <div className="space-y-1">
+              <Label>Agent IA (optionnel)</Label>
+              <Select
+                value={emailEditForm.email_agent_id || 'none'}
+                onValueChange={(v) => setEmailEditForm((f) => ({ ...f, email_agent_id: v === 'none' ? '' : v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Aucun agent" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Aucun agent</SelectItem>
+                  {allAgents.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">Génère des brouillons de réponse dans l'inbox.</p>
             </div>
             {editingEmailSession?.provider === 'smtp' && (
               <>

@@ -93,6 +93,7 @@ export function ChatArea({
   const [emailSubject, setEmailSubject] = useState('')
   const [emailBody, setEmailBody] = useState('')
   const [improving, setImproving] = useState<string | null>(null)
+  const [suggesting, setSuggesting] = useState(false)
 
   const isEmail = selectedConv?.channel === 'email'
 
@@ -125,6 +126,28 @@ export function ChatArea({
     { key: 'professional', label: 'Plus professionnel', icon: Briefcase },
     { key: 'expand', label: 'Étendre le message', icon: ALargeSmall },
   ] as const
+
+  async function handleSuggest() {
+    if (!selectedConv || suggesting) return
+    setSuggesting(true)
+    try {
+      const res = await fetch('/api/email/suggest', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ conversation_id: selectedConv.id }),
+      })
+      const json = await res.json()
+      if (res.ok && json.text) {
+        setEmailBody(json.text)
+      } else {
+        toast.error(json.error || 'Erreur génération brouillon')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setSuggesting(false)
+    }
+  }
 
   async function handleImprove(action: 'grammar' | 'friendly' | 'professional' | 'expand') {
     if (!emailBody.trim() || improving) return
@@ -603,7 +626,22 @@ export function ChatArea({
                   ))}
                 </div>
               )}
-              <div className="flex justify-end">
+              <div className="flex items-center justify-between">
+                {(selectedConv?.session as { email_agent_id?: string | null } | undefined)?.email_agent_id ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleSuggest}
+                    disabled={suggesting}
+                    title="Générer un brouillon avec l'IA"
+                    className="gap-1.5"
+                  >
+                    {suggesting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                    Brouillon IA
+                  </Button>
+                ) : (
+                  <div />
+                )}
                 <Button
                   size="sm"
                   onClick={handleSendEmail}
