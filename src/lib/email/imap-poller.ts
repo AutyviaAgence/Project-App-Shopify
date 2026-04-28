@@ -19,6 +19,30 @@ function stripSignature(text: string): string {
   return text.trim()
 }
 
+/** Test IMAP credentials — resolves true if auth succeeds, throws on failure */
+export async function testImapConnection(opts: {
+  host: string
+  port: number
+  user: string
+  password: string
+}): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const imap = new Imap({
+      user: opts.user,
+      password: opts.password,
+      host: opts.host,
+      port: opts.port,
+      tls: opts.port === 993,
+      tlsOptions: { rejectUnauthorized: true },
+      connTimeout: 10000,
+      authTimeout: 8000,
+    })
+    imap.once('ready', () => { imap.end(); resolve() })
+    imap.once('error', (err: Error) => reject(err))
+    imap.connect()
+  })
+}
+
 /** Fetch unseen emails from an IMAP inbox */
 export async function pollImapInbox(
   session: EmailSession & { smtp_password_encrypted?: string | null; imap_password_encrypted?: string | null }

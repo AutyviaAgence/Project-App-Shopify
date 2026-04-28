@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { encryptMessage } from '@/lib/crypto/encryption'
 import { checkPlanQuota } from '@/lib/plan-quota'
+import { testImapConnection } from '@/lib/email/imap-poller'
 
 /** GET /api/email-sessions — Lister les sessions email de l'utilisateur */
 export async function GET() {
@@ -92,6 +93,26 @@ export async function POST(req: NextRequest) {
   }
 
   const encryptedPassword = smtp_password ? encryptMessage(smtp_password) : null
+
+  // Tester la connexion IMAP avant de sauvegarder
+  if (imap_host && smtp_user && smtp_password) {
+    try {
+      await testImapConnection({
+        host: imap_host,
+        port: imap_port ?? 993,
+        user: smtp_user,
+        password: smtp_password,
+      })
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      const isAuth = msg.toLowerCase().includes('authentication') || msg.toLowerCase().includes('auth')
+      return NextResponse.json({
+        error: isAuth
+          ? 'Mot de passe IMAP incorrect. Vérifiez vos identifiants.'
+          : `Impossible de se connecter au serveur IMAP : ${msg}`,
+      }, { status: 400 })
+    }
+  }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: session, error } = await (supabase as any)

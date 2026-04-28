@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { encryptMessage } from '@/lib/crypto/encryption'
+import { testImapConnection } from '@/lib/email/imap-poller'
 
 /** DELETE /api/email-sessions/[id] — Supprimer une session email */
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -48,6 +49,41 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     imap_host?: string
     imap_port?: number
     status?: string
+  }
+
+  // Si un nouveau mot de passe est fourni, tester la connexion IMAP avant de sauvegarder
+  if (smtp_password) {
+    // Récupérer les valeurs actuelles en DB pour compléter les champs manquants
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: existing } = await (supabase as any)
+      .from('email_sessions')
+      .select('imap_host, imap_port, smtp_user')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .single()
+
+    const testHost = imap_host ?? existing?.imap_host
+    const testPort = imap_port ?? existing?.imap_port ?? 993
+    const testUser = smtp_user ?? existing?.smtp_user
+
+    if (testHost && testUser) {
+      try {
+        await testImapConnection({
+          host: testHost,
+          port: testPort,
+          user: testUser,
+          password: smtp_password,
+        })
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        const isAuth = msg.toLowerCase().includes('authentication') || msg.toLowerCase().includes('auth')
+        return NextResponse.json({
+          error: isAuth
+            ? 'Mot de passe IMAP incorrect. Vérifiez vos identifiants.'
+            : `Impossible de se connecter au serveur IMAP : ${msg}`,
+        }, { status: 400 })
+      }
+    }
   }
 
   const updates: Record<string, unknown> = {}
