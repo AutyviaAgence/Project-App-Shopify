@@ -1,8 +1,15 @@
 import { PLAN_LIMITS, resolvePlan } from '@/lib/stripe/plans'
 import type { PlanId } from '@/lib/stripe/plans'
-import { createAdminClient } from '@/lib/supabase/server'
+import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
 type SupabaseClient = Awaited<ReturnType<typeof import('@/lib/supabase/server').createClient>>
+
+function getAdminClient() {
+  return createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
 
 type QuotaResource = 'sessions' | 'agents' | 'docs' | 'links' | 'teams'
 
@@ -63,8 +70,8 @@ export async function checkPlanQuota(
       .eq('owner_id', userId)
     current = count ?? 0
   } else if (resource === 'sessions') {
-    // Sessions = WhatsApp + Email combinés — admin client pour bypasser les limites de typage
-    const adminSupabase = await createAdminClient()
+    // Sessions = WhatsApp + Email combinés
+    const adminSupabase = getAdminClient()
     const [waResult, emailResult] = await Promise.all([
       supabase.from('whatsapp_sessions').select('id', { count: 'exact', head: true }).eq('user_id', userId),
       adminSupabase.from('email_sessions').select('id', { count: 'exact', head: true }).eq('user_id', userId),
