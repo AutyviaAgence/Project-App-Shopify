@@ -149,6 +149,7 @@ CREATE TABLE public.whatsapp_sessions (
   daily_ai_message_limit integer,
   ai_message_delay integer DEFAULT 0,
   qualifier_agent_id uuid,
+  welcome_sent boolean DEFAULT false,
   created_at timestamp with time zone DEFAULT now(),
   updated_at timestamp with time zone DEFAULT now()
 );
