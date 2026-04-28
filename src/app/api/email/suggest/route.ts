@@ -3,9 +3,12 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { decryptMessage } from '@/lib/crypto/encryption'
 import { retrieveContext } from '@/lib/knowledge/retriever'
-import OpenAI from 'openai'
+import { getAgentTools, buildOpenAITools, executeToolCall } from '@/lib/tools/executor'
+import { generateAgentResponse, type OpenAIMessage } from '@/lib/openai/client'
 
-/** POST /api/email/suggest — Générer un brouillon de réponse email via l'agent IA de la session */
+const MAX_TOOL_ROUNDS = 10
+
+/** POST /api/email/suggest — Générer un brouillon de réponse email via l'agent IA */
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -56,18 +59,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Aucun agent IA configuré (ni sur la conversation ni sur la session email)' }, { status: 400 })
   }
 
-  // Récupérer l'agent IA (avec objective)
+  // Récupérer l'agent IA
   const { data: agent } = await adminSupabase
     .from('ai_agents')
-    .select('id, name, system_prompt, objective')
+    .select('id, name, model, temperature, system_prompt, objective')
     .eq('id', agentId)
-    .single() as { data: { id: string; name: string; system_prompt: string; objective: string | null } | null }
+    .single() as { data: { id: string; name: string; model: string; temperature: number; system_prompt: string; objective: string | null } | null }
 
   if (!agent || !agent.system_prompt) {
     return NextResponse.json({ error: 'Agent IA introuvable ou sans prompt' }, { status: 404 })
   }
 
-  // Récupérer les 30 derniers messages de la conversation (aligné avec le contexte WhatsApp)
+  // Récupérer les 30 derniers messages de la conversation
   const { data: messages } = await adminSupabase
     .from('messages')
     .select('content, direction, sent_by, transcription')
@@ -112,35 +115,76 @@ export async function POST(req: NextRequest) {
   }
 
   if (knowledgeContext) {
-    systemPrompt += `\n\n--- Base de connaissances (PRIORITAIRE) ---\nUtilise ces informations en priorité pour répondre de manière précise.\n\n${knowledgeContext}\n--- Fin de la base de connaissances ---`
+    systemPrompt += `\n\n--- Base de connaissances (PRIORITAIRE) ---\nAvant d'appeler un outil, vérifie TOUJOURS si la réponse se trouve ici. Utilise ces informations en priorité.\n\n${knowledgeContext}\n--- Fin de la base de connaissances ---`
   }
 
   systemPrompt += `\n\n--- Date et heure actuelles ---\nNous sommes le ${dateStr}, il est ${timeStr} (fuseau horaire : Europe/Paris).`
+
+  // Charger les outils de l'agent
+  const agentTools = await getAgentTools(agentId)
+  const { openaiTools, functionMap } = buildOpenAITools(agentTools)
+
+  if (openaiTools.length > 0) {
+    const toolNames = openaiTools.map((t) => t.function.name).join(', ')
+    systemPrompt += `\n\n--- Outils disponibles ---\nTu disposes des outils suivants : ${toolNames}.\nUtilise-les si nécessaire pour récupérer des informations pertinentes à inclure dans le brouillon.\n--- Fin des outils ---`
+  }
 
   systemPrompt += `\n\nTu rédiges un brouillon de réponse email au nom de "${senderName}".
 Génère uniquement le corps de la réponse, sans salutation générique ni signature — l'utilisateur les ajoutera lui-même.
 Sois concis, professionnel et adapte-toi au ton du dernier message reçu.`
 
   try {
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        ...history,
-      ],
-      max_tokens: 1000,
-      temperature: 0.7,
-    })
+    let totalTokensUsed = 0
+    const toolMessages: OpenAIMessage[] = []
+    let suggestedText = ''
 
-    const suggested = completion.choices[0]?.message?.content ?? ''
-    const tokensUsed = completion.usage?.total_tokens ?? 0
+    for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+      const result = await generateAgentResponse({
+        model: agent.model || 'gpt-4o-mini',
+        temperature: agent.temperature ?? 0.7,
+        systemPrompt,
+        messages: [...history, ...toolMessages],
+        tools: openaiTools.length > 0 ? openaiTools : undefined,
+      })
 
-    if (tokensUsed > 0) {
-      await supabase.rpc('increment_token_usage', { p_user_id: user.id, p_tokens: tokensUsed })
+      if (!result.ok) {
+        return NextResponse.json({ error: `Erreur IA : ${result.error}` }, { status: 500 })
+      }
+
+      totalTokensUsed += result.tokensUsed
+
+      // Pas de tool calls → réponse finale
+      if (!result.toolCalls) {
+        suggestedText = result.content
+        break
+      }
+
+      // Exécuter les tool calls
+      toolMessages.push(result.rawMessage as OpenAIMessage)
+
+      for (const tc of result.toolCalls) {
+        const mapping = functionMap.get(tc.functionName)
+        if (!mapping) {
+          toolMessages.push({ role: 'tool', tool_call_id: tc.toolCallId, content: 'Error: Unknown function' })
+          continue
+        }
+
+        const { tool, fn } = mapping
+        const execResult = await executeToolCall(tool, fn, tc.arguments, {
+          userId: user.id,
+          agentId,
+          conversationId: conversation_id,
+        })
+
+        toolMessages.push({ role: 'tool', tool_call_id: tc.toolCallId, content: execResult.result })
+      }
     }
 
-    return NextResponse.json({ text: suggested, tokens_used: tokensUsed })
+    if (totalTokensUsed > 0) {
+      await supabase.rpc('increment_token_usage', { p_user_id: user.id, p_tokens: totalTokensUsed })
+    }
+
+    return NextResponse.json({ text: suggestedText, tokens_used: totalTokensUsed })
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err)
     return NextResponse.json({ error: `Erreur IA : ${errMsg}` }, { status: 500 })
