@@ -32,5 +32,5 @@ export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
 
 export function resolvePlan(value: string | null | undefined): PlanId {
   if (value === 'starter' || value === 'pro' || value === 'scale') return value
-  return 'scale'
+  return 'starter'
 }
