@@ -37,7 +37,6 @@ export async function POST(req: NextRequest) {
 
   // Vérifier le quota de sessions (WhatsApp + Email combinés)
   const sessionQuota = await checkPlanQuota(supabase, user.id, 'sessions')
-  console.log('[QUOTA DEBUG]', JSON.stringify({ userId: user.id, sessionQuota }))
   if (!sessionQuota.allowed) {
     const error = sessionQuota.reason === 'observer_mode'
       ? 'Votre compte est en mode visualisation. Souscrivez à un plan pour créer des sessions.'
