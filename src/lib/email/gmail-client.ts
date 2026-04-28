@@ -107,10 +107,15 @@ export async function sendEmailViaGmail(
 type GmailPart = { mimeType?: string; body?: { data?: string }; parts?: GmailPart[] }
 
 function extractBody(payload: GmailPart): string {
-  // Prefer plain text, strip signature after -- delimiter
+  // Prefer HTML for rich rendering in the UI
+  const html = findPart(payload, 'text/html')
+  if (html) return html
+
+  // Fallback: plain text with signature stripped
   const plain = findPart(payload, 'text/plain')
   if (plain) return stripSignature(plain)
-  // Fallback: top-level body
+
+  // Last resort: top-level body
   if (payload?.body?.data) return stripSignature(Buffer.from(payload.body.data, 'base64').toString('utf-8'))
   return ''
 }

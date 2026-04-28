@@ -76,7 +76,7 @@ export async function pollImapInbox(
                       from: fromAddr?.address ?? '',
                       fromName: fromAddr?.name ?? null,
                       subject: parsed.subject ?? '(sans objet)',
-                      body: stripSignature(parsed.text ?? (typeof parsed.html === 'string' ? parsed.html : '') ?? ''),
+                      body: typeof parsed.html === 'string' && parsed.html ? parsed.html : stripSignature(parsed.text ?? ''),
                       receivedAt: parsed.date ?? new Date(),
                     })
                   } catch { /* ignore parse errors */ }
