@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { decryptMessage } from '@/lib/crypto/encryption'
+import { retrieveContext } from '@/lib/knowledge/retriever'
 import OpenAI from 'openai'
 
 /** POST /api/email/suggest — Générer un brouillon de réponse email via l'agent IA de la session */
@@ -55,40 +56,69 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Aucun agent IA configuré (ni sur la conversation ni sur la session email)' }, { status: 400 })
   }
 
-  // Récupérer l'agent IA
+  // Récupérer l'agent IA (avec objective)
   const { data: agent } = await adminSupabase
     .from('ai_agents')
-    .select('id, name, system_prompt')
+    .select('id, name, system_prompt, objective')
     .eq('id', agentId)
-    .single() as { data: { id: string; name: string; system_prompt: string } | null }
+    .single() as { data: { id: string; name: string; system_prompt: string; objective: string | null } | null }
 
   if (!agent || !agent.system_prompt) {
     return NextResponse.json({ error: 'Agent IA introuvable ou sans prompt' }, { status: 404 })
   }
 
-  // Récupérer les 10 derniers messages de la conversation
+  // Récupérer les 30 derniers messages de la conversation (aligné avec le contexte WhatsApp)
   const { data: messages } = await adminSupabase
     .from('messages')
     .select('content, direction, sent_by, transcription')
     .eq('conversation_id', conversation_id)
     .order('created_at', { ascending: false })
-    .limit(10) as { data: Array<{ content: string; direction: string; sent_by: string; transcription: string | null }> | null }
+    .limit(30) as { data: Array<{ content: string; direction: string; sent_by: string; transcription: string | null }> | null }
 
   const history = (messages ?? []).reverse().map((m) => {
     const text = (() => { try { return decryptMessage(m.content) } catch { return m.content } })()
-    const subject = m.transcription?.startsWith('Objet: ') ? ` [${m.transcription}]` : ''
+    const subject = m.transcription?.startsWith('Objet: ') ? ` [Objet: ${m.transcription.slice(7)}]` : ''
     return {
       role: m.direction === 'inbound' ? 'user' : 'assistant' as 'user' | 'assistant',
       content: `${text}${subject}`,
     }
   })
 
+  // RAG : récupérer le contexte pertinent de la base de connaissances
+  let knowledgeContext = ''
+  const lastUserMessage = [...history].reverse().find((m) => m.role === 'user')
+  if (lastUserMessage) {
+    const ragResult = await retrieveContext({
+      agentId,
+      query: lastUserMessage.content,
+      topK: 5,
+      threshold: 0.35,
+    })
+    if (ragResult.ok && ragResult.context) {
+      knowledgeContext = ragResult.context
+    }
+  }
+
   const senderName = emailSession.display_name || emailSession.email_address
 
-  const systemPrompt = `${agent.system_prompt}
+  const now = new Date()
+  const dateStr = now.toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Europe/Paris' })
+  const timeStr = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' })
 
-Tu réponds à des emails au nom de "${senderName}".
-Génère uniquement le corps de la réponse email, sans salutation générique ni signature — l'utilisateur les ajoutera lui-même.
+  let systemPrompt = agent.system_prompt
+
+  if (agent.objective) {
+    systemPrompt += `\n\nObjectif principal : ${agent.objective}`
+  }
+
+  if (knowledgeContext) {
+    systemPrompt += `\n\n--- Base de connaissances (PRIORITAIRE) ---\nUtilise ces informations en priorité pour répondre de manière précise.\n\n${knowledgeContext}\n--- Fin de la base de connaissances ---`
+  }
+
+  systemPrompt += `\n\n--- Date et heure actuelles ---\nNous sommes le ${dateStr}, il est ${timeStr} (fuseau horaire : Europe/Paris).`
+
+  systemPrompt += `\n\nTu rédiges un brouillon de réponse email au nom de "${senderName}".
+Génère uniquement le corps de la réponse, sans salutation générique ni signature — l'utilisateur les ajoutera lui-même.
 Sois concis, professionnel et adapte-toi au ton du dernier message reçu.`
 
   try {
