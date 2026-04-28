@@ -6,10 +6,11 @@ import { encryptMessage } from '@/lib/crypto/encryption'
 
 function checkAuth(req: NextRequest): boolean {
   const cronSecret = process.env.CRON_SECRET
-  if (!cronSecret) return false // fail-secure : bloquer si secret non configuré
+  if (!cronSecret) return false
   const headerSecret = req.headers.get('authorization')?.replace('Bearer ', '')
     ?? req.headers.get('x-cron-secret')
-  return headerSecret === cronSecret
+  const urlSecret = req.nextUrl.searchParams.get('secret')
+  return headerSecret === cronSecret || urlSecret === cronSecret
 }
 
 /** GET /api/cron/poll-email — Polling IMAP pour les emails entrants (SMTP sessions) */
