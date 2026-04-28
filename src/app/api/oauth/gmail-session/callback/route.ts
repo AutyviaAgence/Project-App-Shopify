@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
   try {
     const wrapper = JSON.parse(Buffer.from(stateB64, 'base64url').toString())
     const hmacSecret = process.env.SUPABASE_SERVICE_ROLE_KEY!
-    const expectedSig = createHmac('sha256', hmacSecret).update(wrapper.d).digest('hex').slice(0, 16)
+    const expectedSig = createHmac('sha256', hmacSecret).update(wrapper.d).digest('hex')
     if (wrapper.s !== expectedSig) {
       return NextResponse.redirect(`${appUrl}/sessions?oauth_error=${encodeURIComponent('Invalid state signature')}`)
     }
@@ -78,7 +78,10 @@ export async function GET(req: NextRequest) {
       .eq('user_id', userId)
 
     // Activer Gmail Watch pour les notifications temps réel
-    const watchRes = await fetch(`${appUrl}/api/email-sessions/watch`, { method: 'POST' })
+    const watchRes = await fetch(`${appUrl}/api/email-sessions/watch`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${process.env.CRON_SECRET ?? ''}` },
+    })
     if (!watchRes.ok) console.error('[Gmail Session OAuth] Watch failed:', await watchRes.text())
 
     return NextResponse.redirect(`${appUrl}/sessions?oauth_success=gmail&tab=email`)

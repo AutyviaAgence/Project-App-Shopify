@@ -759,3 +759,37 @@ ALTER TABLE public.messages ADD COLUMN IF NOT EXISTS channel_message_id text;
 -- MIGRATION — Contacts email : session_id nullable + email_session_id
 ALTER TABLE public.contacts ALTER COLUMN session_id DROP NOT NULL;
 ALTER TABLE public.contacts ADD COLUMN IF NOT EXISTS email_session_id uuid REFERENCES public.email_sessions(id) ON DELETE CASCADE;
+
+-- ============================================================
+-- MIGRATION SÉCURITÉ — Déduplication emails + nettoyage sessions pending
+-- ============================================================
+
+-- Contrainte UNIQUE sur channel_message_id par conversation pour éviter doublons
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'messages_channel_message_id_conversation_unique'
+  ) THEN
+    ALTER TABLE public.messages
+      ADD CONSTRAINT messages_channel_message_id_conversation_unique
+      UNIQUE (channel_message_id, conversation_id);
+  END IF;
+END $$;
+
+-- Nettoyage automatique des sessions Gmail en état disconnected créées depuis plus de 30 min
+-- (sessions orphelines laissées si l'utilisateur a fermé le navigateur pendant OAuth)
+CREATE OR REPLACE FUNCTION public.cleanup_pending_email_sessions()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  DELETE FROM public.email_sessions
+  WHERE provider = 'gmail'
+    AND status = 'disconnected'
+    AND email_address = 'pending@gmail.com'
+    AND created_at < now() - interval '30 minutes';
+END;
+$$;
+
+REVOKE EXECUTE ON FUNCTION public.cleanup_pending_email_sessions() FROM anon, public;

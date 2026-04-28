@@ -64,6 +64,10 @@ async function getValidAccessToken(session: GmailSession): Promise<string> {
   return accessToken
 }
 
+function sanitizeHeader(value: string): string {
+  return value.replace(/\r\n|\r|\n/g, ' ').trim()
+}
+
 /** Send an email via Gmail API */
 export async function sendEmailViaGmail(
   session: GmailSession,
@@ -74,14 +78,19 @@ export async function sendEmailViaGmail(
 ): Promise<void> {
   const accessToken = await getValidAccessToken(session)
 
-  const from = session.display_name
-    ? `${session.display_name} <${session.email_address}>`
-    : session.email_address
+  const safeDisplayName = session.display_name ? sanitizeHeader(session.display_name) : null
+  const safeEmail = sanitizeHeader(session.email_address)
+  const safeTo = sanitizeHeader(to)
+  const safeSubject = sanitizeHeader(subject)
+
+  const from = safeDisplayName
+    ? `${safeDisplayName} <${safeEmail}>`
+    : safeEmail
 
   const headers = [
     `From: ${from}`,
-    `To: ${to}`,
-    `Subject: ${subject}`,
+    `To: ${safeTo}`,
+    `Subject: ${safeSubject}`,
     'Content-Type: text/plain; charset=utf-8',
     'MIME-Version: 1.0',
     ...(options?.inReplyTo ? [`In-Reply-To: ${options.inReplyTo}`, `References: ${options.inReplyTo}`] : []),

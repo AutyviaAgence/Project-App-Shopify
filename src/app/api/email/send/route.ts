@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  // Utiliser adminSupabase pour bypasser la RLS (conversations email ont session_id = null)
+  // Récupérer la conversation ET vérifier ownership via email_session en une requête
   const { data: conversation, error: convError } = await adminSupabase
     .from('conversations')
     .select('id, channel, email_session_id, contact_id')
@@ -49,15 +49,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Session email manquante sur la conversation' }, { status: 400 })
   }
 
-  // Récupérer la session email avec credentials
+  // Récupérer la session email ET vérifier que l'utilisateur en est le propriétaire
   const { data: emailSession, error: sessionError } = await adminSupabase
     .from('email_sessions')
     .select('*')
     .eq('id', conversation.email_session_id)
+    .eq('user_id', user.id)
     .single()
 
   if (sessionError || !emailSession) {
-    return NextResponse.json({ error: 'Session email introuvable' }, { status: 404 })
+    return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 
   // Récupérer le contact (destinataire)

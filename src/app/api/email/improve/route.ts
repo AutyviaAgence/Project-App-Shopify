@@ -22,6 +22,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'text requis' }, { status: 400 })
   }
 
+  // Limiter la taille des inputs pour éviter abus et injection de prompt
+  if (text.length > 5000) {
+    return NextResponse.json({ error: 'text trop long (max 5000 caractères)' }, { status: 400 })
+  }
+  const safeContext = context ? context.replace(/\n/g, ' ').slice(0, 500) : undefined
+
   const actionInstructions = {
     grammar: 'Corrige uniquement les fautes de grammaire, d\'orthographe et de ponctuation. Ne change pas le ton ni le contenu.',
     friendly: 'Rends le texte plus chaleureux, sympathique et accessible tout en gardant le sens.',
@@ -31,7 +37,7 @@ export async function POST(req: NextRequest) {
 
   const systemPrompt = `Tu es un assistant spécialisé dans la rédaction d'emails.
 ${actionInstructions}
-Retourne uniquement le texte amélioré, sans commentaire ni introduction.${context ? `\nContexte: ${context}` : ''}`
+Retourne uniquement le texte amélioré, sans commentaire ni introduction.${safeContext ? `\nContexte: ${safeContext}` : ''}`
 
   try {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })

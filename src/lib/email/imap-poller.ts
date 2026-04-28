@@ -42,7 +42,7 @@ export async function pollImapInbox(
       host,
       port,
       tls: port === 993,
-      tlsOptions: { rejectUnauthorized: false },
+      tlsOptions: { rejectUnauthorized: true },
       connTimeout: 15000,
       authTimeout: 10000,
     })

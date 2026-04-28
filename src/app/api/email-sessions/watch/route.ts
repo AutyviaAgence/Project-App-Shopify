@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { decryptMessage, encryptMessage } from '@/lib/crypto/encryption'
 
@@ -7,9 +7,13 @@ const PUBSUB_TOPIC = 'projects/ferrous-record-472712-t9/topics/AutyviaApp'
 /**
  * POST /api/email-sessions/watch
  * Active Gmail Watch sur toutes les sessions Gmail connectées.
- * À appeler après connexion OAuth ou via cron hebdomadaire (watch expire après 7 jours).
+ * Protégé par CRON_SECRET — appelé uniquement par le cron ou en interne.
  */
-export async function POST() {
+export async function POST(req: NextRequest) {
+  const cronSecret = process.env.CRON_SECRET
+  if (!cronSecret) return NextResponse.json({ error: 'CRON_SECRET non configuré' }, { status: 500 })
+  const auth = req.headers.get('authorization')?.replace('Bearer ', '')
+  if (auth !== cronSecret) return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
   const adminSupabase = createAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!

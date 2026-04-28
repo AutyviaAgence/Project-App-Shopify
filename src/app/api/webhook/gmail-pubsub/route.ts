@@ -9,6 +9,13 @@ import { encryptMessage } from '@/lib/crypto/encryption'
  * Pub/Sub envoie un POST avec body: { message: { data: base64, messageId, publishTime }, subscription }
  */
 export async function POST(req: NextRequest) {
+  // Vérifier que la requête vient bien de Google Cloud Pub/Sub
+  // Google envoie un Bearer token signé par le service account Pub/Sub
+  const authHeader = req.headers.get('authorization')
+  if (!authHeader?.startsWith('Bearer ')) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   try {
     const body = await req.json()
 
@@ -146,8 +153,8 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true })
   } catch (err) {
-    console.log('[gmail-pubsub] catch error:', err)
-    // Toujours ACK pour éviter que Pub/Sub ne réessaie en boucle
-    return NextResponse.json({ ok: true })
+    console.error('[gmail-pubsub] catch error:', err)
+    // Retourner 500 pour que Pub/Sub réessaie en cas d'erreur inattendue
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }

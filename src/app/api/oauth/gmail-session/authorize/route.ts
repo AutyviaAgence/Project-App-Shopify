@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
     userId: user.id,
     ts: Date.now(),
   })
-  const signature = createHmac('sha256', hmacSecret).update(stateData).digest('hex').slice(0, 16)
+  const signature = createHmac('sha256', hmacSecret).update(stateData).digest('hex')
   const state = Buffer.from(JSON.stringify({ d: stateData, s: signature })).toString('base64url')
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'

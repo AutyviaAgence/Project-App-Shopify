@@ -6,10 +6,10 @@ import { encryptMessage } from '@/lib/crypto/encryption'
 
 function checkAuth(req: NextRequest): boolean {
   const cronSecret = process.env.CRON_SECRET
-  if (!cronSecret) return true
-  const headerSecret = req.headers.get('x-cron-secret') ?? req.headers.get('authorization')?.replace('Bearer ', '')
-  const querySecret = req.nextUrl.searchParams.get('secret')
-  return headerSecret === cronSecret || querySecret === cronSecret
+  if (!cronSecret) return false // fail-secure : bloquer si secret non configuré
+  const headerSecret = req.headers.get('authorization')?.replace('Bearer ', '')
+    ?? req.headers.get('x-cron-secret')
+  return headerSecret === cronSecret
 }
 
 /** GET /api/cron/poll-email — Polling IMAP pour les emails entrants (SMTP sessions) */
@@ -148,12 +148,8 @@ async function runPollEmail() {
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err)
       errors.push({ session_id: session.id, error: errMsg })
-
-      // Marquer la session en erreur si IMAP échoue
-      await adminSupabase
-        .from('email_sessions')
-        .update({ status: 'error' })
-        .eq('id', session.id)
+      console.error(`[poll-email] Session ${session.id} error:`, errMsg)
+      // Ne pas marquer en erreur pour une erreur réseau temporaire
     }
   }))
 
