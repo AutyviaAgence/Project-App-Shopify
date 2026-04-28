@@ -106,6 +106,9 @@ export default function SessionsPage() {
   const [emailCreating, setEmailCreating] = useState(false)
   const [emailDeleting, setEmailDeleting] = useState<string | null>(null)
   const [emailProviderChoice, setEmailProviderChoice] = useState<'gmail' | 'smtp' | null>(null)
+  const [editingEmailSession, setEditingEmailSession] = useState<EmailSession | null>(null)
+  const [emailEditForm, setEmailEditForm] = useState({ name: '', display_name: '', smtp_host: '', smtp_port: '', smtp_user: '', smtp_password: '', imap_host: '', imap_port: '' })
+  const [savingEmailEdit, setSavingEmailEdit] = useState(false)
   const [emailForm, setEmailForm] = useState({
     name: '',
     email_address: '',
@@ -625,6 +628,56 @@ export default function SessionsPage() {
     }
   }
 
+  function openEditEmailSession(session: EmailSession) {
+    setEditingEmailSession(session)
+    setEmailEditForm({
+      name: session.name,
+      display_name: session.display_name ?? '',
+      smtp_host: session.smtp_host ?? '',
+      smtp_port: session.smtp_port ? String(session.smtp_port) : '',
+      smtp_user: session.smtp_user ?? '',
+      smtp_password: '',
+      imap_host: session.imap_host ?? '',
+      imap_port: session.imap_port ? String(session.imap_port) : '',
+    })
+  }
+
+  async function handleSaveEmailEdit() {
+    if (!editingEmailSession) return
+    setSavingEmailEdit(true)
+    try {
+      const body: Record<string, unknown> = {
+        name: emailEditForm.name.trim(),
+        display_name: emailEditForm.display_name.trim() || null,
+      }
+      if (editingEmailSession.provider === 'smtp') {
+        if (emailEditForm.smtp_host) body.smtp_host = emailEditForm.smtp_host.trim()
+        if (emailEditForm.smtp_port) body.smtp_port = parseInt(emailEditForm.smtp_port)
+        if (emailEditForm.smtp_user) body.smtp_user = emailEditForm.smtp_user.trim()
+        if (emailEditForm.smtp_password) body.smtp_password = emailEditForm.smtp_password
+        if (emailEditForm.imap_host) body.imap_host = emailEditForm.imap_host.trim()
+        if (emailEditForm.imap_port) body.imap_port = parseInt(emailEditForm.imap_port)
+      }
+      const res = await fetch(`/api/email-sessions/${editingEmailSession.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      const json = await res.json()
+      if (res.ok && json.data) {
+        setEmailSessions((prev) => prev.map((s) => s.id === editingEmailSession.id ? { ...json.data, channel: 'email' as const } : s))
+        setEditingEmailSession(null)
+        toast.success('Session email mise à jour')
+      } else {
+        toast.error(json.error || 'Erreur lors de la mise à jour')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setSavingEmailEdit(false)
+    }
+  }
+
   async function handleDeleteEmailSession(id: string) {
     setEmailDeleting(id)
     try {
@@ -1013,6 +1066,13 @@ export default function SessionsPage() {
                 <div className="mt-4 flex gap-2">
                   <Button
                     size="sm"
+                    variant="outline"
+                    onClick={() => openEditEmailSession(session)}
+                  >
+                    <Settings2 className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    size="sm"
                     variant="destructive"
                     onClick={() => handleDeleteEmailSession(session.id)}
                     disabled={emailDeleting === session.id}
@@ -1029,6 +1089,65 @@ export default function SessionsPage() {
           ))}
         </div>
       ))}
+
+      {/* Dialog modification session email */}
+      <Dialog open={!!editingEmailSession} onOpenChange={(open) => { if (!open) setEditingEmailSession(null) }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Modifier la session email</DialogTitle>
+            <DialogDescription>Modifiez le nom ou les paramètres de connexion.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1">
+              <Label>Nom de la session</Label>
+              <Input value={emailEditForm.name} onChange={(e) => setEmailEditForm((f) => ({ ...f, name: e.target.value }))} />
+            </div>
+            <div className="space-y-1">
+              <Label>Nom affiché (optionnel)</Label>
+              <Input placeholder="Ex: Support Autyvia" value={emailEditForm.display_name} onChange={(e) => setEmailEditForm((f) => ({ ...f, display_name: e.target.value }))} />
+            </div>
+            {editingEmailSession?.provider === 'smtp' && (
+              <>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label>Serveur SMTP</Label>
+                    <Input placeholder="smtp.example.com" value={emailEditForm.smtp_host} onChange={(e) => setEmailEditForm((f) => ({ ...f, smtp_host: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Port SMTP</Label>
+                    <Input placeholder="587" value={emailEditForm.smtp_port} onChange={(e) => setEmailEditForm((f) => ({ ...f, smtp_port: e.target.value }))} />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label>Utilisateur SMTP</Label>
+                  <Input value={emailEditForm.smtp_user} onChange={(e) => setEmailEditForm((f) => ({ ...f, smtp_user: e.target.value }))} />
+                </div>
+                <div className="space-y-1">
+                  <Label>Nouveau mot de passe (laisser vide pour conserver)</Label>
+                  <Input type="password" placeholder="••••••••" value={emailEditForm.smtp_password} onChange={(e) => setEmailEditForm((f) => ({ ...f, smtp_password: e.target.value }))} />
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-1">
+                    <Label>Serveur IMAP</Label>
+                    <Input placeholder="imap.example.com" value={emailEditForm.imap_host} onChange={(e) => setEmailEditForm((f) => ({ ...f, imap_host: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label>Port IMAP</Label>
+                    <Input placeholder="993" value={emailEditForm.imap_port} onChange={(e) => setEmailEditForm((f) => ({ ...f, imap_port: e.target.value }))} />
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 pt-2">
+            <Button variant="outline" onClick={() => setEditingEmailSession(null)}>Annuler</Button>
+            <Button onClick={handleSaveEmailEdit} disabled={savingEmailEdit || !emailEditForm.name.trim()}>
+              {savingEmailEdit ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
+              Enregistrer
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Connection Dialog (QR Code or Pairing Code) */}
       <Dialog
