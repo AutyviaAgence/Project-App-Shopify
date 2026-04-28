@@ -80,72 +80,93 @@ function OnboardingChecklist({ checklist, onRefresh }: { checklist: Checklist; o
   const steps = [
     {
       key: 'whatsapp_connected' as const,
-      label: 'Connecter une session WhatsApp',
-      description: 'Scannez un QR code ou connectez via l\'API Meta pour recevoir des messages.',
+      label: 'Session WhatsApp',
+      description: 'Connectez votre numéro via QR code ou l\'API Meta.',
       icon: Smartphone,
       done: checklist.whatsapp_connected,
       href: '/sessions',
       cta: 'Connecter',
+      color: 'from-green-500/20 to-emerald-500/10',
+      iconColor: 'text-green-500',
+      iconBg: 'bg-green-500/10',
       required: true,
     },
     {
       key: 'agent_created' as const,
-      label: 'Créer un agent IA',
-      description: 'Un qualificateur répond à tous les messages, un agent conversation répond après qualification.',
+      label: 'Agent IA',
+      description: 'Créez un agent qui répond automatiquement à vos contacts.',
       icon: Bot,
       done: checklist.agent_created,
       href: '/agents',
-      cta: 'Créer un agent',
+      cta: 'Créer',
+      color: 'from-violet-500/20 to-purple-500/10',
+      iconColor: 'text-violet-500',
+      iconBg: 'bg-violet-500/10',
       required: true,
     },
     {
       key: 'knowledge_created' as const,
-      label: 'Ajouter une base de connaissances',
-      description: 'Alimentez votre agent avec vos documents, FAQ, fiches produits pour des réponses précises.',
+      label: 'Base de connaissances',
+      description: 'Alimentez votre agent avec vos documents et FAQ.',
       icon: BookOpen,
       done: checklist.knowledge_created,
       href: '/knowledge',
-      cta: 'Ajouter des documents',
+      cta: 'Ajouter',
+      color: 'from-blue-500/20 to-sky-500/10',
+      iconColor: 'text-blue-500',
+      iconBg: 'bg-blue-500/10',
       required: true,
     },
     {
       key: 'tool_created' as const,
-      label: 'Connecter un outil',
-      description: 'Donnez à votre agent accès à Google Calendar, un CRM, Sheets ou votre propre API.',
+      label: 'Outil connecté',
+      description: 'Donnez à votre agent accès à Calendar, CRM ou une API.',
       icon: Wrench,
       done: checklist.tool_created,
       href: '/agents',
-      cta: 'Ajouter un outil',
+      cta: 'Connecter',
+      color: 'from-orange-500/20 to-amber-500/10',
+      iconColor: 'text-orange-500',
+      iconBg: 'bg-orange-500/10',
       required: true,
     },
     {
       key: 'link_with_agent' as const,
-      label: 'Créer un lien WhatsApp avec agent',
-      description: 'Un lien trackable qui déclenche une conversation automatique avec un agent IA.',
+      label: 'Lien WhatsApp',
+      description: 'Un lien trackable qui déclenche une conversation avec un agent.',
       icon: Link2,
       done: checklist.link_with_agent,
       href: '/links',
-      cta: 'Créer un lien',
+      cta: 'Créer',
+      color: 'from-teal-500/20 to-cyan-500/10',
+      iconColor: 'text-teal-500',
+      iconBg: 'bg-teal-500/10',
       required: true,
     },
     {
       key: 'team_created' as const,
-      label: 'Créer une équipe',
-      description: 'Invitez des collaborateurs et gérez leurs accès aux sessions et conversations.',
+      label: 'Équipe',
+      description: 'Invitez vos collaborateurs et gérez leurs accès.',
       icon: Users2,
       done: checklist.team_created,
       href: '/teams',
-      cta: 'Créer une équipe',
+      cta: 'Créer',
+      color: 'from-pink-500/20 to-rose-500/10',
+      iconColor: 'text-pink-500',
+      iconBg: 'bg-pink-500/10',
       required: true,
     },
     {
       key: 'email_connected' as const,
-      label: 'Connecter une session Email',
-      description: 'Gérez vos emails entrants depuis le même inbox que WhatsApp.',
+      label: 'Session Email',
+      description: 'Gérez vos emails depuis le même inbox que WhatsApp.',
       icon: Mail,
       done: checklist.email_connected,
       href: '/sessions',
-      cta: 'Connecter un email',
+      cta: 'Connecter',
+      color: 'from-indigo-500/20 to-blue-500/10',
+      iconColor: 'text-indigo-400',
+      iconBg: 'bg-indigo-500/10',
       required: false,
     },
   ]
@@ -154,117 +175,150 @@ function OnboardingChecklist({ checklist, onRefresh }: { checklist: Checklist; o
   const doneCount = requiredSteps.filter((s) => s.done).length
   const totalRequired = requiredSteps.length
   const progress = Math.round((doneCount / totalRequired) * 100)
-
   const showSeedButton = !checklist.agent_created || !checklist.knowledge_created
 
   return (
-    <div className="p-4 md:p-6 space-y-6 pb-20 md:pb-6 max-w-2xl mx-auto">
-      {/* Header */}
-      <div className="space-y-1">
-        <h1 className="text-2xl font-bold">Bienvenue sur Autyvia 👋</h1>
-        <p className="text-sm text-muted-foreground">
-          Complétez ces étapes pour commencer à automatiser vos conversations.
-        </p>
+    <div className="p-4 md:p-6 pb-20 md:pb-6 space-y-6">
+
+      {/* Hero banner */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/20 via-primary/10 to-accent/10 border border-primary/20 p-6 md:p-8">
+        <div className="absolute inset-0 bg-grid-white/5 [mask-image:linear-gradient(0deg,transparent,white)]" />
+        <div className="relative flex flex-col md:flex-row md:items-center gap-6">
+          <div className="flex-1 space-y-2">
+            <div className="flex items-center gap-2">
+              <span className="text-2xl">👋</span>
+              <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Bienvenue sur Autyvia</h1>
+            </div>
+            <p className="text-sm text-muted-foreground max-w-md">
+              Suivez ces étapes pour configurer votre plateforme et commencer à automatiser vos conversations WhatsApp avec l'IA.
+            </p>
+            {showSeedButton && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleSeed}
+                disabled={seeding}
+                className="mt-2 gap-1.5 border-primary/40 bg-background/60 hover:bg-background"
+              >
+                {seeding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 text-primary" />}
+                Créer un agent et une base de connaissances exemples
+              </Button>
+            )}
+          </div>
+
+          {/* Cercle de progression */}
+          <div className="flex flex-col items-center gap-1 shrink-0">
+            <div className="relative h-24 w-24">
+              <svg className="h-24 w-24 -rotate-90" viewBox="0 0 100 100">
+                <circle cx="50" cy="50" r="40" fill="none" stroke="currentColor" strokeWidth="8" className="text-muted/30" />
+                <circle
+                  cx="50" cy="50" r="40" fill="none" stroke="currentColor" strokeWidth="8"
+                  strokeDasharray={`${2 * Math.PI * 40}`}
+                  strokeDashoffset={`${2 * Math.PI * 40 * (1 - progress / 100)}`}
+                  strokeLinecap="round"
+                  className="text-primary transition-all duration-700"
+                />
+              </svg>
+              <div className="absolute inset-0 flex flex-col items-center justify-center">
+                <span className="text-xl font-bold">{progress}%</span>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">{doneCount}/{totalRequired} étapes</p>
+          </div>
+        </div>
       </div>
 
-      {/* Barre de progression */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between text-sm">
-          <span className="text-muted-foreground">{doneCount}/{totalRequired} étapes complétées</span>
-          <span className="font-medium text-primary">{progress}%</span>
-        </div>
-        <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-          <div
-            className="h-full bg-primary rounded-full transition-all duration-500"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-      </div>
-
-      {/* Étapes */}
-      <div className="space-y-2">
-        {steps.map((step) => {
+      {/* Grille des étapes */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {steps.filter(s => s.required).map((step, idx) => {
           const Icon = step.icon
           return (
             <div
               key={step.key}
               className={cn(
-                'flex items-start gap-3 rounded-xl border p-4 transition-colors',
+                'relative group rounded-xl border p-4 transition-all duration-200',
                 step.done
                   ? 'bg-primary/5 border-primary/20'
-                  : step.required
-                    ? 'bg-card border-border hover:border-primary/30'
-                    : 'bg-muted/30 border-dashed border-muted-foreground/30'
+                  : 'bg-card border-border hover:border-primary/30 hover:shadow-md cursor-pointer'
               )}
+              onClick={() => !step.done && router.push(step.href)}
             >
+              {/* Numéro */}
               <div className={cn(
-                'mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-                step.done ? 'bg-primary/10' : 'bg-muted'
+                'absolute top-3 right-3 flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold',
+                step.done ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+              )}>
+                {step.done ? '✓' : idx + 1}
+              </div>
+
+              {/* Icône */}
+              <div className={cn(
+                'mb-3 flex h-10 w-10 items-center justify-center rounded-xl',
+                step.done ? 'bg-primary/10' : step.iconBg
               )}>
                 {step.done
                   ? <CheckCircle2 className="h-5 w-5 text-primary" />
-                  : <Icon className="h-4 w-4 text-muted-foreground" />
+                  : <Icon className={cn('h-5 w-5', step.iconColor)} />
                 }
               </div>
 
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <p className={cn('text-sm font-medium', step.done && 'line-through text-muted-foreground')}>
-                    {step.label}
-                  </p>
-                  {!step.required && (
-                    <Badge variant="secondary" className="text-[10px]">Bonus</Badge>
-                  )}
-                </div>
-                {!step.done && (
-                  <p className="text-xs text-muted-foreground mt-0.5">{step.description}</p>
-                )}
-              </div>
+              {/* Texte */}
+              <p className={cn(
+                'text-sm font-semibold mb-1',
+                step.done && 'text-muted-foreground'
+              )}>
+                {step.label}
+              </p>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                {step.description}
+              </p>
 
+              {/* CTA */}
               {!step.done && (
-                <Button
-                  size="sm"
-                  variant={step.required ? 'default' : 'outline'}
-                  className="shrink-0 gap-1.5"
-                  onClick={() => router.push(step.href)}
-                >
-                  {step.cta}
-                  <ExternalLink className="h-3 w-3" />
-                </Button>
+                <div className="mt-3 flex items-center gap-1 text-xs font-medium text-primary opacity-0 group-hover:opacity-100 transition-opacity">
+                  {step.cta} <ArrowRight className="h-3 w-3" />
+                </div>
               )}
             </div>
           )
         })}
       </div>
 
-      {/* Bouton créer exemples */}
-      {showSeedButton && (
-        <div className="rounded-xl border border-dashed border-primary/40 bg-primary/5 p-4 flex items-start gap-3">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-            <Sparkles className="h-4 w-4 text-primary" />
-          </div>
-          <div className="flex-1">
-            <p className="text-sm font-medium">Démarrer avec un exemple</p>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Créez automatiquement un agent qualificateur et une base de connaissances pré-remplie pour tester la plateforme.
-            </p>
-          </div>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={handleSeed}
-            disabled={seeding}
-            className="shrink-0 gap-1.5"
-          >
-            {seeding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-            Créer les exemples
-          </Button>
+      {/* Bonus email */}
+      <div
+        className={cn(
+          'flex items-center gap-4 rounded-xl border border-dashed p-4 transition-all',
+          checklist.email_connected
+            ? 'border-primary/20 bg-primary/5'
+            : 'border-muted-foreground/20 hover:border-primary/30 cursor-pointer'
+        )}
+        onClick={() => !checklist.email_connected && router.push('/sessions')}
+      >
+        <div className={cn(
+          'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',
+          checklist.email_connected ? 'bg-primary/10' : 'bg-muted'
+        )}>
+          {checklist.email_connected
+            ? <CheckCircle2 className="h-5 w-5 text-primary" />
+            : <Mail className="h-5 w-5 text-muted-foreground" />
+          }
         </div>
-      )}
+        <div className="flex-1">
+          <div className="flex items-center gap-2">
+            <p className={cn('text-sm font-medium', checklist.email_connected && 'text-muted-foreground')}>
+              Session Email
+            </p>
+            <Badge variant="secondary" className="text-[10px]">Bonus</Badge>
+          </div>
+          <p className="text-xs text-muted-foreground">Gérez vos emails depuis le même inbox que WhatsApp.</p>
+        </div>
+        {!checklist.email_connected && (
+          <Button size="sm" variant="outline" className="shrink-0">Connecter</Button>
+        )}
+      </div>
 
-      {/* Aide */}
       <p className="text-center text-xs text-muted-foreground">
-        Une fois toutes les étapes complétées, votre tableau de bord de statistiques s'affichera ici.
+        Une fois toutes les étapes complétées, votre tableau de bord de statistiques s'affichera automatiquement.
       </p>
     </div>
   )
