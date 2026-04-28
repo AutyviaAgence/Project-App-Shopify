@@ -92,18 +92,14 @@ async function verifyPubSubToken(token: string): Promise<boolean> {
  * POST /api/webhook/gmail-pubsub
  * Reçoit les notifications Pub/Sub de Gmail et traite les nouveaux emails.
  * Pub/Sub envoie un POST avec body: { message: { data: base64, messageId, publishTime }, subscription }
+ * Sécurisé par un secret dans l'URL : ?secret=CRON_SECRET
  */
 export async function POST(req: NextRequest) {
-  // Vérifier que la requête vient bien de Google Cloud Pub/Sub via JWT signé
-  const authHeader = req.headers.get('authorization')
-  const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : null
-  if (!token) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const cronSecret = process.env.CRON_SECRET
+  const urlSecret = req.nextUrl.searchParams.get('secret')
 
-  const isValid = await verifyPubSubToken(token)
-  if (!isValid) {
-    console.warn('[gmail-pubsub] Invalid Pub/Sub JWT token')
+  if (!cronSecret || urlSecret !== cronSecret) {
+    console.warn('[gmail-pubsub] Invalid secret')
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
