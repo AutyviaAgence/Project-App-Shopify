@@ -55,14 +55,30 @@ export async function GET(
   }
 
   // QR code classique
-  // First try to get QR directly. If Baileys is dead ("Connection Closed"),
-  // restart the instance to resurrect the Baileys socket, then retry.
   let evoResult = await evolution.getQRCode(session.instance_name)
 
+  // Si l'instance n'existe plus (supprimée via Prisma / zombie cleaner), la recréer
+  if (!evoResult.ok && (evoResult.error.includes('404') || evoResult.error.includes('does not exist'))) {
+    console.log('[QR] Instance not found, recreating:', session.instance_name)
+    const createResult = await evolution.createInstance(session.instance_name)
+    if (!createResult.ok) {
+      return NextResponse.json({ error: `Impossible de recréer l'instance: ${createResult.error}` }, { status: 502 })
+    }
+    // Configure webhook on recreated instance
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL
+    if (appUrl) {
+      const wSecret = process.env.EVOLUTION_WEBHOOK_SECRET
+      const sParam = wSecret ? `?secret=${wSecret}` : ''
+      await evolution.setWebhook(session.instance_name, `${appUrl.replace(/\/$/, '')}/api/webhook/evolution${sParam}`)
+    }
+    await new Promise(resolve => setTimeout(resolve, 3000))
+    evoResult = await evolution.getQRCode(session.instance_name)
+  }
+
+  // Si Baileys est mort ("Connection Closed"), redémarrer l'instance puis réessayer
   if (!evoResult.ok && (evoResult.error.includes('Connection Closed') || evoResult.error.includes('connection closed'))) {
     console.log('[QR] Baileys dead, restarting instance:', session.instance_name)
     await evolution.restartInstance(session.instance_name)
-    // Wait for Baileys to restart
     await new Promise(resolve => setTimeout(resolve, 3000))
     evoResult = await evolution.getQRCode(session.instance_name)
   }

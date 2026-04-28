@@ -863,7 +863,24 @@ export default function SessionsPage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => {
+                        onClick={async () => {
+                          // Check real status first — Evolution may still be open
+                          try {
+                            const statusRes = await fetch(`/api/sessions/${session.id}/status`)
+                            const statusJson = await statusRes.json()
+                            if (statusRes.ok && statusJson.data) {
+                              const updated = statusJson.data as WhatsAppSession
+                              setSessions((prev) => prev.map((s) => s.id === updated.id ? updated : s))
+                              if (updated.status === 'connected') {
+                                toast.success(t('sessions.connected_toast', { name: getSessionDisplayName(updated) }))
+                                return
+                              }
+                              // Still disconnected — show QR dialog
+                              setQrSession(updated)
+                              handleRefreshQR(session.id)
+                              return
+                            }
+                          } catch { /* ignore */ }
                           setQrSession(session)
                           handleRefreshQR(session.id)
                         }}
