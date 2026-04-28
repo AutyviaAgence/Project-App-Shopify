@@ -48,7 +48,12 @@ async function runPollEmail() {
         : await pollImapInbox(session)
       if (emails.length === 0) return
 
-      for (const email of emails) {
+      // Ignorer les emails reçus avant la création de la session
+      const sessionCreatedAt = new Date(session.created_at)
+      const newEmails = emails.filter((e) => e.receivedAt >= sessionCreatedAt)
+      if (newEmails.length === 0) return
+
+      for (const email of newEmails) {
         // Trouver ou créer un contact basé sur l'adresse email de l'expéditeur
         let contactId: string
 

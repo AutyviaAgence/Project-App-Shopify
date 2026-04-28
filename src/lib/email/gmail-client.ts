@@ -134,12 +134,18 @@ function findPart(part: GmailPart, mimeType: string): string {
 }
 
 /** Poll unread emails from Gmail inbox */
-export async function pollGmailInbox(session: GmailSession): Promise<IncomingGmailMessage[]> {
+export async function pollGmailInbox(session: GmailSession & { created_at?: string }): Promise<IncomingGmailMessage[]> {
   const accessToken = await getValidAccessToken(session)
 
-  // List unread messages in INBOX (5 max, last 7 days only)
+  // Only fetch emails received after the session was created
+  const afterEpoch = session.created_at
+    ? Math.floor(new Date(session.created_at).getTime() / 1000)
+    : Math.floor((Date.now() - 24 * 60 * 60 * 1000) / 1000)
+
+  // List unread messages in INBOX (5 max, after session creation)
+  const q = encodeURIComponent(`is:unread after:${afterEpoch}`)
   const listRes = await fetch(
-    'https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=INBOX&q=is:unread%20newer_than:7d&maxResults=5',
+    `https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=INBOX&q=${q}&maxResults=5`,
     { headers: { Authorization: `Bearer ${accessToken}` } }
   )
 
