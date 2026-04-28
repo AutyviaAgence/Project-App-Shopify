@@ -24,6 +24,16 @@ async function runPollEmail() {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
+  // Renouveler le watch Gmail Pub/Sub (expire tous les 7 jours — on le renouvelle à chaque cron)
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL
+  const cronSecret = process.env.CRON_SECRET
+  if (appUrl && cronSecret) {
+    fetch(`${appUrl}/api/email-sessions/watch`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${cronSecret}` },
+    }).catch((err) => console.warn('[poll-email] Gmail watch renewal failed:', err))
+  }
+
   // Récupérer toutes les sessions email connectées avec credentials
   const { data: sessions, error } = await adminSupabase
     .from('email_sessions')
