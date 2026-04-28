@@ -82,7 +82,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     NAV_ITEMS_KEYS
       .filter(item => {
         if (isAdmin) return true // admin voit tout
-        if (item.href === '/campaigns' && plan !== 'pro' && plan !== 'scale') return false
+        if (item.href === '/campaigns' && plan !== 'scale') return false
         if (item.href === '/lifecycle' && plan !== 'pro' && plan !== 'scale') return false
         return true
       })
@@ -120,7 +120,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     subscription &&
     (onboardingStatus === 'active' || onboardingStatus === 'onboarding') &&
     subscription.isActive &&
-    ((pathname.startsWith('/campaigns') && plan !== 'pro' && plan !== 'scale') ||
+    ((pathname.startsWith('/campaigns') && plan !== 'scale') ||
      (pathname.startsWith('/lifecycle') && plan === 'starter'))
 
   // Close sidebar on route change (mobile) + escape key
@@ -376,7 +376,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <h2 className="text-2xl font-bold text-foreground">Upgrade requis</h2>
                   <p className="text-muted-foreground">
                     {pathname.startsWith('/campaigns')
-                      ? 'Les campagnes broadcast sont disponibles à partir du plan Pro.'
+                      ? 'Les campagnes broadcast sont disponibles uniquement avec le plan Scale.'
                       : 'Le module Lifecycle est disponible à partir du plan Pro.'}
                   </p>
                 </div>
