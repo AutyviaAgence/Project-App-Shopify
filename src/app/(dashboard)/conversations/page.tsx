@@ -631,6 +631,7 @@ function ConversationsPageContent() {
           const newMsg = payload.new as Message
 
           // Play sound for any inbound message
+          console.log('[Sound debug] direction:', newMsg.direction, 'msg:', newMsg.id)
           if (newMsg.direction === 'inbound') playMessageSound()
 
           // Check if this message belongs to a conversation we don't have yet (new conversation)
