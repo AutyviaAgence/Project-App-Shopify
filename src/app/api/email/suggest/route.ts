@@ -25,18 +25,18 @@ export async function POST(req: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  // Récupérer la conversation
+  // Récupérer la conversation (avec l'agent assigné à la conversation si présent)
   const { data: conversation } = await adminSupabase
     .from('conversations')
-    .select('id, channel, email_session_id')
+    .select('id, channel, email_session_id, ai_agent_id')
     .eq('id', conversation_id)
-    .single() as { data: { id: string; channel: string; email_session_id: string | null } | null }
+    .single() as { data: { id: string; channel: string; email_session_id: string | null; ai_agent_id: string | null } | null }
 
   if (!conversation || conversation.channel !== 'email' || !conversation.email_session_id) {
     return NextResponse.json({ error: 'Conversation email introuvable' }, { status: 404 })
   }
 
-  // Vérifier ownership + récupérer l'agent de la session
+  // Vérifier ownership + récupérer l'agent de la session (fallback)
   const { data: emailSession } = await adminSupabase
     .from('email_sessions')
     .select('id, email_agent_id, email_address, display_name')
@@ -48,15 +48,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 
-  if (!emailSession.email_agent_id) {
-    return NextResponse.json({ error: 'Aucun agent IA configuré sur cette session email' }, { status: 400 })
+  // Priorité : agent de la conversation > agent de la session
+  const agentId = conversation.ai_agent_id ?? emailSession.email_agent_id
+
+  if (!agentId) {
+    return NextResponse.json({ error: 'Aucun agent IA configuré (ni sur la conversation ni sur la session email)' }, { status: 400 })
   }
 
   // Récupérer l'agent IA
   const { data: agent } = await adminSupabase
     .from('ai_agents')
     .select('id, name, system_prompt')
-    .eq('id', emailSession.email_agent_id)
+    .eq('id', agentId)
     .single() as { data: { id: string; name: string; system_prompt: string } | null }
 
   if (!agent || !agent.system_prompt) {

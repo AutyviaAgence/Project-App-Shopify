@@ -627,7 +627,7 @@ export function ChatArea({
                 </div>
               )}
               <div className="flex items-center justify-between">
-                {(selectedConv?.session as { email_agent_id?: string | null } | undefined)?.email_agent_id ? (
+                {(selectedConv?.ai_agent_id || (selectedConv?.session as { email_agent_id?: string | null } | undefined)?.email_agent_id) ? (
                   <Button
                     size="sm"
                     variant="outline"
