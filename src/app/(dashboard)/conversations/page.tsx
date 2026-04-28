@@ -630,6 +630,9 @@ function ConversationsPageContent() {
         async (payload) => {
           const newMsg = payload.new as Message
 
+          // Play sound for any inbound message
+          if (newMsg.direction === 'inbound') playMessageSound()
+
           // Check if this message belongs to a conversation we don't have yet (new conversation)
           setConversations((prev) => {
             const exists = prev.some((c) => c.id === newMsg.conversation_id)
@@ -654,7 +657,6 @@ function ConversationsPageContent() {
                 if (json.data) {
                   setMessages((prev) => {
                     if (prev.some((m) => m.id === json.data.id)) return prev
-                    if (json.data.direction === 'inbound') playMessageSound()
                     return [...prev, json.data]
                   })
                 }
