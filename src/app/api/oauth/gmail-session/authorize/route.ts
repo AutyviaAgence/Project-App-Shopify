@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { buildGoogleAuthUrl } from '@/lib/oauth/google'
 import { createHmac } from 'crypto'
+import { checkPlanQuota } from '@/lib/plan-quota'
 
 const GMAIL_SCOPES = [
   'https://www.googleapis.com/auth/gmail.send',
@@ -36,6 +37,17 @@ export async function POST(req: NextRequest) {
 
   if (!session_name) {
     return NextResponse.json({ error: 'session_name requis' }, { status: 400 })
+  }
+
+  // Vérifier le quota de sessions (WhatsApp + Email combinés)
+  const sessionQuota = await checkPlanQuota(supabase, user.id, 'sessions')
+  if (!sessionQuota.allowed) {
+    const error = sessionQuota.reason === 'observer_mode'
+      ? 'Votre compte est en mode visualisation. Souscrivez à un plan pour créer des sessions.'
+      : sessionQuota.reason === 'no_subscription'
+      ? 'Abonnement requis pour créer une session email.'
+      : `Limite atteinte : votre plan ${sessionQuota.plan} inclut ${sessionQuota.limit} session(s). Passez à un plan supérieur pour en ajouter davantage.`
+    return NextResponse.json({ error, quota_exceeded: true, reason: sessionQuota.reason, limit: sessionQuota.limit, current: sessionQuota.current }, { status: 403 })
   }
 
   // Créer la session email en état "disconnected" (sera mis à jour après OAuth)
