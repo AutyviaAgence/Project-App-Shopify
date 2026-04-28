@@ -12,6 +12,24 @@ import { ConversationList } from './_components/conversation-list'
 import { ChatArea } from './_components/chat-area'
 import type { ConversationWithJoins, Team, Message, AIAgent, LifecycleStage } from './_components/types'
 
+function playMessageSound() {
+  try {
+    const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
+    const oscillator = ctx.createOscillator()
+    const gain = ctx.createGain()
+    oscillator.connect(gain)
+    gain.connect(ctx.destination)
+    oscillator.frequency.setValueAtTime(880, ctx.currentTime)
+    oscillator.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.1)
+    gain.gain.setValueAtTime(0.15, ctx.currentTime)
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3)
+    oscillator.start(ctx.currentTime)
+    oscillator.stop(ctx.currentTime + 0.3)
+  } catch {
+    // AudioContext not available (SSR or user gesture required)
+  }
+}
+
 function ConversationsPageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -635,6 +653,7 @@ function ConversationsPageContent() {
                 if (json.data) {
                   setMessages((prev) => {
                     if (prev.some((m) => m.id === json.data.id)) return prev
+                    if (json.data.direction === 'inbound') playMessageSound()
                     return [...prev, json.data]
                   })
                 }
