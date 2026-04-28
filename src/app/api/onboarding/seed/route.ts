@@ -97,7 +97,7 @@ Pour toute question, contactez le support Autyvia depuis les paramètres de votr
       .insert({
         user_id: user.id,
         name: SEED_KB_NAME,
-        content: exampleContent,
+        text_content: exampleContent,
         doc_type: 'text',
         status: 'pending',
         char_count: exampleContent.length,
