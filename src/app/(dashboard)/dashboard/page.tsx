@@ -192,17 +192,17 @@ function OnboardingChecklist({ checklist, onRefresh }: { checklist: Checklist; o
             <p className="text-sm text-muted-foreground max-w-md">
               Suivez ces étapes pour configurer votre plateforme et commencer à automatiser vos conversations WhatsApp avec l'IA.
             </p>
-            <div className="flex flex-wrap gap-2 mt-2">
+            <div className="flex flex-col gap-2 mt-2 items-start">
               {showSeedButton && (
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={handleSeed}
                   disabled={seeding}
-                  className="gap-1.5 border-primary/40 bg-background/60 hover:bg-background"
+                  className="gap-1.5 border-primary/40 bg-background/60 hover:bg-background w-full sm:w-auto"
                 >
                   {seeding ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 text-primary" />}
-                  Créer un agent et une base de connaissances exemples
+                  <span className="truncate">Créer un agent et une base de connaissances exemples</span>
                 </Button>
               )}
               <StartTourButton className="border-primary/40 bg-background/60 hover:bg-background" />

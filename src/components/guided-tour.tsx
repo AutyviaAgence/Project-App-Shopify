@@ -33,23 +33,6 @@ interface TourContextType {
 
 // Tour steps configuration - title/description hold i18n keys
 const ALL_TOUR_STEPS: TourStep[] = [
-  // Dashboard - Welcome
-  {
-    id: 'welcome',
-    page: '/dashboard',
-    target: '[data-tour="header"]',
-    title: 'tour.welcome_title',
-    description: 'tour.welcome_desc',
-    position: 'bottom'
-  },
-  {
-    id: 'dashboard-kpi',
-    page: '/dashboard',
-    target: '[data-tour="kpi-cards"]',
-    title: 'tour.dashboard_title',
-    description: 'tour.dashboard_desc',
-    position: 'bottom'
-  },
   // Sessions
   {
     id: 'sessions-page',
@@ -178,8 +161,8 @@ const ALL_TOUR_STEPS: TourStep[] = [
   // End
   {
     id: 'tour-end',
-    page: '/dashboard',
-    target: '[data-tour="header"]',
+    page: '/sessions',
+    target: '[data-tour="sessions-header"]',
     title: 'tour.ready_title',
     description: 'tour.ready_desc',
     position: 'bottom'
