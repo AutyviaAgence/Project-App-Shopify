@@ -82,7 +82,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     NAV_ITEMS_KEYS
       .filter(item => {
         if (isAdmin) return true // admin voit tout
-        if (item.href === '/campaigns' && plan !== 'scale') return false
+        if (item.href === '/campaigns' && plan !== 'pro' && plan !== 'scale') return false
         if (item.href === '/lifecycle' && plan !== 'pro' && plan !== 'scale') return false
         return true
       })
@@ -120,7 +120,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     subscription &&
     (onboardingStatus === 'active' || onboardingStatus === 'onboarding') &&
     subscription.isActive &&
-    ((pathname.startsWith('/campaigns') && plan !== 'scale') ||
+    ((pathname.startsWith('/campaigns') && plan !== 'pro' && plan !== 'scale') ||
      (pathname.startsWith('/lifecycle') && plan === 'starter'))
 
   // Close sidebar on route change (mobile) + escape key
@@ -164,9 +164,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           'group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200',
           isActive
             ? 'bg-primary text-white shadow-sm'
-            : 'text-white/70 hover:bg-white/10 hover:text-white'
+            : 'text-white/70 hover:bg-white/10 hover:text-white',
+          collapsed && 'justify-center px-2'
         )}
-        title={!showLabel ? item.label : undefined}
+        title={collapsed ? item.label : undefined}
       >
         <item.icon className={cn('h-5 w-5 shrink-0', isActive && 'text-white')} />
         {showLabel && (
@@ -375,7 +376,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                   <h2 className="text-2xl font-bold text-foreground">Upgrade requis</h2>
                   <p className="text-muted-foreground">
                     {pathname.startsWith('/campaigns')
-                      ? 'Les campagnes broadcast sont disponibles uniquement avec le plan Scale.'
+                      ? 'Les campagnes broadcast sont disponibles à partir du plan Pro.'
                       : 'Le module Lifecycle est disponible à partir du plan Pro.'}
                   </p>
                 </div>
@@ -427,7 +428,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           { href: '/dashboard', icon: LayoutDashboard, label: t('nav.home') },
           { href: '/conversations', icon: MessageSquare, label: t('nav.chat') },
           { href: '/agents', icon: Bot, label: t('common.agents') },
-          { href: '/sessions', icon: Smartphone, label: t('nav.sessions') },
+          { href: '/knowledge', icon: BookOpen, label: t('nav.knowledge') },
           { href: '/settings', icon: Settings, label: t('nav.config') },
         ].map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/')

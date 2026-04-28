@@ -96,6 +96,22 @@ export function ChatArea({
 
   const isEmail = selectedConv?.channel === 'email'
 
+  // Pré-remplir le sujet avec le dernier sujet reçu (format "Re: [sujet]")
+  useEffect(() => {
+    if (!isEmail || !messages.length) return
+    const lastSubject = [...messages]
+      .reverse()
+      .map((m) => {
+        const t = (m as typeof m & { transcription?: string | null }).transcription
+        return t?.startsWith('Objet: ') ? t.slice(7) : null
+      })
+      .find(Boolean)
+    if (lastSubject) {
+      const prefix = lastSubject.startsWith('Re:') ? '' : 'Re: '
+      setEmailSubject(prefix + lastSubject)
+    }
+  }, [selectedConv?.id, isEmail]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleSendEmail = async () => {
     if (!emailBody.trim() || sending) return
     await onSendEmail(emailBody.trim(), emailSubject.trim() || 'Re:')
