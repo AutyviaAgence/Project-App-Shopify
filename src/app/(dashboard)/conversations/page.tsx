@@ -264,7 +264,7 @@ function ConversationsPageContent() {
 
       if (json.data?.id) {
         setMessages((prev) =>
-          prev.map((m) => (m.id === optimistic.id ? json.data : m))
+          prev.map((m) => (m.id === optimistic.id ? { ...json.data, content } : m))
         )
       }
     } catch {
@@ -311,7 +311,7 @@ function ConversationsPageContent() {
         return
       }
       if (json.data?.id) {
-        setMessages((prev) => prev.map((m) => (m.id === optimistic.id ? json.data : m)))
+        setMessages((prev) => prev.map((m) => (m.id === optimistic.id ? { ...json.data, content } : m)))
       }
     } catch {
       toast.error(t('common.network_error'))
