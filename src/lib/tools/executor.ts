@@ -190,11 +190,17 @@ export async function executeToolCall(
   const { config, credentialId } = await resolveToolConfig(tool)
   const cleanArgs = sanitizeParams(args)
 
-  // Check rate limit
-  const { data: allowed } = await supabase.rpc('check_tool_rate_limit', {
-    p_tool_id: tool.id,
-    p_rate_limit: tool.rate_limit,
-  })
+  // Check rate limit (count executions in last hour, skip rate_limited entries)
+  const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+  const { count: execCount } = await supabase
+    .from('tool_execution_logs')
+    .select('id', { count: 'exact', head: true })
+    .eq('tool_id', tool.id)
+    .in('status', ['success', 'error'])
+    .gte('created_at', oneHourAgo)
+
+  const rateLimit = tool.rate_limit ?? 60
+  const allowed = (execCount ?? 0) < rateLimit
 
   if (!allowed) {
     const duration = Date.now() - startTime
