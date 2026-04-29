@@ -219,7 +219,7 @@ export async function PATCH(
       const currentTeamIds = (currentTeamLinks || []).map((t: { team_id: string }) => t.team_id).sort()
       const incomingTeamIds = [...selectedTeamIds].sort()
       const sameTeams = currentTeamIds.length === incomingTeamIds.length &&
-        currentTeamIds.every((tid, i) => tid === incomingTeamIds[i])
+        currentTeamIds.every((tid: string, i: number) => tid === incomingTeamIds[i])
       if (!sameTeams) {
         return NextResponse.json({ error: 'Seul le propriétaire peut changer les équipes' }, { status: 403 })
       }
