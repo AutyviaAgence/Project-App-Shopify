@@ -211,7 +211,8 @@ export async function PATCH(
     // Seul le propriétaire peut changer les équipes — mais si un membre envoie les mêmes team_ids qu'avant, on ignore
     if (existingAgent.user_id !== user.id) {
       // Récupérer les team_ids actuels de l'agent
-      const { data: currentTeamLinks } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: currentTeamLinks } = await (supabase as any)
         .from('agent_teams')
         .select('team_id')
         .eq('agent_id', id)
