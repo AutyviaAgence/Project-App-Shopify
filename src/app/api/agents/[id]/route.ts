@@ -208,9 +208,38 @@ export async function PATCH(
   const selectedTeamIds = team_ids !== undefined ? team_ids : (team_id !== undefined ? (team_id ? [team_id] : []) : undefined)
 
   if (selectedTeamIds !== undefined) {
-    // Seul le propriétaire de l'agent peut changer les équipes
+    // Seul le propriétaire peut changer les équipes — mais si un membre envoie les mêmes team_ids qu'avant, on ignore
     if (existingAgent.user_id !== user.id) {
-      return NextResponse.json({ error: 'Seul le propriétaire peut changer les équipes' }, { status: 403 })
+      // Récupérer les team_ids actuels de l'agent
+      const { data: currentTeamLinks } = await supabase
+        .from('agent_teams')
+        .select('team_id')
+        .eq('agent_id', id)
+      const currentTeamIds = (currentTeamLinks || []).map((t: { team_id: string }) => t.team_id).sort()
+      const incomingTeamIds = [...selectedTeamIds].sort()
+      const sameTeams = currentTeamIds.length === incomingTeamIds.length &&
+        currentTeamIds.every((tid, i) => tid === incomingTeamIds[i])
+      if (!sameTeams) {
+        return NextResponse.json({ error: 'Seul le propriétaire peut changer les équipes' }, { status: 403 })
+      }
+      // Mêmes équipes → on skip la mise à jour des équipes pour ce membre
+      // (on continue sans toucher agent_teams)
+      const skipTeamUpdate = true
+      if (skipTeamUpdate) {
+        // Ne pas exécuter le bloc de mise à jour des équipes ci-dessous
+        const updateDataCopy = { ...updateData }
+        if (Object.keys(updateDataCopy).length > 0) {
+          const { data: updatedAgent, error } = await supabase
+            .from('ai_agents')
+            .update(updateDataCopy)
+            .eq('id', id)
+            .select()
+            .single()
+          if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+          return NextResponse.json({ data: updatedAgent })
+        }
+        return NextResponse.json({ data: existingAgent })
+      }
     }
 
     // Vérifier que l'utilisateur a accès aux équipes spécifiées
