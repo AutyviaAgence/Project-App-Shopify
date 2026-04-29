@@ -88,21 +88,30 @@ export async function recordTokenUsage(userId: string, tokensUsed: number): Prom
 
   const supabase = getAdminClient()
 
-  // Incrémenter atomiquement via RPC
-  const { data, error } = await supabase.rpc('increment_token_usage', {
-    p_user_id: userId,
-    p_tokens: tokensUsed,
-  })
+  // Fetch current values and increment atomically
+  const { data: profile, error: fetchError } = await supabase
+    .from('profiles')
+    .select('tokens_used, tokens_limit, tokens_extra')
+    .eq('id', userId)
+    .single()
 
-  if (error) {
-    console.error('[TokenTracker] Error incrementing tokens:', error.message)
+  if (fetchError || !profile) {
+    console.error('[TokenTracker] Error fetching profile:', fetchError?.message)
     return
   }
 
-  const result = data?.[0]
-  if (!result) return
+  const new_total = (profile.tokens_used || 0) + tokensUsed
+  const { error: updateError } = await supabase
+    .from('profiles')
+    .update({ tokens_used: new_total })
+    .eq('id', userId)
 
-  const { new_total, token_limit, tokens_extra } = result
+  if (updateError) {
+    console.error('[TokenTracker] Error incrementing tokens:', updateError.message)
+    return
+  }
+
+  const { token_limit, tokens_extra } = profile
   const totalLimit = (token_limit || 0) + (tokens_extra || 0)
   const usagePercent = totalLimit > 0 ? (new_total / totalLimit) * 100 : 100
   const wasBelow = totalLimit > 0 ? ((new_total - tokensUsed) / totalLimit) * 100 : 100
