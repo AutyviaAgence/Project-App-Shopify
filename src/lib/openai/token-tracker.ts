@@ -111,7 +111,7 @@ export async function recordTokenUsage(userId: string, tokensUsed: number): Prom
     return
   }
 
-  const { token_limit, tokens_extra } = profile
+  const { tokens_limit: token_limit, tokens_extra } = profile
   const totalLimit = (token_limit || 0) + (tokens_extra || 0)
   const usagePercent = totalLimit > 0 ? (new_total / totalLimit) * 100 : 100
   const wasBelow = totalLimit > 0 ? ((new_total - tokensUsed) / totalLimit) * 100 : 100
