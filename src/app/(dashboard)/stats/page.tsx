@@ -51,13 +51,20 @@ import {
   Smartphone,
   Globe,
   BarChart2,
+  Mail,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { fr, enUS } from 'date-fns/locale'
 import { getSessionDisplayName, formatPhoneNumber } from '@/lib/format-phone'
 import { useTranslation } from '@/i18n/context'
 
-type SessionOption = { id: string; instance_name: string; phone_number?: string | null; display_name?: string | null }
+type SessionOption = {
+  id: string
+  instance_name: string
+  phone_number?: string | null
+  display_name?: string | null
+  channel: 'whatsapp' | 'email'
+}
 
 function formatSeconds(s: number): string {
   if (s < 60) return `${s}s`
@@ -69,6 +76,7 @@ function formatSeconds(s: number): string {
 export default function StatsPage() {
   const { t, locale } = useTranslation()
   const [period, setPeriod] = useState('30')
+  const [channelFilter, setChannelFilter] = useState<'all' | 'whatsapp' | 'email'>('all')
   const [sessionFilter, setSessionFilter] = useState('all')
   const [sessions, setSessions] = useState<SessionOption[]>([])
   const [stats, setStats] = useState<StatsResponse | null>(null)
@@ -78,28 +86,52 @@ export default function StatsPage() {
   const dateFnsLocale = locale === 'fr' ? fr : enUS
   const numberLocale = locale === 'fr' ? 'fr-FR' : 'en-US'
 
-  // Charger la liste des sessions une seule fois
+  // Filtrer les sessions affichées selon le canal sélectionné
+  const filteredSessions = channelFilter === 'all'
+    ? sessions
+    : sessions.filter((s) => s.channel === channelFilter)
+
+  // Charger la liste des sessions (WhatsApp + Email)
   useEffect(() => {
     async function loadSessions() {
       try {
-        const res = await fetch('/api/sessions')
-        const json = await res.json()
-        if (res.ok && json.data) {
-          setSessions(
-            json.data.map((s: { id: string; instance_name: string; phone_number?: string | null; display_name?: string | null }) => ({
-              id: s.id,
-              instance_name: s.instance_name,
-              phone_number: s.phone_number,
-              display_name: s.display_name,
-            }))
-          )
-        }
+        const [wRes, eRes] = await Promise.all([
+          fetch('/api/sessions'),
+          fetch('/api/email-sessions').catch(() => null),
+        ])
+        const wJson = wRes.ok ? await wRes.json() : { data: [] }
+        const eJson = eRes?.ok ? await eRes.json() : { data: [] }
+
+        const whatsappSessions: SessionOption[] = (wJson.data || []).map(
+          (s: { id: string; instance_name: string; phone_number?: string | null; display_name?: string | null }) => ({
+            id: s.id,
+            instance_name: s.instance_name,
+            phone_number: s.phone_number,
+            display_name: s.display_name,
+            channel: 'whatsapp' as const,
+          })
+        )
+        const emailSessions: SessionOption[] = (eJson.data || []).map(
+          (s: { id: string; email_address?: string | null; name?: string | null; display_name?: string | null }) => ({
+            id: s.id,
+            instance_name: s.email_address || s.name || s.display_name || 'Email',
+            phone_number: s.email_address,
+            display_name: s.display_name || s.name,
+            channel: 'email' as const,
+          })
+        )
+        setSessions([...whatsappSessions, ...emailSessions])
       } catch {
         // silently fail
       }
     }
     loadSessions()
   }, [])
+
+  // Réinitialiser le filtre session quand on change de canal
+  useEffect(() => {
+    setSessionFilter('all')
+  }, [channelFilter])
 
   const fetchStats = useCallback(async () => {
     setLoading(true)
@@ -134,7 +166,8 @@ export default function StatsPage() {
             {t('stats.description')}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Filtre période */}
           <Select value={period} onValueChange={setPeriod}>
             <SelectTrigger className="w-[130px] h-9">
               <SelectValue />
@@ -143,18 +176,48 @@ export default function StatsPage() {
               <SelectItem value="7">{t('stats.7_days')}</SelectItem>
               <SelectItem value="30">{t('stats.30_days')}</SelectItem>
               <SelectItem value="90">{t('stats.90_days')}</SelectItem>
+              <SelectItem value="365">12 mois</SelectItem>
             </SelectContent>
           </Select>
 
+          {/* Filtre canal */}
+          <Select value={channelFilter} onValueChange={(v) => setChannelFilter(v as 'all' | 'whatsapp' | 'email')}>
+            <SelectTrigger className="w-[150px] h-9">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous les canaux</SelectItem>
+              <SelectItem value="whatsapp">
+                <span className="flex items-center gap-2">
+                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-[#25D366]"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                  WhatsApp
+                </span>
+              </SelectItem>
+              <SelectItem value="email">
+                <span className="flex items-center gap-2">
+                  <Mail className="h-3.5 w-3.5 text-blue-500" />
+                  Email
+                </span>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Filtre session */}
           <Select value={sessionFilter} onValueChange={setSessionFilter}>
             <SelectTrigger className="w-[200px] h-9">
               <SelectValue placeholder={t('stats.all_sessions')} />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{t('stats.all_sessions')}</SelectItem>
-              {sessions.map((s) => (
+              {filteredSessions.map((s) => (
                 <SelectItem key={s.id} value={s.id}>
-                  {getSessionDisplayName({ display_name: s.display_name || null, phone_number: s.phone_number || null, instance_name: s.instance_name })}
+                  <span className="flex items-center gap-2">
+                    {s.channel === 'email'
+                      ? <Mail className="h-3 w-3 text-blue-500 shrink-0" />
+                      : <svg viewBox="0 0 24 24" className="h-3 w-3 fill-[#25D366] shrink-0"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                    }
+                    {getSessionDisplayName({ display_name: s.display_name || null, phone_number: s.phone_number || null, instance_name: s.instance_name })}
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>
@@ -168,16 +231,18 @@ export default function StatsPage() {
         </div>
       ) : stats ? (
         <Tabs defaultValue="overview">
-          <TabsList>
+          <TabsList className="flex-wrap h-auto gap-1">
             <TabsTrigger value="overview">{t('stats.overview')}</TabsTrigger>
-            <TabsTrigger value="campaigns">{t('stats.campaigns_tab')}</TabsTrigger>
             <TabsTrigger value="agents">{t('stats.agents_tab')}</TabsTrigger>
             <TabsTrigger value="links">{t('stats.links_tab')}</TabsTrigger>
-            <TabsTrigger value="contacts">{t('stats.contacts_tab')}</TabsTrigger>
             <TabsTrigger value="lifecycle">{t('stats.lifecycle_tab')}</TabsTrigger>
+            <TabsTrigger value="campaigns">{t('stats.campaigns_tab')}</TabsTrigger>
+            <TabsTrigger value="contacts">{t('stats.contacts_tab')}</TabsTrigger>
           </TabsList>
 
+          {/* ================================================================ */}
           {/* === Vue globale === */}
+          {/* ================================================================ */}
           <TabsContent value="overview" className="space-y-8">
             {/* Section 1: Activité */}
             <div>
@@ -265,14 +330,708 @@ export default function StatsPage() {
                   <TimeSeriesChart
                     data={stats.charts.conversationsOverTime}
                     title=""
-                    color="#40E9BE"
+                    color="var(--accent,#40E9BE)"
                   />
                 </CardContent>
               </Card>
             </div>
           </TabsContent>
 
-          {/* === Campagnes === */}
+          {/* ================================================================ */}
+          {/* === Agents IA === */}
+          {/* ================================================================ */}
+          <TabsContent value="agents" className="space-y-6">
+            {stats.agents.length === 0 ? (
+              <Card>
+                <CardContent className="flex h-40 items-center justify-center">
+                  <p className="text-muted-foreground">{t('stats.no_agents')}</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {stats.agents.map((agent) => (
+                    <Card key={agent.id}>
+                      <CardHeader className="pb-3">
+                        <div className="flex items-center justify-between">
+                          <CardTitle className="flex items-center gap-2 text-base">
+                            <Bot className="h-4 w-4" />
+                            {agent.name}
+                          </CardTitle>
+                          <Badge variant={agent.isActive ? 'default' : 'secondary'}>
+                            {agent.isActive ? t('common.active') : t('common.inactive')}
+                          </Badge>
+                        </div>
+                      </CardHeader>
+                      <CardContent>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <p className="text-2xl font-bold">
+                              {agent.messagesHandled.toLocaleString(numberLocale)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {t('stats.messages_processed')}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-2xl font-bold">
+                              {agent.conversationsManaged.toLocaleString(numberLocale)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {t('stats.conversations')}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-2xl font-bold">
+                              {agent.responseRate != null ? `${agent.responseRate}%` : '—'}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {t('stats.response_rate')}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-2xl font-bold">
+                              {agent.avgResponseTime != null ? formatSeconds(agent.avgResponseTime) : '—'}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {t('stats.avg_time')}
+                            </p>
+                          </div>
+                          {agent.hasBookingUrl && (
+                            <div className="col-span-2 border-t pt-3 mt-2">
+                              <p className="text-2xl font-bold text-primary">
+                                {agent.bookingClicks.toLocaleString(numberLocale)}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {t('stats.booking_clicks')}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">{t('stats.agent_comparison')}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <AgentsComparisonChart data={stats.agents} />
+                  </CardContent>
+                </Card>
+              </>
+            )}
+          </TabsContent>
+
+          {/* ================================================================ */}
+          {/* === Liens WA === */}
+          {/* ================================================================ */}
+          <TabsContent value="links" className="space-y-6">
+            {stats.links.length === 0 ? (
+              <Card>
+                <CardContent className="flex h-40 items-center justify-center">
+                  <p className="text-muted-foreground">{t('stats.no_links')}</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                {/* KPIs globaux */}
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <KPICard
+                    title={t('stats.total_clicks')}
+                    value={stats.links.reduce((sum, l) => sum + l.totalClicks, 0)}
+                    trend={null}
+                    icon={MousePointerClick}
+                    color="blue"
+                  />
+                  <KPICard
+                    title={t('stats.unique_visitors')}
+                    value={stats.links.reduce((sum, l) => sum + l.uniqueVisitors, 0)}
+                    trend={null}
+                    icon={Users}
+                    color="teal"
+                  />
+                  <KPICard
+                    title={t('stats.total_conversions')}
+                    value={stats.links.reduce((sum, l) => sum + l.conversionsCount, 0)}
+                    trend={null}
+                    icon={ArrowRightLeft}
+                  />
+                  <KPICard
+                    title={t('stats.avg_conversion_rate')}
+                    value={(() => {
+                      const totalClicks = stats.links.reduce((s, l) => s + l.totalClicks, 0)
+                      const totalConv = stats.links.reduce((s, l) => s + l.conversionsCount, 0)
+                      return totalClicks > 0 ? Math.round((totalConv / totalClicks) * 100) : 0
+                    })()}
+                    trend={null}
+                    icon={Link2}
+                    formatValue={(v) => `${v}%`}
+                    color="orange"
+                  />
+                </div>
+
+                {/* Tableau récapitulatif par lien */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <Link2 className="h-4 w-4" />
+                      Performance par lien
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b bg-muted/30 text-left text-muted-foreground">
+                            <th className="px-4 py-3 font-medium">Lien</th>
+                            <th className="px-4 py-3 font-medium text-right">{t('stats.clicks')}</th>
+                            <th className="px-4 py-3 font-medium text-right">{t('stats.unique')}</th>
+                            <th className="px-4 py-3 font-medium text-right">Conversations</th>
+                            <th className="px-4 py-3 font-medium text-right">Taux conv.</th>
+                            <th className="px-4 py-3 font-medium text-right">Statut</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {stats.links
+                            .sort((a, b) => b.totalClicks - a.totalClicks)
+                            .map((link, i) => {
+                              const convRate = link.totalClicks > 0
+                                ? Math.round((link.conversionsCount / link.totalClicks) * 100)
+                                : 0
+                              return (
+                                <tr key={link.id} className={cn('border-b last:border-0', i % 2 === 0 ? '' : 'bg-muted/10')}>
+                                  <td className="px-4 py-3">
+                                    <div className="font-medium">{link.name}</div>
+                                    {link.slug && (
+                                      <div className="text-xs text-muted-foreground">/{link.slug}</div>
+                                    )}
+                                  </td>
+                                  <td className="px-4 py-3 text-right font-semibold">
+                                    {link.totalClicks.toLocaleString(numberLocale)}
+                                  </td>
+                                  <td className="px-4 py-3 text-right text-muted-foreground">
+                                    {link.uniqueVisitors.toLocaleString(numberLocale)}
+                                  </td>
+                                  <td className="px-4 py-3 text-right">
+                                    {link.conversionsCount.toLocaleString(numberLocale)}
+                                  </td>
+                                  <td className="px-4 py-3 text-right">
+                                    <span className={cn(
+                                      'font-semibold',
+                                      convRate >= 20 ? 'text-primary' : convRate >= 10 ? 'text-orange-500' : 'text-muted-foreground'
+                                    )}>
+                                      {convRate}%
+                                    </span>
+                                  </td>
+                                  <td className="px-4 py-3 text-right">
+                                    <Badge variant={link.isActive ? 'default' : 'secondary'} className="text-xs">
+                                      {link.isActive ? t('common.active') : t('common.inactive')}
+                                    </Badge>
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                        </tbody>
+                        <tfoot>
+                          <tr className="border-t bg-muted/20 font-semibold">
+                            <td className="px-4 py-3">Total</td>
+                            <td className="px-4 py-3 text-right">
+                              {stats.links.reduce((s, l) => s + l.totalClicks, 0).toLocaleString(numberLocale)}
+                            </td>
+                            <td className="px-4 py-3 text-right text-muted-foreground">
+                              {stats.links.reduce((s, l) => s + l.uniqueVisitors, 0).toLocaleString(numberLocale)}
+                            </td>
+                            <td className="px-4 py-3 text-right">
+                              {stats.links.reduce((s, l) => s + l.conversionsCount, 0).toLocaleString(numberLocale)}
+                            </td>
+                            <td className="px-4 py-3 text-right text-primary">
+                              {(() => {
+                                const tc = stats.links.reduce((s, l) => s + l.totalClicks, 0)
+                                const conv = stats.links.reduce((s, l) => s + l.conversionsCount, 0)
+                                return tc > 0 ? `${Math.round((conv / tc) * 100)}%` : '—'
+                              })()}
+                            </td>
+                            <td />
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Entonnoir de conversion */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <ArrowRightLeft className="h-4 w-4" />
+                      {t('stats.conversion_funnel')}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="flex items-center gap-4">
+                      <div className="flex-1 rounded-lg bg-blue-500/10 border border-blue-500/20 p-4 text-center">
+                        <p className="text-2xl font-bold text-blue-500">
+                          {stats.links.reduce((s, l) => s + l.totalClicks, 0).toLocaleString(numberLocale)}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">{t('stats.clicks')}</p>
+                      </div>
+                      <div className="text-muted-foreground text-2xl">→</div>
+                      <div className="flex-1 rounded-lg bg-sky-500/10 border border-sky-500/20 p-4 text-center">
+                        <p className="text-2xl font-bold text-sky-500">
+                          {stats.links.reduce((s, l) => s + l.uniqueVisitors, 0).toLocaleString(numberLocale)}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">{t('stats.unique_visitors')}</p>
+                      </div>
+                      <div className="text-muted-foreground text-2xl">→</div>
+                      <div className="flex-1 rounded-lg bg-primary/10 border border-primary/20 p-4 text-center">
+                        <p className="text-2xl font-bold text-primary">
+                          {stats.links.reduce((s, l) => s + l.conversionsCount, 0).toLocaleString(numberLocale)}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">{t('stats.conversations')}</p>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Graphique clics par jour */}
+                {(() => {
+                  const allClicksPerDay = new Map<string, number>()
+                  for (const link of stats.links) {
+                    for (const pt of link.clicksPerDay) {
+                      allClicksPerDay.set(pt.date, (allClicksPerDay.get(pt.date) || 0) + pt.count)
+                    }
+                  }
+                  const chartData = Array.from(allClicksPerDay.entries())
+                    .map(([date, count]) => ({ date, count }))
+                    .sort((a, b) => a.date.localeCompare(b.date))
+
+                  return (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base">{t('stats.clicks_per_day')}</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {chartData.length > 0 ? (
+                          <TimeSeriesChart data={chartData} title="" color="#3B82F6" />
+                        ) : (
+                          <p className="text-sm text-muted-foreground py-4 text-center">{t('stats.no_click_data')}</p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )
+                })()}
+
+                {/* Répartition appareils + pays */}
+                {(() => {
+                  const deviceAgg = new Map<string, number>()
+                  for (const link of stats.links) {
+                    for (const d of link.deviceBreakdown) {
+                      deviceAgg.set(d.type, (deviceAgg.get(d.type) || 0) + d.count)
+                    }
+                  }
+                  const deviceData = Array.from(deviceAgg.entries())
+                    .map(([type, count]) => ({ type, count }))
+                    .sort((a, b) => b.count - a.count)
+
+                  const countryAgg = new Map<string, number>()
+                  for (const link of stats.links) {
+                    for (const c of link.countryBreakdown) {
+                      countryAgg.set(c.country, (countryAgg.get(c.country) || 0) + c.count)
+                    }
+                  }
+                  const countryData = Array.from(countryAgg.entries())
+                    .map(([country, count]) => ({ country, count }))
+                    .sort((a, b) => b.count - a.count)
+                    .slice(0, 10)
+
+                  return (
+                    <div className="grid gap-6 lg:grid-cols-2">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2 text-base">
+                            <Smartphone className="h-4 w-4" />
+                            {t('stats.device_breakdown')}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          {deviceData.length > 0
+                            ? <DeviceBreakdownChart data={deviceData} />
+                            : <p className="text-sm text-muted-foreground py-4 text-center">{t('stats.no_click_data')}</p>
+                          }
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2 text-base">
+                            <Globe className="h-4 w-4" />
+                            {t('stats.country_breakdown')}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          {countryData.length > 0
+                            ? <CountryBreakdownChart data={countryData} />
+                            : <p className="text-sm text-muted-foreground py-4 text-center">{t('stats.no_click_data')}</p>
+                          }
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )
+                })()}
+
+                {/* Sources UTM + Heures de pointe */}
+                {(() => {
+                  const utmAgg = new Map<string, number>()
+                  for (const link of stats.links) {
+                    for (const u of link.utmBreakdown) {
+                      utmAgg.set(u.source, (utmAgg.get(u.source) || 0) + u.count)
+                    }
+                  }
+                  const utmData = Array.from(utmAgg.entries())
+                    .map(([source, count]) => ({ source, count }))
+                    .sort((a, b) => b.count - a.count)
+
+                  const hourAgg = new Map<number, number>()
+                  for (let h = 0; h < 24; h++) hourAgg.set(h, 0)
+                  for (const link of stats.links) {
+                    for (const p of link.peakHours) {
+                      hourAgg.set(p.hour, (hourAgg.get(p.hour) || 0) + p.count)
+                    }
+                  }
+                  const peakData = Array.from(hourAgg.entries())
+                    .map(([hour, count]) => ({ hour, count }))
+                    .sort((a, b) => a.hour - b.hour)
+
+                  return (
+                    <div className="grid gap-6 lg:grid-cols-2">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2 text-base">
+                            <BarChart2 className="h-4 w-4" />
+                            {t('stats.utm_breakdown')}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          {utmData.length > 0
+                            ? <UtmBreakdownChart data={utmData} />
+                            : <p className="text-sm text-muted-foreground py-4 text-center">{t('stats.no_utm_data')}</p>
+                          }
+                        </CardContent>
+                      </Card>
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="flex items-center gap-2 text-base">
+                            <Clock className="h-4 w-4" />
+                            {t('stats.peak_hours')}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <p className="text-xs text-muted-foreground mb-2">{t('stats.peak_hours_note')}</p>
+                          <PeakHoursChart data={peakData} />
+                        </CardContent>
+                      </Card>
+                    </div>
+                  )
+                })()}
+
+                {/* Historique clics récents */}
+                {(() => {
+                  const allClicks = stats.links
+                    .flatMap((link) =>
+                      link.recentClicks.map((c) => ({
+                        ...c,
+                        linkName: link.name,
+                        linkSlug: link.slug,
+                      }))
+                    )
+                    .sort((a, b) => b.clicked_at.localeCompare(a.clicked_at))
+                    .slice(0, 50)
+
+                  return (
+                    <Card>
+                      <CardHeader>
+                        <CardTitle className="text-base">{t('stats.click_history')}</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        {allClicks.length > 0 ? (
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <thead>
+                                <tr className="border-b bg-muted/30 text-left text-muted-foreground">
+                                  <th className="px-4 py-3 font-medium">{t('stats.click_date')}</th>
+                                  <th className="px-4 py-3 font-medium">{t('stats.click_link')}</th>
+                                  <th className="px-4 py-3 font-medium">{t('stats.click_country')}</th>
+                                  <th className="px-4 py-3 font-medium">{t('stats.click_device')}</th>
+                                  <th className="px-4 py-3 font-medium">{t('stats.click_utm')}</th>
+                                  <th className="px-4 py-3 font-medium">{t('stats.click_referer')}</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {allClicks.map((click, i) => {
+                                  const d = new Date(click.clicked_at)
+                                  const dateStr = d.toLocaleDateString(numberLocale, {
+                                    day: '2-digit',
+                                    month: '2-digit',
+                                    year: 'numeric',
+                                  })
+                                  const timeStr = d.toLocaleTimeString(numberLocale, {
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                  })
+                                  return (
+                                    <tr key={`${click.clicked_at}-${i}`} className={cn('border-b last:border-0', i % 2 === 0 ? '' : 'bg-muted/10')}>
+                                      <td className="px-4 py-3 whitespace-nowrap">
+                                        <span className="font-medium">{dateStr}</span>
+                                        <span className="text-muted-foreground ml-2">{timeStr}</span>
+                                      </td>
+                                      <td className="px-4 py-3">
+                                        <div className="flex items-center gap-1.5">
+                                          <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
+                                          {click.linkName}
+                                          {click.linkSlug && (
+                                            <span className="text-xs text-muted-foreground">/{click.linkSlug}</span>
+                                          )}
+                                        </div>
+                                      </td>
+                                      <td className="px-4 py-3 whitespace-nowrap">
+                                        {click.country ? `${click.country}${click.city ? ` · ${click.city}` : ''}` : '—'}
+                                      </td>
+                                      <td className="px-4 py-3 whitespace-nowrap">
+                                        {click.device_type ? (
+                                          <span className="flex items-center gap-1">
+                                            {click.device_type}
+                                            {click.os && <span className="text-muted-foreground text-xs">({click.os})</span>}
+                                          </span>
+                                        ) : '—'}
+                                      </td>
+                                      <td className="px-4 py-3 whitespace-nowrap">
+                                        {click.utm_source ? `${click.utm_source}${click.utm_campaign ? ` / ${click.utm_campaign}` : ''}` : '—'}
+                                      </td>
+                                      <td className="px-4 py-3 text-muted-foreground truncate max-w-[200px]">
+                                        {click.referer || '—'}
+                                      </td>
+                                    </tr>
+                                  )
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted-foreground py-4 text-center">{t('stats.no_click_data')}</p>
+                        )}
+                      </CardContent>
+                    </Card>
+                  )
+                })()}
+              </>
+            )}
+          </TabsContent>
+
+          {/* ================================================================ */}
+          {/* === Lifecycle (Pro & Scale) === */}
+          {/* ================================================================ */}
+          <TabsContent value="lifecycle" className="space-y-6">
+            {!stats.lifecycle || stats.lifecycle.stages.length === 0 ? (
+              <Card>
+                <CardContent className="flex h-40 items-center justify-center">
+                  <p className="text-muted-foreground">{t('stats.no_lifecycle')}</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                {/* Filtre par stade */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <Filter className="h-4 w-4 text-muted-foreground" />
+                  <button
+                    onClick={() => setLifecycleFilter([])}
+                    className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                      lifecycleFilter.length === 0
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
+                    }`}
+                  >
+                    {t('stats.all_stages')}
+                  </button>
+                  {stats.lifecycle.stages.map((stage) => {
+                    const isSelected = lifecycleFilter.includes(stage.id)
+                    return (
+                      <button
+                        key={stage.id}
+                        onClick={() => {
+                          setLifecycleFilter((prev) =>
+                            isSelected
+                              ? prev.filter((id) => id !== stage.id)
+                              : [...prev, stage.id]
+                          )
+                        }}
+                        className="rounded-full px-3 py-1 text-xs font-medium transition-colors"
+                        style={{
+                          backgroundColor: isSelected ? stage.color : undefined,
+                          color: isSelected ? '#fff' : stage.color,
+                          border: `1.5px solid ${stage.color}`,
+                        }}
+                      >
+                        {stage.name}
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* KPI Cards */}
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <KPICard
+                    title={t('stats.lc_total_conversations')}
+                    value={stats.lifecycle.totalConversations}
+                    trend={null}
+                    icon={Users}
+                  />
+                  <KPICard
+                    title={t('stats.lc_classified')}
+                    value={stats.lifecycle.classifiedPercent}
+                    trend={null}
+                    icon={Activity}
+                    formatValue={(v) => `${v}%`}
+                    color="blue"
+                  />
+                  <KPICard
+                    title={t('stats.lc_ai_analyses')}
+                    value={stats.lifecycle.aiAnalysesCount}
+                    trend={null}
+                    icon={Sparkles}
+                    color="teal"
+                  />
+                  <KPICard
+                    title={t('stats.lc_tokens_used')}
+                    value={stats.lifecycle.tokensUsed}
+                    trend={null}
+                    icon={Coins}
+                    formatValue={(v) => v.toLocaleString(numberLocale)}
+                    color="orange"
+                  />
+                </div>
+
+                {/* Charts */}
+                {(() => {
+                  const filteredStages = lifecycleFilter.length > 0
+                    ? stats.lifecycle!.stages.filter((s) => lifecycleFilter.includes(s.id))
+                    : stats.lifecycle!.stages
+
+                  const distributionData = filteredStages.map((s) => ({
+                    name: s.name,
+                    count: s.conversationCount,
+                    color: s.color,
+                  }))
+
+                  const responseRateData = filteredStages
+                    .filter((s) => s.responseRate != null)
+                    .map((s) => ({
+                      name: s.name,
+                      responseRate: s.responseRate!,
+                      color: s.color,
+                    }))
+
+                  const transitionStages = filteredStages.map((s) => ({
+                    id: s.id,
+                    name: s.name,
+                    color: s.color,
+                  }))
+
+                  return (
+                    <>
+                      <div className="grid gap-6 lg:grid-cols-2">
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-base">{t('stats.lc_distribution')}</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <StageDistributionChart data={distributionData} />
+                          </CardContent>
+                        </Card>
+                        <Card>
+                          <CardHeader>
+                            <CardTitle className="text-base">{t('stats.lc_response_rate')}</CardTitle>
+                          </CardHeader>
+                          <CardContent>
+                            <ResponseRateByStageChart data={responseRateData} />
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      <Card>
+                        <CardHeader>
+                          <CardTitle className="text-base">{t('stats.lc_transitions')}</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                          <TransitionsOverTimeChart
+                            data={stats.lifecycle!.transitionsOverTime}
+                            stages={transitionStages}
+                          />
+                        </CardContent>
+                      </Card>
+                    </>
+                  )
+                })()}
+
+                {/* Table détaillée */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-base">{t('stats.lc_details')}</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b bg-muted/30 text-left text-muted-foreground">
+                            <th className="px-4 py-3 font-medium">{t('stats.lc_stage')}</th>
+                            <th className="px-4 py-3 font-medium text-right">{t('stats.conversations')}</th>
+                            <th className="px-4 py-3 font-medium text-right">{t('stats.lc_inbound')}</th>
+                            <th className="px-4 py-3 font-medium text-right">{t('stats.response_rate')}</th>
+                            <th className="px-4 py-3 font-medium text-right">{t('stats.avg_time')}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {(lifecycleFilter.length > 0
+                            ? stats.lifecycle.stages.filter((s) => lifecycleFilter.includes(s.id))
+                            : stats.lifecycle.stages
+                          ).map((stage, i) => (
+                            <tr key={stage.id} className={cn('border-b last:border-0', i % 2 === 0 ? '' : 'bg-muted/10')}>
+                              <td className="px-4 py-3 font-medium">
+                                <div className="flex items-center gap-2">
+                                  <div
+                                    className="w-3 h-3 rounded-sm"
+                                    style={{ backgroundColor: stage.color }}
+                                  />
+                                  {stage.name}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                {stage.conversationCount.toLocaleString(numberLocale)}
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                {stage.inboundMessages.toLocaleString(numberLocale)}
+                              </td>
+                              <td className="px-4 py-3 text-right font-semibold text-primary">
+                                {stage.responseRate != null ? `${stage.responseRate}%` : '—'}
+                              </td>
+                              <td className="px-4 py-3 text-right text-muted-foreground">
+                                {stage.avgResponseTime != null ? formatSeconds(stage.avgResponseTime) : '—'}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            )}
+          </TabsContent>
+
+          {/* ================================================================ */}
+          {/* === Campagnes (Scale) === */}
+          {/* ================================================================ */}
           <TabsContent value="campaigns" className="space-y-6">
             {!stats.campaigns || stats.campaigns.totalCampaigns === 0 ? (
               <Card>
@@ -452,459 +1211,9 @@ export default function StatsPage() {
             )}
           </TabsContent>
 
-          {/* === Agents IA === */}
-          <TabsContent value="agents" className="space-y-6">
-            {stats.agents.length === 0 ? (
-              <Card>
-                <CardContent className="flex h-40 items-center justify-center">
-                  <p className="text-muted-foreground">{t('stats.no_agents')}</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <>
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {stats.agents.map((agent) => (
-                    <Card key={agent.id}>
-                      <CardHeader className="pb-3">
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="flex items-center gap-2 text-base">
-                            <Bot className="h-4 w-4" />
-                            {agent.name}
-                          </CardTitle>
-                          <Badge variant={agent.isActive ? 'default' : 'secondary'}>
-                            {agent.isActive ? t('common.active') : t('common.inactive')}
-                          </Badge>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-2xl font-bold">
-                              {agent.messagesHandled.toLocaleString(numberLocale)}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {t('stats.messages_processed')}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-2xl font-bold">
-                              {agent.conversationsManaged.toLocaleString(numberLocale)}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {t('stats.conversations')}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-2xl font-bold">
-                              {agent.responseRate != null ? `${agent.responseRate}%` : '—'}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {t('stats.response_rate')}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-2xl font-bold">
-                              {agent.avgResponseTime != null ? formatSeconds(agent.avgResponseTime) : '—'}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {t('stats.avg_time')}
-                            </p>
-                          </div>
-                          {agent.hasBookingUrl && (
-                            <div className="col-span-2 border-t pt-3 mt-2">
-                              <p className="text-2xl font-bold text-primary">
-                                {agent.bookingClicks.toLocaleString(numberLocale)}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {t('stats.booking_clicks')}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">{t('stats.agent_comparison')}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <AgentsComparisonChart data={stats.agents} />
-                  </CardContent>
-                </Card>
-              </>
-            )}
-          </TabsContent>
-
-          {/* === Liens WA === */}
-          <TabsContent value="links" className="space-y-6">
-            {stats.links.length === 0 ? (
-              <Card>
-                <CardContent className="flex h-40 items-center justify-center">
-                  <p className="text-muted-foreground">{t('stats.no_links')}</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <>
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                  <KPICard
-                    title={t('stats.total_clicks')}
-                    value={stats.links.reduce((sum, l) => sum + l.totalClicks, 0)}
-                    trend={null}
-                    icon={MousePointerClick}
-                    color="blue"
-                  />
-                  <KPICard
-                    title={t('stats.unique_visitors')}
-                    value={stats.links.reduce((sum, l) => sum + l.uniqueVisitors, 0)}
-                    trend={null}
-                    icon={Users}
-                    color="teal"
-                  />
-                  <KPICard
-                    title={t('stats.total_conversions')}
-                    value={stats.links.reduce((sum, l) => sum + l.conversionsCount, 0)}
-                    trend={null}
-                    icon={ArrowRightLeft}
-                  />
-                  <KPICard
-                    title={t('stats.avg_conversion_rate')}
-                    value={(() => {
-                      const totalClicks = stats.links.reduce((s, l) => s + l.totalClicks, 0)
-                      const totalConv = stats.links.reduce((s, l) => s + l.conversionsCount, 0)
-                      return totalClicks > 0 ? Math.round((totalConv / totalClicks) * 100) : 0
-                    })()}
-                    trend={null}
-                    icon={Link2}
-                    formatValue={(v) => `${v}%`}
-                    color="orange"
-                  />
-                </div>
-
-                {/* Entonnoir de conversion */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      <ArrowRightLeft className="h-4 w-4" />
-                      {t('stats.conversion_funnel')}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-4">
-                      <div className="flex-1 rounded-lg bg-blue-500/10 border border-blue-500/20 p-4 text-center">
-                        <p className="text-2xl font-bold text-blue-500">
-                          {stats.links.reduce((s, l) => s + l.totalClicks, 0).toLocaleString(numberLocale)}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">{t('stats.clicks')}</p>
-                      </div>
-                      <div className="text-muted-foreground text-2xl">→</div>
-                      <div className="flex-1 rounded-lg bg-sky-500/10 border border-sky-500/20 p-4 text-center">
-                        <p className="text-2xl font-bold text-sky-500">
-                          {stats.links.reduce((s, l) => s + l.uniqueVisitors, 0).toLocaleString(numberLocale)}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">{t('stats.unique_visitors')}</p>
-                      </div>
-                      <div className="text-muted-foreground text-2xl">→</div>
-                      <div className="flex-1 rounded-lg bg-primary/10 border border-primary/20 p-4 text-center">
-                        <p className="text-2xl font-bold text-primary">
-                          {stats.links.reduce((s, l) => s + l.conversionsCount, 0).toLocaleString(numberLocale)}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">{t('stats.conversations')}</p>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                  {stats.links.map((link) => {
-                    const convRate = link.totalClicks > 0
-                      ? Math.round((link.conversionsCount / link.totalClicks) * 100)
-                      : 0
-                    return (
-                      <Card key={link.id}>
-                        <CardHeader className="pb-3">
-                          <div className="flex items-center justify-between">
-                            <CardTitle className="flex items-center gap-2 text-base">
-                              <Link2 className="h-4 w-4" />
-                              {link.name}
-                            </CardTitle>
-                            <Badge variant={link.isActive ? 'default' : 'secondary'}>
-                              {link.isActive ? t('common.active') : t('common.inactive')}
-                            </Badge>
-                          </div>
-                          {link.slug && (
-                            <p className="text-xs text-muted-foreground">
-                              /{link.slug}
-                            </p>
-                          )}
-                        </CardHeader>
-                        <CardContent>
-                          <div className="grid grid-cols-2 gap-2 text-center">
-                            <div>
-                              <p className="text-xl font-bold">
-                                {link.totalClicks.toLocaleString(numberLocale)}
-                              </p>
-                              <p className="text-xs text-muted-foreground">{t('stats.clicks')}</p>
-                            </div>
-                            <div>
-                              <p className="text-xl font-bold">
-                                {link.uniqueVisitors.toLocaleString(numberLocale)}
-                              </p>
-                              <p className="text-xs text-muted-foreground">{t('stats.unique')}</p>
-                            </div>
-                            <div>
-                              <p className="text-xl font-bold">
-                                {link.conversionsCount.toLocaleString(numberLocale)}
-                              </p>
-                              <p className="text-xs text-muted-foreground">{t('stats.conv')}</p>
-                            </div>
-                            <div>
-                              <p className="text-xl font-bold">{convRate}%</p>
-                              <p className="text-xs text-muted-foreground">{t('stats.rate')}</p>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    )
-                  })}
-                </div>
-
-                {/* Graphique clics par jour (tous liens combinés) */}
-                {(() => {
-                  const allClicksPerDay = new Map<string, number>()
-                  for (const link of stats.links) {
-                    for (const pt of link.clicksPerDay) {
-                      allClicksPerDay.set(pt.date, (allClicksPerDay.get(pt.date) || 0) + pt.count)
-                    }
-                  }
-                  const chartData = Array.from(allClicksPerDay.entries())
-                    .map(([date, count]) => ({ date, count }))
-                    .sort((a, b) => a.date.localeCompare(b.date))
-
-                  return (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="text-base">{t('stats.clicks_per_day')}</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        {chartData.length > 0 ? (
-                          <TimeSeriesChart data={chartData} title="" color="#3B82F6" />
-                        ) : (
-                          <p className="text-sm text-muted-foreground py-4 text-center">{t('stats.no_click_data')}</p>
-                        )}
-                      </CardContent>
-                    </Card>
-                  )
-                })()}
-
-                {/* Répartition appareils + pays */}
-                {(() => {
-                  const deviceAgg = new Map<string, number>()
-                  for (const link of stats.links) {
-                    for (const d of link.deviceBreakdown) {
-                      deviceAgg.set(d.type, (deviceAgg.get(d.type) || 0) + d.count)
-                    }
-                  }
-                  const deviceData = Array.from(deviceAgg.entries())
-                    .map(([type, count]) => ({ type, count }))
-                    .sort((a, b) => b.count - a.count)
-
-                  const countryAgg = new Map<string, number>()
-                  for (const link of stats.links) {
-                    for (const c of link.countryBreakdown) {
-                      countryAgg.set(c.country, (countryAgg.get(c.country) || 0) + c.count)
-                    }
-                  }
-                  const countryData = Array.from(countryAgg.entries())
-                    .map(([country, count]) => ({ country, count }))
-                    .sort((a, b) => b.count - a.count)
-                    .slice(0, 10)
-
-                  return (
-                    <div className="grid gap-6 lg:grid-cols-2">
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="flex items-center gap-2 text-base">
-                            <Smartphone className="h-4 w-4" />
-                            {t('stats.device_breakdown')}
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          {deviceData.length > 0
-                            ? <DeviceBreakdownChart data={deviceData} />
-                            : <p className="text-sm text-muted-foreground py-4 text-center">{t('stats.no_click_data')}</p>
-                          }
-                        </CardContent>
-                      </Card>
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="flex items-center gap-2 text-base">
-                            <Globe className="h-4 w-4" />
-                            {t('stats.country_breakdown')}
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          {countryData.length > 0
-                            ? <CountryBreakdownChart data={countryData} />
-                            : <p className="text-sm text-muted-foreground py-4 text-center">{t('stats.no_click_data')}</p>
-                          }
-                        </CardContent>
-                      </Card>
-                    </div>
-                  )
-                })()}
-
-                {/* Sources UTM + Heures de pointe */}
-                {(() => {
-                  const utmAgg = new Map<string, number>()
-                  for (const link of stats.links) {
-                    for (const u of link.utmBreakdown) {
-                      utmAgg.set(u.source, (utmAgg.get(u.source) || 0) + u.count)
-                    }
-                  }
-                  const utmData = Array.from(utmAgg.entries())
-                    .map(([source, count]) => ({ source, count }))
-                    .sort((a, b) => b.count - a.count)
-
-                  const hourAgg = new Map<number, number>()
-                  for (let h = 0; h < 24; h++) hourAgg.set(h, 0)
-                  for (const link of stats.links) {
-                    for (const p of link.peakHours) {
-                      hourAgg.set(p.hour, (hourAgg.get(p.hour) || 0) + p.count)
-                    }
-                  }
-                  const peakData = Array.from(hourAgg.entries())
-                    .map(([hour, count]) => ({ hour, count }))
-                    .sort((a, b) => a.hour - b.hour)
-
-                  return (
-                    <div className="grid gap-6 lg:grid-cols-2">
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="flex items-center gap-2 text-base">
-                            <BarChart2 className="h-4 w-4" />
-                            {t('stats.utm_breakdown')}
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          {utmData.length > 0
-                            ? <UtmBreakdownChart data={utmData} />
-                            : <p className="text-sm text-muted-foreground py-4 text-center">{t('stats.no_utm_data')}</p>
-                          }
-                        </CardContent>
-                      </Card>
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="flex items-center gap-2 text-base">
-                            <Clock className="h-4 w-4" />
-                            {t('stats.peak_hours')}
-                          </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <p className="text-xs text-muted-foreground mb-2">{t('stats.peak_hours_note')}</p>
-                          <PeakHoursChart data={peakData} />
-                        </CardContent>
-                      </Card>
-                    </div>
-                  )
-                })()}
-
-                {/* Historique des clics récents */}
-                {(() => {
-                  const allClicks = stats.links
-                    .flatMap((link) =>
-                      link.recentClicks.map((c) => ({
-                        ...c,
-                        linkName: link.name,
-                        linkSlug: link.slug,
-                      }))
-                    )
-                    .sort((a, b) => b.clicked_at.localeCompare(a.clicked_at))
-                    .slice(0, 50)
-
-                  return (
-                    <Card>
-                      <CardHeader>
-                        <CardTitle className="text-base">{t('stats.click_history')}</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                        {allClicks.length > 0 ? (
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                              <thead>
-                                <tr className="border-b bg-muted/30 text-left text-muted-foreground">
-                                  <th className="px-4 py-3 font-medium">{t('stats.click_date')}</th>
-                                  <th className="px-4 py-3 font-medium">{t('stats.click_link')}</th>
-                                  <th className="px-4 py-3 font-medium">{t('stats.click_country')}</th>
-                                  <th className="px-4 py-3 font-medium">{t('stats.click_device')}</th>
-                                  <th className="px-4 py-3 font-medium">{t('stats.click_utm')}</th>
-                                  <th className="px-4 py-3 font-medium">{t('stats.click_referer')}</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {allClicks.map((click, i) => {
-                                  const d = new Date(click.clicked_at)
-                                  const dateStr = d.toLocaleDateString(numberLocale, {
-                                    day: '2-digit',
-                                    month: '2-digit',
-                                    year: 'numeric',
-                                  })
-                                  const timeStr = d.toLocaleTimeString(numberLocale, {
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                  })
-                                  return (
-                                    <tr key={`${click.clicked_at}-${i}`} className={cn('border-b last:border-0', i % 2 === 0 ? '' : 'bg-muted/10')}>
-                                      <td className="px-4 py-3 whitespace-nowrap">
-                                        <span className="font-medium">{dateStr}</span>
-                                        <span className="text-muted-foreground ml-2">{timeStr}</span>
-                                      </td>
-                                      <td className="px-4 py-3">
-                                        <div className="flex items-center gap-1.5">
-                                          <Link2 className="h-3.5 w-3.5 text-muted-foreground" />
-                                          {click.linkName}
-                                          {click.linkSlug && (
-                                            <span className="text-xs text-muted-foreground">/{click.linkSlug}</span>
-                                          )}
-                                        </div>
-                                      </td>
-                                      <td className="px-4 py-3 whitespace-nowrap">
-                                        {click.country ? `${click.country}${click.city ? ` · ${click.city}` : ''}` : '—'}
-                                      </td>
-                                      <td className="px-4 py-3 whitespace-nowrap">
-                                        {click.device_type ? (
-                                          <span className="flex items-center gap-1">
-                                            {click.device_type}
-                                            {click.os && <span className="text-muted-foreground text-xs">({click.os})</span>}
-                                          </span>
-                                        ) : '—'}
-                                      </td>
-                                      <td className="px-4 py-3 whitespace-nowrap">
-                                        {click.utm_source ? `${click.utm_source}${click.utm_campaign ? ` / ${click.utm_campaign}` : ''}` : '—'}
-                                      </td>
-                                      <td className="px-4 py-3 text-muted-foreground truncate max-w-[200px]">
-                                        {click.referer || '—'}
-                                      </td>
-                                    </tr>
-                                  )
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
-                        ) : (
-                          <p className="text-sm text-muted-foreground py-4 text-center">{t('stats.no_click_data')}</p>
-                        )}
-                      </CardContent>
-                    </Card>
-                  )
-                })()}
-              </>
-            )}
-          </TabsContent>
-
+          {/* ================================================================ */}
           {/* === Contacts === */}
+          {/* ================================================================ */}
           <TabsContent value="contacts" className="space-y-6">
             <div className="grid gap-4 sm:grid-cols-2">
               <KPICard
@@ -1007,204 +1316,6 @@ export default function StatsPage() {
                   </div>
                 </CardContent>
               </Card>
-            )}
-          </TabsContent>
-
-          {/* === Lifecycle === */}
-          <TabsContent value="lifecycle" className="space-y-6">
-            {!stats.lifecycle || stats.lifecycle.stages.length === 0 ? (
-              <Card>
-                <CardContent className="flex h-40 items-center justify-center">
-                  <p className="text-muted-foreground">{t('stats.no_lifecycle')}</p>
-                </CardContent>
-              </Card>
-            ) : (
-              <>
-                {/* Filtre par stade */}
-                <div className="flex flex-wrap items-center gap-2">
-                  <Filter className="h-4 w-4 text-muted-foreground" />
-                  <button
-                    onClick={() => setLifecycleFilter([])}
-                    className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                      lifecycleFilter.length === 0
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-muted text-muted-foreground hover:bg-muted/80'
-                    }`}
-                  >
-                    {t('stats.all_stages')}
-                  </button>
-                  {stats.lifecycle.stages.map((stage) => {
-                    const isSelected = lifecycleFilter.includes(stage.id)
-                    return (
-                      <button
-                        key={stage.id}
-                        onClick={() => {
-                          setLifecycleFilter((prev) =>
-                            isSelected
-                              ? prev.filter((id) => id !== stage.id)
-                              : [...prev, stage.id]
-                          )
-                        }}
-                        className="rounded-full px-3 py-1 text-xs font-medium transition-colors"
-                        style={{
-                          backgroundColor: isSelected ? stage.color : undefined,
-                          color: isSelected ? '#fff' : stage.color,
-                          border: `1.5px solid ${stage.color}`,
-                        }}
-                      >
-                        {stage.name}
-                      </button>
-                    )
-                  })}
-                </div>
-
-                {/* KPI Cards */}
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                  <KPICard
-                    title={t('stats.lc_total_conversations')}
-                    value={stats.lifecycle.totalConversations}
-                    trend={null}
-                    icon={Users}
-                  />
-                  <KPICard
-                    title={t('stats.lc_classified')}
-                    value={stats.lifecycle.classifiedPercent}
-                    trend={null}
-                    icon={Activity}
-                    formatValue={(v) => `${v}%`}
-                    color="blue"
-                  />
-                  <KPICard
-                    title={t('stats.lc_ai_analyses')}
-                    value={stats.lifecycle.aiAnalysesCount}
-                    trend={null}
-                    icon={Sparkles}
-                    color="teal"
-                  />
-                  <KPICard
-                    title={t('stats.lc_tokens_used')}
-                    value={stats.lifecycle.tokensUsed}
-                    trend={null}
-                    icon={Coins}
-                    formatValue={(v) => v.toLocaleString(numberLocale)}
-                    color="orange"
-                  />
-                </div>
-
-                {/* Charts côte à côte */}
-                {(() => {
-                  const filteredStages = lifecycleFilter.length > 0
-                    ? stats.lifecycle!.stages.filter((s) => lifecycleFilter.includes(s.id))
-                    : stats.lifecycle!.stages
-
-                  const distributionData = filteredStages.map((s) => ({
-                    name: s.name,
-                    count: s.conversationCount,
-                    color: s.color,
-                  }))
-
-                  const responseRateData = filteredStages
-                    .filter((s) => s.responseRate != null)
-                    .map((s) => ({
-                      name: s.name,
-                      responseRate: s.responseRate!,
-                      color: s.color,
-                    }))
-
-                  const transitionStages = filteredStages.map((s) => ({
-                    id: s.id,
-                    name: s.name,
-                    color: s.color,
-                  }))
-
-                  return (
-                    <>
-                      <div className="grid gap-6 lg:grid-cols-2">
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="text-base">{t('stats.lc_distribution')}</CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <StageDistributionChart data={distributionData} />
-                          </CardContent>
-                        </Card>
-                        <Card>
-                          <CardHeader>
-                            <CardTitle className="text-base">{t('stats.lc_response_rate')}</CardTitle>
-                          </CardHeader>
-                          <CardContent>
-                            <ResponseRateByStageChart data={responseRateData} />
-                          </CardContent>
-                        </Card>
-                      </div>
-
-                      <Card>
-                        <CardHeader>
-                          <CardTitle className="text-base">{t('stats.lc_transitions')}</CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                          <TransitionsOverTimeChart
-                            data={stats.lifecycle!.transitionsOverTime}
-                            stages={transitionStages}
-                          />
-                        </CardContent>
-                      </Card>
-                    </>
-                  )
-                })()}
-
-                {/* Table détaillée */}
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">{t('stats.lc_details')}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b bg-muted/30 text-left text-muted-foreground">
-                            <th className="px-4 py-3 font-medium">{t('stats.lc_stage')}</th>
-                            <th className="px-4 py-3 font-medium text-right">{t('stats.conversations')}</th>
-                            <th className="px-4 py-3 font-medium text-right">{t('stats.lc_inbound')}</th>
-                            <th className="px-4 py-3 font-medium text-right">{t('stats.response_rate')}</th>
-                            <th className="px-4 py-3 font-medium text-right">{t('stats.avg_time')}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {(lifecycleFilter.length > 0
-                            ? stats.lifecycle.stages.filter((s) => lifecycleFilter.includes(s.id))
-                            : stats.lifecycle.stages
-                          ).map((stage, i) => (
-                            <tr key={stage.id} className={cn('border-b last:border-0', i % 2 === 0 ? '' : 'bg-muted/10')}>
-                              <td className="px-4 py-3 font-medium">
-                                <div className="flex items-center gap-2">
-                                  <div
-                                    className="w-3 h-3 rounded-sm"
-                                    style={{ backgroundColor: stage.color }}
-                                  />
-                                  {stage.name}
-                                </div>
-                              </td>
-                              <td className="px-4 py-3 text-right">
-                                {stage.conversationCount.toLocaleString(numberLocale)}
-                              </td>
-                              <td className="px-4 py-3 text-right">
-                                {stage.inboundMessages.toLocaleString(numberLocale)}
-                              </td>
-                              <td className="px-4 py-3 text-right font-semibold text-primary">
-                                {stage.responseRate != null ? `${stage.responseRate}%` : '—'}
-                              </td>
-                              <td className="px-4 py-3 text-right text-muted-foreground">
-                                {stage.avgResponseTime != null ? formatSeconds(stage.avgResponseTime) : '—'}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </CardContent>
-                </Card>
-              </>
             )}
           </TabsContent>
         </Tabs>
