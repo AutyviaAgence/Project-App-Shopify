@@ -448,7 +448,7 @@ function SubscriptionContent() {
                   {(subscription.status === 'active' || subscription.status === 'trialing') && !pendingPlan && (
                     <p className="text-xs text-muted-foreground/70">par mois, hors taxes</p>
                   )}
-                  {pendingPlan && subscription.status !== 'cancelled' && subscription.status !== 'expired' && (
+                  {pendingPlan && subscription.status !== 'canceled' && subscription.status !== 'past_due' && (
                     <p className="text-xs text-amber-600 dark:text-amber-400">nouveau montant</p>
                   )}
                   {(subscription.status === 'canceled' || subscription.status === 'past_due') && (
