@@ -51,10 +51,12 @@ export function useSubscription() {
           daysRemaining = Math.max(0, Math.ceil((subscriptionEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
         }
 
-        const isTrialExpired = data.data.subscription_status === 'trialing' && (!trialEndsAt || trialEndsAt < now)
+        // Trial expired only if trial_ends_at is set AND in the past (null = manual/unlimited trial)
+        const isTrialExpired = data.data.subscription_status === 'trialing' && !!trialEndsAt && trialEndsAt < now
         const isSubscriptionExpired = data.data.subscription_status === 'active' && subscriptionEndsAt && subscriptionEndsAt < now
         const isActive =
-          (data.data.subscription_status === 'trialing' && trialEndsAt && trialEndsAt > now) ||
+          // trialing: active if no end date (manual) OR end date in future
+          (data.data.subscription_status === 'trialing' && (!trialEndsAt || trialEndsAt > now)) ||
           (data.data.subscription_status === 'active' && (!subscriptionEndsAt || subscriptionEndsAt > now)) ||
           // Annulé mais période encore en cours → accès maintenu jusqu'à la fin
           (data.data.subscription_status === 'canceled' && subscriptionEndsAt && subscriptionEndsAt > now)
