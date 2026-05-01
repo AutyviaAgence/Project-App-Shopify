@@ -18,7 +18,8 @@
     "home": "Home",
     "chat": "Chat",
     "config": "Config",
-    "subscription": "Subscription"
+    "subscription": "Subscription",
+    "referral": "Referral"
   },
   "common": {
     "save": "Save",

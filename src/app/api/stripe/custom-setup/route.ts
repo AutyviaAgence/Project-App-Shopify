@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { getStripe, CUSTOM_SETUP_INSTALLMENT_CENTS, CUSTOM_BOOKING_URL } from '@/lib/stripe/client'
 import { resolvePlan } from '@/lib/stripe/plans'
 import { getTenantFromCookies } from '@/lib/tenant/server'
@@ -25,6 +26,7 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => ({}))
   const plan = resolvePlan(body.plan)
+  const promoCodeInput: string | undefined = body.promo_code?.toString().toUpperCase()
 
   try {
     const stripe = getStripe()
@@ -65,7 +67,28 @@ export async function POST(req: NextRequest) {
     const installmentNumber = paidInstallments + 1
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
-    const session = await stripe.checkout.sessions.create({
+    // Résoudre le code promo si fourni (seulement pour le premier acompte)
+    let stripePromoCodeId: string | undefined
+    if (promoCodeInput && installmentNumber === 1) {
+      try {
+        const adminSupabase = createAdminClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!
+        )
+        const { data: promoRow } = await adminSupabase
+          .from('promo_codes')
+          .select('stripe_promo_code_id, applies_to, is_active')
+          .eq('code', promoCodeInput)
+          .single() as { data: { stripe_promo_code_id: string | null; applies_to: string; is_active: boolean } | null }
+
+        if (promoRow?.is_active && promoRow.stripe_promo_code_id &&
+            (promoRow.applies_to === 'audit' || promoRow.applies_to === 'both')) {
+          stripePromoCodeId = promoRow.stripe_promo_code_id
+        }
+      } catch { /* continue without promo */ }
+    }
+
+    const sessionParams: Parameters<typeof stripe.checkout.sessions.create>[0] = {
       customer: customerId,
       mode: 'payment',
       payment_method_types: ['card'],
@@ -92,7 +115,10 @@ export async function POST(req: NextRequest) {
         installment: installmentNumber.toString(),
         plan,
       },
-    })
+      ...(stripePromoCodeId ? { discounts: [{ promotion_code: stripePromoCodeId }] } : {}),
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionParams)
 
     return NextResponse.json({ url: session.url })
   } catch (error: any) {

@@ -12,6 +12,71 @@ type InvoiceWithLegacy = Stripe.Invoice & {
   payment_intent?: string | null
 }
 
+/** Distribute 500k tokens to referrer + referee on first real payment */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function distributeReferralRewards(
+  supabase: any,
+  userId: string,
+  triggerEvent: 'subscription' | 'audit'
+) {
+  try {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('referred_by')
+      .eq('id', userId)
+      .single() as { data: { referred_by: string | null } | null }
+
+    if (!profile?.referred_by) return
+
+    const referrerId = profile.referred_by
+
+    // Check if reward already exists for this pair + event
+    const { data: existing } = await supabase
+      .from('referral_rewards')
+      .select('id')
+      .eq('referrer_id', referrerId)
+      .eq('referee_id', userId)
+      .eq('trigger_event', triggerEvent)
+      .maybeSingle()
+
+    if (existing) return
+
+    const TOKENS = 500_000
+
+    // Credit tokens to both
+    for (const recipientId of [referrerId, userId]) {
+      const { data: p } = await supabase
+        .from('profiles')
+        .select('tokens_extra')
+        .eq('id', recipientId)
+        .single() as { data: { tokens_extra: number | null } | null }
+
+      await supabase
+        .from('profiles')
+        .update({ tokens_extra: (p?.tokens_extra || 0) + TOKENS })
+        .eq('id', recipientId)
+
+      await supabase.from('user_alerts').insert({
+        user_id: recipientId,
+        alert_type: 'info',
+        title: '🎁 Bonus parrainage reçu !',
+        message: `500 000 tokens ont été ajoutés à votre compte grâce au parrainage.`,
+        metadata: { type: 'referral_reward', trigger: triggerEvent, tokens: TOKENS },
+      })
+    }
+
+    // Record the reward
+    await supabase.from('referral_rewards').insert([
+      { referrer_id: referrerId, referee_id: userId, rewarded_user_id: referrerId, tokens_credited: TOKENS, trigger_event: triggerEvent },
+      { referrer_id: referrerId, referee_id: userId, rewarded_user_id: userId, tokens_credited: TOKENS, trigger_event: triggerEvent },
+    ])
+
+    console.log('[Referral] Rewards distributed for referrer:', referrerId, 'referee:', userId)
+  } catch (err) {
+    console.error('[Referral] Error distributing rewards:', err)
+  }
+}
+
 /** Get tenant app name for a user (for dynamic branding in alerts) */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function getTenantAppName(supabase: any, userId: string): Promise<string> {
@@ -134,6 +199,11 @@ export async function POST(req: NextRequest) {
               description: `Mise en place Autyvia — ${installment === 1 ? 'Acompte' : 'Solde'} (445€)`,
               metadata: { checkout_session_id: session.id, type: 'custom_setup', installment },
             })
+
+            // Distribute referral rewards on first installment
+            if (installment === 1) {
+              await distributeReferralRewards(supabase, userId, 'audit')
+            }
 
             console.log('[Stripe Webhook] custom_setup installment', installment, 'for user:', userId)
           }
@@ -273,6 +343,11 @@ export async function POST(req: NextRequest) {
               },
             })
 
+            // Distribute referral rewards only on first real payment (not trial start)
+            if (!isTrialing) {
+              await distributeReferralRewards(supabase, resolvedUserId, 'subscription')
+            }
+
             console.log('[Stripe Webhook] Subscription created for user:', resolvedUserId, isTrialing ? '(trial)' : '(active)')
           } else {
             console.error('[Stripe Webhook] Could not resolve user_id for session:', session.id)
@@ -285,6 +360,16 @@ export async function POST(req: NextRequest) {
         // Renouvellement d'abonnement réussi
         const invoice = event.data.object as InvoiceWithLegacy
         const subscriptionId = invoice.subscription as string
+
+        // Trial → paid conversion: distribute referral rewards
+        if (subscriptionId && invoice.billing_reason === 'subscription_create') {
+          const stripe = getStripe()
+          const subscription = await stripe.subscriptions.retrieve(subscriptionId) as Stripe.Subscription
+          const userId = subscription.metadata?.user_id
+          if (userId) {
+            await distributeReferralRewards(supabase, userId, 'subscription')
+          }
+        }
 
         if (subscriptionId && invoice.billing_reason === 'subscription_cycle') {
           const stripe = getStripe()

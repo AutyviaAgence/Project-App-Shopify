@@ -18,6 +18,7 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => ({}))
   const plan: PlanId = VALID_PLANS.includes(body.plan) ? body.plan : 'scale'
+  const promoCodeInput: string | undefined = body.promo_code?.toString().toUpperCase()
 
   // Récupérer le profil
   const { data: profile } = await supabase
@@ -93,12 +94,33 @@ export async function POST(req: NextRequest) {
     const hasHadSubscriptionBefore = allSubs.length > 0
     const trialDays = hasHadSubscriptionBefore ? undefined : 7
 
+    // Résoudre le code promo en ID Stripe si fourni
+    let stripePromoCodeId: string | undefined
+    if (promoCodeInput) {
+      try {
+        const adminSupabase = createAdminClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!
+        )
+        const { data: promoRow } = await adminSupabase
+          .from('promo_codes')
+          .select('stripe_promo_code_id, applies_to, is_active')
+          .eq('code', promoCodeInput)
+          .single() as { data: { stripe_promo_code_id: string | null; applies_to: string; is_active: boolean } | null }
+
+        if (promoRow?.is_active && promoRow.stripe_promo_code_id &&
+            (promoRow.applies_to === 'subscription' || promoRow.applies_to === 'both')) {
+          stripePromoCodeId = promoRow.stripe_promo_code_id
+        }
+      } catch { /* promo code not found, continue without */ }
+    }
+
     // Créer la session Checkout
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const priceId = PLAN_PRICE_IDS[plan]
     const planNames: Record<PlanId, string> = { starter: 'Starter', pro: 'Pro', scale: 'Scale' }
 
-    const session = await stripe.checkout.sessions.create({
+    const sessionParams: Parameters<typeof stripe.checkout.sessions.create>[0] = {
       customer: customerId,
       mode: 'subscription',
       payment_method_types: ['card'],
@@ -126,7 +148,12 @@ export async function POST(req: NextRequest) {
           message: `Plan ${planNames[plan]} — ${PLAN_PRICES_EUR[plan]}€/mois. Vous acceptez les CGV d'${tenant.appName}.`,
         },
       },
-    })
+      ...(stripePromoCodeId
+        ? { discounts: [{ promotion_code: stripePromoCodeId }] }
+        : { allow_promotion_codes: true }),
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionParams)
 
     return NextResponse.json({ url: session.url })
   } catch (error: any) {

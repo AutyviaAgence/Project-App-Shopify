@@ -23,7 +23,7 @@ import {
   Loader2, ShieldAlert, Users, Zap, FileText, ChevronDown, ChevronUp,
   CheckCircle2, XCircle, Clock, RefreshCw, ShieldCheck, CreditCard,
   TrendingUp, AlertCircle, ExternalLink, CheckCircle, Ban, Calendar,
-  Wifi, WifiOff, AlertTriangle, Terminal
+  Wifi, WifiOff, AlertTriangle, Terminal, Gift, Tag as TagIcon
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { PlanId } from '@/lib/stripe/plans'
@@ -155,7 +155,7 @@ export default function AdminPage() {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
   const [validating, setValidating] = useState(false)
   const [adminNotes, setAdminNotes] = useState('')
-  const [activeTab, setActiveTab] = useState<'clients' | 'billing' | 'sessions'>('clients')
+  const [activeTab, setActiveTab] = useState<'clients' | 'billing' | 'sessions' | 'affiliate' | 'promo'>('clients')
   const [sessions, setSessions] = useState<SessionRow[]>([])
   const [sessionsLoading, setSessionsLoading] = useState(false)
   const [checkingZombies, setCheckingZombies] = useState(false)
@@ -421,6 +421,30 @@ export default function AdminPage() {
           <Wifi className="h-4 w-4" />
           Sessions
         </button>
+        <button
+          onClick={() => setActiveTab('affiliate')}
+          className={cn(
+            'flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors',
+            activeTab === 'affiliate'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          )}
+        >
+          <Gift className="h-4 w-4" />
+          Affiliation
+        </button>
+        <button
+          onClick={() => setActiveTab('promo')}
+          className={cn(
+            'flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors',
+            activeTab === 'promo'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          )}
+        >
+          <TagIcon className="h-4 w-4" />
+          Codes promo
+        </button>
       </div>
 
       {activeTab === 'billing' && (
@@ -521,6 +545,9 @@ docker restart whatsapp-test-evolutionapi-yfoofj-evolution-api-1`}</pre>
           </div>
         </div>
       )}
+
+      {activeTab === 'affiliate' && <AffiliateTab />}
+      {activeTab === 'promo' && <PromoTab />}
 
       {activeTab === 'clients' && <>
 
@@ -1127,6 +1154,342 @@ function ConfigDetails({ config }: { config: OnboardingConfig }) {
       <div className="rounded-lg bg-muted/50 p-3 space-y-1">
         <p className="text-xs text-muted-foreground font-medium">Informations à récolter</p>
         <pre className="text-xs text-foreground whitespace-pre-wrap leading-relaxed">{config.info_to_collect || '—'}</pre>
+      </div>
+    </div>
+  )
+}
+
+// ─── Affiliate Tab ─────────────────────────────────────────────────────────────
+
+function AffiliateTab() {
+  const [codes, setCodes] = useState<any[]>([])
+  const [conversions, setConversions] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [form, setForm] = useState({ user_id: '', code: '', commission_percent: '30' })
+  const [creating, setCreating] = useState(false)
+  const [paying, setPaying] = useState<string | null>(null)
+
+  const fetchAll = useCallback(async () => {
+    setLoading(true)
+    const [codesRes, convRes] = await Promise.all([
+      fetch('/api/admin/affiliate-codes').then(r => r.json()),
+      fetch('/api/admin/affiliate-conversions').then(r => r.json()),
+    ])
+    setCodes(Array.isArray(codesRes) ? codesRes : [])
+    setConversions(Array.isArray(convRes) ? convRes : [])
+    setLoading(false)
+  }, [])
+
+  useEffect(() => { fetchAll() }, [fetchAll])
+
+  const handleCreate = async () => {
+    if (!form.user_id || !form.code) return toast.error('Remplissez tous les champs')
+    setCreating(true)
+    try {
+      const res = await fetch('/api/admin/affiliate-codes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast.success('Code affilié créé')
+      setForm({ user_id: '', code: '', commission_percent: '30' })
+      fetchAll()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur')
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const handleMarkPaid = async (id: string, method: 'transfer' | 'credit') => {
+    setPaying(id)
+    try {
+      const res = await fetch('/api/admin/affiliate-conversions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, payout_method: method }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast.success('Commission marquée comme payée')
+      fetchAll()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur')
+    } finally {
+      setPaying(null)
+    }
+  }
+
+  if (loading) return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+
+  const pending = conversions.filter((c: any) => c.status === 'pending')
+
+  return (
+    <div className="space-y-8">
+      <div className="rounded-xl border p-6">
+        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2"><Gift className="h-5 w-5 text-primary" />Créer un code affilié</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <input
+            type="text"
+            placeholder="User ID (UUID)"
+            value={form.user_id}
+            onChange={e => setForm(f => ({ ...f, user_id: e.target.value }))}
+            className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
+          <input
+            type="text"
+            placeholder="Code (ex: PARTNER30)"
+            value={form.code}
+            onChange={e => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))}
+            className="border rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
+          <div className="flex gap-2">
+            <input
+              type="number"
+              placeholder="Commission %"
+              value={form.commission_percent}
+              onChange={e => setForm(f => ({ ...f, commission_percent: e.target.value }))}
+              className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+            <Button onClick={handleCreate} disabled={creating} size="sm">
+              {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Créer'}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h2 className="text-lg font-semibold mb-3">Codes actifs ({codes.length})</h2>
+        <div className="rounded-xl border overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="border-b bg-muted/30">
+              <tr>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Affilié</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Code</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Commission</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Statut</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {codes.map((code: any) => (
+                <tr key={code.id} className="hover:bg-muted/20">
+                  <td className="px-4 py-3">
+                    <p className="font-medium">{code.profiles?.full_name || code.profiles?.email || code.user_id}</p>
+                    <p className="text-xs text-muted-foreground">{code.profiles?.email}</p>
+                  </td>
+                  <td className="px-4 py-3 font-mono font-semibold">{code.code}</td>
+                  <td className="px-4 py-3">{code.commission_percent}%</td>
+                  <td className="px-4 py-3">
+                    {code.is_active
+                      ? <Badge className="bg-green-500 text-white">Actif</Badge>
+                      : <Badge variant="secondary">Inactif</Badge>}
+                  </td>
+                </tr>
+              ))}
+              {codes.length === 0 && (
+                <tr><td colSpan={4} className="px-4 py-8 text-center text-muted-foreground text-sm">Aucun code affilié</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div>
+        <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+          <Clock className="h-5 w-5 text-amber-500" />
+          Commissions en attente ({pending.length})
+        </h2>
+        <div className="rounded-xl border overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="border-b bg-muted/30">
+              <tr>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Affilié</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Code</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Montant</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Commission</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {pending.map((conv: any) => (
+                <tr key={conv.id} className="hover:bg-muted/20">
+                  <td className="px-4 py-3">
+                    <p className="font-medium">{conv.profiles?.full_name || conv.profiles?.email}</p>
+                  </td>
+                  <td className="px-4 py-3 font-mono">{conv.affiliate_codes?.code}</td>
+                  <td className="px-4 py-3">{((conv.amount_paid_cents || 0) / 100).toFixed(2)} €</td>
+                  <td className="px-4 py-3 font-semibold text-primary">{((conv.commission_cents || 0) / 100).toFixed(2)} €</td>
+                  <td className="px-4 py-3">
+                    <div className="flex gap-2">
+                      <Button size="sm" variant="outline" disabled={!!paying} onClick={() => handleMarkPaid(conv.id, 'transfer')}>
+                        {paying === conv.id ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Virement'}
+                      </Button>
+                      <Button size="sm" variant="outline" disabled={!!paying} onClick={() => handleMarkPaid(conv.id, 'credit')}>
+                        Crédit plateforme
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {pending.length === 0 && (
+                <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground text-sm">Aucune commission en attente</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Promo Tab ─────────────────────────────────────────────────────────────────
+
+function PromoTab() {
+  const [codes, setCodes] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [form, setForm] = useState({ code: '', discount_percent: '10', max_redemptions: '', applies_to: 'both' })
+  const [creating, setCreating] = useState(false)
+  const [deleting, setDeleting] = useState<string | null>(null)
+
+  const fetchCodes = useCallback(async () => {
+    setLoading(true)
+    const res = await fetch('/api/admin/promo-codes').then(r => r.json())
+    setCodes(Array.isArray(res) ? res : [])
+    setLoading(false)
+  }, [])
+
+  useEffect(() => { fetchCodes() }, [fetchCodes])
+
+  const handleCreate = async () => {
+    if (!form.code || !form.discount_percent) return toast.error('Code et remise requis')
+    setCreating(true)
+    try {
+      const res = await fetch('/api/admin/promo-codes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(form),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast.success('Code promo créé dans Stripe')
+      setForm({ code: '', discount_percent: '10', max_redemptions: '', applies_to: 'both' })
+      fetchCodes()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur')
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const handleDelete = async (id: string) => {
+    setDeleting(id)
+    try {
+      const res = await fetch(`/api/admin/promo-codes/${id}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast.success('Code promo désactivé')
+      fetchCodes()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur')
+    } finally {
+      setDeleting(null)
+    }
+  }
+
+  if (loading) return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+
+  return (
+    <div className="space-y-8">
+      <div className="rounded-xl border p-6">
+        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2"><TagIcon className="h-5 w-5 text-primary" />Créer un code promo Stripe</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+          <input
+            type="text"
+            placeholder="Code (ex: LAUNCH30)"
+            value={form.code}
+            onChange={e => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))}
+            className="border rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
+          <input
+            type="number"
+            placeholder="Remise %"
+            value={form.discount_percent}
+            onChange={e => setForm(f => ({ ...f, discount_percent: e.target.value }))}
+            className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
+          <input
+            type="number"
+            placeholder="Max utilisations (optionnel)"
+            value={form.max_redemptions}
+            onChange={e => setForm(f => ({ ...f, max_redemptions: e.target.value }))}
+            className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
+          <div className="flex gap-2">
+            <select
+              value={form.applies_to}
+              onChange={e => setForm(f => ({ ...f, applies_to: e.target.value }))}
+              className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white dark:bg-slate-900"
+            >
+              <option value="both">Abonnement + Audit</option>
+              <option value="subscription">Abonnement seul</option>
+              <option value="audit">Audit seul</option>
+            </select>
+            <Button onClick={handleCreate} disabled={creating} size="sm">
+              {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Créer'}
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <h2 className="text-lg font-semibold mb-3">Codes promo ({codes.length})</h2>
+        <div className="rounded-xl border overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="border-b bg-muted/30">
+              <tr>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Code</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Remise</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Applicable à</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Max util.</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Statut</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {codes.map((code: any) => (
+                <tr key={code.id} className="hover:bg-muted/20">
+                  <td className="px-4 py-3 font-mono font-semibold">{code.code}</td>
+                  <td className="px-4 py-3 text-primary font-medium">-{code.discount_percent}%</td>
+                  <td className="px-4 py-3">{code.applies_to === 'both' ? 'Abonnement + Audit' : code.applies_to === 'subscription' ? 'Abonnement' : 'Audit'}</td>
+                  <td className="px-4 py-3">{code.max_redemptions ?? '∞'}</td>
+                  <td className="px-4 py-3">
+                    {code.is_active
+                      ? <Badge className="bg-green-500 text-white">Actif</Badge>
+                      : <Badge variant="secondary">Inactif</Badge>}
+                  </td>
+                  <td className="px-4 py-3">
+                    {code.is_active && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                        disabled={deleting === code.id}
+                        onClick={() => handleDelete(code.id)}
+                      >
+                        {deleting === code.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
+                      </Button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {codes.length === 0 && (
+                <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground text-sm">Aucun code promo</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   )

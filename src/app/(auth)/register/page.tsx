@@ -111,11 +111,20 @@ function RegisterForm() {
     const afterLogin = planParam
       ? `${window.location.origin}/subscription?plan=${planParam}`
       : `${window.location.origin}/login`
+    const referralCode = document.cookie
+      .split('; ')
+      .find(r => r.startsWith('referral_code='))
+      ?.split('=')[1]
+
     const { error } = await supabase.auth.signUp({
       email,
       password,
       options: {
-        data: { full_name: fullName, signup_domain: window.location.hostname },
+        data: {
+          full_name: fullName,
+          signup_domain: window.location.hostname,
+          ...(referralCode ? { referred_by_code: referralCode } : {}),
+        },
         emailRedirectTo: afterLogin,
         captchaToken: captchaToken || undefined,
       },
