@@ -12,6 +12,61 @@ type InvoiceWithLegacy = Stripe.Invoice & {
   payment_intent?: string | null
 }
 
+/** Create affiliate_conversion record when an affiliate code was used */
+async function distributeAffiliateCommission(
+  supabase: any,
+  userId: string,
+  affiliateCode: string,
+  amountPaidCents: number,
+  paymentIntentId: string | null,
+  triggerType: 'subscription' | 'audit'
+) {
+  try {
+    const { data: code } = await supabase
+      .from('affiliate_codes')
+      .select('id, user_id, commission_percent, is_active')
+      .eq('code', affiliateCode.toUpperCase())
+      .single()
+
+    if (!code || !code.is_active) return
+
+    // Avoid double-counting
+    const { data: existing } = await supabase
+      .from('affiliate_conversions')
+      .select('id')
+      .eq('affiliate_code_id', code.id)
+      .eq('converted_user_id', userId)
+      .maybeSingle()
+
+    if (existing) return
+
+    const commissionCents = Math.round(amountPaidCents * (code.commission_percent / 100))
+
+    await supabase.from('affiliate_conversions').insert({
+      affiliate_code_id: code.id,
+      affiliate_user_id: code.user_id,
+      converted_user_id: userId,
+      amount_paid_cents: amountPaidCents,
+      commission_cents: commissionCents,
+      currency: 'eur',
+      status: 'pending',
+      stripe_payment_intent_id: paymentIntentId,
+    })
+
+    await supabase.from('user_alerts').insert({
+      user_id: code.user_id,
+      alert_type: 'info',
+      title: '💰 Nouvelle commission affilié',
+      message: `Une commission de ${(commissionCents / 100).toFixed(2)}€ a été générée via votre code ${affiliateCode}.`,
+      metadata: { type: 'affiliate_commission', trigger: triggerType, amount: commissionCents },
+    })
+
+    console.log('[Affiliate] Commission created:', commissionCents, 'cents for code:', affiliateCode)
+  } catch (err) {
+    console.error('[Affiliate] Error creating commission:', err)
+  }
+}
+
 /** Distribute 500k tokens to referrer + referee on first real payment */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function distributeReferralRewards(
@@ -200,9 +255,18 @@ export async function POST(req: NextRequest) {
               metadata: { checkout_session_id: session.id, type: 'custom_setup', installment },
             })
 
-            // Distribute referral rewards on first installment
+            // Distribute referral rewards + affiliate commission on first installment
             if (installment === 1) {
               await distributeReferralRewards(supabase, userId, 'audit')
+              const affiliateCode = session.metadata?.affiliate_code
+              if (affiliateCode) {
+                await distributeAffiliateCommission(
+                  supabase, userId, affiliateCode,
+                  session.amount_total || 0,
+                  session.payment_intent as string || null,
+                  'audit'
+                )
+              }
             }
 
             console.log('[Stripe Webhook] custom_setup installment', installment, 'for user:', userId)
@@ -343,9 +407,18 @@ export async function POST(req: NextRequest) {
               },
             })
 
-            // Distribute referral rewards only on first real payment (not trial start)
+            // Distribute referral rewards + affiliate commission only on first real payment
             if (!isTrialing) {
               await distributeReferralRewards(supabase, resolvedUserId, 'subscription')
+              const affiliateCode = subscription.metadata?.affiliate_code || session.metadata?.affiliate_code
+              if (affiliateCode) {
+                await distributeAffiliateCommission(
+                  supabase, resolvedUserId, affiliateCode,
+                  session.amount_total || 0,
+                  session.payment_intent as string || null,
+                  'subscription'
+                )
+              }
             }
 
             console.log('[Stripe Webhook] Subscription created for user:', resolvedUserId, isTrialing ? '(trial)' : '(active)')
@@ -361,13 +434,22 @@ export async function POST(req: NextRequest) {
         const invoice = event.data.object as InvoiceWithLegacy
         const subscriptionId = invoice.subscription as string
 
-        // Trial → paid conversion: distribute referral rewards
+        // Trial → paid conversion: distribute referral rewards + affiliate commission
         if (subscriptionId && invoice.billing_reason === 'subscription_create') {
           const stripe = getStripe()
           const subscription = await stripe.subscriptions.retrieve(subscriptionId) as Stripe.Subscription
           const userId = subscription.metadata?.user_id
           if (userId) {
             await distributeReferralRewards(supabase, userId, 'subscription')
+            const affiliateCode = subscription.metadata?.affiliate_code
+            if (affiliateCode) {
+              await distributeAffiliateCommission(
+                supabase, userId, affiliateCode,
+                invoice.amount_paid || 0,
+                invoice.payment_intent as string || null,
+                'subscription'
+              )
+            }
           }
         }
 

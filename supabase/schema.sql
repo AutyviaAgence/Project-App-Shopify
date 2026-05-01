@@ -796,3 +796,102 @@ END;
 $$;
 
 REVOKE EXECUTE ON FUNCTION public.cleanup_pending_email_sessions() FROM anon, public;
+
+-- =============================================================
+-- Système de parrainage, affiliation et codes promo
+-- =============================================================
+
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS referral_code TEXT UNIQUE;
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS referred_by UUID REFERENCES profiles(id);
+
+CREATE TABLE IF NOT EXISTS referral_rewards (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  referrer_id UUID NOT NULL REFERENCES profiles(id),
+  referee_id  UUID NOT NULL REFERENCES profiles(id),
+  rewarded_user_id UUID NOT NULL REFERENCES profiles(id),
+  tokens_credited INTEGER NOT NULL DEFAULT 500000,
+  trigger_event TEXT NOT NULL, -- 'subscription' | 'audit'
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(referrer_id, referee_id, trigger_event)
+);
+
+CREATE TABLE IF NOT EXISTS affiliate_codes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES profiles(id),
+  code TEXT NOT NULL UNIQUE,
+  commission_percent NUMERIC(5,2) NOT NULL DEFAULT 30,
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS affiliate_conversions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  affiliate_code_id UUID NOT NULL REFERENCES affiliate_codes(id),
+  affiliate_user_id UUID NOT NULL REFERENCES profiles(id),
+  converted_user_id UUID NOT NULL REFERENCES profiles(id),
+  amount_paid_cents INTEGER NOT NULL,
+  commission_cents INTEGER NOT NULL,
+  currency TEXT NOT NULL DEFAULT 'eur',
+  status TEXT NOT NULL DEFAULT 'pending', -- pending | paid
+  payout_method TEXT, -- 'transfer' | 'credit'
+  paid_at TIMESTAMPTZ,
+  stripe_payment_intent_id TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS promo_codes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  code TEXT NOT NULL UNIQUE,
+  stripe_coupon_id TEXT,
+  stripe_promo_code_id TEXT,
+  discount_percent NUMERIC(5,2) NOT NULL,
+  max_redemptions INTEGER,
+  applies_to TEXT NOT NULL DEFAULT 'both', -- 'subscription' | 'audit' | 'both'
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE OR REPLACE FUNCTION generate_referral_code()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  new_code TEXT;
+  attempts INT := 0;
+BEGIN
+  LOOP
+    new_code := upper(substring(md5(random()::text || NEW.id::text) from 1 for 8));
+    IF NOT EXISTS (SELECT 1 FROM profiles WHERE referral_code = new_code) THEN
+      NEW.referral_code := new_code;
+      EXIT;
+    END IF;
+    attempts := attempts + 1;
+    IF attempts > 10 THEN
+      NEW.referral_code := upper(substring(md5(NEW.id::text) from 1 for 12));
+      EXIT;
+    END IF;
+  END LOOP;
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_generate_referral_code ON profiles;
+CREATE TRIGGER trg_generate_referral_code
+  BEFORE INSERT ON profiles
+  FOR EACH ROW
+  WHEN (NEW.referral_code IS NULL)
+  EXECUTE FUNCTION generate_referral_code();
+
+ALTER TABLE referral_rewards ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "Users see own referral rewards" ON referral_rewards
+  FOR SELECT USING (rewarded_user_id = auth.uid() OR referrer_id = auth.uid() OR referee_id = auth.uid());
+
+ALTER TABLE affiliate_codes ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "Users see own affiliate codes" ON affiliate_codes
+  FOR SELECT USING (user_id = auth.uid());
+
+ALTER TABLE affiliate_conversions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY IF NOT EXISTS "Users see own conversions" ON affiliate_conversions
+  FOR SELECT USING (affiliate_user_id = auth.uid());
+
+ALTER TABLE promo_codes ENABLE ROW LEVEL SECURITY;

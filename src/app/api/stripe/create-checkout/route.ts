@@ -19,6 +19,7 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}))
   const plan: PlanId = VALID_PLANS.includes(body.plan) ? body.plan : 'scale'
   const promoCodeInput: string | undefined = body.promo_code?.toString().toUpperCase()
+  const affiliateCodeInput: string | undefined = body.affiliate_code?.toString().toUpperCase()
 
   // Récupérer le profil
   const { data: profile } = await supabase
@@ -136,12 +137,14 @@ export async function POST(req: NextRequest) {
       metadata: {
         user_id: user.id,
         plan,
+        ...(affiliateCodeInput ? { affiliate_code: affiliateCodeInput } : {}),
       },
       subscription_data: {
         ...(trialDays ? { trial_period_days: trialDays } : {}),
         metadata: {
           user_id: user.id,
           plan,
+          ...(affiliateCodeInput ? { affiliate_code: affiliateCodeInput } : {}),
         },
       },
       custom_text: {
