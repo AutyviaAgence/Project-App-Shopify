@@ -961,7 +961,7 @@ async function sendWelcomeMessage(
           .from('tenants' as any)
           .select('app_name')
           .eq('id', profile.tenant_id)
-          .single()
+          .single() as unknown as { data: { app_name: string } | null, error: unknown }
         if (tenant?.app_name) appName = tenant.app_name
       }
     } catch { /* fallback to default */ }

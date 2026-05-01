@@ -43,9 +43,9 @@ export async function GET() {
     const { data: tenants } = await adminSupabase
       .from('tenants' as any)
       .select('id, app_name, slug')
-      .in('id', tenantIds)
+      .in('id', tenantIds) as unknown as { data: Array<{ id: string; app_name: string; slug: string }> | null, error: unknown }
     if (tenants) {
-      for (const t of tenants as Array<{ id: string; app_name: string; slug: string }>) {
+      for (const t of tenants) {
         tenantNames[t.id] = t.app_name
       }
     }

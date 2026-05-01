@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
         .from('tenants' as any)
         .select('app_name')
         .eq('id', profileTenant.tenant_id)
-        .single()
+        .single() as unknown as { data: { app_name: string } | null, error: unknown }
       if (tenantRow?.app_name) appName = tenantRow.app_name
     }
   } catch { /* fallback to default */ }
