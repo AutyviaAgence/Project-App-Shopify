@@ -28,12 +28,27 @@ export async function GET() {
 
   const { data: clients, error } = await adminSupabase
     .from('profiles')
-    .select('id, email, full_name, subscription_status, audit_status, onboarding_plan, plan, tokens_used, tokens_limit, role, created_at')
+    .select('id, email, full_name, subscription_status, audit_status, onboarding_plan, plan, tokens_used, tokens_limit, role, created_at, tenant_id')
     .order('created_at', { ascending: false })
     .limit(500)
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  // Récupérer les noms des tenants
+  const tenantIds = [...new Set((clients || []).map((c: { tenant_id: string | null }) => c.tenant_id).filter(Boolean))] as string[]
+  let tenantNames: Record<string, string> = {}
+  if (tenantIds.length > 0) {
+    const { data: tenants } = await adminSupabase
+      .from('tenants')
+      .select('id, app_name, slug')
+      .in('id', tenantIds)
+    if (tenants) {
+      for (const t of tenants as Array<{ id: string; app_name: string; slug: string }>) {
+        tenantNames[t.id] = t.app_name
+      }
+    }
   }
 
   // Récupérer les configurateurs soumis
@@ -51,9 +66,10 @@ export async function GET() {
     }
   }
 
-  const enriched = (clients || []).map((c: { id: string }) => ({
+  const enriched = (clients || []).map((c: { id: string; tenant_id: string | null }) => ({
     ...c,
     onboarding_config: configsByUser[c.id] || null,
+    tenant_name: c.tenant_id ? (tenantNames[c.tenant_id] || null) : null,
   }))
 
   return NextResponse.json({ clients: enriched })

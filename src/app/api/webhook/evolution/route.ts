@@ -948,14 +948,32 @@ async function sendWelcomeMessage(
       .update({ welcome_sent: true })
       .eq('id', sessionId)
 
-    // Créer un contact fictif "Autyvia"
+    // Récupérer le nom de l'app depuis le tenant de l'utilisateur
+    let appName = 'Autyvia'
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('tenant_id')
+        .eq('id', userId)
+        .single()
+      if (profile?.tenant_id) {
+        const { data: tenant } = await supabase
+          .from('tenants')
+          .select('app_name')
+          .eq('id', profile.tenant_id)
+          .single()
+        if (tenant?.app_name) appName = tenant.app_name
+      }
+    } catch { /* fallback to default */ }
+
+    // Créer un contact fictif au nom de l'app
     const { data: contact, error: contactError } = await supabase
       .from('contacts')
       .insert({
         session_id: sessionId,
-        phone_number: 'autyvia-welcome',
-        name: 'Autyvia',
-        first_name: 'Autyvia',
+        phone_number: 'welcome-system',
+        name: appName,
+        first_name: appName,
       })
       .select('id')
       .single()
@@ -970,7 +988,7 @@ async function sendWelcomeMessage(
         contact_id: contact.id,
         channel: 'whatsapp',
         last_message_at: new Date().toISOString(),
-        last_message_preview: 'Bienvenue sur Autyvia !',
+        last_message_preview: `Bienvenue sur ${appName} !`,
         unread_count: 1,
       })
       .select('id')
@@ -984,7 +1002,7 @@ async function sendWelcomeMessage(
       session_id: sessionId,
       direction: 'inbound',
       content: encryptMessage(
-        'Bienvenue sur Autyvia ! 🎉\n\nVotre session WhatsApp est maintenant connectée. Vous pouvez commencer à recevoir et envoyer des messages.\n\nExplorez le tableau de bord pour configurer votre premier agent IA et automatiser vos conversations.'
+        `Bienvenue sur ${appName} ! 🎉\n\nVotre session WhatsApp est maintenant connectée. Vous pouvez commencer à recevoir et envoyer des messages.\n\nExplorez le tableau de bord pour configurer votre premier agent IA et automatiser vos conversations.`
       ),
       message_type: 'text',
       sent_by: 'contact',

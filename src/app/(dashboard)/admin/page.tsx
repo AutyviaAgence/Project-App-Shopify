@@ -55,6 +55,7 @@ type ClientRow = {
   tokens_limit: number
   role: string | null
   created_at: string
+  tenant_name: string | null
   onboarding_config: OnboardingConfig | null
 }
 
@@ -553,6 +554,7 @@ docker restart whatsapp-test-evolutionapi-yfoofj-evolution-api-1`}</pre>
           <thead className="border-b bg-muted/30">
             <tr>
               <th className="px-4 py-3 text-left font-semibold">Client</th>
+              <th className="px-4 py-3 text-left font-semibold">Site</th>
               <th className="px-4 py-3 text-left font-semibold">Audit</th>
               <th className="px-4 py-3 text-left font-semibold">Abonnement</th>
               <th className="px-4 py-3 text-left font-semibold">Plan</th>
@@ -578,6 +580,15 @@ docker restart whatsapp-test-evolutionapi-yfoofj-evolution-api-1`}</pre>
                       <div className="font-medium">{client.full_name || '—'}</div>
                       <div className="text-xs text-muted-foreground">{client.email}</div>
                       <div className="text-xs text-muted-foreground">{new Date(client.created_at).toLocaleDateString('fr-FR')}</div>
+                    </td>
+
+                    {/* Tenant / Site */}
+                    <td className="px-4 py-3">
+                      {client.tenant_name ? (
+                        <Badge variant="outline" className="text-xs">{client.tenant_name}</Badge>
+                      ) : (
+                        <span className="text-xs text-muted-foreground">—</span>
+                      )}
                     </td>
 
                     {/* Audit status */}
@@ -742,7 +753,7 @@ docker restart whatsapp-test-evolutionapi-yfoofj-evolution-api-1`}</pre>
                   {/* Row étendue */}
                   {isExpanded && client.onboarding_config && (
                     <tr key={`${client.id}-expanded`} className="bg-muted/10">
-                      <td colSpan={8} className="px-6 py-4">
+                      <td colSpan={9} className="px-6 py-4">
                         <ConfigDetails config={client.onboarding_config} />
                       </td>
                     </tr>
@@ -759,7 +770,7 @@ docker restart whatsapp-test-evolutionapi-yfoofj-evolution-api-1`}</pre>
             })}
             {clients.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">
                   Aucun client trouvé.
                 </td>
               </tr>

@@ -75,11 +75,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: updateError.message }, { status: 500 })
   }
 
+  // Récupérer le nom de l'app depuis le tenant de l'utilisateur
+  let appName = 'Autyvia'
+  try {
+    const { data: profileTenant } = await adminSupabase
+      .from('profiles')
+      .select('tenant_id')
+      .eq('id', user_id)
+      .single()
+    if (profileTenant?.tenant_id) {
+      const { data: tenantRow } = await adminSupabase
+        .from('tenants')
+        .select('app_name')
+        .eq('id', profileTenant.tenant_id)
+        .single()
+      if (tenantRow?.app_name) appName = tenantRow.app_name
+    }
+  } catch { /* fallback to default */ }
+
   await adminSupabase.from('user_alerts').insert({
     user_id,
     alert_type: 'info',
     title: 'Abonnement activé',
-    message: `Votre abonnement ${plan} a été activé manuellement. Bienvenue sur Autyvia !`,
+    message: `Votre abonnement ${plan} a été activé manuellement. Bienvenue sur ${appName} !`,
     metadata: { type: 'manual_activation', plan },
   })
 

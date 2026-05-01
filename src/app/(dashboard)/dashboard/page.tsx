@@ -36,6 +36,7 @@ import { StartTourButton } from '@/components/guided-tour'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
+import { useTenant } from '@/lib/tenant/context'
 
 function formatSeconds(s: number): string {
   if (s < 60) return `${s}s`
@@ -187,7 +188,7 @@ function OnboardingChecklist({ checklist, onRefresh }: { checklist: Checklist; o
           <div className="flex-1 space-y-2">
             <div className="flex items-center gap-2">
               <span className="text-2xl">👋</span>
-              <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Bienvenue sur Autyvia</h1>
+              <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Bienvenue sur {tenant.appName}</h1>
             </div>
             <p className="text-sm text-muted-foreground max-w-md">
               Suivez ces étapes pour configurer votre plateforme et commencer à automatiser vos conversations WhatsApp avec l'IA.
@@ -424,6 +425,7 @@ function StatsDashboard() {
 // ─── Page principale ──────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
+  const tenant = useTenant()
   const [checklist, setChecklist] = useState<Checklist | null>(null)
   const [loading, setLoading] = useState(true)
 
