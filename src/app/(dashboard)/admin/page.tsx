@@ -48,7 +48,7 @@ type ClientRow = {
   email: string
   full_name: string | null
   subscription_status: string | null
-  onboarding_status: string | null
+  audit_status: string | null
   onboarding_plan: string | null
   plan: string | null
   tokens_used: number
@@ -121,26 +121,25 @@ const ESCALATION_LABELS: Record<string, string> = {
   off_hours: 'Hors horaires',
 }
 
-const ONBOARDING_OPTIONS: { value: string; label: string; description: string; color: string }[] = [
-  { value: 'pending',    label: 'En attente',   description: 'Inscription fraîche — rien de configuré',             color: 'bg-gray-100 text-gray-700' },
-  { value: 'onboarding', label: 'Audit',         description: 'Acompte payé, onboarding en cours avec l\'équipe',   color: 'bg-blue-500 text-white' },
-  { value: 'active',     label: 'Actif',          description: 'Onboarding terminé, client autonome',                color: 'bg-green-500 text-white' },
-  { value: 'skipped',    label: 'Sans onboarding', description: 'A refusé l\'onboarding, accès direct autonome',    color: 'bg-purple-500 text-white' },
-  { value: 'observer',   label: 'Observateur',   description: 'Lecture seule — ne peut pas créer de ressources',    color: 'bg-amber-500 text-white' },
+const AUDIT_OPTIONS: { value: string; label: string; description: string; color: string }[] = [
+  { value: 'none',         label: 'Sans audit',    description: 'Pas d\'audit en cours',                          color: 'bg-gray-100 text-gray-700' },
+  { value: 'acompte_paid', label: 'Audit en cours', description: 'Acompte 750€ payé — audit en cours',            color: 'bg-blue-500 text-white' },
+  { value: 'solde_paid',   label: 'Audit livré',    description: 'Solde 750€ payé — audit terminé et livré',      color: 'bg-green-500 text-white' },
+  { value: 'refunded',     label: 'Remboursé',      description: 'Audit remboursé selon conditions des CGU',       color: 'bg-red-500 text-white' },
 ]
 
-function OnboardingStatusBadge({ status }: { status: string | null }) {
-  const opt = ONBOARDING_OPTIONS.find(o => o.value === (status || 'pending'))
+function AuditStatusBadge({ status }: { status: string | null }) {
+  const opt = AUDIT_OPTIONS.find(o => o.value === (status || 'none'))
   if (!opt) return <Badge variant="secondary">{status}</Badge>
   return <Badge className={opt.color}>{opt.label}</Badge>
 }
 
 function SubStatusBadge({ status }: { status: string | null }) {
-  if (!status) return <Badge variant="outline" className="text-muted-foreground border-muted-foreground/30">Aucun abonnement</Badge>
+  if (!status || status === 'none') return <Badge variant="outline" className="text-muted-foreground border-muted-foreground/30">Aucun</Badge>
   if (status === 'active') return <Badge className="bg-green-500">Actif</Badge>
-  if (status === 'trial') return <Badge className="bg-amber-500">Essai</Badge>
-  if (status === 'expired') return <Badge className="bg-red-500">Expiré</Badge>
-  if (status === 'cancelled') return <Badge variant="secondary">Annulé</Badge>
+  if (status === 'trialing') return <Badge className="bg-amber-500">Essai</Badge>
+  if (status === 'past_due') return <Badge className="bg-red-500">Impayé</Badge>
+  if (status === 'canceled') return <Badge variant="secondary">Annulé</Badge>
   return <Badge variant="secondary">{status}</Badge>
 }
 
@@ -220,7 +219,7 @@ export default function AdminPage() {
     }
   }
 
-  const handleUpdateStatus = async (userId: string, field: 'onboarding_status' | 'subscription_status', value: string, plan?: string) => {
+  const handleUpdateStatus = async (userId: string, field: 'audit_status' | 'subscription_status', value: string, plan?: string) => {
     setActivating(userId)
     try {
       const res = await fetch('/api/admin/update-status', {
@@ -245,7 +244,7 @@ export default function AdminPage() {
       const res = await fetch('/api/admin/update-status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: userId, subscription_status: 'trial', plan: null, onboarding_status: 'observer' }),
+        body: JSON.stringify({ user_id: userId, subscription_status: 'trialing', plan: null }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
@@ -358,11 +357,11 @@ export default function AdminPage() {
     )
   }
 
-  const pending = clients.filter(c => !c.onboarding_status || c.onboarding_status === 'pending')
-  const onboarding = clients.filter(c => c.onboarding_status === 'onboarding')
-  const active = clients.filter(c => c.onboarding_status === 'active')
-  const skipped = clients.filter(c => c.onboarding_status === 'skipped')
-  const observers = clients.filter(c => c.onboarding_status === 'observer')
+  const noAudit = clients.filter(c => !c.audit_status || c.audit_status === 'none')
+  const auditInProgress = clients.filter(c => c.audit_status === 'acompte_paid')
+  const auditDone = clients.filter(c => c.audit_status === 'solde_paid')
+  const refunded = clients.filter(c => c.audit_status === 'refunded')
+  const activeSubscriptions = clients.filter(c => c.subscription_status === 'active' || c.subscription_status === 'trialing')
 
   return (
     <div className="container mx-auto py-8 px-4 max-w-7xl space-y-8">
@@ -527,24 +526,24 @@ docker restart whatsapp-test-evolutionapi-yfoofj-evolution-api-1`}</pre>
       {/* KPIs */}
       <div className="grid grid-cols-5 gap-3">
         <div className="rounded-xl border p-4 text-center">
-          <p className="text-2xl font-bold text-gray-500">{pending.length}</p>
-          <p className="text-xs text-muted-foreground mt-1">En attente</p>
+          <p className="text-2xl font-bold text-green-500">{activeSubscriptions.length}</p>
+          <p className="text-xs text-muted-foreground mt-1">Abonnés actifs</p>
         </div>
         <div className="rounded-xl border p-4 text-center">
-          <p className="text-2xl font-bold text-blue-500">{onboarding.length}</p>
-          <p className="text-xs text-muted-foreground mt-1">Audit</p>
+          <p className="text-2xl font-bold text-gray-500">{noAudit.length}</p>
+          <p className="text-xs text-muted-foreground mt-1">Sans audit</p>
         </div>
         <div className="rounded-xl border p-4 text-center">
-          <p className="text-2xl font-bold text-green-500">{active.length}</p>
-          <p className="text-xs text-muted-foreground mt-1">Actifs</p>
+          <p className="text-2xl font-bold text-blue-500">{auditInProgress.length}</p>
+          <p className="text-xs text-muted-foreground mt-1">Audit en cours</p>
         </div>
         <div className="rounded-xl border p-4 text-center">
-          <p className="text-2xl font-bold text-purple-500">{skipped.length}</p>
-          <p className="text-xs text-muted-foreground mt-1">Sans onboarding</p>
+          <p className="text-2xl font-bold text-purple-500">{auditDone.length}</p>
+          <p className="text-xs text-muted-foreground mt-1">Audit livré</p>
         </div>
         <div className="rounded-xl border p-4 text-center">
-          <p className="text-2xl font-bold text-amber-500">{observers.length}</p>
-          <p className="text-xs text-muted-foreground mt-1">Observateurs</p>
+          <p className="text-2xl font-bold text-red-500">{refunded.length}</p>
+          <p className="text-xs text-muted-foreground mt-1">Remboursés</p>
         </div>
       </div>
 
@@ -554,7 +553,7 @@ docker restart whatsapp-test-evolutionapi-yfoofj-evolution-api-1`}</pre>
           <thead className="border-b bg-muted/30">
             <tr>
               <th className="px-4 py-3 text-left font-semibold">Client</th>
-              <th className="px-4 py-3 text-left font-semibold">Onboarding</th>
+              <th className="px-4 py-3 text-left font-semibold">Audit</th>
               <th className="px-4 py-3 text-left font-semibold">Abonnement</th>
               <th className="px-4 py-3 text-left font-semibold">Plan</th>
               <th className="px-4 py-3 text-left font-semibold">Tokens</th>
@@ -581,20 +580,20 @@ docker restart whatsapp-test-evolutionapi-yfoofj-evolution-api-1`}</pre>
                       <div className="text-xs text-muted-foreground">{new Date(client.created_at).toLocaleDateString('fr-FR')}</div>
                     </td>
 
-                    {/* Onboarding status */}
+                    {/* Audit status */}
                     <td className="px-4 py-3">
                       <div className="space-y-1.5">
-                        <OnboardingStatusBadge status={client.onboarding_status} />
+                        <AuditStatusBadge status={client.audit_status} />
                         <Select
-                          value={client.onboarding_status || 'pending'}
-                          onValueChange={v => handleUpdateStatus(client.id, 'onboarding_status', v)}
+                          value={client.audit_status || 'none'}
+                          onValueChange={v => handleUpdateStatus(client.id, 'audit_status', v)}
                           disabled={activating === client.id}
                         >
                           <SelectTrigger className="h-6 w-32 text-xs">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent className="w-72">
-                            {ONBOARDING_OPTIONS.map(opt => (
+                            {AUDIT_OPTIONS.map(opt => (
                               <SelectItem key={opt.value} value={opt.value}>
                                 <div>
                                   <span className="font-medium">{opt.label}</span>
@@ -612,7 +611,7 @@ docker restart whatsapp-test-evolutionapi-yfoofj-evolution-api-1`}</pre>
                       <div className="space-y-1.5">
                         <SubStatusBadge status={client.subscription_status} />
                         <Select
-                          value={client.subscription_status || 'expired'}
+                          value={client.subscription_status || 'none'}
                           onValueChange={v => handleUpdateStatus(client.id, 'subscription_status', v, client.plan || 'scale')}
                           disabled={activating === client.id}
                         >
@@ -620,10 +619,11 @@ docker restart whatsapp-test-evolutionapi-yfoofj-evolution-api-1`}</pre>
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
+                            <SelectItem value="none">Aucun</SelectItem>
+                            <SelectItem value="trialing">Essai</SelectItem>
                             <SelectItem value="active">Actif</SelectItem>
-                            <SelectItem value="trial">Essai</SelectItem>
-                            <SelectItem value="expired">Expiré</SelectItem>
-                            <SelectItem value="cancelled">Annulé</SelectItem>
+                            <SelectItem value="past_due">Impayé</SelectItem>
+                            <SelectItem value="canceled">Annulé</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>

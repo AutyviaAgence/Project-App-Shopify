@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => ({}))
-  const { user_id, onboarding_status, subscription_status, plan: rawPlan, role } = body
+  const { user_id, audit_status, subscription_status, plan: rawPlan, role } = body
 
   if (!user_id) {
     return NextResponse.json({ error: 'user_id requis' }, { status: 400 })
@@ -36,15 +36,14 @@ export async function POST(req: NextRequest) {
 
   const update: Record<string, unknown> = {}
 
-  if (onboarding_status && ['pending', 'onboarding', 'active', 'skipped', 'observer'].includes(onboarding_status)) {
-    update.onboarding_status = onboarding_status
+  if (audit_status && ['none', 'acompte_paid', 'solde_paid', 'refunded'].includes(audit_status)) {
+    update.audit_status = audit_status
   }
 
-  if (subscription_status && ['active', 'trial', 'expired', 'cancelled'].includes(subscription_status)) {
+  if (subscription_status && ['active', 'trialing', 'past_due', 'canceled', 'none'].includes(subscription_status)) {
     update.subscription_status = subscription_status
-    if (subscription_status === 'active' || subscription_status === 'trial') {
-      // rawPlan explicitement null = mode observateur, on ne force pas de plan
-      if (rawPlan === null && body.hasOwnProperty('plan')) {
+    if (subscription_status === 'active' || subscription_status === 'trialing') {
+      if (rawPlan === null && Object.prototype.hasOwnProperty.call(body, 'plan')) {
         update.plan = null
         update.tokens_limit = 0
       } else {
@@ -57,6 +56,21 @@ export async function POST(req: NextRequest) {
       const nextMonth = new Date()
       nextMonth.setMonth(nextMonth.getMonth() + 1)
       update.subscription_ends_at = nextMonth.toISOString()
+    }
+    if (subscription_status === 'none' || subscription_status === 'canceled' || subscription_status === 'past_due') {
+      update.plan = null
+      update.tokens_limit = 0
+    }
+  }
+
+  if (rawPlan !== undefined && !subscription_status) {
+    if (rawPlan === null) {
+      update.plan = null
+      update.tokens_limit = 0
+    } else {
+      const plan = resolvePlan(rawPlan)
+      update.plan = plan
+      update.tokens_limit = PLAN_TOKEN_LIMITS[plan]
     }
   }
 

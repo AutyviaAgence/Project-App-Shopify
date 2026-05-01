@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
   if (plan === null) {
     const { error: updateError } = await adminSupabase
       .from('profiles')
-      .update({ plan: null, tokens_limit: 0, tokens_used: 0, subscription_status: 'expired', subscription_ends_at: null })
+      .update({ plan: null, tokens_limit: 0, tokens_used: 0, subscription_status: 'none', subscription_ends_at: null })
       .eq('id', user_id)
 
     if (updateError) {

@@ -32,13 +32,12 @@ export async function checkTokenLimit(userId: string): Promise<
   const status = profile.subscription_status as string
 
   // Check subscription/trial expiry
-  if (status === 'trial') {
+  if (status === 'trialing') {
     const trialEnds = profile.trial_ends_at ? new Date(profile.trial_ends_at) : null
     if (trialEnds && trialEnds < now) {
-      // Trial expired — block and update status + tokens
       await supabase
         .from('profiles')
-        .update({ subscription_status: 'expired', tokens_limit: 0 })
+        .update({ subscription_status: 'past_due', tokens_limit: 0 })
         .eq('id', userId)
       return { allowed: false, used: profile.tokens_used, limit: 0, reason: 'trial_expired' }
     }
@@ -47,26 +46,26 @@ export async function checkTokenLimit(userId: string): Promise<
     if (subEnds && subEnds < now) {
       await supabase
         .from('profiles')
-        .update({ subscription_status: 'expired', tokens_limit: 0 })
+        .update({ subscription_status: 'past_due', tokens_limit: 0 })
         .eq('id', userId)
       return { allowed: false, used: profile.tokens_used, limit: 0, reason: 'subscription_expired' }
     }
-  } else if (status === 'cancelled') {
-    // Annulé mais période encore active → accès maintenu
+  } else if (status === 'canceled') {
+    // Annulé mais période encore active → accès maintenu jusqu'à la fin
     const subEnds = profile.subscription_ends_at ? new Date(profile.subscription_ends_at) : null
     if (subEnds && subEnds > now) {
-      // Accès encore valide jusqu'à fin de période — laisser passer, vérifier tokens ci-dessous
+      // Accès encore valide — laisser passer, vérifier tokens ci-dessous
     } else {
       if (profile.tokens_limit > 0) {
         await supabase.from('profiles').update({ tokens_limit: 0 }).eq('id', userId)
       }
-      return { allowed: false, used: profile.tokens_used, limit: 0, reason: 'subscription_cancelled' }
+      return { allowed: false, used: profile.tokens_used, limit: 0, reason: 'subscription_canceled' }
     }
-  } else if (status === 'expired') {
+  } else if (status === 'past_due' || status === 'none') {
     if (profile.tokens_limit > 0) {
       await supabase.from('profiles').update({ tokens_limit: 0 }).eq('id', userId)
     }
-    return { allowed: false, used: profile.tokens_used, limit: 0, reason: 'subscription_expired' }
+    return { allowed: false, used: profile.tokens_used, limit: 0, reason: 'subscription_inactive' }
   }
 
   // Check token limit (plan + extra balance)

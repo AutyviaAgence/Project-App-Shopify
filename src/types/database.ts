@@ -1,5 +1,5 @@
-export type SubscriptionStatus = 'trial' | 'active' | 'expired' | 'cancelled'
-export type OnboardingStatus = 'pending' | 'onboarding' | 'active' | 'skipped' | 'observer'
+export type SubscriptionStatus = 'trialing' | 'active' | 'past_due' | 'canceled' | 'none'
+export type AuditStatus = 'none' | 'acompte_paid' | 'solde_paid' | 'refunded'
 
 export type Tenant = {
   id: string
@@ -32,8 +32,12 @@ export type Profile = {
   stripe_subscription_id: string | null
   tokens_used: number
   tokens_limit: number
+  tokens_extra: number
+  pending_plan: string | null
   token_usage_period_start: string | null
   tenant_id: string | null
+  plan: string | null
+  audit_status: AuditStatus
   created_at: string
   updated_at: string
 }

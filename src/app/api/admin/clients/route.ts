@@ -28,7 +28,7 @@ export async function GET() {
 
   const { data: clients, error } = await adminSupabase
     .from('profiles')
-    .select('id, email, full_name, subscription_status, onboarding_status, onboarding_plan, plan, tokens_used, tokens_limit, role, created_at')
+    .select('id, email, full_name, subscription_status, audit_status, onboarding_plan, plan, tokens_used, tokens_limit, role, created_at')
     .order('created_at', { ascending: false })
     .limit(500)
 

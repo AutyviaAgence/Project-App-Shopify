@@ -97,8 +97,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return items
   }, [t, subscription?.role])
 
-  const onboardingStatus = subscription?.onboardingStatus ?? 'pending'
-  const isOnboardingPage = pathname.startsWith('/onboarding')
+  const auditStatus = subscription?.auditStatus ?? 'none'
   const isWelcomePage = pathname.startsWith('/welcome')
 
   // Vérifier si la page actuelle est accessible sans abonnement
@@ -106,30 +105,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     p => pathname === p || pathname.startsWith(p + '/')
   )
 
-  // Rediriger les utilisateurs sans plan vers /welcome (sauf si déjà sur une page autorisée)
+  // Rediriger vers /welcome si pas de plan actif
   const shouldRedirectToWelcome =
     !isAdmin &&
     !subscriptionLoading &&
     subscription &&
-    onboardingStatus === 'pending' &&
+    !plan &&
     !subscription.isActive &&
     !isAllowedPage &&
     !isWelcomePage
 
-  // Les admins ne sont jamais bloqués — isPending désactivé (redirection gérée ci-dessus)
   const isPending = false
-
-  // onboarding = acompte payé → accès complet (période audit avec tokens du plan)
   const isOnboardingOnly = false
 
-  // Blocage niveau 2 : active/onboarding mais subscription inactive (expired/cancelled)
-  const isBlocked = !isAdmin && subscription && (onboardingStatus === 'active' || onboardingStatus === 'onboarding') && !subscription.isActive && !isAllowedPage
+  // Blocage niveau 2 : a un plan mais subscription inactive (past_due/canceled)
+  const isBlocked = !isAdmin && subscription && !!plan && !subscription.isActive && !isAllowedPage
 
   // Feature gating : rediriger si accès direct à une route non autorisée par le plan
   const isPlanBlocked =
     !isAdmin &&
     subscription &&
-    (onboardingStatus === 'active' || onboardingStatus === 'onboarding') &&
+    !!plan &&
     subscription.isActive &&
     ((pathname.startsWith('/campaigns') && plan !== 'scale') ||
      (pathname.startsWith('/lifecycle') && plan === 'starter'))
@@ -312,7 +308,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </header>
 
         {/* Rappel configurateur : affiché pendant l'audit si le formulaire n'a pas été soumis */}
-        {onboardingStatus === 'onboarding' &&
+        {auditStatus === 'acompte_paid' &&
           subscription &&
           !subscription.configurateurSubmitted &&
           !pathname.startsWith('/onboarding') && (
@@ -416,9 +412,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 <div className="space-y-2">
                   <h2 className="text-2xl font-bold text-foreground">{t('blocked.title')}</h2>
                   <p className="text-muted-foreground">
-                    {subscription?.status === 'cancelled'
+                    {subscription?.status === 'canceled'
                       ? t('blocked.cancelled')
-                      : subscription?.status === 'expired'
+                      : subscription?.status === 'past_due'
                         ? t('blocked.expired', { appName: tenant.appName })
                         : t('blocked.trial_ended', { appName: tenant.appName })}
                   </p>

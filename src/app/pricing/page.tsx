@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Check, X, Zap, Rocket, Crown, Phone, ArrowRight, Loader2, ExternalLink } from 'lucide-react'
+import { Check, X, Zap, Rocket, Crown, Phone, ArrowRight, Loader2, ExternalLink, Gift, ClipboardCheck, Bot, RefreshCw, FlaskConical, Headphones } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -235,6 +235,11 @@ export default function PricingPage() {
                   ))}
                 </ul>
 
+                <div className="mb-3 flex items-center gap-1.5 rounded-lg bg-green-500/10 px-3 py-1.5">
+                  <Gift className="h-3.5 w-3.5 text-green-600 shrink-0" />
+                  <span className="text-xs font-medium text-green-700">1 semaine gratuite — puis {plan.price}€/mois</span>
+                </div>
+
                 <Button
                   className={cn('w-full', plan.buttonClass)}
                   size="lg"
@@ -249,48 +254,57 @@ export default function PricingPage() {
         </div>
 
         {/* Audit & accompagnement */}
-        <div className="mt-10 max-w-5xl mx-auto rounded-2xl border border-sky-500/30 bg-gradient-to-r from-sky-500/5 to-transparent p-6">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <h3 className="font-semibold text-lg">Audit & mise en place sur mesure</h3>
-                <span className="rounded-full bg-sky-500/10 px-2.5 py-0.5 text-xs font-semibold text-sky-600">À part</span>
+        <div className="mt-10 max-w-5xl mx-auto rounded-2xl border border-sky-500/30 bg-gradient-to-br from-sky-500/5 to-transparent p-6">
+          <div className="flex flex-col gap-5">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="font-semibold text-lg">Audit & mise en place sur mesure</h3>
+                  <span className="rounded-full bg-sky-500/10 px-2.5 py-0.5 text-xs font-semibold text-sky-600">À part</span>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  Notre équipe prend en charge tout de A à Z —{' '}
+                  <strong className="text-foreground">1 500€</strong>{' '}
+                  <span className="text-muted-foreground">(750€ acompte + 750€ solde à la livraison)</span>
+                </p>
               </div>
-              <p className="text-sm text-muted-foreground">
-                Notre équipe configure votre plateforme de A à Z, teste vos agents et vous accompagne jusqu'au lancement.
-              </p>
-              <div className="flex flex-wrap gap-4 text-sm">
-                <div className="flex items-center gap-1.5 text-foreground font-medium">
-                  <span className="h-1.5 w-1.5 rounded-full bg-sky-500" />
-                  750€ acompte à la commande
-                </div>
-                <div className="flex items-center gap-1.5 text-foreground font-medium">
-                  <span className="h-1.5 w-1.5 rounded-full bg-sky-500" />
-                  750€ solde à la livraison
-                </div>
-                <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
-                  Remboursable selon conditions des CGU
-                </div>
+              <div className="flex flex-col gap-2 shrink-0">
+                <Link
+                  href="/onboarding"
+                  className="inline-flex items-center gap-2 rounded-lg bg-sky-500 px-4 py-2 text-sm font-medium text-white hover:bg-sky-600 transition-colors"
+                >
+                  Démarrer l&apos;audit — 1 500€
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+                <a
+                  href="https://cal.com/autyvia/appel-decouverte"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-sky-500/30 px-4 py-2 text-sm font-medium text-sky-600 hover:bg-sky-500/10 transition-colors"
+                >
+                  <Phone className="h-4 w-4" />
+                  Appel découverte
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
               </div>
             </div>
-            <div className="flex flex-col gap-2 shrink-0">
-              <Link
-                href="/onboarding"
-                className="inline-flex items-center gap-2 rounded-lg bg-sky-500 px-4 py-2 text-sm font-medium text-white hover:bg-sky-600 transition-colors"
-              >
-                Démarrer l&apos;audit — 1 500€
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-              <a
-                href="https://cal.com/autyvia/appel-decouverte"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 rounded-lg border border-sky-500/30 px-4 py-2 text-sm font-medium text-sky-600 hover:bg-sky-500/10 transition-colors"
-              >
-                <Phone className="h-4 w-4" />
-                Appel découverte
-                <ExternalLink className="h-3.5 w-3.5" />
-              </a>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2.5">
+              {[
+                { icon: ClipboardCheck, text: 'Audit du processus de qualification & SAV actuel' },
+                { icon: Bot, text: 'Agent(s) IA conçus et paramétrés pour vous' },
+                { icon: FlaskConical, text: 'Tests complets avant mise en production' },
+                { icon: Rocket, text: 'Déploiement live et mise en ligne' },
+                { icon: RefreshCw, text: 'Remboursement du solde disponible selon CGU' },
+                { icon: Headphones, text: 'Support au lancement inclus' },
+              ].map(({ icon: Icon, text }) => (
+                <div key={text} className="flex items-start gap-2.5 text-sm">
+                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-sky-500/10">
+                    <Icon className="h-3.5 w-3.5 text-sky-600" />
+                  </div>
+                  <span className="text-foreground/80 leading-snug">{text}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>

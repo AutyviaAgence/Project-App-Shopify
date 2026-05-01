@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
               await supabase
                 .from('profiles')
                 .update({
-                  onboarding_status: 'onboarding',
+                  audit_status: 'acompte_paid',
                   onboarding_plan: plan,
                   subscription_status: 'active',
                   plan,
@@ -105,13 +105,13 @@ export async function POST(req: NextRequest) {
                 metadata: { type: 'setup_installment_1', plan },
               })
             } else if (installment === 2) {
-              // Solde J30 → onboarding terminé, l'abonnement mensuel sera démarré
+              // Solde J30 → audit livré, l'abonnement mensuel sera démarré
               // via un checkout Stripe séparé côté client après cette redirection.
               const planId = resolvePlan(session.metadata?.plan)
               await supabase
                 .from('profiles')
                 .update({
-                  onboarding_status: 'active',
+                  audit_status: 'solde_paid',
                   plan: planId,
                 })
                 .eq('id', userId)
@@ -223,23 +223,10 @@ export async function POST(req: NextRequest) {
             const plan = resolvePlan((subscription.metadata?.plan || session.metadata?.plan) as string | undefined)
             const tokensLimit = isTrialing ? 200_000 : PLAN_TOKEN_LIMITS[plan]
 
-            // Lire l'onboarding_status actuel pour ne pas l'écraser si déjà avancé
-            const { data: currentProfile } = await supabase
-              .from('profiles')
-              .select('onboarding_status')
-              .eq('id', resolvedUserId)
-              .single() as { data: { onboarding_status: string | null } | null }
-
-            const currentOnboarding = currentProfile?.onboarding_status ?? 'pending'
-            // Ne passer à 'active' que si le compte est encore en 'pending' (inscription fraîche self-serve)
-            // 'skipped', 'onboarding', 'active', 'observer' → on ne touche pas
-            const newOnboardingStatus = currentOnboarding === 'pending' ? 'active' : currentOnboarding
-
             const { error: updateError } = await supabase
               .from('profiles')
               .update({
-                subscription_status: isTrialing ? 'trial' : 'active',
-                onboarding_status: newOnboardingStatus,
+                subscription_status: isTrialing ? 'trialing' : 'active',
                 subscription_ends_at: subscriptionEndsAt.toISOString(),
                 trial_ends_at: isTrialing && subscription.trial_end
                   ? new Date(subscription.trial_end * 1000).toISOString()
@@ -362,11 +349,11 @@ export async function POST(req: NextRequest) {
           const userId = subscription.metadata?.user_id
 
           if (userId) {
-            // Block access: set status to expired and tokens to 0
+            // Block access: set status to past_due and tokens to 0
             await supabase
               .from('profiles')
               .update({
-                subscription_status: 'expired',
+                subscription_status: 'past_due',
                 tokens_limit: 0,
               })
               .eq('id', userId)
@@ -416,7 +403,7 @@ export async function POST(req: NextRequest) {
           await supabase
             .from('profiles')
             .update({
-              subscription_status: 'cancelled',
+              subscription_status: 'canceled',
               stripe_subscription_id: null,
               pending_plan: null,
               ...(endsAt ? { subscription_ends_at: endsAt } : {}),
@@ -445,14 +432,14 @@ export async function POST(req: NextRequest) {
 
         if (userId) {
           const subscriptionEndsAt = getSubscriptionEndDate(subscription)
-          let status: 'trial' | 'active' | 'cancelled' | 'expired' = 'active'
+          let status: 'trialing' | 'active' | 'canceled' | 'past_due' = 'active'
 
           if (subscription.status === 'trialing') {
-            status = 'trial'
+            status = 'trialing'
           } else if (subscription.status === 'canceled' || subscription.status === 'unpaid') {
-            status = 'cancelled'
+            status = 'canceled'
           } else if (subscription.status === 'past_due') {
-            status = 'expired'
+            status = 'past_due'
           }
 
           const updateData: Record<string, unknown> = {

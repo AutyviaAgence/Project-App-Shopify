@@ -47,7 +47,7 @@ export async function POST() {
       await adminSupabase
         .from('profiles')
         .update({
-          subscription_status: isTrialing ? 'trial' : 'active',
+          subscription_status: isTrialing ? 'trialing' : 'active',
           subscription_ends_at: subscriptionEndsAt.toISOString(),
           stripe_subscription_id: activeSubscription.id,
           tokens_limit: isTrialing ? 200000 : 5000000,
@@ -56,7 +56,7 @@ export async function POST() {
 
       return NextResponse.json({
         data: {
-          subscription_status: isTrialing ? 'trial' : 'active',
+          subscription_status: isTrialing ? 'trialing' : 'active',
           subscription_ends_at: subscriptionEndsAt.toISOString(),
           stripe_subscription_id: activeSubscription.id,
         },
@@ -73,13 +73,13 @@ export async function POST() {
       await adminSupabase
         .from('profiles')
         .update({
-          subscription_status: 'cancelled',
+          subscription_status: 'canceled',
           stripe_subscription_id: null,
           tokens_limit: 0,
         })
         .eq('id', user.id)
 
-      return NextResponse.json({ data: { subscription_status: 'cancelled' } })
+      return NextResponse.json({ data: { subscription_status: 'canceled' } })
     }
 
     // Never had a Stripe subscription — keep current status (likely trial)

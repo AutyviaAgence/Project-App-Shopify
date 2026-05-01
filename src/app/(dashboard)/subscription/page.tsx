@@ -138,10 +138,11 @@ function OnboardingSection({ onboardingStatus, onboardingPlan }: { onboardingSta
     window.location.href = '/onboarding'
   }
 
-  if (onboardingStatus === 'active' || onboardingStatus === 'skipped') return null
+  // n'afficher que si audit en cours
+  if (onboardingStatus === 'none' || onboardingStatus === 'solde_paid' || onboardingStatus === 'refunded') return null
 
   const stepStates =
-    onboardingStatus === 'pending'
+    onboardingStatus === 'none'
       ? ['upcoming', 'upcoming', 'upcoming', 'upcoming', 'upcoming']
       : ['done', 'current', 'upcoming', 'upcoming', 'upcoming']
 
@@ -151,11 +152,7 @@ function OnboardingSection({ onboardingStatus, onboardingPlan }: { onboardingSta
         <div className="flex items-center gap-2">
           <Workflow className="h-5 w-5 text-primary" />
           <span className="font-semibold">Mise en place de votre plateforme</span>
-          <Badge className={cn(
-            onboardingStatus === 'pending' ? 'bg-amber-500' : 'bg-blue-500'
-          )}>
-            {onboardingStatus === 'pending' ? 'Non démarrée' : 'En cours'}
-          </Badge>
+          <Badge className="bg-blue-500">En cours</Badge>
         </div>
       </CardHeader>
       <CardContent className="space-y-5">
@@ -189,24 +186,7 @@ function OnboardingSection({ onboardingStatus, onboardingPlan }: { onboardingSta
           })}
         </div>
 
-        {onboardingStatus === 'pending' && (
-          <div className="space-y-3 pt-1">
-            <div className="rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground space-y-1">
-              <div className="flex justify-between"><span>J0 — Acompte setup</span><span className="font-semibold text-foreground">750€</span></div>
-              <div className="flex justify-between text-muted-foreground/60"><span>J30 — Solde setup</span><span>750€</span></div>
-              <div className="flex justify-between text-muted-foreground/60"><span>J30 — 1er mois abonnement</span><span>selon plan</span></div>
-              <p className="pt-1 text-muted-foreground/70">L&apos;abonnement mensuel démarre en même temps que le solde à J+30.</p>
-            </div>
-            <div className="flex justify-end">
-              <Button onClick={handleAcompte}>
-                <CreditCard className="mr-2 h-4 w-4" />
-                Démarrer l&apos;onboarding
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {onboardingStatus === 'onboarding' && (
+        {onboardingStatus === 'acompte_paid' && (
           <div className="space-y-3 pt-1">
             {onboardingPlan && (
               <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
@@ -350,12 +330,12 @@ function SubscriptionContent() {
     return date.toLocaleDateString(dateLocale, { day: 'numeric', month: 'long', year: 'numeric' })
   }
 
-  const isActive = subscription?.status === 'active' || subscription?.status === 'trial'
-  const isCancelled = subscription?.status === 'cancelled'
+  const isActive = subscription?.status === 'active' || subscription?.status === 'trialing'
+  const isCancelled = subscription?.status === 'canceled'
   const currentPlan = subscription?.plan ?? null
   // For cancelled subscriptions, ignore pending_plan — user needs to re-subscribe fresh
   const pendingPlan = !isCancelled ? (subscription?.pendingPlan ?? null) : null
-  const onboardingStatus: string = subscription?.onboardingStatus ?? 'pending'
+  const auditStatus: string = subscription?.auditStatus ?? 'none'
   const onboardingPlan = subscription?.onboardingPlan ?? null
   const planDetails = PLANS.find(p => p.id === selectedPlan)
 
@@ -368,17 +348,17 @@ function SubscriptionContent() {
         </p>
       </div>
 
-      {/* Section onboarding (visible si pas encore active) */}
-      <OnboardingSection onboardingStatus={onboardingStatus} onboardingPlan={onboardingPlan} />
+      {/* Section audit (visible si audit en cours) */}
+      <OnboardingSection onboardingStatus={auditStatus} onboardingPlan={onboardingPlan} />
 
-      {/* Statut abonnement (visible uniquement si onboarding active ou skipped) */}
-      {(onboardingStatus === 'active' || onboardingStatus === 'skipped') && subscription && (
+      {/* Statut abonnement */}
+      {subscription && (
         <Card className={cn(
           'mb-8 border-2',
           subscription.status === 'active' && 'border-green-500/30',
-          subscription.status === 'trial' && 'border-amber-500/30',
-          subscription.status === 'cancelled' && 'border-orange-500/30',
-          subscription.status === 'expired' && 'border-red-500/30',
+          subscription.status === 'trialing' && 'border-amber-500/30',
+          subscription.status === 'canceled' && 'border-orange-500/30',
+          subscription.status === 'past_due' && 'border-red-500/30',
         )}>
           <CardContent className="pt-6 pb-6">
             <div className="flex flex-col gap-5">
@@ -413,14 +393,14 @@ function SubscriptionContent() {
                 <Badge className={cn(
                   'text-sm px-3 py-1 self-start sm:self-auto',
                   subscription.status === 'active' && 'bg-green-500 hover:bg-green-600',
-                  subscription.status === 'trial' && 'bg-amber-500 hover:bg-amber-600',
-                  subscription.status === 'cancelled' && 'bg-orange-500 hover:bg-orange-600',
-                  subscription.status === 'expired' && 'bg-red-500 hover:bg-red-600',
+                  subscription.status === 'trialing' && 'bg-amber-500 hover:bg-amber-600',
+                  subscription.status === 'canceled' && 'bg-orange-500 hover:bg-orange-600',
+                  subscription.status === 'past_due' && 'bg-red-500 hover:bg-red-600',
                 )}>
                   {subscription.status === 'active' && 'Actif'}
-                  {subscription.status === 'trial' && 'Période d\'essai'}
-                  {subscription.status === 'cancelled' && 'Annulé'}
-                  {subscription.status === 'expired' && 'Expiré'}
+                  {subscription.status === 'trialing' && 'Période d\'essai'}
+                  {subscription.status === 'canceled' && 'Annulé'}
+                  {subscription.status === 'past_due' && 'Expiré'}
                 </Badge>
               </div>
 
@@ -430,18 +410,18 @@ function SubscriptionContent() {
                 <div className="rounded-lg border bg-muted/30 p-3 space-y-0.5">
                   <p className="text-xs text-muted-foreground flex items-center gap-1">
                     <Calendar className="h-3 w-3" />
-                    {subscription.status === 'cancelled'
+                    {subscription.status === 'canceled'
                       ? 'Accès jusqu\'au'
-                      : subscription.status === 'trial'
+                      : subscription.status === 'trialing'
                       ? 'Fin d\'essai'
                       : 'Prochain renouvellement'}
                   </p>
                   <p className="text-sm font-semibold">
                     {subscription.status === 'active' && subscription.subscriptionEndsAt
                       ? formatDate(subscription.subscriptionEndsAt)
-                      : subscription.status === 'trial' && subscription.trialEndsAt
+                      : subscription.status === 'trialing' && subscription.trialEndsAt
                       ? formatDate(subscription.trialEndsAt)
-                      : subscription.status === 'cancelled' && subscription.subscriptionEndsAt
+                      : subscription.status === 'canceled' && subscription.subscriptionEndsAt
                       ? formatDate(subscription.subscriptionEndsAt)
                       : '—'}
                   </p>
@@ -454,24 +434,24 @@ function SubscriptionContent() {
                 <div className="rounded-lg border bg-muted/30 p-3 space-y-0.5">
                   <p className="text-xs text-muted-foreground flex items-center gap-1">
                     <CreditCard className="h-3 w-3" />
-                    {subscription.status === 'cancelled' || subscription.status === 'expired'
+                    {subscription.status === 'canceled' || subscription.status === 'past_due'
                       ? 'Prochain paiement'
                       : 'Montant prélevé'}
                   </p>
                   <p className="text-sm font-semibold">
-                    {subscription.status === 'cancelled' || subscription.status === 'expired'
+                    {subscription.status === 'canceled' || subscription.status === 'past_due'
                       ? '—'
                       : pendingPlan
                       ? `${PLANS.find(p => p.id === pendingPlan)?.price ?? '—'}€`
                       : `${PLANS.find(p => p.id === currentPlan)?.price ?? '—'}€`}
                   </p>
-                  {(subscription.status === 'active' || subscription.status === 'trial') && !pendingPlan && (
+                  {(subscription.status === 'active' || subscription.status === 'trialing') && !pendingPlan && (
                     <p className="text-xs text-muted-foreground/70">par mois, hors taxes</p>
                   )}
                   {pendingPlan && subscription.status !== 'cancelled' && subscription.status !== 'expired' && (
                     <p className="text-xs text-amber-600 dark:text-amber-400">nouveau montant</p>
                   )}
-                  {(subscription.status === 'cancelled' || subscription.status === 'expired') && (
+                  {(subscription.status === 'canceled' || subscription.status === 'past_due') && (
                     <p className="text-xs text-muted-foreground/70">aucun renouvellement</p>
                   )}
                 </div>
@@ -490,7 +470,7 @@ function SubscriptionContent() {
                   <p className={cn('text-sm font-semibold', subscription.isActive ? 'text-green-600' : 'text-red-600')}>
                     {subscription.isActive ? 'Actif' : 'Suspendu'}
                   </p>
-                  {subscription.status === 'cancelled' && subscription.isActive && (
+                  {subscription.status === 'canceled' && subscription.isActive && (
                     <p className="text-xs text-orange-600 dark:text-orange-400">jusqu&apos;à fin de période</p>
                   )}
                   {!subscription.isActive && (
@@ -506,7 +486,7 @@ function SubscriptionContent() {
 
 
       {/* Tokens — visible pour onboarding, active et skipped */}
-      {subscription && (onboardingStatus === 'active' || onboardingStatus === 'onboarding' || onboardingStatus === 'skipped') && (
+      {subscription && (!!currentPlan) && (
         <Card className="mb-8">
           <CardHeader>
             <div className="flex items-center justify-between">
@@ -601,7 +581,7 @@ function SubscriptionContent() {
       )}
 
       {/* Actions abonnement actif */}
-      {isActive && (onboardingStatus === 'active' || onboardingStatus === 'onboarding' || onboardingStatus === 'skipped') && (
+      {isActive && (!!currentPlan) && (
         <Card className="mb-8">
           <CardContent className="pt-6 space-y-4">
             {/* Portail Stripe — uniquement si un customer Stripe existe */}
@@ -693,16 +673,16 @@ function SubscriptionContent() {
       <h2 className="text-xl font-semibold mb-4">
         {isCancelled
           ? 'Se réabonner'
-          : isActive && (onboardingStatus === 'active' || onboardingStatus === 'skipped') && !subscription?.stripeCustomerId
+          : isActive && (!!currentPlan) && !subscription?.stripeCustomerId
           ? 'Souscrire un abonnement mensuel'
-          : isActive && (onboardingStatus === 'active' || onboardingStatus === 'skipped')
+          : isActive && (!!currentPlan)
           ? 'Changer de plan'
           : 'Plans disponibles'}
       </h2>
       <div className="grid md:grid-cols-3 gap-5 mb-8">
         {PLANS.map((plan) => {
           const Icon = plan.icon
-          const isCurrent = isActive && (onboardingStatus === 'active' || onboardingStatus === 'skipped') && currentPlan === plan.id && !pendingPlan
+          const isCurrent = isActive && (!!currentPlan) && currentPlan === plan.id && !pendingPlan
           const isPending = pendingPlan === plan.id
           return (
             <Card

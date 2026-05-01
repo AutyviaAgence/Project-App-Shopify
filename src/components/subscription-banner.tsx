@@ -68,12 +68,12 @@ export function SubscriptionBanner({ subscription }: { subscription: Subscriptio
   if (subscription.isActive && subscription.status === 'active') return null
 
   // Trial with more than 3 days remaining
-  if (subscription.status === 'trial' && subscription.daysRemaining && subscription.daysRemaining > 3) {
+  if (subscription.status === 'trialing' && subscription.daysRemaining && subscription.daysRemaining > 3) {
     return null
   }
 
   // Trial with 3 days or less
-  if (subscription.status === 'trial' && subscription.daysRemaining !== null && subscription.daysRemaining > 0) {
+  if (subscription.status === 'trialing' && subscription.daysRemaining !== null && subscription.daysRemaining > 0) {
     return (
       <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">
@@ -95,7 +95,7 @@ export function SubscriptionBanner({ subscription }: { subscription: Subscriptio
   }
 
   // Trial expired or subscription expired
-  if (subscription.isTrialExpired || subscription.isSubscriptionExpired || subscription.status === 'expired') {
+  if (subscription.isTrialExpired || subscription.isSubscriptionExpired || subscription.status === 'past_due') {
     return (
       <div className="bg-red-500/10 border-b border-red-500/20 px-4 py-3">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-4">

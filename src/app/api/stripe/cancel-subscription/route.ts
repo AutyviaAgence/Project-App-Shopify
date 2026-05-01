@@ -50,7 +50,7 @@ export async function POST() {
       await adminSupabase
         .from('profiles')
         .update({
-          subscription_status: 'cancelled',
+          subscription_status: 'canceled',
           stripe_subscription_id: null,
           tokens_limit: 0,
         })

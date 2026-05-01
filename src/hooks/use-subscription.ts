@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import type { SubscriptionStatus, OnboardingStatus } from '@/types/database'
+import type { SubscriptionStatus, AuditStatus } from '@/types/database'
 import type { PlanId } from '@/lib/stripe/plans'
 
 type SubscriptionInfo = {
@@ -23,7 +23,7 @@ type SubscriptionInfo = {
   plan: PlanId | null
   pendingPlan: PlanId | null
   role: 'user' | 'admin'
-  onboardingStatus: OnboardingStatus
+  auditStatus: AuditStatus
   onboardingPlan: PlanId | null
   configurateurSubmitted: boolean
 }
@@ -45,19 +45,19 @@ export function useSubscription() {
 
         // Calculer les jours restants
         let daysRemaining: number | null = null
-        if (data.data.subscription_status === 'trial' && trialEndsAt) {
+        if (data.data.subscription_status === 'trialing' && trialEndsAt) {
           daysRemaining = Math.max(0, Math.ceil((trialEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
         } else if (data.data.subscription_status === 'active' && subscriptionEndsAt) {
           daysRemaining = Math.max(0, Math.ceil((subscriptionEndsAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)))
         }
 
-        const isTrialExpired = data.data.subscription_status === 'trial' && (!trialEndsAt || trialEndsAt < now)
+        const isTrialExpired = data.data.subscription_status === 'trialing' && (!trialEndsAt || trialEndsAt < now)
         const isSubscriptionExpired = data.data.subscription_status === 'active' && subscriptionEndsAt && subscriptionEndsAt < now
         const isActive =
-          (data.data.subscription_status === 'trial' && trialEndsAt && trialEndsAt > now) ||
+          (data.data.subscription_status === 'trialing' && trialEndsAt && trialEndsAt > now) ||
           (data.data.subscription_status === 'active' && (!subscriptionEndsAt || subscriptionEndsAt > now)) ||
           // Annulé mais période encore en cours → accès maintenu jusqu'à la fin
-          (data.data.subscription_status === 'cancelled' && subscriptionEndsAt && subscriptionEndsAt > now)
+          (data.data.subscription_status === 'canceled' && subscriptionEndsAt && subscriptionEndsAt > now)
 
         // Token usage
         const tokensUsed = data.data.tokens_used || 0
@@ -86,7 +86,7 @@ export function useSubscription() {
           plan: (data.data.plan || null) as PlanId | null,
           pendingPlan: (data.data.pending_plan || null) as PlanId | null,
           role: (data.data.role || 'user') as 'user' | 'admin',
-          onboardingStatus: (data.data.onboarding_status || 'pending') as OnboardingStatus,
+          auditStatus: (data.data.audit_status || 'none') as AuditStatus,
           onboardingPlan: (data.data.onboarding_plan || null) as PlanId | null,
           configurateurSubmitted: data.data.configurateur_submitted === true,
         })
