@@ -629,7 +629,7 @@ function SubscriptionContent() {
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Zone de danger</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
-                    {subscription?.status === 'trial'
+                    {subscription?.status === 'trialing'
                       ? 'L\'annulation est immédiate. Vous ne serez pas débité.'
                       : 'L\'accès reste actif jusqu\'à la fin de la période en cours. Aucun remboursement au prorata.'}
                   </p>
@@ -645,7 +645,7 @@ function SubscriptionContent() {
                     <AlertDialogHeader>
                       <AlertDialogTitle>{t('subscription.cancel_confirm_title')}</AlertDialogTitle>
                       <AlertDialogDescription>
-                        {subscription?.status === 'trial'
+                        {subscription?.status === 'trialing'
                           ? 'Votre essai gratuit sera annulé immédiatement. Vous ne serez jamais débité.'
                           : t('subscription.cancel_confirm_desc')}
                       </AlertDialogDescription>
