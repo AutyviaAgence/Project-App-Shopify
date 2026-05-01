@@ -63,7 +63,6 @@ export async function POST(req: NextRequest) {
       name: `Promo ${code}`,
     })
 
-    // Stripe SDK v20: coupon est maintenant sous promotion.coupon
     const promoCodeParams: any = {
       promotion: { type: 'coupon', coupon: coupon.id },
       code: code.toUpperCase(),
@@ -85,7 +84,12 @@ export async function POST(req: NextRequest) {
       .select()
       .single()
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error) {
+      // Rollback Stripe si l'INSERT DB échoue
+      await stripe.promotionCodes.update(stripePromoCode.id, { active: false }).catch(() => {})
+      await stripe.coupons.del(coupon.id).catch(() => {})
+      return NextResponse.json({ error: error.message }, { status: 400 })
+    }
 
     return NextResponse.json(data)
   } catch (err: any) {
