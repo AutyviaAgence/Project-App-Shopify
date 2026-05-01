@@ -21,7 +21,8 @@ export async function GET() {
     .select(`
       *,
       affiliate_codes(code, commission_percent),
-      profiles!affiliate_conversions_affiliate_user_id_fkey(email, full_name)
+      affiliate_profile:profiles!affiliate_conversions_affiliate_user_id_fkey(email, full_name),
+      converted_profile:profiles!affiliate_conversions_converted_user_id_fkey(email, full_name)
     `)
     .order('created_at', { ascending: false })
 

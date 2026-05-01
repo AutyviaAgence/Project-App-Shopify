@@ -1165,7 +1165,7 @@ function AffiliateTab() {
   const [codes, setCodes] = useState<any[]>([])
   const [conversions, setConversions] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [form, setForm] = useState({ user_id: '', code: '', commission_percent: '30' })
+  const [form, setForm] = useState({ user_email: '', code: '', commission_percent: '30' })
   const [creating, setCreating] = useState(false)
   const [paying, setPaying] = useState<string | null>(null)
 
@@ -1183,7 +1183,7 @@ function AffiliateTab() {
   useEffect(() => { fetchAll() }, [fetchAll])
 
   const handleCreate = async () => {
-    if (!form.user_id || !form.code) return toast.error('Remplissez tous les champs')
+    if (!form.user_email || !form.code) return toast.error('Remplissez tous les champs')
     setCreating(true)
     try {
       const res = await fetch('/api/admin/affiliate-codes', {
@@ -1194,7 +1194,7 @@ function AffiliateTab() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       toast.success('Code affilié créé')
-      setForm({ user_id: '', code: '', commission_percent: '30' })
+      setForm({ user_email: '', code: '', commission_percent: '30' })
       fetchAll()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur')
@@ -1232,10 +1232,10 @@ function AffiliateTab() {
         <h2 className="text-lg font-semibold mb-4 flex items-center gap-2"><Gift className="h-5 w-5 text-primary" />Créer un code affilié</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <input
-            type="text"
-            placeholder="User ID (UUID)"
-            value={form.user_id}
-            onChange={e => setForm(f => ({ ...f, user_id: e.target.value }))}
+            type="email"
+            placeholder="Email de l'affilié"
+            value={form.user_email}
+            onChange={e => setForm(f => ({ ...f, user_email: e.target.value }))}
             className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
           <input
@@ -1306,6 +1306,7 @@ function AffiliateTab() {
             <thead className="border-b bg-muted/30">
               <tr>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Affilié</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Client converti</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Code</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Montant</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Commission</th>
@@ -1316,7 +1317,12 @@ function AffiliateTab() {
               {pending.map((conv: any) => (
                 <tr key={conv.id} className="hover:bg-muted/20">
                   <td className="px-4 py-3">
-                    <p className="font-medium">{conv.profiles?.full_name || conv.profiles?.email}</p>
+                    <p className="font-medium">{conv.affiliate_profile?.full_name || conv.affiliate_profile?.email}</p>
+                    <p className="text-xs text-muted-foreground">{conv.affiliate_profile?.email}</p>
+                  </td>
+                  <td className="px-4 py-3">
+                    <p className="font-medium">{conv.converted_profile?.full_name || conv.converted_profile?.email}</p>
+                    <p className="text-xs text-muted-foreground">{conv.converted_profile?.email}</p>
                   </td>
                   <td className="px-4 py-3 font-mono">{conv.affiliate_codes?.code}</td>
                   <td className="px-4 py-3">{((conv.amount_paid_cents || 0) / 100).toFixed(2)} €</td>
@@ -1334,7 +1340,7 @@ function AffiliateTab() {
                 </tr>
               ))}
               {pending.length === 0 && (
-                <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground text-sm">Aucune commission en attente</td></tr>
+                <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground text-sm">Aucune commission en attente</td></tr>
               )}
             </tbody>
           </table>

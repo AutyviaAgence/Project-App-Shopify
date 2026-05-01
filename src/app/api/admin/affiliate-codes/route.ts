@@ -40,16 +40,28 @@ export async function POST(req: NextRequest) {
   if (profile?.role !== 'admin') return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
 
   const body = await req.json()
-  const { user_id, code, commission_percent } = body
+  const { user_id, user_email, code, commission_percent } = body
 
-  if (!user_id || !code || !commission_percent) {
+  if ((!user_id && !user_email) || !code || !commission_percent) {
     return NextResponse.json({ error: 'Paramètres manquants' }, { status: 400 })
+  }
+
+  // Resolve email → user_id if email provided
+  let resolvedUserId = user_id
+  if (!resolvedUserId && user_email) {
+    const { data: found } = await adminSupabase
+      .from('profiles')
+      .select('id')
+      .eq('email', user_email.toLowerCase().trim())
+      .single() as { data: { id: string } | null }
+    if (!found) return NextResponse.json({ error: `Aucun compte trouvé pour ${user_email}` }, { status: 404 })
+    resolvedUserId = found.id
   }
 
   const { data, error } = await (adminSupabase as any)
     .from('affiliate_codes')
     .insert({
-      user_id,
+      user_id: resolvedUserId,
       code: code.toUpperCase(),
       commission_percent: Number(commission_percent),
       is_active: true,
