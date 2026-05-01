@@ -63,9 +63,9 @@ export async function POST(req: NextRequest) {
       name: `Promo ${code}`,
     })
 
-    // max_redemptions appartient au promotion code, pas au coupon
+    // Stripe SDK v20: coupon est maintenant sous promotion.coupon
     const promoCodeParams: any = {
-      coupon: coupon.id,
+      promotion: { coupon: coupon.id },
       code: code.toUpperCase(),
       ...(max_redemptions ? { max_redemptions: Number(max_redemptions) } : {}),
     }
