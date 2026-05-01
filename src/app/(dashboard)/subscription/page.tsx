@@ -766,29 +766,41 @@ function SubscriptionContent() {
         })}
       </div>
 
-      {/* Onboarding setup */}
-      <Card className="border-sky-500/20 bg-gradient-to-r from-sky-500/5 to-transparent mb-6">
-        <CardContent className="pt-5 pb-5">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <p className="font-semibold">Setup & accompagnement sur mesure</p>
-              <p className="text-sm text-muted-foreground mt-0.5">
-                Configuration complète par notre équipe — <strong>1 500 €</strong> (2× 750 €)
-              </p>
+      {/* Audit & setup — visible uniquement si pas d'audit en cours ou terminé */}
+      {(auditStatus === 'none') && (
+        <Card className="border-sky-500/20 bg-gradient-to-r from-sky-500/5 to-transparent mb-6">
+          <CardContent className="pt-5 pb-5">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <p className="font-semibold">Audit & mise en place sur mesure</p>
+                <p className="text-sm text-muted-foreground mt-0.5">
+                  Configuration complète par notre équipe — <strong>1 500 €</strong> (2× 750 €) — remboursable selon conditions des CGU
+                </p>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <a
+                  href="https://cal.com/autyvia/appel-decouverte"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 rounded-lg border border-sky-500/30 px-3 py-2 text-sm font-medium text-sky-600 hover:bg-sky-500/10 transition-colors"
+                >
+                  <Phone className="h-4 w-4" />
+                  Appel découverte
+                  <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+                <Button
+                  size="sm"
+                  className="bg-sky-600 hover:bg-sky-700 text-white gap-2"
+                  onClick={() => window.location.href = '/onboarding'}
+                >
+                  <Workflow className="h-4 w-4" />
+                  Démarrer l&apos;audit
+                </Button>
+              </div>
             </div>
-            <a
-              href="https://cal.com/autyvia/appel-decouverte"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="shrink-0 inline-flex items-center gap-2 rounded-lg border border-sky-500/30 px-4 py-2 text-sm font-medium text-sky-600 hover:bg-sky-500/10 transition-colors"
-            >
-              <Phone className="h-4 w-4" />
-              Réserver un appel découverte
-              <ExternalLink className="h-3.5 w-3.5" />
-            </a>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      )}
 
       <p className="text-center text-sm text-muted-foreground">
         <Clock className="inline-block h-4 w-4 mr-1" />
