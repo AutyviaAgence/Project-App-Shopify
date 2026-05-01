@@ -280,6 +280,20 @@ export default function SettingsPage() {
     }
   }
 
+  async function handleSendSetPasswordEmail() {
+    try {
+      const supabase = (await import('@/lib/supabase/client')).createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user?.email) return
+      await supabase.auth.resetPasswordForEmail(user.email, {
+        redirectTo: `${window.location.origin}/auth/callback?redirect=/settings`,
+      })
+      toast.success('Email envoyé — vérifiez votre boîte mail pour définir votre mot de passe.')
+    } catch {
+      toast.error(t('common.network_error'))
+    }
+  }
+
   async function handleDeleteAccount() {
     if (!isOAuthUser && !deletePassword) {
       toast.error(t('settings.delete_password_required'))
@@ -703,83 +717,99 @@ export default function SettingsPage() {
             <CardDescription>{t('settings.security_desc')}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="current-password">{t('settings.current_password')}</Label>
-              <div className="relative">
-                <Input
-                  id="current-password"
-                  type={showCurrentPassword ? 'text' : 'password'}
-                  value={currentPassword}
-                  onChange={(e) => setCurrentPassword(e.target.value)}
-                  placeholder="••••••••"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                >
-                  {showCurrentPassword ? (
-                    <EyeOff className="h-4 w-4 text-muted-foreground" />
-                  ) : (
-                    <Eye className="h-4 w-4 text-muted-foreground" />
-                  )}
+            {isOAuthUser ? (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">
+                  Votre compte est connecté via Google. Vous n&apos;avez pas de mot de passe défini sur {' '}
+                  {typeof window !== 'undefined' ? window.location.hostname : 'cette application'}.
+                  Vous pouvez en définir un pour pouvoir vous connecter par email/mot de passe.
+                </p>
+                <Button variant="outline" onClick={handleSendSetPasswordEmail}>
+                  <Lock className="mr-2 h-4 w-4" />
+                  Définir un mot de passe par email
                 </Button>
               </div>
-            </div>
+            ) : (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="current-password">{t('settings.current_password')}</Label>
+                  <div className="relative">
+                    <Input
+                      id="current-password"
+                      type={showCurrentPassword ? 'text' : 'password'}
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      placeholder="••••••••"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                    >
+                      {showCurrentPassword ? (
+                        <EyeOff className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <Eye className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </Button>
+                  </div>
+                </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="new-password">{t('settings.new_password')}</Label>
-              <div className="relative">
-                <Input
-                  id="new-password"
-                  type={showNewPassword ? 'text' : 'password'}
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="••••••••"
-                />
+                <div className="space-y-2">
+                  <Label htmlFor="new-password">{t('settings.new_password')}</Label>
+                  <div className="relative">
+                    <Input
+                      id="new-password"
+                      type={showNewPassword ? 'text' : 'password'}
+                      value={newPassword}
+                      onChange={(e) => setNewPassword(e.target.value)}
+                      placeholder="••••••••"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                      onClick={() => setShowNewPassword(!showNewPassword)}
+                    >
+                      {showNewPassword ? (
+                        <EyeOff className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <Eye className="h-4 w-4 text-muted-foreground" />
+                      )}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {t('settings.min_chars')}
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="confirm-password">{t('settings.confirm_password')}</Label>
+                  <Input
+                    id="confirm-password"
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="••••••••"
+                  />
+                </div>
+
                 <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  onClick={handleChangePassword}
+                  disabled={changingPassword || !currentPassword || !newPassword || !confirmPassword}
                 >
-                  {showNewPassword ? (
-                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  {changingPassword ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
-                    <Eye className="h-4 w-4 text-muted-foreground" />
+                    <Lock className="mr-2 h-4 w-4" />
                   )}
+                  {t('settings.change_password')}
                 </Button>
-              </div>
-              <p className="text-xs text-muted-foreground">
-                {t('settings.min_chars')}
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="confirm-password">{t('settings.confirm_password')}</Label>
-              <Input
-                id="confirm-password"
-                type="password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="••••••••"
-              />
-            </div>
-
-            <Button
-              onClick={handleChangePassword}
-              disabled={changingPassword || !currentPassword || !newPassword || !confirmPassword}
-            >
-              {changingPassword ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Lock className="mr-2 h-4 w-4" />
-              )}
-              {t('settings.change_password')}
-            </Button>
+              </>
+            )}
           </CardContent>
         </Card>
 

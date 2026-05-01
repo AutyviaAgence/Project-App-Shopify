@@ -1,16 +1,49 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { headers } from 'next/headers'
 
 /** GET /auth/callback — Handle OAuth callback from Supabase */
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
   const redirect = requestUrl.searchParams.get('redirect')
 
   if (code) {
     const supabase = await createClient()
-    await supabase.auth.exchangeCodeForSession(code)
+    const { data: { session } } = await supabase.auth.exchangeCodeForSession(code)
+
+    // For new Google OAuth users: resolve referral_code cookie → referred_by
+    if (session?.user) {
+      const referralCookie = request.cookies.get('referral_code')?.value
+      if (referralCookie) {
+        const admin = createAdminClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!
+        )
+        // Only update if referred_by is still null (new account)
+        const { data: profile } = await admin
+          .from('profiles')
+          .select('referred_by')
+          .eq('id', session.user.id)
+          .single() as { data: { referred_by: string | null } | null }
+
+        if (!profile?.referred_by) {
+          const { data: referrer } = await admin
+            .from('profiles')
+            .select('id')
+            .eq('referral_code', referralCookie.toUpperCase())
+            .single() as { data: { id: string } | null }
+
+          if (referrer) {
+            await admin
+              .from('profiles')
+              .update({ referred_by: referrer.id })
+              .eq('id', session.user.id)
+          }
+        }
+      }
+    }
   }
 
   // Use forwarded host (from Traefik/reverse proxy) or APP_URL to avoid 0.0.0.0
