@@ -16,37 +16,38 @@ export async function GET(request: NextRequest) {
     const { data: { session } } = await supabase.auth.exchangeCodeForSession(code)
 
     if (session?.user) {
+      const isOAuth = session.user.app_metadata?.provider !== 'email'
       const admin = createAdminClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!
       )
 
-      // Detect new account: created less than 15 seconds ago
-      const createdAt = new Date(session.user.created_at).getTime()
-      isNewOAuthUser = Date.now() - createdAt < 15_000
+      // Fetch profile to check terms acceptance and referred_by
+      const { data: profile } = await admin
+        .from('profiles')
+        .select('referred_by, terms_accepted_at')
+        .eq('id', session.user.id)
+        .single() as { data: { referred_by: string | null; terms_accepted_at: string | null } | null }
+
+      // New OAuth user = OAuth login + never accepted terms
+      if (isOAuth && !profile?.terms_accepted_at) {
+        isNewOAuthUser = true
+      }
 
       // For new Google OAuth users: resolve referral_code cookie → referred_by
       const referralCookie = request.cookies.get('referral_code')?.value
-      if (referralCookie) {
-        const { data: profile } = await admin
+      if (referralCookie && !profile?.referred_by) {
+        const { data: referrer } = await admin
           .from('profiles')
-          .select('referred_by')
-          .eq('id', session.user.id)
-          .single() as { data: { referred_by: string | null } | null }
+          .select('id')
+          .eq('referral_code', referralCookie.toUpperCase())
+          .single() as { data: { id: string } | null }
 
-        if (!profile?.referred_by) {
-          const { data: referrer } = await admin
+        if (referrer) {
+          await admin
             .from('profiles')
-            .select('id')
-            .eq('referral_code', referralCookie.toUpperCase())
-            .single() as { data: { id: string } | null }
-
-          if (referrer) {
-            await admin
-              .from('profiles')
-              .update({ referred_by: referrer.id })
-              .eq('id', session.user.id)
-          }
+            .update({ referred_by: referrer.id })
+            .eq('id', session.user.id)
         }
       }
     }

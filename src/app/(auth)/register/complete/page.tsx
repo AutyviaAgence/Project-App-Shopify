@@ -25,9 +25,8 @@ export default function RegisterCompletePage() {
     }
     setLoading(true)
     try {
-      // Mark terms accepted in profile metadata
-      const supabase = createClient()
-      await supabase.auth.updateUser({ data: { terms_accepted_at: new Date().toISOString() } })
+      const res = await fetch('/api/account/accept-terms', { method: 'POST' })
+      if (!res.ok) throw new Error('api error')
       router.push('/dashboard')
     } catch {
       toast.error('Une erreur est survenue. Veuillez réessayer.')
