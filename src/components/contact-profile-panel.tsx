@@ -245,7 +245,7 @@ export function ContactProfilePanel({
         ) : contact ? (
           <div className="flex flex-col h-full">
             {/* Header compact */}
-            <div className="bg-gradient-to-br from-[#7DC2A5] to-[#40E9BE] px-3 py-3">
+            <div className="px-3 py-3" style={{ background: 'linear-gradient(to bottom right, var(--primary, #7DC2A5), var(--accent, #40E9BE))' }}>
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm text-white text-sm font-semibold border border-white/30 shrink-0">
                   {getInitials()}

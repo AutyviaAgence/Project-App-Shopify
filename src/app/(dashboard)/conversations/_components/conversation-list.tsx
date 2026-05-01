@@ -397,12 +397,13 @@ export function ConversationList({
                 >
                   {/* Avatar */}
                   <div className="relative shrink-0">
-                    <div className={cn(
-                      'flex h-11 w-11 items-center justify-center rounded-full text-sm font-medium',
-                      isSelected
-                        ? 'bg-primary text-primary-foreground'
-                        : 'text-white' + ' bg-gradient-to-br from-[var(--primary,#7DC2A5)] to-[var(--accent,#40E9BE)]'
-                    )}>
+                    <div
+                      className="flex h-11 w-11 items-center justify-center rounded-full text-sm font-medium text-white"
+                      style={isSelected
+                        ? { background: 'var(--primary, #7DC2A5)' }
+                        : { background: 'linear-gradient(to bottom right, var(--primary, #7DC2A5), var(--accent, #40E9BE))' }
+                      }
+                    >
                       {getContactInitials(conv)}
                     </div>
                     {conv.unread_count > 0 && (
