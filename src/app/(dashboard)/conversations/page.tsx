@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useState, useCallback } from 'react'
+import { Suspense, useEffect, useState, useCallback, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { ConversationTag } from '@/types/database'
@@ -40,6 +40,7 @@ function ConversationsPageContent() {
   const [conversations, setConversations] = useState<ConversationWithJoins[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedConv, setSelectedConv] = useState<ConversationWithJoins | null>(null)
+  const selectedConvIdRef = useRef<string | null>(null)
   const [pendingOpenConvId, setPendingOpenConvId] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [messagesLoading, setMessagesLoading] = useState(false)
@@ -610,6 +611,11 @@ function ConversationsPageContent() {
     }
   }, [pendingOpenConvId, conversations, loading])
 
+  // Garder le ref à jour pour le realtime (évite les closures périmées)
+  useEffect(() => {
+    selectedConvIdRef.current = selectedConv?.id ?? null
+  }, [selectedConv?.id])
+
   // Load messages when selecting a conversation
   useEffect(() => {
     if (selectedConv) {
@@ -701,6 +707,7 @@ function ConversationsPageContent() {
         { event: 'UPDATE', schema: 'public', table: 'conversations' },
         (payload) => {
           const updated = payload.new as ConversationWithJoins
+          const isCurrentlyOpen = selectedConvIdRef.current === updated.id
           setConversations((prev) =>
             prev.map((c) => {
               if (c.id !== updated.id) return c
@@ -708,8 +715,8 @@ function ConversationsPageContent() {
                 ...c,
                 last_message_at: updated.last_message_at,
                 last_message_preview: updated.last_message_preview,
-                // Ne pas écraser unread_count si la conversation est ouverte (déjà mis à 0 localement)
-                unread_count: c.id === updated.id && c.unread_count === 0 ? 0 : updated.unread_count,
+                // Si la conversation est ouverte, on garde unread_count=0 (déjà marqué lu localement)
+                unread_count: isCurrentlyOpen ? 0 : updated.unread_count,
               }
             })
           )
