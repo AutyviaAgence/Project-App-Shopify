@@ -332,6 +332,7 @@ function OnboardingChecklist({ checklist, onRefresh }: { checklist: Checklist; o
 
 function StatsDashboard() {
   const { t, locale } = useTranslation()
+  const tenant = useTenant()
   const [stats, setStats] = useState<StatsResponse | null>(null)
   const [sessions, setSessions] = useState<WhatsAppSession[]>([])
   const [loading, setLoading] = useState(true)
@@ -425,7 +426,6 @@ function StatsDashboard() {
 // ─── Page principale ──────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const tenant = useTenant()
   const [checklist, setChecklist] = useState<Checklist | null>(null)
   const [loading, setLoading] = useState(true)
 
