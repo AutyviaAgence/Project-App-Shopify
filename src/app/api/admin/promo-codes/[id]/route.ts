@@ -19,7 +19,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
   const { id } = await params
 
-  const { data: promoCode } = await adminSupabase
+  const { data: promoCode } = await (adminSupabase as any)
     .from('promo_codes')
     .select('stripe_promo_code_id')
     .eq('id', id)
@@ -34,7 +34,7 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
       await stripe.promotionCodes.update(promoCode.stripe_promo_code_id, { active: false })
     }
 
-    await adminSupabase
+    await (adminSupabase as any)
       .from('promo_codes')
       .update({ is_active: false })
       .eq('id', id)

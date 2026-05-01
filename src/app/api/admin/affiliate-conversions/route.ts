@@ -16,7 +16,7 @@ export async function GET() {
 
   if (profile?.role !== 'admin') return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
 
-  const { data } = await adminSupabase
+  const { data } = await (adminSupabase as any)
     .from('affiliate_conversions')
     .select(`
       *,
@@ -48,7 +48,7 @@ export async function PATCH(req: NextRequest) {
 
   if (!id) return NextResponse.json({ error: 'ID manquant' }, { status: 400 })
 
-  const { data, error } = await adminSupabase
+  const { data, error } = await (adminSupabase as any)
     .from('affiliate_conversions')
     .update({
       status: 'paid',

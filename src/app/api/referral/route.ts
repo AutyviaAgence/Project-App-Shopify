@@ -16,7 +16,7 @@ export async function GET() {
 
   const referralCode = profile?.referral_code
 
-  const { data: rewards } = await adminSupabase
+  const { data: rewards } = await (adminSupabase as any)
     .from('referral_rewards')
     .select('*')
     .or(`referrer_id.eq.${user.id},referee_id.eq.${user.id}`)

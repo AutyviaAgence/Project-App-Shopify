@@ -16,7 +16,7 @@ export async function GET() {
 
   if (profile?.role !== 'admin') return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
 
-  const { data } = await adminSupabase
+  const { data } = await (adminSupabase as any)
     .from('affiliate_codes')
     .select('*, profiles!affiliate_codes_user_id_fkey(email, full_name)')
     .order('created_at', { ascending: false })
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Paramètres manquants' }, { status: 400 })
   }
 
-  const { data, error } = await adminSupabase
+  const { data, error } = await (adminSupabase as any)
     .from('affiliate_codes')
     .insert({
       user_id,
