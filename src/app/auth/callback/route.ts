@@ -9,19 +9,25 @@ export async function GET(request: NextRequest) {
   const code = requestUrl.searchParams.get('code')
   const redirect = requestUrl.searchParams.get('redirect')
 
+  let isNewOAuthUser = false
+
   if (code) {
     const supabase = await createClient()
     const { data: { session } } = await supabase.auth.exchangeCodeForSession(code)
 
-    // For new Google OAuth users: resolve referral_code cookie → referred_by
     if (session?.user) {
+      const admin = createAdminClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      )
+
+      // Detect new account: created less than 15 seconds ago
+      const createdAt = new Date(session.user.created_at).getTime()
+      isNewOAuthUser = Date.now() - createdAt < 15_000
+
+      // For new Google OAuth users: resolve referral_code cookie → referred_by
       const referralCookie = request.cookies.get('referral_code')?.value
       if (referralCookie) {
-        const admin = createAdminClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.SUPABASE_SERVICE_ROLE_KEY!
-        )
-        // Only update if referred_by is still null (new account)
         const { data: profile } = await admin
           .from('profiles')
           .select('referred_by')
@@ -54,10 +60,14 @@ export async function GET(request: NextRequest) {
     ? `${forwardedProto}://${forwardedHost}`
     : process.env.NEXT_PUBLIC_APP_URL || requestUrl.origin
 
+  // New OAuth users must accept CGV before accessing the app
+  if (isNewOAuthUser && !redirect) {
+    return NextResponse.redirect(new URL('/register/complete', origin))
+  }
+
   // Validate redirect to prevent open redirect
   let redirectPath = '/dashboard'
   if (redirect) {
-    // Only allow relative paths starting with /
     if (redirect.startsWith('/') && !redirect.startsWith('//')) {
       redirectPath = redirect
     }
