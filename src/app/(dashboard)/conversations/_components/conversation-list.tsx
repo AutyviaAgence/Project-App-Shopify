@@ -407,7 +407,7 @@ export function ConversationList({
                       {getContactInitials(conv)}
                     </div>
                     {conv.unread_count > 0 && (
-                      <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-bold text-primary-foreground">
+                      <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-sm">
                         {conv.unread_count > 9 ? '9+' : conv.unread_count}
                       </span>
                     )}

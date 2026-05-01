@@ -702,11 +702,16 @@ function ConversationsPageContent() {
         (payload) => {
           const updated = payload.new as ConversationWithJoins
           setConversations((prev) =>
-            prev.map((c) =>
-              c.id === updated.id
-                ? { ...c, last_message_at: updated.last_message_at, last_message_preview: updated.last_message_preview, unread_count: updated.unread_count }
-                : c
-            )
+            prev.map((c) => {
+              if (c.id !== updated.id) return c
+              return {
+                ...c,
+                last_message_at: updated.last_message_at,
+                last_message_preview: updated.last_message_preview,
+                // Ne pas écraser unread_count si la conversation est ouverte (déjà mis à 0 localement)
+                unread_count: c.id === updated.id && c.unread_count === 0 ? 0 : updated.unread_count,
+              }
+            })
           )
         }
       )
