@@ -56,37 +56,43 @@ export async function PATCH(
   const selectedTeamIds = team_ids !== undefined ? team_ids : (team_id !== undefined ? (team_id ? [team_id] : []) : undefined)
 
   if (selectedTeamIds !== undefined) {
-    // Seul le propriétaire du lien peut changer les équipes
     if (existingLink.user_id !== user.id) {
-      return NextResponse.json({ error: 'Seul le propriétaire peut changer les équipes' }, { status: 403 })
-    }
-
-    // Vérifier que l'utilisateur a accès aux équipes spécifiées
-    if (selectedTeamIds.length > 0) {
-      const userTeamIds = await getUserTeamIds(supabase, user.id)
-      const unauthorized = selectedTeamIds.filter(tid => !userTeamIds.includes(tid))
-      if (unauthorized.length > 0) {
-        return NextResponse.json({ error: 'Équipe(s) non autorisée(s)' }, { status: 403 })
-      }
-    }
-
-    // Mettre à jour la table de liaison
-    // 1. Supprimer les anciennes associations
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any).from('link_teams').delete().eq('link_id', id)
-
-    // 2. Créer les nouvelles associations
-    if (selectedTeamIds.length > 0) {
-      const teamAssociations = selectedTeamIds.map(teamId => ({
-        link_id: id,
-        team_id: teamId,
-      }))
+      // Membre : vérifier que les team_ids sont identiques aux actuels (pas de changement d'équipe)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase as any).from('link_teams').insert(teamAssociations)
-    }
+      const { data: currentTeamLinks } = await (supabase as any)
+        .from('link_teams')
+        .select('team_id')
+        .eq('link_id', id)
+      const currentTeamIds = (currentTeamLinks || []).map((t: { team_id: string }) => t.team_id).sort()
+      const incomingTeamIds = [...selectedTeamIds].sort()
+      const sameTeams = currentTeamIds.length === incomingTeamIds.length &&
+        currentTeamIds.every((tid: string, i: number) => tid === incomingTeamIds[i])
+      if (!sameTeams) {
+        return NextResponse.json({ error: 'Seul le propriétaire peut changer les équipes' }, { status: 403 })
+      }
+      // Mêmes équipes → skip la mise à jour des équipes, continuer avec les autres champs
+    } else {
+      // Propriétaire : vérifier accès aux équipes spécifiées
+      if (selectedTeamIds.length > 0) {
+        const userTeamIds = await getUserTeamIds(supabase, user.id)
+        const unauthorized = selectedTeamIds.filter(tid => !userTeamIds.includes(tid))
+        if (unauthorized.length > 0) {
+          return NextResponse.json({ error: 'Équipe(s) non autorisée(s)' }, { status: 403 })
+        }
+      }
 
-    // Legacy: garder le premier team_id pour compatibilité
-    updateData.team_id = selectedTeamIds[0] || null
+      // Mettre à jour la table de liaison
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      await (supabase as any).from('link_teams').delete().eq('link_id', id)
+      if (selectedTeamIds.length > 0) {
+        const teamAssociations = selectedTeamIds.map(teamId => ({ link_id: id, team_id: teamId }))
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        await (supabase as any).from('link_teams').insert(teamAssociations)
+      }
+
+      // Legacy: garder le premier team_id pour compatibilité
+      updateData.team_id = selectedTeamIds[0] || null
+    }
   }
 
   // Mise à jour si nécessaire
