@@ -198,8 +198,8 @@ export default function AdminPage() {
     }
   }, [activeTab, subscription, billing, fetchBilling])
 
-  const handleActivate = async (userId: string) => {
-    const selectedPlan = selectedPlans[userId] || 'scale'
+  const handleActivate = async (userId: string, currentClientPlan?: string | null) => {
+    const selectedPlan = selectedPlans[userId] ?? currentClientPlan ?? 'none'
     const plan = selectedPlan === 'none' ? null : selectedPlan
     setActivating(userId)
     try {
@@ -653,7 +653,7 @@ docker restart whatsapp-test-evolutionapi-yfoofj-evolution-api-1`}</pre>
                             variant="outline"
                             className="h-6 px-2 text-xs"
                             disabled={activating === client.id}
-                            onClick={() => handleActivate(client.id)}
+                            onClick={() => handleActivate(client.id, client.plan)}
                           >
                             {activating === client.id ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Activer'}
                           </Button>
