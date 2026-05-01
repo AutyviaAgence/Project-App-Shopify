@@ -407,14 +407,14 @@ export function ConversationList({
                       {getContactInitials(conv)}
                     </div>
                     {conv.unread_count > 0 && (
-                      <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-sm">
+                      <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-white text-[10px] font-bold text-slate-700 shadow ring-1 ring-slate-200">
                         {conv.unread_count > 9 ? '9+' : conv.unread_count}
                       </span>
                     )}
                     {/* Canal badge */}
                     <span
                       className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full ring-2 ring-background"
-                      style={{ backgroundColor: conv.channel === 'email' ? '#3B82F6' : 'var(--primary, #25D366)' }}
+                      style={{ backgroundColor: conv.channel === 'email' ? '#3B82F6' : '#25D366' }}
                     >
                       {conv.channel === 'email' ? (
                         <Mail className="h-2.5 w-2.5 text-white" />
