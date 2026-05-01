@@ -91,8 +91,8 @@
     "avg_time": "Temps moyen : {time}"
   },
   "sessions": {
-    "title": "Sessions WhatsApp",
-    "description": "Gérez vos connexions WhatsApp. Chaque session correspond à un numéro.",
+    "title": "Sessions & canaux",
+    "description": "Gérez vos connexions WhatsApp et vos comptes email. Chaque session correspond à un canal de communication.",
     "new_session": "Nouvelle session",
     "create_session": "Créer la session",
     "no_sessions": "Aucune session",

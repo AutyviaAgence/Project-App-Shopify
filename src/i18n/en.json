@@ -91,8 +91,8 @@
     "avg_time": "Average time: {time}"
   },
   "sessions": {
-    "title": "WhatsApp Sessions",
-    "description": "Manage your WhatsApp connections. Each session corresponds to a phone number.",
+    "title": "Sessions & channels",
+    "description": "Manage your WhatsApp connections and email accounts. Each session is a communication channel.",
     "new_session": "New session",
     "create_session": "Create session",
     "no_sessions": "No sessions",
