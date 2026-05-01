@@ -41,7 +41,7 @@ export async function GET() {
   let tenantNames: Record<string, string> = {}
   if (tenantIds.length > 0) {
     const { data: tenants } = await adminSupabase
-      .from('tenants')
+      .from('tenants' as any)
       .select('id, app_name, slug')
       .in('id', tenantIds)
     if (tenants) {

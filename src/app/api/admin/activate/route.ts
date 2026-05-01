@@ -85,7 +85,7 @@ export async function POST(req: NextRequest) {
       .single()
     if (profileTenant?.tenant_id) {
       const { data: tenantRow } = await adminSupabase
-        .from('tenants')
+        .from('tenants' as any)
         .select('app_name')
         .eq('id', profileTenant.tenant_id)
         .single()

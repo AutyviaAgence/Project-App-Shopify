@@ -958,7 +958,7 @@ async function sendWelcomeMessage(
         .single()
       if (profile?.tenant_id) {
         const { data: tenant } = await supabase
-          .from('tenants')
+          .from('tenants' as any)
           .select('app_name')
           .eq('id', profile.tenant_id)
           .single()
