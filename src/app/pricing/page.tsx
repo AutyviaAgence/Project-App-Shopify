@@ -199,6 +199,13 @@ export default function PricingPage() {
                   </div>
                 )}
 
+                {/* Badge 7 jours gratuits */}
+                <div className="mb-4 flex items-center justify-center gap-1.5 rounded-xl bg-green-500 px-3 py-2">
+                  <Gift className="h-4 w-4 text-white shrink-0" />
+                  <span className="text-sm font-bold text-white">7 jours gratuits</span>
+                  <span className="text-xs text-green-100">— carte requise</span>
+                </div>
+
                 <div className="mb-4 flex items-center gap-3">
                   <div className={cn('flex h-10 w-10 items-center justify-center rounded-xl', plan.badgeBg.replace('text-', 'bg-').replace('-600', '-500/10').replace('-500', '-500/10'))}>
                     <Icon className={cn('h-5 w-5', plan.color)} />
@@ -234,11 +241,6 @@ export default function PricingPage() {
                     </li>
                   ))}
                 </ul>
-
-                <div className="mb-3 flex items-center gap-1.5 rounded-lg bg-green-500/10 px-3 py-1.5">
-                  <Gift className="h-3.5 w-3.5 text-green-600 shrink-0" />
-                  <span className="text-xs font-medium text-green-700">1 semaine gratuite — puis {plan.price}€/mois</span>
-                </div>
 
                 <Button
                   className={cn('w-full', plan.buttonClass)}
