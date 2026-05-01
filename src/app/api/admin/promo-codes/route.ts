@@ -93,6 +93,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json(data)
   } catch (err: any) {
+    console.error('[PromoCode] Error:', err?.message, err?.raw || '')
     return NextResponse.json({ error: err?.message || 'Erreur Stripe' }, { status: 500 })
   }
 }
