@@ -96,7 +96,17 @@ async function runPollEmail() {
           contactId = newContact.id
         }
 
-        // Trouver ou créer la conversation
+        // Dédupliquer : ne pas traiter un message déjà en base
+        if (email.messageId) {
+          const { data: existingMsg } = await adminSupabase
+            .from('messages')
+            .select('id')
+            .eq('channel_message_id', email.messageId)
+            .maybeSingle()
+          if (existingMsg) continue
+        }
+
+        // Trouver ou créer la conversation (unread_count incrémenté seulement pour les nouveaux messages)
         let conversationId: string
 
         const { data: existingConv } = await adminSupabase
@@ -150,7 +160,6 @@ async function runPollEmail() {
           sent_by: 'contact',
           status: 'delivered',
           ai_processed: false,
-          // Store subject in a structured way within content prefix
           ...(messageSubject ? { transcription: `Objet: ${messageSubject}` } : {}),
         })
 

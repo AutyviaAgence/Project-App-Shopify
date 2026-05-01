@@ -180,6 +180,19 @@ export async function POST(req: NextRequest) {
         contactId = newContact.id
       }
 
+      // Dédupliquer : ne pas traiter un message déjà en base
+      if (email.messageId) {
+        const { data: existingMsg } = await adminSupabase
+          .from('messages')
+          .select('id')
+          .eq('channel_message_id', email.messageId)
+          .maybeSingle()
+        if (existingMsg) {
+          console.log('[gmail-pubsub] skipping duplicate message:', email.messageId)
+          continue
+        }
+      }
+
       // Trouver ou créer la conversation
       let conversationId: string
 
