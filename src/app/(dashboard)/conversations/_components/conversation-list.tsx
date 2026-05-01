@@ -411,10 +411,10 @@ export function ConversationList({
                       </span>
                     )}
                     {/* Canal badge */}
-                    <span className={cn(
-                      'absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full ring-2 ring-background',
-                      conv.channel === 'email' ? 'bg-blue-500' : 'bg-[var(--primary,#25D366)]'
-                    )}>
+                    <span
+                      className="absolute -bottom-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full ring-2 ring-background"
+                      style={{ backgroundColor: conv.channel === 'email' ? '#3B82F6' : 'var(--primary, #25D366)' }}
+                    >
                       {conv.channel === 'email' ? (
                         <Mail className="h-2.5 w-2.5 text-white" />
                       ) : (
