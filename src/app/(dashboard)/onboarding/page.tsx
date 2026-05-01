@@ -3,17 +3,9 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { CheckCircle2, Circle, Workflow, CreditCard, Settings2, Rocket, ChevronRight, ExternalLink } from 'lucide-react'
+import { Workflow, CreditCard, Settings2, Rocket, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { PLAN_PRICES_EUR } from '@/lib/stripe/plans'
-import type { PlanId } from '@/lib/stripe/plans'
 import { toast } from 'sonner'
-
-const PLANS: { id: PlanId; name: string; tokens: string; sessions: string; agents: string }[] = [
-  { id: 'starter', name: 'Starter', tokens: '500k', sessions: '2', agents: '2' },
-  { id: 'pro', name: 'Pro', tokens: '1,5M', sessions: '4', agents: '5' },
-  { id: 'scale', name: 'Scale', tokens: '4M', sessions: '10', agents: '10' },
-]
 
 const STEPS = [
   { icon: CreditCard, label: 'Acompte 750€', description: 'Réservation de votre mise en place (J0)' },
@@ -25,7 +17,6 @@ const STEPS = [
 
 export default function OnboardingPage() {
   const router = useRouter()
-  const [selectedPlan, setSelectedPlan] = useState<PlanId>('pro')
   const [cgvAccepted, setCgvAccepted] = useState(false)
   const [loading, setLoading] = useState(false)
 
@@ -40,7 +31,7 @@ export default function OnboardingPage() {
       const res = await fetch('/api/stripe/custom-setup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: selectedPlan }),
+        body: JSON.stringify({}),
       })
       const data = await res.json()
       if (data.url) {
@@ -93,43 +84,6 @@ export default function OnboardingPage() {
           </div>
         </div>
 
-        {/* Plan selector */}
-        <div className="space-y-3">
-          <h2 className="text-lg font-semibold text-foreground">Choisissez votre plan mensuel</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            {PLANS.map((plan) => (
-              <button
-                key={plan.id}
-                onClick={() => setSelectedPlan(plan.id)}
-                className={cn(
-                  'relative rounded-xl border-2 p-4 text-left transition-all',
-                  selectedPlan === plan.id
-                    ? 'border-primary bg-primary/5'
-                    : 'border-border hover:border-primary/50'
-                )}
-              >
-                <div className="flex items-start justify-between mb-2">
-                  <span className="text-base font-bold text-foreground">{plan.name}</span>
-                  {selectedPlan === plan.id ? (
-                    <CheckCircle2 className="h-5 w-5 text-primary" />
-                  ) : (
-                    <Circle className="h-5 w-5 text-muted-foreground" />
-                  )}
-                </div>
-                <p className="text-2xl font-bold text-primary">
-                  {PLAN_PRICES_EUR[plan.id]}€
-                  <span className="text-sm font-normal text-muted-foreground">/mois</span>
-                </p>
-                <ul className="mt-3 space-y-1 text-xs text-muted-foreground">
-                  <li>{plan.tokens} tokens IA/mois</li>
-                  <li>{plan.sessions} session(s) WhatsApp</li>
-                  <li>{plan.agents} agent(s) IA</li>
-                </ul>
-              </button>
-            ))}
-          </div>
-        </div>
-
         {/* Setup fee notice */}
         <div className="rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-4 space-y-3">
           <div className="flex gap-3">
@@ -137,17 +91,17 @@ export default function OnboardingPage() {
             <div className="text-sm">
               <p className="font-medium text-amber-800 dark:text-amber-300">Frais de mise en place : 1 500€ (2×750€)</p>
               <p className="text-amber-700 dark:text-amber-400 mt-0.5">
-                Un acompte de 750€ est requis aujourd&apos;hui. À J+30, vous réglez le solde de 750€ <strong>et</strong> démarrez votre abonnement mensuel en même temps.
+                Un acompte de 750€ est requis aujourd&apos;hui. À J+30, vous réglez le solde de 750€ et démarrez votre abonnement mensuel selon le plan choisi.
               </p>
             </div>
           </div>
           <div className="ml-8 rounded-lg bg-amber-100 dark:bg-amber-900/40 p-3 text-xs text-amber-800 dark:text-amber-300 space-y-1">
             <div className="flex justify-between"><span>J0 — Acompte setup</span><span className="font-semibold">750€</span></div>
             <div className="flex justify-between"><span>J30 — Solde setup</span><span className="font-semibold">750€</span></div>
-            <div className="flex justify-between"><span>J30 — 1er mois abonnement ({PLAN_PRICES_EUR[selectedPlan]}€/mois)</span><span className="font-semibold">{PLAN_PRICES_EUR[selectedPlan]}€</span></div>
+            <div className="flex justify-between text-muted-foreground"><span>J30 — 1er mois abonnement (selon plan choisi)</span><span>selon plan</span></div>
             <div className="border-t border-amber-300 dark:border-amber-700 pt-1 flex justify-between font-semibold">
-              <span>Total à J30</span>
-              <span>{750 + PLAN_PRICES_EUR[selectedPlan]}€</span>
+              <span>Total frais audit</span>
+              <span>1 500€</span>
             </div>
           </div>
         </div>
