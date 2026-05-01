@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { decryptMessage } from '@/lib/crypto/encryption'
 import { canAccessSession, checkTeamPermission } from '@/lib/teams/access'
 
@@ -154,8 +155,12 @@ export async function GET(
     })) || undefined,
   }))
 
-  // Marquer comme lu (reset unread)
-  await supabase
+  // Marquer comme lu (reset unread) — utilise le client admin car RLS bloque l'update sur conversations
+  const adminSupabase = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+  await adminSupabase
     .from('conversations')
     .update({ unread_count: 0 })
     .eq('id', id)
