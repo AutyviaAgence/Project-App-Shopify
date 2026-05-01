@@ -60,6 +60,7 @@ type Checklist = {
 
 function OnboardingChecklist({ checklist, onRefresh }: { checklist: Checklist; onRefresh: () => void }) {
   const router = useRouter()
+  const tenant = useTenant()
   const [seeding, setSeeding] = useState(false)
 
   const handleSeed = async () => {
@@ -332,7 +333,6 @@ function OnboardingChecklist({ checklist, onRefresh }: { checklist: Checklist; o
 
 function StatsDashboard() {
   const { t, locale } = useTranslation()
-  const tenant = useTenant()
   const [stats, setStats] = useState<StatsResponse | null>(null)
   const [sessions, setSessions] = useState<WhatsAppSession[]>([])
   const [loading, setLoading] = useState(true)
