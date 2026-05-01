@@ -278,7 +278,7 @@ export async function POST(req: NextRequest) {
               alert_type: 'info',
               title: isTrialing ? 'Essai gratuit activé' : 'Abonnement activé',
               message: isTrialing
-                ? `Votre essai gratuit de 14 jours a démarré. Vous ne serez débité que le ${subscriptionEndsAt.toLocaleDateString('fr-FR')} si vous ne résiliez pas avant.`
+                ? `Votre semaine gratuite a démarré. Vous ne serez débité que le ${subscriptionEndsAt.toLocaleDateString('fr-FR')} si vous ne résiliez pas avant.`
                 : `Votre abonnement a été activé. Prochain renouvellement le ${subscriptionEndsAt.toLocaleDateString('fr-FR')}.`,
               metadata: {
                 type: isTrialing ? 'trial_started' : 'subscription_created',

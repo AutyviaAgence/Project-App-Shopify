@@ -64,7 +64,7 @@ const BOTTOM_NAV_KEYS = [
 ]
 
 // Pages accessibles même sans abonnement actif
-const ALLOWED_WITHOUT_SUBSCRIPTION = ['/subscription', '/settings', '/admin', '/onboarding']
+const ALLOWED_WITHOUT_SUBSCRIPTION = ['/subscription', '/settings', '/admin', '/onboarding', '/welcome']
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -99,14 +99,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const onboardingStatus = subscription?.onboardingStatus ?? 'pending'
   const isOnboardingPage = pathname.startsWith('/onboarding')
+  const isWelcomePage = pathname.startsWith('/welcome')
 
   // Vérifier si la page actuelle est accessible sans abonnement
   const isAllowedPage = ALLOWED_WITHOUT_SUBSCRIPTION.some(
     p => pathname === p || pathname.startsWith(p + '/')
   )
 
-  // Les admins ne sont jamais bloqués
-  const isPending = !isAdmin && subscription && onboardingStatus === 'pending' && !isOnboardingPage && !isAllowedPage
+  // Rediriger les utilisateurs sans plan vers /welcome (sauf si déjà sur une page autorisée)
+  const shouldRedirectToWelcome =
+    !isAdmin &&
+    !subscriptionLoading &&
+    subscription &&
+    onboardingStatus === 'pending' &&
+    !subscription.isActive &&
+    !isAllowedPage &&
+    !isWelcomePage
+
+  // Les admins ne sont jamais bloqués — isPending désactivé (redirection gérée ci-dessus)
+  const isPending = false
 
   // onboarding = acompte payé → accès complet (période audit avec tokens du plan)
   const isOnboardingOnly = false
@@ -122,6 +133,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     subscription.isActive &&
     ((pathname.startsWith('/campaigns') && plan !== 'scale') ||
      (pathname.startsWith('/lifecycle') && plan === 'starter'))
+
+  // Rediriger vers /welcome si pas de plan actif
+  useEffect(() => {
+    if (shouldRedirectToWelcome) {
+      router.replace('/welcome')
+    }
+  }, [shouldRedirectToWelcome, router])
 
   // Close sidebar on route change (mobile) + escape key
   useEffect(() => {

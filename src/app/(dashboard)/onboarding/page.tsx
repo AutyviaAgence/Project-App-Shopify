@@ -63,9 +63,9 @@ export default function OnboardingPage() {
           <div className="inline-flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 mb-2">
             <Workflow className="h-6 w-6 text-primary" />
           </div>
-          <h1 className="text-3xl font-bold text-foreground">Mise en place de votre plateforme</h1>
+          <h1 className="text-3xl font-bold text-foreground">Audit & mise en place sur mesure</h1>
           <p className="text-muted-foreground max-w-xl mx-auto">
-            Votre plateforme WhatsApp IA est prête à être configurée. Choisissez votre plan et réservez votre mise en place.
+            Notre équipe configure votre plateforme de A à Z. Choisissez votre plan mensuel et réservez votre audit.
           </p>
         </div>
 
@@ -169,7 +169,7 @@ export default function OnboardingPage() {
             <Link href="/cgu" target="_blank" className="text-primary underline underline-offset-2 hover:text-primary/80">
               CGU
             </Link>
-            , y compris les frais de mise en place non remboursables de 1 500€.
+            , y compris les frais d&apos;audit de 1 500€ remboursables selon les conditions des CGU.
           </span>
         </label>
 

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Check, X, Zap, Rocket, Crown, Phone, ArrowRight, Loader2, ExternalLink } from 'lucide-react'
+import { Check, X, Zap, Rocket, Crown, ArrowRight, Loader2, Phone, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -14,6 +14,7 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
+import { useTenant } from '@/lib/tenant/context'
 import type { PlanId } from '@/lib/stripe/plans'
 
 const PLANS = [
@@ -22,23 +23,21 @@ const PLANS = [
     name: 'Starter',
     price: 39,
     tokens: '500 000',
-    tokensShort: '500k',
     icon: Zap,
     color: 'text-blue-500',
     borderColor: 'border-blue-500/30',
     bgGradient: 'from-blue-500/5',
     badgeBg: 'bg-blue-500/10 text-blue-600',
-    buttonClass: 'bg-blue-500 hover:bg-blue-600',
+    buttonClass: 'bg-blue-500 hover:bg-blue-600 text-white',
     features: [
-      { text: '1 session WhatsApp', included: true },
-      { text: '1 agent IA', included: true },
+      { text: '2 sessions WhatsApp', included: true },
+      { text: '2 agents IA', included: true },
       { text: 'Conversations & messages', included: true },
       { text: 'Base de connaissances', included: true },
       { text: 'Tags & liens', included: true },
       { text: 'Statistiques', included: true },
       { text: 'Lifecycle (relances)', included: false },
       { text: 'Campagnes broadcast', included: false },
-      { text: 'Support prioritaire', included: false },
     ],
   },
   {
@@ -46,7 +45,6 @@ const PLANS = [
     name: 'Pro',
     price: 79,
     tokens: '1 500 000',
-    tokensShort: '1,5M',
     icon: Rocket,
     color: 'text-primary',
     borderColor: 'border-primary/50',
@@ -55,15 +53,14 @@ const PLANS = [
     buttonClass: '',
     popular: true,
     features: [
-      { text: '3 sessions WhatsApp', included: true },
-      { text: '3 agents IA', included: true },
+      { text: '4 sessions WhatsApp', included: true },
+      { text: '5 agents IA', included: true },
       { text: 'Conversations & messages', included: true },
       { text: 'Base de connaissances', included: true },
       { text: 'Tags & liens', included: true },
       { text: 'Statistiques', included: true },
       { text: 'Lifecycle (relances)', included: true },
       { text: 'Campagnes broadcast', included: false },
-      { text: 'Support prioritaire', included: false },
     ],
   },
   {
@@ -71,65 +68,47 @@ const PLANS = [
     name: 'Scale',
     price: 150,
     tokens: '4 000 000',
-    tokensShort: '4M',
     icon: Crown,
     color: 'text-sky-500',
     borderColor: 'border-sky-500/30',
     bgGradient: 'from-sky-500/5',
     badgeBg: 'bg-sky-500/10 text-sky-600',
-    buttonClass: 'bg-sky-500 hover:bg-sky-600',
+    buttonClass: 'bg-sky-500 hover:bg-sky-600 text-white',
     features: [
-      { text: 'Sessions WhatsApp illimitées', included: true },
-      { text: 'Agents IA illimités', included: true },
+      { text: '10 sessions WhatsApp', included: true },
+      { text: '10 agents IA', included: true },
       { text: 'Conversations & messages', included: true },
       { text: 'Base de connaissances', included: true },
       { text: 'Tags & liens', included: true },
       { text: 'Statistiques', included: true },
       { text: 'Lifecycle (relances)', included: true },
       { text: 'Campagnes broadcast', included: true },
-      { text: 'Support prioritaire', included: true },
     ],
   },
 ]
 
-export default function PricingPage() {
+export default function WelcomePage() {
   const router = useRouter()
+  const tenant = useTenant()
   const [selectedPlan, setSelectedPlan] = useState<PlanId | null>(null)
   const [cgvAccepted, setCgvAccepted] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
-  const handleSelectPlan = (planId: PlanId) => {
-    setSelectedPlan(planId)
-    setCgvAccepted(false)
-  }
-
   const handleConfirm = async () => {
     if (!selectedPlan || !cgvAccepted) return
     setIsLoading(true)
-
     try {
-      // Vérifier si l'utilisateur est connecté
-      const sessionRes = await fetch('/api/auth/me').catch(() => null)
-      const isLoggedIn = sessionRes?.ok
-
-      if (!isLoggedIn) {
-        router.push(`/register?plan=${selectedPlan}`)
-        return
-      }
-
       const res = await fetch('/api/stripe/create-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ plan: selectedPlan }),
       })
       const data = await res.json()
-
       if (!res.ok) throw new Error(data.error)
       if (data.already_active) {
-        router.push('/subscription')
+        router.push('/dashboard')
         return
       }
-
       window.location.href = data.url
     } catch (err) {
       console.error(err)
@@ -140,45 +119,25 @@ export default function PricingPage() {
   const planDetails = PLANS.find(p => p.id === selectedPlan)
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="border-b bg-background/95 backdrop-blur">
-        <div className="container mx-auto flex h-16 items-center justify-between px-4">
-          <Link href="/" className="flex items-center gap-2">
-            <img src="/logo.svg" alt="Autyvia" className="h-8 w-8" />
-            <span className="text-lg font-semibold">Autyvia</span>
-          </Link>
-          <div className="flex items-center gap-3">
-            <Link href="/login" className="text-sm text-muted-foreground hover:text-foreground">
-              Se connecter
-            </Link>
-            <Link
-              href="/register"
-              className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
-            >
-              Essai gratuit
-            </Link>
+    <div className="min-h-full bg-background">
+      <div className="container mx-auto px-4 py-12 max-w-5xl">
+        {/* Header */}
+        <div className="text-center mb-10 space-y-3">
+          <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary">
+            <Zap className="h-3.5 w-3.5" />
+            1 semaine gratuite — carte bancaire requise
           </div>
+          <h1 className="text-3xl font-bold text-foreground">
+            Bienvenue sur {tenant.appName} !
+          </h1>
+          <p className="text-muted-foreground max-w-xl mx-auto">
+            Choisissez le plan adapté à votre activité pour accéder à votre espace.
+            Résiliation à tout moment, aucun engagement.
+          </p>
         </div>
-      </div>
 
-      {/* Hero */}
-      <div className="container mx-auto px-4 py-16 text-center">
-        <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-4 py-1.5 text-sm font-medium text-primary mb-6">
-          <Zap className="h-3.5 w-3.5" />
-          1 semaine gratuite — carte bancaire requise
-        </div>
-        <h1 className="text-4xl font-bold tracking-tight md:text-5xl">
-          Automatisez WhatsApp avec l&apos;IA
-        </h1>
-        <p className="mt-4 max-w-2xl mx-auto text-lg text-muted-foreground">
-          Choisissez le plan adapté à votre activité. Pas d&apos;engagement, résiliation à tout moment.
-        </p>
-      </div>
-
-      {/* Plans */}
-      <div className="container mx-auto px-4 pb-16">
-        <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+        {/* Plans */}
+        <div className="grid md:grid-cols-3 gap-5 mb-8">
           {PLANS.map((plan) => {
             const Icon = plan.icon
             return (
@@ -200,27 +159,23 @@ export default function PricingPage() {
                 )}
 
                 <div className="mb-4 flex items-center gap-3">
-                  <div className={cn('flex h-10 w-10 items-center justify-center rounded-xl', plan.badgeBg.replace('text-', 'bg-').replace('-600', '-500/10').replace('-500', '-500/10'))}>
+                  <div className={cn('flex h-10 w-10 items-center justify-center rounded-xl', plan.badgeBg.split(' ')[0])}>
                     <Icon className={cn('h-5 w-5', plan.color)} />
                   </div>
-                  <div>
-                    <span className={cn('inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold', plan.badgeBg)}>
-                      {plan.name}
-                    </span>
-                  </div>
+                  <span className={cn('inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold', plan.badgeBg)}>
+                    {plan.name}
+                  </span>
                 </div>
 
-                <div className="mb-6">
+                <div className="mb-5">
                   <div className="flex items-end gap-1">
                     <span className="text-4xl font-bold">{plan.price}€</span>
                     <span className="text-muted-foreground mb-1">/mois</span>
                   </div>
-                  <p className="mt-1 text-sm text-muted-foreground">
-                    {plan.tokens} tokens IA/mois
-                  </p>
+                  <p className="mt-1 text-sm text-muted-foreground">{plan.tokens} tokens IA/mois</p>
                 </div>
 
-                <ul className="flex-1 space-y-2.5 mb-6">
+                <ul className="flex-1 space-y-2 mb-6">
                   {plan.features.map((feature, i) => (
                     <li key={i} className="flex items-center gap-2.5 text-sm">
                       {feature.included ? (
@@ -238,7 +193,7 @@ export default function PricingPage() {
                 <Button
                   className={cn('w-full', plan.buttonClass)}
                   size="lg"
-                  onClick={() => handleSelectPlan(plan.id)}
+                  onClick={() => { setSelectedPlan(plan.id); setCgvAccepted(false) }}
                 >
                   Choisir {plan.name}
                   <ArrowRight className="ml-2 h-4 w-4" />
@@ -248,61 +203,46 @@ export default function PricingPage() {
           })}
         </div>
 
-        {/* Audit & accompagnement */}
-        <div className="mt-10 max-w-5xl mx-auto rounded-2xl border border-sky-500/30 bg-gradient-to-r from-sky-500/5 to-transparent p-6">
-          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-            <div className="space-y-2">
+        {/* Audit block */}
+        <div className="rounded-2xl border border-sky-500/30 bg-gradient-to-r from-sky-500/5 to-transparent p-5">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="space-y-1">
               <div className="flex items-center gap-2">
-                <h3 className="font-semibold text-lg">Audit & mise en place sur mesure</h3>
-                <span className="rounded-full bg-sky-500/10 px-2.5 py-0.5 text-xs font-semibold text-sky-600">À part</span>
+                <h3 className="font-semibold">Audit & mise en place sur mesure</h3>
+                <span className="rounded-full bg-sky-500/10 px-2 py-0.5 text-xs font-semibold text-sky-600">À part</span>
               </div>
               <p className="text-sm text-muted-foreground">
-                Notre équipe configure votre plateforme de A à Z, teste vos agents et vous accompagne jusqu'au lancement.
+                Notre équipe configure tout de A à Z — <strong>1 500€</strong> (750€ acompte + 750€ solde). Remboursable selon nos CGU.
               </p>
-              <div className="flex flex-wrap gap-4 text-sm">
-                <div className="flex items-center gap-1.5 text-foreground font-medium">
-                  <span className="h-1.5 w-1.5 rounded-full bg-sky-500" />
-                  750€ acompte à la commande
-                </div>
-                <div className="flex items-center gap-1.5 text-foreground font-medium">
-                  <span className="h-1.5 w-1.5 rounded-full bg-sky-500" />
-                  750€ solde à la livraison
-                </div>
-                <div className="flex items-center gap-1.5 text-muted-foreground text-xs">
-                  Remboursable selon conditions des CGU
-                </div>
-              </div>
             </div>
-            <div className="flex flex-col gap-2 shrink-0">
+            <div className="flex gap-2 shrink-0">
               <Link
                 href="/onboarding"
                 className="inline-flex items-center gap-2 rounded-lg bg-sky-500 px-4 py-2 text-sm font-medium text-white hover:bg-sky-600 transition-colors"
               >
-                Démarrer l&apos;audit — 1 500€
+                Démarrer l&apos;audit
                 <ArrowRight className="h-4 w-4" />
               </Link>
               <a
                 href="https://cal.com/autyvia/appel-decouverte"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2 rounded-lg border border-sky-500/30 px-4 py-2 text-sm font-medium text-sky-600 hover:bg-sky-500/10 transition-colors"
+                className="inline-flex items-center gap-2 rounded-lg border border-sky-500/30 px-4 py-2 text-sm font-medium text-sky-600 hover:bg-sky-500/10 transition-colors"
               >
                 <Phone className="h-4 w-4" />
-                Appel découverte
+                Appel
                 <ExternalLink className="h-3.5 w-3.5" />
               </a>
             </div>
           </div>
         </div>
 
-        {/* Note essai */}
-        <p className="mt-8 text-center text-sm text-muted-foreground">
-          Tous les plans incluent 1 semaine gratuite avec 200 000 tokens.
-          Votre carte est requise mais aucun prélèvement avant la fin de la semaine d&apos;essai.
+        <p className="mt-6 text-center text-xs text-muted-foreground">
+          Votre carte est requise pour démarrer la semaine d&apos;essai. Aucun prélèvement pendant 7 jours.
         </p>
       </div>
 
-      {/* Modale CGV */}
+      {/* Modale confirmation */}
       <Dialog open={!!selectedPlan} onOpenChange={(open) => { if (!open) setSelectedPlan(null) }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -334,44 +274,24 @@ export default function PricingPage() {
             />
             <span className="text-sm text-muted-foreground leading-relaxed group-hover:text-foreground transition-colors">
               J&apos;ai lu et j&apos;accepte les{' '}
-              <Link
-                href="/cgv"
-                target="_blank"
-                className="text-primary underline hover:no-underline"
-                onClick={e => e.stopPropagation()}
-              >
-                Conditions Générales de Vente
+              <Link href="/cgv" target="_blank" className="text-primary underline hover:no-underline" onClick={e => e.stopPropagation()}>
+                CGV
               </Link>{' '}
               et les{' '}
-              <Link
-                href="/cgu"
-                target="_blank"
-                className="text-primary underline hover:no-underline"
-                onClick={e => e.stopPropagation()}
-              >
-                Conditions Générales d&apos;Utilisation
+              <Link href="/cgu" target="_blank" className="text-primary underline hover:no-underline" onClick={e => e.stopPropagation()}>
+                CGU
               </Link>
-              .
+              . Je comprends que ma carte sera débitée après 7 jours d&apos;essai.
             </span>
           </label>
 
           <DialogFooter className="gap-2 sm:gap-0">
-            <Button
-              variant="ghost"
-              onClick={() => setSelectedPlan(null)}
-              disabled={isLoading}
-            >
+            <Button variant="ghost" onClick={() => setSelectedPlan(null)} disabled={isLoading}>
               Annuler
             </Button>
-            <Button
-              onClick={handleConfirm}
-              disabled={!cgvAccepted || isLoading}
-            >
+            <Button onClick={handleConfirm} disabled={!cgvAccepted || isLoading}>
               {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Redirection…
-                </>
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Redirection…</>
               ) : (
                 'Continuer vers le paiement'
               )}
