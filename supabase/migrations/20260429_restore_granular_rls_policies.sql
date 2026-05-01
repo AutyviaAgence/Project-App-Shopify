@@ -1250,25 +1250,11 @@ CREATE POLICY "wa_links_update"
   TO authenticated
   USING (
     user_id = auth.uid()
-    OR EXISTS (
-      SELECT 1 FROM public.team_members tm
-      JOIN public.link_teams lt ON lt.team_id = tm.team_id
-      WHERE lt.link_id = wa_links.id
-        AND tm.user_id = auth.uid()
-        AND tm.can_manage_links = true
-        AND tm.status = 'active'
-    )
+    OR public.user_can_manage_link(id)
   )
   WITH CHECK (
     user_id = auth.uid()
-    OR EXISTS (
-      SELECT 1 FROM public.team_members tm
-      JOIN public.link_teams lt ON lt.team_id = tm.team_id
-      WHERE lt.link_id = wa_links.id
-        AND tm.user_id = auth.uid()
-        AND tm.can_manage_links = true
-        AND tm.status = 'active'
-    )
+    OR public.user_can_manage_link(id)
   );
 
 CREATE POLICY "wa_links_delete"
