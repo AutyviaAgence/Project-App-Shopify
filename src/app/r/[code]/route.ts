@@ -7,7 +7,7 @@ export async function GET(
   const { code } = await params
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.autyvia.fr'
 
-  const response = NextResponse.redirect(`${baseUrl}/sign-up`)
+  const response = NextResponse.redirect(`${baseUrl}/register`)
   response.cookies.set('referral_code', code.toUpperCase(), {
     maxAge: 60 * 60 * 24 * 30,
     path: '/',
