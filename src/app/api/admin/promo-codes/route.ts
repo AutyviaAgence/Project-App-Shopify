@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
 
     // Stripe SDK v20: coupon est maintenant sous promotion.coupon
     const promoCodeParams: any = {
-      promotion: { coupon: coupon.id },
+      promotion: { type: 'coupon', coupon: coupon.id },
       code: code.toUpperCase(),
       ...(max_redemptions ? { max_redemptions: Number(max_redemptions) } : {}),
     }
