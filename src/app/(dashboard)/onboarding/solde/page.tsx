@@ -21,7 +21,7 @@ export default function SoldePage() {
   const handlePaySolde = async () => {
     setLoading(true)
     try {
-      // Étape 1 : payer le solde setup 750€
+      // Étape 1 : payer le solde setup 445€
       const res = await fetch('/api/stripe/custom-setup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -73,11 +73,11 @@ export default function SoldePage() {
           <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">À payer aujourd&apos;hui</p>
           <div className="flex justify-between items-center text-sm">
             <span className="text-muted-foreground">Acompte setup (déjà réglé)</span>
-            <span className="line-through text-muted-foreground">750€</span>
+            <span className="line-through text-muted-foreground">445€</span>
           </div>
           <div className="flex justify-between items-center text-sm">
             <span className="text-foreground font-medium">Solde setup</span>
-            <span className="text-foreground font-bold">750€</span>
+            <span className="text-foreground font-bold">445€</span>
           </div>
           <div className="border-t border-border pt-3 space-y-2">
             <p className="text-xs text-muted-foreground">Puis immédiatement après :</p>
@@ -101,7 +101,7 @@ export default function SoldePage() {
             <Loader2 className="h-4 w-4 animate-spin" />
           ) : (
             <>
-              Payer le solde 750€
+              Payer le solde 445€
               <ChevronRight className="h-4 w-4" />
             </>
           )}

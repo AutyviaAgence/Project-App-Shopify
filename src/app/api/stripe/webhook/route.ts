@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
                 user_id: userId,
                 alert_type: 'info',
                 title: 'Acompte reçu — accès complet activé',
-                message: `Votre acompte de 750€ a été reçu. Vous avez accès à la plateforme avec le plan ${plan} pendant la période de mise en place.`,
+                message: `Votre acompte de 445€ a été reçu. Vous avez accès à la plateforme avec le plan ${plan} pendant la période de mise en place.`,
                 metadata: { type: 'setup_installment_1', plan },
               })
             } else if (installment === 2) {
@@ -127,11 +127,11 @@ export async function POST(req: NextRequest) {
 
             await supabase.from('payment_history').insert({
               user_id: userId,
-              amount: session.amount_total || 75000,
+              amount: session.amount_total || 44500,
               currency: session.currency || 'eur',
               status: 'succeeded',
               stripe_payment_intent_id: session.payment_intent as string || null,
-              description: `Mise en place Autyvia — ${installment === 1 ? 'Acompte' : 'Solde'} (750€)`,
+              description: `Mise en place Autyvia — ${installment === 1 ? 'Acompte' : 'Solde'} (445€)`,
               metadata: { checkout_session_id: session.id, type: 'custom_setup', installment },
             })
 

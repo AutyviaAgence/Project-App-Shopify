@@ -124,10 +124,10 @@ const PLANS = [
 ]
 
 const ONBOARDING_STEPS = [
-  { icon: CreditCard, label: 'Acompte 750€', status: 'done' },
+  { icon: CreditCard, label: 'Acompte 445€', status: 'done' },
   { icon: Settings2, label: 'Configurateur', status: 'current' },
   { icon: Settings2, label: 'Config & tests (J14–J30)', status: 'pending' },
-  { icon: CreditCard, label: 'Solde 750€', status: 'pending' },
+  { icon: CreditCard, label: 'Solde 445€', status: 'pending' },
   { icon: Rocket, label: 'Accès complet', status: 'pending' },
 ]
 
@@ -204,8 +204,8 @@ function OnboardingSection({ onboardingStatus, onboardingPlan }: { onboardingSta
               </div>
             )}
             <div className="rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground space-y-1">
-              <div className="flex justify-between text-green-600"><span>✓ Acompte setup reçu</span><span className="font-semibold">750€</span></div>
-              <div className="flex justify-between text-muted-foreground/60"><span>J30 — Solde setup + 1er mois abonnement</span><span>750€ + {onboardingPlan ? `${PLANS.find(p => p.id === onboardingPlan)?.price ?? '?'}€` : 'selon plan'}/mois</span></div>
+              <div className="flex justify-between text-green-600"><span>✓ Acompte setup reçu</span><span className="font-semibold">445€</span></div>
+              <div className="flex justify-between text-muted-foreground/60"><span>J30 — Solde setup + 1er mois abonnement</span><span>445€ + {onboardingPlan ? `${PLANS.find(p => p.id === onboardingPlan)?.price ?? '?'}€` : 'selon plan'}/mois</span></div>
             </div>
             <div className="flex justify-end">
               <Link href="/onboarding/configurateur">
@@ -774,7 +774,7 @@ function SubscriptionContent() {
               <div>
                 <p className="font-semibold">Audit & mise en place sur mesure</p>
                 <p className="text-sm text-muted-foreground mt-0.5">
-                  Configuration complète par notre équipe — <strong>1 500 €</strong> (2× 750 €) — remboursable selon conditions des CGU
+                  Configuration complète par notre équipe — <strong>990 €</strong> (2× 445 €) — remboursable selon conditions des CGU
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">

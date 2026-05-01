@@ -124,8 +124,8 @@ const ESCALATION_LABELS: Record<string, string> = {
 
 const AUDIT_OPTIONS: { value: string; label: string; description: string; color: string }[] = [
   { value: 'none',         label: 'Sans audit',    description: 'Pas d\'audit en cours',                          color: 'bg-gray-100 text-gray-700' },
-  { value: 'acompte_paid', label: 'Audit en cours', description: 'Acompte 750€ payé — audit en cours',            color: 'bg-blue-500 text-white' },
-  { value: 'solde_paid',   label: 'Audit livré',    description: 'Solde 750€ payé — audit terminé et livré',      color: 'bg-green-500 text-white' },
+  { value: 'acompte_paid', label: 'Audit en cours', description: 'Acompte 445€ payé — audit en cours',            color: 'bg-blue-500 text-white' },
+  { value: 'solde_paid',   label: 'Audit livré',    description: 'Solde 445€ payé — audit terminé et livré',      color: 'bg-green-500 text-white' },
   { value: 'refunded',     label: 'Remboursé',      description: 'Audit remboursé selon conditions des CGU',       color: 'bg-red-500 text-white' },
 ]
 

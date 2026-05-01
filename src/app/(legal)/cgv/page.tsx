@@ -5,7 +5,7 @@ export default function CGVPage() {
     <LegalPageLayout
       title="Conditions Générales de Vente"
       description="Conditions commerciales, tarifs, paiement et résiliation des services Autyvia."
-      lastUpdated="24 avril 2026"
+      lastUpdated="1 mai 2026"
     >
       <h2>Article 1 – Objet</h2>
       <p>
@@ -105,11 +105,11 @@ export default function CGVPage() {
       <h3>2.3 Parcours d&apos;accès</h3>
       <p><strong>Parcours accompagné (recommandé)</strong></p>
       <p>
-        Un accompagnement au démarrage est disponible pour <strong>1 500 € HT</strong>, payable en deux versements :
+        Un accompagnement au démarrage est disponible pour <strong>990 € HT</strong>, payable en deux versements :
       </p>
       <ul>
-        <li>750 € à la signature — acompte non remboursable dans tous les cas</li>
-        <li>750 € à la livraison de l&apos;agent configuré et validé</li>
+        <li>445 € à la signature — acompte non remboursable dans tous les cas</li>
+        <li>445 € à la livraison de l&apos;agent configuré et validé</li>
       </ul>
       <p>
         Ces frais couvrent l&apos;audit des processus, la configuration complète de la plateforme, l&apos;intégration
@@ -131,18 +131,18 @@ export default function CGVPage() {
         <li>Répondre aux demandes de clarification d&apos;Autyvia dans les 48 heures ouvrées — tout dépassement suspend le délai de livraison d&apos;autant</li>
         <li>Toute modification des choix après soumission du configurateur entraîne un délai supplémentaire non imputable à Autyvia</li>
       </ul>
-      <p>Le solde de 750 € n&apos;est pas dû uniquement si :</p>
+      <p>Le solde de 445 € n&apos;est pas dû uniquement si :</p>
       <ul>
         <li>L&apos;agent livré ne correspond pas aux choix validés dans le configurateur</li>
         <li>Autyvia n&apos;a pas respecté le délai de livraison de 30 jours sans motif imputable au client</li>
       </ul>
       <p>
-        L&apos;acompte de 750 € est non remboursable dans tous les cas, y compris si le client n&apos;a pas rempli
+        L&apos;acompte de 445 € est non remboursable dans tous les cas, y compris si le client n&apos;a pas rempli
         ses obligations d&apos;onboarding.
       </p>
 
       <div className="not-prose my-4 rounded-lg border-l-4 border-blue-500 bg-blue-50 p-4 dark:bg-blue-950/30">
-        <p className="font-medium text-slate-900 dark:text-white">Conditions de remboursement du solde de 750 €</p>
+        <p className="font-medium text-slate-900 dark:text-white">Conditions de remboursement du solde de 445 €</p>
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
           Le solde n&apos;est pas dû uniquement si les deux conditions suivantes sont réunies
           <strong> simultanément</strong> : (1) le client a rempli toutes ses obligations d&apos;onboarding
@@ -181,7 +181,7 @@ export default function CGVPage() {
 
       <h3>3.4 Délais de paiement</h3>
       <p>
-        Pour le parcours accompagné, le solde de 750 € est exigible dans les <strong>30 jours suivant la livraison de l&apos;agent</strong> validé, sauf accord écrit contraire dans la limite de 60 jours conformément à la loi n° 2008-776.
+        Pour le parcours accompagné, le solde de 445 € est exigible dans les <strong>30 jours suivant la livraison de l&apos;agent</strong> validé, sauf accord écrit contraire dans la limite de 60 jours conformément à la loi n° 2008-776.
       </p>
 
       <h3>3.5 Pénalités de retard</h3>

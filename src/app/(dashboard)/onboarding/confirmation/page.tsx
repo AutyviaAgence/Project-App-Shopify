@@ -30,7 +30,7 @@ export default function OnboardingConfirmationPage() {
             <Mail className="h-5 w-5 text-primary shrink-0 mt-0.5" />
             <div className="text-sm">
               <p className="font-medium text-foreground">Notification par email</p>
-              <p className="text-muted-foreground">Vous recevrez un email et une notification pour payer le solde (750€) avant la remise des accès.</p>
+              <p className="text-muted-foreground">Vous recevrez un email et une notification pour payer le solde (445€) avant la remise des accès.</p>
             </div>
           </div>
         </div>

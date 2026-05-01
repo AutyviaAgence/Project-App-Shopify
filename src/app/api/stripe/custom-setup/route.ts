@@ -4,7 +4,7 @@ import { getStripe, CUSTOM_SETUP_INSTALLMENT_CENTS, CUSTOM_BOOKING_URL } from '@
 import { resolvePlan } from '@/lib/stripe/plans'
 import { getTenantFromCookies } from '@/lib/tenant/server'
 
-/** POST /api/stripe/custom-setup — Créer une session Stripe pour acompte setup Custom (750€) */
+/** POST /api/stripe/custom-setup — Créer une session Stripe pour acompte setup Custom (445€) */
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()

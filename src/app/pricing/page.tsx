@@ -266,8 +266,8 @@ export default function PricingPage() {
                 </div>
                 <p className="text-sm text-muted-foreground">
                   Notre équipe prend en charge tout de A à Z —{' '}
-                  <strong className="text-foreground">1 500€</strong>{' '}
-                  <span className="text-muted-foreground">(750€ acompte + 750€ solde à la livraison)</span>
+                  <strong className="text-foreground">990€</strong>{' '}
+                  <span className="text-muted-foreground">(445€ acompte + 445€ solde à la livraison)</span>
                 </p>
               </div>
               <div className="flex flex-col gap-2 shrink-0">
@@ -275,7 +275,7 @@ export default function PricingPage() {
                   href="/onboarding"
                   className="inline-flex items-center gap-2 rounded-lg bg-sky-500 px-4 py-2 text-sm font-medium text-white hover:bg-sky-600 transition-colors"
                 >
-                  Démarrer l&apos;audit — 1 500€
+                  Démarrer l&apos;audit — 990€
                   <ArrowRight className="h-4 w-4" />
                 </Link>
                 <a

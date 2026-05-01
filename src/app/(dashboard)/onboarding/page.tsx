@@ -8,10 +8,10 @@ import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
 const STEPS = [
-  { icon: CreditCard, label: 'Acompte 750€', description: 'Réservation de votre mise en place (J0)' },
+  { icon: CreditCard, label: 'Acompte 445€', description: 'Réservation de votre mise en place (J0)' },
   { icon: Settings2, label: 'Configurateur', description: 'Paramétrez votre agent WhatsApp IA (J0–J14)' },
   { icon: Settings2, label: 'Config & tests', description: 'Notre équipe prépare votre plateforme (J14–J30)' },
-  { icon: CreditCard, label: 'Solde 750€ + 1er mois', description: 'Solde setup + démarrage abonnement mensuel (J30)' },
+  { icon: CreditCard, label: 'Solde 445€ + 1er mois', description: 'Solde setup + démarrage abonnement mensuel (J30)' },
   { icon: Rocket, label: 'Accès complet', description: 'Votre plateforme est en ligne, abonnement actif' },
 ]
 
@@ -89,19 +89,19 @@ export default function OnboardingPage() {
           <div className="flex gap-3">
             <CreditCard className="h-5 w-5 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
             <div className="text-sm">
-              <p className="font-medium text-amber-800 dark:text-amber-300">Frais de mise en place : 1 500€ (2×750€)</p>
+              <p className="font-medium text-amber-800 dark:text-amber-300">Frais d&apos;audit &amp; mise en place : 990€ (2×445€)</p>
               <p className="text-amber-700 dark:text-amber-400 mt-0.5">
-                Un acompte de 750€ est requis aujourd&apos;hui. À J+30, vous réglez le solde de 750€ et démarrez votre abonnement mensuel selon le plan choisi.
+                Un acompte de 445€ est requis aujourd&apos;hui. À J+30, vous réglez le solde de 445€ et démarrez votre abonnement mensuel selon le plan choisi.
               </p>
             </div>
           </div>
           <div className="ml-8 rounded-lg bg-amber-100 dark:bg-amber-900/40 p-3 text-xs text-amber-800 dark:text-amber-300 space-y-1">
-            <div className="flex justify-between"><span>J0 — Acompte setup</span><span className="font-semibold">750€</span></div>
-            <div className="flex justify-between"><span>J30 — Solde setup</span><span className="font-semibold">750€</span></div>
+            <div className="flex justify-between"><span>J0 — Acompte setup</span><span className="font-semibold">445€</span></div>
+            <div className="flex justify-between"><span>J30 — Solde setup</span><span className="font-semibold">445€</span></div>
             <div className="flex justify-between text-muted-foreground"><span>J30 — 1er mois abonnement (selon plan choisi)</span><span>selon plan</span></div>
             <div className="border-t border-amber-300 dark:border-amber-700 pt-1 flex justify-between font-semibold">
               <span>Total frais audit</span>
-              <span>1 500€</span>
+              <span>990€</span>
             </div>
           </div>
         </div>
@@ -123,7 +123,7 @@ export default function OnboardingPage() {
             <Link href="/cgu" target="_blank" className="text-primary underline underline-offset-2 hover:text-primary/80">
               CGU
             </Link>
-            , y compris les frais d&apos;audit de 1 500€ remboursables selon les conditions des CGU.
+            , y compris les frais d&apos;audit de 990€ remboursables selon les conditions des CGU.
           </span>
         </label>
 
@@ -142,7 +142,7 @@ export default function OnboardingPage() {
             <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
           ) : (
             <>
-              Payer l&apos;acompte 750€ et démarrer
+              Payer l&apos;acompte 445€ et démarrer
               <ChevronRight className="h-4 w-4" />
             </>
           )}

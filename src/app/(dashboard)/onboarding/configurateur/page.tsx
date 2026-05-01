@@ -352,7 +352,7 @@ export default function ConfigurateurPage() {
                 <Link href="/cgu" target="_blank" className="text-primary underline hover:no-underline">CGU</Link>
                 {' '}et les{' '}
                 <Link href="/cgv" target="_blank" className="text-primary underline hover:no-underline">CGV</Link>.
-                Je comprends que l&apos;acompte de 750 € est non remboursable dans tous les cas. Le solde de 750 € ne sera pas dû uniquement si j&apos;ai rempli toutes mes obligations d&apos;onboarding et que l&apos;agent livré ne correspond pas aux choix que je valide dans ce formulaire. Toute contestation doit être formulée par écrit dans les 7 jours suivant la livraison.
+                Je comprends que l&apos;acompte de 445 € est non remboursable dans tous les cas. Le solde de 445 € ne sera pas dû uniquement si j&apos;ai rempli toutes mes obligations d&apos;onboarding et que l&apos;agent livré ne correspond pas aux choix que je valide dans ce formulaire. Toute contestation doit être formulée par écrit dans les 7 jours suivant la livraison.
               </p>
             </div>
           </label>

@@ -220,8 +220,8 @@ export default function WelcomePage() {
                   <span className="rounded-full bg-sky-500/10 px-2.5 py-0.5 text-xs font-semibold text-sky-600">À part</span>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Notre équipe prend en charge tout de A à Z — <strong className="text-foreground">1 500€</strong>{' '}
-                  <span className="text-muted-foreground">(750€ acompte + 750€ solde à la livraison)</span>
+                  Notre équipe prend en charge tout de A à Z — <strong className="text-foreground">990€</strong>{' '}
+                  <span className="text-muted-foreground">(445€ acompte + 445€ solde à la livraison)</span>
                 </p>
               </div>
               <div className="flex gap-2 shrink-0">

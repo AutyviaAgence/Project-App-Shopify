@@ -6,9 +6,9 @@ export { PLAN_PRICES_EUR, PLAN_TOKEN_LIMITS, VALID_PLANS, resolvePlan } from './
 export const SUBSCRIPTION_PRICE_CENTS = 15000
 export const SUBSCRIPTION_PRICE_EUR = 150
 
-// Prix du setup Custom en 2x (750€ x 2)
-export const CUSTOM_SETUP_INSTALLMENT_CENTS = 75000
-export const CUSTOM_SETUP_TOTAL_EUR = 1500
+// Prix du setup Custom en 2x (445€ x 2)
+export const CUSTOM_SETUP_INSTALLMENT_CENTS = 44500
+export const CUSTOM_SETUP_TOTAL_EUR = 990
 export const CUSTOM_BOOKING_URL = 'https://cal.com/autyvia/appel-on-boarding'
 export const DISCOVERY_CALL_URL = 'https://cal.com/autyvia/appel-decouverte'
 

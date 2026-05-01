@@ -5,7 +5,7 @@ export default function CGUPage() {
     <LegalPageLayout
       title="Conditions Générales d'Utilisation"
       description="Modalités d'utilisation des services Autyvia, droits et obligations des utilisateurs."
-      lastUpdated="24 avril 2026"
+      lastUpdated="1 mai 2026"
     >
       <h2>Article 1 – Objet</h2>
       <p>
@@ -39,8 +39,8 @@ export default function CGUPage() {
       <p>L&apos;accès aux fonctionnalités de la plateforme est conditionné au statut du compte :</p>
       <ul>
         <li>Compte créé sans paiement : accès à la page tarifaire uniquement, aucune fonctionnalité disponible</li>
-        <li>Acompte de mise en place payé (750 €) : accès au configurateur d&apos;onboarding uniquement</li>
-        <li>Solde de mise en place payé (750 €) ou abonnement self-service actif : accès complet aux fonctionnalités de la gamme souscrite</li>
+        <li>Acompte de mise en place payé (445 €) : accès au configurateur d&apos;onboarding uniquement</li>
+        <li>Solde de mise en place payé (445 €) ou abonnement self-service actif : accès complet aux fonctionnalités de la gamme souscrite</li>
       </ul>
 
       <h3>3.3 Identifiants</h3>
