@@ -88,7 +88,8 @@ export async function POST(req: NextRequest) {
       } catch { /* continue without promo */ }
     }
 
-    const sessionParams: Parameters<typeof stripe.checkout.sessions.create>[0] = {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sessionParams: any = {
       customer: customerId,
       mode: 'payment',
       payment_method_types: ['card'],

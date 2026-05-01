@@ -120,7 +120,8 @@ export async function POST(req: NextRequest) {
     const priceId = PLAN_PRICE_IDS[plan]
     const planNames: Record<PlanId, string> = { starter: 'Starter', pro: 'Pro', scale: 'Scale' }
 
-    const sessionParams: Parameters<typeof stripe.checkout.sessions.create>[0] = {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sessionParams: any = {
       customer: customerId,
       mode: 'subscription',
       payment_method_types: ['card'],
