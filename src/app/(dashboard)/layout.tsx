@@ -31,7 +31,6 @@ import {
   ShieldCheck,
   ClipboardList,
   ArrowRight,
-  Gift,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { AlertsDropdown } from '@/components/alerts-dropdown'
@@ -57,7 +56,6 @@ const NAV_ITEMS_KEYS = [
   { href: '/lifecycle', labelKey: 'nav.lifecycle', icon: Workflow },
   { href: '/teams', labelKey: 'nav.teams', icon: Users },
   { href: '/stats', labelKey: 'nav.stats', icon: BarChart3 },
-  { href: '/referral', labelKey: 'nav.referral', icon: Gift },
 ]
 
 const BOTTOM_NAV_KEYS = [

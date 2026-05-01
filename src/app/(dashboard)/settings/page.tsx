@@ -59,6 +59,10 @@ import {
   Tag,
   Volume2,
   VolumeX,
+  Gift,
+  Copy,
+  Check,
+  Users,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useTranslation } from '@/i18n/context'
@@ -117,6 +121,85 @@ const TIMEZONES = [
   { value: 'Australia/Sydney', label: 'Sydney (UTC+10/+11)', region: 'Océanie' },
   { value: 'Pacific/Auckland', label: 'Auckland (UTC+12/+13)', region: 'Océanie' },
 ]
+
+function ReferralSection() {
+  const [data, setData] = useState<{ referral_code: string; referral_link: string; referees: any[]; total_tokens_earned: number } | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/referral').then(r => r.json()).then(j => setData(j)).catch(() => {})
+  }, [])
+
+  function copyLink() {
+    if (!data?.referral_link) return
+    navigator.clipboard.writeText(data.referral_link)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Gift className="h-5 w-5" />
+          Parrainage
+        </CardTitle>
+        <CardDescription>Parrainez des amis et gagnez 500 000 tokens chacun dès leur premier paiement.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {data ? (
+          <>
+            <div className="space-y-2">
+              <Label>Votre lien de parrainage</Label>
+              <div className="flex gap-2">
+                <Input value={data.referral_link} readOnly className="font-mono text-xs" />
+                <Button variant="outline" size="icon" onClick={copyLink}>
+                  {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+            <div className="flex gap-6 text-sm">
+              <div>
+                <p className="text-muted-foreground">Filleuls</p>
+                <p className="text-xl font-bold">{data.referees.length}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Tokens gagnés</p>
+                <p className="text-xl font-bold">{(data.total_tokens_earned / 1000).toFixed(0)}k</p>
+              </div>
+            </div>
+            {data.referees.length > 0 && (
+              <div className="rounded-lg border overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-muted/30 border-b">
+                    <tr>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Filleul</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Statut</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {data.referees.map((r: any) => (
+                      <tr key={r.id}>
+                        <td className="px-3 py-2">{r.full_name || r.email}</td>
+                        <td className="px-3 py-2">
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${r.subscription_status === 'active' ? 'bg-green-100 text-green-700' : 'bg-muted text-muted-foreground'}`}>
+                            {r.subscription_status === 'active' ? 'Abonné' : 'Inscrit'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </>
+        ) : (
+          <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
 
 export default function SettingsPage() {
   const router = useRouter()
@@ -706,6 +789,9 @@ export default function SettingsPage() {
             </Button>
           </CardContent>
         </Card>
+
+        {/* Parrainage */}
+        <ReferralSection />
 
         {/* Sécurité - Changement de mot de passe */}
         <Card>
