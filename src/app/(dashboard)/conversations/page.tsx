@@ -623,7 +623,15 @@ function ConversationsPageContent() {
     }
   }, [selectedConv?.id, loadMessages])
 
+  // Keep stable refs for realtime callbacks to avoid stale closures without resubscribing
+  const loadMessagesRef = useRef(loadMessages)
+  const fetchConversationsRef = useRef(fetchConversations)
+  useEffect(() => { loadMessagesRef.current = loadMessages }, [loadMessages])
+  useEffect(() => { fetchConversationsRef.current = fetchConversations }, [fetchConversations])
+
   // Realtime: new messages — update local state instead of re-fetching all conversations
+  // This effect intentionally has no dependencies so it subscribes only once.
+  // All mutable values are accessed via refs to avoid stale closures.
   useEffect(() => {
     const supabase = createClient()
 
@@ -643,21 +651,15 @@ function ConversationsPageContent() {
           setConversations((prev) => {
             const exists = prev.some((c) => c.id === newMsg.conversation_id)
             if (!exists) {
-              // New conversation detected — re-fetch full list
-              fetchConversations()
+              fetchConversationsRef.current()
             }
             return prev
           })
 
-          if (selectedConv && newMsg.conversation_id === selectedConv.id) {
-            // Check if already present (optimistic update)
-            setMessages((prev) => {
-              if (prev.some((m) => m.id === newMsg.id)) return prev
-              return prev
-            })
-
+          const currentSelectedId = selectedConvIdRef.current
+          if (currentSelectedId && newMsg.conversation_id === currentSelectedId) {
             try {
-              const res = await fetch(`/api/conversations/${selectedConv.id}/messages/${newMsg.id}`)
+              const res = await fetch(`/api/conversations/${currentSelectedId}/messages/${newMsg.id}`)
               if (res.ok) {
                 const json = await res.json()
                 if (json.data) {
@@ -667,21 +669,17 @@ function ConversationsPageContent() {
                   })
                 }
               } else {
-                loadMessages(selectedConv.id)
+                loadMessagesRef.current(currentSelectedId)
               }
             } catch {
-              loadMessages(selectedConv.id)
+              loadMessagesRef.current(currentSelectedId)
             }
           }
 
           // Update conversation timestamp and unread count locally
-          // Note: last_message_preview is NOT updated here because newMsg.content
-          // is encrypted. The preview will be updated by the conversations UPDATE event
-          // which contains the decrypted preview set by the webhook.
           setConversations((prev) =>
             prev.map((c) => {
               if (c.id !== newMsg.conversation_id) return c
-              // Use media type label for preview (content is encrypted so we can't use it)
               const tempPreview = newMsg.message_type === 'text' ? c.last_message_preview
                 : newMsg.message_type === 'image' ? '📷 Image'
                 : newMsg.message_type === 'audio' ? '🎤 Audio'
@@ -691,7 +689,7 @@ function ConversationsPageContent() {
                 ...c,
                 last_message_at: newMsg.created_at,
                 last_message_preview: tempPreview,
-                unread_count: selectedConv?.id === c.id ? c.unread_count : c.unread_count + 1,
+                unread_count: selectedConvIdRef.current === c.id ? c.unread_count : c.unread_count + 1,
               }
             }).sort((a, b) => {
               if (a.is_pinned !== b.is_pinned) return a.is_pinned ? -1 : 1
@@ -715,7 +713,6 @@ function ConversationsPageContent() {
                 ...c,
                 last_message_at: updated.last_message_at,
                 last_message_preview: updated.last_message_preview,
-                // Si la conversation est ouverte, on garde unread_count=0 (déjà marqué lu localement)
                 unread_count: isCurrentlyOpen ? 0 : updated.unread_count,
               }
             })
@@ -727,7 +724,7 @@ function ConversationsPageContent() {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [selectedConv?.id, loadMessages, fetchConversations])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Debounce search
   const [debouncedSearch, setDebouncedSearch] = useState('')
