@@ -54,13 +54,14 @@ export async function POST(req: NextRequest) {
         .eq('id', user.id)
     }
 
-    // Vérifier si le client a déjà un abonnement côté Stripe (actif, trialing ou past_due)
-    const existingSubscriptions = await stripe.subscriptions.list({
-      customer: customerId,
-      limit: 5,
-    })
+    // Vérifier tous les abonnements Stripe du client (actifs ET passés)
+    const [activeSubsRes, canceledSubsRes] = await Promise.all([
+      stripe.subscriptions.list({ customer: customerId, status: 'all', limit: 10 }),
+      stripe.subscriptions.list({ customer: customerId, status: 'canceled', limit: 10 }),
+    ])
 
-    const activeSub = existingSubscriptions.data.find(
+    const allSubs = [...activeSubsRes.data, ...canceledSubsRes.data]
+    const activeSub = allSubs.find(
       s => s.status === 'active' || s.status === 'trialing' || s.status === 'past_due'
     )
 
@@ -88,6 +89,10 @@ export async function POST(req: NextRequest) {
       })
     }
 
+    // Trial uniquement pour les nouveaux clients sans historique d'abonnement
+    const hasHadSubscriptionBefore = allSubs.length > 0
+    const trialDays = hasHadSubscriptionBefore ? undefined : 7
+
     // Créer la session Checkout
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const priceId = PLAN_PRICE_IDS[plan]
@@ -110,7 +115,7 @@ export async function POST(req: NextRequest) {
         plan,
       },
       subscription_data: {
-        trial_period_days: 7,
+        ...(trialDays ? { trial_period_days: trialDays } : {}),
         metadata: {
           user_id: user.id,
           plan,
