@@ -61,9 +61,9 @@ export async function POST(req: NextRequest) {
       percent_off: Number(discount_percent),
       duration: 'once',
       name: `Promo ${code}`,
-      ...(max_redemptions ? { max_redemptions: Number(max_redemptions) } : {}),
     })
 
+    // max_redemptions appartient au promotion code, pas au coupon
     const promoCodeParams: any = {
       coupon: coupon.id,
       code: code.toUpperCase(),
