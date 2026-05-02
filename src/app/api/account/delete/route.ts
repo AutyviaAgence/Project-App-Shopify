@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createAdminSupabase } from '@supabase/supabase-js'
+import { createClient as createVanillaClient } from '@supabase/supabase-js'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { evolution } from '@/lib/evolution/client'
 
@@ -42,7 +42,13 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const { error: signInError } = await supabase.auth.signInWithPassword({
+    // Use vanilla client (no SSR cookie context) to verify password cleanly
+    const vanillaClient = createVanillaClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    )
+    const { error: signInError } = await vanillaClient.auth.signInWithPassword({
       email: user.email!,
       password,
     })
@@ -70,7 +76,7 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const adminSupabase = createAdminSupabase(supabaseUrl, serviceRoleKey, {
+  const adminSupabase = createVanillaClient(supabaseUrl, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false }
   })
 
