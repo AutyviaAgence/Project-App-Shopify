@@ -22,16 +22,31 @@ export async function GET(request: NextRequest) {
         process.env.SUPABASE_SERVICE_ROLE_KEY!
       )
 
-      // Fetch profile to check terms acceptance and referred_by
+      // Fetch profile to check terms acceptance, referred_by and tenant_id
       const { data: profile } = await admin
         .from('profiles')
-        .select('referred_by, terms_accepted_at')
+        .select('referred_by, terms_accepted_at, tenant_id')
         .eq('id', session.user.id)
-        .single() as { data: { referred_by: string | null; terms_accepted_at: string | null } | null }
+        .single() as { data: { referred_by: string | null; terms_accepted_at: string | null; tenant_id: string | null } | null }
 
       // New OAuth user = OAuth login + never accepted terms
       if (isOAuth && !profile?.terms_accepted_at) {
         isNewOAuthUser = true
+      }
+
+      // Assign tenant_id for OAuth users who don't have one yet
+      if (isOAuth && !profile?.tenant_id) {
+        const host = requestUrl.hostname
+        const { data: tenant } = await admin
+          .from('tenants')
+          .select('id')
+          .or(`domain.eq.${host},is_default.eq.true`)
+          .order('domain', { ascending: false }) // domain match wins over default
+          .limit(1)
+          .single() as { data: { id: string } | null }
+        if (tenant) {
+          await admin.from('profiles').update({ tenant_id: tenant.id }).eq('id', session.user.id)
+        }
       }
 
       // For new Google OAuth users: resolve referral_code cookie → referred_by
