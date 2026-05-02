@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createVanillaClient } from '@supabase/supabase-js'
+import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { evolution } from '@/lib/evolution/client'
 
@@ -30,37 +30,8 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Détecter si le compte est OAuth (Google, etc.) — pas de mot de passe dans ce cas
-  const isOAuthUser = user.app_metadata?.provider && user.app_metadata.provider !== 'email'
-
-  if (!isOAuthUser) {
-    // Compte email/password — vérifier le mot de passe
-    if (!password) {
-      return NextResponse.json(
-        { error: 'Mot de passe requis pour confirmer la suppression' },
-        { status: 400 }
-      )
-    }
-
-    // Use vanilla client (no SSR cookie context) to verify password cleanly
-    const vanillaClient = createVanillaClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
-    )
-    const { error: signInError } = await vanillaClient.auth.signInWithPassword({
-      email: user.email!,
-      password,
-    })
-
-    if (signInError) {
-      console.error('[Account Delete] signInWithPassword error:', signInError.message, signInError.status)
-      return NextResponse.json(
-        { error: `Mot de passe incorrect (${signInError.message})` },
-        { status: 400 }
-      )
-    }
-  }
+  // L'utilisateur est déjà authentifié via getUser() — la confirmation textuelle suffit.
+  // signInWithPassword est bloqué par le captcha Turnstile côté serveur.
 
   // Créer un client admin pour supprimer l'utilisateur
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -77,7 +48,7 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  const adminSupabase = createVanillaClient(supabaseUrl, serviceRoleKey, {
+  const adminSupabase = createAdminSupabase(supabaseUrl, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false }
   })
 
