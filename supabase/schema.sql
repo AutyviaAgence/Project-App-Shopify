@@ -667,14 +667,40 @@ LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
+DECLARE
+  referred_by_uuid UUID;
+  ref_code TEXT;
+  resolved_tenant_id UUID;
+  signup_host TEXT;
 BEGIN
-  INSERT INTO public.profiles (id, email, full_name, avatar_url)
+  -- Résoudre le parrain
+  ref_code := NEW.raw_user_meta_data->>'referred_by_code';
+  IF ref_code IS NOT NULL AND ref_code != '' THEN
+    SELECT id INTO referred_by_uuid FROM profiles
+    WHERE referral_code = upper(ref_code) LIMIT 1;
+  END IF;
+
+  -- Résoudre le tenant via signup_domain (passé par le frontend)
+  signup_host := NEW.raw_user_meta_data->>'signup_domain';
+  IF signup_host IS NOT NULL AND signup_host != '' THEN
+    SELECT id INTO resolved_tenant_id FROM tenants WHERE domain = signup_host LIMIT 1;
+  END IF;
+  IF resolved_tenant_id IS NULL THEN
+    SELECT id INTO resolved_tenant_id FROM tenants WHERE is_default = true LIMIT 1;
+  END IF;
+
+  INSERT INTO public.profiles (id, email, full_name, avatar_url, referred_by, tenant_id)
   VALUES (
     NEW.id,
     NEW.email,
-    NEW.raw_user_meta_data->>'full_name',
-    NEW.raw_user_meta_data->>'avatar_url'
-  );
+    COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name'),
+    NEW.raw_user_meta_data->>'avatar_url',
+    referred_by_uuid,
+    resolved_tenant_id
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    tenant_id = COALESCE(profiles.tenant_id, EXCLUDED.tenant_id);
+
   RETURN NEW;
 END;
 $$;
