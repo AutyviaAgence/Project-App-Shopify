@@ -54,8 +54,9 @@ export async function POST(req: NextRequest) {
     })
 
     if (signInError) {
+      console.error('[Account Delete] signInWithPassword error:', signInError.message, signInError.status)
       return NextResponse.json(
-        { error: 'Mot de passe incorrect' },
+        { error: `Mot de passe incorrect (${signInError.message})` },
         { status: 400 }
       )
     }
