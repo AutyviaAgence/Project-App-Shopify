@@ -36,16 +36,25 @@ export async function GET(request: NextRequest) {
 
       // Assign tenant_id for OAuth users who don't have one yet
       if (isOAuth && !profile?.tenant_id) {
-        const host = requestUrl.hostname
-        const { data: tenant } = await admin
+        // x-forwarded-host reflects the real entry domain (Xeyo, Autyvia, etc.) via Traefik
+        const headersList = await headers()
+        const forwardedHost = headersList.get('x-forwarded-host') || requestUrl.hostname
+
+        // Try exact domain match first, fallback to default tenant
+        const { data: tenantByDomain } = await admin
           .from('tenants')
           .select('id')
-          .or(`domain.eq.${host},is_default.eq.true`)
-          .order('domain', { ascending: false }) // domain match wins over default
-          .limit(1)
+          .eq('domain', forwardedHost)
           .single() as { data: { id: string } | null }
-        if (tenant) {
-          await admin.from('profiles').update({ tenant_id: tenant.id }).eq('id', session.user.id)
+
+        const tenantId = tenantByDomain?.id ?? (await admin
+          .from('tenants')
+          .select('id')
+          .eq('is_default', true)
+          .single() as { data: { id: string } | null }).data?.id
+
+        if (tenantId) {
+          await admin.from('profiles').update({ tenant_id: tenantId }).eq('id', session.user.id)
         }
       }
 
