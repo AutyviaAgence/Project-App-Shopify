@@ -23,9 +23,9 @@ export async function POST(req: NextRequest) {
     confirmation: string
   }
 
-  if (confirmation !== 'SUPPRIMER') {
+  if (confirmation !== 'SUPPRIMER' && confirmation !== 'DELETE') {
     return NextResponse.json(
-      { error: 'Veuillez taper SUPPRIMER pour confirmer' },
+      { error: 'Veuillez taper SUPPRIMER (ou DELETE) pour confirmer' },
       { status: 400 }
     )
   }
