@@ -167,6 +167,19 @@ export async function POST(req: NextRequest) {
       console.error('Error deleting user_preferences:', e8b)
     }
 
+    // 10. Supprimer les données de parrainage et affiliation
+    await adminSupabase.from('referral_rewards' as any)
+      .delete()
+      .or(`referrer_id.eq.${user.id},referee_id.eq.${user.id},rewarded_user_id.eq.${user.id}`)
+
+    await adminSupabase.from('affiliate_conversions' as any)
+      .delete()
+      .or(`affiliate_user_id.eq.${user.id},converted_user_id.eq.${user.id}`)
+
+    await adminSupabase.from('affiliate_codes' as any)
+      .delete()
+      .eq('user_id', user.id)
+
     // 11. Supprimer le profil
     const { error: e9 } = await adminSupabase
       .from('profiles')
