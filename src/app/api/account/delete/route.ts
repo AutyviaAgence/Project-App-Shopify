@@ -168,30 +168,36 @@ export async function POST(req: NextRequest) {
     }
 
     // 10. Supprimer les données de parrainage et affiliation
-    await adminSupabase.from('referral_rewards' as any)
+    console.log('[Account Delete] Step 10: referral/affiliate cleanup')
+    const { error: er1 } = await adminSupabase.from('referral_rewards' as any)
       .delete()
       .or(`referrer_id.eq.${user.id},referee_id.eq.${user.id},rewarded_user_id.eq.${user.id}`)
+    if (er1) console.error('[Account Delete] referral_rewards error:', er1.message)
 
-    await adminSupabase.from('affiliate_conversions' as any)
+    const { error: er2 } = await adminSupabase.from('affiliate_conversions' as any)
       .delete()
       .or(`affiliate_user_id.eq.${user.id},converted_user_id.eq.${user.id}`)
+    if (er2) console.error('[Account Delete] affiliate_conversions error:', er2.message)
 
-    await adminSupabase.from('affiliate_codes' as any)
+    const { error: er3 } = await adminSupabase.from('affiliate_codes' as any)
       .delete()
       .eq('user_id', user.id)
+    if (er3) console.error('[Account Delete] affiliate_codes error:', er3.message)
 
     // 11. Supprimer le profil
+    console.log('[Account Delete] Step 11: delete profile')
     const { error: e9 } = await adminSupabase
       .from('profiles')
       .delete()
       .eq('id', user.id)
-    if (e9) console.error('Error deleting profiles:', e9)
+    if (e9) console.error('Error deleting profiles:', e9.message)
 
     // 12. Supprimer l'utilisateur auth
+    console.log('[Account Delete] Step 12: deleteUser auth')
     const { error: deleteError } = await adminSupabase.auth.admin.deleteUser(user.id)
 
     if (deleteError) {
-      console.error('Error deleting auth user:', deleteError)
+      console.error('Error deleting auth user:', deleteError.message)
       return NextResponse.json(
         { error: `Erreur lors de la suppression du compte: ${deleteError.message}` },
         { status: 500 }
