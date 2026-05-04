@@ -30,22 +30,22 @@ export async function DELETE(req: NextRequest, { params }: { params: Promise<{ i
 
   const { data: promoCode } = await (adminSupabase as any)
     .from('promo_codes')
-    .select('stripe_promo_code_id')
+    .select('stripe_coupon_id, stripe_promo_code_id')
     .eq('id', id)
-    .single() as { data: { stripe_promo_code_id: string | null } | null }
+    .single() as { data: { stripe_coupon_id: string | null; stripe_promo_code_id: string | null } | null }
 
   if (!promoCode) return NextResponse.json({ error: 'Code introuvable' }, { status: 404 })
 
   try {
     const stripe = getStripe()
 
-    if (promoCode.stripe_promo_code_id) {
-      await stripe.promotionCodes.update(promoCode.stripe_promo_code_id, { active: false })
+    if (promoCode.stripe_coupon_id) {
+      await stripe.coupons.del(promoCode.stripe_coupon_id)
     }
 
     await (adminSupabase as any)
       .from('promo_codes')
-      .update({ is_active: false })
+      .delete()
       .eq('id', id)
 
     return NextResponse.json({ success: true })
