@@ -233,12 +233,6 @@ function SubscriptionContent() {
   const [cgvAccepted, setCgvAccepted] = useState(false)
 
   useEffect(() => {
-    // Stocker le code affilié depuis ?ref= en cookie (30 jours)
-    const ref = searchParams.get('ref')
-    if (ref) {
-      document.cookie = `affiliate_code=${ref.toUpperCase()}; max-age=${60 * 60 * 24 * 30}; path=/; samesite=lax`
-    }
-
     const p = searchParams.get('plan')
     if (p === 'starter' || p === 'pro' || p === 'scale') {
       setSelectedPlan(p)

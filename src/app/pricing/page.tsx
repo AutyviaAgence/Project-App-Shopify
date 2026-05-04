@@ -97,12 +97,6 @@ function PricingPageInner() {
   const searchParams = useSearchParams()
   const [selectedPlan, setSelectedPlan] = useState<PlanId | null>(null)
 
-  useEffect(() => {
-    const ref = searchParams.get('ref')
-    if (ref) {
-      document.cookie = `affiliate_code=${ref.toUpperCase()}; max-age=${60 * 60 * 24 * 30}; path=/; samesite=lax`
-    }
-  }, [searchParams])
   const [cgvAccepted, setCgvAccepted] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 

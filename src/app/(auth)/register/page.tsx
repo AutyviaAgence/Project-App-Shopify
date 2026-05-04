@@ -24,6 +24,7 @@ function RegisterForm() {
   const searchParams = useSearchParams()
   const redirect = searchParams.get('redirect')
   const planParam = searchParams.get('plan')
+  const refParam = searchParams.get('ref')
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -45,6 +46,12 @@ function RegisterForm() {
       ;(window as any).turnstile.reset(widgetIdRef.current)
     }
   }
+
+  useEffect(() => {
+    if (refParam) {
+      document.cookie = `affiliate_code=${refParam.toUpperCase()}; max-age=${60 * 60 * 24 * 30}; path=/; samesite=lax`
+    }
+  }, [refParam])
 
   useEffect(() => {
     if (!TURNSTILE_SITE_KEY) return
