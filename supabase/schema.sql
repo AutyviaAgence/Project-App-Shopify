@@ -844,7 +844,8 @@ CREATE TABLE IF NOT EXISTS referral_rewards (
 
 CREATE TABLE IF NOT EXISTS affiliate_codes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES profiles(id),
+  user_id UUID REFERENCES profiles(id), -- nullable: affilié peut ne pas avoir de compte
+  label TEXT, -- nom/identifiant lisible pour l'admin
   code TEXT NOT NULL UNIQUE,
   commission_percent NUMERIC(5,2) NOT NULL DEFAULT 30,
   is_active BOOLEAN NOT NULL DEFAULT true,

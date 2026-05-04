@@ -23,7 +23,7 @@ import {
   Loader2, ShieldAlert, Users, Zap, FileText, ChevronDown, ChevronUp,
   CheckCircle2, XCircle, Clock, RefreshCw, ShieldCheck, CreditCard,
   TrendingUp, AlertCircle, ExternalLink, CheckCircle, Ban, Calendar,
-  Wifi, WifiOff, AlertTriangle, Terminal, Gift, Tag as TagIcon
+  Wifi, WifiOff, AlertTriangle, Terminal, Gift, Tag as TagIcon, Trash2, Link2
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { PlanId } from '@/lib/stripe/plans'
@@ -1165,9 +1165,11 @@ function AffiliateTab() {
   const [codes, setCodes] = useState<any[]>([])
   const [conversions, setConversions] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [form, setForm] = useState({ user_email: '', code: '', commission_percent: '30' })
+  const [form, setForm] = useState({ label: '', code: '', commission_percent: '30' })
   const [creating, setCreating] = useState(false)
   const [paying, setPaying] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState<string | null>(null)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
 
   const fetchAll = useCallback(async () => {
     setLoading(true)
@@ -1183,7 +1185,7 @@ function AffiliateTab() {
   useEffect(() => { fetchAll() }, [fetchAll])
 
   const handleCreate = async () => {
-    if (!form.user_email || !form.code) return toast.error('Remplissez tous les champs')
+    if (!form.label || !form.code) return toast.error('Remplissez tous les champs')
     setCreating(true)
     try {
       const res = await fetch('/api/admin/affiliate-codes', {
@@ -1194,7 +1196,7 @@ function AffiliateTab() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       toast.success('Code affilié créé')
-      setForm({ user_email: '', code: '', commission_percent: '30' })
+      setForm({ label: '', code: '', commission_percent: '30' })
       fetchAll()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur')
@@ -1222,6 +1224,29 @@ function AffiliateTab() {
     }
   }
 
+  const handleDeleteCode = async (id: string) => {
+    if (!confirm('Supprimer ce code affilié ? Cette action est irréversible.')) return
+    setDeleting(id)
+    try {
+      const res = await fetch(`/api/admin/affiliate-codes?id=${id}`, { method: 'DELETE' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast.success('Code affilié supprimé')
+      fetchAll()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur')
+    } finally {
+      setDeleting(null)
+    }
+  }
+
+  const handleCopyLink = (code: string, id: string) => {
+    const link = `${window.location.origin}/r/${code}`
+    navigator.clipboard.writeText(link)
+    setCopiedId(id)
+    setTimeout(() => setCopiedId(null), 2000)
+  }
+
   if (loading) return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
 
   const pending = conversions.filter((c: any) => c.status === 'pending')
@@ -1232,10 +1257,10 @@ function AffiliateTab() {
         <h2 className="text-lg font-semibold mb-4 flex items-center gap-2"><Gift className="h-5 w-5 text-primary" />Créer un code affilié</h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <input
-            type="email"
-            placeholder="Email de l'affilié"
-            value={form.user_email}
-            onChange={e => setForm(f => ({ ...f, user_email: e.target.value }))}
+            type="text"
+            placeholder="Nom / label (ex: Jean Dupont)"
+            value={form.label}
+            onChange={e => setForm(f => ({ ...f, label: e.target.value }))}
             className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
           <input
@@ -1270,14 +1295,15 @@ function AffiliateTab() {
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Code</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Commission</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Statut</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Lien</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">
               {codes.map((code: any) => (
                 <tr key={code.id} className="hover:bg-muted/20">
                   <td className="px-4 py-3">
-                    <p className="font-medium">{code.profiles?.full_name || code.profiles?.email || code.user_id}</p>
-                    <p className="text-xs text-muted-foreground">{code.profiles?.email}</p>
+                    <p className="font-medium">{code.label || '—'}</p>
                   </td>
                   <td className="px-4 py-3 font-mono font-semibold">{code.code}</td>
                   <td className="px-4 py-3">{code.commission_percent}%</td>
@@ -1286,10 +1312,32 @@ function AffiliateTab() {
                       ? <Badge className="bg-green-500 text-white">Actif</Badge>
                       : <Badge variant="secondary">Inactif</Badge>}
                   </td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => handleCopyLink(code.code, code.id)}
+                      className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+                      title={`${window?.location?.origin}/r/${code.code}`}
+                    >
+                      <Link2 className="h-3.5 w-3.5" />
+                      {copiedId === code.id ? 'Copié !' : `/r/${code.code}`}
+                    </button>
+                  </td>
+                  <td className="px-4 py-3">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      disabled={deleting === code.id}
+                      onClick={() => handleDeleteCode(code.id)}
+                      title="Supprimer ce code"
+                    >
+                      {deleting === code.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                    </Button>
+                  </td>
                 </tr>
               ))}
               {codes.length === 0 && (
-                <tr><td colSpan={4} className="px-4 py-8 text-center text-muted-foreground text-sm">Aucun code affilié</td></tr>
+                <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground text-sm">Aucun code affilié</td></tr>
               )}
             </tbody>
           </table>
@@ -1317,8 +1365,7 @@ function AffiliateTab() {
               {pending.map((conv: any) => (
                 <tr key={conv.id} className="hover:bg-muted/20">
                   <td className="px-4 py-3">
-                    <p className="font-medium">{conv.affiliate_profile?.full_name || conv.affiliate_profile?.email}</p>
-                    <p className="text-xs text-muted-foreground">{conv.affiliate_profile?.email}</p>
+                    <p className="font-medium">{conv.affiliate_codes?.label || conv.affiliate_codes?.code}</p>
                   </td>
                   <td className="px-4 py-3">
                     <p className="font-medium">{conv.converted_profile?.full_name || conv.converted_profile?.email}</p>

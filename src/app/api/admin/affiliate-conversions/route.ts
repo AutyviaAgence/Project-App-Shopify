@@ -29,7 +29,7 @@ export async function GET() {
     .from('affiliate_conversions')
     .select(`
       *,
-      affiliate_codes(code, commission_percent),
+      affiliate_codes(code, label, commission_percent),
       affiliate_profile:profiles!affiliate_conversions_affiliate_user_id_fkey(email, full_name),
       converted_profile:profiles!affiliate_conversions_converted_user_id_fkey(email, full_name)
     `)
