@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Check, X, Zap, Rocket, Crown, Phone, ArrowRight, Loader2, ExternalLink, Gift, ClipboardCheck, Bot, RefreshCw, FlaskConical, Headphones } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
@@ -92,9 +92,17 @@ const PLANS = [
   },
 ]
 
-export default function PricingPage() {
+function PricingPageInner() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [selectedPlan, setSelectedPlan] = useState<PlanId | null>(null)
+
+  useEffect(() => {
+    const ref = searchParams.get('ref')
+    if (ref) {
+      document.cookie = `affiliate_code=${ref.toUpperCase()}; max-age=${60 * 60 * 24 * 30}; path=/; samesite=lax`
+    }
+  }, [searchParams])
   const [cgvAccepted, setCgvAccepted] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -396,5 +404,13 @@ export default function PricingPage() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+export default function PricingPage() {
+  return (
+    <Suspense>
+      <PricingPageInner />
+    </Suspense>
   )
 }

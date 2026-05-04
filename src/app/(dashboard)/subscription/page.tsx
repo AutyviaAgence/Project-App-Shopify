@@ -233,6 +233,12 @@ function SubscriptionContent() {
   const [cgvAccepted, setCgvAccepted] = useState(false)
 
   useEffect(() => {
+    // Stocker le code affilié depuis ?ref= en cookie (30 jours)
+    const ref = searchParams.get('ref')
+    if (ref) {
+      document.cookie = `affiliate_code=${ref.toUpperCase()}; max-age=${60 * 60 * 24 * 30}; path=/; samesite=lax`
+    }
+
     const p = searchParams.get('plan')
     if (p === 'starter' || p === 'pro' || p === 'scale') {
       setSelectedPlan(p)
@@ -279,11 +285,17 @@ function SubscriptionContent() {
         return
       }
 
+      // Lire le code affilié depuis le cookie si présent
+      const affiliateCode = document.cookie
+        .split('; ')
+        .find(r => r.startsWith('affiliate_code='))
+        ?.split('=')[1] || undefined
+
       // Sinon → nouveau checkout Stripe
       const res = await fetch('/api/stripe/create-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: selectedPlan }),
+        body: JSON.stringify({ plan: selectedPlan, ...(affiliateCode ? { affiliate_code: affiliateCode } : {}) }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || t('subscription.payment_error'))
