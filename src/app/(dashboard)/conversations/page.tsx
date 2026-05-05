@@ -68,6 +68,7 @@ function ConversationsPageContent() {
   const [filterLifecycleStage, setFilterLifecycleStage] = useState<string>('all')
   const [filterTags, setFilterTags] = useState<string[]>([])
   const [searchQuery, setSearchQuery] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
 
   // Pagination
   const [page, setPage] = useState(1)
@@ -156,7 +157,7 @@ function ConversationsPageContent() {
       if (filterTeam !== 'all') params.set('team_id', filterTeam)
       if (filterLifecycleStage !== 'all') params.set('lifecycle_stage_id', filterLifecycleStage)
       if (filterTags.length > 0) params.set('tag_ids', filterTags.join(','))
-      if (searchQuery.trim()) params.set('search', searchQuery.trim())
+      if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim())
       params.set('page', page.toString())
       params.set('limit', ITEMS_PER_PAGE.toString())
 
@@ -176,7 +177,7 @@ function ConversationsPageContent() {
     } finally {
       setLoading(false)
     }
-  }, [filterChannel, filterSession, filterAiActive, filterTeam, filterLifecycleStage, filterTags, page, searchQuery, fetchAllConversationTags])
+  }, [filterChannel, filterSession, filterAiActive, filterTeam, filterLifecycleStage, filterTags, page, debouncedSearch, fetchAllConversationTags])
 
   // --- Actions ---
   const togglePin = useCallback(async (convId: string, currentPinned: boolean) => {
@@ -727,7 +728,6 @@ function ConversationsPageContent() {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Debounce search
-  const [debouncedSearch, setDebouncedSearch] = useState('')
   useEffect(() => {
     const timer = setTimeout(() => {
       setDebouncedSearch(searchQuery)
@@ -735,10 +735,6 @@ function ConversationsPageContent() {
     }, 300)
     return () => clearTimeout(timer)
   }, [searchQuery])
-
-  useEffect(() => {
-    fetchConversations()
-  }, [debouncedSearch]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (loading) {
     return (
