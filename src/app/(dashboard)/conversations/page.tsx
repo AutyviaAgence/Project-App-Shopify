@@ -341,7 +341,10 @@ function ConversationsPageContent() {
         setMessages((prev) => prev.filter((m) => m.id !== optimistic.id))
         return
       }
-      if (json.data?.id) {
+      // Recharger tous les messages pour inclure les bulles document des PJ
+      if (attachments?.length) {
+        await loadMessages(selectedConv.id)
+      } else if (json.data?.id) {
         setMessages((prev) => prev.map((m) => (m.id === optimistic.id ? { ...json.data, content } : m)))
       }
     } catch {
@@ -350,7 +353,7 @@ function ConversationsPageContent() {
     } finally {
       setSending(false)
     }
-  }, [selectedConv, sending, t])
+  }, [selectedConv, sending, t, loadMessages])
 
   const handleSendMedia = useCallback(async (file: File, caption?: string) => {
     if (!selectedConv || sending) return
