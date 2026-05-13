@@ -70,6 +70,8 @@ export default function KnowledgePage() {
   const [imageAgentId, setImageAgentId] = useState('')
   const [imageSaving, setImageSaving] = useState(false)
   const [imagePreviewUrls, setImagePreviewUrls] = useState<Record<string, string>>({})
+  const [imageEditingAgentId, setImageEditingAgentId] = useState<string | null>(null)
+  const [imageAgentSaving, setImageAgentSaving] = useState<string | null>(null)
   const imageInputRef = useRef<HTMLInputElement>(null)
 
   // Create/Edit dialog
@@ -241,6 +243,29 @@ export default function KnowledgePage() {
       }
     } catch {
       toast.error('Erreur réseau')
+    }
+  }
+
+  async function handleUpdateImageAgent(id: string, agentId: string | null) {
+    setImageAgentSaving(id)
+    try {
+      const res = await fetch('/api/knowledge-images', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, agent_id: agentId }),
+      })
+      const json = await res.json()
+      if (res.ok && json.data) {
+        setImages(prev => prev.map(i => i.id === id ? { ...i, agent_id: agentId } : i))
+        setImageEditingAgentId(null)
+        toast.success('Agent mis à jour')
+      } else {
+        toast.error(json.error || 'Erreur')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setImageAgentSaving(null)
     }
   }
 
@@ -622,11 +647,38 @@ export default function KnowledgePage() {
                       <code className="text-xs font-mono font-medium truncate">{img.ref}</code>
                     </div>
                     <p className="text-[11px] text-muted-foreground truncate">{img.filename}</p>
-                    {img.agent_id && (
-                      <Badge variant="outline" className="text-[10px]">
-                        <Bot className="mr-1 h-2.5 w-2.5" />
-                        {agents.find(a => a.id === img.agent_id)?.name || 'Agent'}
-                      </Badge>
+                    {/* Agent associé — éditable inline */}
+                    {imageEditingAgentId === img.id ? (
+                      <div className="flex items-center gap-1">
+                        <select
+                          className="flex-1 rounded border bg-background px-2 py-1 text-[11px]"
+                          defaultValue={img.agent_id || ''}
+                          autoFocus
+                          onChange={(e) => handleUpdateImageAgent(img.id, e.target.value || null)}
+                          onBlur={() => setImageEditingAgentId(null)}
+                          disabled={imageAgentSaving === img.id}
+                        >
+                          <option value="">Tous les agents</option>
+                          {agents.map((a) => (
+                            <option key={a.id} value={a.id}>{a.name}</option>
+                          ))}
+                        </select>
+                        {imageAgentSaving === img.id && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+                      </div>
+                    ) : (
+                      <button
+                        className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-muted transition-colors w-full text-left"
+                        onClick={() => setImageEditingAgentId(img.id)}
+                        title="Cliquer pour modifier l'agent"
+                      >
+                        <Bot className="h-3 w-3 shrink-0" />
+                        <span className="truncate">
+                          {img.agent_id
+                            ? agents.find(a => a.id === img.agent_id)?.name || 'Agent inconnu'
+                            : 'Tous les agents'}
+                        </span>
+                        <span className="ml-auto text-[10px] opacity-50">modifier</span>
+                      </button>
                     )}
                     <div className="flex items-center gap-1 pt-1">
                       <Button

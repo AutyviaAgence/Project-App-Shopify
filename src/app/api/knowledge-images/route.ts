@@ -97,6 +97,28 @@ export async function POST(req: NextRequest) {
   }
 }
 
+/** PATCH /api/knowledge-images — Modifier l'agent associé d'une image */
+export async function PATCH(req: NextRequest) {
+  const supabase = await createClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+
+  const { id, agent_id } = await req.json() as { id: string; agent_id: string | null }
+  if (!id) return NextResponse.json({ error: 'id requis' }, { status: 400 })
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
+    .from('knowledge_images')
+    .update({ agent_id: agent_id || null })
+    .eq('id', id)
+    .eq('user_id', user.id)
+    .select()
+    .single()
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ data })
+}
+
 /** DELETE /api/knowledge-images?id=xxx — Supprimer une image */
 export async function DELETE(req: NextRequest) {
   const supabase = await createClient()
