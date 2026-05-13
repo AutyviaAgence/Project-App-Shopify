@@ -184,13 +184,17 @@ export default function KnowledgePage() {
     }
   }, [])
 
-  async function loadImagePreview(img: KnowledgeImage) {
-    if (imagePreviewUrls[img.id]) return
+  async function loadImagePreview(img: KnowledgeImage): Promise<string | null> {
+    if (imagePreviewUrls[img.id]) return imagePreviewUrls[img.id]
     try {
       const res = await fetch(`/api/knowledge-images/${img.id}`)
       const json = await res.json()
-      if (res.ok && json.url) setImagePreviewUrls(prev => ({ ...prev, [img.id]: json.url }))
+      if (res.ok && json.url) {
+        setImagePreviewUrls(prev => ({ ...prev, [img.id]: json.url }))
+        return json.url as string
+      }
     } catch { /* ignore */ }
+    return null
   }
 
   async function handleImageUpload() {
@@ -629,7 +633,10 @@ export default function KnowledgePage() {
                         size="sm"
                         variant="ghost"
                         className="h-7 px-2 text-xs"
-                        onClick={() => loadImagePreview(img)}
+                        onClick={async () => {
+                          const url = await loadImagePreview(img)
+                          if (url) window.open(url, '_blank')
+                        }}
                       >
                         <Eye className="mr-1 h-3 w-3" />
                         Voir
