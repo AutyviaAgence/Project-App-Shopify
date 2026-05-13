@@ -546,10 +546,12 @@ Exemples :
     if (imageRefs.length > 0) {
       // Récupérer les images depuis la DB (supabase = service_role, bypass RLS)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: knowledgeImages } = await (supabase as any)
+      let imgQuery = (supabase as any)
         .from('knowledge_images')
         .select('ref, storage_path, mime_type, filename')
-        .in('ref', imageRefs) as { data: { ref: string; storage_path: string; mime_type: string; filename: string }[] | null }
+        .in('ref', imageRefs)
+      if (userId) imgQuery = imgQuery.eq('user_id', userId)
+      const { data: knowledgeImages } = await imgQuery as { data: { ref: string; storage_path: string; mime_type: string; filename: string }[] | null }
 
       for (const ref of imageRefs) {
         const imgRecord = knowledgeImages?.find(i => i.ref === ref)
@@ -592,30 +594,35 @@ Exemples :
     }
 
     // Envoyer le texte (sans les tags [IMAGE:...])
-    const finalText = textWithoutImages || aiResponseText
+    const finalText = textWithoutImages
 
-    // 6. Envoyer via l'intégration appropriée (Evolution ou WABA)
-    const sendResult = await sendMessage(
-      sessionCtx,
-      params.contactPhoneNumber,
-      finalText
-    )
+    // 6. Envoyer le texte uniquement s'il est non vide (si réponse = image seule, pas de texte)
+    let sendResult: { ok: boolean; error?: string } = { ok: true }
+    let savedMessage: { id: string } | null = null
+    if (finalText) {
+      sendResult = await sendMessage(
+        sessionCtx,
+        params.contactPhoneNumber,
+        finalText
+      )
 
-    if (!sendResult.ok) {
-      console.error('[AI] Erreur envoi message:', sendResult.error)
+      if (!sendResult.ok) {
+        console.error('[AI] Erreur envoi message:', sendResult.error)
+      }
+
+      // 7. Sauvegarder le message IA en BDD (chiffré si clé configurée)
+      const { data: saved } = await supabase.from('messages').insert({
+        conversation_id: params.conversationId,
+        session_id: params.sessionId,
+        direction: 'outbound',
+        content: encryptMessage(finalText),
+        message_type: 'text',
+        sent_by: 'ai_agent',
+        ai_agent_id: params.agentId,
+        status: sendResult.ok ? 'sent' : 'failed',
+      }).select('id').single()
+      savedMessage = saved
     }
-
-    // 7. Sauvegarder le message IA en BDD (chiffré si clé configurée)
-    const { data: savedMessage } = await supabase.from('messages').insert({
-      conversation_id: params.conversationId,
-      session_id: params.sessionId,
-      direction: 'outbound',
-      content: encryptMessage(finalText),
-      message_type: 'text',
-      sent_by: 'ai_agent',
-      ai_agent_id: params.agentId,
-      status: sendResult.ok ? 'sent' : 'failed',
-    }).select('id').single()
 
     // 7.1 Tracker si l'agent a proposé un lien de RDV dans sa réponse
     if (agent.booking_url) {
