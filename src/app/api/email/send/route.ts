@@ -4,6 +4,7 @@ import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { sendEmailViaSmtp, type EmailAttachment } from '@/lib/email/client'
 import { sendEmailViaGmail } from '@/lib/email/gmail-client'
 import { encryptMessage } from '@/lib/crypto/encryption'
+import { uploadMedia } from '@/lib/storage/media'
 
 const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024 // 10 MB par fichier
 const MAX_TOTAL_SIZE = 25 * 1024 * 1024       // 25 MB total
@@ -136,6 +137,37 @@ export async function POST(req: NextRequest) {
 
   if (msgError) {
     return NextResponse.json({ error: msgError.message }, { status: 500 })
+  }
+
+  // Uploader chaque PJ dans Storage et créer un message document par fichier
+  for (const att of attachments) {
+    const attMsgId = `out-att-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    const storagePath = `email/${conversation_id}/${attMsgId}-${att.filename}`
+    const uploadResult = await uploadMedia({
+      sessionId: 'email',
+      messageId: attMsgId,
+      buffer: att.content,
+      mimeType: att.contentType,
+      storagePath,
+    })
+    if (!uploadResult.ok) continue
+
+    const isImage = att.contentType.startsWith('image/')
+    const msgType = isImage ? 'image' : 'document'
+
+    await adminSupabase.from('messages').insert({
+      conversation_id,
+      session_id: null,
+      direction: 'outbound',
+      content: encryptMessage(`[${isImage ? 'Image' : 'Document'}: ${att.filename}]`),
+      message_type: msgType,
+      channel_message_id: `${attMsgId}`,
+      sent_by: 'user',
+      status: 'sent',
+      ai_processed: false,
+      media_url: uploadResult.storagePath,
+      media_mime_type: att.contentType,
+    })
   }
 
   await adminSupabase

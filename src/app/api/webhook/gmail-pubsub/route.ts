@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { pollGmailInbox } from '@/lib/email/gmail-client'
 import { encryptMessage } from '@/lib/crypto/encryption'
+import { uploadMedia } from '@/lib/storage/media'
 
 /**
  * Vérifie le JWT Bearer envoyé par Google Cloud Pub/Sub.
@@ -234,7 +235,11 @@ export async function POST(req: NextRequest) {
         conversationId = newConv.id
       }
 
-      // Insérer le message
+      // Insérer le message texte
+      const transcriptionParts: string[] = []
+      if (email.subject) transcriptionParts.push(`Objet: ${email.subject}`)
+      if (email.attachments?.length) transcriptionParts.push(`PJ: ${email.attachments.map(a => a.filename).join(', ')}`)
+
       const { error: msgError } = await adminSupabase.from('messages').insert({
         conversation_id: conversationId,
         session_id: null,
@@ -245,10 +250,41 @@ export async function POST(req: NextRequest) {
         sent_by: 'contact',
         status: 'delivered',
         ai_processed: false,
-        ...(email.subject ? { transcription: `Objet: ${email.subject}` } : {}),
+        ...(transcriptionParts.length > 0 ? { transcription: transcriptionParts.join('\n') } : {}),
       })
       if (msgError) console.log('[gmail-pubsub] msg error:', msgError.message)
       else console.log('[gmail-pubsub] email inserted from:', email.from)
+
+      // Uploader chaque PJ dans Storage et créer un message document par fichier
+      for (const att of (email.attachments ?? [])) {
+        const attMsgId = `in-att-${Date.now()}-${Math.random().toString(36).slice(2)}`
+        const storagePath = `email/${conversationId}/${attMsgId}-${att.filename}`
+        const uploadResult = await uploadMedia({
+          sessionId: 'email',
+          messageId: attMsgId,
+          buffer: att.content,
+          mimeType: att.contentType,
+          storagePath,
+        })
+        if (!uploadResult.ok) continue
+
+        const isImage = att.contentType.startsWith('image/')
+        const msgType = isImage ? 'image' : 'document'
+
+        await adminSupabase.from('messages').insert({
+          conversation_id: conversationId,
+          session_id: null,
+          direction: 'inbound',
+          content: encryptMessage(`[${isImage ? 'Image' : 'Document'}: ${att.filename}]`),
+          message_type: msgType,
+          channel_message_id: attMsgId,
+          sent_by: 'contact',
+          status: 'delivered',
+          ai_processed: false,
+          media_url: uploadResult.storagePath,
+          media_mime_type: att.contentType,
+        })
+      }
     }
 
     return NextResponse.json({ ok: true })

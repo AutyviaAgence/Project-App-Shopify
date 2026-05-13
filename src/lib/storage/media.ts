@@ -49,18 +49,19 @@ async function ensureBucket() {
 
 /**
  * Upload un média dans Supabase Storage.
- * Path : {sessionId}/{messageId}.{ext}
+ * Path : {sessionId}/{messageId}.{ext}  (ou path custom via storagePath)
  */
 export async function uploadMedia(params: {
   sessionId: string
   messageId: string
   buffer: Buffer
   mimeType: string
+  storagePath?: string
 }): Promise<{ ok: true; storagePath: string } | { ok: false; error: string }> {
   await ensureBucket()
 
   const ext = getExtensionFromMime(params.mimeType)
-  const storagePath = `${params.sessionId}/${params.messageId}.${ext}`
+  const storagePath = params.storagePath ?? `${params.sessionId}/${params.messageId}.${ext}`
 
   const supabase = getAdminClient()
   const { error } = await supabase.storage

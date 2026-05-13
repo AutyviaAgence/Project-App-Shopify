@@ -3,6 +3,7 @@ import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { pollImapInbox } from '@/lib/email/imap-poller'
 import { pollGmailInbox } from '@/lib/email/gmail-client'
 import { encryptMessage } from '@/lib/crypto/encryption'
+import { uploadMedia } from '@/lib/storage/media'
 
 function checkAuth(req: NextRequest): boolean {
   const cronSecret = process.env.CRON_SECRET
@@ -146,9 +147,13 @@ async function runPollEmail() {
           conversationId = newConv.id
         }
 
-        // Créer le message (chiffré)
+        // Créer le message texte (chiffré)
         const encryptedContent = encryptMessage(email.body)
         const messageSubject = email.subject
+
+        const transcriptionParts: string[] = []
+        if (messageSubject) transcriptionParts.push(`Objet: ${messageSubject}`)
+        if (email.attachments?.length) transcriptionParts.push(`PJ: ${email.attachments.map(a => a.filename).join(', ')}`)
 
         const { error: msgInsertError } = await adminSupabase.from('messages').insert({
           conversation_id: conversationId,
@@ -160,10 +165,41 @@ async function runPollEmail() {
           sent_by: 'contact',
           status: 'delivered',
           ai_processed: false,
-          ...(messageSubject ? { transcription: `Objet: ${messageSubject}` } : {}),
+          ...(transcriptionParts.length > 0 ? { transcription: transcriptionParts.join('\n') } : {}),
         })
 
         if (!msgInsertError) totalEmails++
+
+        // Uploader chaque PJ dans Storage et créer un message document par fichier
+        for (const att of (email.attachments ?? [])) {
+          const attMsgId = `in-att-${Date.now()}-${Math.random().toString(36).slice(2)}`
+          const storagePath = `email/${conversationId}/${attMsgId}-${att.filename}`
+          const uploadResult = await uploadMedia({
+            sessionId: 'email',
+            messageId: attMsgId,
+            buffer: att.content,
+            mimeType: att.contentType,
+            storagePath,
+          })
+          if (!uploadResult.ok) continue
+
+          const isImage = att.contentType.startsWith('image/')
+          const msgType = isImage ? 'image' : 'document'
+
+          await adminSupabase.from('messages').insert({
+            conversation_id: conversationId,
+            session_id: null,
+            direction: 'inbound',
+            content: encryptMessage(`[${isImage ? 'Image' : 'Document'}: ${att.filename}]`),
+            message_type: msgType,
+            channel_message_id: attMsgId,
+            sent_by: 'contact',
+            status: 'delivered',
+            ai_processed: false,
+            media_url: uploadResult.storagePath,
+            media_mime_type: att.contentType,
+          })
+        }
       }
     } catch (err) {
       const errMsg = err instanceof Error ? err.message : String(err)
