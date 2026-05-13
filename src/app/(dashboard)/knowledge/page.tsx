@@ -31,6 +31,8 @@ import {
   Download,
   Eye,
   Users,
+  Image as ImageIcon,
+  Tag,
 } from 'lucide-react'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { MultiTeamSelect } from '@/components/multi-team-select'
@@ -39,14 +41,36 @@ import { useTranslation } from '@/i18n/context'
 type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
 type DocWithTeamIds = KnowledgeDocument & { team_ids?: string[] }
 
+type KnowledgeImage = {
+  id: string
+  ref: string
+  filename: string
+  mime_type: string
+  storage_path: string
+  agent_id: string | null
+  created_at: string
+}
+
 export default function KnowledgePage() {
   const { t } = useTranslation()
+  const [pageTab, setPageTab] = useState<'documents' | 'images'>('documents')
   const [documents, setDocuments] = useState<DocWithTeamIds[]>([])
   const [agents, setAgents] = useState<AIAgent[]>([])
   const [teams, setTeams] = useState<TeamWithRole[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
+
+  // Images state
+  const [images, setImages] = useState<KnowledgeImage[]>([])
+  const [imagesLoading, setImagesLoading] = useState(false)
+  const [imageDialogOpen, setImageDialogOpen] = useState(false)
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [imageRef, setImageRef] = useState('')
+  const [imageAgentId, setImageAgentId] = useState('')
+  const [imageSaving, setImageSaving] = useState(false)
+  const [imagePreviewUrls, setImagePreviewUrls] = useState<Record<string, string>>({})
+  const imageInputRef = useRef<HTMLInputElement>(null)
 
   // Create/Edit dialog
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -149,11 +173,79 @@ export default function KnowledgePage() {
     }
   }, [])
 
+  const fetchImages = useCallback(async () => {
+    setImagesLoading(true)
+    try {
+      const res = await fetch('/api/knowledge-images')
+      const json = await res.json()
+      if (res.ok && json.data) setImages(json.data)
+    } catch { /* ignore */ } finally {
+      setImagesLoading(false)
+    }
+  }, [])
+
+  async function loadImagePreview(img: KnowledgeImage) {
+    if (imagePreviewUrls[img.id]) return
+    try {
+      const res = await fetch(`/api/knowledge-images/${img.id}`)
+      const json = await res.json()
+      if (res.ok && json.url) setImagePreviewUrls(prev => ({ ...prev, [img.id]: json.url }))
+    } catch { /* ignore */ }
+  }
+
+  async function handleImageUpload() {
+    if (!imageFile || !imageRef.trim()) {
+      toast.error('Fichier et référence requis')
+      return
+    }
+    setImageSaving(true)
+    try {
+      const form = new FormData()
+      form.append('file', imageFile)
+      form.append('ref', imageRef.trim())
+      if (imageAgentId) form.append('agent_id', imageAgentId)
+      const res = await fetch('/api/knowledge-images', { method: 'POST', body: form })
+      const json = await res.json()
+      if (res.ok && json.data) {
+        setImages(prev => [json.data, ...prev.filter(i => i.id !== json.data.id)])
+        toast.success('Image ajoutée')
+        setImageDialogOpen(false)
+        setImageFile(null)
+        setImageRef('')
+        setImageAgentId('')
+        if (imageInputRef.current) imageInputRef.current.value = ''
+      } else {
+        toast.error(json.error || 'Erreur upload')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    } finally {
+      setImageSaving(false)
+    }
+  }
+
+  async function handleDeleteImage(id: string) {
+    try {
+      const res = await fetch(`/api/knowledge-images?id=${id}`, { method: 'DELETE' })
+      if (res.ok) {
+        setImages(prev => prev.filter(i => i.id !== id))
+        setImagePreviewUrls(prev => { const n = { ...prev }; delete n[id]; return n })
+        toast.success('Image supprimée')
+      } else {
+        const json = await res.json()
+        toast.error(json.error || 'Erreur suppression')
+      }
+    } catch {
+      toast.error('Erreur réseau')
+    }
+  }
+
   useEffect(() => {
     fetchDocuments()
     fetchAgents()
     fetchTeams()
-  }, [fetchDocuments, fetchAgents, fetchTeams])
+    fetchImages()
+  }, [fetchDocuments, fetchAgents, fetchTeams, fetchImages])
 
   // Polling quand des documents sont en processing/pending
   useEffect(() => {
@@ -456,12 +548,110 @@ export default function KnowledgePage() {
             {t('knowledge.description')}
           </p>
         </div>
-        <Button data-tour="upload-btn" onClick={openCreateDialog} className="w-full sm:w-auto">
-          <Plus className="mr-2 h-4 w-4" />
-          {t('knowledge.new_document')}
-        </Button>
+        {pageTab === 'documents' ? (
+          <Button data-tour="upload-btn" onClick={openCreateDialog} className="w-full sm:w-auto">
+            <Plus className="mr-2 h-4 w-4" />
+            {t('knowledge.new_document')}
+          </Button>
+        ) : (
+          <Button onClick={() => setImageDialogOpen(true)} className="w-full sm:w-auto">
+            <Plus className="mr-2 h-4 w-4" />
+            Ajouter une image
+          </Button>
+        )}
       </div>
 
+      <Tabs value={pageTab} onValueChange={(v) => setPageTab(v as 'documents' | 'images')} className="mb-6">
+        <TabsList>
+          <TabsTrigger value="documents">
+            <FileText className="mr-2 h-4 w-4" />
+            Documents
+          </TabsTrigger>
+          <TabsTrigger value="images">
+            <ImageIcon className="mr-2 h-4 w-4" />
+            Images IA
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="images" className="mt-4">
+          {imagesLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+            </div>
+          ) : images.length === 0 ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <ImageIcon className="mb-4 h-12 w-12 text-muted-foreground" />
+                <h3 className="text-lg font-medium">Aucune image</h3>
+                <p className="mt-1 text-sm text-muted-foreground text-center max-w-sm">
+                  Ajoutez des images avec une référence. L&apos;agent IA pourra les envoyer en écrivant <code className="bg-muted px-1 rounded">[IMAGE:ma-ref]</code> dans sa réponse.
+                </p>
+                <Button className="mt-4" onClick={() => setImageDialogOpen(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Ajouter une image
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {images.map((img) => (
+                <Card key={img.id} className="overflow-hidden">
+                  <div
+                    className="relative h-36 bg-muted cursor-pointer"
+                    onClick={() => loadImagePreview(img)}
+                  >
+                    {imagePreviewUrls[img.id] ? (
+                      <img
+                        src={imagePreviewUrls[img.id]}
+                        alt={img.ref}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full items-center justify-center">
+                        <ImageIcon className="h-10 w-10 text-muted-foreground/40" />
+                      </div>
+                    )}
+                  </div>
+                  <CardContent className="p-3 space-y-2">
+                    <div className="flex items-center gap-1.5">
+                      <Tag className="h-3 w-3 shrink-0 text-muted-foreground" />
+                      <code className="text-xs font-mono font-medium truncate">{img.ref}</code>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground truncate">{img.filename}</p>
+                    {img.agent_id && (
+                      <Badge variant="outline" className="text-[10px]">
+                        <Bot className="mr-1 h-2.5 w-2.5" />
+                        {agents.find(a => a.id === img.agent_id)?.name || 'Agent'}
+                      </Badge>
+                    )}
+                    <div className="flex items-center gap-1 pt-1">
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-xs"
+                        onClick={() => loadImagePreview(img)}
+                      >
+                        <Eye className="mr-1 h-3 w-3" />
+                        Voir
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-xs text-destructive hover:text-destructive"
+                        onClick={() => handleDeleteImage(img.id)}
+                      >
+                        <Trash2 className="mr-1 h-3 w-3" />
+                        Supprimer
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="documents" className="mt-4">
       {documents.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
@@ -613,6 +803,8 @@ export default function KnowledgePage() {
           })}
         </div>
       )}
+        </TabsContent>
+      </Tabs>
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
@@ -886,6 +1078,74 @@ export default function KnowledgePage() {
         description={t('knowledge.delete_desc', { name: docToDelete?.name || '' })}
         loading={deleting === docToDelete?.id}
       />
+
+      {/* Dialog upload image */}
+      <Dialog open={imageDialogOpen} onOpenChange={(open) => {
+        setImageDialogOpen(open)
+        if (!open) { setImageFile(null); setImageRef(''); setImageAgentId('') }
+      }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Ajouter une image</DialogTitle>
+            <DialogDescription>
+              L&apos;agent IA pourra envoyer cette image en écrivant <code className="bg-muted px-1 rounded text-xs">[IMAGE:votre-ref]</code> dans sa réponse.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Référence <span className="text-destructive">*</span></Label>
+              <Input
+                placeholder="ex: menu-burger, tarif-2024"
+                value={imageRef}
+                onChange={(e) => setImageRef(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
+              />
+              <p className="text-xs text-muted-foreground">Lettres, chiffres, tirets uniquement. Unique par compte.</p>
+            </div>
+            <div className="space-y-2">
+              <Label>Image <span className="text-destructive">*</span></Label>
+              <Input
+                ref={imageInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp,image/gif"
+                onChange={(e) => setImageFile(e.target.files?.[0] || null)}
+              />
+              <p className="text-xs text-muted-foreground">JPEG, PNG, WebP, GIF — max 5 Mo</p>
+            </div>
+            {imageFile && (
+              <img
+                src={URL.createObjectURL(imageFile)}
+                alt="preview"
+                className="h-32 w-full rounded-lg object-cover border"
+              />
+            )}
+            <div className="space-y-2">
+              <Label>Agent associé (optionnel)</Label>
+              <select
+                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
+                value={imageAgentId}
+                onChange={(e) => setImageAgentId(e.target.value)}
+              >
+                <option value="">Tous les agents</option>
+                {agents.map((a) => (
+                  <option key={a.id} value={a.id}>{a.name}</option>
+                ))}
+              </select>
+            </div>
+            <Button
+              onClick={handleImageUpload}
+              disabled={imageSaving || !imageFile || !imageRef.trim()}
+              className="w-full"
+            >
+              {imageSaving ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <Upload className="mr-2 h-4 w-4" />
+              )}
+              Uploader l&apos;image
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

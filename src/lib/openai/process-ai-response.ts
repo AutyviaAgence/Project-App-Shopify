@@ -2,7 +2,7 @@ import 'server-only'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { generateAgentResponse, type ChatMessage, type OpenAIMessage } from './client'
 import { checkTokenLimit, recordTokenUsage } from './token-tracker'
-import { sendMessage, sendPresence } from '@/lib/messaging/send'
+import { sendMessage, sendMediaMessage, sendPresence } from '@/lib/messaging/send'
 import { retrieveContext } from '@/lib/knowledge/retriever'
 import { encryptMessage, decryptMessage } from '@/lib/crypto/encryption'
 import { getAgentTools, buildOpenAITools, executeToolCall } from '@/lib/tools/executor'
@@ -289,6 +289,17 @@ Exemples :
       systemPrompt += `\n\n--- Base de connaissances (PRIORITAIRE) ---\nIMPORTANT : Avant d'appeler un outil, vérifie TOUJOURS si la réponse se trouve dans la base de connaissances ci-dessous. N'appelle un outil que si l'information n'est PAS disponible ici. Utilise ces informations en priorité pour répondre de manière précise.\n\n${knowledgeContext}\n--- Fin de la base de connaissances ---`
     }
 
+    // Injecter les images disponibles si l'agent en a
+    const { data: agentImages } = await supabase
+      .from('knowledge_images' as never)
+      .select('ref, filename')
+      .eq('user_id', userId as string)
+      .or(`agent_id.is.null,agent_id.eq.${params.agentId}`)
+    if (agentImages && (agentImages as { ref: string; filename: string }[]).length > 0) {
+      const imgList = (agentImages as { ref: string; filename: string }[]).map(i => `- [IMAGE:${i.ref}] → ${i.filename}`).join('\n')
+      systemPrompt += `\n\n--- Images disponibles ---\nTu peux envoyer ces images au client en insérant la balise correspondante dans ta réponse. Le système se chargera de les envoyer automatiquement.\n${imgList}\nExemple : pour envoyer l'image "menu-burger", écris simplement [IMAGE:menu-burger] dans ta réponse.\n--- Fin des images ---`
+    }
+
     // 4.2. Lien de rendez-vous tracké
     if (agent.booking_url) {
       // Construire l'URL de tracking avec les paramètres de contexte
@@ -524,11 +535,68 @@ Exemples :
       }
     }
 
+    // 6. Détecter et envoyer les images [IMAGE:ref] avant le message texte
+    const imageTagRegex = /\[IMAGE:([a-z0-9_-]+)\]/gi
+    const imageRefs = [...aiResponseText.matchAll(imageTagRegex)].map(m => m[1])
+    const textWithoutImages = aiResponseText.replace(imageTagRegex, '').replace(/\n{3,}/g, '\n\n').trim()
+
+    if (imageRefs.length > 0) {
+      // Récupérer les images depuis la DB
+      const { data: knowledgeImages } = await supabase
+        .from('knowledge_images' as never)
+        .select('ref, storage_path, mime_type, filename')
+        .eq('user_id', userId as string)
+        .in('ref', imageRefs)
+
+      for (const ref of imageRefs) {
+        const imgRecord = (knowledgeImages as { ref: string; storage_path: string; mime_type: string; filename: string }[] | null)
+          ?.find(i => i.ref === ref)
+        if (!imgRecord) {
+          console.warn('[AI] Image ref introuvable:', ref)
+          continue
+        }
+        try {
+          const { data: fileData, error: dlError } = await supabase.storage
+            .from('knowledge-images')
+            .download(imgRecord.storage_path)
+          if (dlError || !fileData) {
+            console.warn('[AI] Image download failed:', ref, dlError?.message)
+            continue
+          }
+          const buffer = Buffer.from(await fileData.arrayBuffer())
+          const sendImgResult = await sendMediaMessage(sessionCtx, params.contactPhoneNumber, {
+            mediatype: 'image',
+            buffer,
+            mimetype: imgRecord.mime_type,
+            fileName: imgRecord.filename,
+          })
+          if (!sendImgResult.ok) console.warn('[AI] Image send failed:', ref, sendImgResult.error)
+          else {
+            await supabase.from('messages').insert({
+              conversation_id: params.conversationId,
+              session_id: params.sessionId,
+              direction: 'outbound',
+              content: encryptMessage(`[Image: ${imgRecord.filename}]`),
+              message_type: 'image',
+              sent_by: 'ai_agent',
+              ai_agent_id: params.agentId,
+              status: 'sent',
+            })
+          }
+        } catch (imgErr) {
+          console.warn('[AI] Image error for ref:', ref, imgErr)
+        }
+      }
+    }
+
+    // Envoyer le texte (sans les tags [IMAGE:...])
+    const finalText = textWithoutImages || aiResponseText
+
     // 6. Envoyer via l'intégration appropriée (Evolution ou WABA)
     const sendResult = await sendMessage(
       sessionCtx,
       params.contactPhoneNumber,
-      aiResponseText
+      finalText
     )
 
     if (!sendResult.ok) {
@@ -540,7 +608,7 @@ Exemples :
       conversation_id: params.conversationId,
       session_id: params.sessionId,
       direction: 'outbound',
-      content: encryptMessage(aiResponseText),
+      content: encryptMessage(finalText),
       message_type: 'text',
       sent_by: 'ai_agent',
       ai_agent_id: params.agentId,
@@ -552,7 +620,7 @@ Exemples :
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://app.example.com'
       const bookingLinkPattern = `${baseUrl}/api/booking/${agent.id}`
 
-      if (aiResponseText.includes(bookingLinkPattern)) {
+      if (finalText.includes(bookingLinkPattern)) {
         // Récupérer le contact_id depuis la conversation
         const { data: conv } = await supabase
           .from('conversations')
@@ -585,7 +653,7 @@ Analyse la dernière réponse de l'agent et détermine si la condition d'arrêt 
 Réponds UNIQUEMENT par "OUI" si la condition est clairement remplie, ou "NON" sinon.
 Sois strict : la condition doit être explicitement satisfaite.`,
         messages: [
-          { role: 'user', content: `Dernière réponse de l'agent :\n\n${aiResponseText}` },
+          { role: 'user', content: `Dernière réponse de l'agent :\n\n${finalText}` },
         ],
       })
 
@@ -651,7 +719,7 @@ Sois strict : la condition doit être explicitement satisfaite.`,
       .from('conversations')
       .update({
         last_message_at: new Date().toISOString(),
-        last_message_preview: aiResponseText.slice(0, 100),
+        last_message_preview: finalText.slice(0, 100),
       })
       .eq('id', params.conversationId)
 
