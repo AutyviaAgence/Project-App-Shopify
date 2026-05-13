@@ -107,7 +107,7 @@ export default function SessionsPage() {
   const [emailDeleting, setEmailDeleting] = useState<string | null>(null)
   const [emailProviderChoice, setEmailProviderChoice] = useState<'gmail' | 'smtp' | null>(null)
   const [editingEmailSession, setEditingEmailSession] = useState<EmailSession | null>(null)
-  const [emailEditForm, setEmailEditForm] = useState({ name: '', display_name: '', smtp_host: '', smtp_port: '', smtp_user: '', smtp_password: '', imap_host: '', imap_port: '', email_agent_id: '' })
+  const [emailEditForm, setEmailEditForm] = useState({ name: '', display_name: '', smtp_host: '', smtp_port: '', smtp_user: '', smtp_password: '', imap_host: '', imap_port: '', email_agent_id: '', signature: '' })
   const [savingEmailEdit, setSavingEmailEdit] = useState(false)
   const [allAgents, setAllAgents] = useState<{ id: string; name: string }[]>([])
   const [emailForm, setEmailForm] = useState({
@@ -641,6 +641,7 @@ export default function SessionsPage() {
       imap_host: session.imap_host ?? '',
       imap_port: session.imap_port ? String(session.imap_port) : '',
       email_agent_id: session.email_agent_id ?? '',
+      signature: (session as typeof session & { signature?: string | null }).signature ?? '',
     })
     // Charger tous les agents
     fetch('/api/agents')
@@ -659,6 +660,7 @@ export default function SessionsPage() {
         name: emailEditForm.name.trim(),
         display_name: emailEditForm.display_name.trim() || null,
         email_agent_id: emailEditForm.email_agent_id || null,
+        signature: emailEditForm.signature.trim() || null,
       }
       if (editingEmailSession.provider === 'smtp') {
         if (emailEditForm.smtp_host) body.smtp_host = emailEditForm.smtp_host.trim()
@@ -1150,6 +1152,17 @@ export default function SessionsPage() {
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">Génère des brouillons de réponse dans l'inbox.</p>
+            </div>
+            <div className="space-y-1">
+              <Label>Signature email (optionnelle)</Label>
+              <textarea
+                rows={3}
+                placeholder={"Cordialement,\nJean Dupont\nSupport Autyvia"}
+                value={emailEditForm.signature}
+                onChange={(e) => setEmailEditForm((f) => ({ ...f, signature: e.target.value }))}
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              />
+              <p className="text-xs text-muted-foreground">Ajoutée automatiquement après chaque email envoyé.</p>
             </div>
             {editingEmailSession?.provider === 'smtp' && (
               <>

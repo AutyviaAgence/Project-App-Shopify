@@ -309,6 +309,8 @@ CREATE TABLE public.email_sessions (
   oauth_expires_at timestamptz,
   daily_ai_message_limit integer DEFAULT 1000,
   display_name text,
+  email_agent_id uuid REFERENCES public.ai_agents(id) ON DELETE SET NULL,
+  signature text,
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
 );

@@ -3,6 +3,7 @@ import Imap from 'imap'
 import { simpleParser } from 'mailparser'
 import { decryptSmtpPassword } from '@/lib/email/client'
 import type { EmailSession } from '@/types/database'
+import type { EmailAttachment } from './client'
 
 export type IncomingEmail = {
   messageId: string
@@ -11,6 +12,7 @@ export type IncomingEmail = {
   subject: string
   body: string
   receivedAt: Date
+  attachments?: EmailAttachment[]
 }
 
 function stripSignature(text: string): string {
@@ -50,7 +52,6 @@ export async function pollImapInbox(
   const host = session.imap_host
   const port = session.imap_port ?? 993
   const user = session.smtp_user
-  // Try imap-specific password first, fall back to smtp password
   const password =
     decryptSmtpPassword(session.imap_password_encrypted ?? null) ??
     decryptSmtpPassword(session.smtp_password_encrypted ?? null)
@@ -81,7 +82,6 @@ export async function pollImapInbox(
           if (searchErr) { imap.end(); return reject(searchErr) }
           if (!uids || uids.length === 0) { imap.end(); return resolve([]) }
 
-          // Take only the 5 most recent unseen messages
           const recentUids = uids.slice(-5)
           const fetch = imap.fetch(recentUids, { bodies: '', markSeen: true })
           const pending: Promise<void>[] = []
@@ -95,6 +95,15 @@ export async function pollImapInbox(
                   try {
                     const parsed = await simpleParser(buffer)
                     const fromAddr = parsed.from?.value?.[0]
+
+                    const attachments: EmailAttachment[] = (parsed.attachments || [])
+                      .filter((a) => a.content && a.filename)
+                      .map((a) => ({
+                        filename: a.filename!,
+                        content: a.content as Buffer,
+                        contentType: a.contentType,
+                      }))
+
                     emails.push({
                       messageId: parsed.messageId ?? `${Date.now()}-${Math.random()}`,
                       from: fromAddr?.address ?? '',
@@ -102,6 +111,7 @@ export async function pollImapInbox(
                       subject: parsed.subject ?? '(sans objet)',
                       body: typeof parsed.html === 'string' && parsed.html ? parsed.html : stripSignature(parsed.text ?? ''),
                       receivedAt: parsed.date ?? new Date(),
+                      ...(attachments.length ? { attachments } : {}),
                     })
                   } catch { /* ignore parse errors */ }
                   res()

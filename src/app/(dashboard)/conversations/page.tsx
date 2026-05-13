@@ -296,7 +296,7 @@ function ConversationsPageContent() {
     }
   }, [selectedConv, sending, t])
 
-  const handleSendEmail = useCallback(async (content: string, subject: string) => {
+  const handleSendEmail = useCallback(async (content: string, subject: string, attachments?: File[]) => {
     if (!selectedConv || sending) return
     setSending(true)
     const optimistic: Message = {
@@ -305,7 +305,7 @@ function ConversationsPageContent() {
       session_id: '',
       direction: 'outbound',
       content,
-      message_type: 'text',
+      message_type: attachments?.length ? 'document' : 'text',
       media_url: null,
       media_mime_type: null,
       transcription: subject ? `Objet: ${subject}` : null,
@@ -320,11 +320,21 @@ function ConversationsPageContent() {
     }
     setMessages((prev) => [...prev, optimistic])
     try {
-      const res = await fetch('/api/email/send', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ conversation_id: selectedConv.id, content, subject }),
-      })
+      let res: Response
+      if (attachments?.length) {
+        const formData = new FormData()
+        formData.append('conversation_id', selectedConv.id)
+        formData.append('content', content)
+        if (subject) formData.append('subject', subject)
+        attachments.forEach((f) => formData.append('attachments', f))
+        res = await fetch('/api/email/send', { method: 'POST', body: formData })
+      } else {
+        res = await fetch('/api/email/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ conversation_id: selectedConv.id, content, subject }),
+        })
+      }
       const json = await res.json()
       if (!res.ok) {
         toast.error(json.error || t('conversations.send_error'))

@@ -38,6 +38,8 @@ import {
   Smile,
   Briefcase,
   ALargeSmall,
+  Paperclip,
+  X,
 } from 'lucide-react'
 import { getSessionDisplayName, getContactDisplayName } from '@/lib/format-phone'
 import { useTranslation } from '@/i18n/context'
@@ -58,7 +60,7 @@ interface ChatAreaProps {
   onOpenProfile: () => void
   onSendText: (content: string) => Promise<void>
   onSendMedia: (file: File, caption?: string) => Promise<void>
-  onSendEmail: (content: string, subject: string) => Promise<void>
+  onSendEmail: (content: string, subject: string, attachments?: File[]) => Promise<void>
   onAssignAgent: (convId: string, agentId: string | null) => void
   onToggleAI: (convId: string, isActive: boolean) => void
   onChangeLifecycleStage: (convId: string, stageId: string | null) => void
@@ -92,6 +94,8 @@ export function ChatArea({
   const prevMessageCountRef = useRef(0)
   const [emailSubject, setEmailSubject] = useState('')
   const [emailBody, setEmailBody] = useState('')
+  const [emailAttachments, setEmailAttachments] = useState<File[]>([])
+  const attachmentInputRef = useRef<HTMLInputElement>(null)
   const [improving, setImproving] = useState<string | null>(null)
   const [suggesting, setSuggesting] = useState(false)
 
@@ -115,9 +119,10 @@ export function ChatArea({
 
   const handleSendEmail = async () => {
     if (!emailBody.trim() || sending) return
-    await onSendEmail(emailBody.trim(), emailSubject.trim() || 'Re:')
+    await onSendEmail(emailBody.trim(), emailSubject.trim() || 'Re:', emailAttachments)
     setEmailBody('')
     setEmailSubject('')
+    setEmailAttachments([])
   }
 
   const IMPROVE_ACTIONS = [
@@ -606,6 +611,34 @@ export function ChatArea({
                   if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSendEmail()
                 }}
               />
+              {/* Pièces jointes */}
+              <input
+                ref={attachmentInputRef}
+                type="file"
+                multiple
+                className="hidden"
+                onChange={(e) => {
+                  const files = Array.from(e.target.files ?? [])
+                  setEmailAttachments((prev) => [...prev, ...files])
+                  e.target.value = ''
+                }}
+              />
+              {emailAttachments.length > 0 && (
+                <div className="flex flex-wrap gap-1.5">
+                  {emailAttachments.map((file, i) => (
+                    <div key={i} className="flex items-center gap-1 rounded-full border bg-muted px-2.5 py-1 text-[11px]">
+                      <Paperclip className="h-3 w-3 text-muted-foreground" />
+                      <span className="max-w-[120px] truncate">{file.name}</span>
+                      <button
+                        onClick={() => setEmailAttachments((prev) => prev.filter((_, idx) => idx !== i))}
+                        className="ml-0.5 text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
               {/* Boutons amélioration IA */}
               {emailBody.trim() && (
                 <div className="flex flex-wrap gap-1.5">
@@ -627,21 +660,30 @@ export function ChatArea({
                 </div>
               )}
               <div className="flex items-center justify-between">
-                {(selectedConv?.ai_agent_id || (selectedConv?.session as { email_agent_id?: string | null } | undefined)?.email_agent_id) ? (
+                <div className="flex items-center gap-1.5">
+                  {(selectedConv?.ai_agent_id || (selectedConv?.session as { email_agent_id?: string | null } | undefined)?.email_agent_id) ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleSuggest}
+                      disabled={suggesting}
+                      title="Générer un brouillon avec l'IA"
+                      className="gap-1.5"
+                    >
+                      {suggesting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                      Brouillon IA
+                    </Button>
+                  ) : null}
                   <Button
                     size="sm"
-                    variant="outline"
-                    onClick={handleSuggest}
-                    disabled={suggesting}
-                    title="Générer un brouillon avec l'IA"
-                    className="gap-1.5"
+                    variant="ghost"
+                    onClick={() => attachmentInputRef.current?.click()}
+                    title="Joindre un fichier"
+                    className="gap-1.5 px-2"
                   >
-                    {suggesting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                    Brouillon IA
+                    <Paperclip className="h-3.5 w-3.5" />
                   </Button>
-                ) : (
-                  <div />
-                )}
+                </div>
                 <Button
                   size="sm"
                   onClick={handleSendEmail}

@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-import { sendEmailViaSmtp } from '@/lib/email/client'
+import { sendEmailViaSmtp, type EmailAttachment } from '@/lib/email/client'
 import { sendEmailViaGmail } from '@/lib/email/gmail-client'
 import { encryptMessage } from '@/lib/crypto/encryption'
 
-/** POST /api/email/send — Envoyer un email depuis la inbox */
+const MAX_ATTACHMENT_SIZE = 10 * 1024 * 1024 // 10 MB par fichier
+const MAX_TOTAL_SIZE = 25 * 1024 * 1024       // 25 MB total
+
+/** POST /api/email/send — Envoyer un email depuis la inbox (JSON ou multipart/form-data) */
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -14,11 +17,37 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  const body = await req.json().catch(() => ({}))
-  const { conversation_id, content, subject } = body as {
-    conversation_id?: string
-    content?: string
-    subject?: string
+  let conversation_id: string | undefined
+  let content: string | undefined
+  let subject: string | undefined
+  let attachments: EmailAttachment[] = []
+
+  const contentType = req.headers.get('content-type') ?? ''
+  if (contentType.includes('multipart/form-data')) {
+    const form = await req.formData()
+    conversation_id = form.get('conversation_id')?.toString()
+    content = form.get('content')?.toString()
+    subject = form.get('subject')?.toString()
+
+    let totalSize = 0
+    for (const [, value] of form.entries()) {
+      if (value instanceof File && value.name && value.name !== 'undefined') {
+        if (value.size > MAX_ATTACHMENT_SIZE) {
+          return NextResponse.json({ error: `Fichier "${value.name}" trop volumineux (max 10 Mo)` }, { status: 400 })
+        }
+        totalSize += value.size
+        if (totalSize > MAX_TOTAL_SIZE) {
+          return NextResponse.json({ error: 'Taille totale des pièces jointes dépasse 25 Mo' }, { status: 400 })
+        }
+        const buffer = Buffer.from(await value.arrayBuffer())
+        attachments.push({ filename: value.name, content: buffer, contentType: value.type || 'application/octet-stream' })
+      }
+    }
+  } else {
+    const body = await req.json().catch(() => ({}))
+    conversation_id = body.conversation_id
+    content = body.content
+    subject = body.subject
   }
 
   if (!conversation_id || !content) {
@@ -30,7 +59,6 @@ export async function POST(req: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  // Récupérer la conversation ET vérifier ownership via email_session en une requête
   const { data: conversation, error: convError } = await adminSupabase
     .from('conversations')
     .select('id, channel, email_session_id, contact_id')
@@ -42,14 +70,13 @@ export async function POST(req: NextRequest) {
   }
 
   if (conversation.channel !== 'email') {
-    return NextResponse.json({ error: 'Cette conversation n\'est pas de type email' }, { status: 400 })
+    return NextResponse.json({ error: "Cette conversation n'est pas de type email" }, { status: 400 })
   }
 
   if (!conversation.email_session_id) {
     return NextResponse.json({ error: 'Session email manquante sur la conversation' }, { status: 400 })
   }
 
-  // Récupérer la session email ET vérifier que l'utilisateur en est le propriétaire
   const { data: emailSession, error: sessionError } = await adminSupabase
     .from('email_sessions')
     .select('*')
@@ -61,7 +88,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 
-  // Récupérer le contact (destinataire)
   const { data: contact } = await supabase
     .from('contacts')
     .select('email, phone_number')
@@ -75,16 +101,15 @@ export async function POST(req: NextRequest) {
 
   try {
     if (emailSession.provider === 'gmail') {
-      await sendEmailViaGmail(emailSession, recipientEmail, subject ?? 'Re:', content)
+      await sendEmailViaGmail(emailSession, recipientEmail, subject ?? 'Re:', content, { attachments })
     } else {
-      await sendEmailViaSmtp(emailSession, recipientEmail, subject ?? 'Re:', content)
+      await sendEmailViaSmtp(emailSession, recipientEmail, subject ?? 'Re:', content, { attachments })
     }
   } catch (err) {
     const errMsg = err instanceof Error ? err.message : String(err)
     return NextResponse.json({ error: `Erreur envoi email: ${errMsg}` }, { status: 500 })
   }
 
-  // Sauvegarder le message dans la DB
   const messageId = `out-${Date.now()}-${Math.random().toString(36).slice(2)}`
   const encryptedContent = encryptMessage(content)
 
@@ -95,7 +120,7 @@ export async function POST(req: NextRequest) {
       session_id: null,
       direction: 'outbound',
       content: encryptedContent,
-      message_type: 'text',
+      message_type: attachments.length > 0 ? 'document' : 'text',
       channel_message_id: messageId,
       sent_by: 'user',
       status: 'sent',
@@ -109,7 +134,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: msgError.message }, { status: 500 })
   }
 
-  // Mettre à jour la conversation
   await adminSupabase
     .from('conversations')
     .update({

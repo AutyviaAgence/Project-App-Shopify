@@ -1,6 +1,7 @@
 import 'server-only'
 import { decryptMessage, encryptMessage } from '@/lib/crypto/encryption'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import type { EmailAttachment } from './client'
 
 type GmailSession = {
   id: string
@@ -9,6 +10,7 @@ type GmailSession = {
   oauth_expires_at: string | null
   email_address: string
   display_name: string | null
+  signature?: string | null
 }
 
 type IncomingGmailMessage = {
@@ -18,6 +20,7 @@ type IncomingGmailMessage = {
   subject: string
   body: string
   receivedAt: Date
+  attachments?: EmailAttachment[]
 }
 
 /** Get a valid access token, refreshing if expired */
@@ -45,7 +48,6 @@ async function getValidAccessToken(session: GmailSession): Promise<string> {
     const data = await res.json()
     if (!res.ok || data.error) throw new Error(data.error_description || 'Failed to refresh Gmail token')
 
-    // Persist new access token
     const adminSupabase = createAdminClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -68,13 +70,66 @@ function sanitizeHeader(value: string): string {
   return value.replace(/\r\n|\r|\n/g, ' ').trim()
 }
 
+/** Build a multipart/mixed MIME message with optional attachments */
+function buildMimeMessage(opts: {
+  from: string
+  to: string
+  subject: string
+  body: string
+  inReplyTo?: string
+  attachments?: EmailAttachment[]
+}): string {
+  const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).slice(2)}`
+
+  const baseHeaders = [
+    `From: ${opts.from}`,
+    `To: ${opts.to}`,
+    `Subject: ${opts.subject}`,
+    'MIME-Version: 1.0',
+    ...(opts.inReplyTo ? [`In-Reply-To: ${opts.inReplyTo}`, `References: ${opts.inReplyTo}`] : []),
+  ]
+
+  if (!opts.attachments?.length) {
+    return [
+      ...baseHeaders,
+      'Content-Type: text/plain; charset=utf-8',
+      '',
+      opts.body,
+    ].join('\r\n')
+  }
+
+  const parts: string[] = [
+    ...baseHeaders,
+    `Content-Type: multipart/mixed; boundary="${boundary}"`,
+    '',
+    `--${boundary}`,
+    'Content-Type: text/plain; charset=utf-8',
+    '',
+    opts.body,
+  ]
+
+  for (const att of opts.attachments) {
+    parts.push(
+      `--${boundary}`,
+      `Content-Type: ${att.contentType}`,
+      'Content-Transfer-Encoding: base64',
+      `Content-Disposition: attachment; filename="${att.filename}"`,
+      '',
+      att.content.toString('base64'),
+    )
+  }
+
+  parts.push(`--${boundary}--`)
+  return parts.join('\r\n')
+}
+
 /** Send an email via Gmail API */
 export async function sendEmailViaGmail(
   session: GmailSession,
   to: string,
   subject: string,
   body: string,
-  options?: { inReplyTo?: string }
+  options?: { inReplyTo?: string; attachments?: EmailAttachment[] }
 ): Promise<void> {
   const accessToken = await getValidAccessToken(session)
 
@@ -83,20 +138,22 @@ export async function sendEmailViaGmail(
   const safeTo = sanitizeHeader(to)
   const safeSubject = sanitizeHeader(subject)
 
-  const from = safeDisplayName
-    ? `${safeDisplayName} <${safeEmail}>`
-    : safeEmail
+  const from = safeDisplayName ? `${safeDisplayName} <${safeEmail}>` : safeEmail
 
-  const headers = [
-    `From: ${from}`,
-    `To: ${safeTo}`,
-    `Subject: ${safeSubject}`,
-    'Content-Type: text/plain; charset=utf-8',
-    'MIME-Version: 1.0',
-    ...(options?.inReplyTo ? [`In-Reply-To: ${options.inReplyTo}`, `References: ${options.inReplyTo}`] : []),
-  ].join('\r\n')
+  const fullBody = session.signature
+    ? `${body}\n\n--\n${session.signature}`
+    : body
 
-  const raw = Buffer.from(`${headers}\r\n\r\n${body}`).toString('base64url')
+  const mime = buildMimeMessage({
+    from,
+    to: safeTo,
+    subject: safeSubject,
+    body: fullBody,
+    inReplyTo: options?.inReplyTo,
+    attachments: options?.attachments,
+  })
+
+  const raw = Buffer.from(mime).toString('base64url')
 
   const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
     method: 'POST',
@@ -113,24 +170,25 @@ export async function sendEmailViaGmail(
   }
 }
 
-type GmailPart = { mimeType?: string; body?: { data?: string }; parts?: GmailPart[] }
+type GmailPart = {
+  mimeType?: string
+  body?: { data?: string; attachmentId?: string; size?: number }
+  filename?: string
+  parts?: GmailPart[]
+}
 
 function extractBody(payload: GmailPart): string {
-  // Prefer HTML for rich rendering in the UI
   const html = findPart(payload, 'text/html')
   if (html) return html
 
-  // Fallback: plain text with signature stripped
   const plain = findPart(payload, 'text/plain')
   if (plain) return stripSignature(plain)
 
-  // Last resort: top-level body
   if (payload?.body?.data) return stripSignature(Buffer.from(payload.body.data, 'base64').toString('utf-8'))
   return ''
 }
 
 function stripSignature(text: string): string {
-  // Standard email signature delimiter is "-- " or "--" on its own line
   const match = text.match(/^([\s\S]*?)\n--\s*\n/m)
   if (match) return match[1].trim()
   return text.trim()
@@ -147,16 +205,25 @@ function findPart(part: GmailPart, mimeType: string): string {
   return ''
 }
 
+function collectAttachmentMeta(payload: GmailPart): { filename: string; attachmentId: string; mimeType: string }[] {
+  const result: { filename: string; attachmentId: string; mimeType: string }[] = []
+  if (payload.filename && payload.body?.attachmentId) {
+    result.push({ filename: payload.filename, attachmentId: payload.body.attachmentId, mimeType: payload.mimeType ?? 'application/octet-stream' })
+  }
+  for (const child of payload.parts || []) {
+    result.push(...collectAttachmentMeta(child))
+  }
+  return result
+}
+
 /** Poll unread emails from Gmail inbox */
 export async function pollGmailInbox(session: GmailSession & { created_at?: string }): Promise<IncomingGmailMessage[]> {
   const accessToken = await getValidAccessToken(session)
 
-  // Only fetch emails received after the session was created
   const afterEpoch = session.created_at
     ? Math.floor(new Date(session.created_at).getTime() / 1000)
     : Math.floor((Date.now() - 24 * 60 * 60 * 1000) / 1000)
 
-  // List unread messages in INBOX (5 max, after session creation)
   const q = encodeURIComponent(`is:unread after:${afterEpoch}`)
   const listRes = await fetch(
     `https://gmail.googleapis.com/gmail/v1/users/me/messages?labelIds=INBOX&q=${q}&maxResults=5`,
@@ -188,13 +255,34 @@ export async function pollGmailInbox(session: GmailSession & { created_at?: stri
         headers.find((h) => h.name.toLowerCase() === name.toLowerCase())?.value ?? ''
 
       const fromRaw = getHeader('From')
-      // Parse "Name <email>" format
       const fromMatch = fromRaw.match(/^(.+?)\s*<(.+?)>$/)
       const fromName = fromMatch ? fromMatch[1].trim().replace(/^"|"$/g, '') : null
       const fromEmail = fromMatch ? fromMatch[2] : fromRaw
 
-      // Get body — recursive search through nested multipart, prefer HTML then plain text
       const body = extractBody(msgData.payload)
+
+      // Fetch attachments metadata and download them
+      const attMeta = collectAttachmentMeta(msgData.payload)
+      const attachments: EmailAttachment[] = []
+      await Promise.all(
+        attMeta.map(async (meta) => {
+          try {
+            const attRes = await fetch(
+              `https://gmail.googleapis.com/gmail/v1/users/me/messages/${msg.id}/attachments/${meta.attachmentId}`,
+              { headers: { Authorization: `Bearer ${accessToken}` } }
+            )
+            if (!attRes.ok) return
+            const attData = await attRes.json()
+            if (attData.data) {
+              attachments.push({
+                filename: meta.filename,
+                content: Buffer.from(attData.data, 'base64url'),
+                contentType: meta.mimeType,
+              })
+            }
+          } catch { /* ignore attachment fetch errors */ }
+        })
+      )
 
       messages.push({
         messageId: msg.id,
@@ -203,6 +291,7 @@ export async function pollGmailInbox(session: GmailSession & { created_at?: stri
         subject: getHeader('Subject') || '(sans objet)',
         body,
         receivedAt: new Date(parseInt(msgData.internalDate)),
+        ...(attachments.length ? { attachments } : {}),
       })
 
       // Mark as read

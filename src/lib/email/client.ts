@@ -10,6 +10,13 @@ export type IncomingEmail = {
   subject: string
   body: string
   receivedAt: Date
+  attachments?: EmailAttachment[]
+}
+
+export type EmailAttachment = {
+  filename: string
+  content: Buffer
+  contentType: string
 }
 
 function getSmtpCredentials(session: EmailSession) {
@@ -27,11 +34,11 @@ export function decryptSmtpPassword(encrypted: string | null): string | null {
 
 /** Send an email via SMTP using the session's credentials */
 export async function sendEmailViaSmtp(
-  session: EmailSession & { smtp_password_encrypted?: string | null },
+  session: EmailSession & { smtp_password_encrypted?: string | null; signature?: string | null },
   to: string,
   subject: string,
   body: string,
-  options?: { replyToMessageId?: string; inReplyTo?: string }
+  options?: { replyToMessageId?: string; inReplyTo?: string; attachments?: EmailAttachment[] }
 ): Promise<void> {
   const { host, port, user } = getSmtpCredentials(session)
   const password = decryptSmtpPassword(session.smtp_password_encrypted ?? null)
@@ -47,13 +54,24 @@ export async function sendEmailViaSmtp(
     auth: { user, pass: password },
   })
 
+  const fullBody = session.signature
+    ? `${body}\n\n--\n${session.signature}`
+    : body
+
   await transporter.sendMail({
     from: session.display_name
       ? `"${session.display_name}" <${session.email_address}>`
       : session.email_address,
     to,
     subject,
-    text: body,
+    text: fullBody,
     ...(options?.inReplyTo ? { inReplyTo: options.inReplyTo, references: options.inReplyTo } : {}),
+    ...(options?.attachments?.length ? {
+      attachments: options.attachments.map(a => ({
+        filename: a.filename,
+        content: a.content,
+        contentType: a.contentType,
+      }))
+    } : {}),
   })
 }
