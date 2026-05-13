@@ -51,38 +51,50 @@ export async function POST(req: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
-  await ensureBucket(admin)
 
-  const ext = file.name.split('.').pop() || 'jpg'
-  const storagePath = `${user.id}/${ref}-${Date.now()}.${ext}`
-  const buffer = Buffer.from(await file.arrayBuffer())
+  let storagePath: string | null = null
+  try {
+    await ensureBucket(admin)
 
-  const { error: uploadError } = await admin.storage
-    .from(BUCKET)
-    .upload(storagePath, buffer, { contentType: file.type, upsert: false })
+    const ext = file.name.split('.').pop() || 'jpg'
+    storagePath = `${user.id}/${ref}-${Date.now()}.${ext}`
+    const buffer = Buffer.from(await file.arrayBuffer())
 
-  if (uploadError) return NextResponse.json({ error: uploadError.message }, { status: 500 })
+    const { error: uploadError } = await admin.storage
+      .from(BUCKET)
+      .upload(storagePath, buffer, { contentType: file.type, upsert: false })
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (admin as any)
-    .from('knowledge_images')
-    .upsert({
-      user_id: user.id,
-      agent_id: agentId || null,
-      ref,
-      storage_path: storagePath,
-      filename: file.name,
-      mime_type: file.type,
-    }, { onConflict: 'user_id,ref' })
-    .select()
-    .single()
+    if (uploadError) {
+      console.error('[knowledge-images] upload error:', uploadError.message)
+      return NextResponse.json({ error: `Upload Storage: ${uploadError.message}` }, { status: 500 })
+    }
 
-  if (error) {
-    await admin.storage.from(BUCKET).remove([storagePath])
-    return NextResponse.json({ error: error.message }, { status: 500 })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data, error } = await (admin as any)
+      .from('knowledge_images')
+      .upsert({
+        user_id: user.id,
+        agent_id: agentId || null,
+        ref,
+        storage_path: storagePath,
+        filename: file.name,
+        mime_type: file.type,
+      }, { onConflict: 'user_id,ref' })
+      .select()
+      .single()
+
+    if (error) {
+      console.error('[knowledge-images] db error:', error.message)
+      await admin.storage.from(BUCKET).remove([storagePath])
+      return NextResponse.json({ error: `DB: ${error.message}` }, { status: 500 })
+    }
+
+    return NextResponse.json({ data })
+  } catch (err) {
+    console.error('[knowledge-images] unexpected error:', err)
+    if (storagePath) await admin.storage.from(BUCKET).remove([storagePath]).catch(() => {})
+    return NextResponse.json({ error: String(err) }, { status: 500 })
   }
-
-  return NextResponse.json({ data })
 }
 
 /** DELETE /api/knowledge-images?id=xxx — Supprimer une image */
