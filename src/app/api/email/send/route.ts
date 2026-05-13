@@ -113,6 +113,10 @@ export async function POST(req: NextRequest) {
   const messageId = `out-${Date.now()}-${Math.random().toString(36).slice(2)}`
   const encryptedContent = encryptMessage(content)
 
+  const transcriptionParts: string[] = []
+  if (subject) transcriptionParts.push(`Objet: ${subject}`)
+  if (attachments.length > 0) transcriptionParts.push(`PJ: ${attachments.map(a => a.filename).join(', ')}`)
+
   const { data: message, error: msgError } = await adminSupabase
     .from('messages')
     .insert({
@@ -125,7 +129,7 @@ export async function POST(req: NextRequest) {
       sent_by: 'user',
       status: 'sent',
       ai_processed: false,
-      ...(subject ? { transcription: `Objet: ${subject}` } : {}),
+      ...(transcriptionParts.length > 0 ? { transcription: transcriptionParts.join('\n') } : {}),
     })
     .select()
     .single()

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Loader2, FileText, Download, Eye, EyeOff, Image as ImageIcon, Mic, Play } from 'lucide-react'
+import { Loader2, FileText, Download, Eye, EyeOff, Image as ImageIcon, Mic, Play, Paperclip } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Message } from '@/types/database'
 
@@ -73,50 +73,50 @@ export function MessageBubbleContent({ msg, isOutbound, channel }: { msg: Extend
   // Messages texte ou types sans média
   if (msg.message_type === 'text' || !isMediaType) {
     const content = msg.content || ''
-    const isEmailInbound = channel === 'email' && !isOutbound
+    const isEmail = channel === 'email'
+    const isEmailInbound = isEmail && !isOutbound
     const isHtml = isEmailInbound && /(<html|<!doctype|<body|<div|<p|<table|<br)/i.test(content)
 
-    if (isHtml) {
-      // Injecter CSS pour adapter au thème et supprimer les marges excessives
-      const styledHtml = `
-        <style>
-          * { box-sizing: border-box; }
-          html, body {
-            margin: 0; padding: 0;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            font-size: 13px;
-            line-height: 1.5;
-            color: inherit;
-            background: transparent;
-          }
-          img { max-width: 100%; height: auto; }
-          a { color: #7DC2A5; }
-          p { margin: 0 0 8px 0; }
-          table { max-width: 100%; }
-        </style>
-        ${content}
-      `
-      return (
-        <iframe
-          srcDoc={styledHtml}
-          sandbox="allow-same-origin allow-popups allow-scripts"
-          className="w-full rounded border-0"
-          style={{ minHeight: 60, maxHeight: 400, colorScheme: 'light dark' }}
-          onLoad={(e) => {
-            const iframe = e.currentTarget
-            const body = iframe.contentDocument?.body
-            if (body) {
-              iframe.style.height = Math.min(body.scrollHeight + 8, 400) + 'px'
-            }
-          }}
-        />
-      )
-    }
+    // Extraire sujet et pièces jointes depuis transcription (format "Objet: ...\nPJ: ...")
+    const transcriptionLines = (msg.transcription || '').split('\n')
+    const emailSubject = transcriptionLines.find(l => l.startsWith('Objet: '))?.slice(7) ?? null
+    const emailPJ = transcriptionLines.find(l => l.startsWith('PJ: '))?.slice(4) ?? null
+
+    const emailMeta = isEmail && (emailSubject || emailPJ)
 
     return (
-      <p className="whitespace-pre-wrap break-words text-sm">
-        {content}
-      </p>
+      <div className="space-y-1.5">
+        {emailMeta && (
+          <div className={`space-y-0.5 border-b pb-1.5 mb-1 ${isOutbound ? 'border-white/20' : 'border-border'}`}>
+            {emailSubject && (
+              <p className={`text-xs font-semibold ${isOutbound ? 'text-white/80' : 'text-foreground/70'}`}>
+                {emailSubject}
+              </p>
+            )}
+            {emailPJ && (
+              <div className={`flex items-center gap-1 text-[11px] ${isOutbound ? 'text-white/60' : 'text-muted-foreground'}`}>
+                <Paperclip className="h-3 w-3 shrink-0" />
+                <span className="truncate">{emailPJ}</span>
+              </div>
+            )}
+          </div>
+        )}
+        {isHtml ? (
+          <iframe
+            srcDoc={`<style>* { box-sizing: border-box; } html, body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; line-height: 1.5; color: inherit; background: transparent; } img { max-width: 100%; height: auto; } a { color: #7DC2A5; } p { margin: 0 0 8px 0; } table { max-width: 100%; }</style>${content}`}
+            sandbox="allow-same-origin allow-popups allow-scripts"
+            className="w-full rounded border-0"
+            style={{ minHeight: 60, maxHeight: 400, colorScheme: 'light dark' }}
+            onLoad={(e) => {
+              const iframe = e.currentTarget
+              const body = iframe.contentDocument?.body
+              if (body) iframe.style.height = Math.min(body.scrollHeight + 8, 400) + 'px'
+            }}
+          />
+        ) : (
+          <p className="whitespace-pre-wrap break-words text-sm">{content}</p>
+        )}
+      </div>
     )
   }
 
