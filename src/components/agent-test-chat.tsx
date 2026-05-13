@@ -33,9 +33,15 @@ type ChatEvent = {
   routeScenario?: string
 }
 
+type ImageRef = {
+  ref: string
+  url: string
+}
+
 type Message = {
   role: 'user' | 'assistant'
   content: string
+  images?: ImageRef[]
   toolExecutions?: ToolExecution[]
   event?: ChatEvent
   rag?: RagInfo | null
@@ -109,10 +115,12 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
             event: { type: 'route', routeTo: data.routeTo, routeScenario: data.routeScenario },
             rag: data.rag || null,
           }])
-        } else if (data.response) {
+        } else if (data.response !== undefined) {
+          console.log('[test-chat] response:', data.response, 'images:', data.images)
           setMessages(prev => [...prev, {
             role: 'assistant',
             content: data.response,
+            images: data.images,
             toolExecutions: data.toolExecutions,
             rag: data.rag || null,
           }])
@@ -258,6 +266,21 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
                         )}
                       >
                         <p className="whitespace-pre-wrap">{msg.content}</p>
+                      </div>
+                    )}
+                    {/* Images IA */}
+                    {msg.images && msg.images.length > 0 && (
+                      <div className="space-y-2">
+                        {msg.images.map((img) => (
+                          <a key={img.ref} href={img.url} target="_blank" rel="noreferrer" className="block">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={img.url}
+                              alt={img.ref}
+                              className="max-w-[260px] rounded-xl border object-cover shadow-sm hover:opacity-90 transition-opacity"
+                            />
+                          </a>
+                        ))}
                       </div>
                     )}
                   </div>
