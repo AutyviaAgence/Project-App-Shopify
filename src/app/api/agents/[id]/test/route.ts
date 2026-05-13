@@ -27,6 +27,13 @@ async function resolveImageTags(text: string, userId: string): Promise<{ cleanTe
     .in('ref', refs) as { data: { ref: string; storage_path: string }[] | null; error: unknown }
   console.log('[resolveImageTags] userId:', userId, 'refs:', refs, 'imgRecords:', imgRecords, 'dbErr:', dbErr)
 
+  // Debug: list all images for this user if nothing found
+  if (!imgRecords || imgRecords.length === 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: allImgs } = await (admin as any).from('knowledge_images').select('ref, user_id').limit(20)
+    console.log('[resolveImageTags] all images in DB:', allImgs)
+  }
+
   const images: { ref: string; url: string }[] = []
   for (const record of imgRecords || []) {
     const { data: signed, error: signErr } = await admin.storage
@@ -246,7 +253,7 @@ export async function POST(
       const { cleanText, images } = await resolveImageTags(result.content || '', user.id)
       return NextResponse.json({
         data: {
-          response: cleanText || result.content,
+          response: cleanText,
           images: images.length > 0 ? images : undefined,
           toolExecutions: toolExecutions.length > 0 ? toolExecutions : undefined,
           rag: ragInfo,
