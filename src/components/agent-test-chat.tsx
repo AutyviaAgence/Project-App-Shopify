@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Loader2, Send, Bot, User, Trash2, AlertCircle, Wrench, CheckCircle, XCircle, ArrowRightCircle, StopCircle, BookOpen } from 'lucide-react'
+import { Loader2, Send, Bot, User, Trash2, AlertCircle, Wrench, CheckCircle, XCircle, ArrowRightCircle, StopCircle, BookOpen, ImageIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/i18n/context'
 
@@ -199,8 +199,8 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
                     </div>
                   )}
                   <div className="max-w-[80%] space-y-1.5">
-                    {/* RAG info */}
-                    {msg.rag && (
+                    {/* RAG info — masqué si aucun résultat et que des images sont envoyées */}
+                    {msg.rag && (msg.rag.error || msg.rag.chunksUsed > 0 || !msg.images?.length) && (
                       <div className={cn(
                         "flex items-center gap-2 rounded-lg border border-dashed px-3 py-1.5 text-[11px]",
                         msg.rag.error
@@ -222,6 +222,15 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
                         ) : (
                           <span className="text-muted-foreground">Base de connaissances : aucun résultat pertinent</span>
                         )}
+                      </div>
+                    )}
+                    {/* Badge images IA */}
+                    {msg.images && msg.images.length > 0 && (
+                      <div className="flex items-center gap-2 rounded-lg border border-dashed border-violet-500/30 bg-violet-500/5 px-3 py-1.5 text-[11px]">
+                        <ImageIcon className="h-3 w-3 shrink-0 text-violet-500" />
+                        <span className="text-violet-700 dark:text-violet-300">
+                          Image{msg.images.length > 1 ? 's' : ''} IA : {msg.images.map(i => i.ref).join(', ')}
+                        </span>
                       </div>
                     )}
                     {/* Tool executions */}
