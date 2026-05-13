@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
       session_id: null,
       direction: 'outbound',
       content: encryptedContent,
-      message_type: attachments.length > 0 ? 'document' : 'text',
+      message_type: 'text',
       channel_message_id: messageId,
       sent_by: 'user',
       status: 'sent',

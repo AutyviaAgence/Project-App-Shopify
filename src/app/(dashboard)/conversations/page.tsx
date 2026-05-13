@@ -305,7 +305,7 @@ function ConversationsPageContent() {
       session_id: '',
       direction: 'outbound',
       content,
-      message_type: attachments?.length ? 'document' : 'text',
+      message_type: 'text',
       media_url: null,
       media_mime_type: null,
       transcription: subject ? `Objet: ${subject}` : null,
