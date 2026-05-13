@@ -302,7 +302,7 @@ export async function GET(req: NextRequest) {
   const contactsMap = Object.fromEntries((contacts || []).map((c) => [c.id, c]))
   const teamsMap = Object.fromEntries((teamsResult.data || []).map((t) => [t.id, t]))
 
-  // Assembler les données
+  // Assembler les données WhatsApp
   const result = conversations.map((conv) => {
     const session = sessionsMap[conv.session_id]
     return {
@@ -318,29 +318,57 @@ export async function GET(req: NextRequest) {
     }
   })
 
-  // Pour l'onglet "Tous", merger les conversations email
+  // Pour l'onglet "Tous", merger les conversations email avec pagination correcte
   if (!channelFilter || channelFilter === 'all') {
     const emailSessionIds = allEmailSessions.map((s: { id: string }) => s.id)
     if (emailSessionIds.length > 0) {
+      // Récupérer le vrai total email pour calculer la pagination globale
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: emailConvs } = await (supabase as any)
+      const { count: emailCount } = await (supabase as any)
         .from('conversations')
-        .select('*')
+        .select('*', { count: 'exact', head: true })
         .in('email_session_id', emailSessionIds)
         .eq('channel', 'email')
-        .order('last_message_at', { ascending: false, nullsFirst: false })
-        .limit(limit)
 
-      if (emailConvs && emailConvs.length > 0) {
-        const emailContactIds = [...new Set(emailConvs.map((c: { contact_id: string }) => c.contact_id))] as string[]
-        const { data: emailContacts } = await supabase.from('contacts').select('*').in('id', emailContactIds)
-        const emailContactsMap = Object.fromEntries((emailContacts || []).map((c) => [c.id, c]))
+      const totalEmail = emailCount || 0
+      const totalAll = (count || 0) + totalEmail
+      const totalPagesAll = Math.ceil(totalAll / limit)
+
+      if (totalEmail > 0) {
+        // Pour construire la page N du flux mixte trié par date, on doit récupérer
+        // suffisamment des deux canaux. On prend les (page * limit) premiers de chaque
+        // canal, on merge+trie, puis on extrait la tranche [offset, offset+limit).
+        const fetchUpTo = page * limit
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data: emailConvs } = await (supabase as any)
+          .from('conversations')
+          .select('*')
+          .in('email_session_id', emailSessionIds)
+          .eq('channel', 'email')
+          .order('last_message_at', { ascending: false, nullsFirst: false })
+          .range(0, fetchUpTo - 1)
+
+        // Refetch WhatsApp sans pagination pour avoir les fetchUpTo premiers aussi
+        const { data: waConvsAll } = await query
+          .order('is_pinned', { ascending: false })
+          .order('last_message_at', { ascending: false, nullsFirst: false })
+          .range(0, fetchUpTo - 1)
+
         const emailSessionsMap = Object.fromEntries(allEmailSessions.map((s: { id: string; name: string; email_agent_id?: string | null }) => [s.id, s]))
 
-        const emailResult = emailConvs.map((conv: Record<string, unknown>) => ({
+        const emailContactIds = [...new Set((emailConvs || []).map((c: { contact_id: string }) => c.contact_id))] as string[]
+        const waContactIds = [...new Set((waConvsAll || []).map((c: { contact_id: string }) => c.contact_id))] as string[]
+        const allContactIds = [...new Set([...emailContactIds, ...waContactIds])]
+
+        const { data: allContacts } = allContactIds.length > 0
+          ? await supabase.from('contacts').select('*').in('id', allContactIds)
+          : { data: [] }
+        const allContactsMap = Object.fromEntries((allContacts || []).map((c) => [c.id, c]))
+
+        const emailResult = (emailConvs || []).map((conv: Record<string, unknown>) => ({
           ...conv,
           channel: 'email',
-          contact: emailContactsMap[conv.contact_id as string] || null,
+          contact: allContactsMap[conv.contact_id as string] || null,
           session: {
             id: conv.email_session_id,
             instance_name: (emailSessionsMap[conv.email_session_id as string] as { name?: string })?.name ?? 'Email',
@@ -351,23 +379,41 @@ export async function GET(req: NextRequest) {
           },
         }))
 
-        // Merger et re-trier par last_message_at
-        const merged = [...result, ...emailResult].sort((a, b) => {
-          const ta = a.last_message_at ? new Date(a.last_message_at).getTime() : 0
-          const tb = b.last_message_at ? new Date(b.last_message_at).getTime() : 0
+        const waResult = (waConvsAll || []).map((conv: Record<string, unknown>) => {
+          const session = sessionsMap[conv.session_id as string]
+          return {
+            ...conv,
+            contact: allContactsMap[conv.contact_id as string] || null,
+            session: {
+              id: session?.id,
+              instance_name: session?.instance_name,
+              phone_number: session?.phone_number,
+              team_id: session?.team_id || null,
+              team_name: session?.team_id ? teamsMap[session.team_id]?.name : null,
+            },
+          }
+        })
+
+        // Merger, trier par date, extraire la tranche de la page demandée
+        const merged = [...waResult, ...emailResult].sort((a, b) => {
+          const ta = (a as { is_pinned?: boolean }).is_pinned ? Infinity : (a as { last_message_at?: string }).last_message_at ? new Date((a as { last_message_at: string }).last_message_at).getTime() : 0
+          const tb = (b as { is_pinned?: boolean }).is_pinned ? Infinity : (b as { last_message_at?: string }).last_message_at ? new Date((b as { last_message_at: string }).last_message_at).getTime() : 0
           return tb - ta
-        }).slice(0, limit)
+        })
+
+        const pageData = merged.slice(offset, offset + limit)
 
         return NextResponse.json({
-          data: merged,
-          pagination: {
-            page,
-            limit,
-            total: (count || 0) + emailConvs.length,
-            totalPages: Math.ceil(((count || 0) + emailConvs.length) / limit),
-          },
+          data: pageData,
+          pagination: { page, limit, total: totalAll, totalPages: totalPagesAll },
         })
       }
+
+      // Pas d'emails : pagination WhatsApp normale avec total corrigé
+      return NextResponse.json({
+        data: result,
+        pagination: { page, limit, total: count || 0, totalPages: Math.ceil((count || 0) / limit) },
+      })
     }
   }
 
