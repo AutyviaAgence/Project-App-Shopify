@@ -6,9 +6,10 @@ const BUCKET = 'knowledge-images'
 const MAX_SIZE = 5 * 1024 * 1024 // 5 MB
 const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
 
-async function ensureBucket(admin: ReturnType<typeof createAdminClient>) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function ensureBucket(admin: any) {
   const { data: buckets } = await admin.storage.listBuckets()
-  if (!buckets?.some(b => b.name === BUCKET)) {
+  if (!buckets?.some((b: { name: string }) => b.name === BUCKET)) {
     await admin.storage.createBucket(BUCKET, { public: false, fileSizeLimit: MAX_SIZE })
   }
 }
