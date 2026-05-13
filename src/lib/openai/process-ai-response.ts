@@ -292,14 +292,14 @@ Exemples :
     // Injecter les images disponibles si l'agent en a
     if (userId) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: agentImages } = await (supabase as any)
+      const { data: allUserImages } = await (supabase as any)
         .from('knowledge_images')
-        .select('ref, filename')
-        .eq('user_id', userId)
-        .or(`agent_id.is.null,agent_id.eq.${params.agentId}`) as { data: { ref: string; filename: string }[] | null }
-      if (agentImages && agentImages.length > 0) {
+        .select('ref, filename, agent_id')
+        .eq('user_id', userId) as { data: { ref: string; filename: string; agent_id: string | null }[] | null }
+      const agentImages = (allUserImages || []).filter(img => img.agent_id === null || img.agent_id === params.agentId)
+      if (agentImages.length > 0) {
         const imgList = agentImages.map(i => `- [IMAGE:${i.ref}] → ${i.filename}`).join('\n')
-        systemPrompt += `\n\n--- Images disponibles ---\nTu peux envoyer ces images au client en insérant la balise correspondante dans ta réponse. Le système se chargera de les envoyer automatiquement.\n${imgList}\nExemple : pour envoyer l'image "menu-burger", écris simplement [IMAGE:menu-burger] dans ta réponse.\n--- Fin des images ---`
+        systemPrompt += `\n\n--- Images disponibles (UTILISE-LES) ---\nQuand l'utilisateur demande une image ou que le contexte s'y prête, tu DOIS insérer la balise [IMAGE:ref] dans ta réponse. Le système enverra l'image automatiquement.\nImages disponibles :\n${imgList}\nRÈGLE : si l'utilisateur demande "l'image", "une image", ou un contenu visuel, insère IMMÉDIATEMENT la balise correspondante. Ne dis jamais que tu n'as pas d'image si une balise est listée ci-dessus.\nExemple : pour envoyer "menu-burger", écris [IMAGE:menu-burger] dans ta réponse.\n--- Fin des images ---`
       }
     }
 

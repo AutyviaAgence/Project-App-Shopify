@@ -1,10 +1,41 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { canAccessResource } from '@/lib/teams/access'
 import { generateAgentResponse, type ChatMessage, type OpenAIMessage } from '@/lib/openai/client'
 import { checkTokenLimit, recordTokenUsage } from '@/lib/openai/token-tracker'
 import { retrieveContext } from '@/lib/knowledge/retriever'
 import { getAgentTools, buildOpenAITools, executeToolCall } from '@/lib/tools/executor'
+
+async function resolveImageTags(text: string, userId: string): Promise<{ cleanText: string; images: { ref: string; url: string }[] }> {
+  const refs = [...text.matchAll(/\[IMAGE:([a-z0-9_-]+)\]/gi)].map(m => m[1])
+  const cleanText = text.replace(/\[IMAGE:[a-z0-9_-]+\]/gi, '').replace(/\n{3,}/g, '\n\n').trim()
+  if (refs.length === 0) return { cleanText, images: [] }
+
+  const admin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: imgRecords } = await (admin as any)
+    .from('knowledge_images')
+    .select('ref, storage_path')
+    .eq('user_id', userId)
+    .in('ref', refs) as { data: { ref: string; storage_path: string }[] | null }
+
+  const images: { ref: string; url: string }[] = []
+  for (const record of imgRecords || []) {
+    const { data: signed } = await admin.storage
+      .from('knowledge-images')
+      .createSignedUrl(record.storage_path, 3600)
+    if (signed?.signedUrl) {
+      images.push({ ref: record.ref, url: signed.signedUrl })
+    }
+  }
+
+  return { cleanText, images }
+}
 
 export async function POST(
   req: NextRequest,
@@ -110,6 +141,18 @@ export async function POST(
     systemPrompt += `\n\n--- Base de connaissances (PRIORITAIRE) ---\nIMPORTANT : Avant d'appeler un outil, vérifie TOUJOURS si la réponse se trouve dans la base de connaissances ci-dessous. N'appelle un outil que si l'information n'est PAS disponible ici. Utilise ces informations en priorité pour répondre de manière précise.\n\n${knowledgeContext}\n--- Fin de la base de connaissances ---`
   }
 
+  // Injecter les images disponibles (toutes celles de l'utilisateur, filtrées par agent en JS)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: allUserImages } = await (supabase as any)
+    .from('knowledge_images')
+    .select('ref, filename, agent_id')
+    .eq('user_id', user.id) as { data: { ref: string; filename: string; agent_id: string | null }[] | null }
+  const agentImages = (allUserImages || []).filter(img => img.agent_id === null || img.agent_id === id)
+  if (agentImages.length > 0) {
+    const imgList = agentImages.map(i => `- [IMAGE:${i.ref}] → ${i.filename}`).join('\n')
+    systemPrompt += `\n\n--- Images disponibles (UTILISE-LES) ---\nQuand l'utilisateur demande une image ou que le contexte s'y prête, tu DOIS insérer la balise [IMAGE:ref] dans ta réponse. Le système enverra l'image automatiquement.\nImages disponibles :\n${imgList}\nRÈGLE : si l'utilisateur demande "l'image", "une image", ou un contenu visuel, insère IMMÉDIATEMENT la balise correspondante. Ne dis jamais que tu n'as pas d'image si une balise est listée ci-dessus.\nExemple : pour envoyer "menu-burger", écris [IMAGE:menu-burger] dans ta réponse.\n--- Fin des images ---`
+  }
+
   // Charger les outils de l'agent
   let agentTools = await getAgentTools(id)
 
@@ -196,9 +239,11 @@ export async function POST(
     // Réponse texte finale (pas de tool calls)
     if (!result.toolCalls) {
       await recordTokenUsage(user.id, totalTokens)
+      const { cleanText, images } = await resolveImageTags(result.content || '', user.id)
       return NextResponse.json({
         data: {
-          response: result.content,
+          response: cleanText || result.content,
+          images: images.length > 0 ? images : undefined,
           toolExecutions: toolExecutions.length > 0 ? toolExecutions : undefined,
           rag: ragInfo,
         }
@@ -282,5 +327,5 @@ export async function POST(
 
   // Fallback si max rounds atteint
   await recordTokenUsage(user.id, totalTokens)
-  return NextResponse.json({ data: { response: 'Désolé, la requête a nécessité trop d\'appels. Veuillez reformuler.', toolExecutions, rag: ragInfo } })
+  return NextResponse.json({ data: { response: "Désolé, la requête a nécessité trop d'appels. Veuillez reformuler.", toolExecutions, rag: ragInfo } })
 }
