@@ -83,6 +83,7 @@ export function MessageBubbleContent({ msg, isOutbound, channel }: { msg: Extend
     const emailPJ = transcriptionLines.find(l => l.startsWith('PJ: '))?.slice(4) ?? null
 
     const emailMeta = isEmail && (emailSubject || emailPJ)
+    const emailPJFiles = emailPJ ? emailPJ.split(',').map(f => f.trim()).filter(Boolean) : []
 
     return (
       <div className="space-y-1.5">
@@ -93,28 +94,45 @@ export function MessageBubbleContent({ msg, isOutbound, channel }: { msg: Extend
                 {emailSubject}
               </p>
             )}
-            {emailPJ && (
-              <div className={`flex items-center gap-1 text-[11px] ${isOutbound ? 'text-white/60' : 'text-muted-foreground'}`}>
-                <Paperclip className="h-3 w-3 shrink-0" />
-                <span className="truncate">{emailPJ}</span>
-              </div>
-            )}
           </div>
         )}
         {isHtml ? (
           <iframe
-            srcDoc={`<style>* { box-sizing: border-box; } html, body { margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; line-height: 1.5; color: inherit; background: transparent; } img { max-width: 100%; height: auto; } a { color: #7DC2A5; } p { margin: 0 0 8px 0; } table { max-width: 100%; }</style>${content}`}
-            sandbox="allow-same-origin allow-popups allow-scripts"
-            className="w-full rounded border-0"
-            style={{ minHeight: 60, maxHeight: 400, colorScheme: 'light dark' }}
+            srcDoc={`<style>* { box-sizing: border-box; } html, body { margin: 0; padding: 8px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; line-height: 1.5; color: #111; background: #fff; } img { max-width: 100%; height: auto; display: block; } a { color: #7DC2A5; } p { margin: 0 0 8px 0; } table { max-width: 100%; border-collapse: collapse; } td, th { padding: 4px 8px; } .ReadMsgBody, .ExternalClass { width: 100%; }</style>${content}`}
+            sandbox="allow-same-origin allow-popups"
+            className="rounded border-0 bg-white"
+            style={{ width: '100%', minWidth: 280, minHeight: 80, maxHeight: 500, display: 'block' }}
+            scrolling="no"
             onLoad={(e) => {
               const iframe = e.currentTarget
-              const body = iframe.contentDocument?.body
-              if (body) iframe.style.height = Math.min(body.scrollHeight + 8, 400) + 'px'
+              const doc = iframe.contentDocument
+              if (doc?.body) {
+                const h = doc.body.scrollHeight
+                iframe.style.height = Math.min(h + 16, 500) + 'px'
+              }
             }}
           />
         ) : (
           <p className="whitespace-pre-wrap break-words text-sm">{content}</p>
+        )}
+
+        {/* Pièces jointes email */}
+        {emailPJFiles.length > 0 && (
+          <div className="flex flex-col gap-1 mt-1">
+            {emailPJFiles.map((filename, i) => (
+              <div
+                key={i}
+                className={`flex items-center gap-2 rounded-lg px-2.5 py-1.5 max-w-[260px] ${
+                  isOutbound ? 'bg-white/10' : 'bg-muted/40'
+                }`}
+              >
+                <FileText className={`h-4 w-4 shrink-0 ${isOutbound ? 'text-white/70' : 'text-muted-foreground'}`} />
+                <span className={`text-[11px] truncate ${isOutbound ? 'text-white/80' : 'text-foreground/80'}`}>
+                  {filename}
+                </span>
+              </div>
+            ))}
+          </div>
         )}
       </div>
     )
