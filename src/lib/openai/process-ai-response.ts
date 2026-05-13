@@ -290,14 +290,17 @@ Exemples :
     }
 
     // Injecter les images disponibles si l'agent en a
-    const { data: agentImages } = await supabase
-      .from('knowledge_images' as never)
-      .select('ref, filename')
-      .eq('user_id', userId as string)
-      .or(`agent_id.is.null,agent_id.eq.${params.agentId}`)
-    if (agentImages && (agentImages as { ref: string; filename: string }[]).length > 0) {
-      const imgList = (agentImages as { ref: string; filename: string }[]).map(i => `- [IMAGE:${i.ref}] → ${i.filename}`).join('\n')
-      systemPrompt += `\n\n--- Images disponibles ---\nTu peux envoyer ces images au client en insérant la balise correspondante dans ta réponse. Le système se chargera de les envoyer automatiquement.\n${imgList}\nExemple : pour envoyer l'image "menu-burger", écris simplement [IMAGE:menu-burger] dans ta réponse.\n--- Fin des images ---`
+    if (userId) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: agentImages } = await (supabase as any)
+        .from('knowledge_images')
+        .select('ref, filename')
+        .eq('user_id', userId)
+        .or(`agent_id.is.null,agent_id.eq.${params.agentId}`) as { data: { ref: string; filename: string }[] | null }
+      if (agentImages && agentImages.length > 0) {
+        const imgList = agentImages.map(i => `- [IMAGE:${i.ref}] → ${i.filename}`).join('\n')
+        systemPrompt += `\n\n--- Images disponibles ---\nTu peux envoyer ces images au client en insérant la balise correspondante dans ta réponse. Le système se chargera de les envoyer automatiquement.\n${imgList}\nExemple : pour envoyer l'image "menu-burger", écris simplement [IMAGE:menu-burger] dans ta réponse.\n--- Fin des images ---`
+      }
     }
 
     // 4.2. Lien de rendez-vous tracké
@@ -541,16 +544,15 @@ Exemples :
     const textWithoutImages = aiResponseText.replace(imageTagRegex, '').replace(/\n{3,}/g, '\n\n').trim()
 
     if (imageRefs.length > 0) {
-      // Récupérer les images depuis la DB
-      const { data: knowledgeImages } = await supabase
-        .from('knowledge_images' as never)
+      // Récupérer les images depuis la DB (supabase = service_role, bypass RLS)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: knowledgeImages } = await (supabase as any)
+        .from('knowledge_images')
         .select('ref, storage_path, mime_type, filename')
-        .eq('user_id', userId as string)
-        .in('ref', imageRefs)
+        .in('ref', imageRefs) as { data: { ref: string; storage_path: string; mime_type: string; filename: string }[] | null }
 
       for (const ref of imageRefs) {
-        const imgRecord = (knowledgeImages as { ref: string; storage_path: string; mime_type: string; filename: string }[] | null)
-          ?.find(i => i.ref === ref)
+        const imgRecord = knowledgeImages?.find(i => i.ref === ref)
         if (!imgRecord) {
           console.warn('[AI] Image ref introuvable:', ref)
           continue
