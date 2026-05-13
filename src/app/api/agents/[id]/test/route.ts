@@ -10,6 +10,8 @@ import { getAgentTools, buildOpenAITools, executeToolCall } from '@/lib/tools/ex
 async function resolveImageTags(text: string, userId: string): Promise<{ cleanText: string; images: { ref: string; url: string }[] }> {
   const refs = [...text.matchAll(/\[IMAGE:([a-z0-9_-]+)\]/gi)].map(m => m[1])
   const cleanText = text.replace(/\[IMAGE:[a-z0-9_-]+\]/gi, '').replace(/\n{3,}/g, '\n\n').trim()
+  console.log('[resolveImageTags] raw text:', text)
+  console.log('[resolveImageTags] extracted refs:', refs)
   if (refs.length === 0) return { cleanText, images: [] }
 
   const admin = createAdminClient(
@@ -18,17 +20,19 @@ async function resolveImageTags(text: string, userId: string): Promise<{ cleanTe
   )
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: imgRecords } = await (admin as any)
+  const { data: imgRecords, error: dbErr } = await (admin as any)
     .from('knowledge_images')
     .select('ref, storage_path')
     .eq('user_id', userId)
-    .in('ref', refs) as { data: { ref: string; storage_path: string }[] | null }
+    .in('ref', refs) as { data: { ref: string; storage_path: string }[] | null; error: unknown }
+  console.log('[resolveImageTags] userId:', userId, 'refs:', refs, 'imgRecords:', imgRecords, 'dbErr:', dbErr)
 
   const images: { ref: string; url: string }[] = []
   for (const record of imgRecords || []) {
-    const { data: signed } = await admin.storage
+    const { data: signed, error: signErr } = await admin.storage
       .from('knowledge-images')
       .createSignedUrl(record.storage_path, 3600)
+    console.log('[resolveImageTags] signed URL for', record.ref, ':', signed?.signedUrl, 'signErr:', signErr)
     if (signed?.signedUrl) {
       images.push({ ref: record.ref, url: signed.signedUrl })
     }
