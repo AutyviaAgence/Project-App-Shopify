@@ -88,9 +88,16 @@ export async function getSignedMediaUrl(
   expiresIn: number = 3600
 ): Promise<string | null> {
   const supabase = getAdminClient()
+  // Support du préfixe "knowledge-images:" pour les images IA
+  let bucket = BUCKET
+  let path = storagePath
+  if (storagePath.startsWith('knowledge-images:')) {
+    bucket = 'knowledge-images'
+    path = storagePath.slice('knowledge-images:'.length)
+  }
   const { data, error } = await supabase.storage
-    .from(BUCKET)
-    .createSignedUrl(storagePath, expiresIn)
+    .from(bucket)
+    .createSignedUrl(path, expiresIn)
 
   if (error || !data?.signedUrl) return null
   return data.signedUrl
