@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Checkbox } from '@/components/ui/checkbox'
 import { toast } from 'sonner'
 import { Eye, EyeOff } from 'lucide-react'
+import Script from 'next/script'
 import { useTranslation } from '@/i18n/context'
 import { useTenant } from '@/lib/tenant/context'
 
@@ -169,6 +170,22 @@ function RegisterForm() {
   }
 
   return (
+    <>
+      {tenant.slug === 'xeyo' && (
+        <>
+          <Script
+            id="meta-pixel-xeyo"
+            strategy="afterInteractive"
+            dangerouslySetInnerHTML={{
+              __html: `!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','2047096666153518');fbq('track','PageView');`,
+            }}
+          />
+          <noscript>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img height="1" width="1" style={{ display: 'none' }} src="https://www.facebook.com/tr?id=2047096666153518&ev=PageView&noscript=1" alt="" />
+          </noscript>
+        </>
+      )}
     <Card className="w-full max-w-md">
       <CardHeader className="text-center">
         <div className="flex justify-center mb-4">
@@ -307,6 +324,7 @@ function RegisterForm() {
         </CardFooter>
       </form>
     </Card>
+    </>
   )
 }
 
