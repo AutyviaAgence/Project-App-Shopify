@@ -1,649 +1,375 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import type { WALink, WhatsAppSession, AIAgent, Team } from '@/types/database'
+import type { WALink, WhatsAppSession, AIAgent } from '@/types/database'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { toast } from 'sonner'
 import {
-  Plus,
-  Link2,
-  Copy,
-  Trash2,
-  Pencil,
-  Loader2,
-  MousePointerClick,
-  ExternalLink,
-  Bot,
-  Users,
-  RotateCcw,
+  Plus, Link2, Copy, Trash2, Pencil, Loader2,
+  MousePointerClick, ExternalLink, Bot, QrCode, RotateCcw,
 } from 'lucide-react'
-import { MultiTeamSelect } from '@/components/multi-team-select'
-import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
-import { getSessionDisplayName } from '@/lib/format-phone'
-import { useTranslation } from '@/i18n/context'
+import { cn } from '@/lib/utils'
+import QRCode from 'qrcode'
 
-type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
+type LinkWithExtras = WALink & { session?: WhatsAppSession; agent?: AIAgent }
 
-type WALinkWithSession = WALink & {
-  whatsapp_sessions: {
-    phone_number: string | null
-    instance_name: string
-    display_name: string | null
-    status: string
-  } | null
-  team_ids?: string[]
-}
-
-export default function LinksPage() {
-  const { t } = useTranslation()
-  const [links, setLinks] = useState<WALinkWithSession[]>([])
+export default function PortailsPage() {
+  const [links, setLinks] = useState<LinkWithExtras[]>([])
   const [sessions, setSessions] = useState<WhatsAppSession[]>([])
   const [agents, setAgents] = useState<AIAgent[]>([])
-  const [teams, setTeams] = useState<TeamWithRole[]>([])
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
-  const [editing, setEditing] = useState<WALinkWithSession | null>(null)
+  const [editing, setEditing] = useState<WALink | null>(null)
+  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [deleting, setDeleting] = useState<string | null>(null)
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [linkToDelete, setLinkToDelete] = useState<WALinkWithSession | null>(null)
-  const [resetting, setResetting] = useState<string | null>(null)
+  const [qrUrls, setQrUrls] = useState<Record<string, string>>({})
 
   // Form state
-  const [formTeamIds, setFormTeamIds] = useState<string[]>([])
   const [formName, setFormName] = useState('')
-  const [formSessionId, setFormSessionId] = useState('')
-  const [formMessage, setFormMessage] = useState('')
-  const [formSource, setFormSource] = useState('')
   const [formSlug, setFormSlug] = useState('')
-  const [formAgentId, setFormAgentId] = useState('')
+  const [formSession, setFormSession] = useState('')
+  const [formAgent, setFormAgent] = useState('')
+  const [formMessage, setFormMessage] = useState('')
+  const [formActive, setFormActive] = useState(true)
 
-  const fetchLinks = useCallback(async () => {
+  const fetchAll = useCallback(async () => {
+    setLoading(true)
     try {
-      const res = await fetch('/api/links')
-      const json = await res.json()
-      if (res.ok && json.data) {
-        setLinks(json.data)
-      }
-    } catch {
-      toast.error(t('links.load_error'))
+      const [linksRes, sessionsRes, agentsRes] = await Promise.all([
+        fetch('/api/links'),
+        fetch('/api/sessions'),
+        fetch('/api/agents'),
+      ])
+      const [linksJson, sessionsJson, agentsJson] = await Promise.all([
+        linksRes.json(), sessionsRes.json(), agentsRes.json(),
+      ])
+      const sessionList: WhatsAppSession[] = sessionsJson.data || []
+      const agentList: AIAgent[] = agentsJson.data || []
+      const linkList: WALink[] = linksJson.data || []
+      setSessions(sessionList)
+      setAgents(agentList)
+      setLinks(linkList.map(l => ({
+        ...l,
+        session: sessionList.find(s => s.id === l.session_id),
+        agent: agentList.find(a => a.id === l.ai_agent_id),
+      })))
     } finally {
       setLoading(false)
     }
-  }, [t])
-
-  const fetchSessions = useCallback(async () => {
-    try {
-      const res = await fetch('/api/sessions')
-      const json = await res.json()
-      if (res.ok && json.data) {
-        setSessions(json.data.filter((s: WhatsAppSession) => s.status === 'connected'))
-      }
-    } catch {
-      // silently ignore
-    }
   }, [])
 
-  const fetchAgents = useCallback(async () => {
-    try {
-      const res = await fetch('/api/agents')
-      const json = await res.json()
-      if (res.ok && json.data) {
-        setAgents(json.data.filter((a: AIAgent) => a.is_active))
-      }
-    } catch {
-      // silently ignore
-    }
-  }, [])
+  useEffect(() => { fetchAll() }, [fetchAll])
 
-  const fetchTeams = useCallback(async () => {
-    try {
-      const res = await fetch('/api/teams')
-      const json = await res.json()
-      if (res.ok && json.data) {
-        setTeams(json.data.filter((tm: TeamWithRole) => tm.my_role === 'owner' || tm.my_role === 'admin'))
-      }
-    } catch {
-      // Silently ignore
-    }
-  }, [])
-
+  // Générer QR codes
   useEffect(() => {
-    fetchLinks()
-    fetchSessions()
-    fetchAgents()
-    fetchTeams()
-  }, [fetchLinks, fetchSessions, fetchAgents, fetchTeams])
+    links.forEach(async (link) => {
+      if (qrUrls[link.id]) return
+      const url = getLinkUrl(link)
+      try {
+        const qr = await QRCode.toDataURL(url, { width: 200, margin: 1 })
+        setQrUrls(prev => ({ ...prev, [link.id]: qr }))
+      } catch { /* ignore */ }
+    })
+  }, [links, qrUrls])
 
-  function openCreateDialog() {
+  function getLinkUrl(link: WALink) {
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
+    return `${appUrl}/api/links/${link.slug}/redirect`
+  }
+
+  function getWaUrl(link: LinkWithExtras) {
+    if (!link.session?.phone_number) return null
+    const phone = link.session.phone_number.replace(/\D/g, '')
+    const msg = encodeURIComponent(link.pre_filled_message || '')
+    return `https://wa.me/${phone}${msg ? `?text=${msg}` : ''}`
+  }
+
+  function openCreate() {
     setEditing(null)
-    setFormTeamIds([])
-    setFormName('')
-    setFormSessionId('')
-    setFormMessage('')
-    setFormSource('')
-    setFormSlug('')
-    setFormAgentId('')
+    setFormName(''); setFormSlug(''); setFormSession(''); setFormAgent('')
+    setFormMessage(''); setFormActive(true)
     setDialogOpen(true)
   }
 
-  function openEditDialog(link: WALinkWithSession) {
+  function openEdit(link: WALink) {
     setEditing(link)
-    setFormTeamIds(link.team_ids || (link.team_id ? [link.team_id] : []))
-    setFormName(link.name)
-    setFormSessionId(link.session_id)
-    setFormMessage(link.pre_filled_message || '')
-    setFormSource(link.tracking_source || '')
-    setFormSlug(link.slug || '')
-    setFormAgentId(link.ai_agent_id || '')
+    setFormName(link.name); setFormSlug(link.slug || '')
+    setFormSession(link.session_id || ''); setFormAgent(link.ai_agent_id || '')
+    setFormMessage(link.pre_filled_message || ''); setFormActive(link.is_active)
     setDialogOpen(true)
   }
 
   async function handleSave() {
-    if (!formName.trim() || !formSessionId) {
-      toast.error(t('links.name_required'))
-      return
-    }
-
+    if (!formName.trim() || !formSession) return
     setSaving(true)
     try {
-      if (editing) {
-        const res = await fetch(`/api/links/${editing.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: formName.trim(),
-            pre_filled_message: formMessage.trim(),
-            tracking_source: formSource.trim(),
-            slug: formSlug.trim(),
-            ai_agent_id: formAgentId || null,
-            team_ids: formTeamIds,
-          }),
-        })
-        const json = await res.json()
-        if (res.ok && json.data) {
-          setLinks((prev) => prev.map((l) => (l.id === editing.id ? json.data : l)))
-          toast.success(t('links.link_edited'))
-          setDialogOpen(false)
-        } else {
-          toast.error(json.error || t('links.edit_error'))
-        }
-      } else {
-        const res = await fetch('/api/links', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: formName.trim(),
-            session_id: formSessionId,
-            pre_filled_message: formMessage.trim(),
-            tracking_source: formSource.trim(),
-            slug: formSlug.trim(),
-            ai_agent_id: formAgentId || null,
-            team_ids: formTeamIds,
-          }),
-        })
-        const json = await res.json()
-        if (res.ok && json.data) {
-          setLinks((prev) => [json.data, ...prev])
-          toast.success(t('links.link_created'))
-          setDialogOpen(false)
-        } else {
-          toast.error(json.error || t('links.create_error'))
-        }
+      const payload = {
+        name: formName.trim(),
+        slug: formSlug.trim() || undefined,
+        session_id: formSession,
+        agent_id: formAgent || null,
+        welcome_message: formMessage.trim() || null,
+        is_active: formActive,
       }
-    } catch {
-      toast.error(t('common.network_error'))
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  function openDeleteDialog(link: WALinkWithSession) {
-    setLinkToDelete(link)
-    setDeleteDialogOpen(true)
-  }
-
-  async function handleConfirmDelete() {
-    if (!linkToDelete) return
-    setDeleting(linkToDelete.id)
-    try {
-      const res = await fetch(`/api/links/${linkToDelete.id}`, { method: 'DELETE' })
-      if (res.ok) {
-        setLinks((prev) => prev.filter((l) => l.id !== linkToDelete.id))
-        toast.success(t('links.link_deleted'))
-        setDeleteDialogOpen(false)
-        setLinkToDelete(null)
-      } else {
-        const json = await res.json()
-        toast.error(json.error || t('links.delete_error'))
-      }
-    } catch {
-      toast.error(t('common.network_error'))
-    } finally {
-      setDeleting(null)
-    }
-  }
-
-  async function handleToggleActive(link: WALinkWithSession) {
-    try {
-      const res = await fetch(`/api/links/${link.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_active: !link.is_active }),
-      })
+      const res = editing
+        ? await fetch(`/api/links/${editing.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+        : await fetch('/api/links', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
       const json = await res.json()
-      if (res.ok && json.data) {
-        setLinks((prev) => prev.map((l) => (l.id === link.id ? json.data : l)))
-        toast.success(json.data.is_active ? t('links.link_enabled') : t('links.link_disabled'))
-      }
-    } catch {
-      toast.error(t('common.network_error'))
-    }
-  }
-
-  async function handleResetClicks(link: WALinkWithSession) {
-    setResetting(link.id)
-    try {
-      const res = await fetch(`/api/links/${link.id}/reset-clicks`, { method: 'POST' })
       if (res.ok) {
-        setLinks((prev) => prev.map((l) => (l.id === link.id ? { ...l, click_count: 0 } : l)))
-        toast.success(t('links.clicks_reset'))
+        toast.success(editing ? 'Portail mis à jour' : 'Portail créé')
+        fetchAll()
+        setDialogOpen(false)
       } else {
-        const json = await res.json()
-        toast.error(json.error || t('common.network_error'))
+        toast.error(json.error || 'Erreur')
       }
-    } catch {
-      toast.error(t('common.network_error'))
-    } finally {
-      setResetting(null)
+    } catch { toast.error('Erreur réseau') }
+    finally { setSaving(false) }
+  }
+
+  async function handleToggle(link: WALink) {
+    const res = await fetch(`/api/links/${link.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ is_active: !link.is_active }),
+    })
+    if (res.ok) {
+      setLinks(prev => prev.map(l => l.id === link.id ? { ...l, is_active: !l.is_active } : l))
     }
   }
 
-  function getPublicUrl(slug: string) {
-    const base = typeof window !== 'undefined' ? window.location.origin : ''
-    return `${base}/api/wa/${slug}`
-  }
-
-  function getDirectWaUrl(link: WALinkWithSession) {
-    const phone = link.whatsapp_sessions?.phone_number
-    if (!phone) return null
-    let url = `https://wa.me/${phone}`
-    if (link.pre_filled_message) {
-      url += `?text=${encodeURIComponent(link.pre_filled_message)}`
+  async function handleDelete() {
+    if (!deleteId) return
+    setDeleting(true)
+    const res = await fetch(`/api/links/${deleteId}`, { method: 'DELETE' })
+    if (res.ok) {
+      setLinks(prev => prev.filter(l => l.id !== deleteId))
+      toast.success('Portail supprimé')
     }
-    return url
+    setDeleting(false); setDeleteId(null)
   }
 
-  function copyLink(slug: string) {
-    navigator.clipboard.writeText(getPublicUrl(slug))
-    toast.success(t('links.link_copied'))
+  async function handleResetClicks(linkId: string) {
+    await fetch(`/api/links/${linkId}/reset-clicks`, { method: 'POST' })
+    setLinks(prev => prev.map(l => l.id === linkId ? { ...l, click_count: 0 } : l))
+    toast.success('Compteur réinitialisé')
   }
 
-  function copyDirectLink(link: WALinkWithSession) {
-    const url = getDirectWaUrl(link)
-    if (url) {
-      navigator.clipboard.writeText(url)
-      toast.success(t('links.wame_copied'))
-    }
+  function copyToClipboard(text: string) {
+    navigator.clipboard.writeText(text)
+    toast.success('Lien copié !')
+  }
+
+  function downloadQr(linkId: string, name: string) {
+    const url = qrUrls[linkId]
+    if (!url) return
+    const a = document.createElement('a')
+    a.href = url; a.download = `qr-${name}.png`; a.click()
   }
 
   if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
+    return <div className="flex h-96 items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
   }
 
   return (
-    <div className="p-4 sm:p-6">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div data-tour="links-header">
-          <h1 className="text-xl sm:text-2xl font-bold">{t('links.title')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t('links.description')}
-          </p>
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="border-b px-6 py-4 flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold flex items-center gap-2">
+            <Link2 className="h-5 w-5 text-primary" />
+            Portails WhatsApp
+          </h1>
+          <p className="text-sm text-muted-foreground mt-0.5">{links.length} portail{links.length !== 1 ? 's' : ''}</p>
         </div>
-        <Button data-tour="new-link-btn" onClick={openCreateDialog} disabled={sessions.length === 0} className="w-full sm:w-auto">
+        <Button onClick={openCreate}>
           <Plus className="mr-2 h-4 w-4" />
-          {t('links.new_link')}
+          Nouveau portail
         </Button>
       </div>
 
-      {sessions.length === 0 && (
-        <Card className="mb-4">
-          <CardContent className="py-4">
-            <p className="text-sm text-muted-foreground">
-              {t('links.no_sessions')}
-            </p>
-          </CardContent>
-        </Card>
-      )}
+      {/* Grille */}
+      <div className="flex-1 overflow-y-auto p-6">
+        {links.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-64 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-muted mb-4">
+              <Link2 className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <h3 className="text-lg font-semibold">Aucun portail encore</h3>
+            <p className="text-sm text-muted-foreground mt-1 max-w-sm">Créez un portail pour générer un lien WhatsApp avec QR code que vous pouvez partager.</p>
+            <Button className="mt-4" onClick={openCreate}>
+              <Plus className="mr-2 h-4 w-4" /> Créer mon premier portail
+            </Button>
+          </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {links.map(link => (
+              <PortailCard
+                key={link.id}
+                link={link}
+                qrUrl={qrUrls[link.id]}
+                linkUrl={getLinkUrl(link)}
+                waUrl={getWaUrl(link)}
+                onEdit={() => openEdit(link)}
+                onToggle={() => handleToggle(link)}
+                onDelete={() => setDeleteId(link.id)}
+                onCopy={() => copyToClipboard(getLinkUrl(link))}
+                onDownloadQr={() => downloadQr(link.id, link.slug || link.id)}
+                onResetClicks={() => handleResetClicks(link.id)}
+              />
+            ))}
+          </div>
+        )}
+      </div>
 
-      {links.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Link2 className="mb-4 h-12 w-12 text-muted-foreground" />
-            <h3 className="text-lg font-medium">{t('links.no_links')}</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {t('links.no_links_desc')}
-            </p>
-            {sessions.length > 0 && (
-              <Button className="mt-4" onClick={openCreateDialog}>
-                <Plus className="mr-2 h-4 w-4" />
-                {t('links.create_link')}
-              </Button>
-            )}
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {links.map((link) => {
-            const session = link.whatsapp_sessions
-            const phone = session?.phone_number
-            const isDeleting = deleting === link.id
-
-            return (
-              <Card key={link.id} className={!link.is_active ? 'opacity-60' : ''}>
-                <CardHeader className="flex flex-col gap-2 space-y-0 pb-2 sm:flex-row sm:items-center sm:justify-between">
-                  <CardTitle className="text-sm font-medium truncate">
-                    {link.name}
-                  </CardTitle>
-                  <Badge variant={link.is_active ? 'default' : 'secondary'} className="w-fit">
-                    {link.is_active ? t('common.active') : t('common.inactive')}
-                  </Badge>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 flex-wrap text-xs text-muted-foreground">
-                      <span>{session ? getSessionDisplayName({ display_name: session.display_name, phone_number: session.phone_number, instance_name: session.instance_name }) : t('links.unknown_session')}</span>
-                      {(link.team_ids?.length || link.team_id) && (
-                        <>
-                          {(link.team_ids || (link.team_id ? [link.team_id] : [])).map(tid => (
-                            <Badge key={tid} variant="outline" className="gap-1 text-xs font-normal">
-                              <Users className="h-3 w-3" />
-                              {teams.find(tm => tm.id === tid)?.name || t('common.team')}
-                            </Badge>
-                          ))}
-                        </>
-                      )}
-                    </div>
-
-                    {link.pre_filled_message && (
-                      <p className="text-xs text-muted-foreground truncate">
-                        {t('links.message_label')} {link.pre_filled_message}
-                      </p>
-                    )}
-
-                    {link.tracking_source && (
-                      <p className="text-xs text-muted-foreground">
-                        {t('links.source_label')} {link.tracking_source}
-                      </p>
-                    )}
-
-                    {link.ai_agent_id && (
-                      <div className="flex items-center gap-1">
-                        <Badge variant="outline" className="text-xs text-violet-600 border-violet-300">
-                          <Bot className="mr-1 h-3 w-3" />
-                          {agents.find((a) => a.id === link.ai_agent_id)?.name || t('links.agent_label')}
-                        </Badge>
-                      </div>
-                    )}
-
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <div className="flex items-center gap-1">
-                        <MousePointerClick className="h-3 w-3" />
-                        {t('links.clicks', { count: String(link.click_count) })}
-                      </div>
-                      {link.click_count > 0 && (
-                        <button
-                          onClick={() => handleResetClicks(link)}
-                          disabled={resetting === link.id}
-                          className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-                          title={t('links.reset_clicks')}
-                        >
-                          {resetting === link.id ? (
-                            <Loader2 className="h-3 w-3 animate-spin" />
-                          ) : (
-                            <RotateCcw className="h-3 w-3" />
-                          )}
-                          {t('links.reset')}
-                        </button>
-                      )}
-                    </div>
-
-                    {link.slug && (
-                      <code className="block text-xs bg-muted px-2 py-0.5 rounded truncate">
-                        /api/wa/{link.slug}
-                      </code>
-                    )}
-
-                    {phone && (
-                      <code className="block text-xs bg-green-50 dark:bg-green-950 px-2 py-0.5 rounded truncate text-green-700 dark:text-green-300">
-                        wa.me/{phone}
-                      </code>
-                    )}
-                  </div>
-
-                  <div className="mt-4 flex flex-wrap items-center gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => copyLink(link.slug!)}
-                      disabled={!link.slug}
-                      title={t('links.copy_tracking')}
-                    >
-                      <Copy className="mr-1 h-3 w-3" />
-                      {t('links.tracking')}
-                    </Button>
-                    {phone && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => copyDirectLink(link)}
-                        className="border-green-300 text-green-700 hover:bg-green-50 dark:border-green-700 dark:text-green-400 dark:hover:bg-green-950"
-                        title={t('links.copy_wame')}
-                      >
-                        <Copy className="mr-1 h-3 w-3" />
-                        {t('links.wame')}
-                      </Button>
-                    )}
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => window.open(getPublicUrl(link.slug!), '_blank')}
-                      disabled={!link.slug || !link.is_active}
-                    >
-                      <ExternalLink className="mr-1 h-3 w-3" />
-                      {t('common.test')}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => openEditDialog(link)}
-                    >
-                      <Pencil className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-destructive hover:text-destructive"
-                      onClick={() => openDeleteDialog(link)}
-                      disabled={isDeleting}
-                    >
-                      {isDeleting ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-3 w-3" />
-                      )}
-                    </Button>
-                    <div className="ml-auto">
-                      <Switch
-                        checked={link.is_active}
-                        onCheckedChange={() => handleToggleActive(link)}
-                      />
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
-      )}
-
-      {/* Create/Edit Dialog */}
+      {/* Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{editing ? t('links.edit_title') : t('links.new_title')}</DialogTitle>
-            <DialogDescription>
-              {editing
-                ? t('links.edit_desc')
-                : t('links.new_desc')}
-            </DialogDescription>
+            <DialogTitle>{editing ? 'Modifier le portail' : 'Nouveau portail'}</DialogTitle>
+            <DialogDescription>Créez un lien WhatsApp avec QR code intégré.</DialogDescription>
           </DialogHeader>
-
           <div className="space-y-4 py-2">
-            <MultiTeamSelect
-              teams={teams}
-              selectedTeamIds={formTeamIds}
-              onTeamIdsChange={setFormTeamIds}
-              label={t('common.teams')}
-              description={t('links.teams_desc')}
-              emptyDescription={t('links.teams_empty')}
-            />
-
-            <div className="space-y-2">
-              <Label htmlFor="link-name">{t('links.name_label')}</Label>
-              <Input
-                id="link-name"
-                placeholder={t('links.name_placeholder')}
-                value={formName}
-                onChange={(e) => setFormName(e.target.value)}
-              />
+            <div className="space-y-1.5">
+              <Label>Nom <span className="text-destructive">*</span></Label>
+              <Input value={formName} onChange={e => setFormName(e.target.value)} placeholder="Ex: Lien vitrine" />
             </div>
-
-            {!editing && (
-              <div className="space-y-2">
-                <Label htmlFor="link-session">{t('links.session_label')}</Label>
-                <Select value={formSessionId} onValueChange={setFormSessionId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder={t('links.session_placeholder')} />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {sessions.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>
-                        {getSessionDisplayName({ display_name: s.display_name, phone_number: s.phone_number, instance_name: s.instance_name })}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label htmlFor="link-message">{t('links.prefill_message')}</Label>
-              <Textarea
-                id="link-message"
-                placeholder={t('links.prefill_placeholder')}
-                value={formMessage}
-                onChange={(e) => setFormMessage(e.target.value)}
-                rows={3}
-              />
+            <div className="space-y-1.5">
+              <Label>Session WhatsApp <span className="text-destructive">*</span></Label>
+              <select className="w-full rounded-md border bg-background px-3 py-2 text-sm" value={formSession} onChange={e => setFormSession(e.target.value)}>
+                <option value="">Choisir une session...</option>
+                {sessions.map(s => <option key={s.id} value={s.id}>{s.display_name || s.instance_name} ({s.phone_number})</option>)}
+              </select>
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="link-source">{t('links.tracking_source')}</Label>
-              <Input
-                id="link-source"
-                placeholder={t('links.tracking_placeholder')}
-                value={formSource}
-                onChange={(e) => setFormSource(e.target.value)}
-              />
+            <div className="space-y-1.5">
+              <Label>Agent IA (optionnel)</Label>
+              <select className="w-full rounded-md border bg-background px-3 py-2 text-sm" value={formAgent} onChange={e => setFormAgent(e.target.value)}>
+                <option value="">Sans agent</option>
+                {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+              </select>
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="link-slug">{t('links.slug_label')}</Label>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground whitespace-nowrap">/api/wa/</span>
-                <Input
-                  id="link-slug"
-                  placeholder={t('links.slug_placeholder')}
-                  value={formSlug}
-                  onChange={(e) => setFormSlug(e.target.value.replace(/[^a-z0-9-]/gi, '').toLowerCase())}
-                />
-              </div>
+            <div className="space-y-1.5">
+              <Label>Message d&apos;accueil (optionnel)</Label>
+              <Textarea value={formMessage} onChange={e => setFormMessage(e.target.value)} placeholder="Bonjour, je suis intéressé par..." className="resize-none min-h-[80px]" />
             </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="link-agent">{t('links.agent_label')}</Label>
-              <Select value={formAgentId || 'none'} onValueChange={(val) => setFormAgentId(val === 'none' ? '' : val)}>
-                <SelectTrigger>
-                  <SelectValue placeholder={t('common.no_agent')} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">{t('common.no_agent')}</SelectItem>
-                  {agents.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>
-                      <Bot className="mr-1 inline h-3 w-3" />
-                      {a.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                {t('links.agent_help')}
-              </p>
+            <div className="space-y-1.5">
+              <Label>Slug personnalisé (optionnel)</Label>
+              <Input value={formSlug} onChange={e => setFormSlug(e.target.value.toLowerCase().replace(/\s+/g, '-'))} placeholder="mon-lien-perso" className="font-mono" />
             </div>
-
-            <Button
-              onClick={handleSave}
-              disabled={saving || !formName.trim() || (!editing && !formSessionId)}
-              className="w-full"
-            >
-              {saving ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Link2 className="mr-2 h-4 w-4" />
-              )}
-              {editing ? t('common.save') : t('links.create_btn')}
+            <div className="flex items-center gap-3">
+              <Switch checked={formActive} onCheckedChange={setFormActive} />
+              <Label>Portail actif</Label>
+            </div>
+            <Button onClick={handleSave} disabled={saving || !formName.trim() || !formSession} className="w-full">
+              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              {editing ? 'Mettre à jour' : 'Créer le portail'}
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* Confirm Delete Dialog */}
       <ConfirmDeleteDialog
-        open={deleteDialogOpen}
-        onOpenChange={(open) => {
-          setDeleteDialogOpen(open)
-          if (!open) setLinkToDelete(null)
-        }}
-        onConfirm={handleConfirmDelete}
-        title={t('links.delete_title')}
-        description={t('links.delete_desc', { name: linkToDelete?.name || '' })}
-        loading={deleting === linkToDelete?.id}
+        open={!!deleteId}
+        onOpenChange={o => { if (!o) setDeleteId(null) }}
+        onConfirm={handleDelete}
+        title="Supprimer le portail"
+        description="Ce portail et son QR code ne fonctionneront plus."
+        loading={deleting}
       />
+    </div>
+  )
+}
+
+// ─── Card Portail ──────────────────────────────────────────────────────────────
+
+function PortailCard({ link, qrUrl, linkUrl, waUrl, onEdit, onToggle, onDelete, onCopy, onDownloadQr, onResetClicks }: {
+  link: LinkWithExtras
+  qrUrl?: string
+  linkUrl: string
+  waUrl: string | null
+  onEdit: () => void
+  onToggle: () => void
+  onDelete: () => void
+  onCopy: () => void
+  onDownloadQr: () => void
+  onResetClicks: () => void
+}) {
+  return (
+    <div className={cn('rounded-2xl border bg-card p-5 flex flex-col gap-4 hover:shadow-md transition-all', !link.is_active && 'opacity-60')}>
+      {/* QR Code + nom */}
+      <div className="flex items-start gap-4">
+        {qrUrl ? (
+          <img src={qrUrl} alt="QR" className="h-20 w-20 rounded-xl border flex-shrink-0" />
+        ) : (
+          <div className="h-20 w-20 flex-shrink-0 flex items-center justify-center rounded-xl bg-muted border">
+            <QrCode className="h-8 w-8 text-muted-foreground/40" />
+          </div>
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-sm truncate">{link.name}</p>
+          <p className="text-[10px] font-mono text-muted-foreground truncate mt-0.5">/{link.slug}</p>
+          {link.agent && (
+            <span className="mt-1.5 flex items-center gap-1 text-[10px] text-primary">
+              <Bot className="h-2.5 w-2.5" />{link.agent.name}
+            </span>
+          )}
+          {link.session && (
+            <p className="text-[10px] text-muted-foreground mt-0.5">📱 {link.session.phone_number}</p>
+          )}
+        </div>
+      </div>
+
+      {/* Stats */}
+      <div className="flex items-center gap-4 rounded-xl bg-muted/50 px-3 py-2">
+        <div className="flex items-center gap-1.5 text-xs">
+          <MousePointerClick className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="font-semibold">{link.click_count ?? 0}</span>
+          <span className="text-muted-foreground">clics</span>
+        </div>
+        <div className={cn('ml-auto flex items-center gap-1.5 text-[11px] font-medium', link.is_active ? 'text-emerald-500' : 'text-muted-foreground')}>
+          <span className="h-1.5 w-1.5 rounded-full bg-current" />
+          {link.is_active ? 'Actif' : 'Inactif'}
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="grid grid-cols-2 gap-2">
+        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onCopy}>
+          <Copy className="mr-1.5 h-3 w-3" /> Copier lien
+        </Button>
+        <Button size="sm" variant="outline" className="h-8 text-xs" onClick={onDownloadQr} disabled={!qrUrl}>
+          <QrCode className="mr-1.5 h-3 w-3" /> QR Code
+        </Button>
+        {waUrl && (
+          <a href={waUrl} target="_blank" rel="noreferrer" className="col-span-2">
+            <Button size="sm" variant="secondary" className="h-8 text-xs w-full">
+              <ExternalLink className="mr-1.5 h-3 w-3" /> Ouvrir WhatsApp
+            </Button>
+          </a>
+        )}
+      </div>
+
+      {/* Actions secondaires */}
+      <div className="flex gap-1 border-t pt-2">
+        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={onEdit}>
+          <Pencil className="mr-1 h-3 w-3" /> Modifier
+        </Button>
+        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={onToggle}>
+          {link.is_active ? 'Désactiver' : 'Activer'}
+        </Button>
+        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={onResetClicks} title="Remettre le compteur à 0">
+          <RotateCcw className="h-3 w-3" />
+        </Button>
+        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-destructive hover:text-destructive ml-auto" onClick={onDelete}>
+          <Trash2 className="h-3 w-3" />
+        </Button>
+      </div>
     </div>
   )
 }

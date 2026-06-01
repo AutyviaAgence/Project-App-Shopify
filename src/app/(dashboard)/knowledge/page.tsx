@@ -1,253 +1,198 @@
 'use client'
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import type { KnowledgeDocument, AIAgent, Team } from '@/types/database'
+import type { KnowledgeDocument, AIAgent } from '@/types/database'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+import { Badge } from '@/components/ui/badge'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { toast } from 'sonner'
-import {
-  Plus,
-  FileText,
-  Upload,
-  Trash2,
-  Pencil,
-  Loader2,
-  BookOpen,
-  RefreshCw,
-  Bot,
-  Check,
-  Download,
-  Eye,
-  Users,
-  Image as ImageIcon,
-  Tag,
-} from 'lucide-react'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
-import { MultiTeamSelect } from '@/components/multi-team-select'
-import { useTranslation } from '@/i18n/context'
+import {
+  Plus, FileText, Upload, Trash2, Loader2, BookOpen,
+  RefreshCw, Bot, Eye, Image as ImageIcon, Tag, Search,
+  File, CheckCircle, XCircle, Clock,
+} from 'lucide-react'
+import { cn } from '@/lib/utils'
 
-type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
 type DocWithTeamIds = KnowledgeDocument & { team_ids?: string[] }
-
 type KnowledgeImage = {
-  id: string
-  ref: string
-  filename: string
-  mime_type: string
-  storage_path: string
-  agent_id: string | null
-  created_at: string
+  id: string; ref: string; filename: string; mime_type: string
+  storage_path: string; agent_id: string | null; created_at: string
+}
+type LibraryItem =
+  | { kind: 'doc'; data: DocWithTeamIds }
+  | { kind: 'image'; data: KnowledgeImage }
+
+const STATUS_CONFIG = {
+  ready: { label: 'Prêt', icon: CheckCircle, color: 'text-emerald-500' },
+  processing: { label: 'En cours d\'analyse...', icon: Loader2, color: 'text-blue-500' },
+  pending: { label: 'En attente...', icon: Clock, color: 'text-yellow-500' },
+  error: { label: 'Erreur', icon: XCircle, color: 'text-destructive' },
 }
 
-export default function KnowledgePage() {
-  const { t } = useTranslation()
-  const [pageTab, setPageTab] = useState<'documents' | 'images'>('documents')
+export default function LibraryPage() {
   const [documents, setDocuments] = useState<DocWithTeamIds[]>([])
-  const [agents, setAgents] = useState<AIAgent[]>([])
-  const [teams, setTeams] = useState<TeamWithRole[]>([])
-  const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
-  const [deleting, setDeleting] = useState<string | null>(null)
-
-  // Images state
   const [images, setImages] = useState<KnowledgeImage[]>([])
-  const [imagesLoading, setImagesLoading] = useState(false)
-  const [imageDialogOpen, setImageDialogOpen] = useState(false)
-  const [imageFile, setImageFile] = useState<File | null>(null)
-  const [imageRef, setImageRef] = useState('')
-  const [imageAgentId, setImageAgentId] = useState('')
-  const [imageSaving, setImageSaving] = useState(false)
-  const [imagePreviewUrls, setImagePreviewUrls] = useState<Record<string, string>>({})
-  const [imageEditingAgentId, setImageEditingAgentId] = useState<string | null>(null)
-  const [imageAgentSaving, setImageAgentSaving] = useState<string | null>(null)
-  const imageInputRef = useRef<HTMLInputElement>(null)
+  const [agents, setAgents] = useState<AIAgent[]>([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [filter, setFilter] = useState<'all' | 'docs' | 'images'>('all')
 
-  // Create/Edit dialog
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [editing, setEditing] = useState<DocWithTeamIds | null>(null)
-  const [formTab, setFormTab] = useState<string>('text')
-  const [formTeamIds, setFormTeamIds] = useState<string[]>([])
-  const [formName, setFormName] = useState('')
-  const [formDescription, setFormDescription] = useState('')
-  const [formTextContent, setFormTextContent] = useState('')
-  const [formFile, setFormFile] = useState<File | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  // Dialog état doc
+  const [docDialogOpen, setDocDialogOpen] = useState(false)
+  const [docName, setDocName] = useState('')
+  const [docDescription, setDocDescription] = useState('')
+  const [docText, setDocText] = useState('')
+  const [docFile, setDocFile] = useState<File | null>(null)
+  const [docTab, setDocTab] = useState<'text' | 'file'>('text')
+  const [docSaving, setDocSaving] = useState(false)
+  const docFileRef = useRef<HTMLInputElement>(null)
 
-  // Agent association dialog
-  const [agentDialogOpen, setAgentDialogOpen] = useState(false)
-  const [selectedDoc, setSelectedDoc] = useState<KnowledgeDocument | null>(null)
-  const [docAgentIds, setDocAgentIds] = useState<string[]>([])
-  const [savingAgents, setSavingAgents] = useState(false)
+  // Dialog état image
+  const [imgDialogOpen, setImgDialogOpen] = useState(false)
+  const [imgFile, setImgFile] = useState<File | null>(null)
+  const [imgRef, setImgRef] = useState('')
+  const [imgAgentId, setImgAgentId] = useState('')
+  const [imgSaving, setImgSaving] = useState(false)
+  const [imgPreviewUrls, setImgPreviewUrls] = useState<Record<string, string>>({})
+  const [imgEditingAgent, setImgEditingAgent] = useState<string | null>(null)
+  const [imgAgentSaving, setImgAgentSaving] = useState<string | null>(null)
+  const imgFileRef = useRef<HTMLInputElement>(null)
 
-  // View document dialog
-  const [viewDialogOpen, setViewDialogOpen] = useState(false)
-  const [viewDoc, setViewDoc] = useState<{ name: string; content: string } | null>(null)
-  const [viewLoading, setViewLoading] = useState(false)
+  // Delete
+  const [deleteTarget, setDeleteTarget] = useState<{ kind: 'doc' | 'image'; id: string; name: string } | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
-  // Delete confirmation dialog
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
-  const [docToDelete, setDocToDelete] = useState<KnowledgeDocument | null>(null)
+  // Assign agents dialog
+  const [assignDocId, setAssignDocId] = useState<string | null>(null)
+  const [assignAgentIds, setAssignAgentIds] = useState<string[]>([])
+  const [assignSaving, setAssignSaving] = useState(false)
 
-  // Polling ref
-  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
-
-  function statusBadge(status: string) {
-    switch (status) {
-      case 'ready':
-        return <Badge className="bg-green-600 text-white">{t('knowledge.ready')}</Badge>
-      case 'processing':
-        return (
-          <Badge className="bg-blue-600 text-white">
-            <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-            {t('knowledge.processing')}
-          </Badge>
-        )
-      case 'pending':
-        return <Badge variant="secondary">{t('knowledge.pending')}</Badge>
-      case 'error':
-        return <Badge variant="destructive">{t('knowledge.error')}</Badge>
-      default:
-        return <Badge variant="secondary">{status}</Badge>
-    }
-  }
-
-  function typeBadge(docType: string) {
-    return docType === 'pdf' ? (
-      <Badge variant="outline" className="text-xs">
-        <Upload className="mr-1 h-3 w-3" />
-        {t('knowledge.pdf')}
-      </Badge>
-    ) : (
-      <Badge variant="outline" className="text-xs">
-        <FileText className="mr-1 h-3 w-3" />
-        {t('knowledge.text')}
-      </Badge>
-    )
-  }
-
-  const fetchDocuments = useCallback(async () => {
+  const fetchAll = useCallback(async () => {
+    setLoading(true)
     try {
-      const res = await fetch('/api/knowledge')
-      const json = await res.json()
-      if (res.ok && json.data) {
-        setDocuments(json.data)
-      }
-    } catch {
-      toast.error(t('knowledge.load_error'))
+      const [docsRes, imgsRes, agentsRes] = await Promise.all([
+        fetch('/api/knowledge'),
+        fetch('/api/knowledge-images'),
+        fetch('/api/agents'),
+      ])
+      const [docsJson, imgsJson, agentsJson] = await Promise.all([
+        docsRes.json(), imgsRes.json(), agentsRes.json(),
+      ])
+      setDocuments(docsJson.data || [])
+      setImages(imgsJson.data || [])
+      setAgents(agentsJson.data || [])
     } finally {
       setLoading(false)
     }
-  }, [t])
+  }, [])
 
-  const fetchAgents = useCallback(async () => {
+  useEffect(() => { fetchAll() }, [fetchAll])
+
+  // Polling docs en processing
+  useEffect(() => {
+    const hasProcessing = documents.some(d => d.status === 'processing' || d.status === 'pending')
+    if (!hasProcessing) return
+    const t = setInterval(async () => {
+      const res = await fetch('/api/knowledge')
+      const json = await res.json()
+      if (res.ok) setDocuments(json.data || [])
+    }, 5000)
+    return () => clearInterval(t)
+  }, [documents])
+
+  // Items fusionnés + filtrage
+  const allItems: LibraryItem[] = [
+    ...documents.map(d => ({ kind: 'doc' as const, data: d })),
+    ...images.map(i => ({ kind: 'image' as const, data: i })),
+  ].filter(item => {
+    if (filter === 'docs' && item.kind !== 'doc') return false
+    if (filter === 'images' && item.kind !== 'image') return false
+    const name = item.kind === 'doc' ? item.data.name : item.data.filename
+    return search === '' || name.toLowerCase().includes(search.toLowerCase())
+  }).sort((a, b) => {
+    const aDate = a.kind === 'doc' ? a.data.created_at : a.data.created_at
+    const bDate = b.kind === 'doc' ? b.data.created_at : b.data.created_at
+    return new Date(bDate).getTime() - new Date(aDate).getTime()
+  })
+
+  // ─── Handlers docs ────────────────────────────────────────────────────────
+
+  async function handleSaveDoc() {
+    if (!docName.trim()) return
+    setDocSaving(true)
     try {
-      const res = await fetch('/api/agents')
+      let body: FormData | string
+      let headers: Record<string, string> = {}
+      if (docTab === 'file' && docFile) {
+        const form = new FormData()
+        form.append('name', docName.trim())
+        form.append('description', docDescription.trim())
+        form.append('file', docFile)
+        body = form
+      } else {
+        body = JSON.stringify({ name: docName.trim(), description: docDescription.trim(), content: docText.trim() })
+        headers = { 'Content-Type': 'application/json' }
+      }
+      const res = await fetch('/api/knowledge', { method: 'POST', headers, body })
       const json = await res.json()
       if (res.ok && json.data) {
-        setAgents(json.data)
+        setDocuments(prev => [json.data, ...prev])
+        toast.success('Document ajouté')
+        setDocDialogOpen(false)
+        setDocName(''); setDocDescription(''); setDocText(''); setDocFile(null)
+      } else {
+        toast.error(json.error || 'Erreur')
       }
-    } catch {
-      // silently fail
-    }
-  }, [])
+    } catch { toast.error('Erreur réseau') }
+    finally { setDocSaving(false) }
+  }
 
-  const fetchTeams = useCallback(async () => {
-    try {
-      const res = await fetch('/api/teams')
-      const json = await res.json()
-      if (res.ok && json.data) {
-        setTeams(json.data.filter((tm: TeamWithRole) => tm.my_role === 'owner' || tm.my_role === 'admin'))
-      }
-    } catch {
-      // Silently ignore
-    }
-  }, [])
+  async function handleReprocess(docId: string) {
+    await fetch(`/api/knowledge/${docId}/reprocess`, { method: 'POST' })
+    fetchAll()
+    toast.success('Retraitement lancé')
+  }
 
-  const fetchImages = useCallback(async () => {
-    setImagesLoading(true)
-    try {
-      const res = await fetch('/api/knowledge-images')
-      const json = await res.json()
-      if (res.ok && json.data) setImages(json.data)
-    } catch { /* ignore */ } finally {
-      setImagesLoading(false)
-    }
-  }, [])
+  // ─── Handlers images ──────────────────────────────────────────────────────
 
-  async function loadImagePreview(img: KnowledgeImage): Promise<string | null> {
-    if (imagePreviewUrls[img.id]) return imagePreviewUrls[img.id]
+  async function loadImgPreview(img: KnowledgeImage): Promise<string | null> {
+    if (imgPreviewUrls[img.id]) return imgPreviewUrls[img.id]
     try {
       const res = await fetch(`/api/knowledge-images/${img.id}`)
       const json = await res.json()
       if (res.ok && json.url) {
-        setImagePreviewUrls(prev => ({ ...prev, [img.id]: json.url }))
-        return json.url as string
+        setImgPreviewUrls(prev => ({ ...prev, [img.id]: json.url }))
+        return json.url
       }
     } catch { /* ignore */ }
     return null
   }
 
-  async function handleImageUpload() {
-    if (!imageFile || !imageRef.trim()) {
-      toast.error('Fichier et référence requis')
-      return
-    }
-    setImageSaving(true)
+  async function handleSaveImg() {
+    if (!imgFile || !imgRef.trim()) return
+    setImgSaving(true)
     try {
       const form = new FormData()
-      form.append('file', imageFile)
-      form.append('ref', imageRef.trim())
-      if (imageAgentId) form.append('agent_id', imageAgentId)
+      form.append('file', imgFile)
+      form.append('ref', imgRef.trim())
+      if (imgAgentId) form.append('agent_id', imgAgentId)
       const res = await fetch('/api/knowledge-images', { method: 'POST', body: form })
       const json = await res.json()
       if (res.ok && json.data) {
         setImages(prev => [json.data, ...prev.filter(i => i.id !== json.data.id)])
         toast.success('Image ajoutée')
-        setImageDialogOpen(false)
-        setImageFile(null)
-        setImageRef('')
-        setImageAgentId('')
-        if (imageInputRef.current) imageInputRef.current.value = ''
-      } else {
-        toast.error(json.error || 'Erreur upload')
-      }
-    } catch {
-      toast.error('Erreur réseau')
-    } finally {
-      setImageSaving(false)
-    }
+        setImgDialogOpen(false); setImgFile(null); setImgRef(''); setImgAgentId('')
+      } else { toast.error(json.error || 'Erreur upload') }
+    } catch { toast.error('Erreur réseau') }
+    finally { setImgSaving(false) }
   }
 
-  async function handleDeleteImage(id: string) {
-    try {
-      const res = await fetch(`/api/knowledge-images?id=${id}`, { method: 'DELETE' })
-      if (res.ok) {
-        setImages(prev => prev.filter(i => i.id !== id))
-        setImagePreviewUrls(prev => { const n = { ...prev }; delete n[id]; return n })
-        toast.success('Image supprimée')
-      } else {
-        const json = await res.json()
-        toast.error(json.error || 'Erreur suppression')
-      }
-    } catch {
-      toast.error('Erreur réseau')
-    }
-  }
-
-  async function handleUpdateImageAgent(id: string, agentId: string | null) {
-    setImageAgentSaving(id)
+  async function handleUpdateImgAgent(id: string, agentId: string | null) {
+    setImgAgentSaving(id)
     try {
       const res = await fetch('/api/knowledge-images', {
         method: 'PATCH',
@@ -255,956 +200,415 @@ export default function KnowledgePage() {
         body: JSON.stringify({ id, agent_id: agentId }),
       })
       const json = await res.json()
-      if (res.ok && json.data) {
-        setImages(prev => prev.map(i => i.id === id ? { ...i, agent_id: agentId } : i))
-        setImageEditingAgentId(null)
-        toast.success('Agent mis à jour')
-      } else {
-        toast.error(json.error || 'Erreur')
-      }
-    } catch {
-      toast.error('Erreur réseau')
-    } finally {
-      setImageAgentSaving(null)
-    }
-  }
-
-  useEffect(() => {
-    fetchDocuments()
-    fetchAgents()
-    fetchTeams()
-    fetchImages()
-  }, [fetchDocuments, fetchAgents, fetchTeams, fetchImages])
-
-  // Polling quand des documents sont en processing/pending
-  useEffect(() => {
-    const hasProcessing = documents.some(
-      (d) => d.status === 'processing' || d.status === 'pending'
-    )
-
-    if (hasProcessing && !pollingRef.current) {
-      pollingRef.current = setInterval(() => {
-        fetchDocuments()
-      }, 5000)
-    } else if (!hasProcessing && pollingRef.current) {
-      clearInterval(pollingRef.current)
-      pollingRef.current = null
-    }
-
-    return () => {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current)
-        pollingRef.current = null
-      }
-    }
-  }, [documents, fetchDocuments])
-
-  function openCreateDialog() {
-    setEditing(null)
-    setFormTab('text')
-    setFormTeamIds([])
-    setFormName('')
-    setFormDescription('')
-    setFormTextContent('')
-    setFormFile(null)
-    if (fileInputRef.current) fileInputRef.current.value = ''
-    setDialogOpen(true)
-  }
-
-  function openEditDialog(doc: DocWithTeamIds) {
-    setEditing(doc)
-    setFormTab(doc.doc_type)
-    setFormTeamIds(doc.team_ids || (doc.team_id ? [doc.team_id] : []))
-    setFormName(doc.name)
-    setFormDescription(doc.description || '')
-    setFormTextContent(doc.text_content || '')
-    setFormFile(null)
-    setDialogOpen(true)
-  }
-
-  async function handleSave() {
-    if (!formName.trim()) {
-      toast.error(t('knowledge.name_required'))
-      return
-    }
-
-    setSaving(true)
-    try {
-      if (editing) {
-        const body: Record<string, unknown> = {
-          name: formName.trim(),
-          description: formDescription.trim(),
-          team_ids: formTeamIds,
-        }
-        if (editing.doc_type === 'text') {
-          body.text_content = formTextContent.trim()
-        }
-
-        const res = await fetch(`/api/knowledge/${editing.id}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body),
-        })
-        const json = await res.json()
-        if (res.ok && json.data) {
-          setDocuments((prev) =>
-            prev.map((d) => (d.id === editing.id ? json.data : d))
-          )
-          toast.success(t('knowledge.doc_edited'))
-          setDialogOpen(false)
-        } else {
-          toast.error(json.error || t('knowledge.doc_edit_error'))
-        }
-      } else {
-        if (formTab === 'pdf') {
-          if (!formFile) {
-            toast.error(t('knowledge.pdf_required'))
-            setSaving(false)
-            return
-          }
-          const formData = new FormData()
-          formData.append('file', formFile)
-          formData.append('name', formName.trim())
-          formData.append('description', formDescription.trim())
-          if (formTeamIds.length > 0) {
-            formData.append('team_ids', JSON.stringify(formTeamIds))
-          }
-
-          const res = await fetch('/api/knowledge', {
-            method: 'POST',
-            body: formData,
-          })
-          const json = await res.json()
-          if (res.ok && json.data) {
-            setDocuments((prev) => [json.data, ...prev])
-            toast.success(t('knowledge.pdf_uploaded'))
-            setDialogOpen(false)
-          } else {
-            toast.error(json.error || t('knowledge.upload_error'))
-          }
-        } else {
-          if (!formTextContent.trim()) {
-            toast.error(t('knowledge.content_required'))
-            setSaving(false)
-            return
-          }
-          const res = await fetch('/api/knowledge', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              name: formName.trim(),
-              description: formDescription.trim(),
-              text_content: formTextContent.trim(),
-              team_ids: formTeamIds,
-            }),
-          })
-          const json = await res.json()
-          if (res.ok && json.data) {
-            setDocuments((prev) => [json.data, ...prev])
-            toast.success(t('knowledge.doc_created'))
-            setDialogOpen(false)
-          } else {
-            toast.error(json.error || t('knowledge.create_error'))
-          }
-        }
-      }
-    } catch {
-      toast.error(t('common.network_error'))
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  function openDeleteDialog(doc: KnowledgeDocument) {
-    setDocToDelete(doc)
-    setDeleteDialogOpen(true)
-  }
-
-  async function handleConfirmDelete() {
-    if (!docToDelete) return
-    setDeleting(docToDelete.id)
-    try {
-      const res = await fetch(`/api/knowledge/${docToDelete.id}`, { method: 'DELETE' })
       if (res.ok) {
-        setDocuments((prev) => prev.filter((d) => d.id !== docToDelete.id))
-        toast.success(t('knowledge.doc_deleted'))
-        setDeleteDialogOpen(false)
-        setDocToDelete(null)
-      } else {
-        const json = await res.json()
-        toast.error(json.error || t('knowledge.doc_delete_error'))
-      }
-    } catch {
-      toast.error(t('common.network_error'))
-    } finally {
-      setDeleting(null)
-    }
+        setImages(prev => prev.map(i => i.id === id ? { ...i, agent_id: agentId } : i))
+        setImgEditingAgent(null)
+        toast.success('Agent mis à jour')
+      } else { toast.error(json.error || 'Erreur') }
+    } catch { toast.error('Erreur réseau') }
+    finally { setImgAgentSaving(null) }
   }
 
-  async function handleReprocess(id: string) {
+  // ─── Assign agents ────────────────────────────────────────────────────────
+
+  function openAssign(doc: DocWithTeamIds) {
+    setAssignDocId(doc.id)
+    setAssignAgentIds(doc.team_ids || [])
+  }
+
+  async function handleSaveAssign() {
+    if (!assignDocId) return
+    setAssignSaving(true)
     try {
-      const res = await fetch(`/api/knowledge/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reprocess: true }),
-      })
-      const json = await res.json()
-      if (res.ok && json.data) {
-        setDocuments((prev) =>
-          prev.map((d) => (d.id === id ? json.data : d))
-        )
-        toast.success(t('knowledge.reprocess_started'))
-      } else {
-        toast.error(json.error || t('common.error'))
-      }
-    } catch {
-      toast.error(t('common.network_error'))
-    }
-  }
-
-  async function openAgentDialog(doc: KnowledgeDocument) {
-    setSelectedDoc(doc)
-    setAgentDialogOpen(true)
-
-    try {
-      const res = await fetch(`/api/knowledge/${doc.id}/agents`)
-      const json = await res.json()
-      if (res.ok && json.data) {
-        setDocAgentIds(json.data)
-      }
-    } catch {
-      setDocAgentIds([])
-    }
-  }
-
-  function toggleAgentId(agentId: string) {
-    setDocAgentIds((prev) =>
-      prev.includes(agentId)
-        ? prev.filter((id) => id !== agentId)
-        : [...prev, agentId]
-    )
-  }
-
-  async function handleSaveAgents() {
-    if (!selectedDoc) return
-
-    setSavingAgents(true)
-    try {
-      const res = await fetch(`/api/knowledge/${selectedDoc.id}/agents`, {
+      const res = await fetch(`/api/knowledge/${assignDocId}/agents`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agent_ids: docAgentIds }),
+        body: JSON.stringify({ agent_ids: assignAgentIds }),
       })
       if (res.ok) {
-        toast.success(t('knowledge.agents_updated'))
-        setAgentDialogOpen(false)
-      } else {
-        const json = await res.json()
-        toast.error(json.error || t('common.error'))
+        setDocuments(prev => prev.map(d => d.id === assignDocId ? { ...d, team_ids: assignAgentIds } : d))
+        toast.success('Agents mis à jour')
+        setAssignDocId(null)
       }
-    } catch {
-      toast.error(t('common.network_error'))
-    } finally {
-      setSavingAgents(false)
-    }
+    } catch { toast.error('Erreur réseau') }
+    finally { setAssignSaving(false) }
   }
 
-  async function handleDownload(doc: KnowledgeDocument) {
+  // ─── Delete ───────────────────────────────────────────────────────────────
+
+  async function handleDelete() {
+    if (!deleteTarget) return
+    setDeleting(true)
     try {
-      const res = await fetch(`/api/knowledge/${doc.id}/download`)
-      const json = await res.json()
-      if (!res.ok) {
-        toast.error(json.error || t('knowledge.download_error'))
-        return
-      }
-
-      if (json.type === 'pdf') {
-        window.open(json.url, '_blank')
-      } else {
-        const blob = new Blob([json.content], { type: 'text/plain;charset=utf-8' })
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `${json.name || 'document'}.txt`
-        a.click()
-        URL.revokeObjectURL(url)
-      }
-    } catch {
-      toast.error(t('common.network_error'))
-    }
-  }
-
-  async function handleView(doc: KnowledgeDocument) {
-    if (doc.doc_type === 'pdf') {
-      handleDownload(doc)
-      return
-    }
-
-    setViewLoading(true)
-    setViewDialogOpen(true)
-    setViewDoc(null)
-    try {
-      const res = await fetch(`/api/knowledge/${doc.id}/download`)
-      const json = await res.json()
+      const url = deleteTarget.kind === 'doc'
+        ? `/api/knowledge/${deleteTarget.id}`
+        : `/api/knowledge-images?id=${deleteTarget.id}`
+      const res = await fetch(url, { method: 'DELETE' })
       if (res.ok) {
-        setViewDoc({ name: json.name, content: json.content })
-      } else {
-        toast.error(json.error || t('knowledge.load_error'))
-        setViewDialogOpen(false)
+        if (deleteTarget.kind === 'doc') setDocuments(prev => prev.filter(d => d.id !== deleteTarget.id))
+        else setImages(prev => prev.filter(i => i.id !== deleteTarget.id))
+        toast.success('Supprimé')
       }
-    } catch {
-      toast.error(t('common.network_error'))
-      setViewDialogOpen(false)
-    } finally {
-      setViewLoading(false)
-    }
+    } catch { toast.error('Erreur') }
+    finally { setDeleting(false); setDeleteTarget(null) }
   }
 
-  if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
-  }
+  // ─── Rendu ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="p-4 sm:p-6">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div data-tour="knowledge-header">
-          <h1 className="text-xl sm:text-2xl font-bold">{t('knowledge.title')}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {t('knowledge.description')}
+    <div className="flex flex-col h-full">
+      {/* Header */}
+      <div className="border-b px-6 py-4 flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-bold flex items-center gap-2">
+            <BookOpen className="h-5 w-5 text-primary" />
+            Bibliothèque
+          </h1>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {documents.length} document{documents.length !== 1 ? 's' : ''} · {images.length} image{images.length !== 1 ? 's' : ''}
           </p>
         </div>
-        {pageTab === 'documents' ? (
-          <Button data-tour="upload-btn" onClick={openCreateDialog} className="w-full sm:w-auto">
-            <Plus className="mr-2 h-4 w-4" />
-            {t('knowledge.new_document')}
+        <div className="flex gap-2">
+          <Button variant="outline" size="sm" onClick={() => setImgDialogOpen(true)}>
+            <ImageIcon className="mr-2 h-4 w-4" />
+            Image IA
           </Button>
+          <Button size="sm" onClick={() => setDocDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Document
+          </Button>
+        </div>
+      </div>
+
+      {/* Filtres & recherche */}
+      <div className="px-6 py-3 border-b flex items-center gap-3">
+        <div className="relative flex-1 max-w-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Rechercher..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            className="pl-9 h-8"
+          />
+        </div>
+        <div className="flex gap-1">
+          {(['all', 'docs', 'images'] as const).map(f => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={cn(
+                'rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
+                filter === f ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
+              )}
+            >
+              {f === 'all' ? 'Tout' : f === 'docs' ? '📄 Documents' : '🖼️ Images IA'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Grille */}
+      <div className="flex-1 overflow-y-auto p-6">
+        {loading ? (
+          <div className="flex items-center justify-center h-64">
+            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          </div>
+        ) : allItems.length === 0 ? (
+          <div className="flex flex-col items-center justify-center h-64 text-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-muted mb-4">
+              <BookOpen className="h-8 w-8 text-muted-foreground" />
+            </div>
+            <h3 className="text-lg font-semibold">Bibliothèque vide</h3>
+            <p className="text-sm text-muted-foreground mt-1 max-w-sm">
+              Ajoutez des documents ou des images pour enrichir vos agents IA.
+            </p>
+          </div>
         ) : (
-          <Button onClick={() => setImageDialogOpen(true)} className="w-full sm:w-auto">
-            <Plus className="mr-2 h-4 w-4" />
-            Ajouter une image
-          </Button>
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {allItems.map(item => item.kind === 'doc' ? (
+              <DocCard
+                key={item.data.id}
+                doc={item.data}
+                agents={agents}
+                onReprocess={() => handleReprocess(item.data.id)}
+                onAssign={() => openAssign(item.data)}
+                onDelete={() => setDeleteTarget({ kind: 'doc', id: item.data.id, name: item.data.name })}
+              />
+            ) : (
+              <ImageCard
+                key={item.data.id}
+                img={item.data}
+                agents={agents}
+                previewUrl={imgPreviewUrls[item.data.id]}
+                editingAgent={imgEditingAgent === item.data.id}
+                agentSaving={imgAgentSaving === item.data.id}
+                onLoadPreview={async () => {
+                  const url = await loadImgPreview(item.data)
+                  if (url) window.open(url, '_blank')
+                }}
+                onEditAgent={() => setImgEditingAgent(item.data.id)}
+                onUpdateAgent={(agentId) => handleUpdateImgAgent(item.data.id, agentId)}
+                onCancelEditAgent={() => setImgEditingAgent(null)}
+                onDelete={() => setDeleteTarget({ kind: 'image', id: item.data.id, name: item.data.filename })}
+              />
+            ))}
+          </div>
         )}
       </div>
 
-      <Tabs value={pageTab} onValueChange={(v) => setPageTab(v as 'documents' | 'images')} className="mb-6">
-        <TabsList>
-          <TabsTrigger value="documents">
-            <FileText className="mr-2 h-4 w-4" />
-            Documents
-          </TabsTrigger>
-          <TabsTrigger value="images">
-            <ImageIcon className="mr-2 h-4 w-4" />
-            Images IA
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="images" className="mt-4">
-          {imagesLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : images.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12">
-                <ImageIcon className="mb-4 h-12 w-12 text-muted-foreground" />
-                <h3 className="text-lg font-medium">Aucune image</h3>
-                <p className="mt-1 text-sm text-muted-foreground text-center max-w-sm">
-                  Ajoutez des images avec une référence. L&apos;agent IA pourra les envoyer en écrivant <code className="bg-muted px-1 rounded">[IMAGE:ma-ref]</code> dans sa réponse.
-                </p>
-                <Button className="mt-4" onClick={() => setImageDialogOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Ajouter une image
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {images.map((img) => (
-                <Card key={img.id} className="overflow-hidden">
-                  <div
-                    className="relative h-36 bg-muted cursor-pointer"
-                    onClick={() => loadImagePreview(img)}
-                  >
-                    {imagePreviewUrls[img.id] ? (
-                      <img
-                        src={imagePreviewUrls[img.id]}
-                        alt={img.ref}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : (
-                      <div className="flex h-full items-center justify-center">
-                        <ImageIcon className="h-10 w-10 text-muted-foreground/40" />
-                      </div>
-                    )}
-                  </div>
-                  <CardContent className="p-3 space-y-2">
-                    <div className="flex items-center gap-1.5">
-                      <Tag className="h-3 w-3 shrink-0 text-muted-foreground" />
-                      <code className="text-xs font-mono font-medium truncate">{img.ref}</code>
-                    </div>
-                    <p className="text-[11px] text-muted-foreground truncate">{img.filename}</p>
-                    {/* Agent associé — éditable inline */}
-                    {imageEditingAgentId === img.id ? (
-                      <div className="flex items-center gap-1">
-                        <select
-                          className="flex-1 rounded border bg-background px-2 py-1 text-[11px]"
-                          defaultValue={img.agent_id || ''}
-                          autoFocus
-                          onChange={(e) => handleUpdateImageAgent(img.id, e.target.value || null)}
-                          onBlur={() => setImageEditingAgentId(null)}
-                          disabled={imageAgentSaving === img.id}
-                        >
-                          <option value="">Tous les agents</option>
-                          {agents.map((a) => (
-                            <option key={a.id} value={a.id}>{a.name}</option>
-                          ))}
-                        </select>
-                        {imageAgentSaving === img.id && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
-                      </div>
-                    ) : (
-                      <button
-                        className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-muted transition-colors w-full text-left"
-                        onClick={() => setImageEditingAgentId(img.id)}
-                        title="Cliquer pour modifier l'agent"
-                      >
-                        <Bot className="h-3 w-3 shrink-0" />
-                        <span className="truncate">
-                          {img.agent_id
-                            ? agents.find(a => a.id === img.agent_id)?.name || 'Agent inconnu'
-                            : 'Tous les agents'}
-                        </span>
-                        <span className="ml-auto text-[10px] opacity-50">modifier</span>
-                      </button>
-                    )}
-                    <div className="flex items-center gap-1 pt-1">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 px-2 text-xs"
-                        onClick={async () => {
-                          const url = await loadImagePreview(img)
-                          if (url) window.open(url, '_blank')
-                        }}
-                      >
-                        <Eye className="mr-1 h-3 w-3" />
-                        Voir
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 px-2 text-xs text-destructive hover:text-destructive"
-                        onClick={() => handleDeleteImage(img.id)}
-                      >
-                        <Trash2 className="mr-1 h-3 w-3" />
-                        Supprimer
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="documents" className="mt-4">
-      {documents.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <BookOpen className="mb-4 h-12 w-12 text-muted-foreground" />
-            <h3 className="text-lg font-medium">{t('knowledge.no_documents')}</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {t('knowledge.no_documents_desc')}
-            </p>
-            <Button className="mt-4" onClick={openCreateDialog}>
-              <Plus className="mr-2 h-4 w-4" />
-              {t('knowledge.add_document')}
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {documents.map((doc) => {
-            const isDeleting = deleting === doc.id
-
-            return (
-              <Card key={doc.id}>
-                <CardHeader className="flex flex-col gap-2 space-y-0 pb-2 sm:flex-row sm:items-center sm:justify-between">
-                  <CardTitle className="text-sm font-medium truncate">
-                    <FileText className="mr-1 inline h-4 w-4" />
-                    {doc.name}
-                  </CardTitle>
-                  {statusBadge(doc.status)}
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2">
-                    {doc.description && (
-                      <p className="text-xs text-muted-foreground truncate">
-                        {doc.description}
-                      </p>
-                    )}
-
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {typeBadge(doc.doc_type)}
-                      {(doc.team_ids?.length || doc.team_id) && (
-                        <>
-                          {(doc.team_ids || (doc.team_id ? [doc.team_id] : [])).map(tid => (
-                            <Badge key={tid} variant="outline" className="text-xs">
-                              <Users className="mr-1 h-3 w-3" />
-                              {teams.find((tm) => tm.id === tid)?.name || t('common.team')}
-                            </Badge>
-                          ))}
-                        </>
-                      )}
-                      {doc.status === 'ready' && (
-                        <>
-                          <span className="text-xs text-muted-foreground">
-                            {doc.chunk_count} {t('knowledge.chunks')}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {doc.char_count.toLocaleString()} {t('knowledge.chars')}
-                          </span>
-                        </>
-                      )}
-                    </div>
-
-                    {doc.status === 'error' && doc.error_message && (
-                      <p className="text-xs text-destructive truncate">
-                        {doc.error_message}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="mt-4 flex items-center gap-2 flex-wrap">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleView(doc)}
-                    >
-                      <Eye className="mr-1 h-3 w-3" />
-                      {t('common.view')}
-                    </Button>
-
-                    {doc.doc_type === 'pdf' && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleDownload(doc)}
-                      >
-                        <Download className="mr-1 h-3 w-3" />
-                        {t('common.download')}
-                      </Button>
-                    )}
-
-                    {doc.doc_type === 'text' && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => openEditDialog(doc)}
-                      >
-                        <Pencil className="mr-1 h-3 w-3" />
-                        {t('common.edit')}
-                      </Button>
-                    )}
-
-                    {doc.doc_type === 'pdf' && teams.length > 0 && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => openEditDialog(doc)}
-                      >
-                        <Users className="mr-1 h-3 w-3" />
-                        {t('common.team')}
-                      </Button>
-                    )}
-
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => openAgentDialog(doc)}
-                    >
-                      <Bot className="mr-1 h-3 w-3" />
-                      {t('common.agents')}
-                    </Button>
-
-                    {(doc.status === 'error' || doc.status === 'ready') && (
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        onClick={() => handleReprocess(doc.id)}
-                      >
-                        <RefreshCw className="mr-1 h-3 w-3" />
-                        {t('knowledge.reprocess')}
-                      </Button>
-                    )}
-
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-destructive hover:text-destructive"
-                      onClick={() => openDeleteDialog(doc)}
-                      disabled={isDeleting}
-                    >
-                      {isDeleting ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <Trash2 className="mr-1 h-3 w-3" />
-                      )}
-                      {t('common.delete')}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
-      )}
-        </TabsContent>
-      </Tabs>
-
-      {/* Create/Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+      {/* Dialog nouveau document */}
+      <Dialog open={docDialogOpen} onOpenChange={o => { setDocDialogOpen(o); if (!o) { setDocName(''); setDocDescription(''); setDocText(''); setDocFile(null) } }}>
+        <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>
-              {editing ? t('knowledge.edit_document') : t('knowledge.new_document_title')}
-            </DialogTitle>
-            <DialogDescription>
-              {editing
-                ? t('knowledge.edit_document_desc')
-                : t('knowledge.new_document_desc')}
-            </DialogDescription>
+            <DialogTitle>Ajouter un document</DialogTitle>
+            <DialogDescription>Texte ou fichier (PDF, Word, TXT…)</DialogDescription>
           </DialogHeader>
-
           <div className="space-y-4 py-2">
-            {teams.length > 0 && (
-              <MultiTeamSelect
-                teams={teams}
-                selectedTeamIds={formTeamIds}
-                onTeamIdsChange={setFormTeamIds}
-                label={t('knowledge.teams_label')}
-                description={t('knowledge.teams_desc')}
-                emptyDescription={t('knowledge.teams_empty')}
-              />
-            )}
-
-            {!editing && (
-              <Tabs value={formTab} onValueChange={setFormTab}>
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="text">
-                    <FileText className="mr-2 h-4 w-4" />
-                    {t('knowledge.text')}
-                  </TabsTrigger>
-                  <TabsTrigger value="pdf">
-                    <Upload className="mr-2 h-4 w-4" />
-                    {t('knowledge.pdf')}
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="text" className="space-y-4 mt-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="doc-name-text">{t('knowledge.name_label')}</Label>
-                    <Input
-                      id="doc-name-text"
-                      placeholder={t('knowledge.name_placeholder')}
-                      value={formName}
-                      onChange={(e) => setFormName(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="doc-desc-text">{t('knowledge.description_label')}</Label>
-                    <Input
-                      id="doc-desc-text"
-                      placeholder={t('knowledge.description_placeholder')}
-                      value={formDescription}
-                      onChange={(e) => setFormDescription(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="doc-content">{t('knowledge.content_label')}</Label>
-                    <Textarea
-                      id="doc-content"
-                      placeholder={t('knowledge.content_placeholder')}
-                      value={formTextContent}
-                      onChange={(e) => setFormTextContent(e.target.value)}
-                      rows={12}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      {t('knowledge.content_help')}
-                    </p>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="pdf" className="space-y-4 mt-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="doc-name-pdf">{t('knowledge.name_label')}</Label>
-                    <Input
-                      id="doc-name-pdf"
-                      placeholder={t('knowledge.name_placeholder_new')}
-                      value={formName}
-                      onChange={(e) => setFormName(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="doc-desc-pdf">{t('knowledge.description_label')}</Label>
-                    <Input
-                      id="doc-desc-pdf"
-                      placeholder={t('knowledge.description_placeholder_new')}
-                      value={formDescription}
-                      onChange={(e) => setFormDescription(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="doc-file">{t('knowledge.pdf_label')}</Label>
-                    <Input
-                      ref={fileInputRef}
-                      id="doc-file"
-                      type="file"
-                      accept=".pdf,application/pdf"
-                      onChange={(e) => setFormFile(e.target.files?.[0] || null)}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      {t('knowledge.pdf_help')}
-                    </p>
-                  </div>
-                </TabsContent>
-              </Tabs>
-            )}
-
-            {editing && (
-              <>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-name">{t('knowledge.name_label')}</Label>
-                  <Input
-                    id="edit-name"
-                    value={formName}
-                    onChange={(e) => setFormName(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="edit-desc">{t('knowledge.description_label')}</Label>
-                  <Input
-                    id="edit-desc"
-                    value={formDescription}
-                    onChange={(e) => setFormDescription(e.target.value)}
-                  />
-                </div>
-                {editing.doc_type === 'text' && (
-                  <div className="space-y-2">
-                    <Label htmlFor="edit-content">{t('knowledge.content_label')}</Label>
-                    <Textarea
-                      id="edit-content"
-                      value={formTextContent}
-                      onChange={(e) => setFormTextContent(e.target.value)}
-                      rows={12}
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      {t('knowledge.edit_help')}
-                    </p>
-                  </div>
-                )}
-              </>
-            )}
-
-            <Button
-              onClick={handleSave}
-              disabled={saving || !formName.trim()}
-              className="w-full"
-            >
-              {saving ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <BookOpen className="mr-2 h-4 w-4" />
-              )}
-              {editing ? t('common.save') : t('knowledge.add_btn')}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Agent Association Dialog */}
-      <Dialog open={agentDialogOpen} onOpenChange={setAgentDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{t('knowledge.assign_agents_title')}</DialogTitle>
-            <DialogDescription>
-              {t('knowledge.assign_agents_desc')}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-3 py-2 max-h-[60vh] overflow-y-auto">
-            {agents.length === 0 ? (
-              <p className="text-sm text-muted-foreground text-center py-4">
-                {t('knowledge.no_agents_for_kb')}
-              </p>
+            <div className="space-y-1.5">
+              <Label>Nom <span className="text-destructive">*</span></Label>
+              <Input value={docName} onChange={e => setDocName(e.target.value)} placeholder="Ex: FAQ produits" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Description (optionnel)</Label>
+              <Input value={docDescription} onChange={e => setDocDescription(e.target.value)} placeholder="Brève description..." />
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setDocTab('text')} className={cn('flex-1 rounded-lg border py-2 text-sm font-medium transition-colors', docTab === 'text' ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-muted')}>
+                ✏️ Texte
+              </button>
+              <button onClick={() => setDocTab('file')} className={cn('flex-1 rounded-lg border py-2 text-sm font-medium transition-colors', docTab === 'file' ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-muted')}>
+                📎 Fichier
+              </button>
+            </div>
+            {docTab === 'text' ? (
+              <Textarea value={docText} onChange={e => setDocText(e.target.value)} placeholder="Collez votre contenu ici..." className="min-h-[120px]" />
             ) : (
-              agents.map((agent) => {
-                const isSelected = docAgentIds.includes(agent.id)
-                return (
-                  <button
-                    key={agent.id}
-                    type="button"
-                    className={`w-full flex items-center gap-3 rounded-lg border p-3 text-left transition-colors ${
-                      isSelected
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border hover:bg-muted/50'
-                    }`}
-                    onClick={() => toggleAgentId(agent.id)}
-                  >
-                    <div
-                      className={`flex h-5 w-5 shrink-0 items-center justify-center rounded border ${
-                        isSelected
-                          ? 'border-primary bg-primary text-primary-foreground'
-                          : 'border-muted-foreground'
-                      }`}
-                    >
-                      {isSelected && <Check className="h-3 w-3" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <Bot className="h-4 w-4 shrink-0" />
-                        <span className="text-sm font-medium truncate">{agent.name}</span>
-                        {!agent.is_active && (
-                          <Badge variant="secondary" className="text-xs">{t('common.inactive')}</Badge>
-                        )}
-                      </div>
-                      {agent.description && (
-                        <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
-                          {agent.description}
-                        </p>
-                      )}
-                    </div>
-                  </button>
-                )
-              })
+              <div>
+                <Input ref={docFileRef} type="file" accept=".pdf,.doc,.docx,.txt,.md,.csv" onChange={e => setDocFile(e.target.files?.[0] || null)} />
+                {docFile && <p className="text-xs text-muted-foreground mt-1">{docFile.name}</p>}
+              </div>
             )}
-
-            <Button
-              onClick={handleSaveAgents}
-              disabled={savingAgents}
-              className="w-full mt-2"
-            >
-              {savingAgents ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Check className="mr-2 h-4 w-4" />
-              )}
-              {t('common.save')}
+            <Button onClick={handleSaveDoc} disabled={docSaving || !docName.trim()} className="w-full">
+              {docSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+              Ajouter
             </Button>
           </div>
         </DialogContent>
       </Dialog>
 
-      {/* View Document Dialog (texte) */}
-      <Dialog open={viewDialogOpen} onOpenChange={setViewDialogOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[85vh] flex flex-col">
-          <DialogHeader>
-            <DialogTitle>
-              <FileText className="mr-2 inline h-4 w-4" />
-              {viewDoc?.name || 'Document'}
-            </DialogTitle>
-            <DialogDescription>
-              {t('knowledge.document_content')}
-            </DialogDescription>
-          </DialogHeader>
-
-          {viewLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : viewDoc ? (
-            <div className="flex-1 overflow-y-auto">
-              <pre className="whitespace-pre-wrap break-words rounded-md border bg-muted/50 p-4 text-sm font-mono">
-                {viewDoc.content}
-              </pre>
-            </div>
-          ) : null}
-        </DialogContent>
-      </Dialog>
-
-      {/* Confirm Delete Dialog */}
-      <ConfirmDeleteDialog
-        open={deleteDialogOpen}
-        onOpenChange={(open) => {
-          setDeleteDialogOpen(open)
-          if (!open) setDocToDelete(null)
-        }}
-        onConfirm={handleConfirmDelete}
-        title={t('knowledge.delete_title')}
-        description={t('knowledge.delete_desc', { name: docToDelete?.name || '' })}
-        loading={deleting === docToDelete?.id}
-      />
-
-      {/* Dialog upload image */}
-      <Dialog open={imageDialogOpen} onOpenChange={(open) => {
-        setImageDialogOpen(open)
-        if (!open) { setImageFile(null); setImageRef(''); setImageAgentId('') }
-      }}>
+      {/* Dialog nouvelle image */}
+      <Dialog open={imgDialogOpen} onOpenChange={o => { setImgDialogOpen(o); if (!o) { setImgFile(null); setImgRef(''); setImgAgentId('') } }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Ajouter une image</DialogTitle>
-            <DialogDescription>
-              L&apos;agent IA pourra envoyer cette image en écrivant <code className="bg-muted px-1 rounded text-xs">[IMAGE:votre-ref]</code> dans sa réponse.
-            </DialogDescription>
+            <DialogTitle>Ajouter une image IA</DialogTitle>
+            <DialogDescription>L&apos;agent pourra envoyer cette image via <code className="bg-muted px-1 rounded text-xs">[IMAGE:ref]</code></DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label>Référence <span className="text-destructive">*</span></Label>
-              <Input
-                placeholder="ex: menu-burger, tarif-2024"
-                value={imageRef}
-                onChange={(e) => setImageRef(e.target.value.toLowerCase().replace(/\s+/g, '-'))}
-              />
-              <p className="text-xs text-muted-foreground">Lettres, chiffres, tirets uniquement. Unique par compte.</p>
+              <Input value={imgRef} onChange={e => setImgRef(e.target.value.toLowerCase().replace(/\s+/g, '-'))} placeholder="ex: menu-burger" />
+              <p className="text-[10px] text-muted-foreground">Lettres, chiffres, tirets uniquement.</p>
             </div>
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label>Image <span className="text-destructive">*</span></Label>
-              <Input
-                ref={imageInputRef}
-                type="file"
-                accept="image/jpeg,image/png,image/webp,image/gif"
-                onChange={(e) => setImageFile(e.target.files?.[0] || null)}
-              />
-              <p className="text-xs text-muted-foreground">JPEG, PNG, WebP, GIF — max 5 Mo</p>
+              <Input ref={imgFileRef} type="file" accept="image/jpeg,image/png,image/webp,image/gif" onChange={e => setImgFile(e.target.files?.[0] || null)} />
             </div>
-            {imageFile && (
-              <img
-                src={URL.createObjectURL(imageFile)}
-                alt="preview"
-                className="h-32 w-full rounded-lg object-cover border"
-              />
-            )}
-            <div className="space-y-2">
+            {imgFile && <img src={URL.createObjectURL(imgFile)} alt="preview" className="h-32 w-full rounded-lg object-cover border" />}
+            <div className="space-y-1.5">
               <Label>Agent associé (optionnel)</Label>
-              <select
-                className="w-full rounded-md border bg-background px-3 py-2 text-sm"
-                value={imageAgentId}
-                onChange={(e) => setImageAgentId(e.target.value)}
-              >
+              <select className="w-full rounded-md border bg-background px-3 py-2 text-sm" value={imgAgentId} onChange={e => setImgAgentId(e.target.value)}>
                 <option value="">Tous les agents</option>
-                {agents.map((a) => (
-                  <option key={a.id} value={a.id}>{a.name}</option>
-                ))}
+                {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
               </select>
             </div>
-            <Button
-              onClick={handleImageUpload}
-              disabled={imageSaving || !imageFile || !imageRef.trim()}
-              className="w-full"
-            >
-              {imageSaving ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Upload className="mr-2 h-4 w-4" />
-              )}
-              Uploader l&apos;image
+            <Button onClick={handleSaveImg} disabled={imgSaving || !imgFile || !imgRef.trim()} className="w-full">
+              {imgSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+              Uploader
             </Button>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Dialog assign agents */}
+      <Dialog open={!!assignDocId} onOpenChange={o => { if (!o) setAssignDocId(null) }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Agents liés</DialogTitle>
+            <DialogDescription>Choisissez les agents qui peuvent utiliser ce document</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            {agents.map(a => (
+              <label key={a.id} className="flex items-center gap-3 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={assignAgentIds.includes(a.id)}
+                  onChange={e => setAssignAgentIds(prev => e.target.checked ? [...prev, a.id] : prev.filter(id => id !== a.id))}
+                  className="rounded"
+                />
+                <span className="text-sm">{a.name}</span>
+              </label>
+            ))}
+            <Button onClick={handleSaveAssign} disabled={assignSaving} className="w-full mt-2">
+              {assignSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+              Enregistrer
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <ConfirmDeleteDialog
+        open={!!deleteTarget}
+        onOpenChange={o => { if (!o) setDeleteTarget(null) }}
+        onConfirm={handleDelete}
+        title="Supprimer"
+        description={`Supprimer "${deleteTarget?.name}" ? Cette action est irréversible.`}
+        loading={deleting}
+      />
+    </div>
+  )
+}
+
+// ─── Card Document ─────────────────────────────────────────────────────────────
+
+function DocCard({ doc, agents, onReprocess, onAssign, onDelete }: {
+  doc: DocWithTeamIds
+  agents: AIAgent[]
+  onReprocess: () => void
+  onAssign: () => void
+  onDelete: () => void
+}) {
+  const status = STATUS_CONFIG[doc.status as keyof typeof STATUS_CONFIG] || STATUS_CONFIG.ready
+  const StatusIcon = status.icon
+  const isProcessing = doc.status === 'processing' || doc.status === 'pending'
+  const linkedAgents = agents.filter(a => doc.team_ids?.includes(a.id))
+
+  return (
+    <div className="group rounded-2xl border bg-card p-4 flex flex-col gap-3 hover:shadow-md hover:border-primary/30 transition-all">
+      {/* Icon + nom */}
+      <div className="flex items-start gap-3">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-blue-500/10">
+          <FileText className="h-5 w-5 text-blue-500" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold truncate">{doc.name}</p>
+          {doc.description && <p className="text-[11px] text-muted-foreground truncate mt-0.5">{doc.description}</p>}
+        </div>
+      </div>
+
+      {/* Statut */}
+      <div className={cn('flex items-center gap-1.5 text-[11px] font-medium', status.color)}>
+        <StatusIcon className={cn('h-3 w-3', isProcessing && 'animate-spin')} />
+        {status.label}
+        {doc.status === 'ready' && doc.chunk_count && (
+          <span className="text-muted-foreground font-normal">· {doc.chunk_count} extraits</span>
+        )}
+      </div>
+
+      {/* Agents liés */}
+      {linkedAgents.length > 0 && (
+        <div className="flex flex-wrap gap-1">
+          {linkedAgents.slice(0, 2).map(a => (
+            <span key={a.id} className="flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] text-primary">
+              <Bot className="h-2.5 w-2.5" />{a.name}
+            </span>
+          ))}
+          {linkedAgents.length > 2 && (
+            <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] text-muted-foreground">+{linkedAgents.length - 2}</span>
+          )}
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex gap-1 mt-auto pt-1">
+        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs flex-1" onClick={onAssign}>
+          <Bot className="mr-1 h-3 w-3" />
+          Agents
+        </Button>
+        {doc.status === 'error' && (
+          <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={onReprocess}>
+            <RefreshCw className="h-3 w-3" />
+          </Button>
+        )}
+        <Button size="sm" variant="ghost" className="h-7 px-2 text-xs text-destructive hover:text-destructive" onClick={onDelete}>
+          <Trash2 className="h-3 w-3" />
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+// ─── Card Image ────────────────────────────────────────────────────────────────
+
+function ImageCard({ img, agents, previewUrl, editingAgent, agentSaving, onLoadPreview, onEditAgent, onUpdateAgent, onCancelEditAgent, onDelete }: {
+  img: KnowledgeImage
+  agents: AIAgent[]
+  previewUrl?: string
+  editingAgent: boolean
+  agentSaving: boolean
+  onLoadPreview: () => void
+  onEditAgent: () => void
+  onUpdateAgent: (agentId: string | null) => void
+  onCancelEditAgent: () => void
+  onDelete: () => void
+}) {
+  const linkedAgent = agents.find(a => a.id === img.agent_id)
+
+  return (
+    <div className="group rounded-2xl border bg-card overflow-hidden hover:shadow-md hover:border-primary/30 transition-all">
+      {/* Preview */}
+      <div className="relative h-32 bg-muted cursor-pointer" onClick={onLoadPreview}>
+        {previewUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={previewUrl} alt={img.ref} className="h-full w-full object-cover" />
+        ) : (
+          <div className="flex h-full items-center justify-center">
+            <ImageIcon className="h-10 w-10 text-muted-foreground/40" />
+          </div>
+        )}
+        <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-colors">
+          <Eye className="h-6 w-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
+        </div>
+      </div>
+
+      <div className="p-3 space-y-2">
+        {/* Ref */}
+        <div className="flex items-center gap-1.5">
+          <Tag className="h-3 w-3 text-muted-foreground" />
+          <code className="text-xs font-mono font-medium truncate">{img.ref}</code>
+        </div>
+
+        {/* Agent associé */}
+        {editingAgent ? (
+          <div className="flex items-center gap-1">
+            <select
+              className="flex-1 rounded border bg-background px-2 py-1 text-[11px]"
+              defaultValue={img.agent_id || ''}
+              autoFocus
+              onChange={e => onUpdateAgent(e.target.value || null)}
+              onBlur={onCancelEditAgent}
+              disabled={agentSaving}
+            >
+              <option value="">Tous les agents</option>
+              {agents.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+            {agentSaving && <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />}
+          </div>
+        ) : (
+          <button
+            className="flex w-full items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-muted transition-colors text-left"
+            onClick={onEditAgent}
+          >
+            <Bot className="h-3 w-3 shrink-0" />
+            <span className="truncate">{linkedAgent ? linkedAgent.name : 'Tous les agents'}</span>
+            <span className="ml-auto text-[10px] opacity-50">modifier</span>
+          </button>
+        )}
+
+        {/* Supprimer */}
+        <Button size="sm" variant="ghost" className="h-7 w-full text-xs text-destructive hover:text-destructive" onClick={onDelete}>
+          <Trash2 className="mr-1 h-3 w-3" /> Supprimer
+        </Button>
+      </div>
     </div>
   )
 }

@@ -63,7 +63,7 @@ const BOTTOM_NAV_KEYS = [
 ]
 
 // Pages accessibles même sans abonnement actif
-const ALLOWED_WITHOUT_SUBSCRIPTION = ['/subscription', '/settings', '/admin', '/onboarding', '/welcome']
+const ALLOWED_WITHOUT_SUBSCRIPTION = ['/subscription', '/settings', '/admin', '/onboarding', '/welcome', '/welcome-v2']
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -125,13 +125,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     subscription &&
     !!plan &&
     subscription.isActive &&
-    ((pathname.startsWith('/campaigns') && plan !== 'scale') ||
-     (pathname.startsWith('/lifecycle') && plan === 'starter'))
+    (pathname.startsWith('/lifecycle') && plan === 'starter')
 
-  // Rediriger vers /welcome si pas de plan actif
+  // Rediriger vers /welcome-v2 si pas de plan actif
   useEffect(() => {
     if (shouldRedirectToWelcome) {
-      router.replace('/welcome')
+      router.replace('/welcome-v2')
     }
   }, [shouldRedirectToWelcome, router])
 
