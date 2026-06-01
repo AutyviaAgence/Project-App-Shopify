@@ -49,6 +49,7 @@ const NAV_ITEMS_KEYS = [
   { href: '/conversations', labelKey: 'nav.conversations', icon: MessageSquare },
   { href: '/sessions', labelKey: 'nav.sessions', icon: Smartphone },
   { href: '/studio', labelKey: 'nav.studio', icon: Workflow, label: 'Studio IA' },
+  { href: '/links', labelKey: 'nav.links', icon: Link2 },
   { href: '/tags', labelKey: 'nav.tags', icon: Tag },
   { href: '/lifecycle', labelKey: 'nav.lifecycle', icon: Workflow },
   { href: '/teams', labelKey: 'nav.teams', icon: Users },
@@ -165,7 +166,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [router, t])
 
   const NavLink = ({ item, showLabel = true }: { item: typeof NAV_ITEMS[0]; showLabel?: boolean }) => {
-    const studioAliases = ['/agents', '/knowledge', '/links']
+    const studioAliases = ['/agents', '/knowledge']
     const isActive = pathname === item.href
       || pathname.startsWith(item.href + '/')
       || (item.href === '/studio' && studioAliases.some(p => pathname === p || pathname.startsWith(p + '/')))

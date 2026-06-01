@@ -29,11 +29,13 @@ const TONES = [
 interface AgentsPanelProps {
   agents: AIAgent[]
   selectedAgentId: string | null
+  configAgentId: string | null
   onSelectAgent: (agent: AIAgent) => void
+  onConfigAgent: (agent: AIAgent | null) => void
   onAgentsChange: () => void
 }
 
-export function AgentsPanel({ agents, selectedAgentId, onSelectAgent, onAgentsChange }: AgentsPanelProps) {
+export function AgentsPanel({ agents, selectedAgentId, configAgentId, onSelectAgent, onConfigAgent, onAgentsChange }: AgentsPanelProps) {
   const [search, setSearch] = useState('')
   const [slideOpen, setSlideOpen] = useState(false)
   const [deleteId, setDeleteId] = useState<string | null>(null)
@@ -153,13 +155,14 @@ export function AgentsPanel({ agents, selectedAgentId, onSelectAgent, onAgentsCh
           ) : filtered.map(agent => (
             <div
               key={agent.id}
-              onClick={() => onSelectAgent(agent)}
               className={cn(
                 'group flex items-center gap-2.5 rounded-lg px-2.5 py-2 cursor-pointer transition-all',
                 selectedAgentId === agent.id
                   ? 'bg-primary/10 border border-primary/30'
-                  : 'hover:bg-muted border border-transparent'
+                  : 'hover:bg-muted border border-transparent',
+                configAgentId === agent.id && 'ring-1 ring-primary/50'
               )}
+              onClick={() => onSelectAgent(agent)}
             >
               <div className={cn(
                 'flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-sm',
@@ -174,28 +177,21 @@ export function AgentsPanel({ agents, selectedAgentId, onSelectAgent, onAgentsCh
                   <span className="text-[10px] text-muted-foreground">{agent.is_active ? 'Actif' : 'Inactif'}</span>
                 </div>
               </div>
-              {/* Actions au survol */}
-              <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+              {/* Bouton config + actions au survol */}
+              <div className="flex gap-0.5">
                 <button
-                  onClick={e => handleToggleActive(agent, e)}
-                  className="rounded p-1 hover:bg-muted transition-colors"
-                  title={agent.is_active ? 'Désactiver' : 'Activer'}
+                  onClick={e => { e.stopPropagation(); onConfigAgent(configAgentId === agent.id ? null : agent) }}
+                  className={cn(
+                    'rounded p-1 transition-colors',
+                    configAgentId === agent.id
+                      ? 'bg-primary/20 text-primary'
+                      : 'opacity-0 group-hover:opacity-100 hover:bg-muted text-muted-foreground'
+                  )}
+                  title="Paramètres"
                 >
-                  {agent.is_active
-                    ? <PowerOff className="h-3 w-3 text-muted-foreground" />
-                    : <Power className="h-3 w-3 text-emerald-500" />
-                  }
-                </button>
-                <button
-                  onClick={e => { e.stopPropagation(); setDeleteId(agent.id) }}
-                  className="rounded p-1 hover:bg-destructive/10 transition-colors"
-                >
-                  <Trash2 className="h-3 w-3 text-destructive" />
+                  <ChevronRight className={cn('h-3 w-3 transition-transform', configAgentId === agent.id && 'rotate-180')} />
                 </button>
               </div>
-              {selectedAgentId === agent.id && (
-                <ChevronRight className="h-3 w-3 text-primary shrink-0" />
-              )}
             </div>
           ))}
         </div>

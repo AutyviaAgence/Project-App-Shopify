@@ -3,25 +3,30 @@
 import { useEffect, useState, useCallback } from 'react'
 import { WorkflowCanvas } from '@/components/workflow/WorkflowCanvas'
 import { AgentsPanel } from '@/components/studio/AgentsPanel'
+import { AgentConfigPanel } from '@/components/studio/AgentConfigPanel'
 import { ResourcesPanel } from '@/components/studio/ResourcesPanel'
+import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import type { AIAgent } from '@/types/database'
 import type { WorkflowNode, WorkflowEdge } from '@/lib/workflow/types'
 import { Loader2, Bot, GitBranch, Zap } from 'lucide-react'
+import { toast } from 'sonner'
 
 export default function StudioPage() {
   const [agents, setAgents] = useState<AIAgent[]>([])
   const [selectedAgent, setSelectedAgent] = useState<AIAgent | null>(null)
+  const [configAgent, setConfigAgent] = useState<AIAgent | null>(null)
   const [workflowNodes, setWorkflowNodes] = useState<WorkflowNode[]>([])
   const [workflowEdges, setWorkflowEdges] = useState<WorkflowEdge[]>([])
   const [loadingWorkflow, setLoadingWorkflow] = useState(false)
-  const [workflowKey, setWorkflowKey] = useState(0) // force remount canvas on agent change
+  const [workflowKey, setWorkflowKey] = useState(0)
+  const [deleteId, setDeleteId] = useState<string | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   const fetchAgents = useCallback(async () => {
     const res = await fetch('/api/agents')
     const json = await res.json()
     const list: AIAgent[] = json.data || []
     setAgents(list)
-    // Sélectionner le premier agent par défaut
     if (list.length > 0 && !selectedAgent) {
       selectAgent(list[0])
     }
@@ -44,14 +49,51 @@ export default function StudioPage() {
     }
   }
 
+  async function handleDeleteAgent() {
+    if (!deleteId) return
+    setDeleting(true)
+    await fetch(`/api/agents/${deleteId}`, { method: 'DELETE' })
+    setDeleting(false)
+    setDeleteId(null)
+    if (selectedAgent?.id === deleteId) setSelectedAgent(null)
+    if (configAgent?.id === deleteId) setConfigAgent(null)
+    fetchAgents()
+    toast.success('Agent supprimé')
+  }
+
   return (
     <div className="flex h-full overflow-hidden">
       {/* Panneau gauche — Agents */}
       <AgentsPanel
         agents={agents}
         selectedAgentId={selectedAgent?.id || null}
+        configAgentId={configAgent?.id || null}
         onSelectAgent={selectAgent}
+        onConfigAgent={agent => setConfigAgent(agent)}
         onAgentsChange={fetchAgents}
+      />
+
+      {/* Panneau config agent (si ouvert) */}
+      {configAgent && (
+        <AgentConfigPanel
+          agent={configAgent}
+          onClose={() => setConfigAgent(null)}
+          onUpdate={updated => {
+            setAgents(prev => prev.map(a => a.id === updated.id ? updated : a))
+            setConfigAgent(updated)
+            if (selectedAgent?.id === updated.id) setSelectedAgent(updated)
+          }}
+          onDelete={() => { setDeleteId(configAgent.id) }}
+        />
+      )}
+
+      <ConfirmDeleteDialog
+        open={!!deleteId}
+        onOpenChange={o => { if (!o) setDeleteId(null) }}
+        onConfirm={handleDeleteAgent}
+        title="Supprimer l'agent"
+        description="Le workflow associé sera également supprimé."
+        loading={deleting}
       />
 
       {/* Centre — Canvas workflow */}
