@@ -708,133 +708,119 @@ export default function AgentsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="flex flex-col gap-1.5">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {[...agents].sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0)).map((agent) => {
             const isDeleting = deleting === agent.id
             const typeColor = agent.agent_type === 'qualifier' ? '#0ea5e9' : agent.agent_type === 'relance' ? '#f97316' : '#8b5cf6'
             const typeLabel = agent.agent_type === 'qualifier' ? 'Qualificateur' : agent.agent_type === 'relance' ? t('agents.relance') : 'Conversation'
             const TypeIcon = agent.agent_type === 'qualifier' ? Sparkles : agent.agent_type === 'relance' ? Megaphone : MessageSquare
             const teamNames = (agent.team_ids || (agent.team_id ? [agent.team_id] : [])).map(tid => teams.find(tm => tm.id === tid)?.name).filter(Boolean)
-            const hasStats = !!agent.booking_url
 
             return (
               <div
                 key={agent.id}
                 className={cn(
-                  'group relative flex items-center gap-4 rounded-xl px-4 py-3.5 transition-all duration-150',
-                  'border border-white/[0.05] bg-[#161b22] hover:bg-[#1a2029] hover:border-white/[0.1]',
+                  'group relative flex h-[260px] flex-col overflow-hidden rounded-2xl transition-all duration-200',
+                  'border border-white/[0.06] bg-[#161b22] hover:border-white/[0.14] hover:-translate-y-0.5',
                   !agent.is_active && 'opacity-50',
                 )}
-                style={agent.is_pinned ? { boxShadow: `inset 3px 0 0 ${typeColor}` } : undefined}
+                style={agent.is_pinned ? { boxShadow: `inset 0 0 0 1px ${typeColor}45` } : undefined}
               >
-                {/* Type icon avatar */}
+                {/* Bandeau header coloré */}
                 <div
-                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
-                  style={{ background: `${typeColor}18`, color: typeColor }}
+                  className="relative flex items-start gap-3 px-4 pt-4 pb-3"
+                  style={{ background: `linear-gradient(180deg, ${typeColor}14 0%, transparent 100%)` }}
                 >
-                  <TypeIcon className="h-5 w-5" />
-                </div>
-
-                {/* Name + description + meta */}
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="text-[15px] font-semibold truncate text-white/95 max-w-full">{agent.name}</h3>
-                    <span
-                      className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold shrink-0"
-                      style={{ background: `${typeColor}1a`, color: typeColor }}
-                    >
-                      {typeLabel}
-                    </span>
-                    {agent.is_pinned && <Pin className="h-3 w-3 shrink-0" style={{ color: typeColor }} />}
+                  {/* Avatar icône */}
+                  <div
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+                    style={{ background: `${typeColor}22`, color: typeColor }}
+                  >
+                    <TypeIcon className="h-5 w-5" />
                   </div>
-                  <div className="flex items-center gap-2 mt-1 text-[12px] text-white/45 flex-wrap">
-                    {agent.description && <span className="truncate max-w-[280px]">{agent.description}</span>}
-                    <span className="text-white/20">·</span>
-                    <span className="text-white/55">{agent.model}</span>
-                    {teamNames.length > 0 && (
-                      <>
-                        <span className="text-white/20">·</span>
-                        <span className="inline-flex items-center gap-1"><Users className="h-3 w-3" />{teamNames.join(', ')}</span>
-                      </>
-                    )}
-                    {agent.auto_detect_language && (
-                      <span className="inline-flex items-center gap-1" title={t('agents.multi_lang')}><Languages className="h-3 w-3" /></span>
-                    )}
-                    {agent.escalation_enabled && (
-                      <span className="inline-flex items-center gap-1" title={t('agents.guardrail')}><ShieldAlert className="h-3 w-3" /></span>
-                    )}
-                    {agent.schedule_enabled && (
-                      <span className="inline-flex items-center gap-1" title="Planning"><Clock className="h-3 w-3" />{agent.schedule_start_time}–{agent.schedule_end_time}</span>
-                    )}
-                  </div>
-                </div>
 
-                {/* Booking stats (si applicable) */}
-                {hasStats && (
-                  <div className="hidden lg:flex items-center gap-5 shrink-0 pr-2">
-                    <Stat value={agent.booking_stats?.total_proposals || 0} label={t('agents.proposed')} />
-                    <Stat value={agent.booking_stats?.total_clicks || 0} label={t('dashboard.clicks')} />
-                    {(agent.booking_stats?.total_proposals || 0) > 0 && (
-                      <Stat
-                        value={`${agent.booking_stats?.conversion_rate || 0}%`}
-                        label={t('agents.rate')}
-                        color={
-                          (agent.booking_stats?.conversion_rate || 0) >= 50 ? '#34d399' :
-                          (agent.booking_stats?.conversion_rate || 0) >= 20 ? '#facc15' : undefined
-                        }
-                      />
-                    )}
-                  </div>
-                )}
-
-                {/* Actif status dot */}
-                <div className="hidden sm:flex items-center gap-1.5 shrink-0">
-                  <span className={cn('h-1.5 w-1.5 rounded-full', agent.is_active ? 'bg-emerald-400' : 'bg-white/20')} />
-                  <span className="text-[11px] text-white/40">{agent.is_active ? t('common.active') : t('common.inactive')}</span>
-                </div>
-
-                {/* Actions */}
-                <div className="flex items-center gap-1 shrink-0">
-                  <Link href={`/agents/${agent.id}`}>
-                    <button
-                      className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-semibold transition-all hover:brightness-110"
-                      style={{ background: `${typeColor}26`, color: typeColor, border: `1px solid ${typeColor}33` }}
-                    >
-                      <Bot className="h-3.5 w-3.5" />
-                      <span className="hidden md:inline">Configurer</span>
-                    </button>
-                  </Link>
-
-                  <div className="hidden md:flex items-center gap-0.5">
-                    <ActionBtn onClick={() => { setTestingAgent(agent); setTestChatOpen(true) }} title={t('common.test')}>
-                      <MessageSquare className="h-4 w-4" />
-                    </ActionBtn>
-                    <ActionBtn onClick={() => openEditDialog(agent)} title={t('common.edit')}>
-                      <Pencil className="h-4 w-4" />
-                    </ActionBtn>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold"
+                        style={{ background: `${typeColor}1f`, color: typeColor }}
+                      >
+                        {typeLabel}
+                      </span>
+                      {agent.is_pinned && <Pin className="h-3 w-3 shrink-0" style={{ color: typeColor }} />}
+                    </div>
+                    <h3 className="mt-1 text-[15px] font-semibold truncate text-white/95">{agent.name}</h3>
                   </div>
 
                   <Switch
                     checked={agent.is_active}
                     onCheckedChange={() => handleToggleActive(agent)}
-                    className="mx-1"
+                    className="shrink-0"
                   />
+                </div>
+
+                {/* Corps : description / objectif */}
+                <div className="px-4 flex-1 min-h-0">
+                  <p className="text-[13px] text-white/55 line-clamp-2 leading-relaxed">
+                    {agent.objective || agent.description || agent.system_prompt}
+                  </p>
+
+                  {/* Stats RDV inline */}
+                  {agent.booking_url && (
+                    <div className="mt-2.5 flex items-center gap-4 rounded-lg bg-white/[0.03] px-3 py-1.5 w-fit">
+                      <span className="flex items-center gap-1 text-[11px]">
+                        <CalendarClock className="h-3 w-3 text-blue-400" />
+                        <b className="text-white/90">{agent.booking_stats?.total_proposals || 0}</b>
+                        <span className="text-white/40">{t('agents.proposed')}</span>
+                      </span>
+                      {(agent.booking_stats?.total_proposals || 0) > 0 && (
+                        <span className={cn('text-[11px] font-semibold',
+                          (agent.booking_stats?.conversion_rate || 0) >= 50 ? 'text-emerald-400' :
+                          (agent.booking_stats?.conversion_rate || 0) >= 20 ? 'text-yellow-400' : 'text-white/40'
+                        )}>
+                          {agent.booking_stats?.conversion_rate || 0}%
+                        </span>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* Meta chips (1 ligne, scrollée si déborde) */}
+                <div className="px-4 py-2.5 flex items-center gap-1.5 overflow-hidden">
+                  <MiniChip label={agent.model} accent={typeColor} />
+                  {teamNames[0] && <MiniChip label={teamNames[0] as string} icon={<Users className="h-2.5 w-2.5" />} />}
+                  {agent.auto_detect_language && <MiniChip icon={<Languages className="h-2.5 w-2.5" />} title={t('agents.multi_lang')} />}
+                  {agent.escalation_enabled && <MiniChip icon={<ShieldAlert className="h-2.5 w-2.5" />} title={t('agents.guardrail')} />}
+                  {agent.schedule_enabled && <MiniChip icon={<Clock className="h-2.5 w-2.5" />} title="Planning" />}
+                  {agentKnowledge[agent.id]?.[0] && <MiniChip icon={<Brain className="h-2.5 w-2.5 text-emerald-400" />} label={agentKnowledge[agent.id].length > 1 ? `${agentKnowledge[agent.id].length} KB` : agentKnowledge[agent.id][0].name} />}
+                </div>
+
+                {/* Footer actions */}
+                <div className="flex items-center gap-1 border-t border-white/[0.05] bg-white/[0.015] px-3 py-2.5">
+                  <Link href={`/agents/${agent.id}`} className="flex-1">
+                    <button
+                      className="w-full flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-semibold transition-all hover:brightness-110"
+                      style={{ background: `${typeColor}26`, color: typeColor, border: `1px solid ${typeColor}33` }}
+                    >
+                      <Bot className="h-4 w-4" />
+                      Configurer
+                    </button>
+                  </Link>
+
+                  <ActionBtn onClick={() => { setTestingAgent(agent); setTestChatOpen(true) }} title={t('common.test')}>
+                    <MessageSquare className="h-4 w-4" />
+                  </ActionBtn>
+                  <ActionBtn onClick={() => openEditDialog(agent)} title={t('common.edit')}>
+                    <Pencil className="h-4 w-4" />
+                  </ActionBtn>
 
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <button className="flex h-8 w-8 items-center justify-center rounded-lg text-white/40 hover:bg-white/[0.06] hover:text-white/80 transition-colors">
+                      <button className="flex h-9 w-9 items-center justify-center rounded-lg text-white/40 hover:bg-white/[0.06] hover:text-white/80 transition-colors">
                         <ChevronDown className="h-4 w-4" />
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-44">
-                      <DropdownMenuItem onClick={() => { setTestingAgent(agent); setTestChatOpen(true) }} className="md:hidden">
-                        <MessageSquare className="mr-2 h-3.5 w-3.5" />
-                        {t('common.test')}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => openEditDialog(agent)} className="md:hidden">
-                        <Pencil className="mr-2 h-3.5 w-3.5" />
-                        {t('common.edit')}
-                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => { setToolsAgent(agent); setToolsOpen(true) }}>
                         <Wrench className="mr-2 h-3.5 w-3.5" />
                         {t('tools.title')}
@@ -1469,12 +1455,18 @@ export default function AgentsPage() {
 
 // ─── Card sub-components ──────────────────────────────────────────────────────
 
-function Stat({ value, label, color }: { value: string | number; label: string; color?: string }) {
+function MiniChip({ label, icon, accent, title }: { label?: string; icon?: React.ReactNode; accent?: string; title?: string }) {
   return (
-    <div className="flex flex-col items-center">
-      <span className="text-sm font-semibold leading-none" style={color ? { color } : { color: 'rgba(255,255,255,0.9)' }}>{value}</span>
-      <span className="text-[10px] text-white/35 mt-1">{label}</span>
-    </div>
+    <span
+      title={title}
+      className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-medium whitespace-nowrap"
+      style={accent
+        ? { background: `${accent}1a`, color: accent }
+        : { background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.55)' }}
+    >
+      {icon}
+      {label}
+    </span>
   )
 }
 
