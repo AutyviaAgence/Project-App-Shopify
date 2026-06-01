@@ -41,7 +41,6 @@ import {
   CalendarClock,
   Link2,
   Megaphone,
-  MousePointerClick,
   Sparkles,
   Settings2,
   ChevronDown,
@@ -709,136 +708,137 @@ export default function AgentsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="flex flex-col gap-1.5">
           {[...agents].sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0)).map((agent) => {
             const isDeleting = deleting === agent.id
             const typeColor = agent.agent_type === 'qualifier' ? '#0ea5e9' : agent.agent_type === 'relance' ? '#f97316' : '#8b5cf6'
             const typeLabel = agent.agent_type === 'qualifier' ? 'Qualificateur' : agent.agent_type === 'relance' ? t('agents.relance') : 'Conversation'
+            const TypeIcon = agent.agent_type === 'qualifier' ? Sparkles : agent.agent_type === 'relance' ? Megaphone : MessageSquare
             const teamNames = (agent.team_ids || (agent.team_id ? [agent.team_id] : [])).map(tid => teams.find(tm => tm.id === tid)?.name).filter(Boolean)
+            const hasStats = !!agent.booking_url
 
             return (
               <div
                 key={agent.id}
                 className={cn(
-                  'group relative flex flex-col rounded-2xl overflow-hidden transition-all duration-200',
-                  'border border-white/[0.06] bg-[#161b22]',
-                  'hover:border-white/[0.12] hover:-translate-y-0.5',
+                  'group relative flex items-center gap-4 rounded-xl px-4 py-3.5 transition-all duration-150',
+                  'border border-white/[0.05] bg-[#161b22] hover:bg-[#1a2029] hover:border-white/[0.1]',
                   !agent.is_active && 'opacity-50',
                 )}
-                style={{
-                  boxShadow: agent.is_pinned ? `inset 0 0 0 1px ${typeColor}40` : undefined,
-                }}
+                style={agent.is_pinned ? { boxShadow: `inset 3px 0 0 ${typeColor}` } : undefined}
               >
-                {/* Glow accent top-left */}
+                {/* Type icon avatar */}
                 <div
-                  className="pointer-events-none absolute -top-16 -left-16 h-40 w-40 rounded-full blur-3xl opacity-[0.12]"
-                  style={{ background: typeColor }}
-                />
+                  className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl"
+                  style={{ background: `${typeColor}18`, color: typeColor }}
+                >
+                  <TypeIcon className="h-5 w-5" />
+                </div>
 
-                {/* Header */}
-                <div className="relative flex items-start justify-between gap-3 px-5 pt-5 pb-4">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-2.5">
-                      {/* Type pill */}
-                      <span
-                        className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-semibold tracking-wide"
-                        style={{ background: `${typeColor}1f`, color: typeColor }}
-                      >
-                        {agent.agent_type === 'qualifier' ? <Sparkles className="h-3 w-3" /> : agent.agent_type === 'relance' ? <Megaphone className="h-3 w-3" /> : <MessageSquare className="h-3 w-3" />}
-                        {typeLabel}
-                      </span>
-                      {agent.is_pinned && <Pin className="h-3.5 w-3.5 shrink-0" style={{ color: typeColor }} />}
-                    </div>
-                    <h3 className="text-base font-semibold truncate leading-tight text-white/95">{agent.name}</h3>
-                    {agent.description && (
-                      <p className="text-[13px] text-white/45 mt-1 truncate">{agent.description}</p>
+                {/* Name + description + meta */}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-[15px] font-semibold truncate text-white/95 max-w-full">{agent.name}</h3>
+                    <span
+                      className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-semibold shrink-0"
+                      style={{ background: `${typeColor}1a`, color: typeColor }}
+                    >
+                      {typeLabel}
+                    </span>
+                    {agent.is_pinned && <Pin className="h-3 w-3 shrink-0" style={{ color: typeColor }} />}
+                  </div>
+                  <div className="flex items-center gap-2 mt-1 text-[12px] text-white/45 flex-wrap">
+                    {agent.description && <span className="truncate max-w-[280px]">{agent.description}</span>}
+                    <span className="text-white/20">·</span>
+                    <span className="text-white/55">{agent.model}</span>
+                    {teamNames.length > 0 && (
+                      <>
+                        <span className="text-white/20">·</span>
+                        <span className="inline-flex items-center gap-1"><Users className="h-3 w-3" />{teamNames.join(', ')}</span>
+                      </>
+                    )}
+                    {agent.auto_detect_language && (
+                      <span className="inline-flex items-center gap-1" title={t('agents.multi_lang')}><Languages className="h-3 w-3" /></span>
+                    )}
+                    {agent.escalation_enabled && (
+                      <span className="inline-flex items-center gap-1" title={t('agents.guardrail')}><ShieldAlert className="h-3 w-3" /></span>
+                    )}
+                    {agent.schedule_enabled && (
+                      <span className="inline-flex items-center gap-1" title="Planning"><Clock className="h-3 w-3" />{agent.schedule_start_time}–{agent.schedule_end_time}</span>
                     )}
                   </div>
-
-                  {/* Toggle actif */}
-                  <div className="shrink-0 pt-0.5">
-                    <Switch
-                      checked={agent.is_active}
-                      onCheckedChange={() => handleToggleActive(agent)}
-                    />
-                  </div>
                 </div>
 
-                {/* Objective */}
-                {agent.objective && (
-                  <div className="px-5 pb-4">
-                    <p className="text-[13px] text-white/55 line-clamp-2 leading-relaxed">{agent.objective}</p>
-                  </div>
-                )}
-
-                {/* Meta chips */}
-                <div className="px-5 pb-4 flex flex-wrap gap-1.5 mt-auto">
-                  <Chip label={agent.model} accent={typeColor} />
-                  {teamNames.map((n, i) => <Chip key={i} label={n as string} icon={<Users className="h-2.5 w-2.5" />} />)}
-                  {agent.auto_detect_language && <Chip label={t('agents.multi_lang')} icon={<Languages className="h-2.5 w-2.5" />} />}
-                  {agent.escalation_enabled && <Chip label={t('agents.guardrail')} icon={<ShieldAlert className="h-2.5 w-2.5" />} />}
-                  {agent.schedule_enabled && <Chip label={`${agent.schedule_start_time}–${agent.schedule_end_time}`} icon={<Clock className="h-2.5 w-2.5" />} />}
-                  {(agent.response_delay_min > 0 || agent.response_delay_max > 0) && (
-                    <Chip label={`${agent.response_delay_min}–${agent.response_delay_max}s`} />
-                  )}
-                  {agentKnowledge[agent.id]?.map((kb) => (
-                    <Chip key={kb.id} label={kb.name} icon={<Brain className="h-2.5 w-2.5 text-emerald-400" />} />
-                  ))}
-                </div>
-
-                {/* Booking stats */}
-                {agent.booking_url && (
-                  <div className="mx-5 mb-4 flex items-center gap-4 rounded-xl bg-white/[0.03] border border-white/[0.05] px-3.5 py-2.5">
-                    <div className="flex items-center gap-1.5">
-                      <CalendarClock className="h-3.5 w-3.5 text-blue-400" />
-                      <span className="text-xs font-semibold text-white/90">{agent.booking_stats?.total_proposals || 0}</span>
-                      <span className="text-[10px] text-white/40">{t('agents.proposed')}</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <MousePointerClick className="h-3.5 w-3.5" style={{ color: typeColor }} />
-                      <span className="text-xs font-semibold text-white/90">{agent.booking_stats?.total_clicks || 0}</span>
-                      <span className="text-[10px] text-white/40">{t('dashboard.clicks')}</span>
-                    </div>
+                {/* Booking stats (si applicable) */}
+                {hasStats && (
+                  <div className="hidden lg:flex items-center gap-5 shrink-0 pr-2">
+                    <Stat value={agent.booking_stats?.total_proposals || 0} label={t('agents.proposed')} />
+                    <Stat value={agent.booking_stats?.total_clicks || 0} label={t('dashboard.clicks')} />
                     {(agent.booking_stats?.total_proposals || 0) > 0 && (
-                      <span className={cn('ml-auto text-xs font-semibold',
-                        (agent.booking_stats?.conversion_rate || 0) >= 50 ? 'text-emerald-400' :
-                        (agent.booking_stats?.conversion_rate || 0) >= 20 ? 'text-yellow-400' : 'text-white/40'
-                      )}>
-                        {agent.booking_stats?.conversion_rate || 0}%
-                      </span>
+                      <Stat
+                        value={`${agent.booking_stats?.conversion_rate || 0}%`}
+                        label={t('agents.rate')}
+                        color={
+                          (agent.booking_stats?.conversion_rate || 0) >= 50 ? '#34d399' :
+                          (agent.booking_stats?.conversion_rate || 0) >= 20 ? '#facc15' : undefined
+                        }
+                      />
                     )}
                   </div>
                 )}
 
-                {/* Actions footer */}
-                <div className="flex items-center gap-1 border-t border-white/[0.05] bg-white/[0.015] px-3 py-3">
-                  <Link href={`/agents/${agent.id}`} className="flex-1">
+                {/* Actif status dot */}
+                <div className="hidden sm:flex items-center gap-1.5 shrink-0">
+                  <span className={cn('h-1.5 w-1.5 rounded-full', agent.is_active ? 'bg-emerald-400' : 'bg-white/20')} />
+                  <span className="text-[11px] text-white/40">{agent.is_active ? t('common.active') : t('common.inactive')}</span>
+                </div>
+
+                {/* Actions */}
+                <div className="flex items-center gap-1 shrink-0">
+                  <Link href={`/agents/${agent.id}`}>
                     <button
-                      className="w-full flex items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-[13px] font-semibold transition-all hover:brightness-110"
+                      className="flex items-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-semibold transition-all hover:brightness-110"
                       style={{ background: `${typeColor}26`, color: typeColor, border: `1px solid ${typeColor}33` }}
                     >
-                      <Bot className="h-4 w-4" />
-                      Configurer
+                      <Bot className="h-3.5 w-3.5" />
+                      <span className="hidden md:inline">Configurer</span>
                     </button>
                   </Link>
 
-                  <ActionBtn onClick={() => { setTestingAgent(agent); setTestChatOpen(true) }} title={t('common.test')}>
-                    <MessageSquare className="h-4 w-4" />
-                  </ActionBtn>
-                  <ActionBtn onClick={() => openEditDialog(agent)} title={t('common.edit')}>
-                    <Pencil className="h-4 w-4" />
-                  </ActionBtn>
-                  <ActionBtn onClick={() => { setToolsAgent(agent); setToolsOpen(true) }} title={t('tools.title')}>
-                    <Wrench className="h-4 w-4" />
-                  </ActionBtn>
+                  <div className="hidden md:flex items-center gap-0.5">
+                    <ActionBtn onClick={() => { setTestingAgent(agent); setTestChatOpen(true) }} title={t('common.test')}>
+                      <MessageSquare className="h-4 w-4" />
+                    </ActionBtn>
+                    <ActionBtn onClick={() => openEditDialog(agent)} title={t('common.edit')}>
+                      <Pencil className="h-4 w-4" />
+                    </ActionBtn>
+                  </div>
+
+                  <Switch
+                    checked={agent.is_active}
+                    onCheckedChange={() => handleToggleActive(agent)}
+                    className="mx-1"
+                  />
 
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <button className="flex h-9 w-9 items-center justify-center rounded-lg text-white/40 hover:bg-white/[0.06] hover:text-white/80 transition-colors">
+                      <button className="flex h-8 w-8 items-center justify-center rounded-lg text-white/40 hover:bg-white/[0.06] hover:text-white/80 transition-colors">
                         <ChevronDown className="h-4 w-4" />
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-44">
+                      <DropdownMenuItem onClick={() => { setTestingAgent(agent); setTestChatOpen(true) }} className="md:hidden">
+                        <MessageSquare className="mr-2 h-3.5 w-3.5" />
+                        {t('common.test')}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => openEditDialog(agent)} className="md:hidden">
+                        <Pencil className="mr-2 h-3.5 w-3.5" />
+                        {t('common.edit')}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => { setToolsAgent(agent); setToolsOpen(true) }}>
+                        <Wrench className="mr-2 h-3.5 w-3.5" />
+                        {t('tools.title')}
+                      </DropdownMenuItem>
                       <DropdownMenuItem onClick={() => handleTogglePin(agent)}>
                         {agent.is_pinned ? <PinOff className="mr-2 h-3.5 w-3.5" /> : <Pin className="mr-2 h-3.5 w-3.5" />}
                         {agent.is_pinned ? t('agents.unpin') : t('agents.pin')}
@@ -1469,17 +1469,12 @@ export default function AgentsPage() {
 
 // ─── Card sub-components ──────────────────────────────────────────────────────
 
-function Chip({ label, icon, accent }: { label: string; icon?: React.ReactNode; accent?: string }) {
+function Stat({ value, label, color }: { value: string | number; label: string; color?: string }) {
   return (
-    <span
-      className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium"
-      style={accent
-        ? { background: `${accent}1a`, color: accent }
-        : { background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.55)' }}
-    >
-      {icon}
-      {label}
-    </span>
+    <div className="flex flex-col items-center">
+      <span className="text-sm font-semibold leading-none" style={color ? { color } : { color: 'rgba(255,255,255,0.9)' }}>{value}</span>
+      <span className="text-[10px] text-white/35 mt-1">{label}</span>
+    </div>
   )
 }
 
