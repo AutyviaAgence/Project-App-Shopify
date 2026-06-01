@@ -5,9 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
 import type { AIAgent, WhatsAppSession, WALink, KnowledgeDocument } from '@/types/database'
-import { AgentRobot, getAgentColor } from '@/components/agent-card/AgentRobot'
 import { AgentTestChat } from '@/components/agent-test-chat'
-import { useTenant } from '@/lib/tenant/context'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
@@ -38,7 +36,6 @@ type SectionId = typeof SECTIONS[number]['id']
 export default function AgentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
-  const tenant = useTenant()
 
   const [agent, setAgent]           = useState<AgentWithExtras | null>(null)
   const [loading, setLoading]       = useState(true)
@@ -200,7 +197,6 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   }
 
   const DAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
-  const color = agent ? getAgentColor(agent.description, tenant.primaryColor) : tenant.primaryColor
   const toneLabel = tone === 'professional' ? 'Professionnel' : tone === 'friendly' ? 'Chaleureux' : 'Décontracté'
   const connected = sessions.filter(s => s.status === 'connected')
   const sec = SECTIONS.find(s => s.id === active)!
@@ -230,10 +226,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
         </Link>
 
         <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2">
-          <div className="h-5 w-5 rounded-full overflow-hidden flex items-center justify-center shrink-0" style={{ background: `${color}22` }}>
-            <AgentRobot color={color} size={20} />
-          </div>
-          <span className="text-sm font-semibold truncate max-w-[200px]">{agent.name}</span>
+          <span className="text-sm font-semibold truncate max-w-[240px]">{agent.name}</span>
           <span className={cn(
             'flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium',
             agent.is_active ? 'bg-emerald-500/12 text-emerald-500' : 'bg-muted text-muted-foreground'
@@ -367,23 +360,23 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
           />
 
           {/* Section title bar */}
-          <div className="sticky top-0 z-10 px-8 py-4 bg-background/80 backdrop-blur-xl border-b border-border/40 flex items-center justify-between">
-            <div className="flex items-center gap-3">
+          <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-border/40">
+            <div className="mx-auto w-full max-w-2xl px-8 py-5 flex items-center gap-3.5">
               <div
-                className="flex h-9 w-9 items-center justify-center rounded-xl ring-1"
+                className="flex h-11 w-11 items-center justify-center rounded-xl ring-1"
                 style={{ background: `${sec.accent}1a`, color: sec.accent, borderColor: `${sec.accent}30` }}
               >
-                <sec.icon className="h-4 w-4" />
+                <sec.icon className="h-5 w-5" />
               </div>
               <div>
-                <h1 className="text-[15px] font-semibold">{sectionTitle(active)}</h1>
-                <p className="text-[11px] text-muted-foreground">{sectionSubtitle(active)}</p>
+                <h1 className="text-lg font-semibold tracking-tight">{sectionTitle(active)}</h1>
+                <p className="text-[12px] text-muted-foreground">{sectionSubtitle(active)}</p>
               </div>
             </div>
           </div>
 
           {/* Content */}
-          <div className="relative px-8 py-8 max-w-xl space-y-8">
+          <div className="relative mx-auto w-full max-w-2xl px-8 py-10 space-y-10">
 
             {active === 'identity' && (
               <>
