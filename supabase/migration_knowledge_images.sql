@@ -4,7 +4,7 @@
 CREATE TABLE IF NOT EXISTS public.knowledge_images (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  agent_id uuid REFERENCES public.ai_agents(id) ON DELETE CASCADE,
+  agent_id uuid,
   ref text NOT NULL,
   storage_path text NOT NULL,
   filename text NOT NULL,
@@ -12,6 +12,12 @@ CREATE TABLE IF NOT EXISTS public.knowledge_images (
   created_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (user_id, ref)
 );
+
+-- FK séparée pour éviter les problèmes d'ordre de création
+ALTER TABLE public.knowledge_images
+  ADD CONSTRAINT knowledge_images_agent_id_fkey
+  FOREIGN KEY (agent_id) REFERENCES public.ai_agents(id) ON DELETE SET NULL
+  NOT VALID;
 
 ALTER TABLE public.knowledge_images ENABLE ROW LEVEL SECURITY;
 

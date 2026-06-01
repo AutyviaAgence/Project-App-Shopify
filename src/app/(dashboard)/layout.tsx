@@ -49,7 +49,6 @@ const NAV_ITEMS_KEYS = [
   { href: '/conversations', labelKey: 'nav.conversations', icon: MessageSquare },
   { href: '/sessions', labelKey: 'nav.sessions', icon: Smartphone },
   { href: '/agents', labelKey: 'nav.agents', icon: Bot },
-  { href: '/campaigns', labelKey: 'nav.campaigns', icon: Megaphone },
   { href: '/knowledge', labelKey: 'nav.knowledge', icon: BookOpen },
   { href: '/links', labelKey: 'nav.links', icon: Link2 },
   { href: '/tags', labelKey: 'nav.tags', icon: Tag },
@@ -82,7 +81,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     NAV_ITEMS_KEYS
       .filter(item => {
         if (isAdmin) return true // admin voit tout
-        if (item.href === '/campaigns' && plan !== 'scale') return false
         if (item.href === '/lifecycle' && plan !== 'pro' && plan !== 'scale') return false
         return true
       })
