@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import Link from 'next/link'
 import { useTranslation } from '@/i18n/context'
 import { cn } from '@/lib/utils'
 import type { AIAgent, Team } from '@/types/database'
@@ -861,6 +862,12 @@ export default function AgentsPage() {
                   </div>
 
                   <div className="mt-4 flex flex-wrap items-center gap-2">
+                    <Link href={`/agents/${agent.id}`}>
+                      <Button size="sm" variant="default">
+                        <Bot className="mr-1 h-3 w-3" />
+                        Configurer
+                      </Button>
+                    </Link>
                     <Button
                       size="sm"
                       variant="ghost"
