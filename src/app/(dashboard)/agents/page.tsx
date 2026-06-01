@@ -709,227 +709,156 @@ export default function AgentsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {[...agents].sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0)).map((agent) => {
             const isDeleting = deleting === agent.id
+            const typeColor = agent.agent_type === 'qualifier' ? '#0ea5e9' : agent.agent_type === 'relance' ? '#f97316' : '#8b5cf6'
+            const typeLabel = agent.agent_type === 'qualifier' ? 'Qualificateur' : agent.agent_type === 'relance' ? t('agents.relance') : 'Conversation'
+            const teamNames = (agent.team_ids || (agent.team_id ? [agent.team_id] : [])).map(tid => teams.find(tm => tm.id === tid)?.name).filter(Boolean)
 
             return (
-              <Card key={agent.id} className={cn('overflow-hidden', !agent.is_active && 'opacity-60', agent.is_pinned && 'ring-1 ring-primary/30')}>
-                <CardHeader className="flex flex-col gap-2 space-y-0 pb-2 sm:flex-row sm:items-center sm:justify-between">
-                  <CardTitle className="text-sm font-medium truncate min-w-0 flex items-center gap-1">
-                    <Bot className="mr-1 inline h-4 w-4 shrink-0" />
-                    <span className="truncate">{agent.name}</span>
-                    <button
-                      onClick={() => handleTogglePin(agent)}
-                      className={cn(
-                        'ml-1 shrink-0 rounded p-0.5 transition-colors hover:bg-muted',
-                        agent.is_pinned ? 'text-primary' : 'text-muted-foreground/40 hover:text-muted-foreground'
-                      )}
-                      title={agent.is_pinned ? t('agents.unpin') : t('agents.pin')}
-                    >
-                      {agent.is_pinned ? <Pin className="h-3.5 w-3.5" /> : <PinOff className="h-3.5 w-3.5" />}
-                    </button>
-                  </CardTitle>
-                  <Badge variant={agent.is_active ? 'default' : 'secondary'} className="w-fit">
-                    {agent.is_active ? t('common.active') : t('common.inactive')}
-                  </Badge>
-                </CardHeader>
-                <CardContent className="min-w-0">
-                  <div className="space-y-2 min-w-0">
-                    {agent.description && (
-                      <p className="text-xs text-muted-foreground truncate">
-                        {agent.description}
-                      </p>
-                    )}
+              <div
+                key={agent.id}
+                className={cn(
+                  'group relative flex flex-col rounded-2xl border border-border/60 bg-card overflow-hidden transition-all duration-200',
+                  'hover:border-border hover:shadow-md',
+                  !agent.is_active && 'opacity-55',
+                  agent.is_pinned && 'border-primary/30'
+                )}
+              >
+                {/* Top color strip */}
+                <div className="h-0.5 w-full" style={{ background: typeColor }} />
 
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {agent.agent_type === 'relance' && (
-                        <Badge variant="secondary" className="gap-1 text-xs">
-                          <Megaphone className="h-3 w-3" />
-                          {t('agents.relance')}
-                        </Badge>
-                      )}
-                      {agent.agent_type === 'qualifier' && (
-                        <Badge variant="secondary" className="gap-1 text-xs bg-sky-500/10 text-sky-500">
-                          <Sparkles className="h-3 w-3" />
-                          {t('agents.qualifier')}
-                        </Badge>
-                      )}
-                      {(agent.team_ids?.length || agent.team_id) && (
-                        <>
-                          {(agent.team_ids || (agent.team_id ? [agent.team_id] : [])).map(tid => (
-                            <Badge key={tid} variant="outline" className="gap-1 text-xs font-normal">
-                              <Users className="h-3 w-3" />
-                              {teams.find(tm => tm.id === tid)?.name || t('common.team')}
-                            </Badge>
-                          ))}
-                        </>
-                      )}
-                      <Badge variant="outline" className="text-xs">
-                        {agent.model}
-                      </Badge>
-                      <span className="text-xs text-muted-foreground">
-                        T° {agent.temperature}
+                {/* Header */}
+                <div className="flex items-start justify-between gap-3 px-4 pt-4 pb-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      {/* Type pill */}
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
+                        style={{ background: `${typeColor}18`, color: typeColor }}
+                      >
+                        {agent.agent_type === 'qualifier' ? <Sparkles className="h-2.5 w-2.5" /> : agent.agent_type === 'relance' ? <Megaphone className="h-2.5 w-2.5" /> : <MessageSquare className="h-2.5 w-2.5" />}
+                        {typeLabel}
                       </span>
-                      {(agent.response_delay_min > 0 || agent.response_delay_max > 0) && (
-                        <span className="text-xs text-muted-foreground">
-                          {t('agents.delay')} {agent.response_delay_min}–{agent.response_delay_max}s
-                        </span>
-                      )}
-                      {agent.max_messages_per_conversation != null && (
-                        <span className="text-xs text-muted-foreground">
-                          {t('agents.max')} {agent.max_messages_per_conversation} msg
-                        </span>
-                      )}
-                      {agent.inactivity_timeout_minutes != null && (
-                        <span className="text-xs text-muted-foreground">
-                          {t('agents.timeout')} {agent.inactivity_timeout_minutes}min
-                        </span>
-                      )}
-                      {agent.schedule_enabled && (
-                        <span className="text-xs text-muted-foreground flex items-center gap-0.5">
-                          <Clock className="h-3 w-3" />
-                          {agent.schedule_start_time}–{agent.schedule_end_time}
-                        </span>
-                      )}
-                      {agent.auto_detect_language && (
-                        <span className="text-xs text-muted-foreground flex items-center gap-0.5">
-                          <Languages className="h-3 w-3" />
-                          {t('agents.multi_lang')}
-                        </span>
-                      )}
-                      {agent.escalation_enabled && (
-                        <span className="text-xs text-muted-foreground flex items-center gap-0.5">
-                          <ShieldAlert className="h-3 w-3" />
-                          {t('agents.guardrail')}
-                        </span>
-                      )}
+                      {agent.is_pinned && <Pin className="h-3 w-3 text-primary shrink-0" />}
                     </div>
-
-                    {/* Knowledge bases */}
-                    {agentKnowledge[agent.id]?.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        {agentKnowledge[agent.id].map((kb) => (
-                          <Badge key={kb.id} variant="outline" className="gap-1 text-xs font-normal">
-                            <Brain className="h-3 w-3 text-[#7DC2A5]" />
-                            {kb.name}
-                          </Badge>
-                        ))}
-                      </div>
-                    )}
-
-                    <p className="text-xs text-muted-foreground line-clamp-2 break-words">
-                      {agent.system_prompt}
-                    </p>
-
-                    {agent.objective && (
-                      <p className="text-xs text-muted-foreground truncate break-all">
-                        {t('agents.objective')} : {agent.objective}
-                      </p>
-                    )}
-
-                    {/* Stats des liens de RDV */}
-                    {agent.booking_url && (
-                      <div className="flex flex-wrap items-center gap-3 pt-2 border-t">
-                        <div className="flex items-center gap-1" title="Nombre de fois où l'agent a proposé un lien de RDV">
-                          <CalendarClock className="h-3.5 w-3.5 text-blue-500" />
-                          <span className="text-xs font-medium">
-                            {agent.booking_stats?.total_proposals || 0}
-                          </span>
-                          <span className="text-xs text-muted-foreground">{t('agents.proposed')}</span>
-                        </div>
-                        <div className="flex items-center gap-1" title="Nombre de clics sur les liens de RDV">
-                          <MousePointerClick className="h-3.5 w-3.5 text-primary" />
-                          <span className="text-xs font-medium">
-                            {agent.booking_stats?.total_clicks || 0}
-                          </span>
-                          <span className="text-xs text-muted-foreground">{t('dashboard.clicks')}</span>
-                        </div>
-                        {(agent.booking_stats?.total_proposals || 0) > 0 && (
-                          <div className="flex items-center gap-1" title="Taux de conversion (clics / propositions)">
-                            <span className={`text-xs font-medium ${
-                              (agent.booking_stats?.conversion_rate || 0) >= 50 ? 'text-green-500' :
-                              (agent.booking_stats?.conversion_rate || 0) >= 20 ? 'text-yellow-500' :
-                              'text-muted-foreground'
-                            }`}>
-                              {agent.booking_stats?.conversion_rate || 0}%
-                            </span>
-                            <span className="text-xs text-muted-foreground">{t('agents.rate')}</span>
-                          </div>
-                        )}
-                      </div>
+                    <h3 className="text-[15px] font-semibold truncate leading-tight">{agent.name}</h3>
+                    {agent.description && (
+                      <p className="text-xs text-muted-foreground mt-0.5 truncate">{agent.description}</p>
                     )}
                   </div>
 
-                  <div className="mt-4 flex flex-wrap items-center gap-2">
-                    <Link href={`/agents/${agent.id}`}>
-                      <Button size="sm" variant="default">
-                        <Bot className="mr-1 h-3 w-3" />
-                        Configurer
-                      </Button>
-                    </Link>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => openEditDialog(agent)}
-                    >
-                      <Pencil className="mr-1 h-3 w-3" />
-                      {t('common.edit')}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
-                        setTestingAgent(agent)
-                        setTestChatOpen(true)
-                      }}
-                    >
-                      <MessageSquare className="mr-1 h-3 w-3" />
-                      {t('common.test')}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
-                        setToolsAgent(agent)
-                        setToolsOpen(true)
-                      }}
-                    >
-                      <Wrench className="mr-1 h-3 w-3" />
-                      {t('tools.title')}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => handleDuplicate(agent)}
-                      disabled={saving}
-                    >
-                      <Copy className="mr-1 h-3 w-3" />
-                      {t('common.duplicate')}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="text-destructive hover:text-destructive"
-                      onClick={() => openDeleteDialog(agent)}
-                      disabled={isDeleting}
-                    >
-                      {isDeleting ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <Trash2 className="mr-1 h-3 w-3" />
-                      )}
-                      {t('common.delete')}
-                    </Button>
-                    <div className="ml-auto">
-                      <Switch
-                        checked={agent.is_active}
-                        onCheckedChange={() => handleToggleActive(agent)}
-                      />
-                    </div>
+                  {/* Toggle actif */}
+                  <div className="shrink-0 pt-0.5">
+                    <Switch
+                      checked={agent.is_active}
+                      onCheckedChange={() => handleToggleActive(agent)}
+                    />
                   </div>
-                </CardContent>
-              </Card>
+                </div>
+
+                {/* Objective */}
+                {agent.objective && (
+                  <div className="px-4 pb-3">
+                    <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{agent.objective}</p>
+                  </div>
+                )}
+
+                {/* Meta chips */}
+                <div className="px-4 pb-3 flex flex-wrap gap-1.5">
+                  <Chip label={agent.model} />
+                  {teamNames.map((n, i) => <Chip key={i} label={n as string} icon={<Users className="h-2.5 w-2.5" />} />)}
+                  {agent.auto_detect_language && <Chip label={t('agents.multi_lang')} icon={<Languages className="h-2.5 w-2.5" />} />}
+                  {agent.escalation_enabled && <Chip label={t('agents.guardrail')} icon={<ShieldAlert className="h-2.5 w-2.5" />} />}
+                  {agent.schedule_enabled && <Chip label={`${agent.schedule_start_time}–${agent.schedule_end_time}`} icon={<Clock className="h-2.5 w-2.5" />} />}
+                  {(agent.response_delay_min > 0 || agent.response_delay_max > 0) && (
+                    <Chip label={`${agent.response_delay_min}–${agent.response_delay_max}s`} />
+                  )}
+                </div>
+
+                {/* Knowledge */}
+                {agentKnowledge[agent.id]?.length > 0 && (
+                  <div className="px-4 pb-3 flex flex-wrap gap-1.5">
+                    {agentKnowledge[agent.id].map((kb) => (
+                      <Chip key={kb.id} label={kb.name} icon={<Brain className="h-2.5 w-2.5 text-emerald-500" />} />
+                    ))}
+                  </div>
+                )}
+
+                {/* Booking stats */}
+                {agent.booking_url && (
+                  <div className="mx-4 mb-3 flex items-center gap-4 rounded-xl bg-muted/40 px-3 py-2">
+                    <div className="flex items-center gap-1.5">
+                      <CalendarClock className="h-3.5 w-3.5 text-blue-500" />
+                      <span className="text-xs font-semibold">{agent.booking_stats?.total_proposals || 0}</span>
+                      <span className="text-[10px] text-muted-foreground">{t('agents.proposed')}</span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <MousePointerClick className="h-3.5 w-3.5 text-primary" />
+                      <span className="text-xs font-semibold">{agent.booking_stats?.total_clicks || 0}</span>
+                      <span className="text-[10px] text-muted-foreground">{t('dashboard.clicks')}</span>
+                    </div>
+                    {(agent.booking_stats?.total_proposals || 0) > 0 && (
+                      <span className={cn('ml-auto text-xs font-semibold',
+                        (agent.booking_stats?.conversion_rate || 0) >= 50 ? 'text-emerald-500' :
+                        (agent.booking_stats?.conversion_rate || 0) >= 20 ? 'text-yellow-500' : 'text-muted-foreground'
+                      )}>
+                        {agent.booking_stats?.conversion_rate || 0}%
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {/* Divider */}
+                <div className="mx-4 h-px bg-border/50" />
+
+                {/* Actions */}
+                <div className="flex items-center gap-0.5 px-3 py-2.5">
+                  <Link href={`/agents/${agent.id}`} className="flex-1">
+                    <button className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-foreground text-background px-3 py-2 text-xs font-semibold hover:opacity-90 transition-opacity">
+                      <Bot className="h-3.5 w-3.5" />
+                      Configurer
+                    </button>
+                  </Link>
+
+                  <ActionBtn onClick={() => { setTestingAgent(agent); setTestChatOpen(true) }} title={t('common.test')}>
+                    <MessageSquare className="h-3.5 w-3.5" />
+                  </ActionBtn>
+                  <ActionBtn onClick={() => openEditDialog(agent)} title={t('common.edit')}>
+                    <Pencil className="h-3.5 w-3.5" />
+                  </ActionBtn>
+                  <ActionBtn onClick={() => { setToolsAgent(agent); setToolsOpen(true) }} title={t('tools.title')}>
+                    <Wrench className="h-3.5 w-3.5" />
+                  </ActionBtn>
+
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="flex h-8 w-8 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-44">
+                      <DropdownMenuItem onClick={() => handleTogglePin(agent)}>
+                        {agent.is_pinned ? <PinOff className="mr-2 h-3.5 w-3.5" /> : <Pin className="mr-2 h-3.5 w-3.5" />}
+                        {agent.is_pinned ? t('agents.unpin') : t('agents.pin')}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleDuplicate(agent)} disabled={saving}>
+                        <Copy className="mr-2 h-3.5 w-3.5" />
+                        {t('common.duplicate')}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => openDeleteDialog(agent)}
+                        disabled={isDeleting}
+                        className="text-destructive focus:text-destructive"
+                      >
+                        {isDeleting ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Trash2 className="mr-2 h-3.5 w-3.5" />}
+                        {t('common.delete')}
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              </div>
             )
           })}
         </div>
@@ -1535,5 +1464,28 @@ export default function AgentsPage() {
         </DialogContent>
       </Dialog>
     </div>
+  )
+}
+
+// ─── Card sub-components ──────────────────────────────────────────────────────
+
+function Chip({ label, icon }: { label: string; icon?: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+      {icon}
+      {label}
+    </span>
+  )
+}
+
+function ActionBtn({ onClick, title, children }: { onClick: () => void; title: string; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      title={title}
+      className="flex h-8 w-8 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+    >
+      {children}
+    </button>
   )
 }

@@ -333,7 +333,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <SubscriptionBanner subscription={subscription} />
 
         {/* Page content */}
-        <main className="flex-1 overflow-auto bg-background">
+        <main className="flex-1 overflow-hidden bg-background">
           {subscriptionLoading ? (
             <div className="flex h-full items-center justify-center">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -429,7 +429,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </div>
             </div>
           ) : (
-            <div className="animate-fade-in-up">
+            <div className="animate-fade-in-up h-full">
               {children}
             </div>
           )}
