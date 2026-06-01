@@ -286,12 +286,6 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
           {/* Agent card in sidebar */}
           <div className="px-4 pt-6 pb-5">
             <div className="flex flex-col items-center text-center gap-3">
-              <div className="relative">
-                <div className="absolute -inset-3 rounded-full blur-2xl opacity-30" style={{ background: color }} />
-                <div className="relative">
-                  <AgentRobot color={color} size={72} />
-                </div>
-              </div>
               <div>
                 <Input
                   value={name}
