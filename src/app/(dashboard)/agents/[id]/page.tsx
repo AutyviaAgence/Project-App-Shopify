@@ -315,11 +315,14 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                   key={sid}
                   onClick={() => setActive(sid)}
                   className={cn(
-                    'w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all text-left group',
-                    isActive ? 'font-medium' : 'text-muted-foreground hover:text-foreground'
+                    'relative w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all text-left group',
+                    isActive ? 'font-medium' : 'text-muted-foreground hover:text-foreground hover:bg-white/[0.03]'
                   )}
                   style={isActive ? { background: `${accent}12`, color: accent } : {}}
                 >
+                  {isActive && (
+                    <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full" style={{ background: accent }} />
+                  )}
                   <span
                     className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-all"
                     style={isActive ? { background: `${accent}20`, color: accent } : {}}
@@ -355,51 +358,59 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
         </aside>
 
         {/* ── Main content ── */}
-        <main className="flex-1 overflow-y-auto bg-background">
+        <main className="relative flex-1 overflow-y-auto bg-background">
+
+          {/* Halo d'accent en haut */}
+          <div
+            className="pointer-events-none absolute inset-x-0 top-0 h-48 opacity-[0.12]"
+            style={{ background: `radial-gradient(ellipse 80% 100% at 50% 0%, ${sec.accent} 0%, transparent 70%)` }}
+          />
 
           {/* Section title bar */}
-          <div className="sticky top-0 z-10 px-8 py-4 bg-background/95 backdrop-blur-xl border-b border-border/40 flex items-center justify-between">
+          <div className="sticky top-0 z-10 px-8 py-4 bg-background/80 backdrop-blur-xl border-b border-border/40 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div
-                className="flex h-8 w-8 items-center justify-center rounded-lg"
-                style={{ background: `${sec.accent}15`, color: sec.accent }}
+                className="flex h-9 w-9 items-center justify-center rounded-xl ring-1"
+                style={{ background: `${sec.accent}1a`, color: sec.accent, borderColor: `${sec.accent}30` }}
               >
                 <sec.icon className="h-4 w-4" />
               </div>
               <div>
-                <h1 className="text-sm font-semibold">{sectionTitle(active)}</h1>
+                <h1 className="text-[15px] font-semibold">{sectionTitle(active)}</h1>
                 <p className="text-[11px] text-muted-foreground">{sectionSubtitle(active)}</p>
               </div>
             </div>
           </div>
 
           {/* Content */}
-          <div className="px-8 py-8 max-w-xl space-y-8">
+          <div className="relative px-8 py-8 max-w-xl space-y-8">
 
             {active === 'identity' && (
               <>
                 {/* Ton */}
                 <Section title="Ton">
-                  <div className="grid grid-cols-3 gap-2">
+                  <div className="grid grid-cols-3 gap-3">
                     {([
                       { id: 'professional', label: 'Professionnel', emoji: '👔' },
                       { id: 'friendly',     label: 'Chaleureux',    emoji: '😊' },
                       { id: 'casual',       label: 'Décontracté',   emoji: '😎' },
-                    ] as const).map(t => (
-                      <button
-                        key={t.id}
-                        onClick={() => setTone(t.id)}
-                        className={cn(
-                          'relative rounded-2xl py-5 text-center transition-all duration-200 text-sm',
-                          tone === t.id
-                            ? 'bg-foreground text-background font-medium shadow-lg scale-[1.02]'
-                            : 'bg-muted/40 hover:bg-muted/70 text-foreground'
-                        )}
-                      >
-                        <span className="block text-xl mb-1.5">{t.emoji}</span>
-                        <span className="text-xs font-medium">{t.label}</span>
-                      </button>
-                    ))}
+                    ] as const).map(t => {
+                      const isOn = tone === t.id
+                      return (
+                        <button
+                          key={t.id}
+                          onClick={() => setTone(t.id)}
+                          className={cn(
+                            'relative rounded-2xl py-5 text-center transition-all duration-200 border',
+                            isOn ? 'scale-[1.03] shadow-lg' : 'border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/[0.12]'
+                          )}
+                          style={isOn ? { background: `${sec.accent}1f`, borderColor: `${sec.accent}55`, boxShadow: `0 8px 24px -8px ${sec.accent}66` } : {}}
+                        >
+                          <span className="block text-2xl mb-1.5">{t.emoji}</span>
+                          <span className="text-xs font-semibold" style={isOn ? { color: sec.accent } : { color: 'hsl(var(--foreground))' }}>{t.label}</span>
+                        </button>
+                      )
+                    })}
                   </div>
                 </Section>
 
@@ -434,26 +445,29 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                   <div className="mt-6 space-y-6 pl-1">
                     <Section title="Modèle IA">
                       <div className="grid grid-cols-2 gap-3">
-                        {(['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4.1'] as const).map(m => (
-                          <button
-                            key={m}
-                            onClick={() => setModel(m)}
-                            className={cn(
-                              'rounded-xl px-4 py-3 text-xs font-medium text-left transition-all border',
-                              model === m
-                                ? 'border-foreground bg-foreground text-background'
-                                : 'border-border/50 bg-muted/30 text-muted-foreground hover:border-border hover:text-foreground'
-                            )}
-                          >
-                            {m}
-                          </button>
-                        ))}
+                        {(['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4.1'] as const).map(m => {
+                          const isOn = model === m
+                          return (
+                            <button
+                              key={m}
+                              onClick={() => setModel(m)}
+                              className={cn(
+                                'rounded-xl px-4 py-3 text-xs font-semibold text-left transition-all border',
+                                isOn ? '' : 'border-white/[0.06] bg-white/[0.02] text-muted-foreground hover:border-white/[0.12] hover:text-foreground'
+                              )}
+                              style={isOn ? { background: `${sec.accent}1f`, borderColor: `${sec.accent}55`, color: sec.accent } : {}}
+                            >
+                              {m}
+                            </button>
+                          )
+                        })}
                       </div>
                       <Field label={`Créativité — ${Math.round(temperature * 100)}%`}>
                         <input
                           type="range" min="0" max="1" step="0.1" value={temperature}
                           onChange={e => setTemperature(parseFloat(e.target.value))}
-                          className="w-full accent-foreground mt-1"
+                          className="w-full mt-1"
+                          style={{ accentColor: sec.accent }}
                         />
                       </Field>
                     </Section>
@@ -510,18 +524,22 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                             </Field>
                           </div>
                           <div className="flex gap-1.5">
-                            {DAYS.map((d, i) => (
-                              <button
-                                key={i}
-                                onClick={() => setScheduleDays(prev => prev.includes(i + 1) ? prev.filter(x => x !== i + 1) : [...prev, i + 1])}
-                                className={cn(
-                                  'flex-1 rounded-lg py-2 text-[11px] font-semibold transition-all',
-                                  scheduleDays.includes(i + 1) ? 'bg-foreground text-background' : 'bg-muted/40 text-muted-foreground hover:bg-muted'
-                                )}
-                              >
-                                {d}
-                              </button>
-                            ))}
+                            {DAYS.map((d, i) => {
+                              const isOn = scheduleDays.includes(i + 1)
+                              return (
+                                <button
+                                  key={i}
+                                  onClick={() => setScheduleDays(prev => prev.includes(i + 1) ? prev.filter(x => x !== i + 1) : [...prev, i + 1])}
+                                  className={cn(
+                                    'flex-1 rounded-lg py-2 text-[11px] font-semibold transition-all border',
+                                    isOn ? '' : 'border-transparent bg-white/[0.04] text-muted-foreground hover:bg-white/[0.08]'
+                                  )}
+                                  style={isOn ? { background: `${sec.accent}22`, borderColor: `${sec.accent}55`, color: sec.accent } : {}}
+                                >
+                                  {d}
+                                </button>
+                              )
+                            })}
                           </div>
                         </div>
                       )}
@@ -614,20 +632,22 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                               { id: 'keywords', label: 'Mots-clés' },
                               { id: 'ai',       label: 'IA' },
                               { id: 'both',     label: 'Les deux' },
-                            ] as const).map(m => (
-                              <button
-                                key={m.id}
-                                onClick={() => setEscalationMode(m.id)}
-                                className={cn(
-                                  'rounded-xl py-2.5 text-xs font-medium transition-all',
-                                  escalationMode === m.id
-                                    ? 'bg-foreground text-background'
-                                    : 'bg-muted/40 text-muted-foreground hover:bg-muted'
-                                )}
-                              >
-                                {m.label}
-                              </button>
-                            ))}
+                            ] as const).map(m => {
+                              const isOn = escalationMode === m.id
+                              return (
+                                <button
+                                  key={m.id}
+                                  onClick={() => setEscalationMode(m.id)}
+                                  className={cn(
+                                    'rounded-xl py-2.5 text-xs font-semibold transition-all border',
+                                    isOn ? '' : 'border-transparent bg-white/[0.04] text-muted-foreground hover:bg-white/[0.08]'
+                                  )}
+                                  style={isOn ? { background: `${sec.accent}1f`, borderColor: `${sec.accent}55`, color: sec.accent } : {}}
+                                >
+                                  {m.label}
+                                </button>
+                              )
+                            })}
                           </div>
                         </Field>
                         {(escalationMode === 'keywords' || escalationMode === 'both') && (
