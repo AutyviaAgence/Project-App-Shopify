@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useTranslation } from '@/i18n/context'
 import { cn } from '@/lib/utils'
@@ -706,132 +706,120 @@ export default function AgentsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-white/[0.06] bg-[#161b22]">
-          {/* Header */}
-          <div className="grid grid-cols-[minmax(220px,2fr)_110px_120px_100px_140px_auto] items-center gap-4 border-b border-white/[0.06] bg-white/[0.015] px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-white/35">
-            <span>Agent</span>
-            <span>Statut</span>
-            <span>Modèle</span>
-            <span className="hidden lg:block">Tendance</span>
-            <span className="hidden md:block">Conversion</span>
-            <span className="text-right">Actions</span>
-          </div>
+        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+          {[...agents].sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0)).map((agent, idx) => {
+            const isDeleting = deleting === agent.id
+            const typeColor = agent.agent_type === 'qualifier' ? '#0ea5e9' : agent.agent_type === 'relance' ? '#f97316' : '#8b5cf6'
+            const typeLabel = agent.agent_type === 'qualifier' ? 'Qualificateur' : agent.agent_type === 'relance' ? t('agents.relance') : 'Conversation'
+            const TypeIcon = agent.agent_type === 'qualifier' ? Sparkles : agent.agent_type === 'relance' ? Megaphone : MessageSquare
+            const conv = agent.booking_stats?.conversion_rate || 0
+            const convColor = conv >= 50 ? '#34d399' : conv >= 20 ? '#facc15' : '#71717a'
+            const hasBooking = !!agent.booking_url
 
-          {/* Rows */}
-          <div className="divide-y divide-white/[0.04]">
-            {[...agents].sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0)).map((agent, idx) => {
-              const isDeleting = deleting === agent.id
-              const typeColor = agent.agent_type === 'qualifier' ? '#0ea5e9' : agent.agent_type === 'relance' ? '#f97316' : '#8b5cf6'
-              const typeLabel = agent.agent_type === 'qualifier' ? 'Qualificateur' : agent.agent_type === 'relance' ? t('agents.relance') : 'Conversation'
-              const TypeIcon = agent.agent_type === 'qualifier' ? Sparkles : agent.agent_type === 'relance' ? Megaphone : MessageSquare
-              const conv = agent.booking_stats?.conversion_rate || 0
-              const convColor = conv >= 50 ? '#34d399' : conv >= 20 ? '#facc15' : '#71717a'
-              const hasBooking = !!agent.booking_url
-
-              return (
+            return (
+              <div
+                key={agent.id}
+                className={cn('group relative animate-fade-in-up', !agent.is_active && 'opacity-60')}
+                style={{ animationDelay: `${Math.min(idx * 50, 500)}ms` }}
+              >
+                {/* Glow color derrière la card */}
                 <div
-                  key={agent.id}
-                  className={cn(
-                    'group grid grid-cols-[minmax(220px,2fr)_110px_120px_100px_140px_auto] items-center gap-4 px-5 py-3.5 transition-colors animate-fade-in-up',
-                    'hover:bg-white/[0.025]',
-                    !agent.is_active && 'opacity-50',
-                  )}
-                  style={{ animationDelay: `${Math.min(idx * 40, 400)}ms`, ...(agent.is_pinned ? { boxShadow: `inset 3px 0 0 ${typeColor}` } : {}) }}
-                >
-                  {/* Agent : icône + nom + type */}
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div
-                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
-                      style={{ background: `${typeColor}1f`, color: typeColor }}
-                    >
-                      <TypeIcon className="h-4.5 w-4.5" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[14px] font-semibold truncate text-white/95">{agent.name}</span>
-                        {agent.is_pinned && <Pin className="h-3 w-3 shrink-0" style={{ color: typeColor }} />}
-                      </div>
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-[11px]" style={{ color: typeColor }}>{typeLabel}</span>
-                        {agentKnowledge[agent.id]?.length > 0 && (
-                          <span className="inline-flex items-center gap-0.5 text-[10px] text-white/35" title={agentKnowledge[agent.id].map(k => k.name).join(', ')}>
-                            <Brain className="h-2.5 w-2.5 text-emerald-400/70" />
-                            {agentKnowledge[agent.id].length}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+                  className="pointer-events-none absolute -inset-px rounded-[26px] opacity-0 blur-xl transition-opacity duration-500 group-hover:opacity-40"
+                  style={{ background: typeColor }}
+                />
 
-                  {/* Statut pill */}
-                  <div>
-                    <span
-                      className={cn(
-                        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium',
-                        agent.is_active ? 'bg-emerald-500/12 text-emerald-400' : 'bg-white/[0.06] text-white/40'
-                      )}
-                    >
-                      <span className={cn('h-1.5 w-1.5 rounded-full', agent.is_active ? 'bg-emerald-400 animate-pulse' : 'bg-white/30')} />
+                {/* Card */}
+                <div
+                  className="relative z-10 flex h-full flex-col overflow-hidden rounded-[24px] border border-white/[0.06] p-6 text-white shadow-2xl transition-transform duration-300 group-hover:-translate-y-1"
+                  style={{
+                    background: `radial-gradient(120% 120% at 25% 8%, ${typeColor}1f 0%, #15191f 45%, #0f1318 100%)`,
+                    ...(agent.is_pinned ? { boxShadow: `inset 0 0 0 1px ${typeColor}55, 0 25px 50px -12px rgba(0,0,0,0.6)` } : {}),
+                  }}
+                >
+                  {/* Top : statut + actif/épinglé */}
+                  <div className="mb-5 flex items-center justify-between text-[12px]">
+                    <span className="flex items-center gap-2 text-white/70">
+                      <span className={cn('inline-block h-2 w-2 rounded-full', agent.is_active ? 'bg-emerald-400 animate-pulse' : 'bg-white/25')} />
                       {agent.is_active ? t('common.active') : t('common.inactive')}
                     </span>
+                    <div className="flex items-center gap-2">
+                      {agent.is_pinned && <Pin className="h-3.5 w-3.5" style={{ color: typeColor }} />}
+                      <Switch checked={agent.is_active} onCheckedChange={() => handleToggleActive(agent)} />
+                    </div>
                   </div>
 
-                  {/* Modèle */}
-                  <div className="text-[12px] text-white/55 truncate">{agent.model}</div>
-
-                  {/* Tendance (sparkline) */}
-                  <div className="hidden lg:block">
-                    <Sparkline seed={agent.id} color={hasBooking && conv > 0 ? convColor : '#52525b'} />
+                  {/* Avatar + nom + type */}
+                  <div className="flex items-center gap-4">
+                    <div
+                      className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ring-1 ring-white/10"
+                      style={{ background: `${typeColor}26`, color: typeColor }}
+                    >
+                      <TypeIcon className="h-7 w-7" />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="truncate text-lg font-semibold tracking-tight">{agent.name}</h3>
+                      <p className="mt-0.5 flex items-center gap-2 text-[13px]">
+                        <span style={{ color: typeColor }}>{typeLabel}</span>
+                        <span className="text-white/25">·</span>
+                        <span className="text-white/45">{agent.model}</span>
+                      </p>
+                    </div>
                   </div>
 
-                  {/* Conversion */}
-                  <div className="hidden md:block">
-                    {hasBooking ? (
-                      <div className="space-y-1">
-                        <div className="flex items-center justify-between text-[11px]">
-                          <span className="font-semibold" style={{ color: convColor }}>{conv}%</span>
-                          <span className="text-white/30">{agent.booking_stats?.total_clicks || 0} clics</span>
-                        </div>
-                        <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
-                          <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(conv, 100)}%`, background: convColor }} />
-                        </div>
-                      </div>
-                    ) : (
-                      <span className="text-[11px] text-white/25">—</span>
-                    )}
-                  </div>
+                  {/* Description / objectif */}
+                  <p className="mt-4 min-h-[40px] text-[13px] leading-relaxed text-white/55 line-clamp-2">
+                    {agent.objective || agent.description || agent.system_prompt}
+                  </p>
+
+                  {/* Métriques (stats RDV) */}
+                  {hasBooking ? (
+                    <div className="mt-4 grid grid-cols-3 gap-2 rounded-2xl bg-white/[0.04] p-3">
+                      <MetricCell value={agent.booking_stats?.total_proposals || 0} label={t('agents.proposed')} />
+                      <MetricCell value={agent.booking_stats?.total_clicks || 0} label={t('dashboard.clicks')} />
+                      <MetricCell value={`${conv}%`} label={t('agents.rate')} color={convColor} />
+                    </div>
+                  ) : (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {agentKnowledge[agent.id]?.length > 0 && (
+                        <PillTag icon={<Brain className="h-3 w-3 text-emerald-400" />} label={agentKnowledge[agent.id].length > 1 ? `${agentKnowledge[agent.id].length} docs` : agentKnowledge[agent.id][0].name} />
+                      )}
+                      {agent.auto_detect_language && <PillTag icon={<Languages className="h-3 w-3" />} label={t('agents.multi_lang')} />}
+                      {agent.escalation_enabled && <PillTag icon={<ShieldAlert className="h-3 w-3" />} label={t('agents.guardrail')} />}
+                      {agent.schedule_enabled && <PillTag icon={<Clock className="h-3 w-3" />} label={`${agent.schedule_start_time}–${agent.schedule_end_time}`} />}
+                    </div>
+                  )}
 
                   {/* Actions */}
-                  <div className="flex items-center justify-end gap-1">
-                    <Link href={`/agents/${agent.id}`}>
+                  <div className="mt-5 flex items-center gap-2 pt-1">
+                    <Link href={`/agents/${agent.id}`} className="flex-1">
                       <button
-                        className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-all hover:brightness-110"
-                        style={{ background: `${typeColor}26`, color: typeColor, border: `1px solid ${typeColor}33` }}
+                        className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl text-[13px] font-semibold transition-all hover:brightness-110"
+                        style={{ background: `${typeColor}2e`, color: typeColor, border: `1px solid ${typeColor}40` }}
                       >
-                        <Bot className="h-3.5 w-3.5" />
-                        <span className="hidden xl:inline">Configurer</span>
+                        <Bot className="h-4 w-4" /> Configurer
                       </button>
                     </Link>
-                    <Switch
-                      checked={agent.is_active}
-                      onCheckedChange={() => handleToggleActive(agent)}
-                      className="mx-1 hidden sm:inline-flex"
-                    />
+                    <button
+                      onClick={() => { setTestingAgent(agent); setTestChatOpen(true) }}
+                      title={t('common.test')}
+                      className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/[0.06] text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+                    >
+                      <MessageSquare className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => openEditDialog(agent)}
+                      title={t('common.edit')}
+                      className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/[0.06] text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <button className="flex h-8 w-8 items-center justify-center rounded-lg text-white/40 hover:bg-white/[0.06] hover:text-white/80 transition-colors">
+                        <button className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/[0.06] text-white/70 transition-colors hover:bg-white/10 hover:text-white">
                           <ChevronDown className="h-4 w-4" />
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-44">
-                        <DropdownMenuItem onClick={() => { setTestingAgent(agent); setTestChatOpen(true) }}>
-                          <MessageSquare className="mr-2 h-3.5 w-3.5" />
-                          {t('common.test')}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => openEditDialog(agent)}>
-                          <Pencil className="mr-2 h-3.5 w-3.5" />
-                          {t('common.edit')}
-                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => { setToolsAgent(agent); setToolsOpen(true) }}>
                           <Wrench className="mr-2 h-3.5 w-3.5" />
                           {t('tools.title')}
@@ -856,9 +844,9 @@ export default function AgentsPage() {
                     </DropdownMenu>
                   </div>
                 </div>
-              )
-            })}
-          </div>
+              </div>
+            )
+          })}
         </div>
       )}
 
@@ -1467,33 +1455,20 @@ export default function AgentsPage() {
 
 // ─── Card sub-components ──────────────────────────────────────────────────────
 
-// Mini-sparkline SVG déterministe (basée sur l'id pour rester stable entre les renders)
-function Sparkline({ seed, color }: { seed: string; color: string }) {
-  const points = useMemo(() => {
-    // Génère 8 valeurs pseudo-aléatoires stables à partir du seed
-    let h = 0
-    for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0
-    const vals: number[] = []
-    for (let i = 0; i < 8; i++) {
-      h = (h * 1103515245 + 12345) >>> 0
-      vals.push((h % 100) / 100)
-    }
-    const w = 72, hgt = 24
-    const step = w / (vals.length - 1)
-    return vals.map((v, i) => `${i * step},${hgt - v * (hgt - 4) - 2}`).join(' ')
-  }, [seed])
-
+function MetricCell({ value, label, color }: { value: string | number; label: string; color?: string }) {
   return (
-    <svg width="72" height="24" viewBox="0 0 72 24" className="overflow-visible">
-      <polyline
-        points={points}
-        fill="none"
-        stroke={color}
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        style={{ filter: `drop-shadow(0 0 3px ${color}55)` }}
-      />
-    </svg>
+    <div className="flex flex-col items-center text-center">
+      <span className="text-lg font-bold leading-none" style={color ? { color } : { color: 'rgba(255,255,255,0.95)' }}>{value}</span>
+      <span className="mt-1 text-[10px] text-white/40">{label}</span>
+    </div>
+  )
+}
+
+function PillTag({ icon, label }: { icon?: React.ReactNode; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.06] px-2.5 py-1 text-[11px] font-medium text-white/60">
+      {icon}
+      {label}
+    </span>
   )
 }
