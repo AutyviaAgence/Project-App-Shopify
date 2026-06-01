@@ -333,7 +333,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <SubscriptionBanner subscription={subscription} />
 
         {/* Page content */}
-        <main className="flex-1 overflow-hidden bg-background">
+        <main className="flex-1 overflow-y-auto bg-background">
           {subscriptionLoading ? (
             <div className="flex h-full items-center justify-center">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />

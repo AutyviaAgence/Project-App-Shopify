@@ -720,32 +720,38 @@ export default function AgentsPage() {
               <div
                 key={agent.id}
                 className={cn(
-                  'group relative flex flex-col rounded-2xl border border-border/60 bg-card overflow-hidden transition-all duration-200',
-                  'hover:border-border hover:shadow-md',
-                  !agent.is_active && 'opacity-55',
-                  agent.is_pinned && 'border-primary/30'
+                  'group relative flex flex-col rounded-2xl overflow-hidden transition-all duration-200',
+                  'border border-white/[0.06] bg-[#161b22]',
+                  'hover:border-white/[0.12] hover:-translate-y-0.5',
+                  !agent.is_active && 'opacity-50',
                 )}
+                style={{
+                  boxShadow: agent.is_pinned ? `inset 0 0 0 1px ${typeColor}40` : undefined,
+                }}
               >
-                {/* Top color strip */}
-                <div className="h-0.5 w-full" style={{ background: typeColor }} />
+                {/* Glow accent top-left */}
+                <div
+                  className="pointer-events-none absolute -top-16 -left-16 h-40 w-40 rounded-full blur-3xl opacity-[0.12]"
+                  style={{ background: typeColor }}
+                />
 
                 {/* Header */}
-                <div className="flex items-start justify-between gap-3 px-4 pt-4 pb-3">
+                <div className="relative flex items-start justify-between gap-3 px-5 pt-5 pb-4">
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-2.5">
                       {/* Type pill */}
                       <span
-                        className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold"
-                        style={{ background: `${typeColor}18`, color: typeColor }}
+                        className="inline-flex items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-semibold tracking-wide"
+                        style={{ background: `${typeColor}1f`, color: typeColor }}
                       >
-                        {agent.agent_type === 'qualifier' ? <Sparkles className="h-2.5 w-2.5" /> : agent.agent_type === 'relance' ? <Megaphone className="h-2.5 w-2.5" /> : <MessageSquare className="h-2.5 w-2.5" />}
+                        {agent.agent_type === 'qualifier' ? <Sparkles className="h-3 w-3" /> : agent.agent_type === 'relance' ? <Megaphone className="h-3 w-3" /> : <MessageSquare className="h-3 w-3" />}
                         {typeLabel}
                       </span>
-                      {agent.is_pinned && <Pin className="h-3 w-3 text-primary shrink-0" />}
+                      {agent.is_pinned && <Pin className="h-3.5 w-3.5 shrink-0" style={{ color: typeColor }} />}
                     </div>
-                    <h3 className="text-[15px] font-semibold truncate leading-tight">{agent.name}</h3>
+                    <h3 className="text-base font-semibold truncate leading-tight text-white/95">{agent.name}</h3>
                     {agent.description && (
-                      <p className="text-xs text-muted-foreground mt-0.5 truncate">{agent.description}</p>
+                      <p className="text-[13px] text-white/45 mt-1 truncate">{agent.description}</p>
                     )}
                   </div>
 
@@ -760,14 +766,14 @@ export default function AgentsPage() {
 
                 {/* Objective */}
                 {agent.objective && (
-                  <div className="px-4 pb-3">
-                    <p className="text-xs text-muted-foreground line-clamp-2 leading-relaxed">{agent.objective}</p>
+                  <div className="px-5 pb-4">
+                    <p className="text-[13px] text-white/55 line-clamp-2 leading-relaxed">{agent.objective}</p>
                   </div>
                 )}
 
                 {/* Meta chips */}
-                <div className="px-4 pb-3 flex flex-wrap gap-1.5">
-                  <Chip label={agent.model} />
+                <div className="px-5 pb-4 flex flex-wrap gap-1.5 mt-auto">
+                  <Chip label={agent.model} accent={typeColor} />
                   {teamNames.map((n, i) => <Chip key={i} label={n as string} icon={<Users className="h-2.5 w-2.5" />} />)}
                   {agent.auto_detect_language && <Chip label={t('agents.multi_lang')} icon={<Languages className="h-2.5 w-2.5" />} />}
                   {agent.escalation_enabled && <Chip label={t('agents.guardrail')} icon={<ShieldAlert className="h-2.5 w-2.5" />} />}
@@ -775,34 +781,28 @@ export default function AgentsPage() {
                   {(agent.response_delay_min > 0 || agent.response_delay_max > 0) && (
                     <Chip label={`${agent.response_delay_min}–${agent.response_delay_max}s`} />
                   )}
+                  {agentKnowledge[agent.id]?.map((kb) => (
+                    <Chip key={kb.id} label={kb.name} icon={<Brain className="h-2.5 w-2.5 text-emerald-400" />} />
+                  ))}
                 </div>
-
-                {/* Knowledge */}
-                {agentKnowledge[agent.id]?.length > 0 && (
-                  <div className="px-4 pb-3 flex flex-wrap gap-1.5">
-                    {agentKnowledge[agent.id].map((kb) => (
-                      <Chip key={kb.id} label={kb.name} icon={<Brain className="h-2.5 w-2.5 text-emerald-500" />} />
-                    ))}
-                  </div>
-                )}
 
                 {/* Booking stats */}
                 {agent.booking_url && (
-                  <div className="mx-4 mb-3 flex items-center gap-4 rounded-xl bg-muted/40 px-3 py-2">
+                  <div className="mx-5 mb-4 flex items-center gap-4 rounded-xl bg-white/[0.03] border border-white/[0.05] px-3.5 py-2.5">
                     <div className="flex items-center gap-1.5">
-                      <CalendarClock className="h-3.5 w-3.5 text-blue-500" />
-                      <span className="text-xs font-semibold">{agent.booking_stats?.total_proposals || 0}</span>
-                      <span className="text-[10px] text-muted-foreground">{t('agents.proposed')}</span>
+                      <CalendarClock className="h-3.5 w-3.5 text-blue-400" />
+                      <span className="text-xs font-semibold text-white/90">{agent.booking_stats?.total_proposals || 0}</span>
+                      <span className="text-[10px] text-white/40">{t('agents.proposed')}</span>
                     </div>
                     <div className="flex items-center gap-1.5">
-                      <MousePointerClick className="h-3.5 w-3.5 text-primary" />
-                      <span className="text-xs font-semibold">{agent.booking_stats?.total_clicks || 0}</span>
-                      <span className="text-[10px] text-muted-foreground">{t('dashboard.clicks')}</span>
+                      <MousePointerClick className="h-3.5 w-3.5" style={{ color: typeColor }} />
+                      <span className="text-xs font-semibold text-white/90">{agent.booking_stats?.total_clicks || 0}</span>
+                      <span className="text-[10px] text-white/40">{t('dashboard.clicks')}</span>
                     </div>
                     {(agent.booking_stats?.total_proposals || 0) > 0 && (
                       <span className={cn('ml-auto text-xs font-semibold',
-                        (agent.booking_stats?.conversion_rate || 0) >= 50 ? 'text-emerald-500' :
-                        (agent.booking_stats?.conversion_rate || 0) >= 20 ? 'text-yellow-500' : 'text-muted-foreground'
+                        (agent.booking_stats?.conversion_rate || 0) >= 50 ? 'text-emerald-400' :
+                        (agent.booking_stats?.conversion_rate || 0) >= 20 ? 'text-yellow-400' : 'text-white/40'
                       )}>
                         {agent.booking_stats?.conversion_rate || 0}%
                       </span>
@@ -810,32 +810,32 @@ export default function AgentsPage() {
                   </div>
                 )}
 
-                {/* Divider */}
-                <div className="mx-4 h-px bg-border/50" />
-
-                {/* Actions */}
-                <div className="flex items-center gap-0.5 px-3 py-2.5">
+                {/* Actions footer */}
+                <div className="flex items-center gap-1 border-t border-white/[0.05] bg-white/[0.015] px-3 py-3">
                   <Link href={`/agents/${agent.id}`} className="flex-1">
-                    <button className="w-full flex items-center justify-center gap-1.5 rounded-xl bg-foreground text-background px-3 py-2 text-xs font-semibold hover:opacity-90 transition-opacity">
-                      <Bot className="h-3.5 w-3.5" />
+                    <button
+                      className="w-full flex items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-[13px] font-semibold transition-all hover:brightness-110"
+                      style={{ background: `${typeColor}26`, color: typeColor, border: `1px solid ${typeColor}33` }}
+                    >
+                      <Bot className="h-4 w-4" />
                       Configurer
                     </button>
                   </Link>
 
                   <ActionBtn onClick={() => { setTestingAgent(agent); setTestChatOpen(true) }} title={t('common.test')}>
-                    <MessageSquare className="h-3.5 w-3.5" />
+                    <MessageSquare className="h-4 w-4" />
                   </ActionBtn>
                   <ActionBtn onClick={() => openEditDialog(agent)} title={t('common.edit')}>
-                    <Pencil className="h-3.5 w-3.5" />
+                    <Pencil className="h-4 w-4" />
                   </ActionBtn>
                   <ActionBtn onClick={() => { setToolsAgent(agent); setToolsOpen(true) }} title={t('tools.title')}>
-                    <Wrench className="h-3.5 w-3.5" />
+                    <Wrench className="h-4 w-4" />
                   </ActionBtn>
 
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <button className="flex h-8 w-8 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
-                        <ChevronDown className="h-3.5 w-3.5" />
+                      <button className="flex h-9 w-9 items-center justify-center rounded-lg text-white/40 hover:bg-white/[0.06] hover:text-white/80 transition-colors">
+                        <ChevronDown className="h-4 w-4" />
                       </button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="w-44">
@@ -1469,9 +1469,14 @@ export default function AgentsPage() {
 
 // ─── Card sub-components ──────────────────────────────────────────────────────
 
-function Chip({ label, icon }: { label: string; icon?: React.ReactNode }) {
+function Chip({ label, icon, accent }: { label: string; icon?: React.ReactNode; accent?: string }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+    <span
+      className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium"
+      style={accent
+        ? { background: `${accent}1a`, color: accent }
+        : { background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.55)' }}
+    >
       {icon}
       {label}
     </span>
@@ -1483,7 +1488,7 @@ function ActionBtn({ onClick, title, children }: { onClick: () => void; title: s
     <button
       onClick={onClick}
       title={title}
-      className="flex h-8 w-8 items-center justify-center rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+      className="flex h-9 w-9 items-center justify-center rounded-lg text-white/40 hover:bg-white/[0.06] hover:text-white/80 transition-colors"
     >
       {children}
     </button>

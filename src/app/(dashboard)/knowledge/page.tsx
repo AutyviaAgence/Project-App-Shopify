@@ -342,7 +342,8 @@ export default function LibraryPage() {
                 previewUrl={imgPreviewUrls[item.data.id]}
                 editingAgent={imgEditingAgent === item.data.id}
                 agentSaving={imgAgentSaving === item.data.id}
-                onLoadPreview={async () => {
+                onLoadPreview={() => loadImgPreview(item.data)}
+                onOpenFull={async () => {
                   const url = await loadImgPreview(item.data)
                   if (url) window.open(url, '_blank')
                 }}
@@ -539,30 +540,42 @@ function DocCard({ doc, agents, onReprocess, onAssign, onDelete }: {
 
 // ─── Card Image ────────────────────────────────────────────────────────────────
 
-function ImageCard({ img, agents, previewUrl, editingAgent, agentSaving, onLoadPreview, onEditAgent, onUpdateAgent, onCancelEditAgent, onDelete }: {
+function ImageCard({ img, agents, previewUrl, editingAgent, agentSaving, onLoadPreview, onOpenFull, onEditAgent, onUpdateAgent, onCancelEditAgent, onDelete }: {
   img: KnowledgeImage
   agents: AIAgent[]
   previewUrl?: string
   editingAgent: boolean
   agentSaving: boolean
   onLoadPreview: () => void
+  onOpenFull: () => void
   onEditAgent: () => void
   onUpdateAgent: (agentId: string | null) => void
   onCancelEditAgent: () => void
   onDelete: () => void
 }) {
   const linkedAgent = agents.find(a => a.id === img.agent_id)
+  const [errored, setErrored] = useState(false)
+
+  // Charge la miniature automatiquement au montage (et si l'image change)
+  useEffect(() => {
+    if (!previewUrl) onLoadPreview()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [img.id])
 
   return (
     <div className="group rounded-2xl border bg-card overflow-hidden hover:shadow-md hover:border-primary/30 transition-all">
       {/* Preview */}
-      <div className="relative h-32 bg-muted cursor-pointer" onClick={onLoadPreview}>
-        {previewUrl ? (
+      <div className="relative h-32 bg-muted cursor-pointer" onClick={onOpenFull}>
+        {previewUrl && !errored ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={previewUrl} alt={img.ref} className="h-full w-full object-cover" />
+          <img src={previewUrl} alt={img.ref} className="h-full w-full object-cover" onError={() => setErrored(true)} />
         ) : (
           <div className="flex h-full items-center justify-center">
-            <ImageIcon className="h-10 w-10 text-muted-foreground/40" />
+            {previewUrl ? (
+              <ImageIcon className="h-10 w-10 text-muted-foreground/40" />
+            ) : (
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground/40" />
+            )}
           </div>
         )}
         <div className="absolute inset-0 flex items-center justify-center bg-black/0 group-hover:bg-black/20 transition-colors">
