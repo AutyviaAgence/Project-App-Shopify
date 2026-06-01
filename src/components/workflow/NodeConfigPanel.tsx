@@ -1,13 +1,15 @@
 'use client'
 
-import { useState } from 'react'
-import { X, ChevronDown, ChevronUp } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { X, ChevronDown, ChevronUp, Bot, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
+import Link from 'next/link'
 import type { WorkflowNode, AiNodeData, MessageNodeData, RelanceNodeData, ConditionNodeData, EscaladeNodeData, MediaNodeData, TagNodeData, BookingNodeData } from '@/lib/workflow/types'
+import type { AIAgent } from '@/types/database'
 
 interface NodeConfigPanelProps {
   node: WorkflowNode
@@ -79,24 +81,78 @@ function AiNodeConfig({ data, update, showAdvanced, setShowAdvanced }: {
   showAdvanced: boolean
   setShowAdvanced: (v: boolean) => void
 }) {
+  const [agents, setAgents] = useState<AIAgent[]>([])
+  const [selectedAgent, setSelectedAgent] = useState<AIAgent | null>(null)
+  const [loadingAgent, setLoadingAgent] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/agents').then(r => r.json()).then(j => setAgents(j.data || []))
+  }, [])
+
+  // Charger les params de l'agent sélectionné
+  async function handleSelectAgent(agentId: string) {
+    if (!agentId) { setSelectedAgent(null); update({ linkedAgentId: null }); return }
+    setLoadingAgent(true)
+    try {
+      const res = await fetch(`/api/agents/${agentId}`)
+      const json = await res.json()
+      const agent: AIAgent = json.data
+      setSelectedAgent(agent)
+      update({
+        linkedAgentId: agent.id,
+        label: agent.name,
+        shortPrompt: agent.description || agent.system_prompt.slice(0, 100),
+        systemPrompt: agent.system_prompt,
+        model: agent.model,
+        temperature: agent.temperature,
+        useKnowledge: false,
+      })
+    } finally {
+      setLoadingAgent(false)
+    }
+  }
+
   return (
     <>
+      {/* Sélecteur d'agent */}
       <div className="space-y-1.5">
-        <Label className="text-xs">Que doit faire cet agent ?</Label>
+        <Label className="text-xs font-medium flex items-center gap-1.5">
+          <Bot className="h-3 w-3" /> Agent IA lié
+        </Label>
+        <select
+          className="w-full rounded-md border bg-background px-3 py-2 text-xs"
+          value={(data as AiNodeData & { linkedAgentId?: string }).linkedAgentId || ''}
+          onChange={e => handleSelectAgent(e.target.value)}
+          disabled={loadingAgent}
+        >
+          <option value="">— Choisir un agent —</option>
+          {agents.map(a => (
+            <option key={a.id} value={a.id}>{a.name}</option>
+          ))}
+        </select>
+        {selectedAgent && (
+          <Link href={`/agents`}>
+            <button className="flex items-center gap-1 text-[10px] text-primary hover:underline mt-1">
+              <ExternalLink className="h-2.5 w-2.5" /> Configurer cet agent
+            </button>
+          </Link>
+        )}
+      </div>
+
+      {/* Aperçu du prompt */}
+      <div className="space-y-1.5">
+        <Label className="text-xs">Description / comportement</Label>
         <Textarea
           value={data.shortPrompt || ''}
-          onChange={(e) => update({ shortPrompt: e.target.value })}
-          placeholder="Ex: Réponds aux questions sur nos produits de manière professionnelle..."
-          className="text-sm min-h-[80px] resize-none"
+          onChange={(e) => update({ shortPrompt: e.target.value, systemPrompt: e.target.value })}
+          placeholder="Décris ce que fait cet agent..."
+          className="text-xs min-h-[70px] resize-none"
         />
       </div>
 
       <div className="flex items-center gap-3">
-        <Switch
-          checked={data.useKnowledge || false}
-          onCheckedChange={(v) => update({ useKnowledge: v })}
-        />
-        <Label className="text-xs">Utiliser la base de connaissances</Label>
+        <Switch checked={data.useKnowledge || false} onCheckedChange={(v) => update({ useKnowledge: v })} />
+        <Label className="text-xs">Base de connaissances</Label>
       </div>
 
       {/* Section Avancé */}
@@ -104,7 +160,7 @@ function AiNodeConfig({ data, update, showAdvanced, setShowAdvanced }: {
         className="flex w-full items-center justify-between rounded-lg border border-dashed px-3 py-2 text-xs text-muted-foreground hover:bg-muted/50 transition-colors"
         onClick={() => setShowAdvanced(!showAdvanced)}
       >
-        <span>⚙️ Paramètres avancés</span>
+        <span>Paramètres avancés</span>
         {showAdvanced ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
       </button>
 
@@ -129,12 +185,12 @@ function AiNodeConfig({ data, update, showAdvanced, setShowAdvanced }: {
               <option value="gpt-4o-mini">GPT-4o Mini (rapide)</option>
               <option value="gpt-4o">GPT-4o (puissant)</option>
               <option value="gpt-4.1-mini">GPT-4.1 Mini</option>
+              <option value="gpt-4.1">GPT-4.1</option>
             </select>
           </div>
           <div className="space-y-1.5">
             <Label className="text-xs">Créativité : {data.temperature || 0.7}</Label>
-            <input
-              type="range" min="0" max="1" step="0.1"
+            <input type="range" min="0" max="1" step="0.1"
               value={data.temperature || 0.7}
               onChange={(e) => update({ temperature: parseFloat(e.target.value) })}
               className="w-full"

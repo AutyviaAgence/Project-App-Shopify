@@ -141,10 +141,31 @@ export function WorkflowCanvas({ agentId, initialNodes, initialEdges, onSave }: 
     }
   }, [agentId, nodes, edges, onSave])
 
+  // Insertion par clic depuis la palette (centre du viewport)
+  const handleInsertNode = useCallback((type: WorkflowNode['type']) => {
+    if (!reactFlowInstance) return
+    // Placer le nœud au centre visible du canvas
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { x, y, zoom } = (reactFlowInstance as any).getViewport?.() ?? { x: 0, y: 0, zoom: 1 }
+    const wrapperRect = reactFlowWrapper.current?.getBoundingClientRect()
+    const cx = wrapperRect ? (wrapperRect.width / 2 - x) / zoom : 300
+    const cy = wrapperRect ? (wrapperRect.height / 2 - y) / zoom : 200
+    // Offset vertical pour ne pas superposer
+    const existingCount = nodes.filter(n => n.type === type).length
+    const position = { x: cx - 100 + existingCount * 20, y: cy - 50 + existingCount * 30 }
+    const newNode: WorkflowNode = {
+      id: `${type}-${Date.now()}`,
+      type,
+      position,
+      data: getDefaultData(type as string),
+    }
+    setNodes((nds) => nds.concat(newNode as never))
+  }, [reactFlowInstance, nodes, setNodes])
+
   return (
     <div className="flex h-full w-full">
       {/* Palette de blocs */}
-      <WorkflowPalette />
+      <WorkflowPalette onInsertNode={handleInsertNode} />
 
       {/* Canvas */}
       <div ref={reactFlowWrapper} className="flex-1 h-full" onDragOver={onDragOver} onDrop={onDrop}>
