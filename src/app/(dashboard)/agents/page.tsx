@@ -1,13 +1,12 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { useTranslation } from '@/i18n/context'
 import { cn } from '@/lib/utils'
 import type { AIAgent, Team } from '@/types/database'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -36,7 +35,6 @@ import {
   Brain,
   Clock,
   Languages,
-  Users,
   ShieldAlert,
   CalendarClock,
   Link2,
@@ -708,145 +706,159 @@ export default function AgentsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[...agents].sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0)).map((agent) => {
-            const isDeleting = deleting === agent.id
-            const typeColor = agent.agent_type === 'qualifier' ? '#0ea5e9' : agent.agent_type === 'relance' ? '#f97316' : '#8b5cf6'
-            const typeLabel = agent.agent_type === 'qualifier' ? 'Qualificateur' : agent.agent_type === 'relance' ? t('agents.relance') : 'Conversation'
-            const TypeIcon = agent.agent_type === 'qualifier' ? Sparkles : agent.agent_type === 'relance' ? Megaphone : MessageSquare
-            const teamNames = (agent.team_ids || (agent.team_id ? [agent.team_id] : [])).map(tid => teams.find(tm => tm.id === tid)?.name).filter(Boolean)
+        <div className="overflow-hidden rounded-2xl border border-white/[0.06] bg-[#161b22]">
+          {/* Header */}
+          <div className="grid grid-cols-[minmax(220px,2fr)_110px_120px_100px_140px_auto] items-center gap-4 border-b border-white/[0.06] bg-white/[0.015] px-5 py-3 text-[11px] font-semibold uppercase tracking-wider text-white/35">
+            <span>Agent</span>
+            <span>Statut</span>
+            <span>Modèle</span>
+            <span className="hidden lg:block">Tendance</span>
+            <span className="hidden md:block">Conversion</span>
+            <span className="text-right">Actions</span>
+          </div>
 
-            return (
-              <div
-                key={agent.id}
-                className={cn(
-                  'group relative flex h-[260px] flex-col overflow-hidden rounded-2xl transition-all duration-200',
-                  'border border-white/[0.06] bg-[#161b22] hover:border-white/[0.14] hover:-translate-y-0.5',
-                  !agent.is_active && 'opacity-50',
-                )}
-                style={agent.is_pinned ? { boxShadow: `inset 0 0 0 1px ${typeColor}45` } : undefined}
-              >
-                {/* Bandeau header coloré */}
+          {/* Rows */}
+          <div className="divide-y divide-white/[0.04]">
+            {[...agents].sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0)).map((agent, idx) => {
+              const isDeleting = deleting === agent.id
+              const typeColor = agent.agent_type === 'qualifier' ? '#0ea5e9' : agent.agent_type === 'relance' ? '#f97316' : '#8b5cf6'
+              const typeLabel = agent.agent_type === 'qualifier' ? 'Qualificateur' : agent.agent_type === 'relance' ? t('agents.relance') : 'Conversation'
+              const TypeIcon = agent.agent_type === 'qualifier' ? Sparkles : agent.agent_type === 'relance' ? Megaphone : MessageSquare
+              const conv = agent.booking_stats?.conversion_rate || 0
+              const convColor = conv >= 50 ? '#34d399' : conv >= 20 ? '#facc15' : '#71717a'
+              const hasBooking = !!agent.booking_url
+
+              return (
                 <div
-                  className="relative flex items-start gap-3 px-4 pt-4 pb-3"
-                  style={{ background: `linear-gradient(180deg, ${typeColor}14 0%, transparent 100%)` }}
-                >
-                  {/* Avatar icône */}
-                  <div
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
-                    style={{ background: `${typeColor}22`, color: typeColor }}
-                  >
-                    <TypeIcon className="h-5 w-5" />
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold"
-                        style={{ background: `${typeColor}1f`, color: typeColor }}
-                      >
-                        {typeLabel}
-                      </span>
-                      {agent.is_pinned && <Pin className="h-3 w-3 shrink-0" style={{ color: typeColor }} />}
-                    </div>
-                    <h3 className="mt-1 text-[15px] font-semibold truncate text-white/95">{agent.name}</h3>
-                  </div>
-
-                  <Switch
-                    checked={agent.is_active}
-                    onCheckedChange={() => handleToggleActive(agent)}
-                    className="shrink-0"
-                  />
-                </div>
-
-                {/* Corps : description / objectif */}
-                <div className="px-4 flex-1 min-h-0">
-                  <p className="text-[13px] text-white/55 line-clamp-2 leading-relaxed">
-                    {agent.objective || agent.description || agent.system_prompt}
-                  </p>
-
-                  {/* Stats RDV inline */}
-                  {agent.booking_url && (
-                    <div className="mt-2.5 flex items-center gap-4 rounded-lg bg-white/[0.03] px-3 py-1.5 w-fit">
-                      <span className="flex items-center gap-1 text-[11px]">
-                        <CalendarClock className="h-3 w-3 text-blue-400" />
-                        <b className="text-white/90">{agent.booking_stats?.total_proposals || 0}</b>
-                        <span className="text-white/40">{t('agents.proposed')}</span>
-                      </span>
-                      {(agent.booking_stats?.total_proposals || 0) > 0 && (
-                        <span className={cn('text-[11px] font-semibold',
-                          (agent.booking_stats?.conversion_rate || 0) >= 50 ? 'text-emerald-400' :
-                          (agent.booking_stats?.conversion_rate || 0) >= 20 ? 'text-yellow-400' : 'text-white/40'
-                        )}>
-                          {agent.booking_stats?.conversion_rate || 0}%
-                        </span>
-                      )}
-                    </div>
+                  key={agent.id}
+                  className={cn(
+                    'group grid grid-cols-[minmax(220px,2fr)_110px_120px_100px_140px_auto] items-center gap-4 px-5 py-3.5 transition-colors animate-fade-in-up',
+                    'hover:bg-white/[0.025]',
+                    !agent.is_active && 'opacity-50',
                   )}
-                </div>
-
-                {/* Meta chips (1 ligne, scrollée si déborde) */}
-                <div className="px-4 py-2.5 flex items-center gap-1.5 overflow-hidden">
-                  <MiniChip label={agent.model} accent={typeColor} />
-                  {teamNames[0] && <MiniChip label={teamNames[0] as string} icon={<Users className="h-2.5 w-2.5" />} />}
-                  {agent.auto_detect_language && <MiniChip icon={<Languages className="h-2.5 w-2.5" />} title={t('agents.multi_lang')} />}
-                  {agent.escalation_enabled && <MiniChip icon={<ShieldAlert className="h-2.5 w-2.5" />} title={t('agents.guardrail')} />}
-                  {agent.schedule_enabled && <MiniChip icon={<Clock className="h-2.5 w-2.5" />} title="Planning" />}
-                  {agentKnowledge[agent.id]?.[0] && <MiniChip icon={<Brain className="h-2.5 w-2.5 text-emerald-400" />} label={agentKnowledge[agent.id].length > 1 ? `${agentKnowledge[agent.id].length} KB` : agentKnowledge[agent.id][0].name} />}
-                </div>
-
-                {/* Footer actions */}
-                <div className="flex items-center gap-1 border-t border-white/[0.05] bg-white/[0.015] px-3 py-2.5">
-                  <Link href={`/agents/${agent.id}`} className="flex-1">
-                    <button
-                      className="w-full flex items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[13px] font-semibold transition-all hover:brightness-110"
-                      style={{ background: `${typeColor}26`, color: typeColor, border: `1px solid ${typeColor}33` }}
+                  style={{ animationDelay: `${Math.min(idx * 40, 400)}ms`, ...(agent.is_pinned ? { boxShadow: `inset 3px 0 0 ${typeColor}` } : {}) }}
+                >
+                  {/* Agent : icône + nom + type */}
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl"
+                      style={{ background: `${typeColor}1f`, color: typeColor }}
                     >
-                      <Bot className="h-4 w-4" />
-                      Configurer
-                    </button>
-                  </Link>
+                      <TypeIcon className="h-4.5 w-4.5" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[14px] font-semibold truncate text-white/95">{agent.name}</span>
+                        {agent.is_pinned && <Pin className="h-3 w-3 shrink-0" style={{ color: typeColor }} />}
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[11px]" style={{ color: typeColor }}>{typeLabel}</span>
+                        {agentKnowledge[agent.id]?.length > 0 && (
+                          <span className="inline-flex items-center gap-0.5 text-[10px] text-white/35" title={agentKnowledge[agent.id].map(k => k.name).join(', ')}>
+                            <Brain className="h-2.5 w-2.5 text-emerald-400/70" />
+                            {agentKnowledge[agent.id].length}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
 
-                  <ActionBtn onClick={() => { setTestingAgent(agent); setTestChatOpen(true) }} title={t('common.test')}>
-                    <MessageSquare className="h-4 w-4" />
-                  </ActionBtn>
-                  <ActionBtn onClick={() => openEditDialog(agent)} title={t('common.edit')}>
-                    <Pencil className="h-4 w-4" />
-                  </ActionBtn>
+                  {/* Statut pill */}
+                  <div>
+                    <span
+                      className={cn(
+                        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium',
+                        agent.is_active ? 'bg-emerald-500/12 text-emerald-400' : 'bg-white/[0.06] text-white/40'
+                      )}
+                    >
+                      <span className={cn('h-1.5 w-1.5 rounded-full', agent.is_active ? 'bg-emerald-400 animate-pulse' : 'bg-white/30')} />
+                      {agent.is_active ? t('common.active') : t('common.inactive')}
+                    </span>
+                  </div>
 
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button className="flex h-9 w-9 items-center justify-center rounded-lg text-white/40 hover:bg-white/[0.06] hover:text-white/80 transition-colors">
-                        <ChevronDown className="h-4 w-4" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-44">
-                      <DropdownMenuItem onClick={() => { setToolsAgent(agent); setToolsOpen(true) }}>
-                        <Wrench className="mr-2 h-3.5 w-3.5" />
-                        {t('tools.title')}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleTogglePin(agent)}>
-                        {agent.is_pinned ? <PinOff className="mr-2 h-3.5 w-3.5" /> : <Pin className="mr-2 h-3.5 w-3.5" />}
-                        {agent.is_pinned ? t('agents.unpin') : t('agents.pin')}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDuplicate(agent)} disabled={saving}>
-                        <Copy className="mr-2 h-3.5 w-3.5" />
-                        {t('common.duplicate')}
-                      </DropdownMenuItem>
-                      <DropdownMenuItem
-                        onClick={() => openDeleteDialog(agent)}
-                        disabled={isDeleting}
-                        className="text-destructive focus:text-destructive"
+                  {/* Modèle */}
+                  <div className="text-[12px] text-white/55 truncate">{agent.model}</div>
+
+                  {/* Tendance (sparkline) */}
+                  <div className="hidden lg:block">
+                    <Sparkline seed={agent.id} color={hasBooking && conv > 0 ? convColor : '#52525b'} />
+                  </div>
+
+                  {/* Conversion */}
+                  <div className="hidden md:block">
+                    {hasBooking ? (
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="font-semibold" style={{ color: convColor }}>{conv}%</span>
+                          <span className="text-white/30">{agent.booking_stats?.total_clicks || 0} clics</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+                          <div className="h-full rounded-full transition-all" style={{ width: `${Math.min(conv, 100)}%`, background: convColor }} />
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-[11px] text-white/25">—</span>
+                    )}
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center justify-end gap-1">
+                    <Link href={`/agents/${agent.id}`}>
+                      <button
+                        className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-all hover:brightness-110"
+                        style={{ background: `${typeColor}26`, color: typeColor, border: `1px solid ${typeColor}33` }}
                       >
-                        {isDeleting ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Trash2 className="mr-2 h-3.5 w-3.5" />}
-                        {t('common.delete')}
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                        <Bot className="h-3.5 w-3.5" />
+                        <span className="hidden xl:inline">Configurer</span>
+                      </button>
+                    </Link>
+                    <Switch
+                      checked={agent.is_active}
+                      onCheckedChange={() => handleToggleActive(agent)}
+                      className="mx-1 hidden sm:inline-flex"
+                    />
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button className="flex h-8 w-8 items-center justify-center rounded-lg text-white/40 hover:bg-white/[0.06] hover:text-white/80 transition-colors">
+                          <ChevronDown className="h-4 w-4" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-44">
+                        <DropdownMenuItem onClick={() => { setTestingAgent(agent); setTestChatOpen(true) }}>
+                          <MessageSquare className="mr-2 h-3.5 w-3.5" />
+                          {t('common.test')}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => openEditDialog(agent)}>
+                          <Pencil className="mr-2 h-3.5 w-3.5" />
+                          {t('common.edit')}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => { setToolsAgent(agent); setToolsOpen(true) }}>
+                          <Wrench className="mr-2 h-3.5 w-3.5" />
+                          {t('tools.title')}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleTogglePin(agent)}>
+                          {agent.is_pinned ? <PinOff className="mr-2 h-3.5 w-3.5" /> : <Pin className="mr-2 h-3.5 w-3.5" />}
+                          {agent.is_pinned ? t('agents.unpin') : t('agents.pin')}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => handleDuplicate(agent)} disabled={saving}>
+                          <Copy className="mr-2 h-3.5 w-3.5" />
+                          {t('common.duplicate')}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => openDeleteDialog(agent)}
+                          disabled={isDeleting}
+                          className="text-destructive focus:text-destructive"
+                        >
+                          {isDeleting ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Trash2 className="mr-2 h-3.5 w-3.5" />}
+                          {t('common.delete')}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
                 </div>
-              </div>
-            )
-          })}
+              )
+            })}
+          </div>
         </div>
       )}
 
@@ -1455,29 +1467,33 @@ export default function AgentsPage() {
 
 // ─── Card sub-components ──────────────────────────────────────────────────────
 
-function MiniChip({ label, icon, accent, title }: { label?: string; icon?: React.ReactNode; accent?: string; title?: string }) {
-  return (
-    <span
-      title={title}
-      className="inline-flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-medium whitespace-nowrap"
-      style={accent
-        ? { background: `${accent}1a`, color: accent }
-        : { background: 'rgba(255,255,255,0.05)', color: 'rgba(255,255,255,0.55)' }}
-    >
-      {icon}
-      {label}
-    </span>
-  )
-}
+// Mini-sparkline SVG déterministe (basée sur l'id pour rester stable entre les renders)
+function Sparkline({ seed, color }: { seed: string; color: string }) {
+  const points = useMemo(() => {
+    // Génère 8 valeurs pseudo-aléatoires stables à partir du seed
+    let h = 0
+    for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0
+    const vals: number[] = []
+    for (let i = 0; i < 8; i++) {
+      h = (h * 1103515245 + 12345) >>> 0
+      vals.push((h % 100) / 100)
+    }
+    const w = 72, hgt = 24
+    const step = w / (vals.length - 1)
+    return vals.map((v, i) => `${i * step},${hgt - v * (hgt - 4) - 2}`).join(' ')
+  }, [seed])
 
-function ActionBtn({ onClick, title, children }: { onClick: () => void; title: string; children: React.ReactNode }) {
   return (
-    <button
-      onClick={onClick}
-      title={title}
-      className="flex h-9 w-9 items-center justify-center rounded-lg text-white/40 hover:bg-white/[0.06] hover:text-white/80 transition-colors"
-    >
-      {children}
-    </button>
+    <svg width="72" height="24" viewBox="0 0 72 24" className="overflow-visible">
+      <polyline
+        points={points}
+        fill="none"
+        stroke={color}
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        style={{ filter: `drop-shadow(0 0 3px ${color}55)` }}
+      />
+    </svg>
   )
 }
