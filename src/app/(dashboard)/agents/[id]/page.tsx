@@ -6,8 +6,6 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import type { AIAgent, WhatsAppSession, WALink, KnowledgeDocument } from '@/types/database'
 import { AgentTestChat } from '@/components/agent-test-chat'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -24,15 +22,6 @@ import { cn } from '@/lib/utils'
 type KnowledgeImage = { id: string; ref: string; filename: string; agent_id: string | null }
 type AgentWithExtras = AIAgent & { team_ids?: string[] }
 
-const SECTIONS = [
-  { id: 'identity',  label: 'Identité',    icon: Brain,      accent: '#8b5cf6' },
-  { id: 'knowledge', label: 'Savoir',       icon: BookOpen,   accent: '#3b82f6' },
-  { id: 'behavior',  label: 'Comportement', icon: Zap,        accent: '#f97316' },
-  { id: 'channels',  label: 'Canaux',       icon: Smartphone, accent: '#10b981' },
-] as const
-
-type SectionId = typeof SECTIONS[number]['id']
-
 export default function AgentDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params)
   const router = useRouter()
@@ -42,7 +31,6 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   const [saving, setSaving]         = useState(false)
   const [saved, setSaved]           = useState(false)
   const [testOpen, setTestOpen]     = useState(false)
-  const [active, setActive]         = useState<SectionId>('identity')
 
   const [sessions, setSessions]     = useState<WhatsAppSession[]>([])
   const [links, setLinks]           = useState<WALink[]>([])
@@ -197,16 +185,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   }
 
   const DAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
-  const toneLabel = tone === 'professional' ? 'Professionnel' : tone === 'friendly' ? 'Chaleureux' : 'Décontracté'
   const connected = sessions.filter(s => s.status === 'connected')
-  const sec = SECTIONS.find(s => s.id === active)!
-
-  const badges: Record<SectionId, string | undefined> = {
-    identity: undefined,
-    knowledge: docs.length + images.length > 0 ? String(docs.length + images.length) : undefined,
-    behavior: escalationEnabled ? '●' : undefined,
-    channels: connected.length > 0 ? String(connected.length) : undefined,
-  }
 
   if (loading) return (
     <div className="flex h-full items-center justify-center">
@@ -216,27 +195,27 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   if (!agent) return null
 
   return (
-    <div className="flex flex-col h-full overflow-hidden" style={{ background: 'hsl(var(--background))' }}>
+    <div className="flex flex-col h-full overflow-hidden bg-background">
 
-      {/* ── Topbar ─ Apple-style: clean, centré, compact ── */}
-      <header className="shrink-0 relative flex items-center px-5 py-2.5 border-b border-border/50 bg-background/95 backdrop-blur-xl z-30">
-        <Link href="/agents" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
+      {/* ── Topbar ── */}
+      <header className="shrink-0 flex items-center gap-3 px-5 py-3 border-b border-border/50 bg-background/95 backdrop-blur-xl z-30">
+        <Link href="/agents" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors shrink-0">
           <ArrowLeft className="h-4 w-4" />
-          <span className="hidden sm:inline">Agents IA</span>
+          <span className="hidden sm:inline">Retour</span>
         </Link>
 
-        <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2">
-          <span className="text-sm font-semibold truncate max-w-[240px]">{agent.name}</span>
+        <div className="ml-1 min-w-0 flex items-center gap-2">
+          <span className="text-sm font-semibold truncate">{agent.name}</span>
           <span className={cn(
-            'flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium',
+            'shrink-0 flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium',
             agent.is_active ? 'bg-emerald-500/12 text-emerald-500' : 'bg-muted text-muted-foreground'
           )}>
-            <span className={cn('h-1.5 w-1.5 rounded-full', agent.is_active ? 'bg-emerald-500' : 'bg-muted-foreground/50')} />
+            <span className={cn('h-1.5 w-1.5 rounded-full', agent.is_active ? 'bg-emerald-500 animate-pulse' : 'bg-muted-foreground/50')} />
             {agent.is_active ? 'Actif' : 'Inactif'}
           </span>
         </div>
 
-        <div className="ml-auto flex items-center gap-1.5">
+        <div className="ml-auto flex items-center gap-1.5 shrink-0">
           <button
             onClick={() => setTestOpen(true)}
             className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all"
@@ -253,16 +232,14 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
             )}
           >
             {agent.is_active ? <Power className="h-3.5 w-3.5" /> : <PowerOff className="h-3.5 w-3.5" />}
-            {agent.is_active ? 'Actif' : 'Inactif'}
+            <span className="hidden sm:inline">{agent.is_active ? 'Actif' : 'Inactif'}</span>
           </button>
           <button
             onClick={handleSave}
             disabled={saving}
             className={cn(
               'flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all',
-              saved
-                ? 'bg-emerald-500 text-white'
-                : 'bg-foreground text-background hover:opacity-90'
+              saved ? 'bg-emerald-500 text-white' : 'bg-foreground text-background hover:opacity-90'
             )}
           >
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : saved ? <Check className="h-3.5 w-3.5" /> : <Save className="h-3.5 w-3.5" />}
@@ -271,483 +248,366 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
+      {/* ── Page unique qui scrolle ── */}
+      <main className="flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-2xl px-6 py-10 space-y-12">
 
-        {/* ── Sidebar ── */}
-        <aside className="w-64 shrink-0 flex flex-col border-r border-border/50 overflow-y-auto" style={{ background: 'hsl(var(--card)/0.4)' }}>
+          {/* ═══ IDENTITÉ ═══ */}
+          <Block icon={Brain} accent="#8b5cf6" title="Identité" subtitle="Qui est l'agent et comment il parle">
+            {/* Nom */}
+            <Row label="Nom de l'agent">
+              <input
+                value={name}
+                onChange={e => setName(e.target.value)}
+                className="w-full rounded-xl border border-border/50 bg-muted/30 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-foreground/15 focus:border-foreground/30 transition-all"
+              />
+            </Row>
 
-          {/* Agent card in sidebar */}
-          <div className="px-4 pt-6 pb-5">
-            <div className="flex flex-col items-center text-center gap-3">
-              <div>
-                <Input
-                  value={name}
-                  onChange={e => setName(e.target.value)}
-                  className="text-[15px] font-semibold border-0 shadow-none p-0 h-auto bg-transparent focus-visible:ring-0 text-center text-foreground"
-                />
-                <p className="text-xs text-muted-foreground mt-0.5 truncate px-2">{description || 'Aucune description'}</p>
-              </div>
-              <div className="flex items-center gap-1.5 flex-wrap justify-center">
-                <Tag2 label={model} />
-                <Tag2 label={toneLabel} />
-                {autoDetectLanguage && <Tag2 label="Multilangue" />}
-              </div>
-            </div>
-          </div>
+            {/* Description */}
+            <Row label="Description" hint="Affiché sous le nom">
+              <input
+                value={description}
+                onChange={e => setDescription(e.target.value)}
+                placeholder="Ex: Assistant commercial WhatsApp"
+                className="w-full rounded-xl border border-border/50 bg-muted/30 px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-foreground/15 focus:border-foreground/30 transition-all"
+              />
+            </Row>
 
-          <div className="mx-4 h-px bg-border/50" />
+            {/* Objectif */}
+            <Row label="Objectif" hint="Ce que l'agent doit accomplir">
+              <textarea
+                value={objective}
+                onChange={e => setObjective(e.target.value)}
+                placeholder="Ex: Qualifier les prospects et proposer un rendez-vous"
+                rows={2}
+                className="w-full rounded-xl border border-border/50 bg-muted/30 px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/50 resize-none focus:outline-none focus:ring-2 focus:ring-foreground/15 focus:border-foreground/30 transition-all"
+              />
+            </Row>
 
-          {/* Nav */}
-          <nav className="px-3 py-4 space-y-0.5">
-            <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/40">Configuration</p>
-            {SECTIONS.map(({ id: sid, label, icon: Icon, accent }) => {
-              const isActive = active === sid
-              const badge = badges[sid]
-              return (
-                <button
-                  key={sid}
-                  onClick={() => setActive(sid)}
-                  className={cn(
-                    'relative w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-all text-left group',
-                    isActive ? 'font-medium' : 'text-muted-foreground hover:text-foreground hover:bg-white/[0.03]'
-                  )}
-                  style={isActive ? { background: `${accent}12`, color: accent } : {}}
-                >
-                  {isActive && (
-                    <span className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 rounded-r-full" style={{ background: accent }} />
-                  )}
-                  <span
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg transition-all"
-                    style={isActive ? { background: `${accent}20`, color: accent } : {}}
-                  >
-                    <Icon className="h-3.5 w-3.5" />
-                  </span>
-                  <span className="flex-1">{label}</span>
-                  {badge && (
-                    <span
-                      className="min-w-[18px] h-[18px] rounded-full flex items-center justify-center text-[10px] font-bold px-1"
-                      style={{ background: isActive ? `${accent}25` : 'hsl(var(--muted))', color: isActive ? accent : 'hsl(var(--muted-foreground))' }}
+            {/* Ton */}
+            <Row label="Ton">
+              <div className="grid grid-cols-3 gap-2.5">
+                {([
+                  { id: 'professional', label: 'Professionnel', emoji: '👔' },
+                  { id: 'friendly',     label: 'Chaleureux',    emoji: '😊' },
+                  { id: 'casual',       label: 'Décontracté',   emoji: '😎' },
+                ] as const).map(t => {
+                  const on = tone === t.id
+                  return (
+                    <button
+                      key={t.id}
+                      onClick={() => setTone(t.id)}
+                      className={cn(
+                        'rounded-2xl py-4 text-center transition-all border',
+                        on ? 'border-violet-500/55 bg-violet-500/12' : 'border-border/50 bg-muted/20 hover:bg-muted/40'
+                      )}
                     >
-                      {badge}
-                    </span>
-                  )}
-                </button>
-              )
-            })}
-          </nav>
-
-          <div className="mx-4 h-px bg-border/50" />
-
-          {/* Quick stats */}
-          <div className="px-4 py-5 mt-auto">
-            <p className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/40 mb-3">Aperçu</p>
-            <div className="space-y-3">
-              <QuickStat label="Sessions actives" value={String(connected.length)} color={connected.length > 0 ? '#10b981' : undefined} />
-              <QuickStat label="Documents" value={String(docs.length + images.length)} />
-              <QuickStat label="Liens QR" value={String(links.length)} />
-              <QuickStat label="Escalade" value={escalationEnabled ? 'Activée' : 'Désactivée'} color={escalationEnabled ? '#10b981' : undefined} />
-            </div>
-          </div>
-        </aside>
-
-        {/* ── Main content ── */}
-        <main className="relative flex-1 overflow-y-auto bg-background">
-
-          {/* Halo d'accent en haut */}
-          <div
-            className="pointer-events-none absolute inset-x-0 top-0 h-48 opacity-[0.12]"
-            style={{ background: `radial-gradient(ellipse 80% 100% at 50% 0%, ${sec.accent} 0%, transparent 70%)` }}
-          />
-
-          {/* Section title bar */}
-          <div className="sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-border/40">
-            <div className="mx-auto w-full max-w-2xl px-8 py-5 flex items-center gap-3.5">
-              <div
-                className="flex h-11 w-11 items-center justify-center rounded-xl ring-1"
-                style={{ background: `${sec.accent}1a`, color: sec.accent, borderColor: `${sec.accent}30` }}
-              >
-                <sec.icon className="h-5 w-5" />
+                      <span className="block text-2xl mb-1.5">{t.emoji}</span>
+                      <span className={cn('text-xs font-semibold', on ? 'text-violet-400' : 'text-foreground/80')}>{t.label}</span>
+                    </button>
+                  )
+                })}
               </div>
-              <div>
-                <h1 className="text-lg font-semibold tracking-tight">{sectionTitle(active)}</h1>
-                <p className="text-[12px] text-muted-foreground">{sectionSubtitle(active)}</p>
+            </Row>
+
+            {/* Détection langue */}
+            <ToggleRow
+              icon={<Languages className="h-4 w-4" />}
+              label="Détection de langue"
+              hint="Répond dans la langue du client"
+              checked={autoDetectLanguage}
+              onChange={setAutoDetectLanguage}
+            />
+          </Block>
+
+          {/* ═══ SAVOIR ═══ */}
+          <Block icon={BookOpen} accent="#3b82f6" title="Savoir" subtitle="Documents que l'agent peut utiliser"
+            action={<MiniAction color="#3b82f6" onClick={() => setAddDocOpen(true)}>Ajouter</MiniAction>}
+          >
+            {docs.length === 0 && images.length === 0 ? (
+              <Empty
+                icon={<FileText className="h-7 w-7 text-blue-400" />}
+                title="Aucune ressource"
+                hint="Attachez des documents pour enrichir les réponses"
+                cta="Parcourir la bibliothèque"
+                onClick={() => setAddDocOpen(true)}
+                color="#3b82f6"
+              />
+            ) : (
+              <div className="space-y-2">
+                {docs.map(doc => (
+                  <div key={doc.id} className="group flex items-center gap-3 rounded-xl px-4 py-3 bg-muted/30 hover:bg-muted/50 transition-colors">
+                    <FileText className="h-4 w-4 text-blue-500 shrink-0" />
+                    <span className="text-sm flex-1 truncate">{doc.name}</span>
+                    <button onClick={() => handleDetachDoc(doc.id)} className="opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive transition-colors" />
+                    </button>
+                  </div>
+                ))}
+                {images.map(img => (
+                  <div key={img.id} className="flex items-center gap-3 rounded-xl px-4 py-3 bg-muted/30">
+                    <Tag className="h-4 w-4 text-orange-500 shrink-0" />
+                    <code className="text-xs font-mono">{img.ref}</code>
+                  </div>
+                ))}
+                <Link href="/knowledge" className="block">
+                  <button className="w-full flex items-center justify-center gap-2 rounded-xl border border-border/50 px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-all">
+                    <Upload className="h-4 w-4" /> Gérer la bibliothèque
+                  </button>
+                </Link>
               </div>
-            </div>
-          </div>
+            )}
+          </Block>
 
-          {/* Content */}
-          <div className="relative mx-auto w-full max-w-2xl px-8 py-10 space-y-10">
+          {/* ═══ CANAUX ═══ */}
+          <Block icon={Smartphone} accent="#10b981" title="Canaux" subtitle="Où l'agent est actif"
+            action={<MiniAction color="#10b981" onClick={() => setAddLinkOpen(true)}>Créer un lien</MiniAction>}
+          >
+            {/* Sessions */}
+            <Row label="Sessions WhatsApp">
+              {sessions.length === 0 ? (
+                <Empty
+                  icon={<Smartphone className="h-7 w-7 text-emerald-400" />}
+                  title="Aucune session"
+                  hint="Connectez un numéro WhatsApp"
+                  cta="Connecter WhatsApp"
+                  onClick={() => router.push('/sessions')}
+                  color="#10b981"
+                />
+              ) : (
+                <div className="space-y-2">
+                  {sessions.map(s => (
+                    <div key={s.id} className="flex items-center gap-3.5 rounded-xl px-4 py-3 bg-muted/30">
+                      <span className={cn('h-2 w-2 rounded-full shrink-0', s.status === 'connected' ? 'bg-emerald-500 shadow-[0_0_6px_#10b981]' : 'bg-muted-foreground/30')} />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium truncate">{s.display_name || s.instance_name}</p>
+                        <p className="text-xs text-muted-foreground">{s.phone_number || '—'}</p>
+                      </div>
+                      <span className={cn('text-[10px] font-semibold rounded-full px-2.5 py-1', s.status === 'connected' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-muted text-muted-foreground')}>
+                        {s.status === 'connected' ? 'Connecté' : 'Déconnecté'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Row>
 
-            {active === 'identity' && (
-              <>
-                {/* Ton */}
-                <Section title="Ton">
-                  <div className="grid grid-cols-3 gap-3">
+            {/* Liens QR */}
+            {links.length > 0 && (
+              <Row label="Liens WhatsApp">
+                <div className="space-y-2">
+                  {links.map(link => (
+                    <div key={link.id} className="flex items-center gap-3.5 rounded-xl px-4 py-3 bg-muted/30">
+                      <QrCode className="h-4 w-4 text-emerald-500 shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium truncate">{link.name}</p>
+                        <p className="text-[11px] font-mono text-muted-foreground">/{link.slug}</p>
+                      </div>
+                      <span className="text-xs text-muted-foreground">{link.click_count ?? 0} clics</span>
+                    </div>
+                  ))}
+                </div>
+              </Row>
+            )}
+          </Block>
+
+          {/* ═══ COMPORTEMENT (escalade + RDV) ═══ */}
+          <Block icon={Zap} accent="#f97316" title="Comportement" subtitle="Escalade vers un humain et rendez-vous">
+            {/* Escalade */}
+            <div className="rounded-2xl overflow-hidden border border-border/50">
+              <div className="flex items-center justify-between px-4 py-3.5 bg-muted/20">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-rose-500/10">
+                    <UserCheck className="h-4 w-4 text-rose-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium">Transfert vers un humain</p>
+                    <p className="text-xs text-muted-foreground">Si le client le demande</p>
+                  </div>
+                </div>
+                <Switch checked={escalationEnabled} onCheckedChange={setEscalationEnabled} />
+              </div>
+              {escalationEnabled && (
+                <div className="px-4 py-4 space-y-4 border-t border-border/40">
+                  <div className="grid grid-cols-3 gap-2">
                     {([
-                      { id: 'professional', label: 'Professionnel', emoji: '👔' },
-                      { id: 'friendly',     label: 'Chaleureux',    emoji: '😊' },
-                      { id: 'casual',       label: 'Décontracté',   emoji: '😎' },
-                    ] as const).map(t => {
-                      const isOn = tone === t.id
+                      { id: 'keywords', label: 'Mots-clés' },
+                      { id: 'ai',       label: 'IA' },
+                      { id: 'both',     label: 'Les deux' },
+                    ] as const).map(m => {
+                      const on = escalationMode === m.id
                       return (
                         <button
-                          key={t.id}
-                          onClick={() => setTone(t.id)}
+                          key={m.id}
+                          onClick={() => setEscalationMode(m.id)}
                           className={cn(
-                            'relative rounded-2xl py-5 text-center transition-all duration-200 border',
-                            isOn ? 'scale-[1.03] shadow-lg' : 'border-white/[0.06] bg-white/[0.02] hover:bg-white/[0.05] hover:border-white/[0.12]'
+                            'rounded-xl py-2.5 text-xs font-semibold transition-all border',
+                            on ? 'border-orange-500/55 bg-orange-500/12 text-orange-400' : 'border-border/50 bg-muted/20 text-muted-foreground hover:bg-muted/40'
                           )}
-                          style={isOn ? { background: `${sec.accent}1f`, borderColor: `${sec.accent}55`, boxShadow: `0 8px 24px -8px ${sec.accent}66` } : {}}
                         >
-                          <span className="block text-2xl mb-1.5">{t.emoji}</span>
-                          <span className="text-xs font-semibold" style={isOn ? { color: sec.accent } : { color: 'hsl(var(--foreground))' }}>{t.label}</span>
+                          {m.label}
                         </button>
                       )
                     })}
                   </div>
-                </Section>
-
-                {/* Description + Objectif */}
-                <Section title="Présentation">
-                  <Field label="Description" hint="Affiché sous le nom de l'agent">
-                    <PremiumInput value={description} onChange={e => setDescription(e.target.value)} placeholder="Assistant commercial WhatsApp..." />
-                  </Field>
-                  <Field label="Objectif" hint="Mission principale dans chaque conversation">
-                    <PremiumTextarea value={objective} onChange={e => setObjective(e.target.value)} placeholder="Qualifier les prospects et proposer un rendez-vous..." rows={3} />
-                  </Field>
-                </Section>
-
-                {/* Toggle langue */}
-                <Section title="Options">
-                  <ToggleRow
-                    icon={<Languages className="h-4 w-4" />}
-                    label="Détection de langue"
-                    hint="Répond dans la langue du client"
-                    checked={autoDetectLanguage}
-                    onChange={setAutoDetectLanguage}
+                  {(escalationMode === 'keywords' || escalationMode === 'both') && (
+                    <input
+                      value={escalationKeywords}
+                      onChange={e => setEscalationKeywords(e.target.value)}
+                      placeholder="Mots-clés : humain, conseiller, aide…"
+                      className="w-full rounded-xl border border-border/50 bg-muted/30 px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-foreground/15 transition-all"
+                    />
+                  )}
+                  <textarea
+                    value={escalationMessage}
+                    onChange={e => setEscalationMessage(e.target.value)}
+                    placeholder="Message de transfert : Je vous mets en relation avec un conseiller…"
+                    rows={2}
+                    className="w-full rounded-xl border border-border/50 bg-muted/30 px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/50 resize-none focus:outline-none focus:ring-2 focus:ring-foreground/15 transition-all"
                   />
-                </Section>
+                </div>
+              )}
+            </div>
 
-                {/* Avancé */}
-                <details className="group">
-                  <summary className="flex cursor-pointer list-none items-center gap-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors select-none">
-                    <Settings2 className="h-3.5 w-3.5" />
-                    Paramètres avancés
-                    <ChevronDown className="ml-1 h-3.5 w-3.5 group-open:rotate-180 transition-transform duration-200" />
-                  </summary>
-                  <div className="mt-6 space-y-6 pl-1">
-                    <Section title="Modèle IA">
-                      <div className="grid grid-cols-2 gap-3">
-                        {(['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4.1'] as const).map(m => {
-                          const isOn = model === m
-                          return (
-                            <button
-                              key={m}
-                              onClick={() => setModel(m)}
-                              className={cn(
-                                'rounded-xl px-4 py-3 text-xs font-semibold text-left transition-all border',
-                                isOn ? '' : 'border-white/[0.06] bg-white/[0.02] text-muted-foreground hover:border-white/[0.12] hover:text-foreground'
-                              )}
-                              style={isOn ? { background: `${sec.accent}1f`, borderColor: `${sec.accent}55`, color: sec.accent } : {}}
-                            >
-                              {m}
-                            </button>
-                          )
-                        })}
-                      </div>
-                      <Field label={`Créativité — ${Math.round(temperature * 100)}%`}>
-                        <input
-                          type="range" min="0" max="1" step="0.1" value={temperature}
-                          onChange={e => setTemperature(parseFloat(e.target.value))}
-                          className="w-full mt-1"
-                          style={{ accentColor: sec.accent }}
-                        />
-                      </Field>
-                    </Section>
+            {/* RDV */}
+            <div className="rounded-2xl border border-border/50 px-4 py-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-cyan-500/10">
+                  <CalendarCheck className="h-4 w-4 text-cyan-500" />
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Lien de rendez-vous</p>
+                  <p className="text-xs text-muted-foreground">Calendly, Cal.com…</p>
+                </div>
+              </div>
+              <input
+                value={bookingUrl}
+                onChange={e => setBookingUrl(e.target.value)}
+                placeholder="https://calendly.com/votre-lien"
+                className="w-full rounded-xl border border-border/50 bg-muted/30 px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-foreground/15 transition-all"
+              />
+            </div>
+          </Block>
 
-                    <Section title="Prompt système">
-                      <Textarea
-                        value={systemPrompt}
-                        onChange={e => setSystemPrompt(e.target.value)}
-                        className="min-h-[140px] resize-y text-xs font-mono bg-muted/30 border-border/50 rounded-xl"
-                      />
-                    </Section>
+          {/* ═══ AVANCÉ (replié) ═══ */}
+          <details className="group rounded-2xl border border-border/50 overflow-hidden">
+            <summary className="flex cursor-pointer list-none items-center gap-3 px-5 py-4 hover:bg-muted/20 transition-colors select-none">
+              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-muted/40 text-muted-foreground">
+                <Settings2 className="h-4 w-4" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-semibold">Paramètres avancés</p>
+                <p className="text-xs text-muted-foreground">Modèle IA, délais, planning… (optionnel)</p>
+              </div>
+              <ChevronDown className="h-4 w-4 text-muted-foreground group-open:rotate-180 transition-transform" />
+            </summary>
 
-                    <Section title="Timing">
-                      <div className="grid grid-cols-2 gap-3">
-                        <Field label="Délai min (s)">
-                          <PremiumInput type="number" min="0" value={delayMin} onChange={e => setDelayMin(parseInt(e.target.value) || 0)} />
-                        </Field>
-                        <Field label="Délai max (s)">
-                          <PremiumInput type="number" min="0" value={delayMax} onChange={e => setDelayMax(parseInt(e.target.value) || 0)} />
-                        </Field>
-                        <Field label="Max messages">
-                          <PremiumInput type="number" value={maxMessages} onChange={e => setMaxMessages(e.target.value)} placeholder="Illimité" />
-                        </Field>
-                        <Field label="Timeout inactivité (min)">
-                          <PremiumInput type="number" value={inactivityTimeout} onChange={e => setInactivityTimeout(e.target.value)} placeholder="Aucun" />
-                        </Field>
-                      </div>
-                    </Section>
-
-                    <Section title="Condition d'arrêt">
-                      <PremiumTextarea
-                        value={stopCondition}
-                        onChange={e => setStopCondition(e.target.value)}
-                        placeholder="Ex: si le client a confirmé son rendez-vous..."
-                        rows={2}
-                      />
-                    </Section>
-
-                    <Section title="Planning horaire">
-                      <ToggleRow
-                        label="Activer le planning"
-                        hint="L'agent ne répond que dans les plages définies"
-                        checked={scheduleEnabled}
-                        onChange={setScheduleEnabled}
-                      />
-                      {scheduleEnabled && (
-                        <div className="mt-4 space-y-3">
-                          <div className="grid grid-cols-2 gap-3">
-                            <Field label="Début">
-                              <PremiumInput type="time" value={scheduleStart} onChange={e => setScheduleStart(e.target.value)} />
-                            </Field>
-                            <Field label="Fin">
-                              <PremiumInput type="time" value={scheduleEnd} onChange={e => setScheduleEnd(e.target.value)} />
-                            </Field>
-                          </div>
-                          <div className="flex gap-1.5">
-                            {DAYS.map((d, i) => {
-                              const isOn = scheduleDays.includes(i + 1)
-                              return (
-                                <button
-                                  key={i}
-                                  onClick={() => setScheduleDays(prev => prev.includes(i + 1) ? prev.filter(x => x !== i + 1) : [...prev, i + 1])}
-                                  className={cn(
-                                    'flex-1 rounded-lg py-2 text-[11px] font-semibold transition-all border',
-                                    isOn ? '' : 'border-transparent bg-white/[0.04] text-muted-foreground hover:bg-white/[0.08]'
-                                  )}
-                                  style={isOn ? { background: `${sec.accent}22`, borderColor: `${sec.accent}55`, color: sec.accent } : {}}
-                                >
-                                  {d}
-                                </button>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      )}
-                    </Section>
-                  </div>
-                </details>
-              </>
-            )}
-
-            {active === 'knowledge' && (
-              <>
-                <Section
-                  title="Documents"
-                  action={
-                    <button onClick={() => setAddDocOpen(true)} className="flex items-center gap-1 text-xs font-medium text-blue-500 hover:text-blue-600 transition-colors">
-                      <Plus className="h-3.5 w-3.5" /> Ajouter
-                    </button>
-                  }
-                >
-                  {docs.length === 0 ? (
-                    <EmptyState
-                      icon={<FileText className="h-7 w-7 text-blue-400" />}
-                      title="Aucun document"
-                      hint="Attachez des fichiers pour enrichir les réponses"
-                      action="Parcourir la bibliothèque"
-                      onAction={() => setAddDocOpen(true)}
-                      color="#3b82f6"
-                    />
-                  ) : (
-                    <div className="space-y-1.5">
-                      {docs.map(doc => (
-                        <div key={doc.id} className="group flex items-center gap-3 rounded-xl px-4 py-3 bg-muted/30 hover:bg-muted/50 transition-colors">
-                          <FileText className="h-4 w-4 text-blue-500 shrink-0" />
-                          <span className="text-sm flex-1 truncate">{doc.name}</span>
-                          <button onClick={() => handleDetachDoc(doc.id)} className="opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive transition-colors" />
-                          </button>
-                        </div>
-                      ))}
-                      <button onClick={() => setAddDocOpen(true)} className="w-full text-xs text-center py-2 text-muted-foreground hover:text-foreground transition-colors">
-                        + Ajouter un document
-                      </button>
-                    </div>
-                  )}
-                </Section>
-
-                {images.length > 0 && (
-                  <Section title="Images IA">
-                    <div className="flex flex-wrap gap-2">
-                      {images.map(img => (
-                        <span key={img.id} className="flex items-center gap-2 rounded-xl bg-muted/40 px-3 py-2 text-xs">
-                          <Tag className="h-3 w-3 text-orange-500" />
-                          <code className="font-mono">{img.ref}</code>
-                        </span>
-                      ))}
-                    </div>
-                  </Section>
-                )}
-
-                <Link href="/knowledge">
-                  <button className="w-full flex items-center justify-center gap-2 rounded-xl border border-border/50 px-4 py-3 text-sm text-muted-foreground hover:text-foreground hover:border-border hover:bg-muted/30 transition-all">
-                    <Upload className="h-4 w-4" /> Gérer la bibliothèque
-                  </button>
-                </Link>
-              </>
-            )}
-
-            {active === 'behavior' && (
-              <>
-                {/* Escalade */}
-                <Section title="Escalade vers un humain">
-                  <div className="rounded-2xl overflow-hidden border border-border/50">
-                    <div className="flex items-center justify-between px-5 py-4 bg-muted/20">
-                      <div className="flex items-center gap-3">
-                        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-rose-500/10">
-                          <UserCheck className="h-4 w-4 text-rose-500" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium">Transfert vers humain</p>
-                          <p className="text-xs text-muted-foreground">Déclenché automatiquement</p>
-                        </div>
-                      </div>
-                      <Switch checked={escalationEnabled} onCheckedChange={setEscalationEnabled} />
-                    </div>
-                    {escalationEnabled && (
-                      <div className="px-5 py-5 space-y-5 border-t border-border/40">
-                        <Field label="Mode de déclenchement">
-                          <div className="grid grid-cols-3 gap-2">
-                            {([
-                              { id: 'keywords', label: 'Mots-clés' },
-                              { id: 'ai',       label: 'IA' },
-                              { id: 'both',     label: 'Les deux' },
-                            ] as const).map(m => {
-                              const isOn = escalationMode === m.id
-                              return (
-                                <button
-                                  key={m.id}
-                                  onClick={() => setEscalationMode(m.id)}
-                                  className={cn(
-                                    'rounded-xl py-2.5 text-xs font-semibold transition-all border',
-                                    isOn ? '' : 'border-transparent bg-white/[0.04] text-muted-foreground hover:bg-white/[0.08]'
-                                  )}
-                                  style={isOn ? { background: `${sec.accent}1f`, borderColor: `${sec.accent}55`, color: sec.accent } : {}}
-                                >
-                                  {m.label}
-                                </button>
-                              )
-                            })}
-                          </div>
-                        </Field>
-                        {(escalationMode === 'keywords' || escalationMode === 'both') && (
-                          <Field label="Mots-clés" hint="Séparés par des virgules">
-                            <PremiumInput value={escalationKeywords} onChange={e => setEscalationKeywords(e.target.value)} placeholder="humain, conseiller, aide..." />
-                          </Field>
+            <div className="px-5 pb-6 pt-2 space-y-6 border-t border-border/40">
+              {/* Modèle */}
+              <Row label="Modèle IA">
+                <div className="grid grid-cols-2 gap-2.5">
+                  {(['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4.1'] as const).map(m => {
+                    const on = model === m
+                    return (
+                      <button
+                        key={m}
+                        onClick={() => setModel(m)}
+                        className={cn(
+                          'rounded-xl px-4 py-2.5 text-xs font-semibold text-left transition-all border',
+                          on ? 'border-foreground/40 bg-foreground/[0.06] text-foreground' : 'border-border/50 bg-muted/20 text-muted-foreground hover:text-foreground'
                         )}
-                        <Field label="Message de transfert">
-                          <PremiumTextarea value={escalationMessage} onChange={e => setEscalationMessage(e.target.value)} placeholder="Je vous transfère vers un conseiller..." rows={3} />
-                        </Field>
-                      </div>
-                    )}
+                      >
+                        {m}
+                      </button>
+                    )
+                  })}
+                </div>
+              </Row>
+
+              <Row label={`Créativité — ${Math.round(temperature * 100)}%`}>
+                <input type="range" min="0" max="1" step="0.1" value={temperature}
+                  onChange={e => setTemperature(parseFloat(e.target.value))} className="w-full accent-foreground" />
+              </Row>
+
+              <Row label="Prompt système">
+                <textarea
+                  value={systemPrompt}
+                  onChange={e => setSystemPrompt(e.target.value)}
+                  className="w-full min-h-[120px] rounded-xl border border-border/50 bg-muted/30 px-3.5 py-2.5 text-xs font-mono resize-y focus:outline-none focus:ring-2 focus:ring-foreground/15 transition-all"
+                />
+              </Row>
+
+              <div className="grid grid-cols-2 gap-3">
+                <Row label="Délai min (s)">
+                  <NumInput value={delayMin} onChange={v => setDelayMin(parseInt(v) || 0)} />
+                </Row>
+                <Row label="Délai max (s)">
+                  <NumInput value={delayMax} onChange={v => setDelayMax(parseInt(v) || 0)} />
+                </Row>
+                <Row label="Max messages">
+                  <NumInput value={maxMessages} onChange={setMaxMessages} placeholder="Illimité" />
+                </Row>
+                <Row label="Timeout (min)">
+                  <NumInput value={inactivityTimeout} onChange={setInactivityTimeout} placeholder="Aucun" />
+                </Row>
+              </div>
+
+              <Row label="Condition d'arrêt">
+                <textarea
+                  value={stopCondition}
+                  onChange={e => setStopCondition(e.target.value)}
+                  placeholder="Ex: si le client a confirmé son rendez-vous…"
+                  rows={2}
+                  className="w-full rounded-xl border border-border/50 bg-muted/30 px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/50 resize-none focus:outline-none focus:ring-2 focus:ring-foreground/15 transition-all"
+                />
+              </Row>
+
+              {/* Planning */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-medium text-foreground/80">Planning horaire</Label>
+                  <Switch checked={scheduleEnabled} onCheckedChange={setScheduleEnabled} />
+                </div>
+                {scheduleEnabled && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 gap-3">
+                      <NumInput value={scheduleStart} onChange={setScheduleStart} type="time" />
+                      <NumInput value={scheduleEnd} onChange={setScheduleEnd} type="time" />
+                    </div>
+                    <div className="flex gap-1.5">
+                      {DAYS.map((d, i) => {
+                        const on = scheduleDays.includes(i + 1)
+                        return (
+                          <button
+                            key={i}
+                            onClick={() => setScheduleDays(prev => prev.includes(i + 1) ? prev.filter(x => x !== i + 1) : [...prev, i + 1])}
+                            className={cn(
+                              'flex-1 rounded-lg py-2 text-[11px] font-semibold transition-all border',
+                              on ? 'border-foreground/40 bg-foreground/[0.06] text-foreground' : 'border-transparent bg-muted/40 text-muted-foreground hover:bg-muted'
+                            )}
+                          >
+                            {d}
+                          </button>
+                        )
+                      })}
+                    </div>
                   </div>
-                </Section>
+                )}
+              </div>
+            </div>
+          </details>
 
-                {/* RDV */}
-                <Section title="Rendez-vous">
-                  <div className="rounded-2xl border border-border/50 px-5 py-4 space-y-4">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-cyan-500/10">
-                        <CalendarCheck className="h-4 w-4 text-cyan-500" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">Lien de prise de rendez-vous</p>
-                        <p className="text-xs text-muted-foreground">Calendly, Cal.com, Tidycal…</p>
-                      </div>
-                    </div>
-                    <PremiumInput value={bookingUrl} onChange={e => setBookingUrl(e.target.value)} placeholder="https://calendly.com/votre-lien" />
-                  </div>
-                </Section>
-              </>
-            )}
-
-            {active === 'channels' && (
-              <>
-                {/* Sessions */}
-                <Section title="Sessions WhatsApp">
-                  {sessions.length === 0 ? (
-                    <EmptyState
-                      icon={<Smartphone className="h-7 w-7 text-emerald-400" />}
-                      title="Aucune session"
-                      hint="Connectez un numéro WhatsApp pour activer l'agent"
-                      action="Connecter WhatsApp"
-                      onAction={() => router.push('/sessions')}
-                      color="#10b981"
-                    />
-                  ) : (
-                    <div className="space-y-1.5">
-                      {sessions.map(s => (
-                        <div key={s.id} className="flex items-center gap-3.5 rounded-xl px-4 py-3.5 bg-muted/30">
-                          <div className={cn('h-2 w-2 rounded-full shrink-0', s.status === 'connected' ? 'bg-emerald-500 shadow-[0_0_6px_#10b981]' : 'bg-muted-foreground/30')} />
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium truncate">{s.display_name || s.instance_name}</p>
-                            <p className="text-xs text-muted-foreground">{s.phone_number || '—'}</p>
-                          </div>
-                          <span className={cn(
-                            'text-[10px] font-semibold rounded-full px-2.5 py-1',
-                            s.status === 'connected' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-muted text-muted-foreground'
-                          )}>
-                            {s.status === 'connected' ? 'Connecté' : 'Déconnecté'}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </Section>
-
-                {/* Liens QR */}
-                <Section
-                  title="Liens WhatsApp"
-                  action={
-                    <button onClick={() => setAddLinkOpen(true)} className="flex items-center gap-1 text-xs font-medium text-emerald-500 hover:text-emerald-600 transition-colors">
-                      <Plus className="h-3.5 w-3.5" /> Créer
-                    </button>
-                  }
-                >
-                  {links.length === 0 ? (
-                    <EmptyState
-                      icon={<QrCode className="h-7 w-7 text-emerald-400" />}
-                      title="Aucun lien QR"
-                      hint="Créez un lien pour démarrer automatiquement une conversation"
-                      action="Créer un lien"
-                      onAction={() => setAddLinkOpen(true)}
-                      color="#10b981"
-                    />
-                  ) : (
-                    <div className="space-y-1.5">
-                      {links.map(link => (
-                        <div key={link.id} className="flex items-center gap-3.5 rounded-xl px-4 py-3.5 bg-muted/30">
-                          <QrCode className="h-4 w-4 text-emerald-500 shrink-0" />
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium truncate">{link.name}</p>
-                            <p className="text-[11px] font-mono text-muted-foreground">/{link.slug}</p>
-                          </div>
-                          <span className="text-xs text-muted-foreground">{link.click_count ?? 0} clics</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </Section>
-              </>
-            )}
+          {/* Aperçu rapide en bas */}
+          <div className="flex flex-wrap items-center justify-center gap-6 pt-2 pb-6 text-xs text-muted-foreground">
+            <Stat label="Sessions" value={connected.length} on={connected.length > 0} />
+            <Stat label="Documents" value={docs.length + images.length} on={docs.length + images.length > 0} />
+            <Stat label="Liens QR" value={links.length} on={links.length > 0} />
+            <Stat label="Escalade" value={escalationEnabled ? 'Oui' : 'Non'} on={escalationEnabled} />
           </div>
-        </main>
-      </div>
+        </div>
+      </main>
 
-      {/* Dialogs */}
+      {/* ── Dialogs ── */}
       <Dialog open={addDocOpen} onOpenChange={setAddDocOpen}>
         <DialogContent className="sm:max-w-md rounded-2xl">
           <DialogHeader>
@@ -781,21 +641,23 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
             <DialogDescription>Rattaché automatiquement à cet agent</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <Field label="Nom">
-              <PremiumInput value={linkName} onChange={e => setLinkName(e.target.value)} placeholder="Ex: QR Vitrine" />
-            </Field>
-            <Field label="Session WhatsApp">
+            <Row label="Nom">
+              <input value={linkName} onChange={e => setLinkName(e.target.value)} placeholder="Ex: QR Vitrine"
+                className="w-full rounded-xl border border-border/50 bg-muted/30 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-foreground/15 transition-all" />
+            </Row>
+            <Row label="Session WhatsApp">
               <select
                 className="w-full rounded-xl border border-border/50 bg-muted/30 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-foreground/20"
                 value={linkSession} onChange={e => setLinkSession(e.target.value)}
               >
-                <option value="">Choisir une session...</option>
+                <option value="">Choisir une session…</option>
                 {sessions.map(s => <option key={s.id} value={s.id}>{s.display_name || s.instance_name} ({s.phone_number})</option>)}
               </select>
-            </Field>
-            <Field label="Message pré-rempli" hint="Optionnel">
-              <PremiumTextarea value={linkMessage} onChange={e => setLinkMessage(e.target.value)} placeholder="Bonjour, je suis intéressé..." rows={3} />
-            </Field>
+            </Row>
+            <Row label="Message pré-rempli" hint="Optionnel">
+              <textarea value={linkMessage} onChange={e => setLinkMessage(e.target.value)} placeholder="Bonjour, je suis intéressé…" rows={3}
+                className="w-full rounded-xl border border-border/50 bg-muted/30 px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/50 resize-none focus:outline-none focus:ring-2 focus:ring-foreground/15 transition-all" />
+            </Row>
             <button
               onClick={handleCreateLink}
               disabled={linkSaving || !linkName.trim() || !linkSession}
@@ -813,34 +675,35 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   )
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// ─── Sous-composants ──────────────────────────────────────────────────────────
 
-function sectionTitle(id: SectionId) {
-  return { identity: 'Identité', knowledge: 'Savoir', behavior: 'Comportement', channels: 'Canaux' }[id]
-}
-
-function sectionSubtitle(id: SectionId) {
-  return {
-    identity:  'Personnalité, ton et paramètres du modèle',
-    knowledge: 'Documents et ressources disponibles',
-    behavior:  'Escalade et prise de rendez-vous',
-    channels:  'Sessions WhatsApp et liens QR',
-  }[id]
-}
-
-function Section({ title, children, action }: { title: string; children: React.ReactNode; action?: React.ReactNode }) {
+function Block({ icon: Icon, accent, title, subtitle, action, children }: {
+  icon: React.ComponentType<{ className?: string }>
+  accent: string
+  title: string
+  subtitle: string
+  action?: React.ReactNode
+  children: React.ReactNode
+}) {
   return (
-    <div className="space-y-3">
-      <div className="flex items-center justify-between">
-        <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground/60">{title}</h3>
+    <section className="space-y-5">
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl ring-1"
+          style={{ background: `${accent}1a`, color: accent, borderColor: `${accent}30` }}>
+          <Icon className="h-5 w-5" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-base font-semibold leading-tight">{title}</h2>
+          <p className="text-xs text-muted-foreground">{subtitle}</p>
+        </div>
         {action}
       </div>
-      {children}
-    </div>
+      <div className="space-y-4">{children}</div>
+    </section>
   )
 }
 
-function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
+function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
       <div className="flex items-baseline gap-2">
@@ -852,31 +715,20 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
   )
 }
 
-function PremiumInput({ className, ...props }: React.InputHTMLAttributes<HTMLInputElement>) {
+function NumInput({ value, onChange, placeholder, type = 'number' }: {
+  value: string | number
+  onChange: (v: string) => void
+  placeholder?: string
+  type?: string
+}) {
   return (
     <input
-      {...props}
-      className={cn(
-        'w-full rounded-xl border border-border/50 bg-muted/30 px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/50',
-        'focus:outline-none focus:ring-2 focus:ring-foreground/15 focus:border-foreground/30',
-        'transition-all duration-150',
-        className
-      )}
-    />
-  )
-}
-
-function PremiumTextarea({ className, rows = 3, ...props }: React.TextareaHTMLAttributes<HTMLTextAreaElement> & { rows?: number }) {
-  return (
-    <textarea
-      {...props}
-      rows={rows}
-      className={cn(
-        'w-full rounded-xl border border-border/50 bg-muted/30 px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/50 resize-none',
-        'focus:outline-none focus:ring-2 focus:ring-foreground/15 focus:border-foreground/30',
-        'transition-all duration-150',
-        className
-      )}
+      type={type}
+      min={type === 'number' ? 0 : undefined}
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      placeholder={placeholder}
+      className="w-full rounded-xl border border-border/50 bg-muted/30 px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-foreground/15 transition-all"
     />
   )
 }
@@ -902,42 +754,40 @@ function ToggleRow({ icon, label, hint, checked, onChange }: {
   )
 }
 
-function EmptyState({ icon, title, hint, action, onAction, color }: {
-  icon: React.ReactNode
-  title: string
-  hint: string
-  action: string
-  onAction: () => void
-  color: string
-}) {
+function MiniAction({ color, onClick, children }: { color: string; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button
-      onClick={onAction}
-      className="w-full rounded-2xl border border-dashed border-border/50 hover:border-border py-8 flex flex-col items-center gap-2 text-center transition-all hover:bg-muted/20 group"
-    >
-      <span className="mb-1 opacity-60 group-hover:opacity-100 transition-opacity">{icon}</span>
-      <p className="text-sm font-medium">{title}</p>
-      <p className="text-xs text-muted-foreground max-w-[200px]">{hint}</p>
-      <span className="mt-2 text-xs font-semibold rounded-full px-3 py-1.5 transition-colors" style={{ background: `${color}15`, color }}>
-        {action}
-      </span>
+    <button onClick={onClick}
+      className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors hover:brightness-110"
+      style={{ background: `${color}1a`, color }}>
+      <Plus className="h-3.5 w-3.5" /> {children}
     </button>
   )
 }
 
-function Tag2({ label }: { label: string }) {
+function Empty({ icon, title, hint, cta, onClick, color }: {
+  icon: React.ReactNode
+  title: string
+  hint: string
+  cta: string
+  onClick: () => void
+  color: string
+}) {
   return (
-    <span className="rounded-full bg-muted/60 px-2.5 py-0.5 text-[10px] text-muted-foreground font-medium">
-      {label}
-    </span>
+    <button onClick={onClick}
+      className="w-full rounded-2xl border border-dashed border-border/50 hover:border-border py-8 flex flex-col items-center gap-2 text-center transition-all hover:bg-muted/20 group">
+      <span className="mb-1 opacity-60 group-hover:opacity-100 transition-opacity">{icon}</span>
+      <p className="text-sm font-medium">{title}</p>
+      <p className="text-xs text-muted-foreground max-w-[220px]">{hint}</p>
+      <span className="mt-2 text-xs font-semibold rounded-full px-3 py-1.5" style={{ background: `${color}15`, color }}>{cta}</span>
+    </button>
   )
 }
 
-function QuickStat({ label, value, color }: { label: string; value: string; color?: string }) {
+function Stat({ label, value, on }: { label: string; value: string | number; on?: boolean }) {
   return (
-    <div className="flex items-center justify-between">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="text-xs font-semibold" style={color ? { color } : undefined}>{value}</span>
+    <div className="flex items-center gap-1.5">
+      <span className={cn('font-semibold', on ? 'text-emerald-500' : 'text-foreground/70')}>{value}</span>
+      <span className="text-muted-foreground/60">{label}</span>
     </div>
   )
 }
