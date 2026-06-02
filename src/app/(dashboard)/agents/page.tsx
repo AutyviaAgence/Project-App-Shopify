@@ -52,6 +52,7 @@ import {
   PowerOff,
   Copy,
   MoreHorizontal,
+  UserRound,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -64,7 +65,6 @@ import { MultiTeamSelect } from '@/components/multi-team-select'
 import { AgentWizard, type GeneratedAgentConfig } from '@/components/agent-wizard'
 import { AgentTestChat } from '@/components/agent-test-chat'
 import { AgentToolsManager } from '@/components/agent-tools-manager'
-import { AgentMascot } from '@/components/agent-card/AgentMascot'
 import { BlobLoaderScreen } from '@/components/blob-loader'
 
 type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
@@ -738,15 +738,19 @@ export default function AgentsPage() {
                         )}
                         style={isCenter ? { boxShadow: `0 40px 90px -24px rgba(0,0,0,0.9), inset 0 0 0 1px ${typeColor}40` } : {}}
                       >
-                        {/* Zone visuelle (robot) */}
+                        {/* Zone visuelle (avatar profil) */}
                         <div
                           className="relative flex h-64 items-center justify-center overflow-hidden rounded-[34px] m-2 mb-0"
                           style={{ background: `radial-gradient(130% 110% at 50% 22%, ${typeColor}30 0%, ${typeColor}0c 48%, transparent 78%)` }}
                         >
-                          {/* halo derrière la mascotte */}
+                          {/* halo derrière l'avatar */}
                           <div className="pointer-events-none absolute h-32 w-32 rounded-full opacity-30 blur-3xl" style={{ background: typeColor }} />
-                          <div className="relative transition-transform duration-500 ease-out group-hover/card:scale-110 group-hover/card:-translate-y-1">
-                            <AgentMascot color={typeColor} size={150} />
+                          {/* Avatar profil rond */}
+                          <div
+                            className="relative flex h-28 w-28 items-center justify-center rounded-full ring-1 transition-transform duration-500 ease-out group-hover/card:scale-105"
+                            style={{ background: `${typeColor}1a`, borderColor: `${typeColor}40`, color: typeColor }}
+                          >
+                            <UserRound className="h-14 w-14" strokeWidth={1.75} />
                           </div>
                           {/* Badge type (pill, en haut à gauche) */}
                           <span
@@ -756,6 +760,30 @@ export default function AgentsPage() {
                             {typeLabel}
                           </span>
                         </div>
+
+                        {/* Pilule flottante verte (épingler + activer) — carte centrale */}
+                        {isCenter && (
+                          <div
+                            className="absolute right-0 top-7 z-10 flex translate-x-1/3 flex-col items-center gap-0.5 rounded-full py-1.5 shadow-lg"
+                            style={{ background: '#7DC2A5' }}
+                          >
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleTogglePin(agent) }}
+                              title={agent.is_pinned ? t('agents.unpin') : t('agents.pin')}
+                              className="flex h-9 w-9 items-center justify-center rounded-full text-white/90 transition-all hover:scale-110 hover:text-white"
+                            >
+                              <Pin className={cn('h-4 w-4', agent.is_pinned && 'fill-current')} />
+                            </button>
+                            <span className="h-px w-4 bg-white/25" />
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleToggleActive(agent) }}
+                              title={agent.is_active ? 'Désactiver' : 'Activer'}
+                              className="flex h-9 w-9 items-center justify-center rounded-full text-white/90 transition-all hover:scale-110 hover:text-white"
+                            >
+                              {agent.is_active ? <Power className="h-4 w-4" /> : <PowerOff className="h-4 w-4" />}
+                            </button>
+                          </div>
+                        )}
 
                         {/* Infos — minimal : nom + statut */}
                         <div className="px-6 pt-5 text-center">
