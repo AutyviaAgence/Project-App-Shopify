@@ -241,28 +241,31 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
         </div>
       </header>
 
-      {/* ── Colonne centrée étroite, beaucoup d'air ── */}
+      {/* ── Bento : blocs de tailles variées ── */}
       <main className="flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-xl px-6 pb-24">
+        <div className="mx-auto w-full max-w-5xl px-6 pb-24">
 
           {/* Titre */}
-          <div className="pt-6 pb-12 text-center">
+          <div className="pt-8 pb-8">
             <input
               value={name}
               onChange={e => setName(e.target.value)}
-              className="w-full bg-transparent text-center text-3xl font-bold tracking-tight focus:outline-none"
+              className="w-full bg-transparent text-3xl font-bold tracking-tight focus:outline-none"
             />
             <button
               onClick={handleToggleActive}
-              className="mt-3 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="mt-2 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
             >
               <span className={cn('h-2 w-2 rounded-full', agent.is_active ? 'bg-emerald-500' : 'bg-muted-foreground/40')} />
               {agent.is_active ? 'Actif' : 'Inactif'}
             </button>
           </div>
 
-          {/* ═══ PERSONNALITÉ ═══ */}
-          <Group title="Personnalité">
+          {/* Grille bento : Personnalité (large, 2 col) + Canaux (haut, 1 col x 2 rangées) ; Savoir + Comportement en bas */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 auto-rows-min">
+
+          {/* ═══ PERSONNALITÉ ═══ (large : 2 colonnes) */}
+          <Group title="Personnalité" className="md:col-span-2">
             <RowField label="Description">
               <CleanInput value={description} onChange={setDescription} placeholder="Assistant commercial WhatsApp" />
             </RowField>
@@ -295,8 +298,8 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
             </RowField>
           </Group>
 
-          {/* ═══ CANAUX ═══ */}
-          <Group title="Canaux" subtitle="Numéros sur lesquels cet agent répond">
+          {/* ═══ CANAUX ═══ (colonne droite, haute : 2 rangées) */}
+          <Group title="Canaux" subtitle="Numéros sur lesquels cet agent répond" className="md:col-span-1 md:row-span-2">
             {sessions.length === 0 ? (
               <button onClick={() => router.push('/sessions')} className="w-full py-6 text-center text-sm text-muted-foreground hover:text-foreground transition-colors">
                 Aucune session · Connecter WhatsApp →
@@ -361,8 +364,8 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
             ))}
           </Group>
 
-          {/* ═══ SAVOIR ═══ */}
-          <Group title="Savoir" subtitle="Documents que l'agent peut utiliser"
+          {/* ═══ SAVOIR ═══ (sous Personnalité, colonne gauche) */}
+          <Group title="Savoir" subtitle="Documents que l'agent peut utiliser" className="md:col-span-1"
             trailing={<button onClick={() => setAddDocOpen(true)} className="flex items-center gap-1 text-[13px] text-blue-500 hover:text-blue-600 transition-colors"><Plus className="h-3.5 w-3.5" /> Ajouter</button>}
           >
             {docs.length === 0 && images.length === 0 ? (
@@ -393,8 +396,8 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
             )}
           </Group>
 
-          {/* ═══ COMPORTEMENT ═══ */}
-          <Group title="Comportement">
+          {/* ═══ COMPORTEMENT ═══ (à côté de Savoir) */}
+          <Group title="Comportement" className="md:col-span-1">
             <RowField label="Transfert vers un humain" hint="Si le client le demande">
               <Switch checked={escalationEnabled} onCheckedChange={setEscalationEnabled} />
             </RowField>
@@ -430,14 +433,16 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
             </RowField>
           </Group>
 
+          </div>{/* fin grille bento */}
+
           {/* ═══ AVANCÉ (replié) ═══ */}
-          <details className="group mt-8">
+          <details className="group mt-4">
             <summary className="flex cursor-pointer list-none items-center justify-center gap-2 py-3 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors select-none">
               Paramètres avancés
               <ChevronDown className="h-4 w-4 group-open:rotate-180 transition-transform" />
             </summary>
 
-            <Group title="Modèle & génération">
+            <Group title="Modèle & génération" className="mt-4">
               <RowField label="Modèle IA" stacked>
                 <div className="grid grid-cols-2 gap-2 mt-1">
                   {(['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4.1'] as const).map(m => {
@@ -463,7 +468,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
               </RowField>
             </Group>
 
-            <Group title="Limites & timing">
+            <Group title="Limites & timing" className="mt-4">
               <RowField label="Délai de réponse">
                 <span className="flex items-center gap-2 text-sm">
                   <MiniNum value={delayMin} onChange={v => setDelayMin(parseInt(v) || 0)} />
@@ -489,7 +494,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
               </RowField>
             </Group>
 
-            <Group title="Planning horaire">
+            <Group title="Planning horaire" className="mt-4">
               <RowField label="Activer le planning" hint="L'agent ne répond que sur ces créneaux">
                 <Switch checked={scheduleEnabled} onCheckedChange={setScheduleEnabled} />
               </RowField>
@@ -592,22 +597,23 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
 
 // ─── Sous-composants (style Revolut : minimal, peu de bordures) ───────────────
 
-function Group({ title, subtitle, trailing, children }: {
+function Group({ title, subtitle, trailing, children, className }: {
   title: string
   subtitle?: string
   trailing?: React.ReactNode
   children: React.ReactNode
+  className?: string
 }) {
   return (
-    <section className="mt-10 first:mt-0">
-      <div className="mb-2 flex items-baseline justify-between px-1">
+    <section className={cn('flex flex-col rounded-3xl bg-muted/[0.18] p-5', className)}>
+      <div className="mb-3 flex items-baseline justify-between">
         <div>
           <h2 className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/50">{title}</h2>
           {subtitle && <p className="text-[11px] text-muted-foreground/40 mt-0.5">{subtitle}</p>}
         </div>
         {trailing}
       </div>
-      <div className="rounded-2xl bg-muted/[0.18] px-4">
+      <div className="flex-1">
         {children}
       </div>
     </section>
