@@ -699,7 +699,7 @@ export default function AgentsPage() {
           const go = (dir: number) => setCenterIndex(c => (((c + dir) % n) + n) % n)
 
           return (
-            <div className="relative flex items-center justify-center" style={{ perspective: '1600px' }}>
+            <div className="relative flex items-center justify-center pt-16" style={{ perspective: '1800px' }}>
               {/* Flèche gauche */}
               {n > 1 && (
                 <button onClick={() => go(-1)} aria-label="Précédent"
@@ -709,20 +709,28 @@ export default function AgentsPage() {
               )}
 
               {/* Scène coverflow */}
-              <div className="relative mx-auto h-[420px] w-full max-w-[420px]" style={{ transformStyle: 'preserve-3d' }}>
+              <div className="relative mx-auto h-[440px] w-full max-w-[420px]" style={{ transformStyle: 'preserve-3d' }}>
                 {sorted.map((agent, idx) => {
                   // offset relatif au centre, normalisé sur [-n/2, n/2]
                   let offset = idx - center
                   if (offset > n / 2) offset -= n
                   if (offset < -n / 2) offset += n
                   const abs = Math.abs(offset)
-                  if (abs > 2) return null // on ne rend que centre + 2 de chaque côté
+                  if (abs > 3) return null // centre + 3 de chaque côté
 
                   const isCenter = offset === 0
+                  const isFront = abs <= 1 // les 3 cards "plein face" (centre + 2 voisines)
                   const isDeleting = deleting === agent.id
                   const typeColor = agent.agent_type === 'qualifier' ? '#0ea5e9' : agent.agent_type === 'relance' ? '#f97316' : '#8b5cf6'
                   const typeLabel = agent.agent_type === 'qualifier' ? 'Qualificateur' : agent.agent_type === 'relance' ? t('agents.relance') : 'Conversation'
                   const PIN_GREEN = '#7DC2A5'
+
+                  // Les voisines immédiates (±1) restent quasi de face ; au-delà, fort retrait.
+                  const tx = offset * (isFront ? 300 : 270)
+                  const tz = isFront ? -abs * 90 : -200 - (abs - 1) * 160
+                  const rot = isFront ? offset * -6 : offset * -38
+                  const scale = isCenter ? 1 : isFront ? 0.94 : 0.82
+                  const opacity = abs === 0 ? 1 : abs === 1 ? 0.92 : abs === 2 ? 0.4 : 0.18
 
                   return (
                     <div
@@ -730,11 +738,11 @@ export default function AgentsPage() {
                       onClick={() => { if (!isCenter) setCenterIndex(idx) }}
                       className={cn('absolute left-1/2 top-0 w-[340px] transition-all duration-500 ease-out', !isCenter && 'cursor-pointer')}
                       style={{
-                        transform: `translateX(-50%) translateX(${offset * 230}px) translateZ(${-abs * 220}px) rotateY(${offset * -28}deg) scale(${isCenter ? 1 : 0.9})`,
-                        opacity: abs >= 2 ? 0.35 : abs === 1 ? 0.7 : 1,
+                        transform: `translateX(-50%) translateX(${tx}px) translateZ(${tz}px) rotateY(${rot}deg) scale(${scale})`,
+                        opacity,
                         zIndex: 20 - abs,
-                        filter: isCenter ? 'none' : 'brightness(0.7)',
-                        pointerEvents: abs > 1 ? 'none' : 'auto',
+                        filter: isCenter ? 'none' : `brightness(${isFront ? 0.82 : 0.6})`,
+                        pointerEvents: abs > 2 ? 'none' : 'auto',
                       }}
                     >
                       {/* Carte */}
