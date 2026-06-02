@@ -27,6 +27,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { PlanId } from '@/lib/stripe/plans'
+import { BlobLoader } from '@/components/blob-loader'
 
 type OnboardingConfig = {
   main_function: string
@@ -342,7 +343,7 @@ export default function AdminPage() {
   if (subLoading || loading) {
     return (
       <div className="flex h-[calc(100vh-8rem)] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <BlobLoader size={88} />
       </div>
     )
   }

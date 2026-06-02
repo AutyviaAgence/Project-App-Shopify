@@ -7,6 +7,7 @@ import { ArrowLeft, Loader2, Bot, Zap } from 'lucide-react'
 import { WorkflowCanvas } from '@/components/workflow/WorkflowCanvas'
 import type { WorkflowNode, WorkflowEdge } from '@/lib/workflow/types'
 import { Button } from '@/components/ui/button'
+import { BlobLoader } from '@/components/blob-loader'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -49,7 +50,7 @@ export default function WorkflowEditorPage({ params }: PageProps) {
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <BlobLoader size={88} />
       </div>
     )
   }

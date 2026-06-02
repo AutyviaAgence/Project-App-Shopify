@@ -56,6 +56,7 @@ import { formatDistanceToNow, format } from 'date-fns'
 import { fr, enUS } from 'date-fns/locale'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { CampaignContactSelector } from '@/components/campaign-contact-selector'
+import { BlobLoader } from '@/components/blob-loader'
 
 type ContactDetails = {
   id: string
@@ -411,7 +412,7 @@ export default function CampaignDetailPage() {
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <BlobLoader size={88} />
       </div>
     )
   }
@@ -894,7 +895,7 @@ export default function CampaignDetailPage() {
         <SheetContent className="sm:max-w-md p-0 flex flex-col h-full">
           {loadingContact ? (
             <div className="flex items-center justify-center h-full">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              <BlobLoader size={88} />
             </div>
           ) : selectedContact ? (
             <>

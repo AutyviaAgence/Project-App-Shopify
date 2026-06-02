@@ -19,7 +19,6 @@ import {
 } from '@/components/ui/dialog'
 import { toast } from 'sonner'
 import {
-  Loader2,
   RefreshCw,
   ChevronLeft,
   ChevronRight,
@@ -33,6 +32,7 @@ import {
 import { formatDistanceToNow } from 'date-fns'
 import { fr, enUS } from 'date-fns/locale'
 import { useTranslation } from '@/i18n/context'
+import { BlobLoader } from '@/components/blob-loader'
 
 export default function LogsPage() {
   const { t, locale } = useTranslation()
@@ -163,7 +163,7 @@ export default function LogsPage() {
   if (loading && logs.length === 0) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <BlobLoader size={88} />
       </div>
     )
   }

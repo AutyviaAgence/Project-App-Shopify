@@ -59,6 +59,7 @@ import {
 } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
 import { useTranslation } from '@/i18n/context'
+import { BlobLoader } from '@/components/blob-loader'
 
 type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
 
@@ -722,7 +723,7 @@ export default function TeamsPage() {
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <BlobLoader size={88} />
       </div>
     )
   }

@@ -68,6 +68,7 @@ import Link from 'next/link'
 import { useTranslation } from '@/i18n/context'
 import { useTenant } from '@/lib/tenant/context'
 import type { Locale } from '@/i18n/context'
+import { BlobLoader } from '@/components/blob-loader'
 
 const RETENTION_KEYS = [
   { value: 'null', labelKey: 'settings.retention_keep', months: null },
@@ -501,7 +502,7 @@ export default function SettingsPage() {
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        <BlobLoader size={88} />
       </div>
     )
   }

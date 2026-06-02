@@ -4,13 +4,13 @@ import { Suspense, useEffect, useState, useCallback, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import type { ConversationTag } from '@/types/database'
-import { Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ContactProfilePanel } from '@/components/contact-profile-panel'
 import { useTranslation } from '@/i18n/context'
 import { ConversationList } from './_components/conversation-list'
 import { ChatArea } from './_components/chat-area'
 import type { ConversationWithJoins, Team, Message, AIAgent, LifecycleStage } from './_components/types'
+import { BlobLoader } from '@/components/blob-loader'
 
 function playMessageSound() {
   try {
@@ -752,7 +752,7 @@ function ConversationsPageContent() {
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <BlobLoader size={88} />
       </div>
     )
   }
@@ -834,7 +834,7 @@ export default function ConversationsPage() {
   return (
     <Suspense fallback={
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <BlobLoader size={88} />
       </div>
     }>
       <ConversationsPageContent />

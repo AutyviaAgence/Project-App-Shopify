@@ -32,7 +32,6 @@ import {
   ArrowDownLeft,
   Users,
   UserPlus,
-  Loader2,
   Bot,
   Link2,
   MousePointerClick,
@@ -57,6 +56,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { fr, enUS } from 'date-fns/locale'
 import { getSessionDisplayName, formatPhoneNumber } from '@/lib/format-phone'
 import { useTranslation } from '@/i18n/context'
+import { BlobLoader } from '@/components/blob-loader'
 
 type SessionOption = {
   id: string
@@ -227,7 +227,7 @@ export default function StatsPage() {
 
       {loading ? (
         <div className="flex h-64 items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          <BlobLoader size={88} />
         </div>
       ) : stats ? (
         <Tabs defaultValue="overview">

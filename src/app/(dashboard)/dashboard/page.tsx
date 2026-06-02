@@ -37,6 +37,7 @@ import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
 import { useTenant } from '@/lib/tenant/context'
+import { BlobLoader } from '@/components/blob-loader'
 
 function formatSeconds(s: number): string {
   if (s < 60) return `${s}s`
@@ -376,7 +377,7 @@ function StatsDashboard() {
 
       {loading ? (
         <div className="flex h-64 items-center justify-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <BlobLoader size={88} />
         </div>
       ) : stats ? (
         <>
@@ -446,7 +447,7 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <BlobLoader size={88} />
       </div>
     )
   }

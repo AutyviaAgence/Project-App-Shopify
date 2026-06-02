@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { WhatsAppSession, Team } from '@/types/database'
+import { BlobLoaderScreen } from '@/components/blob-loader'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -709,11 +710,7 @@ export default function SessionsPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
+    return <BlobLoaderScreen />
   }
 
   return (
