@@ -174,27 +174,28 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <Link
         href={item.href}
         className={cn(
-          'group relative flex items-center gap-3 px-3 py-3 text-sm font-medium transition-all duration-200',
+          'group relative flex items-center gap-3.5 px-4 py-3.5 text-[15px] font-medium transition-all duration-200',
           isActive
-            // Onglet actif : prend la couleur du panneau, déborde à droite (-mr) pour fusionner avec lui
-            ? 'md:-mr-3 rounded-l-2xl rounded-r-none bg-background text-foreground dark:bg-card md:shadow-[-6px_0_16px_-8px_rgba(0,0,0,0.25)]'
-            : 'rounded-2xl text-white/70 hover:bg-white/10 hover:text-white',
-          collapsed && 'justify-center px-2'
+            // Onglet actif : couleur du panneau (--background), arrondi à gauche, colle au bord droit
+            // (le panneau est colle ml-0) → fusion sans debordement ni scroll
+            ? 'rounded-l-2xl rounded-r-none bg-background text-foreground md:shadow-[-6px_0_16px_-8px_rgba(0,0,0,0.3)]'
+            : 'mr-3 rounded-2xl text-white/70 hover:bg-white/10 hover:text-white',
+          collapsed && 'justify-center px-2 mr-0'
         )}
         title={collapsed ? item.label : undefined}
       >
         {/* Coins inversés : raccordent l'onglet au panneau (effet "languette") */}
         {isActive && !collapsed && (
           <>
-            <span className="pointer-events-none absolute -top-3 right-0 hidden h-3 w-3 bg-background dark:bg-card md:block" aria-hidden>
+            <span className="pointer-events-none absolute -top-3 right-0 hidden h-3 w-3 bg-background md:block" aria-hidden>
               <span className="absolute inset-0 rounded-br-[12px] bg-[var(--sidebar)]" />
             </span>
-            <span className="pointer-events-none absolute -bottom-3 right-0 hidden h-3 w-3 bg-background dark:bg-card md:block" aria-hidden>
+            <span className="pointer-events-none absolute -bottom-3 right-0 hidden h-3 w-3 bg-background md:block" aria-hidden>
               <span className="absolute inset-0 rounded-tr-[12px] bg-[var(--sidebar)]" />
             </span>
           </>
         )}
-        <item.icon className="h-5 w-5 shrink-0" />
+        <item.icon className="h-[22px] w-[22px] shrink-0" />
         {showLabel && (
           <span className={cn(
             'transition-all duration-200',
@@ -223,7 +224,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         className={cn(
           'fixed inset-y-0 left-0 z-50 flex flex-col bg-[var(--sidebar)] transition-all duration-300 md:relative md:bg-transparent',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
-          collapsed ? 'w-[76px]' : 'w-80'
+          collapsed ? 'w-[80px]' : 'w-[340px]'
         )}
       >
         {/* Logo & Close */}
@@ -250,8 +251,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </button>
         </div>
 
-        {/* Navigation (overflow-x visible pour laisser déborder l'onglet actif vers le panneau) */}
-        <nav className="flex-1 space-y-1.5 overflow-y-auto overflow-x-visible py-3 pl-3 scrollbar-thin">
+        {/* Navigation */}
+        <nav className="flex-1 space-y-1.5 overflow-y-auto overflow-x-hidden py-3 pl-3 pr-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {NAV_ITEMS.map((item) => (
             <NavLink key={item.href} item={item} showLabel={!collapsed} />
           ))}
@@ -289,8 +290,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </button>
       </aside>
 
-      {/* Main content — panneau arrondi flottant (bg-card pour contraster avec le fond sidebar, surtout en dark) */}
-      <div className="flex flex-1 flex-col overflow-hidden bg-background md:m-3 md:ml-0 md:rounded-[28px] md:shadow-2xl md:ring-1 md:ring-black/5 dark:bg-card dark:md:ring-white/10">
+      {/* Main content — panneau arrondi flottant. Fond global = --sidebar (plus foncé),
+          panneau = --background (moins foncé) → démarcation nette en clair ET sombre. */}
+      <div className="flex flex-1 flex-col overflow-hidden bg-background md:m-3 md:ml-0 md:rounded-[28px] md:shadow-2xl md:ring-1 md:ring-black/5 dark:md:ring-white/10">
         {/* Top bar */}
         <header className="flex h-16 items-center justify-between border-b border-border/60 bg-transparent px-4 md:px-6">
           <div className="flex items-center gap-3">
@@ -304,7 +306,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             {/* Page title */}
             <div>
-              <h1 className="text-lg font-semibold text-foreground">
+              <h1 className="text-2xl font-bold tracking-tight text-foreground">
                 {NAV_ITEMS.find(i => pathname === i.href || pathname.startsWith(i.href + '/'))?.label ||
                  BOTTOM_NAV_ITEMS.find(i => pathname === i.href || pathname.startsWith(i.href + '/'))?.label ||
                  tenant.appName}
