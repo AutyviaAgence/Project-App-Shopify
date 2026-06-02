@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import type { Team, TeamMember, Profile, WhatsAppSession, AIAgent, WALink, KnowledgeDocument, Campaign } from '@/types/database'
+import { getCache, setCache } from '@/hooks/use-cached-fetch'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -125,8 +126,8 @@ function MemberAvatar({ member, size = 'md' }: { member: TeamMemberWithProfile; 
 
 export default function TeamsPage() {
   const { t } = useTranslation()
-  const [teams, setTeams] = useState<TeamWithRole[]>([])
-  const [loading, setLoading] = useState(true)
+  const [teams, setTeams] = useState<TeamWithRole[]>(() => getCache<TeamWithRole[]>('teams') || [])
+  const [loading, setLoading] = useState(() => !getCache('teams'))
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [membersDialogOpen, setMembersDialogOpen] = useState(false)
@@ -187,6 +188,7 @@ export default function TeamsPage() {
       const json = await res.json()
       if (res.ok && json.data) {
         setTeams(json.data)
+        setCache('teams', json.data)
       }
     } catch {
       toast.error(t('teams.load_error'))

@@ -17,14 +17,15 @@ import {
 import { cn } from '@/lib/utils'
 import QRCode from 'qrcode'
 import { BlobLoaderScreen } from '@/components/blob-loader'
+import { getCache, setCache } from '@/hooks/use-cached-fetch'
 
 type LinkWithExtras = WALink & { session?: WhatsAppSession; agent?: AIAgent }
 
 export default function PortailsPage() {
-  const [links, setLinks] = useState<LinkWithExtras[]>([])
-  const [sessions, setSessions] = useState<WhatsAppSession[]>([])
-  const [agents, setAgents] = useState<AIAgent[]>([])
-  const [loading, setLoading] = useState(true)
+  const [links, setLinks] = useState<LinkWithExtras[]>(() => getCache<LinkWithExtras[]>('links') || [])
+  const [sessions, setSessions] = useState<WhatsAppSession[]>(() => getCache<WhatsAppSession[]>('links:sessions') || [])
+  const [agents, setAgents] = useState<AIAgent[]>(() => getCache<AIAgent[]>('links:agents') || [])
+  const [loading, setLoading] = useState(() => !getCache('links'))
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<WALink | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
@@ -41,7 +42,6 @@ export default function PortailsPage() {
   const [formActive, setFormActive] = useState(true)
 
   const fetchAll = useCallback(async () => {
-    setLoading(true)
     try {
       const [linksRes, sessionsRes, agentsRes] = await Promise.all([
         fetch('/api/links'),
@@ -54,13 +54,17 @@ export default function PortailsPage() {
       const sessionList: WhatsAppSession[] = sessionsJson.data || []
       const agentList: AIAgent[] = agentsJson.data || []
       const linkList: WALink[] = linksJson.data || []
-      setSessions(sessionList)
-      setAgents(agentList)
-      setLinks(linkList.map(l => ({
+      const linksWithExtras = linkList.map(l => ({
         ...l,
         session: sessionList.find(s => s.id === l.session_id),
         agent: agentList.find(a => a.id === l.ai_agent_id),
-      })))
+      }))
+      setSessions(sessionList)
+      setAgents(agentList)
+      setLinks(linksWithExtras)
+      setCache('links', linksWithExtras)
+      setCache('links:sessions', sessionList)
+      setCache('links:agents', agentList)
     } finally {
       setLoading(false)
     }

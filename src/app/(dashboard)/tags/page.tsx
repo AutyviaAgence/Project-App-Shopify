@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import type { ConversationTag } from '@/types/database'
+import { getCache, setCache } from '@/hooks/use-cached-fetch'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -49,8 +50,8 @@ const TAG_COLORS = [
 
 export default function TagsPage() {
   const { t } = useTranslation()
-  const [tags, setTags] = useState<ConversationTag[]>([])
-  const [loading, setLoading] = useState(true)
+  const [tags, setTags] = useState<ConversationTag[]>(() => getCache<ConversationTag[]>('tags') || [])
+  const [loading, setLoading] = useState(() => !getCache('tags'))
 
   // Création de tag
   const [newTagName, setNewTagName] = useState('')
@@ -73,6 +74,7 @@ export default function TagsPage() {
       const json = await res.json()
       if (res.ok && json.data) {
         setTags(json.data)
+        setCache('tags', json.data)
       }
     } catch {
       toast.error(t('tags.load_error'))

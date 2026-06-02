@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BlobLoader } from '@/components/blob-loader'
+import { getCache, setCache } from '@/hooks/use-cached-fetch'
 
 type DocWithTeamIds = KnowledgeDocument & { team_ids?: string[] }
 type KnowledgeImage = {
@@ -35,10 +36,10 @@ const STATUS_CONFIG = {
 }
 
 export default function LibraryPage() {
-  const [documents, setDocuments] = useState<DocWithTeamIds[]>([])
-  const [images, setImages] = useState<KnowledgeImage[]>([])
-  const [agents, setAgents] = useState<AIAgent[]>([])
-  const [loading, setLoading] = useState(true)
+  const [documents, setDocuments] = useState<DocWithTeamIds[]>(() => getCache<DocWithTeamIds[]>('kb:docs') || [])
+  const [images, setImages] = useState<KnowledgeImage[]>(() => getCache<KnowledgeImage[]>('kb:images') || [])
+  const [agents, setAgents] = useState<AIAgent[]>(() => getCache<AIAgent[]>('kb:agents') || [])
+  const [loading, setLoading] = useState(() => !getCache('kb:docs'))
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<'all' | 'docs' | 'images'>('all')
 
@@ -73,7 +74,6 @@ export default function LibraryPage() {
   const [assignSaving, setAssignSaving] = useState(false)
 
   const fetchAll = useCallback(async () => {
-    setLoading(true)
     try {
       const [docsRes, imgsRes, agentsRes] = await Promise.all([
         fetch('/api/knowledge'),
@@ -83,9 +83,15 @@ export default function LibraryPage() {
       const [docsJson, imgsJson, agentsJson] = await Promise.all([
         docsRes.json(), imgsRes.json(), agentsRes.json(),
       ])
-      setDocuments(docsJson.data || [])
-      setImages(imgsJson.data || [])
-      setAgents(agentsJson.data || [])
+      const docs = docsJson.data || []
+      const imgs = imgsJson.data || []
+      const ags = agentsJson.data || []
+      setDocuments(docs)
+      setImages(imgs)
+      setAgents(ags)
+      setCache('kb:docs', docs)
+      setCache('kb:images', imgs)
+      setCache('kb:agents', ags)
     } finally {
       setLoading(false)
     }

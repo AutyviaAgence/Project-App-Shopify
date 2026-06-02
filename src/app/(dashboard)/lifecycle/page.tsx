@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import type { LifecycleStage } from '@/types/database'
+import { getCache, setCache } from '@/hooks/use-cached-fetch'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -107,8 +108,8 @@ type LifecycleStats = {
 
 export default function LifecyclePage() {
   const { t, locale } = useTranslation()
-  const [stages, setStages] = useState<LifecycleStage[]>([])
-  const [loading, setLoading] = useState(true)
+  const [stages, setStages] = useState<LifecycleStage[]>(() => getCache<LifecycleStage[]>('lifecycle:stages') || [])
+  const [loading, setLoading] = useState(() => !getCache('lifecycle:stages'))
   const [unanalyzed, setUnanalyzed] = useState<UnanalyzedCounts>({ unanalyzed: 0, needs_reanalysis: 0, total: 0 })
   const [stageStats, setStageStats] = useState<StageStats>({})
   const [lifecycleStats, setLifecycleStats] = useState<LifecycleStats | null>(null)
@@ -142,6 +143,7 @@ export default function LifecyclePage() {
       const json = await res.json()
       if (res.ok && json.data) {
         setStages(json.data)
+        setCache('lifecycle:stages', json.data)
       }
     } catch {
       toast.error(t('lifecycle.load_error'))

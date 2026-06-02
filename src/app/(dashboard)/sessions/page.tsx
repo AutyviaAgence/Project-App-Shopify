@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import type { WhatsAppSession, Team } from '@/types/database'
 import { BlobLoaderScreen } from '@/components/blob-loader'
+import { getCache, setCache } from '@/hooks/use-cached-fetch'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -68,8 +69,8 @@ export default function SessionsPage() {
     qr_pending: { label: t('sessions.qr_pending'), variant: 'outline' as const, icon: QrCode },
     error: { label: t('sessions.error'), variant: 'destructive' as const, icon: AlertCircle },
   }), [t])
-  const [sessions, setSessions] = useState<SessionWithTeamIds[]>([])
-  const [loading, setLoading] = useState(true)
+  const [sessions, setSessions] = useState<SessionWithTeamIds[]>(() => getCache<SessionWithTeamIds[]>('sessions') || [])
+  const [loading, setLoading] = useState(() => !getCache('sessions'))
   const [creating, setCreating] = useState(false)
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [teams, setTeams] = useState<TeamWithRole[]>([])
@@ -159,6 +160,7 @@ export default function SessionsPage() {
       const json = await res.json()
       if (res.ok && json.data) {
         setSessions(json.data)
+        setCache('sessions', json.data)
       }
     } catch {
       toast.error(t('sessions.load_error'))
