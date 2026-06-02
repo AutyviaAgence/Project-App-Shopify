@@ -67,6 +67,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   const [linkSession, setLinkSession] = useState('')
   const [linkMessage, setLinkMessage] = useState('')
   const [linkSaving, setLinkSaving] = useState(false)
+  const [savingSession, setSavingSession] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -165,6 +166,26 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   async function handleDetachDoc(docId: string) {
     await fetch(`/api/agents/${id}/knowledge/${docId}`, { method: 'DELETE' })
     setDocs(prev => prev.filter(d => d.id !== docId))
+  }
+
+  async function handleToggleSession(s: WhatsAppSession) {
+    const assigned = s.qualifier_agent_id === id
+    const newValue = assigned ? null : id
+    setSavingSession(s.id)
+    try {
+      const res = await fetch(`/api/sessions/${s.id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ qualifier_agent_id: newValue }),
+      })
+      if (res.ok) {
+        setSessions(prev => prev.map(x => x.id === s.id ? { ...x, qualifier_agent_id: newValue } : x))
+        toast.success(assigned ? 'Agent retiré de la session' : 'Agent activé sur la session')
+      } else {
+        const json = await res.json()
+        toast.error(json.error || 'Erreur')
+      }
+    } catch { toast.error('Erreur réseau') }
+    finally { setSavingSession(null) }
   }
 
   async function handleCreateLink() {
@@ -364,7 +385,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
             action={<MiniAction color="#10b981" onClick={() => setAddLinkOpen(true)}>Créer un lien</MiniAction>}
           >
             {/* Sessions */}
-            <Row label="Sessions WhatsApp">
+            <Row label="Sessions WhatsApp" hint="Cochez les numéros sur lesquels cet agent répond">
               {sessions.length === 0 ? (
                 <Empty
                   icon={<Smartphone className="h-7 w-7 text-emerald-400" />}
@@ -376,18 +397,43 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                 />
               ) : (
                 <div className="space-y-2">
-                  {sessions.map(s => (
-                    <div key={s.id} className="flex items-center gap-3.5 rounded-xl px-4 py-3 bg-muted/30">
-                      <span className={cn('h-2 w-2 rounded-full shrink-0', s.status === 'connected' ? 'bg-emerald-500 shadow-[0_0_6px_#10b981]' : 'bg-muted-foreground/30')} />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium truncate">{s.display_name || s.instance_name}</p>
-                        <p className="text-xs text-muted-foreground">{s.phone_number || '—'}</p>
-                      </div>
-                      <span className={cn('text-[10px] font-semibold rounded-full px-2.5 py-1', s.status === 'connected' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-muted text-muted-foreground')}>
-                        {s.status === 'connected' ? 'Connecté' : 'Déconnecté'}
-                      </span>
-                    </div>
-                  ))}
+                  {sessions.map(s => {
+                    const assigned = s.qualifier_agent_id === id
+                    const takenByOther = !!s.qualifier_agent_id && !assigned
+                    return (
+                      <button
+                        key={s.id}
+                        onClick={() => handleToggleSession(s)}
+                        disabled={savingSession === s.id}
+                        className={cn(
+                          'w-full flex items-center gap-3.5 rounded-xl px-4 py-3 border text-left transition-all',
+                          assigned ? 'border-emerald-500/50 bg-emerald-500/10' : 'border-border/50 bg-muted/20 hover:bg-muted/40'
+                        )}
+                      >
+                        {/* Checkbox */}
+                        <span className={cn(
+                          'flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-all',
+                          assigned ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-border'
+                        )}>
+                          {savingSession === s.id ? <Loader2 className="h-3 w-3 animate-spin" /> : assigned ? <Check className="h-3.5 w-3.5" /> : null}
+                        </span>
+
+                        <span className={cn('h-2 w-2 rounded-full shrink-0', s.status === 'connected' ? 'bg-emerald-500 shadow-[0_0_6px_#10b981]' : 'bg-muted-foreground/30')} />
+
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium truncate">{s.display_name || s.instance_name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {s.phone_number || '—'}
+                            {takenByOther && <span className="ml-1.5 text-amber-500">· assigné à un autre agent</span>}
+                          </p>
+                        </div>
+
+                        <span className={cn('text-[10px] font-semibold rounded-full px-2.5 py-1', s.status === 'connected' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-muted text-muted-foreground')}>
+                          {s.status === 'connected' ? 'Connecté' : 'Déconnecté'}
+                        </span>
+                      </button>
+                    )
+                  })}
                 </div>
               )}
             </Row>
