@@ -224,18 +224,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         className={cn(
           'fixed inset-y-0 left-0 z-50 flex flex-col bg-[var(--sidebar)] transition-all duration-300 md:relative md:bg-transparent',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
-          collapsed ? 'w-[80px]' : 'w-[340px]'
+          collapsed ? 'w-[80px]' : 'w-[300px] max-w-[85vw] md:w-[340px] md:max-w-none'
         )}
       >
         {/* Logo & Close */}
         <div className={cn(
-          'flex h-16 items-center px-4',
-          collapsed ? 'justify-center' : 'justify-between'
+          'flex h-[68px] items-center px-5',
+          collapsed ? 'justify-center px-4' : 'justify-between'
         )}>
           {!collapsed && (
-            <Link href="/dashboard" className="flex items-center gap-2">
-              <Image src={tenant.logoUrl} alt={tenant.appName} width={32} height={32} className="h-8 w-8" />
-              <span className="text-lg font-semibold text-white">{tenant.appName}</span>
+            <Link href="/dashboard" className="flex items-center gap-2.5">
+              <Image src={tenant.logoUrl} alt={tenant.appName} width={36} height={36} className="h-9 w-9" />
+              <span className="text-xl font-bold text-white">{tenant.appName}</span>
             </Link>
           )}
           {collapsed && (
@@ -259,7 +259,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </nav>
 
         {/* Bottom section */}
-        <div className="border-t border-white/5 p-3 space-y-1">
+        <div className="py-3 pl-3 pr-3 space-y-1.5">
           {BOTTOM_NAV_ITEMS.map((item) => (
             <NavLink key={item.href} item={item} showLabel={!collapsed} />
           ))}
@@ -267,12 +267,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <button
             onClick={handleSignOut}
             className={cn(
-              'group flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-white/70 transition-all duration-200 hover:bg-white/10 hover:text-white',
-              collapsed && 'justify-center'
+              'group mr-3 flex w-[calc(100%-0.75rem)] items-center gap-3.5 rounded-2xl px-4 py-3.5 text-[15px] font-medium text-white/70 transition-all duration-200 hover:bg-white/10 hover:text-white',
+              collapsed && 'mr-0 w-full justify-center px-2'
             )}
             title={collapsed ? t('nav.signout') : undefined}
           >
-            <LogOut className="h-5 w-5 shrink-0" />
+            <LogOut className="h-[22px] w-[22px] shrink-0" />
             {!collapsed && <span>{t('nav.signout')}</span>}
           </button>
         </div>
