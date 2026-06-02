@@ -278,7 +278,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </aside>
 
       {/* Main content — panneau arrondi flottant (bg-card pour contraster avec le fond sidebar, surtout en dark) */}
-      <div className="flex flex-1 flex-col overflow-hidden bg-background md:m-3 md:ml-0 md:rounded-3xl md:shadow-2xl md:ring-1 md:ring-black/5 dark:bg-card dark:md:ring-white/10">
+      <div className="flex flex-1 flex-col overflow-hidden bg-background md:m-3 md:ml-0 md:rounded-[28px] md:shadow-2xl md:ring-1 md:ring-black/5 dark:bg-card dark:md:ring-white/10">
         {/* Top bar */}
         <header className="flex h-16 items-center justify-between border-b border-border/60 bg-transparent px-4 md:px-6">
           <div className="flex items-center gap-3">

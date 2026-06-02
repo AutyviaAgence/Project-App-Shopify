@@ -391,14 +391,14 @@ export function ConversationList({
                   key={conv.id}
                   onClick={() => onSelectConversation(conv)}
                   className={cn(
-                    'group/conv flex w-full items-start gap-3 p-3 text-left transition-all hover:bg-muted/50',
-                    isSelected && 'bg-primary/5 border-l-2 border-l-primary'
+                    'group/conv mx-2 my-0.5 flex w-[calc(100%-1rem)] items-start gap-3 rounded-2xl px-3 py-3.5 text-left transition-all hover:bg-muted/60',
+                    isSelected && 'bg-primary/10 ring-1 ring-primary/20'
                   )}
                 >
                   {/* Avatar */}
                   <div className="relative shrink-0">
                     <div
-                      className="flex h-11 w-11 items-center justify-center rounded-full text-sm font-medium text-white"
+                      className="flex h-12 w-12 items-center justify-center rounded-full text-[15px] font-semibold text-white shadow-sm"
                       style={isSelected
                         ? { background: 'var(--primary, #7DC2A5)' }
                         : { background: 'linear-gradient(to bottom right, var(--primary, #7DC2A5), var(--accent, #40E9BE))' }
@@ -428,8 +428,8 @@ export function ConversationList({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
                       <span className={cn(
-                        'truncate text-sm',
-                        conv.unread_count > 0 ? 'font-semibold' : 'font-medium'
+                        'truncate text-[15px]',
+                        conv.unread_count > 0 ? 'font-bold' : 'font-semibold'
                       )}>
                         {getContactDisplay(conv)}
                       </span>
@@ -474,8 +474,8 @@ export function ConversationList({
                     )}
 
                     <p className={cn(
-                      'mt-0.5 truncate text-xs',
-                      conv.unread_count > 0 ? 'text-foreground' : 'text-muted-foreground'
+                      'mt-1 truncate text-[13px]',
+                      conv.unread_count > 0 ? 'font-medium text-foreground' : 'text-muted-foreground'
                     )}>
                       {conv.last_message_preview || t('conversations.no_message')}
                     </p>
