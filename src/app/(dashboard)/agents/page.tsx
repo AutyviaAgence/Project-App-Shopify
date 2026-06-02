@@ -40,7 +40,6 @@ import {
   Link2,
   Sparkles,
   Settings2,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Wand2,
@@ -62,7 +61,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { MultiTeamSelect } from '@/components/multi-team-select'
-import { AgentWizard, type GeneratedAgentConfig } from '@/components/agent-wizard'
 import { AgentTestChat } from '@/components/agent-test-chat'
 import { AgentToolsManager } from '@/components/agent-tools-manager'
 import { BlobLoaderScreen } from '@/components/blob-loader'
@@ -132,7 +130,6 @@ export default function AgentsPage() {
   const [loadingRoutes, setLoadingRoutes] = useState(false)
 
   // Wizard state
-  const [wizardOpen, setWizardOpen] = useState(false)
 
   // Optimisation du prompt
   const [optimizing, setOptimizing] = useState(false)
@@ -178,6 +175,16 @@ export default function AgentsPage() {
     fetchAgents()
     fetchTeams()
   }, [fetchAgents, fetchTeams])
+
+  // Mode Expert depuis l'onboarding : /agents?new=manual ouvre le formulaire manuel
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('new') === 'manual') {
+      openCreateDialog()
+      window.history.replaceState({}, '', '/agents')
+    }
+  }, [])
 
   function openCreateDialog() {
     setEditing(null)
@@ -525,78 +532,6 @@ export default function AgentsPage() {
     }
   }
 
-  async function handleWizardComplete(config: GeneratedAgentConfig) {
-    setSaving(true)
-    try {
-      // 1. Créer l'agent
-      const agentRes = await fetch('/api/agents', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: config.name,
-          description: config.description,
-          system_prompt: config.system_prompt,
-          objective: config.objective,
-          model: 'gpt-4o-mini',
-          temperature: 0.7,
-          response_delay_min: 30,
-          response_delay_max: 120,
-          agent_type: config.agent_type,
-          escalation_enabled: config.escalation_enabled,
-          escalation_mode: (config as any).escalation_mode || 'keywords',
-          escalation_keywords: config.escalation_keywords,
-          escalation_message: config.escalation_message,
-          booking_url: config.booking_url || null,
-          schedule_enabled: config.schedule_enabled,
-          schedule_timezone: 'Europe/Paris',
-          schedule_start_time: config.schedule_start_time,
-          schedule_end_time: config.schedule_end_time,
-          schedule_days: config.schedule_days,
-          auto_detect_language: true,
-        }),
-      })
-
-      const agentJson = await agentRes.json()
-
-      if (!agentRes.ok) {
-        toast.error(agentJson.error || t('agents.wizard_create_error'))
-        return
-      }
-
-      // 2. Créer automatiquement un document RAG avec les infos métier
-      if (config.ragContent) {
-        try {
-          const ragRes = await fetch('/api/knowledge', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              title: `Informations - ${config.name}`,
-              content: config.ragContent,
-              agent_ids: [agentJson.data.id],
-            }),
-          })
-
-          if (ragRes.ok) {
-            toast.success(t('agents.wizard_created_kb'))
-          } else {
-            toast.success(t('agents.wizard_created_no_kb'))
-          }
-        } catch {
-          toast.success(t('agents.wizard_created_no_kb'))
-        }
-      } else {
-        toast.success(t('agents.wizard_created'))
-      }
-
-      setAgents((prev) => [agentJson.data, ...prev])
-      setWizardOpen(false)
-    } catch {
-      toast.error(t('common.network_error'))
-    } finally {
-      setSaving(false)
-    }
-  }
-
   async function handleOptimizePrompt() {
     if (!formSystemPrompt.trim() || formSystemPrompt.trim().length < 10) {
       toast.error(t('agents.prompt_min_error'))
@@ -665,10 +600,12 @@ export default function AgentsPage() {
               {t('agents.no_agents_desc')}
             </p>
             <div className="mt-4 flex flex-col sm:flex-row gap-2">
-              <Button onClick={() => setWizardOpen(true)}>
-                <Sparkles className="mr-2 h-4 w-4" />
-                {t('agents.create_with_assistant')}
-              </Button>
+              <Link href="/agents/new">
+                <Button>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  {t('agents.create_with_assistant')}
+                </Button>
+              </Link>
               <Button variant="outline" onClick={openCreateDialog}>
                 <Settings2 className="mr-2 h-4 w-4" />
                 {t('agents.advanced_mode')}
@@ -876,38 +813,19 @@ export default function AgentsPage() {
         })()
       )}
 
-      {/* Bouton "Nouvel agent" — bulle carrée arrondie centrée en bas */}
+      {/* Bouton "Nouvel agent" — bulle arrondie centrée en bas, lance l'onboarding */}
       <div className="mt-8 flex justify-center pb-4">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              data-tour="new-agent-btn"
-              className="group flex items-center gap-2.5 rounded-3xl bg-primary px-6 py-3.5 text-sm font-semibold text-primary-foreground shadow-[0_12px_30px_-8px] shadow-primary/40 ring-1 ring-white/10 transition-all hover:scale-[1.03] hover:shadow-primary/50"
-            >
-              <span className="flex h-6 w-6 items-center justify-center rounded-xl bg-white/20">
-                <Plus className="h-4 w-4" />
-              </span>
-              {t('agents.new_agent')}
-              <ChevronDown className="h-4 w-4 opacity-70 transition-transform group-data-[state=open]:rotate-180" />
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="center" side="top" className="mb-2 w-72">
-            <DropdownMenuItem onClick={() => setWizardOpen(true)}>
-              <Sparkles className="mr-2 h-4 w-4 text-primary" />
-              <div>
-                <p className="font-medium">{t('agents.guided_assistant')}</p>
-                <p className="text-xs text-muted-foreground">{t('agents.guided_desc')}</p>
-              </div>
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={openCreateDialog}>
-              <Settings2 className="mr-2 h-4 w-4" />
-              <div>
-                <p className="font-medium">{t('agents.advanced_mode')}</p>
-                <p className="text-xs text-muted-foreground">{t('agents.advanced_desc')}</p>
-              </div>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <Link href="/agents/new">
+          <button
+            data-tour="new-agent-btn"
+            className="group flex items-center gap-2.5 rounded-3xl bg-primary px-6 py-3.5 text-sm font-semibold text-primary-foreground shadow-[0_12px_30px_-8px] shadow-primary/40 ring-1 ring-white/10 transition-all hover:scale-[1.03] hover:shadow-primary/50"
+          >
+            <span className="flex h-6 w-6 items-center justify-center rounded-xl bg-white/20">
+              <Plus className="h-4 w-4" />
+            </span>
+            {t('agents.new_agent')}
+          </button>
+        </Link>
       </div>
 
       {/* Create/Edit Dialog */}
@@ -1469,13 +1387,6 @@ export default function AgentsPage() {
         title={t('agents.delete_title')}
         description={t('agents.delete_desc', { name: agentToDelete?.name || '' })}
         loading={deleting === agentToDelete?.id}
-      />
-
-      {/* Agent Creation Wizard */}
-      <AgentWizard
-        open={wizardOpen}
-        onOpenChange={setWizardOpen}
-        onComplete={handleWizardComplete}
       />
 
       {/* Agent Test Chat */}
