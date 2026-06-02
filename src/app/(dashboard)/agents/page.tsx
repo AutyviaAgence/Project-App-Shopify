@@ -38,7 +38,6 @@ import {
   ShieldAlert,
   CalendarClock,
   Link2,
-  Megaphone,
   Sparkles,
   Settings2,
   ChevronDown,
@@ -46,7 +45,8 @@ import {
   MessageSquare,
   Wrench,
   Pin,
-  PinOff,
+  Power,
+  PowerOff,
   Copy,
 } from 'lucide-react'
 import {
@@ -60,6 +60,7 @@ import { MultiTeamSelect } from '@/components/multi-team-select'
 import { AgentWizard, type GeneratedAgentConfig } from '@/components/agent-wizard'
 import { AgentTestChat } from '@/components/agent-test-chat'
 import { AgentToolsManager } from '@/components/agent-tools-manager'
+import { AgentRobot } from '@/components/agent-card/AgentRobot'
 
 type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
 type BookingStats = {
@@ -81,7 +82,6 @@ export default function AgentsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [agentToDelete, setAgentToDelete] = useState<AgentWithTeamIds | null>(null)
   const [teams, setTeams] = useState<TeamWithRole[]>([])
-  const [agentKnowledge, setAgentKnowledge] = useState<Record<string, { id: string; name: string }[]>>({})
 
   // Form state
   const [formTeamIds, setFormTeamIds] = useState<string[]>([])
@@ -146,22 +146,6 @@ export default function AgentsPage() {
       const json = await res.json()
       if (res.ok && json.data) {
         setAgents(json.data)
-        // Fetch knowledge bases for each agent in parallel
-        const kbMap: Record<string, { id: string; name: string }[]> = {}
-        await Promise.all(
-          (json.data as AgentWithTeamIds[]).map(async (agent) => {
-            try {
-              const kbRes = await fetch(`/api/agents/${agent.id}/knowledge`)
-              const kbJson = await kbRes.json()
-              if (kbRes.ok && kbJson.data?.length > 0) {
-                kbMap[agent.id] = kbJson.data.map((d: { id: string; name: string }) => ({ id: d.id, name: d.name }))
-              }
-            } catch {
-              // Silently ignore KB fetch errors
-            }
-          })
-        )
-        setAgentKnowledge(kbMap)
       }
     } catch {
       toast.error(t('agents.load_error'))
@@ -706,127 +690,95 @@ export default function AgentsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {[...agents].sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0)).map((agent, idx) => {
             const isDeleting = deleting === agent.id
             const typeColor = agent.agent_type === 'qualifier' ? '#0ea5e9' : agent.agent_type === 'relance' ? '#f97316' : '#8b5cf6'
             const typeLabel = agent.agent_type === 'qualifier' ? 'Qualificateur' : agent.agent_type === 'relance' ? t('agents.relance') : 'Conversation'
-            const TypeIcon = agent.agent_type === 'qualifier' ? Sparkles : agent.agent_type === 'relance' ? Megaphone : MessageSquare
-            const conv = agent.booking_stats?.conversion_rate || 0
-            const convColor = conv >= 50 ? '#34d399' : conv >= 20 ? '#facc15' : '#71717a'
-            const hasBooking = !!agent.booking_url
 
             return (
               <div
                 key={agent.id}
-                className={cn('group relative animate-fade-in-up', !agent.is_active && 'opacity-60')}
+                className={cn('group relative flex flex-col rounded-[28px] bg-white shadow-sm ring-1 ring-black/5 transition-all duration-300 hover:shadow-xl animate-fade-in-up dark:bg-zinc-900 dark:ring-white/10', !agent.is_active && 'opacity-60')}
                 style={{ animationDelay: `${Math.min(idx * 50, 500)}ms` }}
               >
-                {/* Glow color derrière la card */}
+                {/* Zone visuelle (robot) */}
                 <div
-                  className="pointer-events-none absolute -inset-px rounded-[26px] opacity-0 blur-xl transition-opacity duration-500 group-hover:opacity-40"
-                  style={{ background: typeColor }}
-                />
-
-                {/* Card */}
-                <div
-                  className="relative z-10 flex h-full flex-col overflow-hidden rounded-[24px] border border-white/[0.06] p-6 text-white shadow-2xl transition-transform duration-300 group-hover:-translate-y-1"
-                  style={{
-                    background: `radial-gradient(120% 120% at 25% 8%, ${typeColor}1f 0%, #15191f 45%, #0f1318 100%)`,
-                    ...(agent.is_pinned ? { boxShadow: `inset 0 0 0 1px ${typeColor}55, 0 25px 50px -12px rgba(0,0,0,0.6)` } : {}),
-                  }}
+                  className="relative flex h-44 items-center justify-center rounded-t-[28px] overflow-hidden"
+                  style={{ background: `linear-gradient(160deg, ${typeColor}14 0%, ${typeColor}05 100%)` }}
                 >
-                  {/* Top : statut + actif/épinglé */}
-                  <div className="mb-5 flex items-center justify-between text-[12px]">
-                    <span className="flex items-center gap-2 text-white/70">
-                      <span className={cn('inline-block h-2 w-2 rounded-full', agent.is_active ? 'bg-emerald-400 animate-pulse' : 'bg-white/25')} />
-                      {agent.is_active ? t('common.active') : t('common.inactive')}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      {agent.is_pinned && <Pin className="h-3.5 w-3.5" style={{ color: typeColor }} />}
-                      <Switch checked={agent.is_active} onCheckedChange={() => handleToggleActive(agent)} />
-                    </div>
+                  <div className="transition-transform duration-300 group-hover:scale-105">
+                    <AgentRobot color={typeColor} size={120} />
                   </div>
 
-                  {/* Avatar + nom + type */}
-                  <div className="flex items-center gap-4">
-                    <div
-                      className="relative flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ring-1 ring-white/10"
-                      style={{ background: `${typeColor}26`, color: typeColor }}
-                    >
-                      <TypeIcon className="h-7 w-7" />
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="truncate text-lg font-semibold tracking-tight">{agent.name}</h3>
-                      <p className="mt-0.5 flex items-center gap-2 text-[13px]">
-                        <span style={{ color: typeColor }}>{typeLabel}</span>
-                        <span className="text-white/25">·</span>
-                        <span className="text-white/45">{agent.model}</span>
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Description / objectif */}
-                  <p className="mt-4 min-h-[40px] text-[13px] leading-relaxed text-white/55 line-clamp-2">
-                    {agent.objective || agent.description || agent.system_prompt}
-                  </p>
-
-                  {/* Métriques (stats RDV) */}
-                  {hasBooking ? (
-                    <div className="mt-4 grid grid-cols-3 gap-2 rounded-2xl bg-white/[0.04] p-3">
-                      <MetricCell value={agent.booking_stats?.total_proposals || 0} label={t('agents.proposed')} />
-                      <MetricCell value={agent.booking_stats?.total_clicks || 0} label={t('dashboard.clicks')} />
-                      <MetricCell value={`${conv}%`} label={t('agents.rate')} color={convColor} />
-                    </div>
-                  ) : (
-                    <div className="mt-4 flex flex-wrap gap-2">
-                      {agentKnowledge[agent.id]?.length > 0 && (
-                        <PillTag icon={<Brain className="h-3 w-3 text-emerald-400" />} label={agentKnowledge[agent.id].length > 1 ? `${agentKnowledge[agent.id].length} docs` : agentKnowledge[agent.id][0].name} />
+                  {/* Boutons flottants : épingler + activer */}
+                  <div className="absolute right-3 top-3 flex flex-col gap-2">
+                    <button
+                      onClick={() => handleTogglePin(agent)}
+                      title={agent.is_pinned ? t('agents.unpin') : t('agents.pin')}
+                      className={cn(
+                        'flex h-9 w-9 items-center justify-center rounded-full shadow-md transition-all hover:scale-105',
+                        agent.is_pinned ? 'text-white' : 'bg-white text-zinc-400 hover:text-zinc-700 dark:bg-zinc-800 dark:text-zinc-500'
                       )}
-                      {agent.auto_detect_language && <PillTag icon={<Languages className="h-3 w-3" />} label={t('agents.multi_lang')} />}
-                      {agent.escalation_enabled && <PillTag icon={<ShieldAlert className="h-3 w-3" />} label={t('agents.guardrail')} />}
-                      {agent.schedule_enabled && <PillTag icon={<Clock className="h-3 w-3" />} label={`${agent.schedule_start_time}–${agent.schedule_end_time}`} />}
-                    </div>
-                  )}
+                      style={agent.is_pinned ? { background: typeColor } : {}}
+                    >
+                      {agent.is_pinned ? <Pin className="h-4 w-4 fill-current" /> : <Pin className="h-4 w-4" />}
+                    </button>
+                    <button
+                      onClick={() => handleToggleActive(agent)}
+                      title={agent.is_active ? 'Désactiver' : 'Activer'}
+                      className={cn(
+                        'flex h-9 w-9 items-center justify-center rounded-full shadow-md transition-all hover:scale-105',
+                        agent.is_active ? 'bg-emerald-500 text-white' : 'bg-white text-zinc-400 hover:text-zinc-700 dark:bg-zinc-800 dark:text-zinc-500'
+                      )}
+                    >
+                      {agent.is_active ? <Power className="h-4 w-4" /> : <PowerOff className="h-4 w-4" />}
+                    </button>
+                  </div>
 
-                  {/* Actions */}
-                  <div className="mt-5 flex items-center gap-2 pt-1">
+                  {/* Pastille statut en bas */}
+                  <span className={cn(
+                    'absolute bottom-3 left-3 flex items-center gap-1.5 rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-medium backdrop-blur dark:bg-black/40',
+                    agent.is_active ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400'
+                  )}>
+                    <span className={cn('h-1.5 w-1.5 rounded-full', agent.is_active ? 'bg-emerald-500' : 'bg-zinc-400')} />
+                    {agent.is_active ? t('common.active') : t('common.inactive')}
+                  </span>
+                </div>
+
+                {/* Infos */}
+                <div className="flex flex-1 flex-col px-5 pb-5 pt-4">
+                  <h3 className="truncate text-[15px] font-semibold text-zinc-900 dark:text-white">{agent.name}</h3>
+                  <p className="mt-0.5 text-[13px] font-medium" style={{ color: typeColor }}>{typeLabel}</p>
+
+                  {/* Bouton Configurer + menu */}
+                  <div className="mt-4 flex items-center gap-2">
                     <Link href={`/agents/${agent.id}`} className="flex-1">
-                      <button
-                        className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl text-[13px] font-semibold transition-all hover:brightness-110"
-                        style={{ background: `${typeColor}2e`, color: typeColor, border: `1px solid ${typeColor}40` }}
-                      >
+                      <button className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-zinc-900 text-[13px] font-semibold text-white transition-all hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100">
                         <Bot className="h-4 w-4" /> Configurer
                       </button>
                     </Link>
                     <button
                       onClick={() => { setTestingAgent(agent); setTestChatOpen(true) }}
                       title={t('common.test')}
-                      className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/[0.06] text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+                      className="flex h-11 w-11 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-500 transition-colors hover:bg-zinc-200 hover:text-zinc-800 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
                     >
                       <MessageSquare className="h-4 w-4" />
                     </button>
-                    <button
-                      onClick={() => openEditDialog(agent)}
-                      title={t('common.edit')}
-                      className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/[0.06] text-white/70 transition-colors hover:bg-white/10 hover:text-white"
-                    >
-                      <Pencil className="h-4 w-4" />
-                    </button>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <button className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white/[0.06] text-white/70 transition-colors hover:bg-white/10 hover:text-white">
+                        <button className="flex h-11 w-11 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-500 transition-colors hover:bg-zinc-200 hover:text-zinc-800 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700">
                           <ChevronDown className="h-4 w-4" />
                         </button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-44">
+                        <DropdownMenuItem onClick={() => openEditDialog(agent)}>
+                          <Pencil className="mr-2 h-3.5 w-3.5" />
+                          {t('common.edit')}
+                        </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => { setToolsAgent(agent); setToolsOpen(true) }}>
                           <Wrench className="mr-2 h-3.5 w-3.5" />
                           {t('tools.title')}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleTogglePin(agent)}>
-                          {agent.is_pinned ? <PinOff className="mr-2 h-3.5 w-3.5" /> : <Pin className="mr-2 h-3.5 w-3.5" />}
-                          {agent.is_pinned ? t('agents.unpin') : t('agents.pin')}
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => handleDuplicate(agent)} disabled={saving}>
                           <Copy className="mr-2 h-3.5 w-3.5" />
@@ -1453,22 +1405,3 @@ export default function AgentsPage() {
   )
 }
 
-// ─── Card sub-components ──────────────────────────────────────────────────────
-
-function MetricCell({ value, label, color }: { value: string | number; label: string; color?: string }) {
-  return (
-    <div className="flex flex-col items-center text-center">
-      <span className="text-lg font-bold leading-none" style={color ? { color } : { color: 'rgba(255,255,255,0.95)' }}>{value}</span>
-      <span className="mt-1 text-[10px] text-white/40">{label}</span>
-    </div>
-  )
-}
-
-function PillTag({ icon, label }: { icon?: React.ReactNode; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full bg-white/[0.06] px-2.5 py-1 text-[11px] font-medium text-white/60">
-      {icon}
-      {label}
-    </span>
-  )
-}
