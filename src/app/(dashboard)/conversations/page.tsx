@@ -12,22 +12,19 @@ import { ChatArea } from './_components/chat-area'
 import type { ConversationWithJoins, Team, Message, AIAgent, LifecycleStage } from './_components/types'
 import { BlobLoader } from '@/components/blob-loader'
 
+let notificationAudio: HTMLAudioElement | null = null
+
 function playMessageSound() {
   try {
     if (localStorage.getItem('autyvia_sound_enabled') === 'false') return
-    const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)()
-    const oscillator = ctx.createOscillator()
-    const gain = ctx.createGain()
-    oscillator.connect(gain)
-    gain.connect(ctx.destination)
-    oscillator.frequency.setValueAtTime(880, ctx.currentTime)
-    oscillator.frequency.exponentialRampToValueAtTime(440, ctx.currentTime + 0.1)
-    gain.gain.setValueAtTime(0.15, ctx.currentTime)
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3)
-    oscillator.start(ctx.currentTime)
-    oscillator.stop(ctx.currentTime + 0.3)
+    if (!notificationAudio) {
+      notificationAudio = new Audio('/sounds/notification.mp3')
+      notificationAudio.volume = 0.5
+    }
+    notificationAudio.currentTime = 0
+    void notificationAudio.play()
   } catch {
-    // AudioContext not available (SSR or user gesture required)
+    // Audio not available (SSR ou interaction utilisateur requise)
   }
 }
 
