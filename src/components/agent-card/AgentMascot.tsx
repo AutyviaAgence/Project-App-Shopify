@@ -1,68 +1,64 @@
 'use client'
 
 /**
- * AgentMascot — petite mascotte "blob" douce (style 3D soft / Fall Guys).
- * Corps en forme de goutte arrondie, deux yeux, petits pieds.
- * La teinte s'adapte via la prop `color` (utilisée pour les pieds + ombrage).
+ * AgentMascot — petite mascotte "blob" douce (style 3D soft, type Fall Guys).
+ * Forme trapue : base large, sommet arrondi en pointe douce (goutte/montagne).
+ * Yeux dans le tiers bas, petits pieds écartés. Teinte via la prop `color`.
  */
 export function AgentMascot({ color = '#7DC2A5', size = 120 }: { color?: string; size?: number }) {
   return (
     <svg
       width={size}
       height={size}
-      viewBox="0 0 120 130"
+      viewBox="0 0 140 140"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
     >
       <defs>
-        {/* Dégradé du corps : blanc en haut → légère teinte en bas */}
-        <linearGradient id={`mascot-body-${color}`} x1="60" y1="14" x2="60" y2="118" gradientUnits="userSpaceOnUse">
+        {/* Corps : blanc en haut, très légère teinte froide en bas */}
+        <linearGradient id={`mb-${color}`} x1="70" y1="18" x2="70" y2="120" gradientUnits="userSpaceOnUse">
           <stop offset="0%" stopColor="#ffffff" />
-          <stop offset="78%" stopColor="#f4f7fb" />
-          <stop offset="100%" stopColor={color} stopOpacity="0.22" />
+          <stop offset="72%" stopColor="#eef2f7" />
+          <stop offset="100%" stopColor="#d8e2ee" />
         </linearGradient>
-        {/* Ombre douce sous le corps */}
-        <radialGradient id={`mascot-shadow-${color}`} cx="50%" cy="50%" r="50%">
-          <stop offset="0%" stopColor={color} stopOpacity="0.35" />
+        <radialGradient id={`ms-${color}`} cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stopColor={color} stopOpacity="0.4" />
           <stop offset="100%" stopColor={color} stopOpacity="0" />
         </radialGradient>
       </defs>
 
       {/* Ombre au sol */}
-      <ellipse cx="60" cy="122" rx="34" ry="7" fill={`url(#mascot-shadow-${color})`} />
+      <ellipse cx="70" cy="127" rx="42" ry="8" fill={`url(#ms-${color})`} />
 
-      {/* Pieds */}
-      <ellipse cx="46" cy="112" rx="9" ry="11" fill={color} />
-      <ellipse cx="74" cy="112" rx="9" ry="11" fill={color} />
-      <ellipse cx="46" cy="110" rx="9" ry="9" fill={color} opacity="0.85" />
-      <ellipse cx="74" cy="110" rx="9" ry="9" fill={color} opacity="0.85" />
+      {/* Pieds — larges, écartés, sous la base */}
+      <ellipse cx="50" cy="117" rx="13" ry="9" fill={color} />
+      <ellipse cx="90" cy="117" rx="13" ry="9" fill={color} />
+      <ellipse cx="47" cy="114" rx="5" ry="3" fill="#ffffff" opacity="0.35" />
+      <ellipse cx="87" cy="114" rx="5" ry="3" fill="#ffffff" opacity="0.35" />
 
-      {/* Corps en goutte : large en bas, pointe arrondie en haut */}
+      {/* Corps en goutte : pointe arrondie effilée en haut, base très large */}
       <path
-        d="M60 16
-           C 44 16, 33 34, 33 62
-           C 33 92, 44 110, 60 110
-           C 76 110, 87 92, 87 62
-           C 87 34, 76 16, 60 16 Z"
-        fill={`url(#mascot-body-${color})`}
-        stroke={color}
-        strokeOpacity="0.15"
-        strokeWidth="1.5"
+        d="M70 18
+           C 60 18, 52 32, 46 58
+           C 40 84, 34 106, 50 115
+           C 60 119, 80 119, 90 115
+           C 106 106, 100 84, 94 58
+           C 88 32, 80 18, 70 18 Z"
+        fill={`url(#mb-${color})`}
       />
 
-      {/* Reflet/brillance sur le corps */}
-      <ellipse cx="50" cy="44" rx="9" ry="14" fill="#ffffff" opacity="0.6" />
+      {/* Reflet de brillance (haut-gauche) */}
+      <ellipse cx="55" cy="50" rx="9" ry="15" fill="#ffffff" opacity="0.5" transform="rotate(-14 55 50)" />
 
-      {/* Yeux */}
-      <ellipse cx="51" cy="64" rx="4.5" ry="6" fill="#1a1a2e" />
-      <ellipse cx="69" cy="64" rx="4.5" ry="6" fill="#1a1a2e" />
-      {/* Reflets dans les yeux */}
-      <circle cx="52.5" cy="61.5" r="1.6" fill="#ffffff" />
-      <circle cx="70.5" cy="61.5" r="1.6" fill="#ffffff" />
+      {/* Yeux — ovales noirs, rapprochés, dans le tiers bas */}
+      <ellipse cx="60" cy="84" rx="5.5" ry="7.5" fill="#16161e" />
+      <ellipse cx="80" cy="84" rx="5.5" ry="7.5" fill="#16161e" />
+      <circle cx="62" cy="80.5" r="2" fill="#ffffff" />
+      <circle cx="82" cy="80.5" r="2" fill="#ffffff" />
 
-      {/* Petites joues colorées */}
-      <ellipse cx="42" cy="72" rx="4" ry="2.5" fill={color} opacity="0.3" />
-      <ellipse cx="78" cy="72" rx="4" ry="2.5" fill={color} opacity="0.3" />
+      {/* Joues colorées */}
+      <ellipse cx="49" cy="93" rx="5" ry="3" fill={color} opacity="0.35" />
+      <ellipse cx="91" cy="93" rx="5" ry="3" fill={color} opacity="0.35" />
     </svg>
   )
 }

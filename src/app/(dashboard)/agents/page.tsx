@@ -47,6 +47,7 @@ import {
   MessageSquare,
   Wrench,
   Pin,
+  PinOff,
   Power,
   PowerOff,
   Copy,
@@ -707,7 +708,6 @@ export default function AgentsPage() {
                   const isDeleting = deleting === agent.id
                   const typeColor = agent.agent_type === 'qualifier' ? '#0ea5e9' : agent.agent_type === 'relance' ? '#f97316' : '#8b5cf6'
                   const typeLabel = agent.agent_type === 'qualifier' ? 'Qualificateur' : agent.agent_type === 'relance' ? t('agents.relance') : 'Conversation'
-                  const PIN_GREEN = '#7DC2A5'
 
                   // Les voisines immédiates (±1) restent quasi de face ; au-delà, fort retrait.
                   const tx = offset * (isFront ? 360 : 320)
@@ -757,63 +757,45 @@ export default function AgentsPage() {
                           </span>
                         </div>
 
-                        {/* Pilule flottante verte (épingler + activer) — seulement sur la carte centrale */}
-                        {isCenter && (
-                          <div
-                            className="absolute right-0 top-7 flex translate-x-1/3 flex-col items-center gap-0.5 rounded-full py-1.5 shadow-lg"
-                            style={{ background: PIN_GREEN }}
-                          >
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleTogglePin(agent) }}
-                              title={agent.is_pinned ? t('agents.unpin') : t('agents.pin')}
-                              className="flex h-9 w-9 items-center justify-center rounded-full text-white/90 transition-all hover:scale-110 hover:text-white"
-                            >
-                              <Pin className={cn('h-4 w-4', agent.is_pinned && 'fill-current')} />
-                            </button>
-                            <span className="h-px w-4 bg-white/25" />
-                            <button
-                              onClick={(e) => { e.stopPropagation(); handleToggleActive(agent) }}
-                              title={agent.is_active ? 'Désactiver' : 'Activer'}
-                              className="flex h-9 w-9 items-center justify-center rounded-full text-white/90 transition-all hover:scale-110 hover:text-white"
-                            >
-                              {agent.is_active ? <Power className="h-4 w-4" /> : <PowerOff className="h-4 w-4" />}
-                            </button>
-                          </div>
-                        )}
-
-                        {/* Infos (style maquette : titre + ligne d'infos avec icônes) */}
-                        <div className="px-6 pt-5">
+                        {/* Infos — minimal : nom + statut */}
+                        <div className="px-6 pt-5 text-center">
                           <h3 className="truncate text-[19px] font-bold tracking-tight text-white">{agent.name}</h3>
-                          <div className="mt-2 flex items-center gap-1.5 text-[13px] text-white/50">
-                            <span className={cn('h-2 w-2 rounded-full', agent.is_active ? 'bg-emerald-400' : 'bg-white/30')} />
-                            <span>{agent.is_active ? t('common.active') : t('common.inactive')}</span>
-                            <span className="text-white/20">·</span>
-                            <span>{agent.model}</span>
+                          <div className="mt-1.5 flex items-center justify-center gap-1.5 text-[13px] text-white/45">
+                            <span className={cn('h-1.5 w-1.5 rounded-full', agent.is_active ? 'bg-emerald-400' : 'bg-white/30')} />
+                            {agent.is_active ? t('common.active') : t('common.inactive')}
                           </div>
                         </div>
 
-                        {/* Actions (style maquette : bouton bleu plein large + ronds gris) — carte centrale */}
+                        {/* Actions — bouton plein large + menu, seulement sur la carte centrale */}
                         {isCenter && (
                           <div className="mt-5 flex items-center gap-2.5 px-6">
                             <Link href={`/agents/${agent.id}`} className="flex-1" onClick={(e) => e.stopPropagation()}>
-                              <button className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-[14px] font-semibold text-primary-foreground shadow-[0_10px_24px_-8px] shadow-primary/40 transition-all hover:brightness-105 active:scale-[0.98]">
-                                <Bot className="h-4 w-4" /> Configurer
+                              <button className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary text-[14px] font-semibold text-primary-foreground shadow-[0_10px_24px_-8px] shadow-primary/40 transition-all hover:brightness-105 active:scale-[0.98]">
+                                Configurer
                               </button>
                             </Link>
                             <button
                               onClick={(e) => { e.stopPropagation(); setTestingAgent(agent); setTestChatOpen(true) }}
                               title={t('common.test')}
-                              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/[0.06] text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+                              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-white/60 transition-colors hover:bg-white/10 hover:text-white"
                             >
-                              <MessageSquare className="h-4 w-4" />
+                              <MessageSquare className="h-[18px] w-[18px]" />
                             </button>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <button onClick={(e) => e.stopPropagation()} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/[0.06] text-white/60 transition-colors hover:bg-white/10 hover:text-white">
-                                  <MoreHorizontal className="h-4 w-4" />
+                                <button onClick={(e) => e.stopPropagation()} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-white/60 transition-colors hover:bg-white/10 hover:text-white">
+                                  <MoreHorizontal className="h-[18px] w-[18px]" />
                                 </button>
                               </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-44">
+                              <DropdownMenuContent align="end" className="w-48">
+                                <DropdownMenuItem onClick={() => handleToggleActive(agent)}>
+                                  {agent.is_active ? <PowerOff className="mr-2 h-3.5 w-3.5" /> : <Power className="mr-2 h-3.5 w-3.5" />}
+                                  {agent.is_active ? 'Désactiver' : 'Activer'}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleTogglePin(agent)}>
+                                  {agent.is_pinned ? <PinOff className="mr-2 h-3.5 w-3.5" /> : <Pin className="mr-2 h-3.5 w-3.5" />}
+                                  {agent.is_pinned ? t('agents.unpin') : t('agents.pin')}
+                                </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => openEditDialog(agent)}>
                                   <Pencil className="mr-2 h-3.5 w-3.5" />
                                   {t('common.edit')}
