@@ -293,26 +293,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Main content — panneau arrondi flottant. Fond global = --sidebar (plus foncé),
           panneau = --background (moins foncé) → démarcation nette en clair ET sombre. */}
       <div className="flex flex-1 flex-col overflow-hidden bg-background md:m-3 md:ml-0 md:rounded-[28px] md:shadow-2xl md:ring-1 md:ring-black/5 dark:md:ring-white/10">
-        {/* Top bar */}
-        <header className="flex h-16 items-center justify-between border-b border-border/60 bg-transparent px-4 md:px-6">
-          <div className="flex items-center gap-3">
-            {/* Mobile menu button */}
-            <button
-              onClick={() => setSidebarOpen(true)}
-              className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground md:hidden"
-            >
-              <Menu className="h-5 w-5" />
-            </button>
-
-            {/* Page title */}
-            <div>
-              <h1 className="text-2xl font-bold tracking-tight text-foreground">
-                {NAV_ITEMS.find(i => pathname === i.href || pathname.startsWith(i.href + '/'))?.label ||
-                 BOTTOM_NAV_ITEMS.find(i => pathname === i.href || pathname.startsWith(i.href + '/'))?.label ||
-                 tenant.appName}
-              </h1>
-            </div>
-          </div>
+        {/* Top bar — pas de titre (chaque page a déjà le sien), juste menu mobile + notifs */}
+        <header className="flex h-14 items-center justify-between bg-transparent px-4 md:px-6">
+          {/* Mobile menu button */}
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground md:hidden"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+          <div className="hidden md:block" />
 
           {/* Right side */}
           <div className="flex items-center gap-2">
