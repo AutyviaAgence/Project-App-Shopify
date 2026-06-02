@@ -716,7 +716,7 @@ export default function AgentsPage() {
                   if (offset > n / 2) offset -= n
                   if (offset < -n / 2) offset += n
                   const abs = Math.abs(offset)
-                  if (abs > 3) return null // centre + 3 de chaque côté
+                  if (abs > 2) return null // centre + 2 de chaque côté (pas de tranche de profil au bord)
 
                   const isCenter = offset === 0
                   const isFront = abs <= 1 // les 3 cards "plein face" (centre + 2 voisines)
