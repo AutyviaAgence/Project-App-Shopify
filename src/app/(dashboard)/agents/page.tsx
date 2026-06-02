@@ -50,6 +50,7 @@ import {
   Power,
   PowerOff,
   Copy,
+  MoreHorizontal,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -62,7 +63,7 @@ import { MultiTeamSelect } from '@/components/multi-team-select'
 import { AgentWizard, type GeneratedAgentConfig } from '@/components/agent-wizard'
 import { AgentTestChat } from '@/components/agent-test-chat'
 import { AgentToolsManager } from '@/components/agent-tools-manager'
-import { AgentRobot } from '@/components/agent-card/AgentRobot'
+import { AgentMascot } from '@/components/agent-card/AgentMascot'
 import { BlobLoaderScreen } from '@/components/blob-loader'
 
 type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
@@ -731,7 +732,7 @@ export default function AgentsPage() {
                       {/* Carte */}
                       <div
                         className={cn(
-                          'group/card relative flex flex-col rounded-[34px] bg-[#15191f] pb-14 transition-shadow duration-300',
+                          'group/card relative flex flex-col rounded-[34px] bg-[#15191f] pb-6 transition-shadow duration-300',
                           isCenter ? 'shadow-[0_40px_90px_-24px_rgba(0,0,0,0.9)]' : 'shadow-[0_20px_50px_-24px_rgba(0,0,0,0.7)]',
                           !agent.is_active && 'opacity-70'
                         )}
@@ -742,17 +743,17 @@ export default function AgentsPage() {
                           className="relative flex h-64 items-center justify-center overflow-hidden rounded-[34px] m-2 mb-0"
                           style={{ background: `radial-gradient(130% 110% at 50% 22%, ${typeColor}30 0%, ${typeColor}0c 48%, transparent 78%)` }}
                         >
-                          {/* halo derrière le robot */}
+                          {/* halo derrière la mascotte */}
                           <div className="pointer-events-none absolute h-32 w-32 rounded-full opacity-30 blur-3xl" style={{ background: typeColor }} />
-                          <div className="relative transition-transform duration-500 ease-out group-hover/card:scale-110">
-                            <AgentRobot color={typeColor} size={150} />
+                          <div className="relative transition-transform duration-500 ease-out group-hover/card:scale-110 group-hover/card:-translate-y-1">
+                            <AgentMascot color={typeColor} size={150} />
                           </div>
-                          <span className={cn(
-                            'absolute bottom-3 left-4 flex items-center gap-1.5 text-[11px] font-medium',
-                            agent.is_active ? 'text-emerald-400' : 'text-white/30'
-                          )}>
-                            <span className={cn('h-1.5 w-1.5 rounded-full', agent.is_active ? 'bg-emerald-400' : 'bg-white/30')} />
-                            {agent.is_active ? t('common.active') : t('common.inactive')}
+                          {/* Badge type (pill, en haut à gauche) */}
+                          <span
+                            className="absolute left-4 top-4 rounded-full px-3 py-1 text-[11px] font-semibold"
+                            style={{ background: `${typeColor}1f`, color: typeColor }}
+                          >
+                            {typeLabel}
                           </span>
                         </div>
 
@@ -780,26 +781,36 @@ export default function AgentsPage() {
                           </div>
                         )}
 
-                        {/* Infos */}
+                        {/* Infos (style maquette : titre + ligne d'infos avec icônes) */}
                         <div className="px-6 pt-5">
-                          <h3 className="truncate text-[17px] font-bold tracking-tight text-white">{agent.name}</h3>
-                          <p className="mt-1 text-[13px] font-medium" style={{ color: typeColor }}>{typeLabel}</p>
+                          <h3 className="truncate text-[19px] font-bold tracking-tight text-white">{agent.name}</h3>
+                          <div className="mt-2 flex items-center gap-1.5 text-[13px] text-white/50">
+                            <span className={cn('h-2 w-2 rounded-full', agent.is_active ? 'bg-emerald-400' : 'bg-white/30')} />
+                            <span>{agent.is_active ? t('common.active') : t('common.inactive')}</span>
+                            <span className="text-white/20">·</span>
+                            <span>{agent.model}</span>
+                          </div>
                         </div>
 
-                        {/* Actions secondaires — seulement sur la carte centrale */}
+                        {/* Actions (style maquette : bouton bleu plein large + ronds gris) — carte centrale */}
                         {isCenter && (
-                          <div className="absolute bottom-12 right-6 flex items-center gap-2">
+                          <div className="mt-5 flex items-center gap-2.5 px-6">
+                            <Link href={`/agents/${agent.id}`} className="flex-1" onClick={(e) => e.stopPropagation()}>
+                              <button className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-primary text-[14px] font-semibold text-primary-foreground shadow-[0_10px_24px_-8px] shadow-primary/40 transition-all hover:brightness-105 active:scale-[0.98]">
+                                <Bot className="h-4 w-4" /> Configurer
+                              </button>
+                            </Link>
                             <button
                               onClick={(e) => { e.stopPropagation(); setTestingAgent(agent); setTestChatOpen(true) }}
                               title={t('common.test')}
-                              className="flex h-9 w-9 items-center justify-center rounded-full text-white/40 transition-colors hover:bg-white/[0.08] hover:text-white/80"
+                              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/[0.06] text-white/60 transition-colors hover:bg-white/10 hover:text-white"
                             >
                               <MessageSquare className="h-4 w-4" />
                             </button>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <button onClick={(e) => e.stopPropagation()} className="flex h-9 w-9 items-center justify-center rounded-full text-white/40 transition-colors hover:bg-white/[0.08] hover:text-white/80">
-                                  <ChevronDown className="h-4 w-4" />
+                                <button onClick={(e) => e.stopPropagation()} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white/[0.06] text-white/60 transition-colors hover:bg-white/10 hover:text-white">
+                                  <MoreHorizontal className="h-4 w-4" />
                                 </button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end" className="w-44">
@@ -828,15 +839,6 @@ export default function AgentsPage() {
                           </div>
                         )}
                       </div>
-
-                      {/* Bouton "Configurer" noir qui déborde en bas — seulement sur la carte centrale */}
-                      {isCenter && (
-                        <Link href={`/agents/${agent.id}`} onClick={(e) => e.stopPropagation()}>
-                          <button className="absolute -bottom-5 left-6 flex h-12 items-center gap-2 rounded-full bg-black px-7 text-[14px] font-semibold text-white shadow-xl ring-1 ring-white/10 transition-all hover:scale-[1.03] hover:bg-zinc-900">
-                            <Bot className="h-4 w-4" /> Configurer
-                          </button>
-                        </Link>
-                      )}
                     </div>
                   )
                 })}
