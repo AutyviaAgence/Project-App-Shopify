@@ -197,7 +197,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <TourProvider plan={plan ?? undefined}>
-    <div className="flex h-[100dvh] overflow-hidden bg-background">
+    <div className="flex h-[100dvh] overflow-hidden bg-[var(--sidebar)]">
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div
@@ -209,14 +209,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Sidebar */}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex flex-col bg-[var(--sidebar)] transition-all duration-300 md:relative',
+          'fixed inset-y-0 left-0 z-50 flex flex-col bg-[var(--sidebar)] transition-all duration-300 md:relative md:bg-transparent',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
-          collapsed ? 'w-[72px]' : 'w-64'
+          collapsed ? 'w-[76px]' : 'w-72'
         )}
       >
         {/* Logo & Close */}
         <div className={cn(
-          'flex h-16 items-center border-b border-white/10 px-4',
+          'flex h-16 items-center px-4',
           collapsed ? 'justify-center' : 'justify-between'
         )}>
           {!collapsed && (
@@ -246,7 +246,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </nav>
 
         {/* Bottom section */}
-        <div className="border-t border-white/10 p-3 space-y-1">
+        <div className="border-t border-white/5 p-3 space-y-1">
           {BOTTOM_NAV_ITEMS.map((item) => (
             <NavLink key={item.href} item={item} showLabel={!collapsed} />
           ))}
@@ -267,7 +267,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Collapse toggle (desktop only) */}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="absolute -right-3 top-20 hidden h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-[var(--sidebar)] text-white/70 shadow-sm transition-colors hover:bg-white/10 hover:text-white md:flex"
+          className="absolute right-1 top-20 z-[60] hidden h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-[var(--sidebar)] text-white/70 shadow-md transition-colors hover:bg-white/10 hover:text-white md:flex"
         >
           {collapsed ? (
             <ChevronRight className="h-3 w-3" />
@@ -277,10 +277,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </button>
       </aside>
 
-      {/* Main content */}
-      <div className="flex flex-1 flex-col overflow-hidden">
+      {/* Main content — panneau arrondi flottant (bg-card pour contraster avec le fond sidebar, surtout en dark) */}
+      <div className="flex flex-1 flex-col overflow-hidden bg-background md:m-3 md:ml-0 md:rounded-3xl md:shadow-2xl md:ring-1 md:ring-black/5 dark:bg-card dark:md:ring-white/10">
         {/* Top bar */}
-        <header className="flex h-16 items-center justify-between border-b bg-background px-4 md:px-6">
+        <header className="flex h-16 items-center justify-between border-b border-border/60 bg-transparent px-4 md:px-6">
           <div className="flex items-center gap-3">
             {/* Mobile menu button */}
             <button
@@ -332,7 +332,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <SubscriptionBanner subscription={subscription} />
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto bg-background">
+        <main className="flex-1 overflow-y-auto bg-transparent">
           {subscriptionLoading ? (
             <BlobLoaderScreen />
           ) : isPending ? (

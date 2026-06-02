@@ -758,7 +758,7 @@ function ConversationsPageContent() {
   }
 
   return (
-    <div className="flex h-[calc(100dvh-4rem)] md:h-[calc(100dvh-4rem)] pb-16 md:pb-0">
+    <div className="flex h-full pb-16 md:pb-0">
       <ConversationList
         conversations={conversations}
         selectedConvId={selectedConv?.id ?? null}
