@@ -22,7 +22,6 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  Tag,
   AlertTriangle,
   CreditCard,
   Workflow,
@@ -50,7 +49,6 @@ const NAV_ITEMS_KEYS = [
   { href: '/agents', labelKey: 'nav.agents', icon: Bot },
   { href: '/knowledge', labelKey: 'nav.knowledge', icon: BookOpen, label: 'Bibliothèque' },
   { href: '/links', labelKey: 'nav.links', icon: Link2, label: 'Liens' },
-  { href: '/tags', labelKey: 'nav.tags', icon: Tag },
   { href: '/lifecycle', labelKey: 'nav.lifecycle', icon: Workflow },
   { href: '/teams', labelKey: 'nav.teams', icon: Users },
   { href: '/stats', labelKey: 'nav.stats', icon: BarChart3 },
@@ -174,13 +172,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <Link
         href={item.href}
         className={cn(
-          'group relative flex items-center justify-center gap-3.5 px-4 py-3.5 text-[15px] font-medium transition-all duration-200',
+          'group relative flex items-center gap-3.5 px-4 py-3.5 text-[15px] font-medium transition-all duration-200',
           isActive
             // Onglet actif : couleur du panneau (--background), arrondi à gauche, colle au bord droit
             // (le panneau est colle ml-0) → fusion sans debordement ni scroll
             ? 'rounded-l-2xl rounded-r-none bg-background text-foreground md:shadow-[-6px_0_16px_-8px_rgba(0,0,0,0.3)]'
             : 'mr-3 rounded-2xl text-white/70 hover:bg-white/10 hover:text-white',
-          collapsed && 'px-2 mr-0'
+          collapsed && 'justify-center px-2 mr-0'
         )}
         title={collapsed ? item.label : undefined}
       >
@@ -230,7 +228,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Logo & Close */}
         <div className={cn(
           'relative flex h-[68px] items-center px-5',
-          collapsed ? 'justify-center px-4' : 'justify-center'
+          collapsed ? 'justify-center px-4' : 'justify-between'
         )}>
           {!collapsed && (
             <Link href="/dashboard" className="flex items-center gap-2.5">
