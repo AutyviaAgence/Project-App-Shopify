@@ -41,6 +41,8 @@ import {
   Sparkles,
   Settings2,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Wand2,
   MessageSquare,
   Wrench,
@@ -140,6 +142,9 @@ export default function AgentsPage() {
   // Tools state
   const [toolsOpen, setToolsOpen] = useState(false)
   const [toolsAgent, setToolsAgent] = useState<AgentWithTeamIds | null>(null)
+
+  // Carrousel coverflow : index de la carte centrale
+  const [centerIndex, setCenterIndex] = useState(0)
 
   const fetchAgents = useCallback(async () => {
     try {
@@ -687,116 +692,182 @@ export default function AgentsPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {[...agents].sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0)).map((agent, idx) => {
-            const isDeleting = deleting === agent.id
-            const typeColor = agent.agent_type === 'qualifier' ? '#0ea5e9' : agent.agent_type === 'relance' ? '#f97316' : '#8b5cf6'
-            const typeLabel = agent.agent_type === 'qualifier' ? 'Qualificateur' : agent.agent_type === 'relance' ? t('agents.relance') : 'Conversation'
+        (() => {
+          const sorted = [...agents].sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0))
+          const n = sorted.length
+          const center = ((centerIndex % n) + n) % n
+          const go = (dir: number) => setCenterIndex(c => (((c + dir) % n) + n) % n)
 
-            return (
-              <div
-                key={agent.id}
-                className={cn('group relative flex flex-col rounded-[28px] bg-white shadow-sm ring-1 ring-black/5 transition-all duration-300 hover:shadow-xl animate-fade-in-up dark:bg-zinc-900 dark:ring-white/10', !agent.is_active && 'opacity-60')}
-                style={{ animationDelay: `${Math.min(idx * 50, 500)}ms` }}
-              >
-                {/* Zone visuelle (robot) */}
-                <div
-                  className="relative flex h-44 items-center justify-center rounded-t-[28px] overflow-hidden"
-                  style={{ background: `linear-gradient(160deg, ${typeColor}14 0%, ${typeColor}05 100%)` }}
-                >
-                  <div className="transition-transform duration-300 group-hover:scale-105">
-                    <AgentRobot color={typeColor} size={120} />
-                  </div>
+          return (
+            <div className="relative flex items-center justify-center" style={{ perspective: '1600px' }}>
+              {/* Flèche gauche */}
+              {n > 1 && (
+                <button onClick={() => go(-1)} aria-label="Précédent"
+                  className="absolute left-0 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-white/[0.06] text-white/70 backdrop-blur transition-all hover:scale-110 hover:bg-white/10 hover:text-white">
+                  <ChevronLeft className="h-5 w-5" />
+                </button>
+              )}
 
-                  {/* Boutons flottants : épingler + activer */}
-                  <div className="absolute right-3 top-3 flex flex-col gap-2">
-                    <button
-                      onClick={() => handleTogglePin(agent)}
-                      title={agent.is_pinned ? t('agents.unpin') : t('agents.pin')}
-                      className={cn(
-                        'flex h-9 w-9 items-center justify-center rounded-full shadow-md transition-all hover:scale-105',
-                        agent.is_pinned ? 'text-white' : 'bg-white text-zinc-400 hover:text-zinc-700 dark:bg-zinc-800 dark:text-zinc-500'
-                      )}
-                      style={agent.is_pinned ? { background: typeColor } : {}}
+              {/* Scène coverflow */}
+              <div className="relative mx-auto h-[420px] w-full max-w-[420px]" style={{ transformStyle: 'preserve-3d' }}>
+                {sorted.map((agent, idx) => {
+                  // offset relatif au centre, normalisé sur [-n/2, n/2]
+                  let offset = idx - center
+                  if (offset > n / 2) offset -= n
+                  if (offset < -n / 2) offset += n
+                  const abs = Math.abs(offset)
+                  if (abs > 2) return null // on ne rend que centre + 2 de chaque côté
+
+                  const isCenter = offset === 0
+                  const isDeleting = deleting === agent.id
+                  const typeColor = agent.agent_type === 'qualifier' ? '#0ea5e9' : agent.agent_type === 'relance' ? '#f97316' : '#8b5cf6'
+                  const typeLabel = agent.agent_type === 'qualifier' ? 'Qualificateur' : agent.agent_type === 'relance' ? t('agents.relance') : 'Conversation'
+                  const PIN_GREEN = '#7DC2A5'
+
+                  return (
+                    <div
+                      key={agent.id}
+                      onClick={() => { if (!isCenter) setCenterIndex(idx) }}
+                      className={cn('absolute left-1/2 top-0 w-[340px] transition-all duration-500 ease-out', !isCenter && 'cursor-pointer')}
+                      style={{
+                        transform: `translateX(-50%) translateX(${offset * 230}px) translateZ(${-abs * 220}px) rotateY(${offset * -28}deg) scale(${isCenter ? 1 : 0.9})`,
+                        opacity: abs >= 2 ? 0.35 : abs === 1 ? 0.7 : 1,
+                        zIndex: 20 - abs,
+                        filter: isCenter ? 'none' : 'brightness(0.7)',
+                        pointerEvents: abs > 1 ? 'none' : 'auto',
+                      }}
                     >
-                      {agent.is_pinned ? <Pin className="h-4 w-4 fill-current" /> : <Pin className="h-4 w-4" />}
-                    </button>
-                    <button
-                      onClick={() => handleToggleActive(agent)}
-                      title={agent.is_active ? 'Désactiver' : 'Activer'}
-                      className={cn(
-                        'flex h-9 w-9 items-center justify-center rounded-full shadow-md transition-all hover:scale-105',
-                        agent.is_active ? 'bg-emerald-500 text-white' : 'bg-white text-zinc-400 hover:text-zinc-700 dark:bg-zinc-800 dark:text-zinc-500'
-                      )}
-                    >
-                      {agent.is_active ? <Power className="h-4 w-4" /> : <PowerOff className="h-4 w-4" />}
-                    </button>
-                  </div>
-
-                  {/* Pastille statut en bas */}
-                  <span className={cn(
-                    'absolute bottom-3 left-3 flex items-center gap-1.5 rounded-full bg-white/80 px-2.5 py-1 text-[11px] font-medium backdrop-blur dark:bg-black/40',
-                    agent.is_active ? 'text-emerald-600 dark:text-emerald-400' : 'text-zinc-400'
-                  )}>
-                    <span className={cn('h-1.5 w-1.5 rounded-full', agent.is_active ? 'bg-emerald-500' : 'bg-zinc-400')} />
-                    {agent.is_active ? t('common.active') : t('common.inactive')}
-                  </span>
-                </div>
-
-                {/* Infos */}
-                <div className="flex flex-1 flex-col px-5 pb-5 pt-4">
-                  <h3 className="truncate text-[15px] font-semibold text-zinc-900 dark:text-white">{agent.name}</h3>
-                  <p className="mt-0.5 text-[13px] font-medium" style={{ color: typeColor }}>{typeLabel}</p>
-
-                  {/* Bouton Configurer + menu */}
-                  <div className="mt-4 flex items-center gap-2">
-                    <Link href={`/agents/${agent.id}`} className="flex-1">
-                      <button className="flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-zinc-900 text-[13px] font-semibold text-white transition-all hover:bg-zinc-800 dark:bg-white dark:text-zinc-900 dark:hover:bg-zinc-100">
-                        <Bot className="h-4 w-4" /> Configurer
-                      </button>
-                    </Link>
-                    <button
-                      onClick={() => { setTestingAgent(agent); setTestChatOpen(true) }}
-                      title={t('common.test')}
-                      className="flex h-11 w-11 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-500 transition-colors hover:bg-zinc-200 hover:text-zinc-800 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
-                    >
-                      <MessageSquare className="h-4 w-4" />
-                    </button>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button className="flex h-11 w-11 items-center justify-center rounded-2xl bg-zinc-100 text-zinc-500 transition-colors hover:bg-zinc-200 hover:text-zinc-800 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700">
-                          <ChevronDown className="h-4 w-4" />
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-44">
-                        <DropdownMenuItem onClick={() => openEditDialog(agent)}>
-                          <Pencil className="mr-2 h-3.5 w-3.5" />
-                          {t('common.edit')}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => { setToolsAgent(agent); setToolsOpen(true) }}>
-                          <Wrench className="mr-2 h-3.5 w-3.5" />
-                          {t('tools.title')}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDuplicate(agent)} disabled={saving}>
-                          <Copy className="mr-2 h-3.5 w-3.5" />
-                          {t('common.duplicate')}
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => openDeleteDialog(agent)}
-                          disabled={isDeleting}
-                          className="text-destructive focus:text-destructive"
+                      {/* Carte */}
+                      <div
+                        className={cn(
+                          'group/card relative flex flex-col rounded-[34px] bg-[#161b22] pb-12 transition-shadow duration-300',
+                          isCenter ? 'shadow-[0_30px_70px_-20px_rgba(0,0,0,0.85)]' : 'shadow-[0_20px_50px_-24px_rgba(0,0,0,0.7)]',
+                          !agent.is_active && 'opacity-70'
+                        )}
+                      >
+                        {/* Zone visuelle (robot) */}
+                        <div
+                          className="relative flex h-52 items-center justify-center overflow-hidden rounded-[34px] m-2 mb-0"
+                          style={{ background: `radial-gradient(130% 110% at 50% 25%, ${typeColor}26 0%, ${typeColor}0a 45%, transparent 75%)` }}
                         >
-                          {isDeleting ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Trash2 className="mr-2 h-3.5 w-3.5" />}
-                          {t('common.delete')}
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </div>
-                </div>
+                          <div className="transition-transform duration-500 ease-out group-hover/card:scale-110">
+                            <AgentRobot color={typeColor} size={130} />
+                          </div>
+                          <span className={cn(
+                            'absolute bottom-3 left-4 flex items-center gap-1.5 text-[11px] font-medium',
+                            agent.is_active ? 'text-emerald-400' : 'text-white/30'
+                          )}>
+                            <span className={cn('h-1.5 w-1.5 rounded-full', agent.is_active ? 'bg-emerald-400' : 'bg-white/30')} />
+                            {agent.is_active ? t('common.active') : t('common.inactive')}
+                          </span>
+                        </div>
+
+                        {/* Pilule flottante verte (épingler + activer) — seulement sur la carte centrale */}
+                        {isCenter && (
+                          <div
+                            className="absolute right-0 top-7 flex translate-x-1/3 flex-col items-center gap-0.5 rounded-full py-1.5 shadow-lg"
+                            style={{ background: PIN_GREEN }}
+                          >
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleTogglePin(agent) }}
+                              title={agent.is_pinned ? t('agents.unpin') : t('agents.pin')}
+                              className="flex h-9 w-9 items-center justify-center rounded-full text-white/90 transition-all hover:scale-110 hover:text-white"
+                            >
+                              <Pin className={cn('h-4 w-4', agent.is_pinned && 'fill-current')} />
+                            </button>
+                            <span className="h-px w-4 bg-white/25" />
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleToggleActive(agent) }}
+                              title={agent.is_active ? 'Désactiver' : 'Activer'}
+                              className="flex h-9 w-9 items-center justify-center rounded-full text-white/90 transition-all hover:scale-110 hover:text-white"
+                            >
+                              {agent.is_active ? <Power className="h-4 w-4" /> : <PowerOff className="h-4 w-4" />}
+                            </button>
+                          </div>
+                        )}
+
+                        {/* Infos */}
+                        <div className="px-6 pt-5">
+                          <h3 className="truncate text-[17px] font-bold tracking-tight text-white">{agent.name}</h3>
+                          <p className="mt-1 text-[13px] font-medium" style={{ color: typeColor }}>{typeLabel}</p>
+                        </div>
+
+                        {/* Actions secondaires — seulement sur la carte centrale */}
+                        {isCenter && (
+                          <div className="absolute bottom-12 right-6 flex items-center gap-2">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setTestingAgent(agent); setTestChatOpen(true) }}
+                              title={t('common.test')}
+                              className="flex h-9 w-9 items-center justify-center rounded-full text-white/40 transition-colors hover:bg-white/[0.08] hover:text-white/80"
+                            >
+                              <MessageSquare className="h-4 w-4" />
+                            </button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button onClick={(e) => e.stopPropagation()} className="flex h-9 w-9 items-center justify-center rounded-full text-white/40 transition-colors hover:bg-white/[0.08] hover:text-white/80">
+                                  <ChevronDown className="h-4 w-4" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-44">
+                                <DropdownMenuItem onClick={() => openEditDialog(agent)}>
+                                  <Pencil className="mr-2 h-3.5 w-3.5" />
+                                  {t('common.edit')}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => { setToolsAgent(agent); setToolsOpen(true) }}>
+                                  <Wrench className="mr-2 h-3.5 w-3.5" />
+                                  {t('tools.title')}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleDuplicate(agent)} disabled={saving}>
+                                  <Copy className="mr-2 h-3.5 w-3.5" />
+                                  {t('common.duplicate')}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => openDeleteDialog(agent)}
+                                  disabled={isDeleting}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  {isDeleting ? <Loader2 className="mr-2 h-3.5 w-3.5 animate-spin" /> : <Trash2 className="mr-2 h-3.5 w-3.5" />}
+                                  {t('common.delete')}
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Bouton "Configurer" noir qui déborde en bas — seulement sur la carte centrale */}
+                      {isCenter && (
+                        <Link href={`/agents/${agent.id}`} onClick={(e) => e.stopPropagation()}>
+                          <button className="absolute -bottom-5 left-6 flex h-12 items-center gap-2 rounded-full bg-black px-7 text-[14px] font-semibold text-white shadow-xl ring-1 ring-white/10 transition-all hover:scale-[1.03] hover:bg-zinc-900">
+                            <Bot className="h-4 w-4" /> Configurer
+                          </button>
+                        </Link>
+                      )}
+                    </div>
+                  )
+                })}
               </div>
-            )
-          })}
-        </div>
+
+              {/* Flèche droite */}
+              {n > 1 && (
+                <button onClick={() => go(1)} aria-label="Suivant"
+                  className="absolute right-0 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-white/[0.06] text-white/70 backdrop-blur transition-all hover:scale-110 hover:bg-white/10 hover:text-white">
+                  <ChevronRight className="h-5 w-5" />
+                </button>
+              )}
+
+              {/* Indicateurs (points) */}
+              {n > 1 && (
+                <div className="absolute -bottom-2 left-1/2 z-30 flex -translate-x-1/2 gap-1.5">
+                  {sorted.map((_, i) => (
+                    <button key={i} onClick={() => setCenterIndex(i)} aria-label={`Agent ${i + 1}`}
+                      className={cn('h-1.5 rounded-full transition-all', i === center ? 'w-5 bg-white/80' : 'w-1.5 bg-white/25 hover:bg-white/40')} />
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        })()
       )}
 
       {/* Create/Edit Dialog */}
