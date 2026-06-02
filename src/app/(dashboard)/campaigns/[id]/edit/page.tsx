@@ -38,7 +38,7 @@ import {
   Save,
 } from 'lucide-react'
 import { getSessionDisplayName } from '@/lib/format-phone'
-import { BlobLoader } from '@/components/blob-loader'
+import { BlobLoaderScreen } from '@/components/blob-loader'
 
 type AgentWithType = AIAgent & { agent_type?: 'conversation' | 'relance' }
 type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
@@ -225,9 +225,7 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <BlobLoader size={88} />
-      </div>
+      <BlobLoaderScreen />
     )
   }
 

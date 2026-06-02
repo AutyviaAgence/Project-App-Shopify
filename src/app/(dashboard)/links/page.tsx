@@ -16,7 +16,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import QRCode from 'qrcode'
-import { BlobLoader } from '@/components/blob-loader'
+import { BlobLoaderScreen } from '@/components/blob-loader'
 
 type LinkWithExtras = WALink & { session?: WhatsAppSession; agent?: AIAgent }
 
@@ -175,7 +175,7 @@ export default function PortailsPage() {
   }
 
   if (loading) {
-    return <div className="flex h-96 items-center justify-center"><BlobLoader size={88} /></div>
+    return <BlobLoaderScreen />
   }
 
   return (

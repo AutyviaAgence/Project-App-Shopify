@@ -34,7 +34,7 @@ import {
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { formatDistanceToNow } from 'date-fns'
 import { fr, enUS } from 'date-fns/locale'
-import { BlobLoader } from '@/components/blob-loader'
+import { BlobLoaderScreen } from '@/components/blob-loader'
 
 type CampaignWithAgent = Campaign & {
   relance_agent?: { id: string; name: string } | null
@@ -141,9 +141,7 @@ export default function CampaignsPage() {
 
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <BlobLoader size={88} />
-      </div>
+      <BlobLoaderScreen />
     )
   }
 

@@ -32,7 +32,7 @@ import {
 import { formatDistanceToNow } from 'date-fns'
 import { fr, enUS } from 'date-fns/locale'
 import { useTranslation } from '@/i18n/context'
-import { BlobLoader } from '@/components/blob-loader'
+import { BlobLoaderScreen } from '@/components/blob-loader'
 
 export default function LogsPage() {
   const { t, locale } = useTranslation()
@@ -162,9 +162,7 @@ export default function LogsPage() {
 
   if (loading && logs.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <BlobLoader size={88} />
-      </div>
+      <BlobLoaderScreen />
     )
   }
 

@@ -56,7 +56,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { fr, enUS } from 'date-fns/locale'
 import { getSessionDisplayName, formatPhoneNumber } from '@/lib/format-phone'
 import { useTranslation } from '@/i18n/context'
-import { BlobLoader } from '@/components/blob-loader'
+import { BlobLoaderScreen } from '@/components/blob-loader'
 
 type SessionOption = {
   id: string
@@ -226,9 +226,7 @@ export default function StatsPage() {
       </div>
 
       {loading ? (
-        <div className="flex h-64 items-center justify-center">
-          <BlobLoader size={88} />
-        </div>
+        <BlobLoaderScreen />
       ) : stats ? (
         <Tabs defaultValue="overview">
           <TabsList className="flex-wrap h-auto gap-1">
