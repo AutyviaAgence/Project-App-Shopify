@@ -636,39 +636,22 @@ export default function AgentsPage() {
   }
 
   return (
-    <div className="p-4 sm:p-6">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div className="relative flex min-h-full flex-col overflow-hidden p-4 sm:p-6">
+      {/* Fond d'ambiance : glow coloré + grille subtile */}
+      <div className="pointer-events-none absolute inset-0 -z-10">
+        <div className="absolute left-1/2 top-1/3 h-[600px] w-[900px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-[0.10] blur-[120px]"
+          style={{ background: 'radial-gradient(circle, #0ea5e9 0%, #8b5cf6 45%, transparent 70%)' }} />
+        <div className="absolute inset-0 opacity-[0.025]"
+          style={{ backgroundImage: 'linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px)', backgroundSize: '48px 48px' }} />
+      </div>
+
+      <div className="mb-6">
         <div data-tour="agents-header">
           <h1 className="text-xl sm:text-2xl font-bold">{t('agents.title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {t('agents.description')}
           </p>
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button data-tour="new-agent-btn" className="w-full sm:w-auto">
-              <Plus className="mr-2 h-4 w-4" />
-              {t('agents.new_agent')}
-              <ChevronDown className="ml-2 h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => setWizardOpen(true)}>
-              <Sparkles className="mr-2 h-4 w-4 text-primary" />
-              <div>
-                <p className="font-medium">{t('agents.guided_assistant')}</p>
-                <p className="text-xs text-muted-foreground">{t('agents.guided_desc')}</p>
-              </div>
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={openCreateDialog}>
-              <Settings2 className="mr-2 h-4 w-4" />
-              <div>
-                <p className="font-medium">{t('agents.advanced_mode')}</p>
-                <p className="text-xs text-muted-foreground">{t('agents.advanced_desc')}</p>
-              </div>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
       </div>
 
       {agents.length === 0 ? (
@@ -699,7 +682,7 @@ export default function AgentsPage() {
           const go = (dir: number) => setCenterIndex(c => (((c + dir) % n) + n) % n)
 
           return (
-            <div className="relative flex items-center justify-center pt-16" style={{ perspective: '1800px' }}>
+            <div className="relative flex flex-1 items-center justify-center" style={{ perspective: '2000px' }}>
               {/* Flèche gauche */}
               {n > 1 && (
                 <button onClick={() => go(-1)} aria-label="Précédent"
@@ -709,7 +692,7 @@ export default function AgentsPage() {
               )}
 
               {/* Scène coverflow */}
-              <div className="relative mx-auto h-[440px] w-full max-w-[420px]" style={{ transformStyle: 'preserve-3d' }}>
+              <div className="relative mx-auto h-[520px] w-full max-w-[460px]" style={{ transformStyle: 'preserve-3d' }}>
                 {sorted.map((agent, idx) => {
                   // offset relatif au centre, normalisé sur [-n/2, n/2]
                   let offset = idx - center
@@ -726,17 +709,17 @@ export default function AgentsPage() {
                   const PIN_GREEN = '#7DC2A5'
 
                   // Les voisines immédiates (±1) restent quasi de face ; au-delà, fort retrait.
-                  const tx = offset * (isFront ? 300 : 270)
-                  const tz = isFront ? -abs * 90 : -200 - (abs - 1) * 160
+                  const tx = offset * (isFront ? 360 : 320)
+                  const tz = isFront ? -abs * 100 : -240 - (abs - 1) * 180
                   const rot = isFront ? offset * -6 : offset * -38
-                  const scale = isCenter ? 1 : isFront ? 0.94 : 0.82
-                  const opacity = abs === 0 ? 1 : abs === 1 ? 0.92 : abs === 2 ? 0.4 : 0.18
+                  const scale = isCenter ? 1 : isFront ? 0.92 : 0.8
+                  const opacity = abs === 0 ? 1 : abs === 1 ? 0.9 : abs === 2 ? 0.35 : 0.18
 
                   return (
                     <div
                       key={agent.id}
                       onClick={() => { if (!isCenter) setCenterIndex(idx) }}
-                      className={cn('absolute left-1/2 top-0 w-[340px] transition-all duration-500 ease-out', !isCenter && 'cursor-pointer')}
+                      className={cn('absolute left-1/2 top-0 w-[400px] transition-all duration-500 ease-out', !isCenter && 'cursor-pointer')}
                       style={{
                         transform: `translateX(-50%) translateX(${tx}px) translateZ(${tz}px) rotateY(${rot}deg) scale(${scale})`,
                         opacity,
@@ -748,18 +731,21 @@ export default function AgentsPage() {
                       {/* Carte */}
                       <div
                         className={cn(
-                          'group/card relative flex flex-col rounded-[34px] bg-[#161b22] pb-12 transition-shadow duration-300',
-                          isCenter ? 'shadow-[0_30px_70px_-20px_rgba(0,0,0,0.85)]' : 'shadow-[0_20px_50px_-24px_rgba(0,0,0,0.7)]',
+                          'group/card relative flex flex-col rounded-[34px] bg-[#15191f] pb-14 transition-shadow duration-300',
+                          isCenter ? 'shadow-[0_40px_90px_-24px_rgba(0,0,0,0.9)]' : 'shadow-[0_20px_50px_-24px_rgba(0,0,0,0.7)]',
                           !agent.is_active && 'opacity-70'
                         )}
+                        style={isCenter ? { boxShadow: `0 40px 90px -24px rgba(0,0,0,0.9), inset 0 0 0 1px ${typeColor}40` } : {}}
                       >
                         {/* Zone visuelle (robot) */}
                         <div
-                          className="relative flex h-52 items-center justify-center overflow-hidden rounded-[34px] m-2 mb-0"
-                          style={{ background: `radial-gradient(130% 110% at 50% 25%, ${typeColor}26 0%, ${typeColor}0a 45%, transparent 75%)` }}
+                          className="relative flex h-64 items-center justify-center overflow-hidden rounded-[34px] m-2 mb-0"
+                          style={{ background: `radial-gradient(130% 110% at 50% 22%, ${typeColor}30 0%, ${typeColor}0c 48%, transparent 78%)` }}
                         >
-                          <div className="transition-transform duration-500 ease-out group-hover/card:scale-110">
-                            <AgentRobot color={typeColor} size={130} />
+                          {/* halo derrière le robot */}
+                          <div className="pointer-events-none absolute h-32 w-32 rounded-full opacity-30 blur-3xl" style={{ background: typeColor }} />
+                          <div className="relative transition-transform duration-500 ease-out group-hover/card:scale-110">
+                            <AgentRobot color={typeColor} size={150} />
                           </div>
                           <span className={cn(
                             'absolute bottom-3 left-4 flex items-center gap-1.5 text-[11px] font-medium',
@@ -877,6 +863,40 @@ export default function AgentsPage() {
           )
         })()
       )}
+
+      {/* Bouton "Nouvel agent" — bulle carrée arrondie centrée en bas */}
+      <div className="mt-8 flex justify-center pb-4">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              data-tour="new-agent-btn"
+              className="group flex items-center gap-2.5 rounded-3xl bg-primary px-6 py-3.5 text-sm font-semibold text-primary-foreground shadow-[0_12px_30px_-8px] shadow-primary/40 ring-1 ring-white/10 transition-all hover:scale-[1.03] hover:shadow-primary/50"
+            >
+              <span className="flex h-6 w-6 items-center justify-center rounded-xl bg-white/20">
+                <Plus className="h-4 w-4" />
+              </span>
+              {t('agents.new_agent')}
+              <ChevronDown className="h-4 w-4 opacity-70 transition-transform group-data-[state=open]:rotate-180" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="center" side="top" className="mb-2 w-72">
+            <DropdownMenuItem onClick={() => setWizardOpen(true)}>
+              <Sparkles className="mr-2 h-4 w-4 text-primary" />
+              <div>
+                <p className="font-medium">{t('agents.guided_assistant')}</p>
+                <p className="text-xs text-muted-foreground">{t('agents.guided_desc')}</p>
+              </div>
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={openCreateDialog}>
+              <Settings2 className="mr-2 h-4 w-4" />
+              <div>
+                <p className="font-medium">{t('agents.advanced_mode')}</p>
+                <p className="text-xs text-muted-foreground">{t('agents.advanced_desc')}</p>
+              </div>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
