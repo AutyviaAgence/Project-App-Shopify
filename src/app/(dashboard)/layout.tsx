@@ -22,11 +22,9 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  Megaphone,
   Tag,
   AlertTriangle,
   CreditCard,
-  Loader2,
   Workflow,
   ShieldCheck,
   ClipboardList,
@@ -34,6 +32,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { AlertsDropdown } from '@/components/alerts-dropdown'
+import { BlobLoaderScreen } from '@/components/blob-loader'
 import dynamic from 'next/dynamic'
 
 const TourProvider = dynamic(() => import('@/components/guided-tour').then(m => ({ default: m.TourProvider })), {
@@ -335,9 +334,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Page content */}
         <main className="flex-1 overflow-y-auto bg-background">
           {subscriptionLoading ? (
-            <div className="flex h-full items-center justify-center">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
+            <BlobLoaderScreen />
           ) : isPending ? (
             <div className="flex h-full items-center justify-center p-6">
               <div className="max-w-md text-center space-y-6">

@@ -61,6 +61,7 @@ import { AgentWizard, type GeneratedAgentConfig } from '@/components/agent-wizar
 import { AgentTestChat } from '@/components/agent-test-chat'
 import { AgentToolsManager } from '@/components/agent-tools-manager'
 import { AgentRobot } from '@/components/agent-card/AgentRobot'
+import { BlobLoaderScreen } from '@/components/blob-loader'
 
 type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
 type BookingStats = {
@@ -626,11 +627,7 @@ export default function AgentsPage() {
   }
 
   if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-      </div>
-    )
+    return <BlobLoaderScreen />
   }
 
   return (

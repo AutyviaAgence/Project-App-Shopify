@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { toast } from 'sonner'
 import type { AIAgent, WhatsAppSession, WALink, KnowledgeDocument } from '@/types/database'
 import { AgentTestChat } from '@/components/agent-test-chat'
+import { BlobLoaderScreen } from '@/components/blob-loader'
 import { Switch } from '@/components/ui/switch'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -206,11 +207,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   const DAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
   const toneLabel = tone === 'professional' ? 'Professionnel' : tone === 'friendly' ? 'Chaleureux' : 'Décontracté'
 
-  if (loading) return (
-    <div className="flex h-full items-center justify-center">
-      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-    </div>
-  )
+  if (loading) return <BlobLoaderScreen />
   if (!agent) return null
 
   return (
