@@ -11,11 +11,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import {
-  ArrowLeft, Brain, BookOpen, Zap, Smartphone,
-  Power, PowerOff, Play, Loader2, Plus, Trash2,
+  ArrowLeft, Loader2, Plus, Trash2,
   ChevronDown, FileText, Link2, QrCode, Check,
-  Save, Upload, Tag, UserCheck, CalendarCheck,
-  Languages, Settings2,
+  Upload, Tag, Play,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -206,7 +204,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   }
 
   const DAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
-  const connected = sessions.filter(s => s.status === 'connected')
+  const toneLabel = tone === 'professional' ? 'Professionnel' : tone === 'friendly' ? 'Chaleureux' : 'Décontracté'
 
   if (loading) return (
     <div className="flex h-full items-center justify-center">
@@ -218,263 +216,195 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   return (
     <div className="flex flex-col h-full overflow-hidden bg-background">
 
-      {/* ── Topbar ── */}
-      <header className="shrink-0 flex items-center gap-3 px-5 py-3 border-b border-border/50 bg-background/95 backdrop-blur-xl z-30">
-        <Link href="/agents" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors shrink-0">
+      {/* ── Topbar minimale : retour + 1 seule action ── */}
+      <header className="shrink-0 flex items-center px-5 py-3.5 z-30">
+        <Link href="/agents" className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
           <ArrowLeft className="h-4 w-4" />
-          <span className="hidden sm:inline">Retour</span>
+          <span>Retour</span>
         </Link>
 
-        <div className="ml-1 min-w-0 flex items-center gap-2">
-          <span className="text-sm font-semibold truncate">{agent.name}</span>
-          <span className={cn(
-            'shrink-0 flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium',
-            agent.is_active ? 'bg-emerald-500/12 text-emerald-500' : 'bg-muted text-muted-foreground'
-          )}>
-            <span className={cn('h-1.5 w-1.5 rounded-full', agent.is_active ? 'bg-emerald-500 animate-pulse' : 'bg-muted-foreground/50')} />
-            {agent.is_active ? 'Actif' : 'Inactif'}
-          </span>
-        </div>
-
-        <div className="ml-auto flex items-center gap-1.5 shrink-0">
+        <div className="ml-auto flex items-center gap-2">
           <button
             onClick={() => setTestOpen(true)}
-            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted/60 transition-all"
+            className="flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[13px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-all"
           >
             <Play className="h-3.5 w-3.5" /> Tester
-          </button>
-          <button
-            onClick={handleToggleActive}
-            className={cn(
-              'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-all border',
-              agent.is_active
-                ? 'border-emerald-500/30 bg-emerald-500/8 text-emerald-600 hover:bg-emerald-500/15'
-                : 'border-border bg-muted/40 text-muted-foreground hover:bg-muted'
-            )}
-          >
-            {agent.is_active ? <Power className="h-3.5 w-3.5" /> : <PowerOff className="h-3.5 w-3.5" />}
-            <span className="hidden sm:inline">{agent.is_active ? 'Actif' : 'Inactif'}</span>
           </button>
           <button
             onClick={handleSave}
             disabled={saving}
             className={cn(
-              'flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-xs font-semibold transition-all',
+              'flex items-center gap-2 rounded-full px-5 py-2 text-[13px] font-semibold transition-all',
               saved ? 'bg-emerald-500 text-white' : 'bg-foreground text-background hover:opacity-90'
             )}
           >
-            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : saved ? <Check className="h-3.5 w-3.5" /> : <Save className="h-3.5 w-3.5" />}
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? <Check className="h-4 w-4" /> : null}
             {saved ? 'Enregistré' : 'Enregistrer'}
           </button>
         </div>
       </header>
 
-      {/* ── Page unique qui scrolle ── */}
+      {/* ── Colonne centrée étroite, beaucoup d'air ── */}
       <main className="flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-2xl px-6 py-10 space-y-12">
+        <div className="mx-auto w-full max-w-xl px-6 pb-24">
 
-          {/* ═══ IDENTITÉ ═══ */}
-          <Block icon={Brain} accent="#8b5cf6" title="Identité" subtitle="Qui est l'agent et comment il parle">
-            {/* Nom */}
-            <Row label="Nom de l'agent">
-              <input
-                value={name}
-                onChange={e => setName(e.target.value)}
-                className="w-full rounded-xl border border-border/50 bg-muted/30 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-foreground/15 focus:border-foreground/30 transition-all"
-              />
-            </Row>
+          {/* Titre */}
+          <div className="pt-6 pb-12 text-center">
+            <input
+              value={name}
+              onChange={e => setName(e.target.value)}
+              className="w-full bg-transparent text-center text-3xl font-bold tracking-tight focus:outline-none"
+            />
+            <button
+              onClick={handleToggleActive}
+              className="mt-3 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <span className={cn('h-2 w-2 rounded-full', agent.is_active ? 'bg-emerald-500' : 'bg-muted-foreground/40')} />
+              {agent.is_active ? 'Actif' : 'Inactif'}
+            </button>
+          </div>
 
-            {/* Description */}
-            <Row label="Description" hint="Affiché sous le nom">
-              <input
-                value={description}
-                onChange={e => setDescription(e.target.value)}
-                placeholder="Ex: Assistant commercial WhatsApp"
-                className="w-full rounded-xl border border-border/50 bg-muted/30 px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-foreground/15 focus:border-foreground/30 transition-all"
-              />
-            </Row>
-
-            {/* Objectif */}
-            <Row label="Objectif" hint="Ce que l'agent doit accomplir">
-              <textarea
-                value={objective}
-                onChange={e => setObjective(e.target.value)}
-                placeholder="Ex: Qualifier les prospects et proposer un rendez-vous"
-                rows={2}
-                className="w-full rounded-xl border border-border/50 bg-muted/30 px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/50 resize-none focus:outline-none focus:ring-2 focus:ring-foreground/15 focus:border-foreground/30 transition-all"
-              />
-            </Row>
-
-            {/* Ton */}
-            <Row label="Ton">
-              <div className="grid grid-cols-3 gap-2.5">
+          {/* ═══ PERSONNALITÉ ═══ */}
+          <Group title="Personnalité">
+            <RowField label="Description">
+              <CleanInput value={description} onChange={setDescription} placeholder="Assistant commercial WhatsApp" />
+            </RowField>
+            <Divider />
+            <RowField label="Objectif" stacked>
+              <CleanTextarea value={objective} onChange={setObjective} placeholder="Qualifier les prospects et proposer un rendez-vous" />
+            </RowField>
+            <Divider />
+            <RowField label="Ton" trailing={<span className="text-sm text-muted-foreground">{toneLabel}</span>} stacked>
+              <div className="grid grid-cols-3 gap-2 mt-1">
                 {([
-                  { id: 'professional', label: 'Professionnel', emoji: '👔' },
-                  { id: 'friendly',     label: 'Chaleureux',    emoji: '😊' },
-                  { id: 'casual',       label: 'Décontracté',   emoji: '😎' },
+                  { id: 'professional', label: 'Pro', emoji: '👔' },
+                  { id: 'friendly',     label: 'Chaleureux', emoji: '😊' },
+                  { id: 'casual',       label: 'Détendu', emoji: '😎' },
                 ] as const).map(t => {
                   const on = tone === t.id
                   return (
-                    <button
-                      key={t.id}
-                      onClick={() => setTone(t.id)}
-                      className={cn(
-                        'rounded-2xl py-4 text-center transition-all border',
-                        on ? 'border-violet-500/55 bg-violet-500/12' : 'border-border/50 bg-muted/20 hover:bg-muted/40'
-                      )}
-                    >
-                      <span className="block text-2xl mb-1.5">{t.emoji}</span>
-                      <span className={cn('text-xs font-semibold', on ? 'text-violet-400' : 'text-foreground/80')}>{t.label}</span>
+                    <button key={t.id} onClick={() => setTone(t.id)}
+                      className={cn('rounded-2xl py-3.5 transition-all', on ? 'bg-violet-500/15 ring-1 ring-violet-500/40' : 'bg-muted/40 hover:bg-muted/70')}>
+                      <span className="block text-xl">{t.emoji}</span>
+                      <span className={cn('mt-1 block text-[11px] font-medium', on ? 'text-violet-400' : 'text-muted-foreground')}>{t.label}</span>
                     </button>
                   )
                 })}
               </div>
-            </Row>
-
-            {/* Détection langue */}
-            <ToggleRow
-              icon={<Languages className="h-4 w-4" />}
-              label="Détection de langue"
-              hint="Répond dans la langue du client"
-              checked={autoDetectLanguage}
-              onChange={setAutoDetectLanguage}
-            />
-          </Block>
-
-          {/* ═══ SAVOIR ═══ */}
-          <Block icon={BookOpen} accent="#3b82f6" title="Savoir" subtitle="Documents que l'agent peut utiliser"
-            action={<MiniAction color="#3b82f6" onClick={() => setAddDocOpen(true)}>Ajouter</MiniAction>}
-          >
-            {docs.length === 0 && images.length === 0 ? (
-              <Empty
-                icon={<FileText className="h-7 w-7 text-blue-400" />}
-                title="Aucune ressource"
-                hint="Attachez des documents pour enrichir les réponses"
-                cta="Parcourir la bibliothèque"
-                onClick={() => setAddDocOpen(true)}
-                color="#3b82f6"
-              />
-            ) : (
-              <div className="space-y-2">
-                {docs.map(doc => (
-                  <div key={doc.id} className="group flex items-center gap-3 rounded-xl px-4 py-3 bg-muted/30 hover:bg-muted/50 transition-colors">
-                    <FileText className="h-4 w-4 text-blue-500 shrink-0" />
-                    <span className="text-sm flex-1 truncate">{doc.name}</span>
-                    <button onClick={() => handleDetachDoc(doc.id)} className="opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive transition-colors" />
-                    </button>
-                  </div>
-                ))}
-                {images.map(img => (
-                  <div key={img.id} className="flex items-center gap-3 rounded-xl px-4 py-3 bg-muted/30">
-                    <Tag className="h-4 w-4 text-orange-500 shrink-0" />
-                    <code className="text-xs font-mono">{img.ref}</code>
-                  </div>
-                ))}
-                <Link href="/knowledge" className="block">
-                  <button className="w-full flex items-center justify-center gap-2 rounded-xl border border-border/50 px-4 py-2.5 text-sm text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-all">
-                    <Upload className="h-4 w-4" /> Gérer la bibliothèque
-                  </button>
-                </Link>
-              </div>
-            )}
-          </Block>
+            </RowField>
+            <Divider />
+            <RowField label="Détection de langue" hint="Répond dans la langue du client">
+              <Switch checked={autoDetectLanguage} onCheckedChange={setAutoDetectLanguage} />
+            </RowField>
+          </Group>
 
           {/* ═══ CANAUX ═══ */}
-          <Block icon={Smartphone} accent="#10b981" title="Canaux" subtitle="Où l'agent est actif"
-            action={<MiniAction color="#10b981" onClick={() => setAddLinkOpen(true)}>Créer un lien</MiniAction>}
-          >
-            {/* Sessions */}
-            <Row label="Sessions WhatsApp" hint="Cochez les numéros sur lesquels cet agent répond">
-              {sessions.length === 0 ? (
-                <Empty
-                  icon={<Smartphone className="h-7 w-7 text-emerald-400" />}
-                  title="Aucune session"
-                  hint="Connectez un numéro WhatsApp"
-                  cta="Connecter WhatsApp"
-                  onClick={() => router.push('/sessions')}
-                  color="#10b981"
-                />
-              ) : (
-                <div className="space-y-2">
-                  {sessions.map(s => {
-                    const assigned = s.qualifier_agent_id === id
-                    const takenByOther = !!s.qualifier_agent_id && !assigned
-                    return (
-                      <button
-                        key={s.id}
-                        onClick={() => handleToggleSession(s)}
-                        disabled={savingSession === s.id}
-                        className={cn(
-                          'w-full flex items-center gap-3.5 rounded-xl px-4 py-3 border text-left transition-all',
-                          assigned ? 'border-emerald-500/50 bg-emerald-500/10' : 'border-border/50 bg-muted/20 hover:bg-muted/40'
-                        )}
-                      >
-                        {/* Checkbox */}
+          <Group title="Canaux" subtitle="Numéros sur lesquels cet agent répond">
+            {sessions.length === 0 ? (
+              <button onClick={() => router.push('/sessions')} className="w-full py-6 text-center text-sm text-muted-foreground hover:text-foreground transition-colors">
+                Aucune session · Connecter WhatsApp →
+              </button>
+            ) : (
+              sessions.map((s, i) => {
+                const assigned = s.qualifier_agent_id === id
+                const takenByOther = !!s.qualifier_agent_id && !assigned
+                return (
+                  <div key={s.id}>
+                    {i > 0 && <Divider />}
+                    <button
+                      onClick={() => handleToggleSession(s)}
+                      disabled={savingSession === s.id}
+                      className="w-full flex items-center gap-3 py-3.5 text-left"
+                    >
+                      <span className={cn('h-2.5 w-2.5 shrink-0 rounded-full', s.status === 'connected' ? 'bg-emerald-500' : 'bg-muted-foreground/30')} />
+                      <div className="min-w-0 flex-1">
+                        <p className="text-sm font-medium truncate">{s.display_name || s.instance_name}</p>
+                        <p className="text-xs text-muted-foreground truncate">
+                          {s.phone_number || '—'}
+                          {takenByOther && <span className="text-amber-500"> · autre agent</span>}
+                        </p>
+                      </div>
+                      {savingSession === s.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground shrink-0" />
+                      ) : (
                         <span className={cn(
                           'flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-all',
                           assigned ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-border'
                         )}>
-                          {savingSession === s.id ? <Loader2 className="h-3 w-3 animate-spin" /> : assigned ? <Check className="h-3.5 w-3.5" /> : null}
+                          {assigned && <Check className="h-3.5 w-3.5" />}
                         </span>
-
-                        <span className={cn('h-2 w-2 rounded-full shrink-0', s.status === 'connected' ? 'bg-emerald-500 shadow-[0_0_6px_#10b981]' : 'bg-muted-foreground/30')} />
-
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium truncate">{s.display_name || s.instance_name}</p>
-                          <p className="text-xs text-muted-foreground">
-                            {s.phone_number || '—'}
-                            {takenByOther && <span className="ml-1.5 text-amber-500">· assigné à un autre agent</span>}
-                          </p>
-                        </div>
-
-                        <span className={cn('text-[10px] font-semibold rounded-full px-2.5 py-1', s.status === 'connected' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-muted text-muted-foreground')}>
-                          {s.status === 'connected' ? 'Connecté' : 'Déconnecté'}
-                        </span>
-                      </button>
-                    )
-                  })}
-                </div>
-              )}
-            </Row>
+                      )}
+                    </button>
+                  </div>
+                )
+              })
+            )}
 
             {/* Liens QR */}
-            {links.length > 0 && (
-              <Row label="Liens WhatsApp">
-                <div className="space-y-2">
-                  {links.map(link => (
-                    <div key={link.id} className="flex items-center gap-3.5 rounded-xl px-4 py-3 bg-muted/30">
-                      <QrCode className="h-4 w-4 text-emerald-500 shrink-0" />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium truncate">{link.name}</p>
-                        <p className="text-[11px] font-mono text-muted-foreground">/{link.slug}</p>
-                      </div>
-                      <span className="text-xs text-muted-foreground">{link.click_count ?? 0} clics</span>
-                    </div>
-                  ))}
-                </div>
-              </Row>
-            )}
-          </Block>
-
-          {/* ═══ COMPORTEMENT (escalade + RDV) ═══ */}
-          <Block icon={Zap} accent="#f97316" title="Comportement" subtitle="Escalade vers un humain et rendez-vous">
-            {/* Escalade */}
-            <div className="rounded-2xl overflow-hidden border border-border/50">
-              <div className="flex items-center justify-between px-4 py-3.5 bg-muted/20">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-rose-500/10">
-                    <UserCheck className="h-4 w-4 text-rose-500" />
+            <Divider />
+            <RowField label="Liens WhatsApp" trailing={
+              <button onClick={() => setAddLinkOpen(true)} className="flex items-center gap-1 text-[13px] text-emerald-500 hover:text-emerald-600 transition-colors">
+                <Plus className="h-3.5 w-3.5" /> Créer
+              </button>
+            }>
+              {links.length > 0 && <span className="text-sm text-muted-foreground">{links.length}</span>}
+            </RowField>
+            {links.map((link, i) => (
+              <div key={link.id}>
+                {i > 0 && <Divider />}
+                <div className="flex items-center gap-3 py-3">
+                  <QrCode className="h-4 w-4 text-emerald-500 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm truncate">{link.name}</p>
+                    <p className="text-[11px] font-mono text-muted-foreground">/{link.slug}</p>
                   </div>
-                  <div>
-                    <p className="text-sm font-medium">Transfert vers un humain</p>
-                    <p className="text-xs text-muted-foreground">Si le client le demande</p>
-                  </div>
+                  <span className="text-xs text-muted-foreground">{link.click_count ?? 0} clics</span>
                 </div>
-                <Switch checked={escalationEnabled} onCheckedChange={setEscalationEnabled} />
               </div>
-              {escalationEnabled && (
-                <div className="px-4 py-4 space-y-4 border-t border-border/40">
+            ))}
+          </Group>
+
+          {/* ═══ SAVOIR ═══ */}
+          <Group title="Savoir" subtitle="Documents que l'agent peut utiliser"
+            trailing={<button onClick={() => setAddDocOpen(true)} className="flex items-center gap-1 text-[13px] text-blue-500 hover:text-blue-600 transition-colors"><Plus className="h-3.5 w-3.5" /> Ajouter</button>}
+          >
+            {docs.length === 0 && images.length === 0 ? (
+              <button onClick={() => setAddDocOpen(true)} className="w-full py-6 text-center text-sm text-muted-foreground hover:text-foreground transition-colors">
+                Aucune ressource · Parcourir la bibliothèque →
+              </button>
+            ) : (
+              <>
+                {docs.map((doc, i) => (
+                  <div key={doc.id}>
+                    {i > 0 && <Divider />}
+                    <div className="group flex items-center gap-3 py-3">
+                      <FileText className="h-4 w-4 text-blue-500 shrink-0" />
+                      <span className="text-sm flex-1 truncate">{doc.name}</span>
+                      <button onClick={() => handleDetachDoc(doc.id)} className="opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive transition-colors" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {images.map(img => (
+                  <div key={img.id} className="flex items-center gap-3 py-3">
+                    <Tag className="h-4 w-4 text-orange-500 shrink-0" />
+                    <code className="text-xs font-mono">{img.ref}</code>
+                  </div>
+                ))}
+              </>
+            )}
+          </Group>
+
+          {/* ═══ COMPORTEMENT ═══ */}
+          <Group title="Comportement">
+            <RowField label="Transfert vers un humain" hint="Si le client le demande">
+              <Switch checked={escalationEnabled} onCheckedChange={setEscalationEnabled} />
+            </RowField>
+            {escalationEnabled && (
+              <>
+                <Divider />
+                <div className="py-3 space-y-3">
                   <div className="grid grid-cols-3 gap-2">
                     {([
                       { id: 'keywords', label: 'Mots-clés' },
@@ -483,173 +413,117 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                     ] as const).map(m => {
                       const on = escalationMode === m.id
                       return (
-                        <button
-                          key={m.id}
-                          onClick={() => setEscalationMode(m.id)}
-                          className={cn(
-                            'rounded-xl py-2.5 text-xs font-semibold transition-all border',
-                            on ? 'border-orange-500/55 bg-orange-500/12 text-orange-400' : 'border-border/50 bg-muted/20 text-muted-foreground hover:bg-muted/40'
-                          )}
-                        >
+                        <button key={m.id} onClick={() => setEscalationMode(m.id)}
+                          className={cn('rounded-xl py-2 text-xs font-medium transition-all', on ? 'bg-orange-500/15 text-orange-400 ring-1 ring-orange-500/40' : 'bg-muted/40 text-muted-foreground hover:bg-muted/70')}>
                           {m.label}
                         </button>
                       )
                     })}
                   </div>
                   {(escalationMode === 'keywords' || escalationMode === 'both') && (
-                    <input
-                      value={escalationKeywords}
-                      onChange={e => setEscalationKeywords(e.target.value)}
-                      placeholder="Mots-clés : humain, conseiller, aide…"
-                      className="w-full rounded-xl border border-border/50 bg-muted/30 px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-foreground/15 transition-all"
-                    />
+                    <CleanInput value={escalationKeywords} onChange={setEscalationKeywords} placeholder="Mots-clés : humain, conseiller…" />
                   )}
-                  <textarea
-                    value={escalationMessage}
-                    onChange={e => setEscalationMessage(e.target.value)}
-                    placeholder="Message de transfert : Je vous mets en relation avec un conseiller…"
-                    rows={2}
-                    className="w-full rounded-xl border border-border/50 bg-muted/30 px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/50 resize-none focus:outline-none focus:ring-2 focus:ring-foreground/15 transition-all"
-                  />
+                  <CleanTextarea value={escalationMessage} onChange={setEscalationMessage} placeholder="Message de transfert…" />
                 </div>
-              )}
-            </div>
-
-            {/* RDV */}
-            <div className="rounded-2xl border border-border/50 px-4 py-4 space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-cyan-500/10">
-                  <CalendarCheck className="h-4 w-4 text-cyan-500" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium">Lien de rendez-vous</p>
-                  <p className="text-xs text-muted-foreground">Calendly, Cal.com…</p>
-                </div>
-              </div>
-              <input
-                value={bookingUrl}
-                onChange={e => setBookingUrl(e.target.value)}
-                placeholder="https://calendly.com/votre-lien"
-                className="w-full rounded-xl border border-border/50 bg-muted/30 px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-foreground/15 transition-all"
-              />
-            </div>
-          </Block>
+              </>
+            )}
+            <Divider />
+            <RowField label="Lien de rendez-vous" hint="Calendly, Cal.com…" stacked>
+              <CleanInput value={bookingUrl} onChange={setBookingUrl} placeholder="https://calendly.com/votre-lien" />
+            </RowField>
+          </Group>
 
           {/* ═══ AVANCÉ (replié) ═══ */}
-          <details className="group rounded-2xl border border-border/50 overflow-hidden">
-            <summary className="flex cursor-pointer list-none items-center gap-3 px-5 py-4 hover:bg-muted/20 transition-colors select-none">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-muted/40 text-muted-foreground">
-                <Settings2 className="h-4 w-4" />
-              </div>
-              <div className="flex-1">
-                <p className="text-sm font-semibold">Paramètres avancés</p>
-                <p className="text-xs text-muted-foreground">Modèle IA, délais, planning… (optionnel)</p>
-              </div>
-              <ChevronDown className="h-4 w-4 text-muted-foreground group-open:rotate-180 transition-transform" />
+          <details className="group mt-8">
+            <summary className="flex cursor-pointer list-none items-center justify-center gap-2 py-3 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors select-none">
+              Paramètres avancés
+              <ChevronDown className="h-4 w-4 group-open:rotate-180 transition-transform" />
             </summary>
 
-            <div className="px-5 pb-6 pt-2 space-y-6 border-t border-border/40">
-              {/* Modèle */}
-              <Row label="Modèle IA">
-                <div className="grid grid-cols-2 gap-2.5">
+            <Group title="Modèle & génération">
+              <RowField label="Modèle IA" stacked>
+                <div className="grid grid-cols-2 gap-2 mt-1">
                   {(['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4.1'] as const).map(m => {
                     const on = model === m
                     return (
-                      <button
-                        key={m}
-                        onClick={() => setModel(m)}
-                        className={cn(
-                          'rounded-xl px-4 py-2.5 text-xs font-semibold text-left transition-all border',
-                          on ? 'border-foreground/40 bg-foreground/[0.06] text-foreground' : 'border-border/50 bg-muted/20 text-muted-foreground hover:text-foreground'
-                        )}
-                      >
+                      <button key={m} onClick={() => setModel(m)}
+                        className={cn('rounded-xl px-4 py-2.5 text-xs font-semibold text-left transition-all', on ? 'bg-foreground/[0.08] ring-1 ring-foreground/20 text-foreground' : 'bg-muted/40 text-muted-foreground hover:text-foreground')}>
                         {m}
                       </button>
                     )
                   })}
                 </div>
-              </Row>
-
-              <Row label={`Créativité — ${Math.round(temperature * 100)}%`}>
+              </RowField>
+              <Divider />
+              <RowField label={`Créativité`} trailing={<span className="text-sm text-muted-foreground">{Math.round(temperature * 100)}%</span>} stacked>
                 <input type="range" min="0" max="1" step="0.1" value={temperature}
-                  onChange={e => setTemperature(parseFloat(e.target.value))} className="w-full accent-foreground" />
-              </Row>
+                  onChange={e => setTemperature(parseFloat(e.target.value))} className="w-full accent-foreground mt-2" />
+              </RowField>
+              <Divider />
+              <RowField label="Prompt système" stacked>
+                <textarea value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)}
+                  className="w-full min-h-[120px] rounded-xl bg-muted/40 px-3.5 py-3 text-xs font-mono resize-y focus:outline-none focus:ring-1 focus:ring-foreground/20 transition-all mt-1" />
+              </RowField>
+            </Group>
 
-              <Row label="Prompt système">
-                <textarea
-                  value={systemPrompt}
-                  onChange={e => setSystemPrompt(e.target.value)}
-                  className="w-full min-h-[120px] rounded-xl border border-border/50 bg-muted/30 px-3.5 py-2.5 text-xs font-mono resize-y focus:outline-none focus:ring-2 focus:ring-foreground/15 transition-all"
-                />
-              </Row>
+            <Group title="Limites & timing">
+              <RowField label="Délai de réponse">
+                <span className="flex items-center gap-2 text-sm">
+                  <MiniNum value={delayMin} onChange={v => setDelayMin(parseInt(v) || 0)} />
+                  <span className="text-muted-foreground">–</span>
+                  <MiniNum value={delayMax} onChange={v => setDelayMax(parseInt(v) || 0)} />
+                  <span className="text-muted-foreground text-xs">sec</span>
+                </span>
+              </RowField>
+              <Divider />
+              <RowField label="Max messages">
+                <MiniNum value={maxMessages} onChange={setMaxMessages} placeholder="∞" />
+              </RowField>
+              <Divider />
+              <RowField label="Timeout inactivité">
+                <span className="flex items-center gap-2 text-sm">
+                  <MiniNum value={inactivityTimeout} onChange={setInactivityTimeout} placeholder="—" />
+                  <span className="text-muted-foreground text-xs">min</span>
+                </span>
+              </RowField>
+              <Divider />
+              <RowField label="Condition d'arrêt" stacked>
+                <CleanTextarea value={stopCondition} onChange={setStopCondition} placeholder="Ex: si le client a confirmé son rendez-vous…" />
+              </RowField>
+            </Group>
 
-              <div className="grid grid-cols-2 gap-3">
-                <Row label="Délai min (s)">
-                  <NumInput value={delayMin} onChange={v => setDelayMin(parseInt(v) || 0)} />
-                </Row>
-                <Row label="Délai max (s)">
-                  <NumInput value={delayMax} onChange={v => setDelayMax(parseInt(v) || 0)} />
-                </Row>
-                <Row label="Max messages">
-                  <NumInput value={maxMessages} onChange={setMaxMessages} placeholder="Illimité" />
-                </Row>
-                <Row label="Timeout (min)">
-                  <NumInput value={inactivityTimeout} onChange={setInactivityTimeout} placeholder="Aucun" />
-                </Row>
-              </div>
-
-              <Row label="Condition d'arrêt">
-                <textarea
-                  value={stopCondition}
-                  onChange={e => setStopCondition(e.target.value)}
-                  placeholder="Ex: si le client a confirmé son rendez-vous…"
-                  rows={2}
-                  className="w-full rounded-xl border border-border/50 bg-muted/30 px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/50 resize-none focus:outline-none focus:ring-2 focus:ring-foreground/15 transition-all"
-                />
-              </Row>
-
-              {/* Planning */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <Label className="text-xs font-medium text-foreground/80">Planning horaire</Label>
-                  <Switch checked={scheduleEnabled} onCheckedChange={setScheduleEnabled} />
-                </div>
-                {scheduleEnabled && (
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-2 gap-3">
-                      <NumInput value={scheduleStart} onChange={setScheduleStart} type="time" />
-                      <NumInput value={scheduleEnd} onChange={setScheduleEnd} type="time" />
+            <Group title="Planning horaire">
+              <RowField label="Activer le planning" hint="L'agent ne répond que sur ces créneaux">
+                <Switch checked={scheduleEnabled} onCheckedChange={setScheduleEnabled} />
+              </RowField>
+              {scheduleEnabled && (
+                <>
+                  <Divider />
+                  <div className="py-3 space-y-3">
+                    <div className="flex items-center gap-2 text-sm">
+                      <input type="time" value={scheduleStart} onChange={e => setScheduleStart(e.target.value)}
+                        className="rounded-xl bg-muted/40 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-foreground/20" />
+                      <span className="text-muted-foreground">→</span>
+                      <input type="time" value={scheduleEnd} onChange={e => setScheduleEnd(e.target.value)}
+                        className="rounded-xl bg-muted/40 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-foreground/20" />
                     </div>
                     <div className="flex gap-1.5">
                       {DAYS.map((d, i) => {
                         const on = scheduleDays.includes(i + 1)
                         return (
-                          <button
-                            key={i}
+                          <button key={i}
                             onClick={() => setScheduleDays(prev => prev.includes(i + 1) ? prev.filter(x => x !== i + 1) : [...prev, i + 1])}
-                            className={cn(
-                              'flex-1 rounded-lg py-2 text-[11px] font-semibold transition-all border',
-                              on ? 'border-foreground/40 bg-foreground/[0.06] text-foreground' : 'border-transparent bg-muted/40 text-muted-foreground hover:bg-muted'
-                            )}
-                          >
+                            className={cn('flex-1 rounded-lg py-2 text-[11px] font-semibold transition-all', on ? 'bg-foreground/[0.08] ring-1 ring-foreground/20 text-foreground' : 'bg-muted/40 text-muted-foreground hover:text-foreground')}>
                             {d}
                           </button>
                         )
                       })}
                     </div>
                   </div>
-                )}
-              </div>
-            </div>
+                </>
+              )}
+            </Group>
           </details>
-
-          {/* Aperçu rapide en bas */}
-          <div className="flex flex-wrap items-center justify-center gap-6 pt-2 pb-6 text-xs text-muted-foreground">
-            <Stat label="Sessions" value={connected.length} on={connected.length > 0} />
-            <Stat label="Documents" value={docs.length + images.length} on={docs.length + images.length > 0} />
-            <Stat label="Liens QR" value={links.length} on={links.length > 0} />
-            <Stat label="Escalade" value={escalationEnabled ? 'Oui' : 'Non'} on={escalationEnabled} />
-          </div>
         </div>
       </main>
 
@@ -687,27 +561,25 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
             <DialogDescription>Rattaché automatiquement à cet agent</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            <Row label="Nom">
-              <input value={linkName} onChange={e => setLinkName(e.target.value)} placeholder="Ex: QR Vitrine"
-                className="w-full rounded-xl border border-border/50 bg-muted/30 px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-foreground/15 transition-all" />
-            </Row>
-            <Row label="Session WhatsApp">
+            <RowField label="Nom" stacked>
+              <CleanInput value={linkName} onChange={setLinkName} placeholder="Ex: QR Vitrine" />
+            </RowField>
+            <RowField label="Session WhatsApp" stacked>
               <select
-                className="w-full rounded-xl border border-border/50 bg-muted/30 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-foreground/20"
+                className="w-full rounded-xl bg-muted/40 px-3 py-2.5 text-sm focus:outline-none focus:ring-1 focus:ring-foreground/20 mt-1"
                 value={linkSession} onChange={e => setLinkSession(e.target.value)}
               >
                 <option value="">Choisir une session…</option>
                 {sessions.map(s => <option key={s.id} value={s.id}>{s.display_name || s.instance_name} ({s.phone_number})</option>)}
               </select>
-            </Row>
-            <Row label="Message pré-rempli" hint="Optionnel">
-              <textarea value={linkMessage} onChange={e => setLinkMessage(e.target.value)} placeholder="Bonjour, je suis intéressé…" rows={3}
-                className="w-full rounded-xl border border-border/50 bg-muted/30 px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/50 resize-none focus:outline-none focus:ring-2 focus:ring-foreground/15 transition-all" />
-            </Row>
+            </RowField>
+            <RowField label="Message pré-rempli" hint="Optionnel" stacked>
+              <CleanTextarea value={linkMessage} onChange={setLinkMessage} placeholder="Bonjour, je suis intéressé…" />
+            </RowField>
             <button
               onClick={handleCreateLink}
               disabled={linkSaving || !linkName.trim() || !linkSession}
-              className="w-full flex items-center justify-center gap-2 rounded-xl bg-foreground text-background py-2.5 text-sm font-semibold disabled:opacity-40 hover:opacity-90 transition-opacity"
+              className="w-full flex items-center justify-center gap-2 rounded-full bg-foreground text-background py-2.5 text-sm font-semibold disabled:opacity-40 hover:opacity-90 transition-opacity"
             >
               {linkSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Link2 className="h-4 w-4" />}
               Créer le lien
@@ -721,119 +593,97 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   )
 }
 
-// ─── Sous-composants ──────────────────────────────────────────────────────────
+// ─── Sous-composants (style Revolut : minimal, peu de bordures) ───────────────
 
-function Block({ icon: Icon, accent, title, subtitle, action, children }: {
-  icon: React.ComponentType<{ className?: string }>
-  accent: string
+function Group({ title, subtitle, trailing, children }: {
   title: string
-  subtitle: string
-  action?: React.ReactNode
+  subtitle?: string
+  trailing?: React.ReactNode
   children: React.ReactNode
 }) {
   return (
-    <section className="space-y-5">
-      <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl ring-1"
-          style={{ background: `${accent}1a`, color: accent, borderColor: `${accent}30` }}>
-          <Icon className="h-5 w-5" />
+    <section className="mt-10 first:mt-0">
+      <div className="mb-2 flex items-baseline justify-between px-1">
+        <div>
+          <h2 className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/50">{title}</h2>
+          {subtitle && <p className="text-[11px] text-muted-foreground/40 mt-0.5">{subtitle}</p>}
         </div>
-        <div className="flex-1 min-w-0">
-          <h2 className="text-base font-semibold leading-tight">{title}</h2>
-          <p className="text-xs text-muted-foreground">{subtitle}</p>
-        </div>
-        {action}
+        {trailing}
       </div>
-      <div className="space-y-4">{children}</div>
+      <div className="rounded-2xl bg-muted/[0.18] px-4">
+        {children}
+      </div>
     </section>
   )
 }
 
-function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
-  return (
-    <div className="space-y-1.5">
-      <div className="flex items-baseline gap-2">
-        <Label className="text-xs font-medium text-foreground/80">{label}</Label>
-        {hint && <span className="text-[11px] text-muted-foreground/60">{hint}</span>}
+function RowField({ label, hint, trailing, stacked, children }: {
+  label: string
+  hint?: string
+  trailing?: React.ReactNode
+  stacked?: boolean
+  children?: React.ReactNode
+}) {
+  if (stacked) {
+    return (
+      <div className="py-3.5">
+        <div className="flex items-baseline justify-between mb-1.5">
+          <div>
+            <Label className="text-sm font-medium">{label}</Label>
+            {hint && <span className="ml-2 text-xs text-muted-foreground/60">{hint}</span>}
+          </div>
+          {trailing}
+        </div>
+        {children}
       </div>
-      {children}
+    )
+  }
+  return (
+    <div className="flex items-center justify-between gap-3 py-3.5">
+      <div className="min-w-0">
+        <Label className="text-sm font-medium">{label}</Label>
+        {hint && <p className="text-xs text-muted-foreground/60">{hint}</p>}
+      </div>
+      <div className="shrink-0">{children ?? trailing}</div>
     </div>
   )
 }
 
-function NumInput({ value, onChange, placeholder, type = 'number' }: {
-  value: string | number
-  onChange: (v: string) => void
-  placeholder?: string
-  type?: string
-}) {
+function Divider() {
+  return <div className="h-px bg-border/40" />
+}
+
+function CleanInput({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
   return (
     <input
-      type={type}
-      min={type === 'number' ? 0 : undefined}
       value={value}
       onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
-      className="w-full rounded-xl border border-border/50 bg-muted/30 px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-foreground/15 transition-all"
+      className="w-full rounded-xl bg-muted/40 px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-foreground/20 transition-all"
     />
   )
 }
 
-function ToggleRow({ icon, label, hint, checked, onChange }: {
-  icon?: React.ReactNode
-  label: string
-  hint?: string
-  checked: boolean
-  onChange: (v: boolean) => void
-}) {
+function CleanTextarea({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
   return (
-    <div className="flex items-center justify-between rounded-2xl bg-muted/30 px-4 py-3.5">
-      <div className="flex items-center gap-3">
-        {icon && <span className="text-muted-foreground">{icon}</span>}
-        <div>
-          <p className="text-sm font-medium">{label}</p>
-          {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
-        </div>
-      </div>
-      <Switch checked={checked} onCheckedChange={onChange} />
-    </div>
+    <textarea
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      placeholder={placeholder}
+      rows={2}
+      className="w-full rounded-xl bg-muted/40 px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/40 resize-none focus:outline-none focus:ring-1 focus:ring-foreground/20 transition-all"
+    />
   )
 }
 
-function MiniAction({ color, onClick, children }: { color: string; onClick: () => void; children: React.ReactNode }) {
+function MiniNum({ value, onChange, placeholder }: { value: string | number; onChange: (v: string) => void; placeholder?: string }) {
   return (
-    <button onClick={onClick}
-      className="flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium transition-colors hover:brightness-110"
-      style={{ background: `${color}1a`, color }}>
-      <Plus className="h-3.5 w-3.5" /> {children}
-    </button>
-  )
-}
-
-function Empty({ icon, title, hint, cta, onClick, color }: {
-  icon: React.ReactNode
-  title: string
-  hint: string
-  cta: string
-  onClick: () => void
-  color: string
-}) {
-  return (
-    <button onClick={onClick}
-      className="w-full rounded-2xl border border-dashed border-border/50 hover:border-border py-8 flex flex-col items-center gap-2 text-center transition-all hover:bg-muted/20 group">
-      <span className="mb-1 opacity-60 group-hover:opacity-100 transition-opacity">{icon}</span>
-      <p className="text-sm font-medium">{title}</p>
-      <p className="text-xs text-muted-foreground max-w-[220px]">{hint}</p>
-      <span className="mt-2 text-xs font-semibold rounded-full px-3 py-1.5" style={{ background: `${color}15`, color }}>{cta}</span>
-    </button>
-  )
-}
-
-function Stat({ label, value, on }: { label: string; value: string | number; on?: boolean }) {
-  return (
-    <div className="flex items-center gap-1.5">
-      <span className={cn('font-semibold', on ? 'text-emerald-500' : 'text-foreground/70')}>{value}</span>
-      <span className="text-muted-foreground/60">{label}</span>
-    </div>
+    <input
+      type="number" min={0}
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      placeholder={placeholder}
+      className="w-16 rounded-lg bg-muted/40 px-2.5 py-1.5 text-sm text-center placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-foreground/20 transition-all"
+    />
   )
 }
