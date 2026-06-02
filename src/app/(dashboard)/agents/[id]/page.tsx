@@ -243,7 +243,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
 
       {/* ── Bento : blocs de tailles variées ── */}
       <main className="flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-5xl px-6 pb-24">
+        <div className="w-full px-8 pb-24">
 
           {/* Titre */}
           <div className="pt-8 pb-8">
@@ -266,12 +266,12 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
 
           {/* ═══ PERSONNALITÉ ═══ (large : 2 colonnes) */}
           <Group title="Personnalité" className="md:col-span-2">
-            <RowField label="Description">
+            <RowField label="Description" hint="Affiché sous le nom de l'agent" stacked>
               <CleanInput value={description} onChange={setDescription} placeholder="Assistant commercial WhatsApp" />
             </RowField>
             <Divider />
-            <RowField label="Objectif" stacked>
-              <CleanTextarea value={objective} onChange={setObjective} placeholder="Qualifier les prospects et proposer un rendez-vous" />
+            <RowField label="Objectif" hint="Ce que l'agent doit accomplir" stacked>
+              <CleanTextarea value={objective} onChange={setObjective} placeholder="Qualifier les prospects et proposer un rendez-vous" rows={4} />
             </RowField>
             <Divider />
             <RowField label="Ton" trailing={<span className="text-sm text-muted-foreground">{toneLabel}</span>} stacked>
@@ -667,14 +667,14 @@ function CleanInput({ value, onChange, placeholder }: { value: string; onChange:
   )
 }
 
-function CleanTextarea({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
+function CleanTextarea({ value, onChange, placeholder, rows = 2 }: { value: string; onChange: (v: string) => void; placeholder?: string; rows?: number }) {
   return (
     <textarea
       value={value}
       onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
-      rows={2}
-      className="w-full rounded-xl bg-muted/40 px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/40 resize-none focus:outline-none focus:ring-1 focus:ring-foreground/20 transition-all"
+      rows={rows}
+      className="w-full rounded-xl bg-muted/40 px-3.5 py-2.5 text-sm leading-relaxed placeholder:text-muted-foreground/40 resize-y focus:outline-none focus:ring-1 focus:ring-foreground/20 transition-all"
     />
   )
 }
