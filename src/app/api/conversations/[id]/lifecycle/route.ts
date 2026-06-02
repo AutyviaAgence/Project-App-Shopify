@@ -88,7 +88,11 @@ export async function GET(
   return NextResponse.json({ data: enrichedHistory })
 }
 
-/** PUT /api/conversations/[id]/lifecycle — Changer manuellement le stage */
+/**
+ * PUT /api/conversations/[id]/lifecycle — Étiquettes lifecycle MULTIPLES.
+ * Body : { stage_ids: string[] } (remplacement atomique de toutes les étiquettes).
+ * Rétro-compat : { stage_id: string | null } est accepté (toggle 1 étiquette → set unique).
+ */
 export async function PUT(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -102,43 +106,62 @@ export async function PUT(
   }
 
   const body = await req.json()
-  const { stage_id } = body as { stage_id?: string | null }
+  const { stage_ids, stage_id } = body as { stage_ids?: string[]; stage_id?: string | null }
 
   const { conv, authorized } = await checkConvAccess(supabase, id, user.id)
-
   if (!conv) return NextResponse.json({ error: 'Conversation introuvable' }, { status: 404 })
   if (!authorized) return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
 
-  if (stage_id) {
-    const { data: stage } = await supabase
+  // Normaliser l'entrée vers une liste d'IDs
+  const targetIds: string[] = Array.isArray(stage_ids)
+    ? [...new Set(stage_ids.filter(Boolean))]
+    : stage_id ? [stage_id] : []
+
+  // Valider que tous les stages appartiennent à l'utilisateur
+  if (targetIds.length > 0) {
+    const { data: owned } = await supabase
       .from('lifecycle_stages')
       .select('id')
-      .eq('id', stage_id)
       .eq('user_id', user.id)
-      .single()
-
-    if (!stage) {
-      return NextResponse.json({ error: 'Stage introuvable' }, { status: 404 })
+      .in('id', targetIds)
+    const ownedIds = new Set((owned || []).map((s) => s.id))
+    if (targetIds.some((sid) => !ownedIds.has(sid))) {
+      return NextResponse.json({ error: 'Étiquette introuvable' }, { status: 404 })
     }
   }
 
-  const previousStageId = conv.lifecycle_stage_id
+  // État précédent (pour l'historique)
+  const { data: prevRows } = await supabase
+    .from('conversation_lifecycle_stages')
+    .select('stage_id')
+    .eq('conversation_id', id)
+  const prevIds = new Set((prevRows || []).map((r) => r.stage_id as string))
+  const nextIds = new Set(targetIds)
 
-  await supabase
-    .from('conversations')
-    .update({ lifecycle_stage_id: stage_id || null })
-    .eq('id', id)
-
-  if (stage_id !== previousStageId) {
-    await supabase.from('lifecycle_history').insert({
-      conversation_id: id,
-      from_stage_id: previousStageId || null,
-      to_stage_id: stage_id || null,
-      reason: 'Changement manuel',
-      changed_by: 'user',
-      tokens_used: 0,
-    })
+  // Remplacement atomique : delete-all puis insert
+  await supabase.from('conversation_lifecycle_stages').delete().eq('conversation_id', id)
+  if (targetIds.length > 0) {
+    await supabase.from('conversation_lifecycle_stages').insert(
+      targetIds.map((sid) => ({ conversation_id: id, stage_id: sid }))
+    )
   }
 
-  return NextResponse.json({ success: true, stage_id: stage_id || null })
+  // Historique : une ligne par ajout / retrait
+  const added = [...nextIds].filter((sid) => !prevIds.has(sid))
+  const removed = [...prevIds].filter((sid) => !nextIds.has(sid))
+  const historyRows = [
+    ...added.map((sid) => ({ conversation_id: id, from_stage_id: null, to_stage_id: sid, reason: 'Ajout manuel', changed_by: 'user' as const, tokens_used: 0 })),
+    ...removed.map((sid) => ({ conversation_id: id, from_stage_id: sid, to_stage_id: null, reason: 'Retrait manuel', changed_by: 'user' as const, tokens_used: 0 })),
+  ]
+  if (historyRows.length > 0) {
+    await supabase.from('lifecycle_history').insert(historyRows)
+  }
+
+  // Maj du lien legacy (compat affichage tant qu'il existe) : 1er stage ou null
+  await supabase
+    .from('conversations')
+    .update({ lifecycle_stage_id: targetIds[0] || null })
+    .eq('id', id)
+
+  return NextResponse.json({ success: true, stage_ids: targetIds })
 }

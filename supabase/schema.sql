@@ -355,11 +355,23 @@ CREATE TABLE public.conversations (
   updated_at timestamp with time zone DEFAULT now()
 );
 
+-- DÉPRÉCIÉ : remplacé par conversation_lifecycle_stages (fusion Tags→Lifecycle multi).
+-- Conservé temporairement pour migration ; voir migration_lifecycle_multi.sql.
 CREATE TABLE public.conversation_tag_assignments (
   id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
   conversation_id uuid NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
   tag_id uuid NOT NULL REFERENCES public.conversation_tags(id) ON DELETE CASCADE,
   created_at timestamp with time zone DEFAULT now()
+);
+
+-- Liaison multi : une conversation peut avoir PLUSIEURS étiquettes lifecycle.
+-- Remplace le lien unique conversations.lifecycle_stage_id et l'ancien système de tags.
+CREATE TABLE public.conversation_lifecycle_stages (
+  id uuid NOT NULL PRIMARY KEY DEFAULT gen_random_uuid(),
+  conversation_id uuid NOT NULL REFERENCES public.conversations(id) ON DELETE CASCADE,
+  stage_id uuid NOT NULL REFERENCES public.lifecycle_stages(id) ON DELETE CASCADE,
+  created_at timestamp with time zone DEFAULT now(),
+  UNIQUE(conversation_id, stage_id)
 );
 
 CREATE TABLE public.lifecycle_history (
@@ -734,6 +746,7 @@ ALTER TABLE public.conversation_tags ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.lifecycle_stages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.conversation_tag_assignments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.conversation_lifecycle_stages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.lifecycle_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.knowledge_documents ENABLE ROW LEVEL SECURITY;

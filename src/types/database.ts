@@ -324,6 +324,15 @@ export type ConversationTagAssignment = {
   created_at: string
 }
 
+// Liaison multi : une conversation ↔ plusieurs étiquettes lifecycle
+// (remplace l'ancien lien unique conversations.lifecycle_stage_id et les tags).
+export type ConversationLifecycleStage = {
+  id: string
+  conversation_id: string
+  stage_id: string
+  created_at: string
+}
+
 export type StatDaily = {
   id: string
   user_id: string
@@ -703,6 +712,12 @@ export type Database = {
         Row: ConversationTagAssignment
         Insert: Partial<ConversationTagAssignment> & Pick<ConversationTagAssignment, 'conversation_id' | 'tag_id'>
         Update: Partial<ConversationTagAssignment>
+        Relationships: []
+      }
+      conversation_lifecycle_stages: {
+        Row: ConversationLifecycleStage
+        Insert: Partial<ConversationLifecycleStage> & Pick<ConversationLifecycleStage, 'conversation_id' | 'stage_id'>
+        Update: Partial<ConversationLifecycleStage>
         Relationships: []
       }
       webhook_logs: {
