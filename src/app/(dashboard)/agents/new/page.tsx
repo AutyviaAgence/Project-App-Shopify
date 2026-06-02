@@ -501,7 +501,7 @@ function OptionCard({ selected, center, onClick, children }: {
     <button
       onClick={onClick}
       className={cn(
-        'rounded-2xl border p-4 transition-all hover:-translate-y-0.5',
+        'block w-full rounded-2xl border p-4 transition-all hover:-translate-y-0.5',
         center && 'text-center',
         selected ? 'border-fuchsia-500/60 bg-fuchsia-500/[0.10]' : 'border-white/10 bg-white/[0.03] hover:border-white/25'
       )}

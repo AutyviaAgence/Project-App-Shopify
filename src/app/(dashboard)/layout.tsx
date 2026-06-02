@@ -174,13 +174,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <Link
         href={item.href}
         className={cn(
-          'group relative flex items-center gap-3.5 px-4 py-3.5 text-[15px] font-medium transition-all duration-200',
+          'group relative flex items-center justify-center gap-3.5 px-4 py-3.5 text-[15px] font-medium transition-all duration-200',
           isActive
             // Onglet actif : couleur du panneau (--background), arrondi à gauche, colle au bord droit
             // (le panneau est colle ml-0) → fusion sans debordement ni scroll
             ? 'rounded-l-2xl rounded-r-none bg-background text-foreground md:shadow-[-6px_0_16px_-8px_rgba(0,0,0,0.3)]'
             : 'mr-3 rounded-2xl text-white/70 hover:bg-white/10 hover:text-white',
-          collapsed && 'justify-center px-2 mr-0'
+          collapsed && 'px-2 mr-0'
         )}
         title={collapsed ? item.label : undefined}
       >
@@ -229,8 +229,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       >
         {/* Logo & Close */}
         <div className={cn(
-          'flex h-[68px] items-center px-5',
-          collapsed ? 'justify-center px-4' : 'justify-between'
+          'relative flex h-[68px] items-center px-5',
+          collapsed ? 'justify-center px-4' : 'justify-center'
         )}>
           {!collapsed && (
             <Link href="/dashboard" className="flex items-center gap-2.5">
@@ -245,7 +245,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           )}
           <button
             onClick={() => setSidebarOpen(false)}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-white/70 hover:bg-white/10 hover:text-white md:hidden"
+            className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-white/70 hover:bg-white/10 hover:text-white md:hidden"
           >
             <X className="h-5 w-5" />
           </button>
@@ -294,7 +294,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           panneau = --background (moins foncé) → démarcation nette en clair ET sombre. */}
       <div className="flex flex-1 flex-col overflow-hidden bg-background md:m-3 md:ml-0 md:rounded-[28px] md:shadow-2xl md:ring-1 md:ring-black/5 dark:md:ring-white/10">
         {/* Top bar — pas de titre (chaque page a déjà le sien), juste menu mobile + notifs */}
-        <header className="flex h-14 items-center justify-between bg-transparent px-4 md:px-6">
+        <header className="flex h-14 items-center justify-between border-b border-border/50 bg-transparent px-4 md:px-6">
           {/* Mobile menu button */}
           <button
             onClick={() => setSidebarOpen(true)}

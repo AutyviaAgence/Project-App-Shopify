@@ -10,7 +10,7 @@ import { useTranslation } from '@/i18n/context'
 import { ConversationList } from './_components/conversation-list'
 import { ChatArea } from './_components/chat-area'
 import type { ConversationWithJoins, Team, Message, AIAgent, LifecycleStage } from './_components/types'
-import { BlobLoader } from '@/components/blob-loader'
+import { BlobLoaderScreen } from '@/components/blob-loader'
 
 let notificationAudio: HTMLAudioElement | null = null
 
@@ -747,11 +747,7 @@ function ConversationsPageContent() {
   }, [searchQuery])
 
   if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <BlobLoader size={88} />
-      </div>
-    )
+    return <BlobLoaderScreen />
   }
 
   return (
@@ -829,11 +825,7 @@ function ConversationsPageContent() {
 
 export default function ConversationsPage() {
   return (
-    <Suspense fallback={
-      <div className="flex h-full items-center justify-center">
-        <BlobLoader size={88} />
-      </div>
-    }>
+    <Suspense fallback={<BlobLoaderScreen />}>
       <ConversationsPageContent />
     </Suspense>
   )

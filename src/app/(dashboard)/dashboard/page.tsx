@@ -37,7 +37,7 @@ import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
 import { useTenant } from '@/lib/tenant/context'
-import { BlobLoader } from '@/components/blob-loader'
+import { BlobLoader, BlobLoaderScreen } from '@/components/blob-loader'
 
 function formatSeconds(s: number): string {
   if (s < 60) return `${s}s`
@@ -445,11 +445,7 @@ export default function DashboardPage() {
   }, [fetchChecklist])
 
   if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <BlobLoader size={88} />
-      </div>
-    )
+    return <BlobLoaderScreen />
   }
 
   if (!checklist || checklist.all_done) {
