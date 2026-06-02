@@ -64,6 +64,7 @@ import { MultiTeamSelect } from '@/components/multi-team-select'
 import { AgentTestChat } from '@/components/agent-test-chat'
 import { AgentToolsManager } from '@/components/agent-tools-manager'
 import { BlobLoaderScreen } from '@/components/blob-loader'
+import { getCache, setCache } from '@/hooks/use-cached-fetch'
 
 type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
 type BookingStats = {
@@ -76,15 +77,15 @@ type AgentWithTeamIds = AIAgent & { team_ids?: string[]; booking_stats?: Booking
 
 export default function AgentsPage() {
   const { t } = useTranslation()
-  const [agents, setAgents] = useState<AgentWithTeamIds[]>([])
-  const [loading, setLoading] = useState(true)
+  const [agents, setAgents] = useState<AgentWithTeamIds[]>(() => getCache<AgentWithTeamIds[]>('agents') || [])
+  const [loading, setLoading] = useState(() => !getCache('agents'))
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<AgentWithTeamIds | null>(null)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [agentToDelete, setAgentToDelete] = useState<AgentWithTeamIds | null>(null)
-  const [teams, setTeams] = useState<TeamWithRole[]>([])
+  const [teams, setTeams] = useState<TeamWithRole[]>(() => getCache<TeamWithRole[]>('agents:teams') || [])
 
   // Form state
   const [formTeamIds, setFormTeamIds] = useState<string[]>([])
@@ -151,6 +152,7 @@ export default function AgentsPage() {
       const json = await res.json()
       if (res.ok && json.data) {
         setAgents(json.data)
+        setCache('agents', json.data)
       }
     } catch {
       toast.error(t('agents.load_error'))
@@ -164,7 +166,9 @@ export default function AgentsPage() {
       const res = await fetch('/api/teams')
       const json = await res.json()
       if (res.ok && json.data) {
-        setTeams(json.data.filter((t: TeamWithRole) => t.my_role === 'owner' || t.my_role === 'admin'))
+        const filtered = json.data.filter((t: TeamWithRole) => t.my_role === 'owner' || t.my_role === 'admin')
+        setTeams(filtered)
+        setCache('agents:teams', filtered)
       }
     } catch {
       // Silently ignore
