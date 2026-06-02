@@ -6,9 +6,11 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { createAgentFromConfig } from '@/lib/agents/create-from-config'
 import { BlobLoader } from '@/components/blob-loader'
+import { AgentTestChat } from '@/components/agent-test-chat'
 import {
   X, ArrowRight, ArrowLeft, Sparkles, Settings2, Check,
   Headset, ShoppingBag, CalendarCheck, Megaphone, Filter,
+  MessageSquare,
 } from 'lucide-react'
 
 // ─── Données du questionnaire ─────────────────────────────────────────────────
@@ -92,6 +94,8 @@ export default function NewAgentPage() {
   const [screen, setScreen] = useState<Screen>('level')
   const [answers, setAnswers] = useState<Answers>({})
   const [error, setError] = useState<string | null>(null)
+  const [createdAgent, setCreatedAgent] = useState<{ id: string; name: string } | null>(null)
+  const [testOpen, setTestOpen] = useState(false)
 
   const set = (patch: Partial<Answers>) => setAnswers(a => ({ ...a, ...patch }))
   const close = () => router.push('/agents')
@@ -124,8 +128,8 @@ export default function NewAgentPage() {
         toast.error(result.error)
         return
       }
+      setCreatedAgent(result.agent)
       setScreen('done')
-      setTimeout(() => router.push(`/agents/${result.agent.id}`), 1100)
     } catch {
       setError('Erreur réseau')
       setScreen('booking')
@@ -381,19 +385,50 @@ export default function NewAgentPage() {
           )}
 
           {/* ─── Fin ─── */}
-          {screen === 'done' && (
+          {screen === 'done' && createdAgent && (
             <div className="flex flex-col items-center gap-6 text-center">
               <div className="flex h-20 w-20 items-center justify-center rounded-full bg-emerald-500/15 text-emerald-400">
                 <Check className="h-10 w-10" />
               </div>
               <div>
-                <p className="text-2xl font-bold">Ton agent est prêt ! 🎉</p>
-                <p className="mt-1 text-sm text-muted-foreground">Redirection vers sa configuration…</p>
+                <p className="text-2xl font-bold">{createdAgent.name} est prêt ! 🎉</p>
+                <p className="mt-1 text-sm text-muted-foreground">Teste-le tout de suite, ou peaufine sa configuration.</p>
+              </div>
+              <div className="mt-2 flex w-full max-w-sm flex-col gap-3">
+                <button
+                  onClick={() => setTestOpen(true)}
+                  className="flex items-center justify-center gap-2 rounded-full py-4 text-[15px] font-semibold text-white shadow-lg transition-all hover:brightness-110"
+                  style={{ background: 'linear-gradient(90deg, #a855f7, #ec4899)' }}
+                >
+                  <MessageSquare className="h-5 w-5" /> Tester l&apos;agent
+                </button>
+                <button
+                  onClick={() => router.push(`/agents/${createdAgent.id}`)}
+                  className="flex items-center justify-center gap-2 rounded-full border border-white/15 py-4 text-[15px] font-semibold text-foreground transition-colors hover:bg-white/[0.05]"
+                >
+                  <Settings2 className="h-5 w-5" /> Configurer
+                </button>
+                <button
+                  onClick={() => router.push('/agents')}
+                  className="mt-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
+                >
+                  Voir tous mes agents
+                </button>
               </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* Chat de test de l'agent fraîchement créé */}
+      {createdAgent && (
+        <AgentTestChat
+          open={testOpen}
+          onOpenChange={setTestOpen}
+          agentId={createdAgent.id}
+          agentName={createdAgent.name}
+        />
+      )}
     </div>
   )
 }
