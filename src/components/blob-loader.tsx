@@ -4,9 +4,9 @@ import { useId } from 'react'
 import { cn } from '@/lib/utils'
 
 /**
- * BlobLoader — loader "metaball" : des bulles qui fusionnent horizontalement.
- * Recréé en SVG animé (filtre goo) avec un dégradé de verts (couleur du logo).
- * Vectoriel, léger, fond transparent.
+ * BlobLoader — loader "metaball" organique : des bulles vertes qui se déplacent
+ * en 2D, fusionnent et se séparent en formes fluides (inspiré du logo Autyvia).
+ * Recréé en SVG animé (filtre goo). Vectoriel, léger, fond transparent.
  */
 export function BlobLoader({
   size = 96,
@@ -26,62 +26,90 @@ export function BlobLoader({
     <div className={cn('flex flex-col items-center justify-center gap-4', className)} role="status" aria-label={label || 'Chargement'}>
       <svg
         width={size}
-        height={size * 0.55}
-        viewBox="0 0 200 110"
+        height={size}
+        viewBox="0 0 100 100"
         xmlns="http://www.w3.org/2000/svg"
         className="blob-loader"
       >
         <defs>
-          {/* Filtre "goo" : flou + seuil de contraste = fusion des bulles */}
-          <filter id={gooId}>
-            <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="blur" />
+          {/* Filtre "goo" : flou + seuil de contraste = fusion fluide quand les bulles se rapprochent */}
+          <filter id={gooId} x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="blur" />
             <feColorMatrix
               in="blur"
               mode="matrix"
-              values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 22 -10"
+              values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  0 0 0 20 -9"
               result="goo"
             />
           </filter>
 
-          {/* Dégradé de verts (du clair au foncé) basé sur la couleur du logo */}
-          <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%"   stopColor="#A8E6C9" />
-            <stop offset="38%"  stopColor="#7DC2A5" />
-            <stop offset="70%"  stopColor="#4FA384" />
-            <stop offset="100%" stopColor="#2F7A5F" />
+          {/* Dégradé de verts menthe (couleur du logo) */}
+          <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%"   stopColor="#7DF2C0" />
+            <stop offset="50%"  stopColor="#5FF0B0" />
+            <stop offset="100%" stopColor="#34C98D" />
           </linearGradient>
         </defs>
 
         <g filter={`url(#${gooId})`} fill={`url(#${gradId})`}>
-          {/* 4 bulles qui oscillent verticalement en décalé → effet de vague */}
-          <circle cx="45"  cy="55" r="16" className="blob blob-1" />
-          <circle cx="82"  cy="55" r="18" className="blob blob-2" />
-          <circle cx="119" cy="55" r="20" className="blob blob-3" />
-          <circle cx="156" cy="55" r="16" className="blob blob-4" />
+          {/* Bulles qui dérivent en 2D, déphasées → fusion/séparation organique */}
+          <circle r="13" className="b b1" />
+          <circle r="11" className="b b2" />
+          <circle r="14" className="b b3" />
+          <circle r="10" className="b b4" />
         </g>
       </svg>
 
       {label && <p className="text-sm text-muted-foreground animate-pulse">{label}</p>}
 
       <style jsx>{`
-        .blob {
-          animation: blob-bob 1.4s ease-in-out infinite;
-        }
-        .blob-1 { animation-delay: 0s; }
-        .blob-2 { animation-delay: 0.18s; }
-        .blob-3 { animation-delay: 0.36s; }
-        .blob-4 { animation-delay: 0.54s; }
-
-        @keyframes blob-bob {
-          0%, 100% { transform: translateY(0) scale(1); }
-          50%      { transform: translateY(-14px) scale(1.12); }
-        }
-
         .blob-loader { overflow: visible; }
+        .b { transform-box: fill-box; transform-origin: center; }
+
+        /* Chaque bulle suit une boucle 2D différente autour du centre (50,50) */
+        .b1 { animation: orbit1 3.2s ease-in-out infinite; }
+        .b2 { animation: orbit2 3.8s ease-in-out infinite; }
+        .b3 { animation: orbit3 3.5s ease-in-out infinite; }
+        .b4 { animation: orbit4 4.1s ease-in-out infinite; }
+
+        /* Amplitudes larges : les bulles s'écartent (parfois isolées) puis se
+           rejoignent au centre (fusion via goo) → effet metaball organique. */
+        @keyframes orbit1 {
+          0%   { transform: translate(22px, 30px); }
+          30%  { transform: translate(50px, 22px); }
+          55%  { transform: translate(72px, 52px); }
+          80%  { transform: translate(40px, 70px); }
+          100% { transform: translate(22px, 30px); }
+        }
+        @keyframes orbit2 {
+          0%   { transform: translate(74px, 40px); }
+          30%  { transform: translate(48px, 74px); }
+          55%  { transform: translate(24px, 48px); }
+          80%  { transform: translate(58px, 26px); }
+          100% { transform: translate(74px, 40px); }
+        }
+        @keyframes orbit3 {
+          0%   { transform: translate(46px, 72px); }
+          30%  { transform: translate(26px, 44px); }
+          55%  { transform: translate(56px, 24px); }
+          80%  { transform: translate(76px, 58px); }
+          100% { transform: translate(46px, 72px); }
+        }
+        @keyframes orbit4 {
+          0%   { transform: translate(56px, 26px); }
+          30%  { transform: translate(74px, 60px); }
+          55%  { transform: translate(42px, 76px); }
+          80%  { transform: translate(24px, 40px); }
+          100% { transform: translate(56px, 26px); }
+        }
 
         @media (prefers-reduced-motion: reduce) {
-          .blob { animation: blob-pulse 1.6s ease-in-out infinite; }
-          @keyframes blob-pulse { 0%,100% { opacity: 1 } 50% { opacity: .5 } }
+          .b { animation: pulse 1.6s ease-in-out infinite; }
+          .b1 { transform: translate(36px, 44px); }
+          .b2 { transform: translate(64px, 44px); }
+          .b3 { transform: translate(44px, 64px); }
+          .b4 { transform: translate(60px, 60px); }
+          @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .55 } }
         }
       `}</style>
     </div>
@@ -92,7 +120,7 @@ export function BlobLoader({
 export function BlobLoaderScreen({ label }: { label?: string }) {
   return (
     <div className="flex h-full w-full items-center justify-center">
-      <BlobLoader size={120} label={label} />
+      <BlobLoader size={110} label={label} />
     </div>
   )
 }
