@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { analyzeMultipleConversations } from '@/lib/openai/lifecycle-analyzer'
+import { canUseAiAnalysis } from '@/lib/subscription/plan'
 
 /** POST /api/lifecycle/analyze — Analyser une ou plusieurs conversations */
 export async function POST(req: NextRequest) {
@@ -9,6 +10,11 @@ export async function POST(req: NextRequest) {
 
   if (authError || !user) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  }
+
+  // Gating : l'analyse IA est réservée aux plans Pro/Scale
+  if (!(await canUseAiAnalysis(supabase, user.id))) {
+    return NextResponse.json({ error: 'L\'analyse IA est disponible à partir du plan Pro.' }, { status: 403 })
   }
 
   const body = await req.json()

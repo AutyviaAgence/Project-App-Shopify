@@ -205,22 +205,36 @@ La reason doit être une phrase courte en français expliquant pourquoi.`
 
     const newStageId = matchedStage?.id || null
 
-    // 8. Mettre à jour la conversation
-    const { error: updateError } = await supabase
+    // 8. Timestamps d'analyse (toujours mis à jour)
+    await supabase
       .from('conversations')
       .update({
-        lifecycle_stage_id: newStageId,
         lifecycle_last_analyzed_at: new Date().toISOString(),
         lifecycle_messages_since_analysis: 0,
+        // lien legacy : refléter le stage détecté (compat affichage)
+        lifecycle_stage_id: newStageId,
       })
       .eq('id', conversationId)
 
-    if (updateError) {
-      console.error(`[Lifecycle] Error updating conversation ${conversationId}:`, updateError.message)
+    // 8b. ÉTIQUETTES MULTIPLES : l'IA AJOUTE le stage détecté (sans écraser les autres)
+    let alreadyAssigned = false
+    if (newStageId) {
+      const { data: existing } = await supabase
+        .from('conversation_lifecycle_stages')
+        .select('id')
+        .eq('conversation_id', conversationId)
+        .eq('stage_id', newStageId)
+        .maybeSingle()
+      alreadyAssigned = !!existing
+      if (!alreadyAssigned) {
+        await supabase
+          .from('conversation_lifecycle_stages')
+          .insert({ conversation_id: conversationId, stage_id: newStageId })
+      }
     }
 
-    // 9. Insérer dans l'historique (seulement si le stage a changé)
-    if (newStageId !== currentStageId) {
+    // 9. Historique (seulement si une nouvelle étiquette a été ajoutée)
+    if (newStageId && !alreadyAssigned) {
       const { error: historyError } = await supabase.from('lifecycle_history').insert({
         conversation_id: conversationId,
         from_stage_id: currentStageId,
