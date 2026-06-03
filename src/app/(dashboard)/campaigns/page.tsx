@@ -147,7 +147,7 @@ export default function CampaignsPage() {
 
   return (
     <div className="p-4 sm:p-6">
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div data-page-header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div data-tour="campaigns-header">
           <h1 className="text-xl sm:text-2xl font-bold">{t('campaigns.title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
