@@ -27,6 +27,7 @@ import {
   Users2,
   Mail,
   ExternalLink,
+  ArrowUpRight,
 } from 'lucide-react'
 import { StartTourButton } from '@/components/guided-tour'
 import Link from 'next/link'
@@ -378,34 +379,32 @@ function StatsDashboard() {
                 <div className="absolute -left-10 -top-16 h-56 w-56 rounded-full bg-primary/25 blur-3xl" />
               </div>
 
+              {/* Petit bouton rond avec fleche (facon "Total Profit") */}
+              <Link href="/stats" className="absolute right-5 top-5 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_8px_20px_-6px_rgba(125,194,165,0.8)] transition-transform hover:scale-110 md:right-6 md:top-6">
+                <ArrowUpRight className="h-5 w-5" />
+              </Link>
+
               {/* Contenu hero */}
               <div className="relative flex min-w-0 flex-1 flex-col p-6 md:p-8">
-                <div className="min-w-0 pr-24">
+                <div className="min-w-0 pr-14">
                   <p className="text-sm font-medium text-muted-foreground">{t('dashboard.greeting')}</p>
                   <h1 className="mt-1 truncate text-2xl font-bold tracking-tight text-foreground md:text-3xl">{tenant.appName}</h1>
                 </div>
 
-                <div className="mt-auto grid grid-cols-2 gap-4 pt-8">
+                <div className="mt-auto grid grid-cols-3 gap-3 pt-8">
                   <div>
-                    <p className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">{stats.overview.totalMessages.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">{t('dashboard.messages')}</p>
+                    <p className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">{stats.overview.totalMessages.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')}</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">{t('dashboard.messages')}</p>
                   </div>
-                  <div className="border-l border-border pl-4">
-                    <p className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">{stats.overview.activeConversations.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')}</p>
-                    <p className="mt-0.5 text-xs text-muted-foreground">{t('dashboard.conversations')}</p>
+                  <div className="border-l border-border pl-3">
+                    <p className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">{stats.overview.activeConversations.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')}</p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">{t('dashboard.conversations')}</p>
+                  </div>
+                  <div className="border-l border-border pl-3">
+                    <p className="text-2xl font-bold tracking-tight text-primary md:text-3xl">{stats.overview.responseRate ?? 0}<span className="text-base">%</span></p>
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">{t('dashboard.ai_rate')}</p>
                   </div>
                 </div>
-              </div>
-
-              {/* Pastille RONDE taux IA qui pop hors du coin (element non-carre) */}
-              <div className="absolute -right-3 -top-3 z-20 flex h-24 w-24 flex-col items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-[0_12px_30px_-8px_rgba(125,194,165,0.8)] ring-4 ring-background md:-right-4 md:-top-4 md:h-28 md:w-28">
-                {/* point statut pulsant sur le bord */}
-                <span className="absolute right-2 top-2 flex h-3 w-3">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary-foreground/60 opacity-75" />
-                  <span className="relative inline-flex h-3 w-3 rounded-full bg-primary-foreground" />
-                </span>
-                <span className="text-2xl font-bold leading-none md:text-3xl">{stats.overview.responseRate ?? 0}<span className="text-base">%</span></span>
-                <span className="mt-1 text-[8px] font-medium uppercase tracking-wider text-primary-foreground/80 md:text-[9px]">{t('dashboard.ai_rate')}</span>
               </div>
             </div>
 
@@ -515,13 +514,13 @@ function DashboardCTA({ connectedSessions, activeAgents, t }: {
         />
       </div>
 
-      {/* Mascotte dynamique qui deborde en haut a droite (effet wow) */}
+      {/* Mascotte dynamique ancree en bas a droite, deborde legerement en haut */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/mascot-action.png"
         alt=""
         aria-hidden
-        className="pointer-events-none absolute -top-10 right-2 z-10 hidden h-[210px] w-auto max-w-none drop-shadow-[0_18px_30px_rgba(0,0,0,0.4)] transition-transform duration-500 ease-out group-hover/cta:-translate-y-2 group-hover/cta:rotate-3 sm:block md:right-8 md:h-[240px]"
+        className="pointer-events-none absolute -top-6 bottom-0 right-3 z-10 hidden h-[calc(100%+1.5rem)] w-auto max-w-none object-contain drop-shadow-[0_14px_24px_rgba(0,0,0,0.4)] transition-transform duration-500 ease-out group-hover/cta:-translate-y-1.5 group-hover/cta:rotate-2 sm:block md:right-6"
       />
 
       <div className="relative z-20 max-w-[62%] text-primary-foreground sm:max-w-[60%]">
