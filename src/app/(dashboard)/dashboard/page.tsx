@@ -381,27 +381,20 @@ function StatsDashboard() {
           {/* ═══ Ligne 1 : HÉRO sombre + glow vert (gauche) | graphe messages (droite) ═══ */}
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
 
-            {/* HÉRO — card sombre travaillée avec glow vert prononcé */}
-            <div data-tour="header" className="relative overflow-hidden rounded-[32px] border border-primary/25 bg-card p-6 shadow-[0_0_0_1px_rgba(125,194,165,0.06),0_20px_60px_-20px_rgba(125,194,165,0.35)] md:p-8 lg:col-span-5">
+            {/* HÉRO — carte separee en deux (facon "Total Profit") : zone principale
+                a gauche + section verte detachee a droite avec encoche arrondie */}
+            <div data-tour="header" className="relative flex overflow-hidden rounded-[32px] border border-primary/25 bg-card shadow-[0_0_0_1px_rgba(125,194,165,0.06),0_20px_60px_-20px_rgba(125,194,165,0.35)] lg:col-span-5">
               {/* glows */}
               <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/[0.14] via-transparent to-transparent" />
               <div className="pointer-events-none absolute -left-10 -top-16 h-56 w-56 rounded-full bg-primary/25 blur-3xl" />
-              <div className="pointer-events-none absolute -bottom-24 -right-10 h-56 w-56 rounded-full bg-primary/15 blur-3xl" />
 
-              <div className="relative flex h-full flex-col">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-muted-foreground">{t('dashboard.greeting')}</p>
-                    <h1 className="mt-1 truncate text-2xl font-bold tracking-tight text-foreground md:text-3xl">{tenant.appName}</h1>
-                  </div>
-                  {/* pastille taux IA façon vignette */}
-                  <div className="flex shrink-0 flex-col items-center rounded-2xl border border-primary/30 bg-primary/15 px-4 py-2.5 shadow-[0_8px_24px_-12px_rgba(125,194,165,0.6)]">
-                    <span className="text-2xl font-bold leading-none text-primary md:text-3xl">{stats.overview.responseRate ?? 0}<span className="text-base">%</span></span>
-                    <span className="mt-1 text-[9px] uppercase tracking-wider text-muted-foreground">{t('dashboard.ai_rate')}</span>
-                  </div>
+              {/* Zone principale (gauche) */}
+              <div className="relative flex min-w-0 flex-1 flex-col p-6 md:p-8">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-muted-foreground">{t('dashboard.greeting')}</p>
+                  <h1 className="mt-1 truncate text-2xl font-bold tracking-tight text-foreground md:text-3xl">{tenant.appName}</h1>
                 </div>
 
-                {/* 2 gros chiffres style "A+ / 24" */}
                 <div className="mt-auto grid grid-cols-2 gap-4 pt-8">
                   <div>
                     <p className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">{stats.overview.totalMessages.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')}</p>
@@ -411,6 +404,20 @@ function StatsDashboard() {
                     <p className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">{stats.overview.activeConversations.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')}</p>
                     <p className="mt-0.5 text-xs text-muted-foreground">{t('dashboard.conversations')}</p>
                   </div>
+                </div>
+              </div>
+
+              {/* Section detachee (droite) avec encoche arrondie + point + valeur */}
+              <div className="relative z-10 my-3 mr-3 flex w-[34%] shrink-0 flex-col justify-between rounded-[26px] bg-gradient-to-br from-primary to-primary/80 p-4 text-primary-foreground shadow-lg md:p-5">
+                {/* point statut en haut a droite */}
+                <span className="absolute right-4 top-4 flex h-2.5 w-2.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary-foreground/60 opacity-75" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-primary-foreground" />
+                </span>
+                <p className="text-[10px] font-medium uppercase tracking-wider text-primary-foreground/70">{t('dashboard.ai_rate')}</p>
+                <div className="mt-auto">
+                  <p className="text-3xl font-bold leading-none md:text-4xl">{stats.overview.responseRate ?? 0}<span className="text-xl">%</span></p>
+                  <p className="mt-1 text-[11px] text-primary-foreground/70">{connectedSessions}/{sessions.length} {t('dashboard.whatsapp_sessions')}</p>
                 </div>
               </div>
             </div>
@@ -522,26 +529,36 @@ function DashboardCTA({ connectedSessions, activeAgents, t }: {
     : activeAgents === 0
       ? { href: '/agents', title: t('dashboard.cta_agent_title'), desc: t('dashboard.cta_agent_desc'), btn: t('dashboard.cta_agent_btn'), icon: Bot }
       : { href: '/stats', title: t('dashboard.cta_explore_title'), desc: t('dashboard.cta_explore_desc'), btn: t('dashboard.cta_explore_btn'), icon: Sparkles }
-  const Icon = cta.icon
   return (
-    <div className="relative mt-4 overflow-hidden rounded-[28px] border border-primary/20 bg-gradient-to-r from-primary/[0.12] via-primary/[0.05] to-transparent p-6 shadow-sm md:p-7">
-      {/* visuels décoratifs (bulles façon illustration) */}
-      <div className="pointer-events-none absolute -right-6 top-1/2 hidden h-40 w-40 -translate-y-1/2 rounded-full bg-primary/20 blur-2xl sm:block" />
-      <div className="pointer-events-none absolute right-10 top-4 hidden h-16 w-16 rounded-full border border-primary/20 bg-primary/10 sm:block" />
-      <div className="pointer-events-none absolute right-28 bottom-3 hidden h-10 w-10 rounded-full border border-primary/15 bg-primary/5 sm:block" />
+    <div className="group/cta relative mt-4 overflow-visible rounded-[32px] border border-primary/30 bg-gradient-to-br from-primary via-primary to-primary/75 p-6 shadow-[0_24px_60px_-20px_rgba(125,194,165,0.6)] md:p-8">
+      {/* Fond : grand glow + motif de points (radial) */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[32px]">
+        <div className="absolute -left-16 -top-20 h-64 w-64 rounded-full bg-white/15 blur-3xl" />
+        <div className="absolute -bottom-24 left-1/3 h-56 w-56 rounded-full bg-[#F0998A]/25 blur-3xl" />
+        <div
+          className="absolute inset-0 opacity-[0.12]"
+          style={{ backgroundImage: 'radial-gradient(currentColor 1px, transparent 1px)', backgroundSize: '18px 18px', color: '#fff' }}
+        />
+      </div>
 
-      <div className="relative flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/15 text-primary">
-            <Icon className="h-6 w-6" />
-          </div>
-          <div className="min-w-0">
-            <h3 className="text-base font-bold text-foreground">{cta.title}</h3>
-            <p className="mt-0.5 text-sm text-muted-foreground">{cta.desc}</p>
-          </div>
-        </div>
-        <Link href={cta.href} className="shrink-0">
-          <button className="flex items-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:brightness-105 active:scale-[0.98]">
+      {/* Mascotte dynamique qui deborde en haut a droite (effet wow) */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/mascot-action.png"
+        alt=""
+        aria-hidden
+        className="pointer-events-none absolute -top-10 right-2 z-10 hidden h-[210px] w-auto max-w-none drop-shadow-[0_18px_30px_rgba(0,0,0,0.4)] transition-transform duration-500 ease-out group-hover/cta:-translate-y-2 group-hover/cta:rotate-3 sm:block md:right-8 md:h-[240px]"
+      />
+
+      <div className="relative z-20 max-w-[62%] text-primary-foreground sm:max-w-[60%]">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-foreground/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider backdrop-blur">
+          <Sparkles className="h-3.5 w-3.5" />
+          Autyvia
+        </span>
+        <h3 className="mt-3 text-2xl font-bold leading-tight tracking-tight md:text-3xl">{cta.title}</h3>
+        <p className="mt-1.5 text-sm text-primary-foreground/80 md:text-base">{cta.desc}</p>
+        <Link href={cta.href} className="mt-5 inline-block">
+          <button className="flex items-center gap-2 rounded-2xl bg-primary-foreground px-6 py-3 text-sm font-bold text-primary shadow-lg transition-all hover:scale-[1.03] active:scale-[0.98]">
             {cta.btn}
             <ArrowRight className="h-4 w-4" />
           </button>
