@@ -51,7 +51,6 @@ import {
   PowerOff,
   Copy,
   MoreHorizontal,
-  UserRound,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -679,23 +678,24 @@ export default function AgentsPage() {
                         )}
                         style={isCenter ? { '--tw-ring-color': `${typeColor}40` } as React.CSSProperties : {}}
                       >
-                        {/* Zone visuelle (avatar profil) */}
+                        {/* Zone visuelle (mascotte) — overflow visible pour laisser
+                            le bras + enveloppe deborder a gauche de la carte */}
                         <div
-                          className="relative flex h-64 items-center justify-center overflow-hidden rounded-[34px] m-2 mb-0"
+                          className="relative flex h-64 items-end justify-center rounded-t-[34px] m-2 mb-0"
                           style={{ background: `radial-gradient(130% 110% at 50% 22%, ${typeColor}30 0%, ${typeColor}0c 48%, transparent 78%)` }}
                         >
-                          {/* halo derrière l'avatar */}
-                          <div className="pointer-events-none absolute h-32 w-32 rounded-full opacity-30 blur-3xl" style={{ background: typeColor }} />
-                          {/* Avatar profil rond */}
-                          <div
-                            className="relative flex h-28 w-28 items-center justify-center rounded-full ring-1 transition-transform duration-500 ease-out group-hover/card:scale-105"
-                            style={{ background: `${typeColor}1a`, borderColor: `${typeColor}40`, color: typeColor }}
-                          >
-                            <UserRound className="h-14 w-14" strokeWidth={1.75} />
-                          </div>
-                          {/* Badge type (pill, en haut à gauche) */}
+                          {/* halo derriere la mascotte */}
+                          <div className="pointer-events-none absolute left-1/2 top-1/2 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-25 blur-3xl" style={{ background: typeColor }} />
+                          {/* Mascotte (buste) : ancree en bas, deborde a gauche */}
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src="/mascot-agent.png"
+                            alt={agent.name}
+                            className="pointer-events-none absolute -left-6 bottom-0 h-[300px] w-auto max-w-none object-bottom drop-shadow-[0_12px_24px_rgba(0,0,0,0.45)] transition-transform duration-500 ease-out group-hover/card:-translate-y-1.5 group-hover/card:scale-[1.03]"
+                          />
+                          {/* Badge type (pill, en haut a gauche) */}
                           <span
-                            className="absolute left-4 top-4 rounded-full px-3 py-1 text-[11px] font-semibold"
+                            className="absolute left-4 top-4 z-10 rounded-full px-3 py-1 text-[11px] font-semibold"
                             style={{ background: `${typeColor}1f`, color: typeColor }}
                           >
                             {typeLabel}
