@@ -629,7 +629,7 @@ export default function AgentsPage() {
               {/* Flèche gauche */}
               {n > 1 && (
                 <button onClick={() => go(-1)} aria-label="Précédent"
-                  className="absolute left-0 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-white/[0.06] text-white/70 backdrop-blur transition-all hover:scale-110 hover:bg-white/10 hover:text-white">
+                  className="absolute left-0 z-30 flex h-12 w-12 items-center justify-center rounded-full border border-border bg-card text-muted-foreground backdrop-blur transition-all hover:scale-110 hover:bg-muted hover:text-foreground">
                   <ChevronLeft className="h-5 w-5" />
                 </button>
               )}
@@ -673,11 +673,11 @@ export default function AgentsPage() {
                       {/* Carte */}
                       <div
                         className={cn(
-                          'group/card relative flex flex-col rounded-[34px] bg-[#15191f] pb-6 transition-shadow duration-300',
-                          isCenter ? 'shadow-[0_40px_90px_-24px_rgba(0,0,0,0.9)]' : 'shadow-[0_20px_50px_-24px_rgba(0,0,0,0.7)]',
+                          'group/card relative flex flex-col rounded-[34px] border border-border bg-card pb-6 transition-shadow duration-300',
+                          isCenter ? 'shadow-2xl ring-1' : 'shadow-md',
                           !agent.is_active && 'opacity-70'
                         )}
-                        style={isCenter ? { boxShadow: `0 40px 90px -24px rgba(0,0,0,0.9), inset 0 0 0 1px ${typeColor}40` } : {}}
+                        style={isCenter ? { '--tw-ring-color': `${typeColor}40` } as React.CSSProperties : {}}
                       >
                         {/* Zone visuelle (avatar profil) */}
                         <div
@@ -728,9 +728,9 @@ export default function AgentsPage() {
 
                         {/* Infos — minimal : nom + statut */}
                         <div className="px-6 pt-5 text-center">
-                          <h3 className="truncate text-[19px] font-bold tracking-tight text-white">{agent.name}</h3>
-                          <div className="mt-1.5 flex items-center justify-center gap-1.5 text-[13px] text-white/45">
-                            <span className={cn('h-1.5 w-1.5 rounded-full', agent.is_active ? 'bg-emerald-400' : 'bg-white/30')} />
+                          <h3 className="truncate text-[19px] font-bold tracking-tight text-foreground">{agent.name}</h3>
+                          <div className="mt-1.5 flex items-center justify-center gap-1.5 text-[13px] text-muted-foreground">
+                            <span className={cn('h-1.5 w-1.5 rounded-full', agent.is_active ? 'bg-emerald-500' : 'bg-muted-foreground/40')} />
                             {agent.is_active ? t('common.active') : t('common.inactive')}
                           </div>
                         </div>
@@ -746,13 +746,13 @@ export default function AgentsPage() {
                             <button
                               onClick={(e) => { e.stopPropagation(); setTestingAgent(agent); setTestChatOpen(true) }}
                               title={t('common.test')}
-                              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+                              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground"
                             >
                               <MessageSquare className="h-[18px] w-[18px]" />
                             </button>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <button onClick={(e) => e.stopPropagation()} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-white/[0.06] text-white/60 transition-colors hover:bg-white/10 hover:text-white">
+                                <button onClick={(e) => e.stopPropagation()} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground">
                                   <MoreHorizontal className="h-[18px] w-[18px]" />
                                 </button>
                               </DropdownMenuTrigger>
@@ -798,7 +798,7 @@ export default function AgentsPage() {
               {/* Flèche droite */}
               {n > 1 && (
                 <button onClick={() => go(1)} aria-label="Suivant"
-                  className="absolute right-0 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-white/[0.06] text-white/70 backdrop-blur transition-all hover:scale-110 hover:bg-white/10 hover:text-white">
+                  className="absolute right-0 z-30 flex h-12 w-12 items-center justify-center rounded-full border border-border bg-card text-muted-foreground backdrop-blur transition-all hover:scale-110 hover:bg-muted hover:text-foreground">
                   <ChevronRight className="h-5 w-5" />
                 </button>
               )}
@@ -808,7 +808,7 @@ export default function AgentsPage() {
                 <div className="absolute -bottom-2 left-1/2 z-30 flex -translate-x-1/2 gap-1.5">
                   {sorted.map((_, i) => (
                     <button key={i} onClick={() => setCenterIndex(i)} aria-label={`Agent ${i + 1}`}
-                      className={cn('h-1.5 rounded-full transition-all', i === center ? 'w-5 bg-white/80' : 'w-1.5 bg-white/25 hover:bg-white/40')} />
+                      className={cn('h-1.5 rounded-full transition-all', i === center ? 'w-5 bg-foreground/70' : 'w-1.5 bg-muted-foreground/30 hover:bg-muted-foreground/50')} />
                   ))}
                 </div>
               )}
