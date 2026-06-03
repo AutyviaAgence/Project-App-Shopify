@@ -686,12 +686,12 @@ export default function AgentsPage() {
                         >
                           {/* halo derriere la mascotte */}
                           <div className="pointer-events-none absolute left-1/2 top-1/2 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-25 blur-3xl" style={{ background: typeColor }} />
-                          {/* Mascotte (buste) : ancree en bas, deborde a gauche */}
+                          {/* Mascotte (buste) : ancree en bas, le bras + enveloppe deborde a gauche */}
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src="/mascot-agent.png"
                             alt={agent.name}
-                            className="pointer-events-none absolute -left-6 bottom-0 h-[300px] w-auto max-w-none object-bottom drop-shadow-[0_12px_24px_rgba(0,0,0,0.45)] transition-transform duration-500 ease-out group-hover/card:-translate-y-1.5 group-hover/card:scale-[1.03]"
+                            className="pointer-events-none absolute -left-5 bottom-0 w-[112%] max-w-none object-contain object-bottom drop-shadow-[0_12px_24px_rgba(0,0,0,0.45)] transition-transform duration-500 ease-out group-hover/card:-translate-y-1.5 group-hover/card:scale-[1.02]"
                           />
                           {/* Badge type (pill, en haut a gauche) */}
                           <span
