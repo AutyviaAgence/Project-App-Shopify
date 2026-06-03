@@ -13,9 +13,6 @@ const TimeSeriesChart = dynamic(() => import('@/components/stats/charts').then(m
 import { toast } from 'sonner'
 import {
   MessageSquare,
-  Users,
-  UserPlus,
-  Zap,
   Loader2,
   Smartphone,
   Bot,
@@ -30,9 +27,6 @@ import {
   Users2,
   Mail,
   ExternalLink,
-  TrendingUp,
-  TrendingDown,
-  Minus,
 } from 'lucide-react'
 import { StartTourButton } from '@/components/guided-tour'
 import Link from 'next/link'
@@ -364,33 +358,29 @@ function StatsDashboard() {
 
   const connectedSessions = sessions.filter((s) => s.status === 'connected').length
   const activeAgents = stats?.agents.filter((a) => a.isActive).length ?? 0
-  const totalAgents = stats?.agents.length ?? 0
-  const activeLinks = stats?.links.filter((l) => l.isActive).length ?? 0
-  const totalLinks = stats?.links.length ?? 0
-
-  const totalClicks = stats?.links.reduce((s, l) => s + l.totalClicks, 0) ?? 0
 
   return (
-    <div className="p-4 md:p-6 pb-20 md:pb-6">
+    <div className="flex h-full flex-col gap-4 p-4 pb-20 md:overflow-hidden md:p-6 md:pb-6">
       {loading ? (
-        <div className="flex h-64 items-center justify-center">
+        <div className="flex flex-1 items-center justify-center">
           <BlobLoader size={88} />
         </div>
       ) : stats ? (
         <>
-          {/* ═══ Ligne 1 : HÉRO sombre + glow vert (gauche) | graphe messages (droite) ═══ */}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+          {/* ═══ Ligne 1 : HÉRO scindé (gauche) | graphe messages (droite) ═══ */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:flex-1">
 
-            {/* HÉRO — carte separee en deux (facon "Total Profit") : zone principale
-                a gauche + section verte detachee a droite avec encoche arrondie */}
-            <div data-tour="header" className="relative flex overflow-hidden rounded-[32px] border border-primary/25 bg-card shadow-[0_0_0_1px_rgba(125,194,165,0.06),0_20px_60px_-20px_rgba(125,194,165,0.35)] lg:col-span-5">
-              {/* glows */}
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/[0.14] via-transparent to-transparent" />
-              <div className="pointer-events-none absolute -left-10 -top-16 h-56 w-56 rounded-full bg-primary/25 blur-3xl" />
+            {/* HÉRO — greeting + chiffres, avec pastille ronde taux IA qui pop du coin */}
+            <div data-tour="header" className="relative rounded-[32px] border border-primary/25 bg-card shadow-[0_0_0_1px_rgba(125,194,165,0.06),0_20px_60px_-20px_rgba(125,194,165,0.35)] lg:col-span-5">
+              {/* glows (clippes au rayon de la carte) */}
+              <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[32px]">
+                <div className="absolute inset-0 bg-gradient-to-br from-primary/[0.14] via-transparent to-transparent" />
+                <div className="absolute -left-10 -top-16 h-56 w-56 rounded-full bg-primary/25 blur-3xl" />
+              </div>
 
-              {/* Zone principale (gauche) */}
+              {/* Contenu hero */}
               <div className="relative flex min-w-0 flex-1 flex-col p-6 md:p-8">
-                <div className="min-w-0">
+                <div className="min-w-0 pr-24">
                   <p className="text-sm font-medium text-muted-foreground">{t('dashboard.greeting')}</p>
                   <h1 className="mt-1 truncate text-2xl font-bold tracking-tight text-foreground md:text-3xl">{tenant.appName}</h1>
                 </div>
@@ -407,18 +397,15 @@ function StatsDashboard() {
                 </div>
               </div>
 
-              {/* Section detachee (droite) avec encoche arrondie + point + valeur */}
-              <div className="relative z-10 my-3 mr-3 flex w-[34%] shrink-0 flex-col justify-between rounded-[26px] bg-gradient-to-br from-primary to-primary/80 p-4 text-primary-foreground shadow-lg md:p-5">
-                {/* point statut en haut a droite */}
-                <span className="absolute right-4 top-4 flex h-2.5 w-2.5">
+              {/* Pastille RONDE taux IA qui pop hors du coin (element non-carre) */}
+              <div className="absolute -right-3 -top-3 z-20 flex h-24 w-24 flex-col items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/80 text-primary-foreground shadow-[0_12px_30px_-8px_rgba(125,194,165,0.8)] ring-4 ring-background md:-right-4 md:-top-4 md:h-28 md:w-28">
+                {/* point statut pulsant sur le bord */}
+                <span className="absolute right-2 top-2 flex h-3 w-3">
                   <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary-foreground/60 opacity-75" />
-                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-primary-foreground" />
+                  <span className="relative inline-flex h-3 w-3 rounded-full bg-primary-foreground" />
                 </span>
-                <p className="text-[10px] font-medium uppercase tracking-wider text-primary-foreground/70">{t('dashboard.ai_rate')}</p>
-                <div className="mt-auto">
-                  <p className="text-3xl font-bold leading-none md:text-4xl">{stats.overview.responseRate ?? 0}<span className="text-xl">%</span></p>
-                  <p className="mt-1 text-[11px] text-primary-foreground/70">{connectedSessions}/{sessions.length} {t('dashboard.whatsapp_sessions')}</p>
-                </div>
+                <span className="text-2xl font-bold leading-none md:text-3xl">{stats.overview.responseRate ?? 0}<span className="text-base">%</span></span>
+                <span className="mt-1 text-[8px] font-medium uppercase tracking-wider text-primary-foreground/80 md:text-[9px]">{t('dashboard.ai_rate')}</span>
               </div>
             </div>
 
@@ -434,18 +421,10 @@ function StatsDashboard() {
             </div>
           </div>
 
-          {/* ═══ Ligne 2 : 4 KPI ronds ═══ */}
-          <div data-tour="kpi-cards" className="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
-            <BentoKPI title={t('dashboard.messages')} value={stats.overview.totalMessages} trend={stats.overview.messagesTrend} icon={MessageSquare} color="green" locale={locale} />
-            <BentoKPI title={t('dashboard.conversations')} value={stats.overview.activeConversations} trend={stats.overview.conversationsTrend} icon={Users} color="blue" locale={locale} />
-            <BentoKPI title={t('dashboard.new_contacts')} value={stats.overview.newContacts} trend={stats.overview.contactsTrend} icon={UserPlus} color="coral" locale={locale} />
-            <BentoKPI title={t('dashboard.ai_rate')} value={stats.overview.responseRate ?? 0} trend={null} icon={Zap} formatValue={(v) => `${v}%`} color="orange" locale={locale} />
-          </div>
-
-          {/* ═══ Ligne 3 : répartition (barres) | graphe conversations ═══ */}
-          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-5">
+          {/* ═══ Ligne 2 : répartition (barres) | graphe conversations ═══ */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-5 lg:flex-1">
             {/* Répartition envoyés / reçus */}
-            <div className="rounded-[28px] border bg-card p-5 shadow-sm md:p-6 lg:col-span-2">
+            <div className="flex flex-col rounded-[28px] border bg-card p-5 shadow-sm md:p-6 lg:col-span-2">
               <h3 className="mb-5 text-sm font-semibold">{t('dashboard.messages')}</h3>
               {(() => {
                 const inbound = stats.charts.messagesOverTime.reduce((s, p) => s + p.inbound, 0)
@@ -454,7 +433,7 @@ function StatsDashboard() {
                 const pctIn = Math.round((inbound / total) * 100)
                 const pctOut = 100 - pctIn
                 return (
-                  <div className="space-y-5">
+                  <div className="flex flex-1 flex-col justify-center space-y-5">
                     <Ratio label={t('dashboard.received')} value={inbound} pct={pctIn} barClass="bg-primary" locale={locale} />
                     <Ratio label={t('dashboard.sent')} value={outbound} pct={pctOut} barClass="bg-[#F0998A]" locale={locale} />
                     <div className="flex items-center gap-2 rounded-2xl bg-muted/50 px-3 py-2.5">
@@ -473,20 +452,15 @@ function StatsDashboard() {
             </div>
 
             {/* Graphe conversations */}
-            <div className="rounded-[28px] border bg-card p-5 shadow-sm md:p-6 lg:col-span-3">
+            <div className="flex flex-col overflow-hidden rounded-[28px] border bg-card p-5 shadow-sm md:p-6 lg:col-span-3">
               <h3 className="mb-4 text-sm font-semibold">{t('dashboard.new_conversations')}</h3>
-              <TimeSeriesChart data={stats.charts.conversationsOverTime} title="" color="var(--accent, #40E9BE)" />
+              <div className="flex-1">
+                <TimeSeriesChart data={stats.charts.conversationsOverTime} title="" color="var(--accent, #40E9BE)" />
+              </div>
             </div>
           </div>
 
-          {/* ═══ Ligne 4 : 3 quick stats ═══ */}
-          <div data-tour="quick-stats" className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <QuickStatCard href="/sessions" icon={Smartphone} label={t('dashboard.whatsapp_sessions')} value={`${connectedSessions}/${sessions.length}`} status={connectedSessions > 0 ? 'success' : 'inactive'} statusLabel={connectedSessions > 0 ? t('dashboard.connected') : t('dashboard.none_female')} />
-            <QuickStatCard href="/agents" icon={Bot} label={t('dashboard.ai_agents')} value={`${activeAgents}/${totalAgents}`} status={activeAgents > 0 ? 'success' : 'inactive'} statusLabel={activeAgents > 0 ? t('common.active') : t('dashboard.none_male')} subtitle={stats.overview.avgResponseTime != null && stats.overview.avgResponseTime > 0 ? t('dashboard.avg_time', { time: formatSeconds(stats.overview.avgResponseTime) }) : undefined} />
-            <QuickStatCard href="/links" icon={Link2} label={t('dashboard.whatsapp_links')} value={`${activeLinks}/${totalLinks}`} status={activeLinks > 0 ? 'success' : 'inactive'} statusLabel={activeLinks > 0 ? t('common.active') : t('dashboard.none_male')} subtitle={totalLinks > 0 ? `${totalClicks.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')} ${t('dashboard.clicks')}` : undefined} />
-          </div>
-
-          {/* ═══ Carte CTA contextuelle ═══ */}
+          {/* ═══ Carte CTA contextuelle (wow) ═══ */}
           <DashboardCTA
             connectedSessions={connectedSessions}
             activeAgents={activeAgents}
@@ -530,7 +504,7 @@ function DashboardCTA({ connectedSessions, activeAgents, t }: {
       ? { href: '/agents', title: t('dashboard.cta_agent_title'), desc: t('dashboard.cta_agent_desc'), btn: t('dashboard.cta_agent_btn'), icon: Bot }
       : { href: '/stats', title: t('dashboard.cta_explore_title'), desc: t('dashboard.cta_explore_desc'), btn: t('dashboard.cta_explore_btn'), icon: Sparkles }
   return (
-    <div className="group/cta relative mt-4 overflow-visible rounded-[32px] border border-primary/30 bg-gradient-to-br from-primary via-primary to-primary/75 p-6 shadow-[0_24px_60px_-20px_rgba(125,194,165,0.6)] md:p-8">
+    <div className="group/cta relative overflow-visible rounded-[32px] border border-primary/30 bg-gradient-to-br from-primary via-primary to-primary/75 p-6 shadow-[0_24px_60px_-20px_rgba(125,194,165,0.6)] md:p-7">
       {/* Fond : grand glow + motif de points (radial) */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[32px]">
         <div className="absolute -left-16 -top-20 h-64 w-64 rounded-full bg-white/15 blur-3xl" />
@@ -599,70 +573,3 @@ export default function DashboardPage() {
   return <OnboardingChecklist checklist={checklist} onRefresh={fetchChecklist} />
 }
 
-// ─── QuickStatCard ────────────────────────────────────────────────────────────
-
-// ─── BentoKPI — tuile KPI arrondie pour la grille bento ───────────────────────
-
-const BENTO_KPI_COLORS = {
-  green: { bg: 'bg-primary/10', icon: 'text-primary', ring: 'border-primary/15', accent: '' },
-  blue: { bg: 'bg-blue-500/10', icon: 'text-blue-500', ring: 'border-blue-500/15', accent: '' },
-  teal: { bg: 'bg-sky-500/10', icon: 'text-sky-500', ring: 'border-sky-500/15', accent: '' },
-  orange: { bg: 'bg-orange-500/10', icon: 'text-orange-500', ring: 'border-orange-500/15', accent: '' },
-  // Accent corail (facon maquette) — fond teinté pour ressortir
-  coral: { bg: 'bg-[#F0998A]/20', icon: 'text-[#E07B6A]', ring: 'border-[#F0998A]/30', accent: 'bg-[#F0998A]/[0.07]' },
-}
-
-function BentoKPI({ title, value, trend, icon: Icon, formatValue, color = 'green', locale }: {
-  title: string; value: number; trend?: number | null; icon: React.ElementType
-  formatValue?: (value: number) => string; color?: 'green' | 'blue' | 'teal' | 'orange' | 'coral'; locale: string
-}) {
-  const c = BENTO_KPI_COLORS[color]
-  return (
-    <div className={cn('flex flex-col justify-between rounded-[24px] border p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md', c.ring, c.accent || 'bg-card')}>
-      <div className="flex items-start justify-between">
-        <p className="text-xs font-medium text-muted-foreground">{title}</p>
-        <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', c.bg)}>
-          <Icon className={cn('h-4 w-4', c.icon)} />
-        </div>
-      </div>
-      <div className="mt-2">
-        <p className="text-2xl font-bold tracking-tight">{formatValue ? formatValue(value) : value.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')}</p>
-        {trend != null && (
-          <div className={cn('mt-1 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium',
-            trend > 0 ? 'bg-emerald-500/10 text-emerald-600' : trend < 0 ? 'bg-red-500/10 text-red-500' : 'bg-muted text-muted-foreground')}>
-            {trend > 0 ? <TrendingUp className="h-3 w-3" /> : trend < 0 ? <TrendingDown className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
-            <span>{trend > 0 ? '+' : ''}{trend}%</span>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-// ─── QuickStatCard ────────────────────────────────────────────────────────────
-
-function QuickStatCard({ href, icon: Icon, label, value, status, statusLabel, subtitle }: {
-  href: string; icon: React.ElementType; label: string; value: string
-  status: 'success' | 'inactive'; statusLabel: string; subtitle?: string
-}) {
-  return (
-    <Link href={href} className="group flex flex-1 items-center justify-between rounded-[24px] border bg-card p-4 shadow-sm transition-all hover:shadow-md hover:border-primary/30">
-      <div className="flex items-center gap-3">
-        <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg', status === 'success' ? 'bg-primary/10' : 'bg-muted')}>
-          <Icon className={cn('h-5 w-5', status === 'success' ? 'text-primary' : 'text-muted-foreground')} />
-        </div>
-        <div>
-          <p className="text-xs text-muted-foreground">{label}</p>
-          <div className="flex items-center gap-2">
-            <span className="text-lg font-bold">{value}</span>
-            <Badge variant={status === 'success' ? 'default' : 'secondary'} className={cn('text-[10px] px-1.5', status === 'success' && 'bg-primary hover:bg-primary/80')}>
-              {statusLabel}
-            </Badge>
-          </div>
-          {subtitle && <p className="text-[10px] text-muted-foreground mt-0.5">{subtitle}</p>}
-        </div>
-      </div>
-      <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
-    </Link>
-  )
-}
