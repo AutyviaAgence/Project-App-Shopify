@@ -90,7 +90,18 @@
     "new_conversations": "New conversations",
     "ai_performance": "AI Performance",
     "avg_response_time": "Average response time: {time}",
-    "avg_time": "Average time: {time}"
+    "avg_time": "Average time: {time}",
+    "received": "Received",
+    "sent": "Sent",
+    "cta_connect_title": "Connect your WhatsApp",
+    "cta_connect_desc": "Link a session to start receiving and automating your conversations.",
+    "cta_connect_btn": "Connect a session",
+    "cta_agent_title": "Create your first AI agent",
+    "cta_agent_desc": "Let AI qualify and reply to your contacts automatically.",
+    "cta_agent_btn": "Create an agent",
+    "cta_explore_title": "All set!",
+    "cta_explore_desc": "Explore your detailed statistics to optimize your performance.",
+    "cta_explore_btn": "View statistics"
   },
   "sessions": {
     "title": "Sessions & channels",

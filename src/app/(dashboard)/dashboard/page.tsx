@@ -378,61 +378,45 @@ function StatsDashboard() {
         </div>
       ) : stats ? (
         <>
-          {/* ─── HÉRO sombre + touche verte subtile ─── */}
-          <div data-tour="header" className="relative overflow-hidden rounded-[32px] border border-border bg-card px-6 py-7 shadow-sm md:px-9 md:py-8">
-            {/* dégradé + halos verts/corail discrets */}
-            <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/[0.10] via-transparent to-transparent" />
-            <div className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-primary/15 blur-3xl" />
-            <div className="pointer-events-none absolute -bottom-24 right-40 h-48 w-48 rounded-full bg-[#F0998A]/10 blur-3xl" />
+          {/* ═══ Ligne 1 : HÉRO sombre + glow vert (gauche) | graphe messages (droite) ═══ */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
 
-            <div className="relative flex items-start justify-between gap-4">
-              <div className="min-w-0">
-                <p className="text-sm/none font-medium text-muted-foreground">{t('dashboard.greeting')}</p>
-                <h1 className="mt-1 truncate text-2xl font-bold tracking-tight text-foreground md:text-3xl">{tenant.appName}</h1>
-                <p className="mt-1 text-sm text-muted-foreground">{t('dashboard.overview')}</p>
+            {/* HÉRO — card sombre travaillée avec glow vert prononcé */}
+            <div data-tour="header" className="relative overflow-hidden rounded-[32px] border border-primary/25 bg-card p-6 shadow-[0_0_0_1px_rgba(125,194,165,0.06),0_20px_60px_-20px_rgba(125,194,165,0.35)] md:p-8 lg:col-span-5">
+              {/* glows */}
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/[0.14] via-transparent to-transparent" />
+              <div className="pointer-events-none absolute -left-10 -top-16 h-56 w-56 rounded-full bg-primary/25 blur-3xl" />
+              <div className="pointer-events-none absolute -bottom-24 -right-10 h-56 w-56 rounded-full bg-primary/15 blur-3xl" />
 
-                {/* mini-infos en ligne */}
-                <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-                  <div>
-                    <p className="text-2xl font-bold tabular-nums text-foreground">{stats.overview.totalMessages.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')}</p>
-                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('dashboard.messages')}</p>
+              <div className="relative flex h-full flex-col">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-muted-foreground">{t('dashboard.greeting')}</p>
+                    <h1 className="mt-1 truncate text-2xl font-bold tracking-tight text-foreground md:text-3xl">{tenant.appName}</h1>
                   </div>
-                  <span className="h-9 w-px bg-border" />
-                  <div>
-                    <p className="text-2xl font-bold tabular-nums text-foreground">{stats.overview.activeConversations.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')}</p>
-                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('dashboard.conversations')}</p>
-                  </div>
-                  <span className="hidden h-9 w-px bg-border sm:block" />
-                  <div className="hidden sm:block">
-                    <p className="text-2xl font-bold tabular-nums text-foreground">{connectedSessions}/{sessions.length}</p>
-                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('dashboard.whatsapp_sessions')}</p>
+                  {/* pastille taux IA façon vignette */}
+                  <div className="flex shrink-0 flex-col items-center rounded-2xl border border-primary/30 bg-primary/15 px-4 py-2.5 shadow-[0_8px_24px_-12px_rgba(125,194,165,0.6)]">
+                    <span className="text-2xl font-bold leading-none text-primary md:text-3xl">{stats.overview.responseRate ?? 0}<span className="text-base">%</span></span>
+                    <span className="mt-1 text-[9px] uppercase tracking-wider text-muted-foreground">{t('dashboard.ai_rate')}</span>
                   </div>
                 </div>
-              </div>
 
-              {/* pastille taux IA + tour */}
-              <div className="flex shrink-0 flex-col items-end gap-3">
-                <StartTourButton />
-                <div className="flex flex-col items-center rounded-3xl border border-primary/20 bg-primary/10 px-5 py-3">
-                  <span className="text-3xl font-bold leading-none text-primary">{stats.overview.responseRate ?? 0}<span className="text-lg">%</span></span>
-                  <span className="mt-1 text-[10px] uppercase tracking-wide text-muted-foreground">{t('dashboard.ai_rate')}</span>
+                {/* 2 gros chiffres style "A+ / 24" */}
+                <div className="mt-auto grid grid-cols-2 gap-4 pt-8">
+                  <div>
+                    <p className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">{stats.overview.totalMessages.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{t('dashboard.messages')}</p>
+                  </div>
+                  <div className="border-l border-border pl-4">
+                    <p className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">{stats.overview.activeConversations.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{t('dashboard.conversations')}</p>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
 
-          {/* ─── 4 KPI qui CHEVAUCHENT le bord bas du héro (desktop) ─── */}
-          <div data-tour="kpi-cards" className="relative z-10 grid grid-cols-2 gap-4 lg:-mt-10 lg:grid-cols-4">
-            <BentoKPI title={t('dashboard.messages')} value={stats.overview.totalMessages} trend={stats.overview.messagesTrend} icon={MessageSquare} color="green" locale={locale} />
-            <BentoKPI title={t('dashboard.conversations')} value={stats.overview.activeConversations} trend={stats.overview.conversationsTrend} icon={Users} color="blue" locale={locale} />
-            <BentoKPI title={t('dashboard.new_contacts')} value={stats.overview.newContacts} trend={stats.overview.contactsTrend} icon={UserPlus} color="coral" locale={locale} />
-            <BentoKPI title={t('dashboard.ai_rate')} value={stats.overview.responseRate ?? 0} trend={null} icon={Zap} formatValue={(v) => `${v}%`} color="orange" locale={locale} />
-          </div>
-
-          {/* ─── Graphes bento ─── */}
-          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-5">
-            {/* Graphe messages (grand) */}
-            <div className="overflow-hidden rounded-[28px] border border-primary/15 bg-gradient-to-br from-primary/[0.06] via-card to-card p-5 shadow-sm md:p-6 lg:col-span-3">
+            {/* Graphe messages par jour */}
+            <div className="overflow-hidden rounded-[28px] border bg-card p-5 shadow-sm md:p-6 lg:col-span-7">
               <div className="mb-4 flex items-center justify-between">
                 <h3 className="text-sm font-semibold">{t('dashboard.messages_per_day')}</h3>
                 <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/15 text-primary">
@@ -440,35 +424,129 @@ function StatsDashboard() {
                 </div>
               </div>
               <MessagesChart data={stats.charts.messagesOverTime} />
-              {/* sous-bloc imbriqué : perf IA */}
-              {stats.overview.avgResponseTime != null && stats.overview.avgResponseTime > 0 && (
-                <div className="mt-4 flex items-center gap-3 rounded-2xl border border-primary/15 bg-background/60 p-3 backdrop-blur">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
-                    <Clock className="h-4 w-4" />
+            </div>
+          </div>
+
+          {/* ═══ Ligne 2 : 4 KPI ronds ═══ */}
+          <div data-tour="kpi-cards" className="mt-4 grid grid-cols-2 gap-4 lg:grid-cols-4">
+            <BentoKPI title={t('dashboard.messages')} value={stats.overview.totalMessages} trend={stats.overview.messagesTrend} icon={MessageSquare} color="green" locale={locale} />
+            <BentoKPI title={t('dashboard.conversations')} value={stats.overview.activeConversations} trend={stats.overview.conversationsTrend} icon={Users} color="blue" locale={locale} />
+            <BentoKPI title={t('dashboard.new_contacts')} value={stats.overview.newContacts} trend={stats.overview.contactsTrend} icon={UserPlus} color="coral" locale={locale} />
+            <BentoKPI title={t('dashboard.ai_rate')} value={stats.overview.responseRate ?? 0} trend={null} icon={Zap} formatValue={(v) => `${v}%`} color="orange" locale={locale} />
+          </div>
+
+          {/* ═══ Ligne 3 : répartition (barres) | graphe conversations ═══ */}
+          <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-5">
+            {/* Répartition envoyés / reçus */}
+            <div className="rounded-[28px] border bg-card p-5 shadow-sm md:p-6 lg:col-span-2">
+              <h3 className="mb-5 text-sm font-semibold">{t('dashboard.messages')}</h3>
+              {(() => {
+                const inbound = stats.charts.messagesOverTime.reduce((s, p) => s + p.inbound, 0)
+                const outbound = stats.charts.messagesOverTime.reduce((s, p) => s + p.outbound, 0)
+                const total = inbound + outbound || 1
+                const pctIn = Math.round((inbound / total) * 100)
+                const pctOut = 100 - pctIn
+                return (
+                  <div className="space-y-5">
+                    <Ratio label={t('dashboard.received')} value={inbound} pct={pctIn} barClass="bg-primary" locale={locale} />
+                    <Ratio label={t('dashboard.sent')} value={outbound} pct={pctOut} barClass="bg-[#F0998A]" locale={locale} />
+                    <div className="flex items-center gap-2 rounded-2xl bg-muted/50 px-3 py-2.5">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/15 text-primary">
+                        <Clock className="h-4 w-4" />
+                      </div>
+                      <p className="text-[11px] text-muted-foreground">
+                        {stats.overview.avgResponseTime != null && stats.overview.avgResponseTime > 0
+                          ? t('dashboard.avg_response_time', { time: formatSeconds(stats.overview.avgResponseTime) })
+                          : t('dashboard.ai_performance')}
+                      </p>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium">{t('dashboard.ai_performance')}</p>
-                    <p className="truncate text-[11px] text-muted-foreground">{t('dashboard.avg_response_time', { time: formatSeconds(stats.overview.avgResponseTime) })}</p>
-                  </div>
-                </div>
-              )}
+                )
+              })()}
             </div>
 
             {/* Graphe conversations */}
-            <div className="rounded-[28px] border bg-card p-5 shadow-sm md:p-6 lg:col-span-2">
+            <div className="rounded-[28px] border bg-card p-5 shadow-sm md:p-6 lg:col-span-3">
               <h3 className="mb-4 text-sm font-semibold">{t('dashboard.new_conversations')}</h3>
               <TimeSeriesChart data={stats.charts.conversationsOverTime} title="" color="var(--accent, #40E9BE)" />
             </div>
           </div>
 
-          {/* ─── Quick stats (3 raccourcis) ─── */}
+          {/* ═══ Ligne 4 : 3 quick stats ═══ */}
           <div data-tour="quick-stats" className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-3">
             <QuickStatCard href="/sessions" icon={Smartphone} label={t('dashboard.whatsapp_sessions')} value={`${connectedSessions}/${sessions.length}`} status={connectedSessions > 0 ? 'success' : 'inactive'} statusLabel={connectedSessions > 0 ? t('dashboard.connected') : t('dashboard.none_female')} />
             <QuickStatCard href="/agents" icon={Bot} label={t('dashboard.ai_agents')} value={`${activeAgents}/${totalAgents}`} status={activeAgents > 0 ? 'success' : 'inactive'} statusLabel={activeAgents > 0 ? t('common.active') : t('dashboard.none_male')} subtitle={stats.overview.avgResponseTime != null && stats.overview.avgResponseTime > 0 ? t('dashboard.avg_time', { time: formatSeconds(stats.overview.avgResponseTime) }) : undefined} />
             <QuickStatCard href="/links" icon={Link2} label={t('dashboard.whatsapp_links')} value={`${activeLinks}/${totalLinks}`} status={activeLinks > 0 ? 'success' : 'inactive'} statusLabel={activeLinks > 0 ? t('common.active') : t('dashboard.none_male')} subtitle={totalLinks > 0 ? `${totalClicks.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')} ${t('dashboard.clicks')}` : undefined} />
           </div>
+
+          {/* ═══ Carte CTA contextuelle ═══ */}
+          <DashboardCTA
+            connectedSessions={connectedSessions}
+            activeAgents={activeAgents}
+            t={t}
+          />
         </>
       ) : null}
+    </div>
+  )
+}
+
+// ─── Ratio — barre de répartition (envoyés / reçus) ──────────────────────────
+
+function Ratio({ label, value, pct, barClass, locale }: {
+  label: string; value: number; pct: number; barClass: string; locale: string
+}) {
+  return (
+    <div>
+      <div className="mb-1.5 flex items-baseline justify-between">
+        <span className="text-sm font-medium text-foreground">{label}</span>
+        <span className="text-xs text-muted-foreground">
+          <span className="font-semibold text-foreground">{value.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')}</span> · {pct}%
+        </span>
+      </div>
+      <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
+        <div className={cn('h-full rounded-full transition-all', barClass)} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  )
+}
+
+// ─── Carte CTA contextuelle ──────────────────────────────────────────────────
+
+function DashboardCTA({ connectedSessions, activeAgents, t }: {
+  connectedSessions: number; activeAgents: number; t: (key: string) => string
+}) {
+  // Guide vers l'action manquante la plus prioritaire
+  const cta = connectedSessions === 0
+    ? { href: '/sessions', title: t('dashboard.cta_connect_title'), desc: t('dashboard.cta_connect_desc'), btn: t('dashboard.cta_connect_btn'), icon: Smartphone }
+    : activeAgents === 0
+      ? { href: '/agents', title: t('dashboard.cta_agent_title'), desc: t('dashboard.cta_agent_desc'), btn: t('dashboard.cta_agent_btn'), icon: Bot }
+      : { href: '/stats', title: t('dashboard.cta_explore_title'), desc: t('dashboard.cta_explore_desc'), btn: t('dashboard.cta_explore_btn'), icon: Sparkles }
+  const Icon = cta.icon
+  return (
+    <div className="relative mt-4 overflow-hidden rounded-[28px] border border-primary/20 bg-gradient-to-r from-primary/[0.12] via-primary/[0.05] to-transparent p-6 shadow-sm md:p-7">
+      {/* visuels décoratifs (bulles façon illustration) */}
+      <div className="pointer-events-none absolute -right-6 top-1/2 hidden h-40 w-40 -translate-y-1/2 rounded-full bg-primary/20 blur-2xl sm:block" />
+      <div className="pointer-events-none absolute right-10 top-4 hidden h-16 w-16 rounded-full border border-primary/20 bg-primary/10 sm:block" />
+      <div className="pointer-events-none absolute right-28 bottom-3 hidden h-10 w-10 rounded-full border border-primary/15 bg-primary/5 sm:block" />
+
+      <div className="relative flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-4">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-primary/15 text-primary">
+            <Icon className="h-6 w-6" />
+          </div>
+          <div className="min-w-0">
+            <h3 className="text-base font-bold text-foreground">{cta.title}</h3>
+            <p className="mt-0.5 text-sm text-muted-foreground">{cta.desc}</p>
+          </div>
+        </div>
+        <Link href={cta.href} className="shrink-0">
+          <button className="flex items-center gap-2 rounded-2xl bg-primary px-5 py-3 text-sm font-semibold text-primary-foreground shadow-sm transition-all hover:brightness-105 active:scale-[0.98]">
+            {cta.btn}
+            <ArrowRight className="h-4 w-4" />
+          </button>
+        </Link>
+      </div>
     </div>
   )
 }
