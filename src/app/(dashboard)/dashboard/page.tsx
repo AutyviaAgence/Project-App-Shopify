@@ -378,43 +378,44 @@ function StatsDashboard() {
         </div>
       ) : stats ? (
         <>
-          {/* ─── HÉRO vert pleine largeur (facon maquette) ─── */}
-          <div data-tour="header" className="relative overflow-hidden rounded-[32px] bg-gradient-to-br from-primary to-primary/80 px-6 py-7 text-primary-foreground shadow-lg md:px-9 md:py-8">
-            {/* halos décoratifs */}
-            <div className="pointer-events-none absolute -right-10 -top-16 h-56 w-56 rounded-full bg-white/10 blur-2xl" />
-            <div className="pointer-events-none absolute -bottom-20 right-32 h-48 w-48 rounded-full bg-[#F0998A]/25 blur-3xl" />
+          {/* ─── HÉRO sombre + touche verte subtile ─── */}
+          <div data-tour="header" className="relative overflow-hidden rounded-[32px] border border-border bg-card px-6 py-7 shadow-sm md:px-9 md:py-8">
+            {/* dégradé + halos verts/corail discrets */}
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-primary/[0.10] via-transparent to-transparent" />
+            <div className="pointer-events-none absolute -right-16 -top-24 h-64 w-64 rounded-full bg-primary/15 blur-3xl" />
+            <div className="pointer-events-none absolute -bottom-24 right-40 h-48 w-48 rounded-full bg-[#F0998A]/10 blur-3xl" />
 
             <div className="relative flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className="text-sm/none font-medium text-primary-foreground/80">{t('dashboard.greeting')}</p>
-                <h1 className="mt-1 truncate text-2xl font-bold tracking-tight md:text-3xl">{tenant.appName}</h1>
-                <p className="mt-1 text-sm text-primary-foreground/70">{t('dashboard.overview')}</p>
+                <p className="text-sm/none font-medium text-muted-foreground">{t('dashboard.greeting')}</p>
+                <h1 className="mt-1 truncate text-2xl font-bold tracking-tight text-foreground md:text-3xl">{tenant.appName}</h1>
+                <p className="mt-1 text-sm text-muted-foreground">{t('dashboard.overview')}</p>
 
                 {/* mini-infos en ligne */}
                 <div className="mt-5 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
                   <div>
-                    <p className="text-2xl font-bold tabular-nums">{stats.overview.totalMessages.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')}</p>
-                    <p className="text-[11px] uppercase tracking-wide text-primary-foreground/60">{t('dashboard.messages')}</p>
+                    <p className="text-2xl font-bold tabular-nums text-foreground">{stats.overview.totalMessages.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')}</p>
+                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('dashboard.messages')}</p>
                   </div>
-                  <span className="h-9 w-px bg-primary-foreground/20" />
+                  <span className="h-9 w-px bg-border" />
                   <div>
-                    <p className="text-2xl font-bold tabular-nums">{stats.overview.activeConversations.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')}</p>
-                    <p className="text-[11px] uppercase tracking-wide text-primary-foreground/60">{t('dashboard.conversations')}</p>
+                    <p className="text-2xl font-bold tabular-nums text-foreground">{stats.overview.activeConversations.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')}</p>
+                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('dashboard.conversations')}</p>
                   </div>
-                  <span className="hidden h-9 w-px bg-primary-foreground/20 sm:block" />
+                  <span className="hidden h-9 w-px bg-border sm:block" />
                   <div className="hidden sm:block">
-                    <p className="text-2xl font-bold tabular-nums">{connectedSessions}/{sessions.length}</p>
-                    <p className="text-[11px] uppercase tracking-wide text-primary-foreground/60">{t('dashboard.whatsapp_sessions')}</p>
+                    <p className="text-2xl font-bold tabular-nums text-foreground">{connectedSessions}/{sessions.length}</p>
+                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground">{t('dashboard.whatsapp_sessions')}</p>
                   </div>
                 </div>
               </div>
 
-              {/* pastille taux IA (facon vignette 29°) + tour */}
+              {/* pastille taux IA + tour */}
               <div className="flex shrink-0 flex-col items-end gap-3">
                 <StartTourButton />
-                <div className="flex flex-col items-center rounded-3xl bg-primary-foreground/15 px-5 py-3 backdrop-blur">
-                  <span className="text-3xl font-bold leading-none">{stats.overview.responseRate ?? 0}<span className="text-lg">%</span></span>
-                  <span className="mt-1 text-[10px] uppercase tracking-wide text-primary-foreground/70">{t('dashboard.ai_rate')}</span>
+                <div className="flex flex-col items-center rounded-3xl border border-primary/20 bg-primary/10 px-5 py-3">
+                  <span className="text-3xl font-bold leading-none text-primary">{stats.overview.responseRate ?? 0}<span className="text-lg">%</span></span>
+                  <span className="mt-1 text-[10px] uppercase tracking-wide text-muted-foreground">{t('dashboard.ai_rate')}</span>
                 </div>
               </div>
             </div>
