@@ -67,22 +67,14 @@ const ALL_TOUR_STEPS: TourStep[] = [
     description: 'tour.create_agent_desc',
     position: 'left'
   },
-  // Knowledge
+  // Ressources — Bibliothèque
   {
     id: 'knowledge-page',
-    page: '/knowledge',
-    target: '[data-tour="knowledge-header"]',
+    page: '/ressources',
+    target: '[data-tour="resources-header"]',
     title: 'tour.knowledge_title',
     description: 'tour.knowledge_desc',
     position: 'bottom'
-  },
-  {
-    id: 'knowledge-upload',
-    page: '/knowledge',
-    target: '[data-tour="upload-btn"]',
-    title: 'tour.add_doc_title',
-    description: 'tour.add_doc_desc',
-    position: 'left'
   },
   // Conversations
   {
@@ -93,11 +85,11 @@ const ALL_TOUR_STEPS: TourStep[] = [
     description: 'tour.conversations_desc',
     position: 'bottom'
   },
-  // Links
+  // Ressources — Liens
   {
     id: 'links-page',
-    page: '/links',
-    target: '[data-tour="links-header"]',
+    page: '/ressources',
+    target: '[data-tour="resources-header"]',
     title: 'tour.links_title',
     description: 'tour.links_desc',
     position: 'bottom'
