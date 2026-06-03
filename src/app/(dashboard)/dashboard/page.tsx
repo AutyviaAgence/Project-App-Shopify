@@ -361,15 +361,15 @@ function StatsDashboard() {
   const activeAgents = stats?.agents.filter((a) => a.isActive).length ?? 0
 
   return (
-    <div className="flex h-full flex-col gap-4 p-4 pb-20 md:overflow-hidden md:p-6 md:pb-6">
+    <div className="flex flex-col gap-4 p-4 pb-20 md:p-6 md:pb-6">
       {loading ? (
-        <div className="flex flex-1 items-center justify-center">
+        <div className="flex h-64 items-center justify-center">
           <BlobLoader size={88} />
         </div>
       ) : stats ? (
         <>
           {/* ═══ Ligne 1 : HÉRO scindé (gauche) | graphe messages (droite) ═══ */}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-12 lg:flex-1">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
 
             {/* HÉRO — greeting + chiffres, avec pastille ronde taux IA qui pop du coin */}
             <div data-tour="header" className="relative rounded-[32px] border border-primary/25 bg-card shadow-[0_0_0_1px_rgba(125,194,165,0.06),0_20px_60px_-20px_rgba(125,194,165,0.35)] lg:col-span-5">
@@ -380,40 +380,40 @@ function StatsDashboard() {
               </div>
 
               {/* Petit bouton rond avec fleche (facon "Total Profit") */}
-              <Link href="/stats" className="absolute right-5 top-5 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_8px_20px_-6px_rgba(125,194,165,0.8)] transition-transform hover:scale-110 md:right-6 md:top-6">
-                <ArrowUpRight className="h-5 w-5" />
+              <Link href="/stats" className="absolute right-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_8px_20px_-6px_rgba(125,194,165,0.8)] transition-transform hover:scale-110 md:right-5 md:top-5">
+                <ArrowUpRight className="h-4 w-4" />
               </Link>
 
               {/* Contenu hero */}
-              <div className="relative flex min-w-0 flex-1 flex-col p-6 md:p-8">
+              <div className="relative flex min-w-0 flex-col p-5 md:p-6">
                 <div className="min-w-0 pr-14">
-                  <p className="text-sm font-medium text-muted-foreground">{t('dashboard.greeting')}</p>
-                  <h1 className="mt-1 truncate text-2xl font-bold tracking-tight text-foreground md:text-3xl">{tenant.appName}</h1>
+                  <p className="text-xs font-medium text-muted-foreground">{t('dashboard.greeting')}</p>
+                  <h1 className="mt-0.5 truncate text-xl font-bold tracking-tight text-foreground md:text-2xl">{tenant.appName}</h1>
                 </div>
 
-                <div className="mt-auto grid grid-cols-3 gap-3 pt-8">
+                <div className="mt-5 grid grid-cols-3 gap-3">
                   <div>
-                    <p className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">{stats.overview.totalMessages.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')}</p>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground">{t('dashboard.messages')}</p>
+                    <p className="text-xl font-bold tracking-tight text-foreground md:text-2xl">{stats.overview.totalMessages.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')}</p>
+                    <p className="mt-0.5 text-[10px] text-muted-foreground">{t('dashboard.messages')}</p>
                   </div>
                   <div className="border-l border-border pl-3">
-                    <p className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">{stats.overview.activeConversations.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')}</p>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground">{t('dashboard.conversations')}</p>
+                    <p className="text-xl font-bold tracking-tight text-foreground md:text-2xl">{stats.overview.activeConversations.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')}</p>
+                    <p className="mt-0.5 text-[10px] text-muted-foreground">{t('dashboard.conversations')}</p>
                   </div>
                   <div className="border-l border-border pl-3">
-                    <p className="text-2xl font-bold tracking-tight text-primary md:text-3xl">{stats.overview.responseRate ?? 0}<span className="text-base">%</span></p>
-                    <p className="mt-0.5 text-[11px] text-muted-foreground">{t('dashboard.ai_rate')}</p>
+                    <p className="text-xl font-bold tracking-tight text-primary md:text-2xl">{stats.overview.responseRate ?? 0}<span className="text-sm">%</span></p>
+                    <p className="mt-0.5 text-[10px] text-muted-foreground">{t('dashboard.ai_rate')}</p>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Graphe messages par jour */}
-            <div className="overflow-hidden rounded-[28px] border bg-card p-5 shadow-sm md:p-6 lg:col-span-7">
-              <div className="mb-4 flex items-center justify-between">
+            <div className="overflow-hidden rounded-3xl border bg-card p-4 shadow-sm md:p-5 lg:col-span-7">
+              <div className="mb-3 flex items-center justify-between">
                 <h3 className="text-sm font-semibold">{t('dashboard.messages_per_day')}</h3>
-                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-primary/15 text-primary">
-                  <MessageSquare className="h-5 w-5" />
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary">
+                  <MessageSquare className="h-4 w-4" />
                 </div>
               </div>
               <MessagesChart data={stats.charts.messagesOverTime} />
@@ -421,10 +421,10 @@ function StatsDashboard() {
           </div>
 
           {/* ═══ Ligne 2 : répartition (barres) | graphe conversations ═══ */}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-5 lg:flex-1">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
             {/* Répartition envoyés / reçus */}
-            <div className="flex flex-col rounded-[28px] border bg-card p-5 shadow-sm md:p-6 lg:col-span-2">
-              <h3 className="mb-5 text-sm font-semibold">{t('dashboard.messages')}</h3>
+            <div className="flex flex-col rounded-3xl border bg-card p-4 shadow-sm md:p-5 lg:col-span-2">
+              <h3 className="mb-4 text-sm font-semibold">{t('dashboard.messages')}</h3>
               {(() => {
                 const inbound = stats.charts.messagesOverTime.reduce((s, p) => s + p.inbound, 0)
                 const outbound = stats.charts.messagesOverTime.reduce((s, p) => s + p.outbound, 0)
@@ -432,7 +432,7 @@ function StatsDashboard() {
                 const pctIn = Math.round((inbound / total) * 100)
                 const pctOut = 100 - pctIn
                 return (
-                  <div className="flex flex-1 flex-col justify-center space-y-5">
+                  <div className="flex flex-1 flex-col justify-center space-y-4">
                     <Ratio label={t('dashboard.received')} value={inbound} pct={pctIn} barClass="bg-primary" locale={locale} />
                     <Ratio label={t('dashboard.sent')} value={outbound} pct={pctOut} barClass="bg-[#F0998A]" locale={locale} />
                     <div className="flex items-center gap-2 rounded-2xl bg-muted/50 px-3 py-2.5">
@@ -451,8 +451,8 @@ function StatsDashboard() {
             </div>
 
             {/* Graphe conversations */}
-            <div className="flex flex-col overflow-hidden rounded-[28px] border bg-card p-5 shadow-sm md:p-6 lg:col-span-3">
-              <h3 className="mb-4 text-sm font-semibold">{t('dashboard.new_conversations')}</h3>
+            <div className="flex flex-col overflow-hidden rounded-3xl border bg-card p-4 shadow-sm md:p-5 lg:col-span-3">
+              <h3 className="mb-3 text-sm font-semibold">{t('dashboard.new_conversations')}</h3>
               <div className="flex-1">
                 <TimeSeriesChart data={stats.charts.conversationsOverTime} title="" color="var(--accent, #40E9BE)" />
               </div>
@@ -503,9 +503,9 @@ function DashboardCTA({ connectedSessions, activeAgents, t }: {
       ? { href: '/agents', title: t('dashboard.cta_agent_title'), desc: t('dashboard.cta_agent_desc'), btn: t('dashboard.cta_agent_btn'), icon: Bot }
       : { href: '/stats', title: t('dashboard.cta_explore_title'), desc: t('dashboard.cta_explore_desc'), btn: t('dashboard.cta_explore_btn'), icon: Sparkles }
   return (
-    <div className="group/cta relative overflow-visible rounded-[32px] border border-primary/30 bg-gradient-to-br from-primary via-primary to-primary/75 p-6 shadow-[0_24px_60px_-20px_rgba(125,194,165,0.6)] md:p-7">
+    <div className="group/cta relative overflow-visible rounded-3xl border border-primary/30 bg-gradient-to-br from-primary via-primary to-primary/75 p-5 shadow-[0_24px_60px_-20px_rgba(125,194,165,0.6)] md:p-6">
       {/* Fond : grand glow + motif de points (radial) */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[32px]">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl">
         <div className="absolute -left-16 -top-20 h-64 w-64 rounded-full bg-white/15 blur-3xl" />
         <div className="absolute -bottom-24 left-1/3 h-56 w-56 rounded-full bg-[#F0998A]/25 blur-3xl" />
         <div
@@ -528,10 +528,10 @@ function DashboardCTA({ connectedSessions, activeAgents, t }: {
           <Sparkles className="h-3.5 w-3.5" />
           Autyvia
         </span>
-        <h3 className="mt-3 text-2xl font-bold leading-tight tracking-tight md:text-3xl">{cta.title}</h3>
-        <p className="mt-1.5 text-sm text-primary-foreground/80 md:text-base">{cta.desc}</p>
-        <Link href={cta.href} className="mt-5 inline-block">
-          <button className="flex items-center gap-2 rounded-2xl bg-primary-foreground px-6 py-3 text-sm font-bold text-primary shadow-lg transition-all hover:scale-[1.03] active:scale-[0.98]">
+        <h3 className="mt-2.5 text-xl font-bold leading-tight tracking-tight md:text-2xl">{cta.title}</h3>
+        <p className="mt-1 text-sm text-primary-foreground/80">{cta.desc}</p>
+        <Link href={cta.href} className="mt-4 inline-block">
+          <button className="flex items-center gap-2 rounded-xl bg-primary-foreground px-5 py-2.5 text-sm font-bold text-primary shadow-lg transition-all hover:scale-[1.03] active:scale-[0.98]">
             {cta.btn}
             <ArrowRight className="h-4 w-4" />
           </button>
