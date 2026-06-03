@@ -53,6 +53,7 @@ interface ChatAreaProps {
   agents: AIAgent[]
   lifecycleStages: LifecycleStage[]
   analyzingConvId: string | null
+  canAnalyze?: boolean
   hasMoreMessages?: boolean
   loadingOlder?: boolean
   onLoadOlder?: () => void
@@ -75,6 +76,7 @@ export function ChatArea({
   agents,
   lifecycleStages,
   analyzingConvId,
+  canAnalyze,
   hasMoreMessages,
   loadingOlder,
   onLoadOlder,
@@ -295,20 +297,22 @@ export function ChatArea({
                       ))}
                     </SelectContent>
                   </Select>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
-                    onClick={() => onAnalyzeConversation(selectedConv.id)}
-                    disabled={analyzingConvId === selectedConv.id}
-                    title={t('conversations.analyze_ai')}
-                  >
-                    {analyzingConvId === selectedConv.id ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    ) : (
-                      <Sparkles className="h-3.5 w-3.5" />
-                    )}
-                  </Button>
+                  {canAnalyze && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => onAnalyzeConversation(selectedConv.id)}
+                      disabled={analyzingConvId === selectedConv.id}
+                      title={t('conversations.analyze_ai')}
+                    >
+                      {analyzingConvId === selectedConv.id ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-3.5 w-3.5" />
+                      )}
+                    </Button>
+                  )}
                 </div>
               )}
 

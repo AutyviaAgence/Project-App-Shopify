@@ -112,24 +112,14 @@ const ALL_TOUR_STEPS: TourStep[] = [
     position: 'bottom',
     requiredPlan: 'scale'
   },
-  // Tags
-  {
-    id: 'tags-page',
-    page: '/tags',
-    target: '[data-tour="tags-header"]',
-    title: 'tour.tags_title',
-    description: 'tour.tags_desc',
-    position: 'bottom'
-  },
-  // Lifecycle — Pro et Scale
+  // Lifecycle — étiquettes (universel, remplace Tags)
   {
     id: 'lifecycle-page',
     page: '/lifecycle',
     target: '[data-tour="lifecycle-header"]',
     title: 'tour.lifecycle_title',
     description: 'tour.lifecycle_desc',
-    position: 'bottom',
-    requiredPlan: 'pro'
+    position: 'bottom'
   },
   // Teams
   {

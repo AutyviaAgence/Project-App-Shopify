@@ -7,6 +7,7 @@ import type { ConversationTag } from '@/types/database'
 import { toast } from 'sonner'
 import { ContactProfilePanel } from '@/components/contact-profile-panel'
 import { useTranslation } from '@/i18n/context'
+import { useSubscription } from '@/hooks/use-subscription'
 import { ConversationList } from './_components/conversation-list'
 import { ChatArea } from './_components/chat-area'
 import type { ConversationWithJoins, Team, Message, AIAgent, LifecycleStage } from './_components/types'
@@ -32,6 +33,9 @@ function ConversationsPageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const { t } = useTranslation()
+  const { subscription } = useSubscription()
+  // Analyse IA réservée aux plans pro/scale (ou admin)
+  const canAnalyze = subscription?.role === 'admin' || subscription?.plan === 'pro' || subscription?.plan === 'scale'
 
   // Core state
   const [conversations, setConversations] = useState<ConversationWithJoins[]>([])
@@ -793,6 +797,7 @@ function ConversationsPageContent() {
         agents={agents}
         lifecycleStages={lifecycleStages}
         analyzingConvId={analyzingConvId}
+        canAnalyze={canAnalyze}
         hasMoreMessages={hasMoreMessages}
         loadingOlder={loadingOlder}
         onLoadOlder={loadOlderMessages}

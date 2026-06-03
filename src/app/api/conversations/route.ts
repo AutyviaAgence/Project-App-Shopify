@@ -186,10 +186,11 @@ export async function GET(req: NextRequest) {
   if (tagIdsParam) {
     const tagIds = tagIdsParam.split(',').filter(Boolean)
     if (tagIds.length > 0) {
+      // FUSION : filtre par étiquettes lifecycle (liaison multi)
       const { data: tagAssignments } = await supabase
-        .from('conversation_tag_assignments')
+        .from('conversation_lifecycle_stages')
         .select('conversation_id')
-        .in('tag_id', tagIds)
+        .in('stage_id', tagIds)
 
       tagConvIds = [...new Set((tagAssignments || []).map((a) => a.conversation_id))]
       if (tagConvIds.length === 0) {

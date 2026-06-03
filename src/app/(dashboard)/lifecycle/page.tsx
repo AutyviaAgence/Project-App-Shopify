@@ -38,6 +38,7 @@ import {
   ArrowRight,
 } from 'lucide-react'
 import { useTranslation } from '@/i18n/context'
+import { useSubscription } from '@/hooks/use-subscription'
 
 const STAGE_COLORS = [
   '#3B82F6', // blue
@@ -108,6 +109,8 @@ type LifecycleStats = {
 
 export default function LifecyclePage() {
   const { t, locale } = useTranslation()
+  const { subscription } = useSubscription()
+  const canAnalyze = subscription?.role === 'admin' || subscription?.plan === 'pro' || subscription?.plan === 'scale'
   const [stages, setStages] = useState<LifecycleStage[]>(() => getCache<LifecycleStage[]>('lifecycle:stages') || [])
   const [loading, setLoading] = useState(() => !getCache('lifecycle:stages'))
   const [unanalyzed, setUnanalyzed] = useState<UnanalyzedCounts>({ unanalyzed: 0, needs_reanalysis: 0, total: 0 })
@@ -368,8 +371,8 @@ export default function LifecyclePage() {
       </div>
 
       <div className="max-w-3xl space-y-6">
-        {/* Analyse en masse */}
-        {unanalyzed.total > 0 && (
+        {/* Analyse en masse — réservé Pro/Scale */}
+        {canAnalyze && unanalyzed.total > 0 && (
           <Card className="border-amber-500/30 bg-amber-500/5">
             <CardContent className="flex items-center justify-between py-4">
               <div>

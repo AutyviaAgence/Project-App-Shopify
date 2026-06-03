@@ -26,7 +26,7 @@ export async function PATCH(
   }
 
   const { data: tag, error } = await supabase
-    .from('conversation_tags')
+    .from('lifecycle_stages')
     .update(updateData)
     .eq('id', id)
     .eq('user_id', user.id)
@@ -61,7 +61,7 @@ export async function DELETE(
   }
 
   const { error } = await supabase
-    .from('conversation_tags')
+    .from('lifecycle_stages')
     .delete()
     .eq('id', id)
     .eq('user_id', user.id)

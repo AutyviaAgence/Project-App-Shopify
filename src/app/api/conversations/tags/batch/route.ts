@@ -55,38 +55,35 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ data: {} })
   }
 
-  // Récupérer les assignations de tags pour ces conversations
+  // FUSION : on lit désormais les étiquettes lifecycle (liaison multi)
   const { data: assignments } = await supabase
-    .from('conversation_tag_assignments')
-    .select('conversation_id, tag_id')
+    .from('conversation_lifecycle_stages')
+    .select('conversation_id, stage_id')
     .in('conversation_id', validConvIds)
 
   if (!assignments || assignments.length === 0) {
-    // Retourner un objet vide pour chaque conversation
     const result: Record<string, []> = {}
     validConvIds.forEach(id => { result[id] = [] })
     return NextResponse.json({ data: result })
   }
 
-  // Récupérer les infos des tags
-  const tagIds = [...new Set(assignments.map(a => a.tag_id))]
-  const { data: tags } = await supabase
-    .from('conversation_tags')
+  const stageIds = [...new Set(assignments.map(a => a.stage_id))]
+  const { data: stages } = await supabase
+    .from('lifecycle_stages')
     .select('*')
-    .in('id', tagIds)
+    .in('id', stageIds)
 
-  const tagsArray = tags || []
-  const tagsMap = Object.fromEntries(tagsArray.map(t => [t.id, t]))
+  const stagesArray = stages || []
+  const stagesMap = Object.fromEntries(stagesArray.map(s => [s.id, s]))
 
-  // Construire le résultat groupé par conversation
-  type TagType = typeof tagsArray[number]
-  const result: Record<string, TagType[]> = {}
+  type StageType = typeof stagesArray[number]
+  const result: Record<string, StageType[]> = {}
   validConvIds.forEach(id => { result[id] = [] })
 
   assignments.forEach(a => {
-    const tag = tagsMap[a.tag_id]
-    if (tag && result[a.conversation_id]) {
-      result[a.conversation_id].push(tag)
+    const stage = stagesMap[a.stage_id]
+    if (stage && result[a.conversation_id]) {
+      result[a.conversation_id].push(stage)
     }
   })
 

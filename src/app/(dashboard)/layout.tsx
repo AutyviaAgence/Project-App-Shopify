@@ -76,13 +76,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const NAV_ITEMS = useMemo(() =>
     NAV_ITEMS_KEYS
-      .filter(item => {
-        if (isAdmin) return true // admin voit tout
-        if (item.href === '/lifecycle' && plan !== 'pro' && plan !== 'scale') return false
-        return true
-      })
       .map(item => ({ ...item, label: (item as { label?: string }).label || t(item.labelKey) })),
-    [t, plan, isAdmin]
+    [t]
   )
   const BOTTOM_NAV_ITEMS = useMemo(() => {
     const items = BOTTOM_NAV_KEYS.map(item => ({ ...item, label: t(item.labelKey) }))
@@ -116,13 +111,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Blocage niveau 2 : a un plan mais subscription inactive (past_due/canceled)
   const isBlocked = !isAdmin && subscription && !!plan && !subscription.isActive && !isAllowedPage
 
-  // Feature gating : rediriger si accès direct à une route non autorisée par le plan
-  const isPlanBlocked =
-    !isAdmin &&
-    subscription &&
-    !!plan &&
-    subscription.isActive &&
-    (pathname.startsWith('/lifecycle') && plan === 'starter')
+  // Feature gating : Lifecycle est désormais universel (remplace Tags). Seule
+  // l'analyse IA dedans est gated par plan (géré dans la page elle-même).
+  const isPlanBlocked = false
 
   // Rediriger vers /welcome-v2 si pas de plan actif
   useEffect(() => {

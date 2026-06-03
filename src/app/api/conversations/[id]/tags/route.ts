@@ -40,10 +40,10 @@ export async function GET(
     return NextResponse.json({ error: 'Conversation introuvable' }, { status: 404 })
   }
 
-  // Récupérer les tag_ids assignés
+  // FUSION : étiquettes lifecycle assignées (liaison multi)
   const { data: assignments, error } = await supabase
-    .from('conversation_tag_assignments')
-    .select('tag_id')
+    .from('conversation_lifecycle_stages')
+    .select('stage_id')
     .eq('conversation_id', id)
 
   if (error) {
@@ -54,14 +54,13 @@ export async function GET(
     return NextResponse.json({ data: [] })
   }
 
-  // Récupérer les infos des tags
-  const tagIds = assignments.map((a) => a.tag_id)
-  const { data: tags } = await supabase
-    .from('conversation_tags')
+  const stageIds = assignments.map((a) => a.stage_id)
+  const { data: stages } = await supabase
+    .from('lifecycle_stages')
     .select('*')
-    .in('id', tagIds)
+    .in('id', stageIds)
 
-  return NextResponse.json({ data: tags || [] })
+  return NextResponse.json({ data: stages || [] })
 }
 
 /** PUT /api/conversations/[id]/tags — Remplacer tous les tags d'une conversation */
@@ -89,33 +88,32 @@ export async function PUT(
     return NextResponse.json({ error: 'Conversation introuvable' }, { status: 404 })
   }
 
-  // Vérifier que tous les tags appartiennent à l'utilisateur
+  // FUSION : les tag_ids reçus sont des stage_ids lifecycle
   if (tag_ids.length > 0) {
-    const { data: validTags } = await supabase
-      .from('conversation_tags')
+    const { data: validStages } = await supabase
+      .from('lifecycle_stages')
       .select('id')
       .eq('user_id', user.id)
       .in('id', tag_ids)
 
-    if (!validTags || validTags.length !== tag_ids.length) {
-      return NextResponse.json({ error: 'Un ou plusieurs tags sont invalides' }, { status: 400 })
+    if (!validStages || validStages.length !== tag_ids.length) {
+      return NextResponse.json({ error: 'Une ou plusieurs étiquettes sont invalides' }, { status: 400 })
     }
   }
 
-  // Supprimer les assignations existantes
+  // Remplacement atomique des assignations lifecycle
   await supabase
-    .from('conversation_tag_assignments')
+    .from('conversation_lifecycle_stages')
     .delete()
     .eq('conversation_id', id)
 
-  // Créer les nouvelles assignations
   if (tag_ids.length > 0) {
     const { error: insertError } = await supabase
-      .from('conversation_tag_assignments')
+      .from('conversation_lifecycle_stages')
       .insert(
-        tag_ids.map((tag_id) => ({
+        tag_ids.map((stage_id) => ({
           conversation_id: id,
-          tag_id,
+          stage_id,
         }))
       )
 
@@ -123,6 +121,12 @@ export async function PUT(
       return NextResponse.json({ error: insertError.message }, { status: 500 })
     }
   }
+
+  // Maj du lien legacy (compat affichage)
+  await supabase
+    .from('conversations')
+    .update({ lifecycle_stage_id: tag_ids[0] || null })
+    .eq('id', id)
 
   return NextResponse.json({ ok: true })
 }
