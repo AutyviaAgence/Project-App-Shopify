@@ -81,7 +81,7 @@ export async function PATCH(
     response_delay_min, response_delay_max, max_messages_per_conversation, inactivity_timeout_minutes,
     schedule_enabled, schedule_timezone, schedule_start_time, schedule_end_time, schedule_days,
     auto_detect_language, escalation_enabled, escalation_keywords, escalation_message, booking_url,
-    team_id, team_ids, agent_type, stop_condition
+    team_id, team_ids, agent_type, stop_condition, mascot, mascot_bg
   } = body as {
     name?: string
     description?: string
@@ -109,6 +109,8 @@ export async function PATCH(
     team_ids?: string[]
     agent_type?: 'conversation' | 'relance' | 'qualifier'
     stop_condition?: string | null
+    mascot?: string | null
+    mascot_bg?: string | null
   }
 
   const updateData: Record<string, unknown> = {}
@@ -124,6 +126,8 @@ export async function PATCH(
   }
   if (is_active !== undefined) updateData.is_active = is_active
   if (is_pinned !== undefined) updateData.is_pinned = is_pinned
+  if (mascot !== undefined) updateData.mascot = mascot
+  if (mascot_bg !== undefined) updateData.mascot_bg = mascot_bg
   if (response_delay_min !== undefined) {
     updateData.response_delay_min = Math.max(0, Math.min(30, Math.floor(Number(response_delay_min) || 0)))
   }

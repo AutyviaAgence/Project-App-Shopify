@@ -143,6 +143,8 @@ export type AIAgent = {
   agent_type: 'conversation' | 'relance' | 'qualifier'
   stop_condition: string | null
   is_pinned: boolean
+  mascot: string | null
+  mascot_bg: string | null
   created_at: string
   updated_at: string
 }

@@ -169,6 +169,8 @@ CREATE TABLE public.ai_agents (
   agent_type text DEFAULT 'standard',
   is_active boolean DEFAULT true,
   is_pinned boolean NOT NULL DEFAULT false,
+  mascot text,
+  mascot_bg text,
   response_delay_min integer DEFAULT 0,
   response_delay_max integer DEFAULT 0,
   max_messages_per_conversation integer,

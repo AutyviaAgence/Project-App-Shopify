@@ -58,6 +58,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { MultiTeamSelect } from '@/components/multi-team-select'
 import { AgentTestChat } from '@/components/agent-test-chat'
@@ -73,6 +74,81 @@ type BookingStats = {
   conversion_rate: number
 }
 type AgentWithTeamIds = AIAgent & { team_ids?: string[]; booking_stats?: BookingStats }
+
+// ─── Mascottes & fonds personnalisables ──────────────────────────────────────
+const MASCOTS = [
+  { key: 'buste', src: '/mascots/buste.png' },
+  { key: 'envelope', src: '/mascots/envelope.png' },
+  { key: 'phone', src: '/mascots/phone.png' },
+  { key: 'selfie', src: '/mascots/selfie.png' },
+] as const
+const DEFAULT_MASCOT = 'buste'
+const mascotSrc = (key: string | null | undefined) =>
+  MASCOTS.find((m) => m.key === key)?.src ?? '/mascot-agent.png'
+
+const MASCOT_BGS: Record<string, string> = {
+  green: '#7DC2A5',
+  blue: '#3b82f6',
+  violet: '#8b5cf6',
+  coral: '#F0998A',
+  amber: '#f59e0b',
+  sky: '#0ea5e9',
+}
+// Couleur de fond effective : choix de l'agent, sinon couleur du type
+const mascotBgColor = (key: string | null | undefined, fallback: string) =>
+  (key && MASCOT_BGS[key]) || fallback
+
+// Popover de selection mascotte + fond, declenche au clic sur la mascotte
+function MascotPicker({ agent, typeColor, onChange, children }: {
+  agent: AIAgent
+  typeColor: string
+  onChange: (patch: { mascot?: string; mascot_bg?: string }) => void
+  children: React.ReactNode
+}) {
+  const currentMascot = agent.mascot ?? DEFAULT_MASCOT
+  return (
+    <Popover>
+      <PopoverTrigger asChild>{children}</PopoverTrigger>
+      <PopoverContent align="center" className="w-72" onClick={(e) => e.stopPropagation()}>
+        <p className="mb-2 text-xs font-semibold text-muted-foreground">Mascotte</p>
+        <div className="grid grid-cols-4 gap-2">
+          {MASCOTS.map((m) => (
+            <button
+              key={m.key}
+              onClick={() => onChange({ mascot: m.key })}
+              className={cn(
+                'flex aspect-square items-center justify-center overflow-hidden rounded-xl border bg-muted/40 transition-all hover:border-primary',
+                currentMascot === m.key ? 'border-primary ring-2 ring-primary/40' : 'border-border'
+              )}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={m.src} alt={m.key} className="h-full w-full object-contain p-1" />
+            </button>
+          ))}
+        </div>
+
+        <p className="mb-2 mt-4 text-xs font-semibold text-muted-foreground">Fond</p>
+        <div className="flex flex-wrap gap-2">
+          {Object.entries(MASCOT_BGS).map(([key, color]) => {
+            const active = (agent.mascot_bg ?? '') === key || (!agent.mascot_bg && color === typeColor)
+            return (
+              <button
+                key={key}
+                onClick={() => onChange({ mascot_bg: key })}
+                title={key}
+                className={cn(
+                  'h-8 w-8 rounded-full border-2 transition-transform hover:scale-110',
+                  active ? 'border-foreground' : 'border-transparent'
+                )}
+                style={{ background: color }}
+              />
+            )
+          })}
+        </div>
+      </PopoverContent>
+    </Popover>
+  )
+}
 
 export default function AgentsPage() {
   const { t } = useTranslation()
@@ -487,6 +563,20 @@ export default function AgentsPage() {
     }
   }
 
+  // Mise a jour de la mascotte / fond (optimiste)
+  async function handleUpdateMascot(agent: AIAgent, patch: { mascot?: string; mascot_bg?: string }) {
+    setAgents((prev) => prev.map((a) => (a.id === agent.id ? { ...a, ...patch } : a)))
+    try {
+      await fetch(`/api/agents/${agent.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(patch),
+      })
+    } catch {
+      toast.error(t('common.network_error'))
+    }
+  }
+
   async function handleDuplicate(agent: AIAgent) {
     try {
       setSaving(true)
@@ -646,7 +736,9 @@ export default function AgentsPage() {
                   const isCenter = offset === 0
                   const isFront = abs <= 1 // les 3 cards "plein face" (centre + 2 voisines)
                   const isDeleting = deleting === agent.id
-                  const typeColor = agent.agent_type === 'qualifier' ? '#0ea5e9' : agent.agent_type === 'relance' ? '#f97316' : '#8b5cf6'
+                  const baseTypeColor = agent.agent_type === 'qualifier' ? '#0ea5e9' : agent.agent_type === 'relance' ? '#f97316' : '#8b5cf6'
+                  // Couleur de halo/fond : choix de l'agent sinon couleur du type
+                  const typeColor = mascotBgColor(agent.mascot_bg, baseTypeColor)
                   const typeLabel = agent.agent_type === 'qualifier' ? 'Qualificateur' : agent.agent_type === 'relance' ? t('agents.relance') : 'Conversation'
 
                   // Les voisines immédiates (±1) restent quasi de face ; au-delà, fort retrait.
@@ -686,13 +778,26 @@ export default function AgentsPage() {
                         >
                           {/* halo derriere la mascotte */}
                           <div className="pointer-events-none absolute left-1/2 top-1/2 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-25 blur-3xl" style={{ background: typeColor }} />
-                          {/* Mascotte (buste) : ancree en bas, le bras + enveloppe deborde a gauche */}
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src="/mascot-agent.png"
-                            alt={agent.name}
-                            className="pointer-events-none absolute -left-5 bottom-0 w-[112%] max-w-none object-contain object-bottom drop-shadow-[0_12px_24px_rgba(0,0,0,0.45)] transition-transform duration-500 ease-out group-hover/card:-translate-y-1.5 group-hover/card:scale-[1.02]"
-                          />
+                          {/* Mascotte (buste) : ancree en bas, le bras + enveloppe deborde a gauche.
+                              Sur la carte centrale, clic = popover de selection mascotte + fond. */}
+                          {isCenter ? (
+                            <MascotPicker agent={agent} typeColor={baseTypeColor} onChange={(patch) => handleUpdateMascot(agent, patch)}>
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={mascotSrc(agent.mascot)}
+                                alt={agent.name}
+                                title={t('common.edit')}
+                                className="absolute -left-5 bottom-0 z-10 w-[112%] max-w-none cursor-pointer object-contain object-bottom drop-shadow-[0_12px_24px_rgba(0,0,0,0.45)] transition-transform duration-500 ease-out hover:-translate-y-1.5 hover:scale-[1.02]"
+                              />
+                            </MascotPicker>
+                          ) : (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img
+                              src={mascotSrc(agent.mascot)}
+                              alt={agent.name}
+                              className="pointer-events-none absolute -left-5 bottom-0 w-[112%] max-w-none object-contain object-bottom drop-shadow-[0_12px_24px_rgba(0,0,0,0.45)]"
+                            />
+                          )}
                           {/* Badge type (pill, en haut a gauche) */}
                           <span
                             className="absolute left-4 top-4 z-10 rounded-full px-3 py-1 text-[11px] font-semibold"
