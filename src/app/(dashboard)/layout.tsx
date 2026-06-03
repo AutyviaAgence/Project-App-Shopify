@@ -317,8 +317,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Subscription banner */}
         <SubscriptionBanner subscription={subscription} />
 
-        {/* Page content */}
-        <main className="flex-1 overflow-y-auto bg-transparent">
+        {/* Page content — pt réservé pour ne pas passer sous la cloche/menu flottants */}
+        <main className="flex-1 overflow-y-auto bg-transparent pt-12 md:pt-14">
           {subscriptionLoading ? (
             <BlobLoaderScreen />
           ) : isPending ? (
