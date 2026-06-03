@@ -412,7 +412,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               </div>
             </div>
           ) : (
-            <div className="animate-fade-in-up mx-auto h-full w-full max-w-screen-2xl">
+            <div className="animate-fade-in-up h-full w-full">
               {children}
             </div>
           )}
