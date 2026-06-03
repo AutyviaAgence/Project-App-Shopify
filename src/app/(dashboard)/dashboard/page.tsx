@@ -6,7 +6,6 @@ import type { StatsResponse } from '@/types/stats'
 import type { WhatsAppSession } from '@/types/database'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { KPICard } from '@/components/stats/kpi-card'
 import dynamic from 'next/dynamic'
 
 const MessagesChart = dynamic(() => import('@/components/stats/charts').then(m => ({ default: m.MessagesChart })))
@@ -31,6 +30,9 @@ import {
   Users2,
   Mail,
   ExternalLink,
+  TrendingUp,
+  TrendingDown,
+  Minus,
 } from 'lucide-react'
 import { StartTourButton } from '@/components/guided-tour'
 import Link from 'next/link'
@@ -381,43 +383,56 @@ function StatsDashboard() {
         </div>
       ) : stats ? (
         <>
-          <div data-tour="kpi-cards" className="grid gap-4 grid-cols-2 lg:grid-cols-4">
-            <KPICard title={t('dashboard.messages')} value={stats.overview.totalMessages} trend={stats.overview.messagesTrend} icon={MessageSquare} color="green" />
-            <KPICard title={t('dashboard.conversations')} value={stats.overview.activeConversations} trend={stats.overview.conversationsTrend} icon={Users} color="blue" />
-            <KPICard title={t('dashboard.new_contacts')} value={stats.overview.newContacts} trend={stats.overview.contactsTrend} icon={UserPlus} color="teal" />
-            <KPICard title={t('dashboard.ai_rate')} value={stats.overview.responseRate ?? 0} trend={null} icon={Zap} formatValue={(v) => `${v}%`} color="orange" />
-          </div>
+          {/* ─── Grille bento : tuiles de tailles variables, coins arrondis, chevauchements subtils ─── */}
+          <div data-tour="kpi-cards" className="grid grid-cols-2 gap-4 lg:grid-cols-4 lg:auto-rows-[minmax(0,1fr)]">
 
-          <div data-tour="quick-stats" className="grid gap-4 grid-cols-1 sm:grid-cols-3">
-            <QuickStatCard href="/sessions" icon={Smartphone} label={t('dashboard.whatsapp_sessions')} value={`${connectedSessions}/${sessions.length}`} status={connectedSessions > 0 ? 'success' : 'inactive'} statusLabel={connectedSessions > 0 ? t('dashboard.connected') : t('dashboard.none_female')} />
-            <QuickStatCard href="/agents" icon={Bot} label={t('dashboard.ai_agents')} value={`${activeAgents}/${totalAgents}`} status={activeAgents > 0 ? 'success' : 'inactive'} statusLabel={activeAgents > 0 ? t('common.active') : t('dashboard.none_male')} subtitle={stats.overview.avgResponseTime != null && stats.overview.avgResponseTime > 0 ? t('dashboard.avg_time', { time: formatSeconds(stats.overview.avgResponseTime) }) : undefined} />
-            <QuickStatCard href="/links" icon={Link2} label={t('dashboard.whatsapp_links')} value={`${activeLinks}/${totalLinks}`} status={activeLinks > 0 ? 'success' : 'inactive'} statusLabel={activeLinks > 0 ? t('common.active') : t('dashboard.none_male')} subtitle={totalLinks > 0 ? `${stats.links.reduce((s, l) => s + l.totalClicks, 0).toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')} ${t('dashboard.clicks')}` : undefined} />
-          </div>
-
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div className="rounded-xl border bg-card p-4 md:p-6">
-              <h3 className="text-sm font-semibold mb-4">{t('dashboard.messages_per_day')}</h3>
-              <MessagesChart data={stats.charts.messagesOverTime} />
-            </div>
-            <div className="rounded-xl border bg-card p-4 md:p-6">
-              <h3 className="text-sm font-semibold mb-4">{t('dashboard.new_conversations')}</h3>
-              <TimeSeriesChart data={stats.charts.conversationsOverTime} title="" color="var(--accent, #40E9BE)" />
-            </div>
-          </div>
-
-          {stats.overview.avgResponseTime != null && stats.overview.avgResponseTime > 0 && (
-            <div className="rounded-xl bg-gradient-to-br from-primary/10 to-accent/10 border border-primary/20 p-4 md:p-6">
-              <div className="flex items-center gap-3">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/20">
-                  <Clock className="h-5 w-5 text-primary" />
-                </div>
+            {/* HÉRO — graphe messages, occupe 2×2, sous-bloc perf IA imbriqué */}
+            <div className="relative col-span-2 row-span-2 overflow-hidden rounded-[28px] border border-primary/15 bg-gradient-to-br from-primary/[0.07] via-card to-card p-5 shadow-sm md:p-6">
+              <div className="mb-4 flex items-center justify-between">
                 <div>
-                  <p className="text-sm font-medium">{t('dashboard.ai_performance')}</p>
-                  <p className="text-xs text-muted-foreground">{t('dashboard.avg_response_time', { time: formatSeconds(stats.overview.avgResponseTime) })}</p>
+                  <h3 className="text-sm font-semibold">{t('dashboard.messages_per_day')}</h3>
+                  <p className="mt-0.5 text-2xl font-bold tracking-tight">{stats.overview.totalMessages.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')}</p>
+                </div>
+                <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-primary/15 text-primary">
+                  <MessageSquare className="h-5 w-5" />
                 </div>
               </div>
+              <MessagesChart data={stats.charts.messagesOverTime} />
+
+              {/* Sous-bloc imbriqué : perf IA */}
+              {stats.overview.avgResponseTime != null && stats.overview.avgResponseTime > 0 && (
+                <div className="mt-4 flex items-center gap-3 rounded-2xl border border-primary/15 bg-background/60 p-3 backdrop-blur">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
+                    <Clock className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-medium">{t('dashboard.ai_performance')}</p>
+                    <p className="truncate text-[11px] text-muted-foreground">{t('dashboard.avg_response_time', { time: formatSeconds(stats.overview.avgResponseTime) })}</p>
+                  </div>
+                </div>
+              )}
             </div>
-          )}
+
+            {/* 4 KPI — colonne de droite, 2×2 */}
+            <BentoKPI title={t('dashboard.messages')} value={stats.overview.totalMessages} trend={stats.overview.messagesTrend} icon={MessageSquare} color="green" locale={locale} />
+            <BentoKPI title={t('dashboard.conversations')} value={stats.overview.activeConversations} trend={stats.overview.conversationsTrend} icon={Users} color="blue" locale={locale} />
+            <BentoKPI title={t('dashboard.new_contacts')} value={stats.overview.newContacts} trend={stats.overview.contactsTrend} icon={UserPlus} color="teal" locale={locale} />
+            <BentoKPI title={t('dashboard.ai_rate')} value={stats.overview.responseRate ?? 0} trend={null} icon={Zap} formatValue={(v) => `${v}%`} color="orange" locale={locale} />
+          </div>
+
+          {/* Ligne 2 : 2e graphe (large) + 3 quick stats imbriqués, léger chevauchement vertical */}
+          <div className="-mt-1 grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <div className="rounded-[28px] border bg-card p-5 shadow-sm md:p-6 lg:col-span-2">
+              <h3 className="mb-4 text-sm font-semibold">{t('dashboard.new_conversations')}</h3>
+              <TimeSeriesChart data={stats.charts.conversationsOverTime} title="" color="var(--accent, #40E9BE)" />
+            </div>
+
+            <div data-tour="quick-stats" className="flex flex-col gap-4">
+              <QuickStatCard href="/sessions" icon={Smartphone} label={t('dashboard.whatsapp_sessions')} value={`${connectedSessions}/${sessions.length}`} status={connectedSessions > 0 ? 'success' : 'inactive'} statusLabel={connectedSessions > 0 ? t('dashboard.connected') : t('dashboard.none_female')} />
+              <QuickStatCard href="/agents" icon={Bot} label={t('dashboard.ai_agents')} value={`${activeAgents}/${totalAgents}`} status={activeAgents > 0 ? 'success' : 'inactive'} statusLabel={activeAgents > 0 ? t('common.active') : t('dashboard.none_male')} subtitle={stats.overview.avgResponseTime != null && stats.overview.avgResponseTime > 0 ? t('dashboard.avg_time', { time: formatSeconds(stats.overview.avgResponseTime) }) : undefined} />
+              <QuickStatCard href="/links" icon={Link2} label={t('dashboard.whatsapp_links')} value={`${activeLinks}/${totalLinks}`} status={activeLinks > 0 ? 'success' : 'inactive'} statusLabel={activeLinks > 0 ? t('common.active') : t('dashboard.none_male')} subtitle={totalLinks > 0 ? `${stats.links.reduce((s, l) => s + l.totalClicks, 0).toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')} ${t('dashboard.clicks')}` : undefined} />
+            </div>
+          </div>
         </>
       ) : null}
     </div>
@@ -457,12 +472,50 @@ export default function DashboardPage() {
 
 // ─── QuickStatCard ────────────────────────────────────────────────────────────
 
+// ─── BentoKPI — tuile KPI arrondie pour la grille bento ───────────────────────
+
+const BENTO_KPI_COLORS = {
+  green: { bg: 'bg-primary/10', icon: 'text-primary', ring: 'border-primary/15' },
+  blue: { bg: 'bg-blue-500/10', icon: 'text-blue-500', ring: 'border-blue-500/15' },
+  teal: { bg: 'bg-sky-500/10', icon: 'text-sky-500', ring: 'border-sky-500/15' },
+  orange: { bg: 'bg-orange-500/10', icon: 'text-orange-500', ring: 'border-orange-500/15' },
+}
+
+function BentoKPI({ title, value, trend, icon: Icon, formatValue, color = 'green', locale }: {
+  title: string; value: number; trend?: number | null; icon: React.ElementType
+  formatValue?: (value: number) => string; color?: 'green' | 'blue' | 'teal' | 'orange'; locale: string
+}) {
+  const c = BENTO_KPI_COLORS[color]
+  return (
+    <div className={cn('flex flex-col justify-between rounded-[24px] border bg-card p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md', c.ring)}>
+      <div className="flex items-start justify-between">
+        <p className="text-xs font-medium text-muted-foreground">{title}</p>
+        <div className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', c.bg)}>
+          <Icon className={cn('h-4 w-4', c.icon)} />
+        </div>
+      </div>
+      <div className="mt-2">
+        <p className="text-2xl font-bold tracking-tight">{formatValue ? formatValue(value) : value.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')}</p>
+        {trend != null && (
+          <div className={cn('mt-1 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium',
+            trend > 0 ? 'bg-emerald-500/10 text-emerald-600' : trend < 0 ? 'bg-red-500/10 text-red-500' : 'bg-muted text-muted-foreground')}>
+            {trend > 0 ? <TrendingUp className="h-3 w-3" /> : trend < 0 ? <TrendingDown className="h-3 w-3" /> : <Minus className="h-3 w-3" />}
+            <span>{trend > 0 ? '+' : ''}{trend}%</span>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── QuickStatCard ────────────────────────────────────────────────────────────
+
 function QuickStatCard({ href, icon: Icon, label, value, status, statusLabel, subtitle }: {
   href: string; icon: React.ElementType; label: string; value: string
   status: 'success' | 'inactive'; statusLabel: string; subtitle?: string
 }) {
   return (
-    <Link href={href} className="group flex items-center justify-between rounded-xl border bg-card p-4 transition-all hover:shadow-md hover:border-primary/30">
+    <Link href={href} className="group flex flex-1 items-center justify-between rounded-[24px] border bg-card p-4 shadow-sm transition-all hover:shadow-md hover:border-primary/30">
       <div className="flex items-center gap-3">
         <div className={cn('flex h-10 w-10 items-center justify-center rounded-lg', status === 'success' ? 'bg-primary/10' : 'bg-muted')}>
           <Icon className={cn('h-5 w-5', status === 'success' ? 'text-primary' : 'text-muted-foreground')} />
