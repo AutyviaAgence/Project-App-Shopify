@@ -750,6 +750,13 @@ export default function AgentsPage() {
                             >
                               <MessageSquare className="h-[18px] w-[18px]" />
                             </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setToolsAgent(agent); setToolsOpen(true) }}
+                              title={t('tools.title')}
+                              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground"
+                            >
+                              <Wrench className="h-[18px] w-[18px]" />
+                            </button>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <button onClick={(e) => e.stopPropagation()} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground">
@@ -768,10 +775,6 @@ export default function AgentsPage() {
                                 <DropdownMenuItem onClick={() => openEditDialog(agent)}>
                                   <Pencil className="mr-2 h-3.5 w-3.5" />
                                   {t('common.edit')}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => { setToolsAgent(agent); setToolsOpen(true) }}>
-                                  <Wrench className="mr-2 h-3.5 w-3.5" />
-                                  {t('tools.title')}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleDuplicate(agent)} disabled={saving}>
                                   <Copy className="mr-2 h-3.5 w-3.5" />
