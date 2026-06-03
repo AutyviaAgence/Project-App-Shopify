@@ -279,23 +279,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Main content — panneau arrondi flottant. Fond global = --sidebar (plus foncé),
           panneau = --background (moins foncé) → démarcation nette en clair ET sombre. */}
-      <div className="flex flex-1 flex-col overflow-hidden bg-background md:m-3 md:ml-0 md:rounded-[28px] md:shadow-2xl md:ring-1 md:ring-black/5 dark:md:ring-white/10">
-        {/* Top bar — pas de titre (chaque page a déjà le sien), juste menu mobile + notifs */}
-        <header className="flex h-14 items-center justify-between border-b border-border/50 bg-transparent px-4 md:px-6">
-          {/* Mobile menu button */}
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="flex h-10 w-10 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground md:hidden"
-          >
-            <Menu className="h-5 w-5" />
-          </button>
-          <div className="hidden md:block" />
-
-          {/* Right side */}
-          <div className="flex items-center gap-2">
-            <AlertsDropdown />
-          </div>
-        </header>
+      <div className="relative flex flex-1 flex-col overflow-hidden bg-background md:m-3 md:ml-0 md:rounded-[28px] md:shadow-2xl md:ring-1 md:ring-black/5 dark:md:ring-white/10">
+        {/* Plus de barre de notif : menu mobile (gauche) + cloche (droite) flottants
+            au-dessus du contenu, sans bandeau pleine largeur. */}
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className="absolute left-3 top-3 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-background/70 text-muted-foreground backdrop-blur hover:bg-muted hover:text-foreground md:hidden"
+        >
+          <Menu className="h-5 w-5" />
+        </button>
+        <div className="absolute right-3 top-3 z-30 md:right-5 md:top-4">
+          <AlertsDropdown />
+        </div>
 
         {/* Rappel configurateur : affiché pendant l'audit si le formulaire n'a pas été soumis */}
         {auditStatus === 'acompte_paid' &&
