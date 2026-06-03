@@ -373,6 +373,10 @@ CREATE TABLE public.conversation_lifecycle_stages (
   created_at timestamp with time zone DEFAULT now(),
   UNIQUE(conversation_id, stage_id)
 );
+-- GRANTs requis pour les rôles Supabase (sinon "permission denied for table").
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.conversation_lifecycle_stages TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.conversation_lifecycle_stages TO service_role;
+GRANT SELECT ON public.conversation_lifecycle_stages TO anon;
 
 CREATE TABLE public.lifecycle_history (
   id uuid NOT NULL PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -747,6 +751,8 @@ ALTER TABLE public.lifecycle_stages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.conversation_tag_assignments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.conversation_lifecycle_stages ENABLE ROW LEVEL SECURITY;
+-- Policies conversation_lifecycle_stages (SELECT/INSERT/DELETE) avec accès équipe :
+-- voir supabase/migration_lifecycle_rls_team.sql (propriétaire OU membre d'équipe accepté).
 ALTER TABLE public.lifecycle_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.knowledge_documents ENABLE ROW LEVEL SECURITY;

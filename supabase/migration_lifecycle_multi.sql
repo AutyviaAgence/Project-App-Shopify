@@ -32,7 +32,15 @@ CREATE INDEX IF NOT EXISTS idx_conv_lifecycle_conversation
 CREATE INDEX IF NOT EXISTS idx_conv_lifecycle_stage
   ON public.conversation_lifecycle_stages(stage_id);
 
--- ── 2. RLS + policies (calquées sur conversation_tag_assignments) ──
+-- ── 2. GRANTs (privilèges de table pour les rôles Supabase) ──
+-- INDISPENSABLE : sans ces GRANTs, toute requête (même service_role/RLS) renvoie
+-- "permission denied for table conversation_lifecycle_stages". Les tables créées
+-- à la main dans le SQL Editor n'héritent PAS automatiquement des privilèges.
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.conversation_lifecycle_stages TO authenticated;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.conversation_lifecycle_stages TO service_role;
+GRANT SELECT ON public.conversation_lifecycle_stages TO anon;
+
+-- ── 2b. RLS + policies (calquées sur conversation_tag_assignments) ──
 ALTER TABLE public.conversation_lifecycle_stages ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Users can view lifecycle assignments for their conversations" ON public.conversation_lifecycle_stages;

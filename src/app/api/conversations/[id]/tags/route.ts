@@ -2,14 +2,20 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { canAccessSession } from '@/lib/teams/access'
 
-async function verifyConversationAccess(supabase: Awaited<ReturnType<typeof createClient>>, conversationId: string, userId: string) {
+/** Vérifie l'accès et renvoie l'user_id propriétaire de la session (référentiel
+ * des étiquettes), ou null si pas d'accès. */
+async function resolveConversationOwner(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  conversationId: string,
+  userId: string
+): Promise<string | null> {
   const { data: conv } = await supabase
     .from('conversations')
     .select('id, session_id')
     .eq('id', conversationId)
     .single()
 
-  if (!conv) return false
+  if (!conv) return null
 
   const { data: session } = await supabase
     .from('whatsapp_sessions')
@@ -17,9 +23,10 @@ async function verifyConversationAccess(supabase: Awaited<ReturnType<typeof crea
     .eq('id', conv.session_id)
     .single()
 
-  if (!session) return false
+  if (!session) return null
 
-  return canAccessSession(supabase, userId, session)
+  const hasAccess = await canAccessSession(supabase, userId, session)
+  return hasAccess ? session.user_id : null
 }
 
 /** GET /api/conversations/[id]/tags — Liste des tags assignés à une conversation */
@@ -35,8 +42,8 @@ export async function GET(
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  const isOwner = await verifyConversationAccess(supabase, id, user.id)
-  if (!isOwner) {
+  const ownerId = await resolveConversationOwner(supabase, id, user.id)
+  if (!ownerId) {
     return NextResponse.json({ error: 'Conversation introuvable' }, { status: 404 })
   }
 
@@ -83,17 +90,19 @@ export async function PUT(
     return NextResponse.json({ error: 'tag_ids doit être un tableau' }, { status: 400 })
   }
 
-  const isOwner = await verifyConversationAccess(supabase, id, user.id)
-  if (!isOwner) {
+  const ownerId = await resolveConversationOwner(supabase, id, user.id)
+  if (!ownerId) {
     return NextResponse.json({ error: 'Conversation introuvable' }, { status: 404 })
   }
 
-  // FUSION : les tag_ids reçus sont des stage_ids lifecycle
+  // FUSION : les tag_ids reçus sont des stage_ids lifecycle. Le référentiel
+  // d'étiquettes est celui du propriétaire de la session (pas du membre qui
+  // applique), pour fonctionner aussi en accès équipe.
   if (tag_ids.length > 0) {
     const { data: validStages } = await supabase
       .from('lifecycle_stages')
       .select('id')
-      .eq('user_id', user.id)
+      .eq('user_id', ownerId)
       .in('id', tag_ids)
 
     if (!validStages || validStages.length !== tag_ids.length) {
@@ -102,10 +111,15 @@ export async function PUT(
   }
 
   // Remplacement atomique des assignations lifecycle
-  await supabase
+  const { error: deleteError } = await supabase
     .from('conversation_lifecycle_stages')
     .delete()
     .eq('conversation_id', id)
+
+  if (deleteError) {
+    console.error('[lifecycle tags PUT] delete error:', deleteError)
+    return NextResponse.json({ error: deleteError.message, code: deleteError.code }, { status: 500 })
+  }
 
   if (tag_ids.length > 0) {
     const { error: insertError } = await supabase
@@ -118,15 +132,21 @@ export async function PUT(
       )
 
     if (insertError) {
-      return NextResponse.json({ error: insertError.message }, { status: 500 })
+      console.error('[lifecycle tags PUT] insert error:', insertError)
+      return NextResponse.json({ error: insertError.message, code: insertError.code }, { status: 500 })
     }
   }
 
   // Maj du lien legacy (compat affichage)
-  await supabase
+  const { error: updateError } = await supabase
     .from('conversations')
     .update({ lifecycle_stage_id: tag_ids[0] || null })
     .eq('id', id)
+
+  if (updateError) {
+    console.error('[lifecycle tags PUT] legacy update error:', updateError)
+    return NextResponse.json({ error: updateError.message, code: updateError.code }, { status: 500 })
+  }
 
   return NextResponse.json({ ok: true })
 }
