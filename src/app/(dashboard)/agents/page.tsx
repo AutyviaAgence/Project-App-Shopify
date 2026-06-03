@@ -77,14 +77,12 @@ type AgentWithTeamIds = AIAgent & { team_ids?: string[]; booking_stats?: Booking
 
 // ─── Mascottes & fonds personnalisables ──────────────────────────────────────
 const MASCOTS = [
-  { key: 'buste', src: '/mascots/buste.png' },
-  { key: 'envelope', src: '/mascots/envelope.png' },
   { key: 'phone', src: '/mascots/phone.png' },
   { key: 'selfie', src: '/mascots/selfie.png' },
 ] as const
-const DEFAULT_MASCOT = 'buste'
+const DEFAULT_MASCOT = 'phone'
 const mascotSrc = (key: string | null | undefined) =>
-  MASCOTS.find((m) => m.key === key)?.src ?? '/mascot-agent.png'
+  MASCOTS.find((m) => m.key === key)?.src ?? MASCOTS[0].src
 
 const MASCOT_BGS: Record<string, string> = {
   green: '#7DC2A5',
@@ -111,7 +109,7 @@ function MascotPicker({ agent, typeColor, onChange, children }: {
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent align="center" className="w-72" onClick={(e) => e.stopPropagation()}>
         <p className="mb-2 text-xs font-semibold text-muted-foreground">Mascotte</p>
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-2 gap-2">
           {MASCOTS.map((m) => (
             <button
               key={m.key}
