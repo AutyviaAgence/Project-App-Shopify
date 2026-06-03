@@ -161,7 +161,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <Link
         href={item.href}
         className={cn(
-          'group relative flex items-center gap-4 px-4 py-4 text-[16px] font-medium transition-all duration-200',
+          'group relative flex items-center gap-4 px-4 py-4 text-[16px] font-semibold transition-all duration-200',
           isActive
             // Onglet actif : couleur du panneau (--background), arrondi à gauche, colle au bord droit
             // (le panneau est colle ml-0) → fusion sans debordement ni scroll
@@ -211,7 +211,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         className={cn(
           'fixed inset-y-0 left-0 z-50 flex flex-col bg-[var(--sidebar)] transition-all duration-300 md:relative md:bg-transparent',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
-          collapsed ? 'w-[84px]' : 'w-[320px] max-w-[85vw] md:w-[380px] md:max-w-none'
+          collapsed ? 'w-[84px]' : 'w-[280px] max-w-[85vw] md:w-[300px] md:max-w-none'
         )}
       >
         {/* Logo & Close */}
@@ -254,7 +254,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <button
             onClick={handleSignOut}
             className={cn(
-              'group mr-3 flex w-[calc(100%-0.75rem)] items-center gap-4 rounded-2xl px-4 py-4 text-[16px] font-medium text-white/70 transition-all duration-200 hover:bg-white/10 hover:text-white',
+              'group mr-3 flex w-[calc(100%-0.75rem)] items-center gap-4 rounded-2xl px-4 py-4 text-[16px] font-semibold text-white/70 transition-all duration-200 hover:bg-white/10 hover:text-white',
               collapsed && 'mr-0 w-full justify-center px-2'
             )}
             title={collapsed ? t('nav.signout') : undefined}
