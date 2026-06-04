@@ -830,23 +830,23 @@ export default function AgentsPage() {
                         {/* Pilule flottante verte (épingler + activer) — carte centrale */}
                         {isCenter && (
                           <div
-                            className="absolute right-0 top-7 z-10 flex translate-x-1/3 flex-col items-center gap-0.5 rounded-full py-1.5 shadow-lg"
+                            className="absolute right-0 top-6 z-10 flex translate-x-1/4 flex-col items-center gap-0.5 rounded-full py-1 shadow-lg sm:top-7 sm:translate-x-1/3 sm:py-1.5"
                             style={{ background: '#7DC2A5' }}
                           >
                             <button
                               onClick={(e) => { e.stopPropagation(); handleTogglePin(agent) }}
                               title={agent.is_pinned ? t('agents.unpin') : t('agents.pin')}
-                              className="flex h-9 w-9 items-center justify-center rounded-full text-white/90 transition-all hover:scale-110 hover:text-white"
+                              className="flex h-7 w-7 items-center justify-center rounded-full text-white/90 transition-all hover:scale-110 hover:text-white sm:h-9 sm:w-9"
                             >
-                              <Pin className={cn('h-4 w-4', agent.is_pinned && 'fill-current')} />
+                              <Pin className={cn('h-3.5 w-3.5 sm:h-4 sm:w-4', agent.is_pinned && 'fill-current')} />
                             </button>
-                            <span className="h-px w-4 bg-white/25" />
+                            <span className="h-px w-3 bg-white/25 sm:w-4" />
                             <button
                               onClick={(e) => { e.stopPropagation(); handleToggleActive(agent) }}
                               title={agent.is_active ? 'Désactiver' : 'Activer'}
-                              className="flex h-9 w-9 items-center justify-center rounded-full text-white/90 transition-all hover:scale-110 hover:text-white"
+                              className="flex h-7 w-7 items-center justify-center rounded-full text-white/90 transition-all hover:scale-110 hover:text-white sm:h-9 sm:w-9"
                             >
-                              {agent.is_active ? <Power className="h-4 w-4" /> : <PowerOff className="h-4 w-4" />}
+                              {agent.is_active ? <Power className="h-3.5 w-3.5 sm:h-4 sm:w-4" /> : <PowerOff className="h-3.5 w-3.5 sm:h-4 sm:w-4" />}
                             </button>
                           </div>
                         )}
@@ -862,30 +862,30 @@ export default function AgentsPage() {
 
                         {/* Actions — bouton plein large + menu, seulement sur la carte centrale */}
                         {isCenter && (
-                          <div className="mt-5 flex items-center gap-2.5 px-6">
+                          <div className="mt-5 flex items-center gap-2 px-5 sm:gap-2.5 sm:px-6">
                             <Link href={`/agents/${agent.id}`} className="flex-1" onClick={(e) => e.stopPropagation()}>
-                              <button className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-primary text-[14px] font-semibold text-primary-foreground shadow-[0_10px_24px_-8px] shadow-primary/40 transition-all hover:brightness-105 active:scale-[0.98]">
+                              <button className="flex h-10 w-full items-center justify-center gap-2 rounded-full bg-primary text-[13px] font-semibold text-primary-foreground shadow-[0_10px_24px_-8px] shadow-primary/40 transition-all hover:brightness-105 active:scale-[0.98] sm:h-12 sm:text-[14px]">
                                 Configurer
                               </button>
                             </Link>
                             <button
                               onClick={(e) => { e.stopPropagation(); setTestingAgent(agent); setTestChatOpen(true) }}
                               title={t('common.test')}
-                              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground"
+                              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground sm:h-12 sm:w-12"
                             >
-                              <MessageSquare className="h-[18px] w-[18px]" />
+                              <MessageSquare className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
                             </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); setToolsAgent(agent); setToolsOpen(true) }}
                               title={t('tools.title')}
-                              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground"
+                              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground sm:h-12 sm:w-12"
                             >
-                              <Wrench className="h-[18px] w-[18px]" />
+                              <Wrench className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
                             </button>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <button onClick={(e) => e.stopPropagation()} className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground">
-                                  <MoreHorizontal className="h-[18px] w-[18px]" />
+                                <button onClick={(e) => e.stopPropagation()} className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground sm:h-12 sm:w-12">
+                                  <MoreHorizontal className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
                                 </button>
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end" className="w-48">

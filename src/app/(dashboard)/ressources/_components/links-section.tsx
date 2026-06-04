@@ -185,7 +185,7 @@ export function LinksSection() {
   return (
     <div className="flex flex-col h-full">
       {/* Barre d'action de la section */}
-      <div className="px-6 py-3 flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
         <p className="text-sm text-muted-foreground">{links.length} portail{links.length !== 1 ? 's' : ''}</p>
         <Button onClick={openCreate}>
           <Plus className="mr-2 h-4 w-4" />
@@ -194,7 +194,7 @@ export function LinksSection() {
       </div>
 
       {/* Grille */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
         {links.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 text-center">
             <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-muted mb-4">

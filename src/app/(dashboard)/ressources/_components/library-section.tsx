@@ -265,7 +265,7 @@ export function LibrarySection() {
   return (
     <div className="flex flex-col h-full">
       {/* Barre d'action de la section */}
-      <div className="px-6 py-3 flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
         <p className="text-sm text-muted-foreground">
           {documents.length} document{documents.length !== 1 ? 's' : ''} · {images.length} image{images.length !== 1 ? 's' : ''}
         </p>
@@ -282,8 +282,8 @@ export function LibrarySection() {
       </div>
 
       {/* Filtres & recherche */}
-      <div className="px-6 pb-3 flex items-center gap-3">
-        <div className="relative flex-1 max-w-sm">
+      <div className="flex flex-wrap items-center gap-3 px-4 pb-3 sm:px-6">
+        <div className="relative w-full flex-1 sm:max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Rechercher..."
@@ -292,7 +292,7 @@ export function LibrarySection() {
             className="pl-9 h-8"
           />
         </div>
-        <div className="flex gap-1">
+        <div className="flex flex-wrap gap-1">
           {(['all', 'docs', 'images'] as const).map(f => (
             <button
               key={f}
@@ -309,7 +309,7 @@ export function LibrarySection() {
       </div>
 
       {/* Grille */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
         {loading ? (
           <div className="flex items-center justify-center h-64">
             <BlobLoader size={88} />

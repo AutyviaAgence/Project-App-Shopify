@@ -25,7 +25,7 @@ function RessourcesContent() {
   return (
     <div className="flex flex-col h-full">
       {/* Header unifié + onglets */}
-      <div className="border-b px-6 pt-4" data-tour="resources-header">
+      <div className="border-b px-4 pt-4 sm:px-6" data-tour="resources-header">
         <h1 className="text-xl font-bold flex items-center gap-2">
           <Library className="h-5 w-5 text-primary" />
           Ressources
