@@ -27,10 +27,6 @@ import {
   Mail,
   ExternalLink,
   ArrowUpRight,
-  Users,
-  UserPlus,
-  TrendingUp,
-  TrendingDown,
 } from 'lucide-react'
 import { StartTourButton } from '@/components/guided-tour'
 import Link from 'next/link'
@@ -394,10 +390,8 @@ function StatsDashboard() {
               </div>
             </div>
 
-            {/* 3 KPI compacts */}
-            <div className="grid grid-cols-3 gap-3 lg:col-span-4 lg:grid-cols-1">
-              <MiniKPI icon={Users} label={t('dashboard.conversations')} value={stats.overview.activeConversations.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')} trend={stats.overview.conversationsTrend} />
-              <MiniKPI icon={UserPlus} label={t('dashboard.new_contacts')} value={stats.overview.newContacts.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')} trend={stats.overview.contactsTrend} />
+            {/* KPI statut IA */}
+            <div className="flex flex-col gap-3 lg:col-span-4">
               <AIStatusKPI label={t('dashboard.ai_online')} active={activeAgents} total={stats.agents.length} />
             </div>
           </div>
@@ -427,15 +421,17 @@ function StatsDashboard() {
 
             {/* Colonne droite : CTA mascotte EN HAUT + entonnoir EN DESSOUS */}
             <div className="flex min-h-0 flex-col gap-3 lg:col-span-4">
-              {/* CTA verte + mascotte integree */}
-              <DashboardCTA
-                connectedSessions={connectedSessions}
-                activeAgents={activeAgents}
-                t={t}
-              />
+              {/* CTA verte + mascotte integree (hauteur fixe pour laisser la place a l'entonnoir) */}
+              <div className="h-[210px] shrink-0">
+                <DashboardCTA
+                  connectedSessions={connectedSessions}
+                  activeAgents={activeAgents}
+                  t={t}
+                />
+              </div>
 
               {/* Funnel d'engagement (variable universelle) */}
-              <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-border bg-card p-5 shadow-sm">
+              <div className="flex min-h-[260px] flex-1 flex-col rounded-2xl border border-border bg-card p-5 shadow-sm">
                 <div className="mb-3 flex items-center justify-between">
                   <div className="min-w-0">
                     <h3 className="truncate text-sm font-semibold">{t('dashboard.engagement_funnel')}</h3>
@@ -465,34 +461,6 @@ function StatsDashboard() {
           </div>
         </>
       ) : null}
-    </div>
-  )
-}
-
-// ─── MiniKPI — carte stat compacte avec mini-graphe de fond ──────────────────
-
-function MiniKPI({ icon: Icon, label, value, trend }: {
-  icon: React.ElementType
-  label: string
-  value: string
-  trend?: number | null
-}) {
-  return (
-    <div className="relative flex flex-1 items-center gap-3 overflow-hidden rounded-2xl border border-border bg-card p-4 shadow-sm">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/12 text-primary">
-        <Icon className="h-5 w-5" />
-      </div>
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-xs text-muted-foreground">{label}</p>
-        <p className="text-xl font-bold tracking-tight text-foreground">{value}</p>
-      </div>
-      {trend != null && (
-        <span className={cn('shrink-0 inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold',
-          trend > 0 ? 'bg-emerald-500/10 text-emerald-500' : trend < 0 ? 'bg-red-500/10 text-red-500' : 'bg-muted text-muted-foreground')}>
-          {trend > 0 ? <TrendingUp className="h-3 w-3" /> : trend < 0 ? <TrendingDown className="h-3 w-3" /> : null}
-          {trend > 0 ? '+' : ''}{trend}%
-        </span>
-      )}
     </div>
   )
 }
