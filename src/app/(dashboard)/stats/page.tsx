@@ -229,14 +229,17 @@ export default function StatsPage() {
         <BlobLoaderScreen />
       ) : stats ? (
         <Tabs defaultValue="overview">
-          <TabsList className="flex-wrap h-auto gap-1">
-            <TabsTrigger value="overview">{t('stats.overview')}</TabsTrigger>
-            <TabsTrigger value="agents">{t('stats.agents_tab')}</TabsTrigger>
-            <TabsTrigger value="links">{t('stats.links_tab')}</TabsTrigger>
-            <TabsTrigger value="lifecycle">{t('stats.lifecycle_tab')}</TabsTrigger>
-            <TabsTrigger value="campaigns">{t('stats.campaigns_tab')}</TabsTrigger>
-            <TabsTrigger value="contacts">{t('stats.contacts_tab')}</TabsTrigger>
-          </TabsList>
+          {/* Onglets scrollables horizontalement sur mobile (sinon ils debordent) */}
+          <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <TabsList className="w-max gap-1">
+              <TabsTrigger value="overview">{t('stats.overview')}</TabsTrigger>
+              <TabsTrigger value="agents">{t('stats.agents_tab')}</TabsTrigger>
+              <TabsTrigger value="links">{t('stats.links_tab')}</TabsTrigger>
+              <TabsTrigger value="lifecycle">{t('stats.lifecycle_tab')}</TabsTrigger>
+              <TabsTrigger value="campaigns">{t('stats.campaigns_tab')}</TabsTrigger>
+              <TabsTrigger value="contacts">{t('stats.contacts_tab')}</TabsTrigger>
+            </TabsList>
+          </div>
 
           {/* ================================================================ */}
           {/* === Vue globale === */}
