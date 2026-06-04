@@ -373,8 +373,8 @@ function StatsDashboard() {
         </div>
       ) : stats ? (
         <>
-          {/* En-tete page */}
-          <div data-tour="header" className="flex items-end justify-between">
+          {/* En-tete page — pr reserve a droite pour ne pas passer sous la cloche */}
+          <div data-tour="header" data-page-header className="flex items-end justify-between">
             <div>
               <p className="text-sm text-muted-foreground">{t('dashboard.greeting')}</p>
               <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">{tenant.appName}</h1>
