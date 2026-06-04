@@ -454,8 +454,8 @@ function StatsDashboard() {
               })()}
             </div>
 
-            {/* CTA sombre + mascotte */}
-            <div className="lg:col-span-4">
+            {/* CTA verte + mascotte qui depasse en haut */}
+            <div className="pt-8 lg:col-span-4 lg:pt-0">
               <DashboardCTA
                 connectedSessions={connectedSessions}
                 activeAgents={activeAgents}
@@ -581,40 +581,38 @@ function DashboardCTA({ connectedSessions, activeAgents, t }: {
       ? { href: '/agents', title: t('dashboard.cta_agent_title'), desc: t('dashboard.cta_agent_desc'), btn: t('dashboard.cta_agent_btn'), icon: Bot }
       : { href: '/stats', title: t('dashboard.cta_explore_title'), desc: t('dashboard.cta_explore_desc'), btn: t('dashboard.cta_explore_btn'), icon: Sparkles }
   return (
-    <div className="group/cta relative flex h-full min-h-[220px] flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0f1714] p-5 shadow-sm md:p-6">
-      {/* Accent vert discret + motif de points */}
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -right-12 -top-12 h-44 w-44 rounded-full bg-primary/25 blur-3xl" />
+    <div className="group/cta relative flex h-full min-h-[220px] flex-col justify-between overflow-visible rounded-3xl bg-gradient-to-br from-[#8fd4b6] via-primary to-[#5fb592] p-6 shadow-[0_10px_30px_-8px_rgba(125,194,165,0.55)]">
+      {/* Halo decoratif + leger motif */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl">
+        <div className="absolute -left-10 -top-10 h-40 w-40 rounded-full bg-white/20 blur-2xl" />
         <div
-          className="absolute inset-0 opacity-[0.06]"
-          style={{ backgroundImage: 'radial-gradient(currentColor 1px, transparent 1px)', backgroundSize: '16px 16px', color: '#fff' }}
+          className="absolute inset-0 opacity-[0.07]"
+          style={{ backgroundImage: 'radial-gradient(#fff 1px, transparent 1px)', backgroundSize: '15px 15px' }}
         />
       </div>
 
-      {/* Texte en haut */}
-      <div className="relative z-20 max-w-[78%] text-white">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-primary">
-          <Sparkles className="h-3.5 w-3.5" />
-          Autyvia
-        </span>
-        <h3 className="mt-3 text-lg font-bold leading-tight tracking-tight md:text-xl">{cta.title}</h3>
-        <p className="mt-1 text-sm text-white/70">{cta.desc}</p>
-        <Link href={cta.href} className="mt-4 inline-block">
-          <button className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground shadow-lg transition-all hover:scale-[1.03] active:scale-[0.98]">
-            {cta.btn}
-            <ArrowRight className="h-4 w-4" />
-          </button>
-        </Link>
-      </div>
-
-      {/* Mascotte ancree en bas a droite */}
+      {/* Mascotte qui depasse en haut a droite */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/mascot-action.png"
         alt=""
         aria-hidden
-        className="pointer-events-none absolute -bottom-2 right-0 z-10 hidden h-36 w-auto max-w-none object-contain drop-shadow-[0_14px_24px_rgba(0,0,0,0.5)] transition-transform duration-500 ease-out group-hover/cta:-translate-y-1.5 group-hover/cta:rotate-2 sm:block"
+        className="pointer-events-none absolute -right-2 -top-12 z-20 h-32 w-auto max-w-none object-contain drop-shadow-[0_12px_20px_rgba(0,0,0,0.25)] transition-transform duration-500 ease-out group-hover/cta:-translate-y-1 group-hover/cta:rotate-3 sm:h-36"
       />
+
+      {/* Texte */}
+      <div className="relative z-10 max-w-[80%] text-[#0d2a1f]">
+        <h3 className="text-xl font-extrabold leading-tight tracking-tight md:text-2xl">{cta.title}</h3>
+        <p className="mt-2 text-sm font-medium text-[#0d2a1f]/75">{cta.desc}</p>
+      </div>
+
+      {/* Bouton blanc */}
+      <Link href={cta.href} className="relative z-10 mt-4 inline-block">
+        <button className="flex items-center gap-2 rounded-full bg-white px-5 py-2.5 text-sm font-bold text-[#0d6b4e] shadow-md transition-all hover:scale-[1.03] active:scale-[0.98]">
+          {cta.btn}
+          <ArrowRight className="h-4 w-4" />
+        </button>
+      </Link>
     </div>
   )
 }
