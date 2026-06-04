@@ -423,9 +423,9 @@ export function ConversationList({
                     </span>
                   </div>
 
-                  {/* Content */}
-                  <div className="min-w-0 flex-1 leading-tight">
-                    <div className="-mt-1 flex items-center justify-between gap-2">
+                  {/* Content — remonte legerement pour coller au haut de l'avatar */}
+                  <div className="-mt-1 min-w-0 flex-1 leading-tight">
+                    <div className="flex items-center justify-between gap-2">
                       <span className={cn(
                         'truncate text-[14px] leading-tight sm:text-[15px]',
                         conv.unread_count > 0 ? 'font-bold' : 'font-semibold'
