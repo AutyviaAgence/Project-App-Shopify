@@ -126,6 +126,23 @@ export function ConversationList({
     })
   }
 
+  // Nettoie l'apercu : retire le HTML (emails) et normalise les espaces
+  function cleanPreview(raw: string | null | undefined): string {
+    if (!raw) return ''
+    return raw
+      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<[^>]+>/g, ' ')                 // balises HTML
+      .replace(/&nbsp;/gi, ' ')
+      .replace(/&amp;/gi, '&')
+      .replace(/&lt;/gi, '<')
+      .replace(/&gt;/gi, '>')
+      .replace(/&quot;/gi, '"')
+      .replace(/&#39;/gi, "'")
+      .replace(/\s+/g, ' ')
+      .trim()
+  }
+
   function getContactInitials(conv: ConversationWithJoins) {
     if (!conv.contact) return '?'
     const fullName = [conv.contact.first_name, conv.contact.last_name]
@@ -457,12 +474,12 @@ export function ConversationList({
                       'truncate text-[12.5px] leading-snug sm:text-[13px]',
                       conv.unread_count > 0 ? 'font-medium text-foreground' : 'text-muted-foreground'
                     )}>
-                      {conv.last_message_preview || t('conversations.no_message')}
+                      {cleanPreview(conv.last_message_preview) || t('conversations.no_message')}
                     </p>
 
-                    {/* Meta + tags : 1 seule ligne sans wrap en mobile (evite les
-                        sauts de ligne desordonnes), wrap autorise des sm. */}
-                    <div className="mt-0.5 flex flex-nowrap items-center gap-x-1.5 gap-y-1 overflow-hidden sm:mt-1 sm:gap-x-2 sm:flex-wrap">
+                    {/* Meta + tags : toujours 1 seule ligne (overflow cache) pour
+                        que toutes les conversations aient la meme hauteur. */}
+                    <div className="mt-0.5 flex flex-nowrap items-center gap-x-1.5 overflow-hidden sm:mt-1 sm:gap-x-2">
                       {/* Numero du contact (si different du nom affiche) */}
                       {conv.contact && (conv.contact.first_name || conv.contact.last_name || conv.contact.name) && (
                         <span
