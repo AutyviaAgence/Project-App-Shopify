@@ -725,6 +725,7 @@ export default function AgentsPage() {
 
           // Dimensions responsive : la carte ne doit jamais deborder du viewport.
           // On reserve ~96px pour les fleches/marges, plafonne a 400px.
+          const isMobile = viewportW < 640
           const cardW = Math.min(400, Math.max(240, viewportW - 96))
           const sceneW = Math.min(460, viewportW - 32)
           const sceneH = cardW >= 360 ? 440 : cardW >= 300 ? 400 : 360
@@ -753,6 +754,10 @@ export default function AgentsPage() {
                   if (abs > 2) return null // centre + 2 de chaque côté (pas de tranche de profil au bord)
 
                   const isCenter = offset === 0
+                  // Sur mobile : on n'affiche QUE la carte centrale (les voisines
+                  // compressees formaient des "bulles" disgracieuses). Navigation
+                  // via les fleches + les points indicateurs.
+                  if (isMobile && !isCenter) return null
                   const isFront = abs <= 1 // les 3 cards "plein face" (centre + 2 voisines)
                   const isDeleting = deleting === agent.id
                   const baseTypeColor = agent.agent_type === 'qualifier' ? '#0ea5e9' : agent.agent_type === 'relance' ? '#f97316' : '#8b5cf6'
