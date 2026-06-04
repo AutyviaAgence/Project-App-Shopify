@@ -2,6 +2,7 @@ export type StatsOverview = {
   totalMessages: number
   messagesIn: number
   messagesOut: number
+  totalConversations: number
   activeConversations: number
   totalContacts: number
   newContacts: number

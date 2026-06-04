@@ -422,7 +422,7 @@ function StatsDashboard() {
                   const outbound = stats.charts.messagesOverTime.reduce((s, p) => s + p.outbound, 0)
                   const steps = [
                     { label: t('dashboard.contacts'), value: stats.overview.totalContacts },
-                    { label: t('dashboard.conversations'), value: stats.overview.activeConversations },
+                    { label: t('dashboard.conversations'), value: stats.overview.totalConversations },
                     { label: t('dashboard.received'), value: inbound },
                     { label: t('dashboard.replied'), value: outbound },
                   ]
