@@ -500,36 +500,48 @@ function MiniKPI({ icon: Icon, label, value, trend }: {
 // ─── EngagementFunnel — entonnoir d'engagement (variable universelle) ─────────
 
 function EngagementFunnel({ steps }: { steps: { label: string; value: number }[] }) {
-  const top = Math.max(steps[0]?.value ?? 1, 1)
+  // Entonnoir lisse en SVG : un cone fluide en degrade continu (turquoise -> sombre),
+  // largeur a paliers reguliers (independante des ecarts de valeur), labels a droite.
   const n = steps.length
-  // Paliers de largeur REGULIERS (decroissants), independants des ecarts de valeur :
-  // de 100% (haut) a ~46% (bas), pour un entonnoir propre et lisible.
-  const widthAt = (i: number) => 100 - (i / Math.max(n, 1)) * 56
+  const W = 200          // largeur viewBox
+  const H = 150          // hauteur viewBox
+  const rowH = H / n
+  const halfTop = 92     // demi-largeur du haut
+  const halfBottom = 26  // demi-largeur du bas
+  const half = (i: number) => halfTop - (halfTop - halfBottom) * (i / n)
+  const cx = W / 2
+
   return (
-    <div className="flex w-full flex-col items-center">
-      {steps.map((s, i) => {
-        const w = widthAt(i)
-        const nextW = widthAt(i + 1)
-        const pct = top > 0 ? Math.round((s.value / top) * 100) : 0
-        const opacity = 0.95 - i * 0.16 // degrade du fonce (haut) au clair (bas)
-        return (
-          <div
-            key={i}
-            className="relative flex h-11 items-center justify-center text-primary-foreground"
-            style={{
-              width: `${w}%`,
-              background: `rgba(125,194,165,${opacity})`,
-              clipPath: `polygon(0 0, 100% 0, ${50 + (nextW / w) * 50}% 100%, ${50 - (nextW / w) * 50}% 100%)`,
-            }}
-            title={`${s.label} : ${s.value} (${pct}%)`}
-          >
-            <span className="flex items-baseline gap-1.5 text-[12px] font-semibold drop-shadow-sm">
-              <span className="truncate">{s.label}</span>
-              <span className="tabular-nums">{s.value.toLocaleString('fr-FR')}</span>
-            </span>
+    <div className="flex w-full items-center gap-3">
+      <svg viewBox={`0 0 ${W} ${H}`} className="h-full max-h-[180px] w-1/2 shrink-0" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <linearGradient id="funnelGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#7DC2A5" />
+            <stop offset="100%" stopColor="#1f3a33" />
+          </linearGradient>
+        </defs>
+        {/* cone fluide */}
+        <path
+          d={`M ${cx - halfTop} 0 L ${cx + halfTop} 0 L ${cx + halfBottom} ${H} L ${cx - halfBottom} ${H} Z`}
+          fill="url(#funnelGrad)"
+        />
+        {/* lignes de separation discretes entre etages */}
+        {steps.slice(1).map((_, i) => {
+          const y = rowH * (i + 1)
+          const h = half(i + 1)
+          return <line key={i} x1={cx - h} y1={y} x2={cx + h} y2={y} stroke="rgba(0,0,0,0.25)" strokeWidth="1.5" />
+        })}
+      </svg>
+
+      {/* Labels a droite, alignes sur chaque etage */}
+      <div className="flex flex-1 flex-col justify-between py-1" style={{ height: '100%', maxHeight: 180 }}>
+        {steps.map((s, i) => (
+          <div key={i} className="flex items-center justify-between gap-2 text-xs">
+            <span className="truncate text-muted-foreground">{s.label}</span>
+            <span className="shrink-0 font-bold tabular-nums text-foreground">{s.value.toLocaleString('fr-FR')}</span>
           </div>
-        )
-      })}
+        ))}
+      </div>
     </div>
   )
 }
