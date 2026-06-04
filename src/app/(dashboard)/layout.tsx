@@ -245,8 +245,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           ))}
         </nav>
 
-        {/* Bottom section */}
-        <div className="py-3 pl-3 pr-3 space-y-1.5">
+        {/* Bottom section — pr-0 comme le haut pour que l'onglet actif fusionne
+            avec le panneau (sinon separation de couleur a droite) */}
+        <div className="py-3 pl-3 pr-0 space-y-1.5">
           {BOTTOM_NAV_ITEMS.map((item) => (
             <NavLink key={item.href} item={item} showLabel={!collapsed} />
           ))}
