@@ -407,7 +407,7 @@ export function ConversationList({
                   key={conv.id}
                   onClick={() => onSelectConversation(conv)}
                   className={cn(
-                    'group/conv mx-2 my-0 flex w-[calc(100%-1rem)] items-start gap-2.5 rounded-2xl px-3 py-1.5 text-left transition-all hover:bg-muted/60 sm:gap-3 sm:py-3',
+                    'group/conv mx-2 my-0 flex w-[calc(100%-1rem)] items-start gap-2.5 rounded-2xl px-3 py-1 text-left transition-all hover:bg-muted/60 sm:gap-3 sm:py-3',
                     isSelected && 'bg-primary/10 ring-1 ring-primary/20'
                   )}
                 >
@@ -440,8 +440,8 @@ export function ConversationList({
                     </span>
                   </div>
 
-                  {/* Content — remonte legerement pour coller au haut de l'avatar */}
-                  <div className="-mt-1 min-w-0 flex-1 leading-tight">
+                  {/* Content */}
+                  <div className="min-w-0 flex-1 leading-tight">
                     <div className="flex items-center justify-between gap-2">
                       <span className={cn(
                         'truncate text-[14px] leading-tight sm:text-[15px]',
