@@ -326,33 +326,25 @@ function OnboardingChecklist({ checklist, onRefresh }: { checklist: Checklist; o
 
 // ─── Dashboard Stats (ancien dashboard) ──────────────────────────────────────
 
-type LifecycleDistItem = { stage_name: string; stage_color: string | null; count: number; percentage: number }
-
 function StatsDashboard() {
   const { t, locale } = useTranslation()
   const tenant = useTenant()
   const [stats, setStats] = useState<StatsResponse | null>(null)
   const [sessions, setSessions] = useState<WhatsAppSession[]>([])
-  const [lifecycleDist, setLifecycleDist] = useState<LifecycleDistItem[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true)
       try {
-        const [statsRes, sessionsRes, lcRes] = await Promise.all([
+        const [statsRes, sessionsRes] = await Promise.all([
           fetch('/api/stats?period=7'),
           fetch('/api/sessions'),
-          fetch('/api/lifecycle/stats'),
         ])
         const statsJson = await statsRes.json()
         const sessionsJson = await sessionsRes.json()
         if (statsRes.ok && statsJson.data) setStats(statsJson.data)
         if (sessionsRes.ok && sessionsJson.data) setSessions(sessionsJson.data)
-        if (lcRes.ok) {
-          const lcJson = await lcRes.json()
-          setLifecycleDist(lcJson.data?.distribution ?? [])
-        }
       } catch {
         toast.error(t('dashboard.load_error'))
       } finally {
@@ -403,33 +395,41 @@ function StatsDashboard() {
               </div>
             </div>
 
-            {/* 3 KPI verts compacts */}
+            {/* 3 KPI compacts */}
             <div className="grid grid-cols-3 gap-3 lg:col-span-4 lg:grid-cols-1">
-              <MiniKPI tint="strong" icon={Users} label={t('dashboard.conversations')} value={stats.overview.activeConversations.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')} trend={stats.overview.conversationsTrend} />
-              <MiniKPI tint="medium" icon={UserPlus} label={t('dashboard.new_contacts')} value={stats.overview.newContacts.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')} trend={stats.overview.contactsTrend} />
-              <MiniKPI tint="soft" icon={Zap} label={t('dashboard.ai_rate')} value={`${stats.overview.responseRate ?? 0}%`} trend={null} />
+              <MiniKPI icon={Users} label={t('dashboard.conversations')} value={stats.overview.activeConversations.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')} trend={stats.overview.conversationsTrend} />
+              <MiniKPI icon={UserPlus} label={t('dashboard.new_contacts')} value={stats.overview.newContacts.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')} trend={stats.overview.contactsTrend} />
+              <MiniKPI icon={Zap} label={t('dashboard.ai_rate')} value={`${stats.overview.responseRate ?? 0}%`} trend={null} />
             </div>
           </div>
 
-          {/* ═══ Ligne 2 : Funnel Lifecycle + graphe conversations + CTA mascotte ═══ */}
+          {/* ═══ Ligne 2 : Funnel engagement + graphe conversations + CTA mascotte ═══ */}
           <div className="grid grid-cols-1 gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-12">
-            {/* Funnel Lifecycle */}
+            {/* Funnel d'engagement (variable universelle) */}
             <div className="flex flex-col rounded-2xl border border-border bg-card p-5 shadow-sm lg:col-span-4">
               <div className="mb-3 flex items-center justify-between">
                 <div className="min-w-0">
-                  <h3 className="truncate text-sm font-semibold">{t('dashboard.lifecycle_funnel')}</h3>
-                  <p className="truncate text-xs text-muted-foreground">{t('dashboard.lifecycle_funnel_sub')}</p>
+                  <h3 className="truncate text-sm font-semibold">{t('dashboard.engagement_funnel')}</h3>
+                  <p className="truncate text-xs text-muted-foreground">{t('dashboard.engagement_funnel_sub')}</p>
                 </div>
-                <Link href="/lifecycle" className="shrink-0 text-muted-foreground transition-colors hover:text-foreground">
+                <Link href="/stats" className="shrink-0 text-muted-foreground transition-colors hover:text-foreground">
                   <ArrowUpRight className="h-4 w-4" />
                 </Link>
               </div>
               <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
-                {lifecycleDist.filter(d => d.count > 0).length === 0 ? (
-                  <p className="text-sm text-muted-foreground">{t('dashboard.no_data')}</p>
-                ) : (
-                  <LifecycleFunnel data={lifecycleDist} />
-                )}
+                {(() => {
+                  const inbound = stats.charts.messagesOverTime.reduce((s, p) => s + p.inbound, 0)
+                  const outbound = stats.charts.messagesOverTime.reduce((s, p) => s + p.outbound, 0)
+                  const steps = [
+                    { label: t('dashboard.contacts'), value: stats.overview.totalContacts },
+                    { label: t('dashboard.conversations'), value: stats.overview.activeConversations },
+                    { label: t('dashboard.received'), value: inbound },
+                    { label: t('dashboard.replied'), value: outbound },
+                  ]
+                  return steps[0].value === 0 && steps[1].value === 0
+                    ? <p className="text-sm text-muted-foreground">{t('dashboard.no_data')}</p>
+                    : <EngagementFunnel steps={steps} />
+                })()}
               </div>
             </div>
 
@@ -469,68 +469,59 @@ function StatsDashboard() {
   )
 }
 
-// ─── MiniKPI — petite carte stat en nuances de vert (facon maquette) ─────────
+// ─── MiniKPI — carte stat compacte avec mini-graphe de fond ──────────────────
 
-const KPI_TINTS = {
-  strong: 'bg-primary/15 border-primary/25',
-  medium: 'bg-primary/10 border-primary/20',
-  soft: 'bg-primary/[0.06] border-primary/15',
-}
-
-function MiniKPI({ tint, icon: Icon, label, value, trend }: {
-  tint: keyof typeof KPI_TINTS
+function MiniKPI({ icon: Icon, label, value, trend }: {
   icon: React.ElementType
   label: string
   value: string
   trend?: number | null
 }) {
   return (
-    <div className={cn('flex flex-1 items-center gap-4 rounded-2xl border p-4 shadow-sm md:p-5', KPI_TINTS[tint])}>
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
+    <div className="relative flex flex-1 items-center gap-3 overflow-hidden rounded-2xl border border-border bg-card p-4 shadow-sm">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/12 text-primary">
         <Icon className="h-5 w-5" />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <p className="text-2xl font-bold tracking-tight text-foreground">{value}</p>
-          {trend != null && (
-            <span className={cn('inline-flex items-center gap-0.5 text-xs font-medium',
-              trend > 0 ? 'text-emerald-500' : trend < 0 ? 'text-red-500' : 'text-muted-foreground')}>
-              {trend > 0 ? <TrendingUp className="h-3 w-3" /> : trend < 0 ? <TrendingDown className="h-3 w-3" /> : null}
-              {trend > 0 ? '+' : ''}{trend}%
-            </span>
-          )}
-        </div>
-        <p className="mt-0.5 truncate text-xs text-muted-foreground">{label}</p>
+        <p className="truncate text-xs text-muted-foreground">{label}</p>
+        <p className="text-xl font-bold tracking-tight text-foreground">{value}</p>
       </div>
+      {trend != null && (
+        <span className={cn('shrink-0 inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold',
+          trend > 0 ? 'bg-emerald-500/10 text-emerald-500' : trend < 0 ? 'bg-red-500/10 text-red-500' : 'bg-muted text-muted-foreground')}>
+          {trend > 0 ? <TrendingUp className="h-3 w-3" /> : trend < 0 ? <TrendingDown className="h-3 w-3" /> : null}
+          {trend > 0 ? '+' : ''}{trend}%
+        </span>
+      )}
     </div>
   )
 }
 
-// ─── LifecycleFunnel — entonnoir conique (segments trapezoidaux empiles) ──────
+// ─── EngagementFunnel — entonnoir d'engagement (variable universelle) ─────────
 
-function LifecycleFunnel({ data }: { data: LifecycleDistItem[] }) {
-  const items = data.filter(d => d.count > 0).slice(0, 6)
-  if (items.length === 0) return null
-  const max = Math.max(...items.map(d => d.count), 1)
-  // largeur de chaque etage en % (decroissante, min 28%)
-  const widths = items.map(d => 28 + (d.count / max) * 72)
+function EngagementFunnel({ steps }: { steps: { label: string; value: number }[] }) {
+  const top = Math.max(steps[0]?.value ?? 1, 1)
   return (
-    <div className="flex w-full flex-col items-center gap-1">
-      {items.map((d, i) => {
-        const w = widths[i]
-        const nextW = i < items.length - 1 ? widths[i + 1] : w * 0.85
-        const color = d.stage_color || '#7DC2A5'
+    <div className="flex w-full flex-col items-center gap-1.5">
+      {steps.map((s, i) => {
+        const ratio = Math.max(s.value / top, 0.12)
+        const nextRatio = i < steps.length - 1 ? Math.max(steps[i + 1].value / top, 0.12) : ratio * 0.8
+        const w = 100 * ratio
+        const nextW = 100 * nextRatio
+        const pct = top > 0 ? Math.round((s.value / top) * 100) : 0
+        // teinte verte degradee du plus fonce (haut) au plus clair (bas)
+        const opacity = 1 - i * 0.13
         return (
-          <div key={i} className="group flex w-full flex-col items-center" title={`${d.stage_name} — ${d.count} (${d.percentage}%)`}>
+          <div key={i} className="flex w-full flex-col items-center" title={`${s.label} : ${s.value} (${pct}%)`}>
             <div
-              className="relative flex h-9 items-center justify-center text-[11px] font-semibold text-white transition-all"
+              className="flex h-10 items-center justify-center px-3 text-[12px] font-semibold text-primary-foreground"
               style={{
                 width: `${w}%`,
-                background: color,
-                clipPath: `polygon(0 0, 100% 0, ${50 + nextW / w * 50}% 100%, ${50 - nextW / w * 50}% 100%)`,
+                background: `rgba(125,194,165,${opacity})`,
+                clipPath: `polygon(0 0, 100% 0, ${50 + (nextW / w) * 50}% 100%, ${50 - (nextW / w) * 50}% 100%)`,
               }}
             >
-              <span className="drop-shadow-sm">{d.stage_name} · {d.count}</span>
+              <span className="truncate drop-shadow-sm">{s.label} · {s.value}</span>
             </div>
           </div>
         )
