@@ -137,6 +137,29 @@ export default function NewAgentPage() {
     }
   }
 
+  // "Je suis a l'aise" : cree un agent vierge et ouvre sa page de config complete
+  const [creatingManual, setCreatingManual] = useState(false)
+  async function handleManual() {
+    if (creatingManual) return
+    setCreatingManual(true)
+    try {
+      const result = await createAgentFromConfig({
+        name: 'Nouvel agent',
+        system_prompt: 'Tu es un assistant qui répond aux clients sur WhatsApp.',
+        agent_type: 'conversation',
+      })
+      if (result.ok) {
+        router.push(`/agents/${result.agent.id}`)
+      } else {
+        toast.error(result.error)
+        setCreatingManual(false)
+      }
+    } catch {
+      toast.error('Erreur réseau')
+      setCreatingManual(false)
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-background">
       {/* Fond d'ambiance dégradé */}
@@ -177,7 +200,7 @@ export default function NewAgentPage() {
                   icon={<Settings2 className="h-5 w-5" />}
                   title="Je suis à l'aise"
                   desc="Accès direct à la configuration manuelle complète."
-                  onClick={() => router.push('/agents?new=manual')}
+                  onClick={handleManual}
                 />
               </div>
             </Step>
