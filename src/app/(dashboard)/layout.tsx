@@ -269,15 +269,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           </button>
         </div>
 
-        {/* Collapse toggle (desktop only) */}
+        {/* Collapse toggle (desktop only) — en haut a droite de la sidebar */}
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="absolute right-1 top-20 z-[60] hidden h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-[var(--sidebar)] text-white/70 shadow-md transition-colors hover:bg-white/10 hover:text-white md:flex"
+          title={collapsed ? 'Déplier le menu' : 'Replier le menu'}
+          className="absolute right-3 top-6 z-[60] hidden h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white/70 shadow-lg backdrop-blur transition-all hover:scale-110 hover:bg-white/15 hover:text-white md:flex"
         >
           {collapsed ? (
-            <ChevronRight className="h-3 w-3" />
+            <ChevronRight className="h-4 w-4" />
           ) : (
-            <ChevronLeft className="h-3 w-3" />
+            <ChevronLeft className="h-4 w-4" />
           )}
         </button>
       </aside>
