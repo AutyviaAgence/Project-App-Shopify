@@ -390,14 +390,14 @@ export function ConversationList({
                   key={conv.id}
                   onClick={() => onSelectConversation(conv)}
                   className={cn(
-                    'group/conv mx-2 my-0.5 flex w-[calc(100%-1rem)] items-start gap-2.5 rounded-2xl px-3 py-2.5 text-left transition-all hover:bg-muted/60 sm:gap-3 sm:py-3',
+                    'group/conv mx-2 my-0.5 flex w-[calc(100%-1rem)] items-start gap-2.5 rounded-2xl px-3 py-2 text-left transition-all hover:bg-muted/60 sm:gap-3 sm:py-3',
                     isSelected && 'bg-primary/10 ring-1 ring-primary/20'
                   )}
                 >
                   {/* Avatar */}
                   <div className="relative shrink-0">
                     <div
-                      className="flex h-10 w-10 items-center justify-center rounded-full text-[14px] font-semibold text-white shadow-sm sm:h-11 sm:w-11 sm:text-[15px]"
+                      className="flex h-9 w-9 items-center justify-center rounded-full text-[13px] font-semibold text-white shadow-sm sm:h-11 sm:w-11 sm:text-[15px]"
                       style={isSelected
                         ? { background: 'var(--primary, #7DC2A5)' }
                         : { background: 'linear-gradient(to bottom right, var(--primary, #7DC2A5), var(--accent, #40E9BE))' }
@@ -460,8 +460,9 @@ export function ConversationList({
                       {conv.last_message_preview || t('conversations.no_message')}
                     </p>
 
-                    {/* Meta + tags fusionnes sur une seule rangee compacte */}
-                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                    {/* Meta + tags : 1 seule ligne sans wrap en mobile (evite les
+                        sauts de ligne desordonnes), wrap autorise des sm. */}
+                    <div className="mt-1 flex flex-nowrap items-center gap-x-2 gap-y-1 overflow-hidden sm:flex-wrap">
                       {/* Numero du contact (si different du nom affiche) */}
                       {conv.contact && (conv.contact.first_name || conv.contact.last_name || conv.contact.name) && (
                         <span
@@ -472,7 +473,7 @@ export function ConversationList({
                             navigator.clipboard.writeText(`+${conv.contact?.phone_number ?? ''}`)
                             toast.success(t('conversations.number_copied'))
                           }}
-                          className="truncate text-[10px] text-muted-foreground hover:text-foreground"
+                          className="hidden shrink-0 truncate text-[10px] text-muted-foreground hover:text-foreground sm:inline"
                           title={t('conversations.number_copied')}
                         >
                           +{conv.contact.phone_number}
@@ -480,23 +481,23 @@ export function ConversationList({
                       )}
                       {/* Session (plug) */}
                       {(conv as { channel?: string }).channel === 'email' ? (
-                        <span className="flex items-center gap-1 text-[10px] text-blue-500">
+                        <span className="flex shrink-0 items-center gap-1 text-[10px] text-blue-500">
                           <Mail className="h-3 w-3 shrink-0" />
-                          <span className="truncate">{getSessionLabel(conv)}</span>
+                          <span className="max-w-[90px] truncate">{getSessionLabel(conv)}</span>
                         </span>
                       ) : (
-                        <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                        <span className="flex shrink-0 items-center gap-1 text-[10px] text-muted-foreground">
                           <Smartphone className="h-3 w-3 shrink-0" />
-                          <span className="truncate">{getSessionLabel(conv)}</span>
+                          <span className="max-w-[90px] truncate">{getSessionLabel(conv)}</span>
                         </span>
                       )}
                       {conv.session.team_name && (
-                        <Badge variant="outline" className="h-4 px-1.5 text-[9px] border-primary/30 text-primary">
+                        <Badge variant="outline" className="h-4 shrink-0 px-1.5 text-[9px] border-primary/30 text-primary">
                           {conv.session.team_name}
                         </Badge>
                       )}
                       {conv.is_ai_active && (
-                        <Badge className="h-4 px-1.5 text-[9px] bg-primary/10 text-primary hover:bg-primary/20 border-0">
+                        <Badge className="h-4 shrink-0 px-1.5 text-[9px] bg-primary/10 text-primary hover:bg-primary/20 border-0">
                           <Bot className="mr-0.5 h-2.5 w-2.5" />
                           {locale === 'fr' ? 'IA' : 'AI'}
                         </Badge>
@@ -505,7 +506,7 @@ export function ConversationList({
                         const stage = lifecycleStages.find((s) => s.id === conv.lifecycle_stage_id)
                         return stage ? (
                           <Badge
-                            className="h-4 px-1.5 text-[9px] border-0"
+                            className="h-4 shrink-0 px-1.5 text-[9px] border-0"
                             style={{ backgroundColor: `${stage.color}15`, color: stage.color }}
                           >
                             {stage.name}
@@ -513,21 +514,29 @@ export function ConversationList({
                         ) : null
                       })()}
 
-                      {/* Tags (memes rangee que la meta) */}
-                      {(conversationTags[conv.id] || []).slice(0, 2).map((tag) => (
+                      {/* Tags (meme rangee que la meta) — 1 visible en mobile, 2 des sm */}
+                      {(conversationTags[conv.id] || []).slice(0, 2).map((tag, ti) => (
                         <span
                           key={tag.id}
-                          className="inline-flex items-center rounded-full px-2 py-0.5 text-[9px] font-medium"
+                          className={cn(
+                            'inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[9px] font-medium',
+                            ti === 1 && 'hidden sm:inline-flex'
+                          )}
                           style={{ backgroundColor: `${tag.color}15`, color: tag.color }}
                         >
                           {tag.name}
                         </span>
                       ))}
-                      {(conversationTags[conv.id] || []).length > 2 && (
-                        <span className="text-[9px] text-muted-foreground">
-                          +{(conversationTags[conv.id] || []).length - 2}
-                        </span>
-                      )}
+                      {(() => {
+                        // Compteur "+N" : masque les tags non affiches (1 en mobile, 2 en desktop)
+                        const total = (conversationTags[conv.id] || []).length
+                        return total > 1 ? (
+                          <>
+                            <span className="shrink-0 text-[9px] text-muted-foreground sm:hidden">+{total - 1}</span>
+                            {total > 2 && <span className="hidden shrink-0 text-[9px] text-muted-foreground sm:inline">+{total - 2}</span>}
+                          </>
+                        ) : null
+                      })()}
                       <Popover>
                         <PopoverTrigger asChild>
                           <button
@@ -535,7 +544,7 @@ export function ConversationList({
                               e.stopPropagation()
                               if (!conversationTags[conv.id]) onFetchConversationTags(conv.id)
                             }}
-                            className="inline-flex items-center rounded-full px-1.5 py-0.5 text-[9px] text-muted-foreground hover:bg-muted"
+                            className="inline-flex shrink-0 items-center rounded-full px-1.5 py-0.5 text-[9px] text-muted-foreground hover:bg-muted"
                           >
                             <Tag className="h-2.5 w-2.5" />
                           </button>
