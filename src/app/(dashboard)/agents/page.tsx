@@ -220,6 +220,15 @@ export default function AgentsPage() {
   // Carrousel coverflow : index de la carte centrale
   const [centerIndex, setCenterIndex] = useState(0)
 
+  // Largeur de viewport pour rendre le carrousel responsive (cartes + translations)
+  const [viewportW, setViewportW] = useState(1024)
+  useEffect(() => {
+    const onResize = () => setViewportW(window.innerWidth)
+    onResize()
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+
   const fetchAgents = useCallback(async () => {
     try {
       const res = await fetch('/api/agents')
@@ -665,7 +674,7 @@ export default function AgentsPage() {
   }
 
   return (
-    <div className="relative flex min-h-full flex-col overflow-hidden p-4 sm:p-6">
+    <div className="relative flex min-h-full flex-col overflow-hidden p-4 pb-24 sm:p-6 sm:pb-6">
       {/* Fond d'ambiance : glow coloré + grille subtile */}
       <div className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute left-1/2 top-1/3 h-[600px] w-[900px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-[0.10] blur-[120px]"
@@ -714,18 +723,27 @@ export default function AgentsPage() {
           const center = ((centerIndex % n) + n) % n
           const go = (dir: number) => setCenterIndex(c => (((c + dir) % n) + n) % n)
 
+          // Dimensions responsive : la carte ne doit jamais deborder du viewport.
+          // On reserve ~96px pour les fleches/marges, plafonne a 400px.
+          const cardW = Math.min(400, Math.max(240, viewportW - 96))
+          const sceneW = Math.min(460, viewportW - 32)
+          const sceneH = cardW >= 360 ? 440 : cardW >= 300 ? 400 : 360
+          // Translation laterale des cartes voisines, proportionnelle a la largeur de carte
+          const stepFront = cardW * 0.9
+          const stepBack = cardW * 0.8
+
           return (
             <div className="relative flex w-full items-center justify-center pt-10" style={{ perspective: '2000px' }}>
               {/* Flèche gauche */}
               {n > 1 && (
                 <button onClick={() => go(-1)} aria-label="Précédent"
-                  className="absolute left-0 top-1/2 z-30 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card text-muted-foreground backdrop-blur transition-all hover:scale-110 hover:bg-muted hover:text-foreground">
+                  className="absolute left-0 top-1/2 z-30 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card text-muted-foreground backdrop-blur transition-all hover:scale-110 hover:bg-muted hover:text-foreground sm:h-12 sm:w-12">
                   <ChevronLeft className="h-5 w-5" />
                 </button>
               )}
 
               {/* Scène coverflow */}
-              <div className="relative mx-auto h-[440px] w-full max-w-[460px]" style={{ transformStyle: 'preserve-3d' }}>
+              <div className="relative mx-auto w-full" style={{ height: sceneH, maxWidth: sceneW, transformStyle: 'preserve-3d' }}>
                 {sorted.map((agent, idx) => {
                   // offset relatif au centre, normalisé sur [-n/2, n/2]
                   let offset = idx - center
@@ -743,7 +761,7 @@ export default function AgentsPage() {
                   const typeLabel = agent.agent_type === 'qualifier' ? 'Qualificateur' : agent.agent_type === 'relance' ? t('agents.relance') : 'Conversation'
 
                   // Les voisines immédiates (±1) restent quasi de face ; au-delà, fort retrait.
-                  const tx = offset * (isFront ? 360 : 320)
+                  const tx = offset * (isFront ? stepFront : stepBack)
                   const tz = isFront ? -abs * 100 : -240 - (abs - 1) * 180
                   const rot = isFront ? offset * -6 : offset * -38
                   const scale = isCenter ? 1 : isFront ? 0.92 : 0.8
@@ -753,8 +771,9 @@ export default function AgentsPage() {
                     <div
                       key={agent.id}
                       onClick={() => { if (!isCenter) setCenterIndex(idx) }}
-                      className={cn('absolute left-1/2 top-0 w-[400px] transition-all duration-500 ease-out', !isCenter && 'cursor-pointer')}
+                      className={cn('absolute left-1/2 top-0 transition-all duration-500 ease-out', !isCenter && 'cursor-pointer')}
                       style={{
+                        width: cardW,
                         transform: `translateX(-50%) translateX(${tx}px) translateZ(${tz}px) rotateY(${rot}deg) scale(${scale})`,
                         opacity,
                         zIndex: 20 - abs,
@@ -774,8 +793,8 @@ export default function AgentsPage() {
                         {/* Zone visuelle (mascotte) — overflow visible pour laisser
                             le bras + enveloppe deborder a gauche de la carte */}
                         <div
-                          className="relative flex h-64 items-end justify-center rounded-t-[34px] m-2 mb-0"
-                          style={{ background: `radial-gradient(130% 110% at 50% 22%, ${typeColor}30 0%, ${typeColor}0c 48%, transparent 78%)` }}
+                          className="relative flex items-end justify-center rounded-t-[34px] m-2 mb-0"
+                          style={{ height: sceneH >= 440 ? 256 : sceneH >= 400 ? 224 : 196, background: `radial-gradient(130% 110% at 50% 22%, ${typeColor}30 0%, ${typeColor}0c 48%, transparent 78%)` }}
                         >
                           {/* halo derriere la mascotte */}
                           <div className="pointer-events-none absolute left-1/2 top-1/2 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-25 blur-3xl" style={{ background: typeColor }} />
@@ -907,7 +926,7 @@ export default function AgentsPage() {
               {/* Flèche droite */}
               {n > 1 && (
                 <button onClick={() => go(1)} aria-label="Suivant"
-                  className="absolute right-0 top-1/2 z-30 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card text-muted-foreground backdrop-blur transition-all hover:scale-110 hover:bg-muted hover:text-foreground">
+                  className="absolute right-0 top-1/2 z-30 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card text-muted-foreground backdrop-blur transition-all hover:scale-110 hover:bg-muted hover:text-foreground sm:h-12 sm:w-12">
                   <ChevronRight className="h-5 w-5" />
                 </button>
               )}
@@ -927,7 +946,7 @@ export default function AgentsPage() {
       )}
 
       {/* Bouton "Nouvel agent" — juste sous les cartes et les points */}
-      <div className="mt-12 flex justify-center">
+      <div className="mt-8 flex justify-center sm:mt-12">
         <Link href="/agents/new">
           <button
             data-tour="new-agent-btn"
