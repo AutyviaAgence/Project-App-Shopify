@@ -751,13 +751,11 @@ export default function AgentsPage() {
                   if (offset > n / 2) offset -= n
                   if (offset < -n / 2) offset += n
                   const abs = Math.abs(offset)
-                  if (abs > 2) return null // centre + 2 de chaque côté (pas de tranche de profil au bord)
+                  // Desktop : centre + 2 de chaque cote. Mobile : centre + 1 seulement
+                  // (les cartes lointaines formaient des "bulles" empilees au bord).
+                  if (abs > (isMobile ? 1 : 2)) return null
 
                   const isCenter = offset === 0
-                  // Sur mobile : on n'affiche QUE la carte centrale (les voisines
-                  // compressees formaient des "bulles" disgracieuses). Navigation
-                  // via les fleches + les points indicateurs.
-                  if (isMobile && !isCenter) return null
                   const isFront = abs <= 1 // les 3 cards "plein face" (centre + 2 voisines)
                   const isDeleting = deleting === agent.id
                   const baseTypeColor = agent.agent_type === 'qualifier' ? '#0ea5e9' : agent.agent_type === 'relance' ? '#f97316' : '#8b5cf6'
