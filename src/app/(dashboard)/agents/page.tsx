@@ -715,7 +715,7 @@ export default function AgentsPage() {
           const go = (dir: number) => setCenterIndex(c => (((c + dir) % n) + n) % n)
 
           return (
-            <div className="relative flex w-full items-center justify-center" style={{ perspective: '2000px' }}>
+            <div className="relative flex w-full items-center justify-center pt-10" style={{ perspective: '2000px' }}>
               {/* Flèche gauche */}
               {n > 1 && (
                 <button onClick={() => go(-1)} aria-label="Précédent"
