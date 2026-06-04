@@ -500,50 +500,78 @@ function MiniKPI({ icon: Icon, label, value, trend }: {
 // ─── EngagementFunnel — entonnoir d'engagement (variable universelle) ─────────
 
 function EngagementFunnel({ steps }: { steps: { label: string; value: number }[] }) {
-  // Entonnoir = N segments trapezoidaux DISTINCTS empiles (facon maquette),
-  // separes par un petit gap, en teal vif, le dernier en pointe.
+  // Entonnoir fidele a la maquette "AI Automation Hub" :
+  // - N trapezes empiles, separes par un petit gap sombre
+  // - degrade teal du clair (haut) au fonce (bas), dernier en pointe asymetrique
+  // - liseré clair en haut de chaque segment + bande de brillance verticale a gauche
+  // - etiquettes a droite : ligne + point + pill, alignees au centre de chaque etage
   const n = steps.length
-  const W = 200
-  const H = 190
-  const cx = W / 2
-  const gap = 5                                   // espace sombre entre segments
-  const segH = (H - gap * (n - 1)) / n            // hauteur d'un segment
-  const halfTop = 94                              // demi-largeur tout en haut
-  const halfBottom = 6                            // demi-largeur tout en bas (pointe)
-  // demi-largeur au niveau "level" (0 = haut, n = bas)
+
+  // Geometrie (repere de la maquette, viewBox 0..360 x 0..330)
+  const W = 360
+  const H = 330
+  const cx = 190                                   // axe central de l'entonnoir
+  const gap = 6                                     // espace sombre entre segments
+  const yTop0 = 10                                  // depart vertical
+  const bandW = 28                                  // largeur de la bande de brillance gauche
+  // demi-largeur tout en haut / tout en bas (pointe)
+  const halfTop = 190
+  const halfBottom = 14
+  const usableH = H - yTop0 * 2 - gap * (n - 1)
+  const segH = usableH / n
   const halfAtLevel = (level: number) => halfTop - (halfTop - halfBottom) * (level / n)
-  // teal vif, tres legerement assombri vers le bas
-  const fillAt = (i: number) => {
-    const tints = ['#3fd8c2', '#36cbb6', '#2fbfac', '#27b09e', '#1f9f8f', '#188f80']
-    return tints[Math.min(i, tints.length - 1)]
-  }
+
+  // Degrade teal clair -> fonce (couleurs exactes de la maquette)
+  const fills = ['#5FE6CB', '#3DCBAE', '#28AC92', '#1B8C77', '#147A66', '#0F6354']
+  const tops = ['#7DF0DC', '#5FE6CB', '#3DCBAE', '#28AC92', '#1B8C77', '#147A66']
+  const fillAt = (i: number) => fills[Math.min(i, fills.length - 1)]
+  const topAt = (i: number) => tops[Math.min(i, tops.length - 1)]
 
   return (
-    <div className="flex h-full w-full items-stretch gap-4">
-      <svg viewBox={`0 0 ${W} ${H}`} className="h-full max-h-[190px] w-[55%] shrink-0" preserveAspectRatio="xMidYMid meet">
+    <div className="flex h-full w-full items-stretch gap-3">
+      <svg viewBox={`0 0 ${W} ${H}`} className="h-full max-h-[230px] w-[58%] shrink-0" preserveAspectRatio="xMidYMid meet">
         {steps.map((_, i) => {
-          const yTop = i * (segH + gap)
-          const yBot = yTop + segH
-          const hTop = halfAtLevel(i)
-          const hBot = halfAtLevel(i + 1)
-          const d = `M ${cx - hTop} ${yTop} L ${cx + hTop} ${yTop} L ${cx + hBot} ${yBot} L ${cx - hBot} ${yBot} Z`
-          return <path key={i} d={d} fill={fillAt(i)} />
+          const yT = yTop0 + i * (segH + gap)
+          const yB = yT + segH
+          const hT = halfAtLevel(i)
+          const hB = halfAtLevel(i + 1)
+          const last = i === n - 1
+          // Corps du segment (le dernier finit en pointe asymetrique facon maquette)
+          const body = last
+            ? `M ${cx - hT} ${yT} L ${cx + hT} ${yT} L ${cx + hT} ${yB} L ${cx - hT} ${yB - 18} Z`
+            : `M ${cx - hT} ${yT} L ${cx + hT} ${yT} L ${cx + hB} ${yB} L ${cx - hB} ${yB} Z`
+          // Liseré clair sur les ~12px du haut du segment
+          const litH = 12
+          const hLit = halfAtLevel(i + litH / segH)
+          const top = `M ${cx - hT} ${yT} L ${cx + hT} ${yT} L ${cx + hLit} ${yT + litH} L ${cx - hLit} ${yT + litH} Z`
+          return (
+            <g key={i}>
+              <path d={body} fill={fillAt(i)} />
+              <path d={top} fill={topAt(i)} opacity={0.7} />
+            </g>
+          )
         })}
+        {/* Bande de brillance verticale a gauche */}
+        <rect x={cx - halfTop} y={yTop0} width={bandW} height={H - yTop0 * 2} fill="#FFFFFF" opacity={0.08} />
       </svg>
 
-      {/* Labels alignes au CENTRE de chaque segment (meme grille que le SVG) */}
-      <div className="relative flex-1" style={{ minHeight: 190 }}>
+      {/* Etiquettes facon maquette : ligne + point + pill, au centre de chaque etage */}
+      <div className="relative flex-1" style={{ minHeight: 230 }}>
         {steps.map((s, i) => {
-          const yTop = i * (segH + gap)
-          const centerPct = ((yTop + segH / 2) / H) * 100
+          const yT = yTop0 + i * (segH + gap)
+          const centerPct = ((yT + segH / 2) / H) * 100
           return (
             <div
               key={i}
-              className="absolute right-0 left-0 flex -translate-y-1/2 items-center justify-between gap-2 text-xs"
+              className="absolute right-0 left-0 flex -translate-y-1/2 items-center gap-2"
               style={{ top: `${centerPct}%` }}
             >
-              <span className="truncate text-muted-foreground">{s.label}</span>
-              <span className="shrink-0 font-bold tabular-nums text-foreground">{s.value.toLocaleString('fr-FR')}</span>
+              <span className="h-px flex-1 bg-border" />
+              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+              <div className="flex min-w-0 items-center gap-2 rounded-lg border border-border bg-muted/40 px-2.5 py-1">
+                <span className="truncate text-[11px] text-muted-foreground">{s.label}</span>
+                <span className="shrink-0 text-xs font-bold tabular-nums text-primary">{s.value.toLocaleString('fr-FR')}</span>
+              </div>
             </div>
           )
         })}
