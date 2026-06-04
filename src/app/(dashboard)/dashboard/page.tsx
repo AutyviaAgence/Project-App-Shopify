@@ -361,18 +361,18 @@ function StatsDashboard() {
   const activeAgents = stats?.agents.filter((a) => a.isActive).length ?? 0
 
   return (
-    <div className="flex flex-col gap-4 p-4 pb-20 md:p-6 md:pb-6">
+    <div className="flex min-h-full flex-col gap-3 p-4 pb-20 md:h-full md:gap-4 md:overflow-hidden md:p-6 md:pb-6">
       {loading ? (
-        <div className="flex h-64 items-center justify-center">
+        <div className="flex h-64 flex-1 items-center justify-center">
           <BlobLoader size={88} />
         </div>
       ) : stats ? (
         <>
           {/* ═══ Ligne 1 : HÉRO scindé (gauche) | graphe messages (droite) ═══ */}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+          <div className="grid grid-cols-1 gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-12">
 
             {/* HÉRO — greeting + chiffres, avec pastille ronde taux IA qui pop du coin */}
-            <div data-tour="header" className="relative rounded-[32px] border border-primary/25 bg-card shadow-[0_0_0_1px_rgba(125,194,165,0.06),0_20px_60px_-20px_rgba(125,194,165,0.35)] lg:col-span-5">
+            <div data-tour="header" className="relative overflow-hidden rounded-[32px] border border-primary/25 bg-card shadow-[0_0_0_1px_rgba(125,194,165,0.06),0_20px_60px_-20px_rgba(125,194,165,0.35)] lg:col-span-5">
               {/* glows (clippes au rayon de la carte) */}
               <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[32px]">
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/[0.14] via-transparent to-transparent" />
@@ -409,19 +409,21 @@ function StatsDashboard() {
             </div>
 
             {/* Graphe messages par jour */}
-            <div className="overflow-hidden rounded-3xl border bg-card p-4 shadow-sm md:p-5 lg:col-span-7">
+            <div className="flex flex-col overflow-hidden rounded-3xl border bg-card p-4 shadow-sm md:p-5 lg:col-span-7">
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="text-sm font-semibold">{t('dashboard.messages_per_day')}</h3>
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary">
                   <MessageSquare className="h-4 w-4" />
                 </div>
               </div>
-              <MessagesChart data={stats.charts.messagesOverTime} />
+              <div className="min-h-0 flex-1">
+                <MessagesChart data={stats.charts.messagesOverTime} height="100%" />
+              </div>
             </div>
           </div>
 
           {/* ═══ Ligne 2 : répartition (barres) | graphe conversations ═══ */}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+          <div className="grid grid-cols-1 gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-5">
             {/* Répartition envoyés / reçus */}
             <div className="flex flex-col rounded-3xl border bg-card p-4 shadow-sm md:p-5 lg:col-span-2">
               <h3 className="mb-4 text-sm font-semibold">{t('dashboard.messages')}</h3>
@@ -453,8 +455,8 @@ function StatsDashboard() {
             {/* Graphe conversations */}
             <div className="flex flex-col overflow-hidden rounded-3xl border bg-card p-4 shadow-sm md:p-5 lg:col-span-3">
               <h3 className="mb-3 text-sm font-semibold">{t('dashboard.new_conversations')}</h3>
-              <div className="flex-1">
-                <TimeSeriesChart data={stats.charts.conversationsOverTime} title="" color="var(--accent, #40E9BE)" />
+              <div className="min-h-0 flex-1">
+                <TimeSeriesChart data={stats.charts.conversationsOverTime} title="" color="var(--accent, #40E9BE)" height="100%" />
               </div>
             </div>
           </div>

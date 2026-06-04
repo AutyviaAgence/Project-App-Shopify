@@ -77,12 +77,13 @@ function CustomTooltip({
 
 type MessagesChartProps = {
   data: StatsMessagePoint[]
+  height?: number | `${number}%`
 }
 
-export function MessagesChart({ data }: MessagesChartProps) {
+export function MessagesChart({ data, height = 280 }: MessagesChartProps) {
   const c = useChartColors()
   return (
-    <ResponsiveContainer width="100%" height={280}>
+    <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke={c.grid} opacity={0.3} />
         <XAxis
@@ -130,19 +131,21 @@ type TimeSeriesChartProps = {
   data: StatsTimePoint[]
   title: string
   color?: string
+  height?: number | `${number}%`
 }
 
 export function TimeSeriesChart({
   data,
   title,
   color,
+  height = 280,
 }: TimeSeriesChartProps) {
   const c = useChartColors()
   const chartColor = color || c.accent
   const gradientId = `gradient-${title.replace(/\s+/g, '-') || 'default'}`
 
   return (
-    <ResponsiveContainer width="100%" height={280}>
+    <ResponsiveContainer width="100%" height={height}>
       <AreaChart data={data} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
         <CartesianGrid strokeDasharray="3 3" stroke={c.grid} opacity={0.3} />
         <XAxis
