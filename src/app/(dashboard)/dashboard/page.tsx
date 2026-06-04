@@ -500,25 +500,27 @@ function MiniKPI({ icon: Icon, label, value, trend }: {
 // ─── EngagementFunnel — entonnoir d'engagement (variable universelle) ─────────
 
 function EngagementFunnel({ steps }: { steps: { label: string; value: number }[] }) {
-  // Entonnoir d'engagement :
-  // - N trapezes empiles, separes par un petit gap sombre, parfaitement centres
-  // - degrade teal du clair (haut) au fonce (bas), dernier segment en pointe fine symetrique
+  // Entonnoir d'engagement (geometrie fidele a la maquette ai_automation_hub_funnel_v11) :
+  // - N trapezes empiles, separes par un petit gap sombre, entonnoir parfaitement centre
+  // - degrade teal du clair (haut) au fonce (bas), dernier segment en pointe fine
   // - liseré clair en haut de chaque segment
-  // - etiquettes a droite : ligne + point + pill, alignees au centre de chaque etage
+  // - etiquettes a droite (label + valeur) alignees au niveau du trait de chaque etage
   const n = steps.length
 
-  // Geometrie (viewBox 0..360 x 0..330), entonnoir centre sur cx
-  const W = 360
-  const H = 330
-  const cx = W / 2                                  // axe central de l'entonnoir
-  const gap = 6                                     // espace sombre entre segments
-  const yTop0 = 10                                  // depart vertical
-  // demi-largeur tout en haut / tout en bas (pointe fine)
-  const halfTop = 168
-  const halfBottom = 10
+  // viewBox calcule pour que l'entonnoir soit centre horizontalement
+  const cx = 0                                      // axe central (origine), on recadre le viewBox autour
+  const gap = 8                                     // espace sombre entre segments
+  const yTop0 = 8                                   // depart vertical
+  const halfTop = 168                               // demi-largeur tout en haut
+  const halfBottom = 8                              // demi-largeur tout en bas (pointe fine)
+  const H = 320
   const usableH = H - yTop0 * 2 - gap * (n - 1)
   const segH = usableH / n
   const halfAtLevel = (level: number) => halfTop - (halfTop - halfBottom) * (level / n)
+  // viewBox centre sur cx : de -halfTop a +halfTop (+ petite marge)
+  const pad = 4
+  const vbX = cx - halfTop - pad
+  const vbW = halfTop * 2 + pad * 2
 
   // Degrade teal clair -> fonce (couleurs exactes de la maquette)
   const fills = ['#5FE6CB', '#3DCBAE', '#28AC92', '#1B8C77', '#147A66', '#0F6354']
@@ -528,16 +530,16 @@ function EngagementFunnel({ steps }: { steps: { label: string; value: number }[]
 
   return (
     <div className="flex h-full w-full items-stretch gap-3">
-      <svg viewBox={`0 0 ${W} ${H}`} className="h-full max-h-[230px] w-[58%] shrink-0" preserveAspectRatio="xMidYMid meet">
+      <svg viewBox={`${vbX} 0 ${vbW} ${H}`} className="h-full max-h-[240px] w-[52%] shrink-0" preserveAspectRatio="xMidYMid meet">
         {steps.map((_, i) => {
           const yT = yTop0 + i * (segH + gap)
           const yB = yT + segH
           const hT = halfAtLevel(i)
           const hB = halfAtLevel(i + 1)
-          // Corps du segment : trapeze symetrique (le dernier converge vers une pointe fine centree)
+          // Trapeze symetrique centre (le dernier converge vers une pointe fine)
           const body = `M ${cx - hT} ${yT} L ${cx + hT} ${yT} L ${cx + hB} ${yB} L ${cx - hB} ${yB} Z`
-          // Liseré clair sur les ~12px du haut du segment
-          const litH = 12
+          // Liseré clair sur les ~10px du haut du segment
+          const litH = 10
           const hLit = halfAtLevel(i + litH / segH)
           const top = `M ${cx - hT} ${yT} L ${cx + hT} ${yT} L ${cx + hLit} ${yT + litH} L ${cx - hLit} ${yT + litH} Z`
           return (
@@ -549,8 +551,8 @@ function EngagementFunnel({ steps }: { steps: { label: string; value: number }[]
         })}
       </svg>
 
-      {/* Etiquettes facon maquette : ligne + point + pill, au centre de chaque etage */}
-      <div className="relative flex-1" style={{ minHeight: 230 }}>
+      {/* Etiquettes : trait + label + valeur, alignees au niveau (centre) de chaque etage */}
+      <div className="relative flex-1" style={{ minHeight: 240 }}>
         {steps.map((s, i) => {
           const yT = yTop0 + i * (segH + gap)
           const centerPct = ((yT + segH / 2) / H) * 100
@@ -560,12 +562,10 @@ function EngagementFunnel({ steps }: { steps: { label: string; value: number }[]
               className="absolute right-0 left-0 flex -translate-y-1/2 items-center gap-2"
               style={{ top: `${centerPct}%` }}
             >
-              <span className="h-px flex-1 bg-border" />
+              <span className="h-px w-5 shrink-0 bg-border" />
               <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-              <div className="flex min-w-0 items-center gap-2 rounded-lg border border-border bg-muted/40 px-2.5 py-1">
-                <span className="truncate text-[11px] text-muted-foreground">{s.label}</span>
-                <span className="shrink-0 text-xs font-bold tabular-nums text-primary">{s.value.toLocaleString('fr-FR')}</span>
-              </div>
+              <span className="truncate text-xs text-muted-foreground">{s.label}</span>
+              <span className="ml-auto shrink-0 text-sm font-bold tabular-nums text-primary">{s.value.toLocaleString('fr-FR')}</span>
             </div>
           )
         })}
