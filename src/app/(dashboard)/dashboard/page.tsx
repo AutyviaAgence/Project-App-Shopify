@@ -366,9 +366,9 @@ function StatsDashboard() {
   const activeAgents = stats?.agents.filter((a) => a.isActive).length ?? 0
 
   return (
-    <div className="flex min-h-full flex-col gap-3 p-4 pb-20 md:h-full md:gap-4 md:overflow-hidden md:p-6 md:pb-6">
+    <div className="flex flex-col gap-4 p-4 pb-20 md:p-6 md:pb-6">
       {loading ? (
-        <div className="flex h-64 flex-1 items-center justify-center">
+        <div className="flex h-64 items-center justify-center">
           <BlobLoader size={88} />
         </div>
       ) : stats ? (
@@ -386,7 +386,7 @@ function StatsDashboard() {
           </div>
 
           {/* ═══ Ligne 1 : grande carte Messages (graphe) + 3 KPI verts ═══ */}
-          <div className="grid grid-cols-1 gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-12">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
             {/* Carte principale Messages */}
             <div className="flex flex-col rounded-2xl border border-border bg-card p-5 shadow-sm md:p-6 lg:col-span-8">
               <div className="mb-4 flex items-start justify-between">
@@ -398,12 +398,10 @@ function StatsDashboard() {
                   <MessageSquare className="h-5 w-5" />
                 </div>
               </div>
-              <div className="min-h-0 flex-1 overflow-hidden">
-                <MessagesChart data={stats.charts.messagesOverTime} height="100%" />
-              </div>
+              <MessagesChart data={stats.charts.messagesOverTime} height={260} />
             </div>
 
-            {/* 3 KPI verts (nuances) */}
+            {/* 3 KPI verts (nuances) — compacts */}
             <div className="grid grid-cols-3 gap-4 lg:col-span-4 lg:grid-cols-1">
               <MiniKPI tint="strong" icon={Users} label={t('dashboard.conversations')} value={stats.overview.activeConversations.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')} trend={stats.overview.conversationsTrend} />
               <MiniKPI tint="medium" icon={UserPlus} label={t('dashboard.new_contacts')} value={stats.overview.newContacts.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')} trend={stats.overview.contactsTrend} />
@@ -412,7 +410,7 @@ function StatsDashboard() {
           </div>
 
           {/* ═══ Ligne 2 : activite (repartition + graphe convs) + CTA sombre ═══ */}
-          <div className="grid grid-cols-1 gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-12">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
             {/* Carte activite : repartition + graphe conversations */}
             <div className="grid grid-cols-1 gap-4 lg:col-span-8 lg:grid-cols-5">
               {/* Repartition recus / envoyes */}
@@ -444,9 +442,7 @@ function StatsDashboard() {
               {/* Graphe conversations */}
               <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-sm md:p-6 lg:col-span-3">
                 <h3 className="mb-3 text-sm font-semibold">{t('dashboard.new_conversations')}</h3>
-                <div className="min-h-0 flex-1">
-                  <TimeSeriesChart data={stats.charts.conversationsOverTime} title="" color="var(--accent, #40E9BE)" height="100%" />
-                </div>
+                <TimeSeriesChart data={stats.charts.conversationsOverTime} title="" color="var(--accent, #40E9BE)" height={200} />
               </div>
             </div>
 
@@ -481,22 +477,22 @@ function MiniKPI({ tint, icon: Icon, label, value, trend }: {
   trend?: number | null
 }) {
   return (
-    <div className={cn('flex flex-1 flex-col justify-between rounded-2xl border p-4 shadow-sm md:p-5', KPI_TINTS[tint])}>
-      <div className="flex items-center justify-between">
-        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/15 text-primary">
-          <Icon className="h-4 w-4" />
-        </div>
-        {trend != null && (
-          <span className={cn('inline-flex items-center gap-0.5 text-xs font-medium',
-            trend > 0 ? 'text-emerald-500' : trend < 0 ? 'text-red-500' : 'text-muted-foreground')}>
-            {trend > 0 ? <TrendingUp className="h-3 w-3" /> : trend < 0 ? <TrendingDown className="h-3 w-3" /> : null}
-            {trend > 0 ? '+' : ''}{trend}%
-          </span>
-        )}
+    <div className={cn('flex flex-1 items-center gap-4 rounded-2xl border p-4 shadow-sm md:p-5', KPI_TINTS[tint])}>
+      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
+        <Icon className="h-5 w-5" />
       </div>
-      <div className="mt-3">
-        <p className="text-2xl font-bold tracking-tight text-foreground">{value}</p>
-        <p className="mt-0.5 text-xs text-muted-foreground">{label}</p>
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <p className="text-2xl font-bold tracking-tight text-foreground">{value}</p>
+          {trend != null && (
+            <span className={cn('inline-flex items-center gap-0.5 text-xs font-medium',
+              trend > 0 ? 'text-emerald-500' : trend < 0 ? 'text-red-500' : 'text-muted-foreground')}>
+              {trend > 0 ? <TrendingUp className="h-3 w-3" /> : trend < 0 ? <TrendingDown className="h-3 w-3" /> : null}
+              {trend > 0 ? '+' : ''}{trend}%
+            </span>
+          )}
+        </div>
+        <p className="mt-0.5 truncate text-xs text-muted-foreground">{label}</p>
       </div>
     </div>
   )
