@@ -334,25 +334,33 @@ function OnboardingChecklist({ checklist, onRefresh }: { checklist: Checklist; o
 
 // ─── Dashboard Stats (ancien dashboard) ──────────────────────────────────────
 
+type LifecycleDistItem = { stage_name: string; stage_color: string | null; count: number; percentage: number }
+
 function StatsDashboard() {
   const { t, locale } = useTranslation()
   const tenant = useTenant()
   const [stats, setStats] = useState<StatsResponse | null>(null)
   const [sessions, setSessions] = useState<WhatsAppSession[]>([])
+  const [lifecycleDist, setLifecycleDist] = useState<LifecycleDistItem[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true)
       try {
-        const [statsRes, sessionsRes] = await Promise.all([
+        const [statsRes, sessionsRes, lcRes] = await Promise.all([
           fetch('/api/stats?period=7'),
           fetch('/api/sessions'),
+          fetch('/api/lifecycle/stats'),
         ])
         const statsJson = await statsRes.json()
         const sessionsJson = await sessionsRes.json()
         if (statsRes.ok && statsJson.data) setStats(statsJson.data)
         if (sessionsRes.ok && sessionsJson.data) setSessions(sessionsJson.data)
+        if (lcRes.ok) {
+          const lcJson = await lcRes.json()
+          setLifecycleDist(lcJson.data?.distribution ?? [])
+        }
       } catch {
         toast.error(t('dashboard.load_error'))
       } finally {
@@ -455,6 +463,53 @@ function StatsDashboard() {
               />
             </div>
           </div>
+
+          {/* ═══ Ligne 3 : Funnel Lifecycle + Performance agents ═══ */}
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+            {/* Funnel Lifecycle (distribution des conversations par stade) */}
+            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm md:p-6 lg:col-span-7">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold">{t('dashboard.lifecycle_funnel')}</h3>
+                  <p className="text-xs text-muted-foreground">{t('dashboard.lifecycle_funnel_sub')}</p>
+                </div>
+                <Link href="/lifecycle" className="text-muted-foreground transition-colors hover:text-foreground">
+                  <ArrowUpRight className="h-4 w-4" />
+                </Link>
+              </div>
+              {lifecycleDist.filter(d => d.count > 0).length === 0 ? (
+                <p className="py-8 text-center text-sm text-muted-foreground">{t('dashboard.no_data')}</p>
+              ) : (
+                <LifecycleFunnel data={lifecycleDist} locale={locale} />
+              )}
+            </div>
+
+            {/* Performance agents */}
+            <div className="flex flex-col rounded-2xl border border-border bg-card p-5 shadow-sm md:p-6 lg:col-span-5">
+              <div className="mb-4 flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-semibold">{t('dashboard.agents_perf')}</h3>
+                  <p className="text-xs text-muted-foreground">{activeAgents}/{stats.agents.length} {t('common.active').toLowerCase()}</p>
+                </div>
+                <Link href="/agents" className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <Bot className="h-4 w-4" />
+                </Link>
+              </div>
+              <div className="flex flex-1 flex-col gap-2">
+                {stats.agents.length === 0 ? (
+                  <p className="py-6 text-center text-sm text-muted-foreground">{t('dashboard.no_data')}</p>
+                ) : (
+                  [...stats.agents].sort((a, b) => b.messagesHandled - a.messagesHandled).slice(0, 4).map(a => (
+                    <div key={a.id} className="flex items-center gap-3 rounded-xl bg-muted/40 px-3 py-2.5">
+                      <span className={cn('h-2 w-2 shrink-0 rounded-full', a.isActive ? 'bg-emerald-500' : 'bg-muted-foreground/40')} />
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{a.name}</span>
+                      <span className="shrink-0 text-xs text-muted-foreground">{a.messagesHandled.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')} msg</span>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
         </>
       ) : null}
     </div>
@@ -494,6 +549,30 @@ function MiniKPI({ tint, icon: Icon, label, value, trend }: {
         </div>
         <p className="mt-0.5 truncate text-xs text-muted-foreground">{label}</p>
       </div>
+    </div>
+  )
+}
+
+// ─── LifecycleFunnel — barres horizontales par stade (facon funnel) ──────────
+
+function LifecycleFunnel({ data, locale }: { data: LifecycleDistItem[]; locale: string }) {
+  const max = Math.max(...data.map(d => d.count), 1)
+  return (
+    <div className="space-y-2.5">
+      {data.filter(d => d.count > 0).map((d, i) => (
+        <div key={i} className="flex items-center gap-3">
+          <span className="w-32 shrink-0 truncate text-xs font-medium text-foreground" title={d.stage_name}>{d.stage_name}</span>
+          <div className="h-6 flex-1 overflow-hidden rounded-lg bg-muted/40">
+            <div
+              className="flex h-full items-center justify-end rounded-lg px-2 transition-all"
+              style={{ width: `${Math.max((d.count / max) * 100, 6)}%`, background: d.stage_color || 'var(--primary)' }}
+            >
+              <span className="text-[10px] font-bold text-white drop-shadow">{d.count}</span>
+            </div>
+          </div>
+          <span className="w-9 shrink-0 text-right text-xs text-muted-foreground">{d.percentage}%</span>
+        </div>
+      ))}
     </div>
   )
 }
