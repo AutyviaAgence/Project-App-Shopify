@@ -925,7 +925,7 @@ export default function AgentsPage() {
       )}
 
       {/* Bouton "Nouvel agent" — bulle arrondie centrée en bas, lance l'onboarding */}
-      <div className="mt-6 flex justify-center pb-4">
+      <div className="mt-10 flex justify-center pb-4">
         <Link href="/agents/new">
           <button
             data-tour="new-agent-btn"
