@@ -623,8 +623,8 @@ function DashboardCTA({ connectedSessions, activeAgents, t }: {
 
       {/* Texte cale a gauche (largeur limitee pour cohabiter avec la mascotte) */}
       <div className="relative z-10 max-w-[60%] text-[#0d2a1f]">
-        <h3 className="text-lg font-extrabold leading-tight tracking-tight md:text-xl">{cta.title}</h3>
-        <p className="mt-2 text-[13px] font-medium leading-snug text-[#0d2a1f]/75">{cta.desc}</p>
+        <h3 className="text-2xl font-extrabold leading-tight tracking-tight md:text-[28px]">{cta.title}</h3>
+        <p className="mt-2.5 text-[15px] font-medium leading-snug text-[#0d2a1f]/75">{cta.desc}</p>
       </div>
 
       {/* Bouton blanc */}
