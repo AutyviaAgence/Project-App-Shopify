@@ -22,7 +22,6 @@ import {
   MessageSquare,
   Smartphone,
   Bot,
-  Copy,
   Check,
   Filter,
   X,
@@ -454,25 +453,6 @@ export function ConversationList({
                       </div>
                     </div>
 
-                    {/* Phone number */}
-                    {conv.contact && (conv.contact.first_name || conv.contact.last_name || conv.contact.name) && (
-                      <div className="flex items-center gap-1 group/phone">
-                        <p className="text-[10px] text-muted-foreground truncate">
-                          +{conv.contact.phone_number}
-                        </p>
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            navigator.clipboard.writeText(`+${conv.contact?.phone_number ?? ''}`)
-                            toast.success(t('conversations.number_copied'))
-                          }}
-                          className="opacity-0 group-hover/phone:opacity-100 transition-opacity p-0.5 hover:bg-muted rounded"
-                        >
-                          <Copy className="h-2.5 w-2.5 text-muted-foreground" />
-                        </button>
-                      </div>
-                    )}
-
                     <p className={cn(
                       'mt-0.5 truncate text-[12.5px] sm:text-[13px]',
                       conv.unread_count > 0 ? 'font-medium text-foreground' : 'text-muted-foreground'
@@ -480,17 +460,34 @@ export function ConversationList({
                       {conv.last_message_preview || t('conversations.no_message')}
                     </p>
 
-                    {/* Meta row */}
+                    {/* Meta + tags fusionnes sur une seule rangee compacte */}
                     <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+                      {/* Numero du contact (si different du nom affiche) */}
+                      {conv.contact && (conv.contact.first_name || conv.contact.last_name || conv.contact.name) && (
+                        <span
+                          role="button"
+                          tabIndex={-1}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            navigator.clipboard.writeText(`+${conv.contact?.phone_number ?? ''}`)
+                            toast.success(t('conversations.number_copied'))
+                          }}
+                          className="truncate text-[10px] text-muted-foreground hover:text-foreground"
+                          title={t('conversations.number_copied')}
+                        >
+                          +{conv.contact.phone_number}
+                        </span>
+                      )}
+                      {/* Session (plug) */}
                       {(conv as { channel?: string }).channel === 'email' ? (
                         <span className="flex items-center gap-1 text-[10px] text-blue-500">
-                          <Mail className="h-3 w-3" />
-                          {getSessionLabel(conv)}
+                          <Mail className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{getSessionLabel(conv)}</span>
                         </span>
                       ) : (
                         <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                          <Smartphone className="h-3 w-3" />
-                          {getSessionLabel(conv)}
+                          <Smartphone className="h-3 w-3 shrink-0" />
+                          <span className="truncate">{getSessionLabel(conv)}</span>
                         </span>
                       )}
                       {conv.session.team_name && (
@@ -515,10 +512,8 @@ export function ConversationList({
                           </Badge>
                         ) : null
                       })()}
-                    </div>
 
-                    {/* Tags */}
-                    <div className="mt-1 flex flex-wrap items-center gap-1">
+                      {/* Tags (memes rangee que la meta) */}
                       {(conversationTags[conv.id] || []).slice(0, 2).map((tag) => (
                         <span
                           key={tag.id}
