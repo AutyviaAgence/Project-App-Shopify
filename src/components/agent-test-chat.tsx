@@ -9,9 +9,10 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Loader2, Send, Bot, User, Trash2, AlertCircle, Wrench, CheckCircle, XCircle, ArrowRightCircle, StopCircle, BookOpen, ImageIcon } from 'lucide-react'
+import { Loader2, Send, Bot, User, Trash2, AlertCircle, Wrench, CheckCircle, XCircle, ArrowRightCircle, BookOpen, ImageIcon, Wand2, Sparkles, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/i18n/context'
+import { toast } from 'sonner'
 
 type ToolExecution = {
   name: string
@@ -56,6 +57,7 @@ type AgentTestChatProps = {
 
 export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentTestChatProps) {
   const { t } = useTranslation()
+  const [tab, setTab] = useState<'test' | 'refine'>('test')
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -149,32 +151,56 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex h-[600px] max-h-[90vh] flex-col sm:max-w-xl">
-        <DialogHeader className="flex-shrink-0">
+      <DialogContent className="flex h-[600px] max-h-[90vh] flex-col p-0 sm:max-w-xl">
+        <DialogHeader className="flex-shrink-0 px-6 pt-6">
           <div className="flex items-center justify-between">
             <DialogTitle className="flex items-center gap-2">
               <Bot className="h-5 w-5 text-primary" />
               {t('test_chat.title', { name: agentName })}
             </DialogTitle>
-            {messages.length > 0 && (
+            {tab === 'test' && messages.length > 0 && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleClear}
-                className="h-8 text-muted-foreground hover:text-destructive"
+                className="mr-6 h-8 text-muted-foreground hover:text-destructive"
               >
                 <Trash2 className="mr-1.5 h-4 w-4" />
                 {t('test_chat.clear')}
               </Button>
             )}
           </div>
-          <p className="text-sm text-muted-foreground">
-            {t('test_chat.subtitle')}
-          </p>
+          {/* Onglets : Test conversation / Ajuster le prompt */}
+          <div className="mt-3 flex gap-1 rounded-xl bg-muted/60 p-1">
+            <button
+              onClick={() => setTab('test')}
+              className={cn(
+                'flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+                tab === 'test' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <Bot className="h-4 w-4" />
+              {t('test_chat.tab_test')}
+            </button>
+            <button
+              onClick={() => setTab('refine')}
+              className={cn(
+                'flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+                tab === 'refine' ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
+              )}
+            >
+              <Wand2 className="h-4 w-4" />
+              {t('test_chat.tab_refine')}
+            </button>
+          </div>
         </DialogHeader>
 
+        {tab === 'refine' ? (
+          <RefinePromptPanel agentId={agentId} transcript={messages} />
+        ) : (
+        <>
         {/* Messages */}
-        <div ref={scrollRef} className="flex-1 overflow-y-auto pr-4">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-6">
           <div className="space-y-4 py-4">
             {messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-12 text-center text-muted-foreground">
@@ -326,7 +352,7 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
         </div>
 
         {/* Input */}
-        <div className="flex-shrink-0 border-t pt-4">
+        <div className="flex-shrink-0 border-t px-6 pb-6 pt-4">
           <div className="flex gap-2">
             <Input
               ref={inputRef}
@@ -353,7 +379,204 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
             {t('test_chat.press_enter')}
           </p>
         </div>
+        </>
+        )}
       </DialogContent>
     </Dialog>
+  )
+}
+
+// ─── Panneau d'ajustement du prompt (chat copilote) ──────────────────────────
+
+type RefineEntry =
+  | { kind: 'user'; content: string }
+  | { kind: 'proposal'; summary: string; revised: string; applied: boolean }
+
+function RefinePromptPanel({ agentId, transcript }: {
+  agentId: string
+  transcript: { role: 'user' | 'assistant'; content: string }[]
+}) {
+  const { t } = useTranslation()
+  const [entries, setEntries] = useState<RefineEntry[]>([])
+  const [input, setInput] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [applyingIdx, setApplyingIdx] = useState<number | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight
+  }, [entries, loading])
+
+  async function handleSend() {
+    const feedback = input.trim()
+    if (!feedback || loading) return
+    setInput('')
+    setError(null)
+    setEntries((prev) => [...prev, { kind: 'user', content: feedback }])
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/agents/${agentId}/refine-prompt`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          feedback,
+          transcript: transcript.map((m) => ({ role: m.role, content: m.content })),
+        }),
+      })
+      const json = await res.json()
+      if (res.ok && json.data?.revised_prompt) {
+        setEntries((prev) => [...prev, {
+          kind: 'proposal',
+          summary: json.data.summary || '',
+          revised: json.data.revised_prompt,
+          applied: false,
+        }])
+      } else {
+        setError(json.error || t('test_chat.refine_error'))
+      }
+    } catch {
+      setError(t('test_chat.network_error'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleApply(idx: number) {
+    const entry = entries[idx]
+    if (entry.kind !== 'proposal' || entry.applied) return
+    setApplyingIdx(idx)
+    try {
+      const res = await fetch(`/api/agents/${agentId}/refine-prompt`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apply: true, revised_prompt: entry.revised }),
+      })
+      const json = await res.json()
+      if (res.ok && json.data?.applied) {
+        setEntries((prev) => prev.map((e, i) => (i === idx && e.kind === 'proposal' ? { ...e, applied: true } : e)))
+        toast.success(t('test_chat.refine_applied'))
+      } else {
+        toast.error(json.error || t('test_chat.refine_error'))
+      }
+    } catch {
+      toast.error(t('test_chat.network_error'))
+    } finally {
+      setApplyingIdx(null)
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSend()
+    }
+  }
+
+  return (
+    <>
+      <div ref={scrollRef} className="flex-1 overflow-y-auto px-6">
+        <div className="space-y-4 py-4">
+          {entries.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground">
+              <Wand2 className="mb-4 h-12 w-12 opacity-50" />
+              <p className="text-sm">{t('test_chat.refine_empty')}</p>
+              <p className="mt-1 max-w-xs text-xs">{t('test_chat.refine_empty_hint')}</p>
+            </div>
+          ) : (
+            entries.map((entry, i) =>
+              entry.kind === 'user' ? (
+                <div key={i} className="flex justify-end gap-3">
+                  <div className="max-w-[80%] rounded-2xl bg-primary px-4 py-2.5 text-sm text-primary-foreground">
+                    <p className="whitespace-pre-wrap">{entry.content}</p>
+                  </div>
+                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-muted">
+                    <User className="h-4 w-4" />
+                  </div>
+                </div>
+              ) : (
+                <div key={i} className="flex justify-start gap-3">
+                  <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary/10">
+                    <Sparkles className="h-4 w-4 text-primary" />
+                  </div>
+                  <div className="max-w-[85%] space-y-2">
+                    {/* Résumé des changements */}
+                    {entry.summary && (
+                      <div className="rounded-xl border border-primary/20 bg-primary/5 px-4 py-2.5 text-sm">
+                        <p className="mb-1 flex items-center gap-1.5 text-xs font-semibold text-primary">
+                          <Wand2 className="h-3.5 w-3.5" />
+                          {t('test_chat.refine_changes')}
+                        </p>
+                        <p className="whitespace-pre-wrap text-foreground/90">{entry.summary}</p>
+                      </div>
+                    )}
+                    {/* Aperçu du nouveau prompt */}
+                    <details className="rounded-xl border bg-muted/40">
+                      <summary className="cursor-pointer px-3 py-2 text-xs font-medium text-muted-foreground">
+                        {t('test_chat.refine_preview')}
+                      </summary>
+                      <pre className="max-h-48 overflow-auto whitespace-pre-wrap break-words border-t px-3 py-2 text-[11px] text-muted-foreground">{entry.revised}</pre>
+                    </details>
+                    {/* Action appliquer */}
+                    <Button
+                      size="sm"
+                      onClick={() => handleApply(i)}
+                      disabled={entry.applied || applyingIdx === i}
+                      variant={entry.applied ? 'outline' : 'default'}
+                      className="w-full"
+                    >
+                      {applyingIdx === i ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : entry.applied ? (
+                        <Check className="mr-2 h-4 w-4 text-emerald-500" />
+                      ) : (
+                        <Sparkles className="mr-2 h-4 w-4" />
+                      )}
+                      {entry.applied ? t('test_chat.refine_done') : t('test_chat.refine_apply')}
+                    </Button>
+                  </div>
+                </div>
+              )
+            )
+          )}
+
+          {loading && (
+            <div className="flex gap-3">
+              <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary/10">
+                <Sparkles className="h-4 w-4 text-primary" />
+              </div>
+              <div className="flex items-center gap-2 rounded-2xl bg-muted px-4 py-2.5">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span className="text-sm text-muted-foreground">{t('test_chat.refine_thinking')}</span>
+              </div>
+            </div>
+          )}
+
+          {error && (
+            <div className="flex items-center gap-2 rounded-lg bg-destructive/10 px-4 py-3 text-sm text-destructive">
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+              {error}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex-shrink-0 border-t px-6 pb-6 pt-4">
+        <div className="flex gap-2">
+          <Input
+            placeholder={t('test_chat.refine_placeholder')}
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            disabled={loading}
+            className="flex-1"
+          />
+          <Button onClick={handleSend} disabled={!input.trim() || loading} size="icon">
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+          </Button>
+        </div>
+        <p className="mt-2 text-center text-xs text-muted-foreground">{t('test_chat.refine_hint')}</p>
+      </div>
+    </>
   )
 }

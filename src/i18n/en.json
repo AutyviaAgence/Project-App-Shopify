@@ -1446,7 +1446,20 @@
     "input_placeholder": "Write a message...",
     "press_enter": "Press Enter to send",
     "generation_error": "Error generating response",
-    "network_error": "Network error"
+    "network_error": "Network error",
+    "tab_test": "Test",
+    "tab_refine": "Tune the prompt",
+    "refine_empty": "Refine your agent's behavior",
+    "refine_empty_hint": "Tell it what you like or dislike about its replies — the AI will rewrite the system prompt accordingly.",
+    "refine_placeholder": "E.g. It's too formal, make it warmer and more casual...",
+    "refine_hint": "Your feedback tunes the agent's system prompt",
+    "refine_thinking": "Tuning the prompt...",
+    "refine_changes": "Proposed changes",
+    "refine_preview": "View the new prompt",
+    "refine_apply": "Apply this prompt",
+    "refine_done": "Prompt applied",
+    "refine_applied": "System prompt updated",
+    "refine_error": "Error tuning the prompt"
   },
   "confirm_delete": {
     "default_title": "Confirm deletion",

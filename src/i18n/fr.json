@@ -1446,7 +1446,20 @@
     "input_placeholder": "Écrivez un message...",
     "press_enter": "Appuyez sur Entrée pour envoyer",
     "generation_error": "Erreur lors de la génération de la réponse",
-    "network_error": "Erreur réseau"
+    "network_error": "Erreur réseau",
+    "tab_test": "Test",
+    "tab_refine": "Ajuster le prompt",
+    "refine_empty": "Affinez le comportement de votre agent",
+    "refine_empty_hint": "Dites ce que vous aimez ou n'aimez pas dans ses réponses — l'IA réécrira le prompt système en conséquence.",
+    "refine_placeholder": "Ex : Il est trop formel, qu'il tutoie et soit plus chaleureux...",
+    "refine_hint": "Vos retours ajustent le prompt système de l'agent",
+    "refine_thinking": "Ajustement du prompt...",
+    "refine_changes": "Modifications proposées",
+    "refine_preview": "Voir le nouveau prompt",
+    "refine_apply": "Appliquer ce prompt",
+    "refine_done": "Prompt appliqué",
+    "refine_applied": "Prompt système mis à jour",
+    "refine_error": "Erreur lors de l'ajustement du prompt"
   },
   "confirm_delete": {
     "default_title": "Confirmer la suppression",
