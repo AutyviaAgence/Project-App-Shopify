@@ -501,28 +501,32 @@ function MiniKPI({ icon: Icon, label, value, trend }: {
 
 function EngagementFunnel({ steps }: { steps: { label: string; value: number }[] }) {
   const top = Math.max(steps[0]?.value ?? 1, 1)
+  const n = steps.length
+  // Paliers de largeur REGULIERS (decroissants), independants des ecarts de valeur :
+  // de 100% (haut) a ~46% (bas), pour un entonnoir propre et lisible.
+  const widthAt = (i: number) => 100 - (i / Math.max(n, 1)) * 56
   return (
-    <div className="flex w-full flex-col items-center gap-1.5">
+    <div className="flex w-full flex-col items-center">
       {steps.map((s, i) => {
-        const ratio = Math.max(s.value / top, 0.12)
-        const nextRatio = i < steps.length - 1 ? Math.max(steps[i + 1].value / top, 0.12) : ratio * 0.8
-        const w = 100 * ratio
-        const nextW = 100 * nextRatio
+        const w = widthAt(i)
+        const nextW = widthAt(i + 1)
         const pct = top > 0 ? Math.round((s.value / top) * 100) : 0
-        // teinte verte degradee du plus fonce (haut) au plus clair (bas)
-        const opacity = 1 - i * 0.13
+        const opacity = 0.95 - i * 0.16 // degrade du fonce (haut) au clair (bas)
         return (
-          <div key={i} className="flex w-full flex-col items-center" title={`${s.label} : ${s.value} (${pct}%)`}>
-            <div
-              className="flex h-10 items-center justify-center px-3 text-[12px] font-semibold text-primary-foreground"
-              style={{
-                width: `${w}%`,
-                background: `rgba(125,194,165,${opacity})`,
-                clipPath: `polygon(0 0, 100% 0, ${50 + (nextW / w) * 50}% 100%, ${50 - (nextW / w) * 50}% 100%)`,
-              }}
-            >
-              <span className="truncate drop-shadow-sm">{s.label} · {s.value}</span>
-            </div>
+          <div
+            key={i}
+            className="relative flex h-11 items-center justify-center text-primary-foreground"
+            style={{
+              width: `${w}%`,
+              background: `rgba(125,194,165,${opacity})`,
+              clipPath: `polygon(0 0, 100% 0, ${50 + (nextW / w) * 50}% 100%, ${50 - (nextW / w) * 50}% 100%)`,
+            }}
+            title={`${s.label} : ${s.value} (${pct}%)`}
+          >
+            <span className="flex items-baseline gap-1.5 text-[12px] font-semibold drop-shadow-sm">
+              <span className="truncate">{s.label}</span>
+              <span className="tabular-nums">{s.value.toLocaleString('fr-FR')}</span>
+            </span>
           </div>
         )
       })}
