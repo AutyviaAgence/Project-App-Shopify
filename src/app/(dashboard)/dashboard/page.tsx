@@ -408,15 +408,18 @@ function StatsDashboard() {
               </div>
             </div>
 
-            {/* Graphe messages par jour */}
-            <div className="flex flex-col overflow-hidden rounded-3xl border bg-card p-4 shadow-sm md:p-5 lg:col-span-7">
+            {/* Graphe messages par jour — encoche arrondie en haut a droite pour
+                laisser ressortir la cloche de notifications */}
+            <div className="relative flex flex-col rounded-3xl border bg-card p-4 shadow-sm md:p-5 lg:col-span-7">
+              {/* Notch concave : disque de la couleur du fond qui creuse le coin */}
+              <div className="pointer-events-none absolute -right-3 -top-3 z-10 hidden h-16 w-16 rounded-full bg-background md:block" aria-hidden />
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="text-sm font-semibold">{t('dashboard.messages_per_day')}</h3>
                 <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary">
                   <MessageSquare className="h-4 w-4" />
                 </div>
               </div>
-              <div className="min-h-0 flex-1">
+              <div className="min-h-0 flex-1 overflow-hidden">
                 <MessagesChart data={stats.charts.messagesOverTime} height="100%" />
               </div>
             </div>
