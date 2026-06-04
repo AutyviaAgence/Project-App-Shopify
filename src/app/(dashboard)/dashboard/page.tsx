@@ -454,8 +454,8 @@ function StatsDashboard() {
               })()}
             </div>
 
-            {/* CTA verte + mascotte qui depasse en haut */}
-            <div className="pt-8 lg:col-span-4 lg:pt-0">
+            {/* CTA verte + mascotte integree */}
+            <div className="lg:col-span-4">
               <DashboardCTA
                 connectedSessions={connectedSessions}
                 activeAgents={activeAgents}
@@ -581,9 +581,9 @@ function DashboardCTA({ connectedSessions, activeAgents, t }: {
       ? { href: '/agents', title: t('dashboard.cta_agent_title'), desc: t('dashboard.cta_agent_desc'), btn: t('dashboard.cta_agent_btn'), icon: Bot }
       : { href: '/stats', title: t('dashboard.cta_explore_title'), desc: t('dashboard.cta_explore_desc'), btn: t('dashboard.cta_explore_btn'), icon: Sparkles }
   return (
-    <div className="group/cta relative flex h-full min-h-[220px] flex-col justify-between overflow-visible rounded-3xl bg-gradient-to-br from-[#8fd4b6] via-primary to-[#5fb592] p-6 shadow-[0_10px_30px_-8px_rgba(125,194,165,0.55)]">
+    <div className="group/cta relative flex h-full min-h-[220px] flex-col justify-between overflow-hidden rounded-3xl bg-gradient-to-br from-[#8fd4b6] via-primary to-[#5fb592] p-6 shadow-[0_10px_30px_-8px_rgba(125,194,165,0.55)]">
       {/* Halo decoratif + leger motif */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl">
+      <div className="pointer-events-none absolute inset-0">
         <div className="absolute -left-10 -top-10 h-40 w-40 rounded-full bg-white/20 blur-2xl" />
         <div
           className="absolute inset-0 opacity-[0.07]"
@@ -591,19 +591,19 @@ function DashboardCTA({ connectedSessions, activeAgents, t }: {
         />
       </div>
 
-      {/* Mascotte qui depasse en haut a droite */}
+      {/* Mascotte integree, ancree en bas a droite DANS la carte */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src="/mascot-action.png"
         alt=""
         aria-hidden
-        className="pointer-events-none absolute -right-2 -top-12 z-20 h-32 w-auto max-w-none object-contain drop-shadow-[0_12px_20px_rgba(0,0,0,0.25)] transition-transform duration-500 ease-out group-hover/cta:-translate-y-1 group-hover/cta:rotate-3 sm:h-36"
+        className="pointer-events-none absolute bottom-0 right-1 z-0 h-[78%] w-auto max-w-none object-contain object-bottom drop-shadow-[0_10px_16px_rgba(0,0,0,0.2)] transition-transform duration-500 ease-out group-hover/cta:-translate-y-1 group-hover/cta:rotate-2"
       />
 
-      {/* Texte */}
-      <div className="relative z-10 max-w-[80%] text-[#0d2a1f]">
-        <h3 className="text-xl font-extrabold leading-tight tracking-tight md:text-2xl">{cta.title}</h3>
-        <p className="mt-2 text-sm font-medium text-[#0d2a1f]/75">{cta.desc}</p>
+      {/* Texte cale a gauche (largeur limitee pour cohabiter avec la mascotte) */}
+      <div className="relative z-10 max-w-[60%] text-[#0d2a1f]">
+        <h3 className="text-lg font-extrabold leading-tight tracking-tight md:text-xl">{cta.title}</h3>
+        <p className="mt-2 text-[13px] font-medium leading-snug text-[#0d2a1f]/75">{cta.desc}</p>
       </div>
 
       {/* Bouton blanc */}
