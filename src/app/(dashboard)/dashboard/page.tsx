@@ -500,56 +500,42 @@ function MiniKPI({ icon: Icon, label, value, trend }: {
 // ─── EngagementFunnel — entonnoir d'engagement (variable universelle) ─────────
 
 function EngagementFunnel({ steps }: { steps: { label: string; value: number }[] }) {
-  // Vrai entonnoir : large en haut, cotes INCURVES qui convergent en pointe vers le bas.
+  // Entonnoir = N segments trapezoidaux DISTINCTS empiles (facon maquette),
+  // separes par un petit gap, en teal vif, le dernier en pointe.
   const n = steps.length
   const W = 200
-  const H = 170
-  const rowH = H / n
+  const H = 190
   const cx = W / 2
-  const halfTop = 94
-  const halfBottom = 8
-  // demi-largeur a la position verticale t (0=haut, 1=bas), avec courbe (ease) pour le pincement
-  const halfAt = (t: number) => {
-    const eased = Math.pow(t, 1.6) // pince plus fort vers le bas -> forme entonnoir
-    return halfTop - (halfTop - halfBottom) * eased
+  const gap = 5                                   // espace sombre entre segments
+  const segH = (H - gap * (n - 1)) / n            // hauteur d'un segment
+  const halfTop = 94                              // demi-largeur tout en haut
+  const halfBottom = 6                            // demi-largeur tout en bas (pointe)
+  // demi-largeur au niveau "level" (0 = haut, n = bas)
+  const halfAtLevel = (level: number) => halfTop - (halfTop - halfBottom) * (level / n)
+  // teal vif, tres legerement assombri vers le bas
+  const fillAt = (i: number) => {
+    const tints = ['#3fd8c2', '#36cbb6', '#2fbfac', '#27b09e', '#1f9f8f', '#188f80']
+    return tints[Math.min(i, tints.length - 1)]
   }
-  // points du contour gauche/droit (echantillonnage pour une courbe lisse)
-  const N = 24
-  const left: string[] = []
-  const right: string[] = []
-  for (let k = 0; k <= N; k++) {
-    const t = k / N
-    const y = t * H
-    const h = halfAt(t)
-    left.push(`${cx - h},${y}`)
-    right.unshift(`${cx + h},${y}`)
-  }
-  const path = `M ${left.join(' L ')} L ${right.join(' L ')} Z`
 
   return (
     <div className="flex h-full w-full items-stretch gap-4">
       <svg viewBox={`0 0 ${W} ${H}`} className="h-full max-h-[190px] w-[55%] shrink-0" preserveAspectRatio="xMidYMid meet">
-        <defs>
-          <linearGradient id="funnelGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#5eead4" />
-            <stop offset="45%" stopColor="#2dd4bf" />
-            <stop offset="100%" stopColor="#0b2b2b" />
-          </linearGradient>
-        </defs>
-        <path d={path} fill="url(#funnelGrad)" />
-        {/* separations a chaque frontiere d'etage */}
-        {steps.slice(1).map((_, i) => {
-          const t = (i + 1) / n
-          const y = t * H
-          const h = halfAt(t)
-          return <line key={i} x1={cx - h} y1={y} x2={cx + h} y2={y} stroke="rgba(10,20,18,0.35)" strokeWidth="1.5" />
+        {steps.map((_, i) => {
+          const yTop = i * (segH + gap)
+          const yBot = yTop + segH
+          const hTop = halfAtLevel(i)
+          const hBot = halfAtLevel(i + 1)
+          const d = `M ${cx - hTop} ${yTop} L ${cx + hTop} ${yTop} L ${cx + hBot} ${yBot} L ${cx - hBot} ${yBot} Z`
+          return <path key={i} d={d} fill={fillAt(i)} />
         })}
       </svg>
 
-      {/* Labels alignes au CENTRE vertical de chaque etage */}
+      {/* Labels alignes au CENTRE de chaque segment (meme grille que le SVG) */}
       <div className="relative flex-1" style={{ minHeight: 190 }}>
         {steps.map((s, i) => {
-          const centerPct = ((i + 0.5) * rowH) / H * 100
+          const yTop = i * (segH + gap)
+          const centerPct = ((yTop + segH / 2) / H) * 100
           return (
             <div
               key={i}
