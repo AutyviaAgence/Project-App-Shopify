@@ -353,7 +353,7 @@ function StatsDashboard() {
   const activeAgents = stats?.agents.filter((a) => a.isActive).length ?? 0
 
   return (
-    <div className="flex flex-col gap-4 p-4 pb-20 md:min-h-full md:gap-3 md:p-5 md:pb-5">
+    <div className="flex flex-col gap-4 p-4 pb-20 md:h-full md:gap-3 md:overflow-hidden md:p-5 md:pb-5">
       {loading ? (
         <div className="flex h-64 flex-1 items-center justify-center">
           <BlobLoader size={88} />
@@ -373,11 +373,11 @@ function StatsDashboard() {
           </div>
 
           {/* ═══ Grille principale : graphes (gauche) + colonne IA/CTA/entonnoir (droite) ═══ */}
-          <div className="grid grid-cols-1 gap-3 lg:flex-1 lg:grid-cols-12">
+          <div className="grid grid-cols-1 gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-12">
             {/* ── Colonne gauche : 2 graphes empiles ── */}
             <div className="flex min-h-0 flex-col gap-3 lg:col-span-8">
               {/* Graphe Messages par jour */}
-              <div className="flex min-h-[280px] flex-1 flex-col rounded-2xl border border-border bg-card p-5 shadow-sm">
+              <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-border bg-card p-5 shadow-sm">
                 <div className="mb-3 flex items-start justify-between">
                   <div>
                     <h3 className="text-sm text-muted-foreground">{t('dashboard.messages_per_day')}</h3>
@@ -393,7 +393,7 @@ function StatsDashboard() {
               </div>
 
               {/* Graphe Nouvelles conversations */}
-              <div className="flex min-h-[280px] flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-sm">
+              <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-sm">
                 <h3 className="mb-2 text-sm font-semibold">{t('dashboard.new_conversations')}</h3>
                 <div className="min-h-0 flex-1">
                   <TimeSeriesChart data={stats.charts.conversationsOverTime} title="" color="var(--accent, #40E9BE)" height="100%" />
@@ -420,8 +420,8 @@ function StatsDashboard() {
                 <AIStatusKPI label={t('dashboard.ai_online')} active={activeAgents} total={stats.agents.length} />
               </div>
 
-              {/* CTA verte + mascotte — carre */}
-              <div className="aspect-square shrink-0">
+              {/* CTA verte + mascotte */}
+              <div className="min-h-0 flex-[5]">
                 <DashboardCTA
                   connectedSessions={connectedSessions}
                   activeAgents={activeAgents}
@@ -429,8 +429,8 @@ function StatsDashboard() {
                 />
               </div>
 
-              {/* Funnel d'engagement — carre */}
-              <div className="flex aspect-square shrink-0 flex-col rounded-2xl border border-border bg-card p-5 shadow-sm">
+              {/* Funnel d'engagement */}
+              <div className="flex min-h-0 flex-[5] flex-col rounded-2xl border border-border bg-card p-5 shadow-sm">
                 <div className="mb-2 flex items-center justify-between">
                   <div className="min-w-0">
                     <h3 className="truncate text-sm font-semibold">{t('dashboard.engagement_funnel')}</h3>
