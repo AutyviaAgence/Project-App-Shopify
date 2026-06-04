@@ -500,76 +500,71 @@ function MiniKPI({ icon: Icon, label, value, trend }: {
 // ─── EngagementFunnel — entonnoir d'engagement (variable universelle) ─────────
 
 function EngagementFunnel({ steps }: { steps: { label: string; value: number }[] }) {
-  // Entonnoir d'engagement (geometrie fidele a la maquette ai_automation_hub_funnel_v11) :
-  // - N trapezes empiles, separes par un petit gap sombre, entonnoir parfaitement centre
-  // - degrade teal du clair (haut) au fonce (bas), dernier segment en pointe fine
-  // - liseré clair en haut de chaque segment
-  // - etiquettes a droite (label + valeur) alignees au niveau du trait de chaque etage
-  const n = steps.length
-
-  // viewBox calcule pour que l'entonnoir soit centre horizontalement
-  const cx = 0                                      // axe central (origine), on recadre le viewBox autour
-  const gap = 8                                     // espace sombre entre segments
-  const yTop0 = 8                                   // depart vertical
-  const halfTop = 168                               // demi-largeur tout en haut
-  const halfBottom = 8                              // demi-largeur tout en bas (pointe fine)
-  const H = 320
-  const usableH = H - yTop0 * 2 - gap * (n - 1)
-  const segH = usableH / n
-  const halfAtLevel = (level: number) => halfTop - (halfTop - halfBottom) * (level / n)
-  // viewBox centre sur cx : de -halfTop a +halfTop (+ petite marge)
-  const pad = 4
-  const vbX = cx - halfTop - pad
-  const vbW = halfTop * 2 + pad * 2
-
-  // Degrade teal clair -> fonce (couleurs exactes de la maquette)
-  const fills = ['#5FE6CB', '#3DCBAE', '#28AC92', '#1B8C77', '#147A66', '#0F6354']
-  const tops = ['#7DF0DC', '#5FE6CB', '#3DCBAE', '#28AC92', '#1B8C77', '#147A66']
-  const fillAt = (i: number) => fills[Math.min(i, fills.length - 1)]
-  const topAt = (i: number) => tops[Math.min(i, tops.length - 1)]
+  // Reprise EXACTE de la maquette ai_automation_hub_funnel_v11.svg :
+  // memes polygons, memes couleurs, memes lignes+points+pills. Seuls les textes
+  // des pills sont remplaces par nos donnees (label + valeur).
+  // Geometrie du SVG d'origine, recadree sur le funnel (x 150..530, y 150..488).
+  const labels = steps.map((s) => s.label)
+  const values = steps.map((s) => s.value.toLocaleString('fr-FR'))
 
   return (
-    <div className="flex h-full w-full items-stretch gap-3">
-      <svg viewBox={`${vbX} 0 ${vbW} ${H}`} className="h-full max-h-[240px] w-[52%] shrink-0" preserveAspectRatio="xMidYMid meet">
-        {steps.map((_, i) => {
-          const yT = yTop0 + i * (segH + gap)
-          const yB = yT + segH
-          const hT = halfAtLevel(i)
-          const hB = halfAtLevel(i + 1)
-          // Trapeze symetrique centre (le dernier converge vers une pointe fine)
-          const body = `M ${cx - hT} ${yT} L ${cx + hT} ${yT} L ${cx + hB} ${yB} L ${cx - hB} ${yB} Z`
-          // Liseré clair sur les ~10px du haut du segment
-          const litH = 10
-          const hLit = halfAtLevel(i + litH / segH)
-          const top = `M ${cx - hT} ${yT} L ${cx + hT} ${yT} L ${cx + hLit} ${yT + litH} L ${cx - hLit} ${yT + litH} Z`
-          return (
-            <g key={i}>
-              <path d={body} fill={fillAt(i)} />
-              <path d={top} fill={topAt(i)} opacity={0.7} />
-            </g>
-          )
-        })}
-      </svg>
+    <div className="h-full w-full">
+      <svg viewBox="140 140 600 358" className="h-full w-full" preserveAspectRatio="xMidYMid meet">
+        {/* ── Trapezes (identiques a la maquette v11) ── */}
+        <g>
+          <polygon points="150,150 530,150 482,235 198,235" fill="#5FE6CB" />
+          <polygon points="150,150 530,150 524,162 156,162" fill="#7DF0DC" opacity="0.7" />
 
-      {/* Etiquettes : trait + label + valeur, alignees au niveau (centre) de chaque etage */}
-      <div className="relative flex-1" style={{ minHeight: 240 }}>
-        {steps.map((s, i) => {
-          const yT = yTop0 + i * (segH + gap)
-          const centerPct = ((yT + segH / 2) / H) * 100
-          return (
-            <div
-              key={i}
-              className="absolute right-0 left-0 flex -translate-y-1/2 items-center gap-2"
-              style={{ top: `${centerPct}%` }}
-            >
-              <span className="h-px w-5 shrink-0 bg-border" />
-              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
-              <span className="truncate text-xs text-muted-foreground">{s.label}</span>
-              <span className="ml-auto shrink-0 text-sm font-bold tabular-nums text-primary">{s.value.toLocaleString('fr-FR')}</span>
-            </div>
-          )
-        })}
-      </div>
+          <polygon points="198,241 482,241 412,326 268,326" fill="#3DCBAE" />
+          <polygon points="198,241 482,241 476,253 204,253" fill="#5FE6CB" opacity="0.7" />
+
+          <polygon points="268,332 412,332 372,400 308,400" fill="#28AC92" />
+          <polygon points="268,332 412,332 406,344 274,344" fill="#3DCBAE" opacity="0.7" />
+
+          <polygon points="308,406 372,406 372,488 308,462" fill="#1B8C77" />
+          <polygon points="308,406 372,406 372,418 308,418" fill="#28AC92" opacity="0.7" />
+        </g>
+
+        {/* ── Etiquettes (ligne + point + pill), textes = nos donnees ── */}
+        {/* Etage 1 */}
+        <g>
+          <line x1="540" y1="175" x2="610" y2="175" stroke="#2A3645" strokeWidth="2" />
+          <circle cx="610" cy="175" r="6" fill="#2DD4BF" />
+          <rect x="630" y="151" width="100" height="48" rx="10" fill="#1A2433" stroke="#2A3645" strokeWidth="1" />
+          <text x="680" y="173" fill="#8A95A5" fontSize="13" fontWeight="400" textAnchor="middle">{labels[0]}</text>
+          <text x="680" y="190" fill="#2DD4BF" fontSize="16" fontWeight="700" textAnchor="middle">{values[0]}</text>
+        </g>
+        {/* Etage 2 */}
+        {labels[1] != null && (
+          <g>
+            <line x1="490" y1="280" x2="560" y2="280" stroke="#2A3645" strokeWidth="2" />
+            <circle cx="560" cy="280" r="6" fill="#2DD4BF" />
+            <rect x="580" y="256" width="100" height="48" rx="10" fill="#1A2433" stroke="#2A3645" strokeWidth="1" />
+            <text x="630" y="278" fill="#8A95A5" fontSize="13" fontWeight="400" textAnchor="middle">{labels[1]}</text>
+            <text x="630" y="295" fill="#2DD4BF" fontSize="16" fontWeight="700" textAnchor="middle">{values[1]}</text>
+          </g>
+        )}
+        {/* Etage 3 */}
+        {labels[2] != null && (
+          <g>
+            <line x1="420" y1="366" x2="490" y2="366" stroke="#2A3645" strokeWidth="2" />
+            <circle cx="490" cy="366" r="6" fill="#2DD4BF" />
+            <rect x="510" y="342" width="100" height="48" rx="10" fill="#1A2433" stroke="#2A3645" strokeWidth="1" />
+            <text x="560" y="364" fill="#8A95A5" fontSize="13" fontWeight="400" textAnchor="middle">{labels[2]}</text>
+            <text x="560" y="381" fill="#2DD4BF" fontSize="16" fontWeight="700" textAnchor="middle">{values[2]}</text>
+          </g>
+        )}
+        {/* Etage 4 */}
+        {labels[3] != null && (
+          <g>
+            <line x1="402" y1="431" x2="472" y2="431" stroke="#2A3645" strokeWidth="2" />
+            <circle cx="472" cy="431" r="6" fill="#2DD4BF" />
+            <rect x="492" y="407" width="100" height="48" rx="10" fill="#1A2433" stroke="#2A3645" strokeWidth="1" />
+            <text x="542" y="429" fill="#8A95A5" fontSize="13" fontWeight="400" textAnchor="middle">{labels[3]}</text>
+            <text x="542" y="446" fill="#2DD4BF" fontSize="16" fontWeight="700" textAnchor="middle">{values[3]}</text>
+          </g>
+        )}
+      </svg>
     </div>
   )
 }
