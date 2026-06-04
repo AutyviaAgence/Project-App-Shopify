@@ -531,8 +531,9 @@ function EngagementFunnel({ steps }: { steps: { label: string; value: number }[]
       <svg viewBox={`0 0 ${W} ${H}`} className="h-full max-h-[190px] w-[55%] shrink-0" preserveAspectRatio="xMidYMid meet">
         <defs>
           <linearGradient id="funnelGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#8fd3b6" />
-            <stop offset="100%" stopColor="#16302a" />
+            <stop offset="0%" stopColor="#5eead4" />
+            <stop offset="45%" stopColor="#2dd4bf" />
+            <stop offset="100%" stopColor="#0b2b2b" />
           </linearGradient>
         </defs>
         <path d={path} fill="url(#funnelGrad)" />
