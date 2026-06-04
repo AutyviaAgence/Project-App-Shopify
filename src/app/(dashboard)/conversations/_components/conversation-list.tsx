@@ -391,14 +391,14 @@ export function ConversationList({
                   key={conv.id}
                   onClick={() => onSelectConversation(conv)}
                   className={cn(
-                    'group/conv mx-2 my-0.5 flex w-[calc(100%-1rem)] items-start gap-3 rounded-2xl px-3 py-3.5 text-left transition-all hover:bg-muted/60',
+                    'group/conv mx-2 my-0.5 flex w-[calc(100%-1rem)] items-start gap-2.5 rounded-2xl px-3 py-2.5 text-left transition-all hover:bg-muted/60 sm:gap-3 sm:py-3',
                     isSelected && 'bg-primary/10 ring-1 ring-primary/20'
                   )}
                 >
                   {/* Avatar */}
                   <div className="relative shrink-0">
                     <div
-                      className="flex h-12 w-12 items-center justify-center rounded-full text-[15px] font-semibold text-white shadow-sm"
+                      className="flex h-10 w-10 items-center justify-center rounded-full text-[14px] font-semibold text-white shadow-sm sm:h-11 sm:w-11 sm:text-[15px]"
                       style={isSelected
                         ? { background: 'var(--primary, #7DC2A5)' }
                         : { background: 'linear-gradient(to bottom right, var(--primary, #7DC2A5), var(--accent, #40E9BE))' }
@@ -428,7 +428,7 @@ export function ConversationList({
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
                       <span className={cn(
-                        'truncate text-[15px]',
+                        'truncate text-[14px] sm:text-[15px]',
                         conv.unread_count > 0 ? 'font-bold' : 'font-semibold'
                       )}>
                         {getContactDisplay(conv)}
@@ -474,14 +474,14 @@ export function ConversationList({
                     )}
 
                     <p className={cn(
-                      'mt-1 truncate text-[13px]',
+                      'mt-0.5 truncate text-[12.5px] sm:text-[13px]',
                       conv.unread_count > 0 ? 'font-medium text-foreground' : 'text-muted-foreground'
                     )}>
                       {conv.last_message_preview || t('conversations.no_message')}
                     </p>
 
                     {/* Meta row */}
-                    <div className="mt-1.5 flex items-center gap-2">
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
                       {(conv as { channel?: string }).channel === 'email' ? (
                         <span className="flex items-center gap-1 text-[10px] text-blue-500">
                           <Mail className="h-3 w-3" />
@@ -518,7 +518,7 @@ export function ConversationList({
                     </div>
 
                     {/* Tags */}
-                    <div className="mt-1.5 flex items-center gap-1 flex-wrap">
+                    <div className="mt-1 flex flex-wrap items-center gap-1">
                       {(conversationTags[conv.id] || []).slice(0, 2).map((tag) => (
                         <span
                           key={tag.id}
