@@ -683,8 +683,8 @@ export default function AgentsPage() {
         </div>
       </div>
 
-      {/* Zone : carrousel un peu plus haut, bouton Nouvel agent en bas */}
-      <div className="flex flex-1 flex-col items-center justify-between py-6">
+      {/* Zone : carrousel centré, bouton Nouvel agent juste en dessous */}
+      <div className="flex flex-1 flex-col items-center justify-center py-6">
       {agents.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
@@ -926,8 +926,8 @@ export default function AgentsPage() {
         })()
       )}
 
-      {/* Bouton "Nouvel agent" — en bas de la zone */}
-      <div className="flex justify-center">
+      {/* Bouton "Nouvel agent" — juste sous les cartes et les points */}
+      <div className="mt-6 flex justify-center">
         <Link href="/agents/new">
           <button
             data-tour="new-agent-btn"
