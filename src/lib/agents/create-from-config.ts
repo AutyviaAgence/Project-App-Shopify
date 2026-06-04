@@ -39,7 +39,7 @@ export async function createAgentFromConfig(config: AgentCreateConfig): Promise<
       description: config.description || null,
       system_prompt: config.system_prompt,
       objective: config.objective || null,
-      model: 'gpt-4o-mini',
+      model: 'gpt-4o',
       temperature: 0.7,
       response_delay_min: 30,
       response_delay_max: 120,

@@ -62,6 +62,14 @@ const ESCALATION = [
   { id: 'complex', label: 'Seulement pour les cas complexes' },
   { id: 'none',    label: 'Non, l\'agent gère tout seul' },
 ]
+const LANGUAGES = [
+  { id: 'fr', label: 'Français' },
+  { id: 'en', label: 'Anglais' },
+  { id: 'es', label: 'Espagnol' },
+  { id: 'ar', label: 'Arabe' },
+  { id: 'pt', label: 'Portugais' },
+  { id: 'de', label: 'Allemand' },
+]
 
 type Answers = {
   role?: string
@@ -73,6 +81,9 @@ type Answers = {
   length?: string
   hours?: string
   services?: string
+  languages?: string
+  collect?: string
+  example?: string
   escalation?: string
   bookingUrl?: string
 }
@@ -82,12 +93,12 @@ type Screen =
   | 'level' | 'welcome'
   | 'role' | 'sector' | 'name'
   | 't-tone' | 'tone' | 'emojis' | 'length'
-  | 't-business' | 'hours' | 'services'
+  | 't-business' | 'hours' | 'services' | 'languages' | 'collect' | 'example'
   | 't-rules' | 'escalation' | 'booking'
   | 'generating' | 'done'
 
 // Ordre des écrans "à compter" pour la barre de progression (hors transitions/level)
-const FLOW: Screen[] = ['role', 'sector', 'name', 'tone', 'emojis', 'length', 'hours', 'services', 'escalation', 'booking']
+const FLOW: Screen[] = ['role', 'sector', 'name', 'tone', 'emojis', 'length', 'hours', 'services', 'languages', 'collect', 'example', 'escalation', 'booking']
 
 export default function NewAgentPage() {
   const router = useRouter()
@@ -349,6 +360,66 @@ export default function NewAgentPage() {
                 className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40"
               />
               <div className="flex items-center gap-3">
+                <button onClick={() => setScreen('languages')} className="flex-1 rounded-full border border-white/10 py-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
+                  Passer
+                </button>
+                <NextBtn onClick={() => setScreen('languages')} className="flex-1" />
+              </div>
+            </Step>
+          )}
+
+          {/* ─── Langues gérées (multi) ─── */}
+          {screen === 'languages' && (
+            <Step title="Quelles langues l'agent doit-il gérer ?" subtitle="Il détectera la langue du client et répondra dans celle-ci." onBack={() => setScreen('services')}>
+              <div className="grid grid-cols-3 gap-3">
+                {LANGUAGES.map(l => {
+                  const selected = (answers.languages || '').split(',').map(s => s.trim()).includes(l.label)
+                  return (
+                    <OptionCard key={l.id} selected={selected} center
+                      onClick={() => {
+                        const cur = (answers.languages || '').split(',').map(s => s.trim()).filter(Boolean)
+                        const next = cur.includes(l.label) ? cur.filter(x => x !== l.label) : [...cur, l.label]
+                        set({ languages: next.join(', ') })
+                      }}>
+                      <span className="text-sm font-medium">{l.label}</span>
+                    </OptionCard>
+                  )
+                })}
+              </div>
+              <NextBtn disabled={!answers.languages?.trim()} onClick={() => setScreen('collect')} />
+            </Step>
+          )}
+
+          {/* ─── Infos à collecter (libre, skippable) ─── */}
+          {screen === 'collect' && (
+            <Step title="Quelles informations l'agent doit-il récolter ?" subtitle="Optionnel — ce que l'agent demande au client (une par ligne)." onBack={() => setScreen('languages')}>
+              <textarea
+                value={answers.collect || ''}
+                onChange={e => set({ collect: e.target.value })}
+                placeholder={"- Prénom\n- Type de demande\n- Date souhaitée\n- Nombre de personnes"}
+                rows={5}
+                className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40"
+              />
+              <div className="flex items-center gap-3">
+                <button onClick={() => setScreen('example')} className="flex-1 rounded-full border border-white/10 py-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
+                  Passer
+                </button>
+                <NextBtn onClick={() => setScreen('example')} className="flex-1" />
+              </div>
+            </Step>
+          )}
+
+          {/* ─── Exemple de conversation (libre, skippable) ─── */}
+          {screen === 'example' && (
+            <Step title="Un exemple de conversation type ?" subtitle="Optionnel — aide l'agent à reproduire le bon ton et le bon déroulé." onBack={() => setScreen('collect')}>
+              <textarea
+                value={answers.example || ''}
+                onChange={e => set({ example: e.target.value })}
+                placeholder={"Client : Bonjour, vous livrez à Paris ?\nAgent : Oui, partout en France sous 48h. Vous souhaitez commander ?\nClient : Oui, combien ça coûte ?\n…"}
+                rows={6}
+                className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40"
+              />
+              <div className="flex items-center gap-3">
                 <button onClick={() => setScreen('t-rules')} className="flex-1 rounded-full border border-white/10 py-3 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground">
                   Passer
                 </button>
@@ -364,7 +435,7 @@ export default function NewAgentPage() {
 
           {/* ─── Escalade ─── */}
           {screen === 'escalation' && (
-            <Step title="Transfert vers un humain ?" onBack={() => setScreen('services')}>
+            <Step title="Transfert vers un humain ?" onBack={() => setScreen('example')}>
               <div className="space-y-3">
                 {ESCALATION.map(e => (
                   <OptionCard key={e.id} selected={answers.escalation === e.id}

@@ -6,28 +6,60 @@ import { checkTokenLimit, recordTokenUsage } from '@/lib/openai/token-tracker'
 // Génère la configuration complète d'un agent WhatsApp à partir des réponses
 // du questionnaire d'onboarding (style Blow Up). Calqué sur optimize-prompt.
 
-const SYSTEM_PROMPT = `Tu es un expert en conception d'agents conversationnels IA pour WhatsApp.
+const SYSTEM_PROMPT = `Tu es un expert en conception de prompts système pour agents conversationnels IA sur WhatsApp. Tu produis des prompts de NIVEAU PRODUCTION, longs, détaillés et opérationnels — pas des descriptions génériques.
 
-À partir des réponses d'un questionnaire d'onboarding, tu génères la configuration
-complète d'un agent. Tu réponds UNIQUEMENT avec un objet JSON valide, sans texte autour.
-
-Le JSON doit avoir exactement cette forme :
+À partir des réponses d'un questionnaire, tu génères la configuration complète d'un agent. Tu réponds UNIQUEMENT avec un objet JSON valide, sans texte autour, de cette forme exacte :
 {
   "name": "string — nom court et clair de l'agent",
   "description": "string — une phrase décrivant le rôle de l'agent",
-  "objective": "string — la mission principale de l'agent en une phrase",
-  "system_prompt": "string — prompt système complet en markdown structuré"
+  "objective": "string — la mission principale en une phrase",
+  "system_prompt": "string — le prompt système complet (voir structure obligatoire ci-dessous)"
 }
 
-Règles pour le system_prompt :
-1. Structure en sections markdown : ## Identité, ## Ton et style, ## Missions, ## Limites & garde-fous.
-2. Contexte WhatsApp : messages courts, réactifs, naturels, humains.
-3. Adapte l'identité et les missions au métier et au type d'agent fournis.
-4. Respecte le ton, l'usage des emojis et la longueur de réponse demandés.
-5. Ajoute des garde-fous (sujets à éviter, escalade vers un humain si pertinent).
-6. N'invente pas d'informations métier précises (tarifs, horaires) : reste générique,
-   ces infos seront fournies via une base de connaissance.
-7. Écris en français, ton naturel.`
+Le system_prompt DOIT suivre EXACTEMENT cette structure, en texte brut avec des titres de section en MAJUSCULES (pas de markdown ##), chaque section non vide et adaptée au métier :
+
+ROLE ET OBJECTIF
+Qui est l'agent (assistant IA de [entreprise/métier] sur WhatsApp), ce qu'il fait concrètement (qualifier, répondre, prendre RDV, établir devis, transmettre…), et l'impression qu'il doit donner. 2 à 4 phrases.
+
+LANGUE — REGLE ABSOLUE ET PRIORITAIRE
+L'agent détecte la langue du client au 1er message et répond UNIQUEMENT dans cette langue, sans JAMAIS en changer en cours de conversation. Liste les langues fournies. Langue ambiguë → anglais par défaut. Il ne demande jamais au client quelle langue il préfère.
+
+IDENTITE — REGLE NON NEGOCIABLE
+L'agent est une IA. Si on lui demande s'il est un robot/humain, il le confirme toujours. Donne une réponse type.
+
+TON ET STYLE
+Règles précises selon le ton/emojis/longueur demandés : nombre max de phrases par message, une seule question à la fois, vouvoiement par défaut (tutoiement si le client tutoie), usage des emojis, formulations INTERDITES ("n'hésitez pas", "je reste à votre disposition", "un instant je vérifie"…), ne jamais répéter deux fois la même formulation.
+
+ANALYSE DU PREMIER MESSAGE — REGLE FONDAMENTALE
+L'agent analyse entièrement le 1er message avant de répondre. Détaille 3 cas concrets adaptés au métier :
+CAS A — message vague (ex : "bonjour") → message d'accueil + présentation des services.
+CAS B — besoin identifié mais infos manquantes → accueil bref + extraction + 1re question manquante.
+CAS C — message complet → accueil bref + récapitulatif + question restante OU transmission directe.
+REGLE : un seul message d'accueil par conversation, jamais de "bonjour" après le 1er échange.
+
+EXTRACTION INTELLIGENTE
+À chaque message, extraire TOUTES les infos déjà présentes avant de poser une question. Ne jamais redemander une info déjà donnée. Une seule question à la fois.
+
+INFORMATIONS A COLLECTER
+La liste précise des informations que l'agent doit récolter (issue des réponses du questionnaire), dans l'ordre, avec les éventuelles règles (obligatoire / conditionnel).
+
+DEROULEMENT / FLOW
+Les étapes de la conversation selon la fonction de l'agent (collecte, devis, RDV, SAV…). Étapes numérotées et claires.
+
+TRANSMISSION A L'EQUIPE
+Quand et comment l'agent transmet (escalade humaine selon le réglage fourni). Décris quand notifier l'équipe, quelles infos transmettre, et le message de confirmation au client.
+
+BASE DE CONNAISSANCES
+Pour toute question factuelle (produits, prix, horaires, livraison…), l'agent consulte sa base de connaissances et n'invente JAMAIS. S'il ne trouve pas : phrase type renvoyant vers un contact humain.
+
+CE QUE TU NE FAIS JAMAIS
+Liste de 8 à 12 interdits concrets et adaptés (mentir sur sa nature, changer de langue, inventer un prix, poser 2 questions à la fois, redemander une info, etc.).
+
+RÈGLES DE GÉNÉRATION :
+- Adapte CHAQUE section au métier, au secteur et au type d'agent fournis. Sois concret, pas générique.
+- N'invente PAS de données factuelles précises (vrais tarifs, vraies adresses, vrais horaires) : elles viennent de la base de connaissances. Tu peux structurer où elles s'utilisent.
+- Si un exemple de conversation est fourni, inspire-t'en pour le ton et le flow.
+- Le prompt fait au minimum 600 mots. Écris en français (sauf les exemples de messages multilingues si plusieurs langues).`
 
 interface OnboardingAnswers {
   role?: string
@@ -43,6 +75,9 @@ interface OnboardingAnswers {
   address?: string
   escalation?: string
   bookingUrl?: string
+  languages?: string
+  collect?: string
+  example?: string
 }
 
 export async function POST(request: Request) {
@@ -77,19 +112,23 @@ export async function POST(request: Request) {
     if (answers.emojis) lines.push(`- Usage des emojis : ${answers.emojis}`)
     if (answers.length) lines.push(`- Longueur des réponses : ${answers.length}`)
     if (answers.hours) lines.push(`- Disponibilité : ${answers.hours}`)
+    if (answers.languages?.trim()) lines.push(`- Langues gérées : ${answers.languages.trim()}`)
+    if (answers.services?.trim()) lines.push(`- Services / produits : ${answers.services.trim()}`)
+    if (answers.collect?.trim()) lines.push(`- Informations à collecter auprès du client : ${answers.collect.trim()}`)
     if (answers.escalation) lines.push(`- Transfert vers un humain : ${answers.escalation}`)
     if (answers.bookingUrl) lines.push(`- Lien de rendez-vous disponible : oui`)
+    if (answers.example?.trim()) lines.push(`- Exemple de conversation type fourni par le client :\n${answers.example.trim()}`)
 
-    const userMessage = `Voici les réponses du questionnaire :\n${lines.join('\n')}\n\nGénère la configuration JSON de l'agent.`
+    const userMessage = `Voici les réponses du questionnaire :\n${lines.join('\n')}\n\nGénère la configuration JSON de l'agent avec un system_prompt complet et opérationnel suivant la structure imposée.`
 
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: 'gpt-4o',
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: userMessage },
       ],
-      temperature: 0.7,
-      max_tokens: 1800,
+      temperature: 0.6,
+      max_tokens: 4000,
       response_format: { type: 'json_object' },
     })
 

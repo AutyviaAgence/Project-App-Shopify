@@ -218,7 +218,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Nom et prompt système requis' }, { status: 400 })
   }
 
-  const finalModel = VALID_MODELS.includes(model || '') ? model! : 'gpt-4o-mini'
+  const finalModel = VALID_MODELS.includes(model || '') ? model! : 'gpt-4o'
   const finalTemp = typeof temperature === 'number'
     ? Math.max(0, Math.min(2, temperature))
     : 0.7
