@@ -500,23 +500,22 @@ function MiniKPI({ icon: Icon, label, value, trend }: {
 // ─── EngagementFunnel — entonnoir d'engagement (variable universelle) ─────────
 
 function EngagementFunnel({ steps }: { steps: { label: string; value: number }[] }) {
-  // Entonnoir fidele a la maquette "AI Automation Hub" :
-  // - N trapezes empiles, separes par un petit gap sombre
-  // - degrade teal du clair (haut) au fonce (bas), dernier en pointe asymetrique
-  // - liseré clair en haut de chaque segment + bande de brillance verticale a gauche
+  // Entonnoir d'engagement :
+  // - N trapezes empiles, separes par un petit gap sombre, parfaitement centres
+  // - degrade teal du clair (haut) au fonce (bas), dernier segment en pointe fine symetrique
+  // - liseré clair en haut de chaque segment
   // - etiquettes a droite : ligne + point + pill, alignees au centre de chaque etage
   const n = steps.length
 
-  // Geometrie (repere de la maquette, viewBox 0..360 x 0..330)
+  // Geometrie (viewBox 0..360 x 0..330), entonnoir centre sur cx
   const W = 360
   const H = 330
-  const cx = 190                                   // axe central de l'entonnoir
+  const cx = W / 2                                  // axe central de l'entonnoir
   const gap = 6                                     // espace sombre entre segments
   const yTop0 = 10                                  // depart vertical
-  const bandW = 28                                  // largeur de la bande de brillance gauche
-  // demi-largeur tout en haut / tout en bas (pointe)
-  const halfTop = 190
-  const halfBottom = 14
+  // demi-largeur tout en haut / tout en bas (pointe fine)
+  const halfTop = 168
+  const halfBottom = 10
   const usableH = H - yTop0 * 2 - gap * (n - 1)
   const segH = usableH / n
   const halfAtLevel = (level: number) => halfTop - (halfTop - halfBottom) * (level / n)
@@ -535,11 +534,8 @@ function EngagementFunnel({ steps }: { steps: { label: string; value: number }[]
           const yB = yT + segH
           const hT = halfAtLevel(i)
           const hB = halfAtLevel(i + 1)
-          const last = i === n - 1
-          // Corps du segment (le dernier finit en pointe asymetrique facon maquette)
-          const body = last
-            ? `M ${cx - hT} ${yT} L ${cx + hT} ${yT} L ${cx + hT} ${yB} L ${cx - hT} ${yB - 18} Z`
-            : `M ${cx - hT} ${yT} L ${cx + hT} ${yT} L ${cx + hB} ${yB} L ${cx - hB} ${yB} Z`
+          // Corps du segment : trapeze symetrique (le dernier converge vers une pointe fine centree)
+          const body = `M ${cx - hT} ${yT} L ${cx + hT} ${yT} L ${cx + hB} ${yB} L ${cx - hB} ${yB} Z`
           // Liseré clair sur les ~12px du haut du segment
           const litH = 12
           const hLit = halfAtLevel(i + litH / segH)
@@ -551,8 +547,6 @@ function EngagementFunnel({ steps }: { steps: { label: string; value: number }[]
             </g>
           )
         })}
-        {/* Bande de brillance verticale a gauche */}
-        <rect x={cx - halfTop} y={yTop0} width={bandW} height={H - yTop0 * 2} fill="#FFFFFF" opacity={0.08} />
       </svg>
 
       {/* Etiquettes facon maquette : ligne + point + pill, au centre de chaque etage */}
