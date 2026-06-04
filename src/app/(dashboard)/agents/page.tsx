@@ -683,6 +683,8 @@ export default function AgentsPage() {
         </div>
       </div>
 
+      {/* Zone centrée verticalement : carrousel + bouton */}
+      <div className="flex flex-1 flex-col items-center justify-center">
       {agents.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
@@ -713,11 +715,11 @@ export default function AgentsPage() {
           const go = (dir: number) => setCenterIndex(c => (((c + dir) % n) + n) % n)
 
           return (
-            <div className="relative flex items-start justify-center pt-4" style={{ perspective: '2000px' }}>
+            <div className="relative flex w-full items-center justify-center" style={{ perspective: '2000px' }}>
               {/* Flèche gauche */}
               {n > 1 && (
                 <button onClick={() => go(-1)} aria-label="Précédent"
-                  className="absolute left-0 top-[236px] z-30 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card text-muted-foreground backdrop-blur transition-all hover:scale-110 hover:bg-muted hover:text-foreground">
+                  className="absolute left-0 top-1/2 z-30 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card text-muted-foreground backdrop-blur transition-all hover:scale-110 hover:bg-muted hover:text-foreground">
                   <ChevronLeft className="h-5 w-5" />
                 </button>
               )}
@@ -905,7 +907,7 @@ export default function AgentsPage() {
               {/* Flèche droite */}
               {n > 1 && (
                 <button onClick={() => go(1)} aria-label="Suivant"
-                  className="absolute right-0 top-[236px] z-30 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card text-muted-foreground backdrop-blur transition-all hover:scale-110 hover:bg-muted hover:text-foreground">
+                  className="absolute right-0 top-1/2 z-30 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card text-muted-foreground backdrop-blur transition-all hover:scale-110 hover:bg-muted hover:text-foreground">
                   <ChevronRight className="h-5 w-5" />
                 </button>
               )}
@@ -924,8 +926,8 @@ export default function AgentsPage() {
         })()
       )}
 
-      {/* Bouton "Nouvel agent" — bulle arrondie centrée en bas, lance l'onboarding */}
-      <div className="mt-10 flex justify-center pb-4">
+      {/* Bouton "Nouvel agent" — centré sous le carrousel */}
+      <div className="mt-6 flex justify-center">
         <Link href="/agents/new">
           <button
             data-tour="new-agent-btn"
@@ -937,6 +939,7 @@ export default function AgentsPage() {
             {t('agents.new_agent')}
           </button>
         </Link>
+      </div>
       </div>
 
       {/* Create/Edit Dialog */}

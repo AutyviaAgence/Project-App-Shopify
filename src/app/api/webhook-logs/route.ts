@@ -2,14 +2,26 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getUserTeamIds, buildAccessFilter } from '@/lib/teams/access'
 
-/** GET /api/webhook-logs — Liste des logs webhook de l'utilisateur */
-export async function GET(req: NextRequest) {
+/** Verifie que l'utilisateur est authentifie ET admin. Renvoie le client + user,
+ * ou une reponse d'erreur. Les logs webhook sont reserves aux admins. */
+async function requireAdmin() {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
-
   if (authError || !user) {
-    return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    return { error: NextResponse.json({ error: 'Non authentifié' }, { status: 401 }) }
   }
+  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single() as { data: { role: string | null } | null }
+  if (profile?.role !== 'admin') {
+    return { error: NextResponse.json({ error: 'Accès réservé aux administrateurs' }, { status: 403 }) }
+  }
+  return { supabase, user }
+}
+
+/** GET /api/webhook-logs — Liste des logs webhook (admin uniquement) */
+export async function GET(req: NextRequest) {
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
+  const { supabase, user } = auth
 
   // Parse query params
   const { searchParams } = new URL(req.url)
@@ -81,14 +93,11 @@ export async function GET(req: NextRequest) {
   })
 }
 
-/** DELETE /api/webhook-logs — Supprimer les vieux logs (7+ jours) */
+/** DELETE /api/webhook-logs — Supprimer les vieux logs (admin uniquement) */
 export async function DELETE() {
-  const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-  }
+  const auth = await requireAdmin()
+  if (auth.error) return auth.error
+  const { supabase, user } = auth
 
   // Get user's sessions (personal + team)
   const teamIds = await getUserTeamIds(supabase, user.id)

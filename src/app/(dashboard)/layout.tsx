@@ -78,8 +78,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     [t]
   )
   const BOTTOM_NAV_ITEMS = useMemo(() => {
-    const items = BOTTOM_NAV_KEYS.map(item => ({ ...item, label: t(item.labelKey) }))
-    if (subscription?.role === 'admin') {
+    const isAdminRole = subscription?.role === 'admin'
+    // Logs reserve aux admins
+    const items = BOTTOM_NAV_KEYS
+      .filter(item => item.href !== '/logs' || isAdminRole)
+      .map(item => ({ ...item, label: t(item.labelKey) }))
+    if (isAdminRole) {
       items.unshift({ href: '/admin', labelKey: 'nav.admin', label: 'Admin', icon: ShieldCheck })
     }
     return items

@@ -33,12 +33,24 @@ import { formatDistanceToNow } from 'date-fns'
 import { fr, enUS } from 'date-fns/locale'
 import { useTranslation } from '@/i18n/context'
 import { BlobLoaderScreen } from '@/components/blob-loader'
+import { useSubscription } from '@/hooks/use-subscription'
+import { useRouter } from 'next/navigation'
 
 export default function LogsPage() {
   const { t, locale } = useTranslation()
+  const router = useRouter()
+  const { subscription, loading: subLoading } = useSubscription()
+  const isAdmin = subscription?.role === 'admin'
   const [logs, setLogs] = useState<WebhookLog[]>([])
   const [loading, setLoading] = useState(true)
   const [sessions, setSessions] = useState<{ id: string; instance_name: string }[]>([])
+
+  // Logs reserve aux admins : redirige les autres
+  useEffect(() => {
+    if (!subLoading && !isAdmin) {
+      router.replace('/dashboard')
+    }
+  }, [subLoading, isAdmin, router])
 
   const dateFnsLocale = locale === 'fr' ? fr : enUS
   const numberLocale = locale === 'fr' ? 'fr-FR' : 'en-US'
@@ -158,6 +170,11 @@ export default function LogsPage() {
         {event}
       </span>
     )
+  }
+
+  // Garde admin : loader tant que le role n'est pas confirme (evite le flash)
+  if (subLoading || !isAdmin) {
+    return <BlobLoaderScreen />
   }
 
   if (loading && logs.length === 0) {
