@@ -29,7 +29,6 @@ import {
   ArrowUpRight,
   Users,
   UserPlus,
-  Zap,
   TrendingUp,
   TrendingDown,
 } from 'lucide-react'
@@ -399,7 +398,7 @@ function StatsDashboard() {
             <div className="grid grid-cols-3 gap-3 lg:col-span-4 lg:grid-cols-1">
               <MiniKPI icon={Users} label={t('dashboard.conversations')} value={stats.overview.activeConversations.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')} trend={stats.overview.conversationsTrend} />
               <MiniKPI icon={UserPlus} label={t('dashboard.new_contacts')} value={stats.overview.newContacts.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')} trend={stats.overview.contactsTrend} />
-              <MiniKPI icon={Zap} label={t('dashboard.ai_rate')} value={`${stats.overview.responseRate ?? 0}%`} trend={null} />
+              <AIStatusKPI label={t('dashboard.ai_online')} active={activeAgents} total={stats.agents.length} />
             </div>
           </div>
 
@@ -493,6 +492,28 @@ function MiniKPI({ icon: Icon, label, value, trend }: {
           {trend > 0 ? '+' : ''}{trend}%
         </span>
       )}
+    </div>
+  )
+}
+
+// ─── AIStatusKPI — statut IA en ligne (pastille verte/rouge + actifs/total) ───
+
+function AIStatusKPI({ label, active, total }: { label: string; active: number; total: number }) {
+  const online = active > 0
+  return (
+    <div className="relative flex flex-1 items-center gap-3 overflow-hidden rounded-2xl border border-border bg-card p-4 shadow-sm">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/12 text-primary">
+        <Bot className="h-5 w-5" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-xs text-muted-foreground">{label}</p>
+        <p className="text-xl font-bold tracking-tight text-foreground">{active}/{total}</p>
+      </div>
+      {/* Pastille de statut (verte si au moins 1 agent actif, rouge sinon) */}
+      <span className="relative flex h-3 w-3 shrink-0">
+        {online && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-60" />}
+        <span className={cn('relative inline-flex h-3 w-3 rounded-full', online ? 'bg-emerald-500' : 'bg-red-500')} />
+      </span>
     </div>
   )
 }
