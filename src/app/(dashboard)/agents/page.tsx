@@ -713,7 +713,7 @@ export default function AgentsPage() {
           const go = (dir: number) => setCenterIndex(c => (((c + dir) % n) + n) % n)
 
           return (
-            <div className="relative flex flex-1 items-center justify-center" style={{ perspective: '2000px' }}>
+            <div className="relative flex items-start justify-center pt-4" style={{ perspective: '2000px' }}>
               {/* Flèche gauche */}
               {n > 1 && (
                 <button onClick={() => go(-1)} aria-label="Précédent"
@@ -723,7 +723,7 @@ export default function AgentsPage() {
               )}
 
               {/* Scène coverflow */}
-              <div className="relative mx-auto h-[520px] w-full max-w-[460px]" style={{ transformStyle: 'preserve-3d' }}>
+              <div className="relative mx-auto h-[440px] w-full max-w-[460px]" style={{ transformStyle: 'preserve-3d' }}>
                 {sorted.map((agent, idx) => {
                   // offset relatif au centre, normalisé sur [-n/2, n/2]
                   let offset = idx - center
@@ -925,7 +925,7 @@ export default function AgentsPage() {
       )}
 
       {/* Bouton "Nouvel agent" — bulle arrondie centrée en bas, lance l'onboarding */}
-      <div className="mt-8 flex justify-center pb-4">
+      <div className="mt-2 flex justify-center pb-4">
         <Link href="/agents/new">
           <button
             data-tour="new-agent-btn"
