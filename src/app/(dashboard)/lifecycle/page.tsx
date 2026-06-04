@@ -370,7 +370,7 @@ export default function LifecyclePage() {
         </Button>
       </div>
 
-      <div className="max-w-3xl space-y-6">
+      <div className="w-full space-y-6">
         {/* Analyse en masse — réservé Pro/Scale */}
         {canAnalyze && unanalyzed.total > 0 && (
           <Card className="border-amber-500/30 bg-amber-500/5">
