@@ -500,47 +500,66 @@ function MiniKPI({ icon: Icon, label, value, trend }: {
 // ─── EngagementFunnel — entonnoir d'engagement (variable universelle) ─────────
 
 function EngagementFunnel({ steps }: { steps: { label: string; value: number }[] }) {
-  // Entonnoir lisse en SVG : un cone fluide en degrade continu (turquoise -> sombre),
-  // largeur a paliers reguliers (independante des ecarts de valeur), labels a droite.
+  // Vrai entonnoir : large en haut, cotes INCURVES qui convergent en pointe vers le bas.
   const n = steps.length
-  const W = 200          // largeur viewBox
-  const H = 150          // hauteur viewBox
+  const W = 200
+  const H = 170
   const rowH = H / n
-  const halfTop = 92     // demi-largeur du haut
-  const halfBottom = 26  // demi-largeur du bas
-  const half = (i: number) => halfTop - (halfTop - halfBottom) * (i / n)
   const cx = W / 2
+  const halfTop = 94
+  const halfBottom = 8
+  // demi-largeur a la position verticale t (0=haut, 1=bas), avec courbe (ease) pour le pincement
+  const halfAt = (t: number) => {
+    const eased = Math.pow(t, 1.6) // pince plus fort vers le bas -> forme entonnoir
+    return halfTop - (halfTop - halfBottom) * eased
+  }
+  // points du contour gauche/droit (echantillonnage pour une courbe lisse)
+  const N = 24
+  const left: string[] = []
+  const right: string[] = []
+  for (let k = 0; k <= N; k++) {
+    const t = k / N
+    const y = t * H
+    const h = halfAt(t)
+    left.push(`${cx - h},${y}`)
+    right.unshift(`${cx + h},${y}`)
+  }
+  const path = `M ${left.join(' L ')} L ${right.join(' L ')} Z`
 
   return (
-    <div className="flex w-full items-center gap-3">
-      <svg viewBox={`0 0 ${W} ${H}`} className="h-full max-h-[180px] w-1/2 shrink-0" preserveAspectRatio="xMidYMid meet">
+    <div className="flex h-full w-full items-stretch gap-4">
+      <svg viewBox={`0 0 ${W} ${H}`} className="h-full max-h-[190px] w-[55%] shrink-0" preserveAspectRatio="xMidYMid meet">
         <defs>
           <linearGradient id="funnelGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#7DC2A5" />
-            <stop offset="100%" stopColor="#1f3a33" />
+            <stop offset="0%" stopColor="#8fd3b6" />
+            <stop offset="100%" stopColor="#16302a" />
           </linearGradient>
         </defs>
-        {/* cone fluide */}
-        <path
-          d={`M ${cx - halfTop} 0 L ${cx + halfTop} 0 L ${cx + halfBottom} ${H} L ${cx - halfBottom} ${H} Z`}
-          fill="url(#funnelGrad)"
-        />
-        {/* lignes de separation discretes entre etages */}
+        <path d={path} fill="url(#funnelGrad)" />
+        {/* separations a chaque frontiere d'etage */}
         {steps.slice(1).map((_, i) => {
-          const y = rowH * (i + 1)
-          const h = half(i + 1)
-          return <line key={i} x1={cx - h} y1={y} x2={cx + h} y2={y} stroke="rgba(0,0,0,0.25)" strokeWidth="1.5" />
+          const t = (i + 1) / n
+          const y = t * H
+          const h = halfAt(t)
+          return <line key={i} x1={cx - h} y1={y} x2={cx + h} y2={y} stroke="rgba(10,20,18,0.35)" strokeWidth="1.5" />
         })}
       </svg>
 
-      {/* Labels a droite, alignes sur chaque etage */}
-      <div className="flex flex-1 flex-col justify-between py-1" style={{ height: '100%', maxHeight: 180 }}>
-        {steps.map((s, i) => (
-          <div key={i} className="flex items-center justify-between gap-2 text-xs">
-            <span className="truncate text-muted-foreground">{s.label}</span>
-            <span className="shrink-0 font-bold tabular-nums text-foreground">{s.value.toLocaleString('fr-FR')}</span>
-          </div>
-        ))}
+      {/* Labels alignes au CENTRE vertical de chaque etage */}
+      <div className="relative flex-1" style={{ minHeight: 190 }}>
+        {steps.map((s, i) => {
+          const centerPct = ((i + 0.5) * rowH) / H * 100
+          return (
+            <div
+              key={i}
+              className="absolute right-0 left-0 flex -translate-y-1/2 items-center justify-between gap-2 text-xs"
+              style={{ top: `${centerPct}%` }}
+            >
+              <span className="truncate text-muted-foreground">{s.label}</span>
+              <span className="shrink-0 font-bold tabular-nums text-foreground">{s.value.toLocaleString('fr-FR')}</span>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
