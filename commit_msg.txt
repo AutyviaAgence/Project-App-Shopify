@@ -1,0 +1,8 @@
+﻿fix(ressources): meilleures previews images + filtres plus lisibles en mobile
+
+ImageCard : preview plus haute (h-44 mobile / h-36 sm) et object-contain
+pour voir l'image entiere (documents/captures) au lieu d'un crop agressif.
+Boutons de filtre (Tout/Documents/Images) avec bordure + fond pour un
+meilleur contraste a l'etat inactif.
+
+Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>

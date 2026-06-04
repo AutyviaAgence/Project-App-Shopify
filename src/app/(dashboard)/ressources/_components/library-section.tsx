@@ -298,8 +298,10 @@ export function LibrarySection() {
               key={f}
               onClick={() => setFilter(f)}
               className={cn(
-                'rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
-                filter === f ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
+                'rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors',
+                filter === f
+                  ? 'border-primary bg-primary text-primary-foreground'
+                  : 'border-border bg-muted/40 text-muted-foreground hover:bg-muted hover:text-foreground'
               )}
             >
               {f === 'all' ? 'Tout' : f === 'docs' ? '📄 Documents' : '🖼️ Images IA'}
@@ -565,11 +567,11 @@ function ImageCard({ img, agents, previewUrl, editingAgent, agentSaving, onLoadP
 
   return (
     <div className="group rounded-2xl border bg-card overflow-hidden hover:shadow-md hover:border-primary/30 transition-all">
-      {/* Preview */}
-      <div className="relative h-32 bg-muted cursor-pointer" onClick={onOpenFull}>
+      {/* Preview — plus haute en mobile, image entiere visible (object-contain) */}
+      <div className="relative h-44 cursor-pointer bg-muted/60 sm:h-36" onClick={onOpenFull}>
         {previewUrl && !errored ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={previewUrl} alt={img.ref} className="h-full w-full object-cover" onError={() => setErrored(true)} />
+          <img src={previewUrl} alt={img.ref} className="h-full w-full object-contain" onError={() => setErrored(true)} />
         ) : (
           <div className="flex h-full items-center justify-center">
             {previewUrl ? (
