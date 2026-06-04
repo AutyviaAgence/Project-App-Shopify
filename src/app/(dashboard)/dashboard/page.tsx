@@ -489,70 +489,90 @@ function AIStatusKPI({ label, active, total }: { label: string; active: number; 
 // ─── EngagementFunnel — entonnoir d'engagement (variable universelle) ─────────
 
 function EngagementFunnel({ steps }: { steps: { label: string; value: number }[] }) {
-  // Reprise EXACTE de la maquette ai_automation_hub_funnel_v11.svg :
-  // memes polygons, memes couleurs, memes lignes+points+pills. Seuls les textes
-  // des pills sont remplaces par nos donnees (label + valeur).
-  // Geometrie du SVG d'origine, recadree sur le funnel (x 150..530, y 150..488).
-  const labels = steps.map((s) => s.label)
-  const values = steps.map((s) => s.value.toLocaleString('fr-FR'))
+  // Reprise EXACTE de la maquette ai_automation_hub_funnel_v11.svg, rendue
+  // interactive : au survol/clic d'un etage, surbrillance + balayage lumineux.
+  // Geometrie du SVG d'origine (x 150..530, y 150..488), un objet par etage.
+  const [active, setActive] = useState<number | null>(null)
+
+  // Definition de chaque etage : polygone, liseré clair, etiquette (ligne+point+pill)
+  const tiers = [
+    {
+      body: '150,150 530,150 482,235 198,235', top: '150,150 530,150 524,162 156,162',
+      fill: '#5FE6CB', topFill: '#7DF0DC',
+      lineX1: 540, lineY: 175, dotX: 610, pillX: 630, pillY: 151, textX: 680,
+    },
+    {
+      body: '198,241 482,241 412,326 268,326', top: '198,241 482,241 476,253 204,253',
+      fill: '#3DCBAE', topFill: '#5FE6CB',
+      lineX1: 490, lineY: 280, dotX: 560, pillX: 580, pillY: 256, textX: 630,
+    },
+    {
+      body: '268,332 412,332 372,400 308,400', top: '268,332 412,332 406,344 274,344',
+      fill: '#28AC92', topFill: '#3DCBAE',
+      lineX1: 420, lineY: 366, dotX: 490, pillX: 510, pillY: 342, textX: 560,
+    },
+    {
+      body: '308,406 372,406 372,488 308,462', top: '308,406 372,406 372,418 308,418',
+      fill: '#1B8C77', topFill: '#28AC92',
+      lineX1: 402, lineY: 431, dotX: 472, pillX: 492, pillY: 407, textX: 542,
+    },
+  ]
 
   return (
     <div className="h-full w-full">
       <svg viewBox="140 140 600 358" className="h-full w-full" preserveAspectRatio="xMidYMid meet">
-        {/* ── Trapezes (identiques a la maquette v11) ── */}
-        <g>
-          <polygon points="150,150 530,150 482,235 198,235" fill="#5FE6CB" />
-          <polygon points="150,150 530,150 524,162 156,162" fill="#7DF0DC" opacity="0.7" />
+        <defs>
+          {/* Degrade de balayage (userSpaceOnUse) : on anime le gradient, pas la forme */}
+          <linearGradient id="funnelShine" gradientUnits="userSpaceOnUse" x1="150" y1="0" x2="270" y2="0">
+            <stop offset="0%" stopColor="#ffffff" stopOpacity="0" />
+            <stop offset="50%" stopColor="#ffffff" stopOpacity="0.55" />
+            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
+            <animate attributeName="x1" values="150;500" dur="1.1s" repeatCount="indefinite" />
+            <animate attributeName="x2" values="270;620" dur="1.1s" repeatCount="indefinite" />
+          </linearGradient>
+        </defs>
 
-          <polygon points="198,241 482,241 412,326 268,326" fill="#3DCBAE" />
-          <polygon points="198,241 482,241 476,253 204,253" fill="#5FE6CB" opacity="0.7" />
+        {steps.map((s, i) => {
+          const tier = tiers[i]
+          if (!tier) return null
+          const isActive = active === i
+          return (
+            <g
+              key={i}
+              className="cursor-pointer"
+              style={{ transition: 'opacity 200ms ease' }}
+              opacity={active === null || isActive ? 1 : 0.45}
+              onMouseEnter={() => setActive(i)}
+              onMouseLeave={() => setActive(null)}
+              onClick={() => setActive((cur) => (cur === i ? null : i))}
+            >
+              {/* Trapeze + liseré clair */}
+              <polygon points={tier.body} fill={tier.fill} />
+              <polygon points={tier.top} fill={tier.topFill} opacity={0.7} />
 
-          <polygon points="268,332 412,332 372,400 308,400" fill="#28AC92" />
-          <polygon points="268,332 412,332 406,344 274,344" fill="#3DCBAE" opacity="0.7" />
+              {/* Surbrillance pulsee + balayage lumineux quand actif */}
+              {isActive && (
+                <>
+                  <polygon points={tier.body} fill="#ffffff" opacity={0.18}>
+                    <animate attributeName="opacity" values="0.05;0.28;0.05" dur="1.4s" repeatCount="indefinite" />
+                  </polygon>
+                  <polygon points={tier.body} fill="url(#funnelShine)" />
+                </>
+              )}
 
-          <polygon points="308,406 372,406 372,488 308,462" fill="#1B8C77" />
-          <polygon points="308,406 372,406 372,418 308,418" fill="#28AC92" opacity="0.7" />
-        </g>
-
-        {/* ── Etiquettes (ligne + point + pill), textes = nos donnees ── */}
-        {/* Etage 1 */}
-        <g>
-          <line x1="540" y1="175" x2="610" y2="175" stroke="#2A3645" strokeWidth="2" />
-          <circle cx="610" cy="175" r="6" fill="#2DD4BF" />
-          <rect x="630" y="151" width="100" height="48" rx="10" fill="#1A2433" stroke="#2A3645" strokeWidth="1" />
-          <text x="680" y="173" fill="#8A95A5" fontSize="13" fontWeight="400" textAnchor="middle">{labels[0]}</text>
-          <text x="680" y="190" fill="#2DD4BF" fontSize="16" fontWeight="700" textAnchor="middle">{values[0]}</text>
-        </g>
-        {/* Etage 2 */}
-        {labels[1] != null && (
-          <g>
-            <line x1="490" y1="280" x2="560" y2="280" stroke="#2A3645" strokeWidth="2" />
-            <circle cx="560" cy="280" r="6" fill="#2DD4BF" />
-            <rect x="580" y="256" width="100" height="48" rx="10" fill="#1A2433" stroke="#2A3645" strokeWidth="1" />
-            <text x="630" y="278" fill="#8A95A5" fontSize="13" fontWeight="400" textAnchor="middle">{labels[1]}</text>
-            <text x="630" y="295" fill="#2DD4BF" fontSize="16" fontWeight="700" textAnchor="middle">{values[1]}</text>
-          </g>
-        )}
-        {/* Etage 3 */}
-        {labels[2] != null && (
-          <g>
-            <line x1="420" y1="366" x2="490" y2="366" stroke="#2A3645" strokeWidth="2" />
-            <circle cx="490" cy="366" r="6" fill="#2DD4BF" />
-            <rect x="510" y="342" width="100" height="48" rx="10" fill="#1A2433" stroke="#2A3645" strokeWidth="1" />
-            <text x="560" y="364" fill="#8A95A5" fontSize="13" fontWeight="400" textAnchor="middle">{labels[2]}</text>
-            <text x="560" y="381" fill="#2DD4BF" fontSize="16" fontWeight="700" textAnchor="middle">{values[2]}</text>
-          </g>
-        )}
-        {/* Etage 4 */}
-        {labels[3] != null && (
-          <g>
-            <line x1="402" y1="431" x2="472" y2="431" stroke="#2A3645" strokeWidth="2" />
-            <circle cx="472" cy="431" r="6" fill="#2DD4BF" />
-            <rect x="492" y="407" width="100" height="48" rx="10" fill="#1A2433" stroke="#2A3645" strokeWidth="1" />
-            <text x="542" y="429" fill="#8A95A5" fontSize="13" fontWeight="400" textAnchor="middle">{labels[3]}</text>
-            <text x="542" y="446" fill="#2DD4BF" fontSize="16" fontWeight="700" textAnchor="middle">{values[3]}</text>
-          </g>
-        )}
+              {/* Etiquette : ligne + point + pill */}
+              <line x1={tier.lineX1} y1={tier.lineY} x2={tier.dotX} y2={tier.lineY} stroke={isActive ? '#2DD4BF' : '#2A3645'} strokeWidth="2" />
+              <circle cx={tier.dotX} cy={tier.lineY} r={isActive ? 7 : 6} fill="#2DD4BF" />
+              <rect
+                x={tier.pillX} y={tier.pillY} width="100" height="48" rx="10"
+                fill="#1A2433" stroke={isActive ? '#2DD4BF' : '#2A3645'} strokeWidth={isActive ? 1.5 : 1}
+                style={{ transition: 'stroke 200ms ease' }}
+              />
+              <text x={tier.textX} y={tier.pillY + 22} fill="#8A95A5" fontSize="13" fontWeight="400" textAnchor="middle">{s.label}</text>
+              <text x={tier.textX} y={tier.pillY + 39} fill="#2DD4BF" fontSize="16" fontWeight="700" textAnchor="middle">{s.value.toLocaleString('fr-FR')}</text>
+            </g>
+          )
+        })}
       </svg>
     </div>
   )
