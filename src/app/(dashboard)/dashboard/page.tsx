@@ -18,7 +18,6 @@ import {
   Bot,
   Link2,
   ArrowRight,
-  Clock,
   CheckCircle2,
   Circle,
   Sparkles,
@@ -40,13 +39,6 @@ import { cn } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
 import { useTenant } from '@/lib/tenant/context'
 import { BlobLoader, BlobLoaderScreen } from '@/components/blob-loader'
-
-function formatSeconds(s: number): string {
-  if (s < 60) return `${s}s`
-  const min = Math.floor(s / 60)
-  const sec = s % 60
-  return sec > 0 ? `${min}m ${sec}s` : `${min}m`
-}
 
 type Checklist = {
   whatsapp_connected: boolean
@@ -374,9 +366,9 @@ function StatsDashboard() {
   const activeAgents = stats?.agents.filter((a) => a.isActive).length ?? 0
 
   return (
-    <div className="flex flex-col gap-4 p-4 pb-20 md:p-6 md:pb-6">
+    <div className="flex flex-col gap-4 p-4 pb-20 md:h-full md:gap-3 md:overflow-hidden md:p-5 md:pb-5">
       {loading ? (
-        <div className="flex h-64 items-center justify-center">
+        <div className="flex h-64 flex-1 items-center justify-center">
           <BlobLoader size={88} />
         </div>
       ) : stats ? (
@@ -393,121 +385,82 @@ function StatsDashboard() {
             </Link>
           </div>
 
-          {/* ═══ Ligne 1 : grande carte Messages (graphe) + 3 KPI verts ═══ */}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
+          {/* ═══ Ligne 1 : graphe Messages + 3 KPI verts ═══ */}
+          <div className="grid grid-cols-1 gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-12">
             {/* Carte principale Messages */}
-            <div className="flex flex-col rounded-2xl border border-border bg-card p-5 shadow-sm md:p-6 lg:col-span-8">
-              <div className="mb-4 flex items-start justify-between">
+            <div className="flex flex-col rounded-2xl border border-border bg-card p-5 shadow-sm lg:col-span-8">
+              <div className="mb-3 flex items-start justify-between">
                 <div>
                   <h3 className="text-sm text-muted-foreground">{t('dashboard.messages_per_day')}</h3>
-                  <p className="mt-1 text-3xl font-bold tracking-tight text-foreground">{stats.overview.totalMessages.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')}</p>
+                  <p className="mt-0.5 text-2xl font-bold tracking-tight text-foreground">{stats.overview.totalMessages.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')}</p>
                 </div>
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
-                  <MessageSquare className="h-5 w-5" />
+                <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <MessageSquare className="h-4 w-4" />
                 </div>
               </div>
-              <MessagesChart data={stats.charts.messagesOverTime} height={260} />
+              <div className="min-h-0 flex-1 overflow-hidden">
+                <MessagesChart data={stats.charts.messagesOverTime} height="100%" />
+              </div>
             </div>
 
-            {/* 3 KPI verts (nuances) — compacts */}
-            <div className="grid grid-cols-3 gap-4 lg:col-span-4 lg:grid-cols-1">
+            {/* 3 KPI verts compacts */}
+            <div className="grid grid-cols-3 gap-3 lg:col-span-4 lg:grid-cols-1">
               <MiniKPI tint="strong" icon={Users} label={t('dashboard.conversations')} value={stats.overview.activeConversations.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')} trend={stats.overview.conversationsTrend} />
               <MiniKPI tint="medium" icon={UserPlus} label={t('dashboard.new_contacts')} value={stats.overview.newContacts.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')} trend={stats.overview.contactsTrend} />
               <MiniKPI tint="soft" icon={Zap} label={t('dashboard.ai_rate')} value={`${stats.overview.responseRate ?? 0}%`} trend={null} />
             </div>
           </div>
 
-          {/* ═══ Ligne 2 : activite (repartition + graphe convs) + CTA sombre ═══ */}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-            {/* Carte activite : repartition + graphe conversations */}
-            <div className="grid grid-cols-1 gap-4 lg:col-span-8 lg:grid-cols-5">
-              {/* Repartition recus / envoyes */}
-              <div className="flex flex-col rounded-2xl border border-border bg-card p-5 shadow-sm md:p-6 lg:col-span-2">
-                <h3 className="mb-4 text-sm font-semibold">{t('dashboard.messages')}</h3>
-                {(() => {
-                  const inbound = stats.charts.messagesOverTime.reduce((s, p) => s + p.inbound, 0)
-                  const outbound = stats.charts.messagesOverTime.reduce((s, p) => s + p.outbound, 0)
-                  const total = inbound + outbound || 1
-                  const pctIn = Math.round((inbound / total) * 100)
-                  const pctOut = 100 - pctIn
-                  return (
-                    <div className="flex flex-1 flex-col justify-center space-y-4">
-                      <Ratio label={t('dashboard.received')} value={inbound} pct={pctIn} barClass="bg-primary" locale={locale} />
-                      <Ratio label={t('dashboard.sent')} value={outbound} pct={pctOut} barClass="bg-primary/50" locale={locale} />
-                      <div className="flex items-center gap-2 rounded-xl bg-muted/40 px-3 py-2.5">
-                        <Clock className="h-4 w-4 shrink-0 text-primary" />
-                        <p className="text-[11px] text-muted-foreground">
-                          {stats.overview.avgResponseTime != null && stats.overview.avgResponseTime > 0
-                            ? t('dashboard.avg_response_time', { time: formatSeconds(stats.overview.avgResponseTime) })
-                            : t('dashboard.ai_performance')}
-                        </p>
-                      </div>
-                    </div>
-                  )
-                })()}
+          {/* ═══ Ligne 2 : Funnel Lifecycle + graphe conversations + CTA mascotte ═══ */}
+          <div className="grid grid-cols-1 gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-12">
+            {/* Funnel Lifecycle */}
+            <div className="flex flex-col rounded-2xl border border-border bg-card p-5 shadow-sm lg:col-span-4">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="min-w-0">
+                  <h3 className="truncate text-sm font-semibold">{t('dashboard.lifecycle_funnel')}</h3>
+                  <p className="truncate text-xs text-muted-foreground">{t('dashboard.lifecycle_funnel_sub')}</p>
+                </div>
+                <Link href="/lifecycle" className="shrink-0 text-muted-foreground transition-colors hover:text-foreground">
+                  <ArrowUpRight className="h-4 w-4" />
+                </Link>
               </div>
-
-              {/* Graphe conversations */}
-              <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-sm md:p-6 lg:col-span-3">
-                <h3 className="mb-3 text-sm font-semibold">{t('dashboard.new_conversations')}</h3>
-                <TimeSeriesChart data={stats.charts.conversationsOverTime} title="" color="var(--accent, #40E9BE)" height={200} />
+              <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
+                {lifecycleDist.filter(d => d.count > 0).length === 0 ? (
+                  <p className="text-sm text-muted-foreground">{t('dashboard.no_data')}</p>
+                ) : (
+                  <LifecycleFunnel data={lifecycleDist} />
+                )}
               </div>
             </div>
 
-            {/* CTA sombre + mascotte (facon bloc "Earn") */}
+            {/* Graphe conversations */}
+            <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-sm lg:col-span-4">
+              <h3 className="mb-2 text-sm font-semibold">{t('dashboard.new_conversations')}</h3>
+              <div className="min-h-0 flex-1">
+                <TimeSeriesChart data={stats.charts.conversationsOverTime} title="" color="var(--accent, #40E9BE)" height="100%" />
+              </div>
+              {/* mini repartition recus/envoyes en pied */}
+              {(() => {
+                const inbound = stats.charts.messagesOverTime.reduce((s, p) => s + p.inbound, 0)
+                const outbound = stats.charts.messagesOverTime.reduce((s, p) => s + p.outbound, 0)
+                const total = inbound + outbound || 1
+                const pctIn = Math.round((inbound / total) * 100)
+                return (
+                  <div className="mt-3 flex items-center gap-3 text-[11px] text-muted-foreground">
+                    <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-primary" />{t('dashboard.received')} {pctIn}%</span>
+                    <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-primary/50" />{t('dashboard.sent')} {100 - pctIn}%</span>
+                  </div>
+                )
+              })()}
+            </div>
+
+            {/* CTA sombre + mascotte */}
             <div className="lg:col-span-4">
               <DashboardCTA
                 connectedSessions={connectedSessions}
                 activeAgents={activeAgents}
                 t={t}
               />
-            </div>
-          </div>
-
-          {/* ═══ Ligne 3 : Funnel Lifecycle + Performance agents ═══ */}
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-            {/* Funnel Lifecycle (distribution des conversations par stade) */}
-            <div className="rounded-2xl border border-border bg-card p-5 shadow-sm md:p-6 lg:col-span-7">
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold">{t('dashboard.lifecycle_funnel')}</h3>
-                  <p className="text-xs text-muted-foreground">{t('dashboard.lifecycle_funnel_sub')}</p>
-                </div>
-                <Link href="/lifecycle" className="text-muted-foreground transition-colors hover:text-foreground">
-                  <ArrowUpRight className="h-4 w-4" />
-                </Link>
-              </div>
-              {lifecycleDist.filter(d => d.count > 0).length === 0 ? (
-                <p className="py-8 text-center text-sm text-muted-foreground">{t('dashboard.no_data')}</p>
-              ) : (
-                <LifecycleFunnel data={lifecycleDist} locale={locale} />
-              )}
-            </div>
-
-            {/* Performance agents */}
-            <div className="flex flex-col rounded-2xl border border-border bg-card p-5 shadow-sm md:p-6 lg:col-span-5">
-              <div className="mb-4 flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold">{t('dashboard.agents_perf')}</h3>
-                  <p className="text-xs text-muted-foreground">{activeAgents}/{stats.agents.length} {t('common.active').toLowerCase()}</p>
-                </div>
-                <Link href="/agents" className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary">
-                  <Bot className="h-4 w-4" />
-                </Link>
-              </div>
-              <div className="flex flex-1 flex-col gap-2">
-                {stats.agents.length === 0 ? (
-                  <p className="py-6 text-center text-sm text-muted-foreground">{t('dashboard.no_data')}</p>
-                ) : (
-                  [...stats.agents].sort((a, b) => b.messagesHandled - a.messagesHandled).slice(0, 4).map(a => (
-                    <div key={a.id} className="flex items-center gap-3 rounded-xl bg-muted/40 px-3 py-2.5">
-                      <span className={cn('h-2 w-2 shrink-0 rounded-full', a.isActive ? 'bg-emerald-500' : 'bg-muted-foreground/40')} />
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-foreground">{a.name}</span>
-                      <span className="shrink-0 text-xs text-muted-foreground">{a.messagesHandled.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')} msg</span>
-                    </div>
-                  ))
-                )}
-              </div>
             </div>
           </div>
         </>
@@ -553,46 +506,35 @@ function MiniKPI({ tint, icon: Icon, label, value, trend }: {
   )
 }
 
-// ─── LifecycleFunnel — barres horizontales par stade (facon funnel) ──────────
+// ─── LifecycleFunnel — entonnoir conique (segments trapezoidaux empiles) ──────
 
-function LifecycleFunnel({ data, locale }: { data: LifecycleDistItem[]; locale: string }) {
-  const max = Math.max(...data.map(d => d.count), 1)
+function LifecycleFunnel({ data }: { data: LifecycleDistItem[] }) {
+  const items = data.filter(d => d.count > 0).slice(0, 6)
+  if (items.length === 0) return null
+  const max = Math.max(...items.map(d => d.count), 1)
+  // largeur de chaque etage en % (decroissante, min 28%)
+  const widths = items.map(d => 28 + (d.count / max) * 72)
   return (
-    <div className="space-y-2.5">
-      {data.filter(d => d.count > 0).map((d, i) => (
-        <div key={i} className="flex items-center gap-3">
-          <span className="w-32 shrink-0 truncate text-xs font-medium text-foreground" title={d.stage_name}>{d.stage_name}</span>
-          <div className="h-6 flex-1 overflow-hidden rounded-lg bg-muted/40">
+    <div className="flex w-full flex-col items-center gap-1">
+      {items.map((d, i) => {
+        const w = widths[i]
+        const nextW = i < items.length - 1 ? widths[i + 1] : w * 0.85
+        const color = d.stage_color || '#7DC2A5'
+        return (
+          <div key={i} className="group flex w-full flex-col items-center" title={`${d.stage_name} — ${d.count} (${d.percentage}%)`}>
             <div
-              className="flex h-full items-center justify-end rounded-lg px-2 transition-all"
-              style={{ width: `${Math.max((d.count / max) * 100, 6)}%`, background: d.stage_color || 'var(--primary)' }}
+              className="relative flex h-9 items-center justify-center text-[11px] font-semibold text-white transition-all"
+              style={{
+                width: `${w}%`,
+                background: color,
+                clipPath: `polygon(0 0, 100% 0, ${50 + nextW / w * 50}% 100%, ${50 - nextW / w * 50}% 100%)`,
+              }}
             >
-              <span className="text-[10px] font-bold text-white drop-shadow">{d.count}</span>
+              <span className="drop-shadow-sm">{d.stage_name} · {d.count}</span>
             </div>
           </div>
-          <span className="w-9 shrink-0 text-right text-xs text-muted-foreground">{d.percentage}%</span>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-// ─── Ratio — barre de répartition (envoyés / reçus) ──────────────────────────
-
-function Ratio({ label, value, pct, barClass, locale }: {
-  label: string; value: number; pct: number; barClass: string; locale: string
-}) {
-  return (
-    <div>
-      <div className="mb-1.5 flex items-baseline justify-between">
-        <span className="text-sm font-medium text-foreground">{label}</span>
-        <span className="text-xs text-muted-foreground">
-          <span className="font-semibold text-foreground">{value.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')}</span> · {pct}%
-        </span>
-      </div>
-      <div className="h-2.5 w-full overflow-hidden rounded-full bg-muted">
-        <div className={cn('h-full rounded-full transition-all', barClass)} style={{ width: `${pct}%` }} />
-      </div>
+        )
+      })}
     </div>
   )
 }
