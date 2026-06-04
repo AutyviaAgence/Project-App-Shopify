@@ -927,7 +927,7 @@ export default function AgentsPage() {
       )}
 
       {/* Bouton "Nouvel agent" — juste sous les cartes et les points */}
-      <div className="mt-6 flex justify-center">
+      <div className="mt-12 flex justify-center">
         <Link href="/agents/new">
           <button
             data-tour="new-agent-btn"
