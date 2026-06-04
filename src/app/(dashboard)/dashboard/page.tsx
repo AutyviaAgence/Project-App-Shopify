@@ -28,6 +28,11 @@ import {
   Mail,
   ExternalLink,
   ArrowUpRight,
+  Users,
+  UserPlus,
+  Zap,
+  TrendingUp,
+  TrendingDown,
 } from 'lucide-react'
 import { StartTourButton } from '@/components/guided-tour'
 import Link from 'next/link'
@@ -368,111 +373,131 @@ function StatsDashboard() {
         </div>
       ) : stats ? (
         <>
-          {/* ═══ Ligne 1 : HÉRO scindé (gauche) | graphe messages (droite) ═══ */}
-          <div className="grid grid-cols-1 gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-12">
-
-            {/* HÉRO — greeting + chiffres, avec pastille ronde taux IA qui pop du coin */}
-            <div data-tour="header" className="relative overflow-hidden rounded-[32px] border border-primary/25 bg-card shadow-[0_0_0_1px_rgba(125,194,165,0.06),0_20px_60px_-20px_rgba(125,194,165,0.35)] lg:col-span-5">
-              {/* glows (clippes au rayon de la carte) */}
-              <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-[32px]">
-                <div className="absolute inset-0 bg-gradient-to-br from-primary/[0.14] via-transparent to-transparent" />
-                <div className="absolute -left-10 -top-16 h-56 w-56 rounded-full bg-primary/25 blur-3xl" />
-              </div>
-
-              {/* Petit bouton rond avec fleche (facon "Total Profit") */}
-              <Link href="/stats" className="absolute right-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-[0_8px_20px_-6px_rgba(125,194,165,0.8)] transition-transform hover:scale-110 md:right-5 md:top-5">
-                <ArrowUpRight className="h-4 w-4" />
-              </Link>
-
-              {/* Contenu hero */}
-              <div className="relative flex min-w-0 flex-col p-5 md:p-6">
-                <div className="min-w-0 pr-14">
-                  <p className="text-xs font-medium text-muted-foreground">{t('dashboard.greeting')}</p>
-                  <h1 className="mt-0.5 truncate text-xl font-bold tracking-tight text-foreground md:text-2xl">{tenant.appName}</h1>
-                </div>
-
-                <div className="mt-5 grid grid-cols-3 gap-3">
-                  <div>
-                    <p className="text-xl font-bold tracking-tight text-foreground md:text-2xl">{stats.overview.totalMessages.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')}</p>
-                    <p className="mt-0.5 text-[10px] text-muted-foreground">{t('dashboard.messages')}</p>
-                  </div>
-                  <div className="border-l border-border pl-3">
-                    <p className="text-xl font-bold tracking-tight text-foreground md:text-2xl">{stats.overview.activeConversations.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')}</p>
-                    <p className="mt-0.5 text-[10px] text-muted-foreground">{t('dashboard.conversations')}</p>
-                  </div>
-                  <div className="border-l border-border pl-3">
-                    <p className="text-xl font-bold tracking-tight text-primary md:text-2xl">{stats.overview.responseRate ?? 0}<span className="text-sm">%</span></p>
-                    <p className="mt-0.5 text-[10px] text-muted-foreground">{t('dashboard.ai_rate')}</p>
-                  </div>
-                </div>
-              </div>
+          {/* En-tete page */}
+          <div data-tour="header" className="flex items-end justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">{t('dashboard.greeting')}</p>
+              <h1 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">{tenant.appName}</h1>
             </div>
+            <Link href="/stats" className="hidden items-center gap-1.5 rounded-full border border-border bg-card px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground sm:flex">
+              {t('dashboard.overview')}
+              <ArrowUpRight className="h-4 w-4" />
+            </Link>
+          </div>
 
-            {/* Graphe messages par jour — encoche en vague douce en haut a droite
-                pour laisser ressortir la cloche de notifications */}
-            <div className="relative flex flex-col rounded-3xl border bg-card p-4 shadow-sm md:p-5 lg:col-span-7">
-              {/* Notch concave en vague douce : disque couleur du fond, legerement
-                  floute pour une transition lisse (pas de coin net) */}
-              <div className="pointer-events-none absolute -right-5 -top-5 z-10 hidden h-20 w-20 rounded-full bg-background blur-md md:block" aria-hidden />
-              <div className="mb-3 flex items-center justify-between">
-                <h3 className="text-sm font-semibold">{t('dashboard.messages_per_day')}</h3>
-                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/15 text-primary">
-                  <MessageSquare className="h-4 w-4" />
+          {/* ═══ Ligne 1 : grande carte Messages (graphe) + 3 KPI verts ═══ */}
+          <div className="grid grid-cols-1 gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-12">
+            {/* Carte principale Messages */}
+            <div className="flex flex-col rounded-2xl border border-border bg-card p-5 shadow-sm md:p-6 lg:col-span-8">
+              <div className="mb-4 flex items-start justify-between">
+                <div>
+                  <h3 className="text-sm text-muted-foreground">{t('dashboard.messages_per_day')}</h3>
+                  <p className="mt-1 text-3xl font-bold tracking-tight text-foreground">{stats.overview.totalMessages.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')}</p>
+                </div>
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
+                  <MessageSquare className="h-5 w-5" />
                 </div>
               </div>
               <div className="min-h-0 flex-1 overflow-hidden">
                 <MessagesChart data={stats.charts.messagesOverTime} height="100%" />
               </div>
             </div>
+
+            {/* 3 KPI verts (nuances) */}
+            <div className="grid grid-cols-3 gap-4 lg:col-span-4 lg:grid-cols-1">
+              <MiniKPI tint="strong" icon={Users} label={t('dashboard.conversations')} value={stats.overview.activeConversations.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')} trend={stats.overview.conversationsTrend} />
+              <MiniKPI tint="medium" icon={UserPlus} label={t('dashboard.new_contacts')} value={stats.overview.newContacts.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')} trend={stats.overview.contactsTrend} />
+              <MiniKPI tint="soft" icon={Zap} label={t('dashboard.ai_rate')} value={`${stats.overview.responseRate ?? 0}%`} trend={null} />
+            </div>
           </div>
 
-          {/* ═══ Ligne 2 : répartition (barres) | graphe conversations ═══ */}
-          <div className="grid grid-cols-1 gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-5">
-            {/* Répartition envoyés / reçus */}
-            <div className="flex flex-col rounded-3xl border bg-card p-4 shadow-sm md:p-5 lg:col-span-2">
-              <h3 className="mb-4 text-sm font-semibold">{t('dashboard.messages')}</h3>
-              {(() => {
-                const inbound = stats.charts.messagesOverTime.reduce((s, p) => s + p.inbound, 0)
-                const outbound = stats.charts.messagesOverTime.reduce((s, p) => s + p.outbound, 0)
-                const total = inbound + outbound || 1
-                const pctIn = Math.round((inbound / total) * 100)
-                const pctOut = 100 - pctIn
-                return (
-                  <div className="flex flex-1 flex-col justify-center space-y-4">
-                    <Ratio label={t('dashboard.received')} value={inbound} pct={pctIn} barClass="bg-primary" locale={locale} />
-                    <Ratio label={t('dashboard.sent')} value={outbound} pct={pctOut} barClass="bg-[#F0998A]" locale={locale} />
-                    <div className="flex items-center gap-2 rounded-2xl bg-muted/50 px-3 py-2.5">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-primary/15 text-primary">
-                        <Clock className="h-4 w-4" />
+          {/* ═══ Ligne 2 : activite (repartition + graphe convs) + CTA sombre ═══ */}
+          <div className="grid grid-cols-1 gap-4 lg:min-h-0 lg:flex-1 lg:grid-cols-12">
+            {/* Carte activite : repartition + graphe conversations */}
+            <div className="grid grid-cols-1 gap-4 lg:col-span-8 lg:grid-cols-5">
+              {/* Repartition recus / envoyes */}
+              <div className="flex flex-col rounded-2xl border border-border bg-card p-5 shadow-sm md:p-6 lg:col-span-2">
+                <h3 className="mb-4 text-sm font-semibold">{t('dashboard.messages')}</h3>
+                {(() => {
+                  const inbound = stats.charts.messagesOverTime.reduce((s, p) => s + p.inbound, 0)
+                  const outbound = stats.charts.messagesOverTime.reduce((s, p) => s + p.outbound, 0)
+                  const total = inbound + outbound || 1
+                  const pctIn = Math.round((inbound / total) * 100)
+                  const pctOut = 100 - pctIn
+                  return (
+                    <div className="flex flex-1 flex-col justify-center space-y-4">
+                      <Ratio label={t('dashboard.received')} value={inbound} pct={pctIn} barClass="bg-primary" locale={locale} />
+                      <Ratio label={t('dashboard.sent')} value={outbound} pct={pctOut} barClass="bg-primary/50" locale={locale} />
+                      <div className="flex items-center gap-2 rounded-xl bg-muted/40 px-3 py-2.5">
+                        <Clock className="h-4 w-4 shrink-0 text-primary" />
+                        <p className="text-[11px] text-muted-foreground">
+                          {stats.overview.avgResponseTime != null && stats.overview.avgResponseTime > 0
+                            ? t('dashboard.avg_response_time', { time: formatSeconds(stats.overview.avgResponseTime) })
+                            : t('dashboard.ai_performance')}
+                        </p>
                       </div>
-                      <p className="text-[11px] text-muted-foreground">
-                        {stats.overview.avgResponseTime != null && stats.overview.avgResponseTime > 0
-                          ? t('dashboard.avg_response_time', { time: formatSeconds(stats.overview.avgResponseTime) })
-                          : t('dashboard.ai_performance')}
-                      </p>
                     </div>
-                  </div>
-                )
-              })()}
-            </div>
+                  )
+                })()}
+              </div>
 
-            {/* Graphe conversations */}
-            <div className="flex flex-col overflow-hidden rounded-3xl border bg-card p-4 shadow-sm md:p-5 lg:col-span-3">
-              <h3 className="mb-3 text-sm font-semibold">{t('dashboard.new_conversations')}</h3>
-              <div className="min-h-0 flex-1">
-                <TimeSeriesChart data={stats.charts.conversationsOverTime} title="" color="var(--accent, #40E9BE)" height="100%" />
+              {/* Graphe conversations */}
+              <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-sm md:p-6 lg:col-span-3">
+                <h3 className="mb-3 text-sm font-semibold">{t('dashboard.new_conversations')}</h3>
+                <div className="min-h-0 flex-1">
+                  <TimeSeriesChart data={stats.charts.conversationsOverTime} title="" color="var(--accent, #40E9BE)" height="100%" />
+                </div>
               </div>
             </div>
-          </div>
 
-          {/* ═══ Carte CTA contextuelle (wow) ═══ */}
-          <DashboardCTA
-            connectedSessions={connectedSessions}
-            activeAgents={activeAgents}
-            t={t}
-          />
+            {/* CTA sombre + mascotte (facon bloc "Earn") */}
+            <div className="lg:col-span-4">
+              <DashboardCTA
+                connectedSessions={connectedSessions}
+                activeAgents={activeAgents}
+                t={t}
+              />
+            </div>
+          </div>
         </>
       ) : null}
+    </div>
+  )
+}
+
+// ─── MiniKPI — petite carte stat en nuances de vert (facon maquette) ─────────
+
+const KPI_TINTS = {
+  strong: 'bg-primary/15 border-primary/25',
+  medium: 'bg-primary/10 border-primary/20',
+  soft: 'bg-primary/[0.06] border-primary/15',
+}
+
+function MiniKPI({ tint, icon: Icon, label, value, trend }: {
+  tint: keyof typeof KPI_TINTS
+  icon: React.ElementType
+  label: string
+  value: string
+  trend?: number | null
+}) {
+  return (
+    <div className={cn('flex flex-1 flex-col justify-between rounded-2xl border p-4 shadow-sm md:p-5', KPI_TINTS[tint])}>
+      <div className="flex items-center justify-between">
+        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/15 text-primary">
+          <Icon className="h-4 w-4" />
+        </div>
+        {trend != null && (
+          <span className={cn('inline-flex items-center gap-0.5 text-xs font-medium',
+            trend > 0 ? 'text-emerald-500' : trend < 0 ? 'text-red-500' : 'text-muted-foreground')}>
+            {trend > 0 ? <TrendingUp className="h-3 w-3" /> : trend < 0 ? <TrendingDown className="h-3 w-3" /> : null}
+            {trend > 0 ? '+' : ''}{trend}%
+          </span>
+        )}
+      </div>
+      <div className="mt-3">
+        <p className="text-2xl font-bold tracking-tight text-foreground">{value}</p>
+        <p className="mt-0.5 text-xs text-muted-foreground">{label}</p>
+      </div>
     </div>
   )
 }
@@ -509,40 +534,40 @@ function DashboardCTA({ connectedSessions, activeAgents, t }: {
       ? { href: '/agents', title: t('dashboard.cta_agent_title'), desc: t('dashboard.cta_agent_desc'), btn: t('dashboard.cta_agent_btn'), icon: Bot }
       : { href: '/stats', title: t('dashboard.cta_explore_title'), desc: t('dashboard.cta_explore_desc'), btn: t('dashboard.cta_explore_btn'), icon: Sparkles }
   return (
-    <div className="group/cta relative overflow-visible rounded-3xl border border-primary/30 bg-gradient-to-br from-primary via-primary to-primary/75 p-5 shadow-[0_24px_60px_-20px_rgba(125,194,165,0.6)] md:p-6">
-      {/* Fond : grand glow + motif de points (radial) */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-3xl">
-        <div className="absolute -left-16 -top-20 h-64 w-64 rounded-full bg-white/15 blur-3xl" />
-        <div className="absolute -bottom-24 left-1/3 h-56 w-56 rounded-full bg-[#F0998A]/25 blur-3xl" />
+    <div className="group/cta relative flex h-full min-h-[220px] flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0f1714] p-5 shadow-sm md:p-6">
+      {/* Accent vert discret + motif de points */}
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -right-12 -top-12 h-44 w-44 rounded-full bg-primary/25 blur-3xl" />
         <div
-          className="absolute inset-0 opacity-[0.12]"
-          style={{ backgroundImage: 'radial-gradient(currentColor 1px, transparent 1px)', backgroundSize: '18px 18px', color: '#fff' }}
+          className="absolute inset-0 opacity-[0.06]"
+          style={{ backgroundImage: 'radial-gradient(currentColor 1px, transparent 1px)', backgroundSize: '16px 16px', color: '#fff' }}
         />
       </div>
 
-      {/* Mascotte dynamique ancree en bas a droite, deborde legerement en haut */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src="/mascot-action.png"
-        alt=""
-        aria-hidden
-        className="pointer-events-none absolute -top-6 bottom-0 right-3 z-10 hidden h-[calc(100%+1.5rem)] w-auto max-w-none object-contain drop-shadow-[0_14px_24px_rgba(0,0,0,0.4)] transition-transform duration-500 ease-out group-hover/cta:-translate-y-1.5 group-hover/cta:rotate-2 sm:block md:right-6"
-      />
-
-      <div className="relative z-20 max-w-[62%] text-primary-foreground sm:max-w-[60%]">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-primary-foreground/15 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider backdrop-blur">
+      {/* Texte en haut */}
+      <div className="relative z-20 max-w-[78%] text-white">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/20 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-primary">
           <Sparkles className="h-3.5 w-3.5" />
           Autyvia
         </span>
-        <h3 className="mt-2.5 text-xl font-bold leading-tight tracking-tight md:text-2xl">{cta.title}</h3>
-        <p className="mt-1 text-sm text-primary-foreground/80">{cta.desc}</p>
+        <h3 className="mt-3 text-lg font-bold leading-tight tracking-tight md:text-xl">{cta.title}</h3>
+        <p className="mt-1 text-sm text-white/70">{cta.desc}</p>
         <Link href={cta.href} className="mt-4 inline-block">
-          <button className="flex items-center gap-2 rounded-xl bg-primary-foreground px-5 py-2.5 text-sm font-bold text-primary shadow-lg transition-all hover:scale-[1.03] active:scale-[0.98]">
+          <button className="flex items-center gap-2 rounded-xl bg-primary px-5 py-2.5 text-sm font-bold text-primary-foreground shadow-lg transition-all hover:scale-[1.03] active:scale-[0.98]">
             {cta.btn}
             <ArrowRight className="h-4 w-4" />
           </button>
         </Link>
       </div>
+
+      {/* Mascotte ancree en bas a droite */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/mascot-action.png"
+        alt=""
+        aria-hidden
+        className="pointer-events-none absolute -bottom-2 right-0 z-10 hidden h-36 w-auto max-w-none object-contain drop-shadow-[0_14px_24px_rgba(0,0,0,0.5)] transition-transform duration-500 ease-out group-hover/cta:-translate-y-1.5 group-hover/cta:rotate-2 sm:block"
+      />
     </div>
   )
 }
