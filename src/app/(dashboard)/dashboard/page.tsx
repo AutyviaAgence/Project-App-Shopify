@@ -402,38 +402,10 @@ function StatsDashboard() {
             </div>
           </div>
 
-          {/* ═══ Ligne 2 : Funnel engagement + graphe conversations + CTA mascotte ═══ */}
+          {/* ═══ Ligne 2 : graphe conversations (gauche) + CTA mascotte au-dessus de l'entonnoir (droite) ═══ */}
           <div className="grid grid-cols-1 gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-12">
-            {/* Funnel d'engagement (variable universelle) */}
-            <div className="flex flex-col rounded-2xl border border-border bg-card p-5 shadow-sm lg:col-span-4">
-              <div className="mb-3 flex items-center justify-between">
-                <div className="min-w-0">
-                  <h3 className="truncate text-sm font-semibold">{t('dashboard.engagement_funnel')}</h3>
-                  <p className="truncate text-xs text-muted-foreground">{t('dashboard.engagement_funnel_sub')}</p>
-                </div>
-                <Link href="/stats" className="shrink-0 text-muted-foreground transition-colors hover:text-foreground">
-                  <ArrowUpRight className="h-4 w-4" />
-                </Link>
-              </div>
-              <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
-                {(() => {
-                  const inbound = stats.charts.messagesOverTime.reduce((s, p) => s + p.inbound, 0)
-                  const outbound = stats.charts.messagesOverTime.reduce((s, p) => s + p.outbound, 0)
-                  const steps = [
-                    { label: t('dashboard.contacts'), value: stats.overview.totalContacts },
-                    { label: t('dashboard.conversations'), value: stats.overview.totalConversations },
-                    { label: t('dashboard.received'), value: inbound },
-                    { label: t('dashboard.replied'), value: outbound },
-                  ]
-                  return steps[0].value === 0 && steps[1].value === 0
-                    ? <p className="text-sm text-muted-foreground">{t('dashboard.no_data')}</p>
-                    : <EngagementFunnel steps={steps} />
-                })()}
-              </div>
-            </div>
-
-            {/* Graphe conversations */}
-            <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-sm lg:col-span-4">
+            {/* Graphe conversations (large, a gauche) */}
+            <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-sm lg:col-span-8">
               <h3 className="mb-2 text-sm font-semibold">{t('dashboard.new_conversations')}</h3>
               <div className="min-h-0 flex-1">
                 <TimeSeriesChart data={stats.charts.conversationsOverTime} title="" color="var(--accent, #40E9BE)" height="100%" />
@@ -453,13 +425,42 @@ function StatsDashboard() {
               })()}
             </div>
 
-            {/* CTA verte + mascotte integree */}
-            <div className="lg:col-span-4">
+            {/* Colonne droite : CTA mascotte EN HAUT + entonnoir EN DESSOUS */}
+            <div className="flex min-h-0 flex-col gap-3 lg:col-span-4">
+              {/* CTA verte + mascotte integree */}
               <DashboardCTA
                 connectedSessions={connectedSessions}
                 activeAgents={activeAgents}
                 t={t}
               />
+
+              {/* Funnel d'engagement (variable universelle) */}
+              <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-border bg-card p-5 shadow-sm">
+                <div className="mb-3 flex items-center justify-between">
+                  <div className="min-w-0">
+                    <h3 className="truncate text-sm font-semibold">{t('dashboard.engagement_funnel')}</h3>
+                    <p className="truncate text-xs text-muted-foreground">{t('dashboard.engagement_funnel_sub')}</p>
+                  </div>
+                  <Link href="/stats" className="shrink-0 text-muted-foreground transition-colors hover:text-foreground">
+                    <ArrowUpRight className="h-4 w-4" />
+                  </Link>
+                </div>
+                <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
+                  {(() => {
+                    const inbound = stats.charts.messagesOverTime.reduce((s, p) => s + p.inbound, 0)
+                    const outbound = stats.charts.messagesOverTime.reduce((s, p) => s + p.outbound, 0)
+                    const steps = [
+                      { label: t('dashboard.contacts'), value: stats.overview.totalContacts },
+                      { label: t('dashboard.conversations'), value: stats.overview.totalConversations },
+                      { label: t('dashboard.received'), value: inbound },
+                      { label: t('dashboard.replied'), value: outbound },
+                    ]
+                    return steps[0].value === 0 && steps[1].value === 0
+                      ? <p className="text-sm text-muted-foreground">{t('dashboard.no_data')}</p>
+                      : <EngagementFunnel steps={steps} />
+                  })()}
+                </div>
+              </div>
             </div>
           </div>
         </>
