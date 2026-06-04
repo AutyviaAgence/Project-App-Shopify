@@ -717,7 +717,7 @@ export default function AgentsPage() {
               {/* Flèche gauche */}
               {n > 1 && (
                 <button onClick={() => go(-1)} aria-label="Précédent"
-                  className="absolute left-0 z-30 flex h-12 w-12 items-center justify-center rounded-full border border-border bg-card text-muted-foreground backdrop-blur transition-all hover:scale-110 hover:bg-muted hover:text-foreground">
+                  className="absolute left-0 top-[236px] z-30 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card text-muted-foreground backdrop-blur transition-all hover:scale-110 hover:bg-muted hover:text-foreground">
                   <ChevronLeft className="h-5 w-5" />
                 </button>
               )}
@@ -905,7 +905,7 @@ export default function AgentsPage() {
               {/* Flèche droite */}
               {n > 1 && (
                 <button onClick={() => go(1)} aria-label="Suivant"
-                  className="absolute right-0 z-30 flex h-12 w-12 items-center justify-center rounded-full border border-border bg-card text-muted-foreground backdrop-blur transition-all hover:scale-110 hover:bg-muted hover:text-foreground">
+                  className="absolute right-0 top-[236px] z-30 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card text-muted-foreground backdrop-blur transition-all hover:scale-110 hover:bg-muted hover:text-foreground">
                   <ChevronRight className="h-5 w-5" />
                 </button>
               )}
