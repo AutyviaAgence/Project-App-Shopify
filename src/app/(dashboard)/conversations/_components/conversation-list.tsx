@@ -424,29 +424,29 @@ export function ConversationList({
                   </div>
 
                   {/* Content */}
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-0 flex-1 leading-tight">
                     <div className="flex items-center justify-between gap-2">
                       <span className={cn(
-                        'truncate text-[14px] sm:text-[15px]',
+                        'truncate text-[14px] leading-tight sm:text-[15px]',
                         conv.unread_count > 0 ? 'font-bold' : 'font-semibold'
                       )}>
                         {getContactDisplay(conv)}
                       </span>
-                      <div className="flex items-center gap-1 shrink-0">
+                      <div className="flex shrink-0 items-center gap-0.5">
                         <span
                           role="button"
                           tabIndex={-1}
                           onClick={(e) => { e.stopPropagation(); onTogglePin(conv.id, conv.is_pinned) }}
                           className={cn(
-                            'p-0.5 rounded hover:bg-muted transition-opacity',
-                            conv.is_pinned ? 'opacity-100 text-primary' : 'opacity-0 group-hover/conv:opacity-100 text-muted-foreground'
+                            'rounded p-0.5 transition-opacity',
+                            conv.is_pinned ? 'opacity-100 text-primary' : 'opacity-0 group-hover/conv:opacity-100 text-muted-foreground hover:bg-muted'
                           )}
                           title={conv.is_pinned ? t('conversations.unpin_conversation') : t('conversations.pin_conversation')}
                         >
-                          <Pin className={cn('h-3 w-3', conv.is_pinned && 'fill-current')} />
+                          <Pin className={cn('h-2.5 w-2.5', conv.is_pinned && 'fill-current')} />
                         </span>
                         {conv.last_message_at && (
-                          <span className="text-[10px] text-muted-foreground">
+                          <span className="text-[10px] text-muted-foreground tabular-nums">
                             {formatDistanceToNow(new Date(conv.last_message_at), { addSuffix: false, locale: locale === 'fr' ? fr : enUS })}
                           </span>
                         )}
@@ -454,7 +454,7 @@ export function ConversationList({
                     </div>
 
                     <p className={cn(
-                      'mt-0.5 truncate text-[12.5px] sm:text-[13px]',
+                      'truncate text-[12.5px] leading-snug sm:text-[13px]',
                       conv.unread_count > 0 ? 'font-medium text-foreground' : 'text-muted-foreground'
                     )}>
                       {conv.last_message_preview || t('conversations.no_message')}
@@ -462,7 +462,7 @@ export function ConversationList({
 
                     {/* Meta + tags : 1 seule ligne sans wrap en mobile (evite les
                         sauts de ligne desordonnes), wrap autorise des sm. */}
-                    <div className="mt-1 flex flex-nowrap items-center gap-x-2 gap-y-1 overflow-hidden sm:flex-wrap">
+                    <div className="mt-0.5 flex flex-nowrap items-center gap-x-1.5 gap-y-1 overflow-hidden sm:mt-1 sm:gap-x-2 sm:flex-wrap">
                       {/* Numero du contact (si different du nom affiche) */}
                       {conv.contact && (conv.contact.first_name || conv.contact.last_name || conv.contact.name) && (
                         <span
