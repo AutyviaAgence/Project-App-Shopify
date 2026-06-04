@@ -407,14 +407,14 @@ export function ConversationList({
                   key={conv.id}
                   onClick={() => onSelectConversation(conv)}
                   className={cn(
-                    'group/conv mx-2 my-0 flex w-[calc(100%-1rem)] items-start gap-2.5 rounded-2xl px-3 py-1 text-left transition-all hover:bg-muted/60 sm:gap-3 sm:py-3',
+                    'group/conv mx-2 my-0 flex w-[calc(100%-1rem)] items-start gap-3 rounded-2xl px-3 py-2 text-left transition-all hover:bg-muted/60',
                     isSelected && 'bg-primary/10 ring-1 ring-primary/20'
                   )}
                 >
                   {/* Avatar */}
                   <div className="relative shrink-0">
                     <div
-                      className="flex h-9 w-9 items-center justify-center rounded-full text-[13px] font-semibold text-white shadow-sm sm:h-11 sm:w-11 sm:text-[15px]"
+                      className="flex h-11 w-11 items-center justify-center rounded-full text-[15px] font-semibold text-white shadow-sm"
                       style={isSelected
                         ? { background: 'var(--primary, #7DC2A5)' }
                         : { background: 'linear-gradient(to bottom right, var(--primary, #7DC2A5), var(--accent, #40E9BE))' }
@@ -444,7 +444,7 @@ export function ConversationList({
                   <div className="min-w-0 flex-1 space-y-0.5 leading-tight">
                     <div className="flex items-center justify-between gap-2">
                       <span className={cn(
-                        'truncate text-[14px] leading-none sm:text-[15px]',
+                        'truncate text-[15px] leading-none',
                         conv.unread_count > 0 ? 'font-bold' : 'font-semibold'
                       )}>
                         {getContactDisplay(conv)}
@@ -471,7 +471,7 @@ export function ConversationList({
                     </div>
 
                     <p className={cn(
-                      'truncate text-[12.5px] leading-snug sm:text-[13px]',
+                      'truncate text-[13px] leading-snug',
                       conv.unread_count > 0 ? 'font-medium text-foreground' : 'text-muted-foreground'
                     )}>
                       {cleanPreview(conv.last_message_preview) || t('conversations.no_message')}
@@ -490,7 +490,7 @@ export function ConversationList({
                             navigator.clipboard.writeText(`+${conv.contact?.phone_number ?? ''}`)
                             toast.success(t('conversations.number_copied'))
                           }}
-                          className="hidden shrink-0 truncate text-[10px] text-muted-foreground hover:text-foreground sm:inline"
+                          className="shrink-0 truncate text-[10px] text-muted-foreground hover:text-foreground"
                           title={t('conversations.number_copied')}
                         >
                           +{conv.contact.phone_number}
@@ -531,27 +531,20 @@ export function ConversationList({
                         ) : null
                       })()}
 
-                      {/* Tags (meme rangee que la meta) — 1 visible en mobile, 2 des sm */}
-                      {(conversationTags[conv.id] || []).slice(0, 2).map((tag, ti) => (
+                      {/* Tags (meme rangee que la meta) — 2 visibles, surplus coupe par overflow */}
+                      {(conversationTags[conv.id] || []).slice(0, 2).map((tag) => (
                         <span
                           key={tag.id}
-                          className={cn(
-                            'inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[9px] font-medium',
-                            ti === 1 && 'hidden sm:inline-flex'
-                          )}
+                          className="inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[9px] font-medium"
                           style={{ backgroundColor: `${tag.color}15`, color: tag.color }}
                         >
                           {tag.name}
                         </span>
                       ))}
                       {(() => {
-                        // Compteur "+N" : masque les tags non affiches (1 en mobile, 2 en desktop)
                         const total = (conversationTags[conv.id] || []).length
-                        return total > 1 ? (
-                          <>
-                            <span className="shrink-0 text-[9px] text-muted-foreground sm:hidden">+{total - 1}</span>
-                            {total > 2 && <span className="hidden shrink-0 text-[9px] text-muted-foreground sm:inline">+{total - 2}</span>}
-                          </>
+                        return total > 2 ? (
+                          <span className="shrink-0 text-[9px] text-muted-foreground">+{total - 2}</span>
                         ) : null
                       })()}
                       <Popover>
