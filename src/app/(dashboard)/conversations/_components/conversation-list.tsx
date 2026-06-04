@@ -441,10 +441,10 @@ export function ConversationList({
                   </div>
 
                   {/* Content */}
-                  <div className="min-w-0 flex-1 leading-tight">
+                  <div className="min-w-0 flex-1 space-y-0.5 leading-tight">
                     <div className="flex items-center justify-between gap-2">
                       <span className={cn(
-                        'truncate text-[14px] leading-tight sm:text-[15px]',
+                        'truncate text-[14px] leading-none sm:text-[15px]',
                         conv.unread_count > 0 ? 'font-bold' : 'font-semibold'
                       )}>
                         {getContactDisplay(conv)}
@@ -479,7 +479,7 @@ export function ConversationList({
 
                     {/* Meta + tags : toujours 1 seule ligne (overflow cache) pour
                         que toutes les conversations aient la meme hauteur. */}
-                    <div className="mt-0.5 flex flex-nowrap items-center gap-x-1.5 overflow-hidden sm:mt-1 sm:gap-x-2">
+                    <div className="flex flex-nowrap items-center gap-x-1.5 overflow-hidden sm:gap-x-2">
                       {/* Numero du contact (si different du nom affiche) */}
                       {conv.contact && (conv.contact.first_name || conv.contact.last_name || conv.contact.name) && (
                         <span
