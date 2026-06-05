@@ -107,13 +107,19 @@ export async function POST(
 
   userMessage += `\n\nRETOUR DE L'UTILISATEUR :\n---\n${feedback.trim()}\n---`
 
+  if (!process.env.OPENAI_API_KEY) {
+    console.error('refine-prompt: OPENAI_API_KEY manquante')
+    return NextResponse.json({ error: 'Configuration IA manquante (clé OpenAI)' }, { status: 500 })
+  }
+
   try {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
         { role: 'system', content: REFINE_SYSTEM_PROMPT },
-        { role: 'user', content: userMessage },
+        // On garantit la presence du mot "json" (requis par response_format json_object)
+        { role: 'user', content: `${userMessage}\n\nRéponds en json valide.` },
       ],
       temperature: 0.5,
       max_tokens: 3000,
@@ -146,7 +152,11 @@ export async function POST(
       },
     })
   } catch (error) {
-    console.error('Erreur refine-prompt:', error)
-    return NextResponse.json({ error: 'Erreur lors de l\'ajustement du prompt' }, { status: 500 })
+    const detail = error instanceof Error ? error.message : String(error)
+    console.error('Erreur refine-prompt:', detail, error)
+    return NextResponse.json(
+      { error: `Erreur lors de l'ajustement du prompt : ${detail}` },
+      { status: 500 }
+    )
   }
 }
