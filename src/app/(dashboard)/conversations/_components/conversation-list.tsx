@@ -407,7 +407,7 @@ export function ConversationList({
                   key={conv.id}
                   onClick={() => onSelectConversation(conv)}
                   className={cn(
-                    'group/conv mx-2 my-0 flex w-[calc(100%-1rem)] items-start gap-3 rounded-2xl px-3 py-2 text-left transition-all hover:bg-muted/60',
+                    'group/conv mx-2 my-0.5 flex w-[calc(100%-1rem)] items-start gap-3 rounded-2xl px-3 py-2.5 text-left transition-all hover:bg-muted/60',
                     isSelected && 'bg-primary/10 ring-1 ring-primary/20'
                   )}
                 >
@@ -441,7 +441,7 @@ export function ConversationList({
                   </div>
 
                   {/* Content */}
-                  <div className="min-w-0 flex-1 space-y-0.5 leading-tight">
+                  <div className="min-w-0 flex-1 space-y-1 leading-tight">
                     <div className="flex items-center justify-between gap-2">
                       <span className={cn(
                         'truncate text-[15px] leading-none',
