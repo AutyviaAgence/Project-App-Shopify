@@ -133,22 +133,33 @@ export async function POST(
       return NextResponse.json({ error: 'Réponse vide du modèle' }, { status: 500 })
     }
 
-    let parsed: { revised_prompt?: string; summary?: string }
+    let parsed: { revised_prompt?: unknown; summary?: unknown }
     try {
       parsed = JSON.parse(raw)
     } catch {
       return NextResponse.json({ error: 'Réponse du modèle invalide' }, { status: 500 })
     }
 
-    if (!parsed.revised_prompt || !parsed.revised_prompt.trim()) {
+    // Le modele peut renvoyer summary/revised_prompt en string, tableau (puces)
+    // ou objet — on normalise tout en texte.
+    const toText = (v: unknown): string => {
+      if (v == null) return ''
+      if (typeof v === 'string') return v.trim()
+      if (Array.isArray(v)) return v.map(toText).filter(Boolean).map((l) => (l.startsWith('-') ? l : `- ${l}`)).join('\n')
+      if (typeof v === 'object') return Object.values(v as Record<string, unknown>).map(toText).filter(Boolean).join('\n')
+      return String(v).trim()
+    }
+
+    const revisedPrompt = toText(parsed.revised_prompt)
+    if (!revisedPrompt) {
       return NextResponse.json({ error: 'Aucun prompt révisé généré' }, { status: 500 })
     }
 
     return NextResponse.json({
       data: {
         current_prompt: agent.system_prompt,
-        revised_prompt: parsed.revised_prompt.trim(),
-        summary: parsed.summary?.trim() || '',
+        revised_prompt: revisedPrompt,
+        summary: toText(parsed.summary),
       },
     })
   } catch (error) {
