@@ -1,5 +1,8 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
 
+# migration scripts (contiennent des secrets — ne pas committer)
+migration/
+
 # fichier temporaire de message de commit
 commit_msg.txt
 
