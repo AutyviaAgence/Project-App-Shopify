@@ -2,20 +2,33 @@
 
 > Fichier de référence pour la grande refonte. Branche de travail : `dev`.
 > Ne jamais merger sur `master` sans validation complète.
+> Voir aussi : [`docs/COMPLIANCE.md`](docs/COMPLIANCE.md) (validations Meta/Google/Shopify),
+> [`docs/INFRA.md`](docs/INFRA.md), [`supabase/schema.sql`](supabase/schema.sql).
 
 ---
 
 ## Vision
 
-Un **chatbot IA pour e-commerçants Shopify**, branché sur **WhatsApp Business API**, qui répond automatiquement aux clients :
+Un **chatbot IA pour e-commerçants Shopify**, branché sur **WhatsApp Business API**,
+qui répond automatiquement aux clients : produits, commandes, **SAV**, **retours**,
+suivi de livraison, avec escalade humaine et respect des règles **opt-in / opt-out**.
 
-- Questions produits / disponibilité / commandes
-- **SAV** (support après-vente)
-- **Retours de commandes**
-- Suivi de livraison
-- Escalade vers un humain quand nécessaire
+---
 
-Le tout en respectant les règles **opt-in / opt-out** de WhatsApp Business.
+## Architecture WhatsApp : IA + Templates (fenêtre 24h)
+
+Règle Meta fondamentale qui structure toute l'app :
+
+```
+Client écrit          → fenêtre 24h OUVERTE → 🤖 IA répond librement
+Silence > 24h         → fenêtre FERMÉE      → 📋 TEMPLATE obligatoire
+Client répond template → fenêtre ROUVERTE   → 🤖 IA reprend la main
+```
+
+- **L'IA est le cœur** (≈90% des échanges, dans la fenêtre 24h).
+- **Les templates** (pré-approuvés par Meta) servent à (r)ouvrir une conversation
+  hors fenêtre : relances, notifs commande, campagnes (contact initié par le marchand).
+- À construire : **bascule automatique** IA/template selon `last_message_at`.
 
 ---
 
@@ -24,99 +37,93 @@ Le tout en respectant les règles **opt-in / opt-out** de WhatsApp Business.
 | Sujet | Décision |
 |-------|----------|
 | Canal | **WhatsApp Business API (WABA) uniquement** |
-| Evolution API | ❌ Retiré complètement |
-| Email | ❌ Retiré complètement |
-| Teams (équipes) | ❌ Retiré complètement → tout est `user_id` only |
-| Lifecycle | ↪️ Déplacé **dans** la page Conversations (plus de page dédiée) |
-| Agents IA | Création **simplifiée** |
-| Campagnes WhatsApp + opt-out | ✅ Conservé (cohérent avec l'opt-in) |
+| Evolution API | ✅ Retiré (phase 1 faite) |
+| Teams (équipes) | ✅ Retiré, user-only (code + DB faits) |
+| Lifecycle | ✅ Déplacé dans Conversations (fait) |
+| Email / Gmail | ❌ À retirer (fin) → supprime aussi la vérif OAuth Google sensible |
+| Agents IA | Création **simplifiée** (à faire) |
+| **Templates** | **À construire** : UI création + soumission Meta + statut |
+| **Bascule IA/template 24h** | **À construire** |
+| Campagnes WhatsApp + opt-out | ✅ Conservé (utilise les templates) |
 | Abonnement / Stripe / quotas | ✅ Conservé |
 | Multi-tenant (branding) | ✅ Conservé |
-| Shopify | Intégration via **outils d'agent** (search_product, order_status, stock…) |
+| Shopify | Intégration via **outils d'agent** (produits, commandes, SAV, retours) |
+| Onboarding WhatsApp | Manuel d'abord → **Embedded Signup** après App Review |
 
 ---
 
-## Ce qu'on RETIRE (refonte code, phases dédiées)
+## Sidebar cible
 
-### 1. Evolution API
-- `src/lib/evolution/` (client, sync-contacts)
-- `src/app/api/webhook/evolution/`
-- `src/app/api/sessions/[id]/qr`, `sync-contacts`
-- `vps-zombie-cleaner/`
-- Colonnes DB : `whatsapp_sessions.instance_id`, `qr_code`, `pairing_code`
-- Variables : `EVOLUTION_*`, `ZOMBIE_CLEANER_*`
-- → Garder uniquement `src/lib/whatsapp-cloud/` + `src/app/api/webhook/waba/`
-
-### 2. Email
-- `src/app/api/email/`, `email-sessions/`, `oauth/gmail-session/`
-- `src/app/api/cron/poll-email`, `renew-gmail-watch`
-- `src/app/api/webhook/gmail-pubsub`
-- `src/lib/email/`
-- Table `email_sessions`, `email_session_teams`, colonne `conversations.email_session_id`
-
-### 3. Teams
-- `src/app/(dashboard)/teams/`, `src/app/api/teams/`, `src/lib/teams/`
-- Tables : `teams`, `team_members`, `team_invitations`, `agent_teams`,
-  `session_teams`, `document_teams`, `link_teams`, `campaign_teams`
-- Colonne `team_id` sur 17 tables → à retirer
-- RLS : simplifier toutes les policies en `user_id = auth.uid()`
-
-### 4. Tags legacy
-- `conversation_tags`, `conversation_tag_assignments` → remplacés par le lifecycle
+```
+Dashboard
+Conversations        ← IA + lifecycle + réponses
+Sessions             ← connexion WhatsApp (manuel → Embedded Signup)
+─────────────
+Agents IA            ← simplifié
+Modèles (Templates)  ← NOUVEAU : gestion templates Meta
+Bibliothèque         ← docs + images (RAG)
+Liens                ← liens WhatsApp trackés
+─────────────
+Campagnes            ← templates + opt-in
+Stats
+Settings
+```
 
 ---
 
-## Ce qu'on DÉPLACE
+## État des phases
 
-### Lifecycle → dans les Conversations
-- Retirer la page `src/app/(dashboard)/lifecycle/`
-- Fusionner `src/app/api/lifecycle/*` dans `src/app/api/conversations/`
-- Ajouter une section/onglet Lifecycle dans la page conversation
-- **Garder les tables** : `lifecycle_stages`, `conversation_lifecycle_stages`, `lifecycle_history`
+| # | Phase | Statut |
+|---|-------|--------|
+| 1 | Evolution API → WABA only | ✅ Fait |
+| 2 | Teams → user-only (code + DB) | ✅ Fait |
+| 3 | Lifecycle dans Conversations | ✅ Fait |
+| — | Fix suppression user (FK referral) | ✅ Fait |
+| 4 | **Simplifier les agents IA** | ⏳ À faire |
+| 5 | **Templates** (UI + soumission Meta + statut) | ⏳ À faire |
+| 6 | **Bascule IA / template** (fenêtre 24h) | ⏳ À faire |
+| 7 | **Renforcer Shopify** (SAV, retours, commandes, opt-in) | ⏳ À faire |
+| 8 | **Conformité** (privacy, mentions légales, suppression publique, webhooks RGPD Shopify) | ⏳ À faire |
+| 9 | Retrait Email / Gmail | ⏸️ Fin |
+| 10 | Embedded Signup Meta (après App Review) | ⏸️ Dépend de Meta |
+| 11 | PostHog analytics | ⏸️ Plus tard |
 
 ---
 
-## Ce qu'on SIMPLIFIE
+## Détails par phase à venir
 
-### Agents IA
-Aujourd'hui : wizard 13 étapes + config manuelle ~30 champs + studio + workflow canvas.
-
-Cible : **fiche agent claire**, sections dépliables, l'essentiel visible :
+### Phase 4 — Simplifier les agents IA
+Aujourd'hui : wizard 13 étapes + ~30 champs + studio + workflow canvas.
+Cible : **fiche agent claire**, sections dépliables :
 - **Qui il est** : nom, rôle, ton, langue (avancé : prompt, modèle, température)
-- **Ce qu'il sait** : documents + images attachés (knowledge / RAG)
+- **Ce qu'il sait** : documents + images (RAG) + outils Shopify
 - **Comment il réagit** : escalade, relance, booking, type d'agent
-- **Où il est actif** : sessions WhatsApp + liens rattachés
+- **Où il est actif** : sessions WhatsApp + liens
 
-Outils Shopify intégrés à la section "Ce qu'il sait/fait".
+### Phase 5 — Templates
+- Table `whatsapp_templates` (nom, langue, catégorie, corps, variables, statut Meta).
+- UI : créer / éditer / soumettre à Meta / suivre le statut (pending/approved/rejected).
+- Client WABA : `sendTemplate()` existe déjà ; ajouter la création via Graph API.
+- Prérequis pour l'App Review Meta (vidéo "créer un template").
 
----
+### Phase 6 — Bascule IA / template
+- À l'envoi sortant initié par le système : si dernier message entrant < 24h → IA libre,
+  sinon → template obligatoire (sélection d'un template approuvé).
+- Impacte : campagnes, relances, notifications.
 
-## Périmètre cible de la base de données
+### Phase 7 — Shopify renforcé
+- Outils agents : statut commande, retours, stock, suivi livraison.
+- Scénarios SAV / retours guidés.
 
-Voir [`supabase/schema.sql`](supabase/schema.sql) — document de référence de la
-structure cible (un seul fichier, les ~157 migrations ont été consolidées).
-
-⚠️ Le `schema.sql` décrit l'état **voulu**. La base réelle (VPS) sera migrée
-progressivement pendant la refonte (suppression des colonnes teams/email/evolution).
-
----
-
-## Ordre d'implémentation (phases)
-
-> Chaque phase est testée avant de passer à la suivante.
-
-1. **Retirer Evolution** → WABA seul (sessions, webhook, envoi/réception)
-2. **Retirer Email** → découplage conversations
-3. **Retirer Teams** → RLS user-only (le plus lourd : 17 tables, 148 policies)
-4. **Déplacer Lifecycle** dans les conversations
-5. **Simplifier les Agents IA**
-6. **Renforcer l'intégration Shopify** (SAV, retours, commandes, opt-in)
-7. **Analytics PostHog** (voir [`docs/INFRA.md`](docs/INFRA.md))
+### Phase 8 — Conformité (voir docs/COMPLIANCE.md)
+- Pages : Politique de confidentialité, Mentions légales (CGU existe).
+- Endpoint suppression de compte exposé publiquement (Meta Data Deletion).
+- Webhooks RGPD Shopify (`customers/data_request`, `customers/redact`, `shop/redact`).
 
 ---
 
 ## Notes
 
-- Stack : Next.js (App Router, TS) + Supabase self-hosted (VPS Dokploy) + OpenAI
-- Supabase : `https://supabase.autyvia.fr` (HTTPS Let's Encrypt)
-- App : `https://shopify.autyvia.fr`
+- Stack : Next.js (App Router, TS) + Supabase self-hosted (VPS Dokploy) + OpenAI + WABA + Stripe
+- Supabase : `https://supabase.autyvia.fr` · App : `https://shopify.autyvia.fr`
+- ⚠️ Après chaque phase mergée : **rebuild l'app dans Dokploy** pour déployer.
