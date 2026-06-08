@@ -222,6 +222,7 @@
     "ai_inactive": "IA inactive",
     "all_stages": "Tous stages",
     "unclassified": "Non classifié",
+    "manage_stages": "Étapes",
     "filter_tags": "Tags",
     "filter_tags_count": "{count} tag(s)",
     "pin_conversation": "Épingler",

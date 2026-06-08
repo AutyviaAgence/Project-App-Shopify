@@ -104,15 +104,6 @@ const ALL_TOUR_STEPS: TourStep[] = [
     position: 'bottom',
     requiredPlan: 'scale'
   },
-  // Lifecycle — étiquettes (universel, remplace Tags)
-  {
-    id: 'lifecycle-page',
-    page: '/lifecycle',
-    target: '[data-tour="lifecycle-header"]',
-    title: 'tour.lifecycle_title',
-    description: 'tour.lifecycle_desc',
-    position: 'bottom'
-  },
   // Stats
   {
     id: 'stats-page',

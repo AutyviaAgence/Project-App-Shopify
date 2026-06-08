@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import type { ConversationTag } from '@/types/database'
 import { toast } from 'sonner'
 import { ContactProfilePanel } from '@/components/contact-profile-panel'
+import { LifecycleStagesDialog } from '@/components/lifecycle-stages-dialog'
 import { useTranslation } from '@/i18n/context'
 import { useSubscription } from '@/hooks/use-subscription'
 import { ConversationList } from './_components/conversation-list'
@@ -58,6 +59,7 @@ function ConversationsPageContent() {
   // Lifecycle stages
   const [lifecycleStages, setLifecycleStages] = useState<LifecycleStage[]>([])
   const [analyzingConvId, setAnalyzingConvId] = useState<string | null>(null)
+  const [manageStagesOpen, setManageStagesOpen] = useState(false)
 
   // Filters
   const [sessions, setSessions] = useState<{ id: string; instance_name: string; phone_number: string | null }[]>([])
@@ -787,6 +789,7 @@ function ConversationsPageContent() {
         onFetchConversationTags={fetchConversationTags}
         onToggleTag={handleToggleTag}
         onCreateTag={handleCreateTag}
+        onManageStages={() => setManageStagesOpen(true)}
       />
 
       <ChatArea
@@ -823,6 +826,14 @@ function ConversationsPageContent() {
             setSelectedConv(null)
           }
         }}
+      />
+
+      {/* Gestion des étapes du cycle de vie (remplace la page /lifecycle) */}
+      <LifecycleStagesDialog
+        open={manageStagesOpen}
+        onOpenChange={setManageStagesOpen}
+        stages={lifecycleStages}
+        onStagesChanged={fetchLifecycleStages}
       />
     </div>
   )

@@ -76,6 +76,7 @@ interface ConversationListProps {
   onFetchConversationTags: (convId: string) => void
   onToggleTag: (convId: string, tag: ConversationTag) => void
   onCreateTag: (name: string, color: string) => Promise<void>
+  onManageStages?: () => void
 }
 
 export function ConversationList({
@@ -109,6 +110,7 @@ export function ConversationList({
   onFetchConversationTags,
   onToggleTag,
   onCreateTag,
+  onManageStages,
 }: ConversationListProps) {
   const { t, locale } = useTranslation()
   const [showFilters, setShowFilters] = useState(false)
@@ -309,6 +311,19 @@ export function ConversationList({
                   ))}
                 </SelectContent>
               </Select>
+            )}
+
+            {onManageStages && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-8 gap-1.5 text-xs"
+                onClick={onManageStages}
+                title="Gérer les étapes du cycle de vie"
+              >
+                <Workflow className="h-3 w-3" />
+                {t('conversations.manage_stages')}
+              </Button>
             )}
 
             {allTags.length > 0 && (

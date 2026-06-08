@@ -4,12 +4,12 @@ import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { BlobLoaderScreen } from '@/components/blob-loader'
 
-// La page Tags a été fusionnée dans Lifecycle (étiquettes multiples).
-// On redirige toute visite de /tags vers /lifecycle.
+// Tags puis Lifecycle ont été intégrés dans la page Conversations.
+// On redirige toute visite de /tags vers /conversations.
 export default function TagsRedirectPage() {
   const router = useRouter()
   useEffect(() => {
-    router.replace('/lifecycle')
+    router.replace('/conversations')
   }, [router])
   return <BlobLoaderScreen />
 }
