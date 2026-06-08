@@ -113,15 +113,6 @@ const ALL_TOUR_STEPS: TourStep[] = [
     description: 'tour.lifecycle_desc',
     position: 'bottom'
   },
-  // Teams
-  {
-    id: 'teams-page',
-    page: '/teams',
-    target: '[data-tour="teams-header"]',
-    title: 'tour.teams_title',
-    description: 'tour.teams_desc',
-    position: 'bottom'
-  },
   // Stats
   {
     id: 'stats-page',

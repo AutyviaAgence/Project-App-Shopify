@@ -16,7 +16,6 @@ import {
   LogOut,
   Settings,
   ScrollText,
-  Users,
   Menu,
   X,
   ChevronLeft,
@@ -48,7 +47,6 @@ const NAV_ITEMS_KEYS = [
   { href: '/agents', labelKey: 'nav.agents', icon: Bot },
   { href: '/ressources', labelKey: 'nav.resources', icon: Library },
   { href: '/lifecycle', labelKey: 'nav.lifecycle', icon: Workflow },
-  { href: '/teams', labelKey: 'nav.teams', icon: Users },
   { href: '/stats', labelKey: 'nav.stats', icon: BarChart3 },
 ]
 
