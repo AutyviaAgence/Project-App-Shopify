@@ -1,6 +1,5 @@
 import 'server-only'
 
-import { evolution } from '@/lib/evolution/client'
 import { wabaClient } from '@/lib/whatsapp-cloud/client'
 import { decryptMessage } from '@/lib/crypto/encryption'
 import type { WhatsAppSession } from '@/types/database'
@@ -14,36 +13,30 @@ export function decryptWabaToken(session: Pick<WhatsAppSession, 'waba_access_tok
 type SendResult = { ok: true; data: unknown } | { ok: false; error: string }
 
 /**
- * Envoyer un message texte via la bonne intégration (Evolution ou WABA)
- * selon le type de session.
+ * Envoyer un message texte via WhatsApp Business API (WABA).
  */
 export async function sendMessage(
-  session: Pick<WhatsAppSession, 'integration_type' | 'instance_name' | 'waba_phone_number_id' | 'waba_access_token'>,
+  session: Pick<WhatsAppSession, 'waba_phone_number_id' | 'waba_access_token'>,
   phoneNumber: string,
   text: string
 ): Promise<SendResult> {
-  if (session.integration_type === 'waba') {
-    const token = decryptWabaToken(session)
-    if (!session.waba_phone_number_id || !token) {
-      return { ok: false, error: 'Credentials WABA manquants sur la session' }
-    }
-    return wabaClient.sendText(
-      session.waba_phone_number_id,
-      token,
-      phoneNumber,
-      text
-    )
+  const token = decryptWabaToken(session)
+  if (!session.waba_phone_number_id || !token) {
+    return { ok: false, error: 'Credentials WABA manquants sur la session' }
   }
-
-  // Par défaut : Evolution API
-  return evolution.sendText(session.instance_name, phoneNumber, text)
+  return wabaClient.sendText(
+    session.waba_phone_number_id,
+    token,
+    phoneNumber,
+    text
+  )
 }
 
 /**
- * Envoyer un média via la bonne intégration (Evolution ou WABA).
+ * Envoyer un média via WhatsApp Business API (WABA).
  */
 export async function sendMediaMessage(
-  session: Pick<WhatsAppSession, 'integration_type' | 'instance_name' | 'waba_phone_number_id' | 'waba_access_token'>,
+  session: Pick<WhatsAppSession, 'waba_phone_number_id' | 'waba_access_token'>,
   phoneNumber: string,
   opts: {
     mediatype: 'image' | 'audio' | 'document' | 'video'
@@ -53,70 +46,47 @@ export async function sendMediaMessage(
     fileName?: string
   }
 ): Promise<SendResult> {
-  if (session.integration_type === 'waba') {
-    const token = decryptWabaToken(session)
-    if (!session.waba_phone_number_id || !token) {
-      return { ok: false, error: 'Credentials WABA manquants sur la session' }
-    }
-
-    // Étape 1 : Upload vers Meta
-    const uploadResult = await wabaClient.uploadMedia(
-      session.waba_phone_number_id,
-      token,
-      opts.buffer,
-      opts.mimetype,
-      opts.fileName || 'file'
-    )
-    if (!uploadResult.ok) {
-      return { ok: false, error: uploadResult.error }
-    }
-
-    const mediaId = uploadResult.data.id
-
-    // Étape 2 : Envoyer le message avec le media_id
-    switch (opts.mediatype) {
-      case 'image':
-        return wabaClient.sendImage(session.waba_phone_number_id, token, phoneNumber, mediaId, opts.caption)
-      case 'audio':
-        return wabaClient.sendAudio(session.waba_phone_number_id, token, phoneNumber, mediaId)
-      case 'video':
-        return wabaClient.sendVideo(session.waba_phone_number_id, token, phoneNumber, mediaId, opts.caption)
-      case 'document':
-        return wabaClient.sendDocument(session.waba_phone_number_id, token, phoneNumber, mediaId, opts.fileName)
-    }
+  const token = decryptWabaToken(session)
+  if (!session.waba_phone_number_id || !token) {
+    return { ok: false, error: 'Credentials WABA manquants sur la session' }
   }
 
-  // Evolution API : convertir buffer en base64
-  const base64 = opts.buffer.toString('base64')
-
-  // Pour les vocaux, utiliser l'endpoint dédié sendWhatsAppAudio (PTT)
-  if (opts.mediatype === 'audio') {
-    return evolution.sendWhatsAppAudio(session.instance_name, phoneNumber, base64)
+  // Étape 1 : Upload vers Meta
+  const uploadResult = await wabaClient.uploadMedia(
+    session.waba_phone_number_id,
+    token,
+    opts.buffer,
+    opts.mimetype,
+    opts.fileName || 'file'
+  )
+  if (!uploadResult.ok) {
+    return { ok: false, error: uploadResult.error }
   }
 
-  return evolution.sendMedia(session.instance_name, phoneNumber, {
-    mediatype: opts.mediatype,
-    media: base64,
-    mimetype: opts.mimetype,
-    caption: opts.caption,
-    fileName: opts.fileName,
-  })
+  const mediaId = uploadResult.data.id
+
+  // Étape 2 : Envoyer le message avec le media_id
+  switch (opts.mediatype) {
+    case 'image':
+      return wabaClient.sendImage(session.waba_phone_number_id, token, phoneNumber, mediaId, opts.caption)
+    case 'audio':
+      return wabaClient.sendAudio(session.waba_phone_number_id, token, phoneNumber, mediaId)
+    case 'video':
+      return wabaClient.sendVideo(session.waba_phone_number_id, token, phoneNumber, mediaId, opts.caption)
+    case 'document':
+      return wabaClient.sendDocument(session.waba_phone_number_id, token, phoneNumber, mediaId, opts.fileName)
+  }
 }
 
 /**
- * Envoyer un indicateur de présence (typing indicator).
- * Pour WABA, il n'y a pas d'équivalent direct, donc on no-op.
+ * Indicateur de présence (typing) — WhatsApp Cloud API n'a pas d'équivalent natif.
+ * Conservé comme no-op pour compatibilité des appels existants.
  */
 export async function sendPresence(
-  session: Pick<WhatsAppSession, 'integration_type' | 'instance_name'>,
-  phoneNumber: string,
-  presence: 'composing' | 'paused',
-  delay?: number
+  _session: unknown,
+  _phoneNumber: string,
+  _presence: 'composing' | 'paused',
+  _delay?: number
 ): Promise<void> {
-  if (session.integration_type === 'waba') {
-    // WhatsApp Cloud API n'a pas de typing indicator natif
-    return
-  }
-
-  await evolution.sendPresence(session.instance_name, phoneNumber, presence, delay)
+  return
 }

@@ -93,7 +93,7 @@ export default function SessionsPage() {
   const [syncingContacts, setSyncingContacts] = useState<string | null>(null)
   const [connectionMethod, setConnectionMethod] = useState<'qr' | 'pairing'>('qr')
   const [phoneNumber, setPhoneNumber] = useState('')
-  const [sessionType, setSessionType] = useState<'evolution' | 'waba'>('evolution')
+  const [sessionType, setSessionType] = useState<'evolution' | 'waba'>('waba')
   const [wabaPhoneNumberId, setWabaPhoneNumberId] = useState('')
   const [wabaBusinessAccountId, setWabaBusinessAccountId] = useState('')
   const [wabaAccessToken, setWabaAccessToken] = useState('')
@@ -257,7 +257,7 @@ export default function SessionsPage() {
     setSelectedTeamIds([])
     setConnectionMethod('qr')
     setPhoneNumber('')
-    setSessionType('evolution')
+    setSessionType('waba')
     setWabaPhoneNumberId('')
     setWabaBusinessAccountId('')
     setWabaAccessToken('')
@@ -321,7 +321,7 @@ export default function SessionsPage() {
       // Reset form
       setPhoneNumber('')
       setConnectionMethod('qr')
-      setSessionType('evolution')
+      setSessionType('waba')
       setWabaPhoneNumberId('')
       setWabaBusinessAccountId('')
       setWabaAccessToken('')
@@ -1453,10 +1453,6 @@ export default function SessionsPage() {
               onValueChange={(v) => setSessionType(v as 'evolution' | 'waba')}
             >
               <TabsList className="w-full">
-                <TabsTrigger value="evolution" className="flex-1">
-                  <QrCode className="mr-1 h-4 w-4" />
-                  {t('sessions.whatsapp_qr')}
-                </TabsTrigger>
                 <TabsTrigger value="waba" className="flex-1">
                   <Cloud className="mr-1 h-4 w-4" />
                   {t('sessions.api_business')}

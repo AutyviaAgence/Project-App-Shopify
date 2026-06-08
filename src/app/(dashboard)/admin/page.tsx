@@ -23,7 +23,7 @@ import {
   Loader2, ShieldAlert, Users, Zap, FileText, ChevronDown, ChevronUp,
   CheckCircle2, XCircle, Clock, RefreshCw, ShieldCheck, CreditCard,
   TrendingUp, AlertCircle, ExternalLink, CheckCircle, Ban, Calendar,
-  Wifi, WifiOff, AlertTriangle, Terminal, Gift, Tag as TagIcon, Trash2, Link2
+  Wifi, WifiOff, AlertTriangle, Gift, Tag as TagIcon, Trash2, Link2
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { PlanId } from '@/lib/stripe/plans'
@@ -102,7 +102,6 @@ type SessionRow = {
   user_id: string
   user_email?: string
   user_name?: string
-  evolution_state?: string
 }
 
 const MAIN_FUNCTION_LABELS: Record<string, string> = {
@@ -477,15 +476,12 @@ export default function AdminPage() {
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">Téléphone</th>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">Type</th>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">Statut DB</th>
-                    <th className="px-4 py-3 text-left font-medium text-muted-foreground">État Evolution</th>
                     <th className="px-4 py-3 text-left font-medium text-muted-foreground">Instance</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y">
-                  {sessions.map(s => {
-                    const isZombie = s.status === 'connected' && s.evolution_state && s.evolution_state !== 'open'
-                    return (
-                      <tr key={s.id} className={cn('hover:bg-muted/20', isZombie && 'bg-red-500/5')}>
+                  {sessions.map(s => (
+                      <tr key={s.id} className="hover:bg-muted/20">
                         <td className="px-4 py-3">
                           <p className="font-medium text-xs">{s.user_name || '—'}</p>
                           <p className="text-xs text-muted-foreground">{s.user_email}</p>
@@ -500,48 +496,14 @@ export default function AdminPage() {
                           {s.status === 'qr_pending' && <Badge className="bg-amber-500 text-xs">QR en attente</Badge>}
                         </td>
                         <td className="px-4 py-3">
-                          {s.evolution_state === null ? <span className="text-xs text-muted-foreground">—</span>
-                          : s.evolution_state === 'open' ? <span className="text-xs text-green-600 font-medium">open ✓</span>
-                          : isZombie ? <span className="text-xs text-red-600 font-semibold flex items-center gap-1"><AlertTriangle className="h-3 w-3" />zombie ({s.evolution_state})</span>
-                          : <span className="text-xs text-amber-600">{s.evolution_state}</span>}
-                        </td>
-                        <td className="px-4 py-3">
                           <code className="text-xs text-muted-foreground">{s.instance_name.slice(0, 20)}…</code>
                         </td>
                       </tr>
-                    )
-                  })}
+                  ))}
                 </tbody>
               </table>
             </div>
           )}
-
-          {/* Instructions suppression manuelle zombie */}
-          <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-4 space-y-2">
-            <div className="flex items-center gap-2 text-sm font-semibold text-amber-700 dark:text-amber-400">
-              <Terminal className="h-4 w-4" />
-              Suppression manuelle d&apos;une instance zombie (si Evolution refuse le DELETE)
-            </div>
-            <p className="text-xs text-muted-foreground">Sur le VPS via MobaXterm ou terminal Dokploy :</p>
-            <pre className="text-xs bg-muted rounded p-3 overflow-x-auto">{`# 1. Créer le script
-cat > /tmp/fix.js << 'EOF'
-const {PrismaClient}=require('@prisma/client');
-const p=new PrismaClient();
-p.instance.findFirst({where:{name:'INSTANCE_NAME'}})
-.then(i=>{
-  if(!i) return console.log('NOT FOUND');
-  return p.instance.delete({where:{id:i.id}}).then(()=>console.log('DELETED OK'));
-})
-.catch(e=>console.error('ERR',e.message));
-EOF
-
-# 2. Copier et exécuter dans le container
-docker cp /tmp/fix.js whatsapp-test-evolutionapi-yfoofj-evolution-api-1:/evolution/fix.js
-docker exec -w /evolution whatsapp-test-evolutionapi-yfoofj-evolution-api-1 node fix.js
-
-# 3. Redémarrer le container pour vider le cache
-docker restart whatsapp-test-evolutionapi-yfoofj-evolution-api-1`}</pre>
-          </div>
         </div>
       )}
 

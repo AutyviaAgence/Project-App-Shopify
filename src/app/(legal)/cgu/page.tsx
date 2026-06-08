@@ -88,7 +88,7 @@ export default function CGUPage() {
       <h2>Article 6 – Connexion WhatsApp et responsabilité Meta</h2>
       <p>L&apos;Utilisateur reconnaît et accepte que :</p>
       <ul>
-        <li>La connexion de son compte WhatsApp à Autyvia s&apos;effectue via des API tierces (Evolution API)</li>
+        <li>La connexion de son compte WhatsApp à Autyvia s&apos;effectue via l&apos;API officielle WhatsApp Business (Meta Cloud API)</li>
         <li>L&apos;utilisation de WhatsApp reste soumise aux Conditions d&apos;Utilisation de Meta/WhatsApp</li>
         <li>Meta/WhatsApp peut à tout moment suspendre ou fermer un compte en cas de violation de ses règles</li>
         <li>L&apos;envoi de messages automatisés, de spam ou de contenus non sollicités peut entraîner le bannissement du compte WhatsApp par Meta</li>

@@ -1,7 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { checkTokenLimit, recordTokenUsage } from '@/lib/openai/token-tracker'
 import { withSessionDelay } from '@/lib/messaging/session-queue'
-import { evolution } from '@/lib/evolution/client'
 import { decryptMessage } from '@/lib/crypto/encryption'
 
 /**
@@ -251,27 +250,11 @@ async function executeCampaign(supabase: any, campaign: Campaign): Promise<void>
       .update({ status: 'sending' })
       .eq('id', recipient.id)
 
-    // Simuler la saisie (typing indicator) avant l'envoi — Evolution API uniquement
-    if (session.integration_type !== 'waba' && session.instance_name) {
-      const typingDelay = session.ai_message_delay ?? 3
-      try {
-        await evolution.sendPresence(session.instance_name, contact.phone_number, 'composing', typingDelay * 1000)
-        if (typingDelay > 0) await sleep(typingDelay * 1000)
-      } catch (e) {
-        console.warn(`[Campaign ${campaignId}] Typing indicator failed:`, e)
-      }
-    }
-
-    // Envoyer le message via l'intégration appropriée (Evolution ou WABA)
+    // Envoyer le message via WABA
     const sessionDelay = session.ai_message_delay ?? 0
     const result = await withSessionDelay(session.id, sessionDelay, () =>
       sendWhatsAppMessage(session, contact.phone_number, message)
     )
-
-    // Arrêter le typing après envoi
-    if (session.integration_type !== 'waba' && session.instance_name) {
-      evolution.sendPresence(session.instance_name, contact.phone_number, 'paused').catch(() => {})
-    }
 
     if (result.success) {
       await supabase
@@ -388,62 +371,33 @@ async function generateAIMessage(agent: AIAgent, contact: Contact, userId: strin
 }
 
 async function sendWhatsAppMessage(
-  session: { instance_name: string; integration_type?: string; waba_phone_number_id?: string | null; waba_access_token?: string | null },
+  session: { waba_phone_number_id?: string | null; waba_access_token?: string | null },
   phoneNumber: string,
   message: string
 ): Promise<{ success: boolean; error?: string }> {
   try {
     // WABA : utiliser l'API Meta Graph directement
-    if (session.integration_type === 'waba') {
-      const token = session.waba_access_token ? decryptMessage(session.waba_access_token) : null
-      if (!session.waba_phone_number_id || !token) {
-        return { success: false, error: 'Credentials WABA manquants' }
-      }
-      const response = await fetch(`https://graph.facebook.com/v22.0/${session.waba_phone_number_id}/messages`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          messaging_product: 'whatsapp',
-          to: phoneNumber,
-          type: 'text',
-          text: { body: message },
-        }),
-      })
-      if (!response.ok) {
-        const error = await response.text()
-        return { success: false, error }
-      }
-      return { success: true }
+    const token = session.waba_access_token ? decryptMessage(session.waba_access_token) : null
+    if (!session.waba_phone_number_id || !token) {
+      return { success: false, error: 'Credentials WABA manquants' }
     }
-
-    // Evolution API (par défaut)
-    const evolutionUrl = process.env.EVOLUTION_API_URL
-    const evolutionKey = process.env.EVOLUTION_API_KEY
-
-    if (!evolutionUrl || !evolutionKey) {
-      return { success: false, error: 'Evolution API non configurée' }
-    }
-
-    const response = await fetch(`${evolutionUrl}/message/sendText/${session.instance_name}`, {
+    const response = await fetch(`https://graph.facebook.com/v22.0/${session.waba_phone_number_id}/messages`, {
       method: 'POST',
       headers: {
-        'apikey': evolutionKey,
+        'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        number: phoneNumber,
-        text: message,
-      })
+        messaging_product: 'whatsapp',
+        to: phoneNumber,
+        type: 'text',
+        text: { body: message },
+      }),
     })
-
     if (!response.ok) {
       const error = await response.text()
       return { success: false, error }
     }
-
     return { success: true }
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : 'Erreur inconnue' }

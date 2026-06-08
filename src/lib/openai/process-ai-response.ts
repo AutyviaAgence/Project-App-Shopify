@@ -56,12 +56,12 @@ export async function processAIResponse(params: {
     const userId = sessionForTokens?.user_id
     // Utiliser la session passée en paramètre ou celle récupérée de la DB
     const sessionCtx = params.session || (sessionForTokens ? {
-      integration_type: (sessionForTokens.integration_type || 'evolution') as 'evolution' | 'waba',
+      integration_type: 'waba' as const,
       instance_name: sessionForTokens.instance_name || params.instanceName,
       waba_phone_number_id: sessionForTokens.waba_phone_number_id,
       waba_access_token: sessionForTokens.waba_access_token,
     } : {
-      integration_type: 'evolution' as const,
+      integration_type: 'waba' as const,
       instance_name: params.instanceName,
       waba_phone_number_id: null,
       waba_access_token: null,

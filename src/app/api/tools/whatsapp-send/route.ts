@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase/server'
 import { sendMessage } from '@/lib/messaging/send'
-import { decryptMessage } from '@/lib/crypto/encryption'
 
 /**
  * POST /api/tools/whatsapp-send
@@ -92,14 +91,10 @@ export async function POST(req: NextRequest) {
       await new Promise(resolve => setTimeout(resolve, totalDelay * 1000))
     }
 
-    // Decrypt WABA token if needed
+    // sendMessage déchiffre le token en interne — on passe la valeur brute (chiffrée)
     const sessionCtx = {
-      integration_type: (session.integration_type || 'evolution') as 'evolution' | 'waba',
-      instance_name: session.instance_name || '',
       waba_phone_number_id: session.waba_phone_number_id,
-      waba_access_token: session.waba_access_token
-        ? decryptMessage(session.waba_access_token)
-        : null,
+      waba_access_token: session.waba_access_token,
     }
 
     // Format phone number (remove + and spaces)
