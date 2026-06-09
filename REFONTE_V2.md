@@ -41,7 +41,8 @@ Client répond template → fenêtre ROUVERTE   → 🤖 IA reprend la main
 | Evolution API | ✅ Retiré (phase 1 faite) |
 | Teams (équipes) | ✅ Retiré, user-only (code + DB faits) |
 | Lifecycle | ✅ Déplacé dans Conversations (fait) |
-| Email / Gmail | ❌ À retirer (fin) → supprime aussi la vérif OAuth Google sensible |
+| Email / Gmail | ↪️ **Finalement conservé** mais simplifié, accessible depuis le Dashboard (plus de page dédiée). ⚠️ implique de garder la vérif OAuth Google sensible |
+| Sessions | ↪️ **Simplifier : 1 session max par compte**. Retirer la page Sessions dédiée, mettre la connexion/statut WhatsApp sur le Dashboard. Table `whatsapp_sessions` conservée (session_id partout). |
 | Agents IA | Création **simplifiée** (à faire) |
 | **Templates** | **À construire** : UI création + soumission Meta + statut |
 | **Bascule IA/template 24h** | **À construire** |
