@@ -6,7 +6,7 @@ import { sendMessage, sendMediaMessage, sendPresence } from '@/lib/messaging/sen
 import { retrieveContext } from '@/lib/knowledge/retriever'
 import { encryptMessage, decryptMessage } from '@/lib/crypto/encryption'
 import { getAgentTools, buildOpenAITools, executeToolCall } from '@/lib/tools/executor'
-import { SHOPIFY_ACTION_TOOLS, isShopifyActionTool, handleActionTool, userHasShopifyStore } from '@/lib/shopify/ai-tools'
+import { SHOPIFY_ACTION_TOOLS, isShopifyActionTool, handleActionTool, userHasShopifyStore, NOTIFICATION_CHANNEL_TOOL, isNotificationChannelTool, handleNotificationChannelTool } from '@/lib/shopify/ai-tools'
 import { checkConversationQuota } from '@/lib/shopify/plans'
 import type { WhatsAppSession } from '@/types/database'
 
@@ -346,6 +346,7 @@ Exemples :
     // que créer une action en attente ; un humain valide ensuite.
     if (userId && (await userHasShopifyStore(userId))) {
       openaiTools.push(...SHOPIFY_ACTION_TOOLS)
+      openaiTools.push(NOTIFICATION_CHANNEL_TOOL)
     }
 
     if (openaiTools.length > 0) {
@@ -395,6 +396,18 @@ Exemples :
             { userId: userId!, conversationId: params.conversationId }
           )
           toolMessages.push({ role: 'tool', tool_call_id: tc.toolCallId, content: actionMsg })
+          continue
+        }
+
+        // Opt-in canal de notification (le client choisit WhatsApp/Email).
+        if (isNotificationChannelTool(tc.functionName)) {
+          const { data: conv } = await supabase
+            .from('conversations')
+            .select('contact_id')
+            .eq('id', params.conversationId)
+            .maybeSingle()
+          const channelMsg = await handleNotificationChannelTool(tc.arguments, { contactId: conv?.contact_id })
+          toolMessages.push({ role: 'tool', tool_call_id: tc.toolCallId, content: channelMsg })
           continue
         }
 

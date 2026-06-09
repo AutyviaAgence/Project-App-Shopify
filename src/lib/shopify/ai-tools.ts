@@ -69,10 +69,66 @@ export const SHOPIFY_ACTION_TOOLS = [
   },
 ]
 
+/**
+ * Outil d'opt-in canal : le client choisit comment recevoir ses notifications
+ * (suivi de commande, expédition…). C'est l'opt-in conversationnel.
+ */
+export const NOTIFICATION_CHANNEL_TOOL = {
+  type: 'function' as const,
+  function: {
+    name: 'set_notification_channel',
+    description:
+      "Enregistre le canal sur lequel le client veut recevoir ses notifications de suivi de commande (expédition, livraison). À appeler quand le client exprime une préférence (ex: 'préviens-moi par email', 'envoie le suivi sur WhatsApp', 'oui je veux être tenu au courant'). Confirme ensuite au client.",
+    parameters: {
+      type: 'object',
+      properties: {
+        channel: {
+          type: 'string',
+          enum: ['whatsapp', 'email', 'both'],
+          description: 'Canal choisi par le client',
+        },
+        email: {
+          type: 'string',
+          description: 'Adresse email si le client choisit email/both et la fournit (optionnel)',
+        },
+      },
+      required: ['channel'],
+    },
+  },
+}
+
 const ACTION_FN_NAMES = new Set(SHOPIFY_ACTION_TOOLS.map((t) => t.function.name))
 
 export function isShopifyActionTool(name: string): boolean {
   return ACTION_FN_NAMES.has(name)
+}
+
+export function isNotificationChannelTool(name: string): boolean {
+  return name === 'set_notification_channel'
+}
+
+/** Enregistre le canal préféré du contact (opt-in conversationnel). */
+export async function handleNotificationChannelTool(
+  args: { channel?: string; email?: string },
+  ctx: { contactId?: string | null }
+): Promise<string> {
+  if (!ctx.contactId) return 'Impossible d\'enregistrer le canal (contact inconnu).'
+  const channel = ['whatsapp', 'email', 'both'].includes(args.channel || '') ? args.channel! : 'whatsapp'
+
+  const supabase = createAdminSupabase(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+  await supabase
+    .from('contacts')
+    .update({
+      preferred_channel: channel as 'whatsapp' | 'email' | 'both',
+      notify_email: args.email || undefined,
+      channel_optin_at: new Date().toISOString(),
+    })
+    .eq('id', ctx.contactId)
+
+  return `Canal de notification enregistré (${channel}). Confirme au client qu'il sera prévenu sur ce canal pour le suivi de sa commande.`
 }
 
 /** L'utilisateur a-t-il une boutique Shopify connectée (pour proposer ces outils) ? */
