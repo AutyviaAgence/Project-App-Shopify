@@ -13,13 +13,13 @@ type Status = {
   documents?: number
 }
 
+const APP_BASE = process.env.NEXT_PUBLIC_APP_URL || 'https://shopify.autyvia.fr'
+
 const PLANS = [
   { id: 'starter', name: 'Starter', price: 29, desc: '200 conversations IA / mois' },
-  { id: 'growth', name: 'Growth', price: 79, desc: '1 000 conversations + actions Shopify' },
+  { id: 'growth', name: 'Growth', price: 79, desc: '1 000 conversations + actions Shopify', popular: true },
   { id: 'scale', name: 'Scale', price: 149, desc: '3 000 conversations + support prioritaire' },
 ]
-
-const APP_BASE = process.env.NEXT_PUBLIC_APP_URL || 'https://shopify.autyvia.fr'
 
 export default function ShopifyEmbeddedClient() {
   const searchParams = useSearchParams()
@@ -28,6 +28,7 @@ export default function ShopifyEmbeddedClient() {
   const [status, setStatus] = useState<Status | null>(null)
   const [loading, setLoading] = useState(true)
   const [connecting, setConnecting] = useState(false)
+  const [subscribing, setSubscribing] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
 
   const fetchStatus = useCallback(async () => {
@@ -43,30 +44,6 @@ export default function ShopifyEmbeddedClient() {
 
   useEffect(() => { fetchStatus() }, [fetchStatus])
 
-  const [subscribing, setSubscribing] = useState<string | null>(null)
-
-  async function handleSubscribe(plan: string) {
-    setSubscribing(plan)
-    setMessage(null)
-    try {
-      const res = await fetch('/api/shopify/billing/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shop, plan }),
-      })
-      const json = await res.json()
-      if (!res.ok || !json.data?.confirmationUrl) {
-        throw new Error(json.error || 'Erreur')
-      }
-      // Rediriger vers la confirmation de paiement Shopify (top frame)
-      if (window.top) window.top.location.href = json.data.confirmationUrl
-      else window.location.href = json.data.confirmationUrl
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : 'Erreur')
-      setSubscribing(null)
-    }
-  }
-
   async function handleConnect() {
     setConnecting(true)
     setMessage(null)
@@ -78,14 +55,13 @@ export default function ShopifyEmbeddedClient() {
       })
       const json = await res.json()
       if (res.status === 401) {
-        // Pas connecté à Xeyo : rediriger vers le login de l'app (nouvel onglet)
-        setMessage('Connectez-vous d\'abord à votre compte Xeyo, puis revenez ici.')
-        window.open(`${APP_BASE}/login`, '_blank')
+        // Pas connecté à Xeyo → rediriger vers le login (top frame, hors iframe)
+        const loginUrl = `${APP_BASE}/login?shopify_shop=${encodeURIComponent(shop)}`
+        if (window.top) window.top.location.href = loginUrl
+        else window.location.href = loginUrl
         return
       }
-      if (!res.ok && !json.data?.linked) {
-        throw new Error(json.error || 'Erreur de connexion')
-      }
+      if (!res.ok && !json.data?.linked) throw new Error(json.error || 'Erreur de connexion')
       await fetchStatus()
       setMessage(
         json.data?.documents != null
@@ -99,106 +75,140 @@ export default function ShopifyEmbeddedClient() {
     }
   }
 
-  if (loading) {
-    return <div className="p-6 text-sm text-gray-500">Chargement…</div>
+  async function handleSubscribe(plan: string) {
+    setSubscribing(plan)
+    setMessage(null)
+    try {
+      const res = await fetch('/api/shopify/billing/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shop, plan }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.data?.confirmationUrl) throw new Error(json.error || 'Erreur')
+      if (window.top) window.top.location.href = json.data.confirmationUrl
+      else window.location.href = json.data.confirmationUrl
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : 'Erreur')
+      setSubscribing(null)
+    }
   }
 
   return (
-    <div className="mx-auto max-w-2xl p-6 space-y-6">
-      <header className="space-y-1">
-        <h1 className="text-2xl font-semibold">Xeyo — WhatsApp Support &amp; Chat</h1>
-        <p className="text-sm text-gray-500">
-          {status?.shop_name ? `Boutique : ${status.shop_name}` : shop || 'Boutique Shopify'}
-        </p>
-      </header>
+    <div className="min-h-screen bg-[#f1f1f1] px-4 py-10">
+      {/* Barre titre façon admin Shopify */}
+      <div className="mx-auto mb-6 flex max-w-3xl items-center gap-2">
+        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-500 text-sm font-bold text-white">X</div>
+        <h1 className="text-lg font-semibold text-gray-800">Xeyo — WhatsApp Support &amp; Chat</h1>
+      </div>
 
-      {/* État de la connexion */}
-      <section className="rounded-xl border p-5 space-y-4">
-        {!status?.linked ? (
-          <>
-            <div>
-              <h2 className="font-medium">Connectez votre boutique</h2>
-              <p className="text-sm text-gray-500 mt-1">
-                Xeyo va lire votre catalogue, vos pages et vos politiques pour créer
-                automatiquement un agent IA qui répond à vos clients sur WhatsApp
-                (produits, commandes, SAV, retours).
-              </p>
-            </div>
-            <button
-              onClick={handleConnect}
-              disabled={connecting}
-              className="rounded-lg bg-black px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-            >
-              {connecting ? 'Configuration en cours…' : 'Connecter ma boutique'}
-            </button>
-          </>
-        ) : (
-          <>
+      {loading ? (
+        <div className="mx-auto max-w-md rounded-2xl bg-white p-8 text-center text-sm text-gray-500 shadow-sm ring-1 ring-gray-200">
+          Chargement…
+        </div>
+      ) : !status?.linked ? (
+        /* ── Carte de connexion (style Gorgias) ── */
+        <div className="mx-auto max-w-md rounded-2xl bg-white p-8 shadow-sm ring-1 ring-gray-200">
+          <h2 className="text-base font-semibold text-gray-900">Connectez votre boutique à Xeyo</h2>
+          <p className="mt-2 text-sm text-gray-500">
+            Xeyo lit votre catalogue, vos pages et vos politiques pour créer
+            automatiquement un agent IA qui répond à vos clients sur WhatsApp.
+          </p>
+
+          <div className="mt-5 rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
+            {status?.shop_name || shop || 'Votre boutique Shopify'}
+          </div>
+
+          <button
+            onClick={handleConnect}
+            disabled={connecting}
+            className="mt-4 w-full rounded-lg bg-gray-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:opacity-50"
+          >
+            {connecting ? 'Configuration en cours…' : 'Connecter ma boutique'}
+          </button>
+
+          <div className="my-5 flex items-center gap-3">
+            <div className="h-px flex-1 bg-gray-200" />
+            <span className="text-xs text-gray-400">ou</span>
+            <div className="h-px flex-1 bg-gray-200" />
+          </div>
+
+          <a
+            href={`${APP_BASE}/register?shopify_shop=${encodeURIComponent(shop)}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block text-center text-sm font-medium text-gray-900 hover:underline"
+          >
+            Créer un compte Xeyo
+          </a>
+
+          {message && <p className="mt-4 text-center text-sm text-gray-600">{message}</p>}
+        </div>
+      ) : (
+        /* ── État connecté + plans ── */
+        <div className="mx-auto max-w-3xl space-y-5">
+          <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
             <div className="flex items-center gap-2">
-              <span className="inline-flex h-2.5 w-2.5 rounded-full bg-green-500" />
-              <h2 className="font-medium">Boutique connectée</h2>
+              <span className="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+              <h2 className="font-semibold text-gray-900">Boutique connectée</h2>
+              <span className="ml-auto rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium capitalize text-gray-600">
+                Plan {status.plan || 'free'}
+              </span>
             </div>
-            <dl className="grid grid-cols-2 gap-3 text-sm">
+            <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
               <div>
-                <dt className="text-gray-500">Agent IA</dt>
-                <dd className="font-medium">{status.agent?.name || '—'}</dd>
+                <dt className="text-gray-400">Agent IA</dt>
+                <dd className="font-medium text-gray-900">{status.agent?.name || '—'}</dd>
               </div>
               <div>
-                <dt className="text-gray-500">Base de connaissances</dt>
-                <dd className="font-medium">{status.documents ?? 0} source(s)</dd>
+                <dt className="text-gray-400">Base de connaissances</dt>
+                <dd className="font-medium text-gray-900">{status.documents ?? 0} source(s)</dd>
               </div>
             </dl>
-            <div className="text-sm">
-              <span className="text-gray-500">Plan actuel : </span>
-              <span className="font-medium capitalize">{status.plan || 'free'}</span>
-            </div>
             <a
               href={APP_BASE}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-block rounded-lg border px-4 py-2 text-sm font-medium hover:bg-gray-50"
+              className="mt-5 inline-block rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
             >
               Ouvrir le tableau de bord Xeyo
             </a>
-          </>
-        )}
-
-        {message && <p className="text-sm text-gray-600">{message}</p>}
-      </section>
-
-      {/* Plans (visible si la boutique est liée) */}
-      {status?.linked && (
-        <section className="space-y-3">
-          <h2 className="font-medium">Plans</h2>
-          <p className="text-xs text-gray-500">
-            Le plan gratuit inclut 10 conversations IA / mois. Passez à un plan supérieur pour plus de volume.
-          </p>
-          <div className="grid gap-3 sm:grid-cols-3">
-            {PLANS.map((p) => {
-              const current = status.plan === p.id
-              return (
-                <div key={p.id} className={`rounded-xl border p-4 ${current ? 'border-black' : ''}`}>
-                  <div className="font-semibold">{p.name}</div>
-                  <div className="text-2xl font-bold">{p.price}€<span className="text-sm font-normal text-gray-500">/mois</span></div>
-                  <p className="mt-1 text-xs text-gray-500">{p.desc}</p>
-                  <button
-                    onClick={() => handleSubscribe(p.id)}
-                    disabled={current || subscribing !== null}
-                    className="mt-3 w-full rounded-lg bg-black px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-                  >
-                    {current ? 'Plan actuel' : subscribing === p.id ? 'Redirection…' : 'Choisir'}
-                  </button>
-                </div>
-              )
-            })}
+            {message && <p className="mt-3 text-sm text-gray-600">{message}</p>}
           </div>
-        </section>
-      )}
 
-      <p className="text-xs text-gray-400">
-        Besoin d&apos;aide ? Rendez-vous sur votre tableau de bord Xeyo pour connecter
-        WhatsApp et personnaliser votre agent.
-      </p>
+          {/* Plans */}
+          <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
+            <h3 className="font-semibold text-gray-900">Choisissez votre plan</h3>
+            <p className="mt-1 text-xs text-gray-500">Le plan gratuit inclut 10 conversations IA / mois.</p>
+            <div className="mt-4 grid gap-4 sm:grid-cols-3">
+              {PLANS.map((p) => {
+                const current = status.plan === p.id
+                return (
+                  <div key={p.id} className={`relative rounded-xl border p-4 ${p.popular ? 'border-gray-900' : 'border-gray-200'}`}>
+                    {p.popular && (
+                      <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-gray-900 px-2 py-0.5 text-[10px] font-semibold text-white">
+                        Populaire
+                      </span>
+                    )}
+                    <div className="font-semibold text-gray-900">{p.name}</div>
+                    <div className="mt-1 text-2xl font-bold text-gray-900">
+                      {p.price}€<span className="text-sm font-normal text-gray-400">/mois</span>
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">{p.desc}</p>
+                    <button
+                      onClick={() => handleSubscribe(p.id)}
+                      disabled={current || subscribing !== null}
+                      className="mt-3 w-full rounded-lg bg-gray-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-gray-800 disabled:opacity-50"
+                    >
+                      {current ? 'Plan actuel' : subscribing === p.id ? 'Redirection…' : 'Choisir'}
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

@@ -29,6 +29,7 @@ import {
   ArrowUpRight,
 } from 'lucide-react'
 import { StartTourButton } from '@/components/guided-tour'
+import { WhatsAppConnect } from '@/components/whatsapp-connect'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
@@ -72,11 +73,11 @@ function OnboardingChecklist({ checklist, onRefresh }: { checklist: Checklist; o
   const steps = [
     {
       key: 'whatsapp_connected' as const,
-      label: 'Session WhatsApp',
-      description: 'Connectez votre numéro via QR code ou l\'API Meta.',
+      label: 'WhatsApp Business',
+      description: 'Connectez votre numéro via l\'API Meta.',
       icon: Smartphone,
       done: checklist.whatsapp_connected,
-      href: '/sessions',
+      href: '/dashboard',
       cta: 'Connecter',
       color: 'from-green-500/20 to-emerald-500/10',
       iconColor: 'text-green-500',
@@ -171,6 +172,9 @@ function OnboardingChecklist({ checklist, onRefresh }: { checklist: Checklist; o
 
   return (
     <div className="p-4 md:p-6 pb-20 md:pb-6 space-y-6">
+
+      {/* Connexion WhatsApp (remplace la page Sessions) */}
+      <WhatsAppConnect />
 
       {/* Hero banner */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/20 via-primary/10 to-accent/10 border border-primary/20 p-6 md:p-8">
@@ -371,6 +375,9 @@ function StatsDashboard() {
               <ArrowUpRight className="h-4 w-4" />
             </Link>
           </div>
+
+          {/* Connexion WhatsApp (remplace la page Sessions) */}
+          <WhatsAppConnect />
 
           {/* ═══ Grille principale : graphes (gauche) + colonne IA/CTA/entonnoir (droite) ═══ */}
           <div className="grid grid-cols-1 gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-12">
@@ -585,7 +592,7 @@ function DashboardCTA({ connectedSessions, activeAgents, t }: {
 }) {
   // Guide vers l'action manquante la plus prioritaire
   const cta = connectedSessions === 0
-    ? { href: '/sessions', title: t('dashboard.cta_connect_title'), desc: t('dashboard.cta_connect_desc'), btn: t('dashboard.cta_connect_btn'), icon: Smartphone }
+    ? { href: '/dashboard', title: t('dashboard.cta_connect_title'), desc: t('dashboard.cta_connect_desc'), btn: t('dashboard.cta_connect_btn'), icon: Smartphone }
     : activeAgents === 0
       ? { href: '/agents', title: t('dashboard.cta_agent_title'), desc: t('dashboard.cta_agent_desc'), btn: t('dashboard.cta_agent_btn'), icon: Bot }
       : { href: '/stats', title: t('dashboard.cta_explore_title'), desc: t('dashboard.cta_explore_desc'), btn: t('dashboard.cta_explore_btn'), icon: Sparkles }

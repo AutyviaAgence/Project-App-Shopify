@@ -45,7 +45,6 @@ import { useTenant } from '@/lib/tenant/context'
 const NAV_ITEMS_KEYS = [
   { href: '/dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
   { href: '/conversations', labelKey: 'nav.conversations', icon: MessageSquare },
-  { href: '/sessions', labelKey: 'nav.sessions', icon: Smartphone },
   { href: '/agents', labelKey: 'nav.agents', icon: Bot },
   { href: '/actions', labelKey: 'nav.actions', icon: ShoppingBag },
   { href: '/templates', labelKey: 'nav.templates', icon: FileText },
