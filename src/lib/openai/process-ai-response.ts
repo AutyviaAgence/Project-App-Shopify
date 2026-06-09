@@ -6,6 +6,7 @@ import { sendMessage, sendMediaMessage, sendPresence } from '@/lib/messaging/sen
 import { retrieveContext } from '@/lib/knowledge/retriever'
 import { encryptMessage, decryptMessage } from '@/lib/crypto/encryption'
 import { getAgentTools, buildOpenAITools, executeToolCall } from '@/lib/tools/executor'
+import { SHOPIFY_ACTION_TOOLS, isShopifyActionTool, handleActionTool, userHasShopifyStore } from '@/lib/shopify/ai-tools'
 import type { WhatsAppSession } from '@/types/database'
 
 const MAX_CONTEXT_MESSAGES = 50
@@ -324,6 +325,13 @@ Exemples :
     const agentTools = await getAgentTools(params.agentId)
     const { openaiTools, functionMap } = buildOpenAITools(agentTools)
 
+    // 4.7b. Outils d'action Shopify (annuler/rembourser/code promo) — proposés
+    // uniquement si l'utilisateur a une boutique Shopify connectée. L'IA ne fait
+    // que créer une action en attente ; un humain valide ensuite.
+    if (userId && (await userHasShopifyStore(userId))) {
+      openaiTools.push(...SHOPIFY_ACTION_TOOLS)
+    }
+
     if (openaiTools.length > 0) {
       console.log('[AI] Outils chargés:', openaiTools.length, 'fonctions')
       const toolNames = openaiTools.map(t => t.function.name).join(', ')
@@ -364,6 +372,16 @@ Exemples :
       toolMessages.push(result.rawMessage as OpenAIMessage)
 
       for (const tc of result.toolCalls) {
+        // Outils d'action Shopify : créer une action en attente (pas d'exécution).
+        if (isShopifyActionTool(tc.functionName)) {
+          const actionMsg = await handleActionTool(
+            { functionName: tc.functionName, arguments: tc.arguments },
+            { userId: userId!, conversationId: params.conversationId }
+          )
+          toolMessages.push({ role: 'tool', tool_call_id: tc.toolCallId, content: actionMsg })
+          continue
+        }
+
         const mapping = functionMap.get(tc.functionName)
         if (!mapping) {
           toolMessages.push({
