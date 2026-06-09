@@ -181,6 +181,9 @@ export type Contact = {
   opt_in_source: string | null
   opt_in_at: string | null
   opt_out_at: string | null
+  preferred_channel: 'none' | 'whatsapp' | 'email' | 'both'
+  notify_email: string | null
+  channel_optin_at: string | null
   created_at: string
   updated_at: string
 }
