@@ -6,6 +6,33 @@
 
 ---
 
+## Prérequis Shopify Partner (à faire AVANT de coder S1)
+
+Côté Shopify (https://partners.shopify.com), à préparer par le propriétaire :
+
+1. **Compte Partner** (gratuit, micro-entreprise OK).
+2. **Development store** (Stores → Add store → Development store) : boutique de
+   test gratuite avec produits factices, pour tester l'app sans risque.
+3. **Créer l'app** (Apps → Create app → manually) :
+   - **App URL** : `https://shopify.autyvia.fr`
+   - **Allowed redirection URL(s)** : `https://shopify.autyvia.fr/api/shopify/callback`
+   - Noter le **Client ID** (API key) et le **Client secret** (API secret).
+4. **Scopes minimum** : `read_products`, `read_content`, `read_shop`
+   (ajouter `read_orders`, `read_customers` seulement si SAV sur commandes).
+
+### Variables d'env à prévoir
+```
+SHOPIFY_API_KEY=            # Client ID
+SHOPIFY_API_SECRET=         # Client secret
+SHOPIFY_SCOPES=read_products,read_content,read_shop
+SHOPIFY_APP_URL=https://shopify.autyvia.fr
+```
+
+À fournir pour coder/tester S1 : Client ID, Client secret, nom du dev store
+(ex. `autyvia-dev.myshopify.com`).
+
+---
+
 ## Principe
 
 Autyvia devient une **embedded app** sur l'App Store Shopify. Même backend, même
