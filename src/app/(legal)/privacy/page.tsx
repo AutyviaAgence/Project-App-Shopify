@@ -45,8 +45,9 @@ export default function PrivacyPage() {
 
       <h3>Données liées à l&apos;utilisation du service</h3>
       <ul>
-        <li><strong>Messages WhatsApp</strong> : contenus des conversations traitées par nos Services</li>
+        <li><strong>Messages WhatsApp</strong> : contenus des conversations traitées par nos Services, via l&apos;API officielle WhatsApp Business (Meta Platforms)</li>
         <li><strong>Contacts</strong> : numéros de téléphone et noms des contacts WhatsApp</li>
+        <li><strong>Données de boutique (Shopify)</strong> : si vous connectez une boutique Shopify, nous accédons en lecture à votre catalogue de produits, vos pages et politiques, et — si vous l&apos;activez — au statut de vos commandes et à certaines informations clients, afin que l&apos;agent IA puisse répondre aux questions (produits, commandes, SAV, retours)</li>
         <li><strong>Documents</strong> : fichiers uploadés dans la base de connaissances</li>
         <li><strong>Configurations</strong> : paramètres des agents IA, prompts, horaires</li>
       </ul>
@@ -96,7 +97,10 @@ export default function PrivacyPage() {
 
       <h3>Services tiers</h3>
       <ul>
+        <li><strong>Meta Platforms Ireland Ltd.</strong> : acheminement des messages via l&apos;API WhatsApp Business. Les messages et numéros transitent par l&apos;infrastructure de Meta, soumise à la <a href="https://www.whatsapp.com/legal/business-policy" target="_blank" rel="noopener noreferrer">Politique commerciale WhatsApp</a> et à la politique de confidentialité de Meta.</li>
+        <li><strong>Shopify Inc.</strong> (Canada/UE) : si vous connectez une boutique, accès en lecture aux données de boutique nécessaires au fonctionnement de l&apos;agent (produits, commandes, clients selon les autorisations accordées).</li>
         <li><strong>OpenAI Inc.</strong> (USA) : traitement IA des messages</li>
+        <li><strong>Google LLC</strong> (USA) : uniquement si vous connectez un outil Google (ex. Agenda) à un agent, dans la limite des autorisations que vous accordez.</li>
         <li><strong>Stripe Inc.</strong> (USA/Europe) : traitement des paiements - Certifié PCI-DSS</li>
       </ul>
 
@@ -131,6 +135,15 @@ export default function PrivacyPage() {
         <li>Par courrier : 778 routes des barthes</li>
       </ul>
       <p>Nous répondrons dans un délai de 30 jours.</p>
+
+      <h3>Suppression de vos données</h3>
+      <p>
+        Vous pouvez supprimer définitivement votre compte et l&apos;ensemble des données associées
+        (conversations, contacts, agents, documents) directement depuis <strong>Paramètres &gt; Supprimer mon compte</strong>.
+        La suppression est immédiate et irréversible. Pour toute demande de suppression de données traitées
+        via WhatsApp Business, contactez-nous à <a href="mailto:autyviaagence@gmail.com">autyviaagence@gmail.com</a> ;
+        nous traiterons la demande dans les meilleurs délais.
+      </p>
 
       <h3>Réclamation CNIL</h3>
       <p>Si vous estimez que vos droits ne sont pas respectés :</p>
