@@ -30,6 +30,7 @@ import {
 } from 'lucide-react'
 import { StartTourButton } from '@/components/guided-tour'
 import { WhatsAppConnect } from '@/components/whatsapp-connect'
+import { EmailConnect } from '@/components/email-connect'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
@@ -173,8 +174,9 @@ function OnboardingChecklist({ checklist, onRefresh }: { checklist: Checklist; o
   return (
     <div className="p-4 md:p-6 pb-20 md:pb-6 space-y-6">
 
-      {/* Connexion WhatsApp (remplace la page Sessions) */}
+      {/* Connexions canaux (remplacent la page Sessions) */}
       <WhatsAppConnect />
+      <EmailConnect />
 
       {/* Hero banner */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/20 via-primary/10 to-accent/10 border border-primary/20 p-6 md:p-8">
@@ -376,8 +378,11 @@ function StatsDashboard() {
             </Link>
           </div>
 
-          {/* Connexion WhatsApp (remplace la page Sessions) */}
-          <WhatsAppConnect />
+          {/* Connexions canaux (remplacent la page Sessions) */}
+          <div className="grid gap-3 md:grid-cols-2">
+            <WhatsAppConnect />
+            <EmailConnect />
+          </div>
 
           {/* ═══ Grille principale : graphes (gauche) + colonne IA/CTA/entonnoir (droite) ═══ */}
           <div className="grid grid-cols-1 gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-12">
