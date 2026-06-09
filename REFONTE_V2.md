@@ -3,6 +3,7 @@
 > Fichier de référence pour la grande refonte. Branche de travail : `dev`.
 > Ne jamais merger sur `master` sans validation complète.
 > Voir aussi : [`docs/COMPLIANCE.md`](docs/COMPLIANCE.md) (validations Meta/Google/Shopify),
+> [`docs/SHOPIFY_APP.md`](docs/SHOPIFY_APP.md) (couche embedded App Store),
 > [`docs/INFRA.md`](docs/INFRA.md), [`supabase/schema.sql`](supabase/schema.sql).
 
 ---
@@ -85,8 +86,9 @@ Settings
 | 7 | **Renforcer Shopify** (SAV, retours, commandes, opt-in) | ⏳ À faire |
 | 8 | **Conformité** (privacy, mentions légales, suppression publique, webhooks RGPD Shopify) | ⏳ À faire |
 | 9 | Retrait Email / Gmail | ⏸️ Fin |
-| 10 | Embedded Signup Meta (après App Review) | ⏸️ Dépend de Meta |
-| 11 | PostHog analytics | ⏸️ Plus tard |
+| 10 | **Couche embedded Shopify** (OAuth, auto-config, Polaris, Billing, webhooks RGPD) — voir [`docs/SHOPIFY_APP.md`](docs/SHOPIFY_APP.md) | ⏸️ Bloc distinct, après le cœur WhatsApp |
+| 11 | Embedded Signup Meta (après App Review) | ⏸️ Dépend de Meta |
+| 12 | PostHog analytics | ⏸️ Plus tard |
 
 ---
 
