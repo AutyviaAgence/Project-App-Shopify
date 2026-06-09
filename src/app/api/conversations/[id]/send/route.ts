@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { sendMessage, sendMediaMessage } from '@/lib/messaging/send'
+import { getConversationWindow } from '@/lib/whatsapp-cloud/window'
 import { encryptMessage } from '@/lib/crypto/encryption'
 import { canAccessSession } from '@/lib/teams/access'
 import { uploadMedia } from '@/lib/storage/media'
@@ -248,7 +249,19 @@ export async function POST(
     return NextResponse.json({ error: 'Message trop long (max 4096)' }, { status: 400 })
   }
 
-  // Envoyer via l'intégration appropriée (Evolution ou WABA)
+  // Fenêtre 24h : hors fenêtre, le texte libre sera refusé par Meta — il faut un template.
+  const windowState = await getConversationWindow(supabase, id)
+  if (!windowState.isOpen) {
+    return NextResponse.json(
+      {
+        error: 'Hors de la fenêtre de 24h : ce client n\'a pas écrit depuis plus de 24h. WhatsApp n\'autorise plus le texte libre — utilisez un modèle (template) approuvé pour le recontacter.',
+        window_closed: true,
+      },
+      { status: 409 }
+    )
+  }
+
+  // Envoyer via WABA
   const sendResult = await sendMessage(session, contact.phone_number, content.trim())
 
   if (!sendResult.ok) {

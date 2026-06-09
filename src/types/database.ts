@@ -579,6 +579,25 @@ export type LifecycleStage = {
   created_at: string
 }
 
+export type WhatsAppTemplate = {
+  id: string
+  user_id: string
+  session_id: string | null
+  meta_id: string | null
+  name: string
+  language: string
+  category: 'MARKETING' | 'UTILITY' | 'AUTHENTICATION'
+  body_text: string
+  header_text: string | null
+  footer_text: string | null
+  variables_count: number
+  sample_values: string[] | null
+  status: 'draft' | 'pending' | 'approved' | 'rejected'
+  rejection_reason: string | null
+  created_at: string
+  updated_at: string
+}
+
 export type LifecycleHistory = {
   id: string
   conversation_id: string
@@ -804,6 +823,12 @@ export type Database = {
         Row: CannedResponse
         Insert: Partial<CannedResponse> & Pick<CannedResponse, 'user_id' | 'title' | 'content'>
         Update: Partial<CannedResponse>
+        Relationships: []
+      }
+      whatsapp_templates: {
+        Row: WhatsAppTemplate
+        Insert: Partial<WhatsAppTemplate> & Pick<WhatsAppTemplate, 'user_id' | 'name' | 'body_text'>
+        Update: Partial<WhatsAppTemplate>
         Relationships: []
       }
     }

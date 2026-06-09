@@ -104,6 +104,82 @@ export const wabaClient = {
     })
   },
 
+  // ─── Gestion des templates (Message Templates) ──────────────────────
+  // Ces endpoints utilisent le Business Account ID (WABA), pas le phone_number_id.
+
+  /** Lister les templates d'un compte business (avec leur statut Meta) */
+  listTemplates(businessAccountId: string, accessToken: string) {
+    return request<{
+      data: {
+        id: string
+        name: string
+        language: string
+        status: string        // APPROVED | PENDING | REJECTED | ...
+        category: string      // MARKETING | UTILITY | AUTHENTICATION
+        components: unknown[]
+      }[]
+    }>(`${GRAPH_API_BASE}/${businessAccountId}/message_templates?limit=200`, accessToken, {
+      method: 'GET',
+    })
+  },
+
+  /**
+   * Créer (soumettre) un template à Meta pour approbation.
+   * `components` suit le format Graph API (BODY, HEADER, FOOTER, BUTTONS).
+   */
+  createTemplate(
+    businessAccountId: string,
+    accessToken: string,
+    payload: {
+      name: string
+      language: string
+      category: 'MARKETING' | 'UTILITY' | 'AUTHENTICATION'
+      components: unknown[]
+    }
+  ) {
+    return request<{ id: string; status: string; category: string }>(
+      `${GRAPH_API_BASE}/${businessAccountId}/message_templates`,
+      accessToken,
+      { method: 'POST', body: JSON.stringify(payload) }
+    )
+  },
+
+  /** Supprimer un template par son nom */
+  deleteTemplate(businessAccountId: string, accessToken: string, name: string) {
+    return request<{ success: boolean }>(
+      `${GRAPH_API_BASE}/${businessAccountId}/message_templates?name=${encodeURIComponent(name)}`,
+      accessToken,
+      { method: 'DELETE' }
+    )
+  },
+
+  /**
+   * Envoyer un template avec variables (composants).
+   * `components` au format Graph (ex: [{ type:'body', parameters:[{type:'text',text:'X'}] }]).
+   */
+  sendTemplateWithParams(
+    phoneNumberId: string,
+    accessToken: string,
+    to: string,
+    templateName: string,
+    languageCode: string,
+    components?: unknown[]
+  ) {
+    return request(`${GRAPH_API_BASE}/${phoneNumberId}/messages`, accessToken, {
+      method: 'POST',
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to,
+        type: 'template',
+        template: {
+          name: templateName,
+          language: { code: languageCode },
+          ...(components && components.length > 0 ? { components } : {}),
+        },
+      }),
+    })
+  },
+
   /** Uploader un média vers Meta (retourne un media_id) */
   async uploadMedia(
     phoneNumberId: string,

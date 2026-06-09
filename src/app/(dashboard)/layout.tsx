@@ -16,6 +16,7 @@ import {
   LogOut,
   Settings,
   ScrollText,
+  FileText,
   Menu,
   X,
   ChevronLeft,
@@ -45,6 +46,7 @@ const NAV_ITEMS_KEYS = [
   { href: '/conversations', labelKey: 'nav.conversations', icon: MessageSquare },
   { href: '/sessions', labelKey: 'nav.sessions', icon: Smartphone },
   { href: '/agents', labelKey: 'nav.agents', icon: Bot },
+  { href: '/templates', labelKey: 'nav.templates', icon: FileText },
   { href: '/ressources', labelKey: 'nav.resources', icon: Library },
   { href: '/stats', labelKey: 'nav.stats', icon: BarChart3 },
 ]

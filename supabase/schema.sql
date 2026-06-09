@@ -338,6 +338,26 @@ CREATE TABLE webhook_logs (
   created_at         TIMESTAMPTZ DEFAULT now()
 );
 
+-- Modèles de messages WABA (templates pré-approuvés Meta, pour relances/notifs hors fenêtre 24h)
+CREATE TABLE whatsapp_templates (
+  id               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id          UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  session_id       UUID REFERENCES whatsapp_sessions(id) ON DELETE SET NULL,
+  meta_id          TEXT,
+  name             TEXT NOT NULL,
+  language         TEXT NOT NULL DEFAULT 'fr',
+  category         TEXT NOT NULL DEFAULT 'UTILITY',  -- MARKETING | UTILITY | AUTHENTICATION
+  body_text        TEXT NOT NULL,
+  header_text      TEXT,
+  footer_text      TEXT,
+  variables_count  INTEGER DEFAULT 0,
+  sample_values    TEXT[],
+  status           TEXT NOT NULL DEFAULT 'draft',    -- draft|pending|approved|rejected
+  rejection_reason TEXT,
+  created_at       TIMESTAMPTZ DEFAULT now(),
+  updated_at       TIMESTAMPTZ DEFAULT now()
+);
+
 
 -- =====================================================================
 --  4. CONTACTS / CONVERSATIONS / MESSAGES
