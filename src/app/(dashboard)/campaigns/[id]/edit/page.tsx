@@ -89,21 +89,19 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
 
   const fetchData = useCallback(async () => {
     try {
-      const [campaignRes, sessionsRes, agentsRes, tagsRes, teamsRes, linksRes] = await Promise.all([
+      const [campaignRes, sessionsRes, agentsRes, tagsRes, linksRes] = await Promise.all([
         fetch(`/api/campaigns/${id}`),
         fetch('/api/sessions'),
         fetch('/api/agents'),
         fetch('/api/tags'),
-        fetch('/api/teams'),
         fetch('/api/links'),
       ])
 
-      const [campaignJson, sessionsJson, agentsJson, tagsJson, teamsJson, linksJson] = await Promise.all([
+      const [campaignJson, sessionsJson, agentsJson, tagsJson, linksJson] = await Promise.all([
         campaignRes.json(),
         sessionsRes.json(),
         agentsRes.json(),
         tagsRes.json(),
-        teamsRes.json(),
         linksRes.json(),
       ])
 
@@ -144,9 +142,6 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
       if (sessionsJson.data) setSessions(sessionsJson.data)
       if (agentsJson.data) setAgents(agentsJson.data)
       if (tagsJson.data) setTags(tagsJson.data)
-      if (teamsJson.data) {
-        setTeams(teamsJson.data.filter((team: TeamWithRole) => team.my_role === 'owner' || team.my_role === 'admin'))
-      }
       if (linksJson.data) setLinks(linksJson.data)
 
       const sourcesRes = await fetch('/api/conversations?tracking_sources=true')

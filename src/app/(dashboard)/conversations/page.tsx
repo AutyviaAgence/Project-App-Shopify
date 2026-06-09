@@ -102,13 +102,8 @@ function ConversationsPageContent() {
     } catch { /* silently ignore */ }
   }, [])
 
-  const fetchTeams = useCallback(async () => {
-    try {
-      const res = await fetch('/api/teams')
-      const json = await res.json()
-      if (res.ok && json.data) setTeams(json.data)
-    } catch { /* silently ignore */ }
-  }, [])
+  // Système d'équipes retiré : plus d'appel /api/teams.
+  const fetchTeams = useCallback(async () => {}, [])
 
   const fetchTags = useCallback(async () => {
     try {

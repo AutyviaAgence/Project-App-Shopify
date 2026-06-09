@@ -168,18 +168,8 @@ export default function SessionsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const fetchTeams = useCallback(async () => {
-    try {
-      const res = await fetch('/api/teams')
-      const json = await res.json()
-      if (res.ok && json.data) {
-        // Filtrer pour ne garder que les équipes où l'utilisateur est owner ou admin
-        setTeams(json.data.filter((t: TeamWithRole) => t.my_role === 'owner' || t.my_role === 'admin'))
-      }
-    } catch {
-      // Silently ignore
-    }
-  }, [])
+  // Système d'équipes retiré : plus d'appel /api/teams.
+  const fetchTeams = useCallback(async () => {}, [])
 
   const fetchEmailSessions = useCallback(async () => {
     try {

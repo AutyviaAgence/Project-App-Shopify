@@ -178,24 +178,10 @@ export default function AgentsPage() {
     }
   }, [t])
 
-  const fetchTeams = useCallback(async () => {
-    try {
-      const res = await fetch('/api/teams')
-      const json = await res.json()
-      if (res.ok && json.data) {
-        const filtered = json.data.filter((t: TeamWithRole) => t.my_role === 'owner' || t.my_role === 'admin')
-        setTeams(filtered)
-        setCache('agents:teams', filtered)
-      }
-    } catch {
-      // Silently ignore
-    }
-  }, [])
-
+  // Système d'équipes retiré : plus d'appel /api/teams.
   useEffect(() => {
     fetchAgents()
-    fetchTeams()
-  }, [fetchAgents, fetchTeams])
+  }, [fetchAgents])
 
   // Chemin de création UNIQUE : on redirige toujours vers le wizard guidé.
   useEffect(() => {

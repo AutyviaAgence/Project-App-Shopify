@@ -86,20 +86,18 @@ export default function NewCampaignPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [sessionsRes, agentsRes, tagsRes, teamsRes, linksRes, lifecycleRes] = await Promise.all([
+      const [sessionsRes, agentsRes, tagsRes, linksRes, lifecycleRes] = await Promise.all([
         fetch('/api/sessions'),
         fetch('/api/agents'),
         fetch('/api/tags'),
-        fetch('/api/teams'),
         fetch('/api/links'),
         fetch('/api/lifecycle/stages'),
       ])
 
-      const [sessionsJson, agentsJson, tagsJson, teamsJson, linksJson, lifecycleJson] = await Promise.all([
+      const [sessionsJson, agentsJson, tagsJson, linksJson, lifecycleJson] = await Promise.all([
         sessionsRes.json(),
         agentsRes.json(),
         tagsRes.json(),
-        teamsRes.json(),
         linksRes.json(),
         lifecycleRes.json(),
       ])
@@ -109,9 +107,6 @@ export default function NewCampaignPage() {
         setAgents(agentsJson.data)
       }
       if (tagsJson.data) setTags(tagsJson.data)
-      if (teamsJson.data) {
-        setTeams(teamsJson.data.filter((team: TeamWithRole) => team.my_role === 'owner' || team.my_role === 'admin'))
-      }
       if (linksJson.data) setLinks(linksJson.data)
       if (lifecycleJson.data) setLifecycleStages(lifecycleJson.data)
 
