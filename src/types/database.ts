@@ -177,6 +177,10 @@ export type Contact = {
   ai_summary: string | null
   ai_summary_updated_at: string | null
   profile_picture: string | null
+  opt_in_status: 'none' | 'subscribed' | 'opted_out'
+  opt_in_source: string | null
+  opt_in_at: string | null
+  opt_out_at: string | null
   created_at: string
   updated_at: string
 }

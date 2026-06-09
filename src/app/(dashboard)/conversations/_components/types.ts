@@ -22,6 +22,7 @@ export type ConversationWithJoins = {
     first_name: string | null
     last_name: string | null
     profile_picture: string | null
+    opt_in_status?: 'none' | 'subscribed' | 'opted_out' | null
   } | null
   session: {
     id: string

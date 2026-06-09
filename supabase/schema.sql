@@ -375,6 +375,11 @@ CREATE TABLE contacts (
   ai_summary            TEXT,
   ai_summary_updated_at TIMESTAMPTZ,
   profile_picture       TEXT,
+  -- Opt-in / consentement WhatsApp (obligatoire Meta avant tout template)
+  opt_in_status         TEXT NOT NULL DEFAULT 'none',  -- none | subscribed | opted_out
+  opt_in_source         TEXT,                          -- inbound_message | shopify_checkout | wa_link | import | manual
+  opt_in_at             TIMESTAMPTZ,
+  opt_out_at            TIMESTAMPTZ,
   created_at            TIMESTAMPTZ DEFAULT now(),
   updated_at            TIMESTAMPTZ DEFAULT now()
 );

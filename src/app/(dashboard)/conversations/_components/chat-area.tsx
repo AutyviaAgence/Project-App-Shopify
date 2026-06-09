@@ -257,8 +257,14 @@ export function ChatArea({
                 {getContactInitials(selectedConv)}
               </div>
               <div className="min-w-0 flex-1 text-left">
-                <p className="truncate text-sm font-semibold">
-                  {getContactDisplay(selectedConv)}
+                <p className="truncate text-sm font-semibold flex items-center gap-1.5">
+                  <span className="truncate">{getContactDisplay(selectedConv)}</span>
+                  {selectedConv.contact?.opt_in_status === 'opted_out' && (
+                    <span className="shrink-0 rounded-full bg-red-500/15 px-1.5 py-0.5 text-[10px] font-medium text-red-500" title="Le contact s'est désinscrit (STOP)">Désinscrit</span>
+                  )}
+                  {selectedConv.contact?.opt_in_status === 'subscribed' && (
+                    <span className="shrink-0 rounded-full bg-green-500/15 px-1.5 py-0.5 text-[10px] font-medium text-green-500" title="Consentement WhatsApp obtenu">Opt-in</span>
+                  )}
                 </p>
                 <p className="truncate text-xs text-muted-foreground">
                   {selectedConv.contact?.email

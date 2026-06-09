@@ -58,3 +58,21 @@ export async function getConversationWindow(
   const lastInboundAt = data?.created_at ? new Date(data.created_at) : null
   return computeWindowState(lastInboundAt, now)
 }
+
+/**
+ * Vérifie le consentement (opt-in) d'un contact avant un message proactif.
+ * Meta interdit d'envoyer un template à un contact non consentant.
+ */
+export async function getContactOptIn(
+  supabase: SupabaseClient,
+  contactId: string
+): Promise<{ status: 'none' | 'subscribed' | 'opted_out'; canSendTemplate: boolean }> {
+  const { data } = await supabase
+    .from('contacts')
+    .select('opt_in_status')
+    .eq('id', contactId)
+    .maybeSingle()
+
+  const status = (data?.opt_in_status as 'none' | 'subscribed' | 'opted_out') || 'none'
+  return { status, canSendTemplate: status === 'subscribed' }
+}

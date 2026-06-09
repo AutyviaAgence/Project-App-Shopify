@@ -281,6 +281,32 @@ export async function POST(req: NextRequest) {
                 .eq('id', contact.id)
             }
 
+            // 1.5 Opt-in / opt-out (consentement WhatsApp)
+            // Détection STOP → opt-out ; sinon, message entrant = opt-in implicite.
+            const normalized = messageType === 'text'
+              ? content.trim().toLowerCase().replace(/[^a-zàâäéèêëïîôöùûüç ]/gi, '').trim()
+              : ''
+            const STOP_WORDS = ['stop', 'stopp', 'desabonner', 'desabonnement', 'unsubscribe', 'arreter', 'arret']
+            const isStop = STOP_WORDS.includes(normalized)
+            const c = contact as typeof contact & { opt_in_status?: string }
+
+            if (isStop) {
+              await supabase
+                .from('contacts')
+                .update({ opt_in_status: 'opted_out', opt_out_at: new Date().toISOString() })
+                .eq('id', contact.id)
+            } else if (c.opt_in_status !== 'subscribed' && c.opt_in_status !== 'opted_out') {
+              // Opt-in implicite : le contact a initié/poursuivi le contact
+              await supabase
+                .from('contacts')
+                .update({
+                  opt_in_status: 'subscribed',
+                  opt_in_source: 'inbound_message',
+                  opt_in_at: new Date().toISOString(),
+                })
+                .eq('id', contact.id)
+            }
+
             // 2. Upsert conversation
             const { data: conversation } = await supabase
               .from('conversations')
