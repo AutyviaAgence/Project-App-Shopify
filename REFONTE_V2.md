@@ -102,6 +102,19 @@ Cible : **fiche agent claire**, sections dépliables :
 - **Comment il réagit** : escalade, relance, booking, type d'agent
 - **Où il est actif** : sessions WhatsApp + liens
 
+**Avancement :**
+- ✅ Code mort supprimé (~6400 lignes) : 3x page-legacy, studio, workflow
+  canvas, lib/workflow(-templates). welcome-v2 redirige vers la fiche agent.
+- ⏳ **Reste (session dédiée)** : chemin de création UNIQUE.
+  Décision arrêtée :
+  - **Wizard `/agents/new`** = LE chemin de création (questionnaire guidé qui
+    génère le system_prompt — aligné avec la vision "l'agent se crée tout seul").
+  - **Édition** → à déplacer dans la fiche détail `[id]/page.tsx`.
+  - **Retirer** le gros Dialog create/edit de `page.tsx` (~600 lignes, gère
+    aujourd'hui création + édition + lié au système de tools → chirurgie délicate
+    à faire posément, tester chaque cas avant/après).
+  - Bouton "Nouvel agent" doit toujours mener au wizard (jamais le Dialog).
+
 ### Phase 5 — Templates
 - Table `whatsapp_templates` (nom, langue, catégorie, corps, variables, statut Meta).
 - UI : créer / éditer / soumettre à Meta / suivre le statut (pending/approved/rejected).
