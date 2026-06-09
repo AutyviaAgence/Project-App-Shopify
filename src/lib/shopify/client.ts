@@ -13,7 +13,7 @@ export function getShopifyConfig() {
   const apiKey = process.env.SHOPIFY_API_KEY
   const apiSecret = process.env.SHOPIFY_API_SECRET
   const scopes = process.env.SHOPIFY_SCOPES || 'read_products,read_content,read_orders,read_customers'
-  const appUrl = process.env.SHOPIFY_APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://shopify.autyvia.fr'
+  const appUrl = process.env.SHOPIFY_APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://app.xeyo.io'
   return { apiKey, apiSecret, scopes, appUrl }
 }
 

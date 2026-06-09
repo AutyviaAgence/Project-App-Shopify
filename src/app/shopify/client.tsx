@@ -13,7 +13,7 @@ type Status = {
   documents?: number
 }
 
-const APP_BASE = process.env.NEXT_PUBLIC_APP_URL || 'https://shopify.autyvia.fr'
+const APP_BASE = process.env.NEXT_PUBLIC_APP_URL || 'https://app.xeyo.io'
 
 const PLANS = [
   { id: 'starter', name: 'Starter', price: 29, desc: '200 conversations IA / mois' },
