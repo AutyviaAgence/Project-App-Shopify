@@ -147,7 +147,7 @@ function PricingPageInner() {
       <div className="border-b bg-background/95 backdrop-blur">
         <div className="container mx-auto flex h-16 items-center justify-between px-4">
           <Link href="/" className="flex items-center gap-2">
-            <img src="/logo.svg" alt="Xeyo" className="h-8 w-8" />
+            <img src="/logo-xeyo.svg" alt="Xeyo" className="h-8 w-8" />
             <span className="text-lg font-semibold">Xeyo</span>
           </Link>
           <div className="flex items-center gap-3">
