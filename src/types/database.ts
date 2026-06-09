@@ -601,6 +601,24 @@ export type ShopifyStore = {
   updated_at: string
 }
 
+export type ShopifyAction = {
+  id: string
+  user_id: string
+  store_id: string | null
+  conversation_id: string | null
+  contact_id: string | null
+  action_type: 'cancel_order' | 'refund_order' | 'create_discount'
+  payload: Record<string, unknown>
+  summary: string | null
+  status: 'pending' | 'confirmed' | 'rejected' | 'executed' | 'failed'
+  result: Record<string, unknown> | null
+  error_message: string | null
+  reviewed_by: string | null
+  reviewed_at: string | null
+  executed_at: string | null
+  created_at: string
+}
+
 export type WhatsAppTemplate = {
   id: string
   user_id: string
@@ -857,6 +875,12 @@ export type Database = {
         Row: ShopifyStore
         Insert: Partial<ShopifyStore> & Pick<ShopifyStore, 'shop_domain'>
         Update: Partial<ShopifyStore>
+        Relationships: []
+      }
+      shopify_actions: {
+        Row: ShopifyAction
+        Insert: Partial<ShopifyAction> & Pick<ShopifyAction, 'user_id' | 'action_type' | 'payload'>
+        Update: Partial<ShopifyAction>
         Relationships: []
       }
     }

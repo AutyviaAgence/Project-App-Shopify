@@ -131,3 +131,79 @@ export async function fetchShopInfo(shop: string, accessToken: string) {
     `{ shop { name email currencyCode billingAddress { country } } }`
   )
 }
+
+// ─── Actions write (exécutées UNIQUEMENT après validation humaine) ──
+
+/** Retrouve l'ID GraphQL d'une commande à partir de son numéro (#1024 → gid). */
+export async function findOrderIdByName(shop: string, accessToken: string, orderName: string) {
+  const name = orderName.startsWith('#') ? orderName : `#${orderName}`
+  const res = await shopifyGraphQL<{ orders: { edges: { node: { id: string; name: string } }[] } }>(
+    shop,
+    accessToken,
+    `query($q: String!) { orders(first: 1, query: $q) { edges { node { id name } } } }`,
+    { q: `name:${name}` }
+  )
+  if (!res.ok) return null
+  return res.data.orders.edges[0]?.node.id ?? null
+}
+
+/** Annule une commande (orderCancel). */
+export async function cancelOrder(shop: string, accessToken: string, orderId: string, reason = 'CUSTOMER') {
+  return shopifyGraphQL<{ orderCancel: { userErrors: { message: string }[] } }>(
+    shop,
+    accessToken,
+    `mutation($id: ID!, $reason: OrderCancelReason!) {
+       orderCancel(orderId: $id, reason: $reason, refund: false, restock: true, notifyCustomer: true) {
+         userErrors { message }
+       }
+     }`,
+    { id: orderId, reason }
+  )
+}
+
+/** Rembourse intégralement une commande. */
+export async function refundOrder(shop: string, accessToken: string, orderId: string, note?: string) {
+  return shopifyGraphQL<{ refundCreate: { userErrors: { message: string }[]; refund: { id: string } | null } }>(
+    shop,
+    accessToken,
+    `mutation($input: RefundInput!) {
+       refundCreate(input: $input) { userErrors { message } refund { id } }
+     }`,
+    { input: { orderId, note: note || 'Remboursement validé via Xeyo', notify: true } }
+  )
+}
+
+/** Crée un code de réduction (montant ou pourcentage). */
+export async function createDiscountCode(
+  shop: string,
+  accessToken: string,
+  opts: { code: string; percentage?: number; amount?: number; currencyCode?: string }
+) {
+  const value = opts.percentage != null
+    ? { percentage: opts.percentage / 100 }
+    : { discountAmount: { amount: opts.amount ?? 0, appliesOnEachItem: false } }
+
+  return shopifyGraphQL<{ discountCodeBasicCreate: { userErrors: { message: string }[]; codeDiscountNode: { id: string } | null } }>(
+    shop,
+    accessToken,
+    `mutation($basic: DiscountCodeBasicInput!) {
+       discountCodeBasicCreate(basicCodeDiscount: $basic) {
+         userErrors { message }
+         codeDiscountNode { id }
+       }
+     }`,
+    {
+      basic: {
+        title: `Xeyo ${opts.code}`,
+        code: opts.code,
+        startsAt: new Date().toISOString(),
+        customerSelection: { all: true },
+        customerGets: {
+          value,
+          items: { all: true },
+        },
+        appliesOncePerCustomer: true,
+      },
+    }
+  )
+}
