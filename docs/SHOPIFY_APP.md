@@ -6,6 +6,17 @@
 
 ---
 
+## Marque
+
+- Marque commerciale : **Xeyo** (domaine `xeyo.io`).
+- Positionnement : référence du **WhatsApp support + live chat** pour e-commerçants.
+- Nom de l'app Shopify (≤ 30 car.) : `Xeyo - WhatsApp Live Chat`
+  (marque en tête — Shopify interdit "WhatsApp" en 1er mot d'un nom d'app).
+- ⚠️ Le code/repo s'appelle encore "Autyvia" par endroits — à uniformiser
+  vers Xeyo lors d'une passe de renommage (branding, logos, textes UI).
+
+---
+
 ## Prérequis Shopify Partner (à faire AVANT de coder S1)
 
 Côté Shopify (https://partners.shopify.com), à préparer par le propriétaire :
@@ -13,10 +24,15 @@ Côté Shopify (https://partners.shopify.com), à préparer par le propriétaire
 1. **Compte Partner** (gratuit, micro-entreprise OK).
 2. **Development store** (Stores → Add store → Development store) : boutique de
    test gratuite avec produits factices, pour tester l'app sans risque.
-3. **Créer l'app** (Apps → Create app → manually) :
-   - **App URL** : `https://shopify.autyvia.fr`
-   - **Allowed redirection URL(s)** : `https://shopify.autyvia.fr/api/shopify/callback`
+3. **Créer l'app** (Dev Dashboard → "Commencer à partir du Dev Dashboard") :
+   - Nom : `Xeyo - WhatsApp Live Chat`
+   - **App URL** : domaine de prod de l'app (ex. `https://app.xeyo.io` ou
+     l'actuel `https://shopify.autyvia.fr` tant que le domaine xeyo.io n'est pas en place).
+   - **Allowed redirection URL(s)** : `<app-url>/api/shopify/callback`
    - Noter le **Client ID** (API key) et le **Client secret** (API secret).
+
+   ⚠️ Décider du domaine de prod final (xeyo.io) avant de figer les URLs OAuth
+   chez Shopify, sinon il faudra les re-modifier.
 4. **Scopes minimum** : `read_products`, `read_content`, `read_shop`
    (ajouter `read_orders`, `read_customers` seulement si SAV sur commandes).
 
