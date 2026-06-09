@@ -81,7 +81,7 @@ export async function PATCH(
     response_delay_min, response_delay_max, max_messages_per_conversation, inactivity_timeout_minutes,
     schedule_enabled, schedule_timezone, schedule_start_time, schedule_end_time, schedule_days,
     auto_detect_language, escalation_enabled, escalation_keywords, escalation_message, booking_url,
-    team_id, team_ids, agent_type, stop_condition, mascot, mascot_bg
+    team_id, team_ids, stop_condition, mascot, mascot_bg
   } = body as {
     name?: string
     description?: string
@@ -107,7 +107,6 @@ export async function PATCH(
     booking_url?: string
     team_id?: string | null
     team_ids?: string[]
-    agent_type?: 'conversation' | 'relance' | 'qualifier'
     stop_condition?: string | null
     mascot?: string | null
     mascot_bg?: string | null
@@ -193,14 +192,6 @@ export async function PATCH(
   // Lien de rendez-vous
   if (booking_url !== undefined) {
     updateData.booking_url = booking_url?.trim() || null
-  }
-
-  // Type d'agent (conversation ou relance)
-  if (agent_type !== undefined) {
-    const validAgentTypes = ['conversation', 'relance', 'qualifier'] as const
-    if (validAgentTypes.includes(agent_type)) {
-      updateData.agent_type = agent_type
-    }
   }
 
   // Condition d'arrêt

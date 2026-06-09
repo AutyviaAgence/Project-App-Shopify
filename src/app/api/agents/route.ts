@@ -163,7 +163,7 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json()
-  const { name, description, system_prompt, objective, model, temperature, is_active, response_delay_min, response_delay_max, max_messages_per_conversation, inactivity_timeout_minutes, escalation_enabled, escalation_keywords, escalation_message, booking_url, team_id, team_ids, agent_type, stop_condition } = body as {
+  const { name, description, system_prompt, objective, model, temperature, is_active, response_delay_min, response_delay_max, max_messages_per_conversation, inactivity_timeout_minutes, escalation_enabled, escalation_keywords, escalation_message, booking_url, team_id, team_ids, stop_condition } = body as {
     name?: string
     description?: string
     system_prompt?: string
@@ -181,7 +181,6 @@ export async function POST(req: Request) {
     booking_url?: string
     team_id?: string
     team_ids?: string[]
-    agent_type?: 'conversation' | 'relance' | 'qualifier'
     stop_condition?: string
   }
 
@@ -241,9 +240,8 @@ export async function POST(req: Request) {
     ? escalation_keywords.map(k => k.trim().toLowerCase()).filter(k => k.length > 0)
     : undefined
 
-  // Valider le type d'agent
-  const validAgentTypes = ['conversation', 'relance', 'qualifier'] as const
-  const finalAgentType = agent_type && validAgentTypes.includes(agent_type) ? agent_type : 'conversation'
+  // Type d'agent retiré : tous les agents sont uniformes ('conversation')
+  const finalAgentType = 'conversation'
 
   const { data: agent, error } = await supabase
     .from('ai_agents')

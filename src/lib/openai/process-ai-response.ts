@@ -22,8 +22,6 @@ export async function processAIResponse(params: {
   contactPhoneNumber: string
   agentId: string
   session?: Pick<WhatsAppSession, 'integration_type' | 'instance_name' | 'waba_phone_number_id' | 'waba_access_token'>
-  /** If true, exclude previous AI messages from context (used after qualifier handoff) */
-  isHandoff?: boolean
 }) {
   const supabase = createAdminSupabase(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -225,10 +223,7 @@ Exemples :
     // 3. Remettre en ordre chronologique et construire les messages pour OpenAI
     // Déchiffrer les messages pour le contexte IA
     const sorted = (recentMessages || []).reverse()
-    // After a qualifier handoff, keep all messages so the agent sees the full conversation context
-    // (the system prompt instruction tells it not to repeat greetings)
-    const filtered = sorted
-    const chatMessages: ChatMessage[] = filtered
+    const chatMessages: ChatMessage[] = sorted
       .filter((m) => m.content || m.transcription)
       .map((m) => {
         let text = m.content ? decryptMessage(m.content) : ''
@@ -268,12 +263,6 @@ Exemples :
     const timeStr = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' })
 
     let systemPrompt = agent.system_prompt
-
-    // Après un handoff qualifier, indiquer à l'agent qu'il prend le relais
-    if (params.isHandoff) {
-      console.log('[AI] Handoff mode — injecting fresh start context for agent:', agent.name)
-      systemPrompt = `--- INSTRUCTION PRIORITAIRE ---\nTu prends le relais sur cette conversation. Un agent qualificateur a déjà accueilli le prospect. NE redis PAS bonjour, NE te re-présente PAS, NE dis PAS "bienvenue". Le prospect a déjà été salué. Lis les messages précédents pour comprendre le contexte et enchaîne naturellement. Démarre directement avec ta première question utile (ex: demander le prénom). Ne fais JAMAIS référence à un transfert, une mise en relation ou un spécialiste. TU es l'agent principal.\n--- FIN INSTRUCTION PRIORITAIRE ---\n\n` + systemPrompt
-    }
 
     // 4.1. Détection automatique de langue — injectée EN PREMIER pour priorité maximale
     if (agent.auto_detect_language) {
@@ -331,48 +320,9 @@ Exemples :
     // 4.5. Envoyer l'indicateur "en train d'écrire" avant d'appeler OpenAI
     await sendPresence(sessionCtx, params.contactPhoneNumber, 'composing')
 
-    // 4.6. Qualifier : injecter les routes de redirection dans le system prompt
-    let qualifierRoutes: { id: string; target_agent_id: string; name: string; description: string }[] = []
-    if (agent.agent_type === 'qualifier') {
-      const { data: routes } = await supabase
-        .from('qualifier_routes')
-        .select('id, target_agent_id, name, description')
-        .eq('agent_id', params.agentId)
-        .eq('is_active', true)
-        .order('priority', { ascending: true })
-
-      qualifierRoutes = routes || []
-      if (qualifierRoutes.length > 0) {
-        const routesList = qualifierRoutes.map((r, i) => `${i + 1}. "${r.name}" — ${r.description}`).join('\n')
-        systemPrompt += `\n\n--- Agent Qualificateur ---\nScénarios de redirection disponibles :\n${routesList}\n\nPour rediriger, appelle la fonction "route_to_agent" avec le nom exact du scénario.\nDès que le contact montre un intérêt (même vague) pour un service, appelle route_to_agent IMMÉDIATEMENT sans envoyer de message texte.\nN'écris JAMAIS le nom de la fonction dans ton texte — appelle-la via function call.\n--- Fin qualificateur ---`
-      }
-    }
-
     // 4.7. Charger les outils de l'agent (function calling)
     const agentTools = await getAgentTools(params.agentId)
     const { openaiTools, functionMap } = buildOpenAITools(agentTools)
-    // Add qualifier route_to_agent tool if qualifier with routes
-    if (agent.agent_type === 'qualifier' && qualifierRoutes.length > 0) {
-      const routeNames = qualifierRoutes.map(r => r.name)
-      openaiTools.push({
-        type: 'function' as const,
-        function: {
-          name: 'route_to_agent',
-          description: 'Redirige la conversation vers un agent spécialisé. Appelle cette fonction dès que le contact montre un intérêt pour un service. Ne génère AUCUN texte quand tu appelles cette fonction.',
-          parameters: {
-            type: 'object',
-            properties: {
-              scenario_name: {
-                type: 'string',
-                description: `Le nom exact du scénario de redirection. Valeurs possibles : ${routeNames.map(n => `"${n}"`).join(', ')}`,
-                enum: routeNames,
-              },
-            },
-            required: ['scenario_name'],
-          },
-        },
-      })
-    }
 
     if (openaiTools.length > 0) {
       console.log('[AI] Outils chargés:', openaiTools.length, 'fonctions')
@@ -384,7 +334,6 @@ Exemples :
     const MAX_TOOL_ROUNDS = 10
     const toolMessages: OpenAIMessage[] = []
     let aiResponseText = ''
-    let qualifierRouteTriggered: { routeName: string; targetAgentId: string } | null = null
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
       const result = await generateAgentResponse({
@@ -411,27 +360,10 @@ Exemples :
       // Process tool calls
       console.log('[AI] Tool calls reçus:', result.toolCalls.length)
 
-      // Check for qualifier route_to_agent BEFORE adding messages to the loop
-      if (agent.agent_type === 'qualifier') {
-        const routeCall = result.toolCalls.find(tc => tc.functionName === 'route_to_agent')
-        if (routeCall) {
-          const args = routeCall.arguments as { scenario_name?: string }
-          const matchedRoute = qualifierRoutes.find(r => r.name === args.scenario_name)
-          if (matchedRoute) {
-            console.log('[AI] Qualifier routing to:', matchedRoute.name, '→ agent:', matchedRoute.target_agent_id)
-            qualifierRouteTriggered = { routeName: matchedRoute.name, targetAgentId: matchedRoute.target_agent_id }
-            break // Sort de la boucle for-round immédiatement, pas de 2ème appel OpenAI
-          }
-        }
-      }
-
       // Add the assistant message with tool_calls (native OpenAI format)
       toolMessages.push(result.rawMessage as OpenAIMessage)
 
       for (const tc of result.toolCalls) {
-        // Skip route_to_agent (handled above before pushing to toolMessages)
-        if (tc.functionName === 'route_to_agent') continue
-
         const mapping = functionMap.get(tc.functionName)
         if (!mapping) {
           toolMessages.push({
@@ -461,82 +393,16 @@ Exemples :
         })
       }
 
-      // Si handoff qualifier déclenché, sortir de la boucle immédiatement
-      if (qualifierRouteTriggered) break
-
       // Refresh typing indicator between rounds
       await sendPresence(sessionCtx, params.contactPhoneNumber, 'composing')
     }
 
-    if (!aiResponseText && !qualifierRouteTriggered) {
+    if (!aiResponseText) {
       console.error('[AI] Pas de réponse après', MAX_TOOL_ROUNDS, 'rounds de tool calling')
       return
     }
 
     console.log('[AI] Réponse OpenAI reçue:', aiResponseText.slice(0, 80) + '...')
-
-    // 6.0 Qualifier silent handoff: si le qualifier redirige, ne PAS envoyer de message — l'agent cible répond directement
-    if (qualifierRouteTriggered) {
-      const { routeName, targetAgentId } = qualifierRouteTriggered
-
-      // Vérifier que l'agent cible existe et est actif
-      const { data: targetAgent } = await supabase
-        .from('ai_agents')
-        .select('id, name, is_active')
-        .eq('id', targetAgentId)
-        .single()
-
-      if (targetAgent?.is_active) {
-        // Basculer la conversation vers l'agent cible
-        await supabase
-          .from('conversations')
-          .update({
-            ai_agent_id: targetAgentId,
-            is_ai_active: true,
-          })
-          .eq('id', params.conversationId)
-
-        console.log(`[AI] Qualifier handoff: "${routeName}" → agent "${targetAgent.name}" (${targetAgentId})`)
-
-        // Notification
-        if (userId) {
-          await supabase.from('user_alerts').insert({
-            user_id: userId,
-            alert_type: 'info',
-            title: 'Qualification réussie',
-            message: `Le qualificateur "${agent.name}" a redirigé une conversation vers l'agent "${targetAgent.name}" (scénario : ${routeName})`,
-            metadata: {
-              conversation_id: params.conversationId,
-              session_id: params.sessionId,
-              qualifier_agent_id: params.agentId,
-              target_agent_id: targetAgentId,
-              route_name: routeName,
-            },
-          })
-        }
-
-        // Enregistrer les tokens du qualifier (pas d'envoi de message)
-        if (userId && totalTokensUsed > 0) {
-          await recordTokenUsage(userId, totalTokensUsed)
-          console.log('[AI] Tokens enregistrés (qualifier handoff):', totalTokensUsed)
-        }
-
-        // Déclencher immédiatement l'agent cible — c'est LUI qui répond au contact, pas le qualifier
-        console.log(`[AI] Qualifier silent handoff → agent "${targetAgent.name}" responds directly`)
-        await processAIResponse({
-          conversationId: params.conversationId,
-          sessionId: params.sessionId,
-          instanceName: params.instanceName,
-          contactPhoneNumber: params.contactPhoneNumber,
-          agentId: targetAgentId,
-          session: params.session,
-          isHandoff: true,
-        })
-        return
-      } else {
-        console.warn('[AI] Qualifier: agent cible introuvable ou inactif:', targetAgentId)
-      }
-    }
 
     // 6. Détecter et envoyer les images [IMAGE:ref] avant le message texte
     const imageTagRegex = /\[IMAGE:([a-z0-9_-]+)\]/gi

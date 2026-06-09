@@ -63,7 +63,6 @@ RÈGLES DE GÉNÉRATION :
 
 interface OnboardingAnswers {
   role?: string
-  agentType?: 'conversation' | 'relance' | 'qualifier'
   sector?: string
   agentName?: string
   tone?: string
@@ -106,7 +105,6 @@ export async function POST(request: Request) {
     const lines: string[] = []
     if (answers.agentName) lines.push(`- Nom souhaité : ${answers.agentName}`)
     if (answers.role) lines.push(`- Rôle de l'agent : ${answers.role}`)
-    if (answers.agentType) lines.push(`- Type technique : ${answers.agentType}`)
     if (answers.sector) lines.push(`- Secteur d'activité : ${answers.sector}`)
     if (answers.tone) lines.push(`- Ton : ${answers.tone}`)
     if (answers.emojis) lines.push(`- Usage des emojis : ${answers.emojis}`)
@@ -152,7 +150,7 @@ export async function POST(request: Request) {
       description: parsed.description?.trim() || '',
       objective: parsed.objective?.trim() || '',
       system_prompt: parsed.system_prompt?.trim() || '',
-      agent_type: answers.agentType || 'conversation',
+      agent_type: 'conversation',
       escalation_enabled: answers.escalation ? answers.escalation !== 'none' : false,
       escalation_mode: 'both' as const,
       escalation_keywords: ['humain', 'conseiller', 'parler à quelqu\'un'],

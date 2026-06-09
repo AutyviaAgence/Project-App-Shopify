@@ -22,8 +22,6 @@ const ROLES: { id: string; label: string; desc: string; icon: React.ComponentTyp
   { id: 'sav',       label: 'Support client (SAV)',     desc: 'Aide et résout les problèmes',         icon: Headset, agentType: 'conversation' },
   { id: 'sales',     label: 'Vendeur',                  desc: 'Conseille et pousse à l\'achat',        icon: ShoppingBag, agentType: 'conversation' },
   { id: 'booking',   label: 'Prise de rendez-vous',     desc: 'Propose et cale des créneaux',          icon: CalendarCheck, agentType: 'conversation' },
-  { id: 'qualifier', label: 'Qualifier les leads',      desc: 'Trie et redirige les prospects',        icon: Filter, agentType: 'qualifier' },
-  { id: 'relance',   label: 'Relancer les prospects',   desc: 'Campagnes de relance automatiques',     icon: Megaphone, agentType: 'relance' },
 ]
 
 const SECTORS = [

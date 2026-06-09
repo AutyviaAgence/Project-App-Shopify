@@ -84,10 +84,8 @@ export default function SessionsPage() {
   const [formDailyLimit, setFormDailyLimit] = useState('')
   const [formAiMessageDelay, setFormAiMessageDelay] = useState('')
   const [formDisplayName, setFormDisplayName] = useState('')
-  const [formQualifierAgentId, setFormQualifierAgentId] = useState<string | null>(null)
   const [formSessionTeamIds, setFormSessionTeamIds] = useState<string[]>([])
   const [savingSettings, setSavingSettings] = useState(false)
-  const [qualifierAgents, setQualifierAgents] = useState<{ id: string; name: string }[]>([])
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [sessionToDelete, setSessionToDelete] = useState<SessionWithTeamIds | null>(null)
   const [syncingContacts, setSyncingContacts] = useState<string | null>(null)
@@ -484,7 +482,6 @@ export default function SessionsPage() {
           display_name: formDisplayName.trim() || null,
           daily_ai_message_limit: formDailyLimit.trim() ? parseInt(formDailyLimit) : null,
           ai_message_delay: formAiMessageDelay.trim() ? parseInt(formAiMessageDelay) : null,
-          qualifier_agent_id: formQualifierAgentId || null,
           team_ids: formSessionTeamIds,
         }),
       })
@@ -986,20 +983,6 @@ export default function SessionsPage() {
                               : ''
                           )
                           setFormSessionTeamIds(session.team_ids || (session.team_id ? [session.team_id] : []))
-                          setFormQualifierAgentId((session as unknown as { qualifier_agent_id: string | null }).qualifier_agent_id || null)
-                          // Load qualifier agents
-                          fetch('/api/agents')
-                            .then(r => r.json())
-                            .then(json => {
-                              if (json.data) {
-                                setQualifierAgents(
-                                  (json.data as { id: string; name: string; agent_type: string }[])
-                                    .filter((a) => a.agent_type === 'qualifier')
-                                    .map((a) => ({ id: a.id, name: a.name }))
-                                )
-                              }
-                            })
-                            .catch(() => {})
                         }}
                       >
                         <Settings2 className="h-3 w-3" />
@@ -1399,26 +1382,6 @@ export default function SessionsPage() {
               />
               <p className="text-xs text-muted-foreground">
                 {t('sessions.delay_desc')}
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label>{t('agents.qualifier_session_label')}</Label>
-              <Select
-                value={formQualifierAgentId || 'none'}
-                onValueChange={(v) => setFormQualifierAgentId(v === 'none' ? null : v)}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">{t('common.none')}</SelectItem>
-                  {qualifierAgents.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-xs text-muted-foreground">
-                {t('agents.qualifier_session_help')}
               </p>
             </div>
             <Button

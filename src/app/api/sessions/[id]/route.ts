@@ -33,11 +33,10 @@ export async function PATCH(
   }
 
   const body = await req.json()
-  const { display_name, daily_ai_message_limit, ai_message_delay, qualifier_agent_id, team_id, team_ids } = body as {
+  const { display_name, daily_ai_message_limit, ai_message_delay, team_id, team_ids } = body as {
     display_name?: string | null
     daily_ai_message_limit?: number | null
     ai_message_delay?: number | null
-    qualifier_agent_id?: string | null
     team_id?: string | null
     team_ids?: string[]
   }
@@ -61,11 +60,6 @@ export async function PATCH(
     updateData.ai_message_delay = ai_message_delay != null
       ? Math.max(1, Math.min(60, Math.floor(ai_message_delay)))
       : null
-  }
-
-  // Gestion du qualifier agent
-  if (qualifier_agent_id !== undefined) {
-    updateData.qualifier_agent_id = qualifier_agent_id || null
   }
 
   // Gestion du changement d'équipes (multi-équipes)
