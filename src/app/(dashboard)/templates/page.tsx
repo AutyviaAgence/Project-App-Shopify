@@ -13,7 +13,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
-import { Plus, Loader2, Trash2, Send, RefreshCw, FileText, Pencil } from 'lucide-react'
+import { Plus, Loader2, Trash2, Send, RefreshCw, FileText, Pencil, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BlobLoaderScreen } from '@/components/blob-loader'
 
@@ -40,6 +40,7 @@ export default function TemplatesPage() {
   const [templates, setTemplates] = useState<WhatsAppTemplate[]>([])
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
+  const [seeding, setSeeding] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [editing, setEditing] = useState<WhatsAppTemplate | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
@@ -63,7 +64,32 @@ export default function TemplatesPage() {
     }
   }, [])
 
-  useEffect(() => { fetchTemplates() }, [fetchTemplates])
+  useEffect(() => {
+    // Charge la liste puis auto-synchronise le statut Meta en arrière-plan
+    // (pas de bouton manuel obligatoire — comme Respond.io).
+    fetchTemplates().then(() => {
+      fetch('/api/templates/sync', { method: 'POST' })
+        .then((r) => r.json())
+        .then((j) => { if (j.data?.synced > 0) fetchTemplates() })
+        .catch(() => {})
+    })
+  }, [fetchTemplates])
+
+  async function handleSeedDefaults() {
+    setSeeding(true)
+    try {
+      const res = await fetch('/api/templates/seed', { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Erreur')
+      await fetchTemplates()
+      const n = json.data?.created ?? 0
+      toast.success(n > 0 ? `${n} modèle(s) ajouté(s)` : 'Vous avez déjà tous les modèles par défaut')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erreur')
+    } finally {
+      setSeeding(false)
+    }
+  }
 
   function openCreate() {
     setEditing(null)
@@ -158,7 +184,11 @@ export default function TemplatesPage() {
             Messages pré-approuvés par Meta, requis pour relancer un client hors fenêtre de 24h.
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="outline" size="sm" onClick={handleSeedDefaults} disabled={seeding}>
+            {seeding ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1 h-4 w-4" />}
+            Modèles par défaut
+          </Button>
           <Button variant="outline" size="sm" onClick={handleSync} disabled={syncing}>
             <RefreshCw className={cn('mr-1 h-4 w-4', syncing && 'animate-spin')} />
             Synchroniser
@@ -172,7 +202,11 @@ export default function TemplatesPage() {
       {templates.length === 0 ? (
         <div className="rounded-xl border border-dashed p-10 text-center text-muted-foreground">
           <FileText className="mx-auto h-8 w-8 mb-2 opacity-50" />
-          <p className="text-sm">Aucun modèle. Créez-en un pour pouvoir relancer vos clients.</p>
+          <p className="text-sm mb-3">Aucun modèle. Démarrez avec nos modèles e-commerce prêts à l&apos;emploi.</p>
+          <Button size="sm" onClick={handleSeedDefaults} disabled={seeding}>
+            {seeding ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1 h-4 w-4" />}
+            Ajouter les modèles par défaut
+          </Button>
         </div>
       ) : (
         <div className="space-y-2">
