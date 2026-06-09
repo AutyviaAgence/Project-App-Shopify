@@ -132,6 +132,36 @@ export async function fetchShopInfo(shop: string, accessToken: string) {
   )
 }
 
+/**
+ * Abonne la boutique aux webhooks "métier" via l'Admin API (à appeler après
+ * l'OAuth). Les webhooks RGPD obligatoires se déclarent côté config app.
+ */
+export async function registerWebhooks(shop: string, accessToken: string): Promise<{ ok: boolean; errors: string[] }> {
+  const { appUrl } = getShopifyConfig()
+  const subscriptions: { topic: string; path: string }[] = [
+    { topic: 'ORDERS_FULFILLED', path: '/api/shopify/webhooks/orders-fulfilled' },
+  ]
+
+  const errors: string[] = []
+  for (const sub of subscriptions) {
+    const res = await shopifyGraphQL<{ webhookSubscriptionCreate: { userErrors: { message: string }[] } }>(
+      shop,
+      accessToken,
+      `mutation($topic: WebhookSubscriptionTopic!, $url: URL!) {
+         webhookSubscriptionCreate(topic: $topic, webhookSubscription: { callbackUrl: $url, format: JSON }) {
+           userErrors { message }
+         }
+       }`,
+      { topic: sub.topic, url: `${appUrl}${sub.path}` }
+    )
+    if (!res.ok) errors.push(`${sub.topic}: ${res.error}`)
+    else if (res.data.webhookSubscriptionCreate.userErrors.length > 0) {
+      errors.push(`${sub.topic}: ${res.data.webhookSubscriptionCreate.userErrors[0].message}`)
+    }
+  }
+  return { ok: errors.length === 0, errors }
+}
+
 // ─── Actions write (exécutées UNIQUEMENT après validation humaine) ──
 
 /** Retrouve l'ID GraphQL d'une commande à partir de son numéro (#1024 → gid). */

@@ -6,6 +6,7 @@ import {
   exchangeCodeForToken,
   fetchShopInfo,
   getShopifyConfig,
+  registerWebhooks,
 } from '@/lib/shopify/client'
 import { encryptMessage } from '@/lib/crypto/encryption'
 
@@ -68,6 +69,10 @@ export async function GET(req: NextRequest) {
       },
       { onConflict: 'shop_domain' }
     )
+
+  // 6.5. S'abonner aux webhooks métier (orders/fulfilled…) — best effort
+  const wh = await registerWebhooks(shop, tokenResult.accessToken)
+  if (!wh.ok) console.error('[Shopify] Abonnement webhooks partiel:', wh.errors)
 
   // 7. Rediriger vers l'app embedded dans l'admin Shopify
   const { appUrl } = getShopifyConfig()
