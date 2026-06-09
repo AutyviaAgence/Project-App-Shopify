@@ -150,7 +150,7 @@ async function getTenantAppName(supabase: any, userId: string): Promise<string> 
       if (tenant?.app_name) return tenant.app_name
     }
   } catch { /* fallback */ }
-  return 'Autyvia'
+  return 'Xeyo'
 }
 
 export async function POST(req: NextRequest) {
@@ -251,7 +251,7 @@ export async function POST(req: NextRequest) {
               currency: session.currency || 'eur',
               status: 'succeeded',
               stripe_payment_intent_id: session.payment_intent as string || null,
-              description: `Mise en place Autyvia — ${installment === 1 ? 'Acompte' : 'Solde'} (445€)`,
+              description: `Mise en place Xeyo — ${installment === 1 ? 'Acompte' : 'Solde'} (445€)`,
               metadata: { checkout_session_id: session.id, type: 'custom_setup', installment },
             })
 

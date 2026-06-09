@@ -413,7 +413,7 @@ export const TOOL_TEMPLATES: Record<Exclude<AgentToolType, 'custom'>, ToolTempla
   app_notification: {
     type: 'app_notification',
     name: 'Notification App',
-    description: 'Envoie une notification personnalisée dans l\'app Autyvia. Utile pour alerter l\'équipe d\'un événement important détecté par l\'agent IA.',
+    description: 'Envoie une notification personnalisée dans l\'app Xeyo. Utile pour alerter l\'équipe d\'un événement important détecté par l\'agent IA.',
     icon: 'bell',
     auth: {
       type: 'api_key',
@@ -425,7 +425,7 @@ export const TOOL_TEMPLATES: Record<Exclude<AgentToolType, 'custom'>, ToolTempla
     functions: [
       {
         name: 'send_notification',
-        description: 'Envoie une notification dans l\'app Autyvia visible par l\'utilisateur. Utilise cet outil pour alerter l\'équipe d\'un événement important : nouvelle commande, problème client, demande urgente, etc.',
+        description: 'Envoie une notification dans l\'app Xeyo visible par l\'utilisateur. Utilise cet outil pour alerter l\'équipe d\'un événement important : nouvelle commande, problème client, demande urgente, etc.',
         parameters: [
           { name: 'title', type: 'string', description: 'Titre court de la notification (ex: "Nouvelle réservation", "Problème client")', required: true },
           { name: 'message', type: 'string', description: 'Contenu détaillé de la notification', required: true },

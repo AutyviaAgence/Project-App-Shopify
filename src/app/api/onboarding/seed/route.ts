@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 
-const SEED_AGENT_NAME = 'Agent Autyvia (exemple)'
+const SEED_AGENT_NAME = 'Agent Xeyo (exemple)'
 const SEED_KB_NAME = 'Base de connaissances (exemple)'
 
 /** POST /api/onboarding/seed — Crée un agent exemple + base de connaissances exemple */
@@ -68,10 +68,10 @@ Sois naturel, concis et bienveillant. Pose une seule question à la fois. Ne pro
 
   // Créer la base de connaissances exemple si pas encore fait
   if (!documentId) {
-    const exampleContent = `# Autyvia — Plateforme d'automatisation WhatsApp avec IA
+    const exampleContent = `# Xeyo — Plateforme d'automatisation WhatsApp avec IA
 
-## Qu'est-ce qu'Autyvia ?
-Autyvia est une plateforme qui permet aux entreprises d'automatiser leurs conversations WhatsApp grâce à l'intelligence artificielle. Elle combine un inbox partagé, des agents IA configurables, et des outils d'analyse pour optimiser la relation client.
+## Qu'est-ce qu'Xeyo ?
+Xeyo est une plateforme qui permet aux entreprises d'automatiser leurs conversations WhatsApp grâce à l'intelligence artificielle. Elle combine un inbox partagé, des agents IA configurables, et des outils d'analyse pour optimiser la relation client.
 
 ## Fonctionnalités principales
 - **Sessions WhatsApp** : connectez un ou plusieurs numéros WhatsApp via QR code ou l'API Meta Cloud
@@ -90,7 +90,7 @@ Autyvia est une plateforme qui permet aux entreprises d'automatiser leurs conver
 4. Activez l'agent sur votre session et commencez à recevoir des messages automatisés
 
 ## Support
-Pour toute question, contactez le support Autyvia depuis les paramètres de votre compte.`
+Pour toute question, contactez le support Xeyo depuis les paramètres de votre compte.`
 
     const { data: newDoc, error: docError } = await adminSupabase
       .from('knowledge_documents')

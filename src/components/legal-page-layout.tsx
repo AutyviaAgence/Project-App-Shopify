@@ -202,7 +202,7 @@ export function LegalPageLayout({ children, title, description, lastUpdated }: L
 
             {/* Footer */}
             <div className="mt-6 flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-white dark:bg-slate-900 px-5 py-3 text-xs text-slate-400 shadow-sm">
-              <p>© {new Date().getFullYear()} Autyvia — Julian TOURAILLE-TRAN</p>
+              <p>© {new Date().getFullYear()} Xeyo — Julian TOURAILLE-TRAN</p>
               <p>SIRET : 992 684 829 00011</p>
             </div>
           </main>

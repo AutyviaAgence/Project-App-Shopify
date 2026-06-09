@@ -1105,7 +1105,7 @@ export default function SessionsPage() {
             </div>
             <div className="space-y-1">
               <Label>Nom affiché (optionnel)</Label>
-              <Input placeholder="Ex: Support Autyvia" value={emailEditForm.display_name} onChange={(e) => setEmailEditForm((f) => ({ ...f, display_name: e.target.value }))} />
+              <Input placeholder="Ex: Support Xeyo" value={emailEditForm.display_name} onChange={(e) => setEmailEditForm((f) => ({ ...f, display_name: e.target.value }))} />
             </div>
             <div className="space-y-1">
               <Label>Agent IA (optionnel)</Label>
@@ -1129,7 +1129,7 @@ export default function SessionsPage() {
               <Label>Signature email (optionnelle)</Label>
               <textarea
                 rows={3}
-                placeholder={"Cordialement,\nJean Dupont\nSupport Autyvia"}
+                placeholder={"Cordialement,\nJean Dupont\nSupport Xeyo"}
                 value={emailEditForm.signature}
                 onChange={(e) => setEmailEditForm((f) => ({ ...f, signature: e.target.value }))}
                 className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm resize-none focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"

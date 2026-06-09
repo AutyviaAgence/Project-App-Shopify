@@ -4,20 +4,20 @@ export default function CGUPage() {
   return (
     <LegalPageLayout
       title="Conditions Générales d'Utilisation"
-      description="Modalités d'utilisation des services Autyvia, droits et obligations des utilisateurs."
+      description="Modalités d'utilisation des services Xeyo, droits et obligations des utilisateurs."
       lastUpdated="1 mai 2026"
     >
       <h2>Article 1 – Objet</h2>
       <p>
         Les présentes Conditions Générales d&apos;Utilisation (CGU) définissent les modalités d&apos;utilisation des services
-        proposés par Autyvia, ainsi que les droits et obligations des utilisateurs.
+        proposés par Xeyo, ainsi que les droits et obligations des utilisateurs.
       </p>
       <p>
         L&apos;inscription et l&apos;utilisation des Services impliquent l&apos;acceptation pleine et entière des présentes CGU.
       </p>
 
       <h2>Article 2 – Description des Services</h2>
-      <p>Autyvia propose une plateforme SaaS permettant :</p>
+      <p>Xeyo propose une plateforme SaaS permettant :</p>
       <ul>
         <li>La connexion de comptes WhatsApp (personnel ou business)</li>
         <li>L&apos;automatisation des réponses via des agents d&apos;intelligence artificielle</li>
@@ -49,7 +49,7 @@ export default function CGUPage() {
         depuis son compte est réputée avoir été faite par lui.
       </p>
       <p>
-        En cas d&apos;utilisation frauduleuse, l&apos;Utilisateur doit informer Autyvia immédiatement :{' '}
+        En cas d&apos;utilisation frauduleuse, l&apos;Utilisateur doit informer Xeyo immédiatement :{' '}
         <a href="mailto:autyviaagence@gmail.com">autyviaagence@gmail.com</a>
       </p>
 
@@ -78,17 +78,17 @@ export default function CGUPage() {
       <p>
         L&apos;Utilisateur reconnaît que les réponses générées par l&apos;IA peuvent contenir des erreurs. Il reste
         responsable des messages envoyés depuis son compte WhatsApp et doit superviser et paramétrer correctement
-        ses agents IA. Autyvia ne garantit pas l&apos;exactitude des réponses générées.
+        ses agents IA. Xeyo ne garantit pas l&apos;exactitude des réponses générées.
       </p>
       <p>
-        Le client configurant lui-même la plateforme sans accompagnement Autyvia (parcours self-service) est seul
-        responsable des résultats obtenus. Autyvia ne peut être tenu responsable d&apos;une mauvaise configuration autonome.
+        Le client configurant lui-même la plateforme sans accompagnement Xeyo (parcours self-service) est seul
+        responsable des résultats obtenus. Xeyo ne peut être tenu responsable d&apos;une mauvaise configuration autonome.
       </p>
 
       <h2>Article 6 – Connexion WhatsApp et responsabilité Meta</h2>
       <p>L&apos;Utilisateur reconnaît et accepte que :</p>
       <ul>
-        <li>La connexion de son compte WhatsApp à Autyvia s&apos;effectue via l&apos;API officielle WhatsApp Business (Meta Cloud API)</li>
+        <li>La connexion de son compte WhatsApp à Xeyo s&apos;effectue via l&apos;API officielle WhatsApp Business (Meta Cloud API)</li>
         <li>L&apos;utilisation de WhatsApp reste soumise aux Conditions d&apos;Utilisation de Meta/WhatsApp</li>
         <li>Meta/WhatsApp peut à tout moment suspendre ou fermer un compte en cas de violation de ses règles</li>
         <li>L&apos;envoi de messages automatisés, de spam ou de contenus non sollicités peut entraîner le bannissement du compte WhatsApp par Meta</li>
@@ -105,18 +105,18 @@ export default function CGUPage() {
       <div className="not-prose my-4 rounded-lg border-l-4 border-red-500 bg-red-50 p-4 dark:bg-red-950/30">
         <p className="font-medium text-slate-900 dark:text-white">Clause de non-responsabilité</p>
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-          Autyvia ne saurait être tenue responsable de la suspension, limitation ou fermeture d&apos;un compte
+          Xeyo ne saurait être tenue responsable de la suspension, limitation ou fermeture d&apos;un compte
           WhatsApp par Meta, quelle qu&apos;en soit la raison. Aucun remboursement ne sera effectué dans ce cas.
         </p>
       </div>
 
       <h2>Article 7 – Propriété intellectuelle</h2>
-      <p>Autyvia conserve tous les droits de propriété intellectuelle sur les Services.</p>
+      <p>Xeyo conserve tous les droits de propriété intellectuelle sur les Services.</p>
       <p>L&apos;Utilisateur conserve tous les droits sur les contenus qu&apos;il crée ou uploade.</p>
 
       <h2>Article 8 – Responsabilité</h2>
-      <p>Autyvia s&apos;engage à fournir les Services avec diligence (obligation de moyens).</p>
-      <p>Autyvia ne saurait être tenue responsable :</p>
+      <p>Xeyo s&apos;engage à fournir les Services avec diligence (obligation de moyens).</p>
+      <p>Xeyo ne saurait être tenue responsable :</p>
       <ul>
         <li>Des interruptions de service indépendantes de sa volonté</li>
         <li>Des contenus générés par l&apos;intelligence artificielle</li>
@@ -127,7 +127,7 @@ export default function CGUPage() {
 
       <h2>Article 9 – Suspension, résiliation et données</h2>
       <p>
-        Autyvia peut suspendre ou résilier l&apos;accès aux Services, sans préavis, en cas de violation des présentes
+        Xeyo peut suspendre ou résilier l&apos;accès aux Services, sans préavis, en cas de violation des présentes
         CGU, d&apos;utilisation frauduleuse ou abusive, de non-paiement ou de demande des autorités compétentes.
       </p>
       <p>

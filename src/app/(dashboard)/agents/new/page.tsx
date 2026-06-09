@@ -273,7 +273,7 @@ export default function NewAgentPage() {
                 value={answers.agentName || ''}
                 onChange={e => set({ agentName: e.target.value })}
                 onKeyDown={e => { if (e.key === 'Enter' && answers.agentName?.trim()) setScreen('t-tone') }}
-                placeholder="Ex: Assistant Autyvia"
+                placeholder="Ex: Assistant Xeyo"
                 className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-5 py-4 text-lg focus:outline-none focus:ring-2 focus:ring-fuchsia-500/40"
               />
               <NextBtn disabled={!answers.agentName?.trim()} onClick={() => setScreen('t-tone')} />

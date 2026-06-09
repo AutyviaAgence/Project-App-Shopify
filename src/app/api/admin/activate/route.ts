@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Récupérer le nom de l'app depuis le tenant de l'utilisateur
-  let appName = 'Autyvia'
+  let appName = 'Xeyo'
   try {
     const { data: profileTenant } = await adminSupabase
       .from('profiles')

@@ -4,12 +4,12 @@ export default function LegalPage() {
   return (
     <LegalPageLayout
       title="Mentions Légales"
-      description="Informations légales concernant l'éditeur du site et de l'application Autyvia."
+      description="Informations légales concernant l'éditeur du site et de l'application Xeyo."
       lastUpdated="04 février 2026"
     >
       <h2>Éditeur du site</h2>
       <p>
-        Le site Autyvia (<a href="https://autyvia.fr" target="_blank" rel="noopener noreferrer">autyvia.fr</a>) et l&apos;application Autyvia sont édités par :
+        Le site Xeyo (<a href="https://autyvia.fr" target="_blank" rel="noopener noreferrer">autyvia.fr</a>) et l&apos;application Xeyo sont édités par :
       </p>
       <div className="not-prose rounded-lg bg-slate-50 p-4 dark:bg-slate-800">
         <p className="font-semibold text-slate-900 dark:text-white">Julian TOURAILLE-TRAN</p>
@@ -49,7 +49,7 @@ export default function LegalPage() {
 
       <h2>Propriété intellectuelle</h2>
       <p>
-        L&apos;ensemble du contenu du Site et de l&apos;Application (textes, images, logos, icônes, logiciels, base de données) est la propriété exclusive d&apos;Autyvia et est protégé par les lois françaises et internationales relatives à la propriété intellectuelle.
+        L&apos;ensemble du contenu du Site et de l&apos;Application (textes, images, logos, icônes, logiciels, base de données) est la propriété exclusive d&apos;Xeyo et est protégé par les lois françaises et internationales relatives à la propriété intellectuelle.
       </p>
       <p>
         Toute reproduction, représentation, modification, publication ou transmission sans autorisation préalable écrite est interdite et constitue une contrefaçon sanctionnée par les articles L.335-2 et suivants du Code de la propriété intellectuelle.

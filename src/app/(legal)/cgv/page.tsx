@@ -4,12 +4,12 @@ export default function CGVPage() {
   return (
     <LegalPageLayout
       title="Conditions Générales de Vente"
-      description="Conditions commerciales, tarifs, paiement et résiliation des services Autyvia."
+      description="Conditions commerciales, tarifs, paiement et résiliation des services Xeyo."
       lastUpdated="1 mai 2026"
     >
       <h2>Article 1 – Objet</h2>
       <p>
-        Les présentes Conditions Générales de Vente (CGV) définissent les conditions dans lesquelles Autyvia
+        Les présentes Conditions Générales de Vente (CGV) définissent les conditions dans lesquelles Xeyo
         (Julian TOURAILLE-TRAN, auto-entrepreneur) propose ses Services à ses clients professionnels.
       </p>
       <p>
@@ -21,7 +21,7 @@ export default function CGVPage() {
 
       <h3>2.1 Description</h3>
       <p>
-        Autyvia propose une plateforme d&apos;automatisation WhatsApp par intelligence artificielle, accessible via un
+        Xeyo propose une plateforme d&apos;automatisation WhatsApp par intelligence artificielle, accessible via un
         abonnement mensuel. Les Services comprennent :
       </p>
       <ul>
@@ -119,7 +119,7 @@ export default function CGVPage() {
       <p><strong>Parcours self-service</strong></p>
       <p>
         Le client peut souscrire directement à un abonnement mensuel sans accompagnement. Dans ce cas, la
-        configuration de la plateforme est entièrement à la charge du client. Autyvia ne peut être tenu
+        configuration de la plateforme est entièrement à la charge du client. Xeyo ne peut être tenu
         responsable des résultats obtenus dans le cadre d&apos;une configuration autonome.
       </p>
 
@@ -128,13 +128,13 @@ export default function CGVPage() {
       <ul>
         <li>Compléter le configurateur d&apos;onboarding dans les 14 jours calendaires suivant le paiement de l&apos;acompte</li>
         <li>Être disponible pour un minimum de 2 sessions de travail planifiées (45 minutes chacune)</li>
-        <li>Répondre aux demandes de clarification d&apos;Autyvia dans les 48 heures ouvrées — tout dépassement suspend le délai de livraison d&apos;autant</li>
-        <li>Toute modification des choix après soumission du configurateur entraîne un délai supplémentaire non imputable à Autyvia</li>
+        <li>Répondre aux demandes de clarification d&apos;Xeyo dans les 48 heures ouvrées — tout dépassement suspend le délai de livraison d&apos;autant</li>
+        <li>Toute modification des choix après soumission du configurateur entraîne un délai supplémentaire non imputable à Xeyo</li>
       </ul>
       <p>Le solde de 445 € n&apos;est pas dû uniquement si :</p>
       <ul>
         <li>L&apos;agent livré ne correspond pas aux choix validés dans le configurateur</li>
-        <li>Autyvia n&apos;a pas respecté le délai de livraison de 30 jours sans motif imputable au client</li>
+        <li>Xeyo n&apos;a pas respecté le délai de livraison de 30 jours sans motif imputable au client</li>
       </ul>
       <p>
         L&apos;acompte de 445 € est non remboursable dans tous les cas, y compris si le client n&apos;a pas rempli
@@ -160,7 +160,7 @@ export default function CGVPage() {
       </p>
 
       <h3>2.6 Modifications tarifaires</h3>
-      <p>Autyvia se réserve le droit de modifier ses tarifs avec un préavis de 30 jours par email.</p>
+      <p>Xeyo se réserve le droit de modifier ses tarifs avec un préavis de 30 jours par email.</p>
 
       <h2>Article 3 – Paiement</h2>
 
@@ -204,9 +204,9 @@ export default function CGVPage() {
         prorata ne sera accordé. Les tokens non consommés ne sont pas remboursables.
       </p>
 
-      <h3>4.3 Résiliation par Autyvia</h3>
+      <h3>4.3 Résiliation par Xeyo</h3>
       <p>
-        Autyvia peut résilier l&apos;abonnement en cas de violation des CGU ou des CGV, avec effet immédiat
+        Xeyo peut résilier l&apos;abonnement en cas de violation des CGU ou des CGV, avec effet immédiat
         et sans remboursement.
       </p>
 
@@ -219,7 +219,7 @@ export default function CGVPage() {
       <p>
         Pendant cette période de 30 jours, le client peut demander l&apos;export de ses données (conversations,
         documents, configuration des agents) par email à{' '}
-        <a href="mailto:autyviaagence@gmail.com">autyviaagence@gmail.com</a>. Autyvia s&apos;engage à fournir
+        <a href="mailto:autyviaagence@gmail.com">autyviaagence@gmail.com</a>. Xeyo s&apos;engage à fournir
         cet export dans un format lisible (JSON ou CSV) dans un délai de 7 jours ouvrés.
       </p>
 
@@ -244,12 +244,12 @@ export default function CGVPage() {
 
       <h2>Article 7 – Responsabilité</h2>
       <p>
-        En cas de dysfonctionnement avéré imputable à Autyvia, le Client peut demander une prolongation
+        En cas de dysfonctionnement avéré imputable à Xeyo, le Client peut demander une prolongation
         gratuite proportionnelle à la durée d&apos;indisponibilité.
       </p>
       <p>
-        La responsabilité d&apos;Autyvia est limitée au montant des sommes perçues au cours des 12 derniers mois.
-        Autyvia ne saurait être tenu responsable de l&apos;utilisation des Services par le Client ni des
+        La responsabilité d&apos;Xeyo est limitée au montant des sommes perçues au cours des 12 derniers mois.
+        Xeyo ne saurait être tenu responsable de l&apos;utilisation des Services par le Client ni des
         conséquences des messages envoyés via la plateforme.
       </p>
 

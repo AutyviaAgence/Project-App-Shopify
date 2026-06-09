@@ -8,7 +8,7 @@ export default function PrivacyPage() {
       lastUpdated="04 février 2026"
     >
       <p className="lead text-lg">
-        La présente Politique de Confidentialité décrit comment Autyvia collecte, utilise, stocke et protège vos données personnelles lorsque vous utilisez notre site web et notre application.
+        La présente Politique de Confidentialité décrit comment Xeyo collecte, utilise, stocke et protège vos données personnelles lorsque vous utilisez notre site web et notre application.
       </p>
 
       <p>
@@ -18,7 +18,7 @@ export default function PrivacyPage() {
       <h2>Responsable du traitement</h2>
       <div className="not-prose rounded-lg bg-slate-50 p-4 dark:bg-slate-800">
         <p className="font-semibold text-slate-900 dark:text-white">Julian TOURAILLE-TRAN</p>
-        <p className="text-sm text-slate-600 dark:text-slate-400">Micro-entreprise Autyvia</p>
+        <p className="text-sm text-slate-600 dark:text-slate-400">Micro-entreprise Xeyo</p>
         <p className="text-sm text-slate-600 dark:text-slate-400">SIRET : 992 684 829 00011</p>
         <p className="text-sm text-slate-600 dark:text-slate-400">778 routes des barthes</p>
         <a href="mailto:autyviaagence@gmail.com" className="text-sm text-primary hover:underline">

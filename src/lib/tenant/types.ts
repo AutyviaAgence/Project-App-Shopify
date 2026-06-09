@@ -31,8 +31,8 @@ export type TenantConfig = {
 
 export const DEFAULT_TENANT: TenantConfig = {
   id: '',
-  slug: 'autyvia',
-  appName: 'Autyvia',
+  slug: 'xeyo',
+  appName: 'Xeyo',
   logoUrl: '/logo.svg',
   faviconUrl: null,
   primaryColor: '#7DC2A5',
