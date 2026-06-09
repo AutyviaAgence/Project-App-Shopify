@@ -583,6 +583,24 @@ export type LifecycleStage = {
   created_at: string
 }
 
+export type ShopifyStore = {
+  id: string
+  user_id: string | null
+  shop_domain: string
+  access_token: string | null
+  scopes: string | null
+  shop_name: string | null
+  shop_email: string | null
+  currency: string | null
+  country: string | null
+  billing_source: 'shopify' | 'direct'
+  is_active: boolean
+  installed_at: string | null
+  uninstalled_at: string | null
+  created_at: string
+  updated_at: string
+}
+
 export type WhatsAppTemplate = {
   id: string
   user_id: string
@@ -833,6 +851,12 @@ export type Database = {
         Row: WhatsAppTemplate
         Insert: Partial<WhatsAppTemplate> & Pick<WhatsAppTemplate, 'user_id' | 'name' | 'body_text'>
         Update: Partial<WhatsAppTemplate>
+        Relationships: []
+      }
+      shopify_stores: {
+        Row: ShopifyStore
+        Insert: Partial<ShopifyStore> & Pick<ShopifyStore, 'shop_domain'>
+        Update: Partial<ShopifyStore>
         Relationships: []
       }
     }
