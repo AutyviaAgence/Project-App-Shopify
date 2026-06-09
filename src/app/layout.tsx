@@ -21,7 +21,7 @@ export default function RootLayout({
   return (
     <html suppressHydrationWarning>
       <head>
-        <link rel="icon" href="/favicon-autyvia.ico" />
+        <link rel="icon" href="/logo-xeyo.svg" type="image/svg+xml" />
       </head>
       <body className={`${inter.className} antialiased`}>
         <ThemeProvider
