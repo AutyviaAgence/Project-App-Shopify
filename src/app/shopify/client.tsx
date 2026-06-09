@@ -44,6 +44,15 @@ export default function ShopifyEmbeddedClient() {
 
   useEffect(() => { fetchStatus() }, [fetchStatus])
 
+  // Retour de login (?autolink=1) : si la boutique n'est pas encore liée, lancer la liaison.
+  const autolink = searchParams.get('autolink') === '1'
+  useEffect(() => {
+    if (!loading && autolink && status && !status.linked && !connecting) {
+      handleConnect()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, autolink, status?.linked])
+
   async function handleConnect() {
     setConnecting(true)
     setMessage(null)
@@ -55,8 +64,9 @@ export default function ShopifyEmbeddedClient() {
       })
       const json = await res.json()
       if (res.status === 401) {
-        // Pas connecté à Xeyo → rediriger vers le login (top frame, hors iframe)
-        const loginUrl = `${APP_BASE}/login?shopify_shop=${encodeURIComponent(shop)}`
+        // Pas connecté à Xeyo → login, puis retour auto sur /shopify (lien boutique↔compte)
+        const back = encodeURIComponent(`/shopify?shop=${encodeURIComponent(shop)}&autolink=1`)
+        const loginUrl = `${APP_BASE}/login?redirect=${back}`
         if (window.top) window.top.location.href = loginUrl
         else window.location.href = loginUrl
         return
@@ -134,7 +144,7 @@ export default function ShopifyEmbeddedClient() {
           </div>
 
           <a
-            href={`${APP_BASE}/register?shopify_shop=${encodeURIComponent(shop)}`}
+            href={`${APP_BASE}/register?redirect=${encodeURIComponent(`/shopify?shop=${encodeURIComponent(shop)}&autolink=1`)}`}
             target="_blank"
             rel="noopener noreferrer"
             className="block text-center text-sm font-medium text-gray-900 hover:underline"
