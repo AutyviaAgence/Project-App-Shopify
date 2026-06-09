@@ -1,24 +1,14 @@
+import { Suspense } from 'react'
+import ShopifyEmbeddedClient from './client'
+
 /**
- * Page de destination après installation Shopify (placeholder S1).
- * Sera remplacée par l'UI embedded Polaris (S3).
+ * Page embedded affichée dans l'admin Shopify (iframe).
+ * Statut de l'intégration + connexion de la boutique + état de l'agent.
  */
-export default async function ShopifyConnectedPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ shop?: string }>
-}) {
-  const { shop } = await searchParams
+export default function ShopifyEmbeddedPage() {
   return (
-    <div className="min-h-screen flex items-center justify-center p-6">
-      <div className="max-w-md text-center space-y-3">
-        <h1 className="text-xl font-semibold">Boutique connectée ✅</h1>
-        <p className="text-sm text-muted-foreground">
-          {shop ? `La boutique ${shop} est bien connectée à Xeyo.` : 'Boutique connectée à Xeyo.'}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          L&apos;interface complète arrivera prochainement.
-        </p>
-      </div>
-    </div>
+    <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Chargement…</div>}>
+      <ShopifyEmbeddedClient />
+    </Suspense>
   )
 }

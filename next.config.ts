@@ -24,7 +24,30 @@ const nextConfig: NextConfig = {
   async headers() {
     return [
       {
-        source: '/(.*)',
+        // Page embedded Shopify : doit pouvoir s'afficher dans l'iframe de l'admin Shopify.
+        // On autorise Shopify comme frame-ancestor et on NE met PAS X-Frame-Options: DENY.
+        source: '/shopify/:path*',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          {
+            key: 'Content-Security-Policy',
+            value: "frame-ancestors https://*.myshopify.com https://admin.shopify.com",
+          },
+        ],
+      },
+      {
+        source: '/shopify',
+        headers: [
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          {
+            key: 'Content-Security-Policy',
+            value: "frame-ancestors https://*.myshopify.com https://admin.shopify.com",
+          },
+        ],
+      },
+      {
+        // Toutes les autres routes : interdites en iframe (sauf /shopify ci-dessus).
+        source: '/((?!shopify).*)',
         headers: [
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'X-Frame-Options', value: 'DENY' },
