@@ -55,7 +55,7 @@ const BOTTOM_NAV_KEYS = [
 ]
 
 // Pages accessibles même sans abonnement actif
-const ALLOWED_WITHOUT_SUBSCRIPTION = ['/subscription', '/settings', '/admin', '/onboarding', '/welcome', '/welcome-v2', '/studio']
+const ALLOWED_WITHOUT_SUBSCRIPTION = ['/subscription', '/settings', '/admin', '/onboarding', '/welcome', '/welcome-v2']
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -154,10 +154,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   }, [router, t])
 
   const NavLink = ({ item, showLabel = true }: { item: typeof NAV_ITEMS[0]; showLabel?: boolean }) => {
-    const studioAliases = ['/agents/[id]/workflow']
     const isActive = pathname === item.href
       || pathname.startsWith(item.href + '/')
-      || (item.href === '/studio' && studioAliases.some(p => pathname === p || pathname.startsWith(p + '/')))
     return (
       <Link
         href={item.href}

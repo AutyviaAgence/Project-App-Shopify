@@ -94,18 +94,8 @@ export default function WelcomeV2Page() {
       if (!agentRes.ok) throw new Error('Erreur création agent')
       const { data: agent } = await agentRes.json()
 
-      // Appliquer le template de workflow
-      const templateMod = await import(`@/lib/workflow-templates/${selectedTemplate}`)
-      const workflowTemplate = templateMod[`${selectedTemplate}Template`]
-
-      await fetch(`/api/agents/${agent.id}/workflow`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nodes: workflowTemplate.nodes, edges: workflowTemplate.edges }),
-      })
-
       toast.success('Votre agent est prêt !')
-      router.push(`/agents/${agent.id}/workflow`)
+      router.push(`/agents/${agent.id}`)
     } catch {
       toast.error('Erreur lors de la création')
     } finally {
