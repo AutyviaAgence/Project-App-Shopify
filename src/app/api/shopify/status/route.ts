@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 
   const { data: store } = await admin
     .from('shopify_stores')
-    .select('id, user_id, shop_name, is_active')
+    .select('id, user_id, shop_name, is_active, plan, subscription_status')
     .eq('shop_domain', shop)
     .maybeSingle()
 
@@ -52,6 +52,8 @@ export async function GET(req: NextRequest) {
       installed: true,
       linked: !!store.user_id,
       shop_name: store.shop_name,
+      plan: store.plan || 'free',
+      subscription_status: store.subscription_status || 'active',
       agent,
       documents,
     },

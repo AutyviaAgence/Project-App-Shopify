@@ -173,6 +173,59 @@ export async function refundOrder(shop: string, accessToken: string, orderId: st
   )
 }
 
+/**
+ * Crée un abonnement à l'app (AppSubscription) via la Billing API Shopify.
+ * Retourne l'URL de confirmation vers laquelle rediriger le marchand.
+ */
+export async function createAppSubscription(
+  shop: string,
+  accessToken: string,
+  opts: { name: string; price: number; currencyCode?: string; returnUrl: string; test?: boolean }
+) {
+  return shopifyGraphQL<{
+    appSubscriptionCreate: {
+      confirmationUrl: string | null
+      appSubscription: { id: string } | null
+      userErrors: { message: string }[]
+    }
+  }>(
+    shop,
+    accessToken,
+    `mutation AppSubscriptionCreate($name: String!, $returnUrl: URL!, $test: Boolean, $lineItems: [AppSubscriptionLineItemInput!]!) {
+       appSubscriptionCreate(name: $name, returnUrl: $returnUrl, test: $test, lineItems: $lineItems) {
+         confirmationUrl
+         appSubscription { id }
+         userErrors { message }
+       }
+     }`,
+    {
+      name: opts.name,
+      returnUrl: opts.returnUrl,
+      test: opts.test ?? false,
+      lineItems: [
+        {
+          plan: {
+            appRecurringPricingDetails: {
+              price: { amount: opts.price, currencyCode: opts.currencyCode || 'EUR' },
+              interval: 'EVERY_30_DAYS',
+            },
+          },
+        },
+      ],
+    }
+  )
+}
+
+/** Annule un abonnement app (downgrade vers free). */
+export async function cancelAppSubscription(shop: string, accessToken: string, subscriptionId: string) {
+  return shopifyGraphQL<{ appSubscriptionCancel: { userErrors: { message: string }[] } }>(
+    shop,
+    accessToken,
+    `mutation($id: ID!) { appSubscriptionCancel(id: $id) { userErrors { message } } }`,
+    { id: subscriptionId }
+  )
+}
+
 /** Crée un code de réduction (montant ou pourcentage). */
 export async function createDiscountCode(
   shop: string,

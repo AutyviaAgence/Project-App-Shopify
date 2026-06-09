@@ -7,6 +7,7 @@ import { retrieveContext } from '@/lib/knowledge/retriever'
 import { encryptMessage, decryptMessage } from '@/lib/crypto/encryption'
 import { getAgentTools, buildOpenAITools, executeToolCall } from '@/lib/tools/executor'
 import { SHOPIFY_ACTION_TOOLS, isShopifyActionTool, handleActionTool, userHasShopifyStore } from '@/lib/shopify/ai-tools'
+import { checkConversationQuota } from '@/lib/shopify/plans'
 import type { WhatsAppSession } from '@/types/database'
 
 const MAX_CONTEXT_MESSAGES = 50
@@ -75,6 +76,21 @@ export async function processAIResponse(params: {
           params.contactPhoneNumber,
           "Désolé, notre assistant IA est temporairement indisponible. Veuillez réessayer plus tard ou contacter directement notre équipe."
         )
+        return
+      }
+
+      // Garde-fou quota de conversations (plan free : 10/mois). L'IA s'arrête
+      // au-delà et l'utilisateur est invité à upgrader (alerte in-app).
+      const quota = await checkConversationQuota(userId)
+      if (!quota.allowed) {
+        console.log(`[AI] Quota conversations atteint (${quota.used}/${quota.limit}, plan ${quota.plan}) — IA stoppée pour user:`, userId)
+        await supabase.from('user_alerts').insert({
+          user_id: userId,
+          alert_type: 'quota_reached',
+          title: 'Quota de conversations atteint',
+          message: `Vous avez atteint ${quota.limit} conversations IA ce mois-ci (plan ${quota.plan}). Passez à un plan supérieur pour continuer à répondre automatiquement.`,
+          metadata: { used: quota.used, limit: quota.limit, plan: quota.plan },
+        }).then(() => {}, () => {})
         return
       }
     }
