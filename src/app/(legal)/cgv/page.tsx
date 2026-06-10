@@ -6,6 +6,280 @@ export default function CGVPage() {
       title="Conditions Générales de Vente"
       description="Conditions commerciales, tarifs, paiement et résiliation des services Xeyo."
       lastUpdated="1 mai 2026"
+      titleEn="Terms of Sale"
+      descriptionEn="Commercial terms, pricing, payment, and termination of Xeyo services."
+      lastUpdatedEn="May 1, 2026"
+      childrenEn={
+        <>
+          <h2>Article 1 &ndash; Purpose</h2>
+          <p>
+            These Terms of Sale (ToS) define the conditions under which Xeyo
+            (TOURAILLE-TRAN Julian, trading as Autyvia, sole proprietorship (micro-entreprise)) offers its Services to its business customers.
+          </p>
+          <p>
+            Any subscription implies the full and unreserved acceptance of these ToS and of the
+            Terms of Use (ToU).
+          </p>
+
+          <h2>Article 2 &ndash; Services and pricing</h2>
+
+          <h3>2.1 Description</h3>
+          <p>
+            Xeyo offers a WhatsApp automation platform powered by artificial intelligence, accessible via a
+            monthly subscription. The Services include:
+          </p>
+          <ul>
+            <li>Connection of WhatsApp accounts (Baileys or Meta Cloud API)</li>
+            <li>Customizable AI agents with a knowledge base</li>
+            <li>Conversation and team management</li>
+            <li>Statistics and dashboard</li>
+            <li>Customer support by email</li>
+          </ul>
+
+          <h3>2.2 Pricing plans</h3>
+          <p>Subscriptions are offered across three tiers:</p>
+
+          <div className="not-prose my-6 overflow-x-auto rounded-xl border border-slate-200 dark:border-slate-700">
+            <table className="w-full text-sm">
+              <thead className="bg-slate-50 dark:bg-slate-800">
+                <tr>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-900 dark:text-white">Feature</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-900 dark:text-white">Starter</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-900 dark:text-white">Pro</th>
+                  <th className="px-4 py-3 text-left font-semibold text-slate-900 dark:text-white">Scale</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 dark:divide-slate-700">
+                <tr>
+                  <td className="px-4 py-3 font-medium text-slate-700 dark:text-slate-300">Monthly price (excl. tax)</td>
+                  <td className="px-4 py-3 text-slate-700 dark:text-slate-300">&euro;39</td>
+                  <td className="px-4 py-3 text-slate-700 dark:text-slate-300">&euro;79</td>
+                  <td className="px-4 py-3 text-slate-700 dark:text-slate-300">&euro;150</td>
+                </tr>
+                <tr className="bg-slate-50/50 dark:bg-slate-800/50">
+                  <td className="px-4 py-3 font-medium text-slate-700 dark:text-slate-300">WhatsApp sessions</td>
+                  <td className="px-4 py-3 text-slate-700 dark:text-slate-300">2</td>
+                  <td className="px-4 py-3 text-slate-700 dark:text-slate-300">4</td>
+                  <td className="px-4 py-3 text-slate-700 dark:text-slate-300">10</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-3 font-medium text-slate-700 dark:text-slate-300">AI agents</td>
+                  <td className="px-4 py-3 text-slate-700 dark:text-slate-300">2</td>
+                  <td className="px-4 py-3 text-slate-700 dark:text-slate-300">5</td>
+                  <td className="px-4 py-3 text-slate-700 dark:text-slate-300">10</td>
+                </tr>
+                <tr className="bg-slate-50/50 dark:bg-slate-800/50">
+                  <td className="px-4 py-3 font-medium text-slate-700 dark:text-slate-300">AI token quota</td>
+                  <td className="px-4 py-3 text-slate-700 dark:text-slate-300">500,000</td>
+                  <td className="px-4 py-3 text-slate-700 dark:text-slate-300">1,500,000</td>
+                  <td className="px-4 py-3 text-slate-700 dark:text-slate-300">4,000,000</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-3 font-medium text-slate-700 dark:text-slate-300">RAG documents</td>
+                  <td className="px-4 py-3 text-slate-700 dark:text-slate-300">5</td>
+                  <td className="px-4 py-3 text-slate-700 dark:text-slate-300">10</td>
+                  <td className="px-4 py-3 text-slate-700 dark:text-slate-300">30</td>
+                </tr>
+                <tr className="bg-slate-50/50 dark:bg-slate-800/50">
+                  <td className="px-4 py-3 font-medium text-slate-700 dark:text-slate-300">Teams</td>
+                  <td className="px-4 py-3 text-slate-700 dark:text-slate-300">2</td>
+                  <td className="px-4 py-3 text-slate-700 dark:text-slate-300">4</td>
+                  <td className="px-4 py-3 text-slate-700 dark:text-slate-300">10</td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-3 font-medium text-slate-700 dark:text-slate-300">Lifecycle</td>
+                  <td className="px-4 py-3 text-slate-500 dark:text-slate-500">&ndash;</td>
+                  <td className="px-4 py-3 text-green-600 dark:text-green-400">✓</td>
+                  <td className="px-4 py-3 text-green-600 dark:text-green-400">✓</td>
+                </tr>
+                <tr className="bg-slate-50/50 dark:bg-slate-800/50">
+                  <td className="px-4 py-3 font-medium text-slate-700 dark:text-slate-300">Broadcast campaigns</td>
+                  <td className="px-4 py-3 text-slate-500 dark:text-slate-500">&ndash;</td>
+                  <td className="px-4 py-3 text-slate-500 dark:text-slate-500">&ndash;</td>
+                  <td className="px-4 py-3 text-green-600 dark:text-green-400">✓</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p className="text-sm text-slate-600 dark:text-slate-400">
+            VAT not applicable, article 293 B of the French General Tax Code (micro-entreprise).
+          </p>
+
+          <h3>2.3 Access paths</h3>
+          <p><strong>Guided path (recommended)</strong></p>
+          <p>
+            Onboarding assistance is available for <strong>&euro;990 excl. tax</strong>, payable in two installments:
+          </p>
+          <ul>
+            <li>&euro;445 upon signing: non-refundable deposit in all cases</li>
+            <li>&euro;445 upon delivery of the configured and validated agent</li>
+          </ul>
+          <p>
+            These fees cover the process audit, the complete configuration of the platform, the integration
+            of the AI agents, and personalized support over 30 days.
+          </p>
+
+          <p><strong>Self-service path</strong></p>
+          <p>
+            The customer may subscribe directly to a monthly subscription without assistance. In this case, the
+            configuration of the platform is entirely the customer&apos;s responsibility. Xeyo cannot be held
+            liable for the results obtained under a self-managed configuration.
+          </p>
+
+          <h3>2.4 Customer obligations, guided path</h3>
+          <p>Under the guided path, the customer undertakes to:</p>
+          <ul>
+            <li>Complete the onboarding configurator within 14 calendar days following payment of the deposit</li>
+            <li>Be available for a minimum of 2 scheduled work sessions (45 minutes each)</li>
+            <li>Respond to Xeyo&apos;s requests for clarification within 48 business hours: any delay suspends the delivery deadline accordingly</li>
+            <li>Any modification of choices after submission of the configurator results in an additional delay not attributable to Xeyo</li>
+          </ul>
+          <p>The balance of &euro;445 is not due only if:</p>
+          <ul>
+            <li>The delivered agent does not match the choices validated in the configurator</li>
+            <li>Xeyo did not meet the 30-day delivery deadline for reasons not attributable to the customer</li>
+          </ul>
+          <p>
+            The deposit of &euro;445 is non-refundable in all cases, including if the customer has not fulfilled
+            their onboarding obligations.
+          </p>
+
+          <div className="not-prose my-4 rounded-lg border-l-4 border-blue-500 bg-blue-50 p-4 dark:bg-blue-950/30">
+            <p className="font-medium text-slate-900 dark:text-white">Conditions for refund of the &euro;445 balance</p>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+              The balance is not due only if the following two conditions are met
+              <strong> simultaneously</strong>: (1) the customer has fulfilled all of their onboarding obligations
+              listed in this article, and (2) the delivered agent does not match the choices validated in the
+              signed configurator. Any request for a refund of the balance must be made in writing within
+              <strong> 7 days following delivery</strong>. After this period, delivery is deemed accepted.
+            </p>
+          </div>
+
+          <h3>2.5 Token quota overage</h3>
+          <p>
+            The AI token quota is reset at each monthly renewal. In the event of an overage,
+            access to automated replies is suspended until renewal or until the purchase
+            of additional tokens (1,000,000 tokens for &euro;50).
+          </p>
+
+          <h3>2.6 Price changes</h3>
+          <p>Xeyo reserves the right to modify its prices with 30 days&apos; notice by email.</p>
+
+          <h2>Article 3 &ndash; Payment</h2>
+
+          <h3>3.1 Terms</h3>
+          <p>
+            Payment is made by credit card via the secure Stripe platform. The subscription is
+            billed monthly, on the anniversary date of the subscription.
+          </p>
+
+          <h3>3.2 Payment failure</h3>
+          <p>
+            In the event of a payment failure, access to the Service is suspended immediately. Stripe makes
+            several automatic attempts before final termination.
+          </p>
+
+          <h3>3.3 Invoicing</h3>
+          <p>An invoice is issued for each payment and is accessible from the customer area and the Stripe portal.</p>
+
+          <h3>3.4 Payment deadlines</h3>
+          <p>
+            For the guided path, the balance of &euro;445 is payable within <strong>30 days following delivery of the validated agent</strong>, unless otherwise agreed in writing within the limit of 60 days in accordance with law no. 2008-776.
+          </p>
+
+          <h3>3.5 Late payment penalties</h3>
+          <p>
+            In the event of late payment, penalties at the rate of <strong>3 times the statutory interest rate in force</strong> apply automatically, as from the day following the due date, without prior formal notice. A <strong>fixed recovery indemnity of &euro;40</strong> is also due, in accordance with article D.441-5 of the French Commercial Code.
+          </p>
+
+          <h2>Article 4 &ndash; Term and termination</h2>
+
+          <h3>4.1 Term</h3>
+          <p>The subscription is entered into for an indefinite term, with no minimum commitment.</p>
+
+          <h3>4.2 Termination by the Customer</h3>
+          <p>
+            The Customer may terminate at any time from their customer area (Subscription section) or by email to{' '}
+            <a href="mailto:contact@autyvia.fr">contact@autyvia.fr</a>.
+          </p>
+          <p>
+            Termination takes effect at the end of the current billing period. No pro-rata
+            refund will be granted. Unused tokens are non-refundable.
+          </p>
+
+          <h3>4.3 Termination by Xeyo</h3>
+          <p>
+            Xeyo may terminate the subscription in the event of a breach of the ToU or the ToS, with immediate effect
+            and without refund.
+          </p>
+
+          <h3>4.4 Post-termination data and reversibility</h3>
+          <p>
+            Upon termination, the customer&apos;s data (conversations, agents, documents) is retained for
+            <strong> 30 days</strong>, then permanently deleted, in accordance with the GDPR. No recovery is possible
+            after this period.
+          </p>
+          <p>
+            During this 30-day period, the customer may request the export of their data (conversations,
+            documents, agent configuration) by email to{' '}
+            <a href="mailto:contact@autyvia.fr">contact@autyvia.fr</a>. Xeyo undertakes to provide
+            this export in a readable format (JSON or CSV) within 7 business days.
+          </p>
+
+          <h2>Article 5 &ndash; Mandatory acceptance</h2>
+          <div className="not-prose my-4 rounded-lg border-l-4 border-blue-500 bg-blue-50 p-4 dark:bg-blue-950/30">
+            <p className="font-medium text-slate-900 dark:text-white">Prerequisite for any payment</p>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+              Acceptance of these ToS is mandatory before any subscription. The acceptance checkbox
+              must be ticked on the pricing page before being redirected to payment. Without this
+              acceptance, no subscription is possible.
+            </p>
+          </div>
+
+          <h2>Article 6 &ndash; Right of withdrawal</h2>
+          <div className="not-prose my-4 rounded-lg border-l-4 border-amber-500 bg-amber-50 p-4 dark:bg-amber-950/30">
+            <p className="font-medium text-slate-900 dark:text-white">Professional services: no withdrawal</p>
+            <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
+              Since the Services are intended for professionals, the 14-day right of withdrawal does not apply,
+              in accordance with article L.221-3 of the French Consumer Code.
+            </p>
+          </div>
+
+          <h2>Article 7 &ndash; Liability</h2>
+          <p>
+            In the event of a proven malfunction attributable to Xeyo, the Customer may request a free
+            extension proportional to the duration of unavailability.
+          </p>
+          <p>
+            Xeyo&apos;s liability is limited to the amount of the sums received over the last 12 months.
+            Xeyo cannot be held liable for the Customer&apos;s use of the Services or for the
+            consequences of messages sent via the platform.
+          </p>
+
+          <h2>Article 8 &ndash; Disputes</h2>
+          <p>These ToS are governed by French law.</p>
+          <p>
+            In the event of a dispute, the parties shall seek an amicable solution. Failing that, the French courts
+            shall have jurisdiction.
+          </p>
+
+          <div className="not-prose mt-8 rounded-lg bg-slate-50 p-4 dark:bg-slate-800">
+            <div className="grid gap-2 text-sm">
+              <p>
+                <strong className="text-slate-900 dark:text-white">Customer support:</strong>{' '}
+                <a href="mailto:contact@autyvia.fr" className="text-primary hover:underline">
+                  contact@autyvia.fr
+                </a>
+              </p>
+              <p>
+                <strong className="text-slate-900 dark:text-white">Stripe billing:</strong>{' '}
+                Accessible from your customer area → Subscription → Manage my subscription
+              </p>
+            </div>
+          </div>
+        </>
+      }
     >
       <h2>Article 1 – Objet</h2>
       <p>
