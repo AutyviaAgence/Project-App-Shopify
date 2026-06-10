@@ -89,19 +89,14 @@ export async function POST(req: NextRequest) {
       console.error('Error deleting team_invitations:', e0)
     }
 
-    // 1. Supprimer les team_members où l'utilisateur est membre
+    // 1. Supprimer les team_members où l'utilisateur est membre (table optionnelle)
     const { error: e1 } = await adminSupabase
       .from('team_members')
       .delete()
       .eq('user_id', user.id)
-    if (e1) console.error('Error deleting team_members:', e1)
-
-    // 2. Supprimer les équipes où l'utilisateur est owner
-    const { error: e2 } = await adminSupabase
-      .from('teams')
-      .delete()
-      .eq('owner_id', user.id)
-    if (e2) console.error('Error deleting teams:', e2)
+    if (e1 && !e1.message?.includes('does not exist')) {
+      console.error('Error deleting team_members:', e1)
+    }
 
     // 3. Supprimer les sessions WhatsApp (cascade sur contacts, conversations, messages)
     const { error: e3 } = await adminSupabase

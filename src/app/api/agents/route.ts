@@ -1,12 +1,10 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getUserTeamIds, getUserTeamPermissions, buildAccessFilter, filterAgentsByPermissions } from '@/lib/teams/access'
 import { checkPlanQuota } from '@/lib/plan-quota'
-import type { AIAgent } from '@/types/database'
 
 const VALID_MODELS = ['gpt-4o-mini', 'gpt-4o']
 
-/** GET /api/agents — Lister les agents IA de l'utilisateur (+ équipes avec permissions) */
+/** GET /api/agents — Lister les agents IA de l'utilisateur */
 export async function GET() {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -15,49 +13,18 @@ export async function GET() {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  // Récupérer les équipes et permissions de l'utilisateur
-  const [teamIds, permissions] = await Promise.all([
-    getUserTeamIds(supabase, user.id),
-    getUserTeamPermissions(supabase, user.id)
-  ])
-
   const { data: allAgents, error } = await supabase
     .from('ai_agents')
     .select('*')
-    .or(buildAccessFilter(user.id, teamIds))
+    .eq('user_id', user.id)
     .order('created_at', { ascending: false })
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // Filtrer selon les permissions granulaires
-  const agents = filterAgentsByPermissions(
-    (allAgents || []) as (AIAgent & { id: string; user_id: string; team_id: string | null })[],
-    user.id,
-    permissions
-  )
-
-  // Récupérer les team_ids pour chaque agent
+  const agents = allAgents || []
   const agentIds = agents.map(a => a.id)
-  let agentTeamsMap: Record<string, string[]> = {}
-
-  if (agentIds.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: agentTeams } = await (supabase as any)
-      .from('agent_teams')
-      .select('agent_id, team_id')
-      .in('agent_id', agentIds) as { data: { agent_id: string; team_id: string }[] | null }
-
-    if (agentTeams) {
-      for (const at of agentTeams) {
-        if (!agentTeamsMap[at.agent_id]) {
-          agentTeamsMap[at.agent_id] = []
-        }
-        agentTeamsMap[at.agent_id].push(at.team_id)
-      }
-    }
-  }
 
   // Récupérer les stats de booking (propositions et clics) pour chaque agent
   const bookingStatsMap: Record<string, {
@@ -138,10 +105,9 @@ export async function GET() {
     }
   }
 
-  // Ajouter team_ids et booking_stats à chaque agent
-  const agentsWithTeams = agents.map(a => ({
+  // Ajouter booking_stats à chaque agent
+  const agentsWithStats = agents.map(a => ({
     ...a,
-    team_ids: agentTeamsMap[a.id] || (a.team_id ? [a.team_id] : []),
     booking_stats: bookingStatsMap[a.id] || {
       total_proposals: 0,
       total_clicks: 0,
@@ -150,7 +116,7 @@ export async function GET() {
     },
   }))
 
-  return NextResponse.json({ data: agentsWithTeams })
+  return NextResponse.json({ data: agentsWithStats })
 }
 
 /** POST /api/agents — Créer un nouvel agent IA */
@@ -163,7 +129,7 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json()
-  const { name, description, system_prompt, objective, model, temperature, is_active, response_delay_min, response_delay_max, max_messages_per_conversation, inactivity_timeout_minutes, escalation_enabled, escalation_keywords, escalation_message, booking_url, team_id, team_ids, stop_condition } = body as {
+  const { name, description, system_prompt, objective, model, temperature, is_active, response_delay_min, response_delay_max, max_messages_per_conversation, inactivity_timeout_minutes, escalation_enabled, escalation_keywords, escalation_message, booking_url, stop_condition } = body as {
     name?: string
     description?: string
     system_prompt?: string
@@ -179,8 +145,6 @@ export async function POST(req: Request) {
     escalation_keywords?: string[]
     escalation_message?: string
     booking_url?: string
-    team_id?: string
-    team_ids?: string[]
     stop_condition?: string
   }
 
@@ -199,18 +163,6 @@ export async function POST(req: Request) {
       limit: agentQuota.limit,
       current: agentQuota.current,
     }, { status: 403 })
-  }
-
-  // Support des deux formats: team_id (legacy) et team_ids (nouveau)
-  const selectedTeamIds = team_ids || (team_id ? [team_id] : [])
-
-  // Vérifier que l'utilisateur a accès aux équipes spécifiées
-  if (selectedTeamIds.length > 0) {
-    const userTeamIds = await getUserTeamIds(supabase, user.id)
-    const unauthorized = selectedTeamIds.filter(id => !userTeamIds.includes(id))
-    if (unauthorized.length > 0) {
-      return NextResponse.json({ error: 'Équipe(s) non autorisée(s)' }, { status: 403 })
-    }
   }
 
   if (!name?.trim() || !system_prompt?.trim()) {
@@ -247,7 +199,6 @@ export async function POST(req: Request) {
     .from('ai_agents')
     .insert({
       user_id: user.id,
-      team_id: selectedTeamIds[0] || null, // Legacy: garder le premier pour compatibilité
       name: name.trim(),
       description: description?.trim() || null,
       system_prompt: system_prompt.trim(),
@@ -273,17 +224,5 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // Créer les associations multi-équipes
-  if (selectedTeamIds.length > 0 && agent) {
-    const teamAssociations = selectedTeamIds.map(teamId => ({
-      agent_id: agent.id,
-      team_id: teamId,
-    }))
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any).from('agent_teams').insert(teamAssociations)
-  }
-
-  return NextResponse.json({
-    data: { ...agent, team_ids: selectedTeamIds }
-  })
+  return NextResponse.json({ data: agent })
 }

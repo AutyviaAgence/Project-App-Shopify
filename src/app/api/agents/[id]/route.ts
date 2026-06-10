@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getUserTeamIds, canAccessResource } from '@/lib/teams/access'
 
 const VALID_MODELS = ['gpt-4o-mini', 'gpt-4o']
 
@@ -21,28 +20,14 @@ export async function GET(
     .from('ai_agents')
     .select('*')
     .eq('id', id)
+    .eq('user_id', user.id)
     .single()
 
   if (error || !agent) {
     return NextResponse.json({ error: 'Agent introuvable' }, { status: 404 })
   }
 
-  // Vérifier l'accès à l'agent
-  const hasAccess = await canAccessResource(supabase, user.id, agent.user_id, agent.team_id)
-  if (!hasAccess) {
-    return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
-  }
-
-  // Récupérer les team_ids depuis la table de liaison
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: agentTeams } = await (supabase as any)
-    .from('agent_teams')
-    .select('team_id')
-    .eq('agent_id', id)
-
-  const team_ids = agentTeams?.map((at: { team_id: string }) => at.team_id) || []
-
-  return NextResponse.json({ data: { ...agent, team_ids } })
+  return NextResponse.json({ data: agent })
 }
 
 /** PATCH /api/agents/[id] — Modifier un agent */
@@ -63,16 +48,11 @@ export async function PATCH(
     .from('ai_agents')
     .select('*')
     .eq('id', id)
+    .eq('user_id', user.id)
     .single()
 
   if (!existingAgent) {
     return NextResponse.json({ error: 'Agent introuvable' }, { status: 404 })
-  }
-
-  // Vérifier l'accès à l'agent
-  const hasAccess = await canAccessResource(supabase, user.id, existingAgent.user_id, existingAgent.team_id)
-  if (!hasAccess) {
-    return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 
   const body = await req.json()
@@ -81,7 +61,7 @@ export async function PATCH(
     response_delay_min, response_delay_max, max_messages_per_conversation, inactivity_timeout_minutes,
     schedule_enabled, schedule_timezone, schedule_start_time, schedule_end_time, schedule_days,
     auto_detect_language, escalation_enabled, escalation_keywords, escalation_message, booking_url,
-    team_id, team_ids, stop_condition, mascot, mascot_bg
+    stop_condition, mascot, mascot_bg
   } = body as {
     name?: string
     description?: string
@@ -105,8 +85,6 @@ export async function PATCH(
     escalation_keywords?: string[]
     escalation_message?: string
     booking_url?: string
-    team_id?: string | null
-    team_ids?: string[]
     stop_condition?: string | null
     mascot?: string | null
     mascot_bg?: string | null
@@ -199,73 +177,6 @@ export async function PATCH(
     updateData.stop_condition = stop_condition?.trim() || null
   }
 
-  // Gestion du changement d'équipes (multi-équipes)
-  const selectedTeamIds = team_ids !== undefined ? team_ids : (team_id !== undefined ? (team_id ? [team_id] : []) : undefined)
-
-  if (selectedTeamIds !== undefined) {
-    // Seul le propriétaire peut changer les équipes — mais si un membre envoie les mêmes team_ids qu'avant, on ignore
-    if (existingAgent.user_id !== user.id) {
-      // Récupérer les team_ids actuels de l'agent
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: currentTeamLinks } = await (supabase as any)
-        .from('agent_teams')
-        .select('team_id')
-        .eq('agent_id', id)
-      const currentTeamIds = (currentTeamLinks || []).map((t: { team_id: string }) => t.team_id).sort()
-      const incomingTeamIds = [...selectedTeamIds].sort()
-      const sameTeams = currentTeamIds.length === incomingTeamIds.length &&
-        currentTeamIds.every((tid: string, i: number) => tid === incomingTeamIds[i])
-      if (!sameTeams) {
-        return NextResponse.json({ error: 'Seul le propriétaire peut changer les équipes' }, { status: 403 })
-      }
-      // Mêmes équipes → on skip la mise à jour des équipes pour ce membre
-      // (on continue sans toucher agent_teams)
-      const skipTeamUpdate = true
-      if (skipTeamUpdate) {
-        // Ne pas exécuter le bloc de mise à jour des équipes ci-dessous
-        const updateDataCopy = { ...updateData }
-        if (Object.keys(updateDataCopy).length > 0) {
-          const { data: updatedAgent, error } = await supabase
-            .from('ai_agents')
-            .update(updateDataCopy)
-            .eq('id', id)
-            .select()
-            .single()
-          if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-          return NextResponse.json({ data: updatedAgent })
-        }
-        return NextResponse.json({ data: existingAgent })
-      }
-    }
-
-    // Vérifier que l'utilisateur a accès aux équipes spécifiées
-    if (selectedTeamIds.length > 0) {
-      const userTeamIds = await getUserTeamIds(supabase, user.id)
-      const unauthorized = selectedTeamIds.filter(tid => !userTeamIds.includes(tid))
-      if (unauthorized.length > 0) {
-        return NextResponse.json({ error: 'Équipe(s) non autorisée(s)' }, { status: 403 })
-      }
-    }
-
-    // Mettre à jour la table de liaison
-    // 1. Supprimer les anciennes associations
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any).from('agent_teams').delete().eq('agent_id', id)
-
-    // 2. Créer les nouvelles associations
-    if (selectedTeamIds.length > 0) {
-      const teamAssociations = selectedTeamIds.map(teamId => ({
-        agent_id: id,
-        team_id: teamId,
-      }))
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase as any).from('agent_teams').insert(teamAssociations)
-    }
-
-    // Legacy: garder le premier team_id pour compatibilité
-    updateData.team_id = selectedTeamIds[0] || null
-  }
-
   // Mise à jour si nécessaire
   let agent = existingAgent
   if (Object.keys(updateData).length > 0) {
@@ -286,9 +197,7 @@ export async function PATCH(
     agent = updatedAgent
   }
 
-  return NextResponse.json({
-    data: { ...agent, team_ids: selectedTeamIds ?? (agent.team_id ? [agent.team_id] : []) }
-  })
+  return NextResponse.json({ data: agent })
 }
 
 /** DELETE /api/agents/[id] — Supprimer un agent */

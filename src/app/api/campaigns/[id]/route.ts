@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { canAccessCampaign, isTeamAdmin, getUserTeamIds } from '@/lib/teams/access'
 
 /** GET /api/campaigns/[id] — Récupérer une campagne */
 export async function GET(
@@ -20,17 +19,11 @@ export async function GET(
     .from('campaigns')
     .select('*, relance_agent:ai_agents!relance_agent_id(id, name, system_prompt)')
     .eq('id', id)
+    .eq('user_id', user.id)
     .single()
 
   if (error || !campaign) {
     return NextResponse.json({ error: 'Campagne non trouvée' }, { status: 404 })
-  }
-
-  // Vérifier l'accès avec permissions granulaires
-  const hasAccess = await canAccessCampaign(supabase, user.id, campaign)
-
-  if (!hasAccess) {
-    return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 
   // Récupérer les destinataires
@@ -40,19 +33,9 @@ export async function GET(
     .eq('campaign_id', id)
     .order('created_at', { ascending: true })
 
-  // Récupérer les équipes associées
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: campaignTeams } = await (supabase as any)
-    .from('campaign_teams')
-    .select('team_id')
-    .eq('campaign_id', id)
-
-  const team_ids = campaignTeams?.map((ct: { team_id: string }) => ct.team_id) || []
-
   return NextResponse.json({
     data: {
       ...campaign,
-      team_ids,
       recipients: recipients || [],
     },
   })
@@ -76,18 +59,11 @@ export async function PATCH(
     .from('campaigns')
     .select('*')
     .eq('id', id)
+    .eq('user_id', user.id)
     .single()
 
   if (fetchError || !existing) {
     return NextResponse.json({ error: 'Campagne non trouvée' }, { status: 404 })
-  }
-
-  // Vérifier l'accès (propriétaire ou admin d'équipe)
-  const isOwner = existing.user_id === user.id
-  const isAdmin = existing.team_id ? await isTeamAdmin(supabase, user.id, existing.team_id) : false
-
-  if (!isOwner && !isAdmin) {
-    return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 
   // Vérifier que la campagne est en brouillon ou programmée
@@ -99,8 +75,7 @@ export async function PATCH(
   }
 
   const body = await req.json()
-  const { team_ids, ...otherFields } = body as {
-    team_ids?: string[]
+  const otherFields = body as {
     [key: string]: unknown
   }
   const updateData: Record<string, unknown> = {}
@@ -108,7 +83,6 @@ export async function PATCH(
   // Champs modifiables
   const fields = [
     'name',
-    'team_id',
     'relance_agent_id',
     'conversation_agent_id',
     'message_template',
@@ -133,41 +107,6 @@ export async function PATCH(
     if (field in otherFields) {
       updateData[field] = otherFields[field]
     }
-  }
-
-  // Gestion des équipes (multi-équipes)
-  if (team_ids !== undefined) {
-    // Seul le propriétaire peut changer les équipes
-    if (existing.user_id !== user.id) {
-      return NextResponse.json({ error: 'Seul le propriétaire peut changer les équipes' }, { status: 403 })
-    }
-
-    // Vérifier que l'utilisateur a accès aux équipes spécifiées
-    if (team_ids.length > 0) {
-      const userTeamIds = await getUserTeamIds(supabase, user.id)
-      const unauthorized = team_ids.filter(tid => !userTeamIds.includes(tid))
-      if (unauthorized.length > 0) {
-        return NextResponse.json({ error: 'Équipe(s) non autorisée(s)' }, { status: 403 })
-      }
-    }
-
-    // Mettre à jour la table de liaison
-    // 1. Supprimer les anciennes associations
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any).from('campaign_teams').delete().eq('campaign_id', id)
-
-    // 2. Créer les nouvelles associations
-    if (team_ids.length > 0) {
-      const teamAssociations = team_ids.map(teamId => ({
-        campaign_id: id,
-        team_id: teamId,
-      }))
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      await (supabase as any).from('campaign_teams').insert(teamAssociations)
-    }
-
-    // Legacy: garder le premier team_id pour compatibilité
-    updateData.team_id = team_ids[0] || null
   }
 
   // Vérifier que l'agent est bien de type 'relance' si modifié
@@ -195,7 +134,7 @@ export async function PATCH(
     }
   }
 
-  if (Object.keys(updateData).length === 0 && team_ids === undefined) {
+  if (Object.keys(updateData).length === 0) {
     return NextResponse.json({ error: 'Rien à modifier' }, { status: 400 })
   }
 
@@ -210,12 +149,7 @@ export async function PATCH(
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  return NextResponse.json({
-    data: {
-      ...campaign,
-      team_ids: team_ids ?? (campaign?.team_id ? [campaign.team_id] : [])
-    }
-  })
+  return NextResponse.json({ data: campaign })
 }
 
 /** DELETE /api/campaigns/[id] — Supprimer une campagne */
@@ -234,20 +168,13 @@ export async function DELETE(
   // Récupérer la campagne
   const { data: existing, error: fetchError } = await supabase
     .from('campaigns')
-    .select('user_id, team_id, status')
+    .select('user_id, status')
     .eq('id', id)
+    .eq('user_id', user.id)
     .single()
 
   if (fetchError || !existing) {
     return NextResponse.json({ error: 'Campagne non trouvée' }, { status: 404 })
-  }
-
-  // Vérifier l'accès (propriétaire ou admin d'équipe)
-  const isOwner = existing.user_id === user.id
-  const isAdmin = existing.team_id ? await isTeamAdmin(supabase, user.id, existing.team_id) : false
-
-  if (!isOwner && !isAdmin) {
-    return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 
   // Empêcher la suppression si en cours
@@ -263,6 +190,7 @@ export async function DELETE(
     .from('campaigns')
     .delete()
     .eq('id', id)
+    .eq('user_id', user.id)
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })

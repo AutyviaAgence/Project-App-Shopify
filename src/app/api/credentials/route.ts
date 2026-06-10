@@ -50,7 +50,6 @@ export async function POST(req: NextRequest) {
     name,
     provider,
     credential_type = 'oauth2' as CredentialType,
-    team_id,
     // OAuth fields
     client_id,
     client_secret,
@@ -84,7 +83,6 @@ export async function POST(req: NextRequest) {
       name,
       provider: provider || (credential_type === 'oauth2' ? 'google' : 'custom'),
       credential_type: credential_type as CredentialType,
-      team_id: team_id || null,
       metadata: encryptedMetadata,
       is_connected: credential_type !== 'oauth2',
       client_id: credential_type === 'oauth2' ? client_id : null,

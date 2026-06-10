@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getUserTeamIds, getUserTeamPermissions, buildAccessFilter, filterCampaignsByPermissions } from '@/lib/teams/access'
 import type { CampaignStatus } from '@/types/database'
 
 const VALID_STATUSES: CampaignStatus[] = ['draft', 'scheduled', 'running', 'paused', 'completed', 'cancelled']
@@ -17,22 +16,12 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const statusParam = searchParams.get('status')
 
-  // Récupérer les équipes et permissions de l'utilisateur
-  const teamIds = await getUserTeamIds(supabase, user.id)
-  const permissions = await getUserTeamPermissions(supabase, user.id)
-
   // Construire la requête
   let query = supabase
     .from('campaigns')
     .select('*, relance_agent:ai_agents!relance_agent_id(id, name)')
+    .eq('user_id', user.id)
     .order('created_at', { ascending: false })
-
-  // Filtrer par accès (proprio ou équipe)
-  if (teamIds.length > 0) {
-    query = query.or(buildAccessFilter(user.id, teamIds))
-  } else {
-    query = query.eq('user_id', user.id)
-  }
 
   // Filtrer par statut si spécifié
   if (statusParam && VALID_STATUSES.includes(statusParam as CampaignStatus)) {
@@ -45,37 +34,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // Filtrer selon les permissions granulaires
-  const accessibleCampaigns = filterCampaignsByPermissions(
-    campaigns || [],
-    user.id,
-    permissions
-  )
-
-  // Récupérer les équipes associées pour chaque campagne
-  const campaignIds = accessibleCampaigns.map(c => c.id)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: allCampaignTeams } = await (supabase as any)
-    .from('campaign_teams')
-    .select('campaign_id, team_id')
-    .in('campaign_id', campaignIds.length > 0 ? campaignIds : ['00000000-0000-0000-0000-000000000000'])
-
-  // Créer un map campaign_id -> team_ids[]
-  const teamsByCompaign: Record<string, string[]> = {}
-  for (const ct of allCampaignTeams || []) {
-    if (!teamsByCompaign[ct.campaign_id]) {
-      teamsByCompaign[ct.campaign_id] = []
-    }
-    teamsByCompaign[ct.campaign_id].push(ct.team_id)
-  }
-
-  // Ajouter team_ids à chaque campagne
-  const campaignsWithTeams = accessibleCampaigns.map(campaign => ({
-    ...campaign,
-    team_ids: teamsByCompaign[campaign.id] || (campaign.team_id ? [campaign.team_id] : [])
-  }))
-
-  return NextResponse.json({ data: campaignsWithTeams })
+  return NextResponse.json({ data: campaigns || [] })
 }
 
 /** POST /api/campaigns — Créer une nouvelle campagne */
@@ -90,8 +49,6 @@ export async function POST(req: NextRequest) {
   const body = await req.json()
   const {
     name,
-    team_id,
-    team_ids,
     relance_agent_id,
     conversation_agent_id,
     message_template,
@@ -118,8 +75,6 @@ export async function POST(req: NextRequest) {
     is_active,
   } = body as {
     name: string
-    team_id?: string
-    team_ids?: string[]
     relance_agent_id?: string
     conversation_agent_id?: string
     message_template?: string
@@ -180,24 +135,11 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // Déterminer les équipes à associer (multi-équipes ou legacy single team)
-  const selectedTeamIds = team_ids !== undefined ? team_ids : (team_id ? [team_id] : [])
-
-  // Vérifier l'accès aux équipes spécifiées
-  if (selectedTeamIds.length > 0) {
-    const userTeamIds = await getUserTeamIds(supabase, user.id)
-    const unauthorized = selectedTeamIds.filter(tid => !userTeamIds.includes(tid))
-    if (unauthorized.length > 0) {
-      return NextResponse.json({ error: 'Accès équipe non autorisé' }, { status: 403 })
-    }
-  }
-
   // Créer la campagne
   const { data: campaign, error } = await supabase
     .from('campaigns')
     .insert({
       user_id: user.id,
-      team_id: selectedTeamIds[0] || null, // Legacy: premier team_id pour compatibilité
       name: name.trim(),
       status: scheduled_at ? 'scheduled' : 'draft',
       relance_agent_id: relance_agent_id || null,
@@ -232,20 +174,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // Créer les associations avec les équipes
-  if (selectedTeamIds.length > 0 && campaign) {
-    const teamAssociations = selectedTeamIds.map(teamId => ({
-      campaign_id: campaign.id,
-      team_id: teamId,
-    }))
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any).from('campaign_teams').insert(teamAssociations)
-  }
-
-  return NextResponse.json({
-    data: {
-      ...campaign,
-      team_ids: selectedTeamIds
-    }
-  }, { status: 201 })
+  return NextResponse.json({ data: campaign }, { status: 201 })
 }
