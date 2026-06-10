@@ -135,7 +135,7 @@ function OnboardingSection({ onboardingStatus, onboardingPlan }: { onboardingSta
   const { subscription } = useSubscription()
 
   const handleAcompte = () => {
-    window.location.href = '/onboarding'
+    window.location.href = '/subscription'
   }
 
   // n'afficher que si audit en cours
@@ -208,7 +208,7 @@ function OnboardingSection({ onboardingStatus, onboardingPlan }: { onboardingSta
               <div className="flex justify-between text-muted-foreground/60"><span>J30 — Solde setup + 1er mois abonnement</span><span>445€ + {onboardingPlan ? `${PLANS.find(p => p.id === onboardingPlan)?.price ?? '?'}€` : 'selon plan'}/mois</span></div>
             </div>
             <div className="flex justify-end">
-              <Link href="/onboarding/configurateur">
+              <Link href="/subscription">
                 <Button>
                   <Settings2 className="mr-2 h-4 w-4" />
                   Compléter le configurateur
@@ -797,7 +797,7 @@ function SubscriptionContent() {
                 <Button
                   size="sm"
                   className="bg-sky-600 hover:bg-sky-700 text-white gap-2"
-                  onClick={() => window.location.href = '/onboarding'}
+                  onClick={() => window.location.href = '/subscription'}
                 >
                   <Workflow className="h-4 w-4" />
                   Démarrer l&apos;audit

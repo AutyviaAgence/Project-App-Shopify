@@ -28,7 +28,6 @@ import {
   CreditCard,
   Workflow,
   ShieldCheck,
-  ClipboardList,
   ArrowRight,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -60,7 +59,7 @@ const BOTTOM_NAV_KEYS = [
 ]
 
 // Pages accessibles même sans abonnement actif
-const ALLOWED_WITHOUT_SUBSCRIPTION = ['/subscription', '/settings', '/admin', '/onboarding', '/welcome', '/welcome-v2']
+const ALLOWED_WITHOUT_SUBSCRIPTION = ['/subscription', '/settings', '/admin', '/welcome']
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -91,7 +90,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return items
   }, [t, subscription?.role])
 
-  const auditStatus = subscription?.auditStatus ?? 'none'
   const isWelcomePage = pathname.startsWith('/welcome')
 
   // Vérifier si la page actuelle est accessible sans abonnement
@@ -102,11 +100,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Nouveau modèle : accès direct (essai libre). Plus de redirection forcée
   // vers le configurateur/welcome-v2. Les limites (conversations/tokens IA)
   // sont gérées au cas par cas ; l'abonnement se gère depuis /subscription.
-  const shouldRedirectToWelcome = false
-
-  const isPending = false
-  const isOnboardingOnly = false
-
   // Blocage niveau 2 : a un plan mais subscription inactive (past_due/canceled)
   const isBlocked = !isAdmin && subscription && !!plan && !subscription.isActive && !isAllowedPage
 
@@ -114,23 +107,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // l'analyse IA dedans est gated par plan (géré dans la page elle-même).
   const isPlanBlocked = false
 
-  // Rediriger vers /welcome-v2 si pas de plan actif
-  useEffect(() => {
-    if (shouldRedirectToWelcome) {
-      router.replace('/welcome-v2')
-    }
-  }, [shouldRedirectToWelcome, router])
-
   // Close sidebar on route change (mobile) + escape key
   useEffect(() => {
     setSidebarOpen(false)
   }, [pathname])
 
-  // Rafraîchir l'abonnement quand on quitte le configurateur (pour cacher la bannière après soumission)
+  // Rafraîchir l'abonnement au changement de page
   useEffect(() => {
-    if (!pathname.startsWith('/onboarding/configurateur')) {
-      refetchSubscription()
-    }
+    refetchSubscription()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname])
 
@@ -293,28 +277,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <AlertsDropdown />
         </div>
 
-        {/* Rappel configurateur : affiché pendant l'audit si le formulaire n'a pas été soumis */}
-        {auditStatus === 'acompte_paid' &&
-          subscription &&
-          !subscription.configurateurSubmitted &&
-          !pathname.startsWith('/onboarding') && (
-          <Link
-            href="/onboarding/configurateur"
-            className="flex items-center justify-between gap-3 bg-amber-500 px-4 py-2.5 text-white hover:bg-amber-600 transition-colors"
-          >
-            <div className="flex items-center gap-2 min-w-0">
-              <ClipboardList className="h-4 w-4 shrink-0" />
-              <span className="text-sm font-medium truncate">
-                Action requise : remplissez le configurateur pour que nous puissions préparer votre plateforme.
-              </span>
-            </div>
-            <div className="flex items-center gap-1 shrink-0 text-sm font-semibold">
-              Compléter
-              <ArrowRight className="h-4 w-4" />
-            </div>
-          </Link>
-        )}
-
         {/* Subscription banner */}
         <SubscriptionBanner subscription={subscription} />
 
@@ -322,48 +284,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <main className="flex-1 overflow-y-auto bg-transparent [&_[data-page-header]]:md:pr-14">
           {subscriptionLoading ? (
             <BlobLoaderScreen />
-          ) : isPending ? (
-            <div className="flex h-full items-center justify-center p-6">
-              <div className="max-w-md text-center space-y-6">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-                  <Workflow className="h-8 w-8 text-primary" />
-                </div>
-                <div className="space-y-2">
-                  <h2 className="text-2xl font-bold text-foreground">Bienvenue sur {tenant.appName}</h2>
-                  <p className="text-muted-foreground">
-                    Pour accéder à votre espace, démarrez la mise en place de votre plateforme WhatsApp IA.
-                  </p>
-                </div>
-                <Link
-                  href="/onboarding"
-                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
-                >
-                  <Workflow className="h-5 w-5" />
-                  Démarrer la mise en place
-                </Link>
-              </div>
-            </div>
-          ) : isOnboardingOnly ? (
-            <div className="flex h-full items-center justify-center p-6">
-              <div className="max-w-md text-center space-y-6">
-                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 dark:bg-blue-900/30">
-                  <Workflow className="h-8 w-8 text-blue-600 dark:text-blue-400" />
-                </div>
-                <div className="space-y-2">
-                  <h2 className="text-2xl font-bold text-foreground">Mise en place en cours</h2>
-                  <p className="text-muted-foreground">
-                    Votre acompte a été reçu. Complétez le configurateur pour que nous puissions préparer votre plateforme.
-                  </p>
-                </div>
-                <Link
-                  href="/onboarding/configurateur"
-                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
-                >
-                  <Workflow className="h-5 w-5" />
-                  Compléter le configurateur
-                </Link>
-              </div>
-            </div>
           ) : isPlanBlocked ? (
             <div className="flex h-full items-center justify-center p-6">
               <div className="max-w-md text-center space-y-6">

@@ -274,7 +274,7 @@ function PricingPageInner() {
               </div>
               <div className="flex flex-col gap-2 shrink-0">
                 <Link
-                  href="/onboarding"
+                  href="/subscription"
                   className="inline-flex items-center gap-2 rounded-lg bg-sky-500 px-4 py-2 text-sm font-medium text-white hover:bg-sky-600 transition-colors"
                 >
                   Démarrer l&apos;audit — 990€
