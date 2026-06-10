@@ -10,6 +10,7 @@ import {
   FileText,
   ScrollText,
   Scale,
+  Trash2,
   ArrowLeft,
   Mail,
   Calendar,
@@ -21,6 +22,7 @@ const LEGAL_PAGES = [
   { href: '/privacy', label: 'Politique de confidentialité', labelEn: 'Privacy Policy', icon: Shield, color: 'text-blue-500' },
   { href: '/cgu', label: "Conditions d'utilisation", labelEn: 'Terms of Use', icon: FileText, color: 'text-violet-500' },
   { href: '/cgv', label: 'Conditions de vente', labelEn: 'Terms of Sale', icon: ScrollText, color: 'text-emerald-500' },
+  { href: '/data-deletion', label: 'Suppression des données', labelEn: 'Data Deletion', icon: Trash2, color: 'text-rose-500' },
   { href: '/legal', label: 'Mentions légales', labelEn: 'Legal Notice', icon: Scale, color: 'text-amber-500' },
 ]
 
