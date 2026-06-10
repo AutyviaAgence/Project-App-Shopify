@@ -71,5 +71,22 @@ export async function POST(req: NextRequest) {
     emailBody: `Bonjour,\n\nVotre commande ${orderName} vient d'être expédiée.${tracking ? `\nSuivi : ${tracking}` : ''}\n\nMerci pour votre confiance.`,
   })
 
+  // Déclencheur campagne auto : événement Shopify "order_fulfilled"
+  const { data: autoCampaigns } = await admin
+    .from('campaigns')
+    .select('id')
+    .eq('user_id', store.user_id)
+    .eq('campaign_mode', 'auto')
+    .eq('is_active', true)
+    .eq('trigger_type', 'shopify_event')
+    .eq('trigger_event', 'order_fulfilled')
+  if (autoCampaigns && autoCampaigns.length > 0) {
+    const { startCampaignExecution } = await import('@/lib/campaigns/executor')
+    for (const c of autoCampaigns) {
+      await admin.from('campaigns').update({ status: 'running', started_at: new Date().toISOString() }).eq('id', c.id)
+      startCampaignExecution(c.id)
+    }
+  }
+
   return NextResponse.json({ received: true, sent: result.sent })
 }
