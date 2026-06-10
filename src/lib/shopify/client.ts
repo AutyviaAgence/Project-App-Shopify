@@ -162,6 +162,65 @@ export async function registerWebhooks(shop: string, accessToken: string): Promi
   return { ok: errors.length === 0, errors }
 }
 
+/**
+ * Récupère les commandes récentes d'un client par email ou téléphone.
+ * Utilisé pour afficher le contexte Shopify à côté d'une conversation.
+ */
+export async function findOrdersByCustomer(
+  shop: string,
+  accessToken: string,
+  opts: { email?: string | null; phone?: string | null }
+) {
+  // Construire la requête de recherche Shopify (email prioritaire, sinon téléphone)
+  const clauses: string[] = []
+  if (opts.email) clauses.push(`email:${opts.email}`)
+  if (opts.phone) clauses.push(`phone:${opts.phone}`)
+  if (clauses.length === 0) return { ok: true as const, data: [] }
+
+  const q = clauses.join(' OR ')
+  const res = await shopifyGraphQL<{
+    orders: {
+      edges: {
+        node: {
+          id: string
+          name: string
+          createdAt: string
+          displayFinancialStatus: string | null
+          displayFulfillmentStatus: string | null
+          totalPriceSet: { shopMoney: { amount: string; currencyCode: string } }
+          fulfillments: { trackingInfo: { number: string | null; url: string | null }[] }[]
+        }
+      }[]
+    }
+  }>(
+    shop,
+    accessToken,
+    `query($q: String!) {
+       orders(first: 5, query: $q, sortKey: CREATED_AT, reverse: true) {
+         edges { node {
+           id name createdAt
+           displayFinancialStatus displayFulfillmentStatus
+           totalPriceSet { shopMoney { amount currencyCode } }
+           fulfillments(first: 1) { trackingInfo { number url } }
+         } }
+       }
+     }`,
+    { q }
+  )
+  if (!res.ok) return res
+  const orders = res.data.orders.edges.map((e) => ({
+    id: e.node.id,
+    name: e.node.name,
+    createdAt: e.node.createdAt,
+    financialStatus: e.node.displayFinancialStatus,
+    fulfillmentStatus: e.node.displayFulfillmentStatus,
+    total: e.node.totalPriceSet.shopMoney.amount,
+    currency: e.node.totalPriceSet.shopMoney.currencyCode,
+    tracking: e.node.fulfillments[0]?.trackingInfo[0] || null,
+  }))
+  return { ok: true as const, data: orders }
+}
+
 // ─── Actions write (exécutées UNIQUEMENT après validation humaine) ──
 
 /** Retrouve l'ID GraphQL d'une commande à partir de son numéro (#1024 → gid). */

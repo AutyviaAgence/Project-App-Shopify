@@ -13,6 +13,7 @@ import { useTranslation } from '@/i18n/context'
 import { useSubscription } from '@/hooks/use-subscription'
 import { ConversationList } from './_components/conversation-list'
 import { ChatArea } from './_components/chat-area'
+import { ShopifyContextPanel } from './_components/shopify-context-panel'
 import type { ConversationWithJoins, Team, Message, AIAgent, LifecycleStage } from './_components/types'
 import { BlobLoaderScreen } from '@/components/blob-loader'
 
@@ -855,6 +856,9 @@ function ConversationsPageContent() {
         onChangeLifecycleStage={handleChangeLifecycleStage}
         onAnalyzeConversation={handleAnalyzeConversation}
       />
+
+      {/* Contexte Shopify : commandes du client (helpdesk e-commerce) */}
+      {selectedConv && <ShopifyContextPanel contactId={selectedConv.contact_id} />}
 
       {/* Contact profile panel */}
       <ContactProfilePanel
