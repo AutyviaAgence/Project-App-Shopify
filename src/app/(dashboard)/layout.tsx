@@ -12,6 +12,8 @@ import {
   Smartphone,
   Bot,
   Library,
+  BookOpen,
+  Link2,
   BarChart3,
   LogOut,
   Settings,
@@ -48,7 +50,8 @@ const NAV_ITEMS_KEYS = [
   { href: '/agents', labelKey: 'nav.agents', icon: Bot },
   { href: '/actions', labelKey: 'nav.actions', icon: ShoppingBag },
   { href: '/templates', labelKey: 'nav.templates', icon: FileText },
-  { href: '/ressources', labelKey: 'nav.resources', icon: Library },
+  { href: '/ressources', labelKey: 'nav.resources', label: 'Connaissances', icon: BookOpen },
+  { href: '/acquisition', labelKey: 'nav.acquisition', label: 'Acquisition', icon: Link2 },
   { href: '/stats', labelKey: 'nav.stats', icon: BarChart3 },
 ]
 
