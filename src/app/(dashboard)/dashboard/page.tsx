@@ -156,7 +156,7 @@ function OnboardingChecklist({ checklist, onRefresh }: { checklist: Checklist; o
       description: 'Gérez vos emails depuis le même inbox que WhatsApp.',
       icon: Mail,
       done: checklist.email_connected,
-      href: '/sessions',
+      href: '/dashboard',
       cta: 'Connecter',
       color: 'from-indigo-500/20 to-blue-500/10',
       iconColor: 'text-indigo-400',
@@ -293,7 +293,7 @@ function OnboardingChecklist({ checklist, onRefresh }: { checklist: Checklist; o
             ? 'border-primary/20 bg-primary/5'
             : 'border-muted-foreground/20 hover:border-primary/30 cursor-pointer'
         )}
-        onClick={() => !checklist.email_connected && router.push('/sessions')}
+        onClick={() => !checklist.email_connected && router.push('/dashboard')}
       >
         <div className={cn(
           'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl',

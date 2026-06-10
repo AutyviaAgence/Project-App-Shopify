@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useCallback, createContext, useContext } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
@@ -17,7 +17,7 @@ interface TourStep {
   description: string
   position?: 'top' | 'bottom' | 'left' | 'right'
   action?: 'click' | 'hover' | 'none'
-  requiredPlan?: 'pro' | 'scale' // step masqué si le plan ne l'autorise pas
+  requiredPlan?: 'pro' | 'scale' // step masquÃ© si le plan ne l'autorise pas
 }
 
 interface TourContextType {
@@ -36,7 +36,7 @@ const ALL_TOUR_STEPS: TourStep[] = [
   // Sessions
   {
     id: 'sessions-page',
-    page: '/sessions',
+    page: '/dashboard',
     target: '[data-tour="sessions-header"]',
     title: 'tour.sessions_title',
     description: 'tour.sessions_desc',
@@ -44,7 +44,7 @@ const ALL_TOUR_STEPS: TourStep[] = [
   },
   {
     id: 'sessions-new',
-    page: '/sessions',
+    page: '/dashboard',
     target: '[data-tour="new-session-btn"]',
     title: 'tour.connect_title',
     description: 'tour.connect_desc',
@@ -67,7 +67,7 @@ const ALL_TOUR_STEPS: TourStep[] = [
     description: 'tour.create_agent_desc',
     position: 'left'
   },
-  // Ressources — Bibliothèque
+  // Ressources â€” BibliothÃ¨que
   {
     id: 'knowledge-page',
     page: '/ressources',
@@ -85,7 +85,7 @@ const ALL_TOUR_STEPS: TourStep[] = [
     description: 'tour.conversations_desc',
     position: 'bottom'
   },
-  // Ressources — Liens
+  // Ressources â€” Liens
   {
     id: 'links-page',
     page: '/ressources',
@@ -94,7 +94,7 @@ const ALL_TOUR_STEPS: TourStep[] = [
     description: 'tour.links_desc',
     position: 'bottom'
   },
-  // Campaigns — Scale uniquement
+  // Campaigns â€” Scale uniquement
   {
     id: 'campaigns-page',
     page: '/campaigns',
@@ -125,7 +125,7 @@ const ALL_TOUR_STEPS: TourStep[] = [
   // End
   {
     id: 'tour-end',
-    page: '/sessions',
+    page: '/dashboard',
     target: '[data-tour="sessions-header"]',
     title: 'tour.ready_title',
     description: 'tour.ready_desc',
@@ -347,7 +347,7 @@ function TourOverlay() {
 
   return (
     <div className="fixed inset-0 z-[9999] pointer-events-none overflow-visible">
-      {/* Dark overlay with hole for target - plus léger et permet le scroll */}
+      {/* Dark overlay with hole for target - plus lÃ©ger et permet le scroll */}
       <svg className="absolute inset-0 w-full h-full" style={{ pointerEvents: 'none' }}>
         <defs>
           <mask id="spotlight-mask">

@@ -323,7 +323,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
           {/* ═══ CANAUX ═══ (colonne droite, haute : 2 rangées) */}
           <Group title="Canaux" subtitle="Numéros sur lesquels cet agent répond" className="md:col-span-1 md:row-span-2">
             {sessions.length === 0 ? (
-              <button onClick={() => router.push('/sessions')} className="w-full py-6 text-center text-sm text-muted-foreground hover:text-foreground transition-colors">
+              <button onClick={() => router.push('/dashboard')} className="w-full py-6 text-center text-sm text-muted-foreground hover:text-foreground transition-colors">
                 Aucune session · Connecter WhatsApp →
               </button>
             ) : (

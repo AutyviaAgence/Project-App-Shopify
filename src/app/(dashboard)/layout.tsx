@@ -59,7 +59,7 @@ const BOTTOM_NAV_KEYS = [
 ]
 
 // Pages accessibles même sans abonnement actif
-const ALLOWED_WITHOUT_SUBSCRIPTION = ['/subscription', '/settings', '/admin', '/welcome']
+const ALLOWED_WITHOUT_SUBSCRIPTION = ['/subscription', '/settings', '/admin']
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -89,8 +89,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
     return items
   }, [t, subscription?.role])
-
-  const isWelcomePage = pathname.startsWith('/welcome')
 
   // Vérifier si la page actuelle est accessible sans abonnement
   const isAllowedPage = ALLOWED_WITHOUT_SUBSCRIPTION.some(

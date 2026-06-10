@@ -24,6 +24,7 @@ import {
   Brain,
   Sparkles,
   Settings2,
+  ArrowRight,
   ChevronLeft,
   ChevronRight,
   MessageSquare,
@@ -183,12 +184,6 @@ export default function AgentsPage() {
     fetchAgents()
   }, [fetchAgents])
 
-  // Onboarding direct : aucun agent → rediriger vers l'assistant de création
-  useEffect(() => {
-    if (!loading && agents.length === 0) {
-      router.replace('/agents/new')
-    }
-  }, [loading, agents.length, router])
 
   // Chemin de création UNIQUE : on redirige toujours vers le wizard guidé.
   useEffect(() => {
@@ -354,12 +349,40 @@ export default function AgentsPage() {
       </div>
 
       {/* Zone : carrousel centré, bouton Nouvel agent juste en dessous */}
-      <div className="flex flex-1 flex-col items-center justify-center py-6">
+      <div className={cn('flex flex-1 flex-col py-6', agents.length === 0 ? 'items-start px-6' : 'items-center justify-center')}>
       {agents.length === 0 ? (
-        // Onboarding direct : redirection vers l'assistant en cours
-        <div className="flex flex-col items-center justify-center gap-3 py-12 text-muted-foreground">
-          <Loader2 className="h-6 w-6 animate-spin" />
-          <p className="text-sm">{t('agents.create_with_assistant')}…</p>
+        // Onboarding intégré (à gauche, pas plein écran)
+        <div className="w-full max-w-md space-y-3">
+          <div className="mb-1">
+            <h2 className="text-xl font-bold">Créons ton premier agent IA</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Tu préfères être guidé ou tout configurer toi-même ?</p>
+          </div>
+          <button
+            onClick={() => router.push('/agents/new')}
+            className="group flex w-full items-center gap-3 rounded-xl border border-primary/40 bg-primary/5 p-4 text-left transition-colors hover:bg-primary/10"
+          >
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
+              <Sparkles className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="font-semibold">Je débute</div>
+              <div className="text-sm text-muted-foreground">On te pose quelques questions et on crée l&apos;agent pour toi.</div>
+            </div>
+            <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+          </button>
+          <button
+            onClick={openCreateDialog}
+            className="group flex w-full items-center gap-3 rounded-xl border p-4 text-left transition-colors hover:bg-muted/50"
+          >
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+              <Settings2 className="h-5 w-5" />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="font-semibold">Je suis à l&apos;aise</div>
+              <div className="text-sm text-muted-foreground">Accès direct à la configuration manuelle complète.</div>
+            </div>
+            <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+          </button>
         </div>
       ) : (
         (() => {

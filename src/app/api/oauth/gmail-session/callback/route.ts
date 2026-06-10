@@ -18,11 +18,11 @@ export async function GET(req: NextRequest) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
   if (error) {
-    return NextResponse.redirect(`${appUrl}/sessions?oauth_error=${encodeURIComponent(error)}`)
+    return NextResponse.redirect(`${appUrl}/dashboard?oauth_error=${encodeURIComponent(error)}`)
   }
 
   if (!code || !stateB64) {
-    return NextResponse.redirect(`${appUrl}/sessions?oauth_error=${encodeURIComponent('Missing code or state')}`)
+    return NextResponse.redirect(`${appUrl}/dashboard?oauth_error=${encodeURIComponent('Missing code or state')}`)
   }
 
   // Vérifier le state
@@ -32,14 +32,14 @@ export async function GET(req: NextRequest) {
     const hmacSecret = process.env.SUPABASE_SERVICE_ROLE_KEY!
     const expectedSig = createHmac('sha256', hmacSecret).update(wrapper.d).digest('hex')
     if (wrapper.s !== expectedSig) {
-      return NextResponse.redirect(`${appUrl}/sessions?oauth_error=${encodeURIComponent('Invalid state signature')}`)
+      return NextResponse.redirect(`${appUrl}/dashboard?oauth_error=${encodeURIComponent('Invalid state signature')}`)
     }
     state = JSON.parse(wrapper.d)
     if (Date.now() - state.ts > 15 * 60 * 1000) {
-      return NextResponse.redirect(`${appUrl}/sessions?oauth_error=${encodeURIComponent('State expired')}`)
+      return NextResponse.redirect(`${appUrl}/dashboard?oauth_error=${encodeURIComponent('State expired')}`)
     }
   } catch {
-    return NextResponse.redirect(`${appUrl}/sessions?oauth_error=${encodeURIComponent('Invalid state')}`)
+    return NextResponse.redirect(`${appUrl}/dashboard?oauth_error=${encodeURIComponent('Invalid state')}`)
   }
 
   // Le state HMAC signé garantit l'identité — pas besoin de vérifier la session Supabase
@@ -84,7 +84,7 @@ export async function GET(req: NextRequest) {
     })
     if (!watchRes.ok) console.error('[Gmail Session OAuth] Watch failed:', await watchRes.text())
 
-    return NextResponse.redirect(`${appUrl}/sessions?oauth_success=gmail&tab=email`)
+    return NextResponse.redirect(`${appUrl}/dashboard?oauth_success=gmail&tab=email`)
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Token exchange failed'
     console.error('[Gmail Session OAuth] Error:', message)
@@ -96,6 +96,6 @@ export async function GET(req: NextRequest) {
     )
     await adminSupabase.from('email_sessions').delete().eq('id', emailSessionId)
 
-    return NextResponse.redirect(`${appUrl}/sessions?oauth_error=${encodeURIComponent(message)}`)
+    return NextResponse.redirect(`${appUrl}/dashboard?oauth_error=${encodeURIComponent(message)}`)
   }
 }
