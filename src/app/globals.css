@@ -352,3 +352,61 @@
   50% { opacity: 0.8; transform: translateX(-50%) scale(1.1); }
 }
 .agent-onboarding-glow { animation: agentOnboardingGlow 4s ease-in-out infinite; }
+
+/* ── Scrollbar globale personnalisée (fine, bleu Xeyo, sans flèches) ── */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(54, 94, 255, 0.4) transparent;
+}
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(54, 94, 255, 0.35);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgba(54, 94, 255, 0.6);
+  background-clip: padding-box;
+}
+/* Supprime les flèches haut/bas du scrollbar */
+*::-webkit-scrollbar-button {
+  display: none;
+  width: 0;
+  height: 0;
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* ── Grille de carrés animée (fond onboarding agent) ── */
+.animated-grid-bg {
+  background-image:
+    linear-gradient(rgba(54, 94, 255, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(54, 94, 255, 0.07) 1px, transparent 1px);
+  background-size: 44px 44px;
+  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 30%, transparent 75%);
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 30%, transparent 75%);
+  animation: gridDrift 20s linear infinite;
+}
+@keyframes gridDrift {
+  0% { background-position: 0 0, 0 0; }
+  100% { background-position: 44px 44px, 44px 44px; }
+}
+/* Carrés qui pulsent çà et là */
+.animated-grid-square {
+  position: absolute;
+  border-radius: 4px;
+  background: rgba(54, 94, 255, 0.12);
+  animation: squarePulse 4s ease-in-out infinite;
+}
+@keyframes squarePulse {
+  0%, 100% { opacity: 0; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1); }
+}

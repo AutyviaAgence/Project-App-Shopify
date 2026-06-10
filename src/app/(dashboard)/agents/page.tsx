@@ -349,7 +349,18 @@ export default function AgentsPage() {
       </div>
 
       {/* Zone : carrousel centré, bouton Nouvel agent juste en dessous */}
-      <div className={cn('flex flex-1 flex-col py-6', agents.length === 0 ? 'items-center justify-center px-6' : 'items-center justify-center')}>
+      <div className={cn('relative flex flex-1 flex-col py-6', agents.length === 0 ? 'items-center justify-center px-6' : 'items-center justify-center')}>
+      {/* Grille de carrés animée en arrière-fond (onboarding) */}
+      {agents.length === 0 && (
+        <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+          <div className="absolute inset-0 animated-grid-bg" />
+          <span className="animated-grid-square" style={{ left: '18%', top: '28%', width: 26, height: 26, animationDelay: '0s' }} />
+          <span className="animated-grid-square" style={{ left: '78%', top: '22%', width: 18, height: 18, animationDelay: '1.2s' }} />
+          <span className="animated-grid-square" style={{ left: '24%', top: '70%', width: 22, height: 22, animationDelay: '2.4s' }} />
+          <span className="animated-grid-square" style={{ left: '72%', top: '66%', width: 30, height: 30, animationDelay: '0.6s' }} />
+          <span className="animated-grid-square" style={{ left: '50%', top: '14%', width: 16, height: 16, animationDelay: '3s' }} />
+        </div>
+      )}
       {agents.length === 0 ? (
         // Onboarding intégré, centré et animé
         <div className="relative w-full max-w-lg">
