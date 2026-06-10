@@ -16,6 +16,9 @@ interface Campaign {
   relance_agent_id: string | null
   conversation_agent_id: string | null
   message_template: string | null
+  // Nouveau : template Meta approuvé (prioritaire sur message_template/agent IA)
+  template_id: string | null
+  template_params: Record<string, string> | null
   delay_between_min: number
   delay_between_max: number
   messages_per_hour: number
@@ -99,9 +102,24 @@ async function executeCampaign(supabase: any, campaign: Campaign): Promise<void>
     .single()
   const userTimezone = profile?.timezone || 'Europe/Paris'
 
-  // Récupérer l'agent IA si configuré
+  // Récupérer le template Meta approuvé (mode prioritaire pour la relance hors fenêtre 24h)
+  let template: { name: string; language: string } | null = null
+  if (campaign.template_id) {
+    const { data } = await supabase
+      .from('whatsapp_templates')
+      .select('name, language, status')
+      .eq('id', campaign.template_id)
+      .single()
+    if (data && data.status === 'approved') {
+      template = { name: data.name, language: data.language }
+    } else {
+      console.error(`[Campaign ${campaignId}] Template ${campaign.template_id} introuvable ou non approuvé`)
+    }
+  }
+
+  // Récupérer l'agent IA si configuré (legacy — utilisé seulement sans template)
   let agent: AIAgent | null = null
-  if (campaign.relance_agent_id) {
+  if (!template && campaign.relance_agent_id) {
     const { data } = await supabase
       .from('ai_agents')
       .select('id, system_prompt, model, temperature')
@@ -236,7 +254,7 @@ async function executeCampaign(supabase: any, campaign: Campaign): Promise<void>
         .replace(/{phone_number}/g, safePhone)
     }
 
-    if (!message) {
+    if (!message && !template) {
       await supabase
         .from('campaign_recipients')
         .update({ status: 'skipped', error_message: 'Pas de message à envoyer' })
@@ -250,11 +268,18 @@ async function executeCampaign(supabase: any, campaign: Campaign): Promise<void>
       .update({ status: 'sending' })
       .eq('id', recipient.id)
 
-    // Envoyer le message via WABA
+    // Envoyer via WABA : template Meta approuvé (prioritaire) sinon message texte
     const sessionDelay = session.ai_message_delay ?? 0
-    const result = await withSessionDelay(session.id, sessionDelay, () =>
-      sendWhatsAppMessage(session, contact.phone_number, message)
-    )
+    const result = await withSessionDelay(session.id, sessionDelay, () => {
+      if (template) {
+        // Paramètres du template : valeurs de campaign.template_params, avec {contact_name} résolu
+        const params = Object.values(campaign.template_params || {}).map((v) =>
+          String(v).replace(/{contact_name}/g, contact.name || 'Client')
+        )
+        return sendCampaignTemplate(session, contact.phone_number, template!.name, template!.language, params)
+      }
+      return sendWhatsAppMessage(session, contact.phone_number, message)
+    })
 
     if (result.success) {
       await supabase
@@ -392,6 +417,46 @@ async function sendWhatsAppMessage(
         to: phoneNumber,
         type: 'text',
         text: { body: message },
+      }),
+    })
+    if (!response.ok) {
+      const error = await response.text()
+      return { success: false, error }
+    }
+    return { success: true }
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : 'Erreur inconnue' }
+  }
+}
+
+/** Envoie un template WhatsApp approuvé (pour relance hors fenêtre 24h). */
+async function sendCampaignTemplate(
+  session: { waba_phone_number_id?: string | null; waba_access_token?: string | null },
+  phoneNumber: string,
+  templateName: string,
+  languageCode: string,
+  params: string[]
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const token = session.waba_access_token ? decryptMessage(session.waba_access_token) : null
+    if (!session.waba_phone_number_id || !token) {
+      return { success: false, error: 'Credentials WABA manquants' }
+    }
+    const components = params.length > 0
+      ? [{ type: 'body', parameters: params.map((p) => ({ type: 'text', text: p })) }]
+      : []
+    const response = await fetch(`https://graph.facebook.com/v22.0/${session.waba_phone_number_id}/messages`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to: phoneNumber,
+        type: 'template',
+        template: {
+          name: templateName,
+          language: { code: languageCode },
+          ...(components.length > 0 ? { components } : {}),
+        },
       }),
     })
     if (!response.ok) {
