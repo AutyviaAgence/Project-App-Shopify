@@ -15,6 +15,7 @@ import { Eye, EyeOff } from 'lucide-react'
 import Script from 'next/script'
 import { useTranslation } from '@/i18n/context'
 import { useTenant } from '@/lib/tenant/context'
+import { AuthBrandPanel } from '@/components/auth-brand-panel'
 
 const TURNSTILE_SITE_KEY = '0x4AAAAAACxrGN3L2YWh3XHJ'
 
@@ -330,10 +331,13 @@ function RegisterForm() {
 
 export default function RegisterPage() {
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
-      <Suspense fallback={<div className="animate-pulse">Loading...</div>}>
-        <RegisterForm />
-      </Suspense>
+    <div className="grid min-h-screen lg:grid-cols-2">
+      <AuthBrandPanel />
+      <div className="flex items-center justify-center px-4 py-10">
+        <Suspense fallback={<div className="animate-pulse">Loading...</div>}>
+          <RegisterForm />
+        </Suspense>
+      </div>
     </div>
   )
 }
