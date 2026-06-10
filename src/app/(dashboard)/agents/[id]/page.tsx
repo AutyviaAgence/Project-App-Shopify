@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, use } from 'react'
+import { useEffect, useState, use, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
@@ -36,6 +36,8 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   const [docs, setDocs]             = useState<KnowledgeDocument[]>([])
   const [images, setImages]         = useState<KnowledgeImage[]>([])
   const [allDocs, setAllDocs]       = useState<KnowledgeDocument[]>([])
+  const [uploadingDoc, setUploadingDoc] = useState(false)
+  const uploadDocRef = useRef<HTMLInputElement>(null)
 
   const [name, setName]             = useState('')
   const [description, setDescription] = useState('')
@@ -165,6 +167,26 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   async function handleDetachDoc(docId: string) {
     await fetch(`/api/agents/${id}/knowledge/${docId}`, { method: 'DELETE' })
     setDocs(prev => prev.filter(d => d.id !== docId))
+  }
+
+  // Upload d'un document sur place (puis attaché automatiquement à l'agent)
+  async function handleUploadAndAttach(file: File) {
+    setUploadingDoc(true)
+    try {
+      const form = new FormData()
+      form.append('file', file)
+      form.append('name', file.name)
+      const res = await fetch('/api/knowledge', { method: 'POST', body: form })
+      const json = await res.json()
+      if (!res.ok || !json.data?.id) throw new Error(json.error || 'Erreur upload')
+      await handleAttachDoc(json.data.id)
+      setAllDocs(prev => [json.data, ...prev])
+      toast.success('Document uploadé et ajouté')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erreur')
+    } finally {
+      setUploadingDoc(false)
+    }
   }
 
   async function handleToggleSession(s: WhatsAppSession) {
@@ -548,11 +570,22 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
               <p className="text-sm text-center text-muted-foreground py-4">Tous les documents sont déjà attachés</p>
             )}
           </div>
-          <Link href="/knowledge">
-            <Button variant="outline" className="w-full rounded-xl">
-              <Upload className="mr-2 h-4 w-4" /> Uploader un document
-            </Button>
-          </Link>
+          <input
+            ref={uploadDocRef}
+            type="file"
+            accept=".pdf,.doc,.docx,.txt,.md,.csv"
+            className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleUploadAndAttach(f); e.target.value = '' }}
+          />
+          <Button
+            variant="outline"
+            className="w-full rounded-xl"
+            disabled={uploadingDoc}
+            onClick={() => uploadDocRef.current?.click()}
+          >
+            {uploadingDoc ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+            Uploader un document
+          </Button>
         </DialogContent>
       </Dialog>
 
