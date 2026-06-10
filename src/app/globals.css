@@ -388,25 +388,26 @@
 /* ── Grille de carrés animée (fond onboarding agent) ── */
 .animated-grid-bg {
   background-image:
-    linear-gradient(rgba(54, 94, 255, 0.07) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(54, 94, 255, 0.07) 1px, transparent 1px);
-  background-size: 44px 44px;
-  -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 30%, transparent 75%);
-  mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 30%, transparent 75%);
-  animation: gridDrift 20s linear infinite;
+    linear-gradient(rgba(59, 130, 246, 0.18) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(59, 130, 246, 0.18) 1px, transparent 1px);
+  background-size: 48px 48px;
+  -webkit-mask-image: radial-gradient(ellipse 75% 70% at 50% 45%, #000 45%, transparent 85%);
+  mask-image: radial-gradient(ellipse 75% 70% at 50% 45%, #000 45%, transparent 85%);
+  animation: gridDrift 22s linear infinite;
 }
 @keyframes gridDrift {
   0% { background-position: 0 0, 0 0; }
-  100% { background-position: 44px 44px, 44px 44px; }
+  100% { background-position: 48px 48px, 48px 48px; }
 }
 /* Carrés qui pulsent çà et là */
 .animated-grid-square {
   position: absolute;
-  border-radius: 4px;
-  background: rgba(54, 94, 255, 0.12);
+  border-radius: 5px;
+  background: rgba(59, 130, 246, 0.28);
+  box-shadow: 0 0 16px rgba(59, 130, 246, 0.35);
   animation: squarePulse 4s ease-in-out infinite;
 }
 @keyframes squarePulse {
-  0%, 100% { opacity: 0; transform: scale(0.8); }
-  50% { opacity: 1; transform: scale(1); }
+  0%, 100% { opacity: 0; transform: scale(0.7); }
+  50% { opacity: 1; transform: scale(1.05); }
 }
