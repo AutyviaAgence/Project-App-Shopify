@@ -100,11 +100,51 @@ export default function PrivacyPage() {
         <li><strong>Meta Platforms Ireland Ltd.</strong> : acheminement des messages via l&apos;API WhatsApp Business. Les messages et numéros transitent par l&apos;infrastructure de Meta, soumise à la <a href="https://www.whatsapp.com/legal/business-policy" target="_blank" rel="noopener noreferrer">Politique commerciale WhatsApp</a> et à la politique de confidentialité de Meta.</li>
         <li><strong>Shopify Inc.</strong> (Canada/UE) : si vous connectez une boutique, accès en lecture aux données de boutique nécessaires au fonctionnement de l&apos;agent (produits, commandes, clients selon les autorisations accordées).</li>
         <li><strong>OpenAI Inc.</strong> (USA) : traitement IA des messages</li>
-        <li><strong>Google LLC</strong> (USA) : uniquement si vous connectez un outil Google (ex. Agenda) à un agent, dans la limite des autorisations que vous accordez.</li>
+        <li><strong>Google LLC</strong> (USA) : uniquement si vous utilisez la connexion « Se connecter avec Google » (authentification), pour récupérer votre nom, adresse email et photo de profil afin de créer et gérer votre compte.</li>
         <li><strong>Stripe Inc.</strong> (USA/Europe) : traitement des paiements - Certifié PCI-DSS</li>
       </ul>
 
       <p><strong>Nous ne vendons jamais vos données personnelles à des tiers.</strong></p>
+
+      <h2>Notre rôle : fournisseur de technologie et sous-traitant</h2>
+      <p>
+        Xeyo agit en qualité de <strong>fournisseur de technologie (Tech Provider)</strong> et de
+        <strong> sous-traitant (data processor)</strong> au sens du RGPD : nous traitons les données
+        pour le compte de nos clients marchands, qui restent les <strong>responsables de traitement</strong>
+        (data controllers) vis-à-vis de leurs propres clients (les utilisateurs finaux).
+      </p>
+      <p>
+        Dans le cadre de l&apos;API WhatsApp Business, nous traitons les données des
+        <strong> utilisateurs finaux WhatsApp</strong> (les clients de nos marchands) — numéros,
+        noms, contenus de messages — uniquement pour permettre au marchand de leur répondre.
+        <strong> Meta Platforms</strong> intervient comme sous-traitant pour l&apos;acheminement de ces messages.
+      </p>
+
+      <h2>Connexion Google (authentification)</h2>
+      <p>
+        Xeyo propose la connexion via Google (« Se connecter avec Google »). Dans ce cadre, nous
+        recevons votre <strong>nom, adresse email et photo de profil</strong> dans le seul but de
+        créer et gérer votre compte. Nous n&apos;accédons à aucune autre donnée Google (ni Gmail,
+        ni Drive, ni Agenda).
+      </p>
+      <p>
+        L&apos;usage et le transfert par Xeyo des informations reçues des API Google adhèrent à la{' '}
+        <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer">
+          Google API Services User Data Policy
+        </a>, y compris les exigences <strong>Limited Use</strong>.
+      </p>
+
+      <h2>Conformité Shopify</h2>
+      <p>
+        Lorsque vous connectez une boutique Shopify, vous êtes responsable de traitement et Xeyo
+        agit comme sous-traitant. Conformément aux exigences de Shopify, nous prenons en charge les
+        webhooks de conformité obligatoires :
+      </p>
+      <ul>
+        <li><strong>customers/data_request</strong> : sur demande d&apos;un client, fournir les données détenues le concernant ;</li>
+        <li><strong>customers/redact</strong> : supprimer les données personnelles d&apos;un client pour la boutique concernée ;</li>
+        <li><strong>shop/redact</strong> : 48h après désinstallation de l&apos;application, supprimer l&apos;ensemble des données personnelles associées à la boutique.</li>
+      </ul>
 
       <h2>Durée de conservation</h2>
       <ul>
