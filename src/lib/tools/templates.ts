@@ -47,55 +47,10 @@ export type ToolTemplate = {
 // TEMPLATES
 // ============================================================
 
-export const TOOL_TEMPLATES: Record<Exclude<AgentToolType, 'custom'>, ToolTemplate> = {
-  google_calendar: {
-    type: 'google_calendar',
-    name: 'Google Calendar',
-    description: 'Check availability, create and cancel events',
-    icon: 'calendar',
-    auth: {
-      type: 'oauth2',
-      fields: [
-        { key: 'client_id', label: 'Client ID', placeholder: 'xxxx.apps.googleusercontent.com', secret: false },
-        { key: 'client_secret', label: 'Client Secret', placeholder: 'GOCSPX-...', secret: true },
-        { key: 'calendar_id', label: 'Calendar ID', placeholder: 'primary', secret: false },
-      ],
-      oauth_url: 'https://accounts.google.com/o/oauth2/v2/auth',
-    },
-    base_url: 'https://www.googleapis.com/calendar/v3',
-    functions: [
-      {
-        name: 'check_availability',
-        description: 'Check available time slots on a given date. Use this when someone asks about availability or free slots.',
-        parameters: [
-          { name: 'date', type: 'string', description: 'The date to check (YYYY-MM-DD format)', required: true },
-          { name: 'duration_minutes', type: 'number', description: 'Duration of the slot in minutes (default 60)', required: false },
-        ],
-        permission: 'read',
-      },
-      {
-        name: 'create_event',
-        description: 'Create a calendar event / appointment. Always confirm with the user before creating.',
-        parameters: [
-          { name: 'title', type: 'string', description: 'Event title', required: true },
-          { name: 'start_datetime', type: 'string', description: 'Start date and time (ISO 8601)', required: true },
-          { name: 'end_datetime', type: 'string', description: 'End date and time (ISO 8601)', required: true },
-          { name: 'attendee_email', type: 'string', description: 'Attendee email address', required: false },
-          { name: 'description', type: 'string', description: 'Event description', required: false },
-        ],
-        permission: 'write',
-      },
-      {
-        name: 'cancel_event',
-        description: 'Cancel/delete a calendar event. IMPORTANT: You MUST first call check_availability to get the real event ID from the events list. Never guess or invent an event_id. Always confirm with the user before cancelling.',
-        parameters: [
-          { name: 'event_id', type: 'string', description: 'The real event ID obtained from check_availability response (e.g. "abc123xyz"). Never invent this value.', required: true },
-        ],
-        permission: 'write',
-      },
-    ],
-  },
-
+// Outils proposés aux agents. Gmail, Calendar et Distance Calculator ont été
+// retirés (hors scope SAV e-commerce) ; les types restent dans l'union pour ne
+// pas casser d'anciennes données. La connexion Google (login) est indépendante.
+export const TOOL_TEMPLATES: Partial<Record<Exclude<AgentToolType, 'custom'>, ToolTemplate>> = {
   shopify: {
     type: 'shopify',
     name: 'Shopify',
@@ -270,54 +225,6 @@ export const TOOL_TEMPLATES: Record<Exclude<AgentToolType, 'custom'>, ToolTempla
     ],
   },
 
-  google_gmail: {
-    type: 'google_gmail',
-    name: 'Gmail',
-    description: 'Send emails via Gmail. The AI can compose and send emails to specific recipients.',
-    icon: 'mail',
-    auth: {
-      type: 'oauth2',
-      fields: [
-        { key: 'client_id', label: 'Client ID', placeholder: 'xxxx.apps.googleusercontent.com', secret: false },
-        { key: 'client_secret', label: 'Client Secret', placeholder: 'GOCSPX-...', secret: true },
-      ],
-      oauth_url: 'https://accounts.google.com/o/oauth2/v2/auth',
-    },
-    base_url: 'https://gmail.googleapis.com/gmail/v1',
-    functions: [
-      {
-        name: 'send_email',
-        description: 'Send an email to a recipient. Always confirm the recipient, subject and content with the user before sending.',
-        parameters: [
-          { name: 'to', type: 'string', description: 'Recipient email address', required: true },
-          { name: 'subject', type: 'string', description: 'Email subject line', required: true },
-          { name: 'body', type: 'string', description: 'Email body content (plain text or HTML)', required: true },
-          { name: 'cc', type: 'string', description: 'CC email address (optional)', required: false },
-          { name: 'bcc', type: 'string', description: 'BCC email address (optional)', required: false },
-          { name: 'is_html', type: 'boolean', description: 'Set to true if body contains HTML (default: false)', required: false },
-        ],
-        permission: 'write',
-      },
-      {
-        name: 'list_emails',
-        description: 'List recent emails from the inbox. Use to check recent messages or find a specific email.',
-        parameters: [
-          { name: 'query', type: 'string', description: 'Search query (e.g. "from:john@example.com" or "subject:invoice")', required: false },
-          { name: 'max_results', type: 'number', description: 'Maximum number of emails to return (default: 5, max: 10)', required: false },
-        ],
-        permission: 'read',
-      },
-      {
-        name: 'read_email',
-        description: 'Read the full content of a specific email by its ID. Use list_emails first to get the ID.',
-        parameters: [
-          { name: 'email_id', type: 'string', description: 'The email ID from list_emails', required: true },
-        ],
-        permission: 'read',
-      },
-    ],
-  },
-
   google_sheets: {
     type: 'google_sheets',
     name: 'Google Sheets',
@@ -436,32 +343,6 @@ export const TOOL_TEMPLATES: Record<Exclude<AgentToolType, 'custom'>, ToolTempla
     ],
   },
 
-  distance_calculator: {
-    type: 'distance_calculator',
-    name: 'Calculateur de distance & prix',
-    description: 'Calcule la distance entre deux adresses et estime le prix selon une grille tarifaire kilométrique. Utilise OpenStreetMap (gratuit, sans clé API).',
-    icon: 'map-pin',
-    auth: {
-      type: 'api_key',
-      fields: [
-        { key: 'minimum_price', label: 'Prix minimum global (€) — si aucun minimum par véhicule', placeholder: '120', secret: false },
-        { key: 'night_surcharge', label: 'Supplément nuit % (ex: 15)', placeholder: '15', secret: false },
-        { key: 'vehicles', label: 'Véhicules (JSON)', placeholder: '[{"name":"Berline","price_per_km":"2.50","minimum_price":"120"},{"name":"Van","price_per_km":"3.20","minimum_price":"150"}]', secret: false },
-      ],
-    },
-    functions: [
-      {
-        name: 'calculate_price',
-        description: 'Calcule la distance en km entre deux adresses et retourne le prix estimé pour chaque véhicule. Utilise ce tool AVANT de donner un prix au client.',
-        parameters: [
-          { name: 'origin', type: 'string', description: 'Adresse de départ (ex: "CDG Terminal 2, Paris", "Gare du Nord, Paris")', required: true },
-          { name: 'destination', type: 'string', description: 'Adresse de destination (ex: "Tour Eiffel, Paris", "Versailles")', required: true },
-          { name: 'night_trip', type: 'boolean', description: 'true si le trajet est entre 22h et 6h (supplément nuit)', required: false },
-        ],
-        permission: 'read',
-      },
-    ],
-  },
 }
 
 /**
