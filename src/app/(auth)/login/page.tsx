@@ -14,6 +14,7 @@ import { Eye, EyeOff } from 'lucide-react'
 import { useTranslation } from '@/i18n/context'
 import { useTenant } from '@/lib/tenant/context'
 import { AuthBrandPanel } from '@/components/auth-brand-panel'
+import { AuthLegalFooter } from '@/components/auth-legal-footer'
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '0x4AAAAAACxrGN3L2YWh3XHJ'
 
@@ -204,12 +205,13 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="grid min-h-screen lg:grid-cols-2">
+    <div className="grid min-h-screen bg-[#050505] lg:grid-cols-2">
       <AuthBrandPanel />
-      <div className="flex items-center justify-center px-4 py-10">
+      <div className="relative flex flex-col items-center justify-center px-4 py-10">
         <Suspense fallback={<div className="animate-pulse">Loading...</div>}>
           <LoginForm />
         </Suspense>
+        <AuthLegalFooter />
       </div>
     </div>
   )

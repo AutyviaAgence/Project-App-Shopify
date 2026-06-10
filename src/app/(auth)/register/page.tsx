@@ -16,6 +16,7 @@ import Script from 'next/script'
 import { useTranslation } from '@/i18n/context'
 import { useTenant } from '@/lib/tenant/context'
 import { AuthBrandPanel } from '@/components/auth-brand-panel'
+import { AuthLegalFooter } from '@/components/auth-legal-footer'
 
 const TURNSTILE_SITE_KEY = '0x4AAAAAACxrGN3L2YWh3XHJ'
 
@@ -192,7 +193,7 @@ function RegisterForm() {
         <div className="flex justify-center mb-4">
           <Image src={tenant.logoUrl} alt={tenant.appName} width={64} height={64} className="h-16 w-16" />
         </div>
-        <CardTitle className="text-2xl font-bold">{t('auth.register')}</CardTitle>
+        <CardTitle className="text-3xl font-bold">{t('auth.register')}</CardTitle>
         <CardDescription>{t('auth.register_desc', { appName: tenant.appName })}</CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
@@ -331,12 +332,13 @@ function RegisterForm() {
 
 export default function RegisterPage() {
   return (
-    <div className="grid min-h-screen lg:grid-cols-2">
+    <div className="grid min-h-screen bg-[#050505] lg:grid-cols-2">
       <AuthBrandPanel />
-      <div className="flex items-center justify-center px-4 py-10">
+      <div className="relative flex flex-col items-center justify-center px-4 py-10">
         <Suspense fallback={<div className="animate-pulse">Loading...</div>}>
           <RegisterForm />
         </Suspense>
+        <AuthLegalFooter />
       </div>
     </div>
   )
