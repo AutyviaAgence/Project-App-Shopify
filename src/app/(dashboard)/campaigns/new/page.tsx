@@ -67,6 +67,10 @@ export default function NewCampaignPage() {
   // Template Meta approuvé (remplace l'agent IA / message libre pour les campagnes)
   const [templateId, setTemplateId] = useState<string>('')
   const [approvedTemplates, setApprovedTemplates] = useState<{ id: string; name: string; language: string }[]>([])
+  // Mode (manuel/auto) + déclencheur automatique
+  const [campaignMode, setCampaignMode] = useState<'manual' | 'auto'>('manual')
+  const [triggerType, setTriggerType] = useState<'inactivity' | 'shopify_event' | 'scheduled' | 'tag'>('inactivity')
+  const [triggerEvent, setTriggerEvent] = useState<string>('order_fulfilled')
 
   // Filters
   const [filterSessionIds, setFilterSessionIds] = useState<string[]>([])
@@ -154,6 +158,10 @@ export default function NewCampaignPage() {
           conversation_agent_id: conversationAgentId || null,
           message_template: null,
           template_id: templateId || null,
+          campaign_mode: campaignMode,
+          trigger_type: campaignMode === 'auto' ? triggerType : null,
+          trigger_event: campaignMode === 'auto' && triggerType === 'shopify_event' ? triggerEvent : null,
+          is_active: campaignMode === 'auto',
           filter_session_ids: filterSessionIds.length > 0 ? filterSessionIds : null,
           filter_tracking_sources: filterTrackingSources.length > 0 ? filterTrackingSources : null,
           filter_link_ids: filterLinkIds.length > 0 ? filterLinkIds : null,
@@ -230,6 +238,10 @@ export default function NewCampaignPage() {
           conversation_agent_id: conversationAgentId || null,
           message_template: null,
           template_id: templateId || null,
+          campaign_mode: campaignMode,
+          trigger_type: campaignMode === 'auto' ? triggerType : null,
+          trigger_event: campaignMode === 'auto' && triggerType === 'shopify_event' ? triggerEvent : null,
+          is_active: campaignMode === 'auto',
           filter_session_ids: filterSessionIds.length > 0 ? filterSessionIds : null,
           filter_tracking_sources: filterTrackingSources.length > 0 ? filterTrackingSources : null,
           filter_link_ids: filterLinkIds.length > 0 ? filterLinkIds : null,
@@ -383,6 +395,67 @@ export default function NewCampaignPage() {
                     Seuls les modèles approuvés par Meta peuvent être envoyés en campagne (hors fenêtre 24h).
                   </p>
                 </>
+              )}
+            </div>
+
+            {/* Mode : manuel ou automatique */}
+            <div className="space-y-3 pt-4 border-t">
+              <Label className="flex items-center gap-2">
+                <Workflow className="h-4 w-4" />
+                Déclenchement
+              </Label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setCampaignMode('manual')}
+                  className={`rounded-lg border p-3 text-left text-sm ${campaignMode === 'manual' ? 'border-primary bg-primary/5' : 'border-border'}`}
+                >
+                  <div className="font-medium">Manuel</div>
+                  <div className="text-xs text-muted-foreground">Vous lancez la campagne vous-même</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCampaignMode('auto')}
+                  className={`rounded-lg border p-3 text-left text-sm ${campaignMode === 'auto' ? 'border-primary bg-primary/5' : 'border-border'}`}
+                >
+                  <div className="font-medium">Automatique</div>
+                  <div className="text-xs text-muted-foreground">Déclenchée selon une règle</div>
+                </button>
+              </div>
+
+              {campaignMode === 'auto' && (
+                <div className="space-y-2">
+                  <Label className="text-xs">Règle de déclenchement</Label>
+                  <Select value={triggerType} onValueChange={(v) => setTriggerType(v as typeof triggerType)}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="inactivity">Inactivité (X jours sans réponse)</SelectItem>
+                      <SelectItem value="shopify_event">Événement Shopify</SelectItem>
+                      <SelectItem value="scheduled">Date / horaire planifié</SelectItem>
+                      <SelectItem value="tag">Tag ajouté à un contact</SelectItem>
+                    </SelectContent>
+                  </Select>
+
+                  {triggerType === 'shopify_event' && (
+                    <Select value={triggerEvent} onValueChange={setTriggerEvent}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Événement" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="order_fulfilled">Commande expédiée</SelectItem>
+                        <SelectItem value="order_delivered">Commande livrée</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    {triggerType === 'inactivity' && 'Relance les contacts inactifs selon le nombre de jours défini plus bas (filtres).'}
+                    {triggerType === 'shopify_event' && 'Envoie le modèle automatiquement quand l\'événement Shopify se produit.'}
+                    {triggerType === 'scheduled' && 'La campagne partira à la date planifiée (filtres ci-dessous).'}
+                    {triggerType === 'tag' && 'Quand un contact reçoit le tag sélectionné dans les filtres, il entre dans la campagne.'}
+                  </p>
+                </div>
               )}
             </div>
 

@@ -111,6 +111,11 @@ export async function POST(req: NextRequest) {
     min_response_rate,
     min_days_since_last_campaign,
     scheduled_at,
+    template_id,
+    campaign_mode,
+    trigger_type,
+    trigger_event,
+    is_active,
   } = body as {
     name: string
     team_id?: string
@@ -118,6 +123,11 @@ export async function POST(req: NextRequest) {
     relance_agent_id?: string
     conversation_agent_id?: string
     message_template?: string
+    template_id?: string
+    campaign_mode?: 'manual' | 'auto'
+    trigger_type?: string
+    trigger_event?: string
+    is_active?: boolean
     filter_session_ids?: string[]
     filter_tracking_sources?: string[]
     filter_link_ids?: string[]
@@ -141,9 +151,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Le nom est requis' }, { status: 400 })
   }
 
-  if (!message_template && !relance_agent_id) {
+  // Nouvelle logique : un template Meta approuvé est requis (les campagnes
+  // n'utilisent plus l'agent IA). On garde la compat si un template_id est fourni.
+  if (!template_id && !message_template && !relance_agent_id) {
     return NextResponse.json(
-      { error: 'Un message template ou un agent de relance est requis' },
+      { error: 'Un modèle WhatsApp approuvé est requis' },
       { status: 400 }
     )
   }
@@ -191,6 +203,11 @@ export async function POST(req: NextRequest) {
       relance_agent_id: relance_agent_id || null,
       conversation_agent_id: conversation_agent_id || null,
       message_template: message_template?.trim() || null,
+      template_id: template_id || null,
+      campaign_mode: campaign_mode || 'manual',
+      trigger_type: trigger_type || null,
+      trigger_event: trigger_event || null,
+      is_active: is_active ?? false,
       filter_session_ids: filter_session_ids || null,
       filter_tracking_sources: filter_tracking_sources || null,
       filter_link_ids: filter_link_ids || null,
