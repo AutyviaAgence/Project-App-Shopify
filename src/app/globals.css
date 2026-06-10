@@ -339,3 +339,16 @@
     padding-top: env(safe-area-inset-top);
   }
 }
+
+/* Onboarding agent IA — animations */
+@keyframes agentOnboardingPulse {
+  0%, 100% { transform: scale(1); opacity: 0.5; }
+  50% { transform: scale(1.25); opacity: 0; }
+}
+.agent-onboarding-pulse { animation: agentOnboardingPulse 2.5s ease-in-out infinite; }
+
+@keyframes agentOnboardingGlow {
+  0%, 100% { opacity: 0.5; transform: translateX(-50%) scale(1); }
+  50% { opacity: 0.8; transform: translateX(-50%) scale(1.1); }
+}
+.agent-onboarding-glow { animation: agentOnboardingGlow 4s ease-in-out infinite; }

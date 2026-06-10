@@ -349,40 +349,58 @@ export default function AgentsPage() {
       </div>
 
       {/* Zone : carrousel centré, bouton Nouvel agent juste en dessous */}
-      <div className={cn('flex flex-1 flex-col py-6', agents.length === 0 ? 'items-start px-6' : 'items-center justify-center')}>
+      <div className={cn('flex flex-1 flex-col py-6', agents.length === 0 ? 'items-center justify-center px-6' : 'items-center justify-center')}>
       {agents.length === 0 ? (
-        // Onboarding intégré (à gauche, pas plein écran)
-        <div className="w-full max-w-md space-y-3">
-          <div className="mb-1">
-            <h2 className="text-xl font-bold">Créons ton premier agent IA</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Tu préfères être guidé ou tout configurer toi-même ?</p>
+        // Onboarding intégré, centré et animé
+        <div className="relative w-full max-w-lg">
+          {/* Halo animé en fond */}
+          <div className="pointer-events-none absolute left-1/2 top-0 -z-10 h-72 w-72 -translate-x-1/2 rounded-full bg-primary/20 blur-3xl agent-onboarding-glow" />
+
+          <div className="flex flex-col items-center text-center">
+            {/* Icône cerveau animée */}
+            <div className="relative mb-5 flex h-20 w-20 items-center justify-center">
+              <span className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary/30 to-accent/20 agent-onboarding-pulse" />
+              <span className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary to-accent opacity-90" />
+              <Brain className="relative h-9 w-9 text-white" />
+            </div>
+            <h2 className="text-2xl font-bold tracking-tight">Créons ton premier agent IA</h2>
+            <p className="mt-1.5 max-w-sm text-sm text-muted-foreground">
+              Un agent intelligent qui répond automatiquement à vos clients, 24/7.
+            </p>
           </div>
-          <button
-            onClick={() => router.push('/agents/new')}
-            className="group flex w-full items-center gap-3 rounded-xl border border-primary/40 bg-primary/5 p-4 text-left transition-colors hover:bg-primary/10"
-          >
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-primary">
-              <Sparkles className="h-5 w-5" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="font-semibold">Je débute</div>
-              <div className="text-sm text-muted-foreground">On te pose quelques questions et on crée l&apos;agent pour toi.</div>
-            </div>
-            <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-          </button>
-          <button
-            onClick={openCreateDialog}
-            className="group flex w-full items-center gap-3 rounded-xl border p-4 text-left transition-colors hover:bg-muted/50"
-          >
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-              <Settings2 className="h-5 w-5" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="font-semibold">Je suis à l&apos;aise</div>
-              <div className="text-sm text-muted-foreground">Accès direct à la configuration manuelle complète.</div>
-            </div>
-            <ArrowRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-          </button>
+
+          <div className="mt-7 space-y-3">
+            <button
+              onClick={() => router.push('/agents/new')}
+              className="group relative flex w-full items-center gap-4 overflow-hidden rounded-2xl border border-primary/40 bg-gradient-to-br from-primary/10 to-accent/5 p-5 text-left shadow-sm transition-all hover:border-primary hover:shadow-md hover:shadow-primary/10"
+            >
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-white shadow-sm transition-transform group-hover:scale-105">
+                <Sparkles className="h-6 w-6" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold">Je débute</span>
+                  <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">Recommandé</span>
+                </div>
+                <div className="mt-0.5 text-sm text-muted-foreground">On te pose quelques questions et on crée l&apos;agent pour toi.</div>
+              </div>
+              <ArrowRight className="h-5 w-5 shrink-0 text-primary transition-transform group-hover:translate-x-1" />
+            </button>
+
+            <button
+              onClick={openCreateDialog}
+              className="group flex w-full items-center gap-4 rounded-2xl border p-5 text-left transition-all hover:border-foreground/20 hover:bg-muted/40"
+            >
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground transition-transform group-hover:scale-105">
+                <Settings2 className="h-6 w-6" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold">Je suis à l&apos;aise</div>
+                <div className="mt-0.5 text-sm text-muted-foreground">Accès direct à la configuration manuelle complète.</div>
+              </div>
+              <ArrowRight className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" />
+            </button>
+          </div>
         </div>
       ) : (
         (() => {
