@@ -7,6 +7,8 @@ import type { ConversationTag } from '@/types/database'
 import { toast } from 'sonner'
 import { ContactProfilePanel } from '@/components/contact-profile-panel'
 import { LifecycleStagesDialog } from '@/components/lifecycle-stages-dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import { useTranslation } from '@/i18n/context'
 import { useSubscription } from '@/hooks/use-subscription'
 import { ConversationList } from './_components/conversation-list'
@@ -49,6 +51,9 @@ function ConversationsPageContent() {
   const [hasMoreMessages, setHasMoreMessages] = useState(false)
   const [loadingOlder, setLoadingOlder] = useState(false)
   const [sending, setSending] = useState(false)
+  // Bascule template hors fenêtre 24h
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false)
+  const [approvedTemplates, setApprovedTemplates] = useState<{ id: string; name: string; language: string; body_text?: string }[]>([])
   const [agents, setAgents] = useState<AIAgent[]>([])
   const [profileOpen, setProfileOpen] = useState(false)
 
@@ -276,8 +281,13 @@ function ConversationsPageContent() {
       const json = await res.json()
 
       if (!res.ok) {
-        toast.error(json.error || t('conversations.send_error'))
         setMessages((prev) => prev.filter((m) => m.id !== optimistic.id))
+        // Hors fenêtre 24h → proposer d'envoyer un modèle approuvé (bascule)
+        if (json.window_closed) {
+          setTemplateDialogOpen(true)
+        } else {
+          toast.error(json.error || t('conversations.send_error'))
+        }
         return
       }
 
@@ -293,6 +303,42 @@ function ConversationsPageContent() {
       setSending(false)
     }
   }, [selectedConv, sending, t])
+
+  // Charger les modèles approuvés quand on ouvre la bascule template
+  useEffect(() => {
+    if (!templateDialogOpen) return
+    fetch('/api/templates')
+      .then((r) => r.json())
+      .then((j) => {
+        if (j.data) setApprovedTemplates(j.data.filter((tpl: { status: string }) => tpl.status === 'approved'))
+      })
+      .catch(() => {})
+  }, [templateDialogOpen])
+
+  // Envoyer un modèle approuvé (recontact hors fenêtre 24h)
+  const handleSendTemplate = useCallback(async (templateId: string) => {
+    if (!selectedConv) return
+    setSending(true)
+    try {
+      const res = await fetch(`/api/conversations/${selectedConv.id}/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ template_id: templateId }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        toast.error(json.error || t('conversations.send_error'))
+        return
+      }
+      if (json.data) setMessages((prev) => [...prev, json.data])
+      setTemplateDialogOpen(false)
+      toast.success('Modèle envoyé')
+    } catch {
+      toast.error(t('common.network_error'))
+    } finally {
+      setSending(false)
+    }
+  }, [selectedConv, t])
 
   const handleSendEmail = useCallback(async (content: string, subject: string, attachments?: File[]) => {
     if (!selectedConv || sending) return
@@ -830,6 +876,41 @@ function ConversationsPageContent() {
         stages={lifecycleStages}
         onStagesChanged={fetchLifecycleStages}
       />
+
+      {/* Bascule template : le client est hors fenêtre 24h */}
+      <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Recontacter avec un modèle</DialogTitle>
+            <DialogDescription>
+              Ce client n&apos;a pas écrit depuis plus de 24h. WhatsApp n&apos;autorise plus le texte libre :
+              choisissez un modèle approuvé par Meta pour le recontacter.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 max-h-80 overflow-y-auto">
+            {approvedTemplates.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4 text-center">
+                Aucun modèle approuvé. Créez-en un dans Modèles et faites-le approuver par Meta.
+              </p>
+            ) : (
+              approvedTemplates.map((tpl) => (
+                <button
+                  key={tpl.id}
+                  onClick={() => handleSendTemplate(tpl.id)}
+                  disabled={sending}
+                  className="w-full rounded-lg border p-3 text-left transition-colors hover:border-primary disabled:opacity-50"
+                >
+                  <div className="font-medium text-sm">{tpl.name} <span className="text-xs text-muted-foreground">({tpl.language})</span></div>
+                  {tpl.body_text && <div className="mt-1 text-xs text-muted-foreground line-clamp-2">{tpl.body_text}</div>}
+                </button>
+              ))
+            )}
+          </div>
+          <div className="flex justify-end">
+            <Button variant="outline" onClick={() => setTemplateDialogOpen(false)}>Annuler</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

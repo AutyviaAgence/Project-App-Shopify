@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
-import { sendMessage, sendMediaMessage } from '@/lib/messaging/send'
+import { sendMessage, sendMediaMessage, decryptWabaToken } from '@/lib/messaging/send'
+import { wabaClient } from '@/lib/whatsapp-cloud/client'
 import { getConversationWindow } from '@/lib/whatsapp-cloud/window'
 import { encryptMessage } from '@/lib/crypto/encryption'
 import { canAccessSession } from '@/lib/teams/access'
@@ -240,6 +241,52 @@ export async function POST(
   // === TEXTE (JSON) ===
   const body = await req.json()
   const content = body.content as string
+  const templateId = body.template_id as string | undefined
+
+  // === TEMPLATE (recontact hors fenêtre 24h) ===
+  // Si un template_id est fourni, on envoie un modèle approuvé : c'est le SEUL
+  // moyen autorisé par Meta de recontacter un client hors de la fenêtre 24h.
+  if (templateId) {
+    const { data: tpl } = await supabase
+      .from('whatsapp_templates')
+      .select('name, language, status, body_text')
+      .eq('id', templateId)
+      .maybeSingle()
+    if (!tpl || tpl.status !== 'approved') {
+      return NextResponse.json({ error: 'Modèle introuvable ou non approuvé' }, { status: 400 })
+    }
+    const params = Array.isArray(body.template_params) ? (body.template_params as string[]) : []
+    const components = params.length > 0
+      ? [{ type: 'body', parameters: params.map((p) => ({ type: 'text', text: String(p) })) }]
+      : []
+    const token = decryptWabaToken(session)
+    if (!session.waba_phone_number_id || !token) {
+      return NextResponse.json({ error: 'Credentials WABA manquants' }, { status: 502 })
+    }
+    const tplRes = await wabaClient.sendTemplateWithParams(
+      session.waba_phone_number_id, token, contact.phone_number, tpl.name, tpl.language, components
+    )
+    if (!tplRes.ok) {
+      const wasDisconnected = await handleDisconnectedSession(tplRes.error, session)
+      return NextResponse.json({ error: tplRes.error, disconnected: wasDisconnected }, { status: wasDisconnected ? 409 : 502 })
+    }
+    // Enregistrer le message (le corps du template comme aperçu)
+    const preview = tpl.body_text || `[Modèle : ${tpl.name}]`
+    const { data: msg } = await supabase
+      .from('messages')
+      .insert({
+        conversation_id: id,
+        session_id: session.id,
+        direction: 'outbound',
+        content: encryptMessage(preview),
+        message_type: 'text',
+        sent_by: 'user',
+        status: 'sent',
+      })
+      .select()
+      .single()
+    return NextResponse.json({ data: msg ? { ...msg, content: preview } : null })
+  }
 
   if (!content || content.trim().length === 0) {
     return NextResponse.json({ error: 'Message vide' }, { status: 400 })
