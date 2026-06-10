@@ -34,6 +34,7 @@ import {
   Link2,
   AlertTriangle,
   Workflow,
+  FileText,
 } from 'lucide-react'
 import { getSessionDisplayName } from '@/lib/format-phone'
 import { BlobLoaderScreen } from '@/components/blob-loader'
@@ -61,10 +62,11 @@ export default function NewCampaignPage() {
   // Form state
   const [name, setName] = useState('')
   const [teamIds, setTeamIds] = useState<string[]>([])
-  const [useAgent, setUseAgent] = useState(true)
   const [agentId, setAgentId] = useState<string>('')
   const [conversationAgentId, setConversationAgentId] = useState<string>('')
-  const [messageTemplate, setMessageTemplate] = useState('')
+  // Template Meta approuvé (remplace l'agent IA / message libre pour les campagnes)
+  const [templateId, setTemplateId] = useState<string>('')
+  const [approvedTemplates, setApprovedTemplates] = useState<{ id: string; name: string; language: string }[]>([])
 
   // Filters
   const [filterSessionIds, setFilterSessionIds] = useState<string[]>([])
@@ -86,20 +88,22 @@ export default function NewCampaignPage() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [sessionsRes, agentsRes, tagsRes, linksRes, lifecycleRes] = await Promise.all([
+      const [sessionsRes, agentsRes, tagsRes, linksRes, lifecycleRes, templatesRes] = await Promise.all([
         fetch('/api/sessions'),
         fetch('/api/agents'),
         fetch('/api/tags'),
         fetch('/api/links'),
         fetch('/api/lifecycle/stages'),
+        fetch('/api/templates'),
       ])
 
-      const [sessionsJson, agentsJson, tagsJson, linksJson, lifecycleJson] = await Promise.all([
+      const [sessionsJson, agentsJson, tagsJson, linksJson, lifecycleJson, templatesJson] = await Promise.all([
         sessionsRes.json(),
         agentsRes.json(),
         tagsRes.json(),
         linksRes.json(),
         lifecycleRes.json(),
+        templatesRes.json(),
       ])
 
       if (sessionsJson.data) setSessions(sessionsJson.data)
@@ -109,6 +113,12 @@ export default function NewCampaignPage() {
       if (tagsJson.data) setTags(tagsJson.data)
       if (linksJson.data) setLinks(linksJson.data)
       if (lifecycleJson.data) setLifecycleStages(lifecycleJson.data)
+      if (templatesJson.data) {
+        // Seuls les modèles approuvés par Meta
+        setApprovedTemplates(
+          templatesJson.data.filter((tpl: { status: string }) => tpl.status === 'approved')
+        )
+      }
 
       const sourcesRes = await fetch('/api/conversations?tracking_sources=true')
       const sourcesJson = await sourcesRes.json()
@@ -140,9 +150,10 @@ export default function NewCampaignPage() {
         body: JSON.stringify({
           name: name.trim(),
           team_ids: teamIds.length > 0 ? teamIds : undefined,
-          relance_agent_id: useAgent && agentId ? agentId : null,
+          relance_agent_id: null,
           conversation_agent_id: conversationAgentId || null,
-          message_template: !useAgent ? messageTemplate : null,
+          message_template: null,
+          template_id: templateId || null,
           filter_session_ids: filterSessionIds.length > 0 ? filterSessionIds : null,
           filter_tracking_sources: filterTrackingSources.length > 0 ? filterTrackingSources : null,
           filter_link_ids: filterLinkIds.length > 0 ? filterLinkIds : null,
@@ -202,13 +213,8 @@ export default function NewCampaignPage() {
       return
     }
 
-    if (useAgent && !agentId) {
-      toast.error(t('campaigns.agent_required'))
-      return
-    }
-
-    if (!useAgent && !messageTemplate.trim()) {
-      toast.error(t('campaigns.template_required'))
+    if (!templateId) {
+      toast.error('Sélectionnez un modèle WhatsApp approuvé')
       return
     }
 
@@ -220,9 +226,10 @@ export default function NewCampaignPage() {
         body: JSON.stringify({
           name: name.trim(),
           team_ids: teamIds.length > 0 ? teamIds : undefined,
-          relance_agent_id: useAgent && agentId ? agentId : null,
+          relance_agent_id: null,
           conversation_agent_id: conversationAgentId || null,
-          message_template: !useAgent ? messageTemplate : null,
+          message_template: null,
+          template_id: templateId || null,
           filter_session_ids: filterSessionIds.length > 0 ? filterSessionIds : null,
           filter_tracking_sources: filterTrackingSources.length > 0 ? filterTrackingSources : null,
           filter_link_ids: filterLinkIds.length > 0 ? filterLinkIds : null,
@@ -341,55 +348,43 @@ export default function NewCampaignPage() {
           <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <Label className="flex items-center gap-2">
-                <Bot className="h-4 w-4" />
-                {t('campaigns.use_ai_agent')}
+                <FileText className="h-4 w-4" />
+                Modèle WhatsApp à envoyer
               </Label>
-              <Switch checked={useAgent} onCheckedChange={setUseAgent} />
             </div>
 
-            {useAgent ? (
-              <div className="space-y-2">
-                <Label>{t('campaigns.relance_agent')}</Label>
-                {relanceAgents.length === 0 ? (
-                  <div className="p-4 bg-muted rounded-lg text-center">
-                    <AlertTriangle className="h-8 w-8 mx-auto mb-2 text-yellow-500" />
-                    <p className="text-sm text-muted-foreground">
-                      {t('campaigns.no_relance_agent')}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {t('campaigns.create_relance_help')}
-                    </p>
-                  </div>
-                ) : (
-                  <Select value={agentId} onValueChange={setAgentId}>
+            {/* Sélecteur de template Meta approuvé (obligatoire hors fenêtre 24h) */}
+            <div className="space-y-2">
+              {approvedTemplates.length === 0 ? (
+                <div className="p-4 bg-muted rounded-lg text-center">
+                  <AlertTriangle className="h-8 w-8 mx-auto mb-2 text-yellow-500" />
+                  <p className="text-sm text-muted-foreground">
+                    Aucun modèle approuvé par Meta
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Créez et faites approuver un modèle dans Modèles avant de lancer une campagne.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <Select value={templateId} onValueChange={setTemplateId}>
                     <SelectTrigger>
-                      <SelectValue placeholder={t('campaigns.select_agent')} />
+                      <SelectValue placeholder="Choisir un modèle approuvé" />
                     </SelectTrigger>
                     <SelectContent>
-                      {relanceAgents.map((agent) => (
-                        <SelectItem key={agent.id} value={agent.id}>
-                          {agent.name}
+                      {approvedTemplates.map((tpl) => (
+                        <SelectItem key={tpl.id} value={tpl.id}>
+                          {tpl.name} ({tpl.language})
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <Label htmlFor="template">{t('campaigns.message_template')}</Label>
-                <Textarea
-                  id="template"
-                  placeholder={t('campaigns.message_template_placeholder')}
-                  value={messageTemplate}
-                  onChange={(e) => setMessageTemplate(e.target.value)}
-                  rows={4}
-                />
-                <p className="text-xs text-muted-foreground">
-                  {t('campaigns.message_template_help')}
-                </p>
-              </div>
-            )}
+                  <p className="text-xs text-muted-foreground">
+                    Seuls les modèles approuvés par Meta peuvent être envoyés en campagne (hors fenêtre 24h).
+                  </p>
+                </>
+              )}
+            </div>
 
             {/* Agent de conversation pour le suivi */}
             <div className="space-y-2 pt-4 border-t">
@@ -729,7 +724,7 @@ export default function NewCampaignPage() {
           <Button
             className="flex-1"
             onClick={handleSave}
-            disabled={saving || previewing || !name.trim() || (useAgent && !agentId) || (!useAgent && !messageTemplate.trim())}
+            disabled={saving || previewing || !name.trim() || !templateId}
           >
             {saving ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
