@@ -710,6 +710,7 @@ export function ChatArea({
               onSendText={onSendText}
               onSendMedia={onSendMedia}
               sending={sending}
+              conversationId={selectedConv?.id}
             />
           )}
         </>

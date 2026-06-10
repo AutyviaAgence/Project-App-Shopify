@@ -14,6 +14,7 @@ import {
   FileText,
   Video,
   Zap,
+  Sparkles,
 } from 'lucide-react'
 import { useTranslation } from '@/i18n/context'
 import type { Macro } from '@/types/database'
@@ -22,9 +23,10 @@ interface MessageInputProps {
   onSendText: (content: string) => Promise<void>
   onSendMedia: (file: File, caption?: string) => Promise<void>
   sending: boolean
+  conversationId?: string
 }
 
-export function MessageInput({ onSendText, onSendMedia, sending }: MessageInputProps) {
+export function MessageInput({ onSendText, onSendMedia, sending, conversationId }: MessageInputProps) {
   const { t } = useTranslation()
   const inputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -48,6 +50,23 @@ export function MessageInput({ onSendText, onSendMedia, sending }: MessageInputP
     inputRef.current?.focus()
     // Incrémenter le compteur d'usage (best effort)
     fetch(`/api/macros/${m.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ used: true }) }).catch(() => {})
+  }
+
+  // Suggestion IA : génère un brouillon de réponse (à relire avant envoi)
+  const [suggesting, setSuggesting] = useState(false)
+  async function suggestReply() {
+    if (!conversationId || suggesting) return
+    setSuggesting(true)
+    try {
+      const res = await fetch(`/api/conversations/${conversationId}/suggest`, { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Erreur')
+      if (json.text) { setNewMessage(json.text); inputRef.current?.focus() }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erreur')
+    } finally {
+      setSuggesting(false)
+    }
   }
 
   // Voice recording
@@ -294,6 +313,21 @@ export function MessageInput({ onSendText, onSendMedia, sending }: MessageInputP
                 </>
               )}
             </div>
+
+            {/* Suggestion IA */}
+            {conversationId && (
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                onClick={suggestReply}
+                disabled={sending || suggesting}
+                className="h-11 w-11 rounded-full shrink-0 text-muted-foreground hover:text-primary"
+                title="Suggérer une réponse (IA)"
+              >
+                {suggesting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              </Button>
+            )}
 
             <div className="relative flex-1">
               <Input
