@@ -63,6 +63,9 @@ import {
   Copy,
   Check,
   Users,
+  User,
+  Shield,
+  Database,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useTranslation } from '@/i18n/context'
@@ -248,6 +251,7 @@ export default function SettingsPage() {
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   const [soundEnabled, setSoundEnabled] = useState(true)
+  const [tab, setTab] = useState('compte')
 
   useEffect(() => {
     const stored = localStorage.getItem('autyvia_sound_enabled')
@@ -528,6 +532,15 @@ export default function SettingsPage() {
 
   const deleteWord = locale === 'fr' ? 'SUPPRIMER' : 'DELETE'
 
+  const TABS = [
+    { id: 'compte', label: 'Compte', icon: User },
+    { id: 'abonnement', label: 'Abonnement', icon: CreditCard },
+    { id: 'securite', label: 'Sécurité', icon: Shield },
+    { id: 'macros', label: 'Macros', icon: Zap },
+    { id: 'donnees', label: 'Données', icon: Database },
+    { id: 'danger', label: 'Zone de danger', icon: AlertTriangle },
+  ]
+
   return (
     <div className="p-4 sm:p-6">
       <div data-tour="settings-header" className="mb-6">
@@ -537,7 +550,32 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      <div className="w-full space-y-6">
+      <div className="grid gap-6 md:grid-cols-[220px_1fr]">
+        {/* Sidebar d'onglets */}
+        <Card className="h-fit md:sticky md:top-6 p-2">
+          <nav className="flex flex-row flex-wrap gap-1 md:flex-col">
+            {TABS.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                onClick={() => setTab(id)}
+                className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-left transition-colors ${
+                  tab === id
+                    ? id === 'danger'
+                      ? 'bg-destructive/10 text-destructive'
+                      : 'bg-primary/10 text-primary'
+                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+                }`}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                {label}
+              </button>
+            ))}
+          </nav>
+        </Card>
+
+        {/* Contenu de l'onglet actif */}
+        <div className="space-y-6">
+        {tab === 'compte' && (<>
         {/* Profil */}
         <Card>
           <CardHeader>
@@ -602,73 +640,6 @@ export default function SettingsPage() {
               )}
               {t('common.save')}
             </Button>
-          </CardContent>
-        </Card>
-
-        {/* Macros (réponses pré-enregistrées) */}
-        <MacrosManager />
-
-        {/* Abonnement */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CreditCard className="h-5 w-5" />
-              {t('settings.subscription_title')}
-            </CardTitle>
-            <CardDescription>{t('settings.subscription_desc', { appName: tenant.appName })}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground mb-4">
-              {t('settings.subscription_info')}
-            </p>
-            <Link href="/subscription">
-              <Button variant="outline">
-                <CreditCard className="mr-2 h-4 w-4" />
-                {t('settings.manage_subscription')}
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
-
-        {/* Tokens IA supplémentaires */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Cpu className="h-5 w-5" />
-              {t('settings.tokens_title')}
-            </CardTitle>
-            <CardDescription>{t('settings.tokens_desc')}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground mb-4">
-              {t('settings.tokens_info')}
-            </p>
-            <div className="flex items-center justify-between rounded-lg border p-4">
-              <div>
-                <p className="font-medium">{t('settings.tokens_amount')}</p>
-                <p className="text-sm text-muted-foreground">{t('settings.tokens_payment')}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-2xl font-bold">50&euro;</p>
-                <Button
-                  size="sm"
-                  className="mt-2"
-                  onClick={async () => {
-                    try {
-                      const res = await fetch('/api/stripe/buy-tokens', { method: 'POST' })
-                      const data = await res.json()
-                      if (!res.ok) throw new Error(data.error)
-                      window.location.href = data.url
-                    } catch {
-                      toast.error(t('settings.tokens_buy_error'))
-                    }
-                  }}
-                >
-                  <Zap className="mr-2 h-4 w-4" />
-                  {t('settings.tokens_buy')}
-                </Button>
-              </div>
-            </div>
           </CardContent>
         </Card>
 
@@ -792,10 +763,83 @@ export default function SettingsPage() {
             </Button>
           </CardContent>
         </Card>
+        </>)}
+
+        {tab === 'macros' && (<>
+        {/* Macros (réponses pré-enregistrées) */}
+        <MacrosManager />
+        </>)}
+
+        {tab === 'abonnement' && (<>
+        {/* Abonnement */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CreditCard className="h-5 w-5" />
+              {t('settings.subscription_title')}
+            </CardTitle>
+            <CardDescription>{t('settings.subscription_desc', { appName: tenant.appName })}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              {t('settings.subscription_info')}
+            </p>
+            <Link href="/subscription">
+              <Button variant="outline">
+                <CreditCard className="mr-2 h-4 w-4" />
+                {t('settings.manage_subscription')}
+              </Button>
+            </Link>
+          </CardContent>
+        </Card>
+
+        {/* Tokens IA supplémentaires */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Cpu className="h-5 w-5" />
+              {t('settings.tokens_title')}
+            </CardTitle>
+            <CardDescription>{t('settings.tokens_desc')}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-muted-foreground mb-4">
+              {t('settings.tokens_info')}
+            </p>
+            <div className="flex items-center justify-between rounded-lg border p-4">
+              <div>
+                <p className="font-medium">{t('settings.tokens_amount')}</p>
+                <p className="text-sm text-muted-foreground">{t('settings.tokens_payment')}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-2xl font-bold">50&euro;</p>
+                <Button
+                  size="sm"
+                  className="mt-2"
+                  onClick={async () => {
+                    try {
+                      const res = await fetch('/api/stripe/buy-tokens', { method: 'POST' })
+                      const data = await res.json()
+                      if (!res.ok) throw new Error(data.error)
+                      window.location.href = data.url
+                    } catch {
+                      toast.error(t('settings.tokens_buy_error'))
+                    }
+                  }}
+                >
+                  <Zap className="mr-2 h-4 w-4" />
+                  {t('settings.tokens_buy')}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Parrainage */}
         <ReferralSection />
+        </>)}
 
+        {tab === 'securite' && (<>
         {/* Sécurité - Changement de mot de passe */}
         <Card>
           <CardHeader>
@@ -901,7 +945,9 @@ export default function SettingsPage() {
             )}
           </CardContent>
         </Card>
+        </>)}
 
+        {tab === 'donnees' && (<>
         {/* Export des données (RGPD) */}
         <Card>
           <CardHeader>
@@ -1195,7 +1241,9 @@ export default function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+        </>)}
 
+        {tab === 'danger' && (<>
         {/* Zone de danger - Suppression du compte */}
         <Card className="border-destructive/50">
           <CardHeader>
@@ -1232,6 +1280,8 @@ export default function SettingsPage() {
             </div>
           </CardContent>
         </Card>
+        </>)}
+        </div>
       </div>
 
       {/* Dialog de confirmation de suppression */}
