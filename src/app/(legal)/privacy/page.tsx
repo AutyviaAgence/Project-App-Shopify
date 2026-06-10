@@ -51,7 +51,7 @@ export default function PrivacyPage() {
           <ul>
             <li><strong>WhatsApp messages</strong>: contents of conversations processed by our Services, via the official WhatsApp Business API (Meta Platforms)</li>
             <li><strong>Contacts</strong>: phone numbers and names of WhatsApp contacts</li>
-            <li><strong>Store data (Shopify)</strong>: if you connect a Shopify store, we access in read-only mode your product catalog, your pages and policies, and — if you enable it — the status of your orders and certain customer information, so that the AI agent can answer questions (products, orders, customer support, returns). The requested permissions (scopes) are: <strong>read_products</strong>, <strong>read_content</strong> (pages and policies), <strong>read_orders</strong>, and <strong>read_customers</strong>, all read-only.</li>
+            <li><strong>Store data (Shopify)</strong>: if you connect a Shopify store, we access in read-only mode your product catalog, your pages and policies, and (if you enable it) the status of your orders and certain customer information, so that the AI agent can answer questions (products, orders, customer support, returns). The requested permissions (scopes) are: <strong>read_products</strong>, <strong>read_content</strong> (pages and policies), <strong>read_orders</strong>, and <strong>read_customers</strong>, all read-only.</li>
             <li><strong>Documents</strong>: files uploaded to the knowledge base</li>
             <li><strong>Configurations</strong>: AI agent settings, prompts, schedules</li>
           </ul>
@@ -79,13 +79,13 @@ export default function PrivacyPage() {
 
           <h2>Processing by artificial intelligence</h2>
           <p>
-            Our Services use artificial intelligence (OpenAI GPT-4) to generate automatic replies to your WhatsApp messages.
+            Our Services use several artificial intelligence models, provided by <strong>OpenAI</strong> and <strong>Anthropic (Claude)</strong>, to generate automatic replies to your WhatsApp messages. The model used may vary depending on the task.
           </p>
 
           <div className="not-prose my-4 rounded-lg border-l-4 border-primary bg-primary/5 p-4">
             <p className="font-medium text-slate-900 dark:text-white">Important safeguards</p>
             <ul className="mt-2 space-y-1 text-sm text-slate-600 dark:text-slate-400">
-              <li>• OpenAI does not retain your data beyond processing</li>
+              <li>• Our AI providers (OpenAI, Anthropic) do not retain your data beyond processing</li>
               <li>• Your data is NOT used to train the AI models</li>
               <li>• Exchanges are encrypted in transit (TLS) and at rest (AES-256)</li>
             </ul>
@@ -104,6 +104,7 @@ export default function PrivacyPage() {
             <li><strong>Meta Platforms Ireland Ltd.</strong>: routing of messages via the WhatsApp Business API. Messages and numbers transit through Meta&apos;s infrastructure, subject to the <a href="https://www.whatsapp.com/legal/business-policy" target="_blank" rel="noopener noreferrer">WhatsApp Business Policy</a> and Meta&apos;s privacy policy.</li>
             <li><strong>Shopify Inc.</strong> (Canada/EU): if you connect a store, read-only access to the store data required for the agent to operate (products, orders, customers according to the permissions granted).</li>
             <li><strong>OpenAI Inc.</strong> (USA): AI processing of messages</li>
+            <li><strong>Anthropic PBC</strong> (USA): AI processing of messages (Claude models)</li>
             <li><strong>Google LLC</strong> (USA): only if you use the &ldquo;Sign in with Google&rdquo; connection (authentication), to retrieve your name, email address, and profile picture in order to create and manage your account.</li>
             <li><strong>Stripe Inc.</strong> (USA/Europe): payment processing - PCI-DSS certified</li>
           </ul>
@@ -119,8 +120,8 @@ export default function PrivacyPage() {
           </p>
           <p>
             Within the framework of the WhatsApp Business API, we process the data of
-            <strong> WhatsApp end users</strong> (the customers of our merchants) — numbers,
-            names, message contents — solely to allow the merchant to reply to them.
+            <strong> WhatsApp end users</strong> (the customers of our merchants): numbers,
+            names and message contents, solely to allow the merchant to reply to them.
             <strong> Meta Platforms</strong> acts as a processor for the routing of these messages.
           </p>
 
@@ -251,7 +252,7 @@ export default function PrivacyPage() {
       <ul>
         <li><strong>Messages WhatsApp</strong> : contenus des conversations traitées par nos Services, via l&apos;API officielle WhatsApp Business (Meta Platforms)</li>
         <li><strong>Contacts</strong> : numéros de téléphone et noms des contacts WhatsApp</li>
-        <li><strong>Données de boutique (Shopify)</strong> : si vous connectez une boutique Shopify, nous accédons en lecture à votre catalogue de produits, vos pages et politiques, et — si vous l&apos;activez — au statut de vos commandes et à certaines informations clients, afin que l&apos;agent IA puisse répondre aux questions (produits, commandes, SAV, retours). Les autorisations demandées (scopes) sont : <strong>read_products</strong> (produits), <strong>read_content</strong> (pages et politiques), <strong>read_orders</strong> (commandes) et <strong>read_customers</strong> (informations clients), en lecture seule.</li>
+        <li><strong>Données de boutique (Shopify)</strong> : si vous connectez une boutique Shopify, nous accédons en lecture à votre catalogue de produits, vos pages et politiques, et (si vous l&apos;activez) au statut de vos commandes et à certaines informations clients, afin que l&apos;agent IA puisse répondre aux questions (produits, commandes, SAV, retours). Les autorisations demandées (scopes) sont : <strong>read_products</strong> (produits), <strong>read_content</strong> (pages et politiques), <strong>read_orders</strong> (commandes) et <strong>read_customers</strong> (informations clients), en lecture seule.</li>
         <li><strong>Documents</strong> : fichiers uploadés dans la base de connaissances</li>
         <li><strong>Configurations</strong> : paramètres des agents IA, prompts, horaires</li>
       </ul>
@@ -279,13 +280,13 @@ export default function PrivacyPage() {
 
       <h2>Traitement par intelligence artificielle</h2>
       <p>
-        Nos Services utilisent l&apos;intelligence artificielle (OpenAI GPT-4) pour générer des réponses automatiques à vos messages WhatsApp.
+        Nos Services utilisent plusieurs modèles d&apos;intelligence artificielle, fournis par <strong>OpenAI</strong> et <strong>Anthropic (Claude)</strong>, pour générer des réponses automatiques à vos messages WhatsApp. Le modèle utilisé peut varier selon la tâche.
       </p>
 
       <div className="not-prose my-4 rounded-lg border-l-4 border-primary bg-primary/5 p-4">
         <p className="font-medium text-slate-900 dark:text-white">Garanties importantes</p>
         <ul className="mt-2 space-y-1 text-sm text-slate-600 dark:text-slate-400">
-          <li>• OpenAI ne conserve pas vos données au-delà du traitement</li>
+          <li>• Nos fournisseurs d&apos;IA (OpenAI, Anthropic) ne conservent pas vos données au-delà du traitement</li>
           <li>• Vos données ne sont PAS utilisées pour entraîner les modèles d&apos;IA</li>
           <li>• Les échanges sont chiffrés en transit (TLS) et au repos (AES-256)</li>
         </ul>
@@ -304,6 +305,7 @@ export default function PrivacyPage() {
         <li><strong>Meta Platforms Ireland Ltd.</strong> : acheminement des messages via l&apos;API WhatsApp Business. Les messages et numéros transitent par l&apos;infrastructure de Meta, soumise à la <a href="https://www.whatsapp.com/legal/business-policy" target="_blank" rel="noopener noreferrer">Politique commerciale WhatsApp</a> et à la politique de confidentialité de Meta.</li>
         <li><strong>Shopify Inc.</strong> (Canada/UE) : si vous connectez une boutique, accès en lecture aux données de boutique nécessaires au fonctionnement de l&apos;agent (produits, commandes, clients selon les autorisations accordées).</li>
         <li><strong>OpenAI Inc.</strong> (USA) : traitement IA des messages</li>
+        <li><strong>Anthropic PBC</strong> (USA) : traitement IA des messages (modèles Claude)</li>
         <li><strong>Google LLC</strong> (USA) : uniquement si vous utilisez la connexion « Se connecter avec Google » (authentification), pour récupérer votre nom, adresse email et photo de profil afin de créer et gérer votre compte.</li>
         <li><strong>Stripe Inc.</strong> (USA/Europe) : traitement des paiements - Certifié PCI-DSS</li>
       </ul>
@@ -319,8 +321,8 @@ export default function PrivacyPage() {
       </p>
       <p>
         Dans le cadre de l&apos;API WhatsApp Business, nous traitons les données des
-        <strong> utilisateurs finaux WhatsApp</strong> (les clients de nos marchands) — numéros,
-        noms, contenus de messages — uniquement pour permettre au marchand de leur répondre.
+        <strong> utilisateurs finaux WhatsApp</strong> (les clients de nos marchands) : numéros,
+        noms et contenus de messages, uniquement pour permettre au marchand de leur répondre.
         <strong> Meta Platforms</strong> intervient comme sous-traitant pour l&apos;acheminement de ces messages.
       </p>
 
