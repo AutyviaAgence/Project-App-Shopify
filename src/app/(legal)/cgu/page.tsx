@@ -50,7 +50,7 @@ export default function CGUPage() {
       </p>
       <p>
         En cas d&apos;utilisation frauduleuse, l&apos;Utilisateur doit informer Xeyo immédiatement :{' '}
-        <a href="mailto:autyviaagence@gmail.com">autyviaagence@gmail.com</a>
+        <a href="mailto:contact@autyvia.fr">contact@autyvia.fr</a>
       </p>
 
       <h2>Article 4 – Utilisation des Services</h2>

@@ -21,8 +21,8 @@ export default function PrivacyPage() {
         <p className="text-sm text-slate-600 dark:text-slate-400">Micro-entreprise Xeyo</p>
         <p className="text-sm text-slate-600 dark:text-slate-400">SIRET : 992 684 829 00011</p>
         <p className="text-sm text-slate-600 dark:text-slate-400">778 routes des barthes</p>
-        <a href="mailto:autyviaagence@gmail.com" className="text-sm text-primary hover:underline">
-          autyviaagence@gmail.com
+        <a href="mailto:contact@autyvia.fr" className="text-sm text-primary hover:underline">
+          contact@autyvia.fr
         </a>
       </div>
 
@@ -171,7 +171,7 @@ export default function PrivacyPage() {
       <h3>Exercer vos droits</h3>
       <ul>
         <li>Depuis votre compte : Paramètres &gt; Données personnelles</li>
-        <li>Par email : <a href="mailto:autyviaagence@gmail.com">autyviaagence@gmail.com</a></li>
+        <li>Par email : <a href="mailto:contact@autyvia.fr">contact@autyvia.fr</a></li>
         <li>Par courrier : 778 routes des barthes</li>
       </ul>
       <p>Nous répondrons dans un délai de 30 jours.</p>
@@ -181,7 +181,7 @@ export default function PrivacyPage() {
         Vous pouvez supprimer définitivement votre compte et l&apos;ensemble des données associées
         (conversations, contacts, agents, documents) directement depuis <strong>Paramètres &gt; Supprimer mon compte</strong>.
         La suppression est immédiate et irréversible. Pour toute demande de suppression de données traitées
-        via WhatsApp Business, contactez-nous à <a href="mailto:autyviaagence@gmail.com">autyviaagence@gmail.com</a> ;
+        via WhatsApp Business, contactez-nous à <a href="mailto:contact@autyvia.fr">contact@autyvia.fr</a> ;
         nous traiterons la demande dans les meilleurs délais.
       </p>
 

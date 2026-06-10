@@ -197,7 +197,7 @@ export default function CGVPage() {
       <h3>4.2 Résiliation par le Client</h3>
       <p>
         Le Client peut résilier à tout moment depuis son espace client (rubrique Abonnement) ou par email à{' '}
-        <a href="mailto:autyviaagence@gmail.com">autyviaagence@gmail.com</a>.
+        <a href="mailto:contact@autyvia.fr">contact@autyvia.fr</a>.
       </p>
       <p>
         La résiliation prend effet à la fin de la période de facturation en cours. Aucun remboursement au
@@ -219,7 +219,7 @@ export default function CGVPage() {
       <p>
         Pendant cette période de 30 jours, le client peut demander l&apos;export de ses données (conversations,
         documents, configuration des agents) par email à{' '}
-        <a href="mailto:autyviaagence@gmail.com">autyviaagence@gmail.com</a>. Xeyo s&apos;engage à fournir
+        <a href="mailto:contact@autyvia.fr">contact@autyvia.fr</a>. Xeyo s&apos;engage à fournir
         cet export dans un format lisible (JSON ou CSV) dans un délai de 7 jours ouvrés.
       </p>
 
@@ -264,8 +264,8 @@ export default function CGVPage() {
         <div className="grid gap-2 text-sm">
           <p>
             <strong className="text-slate-900 dark:text-white">Service client :</strong>{' '}
-            <a href="mailto:autyviaagence@gmail.com" className="text-primary hover:underline">
-              autyviaagence@gmail.com
+            <a href="mailto:contact@autyvia.fr" className="text-primary hover:underline">
+              contact@autyvia.fr
             </a>
           </p>
           <p>

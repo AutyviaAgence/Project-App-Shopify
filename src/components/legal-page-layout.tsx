@@ -35,14 +35,29 @@ interface LegalPageLayoutProps {
   title: string
   description?: string
   lastUpdated: string
+  /** Contenu anglais (affiché par défaut). Si fourni, un sélecteur FR/EN apparaît. */
+  childrenEn?: React.ReactNode
+  titleEn?: string
+  descriptionEn?: string
+  lastUpdatedEn?: string
 }
 
-export function LegalPageLayout({ children, title, description, lastUpdated }: LegalPageLayoutProps) {
+export function LegalPageLayout({
+  children, title, description, lastUpdated,
+  childrenEn, titleEn, descriptionEn, lastUpdatedEn,
+}: LegalPageLayoutProps) {
   const pathname = usePathname()
   const tenant = useTenant()
   const contentRef = useRef<HTMLDivElement>(null)
   const [toc, setToc] = useState<TocItem[]>([])
   const [activeId, setActiveId] = useState<string>('')
+  // Langue des documents légaux : anglais par défaut (exigences Meta/Google/Shopify)
+  const hasEn = childrenEn != null
+  const [lang, setLang] = useState<'en' | 'fr'>(hasEn ? 'en' : 'fr')
+  const displayTitle = lang === 'en' && titleEn ? titleEn : title
+  const displayDescription = lang === 'en' && descriptionEn ? descriptionEn : description
+  const displayLastUpdated = lang === 'en' && lastUpdatedEn ? lastUpdatedEn : lastUpdated
+  const displayChildren = lang === 'en' && hasEn ? childrenEn : children
 
   // Générer la table des matières depuis les h2
   useEffect(() => {
@@ -88,13 +103,29 @@ export function LegalPageLayout({ children, title, description, lastUpdated }: L
             <Image src={tenant.logoUrl} alt={tenant.appName} width={28} height={28} className="h-7 w-7" />
             <span className="text-base font-semibold text-slate-900 dark:text-white">{tenant.appName}</span>
           </Link>
-          <Link
-            href="/login"
-            className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4" />
-            Retour
-          </Link>
+          <div className="flex items-center gap-3">
+            {hasEn && (
+              <div className="flex items-center rounded-lg border bg-white p-0.5 text-xs dark:bg-slate-900">
+                <button
+                  onClick={() => setLang('en')}
+                  className={cn('rounded-md px-2 py-1 font-medium transition-colors',
+                    lang === 'en' ? 'bg-primary text-primary-foreground' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white')}
+                >EN</button>
+                <button
+                  onClick={() => setLang('fr')}
+                  className={cn('rounded-md px-2 py-1 font-medium transition-colors',
+                    lang === 'fr' ? 'bg-primary text-primary-foreground' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white')}
+                >FR</button>
+              </div>
+            )}
+            <Link
+              href="/login"
+              className="flex items-center gap-1.5 text-sm text-slate-500 hover:text-slate-900 dark:hover:text-white transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              {lang === 'en' ? 'Back' : 'Retour'}
+            </Link>
+          </div>
         </div>
       </header>
 
@@ -139,11 +170,11 @@ export function LegalPageLayout({ children, title, description, lastUpdated }: L
               </div>
               <div className="p-4 space-y-2.5">
                 <a
-                  href="mailto:autyviaagence@gmail.com"
+                  href="mailto:contact@autyvia.fr"
                   className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-primary transition-colors"
                 >
                   <Mail className="h-4 w-4 shrink-0 text-slate-400" />
-                  <span className="truncate">autyviaagence@gmail.com</span>
+                  <span className="truncate">contact@autyvia.fr</span>
                 </a>
               </div>
             </div>
@@ -163,16 +194,17 @@ export function LegalPageLayout({ children, title, description, lastUpdated }: L
                   )}
                   <div className="min-w-0">
                     <h1 className="text-2xl font-bold text-slate-900 dark:text-white lg:text-3xl leading-tight">
-                      {title}
+                      {displayTitle}
                     </h1>
-                    {description && (
+                    {displayDescription && (
                       <p className="mt-2 text-slate-500 dark:text-slate-400 text-sm leading-relaxed">
-                        {description}
+                        {displayDescription}
                       </p>
                     )}
                     <div className="mt-4 flex items-center gap-1.5 text-xs text-slate-400">
                       <Calendar className="h-3.5 w-3.5" />
-                      Dernière mise à jour : <span className="font-medium text-slate-500">{lastUpdated}</span>
+                      {lang === 'en' ? 'Last updated: ' : 'Dernière mise à jour : '}
+                      <span className="font-medium text-slate-500">{displayLastUpdated}</span>
                     </div>
                   </div>
                 </div>
@@ -196,7 +228,7 @@ export function LegalPageLayout({ children, title, description, lastUpdated }: L
                   prose-td:text-slate-600 dark:prose-td:text-slate-400
                 "
               >
-                {children}
+                {displayChildren}
               </div>
             </div>
 

@@ -19,7 +19,7 @@ export default function LegalPage() {
           <p><strong>SIREN :</strong> 992 684 829</p>
           <p><strong>Code APE :</strong> 62.02A – Conseil en systèmes et logiciels informatiques</p>
           <p><strong>Adresse :</strong> 778 routes des barthes</p>
-          <p><strong>Email :</strong> <a href="mailto:autyviaagence@gmail.com" className="text-primary hover:underline">autyviaagence@gmail.com</a></p>
+          <p><strong>Email :</strong> <a href="mailto:contact@autyvia.fr" className="text-primary hover:underline">contact@autyvia.fr</a></p>
           <p><strong>Téléphone :</strong> <a href="tel:+33636006808" className="text-primary hover:underline">06 36 00 68 08</a></p>
         </div>
       </div>
