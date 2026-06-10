@@ -641,31 +641,8 @@ function DashboardCTA({ connectedSessions, activeAgents, t }: {
 // ─── Page principale ──────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const [checklist, setChecklist] = useState<Checklist | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  const fetchChecklist = useCallback(async () => {
-    try {
-      const res = await fetch('/api/onboarding/checklist')
-      const json = await res.json()
-      if (res.ok) setChecklist(json)
-    } finally {
-      setLoading(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    fetchChecklist()
-  }, [fetchChecklist])
-
-  if (loading) {
-    return <BlobLoaderScreen />
-  }
-
-  if (!checklist || checklist.all_done) {
-    return <StatsDashboard />
-  }
-
-  return <OnboardingChecklist checklist={checklist} onRefresh={fetchChecklist} />
+  // La checklist d'onboarding a été retirée : le dashboard affiche directement
+  // les stats (la connexion WhatsApp/Email reste accessible en haut).
+  return <StatsDashboard />
 }
 
