@@ -6,6 +6,210 @@ export default function PrivacyPage() {
       title="Politique de Confidentialité"
       description="Découvrez comment nous collectons, utilisons et protégeons vos données personnelles."
       lastUpdated="04 février 2026"
+      titleEn="Privacy Policy"
+      descriptionEn="Learn how we collect, use, and protect your personal data."
+      lastUpdatedEn="February 04, 2026"
+      childrenEn={
+        <>
+          <p className="lead text-lg">
+            This Privacy Policy describes how Xeyo collects, uses, stores, and protects your personal data when you use our website and our application.
+          </p>
+
+          <p>
+            We are committed to protecting your privacy in accordance with the General Data Protection Regulation (GDPR) and the French Data Protection Act (loi Informatique et Libertés).
+          </p>
+
+          <h2>Data controller</h2>
+          <div className="not-prose rounded-lg bg-slate-50 p-4 dark:bg-slate-800">
+            <p className="font-semibold text-slate-900 dark:text-white">Julian TOURAILLE-TRAN</p>
+            <p className="text-sm text-slate-600 dark:text-slate-400">Xeyo sole proprietorship (micro-entreprise)</p>
+            <p className="text-sm text-slate-600 dark:text-slate-400">SIRET: 992 684 829 00011</p>
+            <p className="text-sm text-slate-600 dark:text-slate-400">778 routes des barthes</p>
+            <a href="mailto:contact@autyvia.fr" className="text-sm text-primary hover:underline">
+              contact@autyvia.fr
+            </a>
+          </div>
+
+          <h2>Data collected</h2>
+
+          <h3>Data you provide to us</h3>
+          <ul>
+            <li><strong>Identification data</strong>: last name, first name, email address</li>
+            <li><strong>Login data</strong>: password (encrypted)</li>
+            <li><strong>Profile data</strong>: avatar, time zone, preferences</li>
+            <li><strong>Billing data</strong>: address, payment information</li>
+          </ul>
+
+          <h3>Data collected automatically</h3>
+          <ul>
+            <li><strong>Technical data</strong>: IP address, browser type, operating system</li>
+            <li><strong>Usage data</strong>: pages visited, features used, timestamps</li>
+            <li>Cookies and similar technologies</li>
+          </ul>
+
+          <h3>Data related to use of the service</h3>
+          <ul>
+            <li><strong>WhatsApp messages</strong>: contents of conversations processed by our Services, via the official WhatsApp Business API (Meta Platforms)</li>
+            <li><strong>Contacts</strong>: phone numbers and names of WhatsApp contacts</li>
+            <li><strong>Store data (Shopify)</strong>: if you connect a Shopify store, we access in read-only mode your product catalog, your pages and policies, and — if you enable it — the status of your orders and certain customer information, so that the AI agent can answer questions (products, orders, customer support, returns)</li>
+            <li><strong>Documents</strong>: files uploaded to the knowledge base</li>
+            <li><strong>Configurations</strong>: AI agent settings, prompts, schedules</li>
+          </ul>
+
+          <h2>Purposes of processing</h2>
+          <p>We use your personal data to:</p>
+          <ul>
+            <li>Provide and maintain our Services</li>
+            <li>Manage your user account</li>
+            <li>Process your payments</li>
+            <li>Automatically reply to your WhatsApp messages via AI</li>
+            <li>Improve and personalize our Services</li>
+            <li>Send you communications relating to your account</li>
+            <li>Ensure the security of our Services</li>
+            <li>Comply with our legal obligations</li>
+          </ul>
+
+          <h2>Legal bases for processing</h2>
+          <ul>
+            <li><strong>Performance of the contract</strong>: to provide our Services</li>
+            <li><strong>Consent</strong>: for marketing communications</li>
+            <li><strong>Legitimate interest</strong>: to improve our Services and ensure their security</li>
+            <li><strong>Legal obligation</strong>: to comply with our accounting and tax obligations</li>
+          </ul>
+
+          <h2>Processing by artificial intelligence</h2>
+          <p>
+            Our Services use artificial intelligence (OpenAI GPT-4) to generate automatic replies to your WhatsApp messages.
+          </p>
+
+          <div className="not-prose my-4 rounded-lg border-l-4 border-primary bg-primary/5 p-4">
+            <p className="font-medium text-slate-900 dark:text-white">Important safeguards</p>
+            <ul className="mt-2 space-y-1 text-sm text-slate-600 dark:text-slate-400">
+              <li>• OpenAI does not retain your data beyond processing</li>
+              <li>• Your data is NOT used to train the AI models</li>
+              <li>• Exchanges are encrypted in transit (TLS) and at rest (AES-256)</li>
+            </ul>
+          </div>
+
+          <h2>Subprocessors and hosting</h2>
+
+          <h3>Hosting (Europe)</h3>
+          <ul>
+            <li><strong>OVH SAS</strong> (France): hosting of the application server</li>
+            <li><strong>Supabase Inc.</strong> (Europe region): PostgreSQL database</li>
+          </ul>
+
+          <h3>Third-party services</h3>
+          <ul>
+            <li><strong>Meta Platforms Ireland Ltd.</strong>: routing of messages via the WhatsApp Business API. Messages and numbers transit through Meta&apos;s infrastructure, subject to the <a href="https://www.whatsapp.com/legal/business-policy" target="_blank" rel="noopener noreferrer">WhatsApp Business Policy</a> and Meta&apos;s privacy policy.</li>
+            <li><strong>Shopify Inc.</strong> (Canada/EU): if you connect a store, read-only access to the store data required for the agent to operate (products, orders, customers according to the permissions granted).</li>
+            <li><strong>OpenAI Inc.</strong> (USA): AI processing of messages</li>
+            <li><strong>Google LLC</strong> (USA): only if you use the &ldquo;Sign in with Google&rdquo; connection (authentication), to retrieve your name, email address, and profile picture in order to create and manage your account.</li>
+            <li><strong>Stripe Inc.</strong> (USA/Europe): payment processing - PCI-DSS certified</li>
+          </ul>
+
+          <p><strong>We never sell your personal data to third parties.</strong></p>
+
+          <h2>Our role: technology provider and processor</h2>
+          <p>
+            Xeyo acts as a <strong>technology provider (Tech Provider)</strong> and a
+            <strong> processor (data processor)</strong> within the meaning of the GDPR: we process data
+            on behalf of our merchant customers, who remain the <strong>data controllers</strong>
+            vis-à-vis their own customers (the end users).
+          </p>
+          <p>
+            Within the framework of the WhatsApp Business API, we process the data of
+            <strong> WhatsApp end users</strong> (the customers of our merchants) — numbers,
+            names, message contents — solely to allow the merchant to reply to them.
+            <strong> Meta Platforms</strong> acts as a processor for the routing of these messages.
+          </p>
+
+          <h2>Google connection (authentication)</h2>
+          <p>
+            Xeyo offers sign-in via Google (&ldquo;Sign in with Google&rdquo;). In this context, we
+            receive your <strong>name, email address, and profile picture</strong> for the sole purpose of
+            creating and managing your account. We do not access any other Google data (neither Gmail,
+            nor Drive, nor Calendar).
+          </p>
+          <p>
+            Xeyo&apos;s use and transfer of information received from Google APIs adhere to the{' '}
+            <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer">
+              Google API Services User Data Policy
+            </a>, including the <strong>Limited Use</strong> requirements.
+          </p>
+
+          <h2>Shopify compliance</h2>
+          <p>
+            When you connect a Shopify store, you are the data controller and Xeyo
+            acts as a processor. In accordance with Shopify&apos;s requirements, we handle the
+            mandatory compliance webhooks:
+          </p>
+          <ul>
+            <li><strong>customers/data_request</strong>: upon a customer&apos;s request, provide the data held about them;</li>
+            <li><strong>customers/redact</strong>: delete a customer&apos;s personal data for the relevant store;</li>
+            <li><strong>shop/redact</strong>: 48 hours after the application is uninstalled, delete all personal data associated with the store.</li>
+          </ul>
+
+          <h2>Retention period</h2>
+          <ul>
+            <li><strong>Account data (email, name)</strong>: 3 years after account deletion</li>
+            <li><strong>Conversations, agents, documents, configurations</strong>: 30 days after termination, then permanent deletion</li>
+            <li><strong>WhatsApp messages</strong>: 2 years from their receipt</li>
+            <li><strong>Uploaded documents</strong>: until deleted by the user + 30 days</li>
+            <li><strong>Technical logs</strong>: 6 months</li>
+            <li><strong>Billing data</strong>: 10 years (legal obligation)</li>
+          </ul>
+
+          <h2>Your rights</h2>
+          <p>In accordance with the GDPR, you have the following rights:</p>
+          <ul>
+            <li><strong>Right of access</strong>: obtain a copy of your data</li>
+            <li><strong>Right to rectification</strong>: correct your inaccurate data</li>
+            <li><strong>Right to erasure</strong>: delete your data</li>
+            <li><strong>Right to restriction</strong>: restrict processing</li>
+            <li><strong>Right to portability</strong>: receive your data in a structured format</li>
+            <li><strong>Right to object</strong>: object to processing</li>
+            <li><strong>Right to withdraw your consent</strong>: at any time</li>
+          </ul>
+
+          <h3>Exercising your rights</h3>
+          <ul>
+            <li>From your account: Settings &gt; Personal data</li>
+            <li>By email: <a href="mailto:contact@autyvia.fr">contact@autyvia.fr</a></li>
+            <li>By post: 778 routes des barthes</li>
+          </ul>
+          <p>We will respond within 30 days.</p>
+
+          <h3>Deletion of your data</h3>
+          <p>
+            You can permanently delete your account and all associated data
+            (conversations, contacts, agents, documents) directly from <strong>Settings &gt; Delete my account</strong>.
+            Deletion is immediate and irreversible. For any request to delete data processed
+            via WhatsApp Business, contact us at <a href="mailto:contact@autyvia.fr">contact@autyvia.fr</a>;
+            we will process the request as soon as possible.
+          </p>
+
+          <h3>Complaint to the CNIL</h3>
+          <p>If you believe your rights are not being respected:</p>
+          <div className="not-prose rounded-lg bg-slate-50 p-4 dark:bg-slate-800">
+            <p className="font-semibold text-slate-900 dark:text-white">Commission Nationale de l&apos;Informatique et des Libertés</p>
+            <p className="text-sm text-slate-600 dark:text-slate-400">3 Place de Fontenoy, TSA 80715, 75334 Paris Cedex 07</p>
+            <a href="https://www.cnil.fr" target="_blank" rel="noopener noreferrer" className="text-sm text-primary hover:underline">
+              www.cnil.fr
+            </a>
+          </div>
+
+          <h2>Data security</h2>
+          <ul>
+            <li>Encryption of data in transit (TLS 1.3) and at rest (AES-256)</li>
+            <li>Secure authentication with password hashing</li>
+            <li>Strict access control to data</li>
+            <li>Access monitoring and logging</li>
+            <li>Regular backups</li>
+            <li>Hosting in France (OVH)</li>
+          </ul>
+        </>
+      }
     >
       <p className="lead text-lg">
         La présente Politique de Confidentialité décrit comment Xeyo collecte, utilise, stocke et protège vos données personnelles lorsque vous utilisez notre site web et notre application.
