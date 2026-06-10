@@ -212,20 +212,19 @@ export function LegalPageLayout({
             </div>
 
             {/* Corps du document */}
-            <div className="rounded-xl border bg-white dark:bg-slate-900 shadow-sm p-6 lg:p-8">
+            <div className="rounded-xl border border-slate-200 bg-white shadow-sm p-6 lg:p-8 dark:border-slate-800 dark:bg-slate-900">
               <div
                 ref={contentRef}
-                className="prose prose-slate max-w-none dark:prose-invert
-                  prose-headings:scroll-mt-24
-                  prose-h2:text-lg prose-h2:font-semibold prose-h2:mt-10 prose-h2:mb-3 prose-h2:pb-2 prose-h2:border-b prose-h2:border-slate-100 dark:prose-h2:border-slate-800 prose-h2:text-slate-900 dark:prose-h2:text-white prose-h2:first:mt-0
-                  prose-h3:text-base prose-h3:font-semibold prose-h3:mt-6 prose-h3:mb-2 prose-h3:text-slate-800 dark:prose-h3:text-slate-200
-                  prose-p:text-slate-600 dark:prose-p:text-slate-400 prose-p:leading-relaxed prose-p:text-sm
-                  prose-li:text-slate-600 dark:prose-li:text-slate-400 prose-li:text-sm
-                  prose-strong:text-slate-900 dark:prose-strong:text-white prose-strong:font-semibold
-                  prose-a:text-primary prose-a:no-underline hover:prose-a:underline
-                  prose-table:text-sm
-                  prose-th:bg-slate-50 dark:prose-th:bg-slate-800 prose-th:font-semibold
-                  prose-td:text-slate-600 dark:prose-td:text-slate-400
+                className="legal-content max-w-none
+                  [&_h2]:mt-10 [&_h2]:mb-4 [&_h2]:pb-2.5 [&_h2]:text-xl [&_h2]:font-bold [&_h2]:tracking-tight [&_h2]:scroll-mt-24
+                  [&_h2]:border-b [&_h2]:border-slate-200 dark:[&_h2]:border-slate-700
+                  [&_h2]:text-slate-900 dark:[&_h2]:text-white [&_h2:first-child]:mt-0
+                  [&_h3]:mt-7 [&_h3]:mb-2.5 [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-slate-800 dark:[&_h3]:text-slate-100
+                  [&_p]:my-4 [&_p]:text-[15px] [&_p]:leading-7 [&_p]:text-slate-600 dark:[&_p]:text-slate-300
+                  [&_ul]:my-4 [&_ul]:space-y-2 [&_ul]:pl-5 [&_ul]:list-disc
+                  [&_li]:text-[15px] [&_li]:leading-7 [&_li]:text-slate-600 dark:[&_li]:text-slate-300 [&_li]:pl-1
+                  [&_strong]:font-semibold [&_strong]:text-slate-900 dark:[&_strong]:text-white
+                  [&_a]:text-primary [&_a]:font-medium hover:[&_a]:underline
                 "
               >
                 {displayChildren}
