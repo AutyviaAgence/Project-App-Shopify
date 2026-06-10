@@ -183,6 +183,13 @@ export default function AgentsPage() {
     fetchAgents()
   }, [fetchAgents])
 
+  // Onboarding direct : aucun agent → rediriger vers l'assistant de création
+  useEffect(() => {
+    if (!loading && agents.length === 0) {
+      router.replace('/agents/new')
+    }
+  }, [loading, agents.length, router])
+
   // Chemin de création UNIQUE : on redirige toujours vers le wizard guidé.
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -349,27 +356,11 @@ export default function AgentsPage() {
       {/* Zone : carrousel centré, bouton Nouvel agent juste en dessous */}
       <div className="flex flex-1 flex-col items-center justify-center py-6">
       {agents.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <Brain className="mb-4 h-12 w-12 text-muted-foreground" />
-            <h3 className="text-lg font-medium">{t('agents.no_agents')}</h3>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {t('agents.no_agents_desc')}
-            </p>
-            <div className="mt-4 flex flex-col sm:flex-row gap-2">
-              <Link href="/agents/new">
-                <Button>
-                  <Sparkles className="mr-2 h-4 w-4" />
-                  {t('agents.create_with_assistant')}
-                </Button>
-              </Link>
-              <Button variant="outline" onClick={openCreateDialog}>
-                <Settings2 className="mr-2 h-4 w-4" />
-                {t('agents.advanced_mode')}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        // Onboarding direct : redirection vers l'assistant en cours
+        <div className="flex flex-col items-center justify-center gap-3 py-12 text-muted-foreground">
+          <Loader2 className="h-6 w-6 animate-spin" />
+          <p className="text-sm">{t('agents.create_with_assistant')}…</p>
+        </div>
       ) : (
         (() => {
           const sorted = [...agents].sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0))
