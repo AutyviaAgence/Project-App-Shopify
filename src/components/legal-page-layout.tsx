@@ -18,10 +18,10 @@ import {
 import { useTenant } from '@/lib/tenant/context'
 
 const LEGAL_PAGES = [
-  { href: '/privacy', label: 'Politique de confidentialité', icon: Shield, color: 'text-blue-500' },
-  { href: '/cgu', label: "Conditions d'utilisation", icon: FileText, color: 'text-violet-500' },
-  { href: '/cgv', label: 'Conditions de vente', icon: ScrollText, color: 'text-emerald-500' },
-  { href: '/legal', label: 'Mentions légales', icon: Scale, color: 'text-amber-500' },
+  { href: '/privacy', label: 'Politique de confidentialité', labelEn: 'Privacy Policy', icon: Shield, color: 'text-blue-500' },
+  { href: '/cgu', label: "Conditions d'utilisation", labelEn: 'Terms of Use', icon: FileText, color: 'text-violet-500' },
+  { href: '/cgv', label: 'Conditions de vente', labelEn: 'Terms of Sale', icon: ScrollText, color: 'text-emerald-500' },
+  { href: '/legal', label: 'Mentions légales', labelEn: 'Legal Notice', icon: Scale, color: 'text-amber-500' },
 ]
 
 interface TocItem {
@@ -137,7 +137,7 @@ export function LegalPageLayout({
             <nav className="rounded-xl border bg-white dark:bg-slate-900 overflow-hidden shadow-sm">
               <div className="px-4 py-3 border-b bg-slate-50 dark:bg-slate-800/50">
                 <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-                  Documents légaux
+                  {lang === 'en' ? 'Legal documents' : 'Documents légaux'}
                 </p>
               </div>
               <div className="p-2">
@@ -155,7 +155,7 @@ export function LegalPageLayout({
                       )}
                     >
                       <page.icon className={cn('h-4 w-4 shrink-0', isActive ? 'text-current' : page.color)} />
-                      {page.label}
+                      {lang === 'en' ? page.labelEn : page.label}
                       {isActive && <ChevronRight className="ml-auto h-3.5 w-3.5 opacity-60" />}
                     </Link>
                   )
@@ -233,7 +233,7 @@ export function LegalPageLayout({
 
             {/* Footer */}
             <div className="mt-6 flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-white dark:bg-slate-900 px-5 py-3 text-xs text-slate-400 shadow-sm">
-              <p>© {new Date().getFullYear()} Xeyo — Julian TOURAILLE-TRAN</p>
+              <p>© {new Date().getFullYear()} Xeyo — TOURAILLE Julian</p>
               <p>SIRET : 992 684 829 00011</p>
             </div>
           </main>

@@ -21,7 +21,7 @@ export default function PrivacyPage() {
 
           <h2>Data controller</h2>
           <div className="not-prose rounded-lg bg-slate-50 p-4 dark:bg-slate-800">
-            <p className="font-semibold text-slate-900 dark:text-white">Julian TOURAILLE-TRAN</p>
+            <p className="font-semibold text-slate-900 dark:text-white">TOURAILLE Julian</p>
             <p className="text-sm text-slate-600 dark:text-slate-400">Xeyo sole proprietorship (micro-entreprise)</p>
             <p className="text-sm text-slate-600 dark:text-slate-400">SIRET: 992 684 829 00011</p>
             <p className="text-sm text-slate-600 dark:text-slate-400">778 routes des barthes</p>
@@ -221,7 +221,7 @@ export default function PrivacyPage() {
 
       <h2>Responsable du traitement</h2>
       <div className="not-prose rounded-lg bg-slate-50 p-4 dark:bg-slate-800">
-        <p className="font-semibold text-slate-900 dark:text-white">Julian TOURAILLE-TRAN</p>
+        <p className="font-semibold text-slate-900 dark:text-white">TOURAILLE Julian</p>
         <p className="text-sm text-slate-600 dark:text-slate-400">Micro-entreprise Xeyo</p>
         <p className="text-sm text-slate-600 dark:text-slate-400">SIRET : 992 684 829 00011</p>
         <p className="text-sm text-slate-600 dark:text-slate-400">778 routes des barthes</p>

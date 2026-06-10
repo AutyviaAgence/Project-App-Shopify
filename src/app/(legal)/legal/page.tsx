@@ -12,12 +12,14 @@ export default function LegalPage() {
         Le site Xeyo (<a href="https://autyvia.fr" target="_blank" rel="noopener noreferrer">autyvia.fr</a>) et l&apos;application Xeyo sont édités par :
       </p>
       <div className="not-prose rounded-lg bg-slate-50 p-4 dark:bg-slate-800">
-        <p className="font-semibold text-slate-900 dark:text-white">Julian TOURAILLE-TRAN</p>
-        <p className="text-sm text-slate-600 dark:text-slate-400">Micro-entreprise - Profession libérale</p>
+        <p className="font-semibold text-slate-900 dark:text-white">TOURAILLE Julian</p>
+        <p className="text-sm text-slate-600 dark:text-slate-400">Nom commercial : Autyvia</p>
+        <p className="text-sm text-slate-600 dark:text-slate-400">Micro-entreprise — Profession libérale (BNC)</p>
         <div className="mt-3 grid gap-1 text-sm text-slate-600 dark:text-slate-400">
           <p><strong>SIRET :</strong> 992 684 829 00011</p>
           <p><strong>SIREN :</strong> 992 684 829</p>
           <p><strong>Code APE :</strong> 62.02A – Conseil en systèmes et logiciels informatiques</p>
+          <p><strong>Activité :</strong> Prestations de services en automatisation de processus et intégration d&apos;outils numériques pour entreprises.</p>
           <p><strong>Adresse :</strong> 778 routes des barthes</p>
           <p><strong>Email :</strong> <a href="mailto:contact@autyvia.fr" className="text-primary hover:underline">contact@autyvia.fr</a></p>
           <p><strong>Téléphone :</strong> <a href="tel:+33636006808" className="text-primary hover:underline">06 36 00 68 08</a></p>
@@ -25,7 +27,7 @@ export default function LegalPage() {
       </div>
 
       <h2>Directeur de la publication</h2>
-      <p>Julian TOURAILLE-TRAN, en qualité de gérant.</p>
+      <p>TOURAILLE Julian, en qualité d&apos;exploitant.</p>
 
       <h2>Hébergeur</h2>
       <h3>Site et application</h3>

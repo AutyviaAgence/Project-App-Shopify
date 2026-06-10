@@ -10,7 +10,7 @@ export default function CGVPage() {
       <h2>Article 1 – Objet</h2>
       <p>
         Les présentes Conditions Générales de Vente (CGV) définissent les conditions dans lesquelles Xeyo
-        (Julian TOURAILLE-TRAN, auto-entrepreneur) propose ses Services à ses clients professionnels.
+        (TOURAILLE Julian, auto-entrepreneur) propose ses Services à ses clients professionnels.
       </p>
       <p>
         Toute souscription implique l&apos;acceptation pleine et entière des présentes CGV et des Conditions
