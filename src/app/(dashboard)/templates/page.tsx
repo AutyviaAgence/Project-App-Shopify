@@ -255,13 +255,14 @@ export default function TemplatesPage() {
       )}
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{editing ? 'Modifier le modèle' : 'Nouveau modèle'}</DialogTitle>
             <DialogDescription>
               Utilisez {'{{1}}'}, {'{{2}}'}… pour les variables (ex : prénom, n° de commande).
             </DialogDescription>
           </DialogHeader>
+          <div className="grid gap-6 md:grid-cols-[1fr_300px]">
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
               <Label>Nom technique</Label>
@@ -301,6 +302,32 @@ export default function TemplatesPage() {
               {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               {editing ? 'Enregistrer' : 'Créer le modèle'}
             </Button>
+          </div>
+
+          {/* Aperçu WhatsApp en direct */}
+          <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Aperçu</Label>
+            <div
+              className="rounded-xl border bg-[#e5ddd5] p-4 dark:bg-[#0b141a]"
+              style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'40\' height=\'40\' viewBox=\'0 0 40 40\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 0h40v40H0z\' fill=\'none\'/%3E%3C/svg%3E")' }}
+            >
+              <div className="ml-auto max-w-[85%] rounded-lg rounded-tr-none bg-[#d9fdd3] px-2.5 py-2 shadow-sm dark:bg-[#005c4b]">
+                {headerText && (
+                  <p className="text-sm font-semibold text-gray-900 dark:text-white">{headerText}</p>
+                )}
+                <p className="whitespace-pre-wrap break-words text-sm text-gray-800 dark:text-gray-100">
+                  {bodyText || <span className="text-gray-400">Votre message apparaîtra ici…</span>}
+                </p>
+                {footerText && (
+                  <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">{footerText}</p>
+                )}
+                <div className="mt-0.5 text-right text-[10px] text-gray-400">12:00</div>
+              </div>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Les variables {'{{1}}'}, {'{{2}}'}… seront remplacées à l&apos;envoi.
+            </p>
+          </div>
           </div>
         </DialogContent>
       </Dialog>
