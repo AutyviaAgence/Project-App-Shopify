@@ -43,11 +43,11 @@ export function BlobLoader({
             />
           </filter>
 
-          {/* Dégradé de verts menthe (couleur du logo) */}
+          {/* Dégradé de bleus Xeyo */}
           <linearGradient id={gradId} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%"   stopColor="#7DF2C0" />
-            <stop offset="50%"  stopColor="#5FF0B0" />
-            <stop offset="100%" stopColor="#34C98D" />
+            <stop offset="0%"   stopColor="#6B8CFF" />
+            <stop offset="50%"  stopColor="#365EFF" />
+            <stop offset="100%" stopColor="#1E3AD1" />
           </linearGradient>
         </defs>
 
