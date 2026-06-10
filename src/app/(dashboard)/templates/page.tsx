@@ -221,11 +221,22 @@ export default function TemplatesPage() {
                       <span className={cn('rounded-full px-2 py-0.5 text-xs', st.cls)}>{st.label}</span>
                       <span className="text-xs text-muted-foreground uppercase">{t.language} · {t.category}</span>
                     </div>
-                    {t.header_text && <p className="mt-2 text-sm font-medium">{t.header_text}</p>}
-                    <p className="mt-1 text-sm whitespace-pre-wrap text-muted-foreground">{t.body_text}</p>
-                    {t.footer_text && <p className="mt-1 text-xs text-muted-foreground italic">{t.footer_text}</p>}
+
+                    {/* Aperçu WhatsApp du modèle */}
+                    <div className="mt-2 rounded-lg bg-[#e5ddd5] p-3 dark:bg-[#0b141a]">
+                      <div className="max-w-[90%] rounded-lg rounded-tl-none bg-white px-2.5 py-2 shadow-sm dark:bg-[#202c33]">
+                        {t.header_text && (
+                          <p className="text-sm font-semibold text-gray-900 dark:text-white">{t.header_text}</p>
+                        )}
+                        <p className="whitespace-pre-wrap break-words text-sm text-gray-800 dark:text-gray-100">{t.body_text}</p>
+                        {t.footer_text && (
+                          <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">{t.footer_text}</p>
+                        )}
+                      </div>
+                    </div>
+
                     {t.variables_count > 0 && (
-                      <p className="mt-1 text-xs text-muted-foreground">{t.variables_count} variable(s)</p>
+                      <p className="mt-1.5 text-xs text-muted-foreground">{t.variables_count} variable(s)</p>
                     )}
                     {t.status === 'rejected' && t.rejection_reason && (
                       <p className="mt-1 text-xs text-red-500">Refus : {t.rejection_reason}</p>

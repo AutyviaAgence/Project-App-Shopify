@@ -99,15 +99,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     p => pathname === p || pathname.startsWith(p + '/')
   )
 
-  // Rediriger vers /welcome si pas de plan actif
-  const shouldRedirectToWelcome =
-    !isAdmin &&
-    !subscriptionLoading &&
-    subscription &&
-    !plan &&
-    !subscription.isActive &&
-    !isAllowedPage &&
-    !isWelcomePage
+  // Nouveau modèle : accès direct (essai libre). Plus de redirection forcée
+  // vers le configurateur/welcome-v2. Les limites (conversations/tokens IA)
+  // sont gérées au cas par cas ; l'abonnement se gère depuis /subscription.
+  const shouldRedirectToWelcome = false
 
   const isPending = false
   const isOnboardingOnly = false
