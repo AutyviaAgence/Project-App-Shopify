@@ -152,7 +152,7 @@ function RegisterForm() {
 
   if (emailSent) {
     return (
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md border-0 bg-transparent shadow-none">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <Image src={tenant.logoUrl} alt={tenant.appName} width={64} height={64} className="h-16 w-16" />
@@ -188,7 +188,7 @@ function RegisterForm() {
           </noscript>
         </>
       )}
-    <Card className="w-full max-w-md">
+    <Card className="w-full max-w-md border-0 bg-transparent shadow-none">
       <CardHeader className="text-center">
         <div className="flex justify-center mb-4">
           <Image src={tenant.logoUrl} alt={tenant.appName} width={64} height={64} className="h-16 w-16" />

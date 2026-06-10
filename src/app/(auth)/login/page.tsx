@@ -106,12 +106,12 @@ function LoginForm() {
   }
 
   return (
-    <Card className="w-full max-w-md">
+    <Card className="w-full max-w-md border-0 bg-transparent shadow-none">
       <CardHeader className="text-center">
         <div className="flex justify-center mb-4">
           <Image src={tenant.logoUrl} alt={tenant.appName} width={64} height={64} className="h-16 w-16" />
         </div>
-        <CardTitle className="text-2xl font-bold">{t('auth.login')}</CardTitle>
+        <CardTitle className="text-3xl font-bold">{t('auth.login')}</CardTitle>
         <CardDescription>{t('auth.login_desc', { appName: tenant.appName })}</CardDescription>
       </CardHeader>
       <form onSubmit={handleSubmit}>
@@ -188,14 +188,6 @@ function LoginForm() {
             <Link href="/register" className="text-muted-foreground hover:underline">
               {t('auth.no_account')}
             </Link>
-          </div>
-          {/* Legal links */}
-          <div className="flex flex-wrap justify-center gap-3 text-xs text-muted-foreground pt-2 border-t w-full">
-            <Link href="/cgu" className="hover:underline">{t('auth.terms')}</Link>
-            <span>•</span>
-            <Link href="/privacy" className="hover:underline">{t('auth.privacy')}</Link>
-            <span>•</span>
-            <Link href="/legal" className="hover:underline">{t('auth.legal')}</Link>
           </div>
         </CardFooter>
       </form>
