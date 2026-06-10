@@ -1217,6 +1217,14 @@ export default function SettingsPage() {
                 <Trash2 className="mr-2 h-4 w-4" />
                 {t('settings.delete_my_account')}
               </Button>
+              <p className="mt-3 text-xs text-muted-foreground">
+                {locale === 'fr'
+                  ? 'Vous pouvez aussi demander la suppression de vos données par email. '
+                  : 'You can also request the deletion of your data by email. '}
+                <a href="/data-deletion" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                  {locale === 'fr' ? 'Voir la procédure' : 'See the procedure'}
+                </a>
+              </p>
             </div>
           </CardContent>
         </Card>
