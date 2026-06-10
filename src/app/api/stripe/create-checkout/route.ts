@@ -133,7 +133,7 @@ export async function POST(req: NextRequest) {
         },
       ],
       success_url: `${baseUrl}/subscription?success=true`,
-      cancel_url: `${baseUrl}/pricing?cancelled=true`,
+      cancel_url: `${baseUrl}/subscription?cancelled=true`,
       metadata: {
         user_id: user.id,
         plan,

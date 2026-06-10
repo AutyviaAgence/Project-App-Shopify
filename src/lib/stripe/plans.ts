@@ -3,9 +3,9 @@
 export type PlanId = 'starter' | 'pro' | 'scale'
 
 export const PLAN_PRICES_EUR: Record<PlanId, number> = {
-  starter: 39,
+  starter: 29,
   pro: 79,
-  scale: 150,
+  scale: 149,
 }
 
 export const PLAN_TOKEN_LIMITS: Record<PlanId, number> = {

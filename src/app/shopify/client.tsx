@@ -15,12 +15,6 @@ type Status = {
 
 const APP_BASE = process.env.NEXT_PUBLIC_APP_URL || 'https://app.xeyo.io'
 
-const PLANS = [
-  { id: 'starter', name: 'Starter', price: 29, desc: '200 conversations IA / mois' },
-  { id: 'growth', name: 'Growth', price: 79, desc: '1 000 conversations + actions Shopify', popular: true },
-  { id: 'scale', name: 'Scale', price: 149, desc: '3 000 conversations + support prioritaire' },
-]
-
 export default function ShopifyEmbeddedClient() {
   const searchParams = useSearchParams()
   const shop = searchParams.get('shop') || ''
@@ -28,7 +22,6 @@ export default function ShopifyEmbeddedClient() {
   const [status, setStatus] = useState<Status | null>(null)
   const [loading, setLoading] = useState(true)
   const [connecting, setConnecting] = useState(false)
-  const [subscribing, setSubscribing] = useState<string | null>(null)
   const [message, setMessage] = useState<string | null>(null)
 
   const fetchStatus = useCallback(async () => {
@@ -85,24 +78,6 @@ export default function ShopifyEmbeddedClient() {
     }
   }
 
-  async function handleSubscribe(plan: string) {
-    setSubscribing(plan)
-    setMessage(null)
-    try {
-      const res = await fetch('/api/shopify/billing/subscribe', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shop, plan }),
-      })
-      const json = await res.json()
-      if (!res.ok || !json.data?.confirmationUrl) throw new Error(json.error || 'Erreur')
-      if (window.top) window.top.location.href = json.data.confirmationUrl
-      else window.location.href = json.data.confirmationUrl
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : 'Erreur')
-      setSubscribing(null)
-    }
-  }
 
   return (
     <div className="min-h-screen bg-[#f1f1f1] px-4 py-10">
@@ -186,36 +161,20 @@ export default function ShopifyEmbeddedClient() {
             {message && <p className="mt-3 text-sm text-gray-600">{message}</p>}
           </div>
 
-          {/* Plans */}
+          {/* Abonnement : géré depuis le tableau de bord Xeyo (Stripe) */}
           <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
-            <h3 className="font-semibold text-gray-900">Choisissez votre plan</h3>
-            <p className="mt-1 text-xs text-gray-500">Le plan gratuit inclut 10 conversations IA / mois.</p>
-            <div className="mt-4 grid gap-4 sm:grid-cols-3">
-              {PLANS.map((p) => {
-                const current = status.plan === p.id
-                return (
-                  <div key={p.id} className={`relative rounded-xl border p-4 ${p.popular ? 'border-gray-900' : 'border-gray-200'}`}>
-                    {p.popular && (
-                      <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 rounded-full bg-gray-900 px-2 py-0.5 text-[10px] font-semibold text-white">
-                        Populaire
-                      </span>
-                    )}
-                    <div className="font-semibold text-gray-900">{p.name}</div>
-                    <div className="mt-1 text-2xl font-bold text-gray-900">
-                      {p.price}€<span className="text-sm font-normal text-gray-400">/mois</span>
-                    </div>
-                    <p className="mt-1 text-xs text-gray-500">{p.desc}</p>
-                    <button
-                      onClick={() => handleSubscribe(p.id)}
-                      disabled={current || subscribing !== null}
-                      className="mt-3 w-full rounded-lg bg-gray-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-gray-800 disabled:opacity-50"
-                    >
-                      {current ? 'Plan actuel' : subscribing === p.id ? 'Redirection…' : 'Choisir'}
-                    </button>
-                  </div>
-                )
-              })}
-            </div>
+            <h3 className="font-semibold text-gray-900">Votre abonnement</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Gérez votre forfait et vos conversations IA depuis votre tableau de bord Xeyo.
+            </p>
+            <a
+              href={`${APP_BASE}/subscription`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-4 inline-block rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800"
+            >
+              Gérer mon abonnement
+            </a>
           </div>
         </div>
       )}
