@@ -40,12 +40,8 @@ import {
   Cpu,
   Ban,
   Rocket,
-  Phone,
   Crown,
   ArrowRight,
-  ExternalLink,
-  Workflow,
-  Settings2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/i18n/context'
@@ -122,105 +118,6 @@ const PLANS = [
     ],
   },
 ]
-
-const ONBOARDING_STEPS = [
-  { icon: CreditCard, label: 'Acompte 445€', status: 'done' },
-  { icon: Settings2, label: 'Configurateur', status: 'current' },
-  { icon: Settings2, label: 'Config & tests (J14–J30)', status: 'pending' },
-  { icon: CreditCard, label: 'Solde 445€', status: 'pending' },
-  { icon: Rocket, label: 'Accès complet', status: 'pending' },
-]
-
-function OnboardingSection({ onboardingStatus, onboardingPlan }: { onboardingStatus: string; onboardingPlan: string | null }) {
-  const { subscription } = useSubscription()
-
-  const handleAcompte = () => {
-    window.location.href = '/subscription'
-  }
-
-  // n'afficher que si audit en cours
-  if (onboardingStatus === 'none' || onboardingStatus === 'solde_paid' || onboardingStatus === 'refunded') return null
-
-  const stepStates =
-    onboardingStatus === 'none'
-      ? ['upcoming', 'upcoming', 'upcoming', 'upcoming', 'upcoming']
-      : ['done', 'current', 'upcoming', 'upcoming', 'upcoming']
-
-  return (
-    <Card className="mb-8 border-primary/20 bg-gradient-to-r from-primary/5 to-transparent">
-      <CardHeader className="pb-3">
-        <div className="flex items-center gap-2">
-          <Workflow className="h-5 w-5 text-primary" />
-          <span className="font-semibold">Mise en place de votre plateforme</span>
-          <Badge className="bg-blue-500">En cours</Badge>
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-5">
-        {/* Timeline */}
-        <div className="flex items-center gap-1 overflow-x-auto pb-1">
-          {ONBOARDING_STEPS.map((step, i) => {
-            const state = stepStates[i]
-            return (
-              <div key={i} className="flex items-center gap-1 shrink-0">
-                <div className={cn(
-                  'flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold border-2',
-                  state === 'done' && 'border-green-500 bg-green-500 text-white',
-                  state === 'current' && 'border-primary bg-primary text-white',
-                  state === 'upcoming' && 'border-border bg-muted text-muted-foreground',
-                )}>
-                  {state === 'done' ? <Check className="h-3.5 w-3.5" /> : i + 1}
-                </div>
-                <span className={cn(
-                  'text-xs hidden sm:block',
-                  state === 'done' && 'text-green-600',
-                  state === 'current' && 'text-primary font-medium',
-                  state === 'upcoming' && 'text-muted-foreground',
-                )}>
-                  {step.label}
-                </span>
-                {i < ONBOARDING_STEPS.length - 1 && (
-                  <div className={cn('h-px w-4 mx-1', state === 'done' ? 'bg-green-400' : 'bg-border')} />
-                )}
-              </div>
-            )
-          })}
-        </div>
-
-        {onboardingStatus === 'acompte_paid' && (
-          <div className="space-y-3 pt-1">
-            {onboardingPlan && (
-              <div className="flex items-center gap-2 rounded-lg border border-primary/20 bg-primary/5 px-3 py-2">
-                {(() => {
-                  const p = PLANS.find(p => p.id === onboardingPlan)
-                  const Icon = p?.icon
-                  return (
-                    <>
-                      {Icon && <Icon className={cn('h-4 w-4 shrink-0', p?.color)} />}
-                      <span className="text-sm font-semibold">Plan sélectionné : {p?.name ?? onboardingPlan}</span>
-                      <span className="ml-auto text-xs text-muted-foreground">{p?.price}€/mois</span>
-                    </>
-                  )
-                })()}
-              </div>
-            )}
-            <div className="rounded-lg bg-muted/60 p-3 text-xs text-muted-foreground space-y-1">
-              <div className="flex justify-between text-green-600"><span>✓ Acompte setup reçu</span><span className="font-semibold">445€</span></div>
-              <div className="flex justify-between text-muted-foreground/60"><span>J30 — Solde setup + 1er mois abonnement</span><span>445€ + {onboardingPlan ? `${PLANS.find(p => p.id === onboardingPlan)?.price ?? '?'}€` : 'selon plan'}/mois</span></div>
-            </div>
-            <div className="flex justify-end">
-              <Link href="/subscription">
-                <Button>
-                  <Settings2 className="mr-2 h-4 w-4" />
-                  Compléter le configurateur
-                </Button>
-              </Link>
-            </div>
-          </div>
-        )}
-      </CardContent>
-    </Card>
-  )
-}
 
 function SubscriptionContent() {
   const { t, locale } = useTranslation()
@@ -341,8 +238,6 @@ function SubscriptionContent() {
   const currentPlan = subscription?.plan ?? null
   // For cancelled subscriptions, ignore pending_plan — user needs to re-subscribe fresh
   const pendingPlan = !isCancelled ? (subscription?.pendingPlan ?? null) : null
-  const auditStatus: string = subscription?.auditStatus ?? 'none'
-  const onboardingPlan = subscription?.onboardingPlan ?? null
   const planDetails = PLANS.find(p => p.id === selectedPlan)
 
   return (
@@ -353,9 +248,6 @@ function SubscriptionContent() {
           {t('subscription.description', { appName: tenant.appName })}
         </p>
       </div>
-
-      {/* Section audit (visible si audit en cours) */}
-      <OnboardingSection onboardingStatus={auditStatus} onboardingPlan={onboardingPlan} />
 
       {/* Statut abonnement */}
       {subscription && (
@@ -771,42 +663,6 @@ function SubscriptionContent() {
           )
         })}
       </div>
-
-      {/* Audit & setup — visible uniquement si pas d'audit en cours ou terminé */}
-      {(auditStatus === 'none') && (
-        <Card className="border-sky-500/20 bg-gradient-to-r from-sky-500/5 to-transparent mb-6">
-          <CardContent className="pt-5 pb-5">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                <p className="font-semibold">Audit & mise en place sur mesure</p>
-                <p className="text-sm text-muted-foreground mt-0.5">
-                  Configuration complète par notre équipe — <strong>990 €</strong> (2× 445 €) — remboursable selon conditions des CGU
-                </p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <a
-                  href="https://cal.com/autyvia/appel-decouverte"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 rounded-lg border border-sky-500/30 px-3 py-2 text-sm font-medium text-sky-600 hover:bg-sky-500/10 transition-colors"
-                >
-                  <Phone className="h-4 w-4" />
-                  Appel découverte
-                  <ExternalLink className="h-3.5 w-3.5" />
-                </a>
-                <Button
-                  size="sm"
-                  className="bg-sky-600 hover:bg-sky-700 text-white gap-2"
-                  onClick={() => window.location.href = '/subscription'}
-                >
-                  <Workflow className="h-4 w-4" />
-                  Démarrer l&apos;audit
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       <p className="text-center text-sm text-muted-foreground">
         <Clock className="inline-block h-4 w-4 mr-1" />
