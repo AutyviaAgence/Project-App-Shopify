@@ -9,10 +9,10 @@ export default function LegalPage() {
     >
       <h2>Éditeur du site</h2>
       <p>
-        Le site Xeyo (<a href="https://autyvia.fr" target="_blank" rel="noopener noreferrer">autyvia.fr</a>) et l&apos;application Xeyo sont édités par :
+        Le site Xeyo (<a href="https://xeyo.io" target="_blank" rel="noopener noreferrer">xeyo.io</a>) et l&apos;application Xeyo (<a href="https://app.xeyo.io" target="_blank" rel="noopener noreferrer">app.xeyo.io</a>) sont édités par :
       </p>
       <div className="not-prose rounded-lg bg-slate-50 p-4 dark:bg-slate-800">
-        <p className="font-semibold text-slate-900 dark:text-white">TOURAILLE Julian</p>
+        <p className="font-semibold text-slate-900 dark:text-white">TOURAILLE-TRAN Julian</p>
         <p className="text-sm text-slate-600 dark:text-slate-400">Nom commercial : Autyvia</p>
         <p className="text-sm text-slate-600 dark:text-slate-400">Micro-entreprise — Profession libérale (BNC)</p>
         <div className="mt-3 grid gap-1 text-sm text-slate-600 dark:text-slate-400">
@@ -27,7 +27,7 @@ export default function LegalPage() {
       </div>
 
       <h2>Directeur de la publication</h2>
-      <p>TOURAILLE Julian, en qualité d&apos;exploitant.</p>
+      <p>TOURAILLE-TRAN Julian, en qualité d&apos;exploitant.</p>
 
       <h2>Hébergeur</h2>
       <h3>Site et application</h3>

@@ -233,7 +233,7 @@ export function LegalPageLayout({
 
             {/* Footer */}
             <div className="mt-6 flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-white dark:bg-slate-900 px-5 py-3 text-xs text-slate-400 shadow-sm">
-              <p>© {new Date().getFullYear()} Xeyo — TOURAILLE Julian</p>
+              <p>© {new Date().getFullYear()} Xeyo — TOURAILLE-TRAN Julian</p>
               <p>SIRET : 992 684 829 00011</p>
             </div>
           </main>

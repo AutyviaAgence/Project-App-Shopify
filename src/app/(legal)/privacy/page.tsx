@@ -21,8 +21,8 @@ export default function PrivacyPage() {
 
           <h2>Data controller</h2>
           <div className="not-prose rounded-lg bg-slate-50 p-4 dark:bg-slate-800">
-            <p className="font-semibold text-slate-900 dark:text-white">TOURAILLE Julian</p>
-            <p className="text-sm text-slate-600 dark:text-slate-400">Xeyo sole proprietorship (micro-entreprise)</p>
+            <p className="font-semibold text-slate-900 dark:text-white">TOURAILLE-TRAN Julian</p>
+            <p className="text-sm text-slate-600 dark:text-slate-400">Trading as Autyvia — sole proprietorship (micro-entreprise)</p>
             <p className="text-sm text-slate-600 dark:text-slate-400">SIRET: 992 684 829 00011</p>
             <p className="text-sm text-slate-600 dark:text-slate-400">778 routes des barthes</p>
             <a href="mailto:contact@autyvia.fr" className="text-sm text-primary hover:underline">
@@ -51,7 +51,7 @@ export default function PrivacyPage() {
           <ul>
             <li><strong>WhatsApp messages</strong>: contents of conversations processed by our Services, via the official WhatsApp Business API (Meta Platforms)</li>
             <li><strong>Contacts</strong>: phone numbers and names of WhatsApp contacts</li>
-            <li><strong>Store data (Shopify)</strong>: if you connect a Shopify store, we access in read-only mode your product catalog, your pages and policies, and — if you enable it — the status of your orders and certain customer information, so that the AI agent can answer questions (products, orders, customer support, returns)</li>
+            <li><strong>Store data (Shopify)</strong>: if you connect a Shopify store, we access in read-only mode your product catalog, your pages and policies, and — if you enable it — the status of your orders and certain customer information, so that the AI agent can answer questions (products, orders, customer support, returns). The requested permissions (scopes) are: <strong>read_products</strong>, <strong>read_content</strong> (pages and policies), <strong>read_orders</strong>, and <strong>read_customers</strong>, all read-only.</li>
             <li><strong>Documents</strong>: files uploaded to the knowledge base</li>
             <li><strong>Configurations</strong>: AI agent settings, prompts, schedules</li>
           </ul>
@@ -221,8 +221,8 @@ export default function PrivacyPage() {
 
       <h2>Responsable du traitement</h2>
       <div className="not-prose rounded-lg bg-slate-50 p-4 dark:bg-slate-800">
-        <p className="font-semibold text-slate-900 dark:text-white">TOURAILLE Julian</p>
-        <p className="text-sm text-slate-600 dark:text-slate-400">Micro-entreprise Xeyo</p>
+        <p className="font-semibold text-slate-900 dark:text-white">TOURAILLE-TRAN Julian</p>
+        <p className="text-sm text-slate-600 dark:text-slate-400">Nom commercial : Autyvia — Micro-entreprise</p>
         <p className="text-sm text-slate-600 dark:text-slate-400">SIRET : 992 684 829 00011</p>
         <p className="text-sm text-slate-600 dark:text-slate-400">778 routes des barthes</p>
         <a href="mailto:contact@autyvia.fr" className="text-sm text-primary hover:underline">
@@ -251,7 +251,7 @@ export default function PrivacyPage() {
       <ul>
         <li><strong>Messages WhatsApp</strong> : contenus des conversations traitées par nos Services, via l&apos;API officielle WhatsApp Business (Meta Platforms)</li>
         <li><strong>Contacts</strong> : numéros de téléphone et noms des contacts WhatsApp</li>
-        <li><strong>Données de boutique (Shopify)</strong> : si vous connectez une boutique Shopify, nous accédons en lecture à votre catalogue de produits, vos pages et politiques, et — si vous l&apos;activez — au statut de vos commandes et à certaines informations clients, afin que l&apos;agent IA puisse répondre aux questions (produits, commandes, SAV, retours)</li>
+        <li><strong>Données de boutique (Shopify)</strong> : si vous connectez une boutique Shopify, nous accédons en lecture à votre catalogue de produits, vos pages et politiques, et — si vous l&apos;activez — au statut de vos commandes et à certaines informations clients, afin que l&apos;agent IA puisse répondre aux questions (produits, commandes, SAV, retours). Les autorisations demandées (scopes) sont : <strong>read_products</strong> (produits), <strong>read_content</strong> (pages et politiques), <strong>read_orders</strong> (commandes) et <strong>read_customers</strong> (informations clients), en lecture seule.</li>
         <li><strong>Documents</strong> : fichiers uploadés dans la base de connaissances</li>
         <li><strong>Configurations</strong> : paramètres des agents IA, prompts, horaires</li>
       </ul>
