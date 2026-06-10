@@ -69,6 +69,7 @@ import { useTranslation } from '@/i18n/context'
 import { useTenant } from '@/lib/tenant/context'
 import type { Locale } from '@/i18n/context'
 import { BlobLoaderScreen } from '@/components/blob-loader'
+import { MacrosManager } from '@/components/macros-manager'
 
 const RETENTION_KEYS = [
   { value: 'null', labelKey: 'settings.retention_keep', months: null },
@@ -603,6 +604,9 @@ export default function SettingsPage() {
             </Button>
           </CardContent>
         </Card>
+
+        {/* Macros (réponses pré-enregistrées) */}
+        <MacrosManager />
 
         {/* Abonnement */}
         <Card>

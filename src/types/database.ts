@@ -641,6 +641,18 @@ export type WhatsAppTemplate = {
   updated_at: string
 }
 
+export type Macro = {
+  id: string
+  user_id: string
+  title: string
+  shortcut: string | null
+  content: string
+  category: string
+  usage_count: number
+  created_at: string
+  updated_at: string
+}
+
 export type LifecycleHistory = {
   id: string
   conversation_id: string
@@ -872,6 +884,12 @@ export type Database = {
         Row: WhatsAppTemplate
         Insert: Partial<WhatsAppTemplate> & Pick<WhatsAppTemplate, 'user_id' | 'name' | 'body_text'>
         Update: Partial<WhatsAppTemplate>
+        Relationships: []
+      }
+      macros: {
+        Row: Macro
+        Insert: Partial<Macro> & Pick<Macro, 'user_id' | 'title' | 'content'>
+        Update: Partial<Macro>
         Relationships: []
       }
       shopify_stores: {

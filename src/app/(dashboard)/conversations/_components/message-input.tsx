@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
@@ -13,8 +13,10 @@ import {
   Square,
   FileText,
   Video,
+  Zap,
 } from 'lucide-react'
 import { useTranslation } from '@/i18n/context'
+import type { Macro } from '@/types/database'
 
 interface MessageInputProps {
   onSendText: (content: string) => Promise<void>
@@ -30,6 +32,23 @@ export function MessageInput({ onSendText, onSendMedia, sending }: MessageInputP
   const [newMessage, setNewMessage] = useState('')
   const [attachedFile, setAttachedFile] = useState<File | null>(null)
   const [attachedPreview, setAttachedPreview] = useState<string | null>(null)
+
+  // Macros (réponses pré-enregistrées)
+  const [macros, setMacros] = useState<Macro[]>([])
+  const [macrosOpen, setMacrosOpen] = useState(false)
+
+  useEffect(() => {
+    if (!macrosOpen || macros.length > 0) return
+    fetch('/api/macros').then(r => r.json()).then(j => { if (j.data) setMacros(j.data) }).catch(() => {})
+  }, [macrosOpen, macros.length])
+
+  function insertMacro(m: Macro) {
+    setNewMessage(prev => (prev ? prev + ' ' : '') + m.content)
+    setMacrosOpen(false)
+    inputRef.current?.focus()
+    // Incrémenter le compteur d'usage (best effort)
+    fetch(`/api/macros/${m.id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ used: true }) }).catch(() => {})
+  }
 
   // Voice recording
   const [isRecording, setIsRecording] = useState(false)
@@ -233,6 +252,48 @@ export function MessageInput({ onSendText, onSendMedia, sending }: MessageInputP
             >
               <Paperclip className="h-4 w-4" />
             </Button>
+
+            {/* Macros (réponses pré-enregistrées) */}
+            <div className="relative shrink-0">
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                onClick={() => setMacrosOpen(o => !o)}
+                disabled={sending}
+                className="h-11 w-11 rounded-full text-muted-foreground hover:text-foreground"
+                title="Macros"
+              >
+                <Zap className="h-4 w-4" />
+              </Button>
+              {macrosOpen && (
+                <>
+                  <div className="fixed inset-0 z-10" onClick={() => setMacrosOpen(false)} />
+                  <div className="absolute bottom-12 left-0 z-20 w-72 rounded-xl border bg-popover p-2 shadow-lg">
+                    <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Réponses pré-enregistrées</div>
+                    <div className="max-h-64 overflow-y-auto">
+                      {macros.length === 0 ? (
+                        <div className="px-2 py-3 text-center text-xs text-muted-foreground">
+                          Aucune macro. Créez-en dans Paramètres → Macros.
+                        </div>
+                      ) : (
+                        macros.map(m => (
+                          <button
+                            key={m.id}
+                            type="button"
+                            onClick={() => insertMacro(m)}
+                            className="w-full rounded-lg px-2 py-2 text-left transition-colors hover:bg-muted/60"
+                          >
+                            <div className="text-sm font-medium">{m.title}</div>
+                            <div className="truncate text-xs text-muted-foreground">{m.content}</div>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
 
             <div className="relative flex-1">
               <Input
