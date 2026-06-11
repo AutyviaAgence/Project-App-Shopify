@@ -637,9 +637,18 @@ export type WhatsAppTemplate = {
   sample_values: string[] | null
   status: 'draft' | 'pending' | 'approved' | 'rejected'
   rejection_reason: string | null
+  header_type: 'none' | 'text' | 'image' | 'video' | 'document'
+  header_media_url: string | null
+  buttons: TemplateButton[] | null
   created_at: string
   updated_at: string
 }
+
+export type TemplateButton =
+  | { type: 'URL'; text: string; url: string }
+  | { type: 'PHONE_NUMBER'; text: string; phone: string }
+  | { type: 'COPY_CODE'; text: string; code: string }
+  | { type: 'QUICK_REPLY'; text: string }
 
 export type Macro = {
   id: string

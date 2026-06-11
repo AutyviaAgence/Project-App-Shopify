@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useEffect, useState, useCallback, useRef } from 'react'
-import type { WhatsAppTemplate } from '@/types/database'
+import type { WhatsAppTemplate, TemplateButton } from '@/types/database'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -13,7 +13,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
-import { Plus, Loader2, Trash2, Send, RefreshCw, FileText, Pencil, Sparkles, Bold, Italic, Strikethrough, Braces } from 'lucide-react'
+import { Plus, Loader2, Trash2, Send, RefreshCw, FileText, Pencil, Sparkles, Bold, Italic, Strikethrough, Braces, Image as ImageIcon, Video, ExternalLink, Phone, Copy } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BlobLoaderScreen } from '@/components/blob-loader'
 
@@ -66,8 +66,22 @@ export default function TemplatesPage() {
   const [bodyText, setBodyText] = useState('')
   const [headerText, setHeaderText] = useState('')
   const [footerText, setFooterText] = useState('')
+  const [headerType, setHeaderType] = useState<'none' | 'text' | 'image' | 'video' | 'document'>('none')
+  const [headerMediaUrl, setHeaderMediaUrl] = useState('')
+  const [buttons, setButtons] = useState<TemplateButton[]>([])
   const [saving, setSaving] = useState(false)
   const bodyRef = useRef<HTMLTextAreaElement>(null)
+
+  // Gestion des boutons
+  function addButton(type: TemplateButton['type']) {
+    if (buttons.length >= 3) { toast.error('Maximum 3 boutons'); return }
+    const base = { URL: { type, text: 'Voir le site', url: 'https://' }, PHONE_NUMBER: { type, text: 'Appeler', phone: '+33' }, COPY_CODE: { type, text: 'Copier le code', code: 'PROMO10' }, QUICK_REPLY: { type, text: 'Oui' } }[type]
+    setButtons([...buttons, base as TemplateButton])
+  }
+  function updateButton(i: number, patch: Partial<TemplateButton>) {
+    setButtons(buttons.map((b, idx) => idx === i ? { ...b, ...patch } as TemplateButton : b))
+  }
+  function removeButton(i: number) { setButtons(buttons.filter((_, idx) => idx !== i)) }
 
   // Entoure la sélection du textarea avec un marqueur WhatsApp (*gras*, _italique_, ~barré~)
   function wrapSelection(mark: string) {
@@ -133,6 +147,7 @@ export default function TemplatesPage() {
     setEditing(null)
     setName(''); setLanguage('fr'); setCategory('UTILITY')
     setBodyText(''); setHeaderText(''); setFooterText('Powered by Xeyo.io')
+    setHeaderType('none'); setHeaderMediaUrl(''); setButtons([])
     setDialogOpen(true)
   }
 
@@ -140,6 +155,9 @@ export default function TemplatesPage() {
     setEditing(t)
     setName(t.name); setLanguage(t.language); setCategory(t.category)
     setBodyText(t.body_text); setHeaderText(t.header_text || ''); setFooterText(t.footer_text || '')
+    setHeaderType(t.header_type || (t.header_text ? 'text' : 'none'))
+    setHeaderMediaUrl(t.header_media_url || '')
+    setButtons(Array.isArray(t.buttons) ? t.buttons : [])
     setDialogOpen(true)
   }
 
@@ -152,7 +170,15 @@ export default function TemplatesPage() {
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, language, category, body_text: bodyText, header_text: headerText, footer_text: footerText }),
+        body: JSON.stringify({
+          name, language, category,
+          body_text: bodyText,
+          header_text: headerType === 'text' ? headerText : '',
+          footer_text: footerText,
+          header_type: headerType,
+          header_media_url: (headerType === 'image' || headerType === 'video' || headerType === 'document') ? headerMediaUrl : null,
+          buttons: buttons.length > 0 ? buttons : null,
+        }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Erreur')
@@ -309,15 +335,32 @@ export default function TemplatesPage() {
                 {/* Aperçu : fond dégradé doux + grande bulle blanche */}
                 <div className="flex-1 overflow-y-auto bg-gradient-to-br from-slate-100 via-slate-50 to-blue-50 p-8 dark:from-slate-800 dark:via-slate-800/80 dark:to-slate-900">
                   <div className="mx-auto max-w-md">
-                    <div className="ml-auto max-w-[92%] rounded-2xl rounded-tr-sm bg-white px-4 py-3 shadow-md ring-1 ring-black/5">
-                      {selectedTemplate.header_text && (
-                        <p className="mb-1 text-[15px] font-semibold text-gray-900">{selectedTemplate.header_text}</p>
+                    <div className="ml-auto max-w-[92%] overflow-hidden rounded-2xl rounded-tr-sm bg-white shadow-md ring-1 ring-black/5">
+                      {selectedTemplate.header_type === 'image' && <div className="flex h-36 items-center justify-center bg-slate-200 text-slate-400"><ImageIcon className="h-12 w-12" /></div>}
+                      {selectedTemplate.header_type === 'video' && <div className="flex h-36 items-center justify-center bg-slate-800 text-slate-400"><Video className="h-12 w-12" /></div>}
+                      {selectedTemplate.header_type === 'document' && <div className="flex items-center gap-2 bg-slate-100 px-3 py-2.5 text-slate-500"><FileText className="h-5 w-5" /><span className="text-xs">Document.pdf</span></div>}
+                      <div className="px-4 py-3">
+                        {(selectedTemplate.header_type === 'text' || !selectedTemplate.header_type) && selectedTemplate.header_text && (
+                          <p className="mb-1 text-[15px] font-semibold text-gray-900">{selectedTemplate.header_text}</p>
+                        )}
+                        <p className="whitespace-pre-wrap break-words text-[14.5px] leading-snug text-gray-800">{renderWhatsAppFormat(selectedTemplate.body_text)}</p>
+                        {selectedTemplate.footer_text && (
+                          <p className="mt-2 text-[12px] text-gray-400">{selectedTemplate.footer_text}</p>
+                        )}
+                        <div className="mt-1 text-right text-[10px] text-gray-400">12:00 ✓✓</div>
+                      </div>
+                      {Array.isArray(selectedTemplate.buttons) && selectedTemplate.buttons.length > 0 && (
+                        <div className="border-t border-slate-100">
+                          {selectedTemplate.buttons.map((b, i) => (
+                            <div key={i} className="flex items-center justify-center gap-1.5 border-t border-slate-100 py-2.5 text-[14px] font-medium text-[#1ca5e0] first:border-t-0">
+                              {b.type === 'URL' && <ExternalLink className="h-4 w-4" />}
+                              {b.type === 'PHONE_NUMBER' && <Phone className="h-4 w-4" />}
+                              {b.type === 'COPY_CODE' && <Copy className="h-4 w-4" />}
+                              {b.text}
+                            </div>
+                          ))}
+                        </div>
                       )}
-                      <p className="whitespace-pre-wrap break-words text-[14.5px] leading-snug text-gray-800">{renderWhatsAppFormat(selectedTemplate.body_text)}</p>
-                      {selectedTemplate.footer_text && (
-                        <p className="mt-2 text-[12px] text-gray-400">{selectedTemplate.footer_text}</p>
-                      )}
-                      <div className="mt-1 text-right text-[10px] text-gray-400">12:00 ✓✓</div>
                     </div>
                   </div>
                   <div className="mx-auto mt-4 max-w-md text-center text-xs text-muted-foreground">
@@ -369,9 +412,35 @@ export default function TemplatesPage() {
                 </Select>
               </div>
             </div>
-            <div className="space-y-1.5">
+            <div className="space-y-2">
               <Label>En-tête (optionnel)</Label>
-              <Input value={headerText} onChange={(e) => setHeaderText(e.target.value)} placeholder="Votre commande est confirmée" />
+              {/* Sélecteur de type d'en-tête */}
+              <div className="grid grid-cols-5 gap-1 rounded-lg bg-muted p-1 text-xs">
+                {([
+                  { v: 'none', l: 'Aucun' },
+                  { v: 'text', l: 'Texte' },
+                  { v: 'image', l: 'Image' },
+                  { v: 'video', l: 'Vidéo' },
+                  { v: 'document', l: 'Doc' },
+                ] as const).map(({ v, l }) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setHeaderType(v)}
+                    className={cn('rounded-md py-1.5 font-medium transition-colors', headerType === v ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground')}
+                  >{l}</button>
+                ))}
+              </div>
+              {headerType === 'text' && (
+                <Input value={headerText} onChange={(e) => setHeaderText(e.target.value)} placeholder="Votre commande est confirmée" maxLength={60} />
+              )}
+              {(headerType === 'image' || headerType === 'video' || headerType === 'document') && (
+                <Input
+                  value={headerMediaUrl}
+                  onChange={(e) => setHeaderMediaUrl(e.target.value)}
+                  placeholder={headerType === 'image' ? 'URL de l\'image (exemple)' : headerType === 'video' ? 'URL de la vidéo' : 'URL du document'}
+                />
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>Message <span className="text-destructive">*</span></Label>
@@ -391,8 +460,34 @@ export default function TemplatesPage() {
             </div>
             <div className="space-y-1.5">
               <Label>Pied de page (optionnel)</Label>
-              <Input value={footerText} onChange={(e) => setFooterText(e.target.value)} placeholder="Merci de votre confiance" />
+              <Input value={footerText} onChange={(e) => setFooterText(e.target.value)} placeholder="Powered by Xeyo.io" maxLength={60} />
             </div>
+
+            {/* Boutons (optionnel) */}
+            <div className="space-y-2">
+              <Label>Boutons (optionnel)</Label>
+              {buttons.map((b, i) => (
+                <div key={i} className="flex items-center gap-2 rounded-lg border p-2">
+                  <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase text-muted-foreground">
+                    {b.type === 'URL' ? 'Site' : b.type === 'PHONE_NUMBER' ? 'Appel' : b.type === 'COPY_CODE' ? 'Code' : 'Réponse'}
+                  </span>
+                  <Input value={b.text} onChange={(e) => updateButton(i, { text: e.target.value })} placeholder="Libellé" className="h-8 flex-1" maxLength={25} />
+                  {b.type === 'URL' && <Input value={b.url} onChange={(e) => updateButton(i, { url: e.target.value } as Partial<TemplateButton>)} placeholder="https://…" className="h-8 flex-1" />}
+                  {b.type === 'PHONE_NUMBER' && <Input value={b.phone} onChange={(e) => updateButton(i, { phone: e.target.value } as Partial<TemplateButton>)} placeholder="+33…" className="h-8 flex-1" />}
+                  {b.type === 'COPY_CODE' && <Input value={b.code} onChange={(e) => updateButton(i, { code: e.target.value } as Partial<TemplateButton>)} placeholder="PROMO10" className="h-8 flex-1" />}
+                  <button type="button" onClick={() => removeButton(i)} className="shrink-0 text-destructive hover:opacity-70"><Trash2 className="h-4 w-4" /></button>
+                </div>
+              ))}
+              {buttons.length < 3 && (
+                <div className="grid grid-cols-2 gap-1.5">
+                  <button type="button" onClick={() => addButton('URL')} className="rounded-lg border px-2 py-1.5 text-xs hover:bg-muted">Visiter le site</button>
+                  <button type="button" onClick={() => addButton('PHONE_NUMBER')} className="rounded-lg border px-2 py-1.5 text-xs hover:bg-muted">Appeler</button>
+                  <button type="button" onClick={() => addButton('COPY_CODE')} className="rounded-lg border px-2 py-1.5 text-xs hover:bg-muted">Copier un code</button>
+                  <button type="button" onClick={() => addButton('QUICK_REPLY')} className="rounded-lg border px-2 py-1.5 text-xs hover:bg-muted">Réponse rapide</button>
+                </div>
+              )}
+            </div>
+
             <Button onClick={handleSave} disabled={saving || !name.trim() || !bodyText.trim()} className="w-full">
               {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               {editing ? 'Enregistrer' : 'Créer le modèle'}
@@ -403,17 +498,36 @@ export default function TemplatesPage() {
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">Aperçu</Label>
             <div className="rounded-xl border bg-gradient-to-br from-slate-100 via-slate-50 to-blue-50 p-5 dark:from-slate-800 dark:via-slate-800/80 dark:to-slate-900">
-              <div className="ml-auto max-w-[88%] rounded-2xl rounded-tr-sm bg-white px-3 py-2 shadow-md ring-1 ring-black/5">
-                {headerText && (
-                  <p className="mb-0.5 text-[15px] font-semibold text-gray-900">{headerText}</p>
+              <div className="ml-auto max-w-[88%] overflow-hidden rounded-2xl rounded-tr-sm bg-white shadow-md ring-1 ring-black/5">
+                {/* Header média */}
+                {headerType === 'image' && <div className="flex h-32 items-center justify-center bg-slate-200 text-slate-400"><ImageIcon className="h-10 w-10" /></div>}
+                {headerType === 'video' && <div className="flex h-32 items-center justify-center bg-slate-800 text-slate-400"><Video className="h-10 w-10" /></div>}
+                {headerType === 'document' && <div className="flex items-center gap-2 bg-slate-100 px-3 py-2.5 text-slate-500"><FileText className="h-5 w-5" /><span className="text-xs">Document.pdf</span></div>}
+                <div className="px-3 py-2">
+                  {headerType === 'text' && headerText && (
+                    <p className="mb-0.5 text-[15px] font-semibold text-gray-900">{headerText}</p>
+                  )}
+                  <p className="whitespace-pre-wrap break-words text-[14.5px] leading-snug text-gray-800">
+                    {renderWhatsAppFormat(bodyText) || <span className="text-gray-400">Votre message apparaîtra ici…</span>}
+                  </p>
+                  {footerText && (
+                    <p className="mt-1.5 text-[12px] text-gray-400">{footerText}</p>
+                  )}
+                  <div className="mt-0.5 text-right text-[10px] text-gray-400">12:00 ✓✓</div>
+                </div>
+                {/* Boutons */}
+                {buttons.length > 0 && (
+                  <div className="border-t border-slate-100">
+                    {buttons.map((b, i) => (
+                      <div key={i} className="flex items-center justify-center gap-1.5 border-t border-slate-100 py-2 text-[14px] font-medium text-[#1ca5e0] first:border-t-0">
+                        {b.type === 'URL' && <ExternalLink className="h-4 w-4" />}
+                        {b.type === 'PHONE_NUMBER' && <Phone className="h-4 w-4" />}
+                        {b.type === 'COPY_CODE' && <Copy className="h-4 w-4" />}
+                        {b.text || 'Bouton'}
+                      </div>
+                    ))}
+                  </div>
                 )}
-                <p className="whitespace-pre-wrap break-words text-[14.5px] leading-snug text-gray-800">
-                  {renderWhatsAppFormat(bodyText) || <span className="text-gray-400">Votre message apparaîtra ici…</span>}
-                </p>
-                {footerText && (
-                  <p className="mt-1.5 text-[12px] text-gray-400">{footerText}</p>
-                )}
-                <div className="mt-0.5 text-right text-[10px] text-gray-400">12:00 ✓✓</div>
               </div>
             </div>
             <p className="text-[11px] text-muted-foreground">

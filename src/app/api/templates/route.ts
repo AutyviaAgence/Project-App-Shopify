@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import type { TemplateButton } from '@/types/database'
 
 /** Compte les variables {{1}}, {{2}}… dans un texte */
 function countVariables(text: string): number {
@@ -19,7 +20,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from('whatsapp_templates')
-    .select('id, session_id, meta_id, name, language, category, body_text, header_text, footer_text, variables_count, sample_values, status, rejection_reason, created_at, updated_at')
+    .select('id, session_id, meta_id, name, language, category, body_text, header_text, footer_text, header_type, header_media_url, buttons, variables_count, sample_values, status, rejection_reason, created_at, updated_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
 
@@ -36,7 +37,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => ({}))
-  const { session_id, name, language, category, body_text, header_text, footer_text, sample_values } = body as {
+  const { session_id, name, language, category, body_text, header_text, footer_text, sample_values, header_type, header_media_url, buttons } = body as {
     session_id?: string
     name?: string
     language?: string
@@ -45,6 +46,9 @@ export async function POST(req: NextRequest) {
     header_text?: string
     footer_text?: string
     sample_values?: string[]
+    header_type?: 'none' | 'text' | 'image' | 'video' | 'document'
+    header_media_url?: string | null
+    buttons?: unknown[] | null
   }
 
   if (!name?.trim() || !body_text?.trim()) {
@@ -65,6 +69,9 @@ export async function POST(req: NextRequest) {
       body_text: body_text.trim(),
       header_text: header_text?.trim() || null,
       footer_text: footer_text?.trim() || null,
+      header_type: header_type || 'none',
+      header_media_url: header_media_url || null,
+      buttons: buttons && buttons.length > 0 ? (buttons as TemplateButton[]) : null,
       variables_count: countVariables(body_text),
       sample_values: sample_values || null,
       status: 'draft',
