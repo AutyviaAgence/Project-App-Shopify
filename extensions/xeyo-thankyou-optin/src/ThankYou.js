@@ -168,9 +168,11 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
     try {
       const domain = shop.myshopifyDomain
       const url = `https://${domain}/apps/xeyo/optin?shop=${encodeURIComponent(domain)}`
+      // Content-Type text/plain : évite le preflight CORS (qui échoue sur la
+      // redirection 302 du proxy Shopify). La route lit le body en JSON.
       const res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'text/plain' },
         body: JSON.stringify({ phone: clean, name: fullName, marketing: true }),
       })
       const json = await res.json().catch(() => ({}))
