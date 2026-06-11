@@ -62,9 +62,11 @@ export async function GET(req: NextRequest) {
   }> } }>(store.shop_domain, token, query, { q })
 
   if (!res.ok) {
+    console.log('[order-phone DIAG] GraphQL error:', res.error?.slice(0, 300))
     return NextResponse.json({ phone: null }, { headers: { 'Cache-Control': 'no-store' } })
   }
 
+  console.log('[order-phone DIAG] order=', orderNumber, 'nodes=', res.data.orders.nodes.length, 'data=', JSON.stringify(res.data.orders.nodes[0])?.slice(0, 300))
   const o = res.data.orders.nodes[0]
   const phone = (
     o?.phone ||
