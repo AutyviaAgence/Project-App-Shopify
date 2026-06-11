@@ -84,8 +84,9 @@ export default function ShopifyEmbeddedClient() {
   return (
     <div className="min-h-screen bg-[#f1f1f1] px-4 py-10">
       {/* Barre titre façon admin Shopify */}
-      <div className="mx-auto mb-6 flex max-w-3xl items-center gap-2">
-        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-500 text-sm font-bold text-white">X</div>
+      <div className="mx-auto mb-6 flex max-w-3xl items-center gap-2.5">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo-xeyo.svg" alt="Xeyo" className="h-8 w-8" />
         <h1 className="text-lg font-semibold text-gray-800">Xeyo — WhatsApp Support &amp; Chat</h1>
       </div>
 
