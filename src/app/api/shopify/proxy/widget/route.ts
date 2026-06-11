@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
   // Message d'accueil du lien de la boutique (s'il existe et est actif)
   const { data: link } = await admin
     .from('wa_links')
-    .select('pre_filled_message, is_active')
+    .select('slug, pre_filled_message, is_active')
     .eq('user_id', store.user_id)
     .eq('session_id', session.id)
     .order('created_at', { ascending: true })
@@ -74,9 +74,14 @@ export async function GET(req: NextRequest) {
 
   const enabled = link ? link.is_active !== false : true
 
+  // URL de redirection Xeyo (tracking + gestion du format WhatsApp côté serveur)
+  const appBase = process.env.NEXT_PUBLIC_APP_URL || 'https://app.xeyo.io'
+  const url = link?.slug ? `${appBase}/api/wa/${link.slug}` : null
+
   return NextResponse.json(
     {
       enabled,
+      url, // ← la bulle pointe vers ce lien Xeyo (pas wa.me directement)
       phone: session.phone_number,
       message: link?.pre_filled_message || 'Bonjour, j\'ai une question sur ma commande.',
     },
