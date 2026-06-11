@@ -10,7 +10,7 @@ uid = "8900acf1-c503-d000-d085-d9e6f7d280023d11b5cc"
 type = "ui_extension"
 
   [[extensions.targeting]]
-  module = "./src/ThankYou.jsx"
+  module = "./src/ThankYou.js"
   target = "purchase.thank-you.block.render"
 
   [extensions.capabilities]
