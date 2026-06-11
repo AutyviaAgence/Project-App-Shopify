@@ -4,6 +4,40 @@ import { wabaClient } from '@/lib/whatsapp-cloud/client'
 import { decryptMessage } from '@/lib/crypto/encryption'
 
 /**
+ * GET /api/templates/test-send
+ *
+ * Diagnostic : liste les derniers contacts opt-in issus de la vitrine Shopify.
+ * Permet de vérifier si l'opt-in de la page Merci a bien créé un contact
+ * (donc si l'extension a réellement appelé /api/shopify/proxy/optin).
+ */
+export async function GET() {
+  const supabase = await createClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  }
+
+  // Sessions de l'utilisateur
+  const { data: sessions } = await supabase
+    .from('whatsapp_sessions')
+    .select('id')
+    .eq('user_id', user.id)
+  const sessionIds = (sessions || []).map((s) => s.id)
+  if (sessionIds.length === 0) {
+    return NextResponse.json({ contacts: [], note: 'aucune session WhatsApp' })
+  }
+
+  const { data: contacts } = await supabase
+    .from('contacts')
+    .select('phone_number, name, opt_in_status, opt_in_source, preferred_channel, marketing_consent, opt_in_at, created_at')
+    .in('session_id', sessionIds)
+    .order('created_at', { ascending: false })
+    .limit(10)
+
+  return NextResponse.json({ contacts: contacts || [] })
+}
+
+/**
  * POST /api/templates/test-send
  *
  * Diagnostic : rejoue l'envoi du template de confirmation vers un numéro de
