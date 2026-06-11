@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
-import { Plus, Loader2, Trash2, Send, RefreshCw, FileText, Sparkles, Bold, Italic, Strikethrough, Braces, Image as ImageIcon, Video, ExternalLink, Phone, Copy } from 'lucide-react'
+import { Plus, Loader2, Trash2, Send, RefreshCw, FileText, Sparkles, Bold, Italic, Strikethrough, Braces, Image as ImageIcon, Video, ExternalLink, Phone, Copy, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BlobLoaderScreen } from '@/components/blob-loader'
 
@@ -158,6 +158,24 @@ export default function TemplatesPage() {
     setHeaderMediaUrl(t.header_media_url || '')
     setButtons(Array.isArray(t.buttons) ? t.buttons : [])
     setMode('edit')
+  }
+
+  // Le formulaire diffère-t-il du template chargé ? (pour avertir avant de repasser en brouillon)
+  const isDirty = !!editing && (
+    name !== editing.name ||
+    language !== editing.language ||
+    category !== editing.category ||
+    bodyText !== editing.body_text ||
+    headerText !== (editing.header_text || '') ||
+    footerText !== (editing.footer_text || '') ||
+    headerType !== (editing.header_type || (editing.header_text ? 'text' : 'none')) ||
+    headerMediaUrl !== (editing.header_media_url || '') ||
+    JSON.stringify(buttons) !== JSON.stringify(editing.buttons || [])
+  )
+
+  // Recharge les valeurs d'origine du template (annule les modifications en cours)
+  function revertChanges() {
+    if (editing) openEdit(editing)
   }
 
   async function handleSave() {
@@ -339,6 +357,20 @@ export default function TemplatesPage() {
                     </div>
                   )}
                 </div>
+
+                {/* Avertissement : modifier un modèle approuvé/soumis le repassera en brouillon */}
+                {editing && editing.status !== 'draft' && isDirty && (
+                  <div className="flex items-start gap-3 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2.5">
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+                    <div className="flex-1 text-xs text-amber-600 dark:text-amber-400">
+                      Ce modèle est <strong>{(STATUS_STYLE[editing.status] || STATUS_STYLE.draft).label.toLowerCase()}</strong> chez Meta.
+                      Si vous enregistrez, il repassera en <strong>brouillon</strong> et devra être <strong>resoumis à Meta</strong> pour activer vos changements.
+                    </div>
+                    <Button size="sm" variant="outline" className="h-7 shrink-0 border-amber-500/40 text-amber-600 hover:bg-amber-500/10 dark:text-amber-400" onClick={revertChanges}>
+                      Annuler mes modifications
+                    </Button>
+                  </div>
+                )}
 
                 <div className="flex-1 overflow-y-auto">
                   <div className="grid gap-6 p-4 lg:grid-cols-[minmax(340px,420px)_1fr]">
