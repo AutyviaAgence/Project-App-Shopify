@@ -14,5 +14,10 @@ use_legacy_install_flow = false
 [auth]
 redirect_urls = [ "https://app.xeyo.io/api/shopify/callback" ]
 
+[app_proxy]
+url = "https://app.xeyo.io/api/shopify/proxy"
+subpath = "xeyo"
+prefix = "apps"
+
 [webhooks]
 api_version = "2026-04"
