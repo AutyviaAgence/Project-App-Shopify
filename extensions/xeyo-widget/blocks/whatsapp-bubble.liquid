@@ -68,7 +68,10 @@
 
         var phone = String(cfg.phone).replace(/[^0-9]/g, '');
         var msg = cfg.message || '';
-        var href = 'https://wa.me/' + phone + (msg ? '?text=' + encodeURIComponent(msg) : '');
+        // Format api.whatsapp.com/send (plus fiable que wa.me selon les navigateurs/réseaux)
+        var href = 'https://api.whatsapp.com/send/?phone=' + phone
+          + '&text=' + encodeURIComponent(msg)
+          + '&type=phone_number&app_absent=0';
 
         var html = '';
         if (el.getAttribute('data-greeting') === 'true') {
