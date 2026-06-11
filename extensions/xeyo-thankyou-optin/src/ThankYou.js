@@ -53,10 +53,23 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
   const lang = String(isoRaw).toLowerCase().startsWith('fr') ? 'fr' : 'en'
   const t = STRINGS[lang]
 
-  // Le client saisit son numéro WhatsApp (le téléphone de la commande n'est pas
-  // exposé côté client sur la page Merci, et peut de toute façon différer).
   const shipping = api.shippingAddress?.current || {}
   let phone = ''
+
+  // [DIAG 2] Dump complet de toutes les sources pour localiser le téléphone.
+  try {
+    for (const k of Object.keys(api)) {
+      const v = api[k]
+      const resolved = (v && typeof v === 'object' && 'current' in v) ? v.current : v
+      let s = ''
+      try { s = JSON.stringify(resolved) } catch { s = '(non-serializable)' }
+      if (s && /phone|\+\d{6,}|\d{8,}/i.test(s)) {
+        console.log(`[Xeyo DIAG2] ${k}:`, s.slice(0, 500))
+      }
+    }
+    // Test direct orderConfirmation complet
+    console.log('[Xeyo DIAG2] orderConfirmation full:', JSON.stringify(api.orderConfirmation?.current))
+  } catch (e) { console.log('[Xeyo DIAG2] err', e) }
 
   const address = shipping
   let optedIn = false
