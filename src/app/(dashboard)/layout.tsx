@@ -18,6 +18,7 @@ import {
   LogOut,
   Settings,
   ScrollText,
+  HelpCircle,
   FileText,
   ShoppingBag,
   Menu,
@@ -54,12 +55,13 @@ const NAV_ITEMS_KEYS = [
 ]
 
 const BOTTOM_NAV_KEYS = [
+  { href: '/help', labelKey: 'nav.help', label: 'Aide', icon: HelpCircle },
   { href: '/logs', labelKey: 'nav.logs', icon: ScrollText },
   { href: '/settings', labelKey: 'nav.settings', icon: Settings },
 ]
 
 // Pages accessibles même sans abonnement actif
-const ALLOWED_WITHOUT_SUBSCRIPTION = ['/subscription', '/settings', '/admin']
+const ALLOWED_WITHOUT_SUBSCRIPTION = ['/subscription', '/settings', '/admin', '/help']
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -83,7 +85,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     // Logs reserve aux admins
     const items = BOTTOM_NAV_KEYS
       .filter(item => item.href !== '/logs' || isAdminRole)
-      .map(item => ({ ...item, label: t(item.labelKey) }))
+      .map(item => ({ ...item, label: (item as { label?: string }).label || t(item.labelKey) }))
     if (isAdminRole) {
       items.unshift({ href: '/admin', labelKey: 'nav.admin', label: 'Admin', icon: ShieldCheck })
     }
