@@ -37,6 +37,8 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}))
   const phone = String(body.phone || '').replace(/[^0-9]/g, '')
   const name = (body.name as string)?.trim() || null
+  // L'opt-in page Merci couvre aussi le marketing (case "commande + offres")
+  const marketing = body.marketing === true
 
   if (!shop) return NextResponse.json({ ok: false, error: 'shop manquant' }, { status: 400 })
   if (!phone || phone.length < 8) return NextResponse.json({ ok: false, error: 'Numéro invalide' }, { status: 400 })
@@ -78,6 +80,8 @@ export async function POST(req: NextRequest) {
         opt_in_at: now,
         preferred_channel: 'whatsapp',
         channel_optin_at: now,
+        marketing_consent: marketing,
+        marketing_consent_at: marketing ? now : null,
       },
       { onConflict: 'session_id,phone_number' }
     )

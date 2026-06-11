@@ -46,7 +46,7 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
   const consent = root.createComponent(
     Text,
     { size: 'small', appearance: 'subdued' },
-    `En validant, j'accepte de recevoir des messages WhatsApp de ${storeName} concernant le suivi de ma commande. Répondez STOP pour vous désabonner à tout moment.`
+    `En validant, j'accepte de recevoir des messages WhatsApp de ${storeName} concernant le suivi de ma commande ainsi que ses offres et promotions. Répondez STOP pour vous désabonner à tout moment.`
   )
 
   const branding = root.createComponent(
@@ -72,7 +72,7 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
         else fieldsStack.remove()
       },
     },
-    `📦 Recevoir le suivi de ma commande sur WhatsApp`
+    `📦 Recevoir le suivi de ma commande et les offres exclusives sur WhatsApp`
   )
 
   const container = root.createComponent(
@@ -98,7 +98,7 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
       const res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: clean, name: fullName }),
+        body: JSON.stringify({ phone: clean, name: fullName, marketing: true }),
       })
       const json = await res.json().catch(() => ({}))
       if (res.ok && json.ok) {
