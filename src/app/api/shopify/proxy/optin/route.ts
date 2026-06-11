@@ -101,18 +101,35 @@ export async function POST(req: NextRequest) {
     .single()
   if (error) return J({ ok: false, error: error.message }, 500)
 
-  // Message de remerciement (premier contact WhatsApp) — best effort.
+  // Message de remerciement (premier contact WhatsApp).
   // Utilise le template confirmation_commande (déjà approuvé).
+  // On envoie de façon synchrone pour pouvoir signaler à la vitrine si le
+  // numéro n'a pas de compte WhatsApp (→ 422 no_whatsapp, message d'erreur ciblé).
   if (contact?.id) {
     try {
       const { sendNotification } = await import('@/lib/notifications/send')
-      await sendNotification({
+      const result = await sendNotification({
         contactId: contact.id,
         kind: 'order_confirmed',
         vars: { '1': name || 'cher client', '2': 'votre commande' },
         emailSubject: 'Merci pour votre commande !',
         emailBody: `Bonjour ${name || ''},\n\nMerci pour votre commande ! Nous sommes ravis de vous compter parmi nos clients.`,
       })
+
+      // Numéro sans compte WhatsApp : on annule l'opt-in et on demande
+      // au client de corriger son numéro.
+      if (result.error === 'no_whatsapp') {
+        await admin.from('contacts')
+          .update({ opt_in_status: 'pending', preferred_channel: 'none' })
+          .eq('id', contact.id)
+        return J({ ok: false, error: 'no_whatsapp' }, 422)
+      }
+
+      if (result.error) {
+        // Échec d'envoi (template non approuvé, token, etc.) : le contact reste
+        // opt-in, mais on le journalise pour diagnostic.
+        console.error('[optin] notif non envoyée:', result.error)
+      }
     } catch (e) {
       console.error('[optin] message de remerciement échec (non bloquant):', e)
     }

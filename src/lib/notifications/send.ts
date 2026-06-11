@@ -39,7 +39,7 @@ type Channel = 'none' | 'whatsapp' | 'email' | 'both'
  * Envoie une notification au contact sur son/ses canal(aux) préféré(s).
  * Retourne les canaux effectivement utilisés.
  */
-export async function sendNotification(payload: NotificationPayload): Promise<{ sent: string[]; skipped?: string }> {
+export async function sendNotification(payload: NotificationPayload): Promise<{ sent: string[]; skipped?: string; error?: string }> {
   const supabase = admin()
 
   const { data: contact } = await supabase
@@ -59,11 +59,13 @@ export async function sendNotification(payload: NotificationPayload): Promise<{ 
   if (channel === 'none') return { sent: [], skipped: 'pas de canal opt-in' }
 
   const sent: string[] = []
+  let error: string | undefined
 
   // WhatsApp
   if ((channel === 'whatsapp' || channel === 'both') && contact.phone_number) {
-    const ok = await sendWhatsAppNotification(contact.session_id, contact.phone_number, payload)
-    if (ok) sent.push('whatsapp')
+    const r = await sendWhatsAppNotification(contact.session_id, contact.phone_number, payload)
+    if (r.ok) sent.push('whatsapp')
+    else error = r.error
   }
 
   // Email
@@ -75,16 +77,20 @@ export async function sendNotification(payload: NotificationPayload): Promise<{ 
     }
   }
 
-  return { sent }
+  return { sent, error }
 }
+
+// Codes d'erreur Meta indiquant que le numéro n'a pas de compte WhatsApp
+// (ou n'est pas joignable). On les remonte comme "no_whatsapp".
+const NO_WHATSAPP_CODES = [131026, 131047, 131000, 470]
 
 /** Envoie un template WhatsApp pour la notification (selon le kind). */
 async function sendWhatsAppNotification(
   sessionId: string | null,
   phone: string,
   payload: NotificationPayload
-): Promise<boolean> {
-  if (!sessionId) return false
+): Promise<{ ok: boolean; error?: string }> {
+  if (!sessionId) return { ok: false, error: 'no_session' }
   try {
     const { wabaClient } = await import('@/lib/whatsapp-cloud/client')
     const { decryptWabaToken } = await import('@/lib/messaging/send')
@@ -97,16 +103,16 @@ async function sendWhatsAppNotification(
       .select('waba_phone_number_id, waba_access_token')
       .eq('id', sessionId)
       .maybeSingle()
-    if (!session?.waba_phone_number_id) return false
+    if (!session?.waba_phone_number_id) return { ok: false, error: 'no_phone_number_id' }
     const token = decryptWabaToken(session)
-    if (!token) return false
+    if (!token) return { ok: false, error: 'no_token' }
 
     // Mapper le kind vers un template par défaut
     const templateKey = payload.kind === 'order_shipped' ? 'order_shipped'
       : payload.kind === 'order_delivered' ? 'order_delivered'
       : 'order_confirmation'
     const tpl = DEFAULT_TEMPLATES.find((t) => t.key === templateKey)
-    if (!tpl) return false
+    if (!tpl) return { ok: false, error: 'no_template' }
 
     // Composants Meta : paramètres du corps dans l'ordre des variables
     const params = Object.values(payload.vars)
@@ -122,7 +128,16 @@ async function sendWhatsAppNotification(
       tpl.language,
       components
     )
-    if (!res.ok) return false
+    if (!res.ok) {
+      // Détecter un numéro sans WhatsApp à partir du code d'erreur Meta.
+      const raw = String(res.error || '')
+      const codeMatch = raw.match(/"code"\s*:\s*(\d+)/)
+      const code = codeMatch ? Number(codeMatch[1]) : null
+      const isNoWhatsapp = (code !== null && NO_WHATSAPP_CODES.includes(code))
+        || /not.*whatsapp|recipient.*not|invalid.*recipient/i.test(raw)
+      console.error('[Notif] WhatsApp envoi refusé:', raw)
+      return { ok: false, error: isNoWhatsapp ? 'no_whatsapp' : `send_failed: ${raw.slice(0, 200)}` }
+    }
 
     // Enregistrer dans l'inbox : conversation + message sortant (visible côté agent)
     try {
@@ -155,10 +170,10 @@ async function sendWhatsAppNotification(
       console.error('[Notif] Enregistrement inbox échec (message envoyé quand même):', e)
     }
 
-    return true
+    return { ok: true }
   } catch (e) {
     console.error('[Notif] WhatsApp échec:', e)
-    return false
+    return { ok: false, error: e instanceof Error ? e.message : 'exception' }
   }
 }
 
