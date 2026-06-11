@@ -77,6 +77,20 @@ export default function PrivacyPage() {
             <li><strong>Legal obligation</strong>: to comply with our accounting and tax obligations</li>
           </ul>
 
+          <h2>Transactional notifications and contacts</h2>
+          <p>
+            When a merchant connects their Shopify store, Xeyo may automatically create a
+            contact record (name, phone number, email) from order data, for the sole purpose
+            of sending transactional notifications related to that order (confirmation,
+            shipping, delivery).
+          </p>
+          <p>
+            These notifications are only sent if the end user has opted in on the relevant
+            channel. The user can object at any time by replying <strong>STOP</strong>, which
+            immediately unsubscribes them (opt-out). The merchant is the data controller for
+            their own customers; Xeyo acts as a processor.
+          </p>
+
           <h2>Processing by artificial intelligence</h2>
           <p>
             Our Services use several artificial intelligence models, provided by <strong>OpenAI</strong> and <strong>Anthropic (Claude)</strong>, to generate automatic replies to your WhatsApp messages. The model used may vary depending on the task.
@@ -277,6 +291,21 @@ export default function PrivacyPage() {
         <li><strong>Intérêt légitime</strong> : pour améliorer nos Services et assurer leur sécurité</li>
         <li><strong>Obligation légale</strong> : pour respecter nos obligations comptables et fiscales</li>
       </ul>
+
+      <h2>Notifications transactionnelles et contacts</h2>
+      <p>
+        Lorsqu&apos;un marchand connecte sa boutique Shopify, Xeyo peut créer
+        automatiquement une fiche contact (nom, numéro de téléphone, email) à partir
+        des données d&apos;une commande, dans le seul but d&apos;envoyer des notifications
+        transactionnelles liées à cette commande (confirmation, expédition, livraison).
+      </p>
+      <p>
+        Ces notifications ne sont envoyées que si l&apos;utilisateur final a donné son
+        accord (opt-in) sur le canal concerné. L&apos;utilisateur peut s&apos;y opposer à
+        tout moment en répondant <strong>STOP</strong>, ce qui le désabonne immédiatement
+        (opt-out). Le marchand est responsable de traitement vis-à-vis de ses propres clients ;
+        Xeyo agit comme sous-traitant.
+      </p>
 
       <h2>Traitement par intelligence artificielle</h2>
       <p>

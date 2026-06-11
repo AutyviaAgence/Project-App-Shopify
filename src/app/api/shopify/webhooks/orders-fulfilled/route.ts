@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
   const order = JSON.parse(rawBody || '{}') as {
     name?: string
     order_number?: number
-    customer?: { phone?: string; email?: string }
+    customer?: { phone?: string; email?: string; first_name?: string; last_name?: string }
     fulfillments?: { tracking_url?: string; tracking_number?: string }[]
   }
 
@@ -51,13 +51,30 @@ export async function POST(req: NextRequest) {
   const sessionIds = (sessions || []).map((s) => s.id)
   if (sessionIds.length === 0) return NextResponse.json({ received: true })
 
-  const { data: contact } = await admin
+  let { data: contact } = await admin
     .from('contacts')
     .select('id')
     .in('session_id', sessionIds)
     .eq('phone_number', phone)
     .maybeSingle()
-  if (!contact) return NextResponse.json({ received: true, skipped: 'no contact' })
+
+  // Créer le contact automatiquement depuis les données Shopify s'il n'existe pas.
+  // (L'envoi reste conditionné à l'opt-in canal, géré par sendNotification.)
+  if (!contact) {
+    const fullName = [order.customer?.first_name, order.customer?.last_name].filter(Boolean).join(' ').trim() || null
+    const { data: created } = await admin
+      .from('contacts')
+      .insert({
+        session_id: sessionIds[0],
+        phone_number: phone,
+        name: fullName,
+        notify_email: order.customer?.email || null,
+      })
+      .select('id')
+      .single()
+    if (!created) return NextResponse.json({ received: true, skipped: 'contact creation failed' })
+    contact = created
+  }
 
   const orderName = order.name || `#${order.order_number || ''}`
   const tracking = order.fulfillments?.[0]?.tracking_url || ''
