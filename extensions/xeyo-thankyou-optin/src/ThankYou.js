@@ -44,6 +44,23 @@ const STRINGS = {
   },
 }
 
+// Formate un numéro en "+XX XX XX XX XX XX" (groupes de 2 après l'indicatif).
+function formatPhone(raw) {
+  if (!raw) return ''
+  const digits = String(raw).replace(/\D/g, '')
+  if (digits.length < 8) return raw
+  // Indicatif pays : 1 à 3 chiffres. Heuristique simple : 2 pour la plupart,
+  // 1 pour l'Amérique du Nord (commence par 1). On garde 2 par défaut.
+  let cc = 2
+  if (digits.startsWith('1')) cc = 1
+  else if (digits.startsWith('33') || digits.startsWith('44') || digits.startsWith('49') || digits.startsWith('34') || digits.startsWith('39') || digits.startsWith('32') || digits.startsWith('31') || digits.startsWith('41')) cc = 2
+  else if (/^(212|213|216|221|225|237|261)/.test(digits)) cc = 3
+  const country = digits.slice(0, cc)
+  const rest = digits.slice(cc)
+  const groups = rest.match(/.{1,2}/g) || []
+  return `+${country} ${groups.join(' ')}`.trim()
+}
+
 // Opt-in WhatsApp sur la page de remerciement (JS pur, sans React).
 export default extension('purchase.thank-you.block.render', (root, api) => {
   const { shop, localization } = api
@@ -93,8 +110,9 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
       .then((j) => {
         const found = (j?.phone || '').toString().trim()
         if (found && !phone) {
-          phone = found
-          phoneField.updateProps({ value: found })
+          const formatted = formatPhone(found)
+          phone = formatted
+          phoneField.updateProps({ value: formatted })
         }
       })
       .catch(() => { /* silencieux : saisie manuelle en fallback */ })
