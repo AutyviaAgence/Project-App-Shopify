@@ -9,10 +9,45 @@ import {
   Banner,
 } from '@shopify/ui-extensions/checkout'
 
+// Textes : anglais par défaut, français si la boutique/le client est en FR.
+const STRINGS = {
+  en: {
+    checkbox: '📦 Get order updates and exclusive offers on WhatsApp',
+    consent: (store) => `By confirming, I agree to receive WhatsApp messages from ${store} about my order updates and its offers and promotions. Reply STOP to unsubscribe anytime.`,
+    phoneLabel: 'WhatsApp number',
+    submit: 'Confirm',
+    invalid: 'Invalid number.',
+    saving: 'Saving…',
+    successTitle: "You're all set!",
+    successBody: 'You will receive your order updates on WhatsApp.',
+    networkError: 'Network error.',
+    genericError: 'Error, please try again.',
+    store: 'the store',
+  },
+  fr: {
+    checkbox: '📦 Recevoir le suivi de ma commande et les offres exclusives sur WhatsApp',
+    consent: (store) => `En validant, j'accepte de recevoir des messages WhatsApp de ${store} concernant le suivi de ma commande ainsi que ses offres et promotions. Répondez STOP pour vous désabonner à tout moment.`,
+    phoneLabel: 'Numéro WhatsApp',
+    submit: 'Valider',
+    invalid: 'Numéro invalide.',
+    saving: 'Enregistrement…',
+    successTitle: "C'est noté !",
+    successBody: 'Vous recevrez le suivi de votre commande sur WhatsApp.',
+    networkError: 'Erreur réseau.',
+    genericError: 'Erreur, réessayez.',
+    store: 'la boutique',
+  },
+}
+
 // Opt-in WhatsApp sur la page de remerciement (JS pur, sans React).
 export default extension('purchase.thank-you.block.render', (root, api) => {
-  const { shop, shippingAddress } = api
+  const { shop, shippingAddress, localization } = api
   const address = shippingAddress?.current || {}
+
+  // Détection de la langue (anglais par défaut)
+  const isoRaw = localization?.language?.current?.isoCode || localization?.isoCode || ''
+  const lang = String(isoRaw).toLowerCase().startsWith('fr') ? 'fr' : 'en'
+  const t = STRINGS[lang]
 
   let optedIn = false
   let phone = (address.phone || '').trim()
@@ -25,7 +60,7 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
   message.remove?.() // caché par défaut (on l'ajoute au besoin)
 
   const phoneField = root.createComponent(TextField, {
-    label: 'Numéro WhatsApp',
+    label: t.phoneLabel,
     value: phone,
     onChange: (v) => { phone = v },
   })
@@ -36,17 +71,17 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
       kind: 'primary',
       onPress: () => submit(),
     },
-    'Valider'
+    t.submit
   )
 
   // Nom de la boutique (pour la mention de consentement conforme Meta)
-  const storeName = shop?.name || 'la boutique'
+  const storeName = shop?.name || t.store
 
   // Mention de consentement explicite (exigence Meta : qui envoie, quoi, opt-out)
   const consent = root.createComponent(
     Text,
     { size: 'small', appearance: 'subdued' },
-    `En validant, j'accepte de recevoir des messages WhatsApp de ${storeName} concernant le suivi de ma commande ainsi que ses offres et promotions. Répondez STOP pour vous désabonner à tout moment.`
+    t.consent(storeName)
   )
 
   const branding = root.createComponent(
@@ -72,7 +107,7 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
         else fieldsStack.remove()
       },
     },
-    `📦 Recevoir le suivi de ma commande et les offres exclusives sur WhatsApp`
+    t.checkbox
   )
 
   const container = root.createComponent(
@@ -86,7 +121,7 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
   async function submit() {
     const clean = (phone || '').replace(/[^0-9+]/g, '')
     if (clean.replace(/[^0-9]/g, '').length < 8) {
-      showError('Numéro invalide.')
+      showError(t.invalid)
       return
     }
     if (busy) return
@@ -106,17 +141,17 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
         root.replaceChildren(
           root.createComponent(
             Banner,
-            { status: 'success', title: "C'est noté !" },
-            'Vous recevrez le suivi de votre commande sur WhatsApp.'
+            { status: 'success', title: t.successTitle },
+            t.successBody
           )
         )
       } else {
-        showError(json.error || 'Erreur, réessayez.')
+        showError(json.error || t.genericError)
         busy = false
         submitButton.updateProps({ loading: false })
       }
     } catch {
-      showError('Erreur réseau.')
+      showError(t.networkError)
       busy = false
       submitButton.updateProps({ loading: false })
     }
