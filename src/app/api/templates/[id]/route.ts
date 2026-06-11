@@ -26,6 +26,25 @@ export async function PATCH(
   }
   updates.updated_at = new Date().toISOString()
 
+  // Si le contenu (visible par Meta) change sur un template déjà soumis,
+  // Meta a toujours l'ancienne version → on repasse en brouillon pour forcer
+  // une nouvelle soumission (sinon l'ancienne version serait envoyée).
+  const CONTENT_FIELDS = ['body_text', 'header_text', 'footer_text', 'header_type', 'header_media_url', 'buttons', 'category', 'language']
+  const contentChanged = CONTENT_FIELDS.some((f) => body[f] !== undefined)
+  if (contentChanged) {
+    const { data: current } = await supabase
+      .from('whatsapp_templates')
+      .select('status')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .maybeSingle()
+    if (current && current.status !== 'draft') {
+      updates.status = 'draft'
+      updates.meta_id = null
+      updates.rejection_reason = null
+    }
+  }
+
   const { data, error } = await supabase
     .from('whatsapp_templates')
     .update(updates)

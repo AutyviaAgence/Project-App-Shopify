@@ -181,10 +181,17 @@ export default function TemplatesPage() {
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Erreur')
+      // Le modèle était soumis/approuvé et le contenu a changé → repassé en brouillon par l'API
+      const wasSubmitted = editing && editing.status !== 'draft'
+      const nowDraft = json.data?.status === 'draft'
       await fetchTemplates()
       // Reste en mode édition sur le modèle (re)sauvegardé pour un flux maître-détail fluide.
       if (json.data?.id) { setEditing(json.data as WhatsAppTemplate); setSelectedId(json.data.id) }
-      toast.success(editing ? 'Modèle modifié' : 'Modèle créé')
+      if (wasSubmitted && nowDraft) {
+        toast.success('Modèle modifié — repassé en brouillon. Resoumettez-le à Meta pour activer les changements.', { duration: 6000 })
+      } else {
+        toast.success(editing ? 'Modèle modifié' : 'Modèle créé')
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erreur')
     } finally {
