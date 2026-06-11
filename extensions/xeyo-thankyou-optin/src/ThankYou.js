@@ -44,14 +44,6 @@ const STRINGS = {
   },
 }
 
-// Récupère la 1re valeur "current" non vide parmi des sources potentielles.
-function readCurrent(src) {
-  if (!src) return ''
-  if (typeof src === 'string') return src
-  if (src.current != null) return typeof src.current === 'string' ? src.current : (src.current?.phone || '')
-  return src.phone || ''
-}
-
 // Opt-in WhatsApp sur la page de remerciement (JS pur, sans React).
 export default extension('purchase.thank-you.block.render', (root, api) => {
   const { shop, localization } = api
@@ -61,11 +53,10 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
   const lang = String(isoRaw).toLowerCase().startsWith('fr') ? 'fr' : 'en'
   const t = STRINGS[lang]
 
-  // Pré-remplissage du numéro : sur la page Merci, shippingAddress est vide.
-  // On récupère le téléphone via une query GraphQL sur l'order (async).
+  // Le client saisit son numéro WhatsApp (le téléphone de la commande n'est pas
+  // exposé côté client sur la page Merci, et peut de toute façon différer).
   const shipping = api.shippingAddress?.current || {}
-  const billing = api.billingAddress?.current || {}
-  let phone = (shipping.phone || billing.phone || '').toString().trim()
+  let phone = ''
 
   const address = shipping
   let optedIn = false
@@ -85,33 +76,9 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
     onChange: (v) => { phone = v },
   })
 
-  // Récupère le téléphone de la commande via GraphQL (shippingAddress est vide
-  // sur la page Merci). On met à jour le champ dès que la réponse arrive,
-  // sauf si le client a déjà tapé quelque chose.
-  if (!phone && api.query) {
-    const orderId = api.orderConfirmation?.current?.order?.id
-    if (orderId) {
-      api.query(
-        `query($id: ID!) {
-          node(id: $id) {
-            ... on Order {
-              shippingAddress { phone }
-              billingAddress { phone }
-            }
-          }
-        }`,
-        { variables: { id: orderId } }
-      ).then((res) => {
-        console.log('[Xeyo optin DIAG] query result:', JSON.stringify(res)?.slice(0, 800))
-        const o = res?.data?.node
-        const found = (o?.shippingAddress?.phone || o?.billingAddress?.phone || '').toString().trim()
-        if (found && !phone) {
-          phone = found
-          phoneField.updateProps({ value: found })
-        }
-      }).catch((e) => { console.log('[Xeyo optin DIAG] query error:', JSON.stringify(e)?.slice(0, 400) || String(e)) })
-    }
-  }
+  // Note : sur la page Merci, Shopify n'expose pas le téléphone de la commande
+  // côté client (donnée protégée). Le client saisit son numéro WhatsApp, ce qui
+  // est de toute façon préférable (il peut différer du téléphone de livraison).
 
   const submitButton = root.createComponent(
     Button,
