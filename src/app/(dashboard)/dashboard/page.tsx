@@ -558,9 +558,18 @@ function EngagementFunnel({ steps }: { steps: { label: string; value: number }[]
               onMouseLeave={() => setActive(null)}
               onClick={() => setActive((cur) => (cur === i ? null : i))}
             >
-              {/* Trapeze + liseré clair */}
-              <polygon points={tier.body} fill={tier.fill} />
-              <polygon points={tier.top} fill={tier.topFill} opacity={0.7} />
+              {/* Trapeze + liseré clair. 1er étage : coins supérieurs arrondis. */}
+              {i === 0 ? (
+                <>
+                  <path d="M 162,150 L 518,150 A 12 12 0 0 1 530,162 L 482,235 L 198,235 L 150,162 A 12 12 0 0 1 162,150 Z" fill={tier.fill} />
+                  <polygon points={tier.top} fill={tier.topFill} opacity={0.7} />
+                </>
+              ) : (
+                <>
+                  <polygon points={tier.body} fill={tier.fill} />
+                  <polygon points={tier.top} fill={tier.topFill} opacity={0.7} />
+                </>
+              )}
 
               {/* Surbrillance pulsee + balayage lumineux quand actif */}
               {isActive && (
