@@ -1,26 +1,25 @@
-# Configuration de l'app Shopify Xeyo (pour Shopify CLI).
-# La plupart des valeurs proviennent du Partner Dashboard ; ce fichier sert
-# de référence et au déploiement des extensions (theme app extension).
-# Remplace client_id par ta vraie SHOPIFY_API_KEY lors de `shopify app config link`.
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
 
-name = "Xeyo — WhatsApp Support & Chat"
-application_url = "https://app.xeyo.io/shopify"
+name = "Xeyo.app"
+application_url = "https://shopify.dev/apps/default-app-home"
 embedded = true
+client_id = "328a7188b83c2c3c5dbcb46994a74844"
 
 [access_scopes]
-scopes = "read_products,read_content,read_orders,read_customers"
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = ""
 
 [auth]
-redirect_urls = [
-  "https://app.xeyo.io/api/shopify/callback"
-]
+redirect_urls = [ "https://shopify.dev/apps/default-app-home/api/auth" ]
 
-# App Proxy : permet à la vitrine du marchand d'appeler Xeyo via
-# https://{boutique}.myshopify.com/apps/xeyo/...  → proxie vers app.xeyo.io
 [app_proxy]
 url = "https://app.xeyo.io/api/shopify/proxy"
 subpath = "xeyo"
 prefix = "apps"
 
 [webhooks]
-api_version = "2025-01"
+api_version = "2026-07"
+
+[build]
+include_config_on_deploy = true
+automatically_update_urls_on_dev = true

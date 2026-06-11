@@ -6,4 +6,6 @@ api_version = "2025-01"
 [[extensions]]
 name = "Xeyo WhatsApp Widget"
 handle = "xeyo-widget"
+
+uid = "e3857e0a-b639-5426-2200-b52aac2028dc82cc2313"
 type = "theme"

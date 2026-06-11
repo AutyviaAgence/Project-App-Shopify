@@ -1,0 +1,18 @@
+# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+
+client_id = "7510fef84b3b8bd4440344e9f6b626d4"
+name = "Xeyo - WhatsApp Support & Chat"
+application_url = "https://app.xeyo.io/shopify"
+embedded = true
+
+[access_scopes]
+# Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
+scopes = "read_customers,read_discounts,write_discounts,read_orders,write_orders,read_products,read_content"
+optional_scopes = [ ]
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = [ "https://app.xeyo.io/api/shopify/callback" ]
+
+[webhooks]
+api_version = "2026-04"
