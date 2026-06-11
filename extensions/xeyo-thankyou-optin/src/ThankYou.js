@@ -9,68 +9,69 @@ import {
   Text,
 } from '@shopify/ui-extensions/checkout'
 
-// Liste complète des pays : drapeau, nom (FR/EN pour la recherche), code ISO,
-// indicatif téléphonique. Sert à construire les options ET à filtrer par nom.
+// Liste des pays : nom (pour l'affichage + la frappe clavier dans le Select),
+// code ISO, indicatif téléphonique, drapeau. Le label COMMENCE par le nom pour
+// que taper "F" dans le menu déroulant fasse remonter France, Finlande, etc.
 const COUNTRIES = [
   { iso: 'FR', dial: '33', flag: '🇫🇷', name: 'France' },
-  { iso: 'BE', dial: '32', flag: '🇧🇪', name: 'Belgique Belgium' },
-  { iso: 'CH', dial: '41', flag: '🇨🇭', name: 'Suisse Switzerland' },
+  { iso: 'BE', dial: '32', flag: '🇧🇪', name: 'Belgique' },
+  { iso: 'CH', dial: '41', flag: '🇨🇭', name: 'Suisse' },
   { iso: 'LU', dial: '352', flag: '🇱🇺', name: 'Luxembourg' },
   { iso: 'MC', dial: '377', flag: '🇲🇨', name: 'Monaco' },
-  { iso: 'US', dial: '1', flag: '🇺🇸', name: 'United States Etats-Unis USA' },
   { iso: 'CA', dial: '1', flag: '🇨🇦', name: 'Canada' },
-  { iso: 'GB', dial: '44', flag: '🇬🇧', name: 'United Kingdom Royaume-Uni UK' },
-  { iso: 'IE', dial: '353', flag: '🇮🇪', name: 'Ireland Irlande' },
-  { iso: 'DE', dial: '49', flag: '🇩🇪', name: 'Germany Allemagne Deutschland' },
-  { iso: 'AT', dial: '43', flag: '🇦🇹', name: 'Austria Autriche' },
-  { iso: 'ES', dial: '34', flag: '🇪🇸', name: 'Spain Espagne España' },
+  { iso: 'US', dial: '1', flag: '🇺🇸', name: 'États-Unis' },
+  { iso: 'GB', dial: '44', flag: '🇬🇧', name: 'Royaume-Uni' },
+  { iso: 'IE', dial: '353', flag: '🇮🇪', name: 'Irlande' },
+  { iso: 'DE', dial: '49', flag: '🇩🇪', name: 'Allemagne' },
+  { iso: 'AT', dial: '43', flag: '🇦🇹', name: 'Autriche' },
+  { iso: 'ES', dial: '34', flag: '🇪🇸', name: 'Espagne' },
   { iso: 'PT', dial: '351', flag: '🇵🇹', name: 'Portugal' },
-  { iso: 'IT', dial: '39', flag: '🇮🇹', name: 'Italy Italie Italia' },
-  { iso: 'NL', dial: '31', flag: '🇳🇱', name: 'Netherlands Pays-Bas' },
-  { iso: 'DK', dial: '45', flag: '🇩🇰', name: 'Denmark Danemark' },
-  { iso: 'SE', dial: '46', flag: '🇸🇪', name: 'Sweden Suède' },
-  { iso: 'NO', dial: '47', flag: '🇳🇴', name: 'Norway Norvège' },
-  { iso: 'FI', dial: '358', flag: '🇫🇮', name: 'Finland Finlande' },
-  { iso: 'PL', dial: '48', flag: '🇵🇱', name: 'Poland Pologne' },
-  { iso: 'CZ', dial: '420', flag: '🇨🇿', name: 'Czechia Tchéquie' },
-  { iso: 'GR', dial: '30', flag: '🇬🇷', name: 'Greece Grèce' },
-  { iso: 'RO', dial: '40', flag: '🇷🇴', name: 'Romania Roumanie' },
-  { iso: 'HU', dial: '36', flag: '🇭🇺', name: 'Hungary Hongrie' },
-  { iso: 'BG', dial: '359', flag: '🇧🇬', name: 'Bulgaria Bulgarie' },
-  { iso: 'HR', dial: '385', flag: '🇭🇷', name: 'Croatia Croatie' },
-  { iso: 'SK', dial: '421', flag: '🇸🇰', name: 'Slovakia Slovaquie' },
-  { iso: 'SI', dial: '386', flag: '🇸🇮', name: 'Slovenia Slovénie' },
-  { iso: 'LT', dial: '370', flag: '🇱🇹', name: 'Lithuania Lituanie' },
-  { iso: 'LV', dial: '371', flag: '🇱🇻', name: 'Latvia Lettonie' },
-  { iso: 'EE', dial: '372', flag: '🇪🇪', name: 'Estonia Estonie' },
-  { iso: 'MA', dial: '212', flag: '🇲🇦', name: 'Morocco Maroc' },
-  { iso: 'DZ', dial: '213', flag: '🇩🇿', name: 'Algeria Algérie' },
-  { iso: 'TN', dial: '216', flag: '🇹🇳', name: 'Tunisia Tunisie' },
-  { iso: 'EG', dial: '20', flag: '🇪🇬', name: 'Egypt Egypte' },
-  { iso: 'SN', dial: '221', flag: '🇸🇳', name: 'Senegal Sénégal' },
-  { iso: 'CI', dial: '225', flag: '🇨🇮', name: "Côte d'Ivoire Ivory Coast" },
-  { iso: 'CM', dial: '237', flag: '🇨🇲', name: 'Cameroon Cameroun' },
-  { iso: 'AE', dial: '971', flag: '🇦🇪', name: 'United Arab Emirates Emirats UAE Dubai' },
-  { iso: 'SA', dial: '966', flag: '🇸🇦', name: 'Saudi Arabia Arabie Saoudite' },
-  { iso: 'TR', dial: '90', flag: '🇹🇷', name: 'Turkey Turquie' },
-  { iso: 'IL', dial: '972', flag: '🇮🇱', name: 'Israel Israël' },
-  { iso: 'IN', dial: '91', flag: '🇮🇳', name: 'India Inde' },
-  { iso: 'CN', dial: '86', flag: '🇨🇳', name: 'China Chine' },
-  { iso: 'JP', dial: '81', flag: '🇯🇵', name: 'Japan Japon' },
-  { iso: 'KR', dial: '82', flag: '🇰🇷', name: 'South Korea Corée' },
-  { iso: 'AU', dial: '61', flag: '🇦🇺', name: 'Australia Australie' },
-  { iso: 'NZ', dial: '64', flag: '🇳🇿', name: 'New Zealand Nouvelle-Zélande' },
-  { iso: 'BR', dial: '55', flag: '🇧🇷', name: 'Brazil Brésil' },
-  { iso: 'MX', dial: '52', flag: '🇲🇽', name: 'Mexico Mexique' },
-  { iso: 'AR', dial: '54', flag: '🇦🇷', name: 'Argentina Argentine' },
-  { iso: 'ZA', dial: '27', flag: '🇿🇦', name: 'South Africa Afrique du Sud' },
+  { iso: 'IT', dial: '39', flag: '🇮🇹', name: 'Italie' },
+  { iso: 'NL', dial: '31', flag: '🇳🇱', name: 'Pays-Bas' },
+  { iso: 'DK', dial: '45', flag: '🇩🇰', name: 'Danemark' },
+  { iso: 'SE', dial: '46', flag: '🇸🇪', name: 'Suède' },
+  { iso: 'NO', dial: '47', flag: '🇳🇴', name: 'Norvège' },
+  { iso: 'FI', dial: '358', flag: '🇫🇮', name: 'Finlande' },
+  { iso: 'PL', dial: '48', flag: '🇵🇱', name: 'Pologne' },
+  { iso: 'CZ', dial: '420', flag: '🇨🇿', name: 'Tchéquie' },
+  { iso: 'GR', dial: '30', flag: '🇬🇷', name: 'Grèce' },
+  { iso: 'RO', dial: '40', flag: '🇷🇴', name: 'Roumanie' },
+  { iso: 'HU', dial: '36', flag: '🇭🇺', name: 'Hongrie' },
+  { iso: 'BG', dial: '359', flag: '🇧🇬', name: 'Bulgarie' },
+  { iso: 'HR', dial: '385', flag: '🇭🇷', name: 'Croatie' },
+  { iso: 'SK', dial: '421', flag: '🇸🇰', name: 'Slovaquie' },
+  { iso: 'SI', dial: '386', flag: '🇸🇮', name: 'Slovénie' },
+  { iso: 'LT', dial: '370', flag: '🇱🇹', name: 'Lituanie' },
+  { iso: 'LV', dial: '371', flag: '🇱🇻', name: 'Lettonie' },
+  { iso: 'EE', dial: '372', flag: '🇪🇪', name: 'Estonie' },
+  { iso: 'MA', dial: '212', flag: '🇲🇦', name: 'Maroc' },
+  { iso: 'DZ', dial: '213', flag: '🇩🇿', name: 'Algérie' },
+  { iso: 'TN', dial: '216', flag: '🇹🇳', name: 'Tunisie' },
+  { iso: 'EG', dial: '20', flag: '🇪🇬', name: 'Égypte' },
+  { iso: 'SN', dial: '221', flag: '🇸🇳', name: 'Sénégal' },
+  { iso: 'CI', dial: '225', flag: '🇨🇮', name: "Côte d'Ivoire" },
+  { iso: 'CM', dial: '237', flag: '🇨🇲', name: 'Cameroun' },
+  { iso: 'AE', dial: '971', flag: '🇦🇪', name: 'Émirats arabes unis' },
+  { iso: 'SA', dial: '966', flag: '🇸🇦', name: 'Arabie saoudite' },
+  { iso: 'TR', dial: '90', flag: '🇹🇷', name: 'Turquie' },
+  { iso: 'IL', dial: '972', flag: '🇮🇱', name: 'Israël' },
+  { iso: 'IN', dial: '91', flag: '🇮🇳', name: 'Inde' },
+  { iso: 'CN', dial: '86', flag: '🇨🇳', name: 'Chine' },
+  { iso: 'JP', dial: '81', flag: '🇯🇵', name: 'Japon' },
+  { iso: 'KR', dial: '82', flag: '🇰🇷', name: 'Corée du Sud' },
+  { iso: 'AU', dial: '61', flag: '🇦🇺', name: 'Australie' },
+  { iso: 'NZ', dial: '64', flag: '🇳🇿', name: 'Nouvelle-Zélande' },
+  { iso: 'BR', dial: '55', flag: '🇧🇷', name: 'Brésil' },
+  { iso: 'MX', dial: '52', flag: '🇲🇽', name: 'Mexique' },
+  { iso: 'AR', dial: '54', flag: '🇦🇷', name: 'Argentine' },
+  { iso: 'ZA', dial: '27', flag: '🇿🇦', name: 'Afrique du Sud' },
 ]
 
-// Option d'affichage pour le Select (drapeau + indicatif).
+// Option du Select : le label COMMENCE par le nom (frappe clavier = filtre natif),
+// suivi de l'indicatif. Ex : "France (+33)". value = ISO (US/CA partagent +1).
 function countryOption(c) {
-  return { value: c.iso, label: `${c.flag} +${c.dial}` }
+  return { value: c.iso, label: `${c.name} (+${c.dial})` }
 }
-// Toutes les options (non filtrées)
 const COUNTRY_CODES = COUNTRIES.map(countryOption)
 
 // Longueur attendue du numéro LOCAL (sans indicatif) par indicatif, pour
@@ -97,24 +98,12 @@ const DEFAULT_LOCAL = { min: 6, max: 14 }
 const BY_ISO = {}
 for (const c of COUNTRIES) BY_ISO[c.iso] = c
 
-// Filtre les pays par texte (nom FR/EN, indicatif ou code ISO).
-function filterCountries(q) {
-  const s = (q || '').trim().toLowerCase().replace(/^\+/, '')
-  if (!s) return COUNTRIES
-  return COUNTRIES.filter((c) =>
-    c.name.toLowerCase().includes(s) ||
-    c.iso.toLowerCase().includes(s) ||
-    c.dial.startsWith(s)
-  )
-}
-
 // Textes : anglais par défaut, français si la boutique/le client est en FR.
 const STRINGS = {
   en: {
     checkbox: '📦 Get order updates and exclusive offers on WhatsApp',
     consent: (store) => `By confirming, I agree to receive WhatsApp messages from ${store} about my order updates and its offers and promotions. Reply STOP to unsubscribe anytime.`,
     countryLabel: 'Country',
-    countrySearch: 'Search country (e.g. France, FR, 33)',
     phoneLabel: 'WhatsApp number',
     phonePlaceholder: '555 123 4567',
     phoneHelp: 'Pick your country code, then enter your number.',
@@ -136,7 +125,6 @@ const STRINGS = {
     checkbox: '📦 Recevoir le suivi de ma commande et les offres exclusives sur WhatsApp',
     consent: (store) => `En validant, j'accepte de recevoir des messages WhatsApp de ${store} concernant le suivi de ma commande ainsi que ses offres et promotions. Répondez STOP pour vous désabonner à tout moment.`,
     countryLabel: 'Pays',
-    countrySearch: 'Rechercher un pays (ex : France, FR, 33)',
     phoneLabel: 'Numéro WhatsApp',
     phonePlaceholder: '6 12 34 56 78',
     phoneHelp: 'Choisissez votre indicatif, puis saisissez votre numéro.',
@@ -200,24 +188,9 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
   const message = root.createComponent(Text, { appearance: 'critical' }, '')
   message.remove?.() // caché par défaut (on l'ajoute au besoin)
 
-  // Champ de recherche de pays : filtre la liste par nom / indicatif / ISO.
-  const countrySearch = root.createComponent(TextField, {
-    label: t.countrySearch,
-    value: '',
-    onChange: (q) => {
-      const list = filterCountries(q)
-      const options = list.map(countryOption)
-      // Si le pays sélectionné n'est plus dans la liste filtrée, on bascule
-      // sur le 1er résultat pour garder une valeur cohérente.
-      if (options.length > 0 && !options.find((o) => o.value === selectedIso)) {
-        selectedIso = options[0].value
-        dialCode = BY_ISO[selectedIso].dial
-      }
-      codeSelect.updateProps({ options, value: selectedIso })
-    },
-  })
-
-  // Sélecteur de pays (stocke l'ISO ; l'indicatif en dérive).
+  // Sélecteur de pays (stocke l'ISO ; l'indicatif en dérive). Le label commence
+  // par le nom du pays → taper une lettre dans le menu fait remonter les pays
+  // correspondants (filtre clavier natif du Select, pas de champ de recherche).
   const codeSelect = root.createComponent(Select, {
     label: t.countryLabel,
     value: selectedIso,
@@ -245,15 +218,21 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
   const XEYO_BASE = 'https://app.xeyo.io'
   const orderNumber = api.orderConfirmation?.current?.number
   const orderId = api.orderConfirmation?.current?.order?.id
+  // eslint-disable-next-line no-console
+  console.log('[Xeyo opt-in] orderNumber=', orderNumber, 'orderId=', orderId)
   if (orderNumber || orderId) {
     const domain = shop.myshopifyDomain
     const params = new URLSearchParams({ shop: domain })
-    if (orderNumber) params.set('order', orderNumber)
-    if (orderId) params.set('id', orderId)
+    if (orderNumber) params.set('order', String(orderNumber))
+    if (orderId) params.set('id', String(orderId))
     const url = `${XEYO_BASE}/api/shopify/proxy/order-phone?${params.toString()}`
+    // eslint-disable-next-line no-console
+    console.log('[Xeyo opt-in] fetch', url)
     fetch(url)
       .then((r) => r.json())
       .then((j) => {
+        // eslint-disable-next-line no-console
+        console.log('[Xeyo opt-in] order-phone réponse', j)
         const digits = (j?.phone || '').toString().replace(/\D/g, '')
         if (digits && !localNumber) {
           // Sépare l'indicatif (le plus long qui matche) du numéro local,
@@ -299,14 +278,13 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
     'Powered by Xeyo.io'
   )
 
-  // Pays (recherche) au-dessus, puis indicatif + numéro côte à côte.
+  // Pays (sélecteur) + numéro côte à côte.
   const phoneRow = root.createComponent(InlineStack, { spacing: 'tight', blockAlignment: 'end' }, [
     codeSelect,
     phoneField,
   ])
 
   const fieldsStack = root.createComponent(BlockStack, { spacing: 'tight' }, [
-    countrySearch,
     phoneRow,
     consent,
     root.createComponent(InlineStack, {}, [submitButton]),
