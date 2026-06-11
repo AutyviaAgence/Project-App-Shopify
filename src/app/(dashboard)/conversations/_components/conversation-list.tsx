@@ -47,6 +47,7 @@ const TAG_COLORS = [
 
 interface ConversationListProps {
   conversations: ConversationWithJoins[]
+  onNewConversation?: () => void
   selectedConvId: string | null
   totalPages: number
   totalConversations: number
@@ -81,6 +82,7 @@ interface ConversationListProps {
 
 export function ConversationList({
   conversations,
+  onNewConversation,
   selectedConvId,
   totalPages,
   totalConversations,
@@ -198,14 +200,25 @@ export function ConversationList({
     >
       {/* Search header */}
       <div data-tour="conversations-header" className="p-3 space-y-3">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            placeholder={t('conversations.search_placeholder')}
-            value={searchQuery}
-            onChange={(e) => onSetSearchQuery(e.target.value)}
-            className="pl-9 h-10 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary"
-          />
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              placeholder={t('conversations.search_placeholder')}
+              value={searchQuery}
+              onChange={(e) => onSetSearchQuery(e.target.value)}
+              className="pl-9 h-10 bg-muted/50 border-0 focus-visible:ring-1 focus-visible:ring-primary"
+            />
+          </div>
+          {onNewConversation && (
+            <button
+              onClick={onNewConversation}
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-colors hover:bg-primary/90"
+              title="Nouvelle conversation"
+            >
+              <Plus className="h-5 w-5" />
+            </button>
+          )}
         </div>
 
         {/* Channel tabs */}

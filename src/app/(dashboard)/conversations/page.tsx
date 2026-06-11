@@ -55,6 +55,11 @@ function ConversationsPageContent() {
   // Bascule template hors fenêtre 24h
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false)
   const [approvedTemplates, setApprovedTemplates] = useState<{ id: string; name: string; language: string; body_text?: string }[]>([])
+  // Nouvelle conversation
+  const [newConvOpen, setNewConvOpen] = useState(false)
+  const [newConvPhone, setNewConvPhone] = useState('')
+  const [newConvTemplate, setNewConvTemplate] = useState('')
+  const [newConvSending, setNewConvSending] = useState(false)
   const [agents, setAgents] = useState<AIAgent[]>([])
   const [profileOpen, setProfileOpen] = useState(false)
 
@@ -802,6 +807,7 @@ function ConversationsPageContent() {
     <div className="flex h-full pb-16 md:pb-0">
       <ConversationList
         conversations={conversations}
+        onNewConversation={() => { setNewConvOpen(true); setNewConvPhone(''); setNewConvTemplate('') }}
         selectedConvId={selectedConv?.id ?? null}
         totalPages={totalPages}
         totalConversations={totalConversations}
