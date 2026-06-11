@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { randomBytes } from 'crypto'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { wabaClient } from '@/lib/whatsapp-cloud/client'
@@ -74,6 +75,35 @@ export async function POST(req: NextRequest) {
 
   if (dbError) {
     return NextResponse.json({ error: dbError.message }, { status: 500 })
+  }
+
+  // Création auto d'un lien WhatsApp associé à la session (best-effort).
+  // Ne pas faire échouer la création de session si le lien échoue.
+  try {
+    const { count } = await supabase
+      .from('wa_links')
+      .select('id', { count: 'exact', head: true })
+      .eq('session_id', session.id)
+      .eq('user_id', user.id)
+
+    if (!count) {
+      const { error: linkError } = await supabase
+        .from('wa_links')
+        .insert({
+          user_id: user.id,
+          session_id: session.id,
+          name: 'Lien WhatsApp',
+          slug: randomBytes(6).toString('base64url'),
+          pre_filled_message: 'Bonjour, je viens de votre boutique !',
+          is_active: true,
+          ai_agent_id: null,
+        })
+      if (linkError) {
+        console.error('[sessions] Échec création auto du lien WA:', linkError.message)
+      }
+    }
+  } catch (e) {
+    console.error('[sessions] Erreur création auto du lien WA:', e)
   }
 
   return NextResponse.json({ data: session })

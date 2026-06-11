@@ -7,7 +7,7 @@ import { LibrarySection } from './_components/library-section'
 
 /**
  * Page Connaissances — la base de connaissances qui alimente l'agent IA (RAG).
- * (Les liens WhatsApp/QR ont été déplacés vers /acquisition.)
+ * (Les liens WhatsApp sont gérés directement depuis la session WhatsApp.)
  */
 function ConnaissancesContent() {
   return (
