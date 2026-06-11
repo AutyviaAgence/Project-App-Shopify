@@ -96,26 +96,51 @@ async function sendWhatsAppNotification(
     const { decryptWabaToken } = await import('@/lib/messaging/send')
     const { DEFAULT_TEMPLATES } = await import('@/lib/whatsapp-cloud/default-templates')
 
-    // Récupérer la session WABA (credentials)
+    // Récupérer la session WABA (credentials + user pour ses templates)
     const supabase = admin()
     const { data: session } = await supabase
       .from('whatsapp_sessions')
-      .select('waba_phone_number_id, waba_access_token')
+      .select('waba_phone_number_id, waba_access_token, user_id')
       .eq('id', sessionId)
       .maybeSingle()
     if (!session?.waba_phone_number_id) return { ok: false, error: 'no_phone_number_id' }
     const token = decryptWabaToken(session)
     if (!token) return { ok: false, error: 'no_token' }
 
-    // Mapper le kind vers un template par défaut
+    // Mapper le kind vers le template par défaut (nom/langue/structure attendus)
     const templateKey = payload.kind === 'order_shipped' ? 'order_shipped'
       : payload.kind === 'order_delivered' ? 'order_delivered'
       : 'order_confirmation'
     const tpl = DEFAULT_TEMPLATES.find((t) => t.key === templateKey)
     if (!tpl) return { ok: false, error: 'no_template' }
 
-    // Composants Meta : paramètres du corps dans l'ordre des variables
-    const params = Object.values(payload.vars)
+    // Source de vérité : le template RÉELLEMENT approuvé par Meta côté marchand.
+    // On envoie avec le nom/langue tels qu'approuvés (sinon Meta renvoie 132001).
+    let sendName = tpl.name
+    let sendLang = tpl.language
+    let varsCount = tpl.sample_values.length
+    if (session.user_id) {
+      const { data: approved } = await supabase
+        .from('whatsapp_templates')
+        .select('name, language, status, variables_count')
+        .eq('user_id', session.user_id)
+        .eq('name', tpl.name)
+        .eq('status', 'approved')
+        .maybeSingle()
+      if (!approved) {
+        // Pas approuvé pour ce marchand → ne pas tenter (échec garanti côté Meta).
+        return { ok: false, error: `template_not_approved: ${tpl.name}` }
+      }
+      sendName = approved.name
+      sendLang = approved.language || tpl.language
+      if (typeof approved.variables_count === 'number') varsCount = approved.variables_count
+    }
+
+    // Composants Meta : on fournit exactement le nb de variables attendu par le
+    // template approuvé (tronqué/complété), sinon Meta rejette (132000).
+    const allParams = Object.values(payload.vars)
+    const params = allParams.slice(0, varsCount)
+    while (params.length < varsCount) params.push('')
     const components = params.length > 0
       ? [{ type: 'body', parameters: params.map((p) => ({ type: 'text', text: p })) }]
       : []
@@ -124,8 +149,8 @@ async function sendWhatsAppNotification(
       session.waba_phone_number_id,
       token,
       phone,
-      tpl.name,
-      tpl.language,
+      sendName,
+      sendLang,
       components
     )
     if (!res.ok) {
