@@ -170,17 +170,17 @@ export default function NewAgentPage() {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-background">
+    <div className="relative flex min-h-[calc(100vh-1px)] flex-col overflow-hidden bg-background">
       {/* Fond d'ambiance dégradé */}
       <div className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute left-1/2 top-0 h-[700px] w-[1000px] -translate-x-1/2 rounded-full opacity-[0.12] blur-[130px]"
           style={{ background: 'radial-gradient(circle, #a855f7 0%, #ec4899 45%, transparent 70%)' }} />
       </div>
 
-      {/* Header : fermer + progression */}
+      {/* Header : retour + progression */}
       <header className="flex items-center gap-4 px-6 py-5">
-        <button onClick={close} className="flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
-          <X className="h-5 w-5" />
+        <button onClick={close} className="flex h-10 items-center gap-2 rounded-full px-3 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+          <X className="h-4 w-4" /> Retour
         </button>
         {FLOW.includes(screen as Screen) && (
           <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/[0.08]">
