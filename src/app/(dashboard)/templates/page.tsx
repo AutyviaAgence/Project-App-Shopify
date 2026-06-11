@@ -285,7 +285,7 @@ export default function TemplatesPage() {
               return (
                 <button
                   key={t.id}
-                  onClick={() => setSelectedId(t.id)}
+                  onClick={() => { setSelectedId(t.id); openEdit(t) }}
                   className={cn(
                     'w-full rounded-lg border px-3 py-2.5 text-left transition-colors',
                     active ? 'border-primary bg-primary/5' : 'border-transparent hover:bg-muted/50'
