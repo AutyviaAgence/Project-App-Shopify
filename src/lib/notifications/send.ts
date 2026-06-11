@@ -122,7 +122,40 @@ async function sendWhatsAppNotification(
       tpl.language,
       components
     )
-    return res.ok
+    if (!res.ok) return false
+
+    // Enregistrer dans l'inbox : conversation + message sortant (visible côté agent)
+    try {
+      const { encryptMessage } = await import('@/lib/crypto/encryption')
+      // Corps du template avec variables remplacées (pour l'aperçu en inbox)
+      let preview = tpl.body_text || `[Modèle : ${tpl.name}]`
+      params.forEach((v, i) => { preview = preview.replace(`{{${i + 1}}}`, v) })
+
+      const { data: conversation } = await supabase
+        .from('conversations')
+        .upsert(
+          { session_id: sessionId, contact_id: payload.contactId, last_message_at: new Date().toISOString(), last_message_preview: preview },
+          { onConflict: 'session_id,contact_id' }
+        )
+        .select()
+        .single()
+
+      if (conversation) {
+        await supabase.from('messages').insert({
+          conversation_id: conversation.id,
+          session_id: sessionId,
+          direction: 'outbound',
+          content: encryptMessage(preview),
+          message_type: 'text',
+          sent_by: 'user',
+          status: 'sent',
+        })
+      }
+    } catch (e) {
+      console.error('[Notif] Enregistrement inbox échec (message envoyé quand même):', e)
+    }
+
+    return true
   } catch (e) {
     console.error('[Notif] WhatsApp échec:', e)
     return false
