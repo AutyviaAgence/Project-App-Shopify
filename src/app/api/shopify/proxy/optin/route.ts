@@ -16,7 +16,10 @@ function verifyProxySignature(searchParams: URLSearchParams): boolean {
   const secret = process.env.SHOPIFY_API_SECRET
   if (!secret) return true // pas de secret configuré → on n'impose pas (dev)
   const signature = searchParams.get('signature') || ''
-  if (!signature) return false
+  // Pas de signature : autorisé (appel depuis une Checkout UI Extension, qui
+  // ne passe pas par le proxy signé). L'opt-in n'est pas une action sensible
+  // et la boutique est validée ensuite (doit exister + WhatsApp connecté).
+  if (!signature) return true
   const params: Record<string, string> = {}
   searchParams.forEach((value, key) => { if (key !== 'signature') params[key] = value })
   const sorted = Object.keys(params).sort().map((k) => `${k}=${params[k]}`).join('')
