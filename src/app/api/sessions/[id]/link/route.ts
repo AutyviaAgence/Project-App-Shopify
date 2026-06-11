@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { randomBytes } from 'crypto'
+import { generateUniqueSlug } from '@/lib/links/slug'
 import { createClient } from '@/lib/supabase/server'
 
 /**
@@ -44,14 +44,21 @@ export async function GET(
     return NextResponse.json({ data: existing })
   }
 
-  // Création à la volée
+  // Création à la volée (slug basé sur le nom de la boutique si dispo)
+  const { data: store } = await supabase
+    .from('shopify_stores')
+    .select('shop_name')
+    .eq('user_id', user.id)
+    .maybeSingle()
+  const slug = await generateUniqueSlug(supabase, store?.shop_name || 'boutique')
+
   const { data: link, error } = await supabase
     .from('wa_links')
     .insert({
       user_id: user.id,
       session_id: sessionId,
-      name: 'Lien WhatsApp',
-      slug: randomBytes(6).toString('base64url'),
+      name: store?.shop_name ? `Lien ${store.shop_name}` : 'Lien WhatsApp',
+      slug,
       pre_filled_message: 'Bonjour, je viens de votre boutique !',
       is_active: true,
       ai_agent_id: null,
