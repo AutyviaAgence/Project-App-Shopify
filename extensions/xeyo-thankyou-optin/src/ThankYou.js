@@ -41,8 +41,9 @@ const STRINGS = {
 
 // Opt-in WhatsApp sur la page de remerciement (JS pur, sans React).
 export default extension('purchase.thank-you.block.render', (root, api) => {
-  const { shop, shippingAddress, localization } = api
+  const { shop, shippingAddress, billingAddress, localization, phone: apiPhone } = api
   const address = shippingAddress?.current || {}
+  const billing = billingAddress?.current || {}
 
   // Détection de la langue (anglais par défaut)
   const isoRaw = localization?.language?.current?.isoCode || localization?.isoCode || ''
@@ -50,7 +51,9 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
   const t = STRINGS[lang]
 
   let optedIn = false
-  let phone = (address.phone || '').trim()
+  // Pré-remplissage : on essaie le téléphone de livraison, puis facturation,
+  // puis le téléphone du checkout. Modifiable par le client (best practice).
+  let phone = (address.phone || billing.phone || apiPhone?.current || '').trim()
   let busy = false
 
   const fullName = [address.firstName, address.lastName].filter(Boolean).join(' ')
