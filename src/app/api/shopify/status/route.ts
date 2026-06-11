@@ -31,6 +31,8 @@ export async function GET(req: NextRequest) {
 
   let agent: { id: string; name: string } | null = null
   let documents = 0
+  let whatsappConnected = false
+  let approvedTemplates = 0
   if (store.user_id) {
     const { data: agents } = await admin
       .from('ai_agents')
@@ -45,6 +47,22 @@ export async function GET(req: NextRequest) {
       .select('id', { count: 'exact', head: true })
       .eq('user_id', store.user_id)
     documents = count ?? 0
+
+    // WhatsApp connecté ?
+    const { count: waCount } = await admin
+      .from('whatsapp_sessions')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', store.user_id)
+      .eq('status', 'connected')
+    whatsappConnected = (waCount ?? 0) > 0
+
+    // Modèles approuvés ?
+    const { count: tplCount } = await admin
+      .from('whatsapp_templates')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', store.user_id)
+      .eq('status', 'approved')
+    approvedTemplates = tplCount ?? 0
   }
 
   return NextResponse.json({
@@ -56,6 +74,8 @@ export async function GET(req: NextRequest) {
       subscription_status: store.subscription_status || 'active',
       agent,
       documents,
+      whatsapp_connected: whatsappConnected,
+      approved_templates: approvedTemplates,
     },
   })
 }

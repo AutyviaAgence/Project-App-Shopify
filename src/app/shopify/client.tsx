@@ -11,6 +11,8 @@ type Status = {
   subscription_status?: string
   agent?: { id: string; name: string } | null
   documents?: number
+  whatsapp_connected?: boolean
+  approved_templates?: number
 }
 
 const APP_BASE = process.env.NEXT_PUBLIC_APP_URL || 'https://app.xeyo.io'
@@ -130,53 +132,79 @@ export default function ShopifyEmbeddedClient() {
           {message && <p className="mt-4 text-center text-sm text-gray-600">{message}</p>}
         </div>
       ) : (
-        /* ── État connecté + plans ── */
-        <div className="mx-auto max-w-3xl space-y-5">
-          <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
-            <div className="flex items-center gap-2">
-              <span className="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
-              <h2 className="font-semibold text-gray-900">Boutique connectée</h2>
-              <span className="ml-auto rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium capitalize text-gray-600">
-                Plan {status.plan || 'free'}
-              </span>
-            </div>
-            <dl className="mt-4 grid grid-cols-2 gap-4 text-sm">
-              <div>
-                <dt className="text-gray-400">Agent IA</dt>
-                <dd className="font-medium text-gray-900">{status.agent?.name || '—'}</dd>
-              </div>
-              <div>
-                <dt className="text-gray-400">Base de connaissances</dt>
-                <dd className="font-medium text-gray-900">{status.documents ?? 0} source(s)</dd>
-              </div>
-            </dl>
-            <a
-              href={APP_BASE}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-5 inline-block rounded-lg border border-gray-200 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-            >
-              Ouvrir le tableau de bord Xeyo
-            </a>
-            {message && <p className="mt-3 text-sm text-gray-600">{message}</p>}
-          </div>
+        /* ── État connecté : onboarding + dashboard ── */
+        (() => {
+          const steps = [
+            { key: 'account', label: 'Compte Xeyo créé', desc: 'Votre boutique est liée à un compte.', done: true, href: APP_BASE },
+            { key: 'agent', label: 'Agent IA créé', desc: status.agent?.name ? `« ${status.agent.name} » · ${status.documents ?? 0} source(s)` : 'Un agent qui répond à vos clients.', done: !!status.agent, href: `${APP_BASE}/agents` },
+            { key: 'whatsapp', label: 'WhatsApp connecté', desc: status.whatsapp_connected ? 'Votre numéro reçoit et envoie des messages.' : 'Reliez votre numéro WhatsApp Business.', done: !!status.whatsapp_connected, href: `${APP_BASE}/dashboard` },
+            { key: 'templates', label: 'Modèles approuvés', desc: (status.approved_templates ?? 0) > 0 ? `${status.approved_templates} modèle(s) prêt(s) à l'envoi.` : 'Créez vos modèles de notification (commande, livraison…).', done: (status.approved_templates ?? 0) > 0, href: `${APP_BASE}/templates` },
+          ]
+          const doneCount = steps.filter((s) => s.done).length
+          const progress = Math.round((doneCount / steps.length) * 100)
+          const allDone = doneCount === steps.length
 
-          {/* Abonnement : géré depuis le tableau de bord Xeyo (Stripe) */}
-          <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
-            <h3 className="font-semibold text-gray-900">Votre abonnement</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              Gérez votre forfait et vos conversations IA depuis votre tableau de bord Xeyo.
-            </p>
-            <a
-              href={`${APP_BASE}/subscription`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-4 inline-block rounded-lg bg-gray-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-gray-800"
-            >
-              Gérer mon abonnement
-            </a>
-          </div>
-        </div>
+          return (
+            <div className="mx-auto max-w-2xl space-y-5">
+              {/* En-tête + progression */}
+              <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+                  <h2 className="font-semibold text-gray-900">{status.shop_name || 'Boutique'} connectée</h2>
+                  <span className="ml-auto rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium capitalize text-gray-600">
+                    Plan {status.plan || 'free'}
+                  </span>
+                </div>
+                {!allDone ? (
+                  <>
+                    <p className="mt-2 text-sm text-gray-500">Finalisez la configuration pour automatiser votre SAV WhatsApp.</p>
+                    <div className="mt-4 flex items-center gap-3">
+                      <div className="h-2 flex-1 overflow-hidden rounded-full bg-gray-100">
+                        <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${progress}%` }} />
+                      </div>
+                      <span className="text-xs font-medium text-gray-500">{doneCount}/{steps.length}</span>
+                    </div>
+                  </>
+                ) : (
+                  <p className="mt-2 text-sm text-emerald-600">🎉 Tout est configuré ! Votre SAV WhatsApp est opérationnel.</p>
+                )}
+              </div>
+
+              {/* Étapes */}
+              <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200">
+                {steps.map((s, i) => (
+                  <a
+                    key={s.key}
+                    href={s.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={`flex items-center gap-4 px-6 py-4 transition hover:bg-gray-50 ${i > 0 ? 'border-t border-gray-100' : ''}`}
+                  >
+                    <span className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold ${s.done ? 'bg-emerald-500 text-white' : 'bg-gray-100 text-gray-400'}`}>
+                      {s.done ? '✓' : i + 1}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className={`text-sm font-medium ${s.done ? 'text-gray-900' : 'text-gray-700'}`}>{s.label}</p>
+                      <p className="truncate text-xs text-gray-400">{s.desc}</p>
+                    </div>
+                    <span className="text-gray-300">→</span>
+                  </a>
+                ))}
+              </div>
+
+              {/* Accès rapide */}
+              <div className="grid grid-cols-2 gap-3">
+                <a href={APP_BASE} target="_blank" rel="noopener noreferrer" className="rounded-2xl bg-gray-900 px-4 py-3 text-center text-sm font-semibold text-white transition hover:bg-gray-800">
+                  Ouvrir mon tableau de bord
+                </a>
+                <a href={`${APP_BASE}/subscription`} target="_blank" rel="noopener noreferrer" className="rounded-2xl border border-gray-200 px-4 py-3 text-center text-sm font-medium text-gray-700 transition hover:bg-gray-50">
+                  Gérer mon abonnement
+                </a>
+              </div>
+              {message && <p className="text-center text-sm text-gray-600">{message}</p>}
+            </div>
+          )
+        })()
       )}
     </div>
   )
