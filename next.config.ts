@@ -72,6 +72,15 @@ const nextConfig: NextConfig = {
           },
         ],
       },
+      {
+        // Redirection lien WhatsApp : aucun referrer transmis à WhatsApp
+        // (sinon ERR_BLOCKED_BY_RESPONSE quand le clic vient de Shopify).
+        // Cette règle vient APRÈS le catch-all → elle écrase le Referrer-Policy.
+        source: '/api/wa/:slug*',
+        headers: [
+          { key: 'Referrer-Policy', value: 'no-referrer' },
+        ],
+      },
     ]
   },
 };
