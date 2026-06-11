@@ -8,8 +8,8 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import {
-  Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle,
-} from '@/components/ui/dialog'
+  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
+} from '@/components/ui/sheet'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -381,15 +381,15 @@ export default function TemplatesPage() {
         </div>
       )}
 
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{editing ? 'Modifier le modèle' : 'Nouveau modèle'}</DialogTitle>
-            <DialogDescription>
+      <Sheet open={dialogOpen} onOpenChange={setDialogOpen}>
+        <SheetContent side="right" className="w-full sm:max-w-3xl lg:max-w-4xl overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle>{editing ? 'Modifier le modèle' : 'Nouveau modèle'}</SheetTitle>
+            <SheetDescription>
               Utilisez {'{{1}}'}, {'{{2}}'}… pour les variables (ex : prénom, n° de commande).
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-6 md:grid-cols-[1fr_300px]">
+            </SheetDescription>
+          </SheetHeader>
+          <div className="grid gap-6 px-4 pb-6 md:grid-cols-[1fr_300px]">
           <div className="space-y-4 py-2">
             <div className="space-y-1.5">
               <Label>Nom technique</Label>
@@ -535,8 +535,8 @@ export default function TemplatesPage() {
             </p>
           </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }
