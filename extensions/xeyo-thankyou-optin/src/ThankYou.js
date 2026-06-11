@@ -61,29 +61,11 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
   const lang = String(isoRaw).toLowerCase().startsWith('fr') ? 'fr' : 'en'
   const t = STRINGS[lang]
 
-  // Pré-remplissage du numéro : on tente toutes les sources de la page Merci.
+  // Pré-remplissage du numéro : sur la page Merci, shippingAddress est vide.
+  // On récupère le téléphone via une query GraphQL sur l'order (async).
   const shipping = api.shippingAddress?.current || {}
   const billing = api.billingAddress?.current || {}
-  let phone = (
-    readCurrent(api.phone) ||
-    shipping.phone ||
-    billing.phone ||
-    readCurrent(api.shippingAddress)?.phone ||
-    ''
-  ).toString().trim()
-
-  // [DIAG] : log des clés disponibles pour localiser le téléphone sur Thank You
-  try {
-    console.log('[Xeyo optin DIAG] keys:', JSON.stringify(Object.keys(api)))
-    // Cherche un objet "order"/"confirmation" qui contiendrait le téléphone
-    for (const k of Object.keys(api)) {
-      if (/order|confirm|customer|buyer|contact/i.test(k)) {
-        const v = api[k]
-        const resolved = v && typeof v === 'object' && 'current' in v ? v.current : v
-        try { console.log(`[Xeyo optin DIAG] ${k}:`, JSON.stringify(resolved)?.slice(0, 600)) } catch { console.log(`[Xeyo optin DIAG] ${k}: (non-serializable)`) }
-      }
-    }
-  } catch (e) { console.log('[Xeyo optin DIAG] error', e) }
+  let phone = (shipping.phone || billing.phone || '').toString().trim()
 
   const address = shipping
   let optedIn = false
@@ -102,6 +84,33 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
     helpText: t.phoneHelp,
     onChange: (v) => { phone = v },
   })
+
+  // Récupère le téléphone de la commande via GraphQL (shippingAddress est vide
+  // sur la page Merci). On met à jour le champ dès que la réponse arrive,
+  // sauf si le client a déjà tapé quelque chose.
+  if (!phone && api.query) {
+    const orderId = api.orderConfirmation?.current?.order?.id
+    if (orderId) {
+      api.query(
+        `query($id: ID!) {
+          node(id: $id) {
+            ... on Order {
+              shippingAddress { phone }
+              billingAddress { phone }
+            }
+          }
+        }`,
+        { variables: { id: orderId } }
+      ).then((res) => {
+        const o = res?.data?.node
+        const found = (o?.shippingAddress?.phone || o?.billingAddress?.phone || '').toString().trim()
+        if (found && !phone) {
+          phone = found
+          phoneField.updateProps({ value: found })
+        }
+      }).catch(() => { /* silencieux */ })
+    }
+  }
 
   const submitButton = root.createComponent(
     Button,
