@@ -8,12 +8,9 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription,
-} from '@/components/ui/sheet'
-import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
-import { Plus, Loader2, Trash2, Send, RefreshCw, FileText, Pencil, Sparkles, Bold, Italic, Strikethrough, Braces, Image as ImageIcon, Video, ExternalLink, Phone, Copy } from 'lucide-react'
+import { Plus, Loader2, Trash2, Send, RefreshCw, FileText, Sparkles, Bold, Italic, Strikethrough, Braces, Image as ImageIcon, Video, ExternalLink, Phone, Copy } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BlobLoaderScreen } from '@/components/blob-loader'
 
@@ -54,7 +51,7 @@ export default function TemplatesPage() {
   const [loading, setLoading] = useState(true)
   const [syncing, setSyncing] = useState(false)
   const [seeding, setSeeding] = useState(false)
-  const [dialogOpen, setDialogOpen] = useState(false)
+  const [mode, setMode] = useState<'idle' | 'edit'>('idle')
   const [editing, setEditing] = useState<WhatsAppTemplate | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -145,20 +142,22 @@ export default function TemplatesPage() {
 
   function openCreate() {
     setEditing(null)
+    setSelectedId(null)
     setName(''); setLanguage('fr'); setCategory('UTILITY')
     setBodyText(''); setHeaderText(''); setFooterText('Powered by Xeyo.io')
     setHeaderType('none'); setHeaderMediaUrl(''); setButtons([])
-    setDialogOpen(true)
+    setMode('edit')
   }
 
   function openEdit(t: WhatsAppTemplate) {
     setEditing(t)
+    setSelectedId(t.id)
     setName(t.name); setLanguage(t.language); setCategory(t.category)
     setBodyText(t.body_text); setHeaderText(t.header_text || ''); setFooterText(t.footer_text || '')
     setHeaderType(t.header_type || (t.header_text ? 'text' : 'none'))
     setHeaderMediaUrl(t.header_media_url || '')
     setButtons(Array.isArray(t.buttons) ? t.buttons : [])
-    setDialogOpen(true)
+    setMode('edit')
   }
 
   async function handleSave() {
@@ -182,8 +181,9 @@ export default function TemplatesPage() {
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Erreur')
-      setDialogOpen(false)
       await fetchTemplates()
+      // Reste en mode édition sur le modèle (re)sauvegardé pour un flux maître-détail fluide.
+      if (json.data?.id) { setEditing(json.data as WhatsAppTemplate); setSelectedId(json.data.id) }
       toast.success(editing ? 'Modèle modifié' : 'Modèle créé')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erreur')
@@ -239,8 +239,10 @@ export default function TemplatesPage() {
 
   if (loading) return <BlobLoaderScreen />
 
-  // Modèle sélectionné (fallback : le premier de la liste)
-  const selectedTemplate = templates.find((t) => t.id === selectedId) || templates[0] || null
+  // Modèle sélectionné (uniquement si explicitement choisi)
+  const selectedTemplate = templates.find((t) => t.id === selectedId) || null
+  // Le formulaire d'édition est intégré dans la colonne de droite (layout maître-détail).
+  const showForm = mode === 'edit'
 
   return (
     <div className="flex h-full flex-col p-4 md:p-6 gap-4">
@@ -285,7 +287,7 @@ export default function TemplatesPage() {
               return (
                 <button
                   key={t.id}
-                  onClick={() => { setSelectedId(t.id); openEdit(t) }}
+                  onClick={() => openEdit(t)}
                   className={cn(
                     'w-full rounded-lg border px-3 py-2.5 text-left transition-colors',
                     active ? 'border-primary bg-primary/5' : 'border-transparent hover:bg-muted/50'
@@ -302,95 +304,38 @@ export default function TemplatesPage() {
             })}
           </div>
 
-          {/* Droite : visualisation WhatsApp + actions */}
-          <div className="flex flex-col rounded-xl border overflow-hidden">
-            {selectedTemplate ? (
+          {/* Droite : formulaire d'édition intégré (layout maître-détail) */}
+          <div className="flex flex-col rounded-xl border overflow-hidden min-h-0">
+            {showForm ? (
               <>
                 {/* Barre d'actions */}
                 <div className="flex items-center justify-between gap-2 border-b bg-background px-4 py-2.5">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <code className="truncate text-sm font-medium">{selectedTemplate.name}</code>
-                    <span className={cn('rounded-full px-2 py-0.5 text-xs', (STATUS_STYLE[selectedTemplate.status] || STATUS_STYLE.draft).cls)}>
-                      {(STATUS_STYLE[selectedTemplate.status] || STATUS_STYLE.draft).label}
-                    </span>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-sm font-medium">{editing ? 'Modifier le modèle' : 'Nouveau modèle'}</span>
+                    {selectedTemplate && (
+                      <span className={cn('mt-0.5 w-fit rounded-full px-2 py-0.5 text-[11px]', (STATUS_STYLE[selectedTemplate.status] || STATUS_STYLE.draft).cls)}>
+                        {(STATUS_STYLE[selectedTemplate.status] || STATUS_STYLE.draft).label}
+                      </span>
+                    )}
                   </div>
-                  <div className="flex items-center gap-1 shrink-0">
-                    {selectedTemplate.status === 'draft' && (
-                      <>
-                        <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => openEdit(selectedTemplate)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
+                  {selectedTemplate && (
+                    <div className="flex items-center gap-1 shrink-0">
+                      {selectedTemplate.status === 'draft' && (
                         <Button size="sm" variant="outline" disabled={busyId === selectedTemplate.id} onClick={() => handleSubmit(selectedTemplate)}>
                           {busyId === selectedTemplate.id ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Send className="mr-1 h-4 w-4" />}
                           Soumettre
                         </Button>
-                      </>
-                    )}
-                    <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" disabled={busyId === selectedTemplate.id} onClick={() => handleDelete(selectedTemplate)}>
-                      {busyId === selectedTemplate.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Aperçu : fond dégradé doux + grande bulle blanche */}
-                <div className="flex-1 overflow-y-auto bg-gradient-to-br from-slate-100 via-slate-50 to-blue-50 p-8 dark:from-slate-800 dark:via-slate-800/80 dark:to-slate-900">
-                  <div className="mx-auto max-w-md">
-                    <div className="ml-auto max-w-[92%] overflow-hidden rounded-2xl rounded-tr-sm bg-white shadow-md ring-1 ring-black/5">
-                      {selectedTemplate.header_type === 'image' && <div className="flex h-36 items-center justify-center bg-slate-200 text-slate-400"><ImageIcon className="h-12 w-12" /></div>}
-                      {selectedTemplate.header_type === 'video' && <div className="flex h-36 items-center justify-center bg-slate-800 text-slate-400"><Video className="h-12 w-12" /></div>}
-                      {selectedTemplate.header_type === 'document' && <div className="flex items-center gap-2 bg-slate-100 px-3 py-2.5 text-slate-500"><FileText className="h-5 w-5" /><span className="text-xs">Document.pdf</span></div>}
-                      <div className="px-4 py-3">
-                        {(selectedTemplate.header_type === 'text' || !selectedTemplate.header_type) && selectedTemplate.header_text && (
-                          <p className="mb-1 text-[15px] font-semibold text-gray-900">{selectedTemplate.header_text}</p>
-                        )}
-                        <p className="whitespace-pre-wrap break-words text-[14.5px] leading-snug text-gray-800">{renderWhatsAppFormat(selectedTemplate.body_text)}</p>
-                        {selectedTemplate.footer_text && (
-                          <p className="mt-2 text-[12px] text-gray-400">{selectedTemplate.footer_text}</p>
-                        )}
-                        <div className="mt-1 text-right text-[10px] text-gray-400">12:00 ✓✓</div>
-                      </div>
-                      {Array.isArray(selectedTemplate.buttons) && selectedTemplate.buttons.length > 0 && (
-                        <div className="border-t border-slate-100">
-                          {selectedTemplate.buttons.map((b, i) => (
-                            <div key={i} className="flex items-center justify-center gap-1.5 border-t border-slate-100 py-2.5 text-[14px] font-medium text-[#1ca5e0] first:border-t-0">
-                              {b.type === 'URL' && <ExternalLink className="h-4 w-4" />}
-                              {b.type === 'PHONE_NUMBER' && <Phone className="h-4 w-4" />}
-                              {b.type === 'COPY_CODE' && <Copy className="h-4 w-4" />}
-                              {b.text}
-                            </div>
-                          ))}
-                        </div>
                       )}
+                      <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" disabled={busyId === selectedTemplate.id} onClick={() => handleDelete(selectedTemplate)}>
+                        {busyId === selectedTemplate.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                      </Button>
                     </div>
-                  </div>
-                  <div className="mx-auto mt-4 max-w-md text-center text-xs text-muted-foreground">
-                    {selectedTemplate.variables_count > 0 && `${selectedTemplate.variables_count} variable(s) · `}
-                    Les variables {'{{1}}'}, {'{{2}}'}… seront remplacées à l&apos;envoi.
-                  </div>
-                  {selectedTemplate.status === 'rejected' && selectedTemplate.rejection_reason && (
-                    <p className="mx-auto mt-2 max-w-md text-center text-xs text-red-500">Refus Meta : {selectedTemplate.rejection_reason}</p>
                   )}
                 </div>
-              </>
-            ) : (
-              <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-                Sélectionnez un modèle pour le visualiser.
-              </div>
-            )}
-          </div>
-        </div>
-      )}
 
-      <Sheet open={dialogOpen} onOpenChange={setDialogOpen}>
-        <SheetContent side="right" className="w-full sm:max-w-3xl lg:max-w-4xl overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>{editing ? 'Modifier le modèle' : 'Nouveau modèle'}</SheetTitle>
-            <SheetDescription>
-              Utilisez {'{{1}}'}, {'{{2}}'}… pour les variables (ex : prénom, n° de commande).
-            </SheetDescription>
-          </SheetHeader>
-          <div className="grid gap-6 px-4 pb-6 md:grid-cols-[1fr_300px]">
-          <div className="space-y-4 py-2">
+                <div className="flex-1 overflow-y-auto">
+                  <div className="grid gap-6 p-4 lg:grid-cols-[1fr_300px]">
+                  <div className="space-y-4 py-2">
             <div className="space-y-1.5">
               <Label>Nom technique</Label>
               <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="confirmation_commande" />
@@ -534,9 +479,21 @@ export default function TemplatesPage() {
               Les variables {'{{1}}'}, {'{{2}}'}… seront remplacées à l&apos;envoi.
             </p>
           </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center text-sm text-muted-foreground">
+                <FileText className="h-8 w-8 opacity-50" />
+                <p>Sélectionnez un modèle ou créez-en un.</p>
+                <Button size="sm" onClick={openCreate}>
+                  <Plus className="mr-1 h-4 w-4" />Nouveau modèle
+                </Button>
+              </div>
+            )}
           </div>
-        </SheetContent>
-      </Sheet>
+        </div>
+      )}
     </div>
   )
 }
