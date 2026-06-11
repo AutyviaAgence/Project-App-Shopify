@@ -33,6 +33,20 @@ export async function GET(req: NextRequest) {
   let documents = 0
   let whatsappConnected = false
   let approvedTemplates = 0
+  // Plan effectif : on privilégie le plan du COMPTE lié (profiles.plan), qui
+  // reflète les comptes admin / plans offerts sans facturation Stripe. On
+  // retombe sur le plan de la boutique puis "free".
+  let effectivePlan = store.plan || 'free'
+  if (store.user_id) {
+    const { data: profile } = await admin
+      .from('profiles')
+      .select('plan, role')
+      .eq('id', store.user_id)
+      .maybeSingle()
+    if (profile?.plan) effectivePlan = profile.plan
+    // Un admin a toujours l'accès complet (plan le plus élevé).
+    if (profile?.role === 'admin') effectivePlan = profile.plan || 'scale'
+  }
   if (store.user_id) {
     const { data: agents } = await admin
       .from('ai_agents')
@@ -70,7 +84,7 @@ export async function GET(req: NextRequest) {
       installed: true,
       linked: !!store.user_id,
       shop_name: store.shop_name,
-      plan: store.plan || 'free',
+      plan: effectivePlan,
       subscription_status: store.subscription_status || 'active',
       agent,
       documents,

@@ -9,23 +9,69 @@ import {
   Text,
 } from '@shopify/ui-extensions/checkout'
 
-// Indicatifs pays proposés dans la liste déroulante (les plus courants en e-commerce).
-const COUNTRY_CODES = [
-  { value: '33', label: '🇫🇷 +33' },
-  { value: '32', label: '🇧🇪 +32' },
-  { value: '41', label: '🇨🇭 +41' },
-  { value: '352', label: '🇱🇺 +352' },
-  { value: '1', label: '🇺🇸 +1' },
-  { value: '44', label: '🇬🇧 +44' },
-  { value: '49', label: '🇩🇪 +49' },
-  { value: '34', label: '🇪🇸 +34' },
-  { value: '39', label: '🇮🇹 +39' },
-  { value: '31', label: '🇳🇱 +31' },
-  { value: '351', label: '🇵🇹 +351' },
-  { value: '212', label: '🇲🇦 +212' },
-  { value: '213', label: '🇩🇿 +213' },
-  { value: '216', label: '🇹🇳 +216' },
+// Liste complète des pays : drapeau, nom (FR/EN pour la recherche), code ISO,
+// indicatif téléphonique. Sert à construire les options ET à filtrer par nom.
+const COUNTRIES = [
+  { iso: 'FR', dial: '33', flag: '🇫🇷', name: 'France' },
+  { iso: 'BE', dial: '32', flag: '🇧🇪', name: 'Belgique Belgium' },
+  { iso: 'CH', dial: '41', flag: '🇨🇭', name: 'Suisse Switzerland' },
+  { iso: 'LU', dial: '352', flag: '🇱🇺', name: 'Luxembourg' },
+  { iso: 'MC', dial: '377', flag: '🇲🇨', name: 'Monaco' },
+  { iso: 'US', dial: '1', flag: '🇺🇸', name: 'United States Etats-Unis USA' },
+  { iso: 'CA', dial: '1', flag: '🇨🇦', name: 'Canada' },
+  { iso: 'GB', dial: '44', flag: '🇬🇧', name: 'United Kingdom Royaume-Uni UK' },
+  { iso: 'IE', dial: '353', flag: '🇮🇪', name: 'Ireland Irlande' },
+  { iso: 'DE', dial: '49', flag: '🇩🇪', name: 'Germany Allemagne Deutschland' },
+  { iso: 'AT', dial: '43', flag: '🇦🇹', name: 'Austria Autriche' },
+  { iso: 'ES', dial: '34', flag: '🇪🇸', name: 'Spain Espagne España' },
+  { iso: 'PT', dial: '351', flag: '🇵🇹', name: 'Portugal' },
+  { iso: 'IT', dial: '39', flag: '🇮🇹', name: 'Italy Italie Italia' },
+  { iso: 'NL', dial: '31', flag: '🇳🇱', name: 'Netherlands Pays-Bas' },
+  { iso: 'DK', dial: '45', flag: '🇩🇰', name: 'Denmark Danemark' },
+  { iso: 'SE', dial: '46', flag: '🇸🇪', name: 'Sweden Suède' },
+  { iso: 'NO', dial: '47', flag: '🇳🇴', name: 'Norway Norvège' },
+  { iso: 'FI', dial: '358', flag: '🇫🇮', name: 'Finland Finlande' },
+  { iso: 'PL', dial: '48', flag: '🇵🇱', name: 'Poland Pologne' },
+  { iso: 'CZ', dial: '420', flag: '🇨🇿', name: 'Czechia Tchéquie' },
+  { iso: 'GR', dial: '30', flag: '🇬🇷', name: 'Greece Grèce' },
+  { iso: 'RO', dial: '40', flag: '🇷🇴', name: 'Romania Roumanie' },
+  { iso: 'HU', dial: '36', flag: '🇭🇺', name: 'Hungary Hongrie' },
+  { iso: 'BG', dial: '359', flag: '🇧🇬', name: 'Bulgaria Bulgarie' },
+  { iso: 'HR', dial: '385', flag: '🇭🇷', name: 'Croatia Croatie' },
+  { iso: 'SK', dial: '421', flag: '🇸🇰', name: 'Slovakia Slovaquie' },
+  { iso: 'SI', dial: '386', flag: '🇸🇮', name: 'Slovenia Slovénie' },
+  { iso: 'LT', dial: '370', flag: '🇱🇹', name: 'Lithuania Lituanie' },
+  { iso: 'LV', dial: '371', flag: '🇱🇻', name: 'Latvia Lettonie' },
+  { iso: 'EE', dial: '372', flag: '🇪🇪', name: 'Estonia Estonie' },
+  { iso: 'MA', dial: '212', flag: '🇲🇦', name: 'Morocco Maroc' },
+  { iso: 'DZ', dial: '213', flag: '🇩🇿', name: 'Algeria Algérie' },
+  { iso: 'TN', dial: '216', flag: '🇹🇳', name: 'Tunisia Tunisie' },
+  { iso: 'EG', dial: '20', flag: '🇪🇬', name: 'Egypt Egypte' },
+  { iso: 'SN', dial: '221', flag: '🇸🇳', name: 'Senegal Sénégal' },
+  { iso: 'CI', dial: '225', flag: '🇨🇮', name: "Côte d'Ivoire Ivory Coast" },
+  { iso: 'CM', dial: '237', flag: '🇨🇲', name: 'Cameroon Cameroun' },
+  { iso: 'AE', dial: '971', flag: '🇦🇪', name: 'United Arab Emirates Emirats UAE Dubai' },
+  { iso: 'SA', dial: '966', flag: '🇸🇦', name: 'Saudi Arabia Arabie Saoudite' },
+  { iso: 'TR', dial: '90', flag: '🇹🇷', name: 'Turkey Turquie' },
+  { iso: 'IL', dial: '972', flag: '🇮🇱', name: 'Israel Israël' },
+  { iso: 'IN', dial: '91', flag: '🇮🇳', name: 'India Inde' },
+  { iso: 'CN', dial: '86', flag: '🇨🇳', name: 'China Chine' },
+  { iso: 'JP', dial: '81', flag: '🇯🇵', name: 'Japan Japon' },
+  { iso: 'KR', dial: '82', flag: '🇰🇷', name: 'South Korea Corée' },
+  { iso: 'AU', dial: '61', flag: '🇦🇺', name: 'Australia Australie' },
+  { iso: 'NZ', dial: '64', flag: '🇳🇿', name: 'New Zealand Nouvelle-Zélande' },
+  { iso: 'BR', dial: '55', flag: '🇧🇷', name: 'Brazil Brésil' },
+  { iso: 'MX', dial: '52', flag: '🇲🇽', name: 'Mexico Mexique' },
+  { iso: 'AR', dial: '54', flag: '🇦🇷', name: 'Argentina Argentine' },
+  { iso: 'ZA', dial: '27', flag: '🇿🇦', name: 'South Africa Afrique du Sud' },
 ]
+
+// Option d'affichage pour le Select (drapeau + indicatif).
+function countryOption(c) {
+  return { value: c.iso, label: `${c.flag} +${c.dial}` }
+}
+// Toutes les options (non filtrées)
+const COUNTRY_CODES = COUNTRIES.map(countryOption)
 
 // Longueur attendue du numéro LOCAL (sans indicatif) par indicatif, pour
 // une validation stricte : min/max de chiffres. Défaut générique si absent.
@@ -47,12 +93,28 @@ const LOCAL_LENGTH = {
 }
 const DEFAULT_LOCAL = { min: 6, max: 14 }
 
+// Index ISO → pays (le Select stocke l'ISO car US/CA partagent l'indicatif +1).
+const BY_ISO = {}
+for (const c of COUNTRIES) BY_ISO[c.iso] = c
+
+// Filtre les pays par texte (nom FR/EN, indicatif ou code ISO).
+function filterCountries(q) {
+  const s = (q || '').trim().toLowerCase().replace(/^\+/, '')
+  if (!s) return COUNTRIES
+  return COUNTRIES.filter((c) =>
+    c.name.toLowerCase().includes(s) ||
+    c.iso.toLowerCase().includes(s) ||
+    c.dial.startsWith(s)
+  )
+}
+
 // Textes : anglais par défaut, français si la boutique/le client est en FR.
 const STRINGS = {
   en: {
     checkbox: '📦 Get order updates and exclusive offers on WhatsApp',
     consent: (store) => `By confirming, I agree to receive WhatsApp messages from ${store} about my order updates and its offers and promotions. Reply STOP to unsubscribe anytime.`,
-    countryLabel: 'Code',
+    countryLabel: 'Country',
+    countrySearch: 'Search country (e.g. France, FR, 33)',
     phoneLabel: 'WhatsApp number',
     phonePlaceholder: '555 123 4567',
     phoneHelp: 'Pick your country code, then enter your number.',
@@ -73,7 +135,8 @@ const STRINGS = {
   fr: {
     checkbox: '📦 Recevoir le suivi de ma commande et les offres exclusives sur WhatsApp',
     consent: (store) => `En validant, j'accepte de recevoir des messages WhatsApp de ${store} concernant le suivi de ma commande ainsi que ses offres et promotions. Répondez STOP pour vous désabonner à tout moment.`,
-    countryLabel: 'Indicatif',
+    countryLabel: 'Pays',
+    countrySearch: 'Rechercher un pays (ex : France, FR, 33)',
     phoneLabel: 'Numéro WhatsApp',
     phonePlaceholder: '6 12 34 56 78',
     phoneHelp: 'Choisissez votre indicatif, puis saisissez votre numéro.',
@@ -127,22 +190,42 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
 
   const fullName = [address.firstName, address.lastName].filter(Boolean).join(' ')
 
-  // Indicatif pays par défaut selon le pays de livraison / la langue.
+  // Pays par défaut selon le pays de livraison / la langue.
   const country = (api.shippingAddress?.current?.countryCode || localization?.country?.current?.isoCode || '').toUpperCase()
-  const COUNTRY_TO_CODE = { FR: '33', BE: '32', CH: '41', LU: '352', US: '1', CA: '1', GB: '44', DE: '49', ES: '34', IT: '39', NL: '31', PT: '351', MA: '212', DZ: '213', TN: '216' }
-  let dialCode = COUNTRY_TO_CODE[country] || (lang === 'fr' ? '33' : '1')
+  let selectedIso = BY_ISO[country] ? country : (lang === 'fr' ? 'FR' : 'US')
+  let dialCode = BY_ISO[selectedIso].dial
   let localNumber = '' // partie après l'indicatif
 
   // Message d'erreur / statut
   const message = root.createComponent(Text, { appearance: 'critical' }, '')
   message.remove?.() // caché par défaut (on l'ajoute au besoin)
 
-  // Sélecteur d'indicatif pays
+  // Champ de recherche de pays : filtre la liste par nom / indicatif / ISO.
+  const countrySearch = root.createComponent(TextField, {
+    label: t.countrySearch,
+    value: '',
+    onChange: (q) => {
+      const list = filterCountries(q)
+      const options = list.map(countryOption)
+      // Si le pays sélectionné n'est plus dans la liste filtrée, on bascule
+      // sur le 1er résultat pour garder une valeur cohérente.
+      if (options.length > 0 && !options.find((o) => o.value === selectedIso)) {
+        selectedIso = options[0].value
+        dialCode = BY_ISO[selectedIso].dial
+      }
+      codeSelect.updateProps({ options, value: selectedIso })
+    },
+  })
+
+  // Sélecteur de pays (stocke l'ISO ; l'indicatif en dérive).
   const codeSelect = root.createComponent(Select, {
     label: t.countryLabel,
-    value: dialCode,
+    value: selectedIso,
     options: COUNTRY_CODES,
-    onChange: (v) => { dialCode = v },
+    onChange: (iso) => {
+      selectedIso = iso
+      dialCode = BY_ISO[iso] ? BY_ISO[iso].dial : dialCode
+    },
   })
 
   // Champ numéro local (sans l'indicatif)
@@ -173,13 +256,15 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
       .then((j) => {
         const digits = (j?.phone || '').toString().replace(/\D/g, '')
         if (digits && !localNumber) {
-          // Sépare l'indicatif (parmi la liste) du numéro local.
-          const codes = COUNTRY_CODES.map((c) => c.value).sort((a, b) => b.length - a.length)
-          const match = codes.find((c) => digits.startsWith(c))
+          // Sépare l'indicatif (le plus long qui matche) du numéro local,
+          // puis sélectionne le pays correspondant dans le Select.
+          const dials = COUNTRIES.map((c) => c.dial).sort((a, b) => b.length - a.length)
+          const match = dials.find((d) => digits.startsWith(d))
           if (match) {
             dialCode = match
             localNumber = digits.slice(match.length)
-            codeSelect.updateProps({ value: match })
+            const c = COUNTRIES.find((x) => x.dial === match)
+            if (c) { selectedIso = c.iso; codeSelect.updateProps({ value: c.iso }) }
           } else {
             localNumber = digits
           }
@@ -214,13 +299,14 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
     'Powered by Xeyo.io'
   )
 
-  // Indicatif + numéro côte à côte (l'indicatif prend une largeur fixe).
+  // Pays (recherche) au-dessus, puis indicatif + numéro côte à côte.
   const phoneRow = root.createComponent(InlineStack, { spacing: 'tight', blockAlignment: 'end' }, [
     codeSelect,
     phoneField,
   ])
 
   const fieldsStack = root.createComponent(BlockStack, { spacing: 'tight' }, [
+    countrySearch,
     phoneRow,
     consent,
     root.createComponent(InlineStack, {}, [submitButton]),
