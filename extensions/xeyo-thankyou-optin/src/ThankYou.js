@@ -56,21 +56,6 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
   const shipping = api.shippingAddress?.current || {}
   let phone = ''
 
-  // [DIAG 2] Dump complet de toutes les sources pour localiser le téléphone.
-  try {
-    for (const k of Object.keys(api)) {
-      const v = api[k]
-      const resolved = (v && typeof v === 'object' && 'current' in v) ? v.current : v
-      let s = ''
-      try { s = JSON.stringify(resolved) } catch { s = '(non-serializable)' }
-      if (s && /phone|\+\d{6,}|\d{8,}/i.test(s)) {
-        console.log(`[Xeyo DIAG2] ${k}:`, s.slice(0, 500))
-      }
-    }
-    // Test direct orderConfirmation complet
-    console.log('[Xeyo DIAG2] orderConfirmation full:', JSON.stringify(api.orderConfirmation?.current))
-  } catch (e) { console.log('[Xeyo DIAG2] err', e) }
-
   const address = shipping
   let optedIn = false
   let busy = false
@@ -89,9 +74,23 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
     onChange: (v) => { phone = v },
   })
 
-  // Note : sur la page Merci, Shopify n'expose pas le téléphone de la commande
-  // côté client (donnée protégée). Le client saisit son numéro WhatsApp, ce qui
-  // est de toute façon préférable (il peut différer du téléphone de livraison).
+  // Pré-remplissage : le téléphone n'est pas exposé côté client sur la page Merci.
+  // On le récupère côté serveur (Admin API) via notre App Proxy, à partir du
+  // numéro de commande. On met à jour le champ dès la réponse (sauf saisie en cours).
+  const orderNumber = api.orderConfirmation?.current?.number
+  if (orderNumber) {
+    const domain = shop.myshopifyDomain
+    fetch(`https://${domain}/apps/xeyo/order-phone?shop=${encodeURIComponent(domain)}&order=${encodeURIComponent(orderNumber)}`)
+      .then((r) => r.json())
+      .then((j) => {
+        const found = (j?.phone || '').toString().trim()
+        if (found && !phone) {
+          phone = found
+          phoneField.updateProps({ value: found })
+        }
+      })
+      .catch(() => { /* silencieux : saisie manuelle en fallback */ })
+  }
 
   const submitButton = root.createComponent(
     Button,
