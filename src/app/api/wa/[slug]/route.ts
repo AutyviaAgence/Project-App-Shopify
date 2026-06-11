@@ -134,10 +134,28 @@ export async function GET(
       if (clickErr) console.error('[wa/slug] link_clicks insert error:', clickErr.message)
     })
 
-  // Construire l'URL WhatsApp via api.whatsapp.com/send (plus fiable que wa.me,
-  // qui échouait sur certains navigateurs/réseaux).
+  // Construire l'URL WhatsApp.
   const text = link.pre_filled_message || ''
-  const waUrl = `https://api.whatsapp.com/send/?phone=${phone}&text=${encodeURIComponent(text)}&type=phone_number&app_absent=0`
+  const waUrl = `https://wa.me/${phone}${text ? `?text=${encodeURIComponent(text)}` : ''}`
 
-  return NextResponse.redirect(waUrl)
+  // Plutôt qu'une redirection HTTP 302 (qui transmet le referrer Shopify et
+  // déclenche ERR_BLOCKED_BY_RESPONSE côté WhatsApp), on renvoie une mini page
+  // HTML qui redirige en JS avec referrerPolicy=no-referrer. Aucun referrer
+  // n'est transmis à WhatsApp → plus de blocage.
+  const safeUrl = waUrl.replace(/"/g, '%22')
+  const html = `<!doctype html><html><head><meta charset="utf-8">` +
+    `<meta name="referrer" content="no-referrer">` +
+    `<meta http-equiv="refresh" content="0;url=${safeUrl}">` +
+    `<title>Redirection…</title></head><body>` +
+    `<script>window.location.replace(${JSON.stringify(waUrl)});</script>` +
+    `<p>Ouverture de WhatsApp… <a href="${safeUrl}" rel="noreferrer">Cliquez ici si rien ne se passe</a>.</p>` +
+    `</body></html>`
+
+  return new NextResponse(html, {
+    status: 200,
+    headers: {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Referrer-Policy': 'no-referrer',
+    },
+  })
 }
