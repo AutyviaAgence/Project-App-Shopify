@@ -66,7 +66,7 @@ function mapTenantConfig(tenant: Record<string, unknown> | null) {
       id: '',
       slug: 'xeyo',
       appName: 'Xeyo',
-      logoUrl: '/logo-xeyo.svg',
+      logoUrl: '/xeyo-logo.png',
       faviconUrl: null,
       primaryColor: '#7DC2A5',
       accentColor: '#40E9BE',
