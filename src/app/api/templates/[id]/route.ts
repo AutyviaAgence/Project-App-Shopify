@@ -28,10 +28,16 @@ export async function PATCH(
 
   // Si le contenu (visible par Meta) change sur un template déjà soumis,
   // Meta a toujours l'ancienne version → on repasse en brouillon pour forcer
-  // une nouvelle soumission (sinon l'ancienne version serait envoyée).
-  const CONTENT_FIELDS = ['body_text', 'header_text', 'footer_text', 'header_type', 'header_media_url', 'buttons', 'category', 'language']
+  // une nouvelle soumission. IMPORTANT : on CONSERVE le meta_id, car la
+  // re-soumission éditera le template existant chez Meta (Meta refuse un
+  // doublon nom+langue — c'est l'erreur "déjà du contenu en French").
+  // Changer le nom ou la langue, en revanche, crée un nouveau template Meta :
+  // dans ce cas seulement on efface le meta_id.
+  const CONTENT_FIELDS = ['body_text', 'header_text', 'footer_text', 'header_type', 'header_media_url', 'buttons', 'category']
+  const IDENTITY_FIELDS = ['name', 'language']
   const contentChanged = CONTENT_FIELDS.some((f) => body[f] !== undefined)
-  if (contentChanged) {
+  const identityChanged = IDENTITY_FIELDS.some((f) => body[f] !== undefined)
+  if (contentChanged || identityChanged) {
     const { data: current } = await supabase
       .from('whatsapp_templates')
       .select('status')
@@ -40,14 +46,68 @@ export async function PATCH(
       .maybeSingle()
     if (current && current.status !== 'draft') {
       updates.status = 'draft'
-      updates.meta_id = null
       updates.rejection_reason = null
+      // Nom/langue modifiés → nouveau template Meta (l'ancien meta_id ne vaut plus)
+      if (identityChanged) updates.meta_id = null
     }
   }
 
   const { data, error } = await supabase
     .from('whatsapp_templates')
     .update(updates)
+    .eq('id', id)
+    .eq('user_id', user.id)
+    .select()
+    .single()
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ data })
+}
+
+/**
+ * PUT /api/templates/[id] — Revenir à la dernière version VALIDÉE par Meta.
+ * Restaure le contenu figé lors de la dernière approbation (approved_*).
+ * Le template repasse en "approved" (le contenu chez Meta n'a pas changé).
+ */
+export async function PUT(
+  _req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params
+  const supabase = await createClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  }
+
+  const { data: tpl } = await supabase
+    .from('whatsapp_templates')
+    .select('id, meta_id, approved_body_text, approved_header_text, approved_footer_text')
+    .eq('id', id)
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (!tpl) return NextResponse.json({ error: 'Modèle introuvable' }, { status: 404 })
+  if (!tpl.approved_body_text) {
+    return NextResponse.json({ error: "Aucune version validée à restaurer (ce modèle n'a jamais été approuvé)." }, { status: 422 })
+  }
+
+  const restored = (tpl.approved_body_text || '')
+  const m = restored.match(/\{\{\s*\d+\s*\}\}/g)
+  const variables_count = m ? Math.max(...m.map((x) => parseInt(x.replace(/\D/g, ''), 10))) : 0
+
+  const { data, error } = await supabase
+    .from('whatsapp_templates')
+    .update({
+      body_text: tpl.approved_body_text,
+      header_text: tpl.approved_header_text,
+      footer_text: tpl.approved_footer_text,
+      variables_count,
+      // Le contenu chez Meta correspond à cette version → on est de nouveau approuvé.
+      status: tpl.meta_id ? 'approved' : 'draft',
+      rejection_reason: null,
+      updated_at: new Date().toISOString(),
+    })
     .eq('id', id)
     .eq('user_id', user.id)
     .select()

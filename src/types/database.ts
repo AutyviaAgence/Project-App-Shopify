@@ -639,6 +639,11 @@ export type WhatsAppTemplate = {
   sample_values: string[] | null
   status: 'draft' | 'pending' | 'approved' | 'rejected'
   rejection_reason: string | null
+  // Snapshot du dernier contenu validé par Meta (pour "revenir à la version validée")
+  approved_body_text: string | null
+  approved_header_text: string | null
+  approved_footer_text: string | null
+  approved_at: string | null
   header_type: 'none' | 'text' | 'image' | 'video' | 'document'
   header_media_url: string | null
   buttons: TemplateButton[] | null

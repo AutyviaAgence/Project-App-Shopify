@@ -178,6 +178,23 @@ export default function TemplatesPage() {
     if (editing) openEdit(editing)
   }
 
+  // Revenir à la dernière version VALIDÉE par Meta (restaure le snapshot approuvé).
+  async function restoreApproved(t: WhatsAppTemplate) {
+    setBusyId(t.id)
+    try {
+      const res = await fetch(`/api/templates/${t.id}`, { method: 'PUT' })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Erreur')
+      await fetchTemplates()
+      if (json.data) { openEdit(json.data as WhatsAppTemplate) }
+      toast.success('Version validée restaurée')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erreur')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   async function handleSave() {
     if (!name.trim() || !bodyText.trim()) { toast.error('Nom et message requis'); return }
     setSaving(true)
@@ -344,10 +361,18 @@ export default function TemplatesPage() {
                     )}
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
-                    {selectedTemplate?.status === 'draft' && (
+                    {/* Revenir à la dernière version validée par Meta (si un snapshot existe
+                        et que le modèle n'est pas déjà approuvé). */}
+                    {selectedTemplate?.approved_body_text && selectedTemplate.status !== 'approved' && (
+                      <Button size="sm" variant="outline" disabled={busyId === selectedTemplate.id} onClick={() => restoreApproved(selectedTemplate)}>
+                        {busyId === selectedTemplate.id ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-1 h-4 w-4" />}
+                        Version validée
+                      </Button>
+                    )}
+                    {(selectedTemplate?.status === 'draft' || selectedTemplate?.status === 'rejected') && (
                       <Button size="sm" variant="outline" disabled={busyId === selectedTemplate.id} onClick={() => handleSubmit(selectedTemplate)}>
                         {busyId === selectedTemplate.id ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Send className="mr-1 h-4 w-4" />}
-                        Soumettre
+                        {selectedTemplate.status === 'rejected' ? 'Resoumettre' : 'Soumettre'}
                       </Button>
                     )}
                     <Button size="sm" disabled={saving || !name.trim() || !bodyText.trim()} onClick={handleSave}>

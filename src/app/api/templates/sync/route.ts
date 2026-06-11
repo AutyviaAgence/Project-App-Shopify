@@ -41,7 +41,7 @@ export async function POST() {
   // Mettre à jour les templates locaux
   const { data: locals } = await supabase
     .from('whatsapp_templates')
-    .select('id, name, language, status')
+    .select('id, name, language, status, body_text, header_text, footer_text')
     .eq('user_id', user.id)
 
   let synced = 0
@@ -50,9 +50,22 @@ export async function POST() {
     if (meta) {
       const newStatus = meta.status.toLowerCase() as 'pending' | 'approved' | 'rejected'
       if (newStatus !== tpl.status) {
+        const patch: Record<string, unknown> = {
+          status: newStatus,
+          meta_id: meta.meta_id,
+          updated_at: new Date().toISOString(),
+        }
+        // Quand un template devient approuvé, on fige son contenu comme
+        // "dernière version validée" (pour pouvoir y revenir après édition).
+        if (newStatus === 'approved') {
+          patch.approved_body_text = tpl.body_text
+          patch.approved_header_text = tpl.header_text
+          patch.approved_footer_text = tpl.footer_text
+          patch.approved_at = new Date().toISOString()
+        }
         await supabase
           .from('whatsapp_templates')
-          .update({ status: newStatus, meta_id: meta.meta_id, updated_at: new Date().toISOString() })
+          .update(patch)
           .eq('id', tpl.id)
         synced++
       }

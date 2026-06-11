@@ -144,6 +144,27 @@ export const wabaClient = {
     )
   },
 
+  /**
+   * Éditer un template EXISTANT chez Meta (par son meta_id).
+   * Permet de modifier un modèle déjà approuvé/refusé sans en recréer un
+   * (Meta refuse un doublon nom+langue). Le modèle repasse en PENDING.
+   * On ne peut pas changer le nom ni la langue — seulement category/components.
+   */
+  editTemplate(
+    metaTemplateId: string,
+    accessToken: string,
+    payload: {
+      category?: 'MARKETING' | 'UTILITY' | 'AUTHENTICATION'
+      components: unknown[]
+    }
+  ) {
+    return request<{ success: boolean }>(
+      `${GRAPH_API_BASE}/${metaTemplateId}`,
+      accessToken,
+      { method: 'POST', body: JSON.stringify(payload) }
+    )
+  },
+
   /** Supprimer un template par son nom */
   deleteTemplate(businessAccountId: string, accessToken: string, name: string) {
     return request<{ success: boolean }>(
