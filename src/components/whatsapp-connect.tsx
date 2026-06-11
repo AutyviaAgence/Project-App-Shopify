@@ -117,7 +117,6 @@ export function WhatsAppConnect() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           pre_filled_message: welcomeMsg,
-          slug: slugValue,
           ai_agent_id: agentId || null,
           is_active: isActive,
         }),
@@ -277,14 +276,11 @@ export function WhatsAppConnect() {
                   />
                 </div>
 
-                {/* Slug personnalisé */}
+                {/* Identifiant du lien (fixe, basé sur la boutique) */}
                 <div className="space-y-1.5">
-                  <Label className="text-xs">Slug personnalisé</Label>
-                  <Input
-                    value={slugValue}
-                    onChange={(e) => setSlugValue(e.target.value)}
-                    placeholder="ma-boutique"
-                  />
+                  <Label className="text-xs">Identifiant du lien</Label>
+                  <Input value={slugValue} readOnly disabled className="opacity-70" />
+                  <p className="text-[11px] text-muted-foreground">Défini automatiquement à partir de votre boutique.</p>
                 </div>
 
                 {/* Agent IA */}
