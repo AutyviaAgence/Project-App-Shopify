@@ -334,7 +334,7 @@ export default function TemplatesPage() {
                 </div>
 
                 <div className="flex-1 overflow-y-auto">
-                  <div className="grid gap-6 p-4 lg:grid-cols-[1fr_300px]">
+                  <div className="grid gap-6 p-4 lg:grid-cols-[minmax(340px,420px)_1fr]">
                   <div className="space-y-4 py-2">
             <div className="space-y-1.5">
               <Label>Nom technique</Label>
@@ -440,10 +440,10 @@ export default function TemplatesPage() {
           </div>
 
           {/* Aperçu WhatsApp en direct */}
-          <div className="space-y-2">
+          <div className="space-y-2 lg:sticky lg:top-4 lg:self-start">
             <Label className="text-xs text-muted-foreground">Aperçu</Label>
-            <div className="rounded-xl border bg-gradient-to-br from-slate-100 via-slate-50 to-blue-50 p-5 dark:from-slate-800 dark:via-slate-800/80 dark:to-slate-900">
-              <div className="ml-auto max-w-[88%] overflow-hidden rounded-2xl rounded-tr-sm bg-white shadow-md ring-1 ring-black/5">
+            <div className="flex min-h-[320px] items-center justify-center rounded-xl border bg-gradient-to-br from-slate-100 via-slate-50 to-blue-50 p-8 dark:from-slate-800 dark:via-slate-800/80 dark:to-slate-900">
+              <div className="w-full max-w-md overflow-hidden rounded-2xl rounded-tr-sm bg-white shadow-md ring-1 ring-black/5">
                 {/* Header média */}
                 {headerType === 'image' && <div className="flex h-32 items-center justify-center bg-slate-200 text-slate-400"><ImageIcon className="h-10 w-10" /></div>}
                 {headerType === 'video' && <div className="flex h-32 items-center justify-center bg-slate-800 text-slate-400"><Video className="h-10 w-10" /></div>}

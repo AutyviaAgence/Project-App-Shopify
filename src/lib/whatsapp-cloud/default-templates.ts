@@ -79,7 +79,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
     category: 'MARKETING',
     label: 'Demande d\'avis',
     description: 'Demande un avis quelques jours après la livraison.',
-    body_text: 'Bonjour {{1}}, avez-vous apprécié votre commande ? Votre avis compte beaucoup pour nous, laissez-le ici : {{2}} 🙏',
+    body_text: 'Bonjour {{1}}, avez-vous apprécié votre commande ? Votre avis compte beaucoup pour nous : {{2}}. Merci d\'avance pour votre retour !',
     footer_text: 'Répondez STOP pour vous désinscrire',
     sample_values: ['Marie', 'https://avis.exemple.com'],
   },
