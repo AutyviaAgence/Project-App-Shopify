@@ -274,7 +274,9 @@ export default function TemplatesPage() {
                   className="flex-1 overflow-y-auto p-6"
                   style={{
                     backgroundColor: '#e5ddd5',
-                    backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='60' height='60'%3E%3Cg fill='%23000' fill-opacity='0.03'%3E%3Ccircle cx='15' cy='15' r='2'/%3E%3Ccircle cx='45' cy='45' r='2'/%3E%3C/g%3E%3C/svg%3E\")",
+                    backgroundImage: 'url("/whatsapp-bg.webp")',
+                    backgroundSize: 'auto',
+                    backgroundRepeat: 'repeat',
                   }}
                 >
                   <div className="mx-auto max-w-md">
@@ -361,8 +363,8 @@ export default function TemplatesPage() {
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">Aperçu</Label>
             <div
-              className="rounded-xl border bg-[#e5ddd5] p-4 dark:bg-[#0b141a]"
-              style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'40\' height=\'40\' viewBox=\'0 0 40 40\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M0 0h40v40H0z\' fill=\'none\'/%3E%3C/svg%3E")' }}
+              className="rounded-xl border bg-[#e5ddd5] p-4"
+              style={{ backgroundImage: 'url("/whatsapp-bg.webp")', backgroundRepeat: 'repeat' }}
             >
               <div className="ml-auto max-w-[85%] rounded-lg rounded-tr-none bg-[#d9fdd3] px-2.5 py-2 shadow-sm dark:bg-[#005c4b]">
                 {headerText && (
