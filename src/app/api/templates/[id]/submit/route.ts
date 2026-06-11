@@ -33,6 +33,15 @@ export async function POST(
     return NextResponse.json({ error: 'Modèle introuvable' }, { status: 404 })
   }
 
+  // Règle Meta : le corps ne peut pas commencer ni finir par une variable {{n}}
+  const trimmedBody = (template.body_text || '').trim()
+  if (/^\{\{\s*\d+\s*\}\}/.test(trimmedBody) || /\{\{\s*\d+\s*\}\}$/.test(trimmedBody)) {
+    return NextResponse.json(
+      { error: 'Le message ne peut pas commencer ou finir par une variable ({{1}}, {{2}}…). Ajoutez du texte avant/après la variable.' },
+      { status: 422 }
+    )
+  }
+
   // Trouver une session WABA (celle du template, l'override, ou la première dispo)
   const sessionId = sessionIdOverride || template.session_id
   let sessionQuery = supabase
@@ -51,16 +60,6 @@ export async function POST(
   }
 
   const token = decryptMessage(session.waba_access_token)
-
-  // [DIAG] log temporaire : vérifier le token déchiffré en prod
-  console.log('[Template Submit DIAG]', {
-    sessionId: session.id,
-    waba: session.waba_business_account_id,
-    tokenLen: token?.length,
-    tokenPrefix: token?.slice(0, 12),
-    tokenSuffix: token?.slice(-6),
-    encryptedStartsWithIv: session.waba_access_token?.includes(':'),
-  })
 
   // Construire les composants au format Graph API
   const components: Record<string, unknown>[] = []
@@ -110,10 +109,20 @@ export async function POST(
   })
 
   if (!result.ok) {
-    console.log('[Template Submit DIAG] Meta error brute:', result.error)
-    // Token expiré (OAuthException 190) : message clair + statut dédié pour l'UI
-    const isTokenExpired = /expired|OAuthException|code.*190|access token/i.test(result.error)
-    if (isTokenExpired) {
+    // Extraire le message Meta lisible (error_user_msg) si présent
+    let metaUserMsg = result.error
+    let metaCode: number | undefined
+    try {
+      const jsonStart = result.error.indexOf('{')
+      if (jsonStart >= 0) {
+        const parsed = JSON.parse(result.error.slice(jsonStart))
+        metaCode = parsed?.error?.code
+        metaUserMsg = parsed?.error?.error_user_msg || parsed?.error?.message || result.error
+      }
+    } catch { /* garde result.error brut */ }
+
+    // Token réellement expiré = code 190 uniquement
+    if (metaCode === 190) {
       return NextResponse.json(
         {
           error: 'Votre connexion WhatsApp a expiré. Reconnectez votre numéro (Tableau de bord → Connexion WhatsApp) avec un nouveau token Meta, puis réessayez.',
@@ -122,7 +131,8 @@ export async function POST(
         { status: 401 }
       )
     }
-    return NextResponse.json({ error: `Meta a refusé la soumission : ${result.error}` }, { status: 502 })
+    // Autres refus Meta (format du modèle, etc.) : message lisible
+    return NextResponse.json({ error: `Meta a refusé le modèle : ${metaUserMsg}` }, { status: 422 })
   }
 
   // Mettre à jour le statut local
