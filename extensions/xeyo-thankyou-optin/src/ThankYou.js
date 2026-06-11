@@ -15,8 +15,10 @@ const STRINGS = {
     checkbox: '📦 Get order updates and exclusive offers on WhatsApp',
     consent: (store) => `By confirming, I agree to receive WhatsApp messages from ${store} about my order updates and its offers and promotions. Reply STOP to unsubscribe anytime.`,
     phoneLabel: 'WhatsApp number',
+    phonePlaceholder: '+1 555 123 4567',
+    phoneHelp: 'Enter your number with the country code (e.g. +1, +33).',
+    invalid: 'Please enter a valid number with country code (e.g. +1 555 123 4567).',
     submit: 'Confirm',
-    invalid: 'Invalid number.',
     saving: 'Saving…',
     successTitle: "You're all set!",
     successBody: 'You will receive your order updates on WhatsApp.',
@@ -28,8 +30,10 @@ const STRINGS = {
     checkbox: '📦 Recevoir le suivi de ma commande et les offres exclusives sur WhatsApp',
     consent: (store) => `En validant, j'accepte de recevoir des messages WhatsApp de ${store} concernant le suivi de ma commande ainsi que ses offres et promotions. Répondez STOP pour vous désabonner à tout moment.`,
     phoneLabel: 'Numéro WhatsApp',
+    phonePlaceholder: '+33 6 12 34 56 78',
+    phoneHelp: 'Saisissez votre numéro avec l\'indicatif pays (ex : +33, +1).',
+    invalid: 'Saisissez un numéro valide avec l\'indicatif pays (ex : +33 6 12 34 56 78).',
     submit: 'Valider',
-    invalid: 'Numéro invalide.',
     saving: 'Enregistrement…',
     successTitle: "C'est noté !",
     successBody: 'Vous recevrez le suivi de votre commande sur WhatsApp.',
@@ -65,6 +69,8 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
   const phoneField = root.createComponent(TextField, {
     label: t.phoneLabel,
     value: phone,
+    placeholder: t.phonePlaceholder,
+    helpText: t.phoneHelp,
     onChange: (v) => { phone = v },
   })
 
@@ -122,11 +128,17 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
   root.appendChild(container)
 
   async function submit() {
-    const clean = (phone || '').replace(/[^0-9+]/g, '')
-    if (clean.replace(/[^0-9]/g, '').length < 8) {
+    // Normalisation : on garde les chiffres et un éventuel + en tête.
+    let clean = (phone || '').trim().replace(/[^\d+]/g, '')
+    if (clean.indexOf('+') > 0) clean = clean.replace(/\+/g, '') // + seulement en tête
+    const digits = clean.replace(/\D/g, '')
+    // Validation format international (E.164) : indicatif requis, 8 à 15 chiffres.
+    const hasCountryCode = clean.startsWith('+') || digits.length >= 10
+    if (!hasCountryCode || digits.length < 8 || digits.length > 15) {
       showError(t.invalid)
       return
     }
+    // On transmet en E.164 (sans +, le serveur ne garde que les chiffres)
     if (busy) return
     busy = true
     submitButton.updateProps({ loading: true })
