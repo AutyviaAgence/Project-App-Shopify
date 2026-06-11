@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, useRef } from 'react'
 import type { WhatsAppTemplate } from '@/types/database'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -13,7 +13,7 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
-import { Plus, Loader2, Trash2, Send, RefreshCw, FileText, Pencil, Sparkles } from 'lucide-react'
+import { Plus, Loader2, Trash2, Send, RefreshCw, FileText, Pencil, Sparkles, Bold, Italic, Strikethrough, Braces } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BlobLoaderScreen } from '@/components/blob-loader'
 
@@ -36,6 +36,19 @@ const LANGUAGES = [
   { value: 'es', label: 'Espagnol' },
 ]
 
+/** Rend le formatage WhatsApp (*gras*, _italique_, ~barré~) en vrai style dans l'aperçu. */
+function renderWhatsAppFormat(text: string): React.ReactNode {
+  if (!text) return null
+  // Découpe sur les marqueurs en gardant le délimiteur
+  const parts = text.split(/(\*[^*]+\*|_[^_]+_|~[^~]+~)/g)
+  return parts.map((part, i) => {
+    if (/^\*[^*]+\*$/.test(part)) return <strong key={i}>{part.slice(1, -1)}</strong>
+    if (/^_[^_]+_$/.test(part)) return <em key={i}>{part.slice(1, -1)}</em>
+    if (/^~[^~]+~$/.test(part)) return <s key={i}>{part.slice(1, -1)}</s>
+    return <span key={i}>{part}</span>
+  })
+}
+
 export default function TemplatesPage() {
   const [templates, setTemplates] = useState<WhatsAppTemplate[]>([])
   const [loading, setLoading] = useState(true)
@@ -54,6 +67,30 @@ export default function TemplatesPage() {
   const [headerText, setHeaderText] = useState('')
   const [footerText, setFooterText] = useState('')
   const [saving, setSaving] = useState(false)
+  const bodyRef = useRef<HTMLTextAreaElement>(null)
+
+  // Entoure la sélection du textarea avec un marqueur WhatsApp (*gras*, _italique_, ~barré~)
+  function wrapSelection(mark: string) {
+    const ta = bodyRef.current
+    if (!ta) return
+    const start = ta.selectionStart, end = ta.selectionEnd
+    const sel = bodyText.slice(start, end) || 'texte'
+    const next = bodyText.slice(0, start) + mark + sel + mark + bodyText.slice(end)
+    setBodyText(next)
+    requestAnimationFrame(() => { ta.focus(); ta.setSelectionRange(start + 1, start + 1 + sel.length) })
+  }
+
+  // Insère la prochaine variable {{n}} à la position du curseur
+  function addVariable() {
+    const ta = bodyRef.current
+    const existing = (bodyText.match(/\{\{(\d+)\}\}/g) || []).map(v => parseInt(v.replace(/\D/g, '')))
+    const nextNum = existing.length ? Math.max(...existing) + 1 : 1
+    const token = `{{${nextNum}}}`
+    if (!ta) { setBodyText(bodyText + token); return }
+    const pos = ta.selectionStart
+    setBodyText(bodyText.slice(0, pos) + token + bodyText.slice(pos))
+    requestAnimationFrame(() => { ta.focus(); ta.setSelectionRange(pos + token.length, pos + token.length) })
+  }
 
   const fetchTemplates = useCallback(async () => {
     try {
@@ -95,7 +132,7 @@ export default function TemplatesPage() {
   function openCreate() {
     setEditing(null)
     setName(''); setLanguage('fr'); setCategory('UTILITY')
-    setBodyText(''); setHeaderText(''); setFooterText('')
+    setBodyText(''); setHeaderText(''); setFooterText('Powered by Xeyo.io')
     setDialogOpen(true)
   }
 
@@ -269,29 +306,21 @@ export default function TemplatesPage() {
                   </div>
                 </div>
 
-                {/* Fond WhatsApp + grande bulle */}
-                <div
-                  className="flex-1 overflow-y-auto p-6"
-                  style={{
-                    backgroundColor: '#e5ddd5',
-                    backgroundImage: 'url("/whatsapp-bg.webp")',
-                    backgroundSize: 'auto',
-                    backgroundRepeat: 'repeat',
-                  }}
-                >
+                {/* Aperçu : fond dégradé doux + grande bulle blanche */}
+                <div className="flex-1 overflow-y-auto bg-gradient-to-br from-slate-100 via-slate-50 to-blue-50 p-8 dark:from-slate-800 dark:via-slate-800/80 dark:to-slate-900">
                   <div className="mx-auto max-w-md">
-                    <div className="ml-auto max-w-[90%] rounded-lg rounded-tr-none bg-[#d9fdd3] px-3 py-2 shadow-sm">
+                    <div className="ml-auto max-w-[92%] rounded-2xl rounded-tr-sm bg-white px-4 py-3 shadow-md ring-1 ring-black/5">
                       {selectedTemplate.header_text && (
-                        <p className="text-sm font-semibold text-gray-900">{selectedTemplate.header_text}</p>
+                        <p className="mb-1 text-[15px] font-semibold text-gray-900">{selectedTemplate.header_text}</p>
                       )}
-                      <p className="whitespace-pre-wrap break-words text-sm text-gray-800">{selectedTemplate.body_text}</p>
+                      <p className="whitespace-pre-wrap break-words text-[14.5px] leading-snug text-gray-800">{renderWhatsAppFormat(selectedTemplate.body_text)}</p>
                       {selectedTemplate.footer_text && (
-                        <p className="mt-1 text-[11px] text-gray-500">{selectedTemplate.footer_text}</p>
+                        <p className="mt-2 text-[12px] text-gray-400">{selectedTemplate.footer_text}</p>
                       )}
-                      <div className="mt-0.5 text-right text-[10px] text-gray-500">12:00 ✓✓</div>
+                      <div className="mt-1 text-right text-[10px] text-gray-400">12:00 ✓✓</div>
                     </div>
                   </div>
-                  <div className="mx-auto mt-3 max-w-md rounded-full bg-black/55 px-3 py-1.5 text-center text-xs text-white/90 backdrop-blur-sm">
+                  <div className="mx-auto mt-4 max-w-md text-center text-xs text-muted-foreground">
                     {selectedTemplate.variables_count > 0 && `${selectedTemplate.variables_count} variable(s) · `}
                     Les variables {'{{1}}'}, {'{{2}}'}… seront remplacées à l&apos;envoi.
                   </div>
@@ -345,9 +374,20 @@ export default function TemplatesPage() {
               <Input value={headerText} onChange={(e) => setHeaderText(e.target.value)} placeholder="Votre commande est confirmée" />
             </div>
             <div className="space-y-1.5">
-              <Label>Message</Label>
-              <Textarea value={bodyText} onChange={(e) => setBodyText(e.target.value)} rows={5}
+              <Label>Message <span className="text-destructive">*</span></Label>
+              <Textarea ref={bodyRef} value={bodyText} onChange={(e) => setBodyText(e.target.value)} rows={5}
                 placeholder={'Bonjour {{1}}, votre commande #{{2}} est confirmée ! Livraison prévue le {{3}}.'} />
+              {/* Barre d'outils : formatage WhatsApp + variable */}
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-muted-foreground">{bodyText.length}/1024</span>
+                <div className="flex items-center gap-1">
+                  <button type="button" onClick={() => wrapSelection('*')} title="Gras" className="flex h-7 w-7 items-center justify-center rounded hover:bg-muted"><Bold className="h-3.5 w-3.5" /></button>
+                  <button type="button" onClick={() => wrapSelection('_')} title="Italique" className="flex h-7 w-7 items-center justify-center rounded hover:bg-muted"><Italic className="h-3.5 w-3.5" /></button>
+                  <button type="button" onClick={() => wrapSelection('~')} title="Barré" className="flex h-7 w-7 items-center justify-center rounded hover:bg-muted"><Strikethrough className="h-3.5 w-3.5" /></button>
+                  <span className="mx-1 h-4 w-px bg-border" />
+                  <button type="button" onClick={addVariable} className="flex h-7 items-center gap-1 rounded px-2 text-xs hover:bg-muted"><Braces className="h-3.5 w-3.5" /> Variable</button>
+                </div>
+              </div>
             </div>
             <div className="space-y-1.5">
               <Label>Pied de page (optionnel)</Label>
@@ -362,21 +402,18 @@ export default function TemplatesPage() {
           {/* Aperçu WhatsApp en direct */}
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">Aperçu</Label>
-            <div
-              className="rounded-xl border bg-[#e5ddd5] p-4"
-              style={{ backgroundImage: 'url("/whatsapp-bg.webp")', backgroundRepeat: 'repeat' }}
-            >
-              <div className="ml-auto max-w-[85%] rounded-lg rounded-tr-none bg-[#d9fdd3] px-2.5 py-2 shadow-sm dark:bg-[#005c4b]">
+            <div className="rounded-xl border bg-gradient-to-br from-slate-100 via-slate-50 to-blue-50 p-5 dark:from-slate-800 dark:via-slate-800/80 dark:to-slate-900">
+              <div className="ml-auto max-w-[88%] rounded-2xl rounded-tr-sm bg-white px-3 py-2 shadow-md ring-1 ring-black/5">
                 {headerText && (
-                  <p className="text-sm font-semibold text-gray-900 dark:text-white">{headerText}</p>
+                  <p className="mb-0.5 text-[15px] font-semibold text-gray-900">{headerText}</p>
                 )}
-                <p className="whitespace-pre-wrap break-words text-sm text-gray-800 dark:text-gray-100">
-                  {bodyText || <span className="text-gray-400">Votre message apparaîtra ici…</span>}
+                <p className="whitespace-pre-wrap break-words text-[14.5px] leading-snug text-gray-800">
+                  {renderWhatsAppFormat(bodyText) || <span className="text-gray-400">Votre message apparaîtra ici…</span>}
                 </p>
                 {footerText && (
-                  <p className="mt-1 text-[11px] text-gray-500 dark:text-gray-400">{footerText}</p>
+                  <p className="mt-1.5 text-[12px] text-gray-400">{footerText}</p>
                 )}
-                <div className="mt-0.5 text-right text-[10px] text-gray-400">12:00</div>
+                <div className="mt-0.5 text-right text-[10px] text-gray-400">12:00 ✓✓</div>
               </div>
             </div>
             <p className="text-[11px] text-muted-foreground">
