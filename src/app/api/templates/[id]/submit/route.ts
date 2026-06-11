@@ -100,6 +100,17 @@ export async function POST(
   })
 
   if (!result.ok) {
+    // Token expiré (OAuthException 190) : message clair + statut dédié pour l'UI
+    const isTokenExpired = /expired|OAuthException|code.*190|access token/i.test(result.error)
+    if (isTokenExpired) {
+      return NextResponse.json(
+        {
+          error: 'Votre connexion WhatsApp a expiré. Reconnectez votre numéro (Tableau de bord → Connexion WhatsApp) avec un nouveau token Meta, puis réessayez.',
+          token_expired: true,
+        },
+        { status: 401 }
+      )
+    }
     return NextResponse.json({ error: `Meta a refusé la soumission : ${result.error}` }, { status: 502 })
   }
 

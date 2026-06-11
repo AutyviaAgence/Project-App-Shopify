@@ -510,22 +510,22 @@ function EngagementFunnel({ steps }: { steps: { label: string; value: number }[]
   const tiers = [
     {
       body: '150,150 530,150 482,235 198,235', top: '150,150 530,150 524,162 156,162',
-      fill: '#5FE6CB', topFill: '#7DF0DC',
+      fill: '#7DA0FF', topFill: '#9DB6FF',
       lineX1: 540, lineY: 175, dotX: 610, pillX: 630, pillY: 151, textX: 680,
     },
     {
       body: '198,241 482,241 412,326 268,326', top: '198,241 482,241 476,253 204,253',
-      fill: '#3DCBAE', topFill: '#5FE6CB',
+      fill: '#5B7FFF', topFill: '#7DA0FF',
       lineX1: 490, lineY: 280, dotX: 560, pillX: 580, pillY: 256, textX: 630,
     },
     {
       body: '268,332 412,332 372,400 308,400', top: '268,332 412,332 406,344 274,344',
-      fill: '#28AC92', topFill: '#3DCBAE',
+      fill: '#3B82F6', topFill: '#5B7FFF',
       lineX1: 420, lineY: 366, dotX: 490, pillX: 510, pillY: 342, textX: 560,
     },
     {
       body: '308,406 372,406 372,488 308,462', top: '308,406 372,406 372,418 308,418',
-      fill: '#1B8C77', topFill: '#28AC92',
+      fill: '#2563EB', topFill: '#3B82F6',
       lineX1: 402, lineY: 431, dotX: 472, pillX: 492, pillY: 407, textX: 542,
     },
   ]
@@ -573,15 +573,15 @@ function EngagementFunnel({ steps }: { steps: { label: string; value: number }[]
               )}
 
               {/* Etiquette : ligne + point + pill */}
-              <line x1={tier.lineX1} y1={tier.lineY} x2={tier.dotX} y2={tier.lineY} stroke={isActive ? '#2DD4BF' : '#2A3645'} strokeWidth="2" />
-              <circle cx={tier.dotX} cy={tier.lineY} r={isActive ? 7 : 6} fill="#2DD4BF" />
+              <line x1={tier.lineX1} y1={tier.lineY} x2={tier.dotX} y2={tier.lineY} stroke={isActive ? '#3B82F6' : '#2A3645'} strokeWidth="2" />
+              <circle cx={tier.dotX} cy={tier.lineY} r={isActive ? 7 : 6} fill="#3B82F6" />
               <rect
                 x={tier.pillX} y={tier.pillY} width="100" height="48" rx="10"
-                fill="#1A2433" stroke={isActive ? '#2DD4BF' : '#2A3645'} strokeWidth={isActive ? 1.5 : 1}
+                fill="#1A2433" stroke={isActive ? '#3B82F6' : '#2A3645'} strokeWidth={isActive ? 1.5 : 1}
                 style={{ transition: 'stroke 200ms ease' }}
               />
               <text x={tier.textX} y={tier.pillY + 22} fill="#8A95A5" fontSize="13" fontWeight="400" textAnchor="middle">{s.label}</text>
-              <text x={tier.textX} y={tier.pillY + 39} fill="#2DD4BF" fontSize="16" fontWeight="700" textAnchor="middle">{s.value.toLocaleString('fr-FR')}</text>
+              <text x={tier.textX} y={tier.pillY + 39} fill="#3B82F6" fontSize="16" fontWeight="700" textAnchor="middle">{s.value.toLocaleString('fr-FR')}</text>
             </g>
           )
         })}
