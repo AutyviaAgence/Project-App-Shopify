@@ -42,6 +42,7 @@ Retourne uniquement le texte amélioré, sans commentaire ni introduction.${safe
   try {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
     const completion = await openai.chat.completions.create({
+      store: false,
       model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: systemPrompt },

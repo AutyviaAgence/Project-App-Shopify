@@ -120,6 +120,7 @@ export async function POST(request: Request) {
     const userMessage = `Voici les réponses du questionnaire :\n${lines.join('\n')}\n\nGénère la configuration JSON de l'agent avec un system_prompt complet et opérationnel suivant la structure imposée.`
 
     const completion = await openai.chat.completions.create({
+      store: false,
       model: 'gpt-4o',
       messages: [
         { role: 'system', content: SYSTEM_PROMPT },

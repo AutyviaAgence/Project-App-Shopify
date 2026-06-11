@@ -68,6 +68,7 @@ export async function POST(request: Request) {
     }
 
     const completion = await openai.chat.completions.create({
+      store: false,
       model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: OPTIMIZATION_PROMPT },

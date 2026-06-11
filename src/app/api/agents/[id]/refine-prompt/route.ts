@@ -113,6 +113,7 @@ export async function POST(
   try {
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
     const completion = await openai.chat.completions.create({
+      store: false,
       model: 'gpt-4o',
       messages: [
         { role: 'system', content: REFINE_SYSTEM_PROMPT },

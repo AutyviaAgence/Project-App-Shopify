@@ -65,6 +65,7 @@ export async function describeImage(
     const openai = getClient()
     const response = await openai.chat.completions.create({
       model: 'gpt-4o',
+      store: false, // Zero data retention : OpenAI ne conserve pas la requête
       messages: [
         {
           role: 'user',
@@ -120,6 +121,7 @@ export async function generateAgentResponse(params: {
     const createParams: OpenAI.Chat.ChatCompletionCreateParamsNonStreaming = {
       model: params.model,
       temperature: params.temperature,
+      store: false, // Zero data retention : OpenAI ne conserve pas la requête
       messages: [
         { role: 'system', content: params.systemPrompt },
         ...(params.messages as OpenAI.Chat.ChatCompletionMessageParam[]),

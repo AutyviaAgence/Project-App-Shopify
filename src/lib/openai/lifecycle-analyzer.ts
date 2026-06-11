@@ -152,6 +152,7 @@ La reason doit être une phrase courte en français expliquant pourquoi.`
   try {
     const openai = getOpenAI()
     const response = await openai.chat.completions.create({
+      store: false,
       model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: systemPrompt }],
       max_tokens: 150,
