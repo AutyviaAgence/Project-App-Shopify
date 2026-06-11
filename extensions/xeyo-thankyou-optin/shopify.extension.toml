@@ -15,4 +15,5 @@ type = "ui_extension"
 
   [extensions.capabilities]
   api_access = true
-  network_access = true
+  # network_access non requis : on appelle l'App Proxy de la boutique
+  # ({shop}/apps/xeyo/optin), considéré comme same-origin.
