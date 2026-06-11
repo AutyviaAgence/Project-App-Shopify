@@ -6,7 +6,6 @@ import {
   TextField,
   Button,
   Text,
-  Banner,
 } from '@shopify/ui-extensions/checkout'
 
 // Textes : anglais par défaut, français si la boutique/le client est en FR.
@@ -22,6 +21,7 @@ const STRINGS = {
     saving: 'Saving…',
     successTitle: "You're all set!",
     successBody: 'You will receive your order updates on WhatsApp.',
+    subscribed: 'You are subscribed to receive order updates on WhatsApp',
     networkError: 'Network error.',
     genericError: 'Error, please try again.',
     store: 'the store',
@@ -37,6 +37,7 @@ const STRINGS = {
     saving: 'Enregistrement…',
     successTitle: "C'est noté !",
     successBody: 'Vous recevrez le suivi de votre commande sur WhatsApp.',
+    subscribed: 'Vous êtes abonné(e) pour recevoir le suivi de votre commande sur WhatsApp',
     networkError: 'Erreur réseau.',
     genericError: 'Erreur, réessayez.',
     store: 'la boutique',
@@ -152,13 +153,12 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
       })
       const json = await res.json().catch(() => ({}))
       if (res.ok && json.ok) {
-        // Remplace tout par une bannière de succès
+        // Confirmation discrète façon Shopify : "✓ Vous êtes abonné…" (non décochable)
         root.replaceChildren(
-          root.createComponent(
-            Banner,
-            { status: 'success', title: t.successTitle },
-            t.successBody
-          )
+          root.createComponent(InlineStack, { spacing: 'tight', blockAlignment: 'center' }, [
+            root.createComponent(Text, { appearance: 'success' }, '✓'),
+            root.createComponent(Text, { appearance: 'subdued' }, t.subscribed),
+          ])
         )
       } else {
         showError(json.error || t.genericError)
