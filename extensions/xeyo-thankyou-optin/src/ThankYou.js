@@ -77,6 +77,9 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
   // Pré-remplissage : le téléphone n'est pas exposé côté client sur la page Merci.
   // On le récupère côté serveur (Admin API) via notre App Proxy, à partir du
   // numéro de commande. On met à jour le champ dès la réponse (sauf saisie en cours).
+  // On appelle directement app.xeyo.io (cross-origin, headers CORS côté serveur)
+  // plutôt que le proxy {shop}/apps/xeyo qui renvoie un 302 sans CORS.
+  const XEYO_BASE = 'https://app.xeyo.io'
   const orderNumber = api.orderConfirmation?.current?.number
   const orderId = api.orderConfirmation?.current?.order?.id
   if (orderNumber || orderId) {
@@ -84,7 +87,7 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
     const params = new URLSearchParams({ shop: domain })
     if (orderNumber) params.set('order', orderNumber)
     if (orderId) params.set('id', orderId)
-    const url = `https://${domain}/apps/xeyo/order-phone?${params.toString()}`
+    const url = `${XEYO_BASE}/api/shopify/proxy/order-phone?${params.toString()}`
     fetch(url)
       .then((r) => r.json())
       .then((j) => {
@@ -167,12 +170,11 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
     submitButton.updateProps({ loading: true })
     try {
       const domain = shop.myshopifyDomain
-      const url = `https://${domain}/apps/xeyo/optin?shop=${encodeURIComponent(domain)}`
-      // Content-Type text/plain : évite le preflight CORS (qui échoue sur la
-      // redirection 302 du proxy Shopify). La route lit le body en JSON.
+      // Direct vers app.xeyo.io (CORS géré côté serveur), pas via le proxy 302.
+      const url = `${XEYO_BASE}/api/shopify/proxy/optin?shop=${encodeURIComponent(domain)}`
       const res = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'text/plain' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: clean, name: fullName, marketing: true }),
       })
       const json = await res.json().catch(() => ({}))

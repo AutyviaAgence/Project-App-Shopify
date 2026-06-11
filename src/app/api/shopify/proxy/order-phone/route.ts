@@ -3,6 +3,18 @@ import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { shopifyGraphQL } from '@/lib/shopify/client'
 import { decryptMessage } from '@/lib/crypto/encryption'
 
+// L'extension checkout (origine extensions.shopifycdn.com) appelle cette route
+// en cross-origin → headers CORS requis.
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+}
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS })
+}
+
 /**
  * App Proxy — récupère le téléphone d'une commande (côté serveur, Admin API).
  *
@@ -20,7 +32,7 @@ export async function GET(req: NextRequest) {
   const orderGid = (searchParams.get('id') || '').trim() // gid://shopify/OrderIdentity/123
 
   if (!shop || (!orderNumber && !orderGid)) {
-    return NextResponse.json({ phone: null }, { headers: { 'Cache-Control': 'no-store' } })
+    return NextResponse.json({ phone: null }, { headers: { ...CORS, 'Cache-Control': 'no-store' } })
   }
 
   // Extrait l'ID numérique du gid (…/OrderIdentity/5934953922637 → 5934953922637)
@@ -37,7 +49,7 @@ export async function GET(req: NextRequest) {
     .eq('shop_domain', shop)
     .maybeSingle()
   if (!store?.access_token) {
-    return NextResponse.json({ phone: null }, { headers: { 'Cache-Control': 'no-store' } })
+    return NextResponse.json({ phone: null }, { headers: { ...CORS, 'Cache-Control': 'no-store' } })
   }
 
   const token = decryptMessage(store.access_token)
@@ -80,5 +92,5 @@ export async function GET(req: NextRequest) {
     null
   )
 
-  return NextResponse.json({ phone }, { headers: { 'Cache-Control': 'private, max-age=30' } })
+  return NextResponse.json({ phone }, { headers: { ...CORS, 'Cache-Control': 'private, max-age=30' } })
 }

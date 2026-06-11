@@ -2,6 +2,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 
+// L'extension checkout (extensions.shopifycdn.com) appelle en cross-origin.
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type',
+}
+const J = (body: unknown, status = 200) => NextResponse.json(body, { status, headers: CORS })
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS })
+}
+
 /**
  * App Proxy — enregistrement d'un opt-in WhatsApp depuis la vitrine.
  *
@@ -30,7 +42,7 @@ function verifyProxySignature(searchParams: URLSearchParams): boolean {
 export async function POST(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   if (!verifyProxySignature(searchParams)) {
-    return NextResponse.json({ ok: false, error: 'invalid signature' }, { status: 401 })
+    return J({ ok: false, error: 'invalid signature' }, 401)
   }
 
   const shop = searchParams.get('shop')
@@ -40,8 +52,8 @@ export async function POST(req: NextRequest) {
   // L'opt-in page Merci couvre aussi le marketing (case "commande + offres")
   const marketing = body.marketing === true
 
-  if (!shop) return NextResponse.json({ ok: false, error: 'shop manquant' }, { status: 400 })
-  if (!phone || phone.length < 8) return NextResponse.json({ ok: false, error: 'Numéro invalide' }, { status: 400 })
+  if (!shop) return J({ ok: false, error: 'shop manquant' }, 400)
+  if (!phone || phone.length < 8) return J({ ok: false, error: 'Numéro invalide' }, 400)
 
   const admin = createAdminSupabase(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -54,7 +66,7 @@ export async function POST(req: NextRequest) {
     .select('user_id')
     .eq('shop_domain', shop)
     .maybeSingle()
-  if (!store?.user_id) return NextResponse.json({ ok: false, error: 'boutique non liée' }, { status: 404 })
+  if (!store?.user_id) return J({ ok: false, error: 'boutique non liée' }, 404)
 
   // Session WhatsApp connectée (pour rattacher le contact)
   const { data: session } = await admin
@@ -64,7 +76,7 @@ export async function POST(req: NextRequest) {
     .eq('status', 'connected')
     .limit(1)
     .maybeSingle()
-  if (!session) return NextResponse.json({ ok: false, error: 'WhatsApp non connecté' }, { status: 400 })
+  if (!session) return J({ ok: false, error: 'WhatsApp non connecté' }, 400)
 
   // Upsert contact opted-in
   const now = new Date().toISOString()
@@ -85,7 +97,7 @@ export async function POST(req: NextRequest) {
       },
       { onConflict: 'session_id,phone_number' }
     )
-  if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+  if (error) return J({ ok: false, error: error.message }, 500)
 
-  return NextResponse.json({ ok: true })
+  return J({ ok: true })
 }
