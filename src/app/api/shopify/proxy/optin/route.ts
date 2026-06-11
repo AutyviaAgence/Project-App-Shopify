@@ -101,20 +101,20 @@ export async function POST(req: NextRequest) {
     .single()
   if (error) return J({ ok: false, error: error.message }, 500)
 
-  // Message de bienvenue (premier contact WhatsApp) — best effort.
-  // N'envoie que s'il s'agit d'un nouveau contact et si le template est approuvé.
+  // Message de remerciement (premier contact WhatsApp) — best effort.
+  // Utilise le template confirmation_commande (déjà approuvé).
   if (contact?.id) {
     try {
       const { sendNotification } = await import('@/lib/notifications/send')
       await sendNotification({
         contactId: contact.id,
-        kind: 'order_welcome',
+        kind: 'order_confirmed',
         vars: { '1': name || 'cher client', '2': 'votre commande' },
         emailSubject: 'Merci pour votre commande !',
         emailBody: `Bonjour ${name || ''},\n\nMerci pour votre commande ! Nous sommes ravis de vous compter parmi nos clients.`,
       })
     } catch (e) {
-      console.error('[optin] message de bienvenue échec (non bloquant):', e)
+      console.error('[optin] message de remerciement échec (non bloquant):', e)
     }
   }
 
