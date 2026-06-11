@@ -102,13 +102,14 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
         }`,
         { variables: { id: orderId } }
       ).then((res) => {
+        console.log('[Xeyo optin DIAG] query result:', JSON.stringify(res)?.slice(0, 800))
         const o = res?.data?.node
         const found = (o?.shippingAddress?.phone || o?.billingAddress?.phone || '').toString().trim()
         if (found && !phone) {
           phone = found
           phoneField.updateProps({ value: found })
         }
-      }).catch(() => { /* silencieux */ })
+      }).catch((e) => { console.log('[Xeyo optin DIAG] query error:', JSON.stringify(e)?.slice(0, 400) || String(e)) })
     }
   }
 
