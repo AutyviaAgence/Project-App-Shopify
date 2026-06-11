@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getUserTeamIds } from '@/lib/teams/access'
 
 /** DELETE /api/campaigns/[id]/recipients — Supprimer des destinataires */
 export async function DELETE(
@@ -29,7 +28,7 @@ export async function DELETE(
   // Récupérer la campagne
   const { data: campaign, error: campaignError } = await supabase
     .from('campaigns')
-    .select('id, user_id, team_id, status')
+    .select('id, user_id, status')
     .eq('id', id)
     .single()
 
@@ -37,13 +36,8 @@ export async function DELETE(
     return NextResponse.json({ error: 'Campagne non trouvée' }, { status: 404 })
   }
 
-  // Vérifier l'accès (propriétaire ou membre équipe)
-  const teamIds = await getUserTeamIds(supabase, user.id)
-  const hasAccess =
-    campaign.user_id === user.id ||
-    (campaign.team_id && teamIds.includes(campaign.team_id))
-
-  if (!hasAccess) {
+  // Vérifier l'accès (propriétaire uniquement)
+  if (campaign.user_id !== user.id) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 

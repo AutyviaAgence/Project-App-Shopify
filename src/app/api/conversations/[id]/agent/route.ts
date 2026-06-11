@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { canAccessSession, getUserTeamIds } from '@/lib/teams/access'
 
 /** PATCH /api/conversations/[id]/agent — Assigner/désactiver un agent IA */
 export async function PATCH(
@@ -48,7 +47,7 @@ export async function PATCH(
     // Récupérer la session WhatsApp
     const { data: session } = await supabase
       .from('whatsapp_sessions')
-      .select('id, user_id, team_id')
+      .select('id, user_id')
       .eq('id', conversation.session_id)
       .single()
 
@@ -56,21 +55,18 @@ export async function PATCH(
       return NextResponse.json({ error: 'Session introuvable' }, { status: 404 })
     }
 
-    // Vérifier l'accès (propriétaire ou membre avec permissions)
-    const hasAccess = await canAccessSession(supabase, user.id, session)
-    if (!hasAccess) {
+    // Vérifier l'accès (propriétaire uniquement)
+    if (session.user_id !== user.id) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
     }
   }
 
-  // Si on assigne un agent, vérifier qu'il appartient à l'utilisateur ou à une équipe accessible
+  // Si on assigne un agent, vérifier qu'il appartient à l'utilisateur
   if (ai_agent_id) {
-    const teamIds = await getUserTeamIds(supabase, user.id)
-
     // Récupérer l'agent d'abord
     const { data: agent, error: agentError } = await supabase
       .from('ai_agents')
-      .select('id, user_id, team_id')
+      .select('id, user_id')
       .eq('id', ai_agent_id)
       .single()
 
@@ -79,11 +75,8 @@ export async function PATCH(
       return NextResponse.json({ error: 'Agent introuvable' }, { status: 404 })
     }
 
-    // Vérifier que l'utilisateur a accès à cet agent
-    const isOwner = agent.user_id === user.id
-    const isTeamAgent = agent.team_id && teamIds.includes(agent.team_id)
-
-    if (!isOwner && !isTeamAgent) {
+    // Vérifier que l'utilisateur est le propriétaire de cet agent
+    if (agent.user_id !== user.id) {
       console.error('[Agent] Accès non autorisé à l\'agent:', ai_agent_id)
       return NextResponse.json({ error: 'Accès non autorisé à cet agent' }, { status: 403 })
     }

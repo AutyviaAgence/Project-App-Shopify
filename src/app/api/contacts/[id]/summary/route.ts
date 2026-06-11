@@ -5,7 +5,6 @@ import { generateAgentResponse } from '@/lib/openai/client'
 import { checkTokenLimit, recordTokenUsage } from '@/lib/openai/token-tracker'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { decryptMessage } from '@/lib/crypto/encryption'
-import { getUserTeamIds, buildAccessFilter } from '@/lib/teams/access'
 
 /** POST /api/contacts/[id]/summary — Générer un résumé IA de la conversation */
 export async function POST(
@@ -60,13 +59,12 @@ export async function POST(
     if (!conv) return NextResponse.json({ error: 'Conversation introuvable' }, { status: 404 })
     conversationId = conv.id
   } else {
-    // Contact WhatsApp — vérification classique
-    const teamIds = await getUserTeamIds(supabase, user.id)
+    // Contact WhatsApp — vérification de propriété
     const { data: session } = await supabase
       .from('whatsapp_sessions')
       .select('id')
       .eq('id', contact.session_id ?? '')
-      .or(buildAccessFilter(user.id, teamIds))
+      .eq('user_id', user.id)
       .single()
 
     if (!session) {

@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { encryptToolConfig, decryptToolConfig } from '@/lib/tools/executor'
 import { validateToolUrl } from '@/lib/tools/security'
-import { canAccessResource } from '@/lib/teams/access'
 
 /** GET /api/agents/[id]/tools — List tools for an agent */
 export async function GET(
@@ -17,10 +16,10 @@ export async function GET(
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  // Verify agent access (owner or team member)
+  // Verify agent access (owner only)
   const { data: agent } = await supabase
     .from('ai_agents')
-    .select('id, user_id, team_id')
+    .select('id, user_id')
     .eq('id', id)
     .single()
 
@@ -28,8 +27,7 @@ export async function GET(
     return NextResponse.json({ error: 'Agent introuvable' }, { status: 404 })
   }
 
-  const hasAccess = await canAccessResource(supabase, user.id, agent.user_id, agent.team_id)
-  if (!hasAccess) {
+  if (agent.user_id !== user.id) {
     return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
   }
 
@@ -73,10 +71,10 @@ export async function POST(
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  // Verify agent access (owner or team member)
+  // Verify agent access (owner only)
   const { data: agent } = await supabase
     .from('ai_agents')
-    .select('id, user_id, team_id')
+    .select('id, user_id')
     .eq('id', id)
     .single()
 
@@ -84,8 +82,7 @@ export async function POST(
     return NextResponse.json({ error: 'Agent introuvable' }, { status: 404 })
   }
 
-  const hasAccess = await canAccessResource(supabase, user.id, agent.user_id, agent.team_id)
-  if (!hasAccess) {
+  if (agent.user_id !== user.id) {
     return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
   }
 

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getUserTeamIds, buildAccessFilter } from '@/lib/teams/access'
 
 /** POST /api/conversations/lifecycle/batch — Étiquettes lifecycle de plusieurs conversations */
 export async function POST(req: NextRequest) {
@@ -19,15 +18,11 @@ export async function POST(req: NextRequest) {
   }
 
   const limitedIds = conversation_ids.slice(0, 100)
-  const teamIds = await getUserTeamIds(supabase, user.id)
 
-  let sessionsQuery = supabase.from('whatsapp_sessions').select('id')
-  if (teamIds.length > 0) {
-    sessionsQuery = sessionsQuery.or(buildAccessFilter(user.id, teamIds))
-  } else {
-    sessionsQuery = sessionsQuery.eq('user_id', user.id)
-  }
-  const { data: sessions } = await sessionsQuery
+  const { data: sessions } = await supabase
+    .from('whatsapp_sessions')
+    .select('id')
+    .eq('user_id', user.id)
   const sessionIds = (sessions || []).map(s => s.id)
   if (sessionIds.length === 0) return NextResponse.json({ data: {} })
 

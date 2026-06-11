@@ -71,7 +71,6 @@ export async function PATCH(
   if (body.name) updates.name = body.name
   if (body.client_id) updates.client_id = body.client_id
   if (body.client_secret) updates.client_secret = encryptMessage(body.client_secret)
-  if (body.team_id !== undefined) updates.team_id = body.team_id || null
 
   // Handle non-OAuth secrets update (merge into existing metadata)
   if (body.secrets) {

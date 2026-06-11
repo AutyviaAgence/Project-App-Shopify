@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getUserTeamIds, buildAccessFilter } from '@/lib/teams/access'
 
 /** GET /api/contacts/[id] — Détail d'un contact */
 export async function GET(
@@ -15,15 +14,11 @@ export async function GET(
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  // Récupérer les sessions accessibles (perso + team)
-  const teamIds = await getUserTeamIds(supabase, user.id)
-  let sessionsQuery = supabase.from('whatsapp_sessions').select('id')
-  if (teamIds.length > 0) {
-    sessionsQuery = sessionsQuery.or(buildAccessFilter(user.id, teamIds))
-  } else {
-    sessionsQuery = sessionsQuery.eq('user_id', user.id)
-  }
-  const { data: sessions } = await sessionsQuery
+  // Récupérer les sessions de l'utilisateur
+  const { data: sessions } = await supabase
+    .from('whatsapp_sessions')
+    .select('id')
+    .eq('user_id', user.id)
   const sessionIds = sessions?.map(s => s.id) || []
 
   // Récupérer les sessions email accessibles
@@ -84,14 +79,10 @@ export async function PATCH(
   }
 
   // Vérifier que le contact existe et appartient à l'utilisateur (réponse uniforme)
-  const teamIds = await getUserTeamIds(supabase, user.id)
-  let sessionsQuery = supabase.from('whatsapp_sessions').select('id')
-  if (teamIds.length > 0) {
-    sessionsQuery = sessionsQuery.or(buildAccessFilter(user.id, teamIds))
-  } else {
-    sessionsQuery = sessionsQuery.eq('user_id', user.id)
-  }
-  const { data: sessions } = await sessionsQuery
+  const { data: sessions } = await supabase
+    .from('whatsapp_sessions')
+    .select('id')
+    .eq('user_id', user.id)
   const sessionIds = sessions?.map(s => s.id) || []
 
   let patchContact = null
@@ -151,14 +142,10 @@ export async function DELETE(
   }
 
   // Vérifier que le contact existe et appartient à l'utilisateur (réponse uniforme)
-  const teamIds = await getUserTeamIds(supabase, user.id)
-  let sessionsQuery = supabase.from('whatsapp_sessions').select('id')
-  if (teamIds.length > 0) {
-    sessionsQuery = sessionsQuery.or(buildAccessFilter(user.id, teamIds))
-  } else {
-    sessionsQuery = sessionsQuery.eq('user_id', user.id)
-  }
-  const { data: sessions } = await sessionsQuery
+  const { data: sessions } = await supabase
+    .from('whatsapp_sessions')
+    .select('id')
+    .eq('user_id', user.id)
   const sessionIds = sessions?.map(s => s.id) || []
 
   let deleteContact = null

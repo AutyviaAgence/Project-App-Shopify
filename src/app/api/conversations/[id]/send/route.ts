@@ -5,7 +5,6 @@ import { sendMessage, sendMediaMessage, decryptWabaToken } from '@/lib/messaging
 import { wabaClient } from '@/lib/whatsapp-cloud/client'
 import { getConversationWindow } from '@/lib/whatsapp-cloud/window'
 import { encryptMessage } from '@/lib/crypto/encryption'
-import { canAccessSession } from '@/lib/teams/access'
 import { uploadMedia } from '@/lib/storage/media'
 
 /**
@@ -106,19 +105,9 @@ export async function POST(
     return NextResponse.json({ error: 'Session introuvable' }, { status: 404 })
   }
 
-  // Vérifier l'accès (propriétaire ou membre avec permissions)
-  const hasAccess = await canAccessSession(supabase, user.id, session)
-  if (!hasAccess) {
+  // Vérifier l'accès (propriétaire uniquement)
+  if (session.user_id !== user.id) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
-  }
-
-  // Vérifier la permission can_send_messages pour les ressources d'équipe
-  if (session.team_id && session.user_id !== user.id) {
-    const { checkTeamPermission } = await import('@/lib/teams/access')
-    const canSendMessages = await checkTeamPermission(supabase, user.id, session.team_id, 'messages_send')
-    if (!canSendMessages) {
-      return NextResponse.json({ error: 'Permission d\'envoi de messages refusée' }, { status: 403 })
-    }
   }
 
   if (session.status !== 'connected') {

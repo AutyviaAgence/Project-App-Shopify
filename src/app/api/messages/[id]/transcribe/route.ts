@@ -4,7 +4,6 @@ import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { downloadMediaFromStorage } from '@/lib/storage/media'
 import { transcribeAudio, describeImage } from '@/lib/openai/client'
 import { encryptMessage, decryptMessage } from '@/lib/crypto/encryption'
-import { canAccessSession } from '@/lib/teams/access'
 import { recordTokenUsage } from '@/lib/openai/token-tracker'
 
 /** POST /api/messages/[id]/transcribe — Transcription on-demand d'un message média */
@@ -42,10 +41,10 @@ export async function POST(
     return NextResponse.json({ error: 'Pas de média associé' }, { status: 400 })
   }
 
-  // Vérifier l'accès
+  // Vérifier l'accès (propriétaire uniquement)
   const { data: session } = await supabase
     .from('whatsapp_sessions')
-    .select('id, user_id, team_id')
+    .select('id, user_id')
     .eq('id', message.session_id)
     .single()
 
@@ -53,8 +52,7 @@ export async function POST(
     return NextResponse.json({ error: 'Session introuvable' }, { status: 404 })
   }
 
-  const hasAccess = await canAccessSession(supabase, user.id, session)
-  if (!hasAccess) {
+  if (session.user_id !== user.id) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 

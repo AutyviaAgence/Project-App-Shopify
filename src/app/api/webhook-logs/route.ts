@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getUserTeamIds, buildAccessFilter } from '@/lib/teams/access'
 
 /** Verifie que l'utilisateur est authentifie ET admin. Renvoie le client + user,
  * ou une reponse d'erreur. Les logs webhook sont reserves aux admins. */
@@ -31,20 +30,11 @@ export async function GET(req: NextRequest) {
   const page = Math.max(1, parseInt(searchParams.get('page') || '1', 10) || 1)
   const limit = Math.max(1, Math.min(parseInt(searchParams.get('limit') || '50', 10) || 50, 100))
 
-  // Get user's sessions (personal + team)
-  const teamIds = await getUserTeamIds(supabase, user.id)
-
-  let sessionsQuery = supabase
+  // Get user's sessions
+  const { data: sessions } = await supabase
     .from('whatsapp_sessions')
     .select('id')
-
-  if (teamIds.length > 0) {
-    sessionsQuery = sessionsQuery.or(buildAccessFilter(user.id, teamIds))
-  } else {
-    sessionsQuery = sessionsQuery.eq('user_id', user.id)
-  }
-
-  const { data: sessions } = await sessionsQuery
+    .eq('user_id', user.id)
 
   if (!sessions || sessions.length === 0) {
     return NextResponse.json({ data: [], pagination: { page, limit, total: 0, totalPages: 0 } })
@@ -99,20 +89,11 @@ export async function DELETE() {
   if (auth.error) return auth.error
   const { supabase, user } = auth
 
-  // Get user's sessions (personal + team)
-  const teamIds = await getUserTeamIds(supabase, user.id)
-
-  let sessionsQuery = supabase
+  // Get user's sessions
+  const { data: sessions } = await supabase
     .from('whatsapp_sessions')
     .select('id')
-
-  if (teamIds.length > 0) {
-    sessionsQuery = sessionsQuery.or(buildAccessFilter(user.id, teamIds))
-  } else {
-    sessionsQuery = sessionsQuery.eq('user_id', user.id)
-  }
-
-  const { data: sessions } = await sessionsQuery
+    .eq('user_id', user.id)
 
   if (!sessions || sessions.length === 0) {
     return NextResponse.json({ deleted: 0 })

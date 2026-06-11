@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
-import { canAccessResource } from '@/lib/teams/access'
 
 /** POST /api/links/[id]/reset-clicks — Réinitialiser le compteur de clics */
 export async function POST(
@@ -15,10 +14,10 @@ export async function POST(
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  // Récupérer le lien pour vérifier l'accès
+  // Récupérer le lien pour vérifier l'accès (propriétaire uniquement)
   const { data: link } = await supabase
     .from('wa_links')
-    .select('id, user_id, team_id')
+    .select('id, user_id')
     .eq('id', id)
     .single()
 
@@ -26,8 +25,7 @@ export async function POST(
     return NextResponse.json({ error: 'Lien introuvable' }, { status: 404 })
   }
 
-  const hasAccess = await canAccessResource(supabase, user.id, link.user_id, link.team_id)
-  if (!hasAccess) {
+  if (link.user_id !== user.id) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 

@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getUserTeamIds } from '@/lib/teams/access'
 
 const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -38,13 +37,8 @@ export async function GET(
     return NextResponse.json({ error: 'Campagne non trouvée' }, { status: 404 })
   }
 
-  // Vérifier l'accès
-  const teamIds = await getUserTeamIds(supabase, user.id)
-  const hasAccess =
-    campaign.user_id === user.id ||
-    (campaign.team_id && teamIds.includes(campaign.team_id))
-
-  if (!hasAccess) {
+  // Vérifier l'accès (propriétaire uniquement)
+  if (campaign.user_id !== user.id) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 

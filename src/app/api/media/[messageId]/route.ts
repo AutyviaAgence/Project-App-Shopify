@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { getSignedMediaUrl } from '@/lib/storage/media'
-import { canAccessSession } from '@/lib/teams/access'
 
 /** GET /api/media/[messageId] — Retourne une URL signée pour le média d'un message */
 export async function GET(
@@ -27,10 +26,10 @@ export async function GET(
     return NextResponse.json({ error: 'Média introuvable' }, { status: 404 })
   }
 
-  // Vérifier l'accès à la session
+  // Vérifier l'accès à la session (propriétaire uniquement)
   const { data: session } = await supabase
     .from('whatsapp_sessions')
-    .select('id, user_id, team_id')
+    .select('id, user_id')
     .eq('id', message.session_id)
     .single()
 
@@ -38,8 +37,7 @@ export async function GET(
     return NextResponse.json({ error: 'Session introuvable' }, { status: 404 })
   }
 
-  const hasAccess = await canAccessSession(supabase, user.id, session)
-  if (!hasAccess) {
+  if (session.user_id !== user.id) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 

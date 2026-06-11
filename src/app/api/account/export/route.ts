@@ -164,28 +164,7 @@ export async function GET(req: NextRequest) {
       zip.file('campaigns.json', JSON.stringify(campaigns, null, 2))
     }
 
-    // 11. Équipes
-    const { data: teamMemberships } = await supabase
-      .from('team_members')
-      .select(`
-        role,
-        status,
-        created_at,
-        teams:team_id (
-          id,
-          name,
-          slug,
-          created_at
-        )
-      `)
-      .eq('user_id', user.id)
-      .eq('status', 'accepted')
-
-    if (teamMemberships && teamMemberships.length > 0) {
-      zip.file('teams.json', JSON.stringify(teamMemberships, null, 2))
-    }
-
-    // 12. Alertes
+    // 11. Alertes
     const { data: alerts } = await supabase
       .from('user_alerts')
       .select('id, alert_type, title, message, is_read, created_at')
@@ -213,7 +192,6 @@ Fichiers inclus:
 - links.json: Vos liens WhatsApp
 - tags.json: Vos étiquettes de conversation
 - campaigns.json: Vos campagnes de relance
-- teams.json: Vos équipes
 - alerts.json: Vos dernières alertes
 
 Conformément au RGPD, vous avez le droit de demander la suppression

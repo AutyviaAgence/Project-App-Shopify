@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { canAccessSession } from '@/lib/teams/access'
 
 /** Vérifie l'accès et renvoie l'user_id propriétaire de la session (référentiel
  * des étiquettes), ou null si pas d'accès. */
@@ -19,14 +18,13 @@ async function resolveConversationOwner(
 
   const { data: session } = await supabase
     .from('whatsapp_sessions')
-    .select('id, user_id, team_id')
+    .select('id, user_id')
     .eq('id', conv.session_id)
     .single()
 
   if (!session) return null
 
-  const hasAccess = await canAccessSession(supabase, userId, session)
-  return hasAccess ? session.user_id : null
+  return session.user_id === userId ? session.user_id : null
 }
 
 /** GET /api/conversations/[id]/tags — Liste des tags assignés à une conversation */

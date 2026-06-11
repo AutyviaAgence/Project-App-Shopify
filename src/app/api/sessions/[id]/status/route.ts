@@ -24,7 +24,7 @@ export async function GET(
 
   const { data: session, error: dbError } = await supabase
     .from('whatsapp_sessions')
-    .select('id, user_id, team_id, instance_name, status, phone_number, display_name, integration_type, waba_phone_number_id, waba_business_account_id, waba_access_token, daily_ai_message_limit, ai_message_delay, created_at, updated_at')
+    .select('id, user_id, instance_name, status, phone_number, display_name, integration_type, waba_phone_number_id, waba_business_account_id, waba_access_token, daily_ai_message_limit, ai_message_delay, created_at, updated_at')
     .eq('id', id)
     .eq('user_id', user.id)
     .single()

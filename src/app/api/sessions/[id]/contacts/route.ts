@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { canAccessResource } from '@/lib/teams/access'
 
 /** GET /api/sessions/[id]/contacts — List contacts for a session */
 export async function GET(
@@ -15,10 +14,10 @@ export async function GET(
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  // Verify session access
+  // Verify session access (owner only)
   const { data: session } = await supabase
     .from('whatsapp_sessions')
-    .select('id, user_id, team_id')
+    .select('id, user_id')
     .eq('id', id)
     .single()
 
@@ -26,8 +25,7 @@ export async function GET(
     return NextResponse.json({ error: 'Session introuvable' }, { status: 404 })
   }
 
-  const hasAccess = await canAccessResource(supabase, user.id, session.user_id, session.team_id)
-  if (!hasAccess) {
+  if (session.user_id !== user.id) {
     return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
   }
 

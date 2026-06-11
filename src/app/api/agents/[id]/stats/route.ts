@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getUserTeamIds } from '@/lib/teams/access'
 
 type BookingClick = {
   id: string
@@ -22,11 +21,10 @@ export async function GET(
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  // Vérifier l'accès à l'agent
-  const teamIds = await getUserTeamIds(supabase, user.id)
+  // Vérifier l'accès à l'agent (propriétaire uniquement)
   const { data: agent, error: agentError } = await supabase
     .from('ai_agents')
-    .select('id, user_id, team_id, booking_url')
+    .select('id, user_id, booking_url')
     .eq('id', id)
     .single()
 
@@ -34,11 +32,7 @@ export async function GET(
     return NextResponse.json({ error: 'Agent non trouvé' }, { status: 404 })
   }
 
-  // Vérifier que l'utilisateur a accès
-  const hasAccess = agent.user_id === user.id ||
-    (agent.team_id && teamIds.includes(agent.team_id))
-
-  if (!hasAccess) {
+  if (agent.user_id !== user.id) {
     return NextResponse.json({ error: 'Accès non autorisé' }, { status: 403 })
   }
 

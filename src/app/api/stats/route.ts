@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { getDateRange, computeTrend, groupByDate, groupMessagesByDate, groupTransitionsByDate } from '@/lib/stats/helpers'
-import { getUserTeamPermissions } from '@/lib/teams/access'
 import type { StatsResponse, StatsAgent, StatsLink, StatsTopContact, StatsContactsBySession, StatsCampaign, StatsCampaigns, StatsRelanceAgent, StatsLifecycle, StatsLifecycleStage, StatsLifecycleTransitionPoint } from '@/types/stats'
 
 /** GET /api/stats?period=30&session_id=all */
@@ -19,26 +18,11 @@ export async function GET(req: NextRequest) {
 
   const { from, to, prevFrom, prevTo } = getDateRange(period)
 
-  // Récupérer les permissions de l'utilisateur dans ses équipes
-  const permissions = await getUserTeamPermissions(supabase, user.id)
-
-  // Filtrer les équipes où l'utilisateur peut voir les statistiques
-  const allowedTeamIds = permissions
-    .filter((p) => p.role === 'owner' || p.role === 'admin' || p.can_view_stats)
-    .map((p) => p.team_id)
-
-  // Construire le filtre d'accès pour les sessions (UUIDs validés car issus de la DB)
-  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-  const safeTeamIds = allowedTeamIds.filter(id => uuidRegex.test(id))
-  const accessFilter = safeTeamIds.length > 0
-    ? `user_id.eq.${user.id},team_id.in.(${safeTeamIds.join(',')})`
-    : `user_id.eq.${user.id}`
-
-  // 1. Sessions de l'utilisateur + équipes avec permission
+  // 1. Sessions de l'utilisateur
   const { data: sessions } = await supabase
     .from('whatsapp_sessions')
     .select('id, instance_name')
-    .or(accessFilter)
+    .eq('user_id', user.id)
 
   if (!sessions || sessions.length === 0) {
     return NextResponse.json({ data: emptyResponse() })
@@ -134,21 +118,21 @@ export async function GET(req: NextRequest) {
       .in('session_id', sessionIds)
       .gte('created_at', prevFrom)
       .lt('created_at', from),
-    // Agents (utilisateur + équipes avec permission)
+    // Agents (utilisateur)
     supabase
       .from('ai_agents')
       .select('id, name, is_active, booking_url')
-      .or(accessFilter),
-    // Liens (utilisateur + équipes avec permission)
+      .eq('user_id', user.id),
+    // Liens (utilisateur)
     supabase
       .from('wa_links')
       .select('id, slug, name, click_count, is_active')
-      .or(accessFilter),
-    // Campagnes (utilisateur + équipes)
+      .eq('user_id', user.id),
+    // Campagnes (utilisateur)
     supabase
       .from('campaigns')
       .select('id, name, status, total_recipients, sent_count, delivered_count, replied_count, failed_count, relance_agent_id, started_at, completed_at')
-      .or(accessFilter),
+      .eq('user_id', user.id),
     // Lifecycle stages
     supabase
       .from('lifecycle_stages')

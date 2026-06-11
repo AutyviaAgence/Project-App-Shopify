@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { canAccessResource } from '@/lib/teams/access'
 
 /**
  * GET /api/knowledge/[id]/download
@@ -21,7 +20,7 @@ export async function GET(
 
   const { data: doc, error } = await supabase
     .from('knowledge_documents')
-    .select('doc_type, storage_path, text_content, name, user_id, team_id')
+    .select('doc_type, storage_path, text_content, name, user_id')
     .eq('id', id)
     .single()
 
@@ -29,8 +28,7 @@ export async function GET(
     return NextResponse.json({ error: 'Document introuvable' }, { status: 404 })
   }
 
-  const hasAccess = await canAccessResource(supabase, user.id, doc.user_id, doc.team_id)
-  if (!hasAccess) {
+  if (doc.user_id !== user.id) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 
