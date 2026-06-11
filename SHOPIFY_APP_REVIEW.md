@@ -58,6 +58,20 @@ nécessite une **approbation**. Sans ça → erreur :
 > All messages require explicit opt-in consent, stored with timestamp/source, and
 > customers can opt out anytime by replying STOP.
 
+### Champs client protégés à activer (+ raisons par champ)
+Chaque champ demande de re-cocher les raisons. Configuration retenue :
+
+| Champ | Service client | Fonctionnalité | Marketing | Usage Xeyo |
+|-------|:---:|:---:|:---:|------------|
+| **Téléphone** | ✅ | ✅ | ✅ | Opt-in + notifs WhatsApp + SAV |
+| **Nom** | ✅ | ✅ | ✅ | Personnaliser les messages + SAV |
+| **Email** | ✅ | ✅ | ✅ | Notif email (canal alt.) + SAV email |
+| **Adresse** | ✅ | ✅ | ⬜ | Suivi livraison + questions SAV |
+
+⚠️ Boutique de DEV : pas de soumission à review nécessaire — sélectionner
+l'usage suffit (accès immédiat). La review n'est requise que pour l'App Store.
+Après activation : RÉINSTALLER l'app pour appliquer les nouvelles permissions.
+
 ### Engagements de conformité (à cocher)
 - Données chiffrées au repos et en transit (AES-256-GCM côté app, HTTPS).
 - Conservation limitée + suppression sur demande (webhooks RGPD ci-dessous).
