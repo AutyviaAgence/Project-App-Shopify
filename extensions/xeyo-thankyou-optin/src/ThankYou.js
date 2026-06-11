@@ -39,6 +39,16 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
     'Valider'
   )
 
+  // Nom de la boutique (pour la mention de consentement conforme Meta)
+  const storeName = shop?.name || 'la boutique'
+
+  // Mention de consentement explicite (exigence Meta : qui envoie, quoi, opt-out)
+  const consent = root.createComponent(
+    Text,
+    { size: 'small', appearance: 'subdued' },
+    `En validant, j'accepte de recevoir des messages WhatsApp de ${storeName} concernant le suivi de ma commande. Répondez STOP pour vous désabonner à tout moment.`
+  )
+
   const branding = root.createComponent(
     Text,
     { size: 'small', appearance: 'subdued' },
@@ -47,6 +57,7 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
 
   const fieldsStack = root.createComponent(BlockStack, { spacing: 'tight' }, [
     phoneField,
+    consent,
     root.createComponent(InlineStack, {}, [submitButton]),
     branding,
   ])
@@ -61,7 +72,7 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
         else fieldsStack.remove()
       },
     },
-    '📦 Recevoir le suivi de ma commande sur WhatsApp'
+    `📦 Recevoir le suivi de ma commande sur WhatsApp`
   )
 
   const container = root.createComponent(
