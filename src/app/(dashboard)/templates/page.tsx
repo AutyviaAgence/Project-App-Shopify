@@ -343,19 +343,23 @@ export default function TemplatesPage() {
                       </span>
                     )}
                   </div>
-                  {selectedTemplate && (
-                    <div className="flex items-center gap-1 shrink-0">
-                      {selectedTemplate.status === 'draft' && (
-                        <Button size="sm" variant="outline" disabled={busyId === selectedTemplate.id} onClick={() => handleSubmit(selectedTemplate)}>
-                          {busyId === selectedTemplate.id ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Send className="mr-1 h-4 w-4" />}
-                          Soumettre
-                        </Button>
-                      )}
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    {selectedTemplate?.status === 'draft' && (
+                      <Button size="sm" variant="outline" disabled={busyId === selectedTemplate.id} onClick={() => handleSubmit(selectedTemplate)}>
+                        {busyId === selectedTemplate.id ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Send className="mr-1 h-4 w-4" />}
+                        Soumettre
+                      </Button>
+                    )}
+                    <Button size="sm" disabled={saving || !name.trim() || !bodyText.trim()} onClick={handleSave}>
+                      {saving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
+                      {editing ? 'Enregistrer' : 'Créer'}
+                    </Button>
+                    {selectedTemplate && (
                       <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" disabled={busyId === selectedTemplate.id} onClick={() => handleDelete(selectedTemplate)}>
                         {busyId === selectedTemplate.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                       </Button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
 
                 {/* Avertissement : modifier un modèle approuvé/soumis le repassera en brouillon */}
@@ -471,11 +475,6 @@ export default function TemplatesPage() {
                 </div>
               )}
             </div>
-
-            <Button onClick={handleSave} disabled={saving || !name.trim() || !bodyText.trim()} className="w-full">
-              {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-              {editing ? 'Enregistrer' : 'Créer le modèle'}
-            </Button>
           </div>
 
           {/* Aperçu WhatsApp en direct */}
