@@ -74,11 +74,15 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
 
   // [DIAG] : log des clés disponibles pour localiser le téléphone sur Thank You
   try {
-    console.log('[Xeyo optin DIAG] keys:', Object.keys(api))
-    console.log('[Xeyo optin DIAG] shippingAddress:', JSON.stringify(shipping))
-    console.log('[Xeyo optin DIAG] billingAddress:', JSON.stringify(billing))
-    console.log('[Xeyo optin DIAG] api.phone:', JSON.stringify(api.phone?.current ?? api.phone))
-    console.log('[Xeyo optin DIAG] resolved phone:', phone)
+    console.log('[Xeyo optin DIAG] keys:', JSON.stringify(Object.keys(api)))
+    // Cherche un objet "order"/"confirmation" qui contiendrait le téléphone
+    for (const k of Object.keys(api)) {
+      if (/order|confirm|customer|buyer|contact/i.test(k)) {
+        const v = api[k]
+        const resolved = v && typeof v === 'object' && 'current' in v ? v.current : v
+        try { console.log(`[Xeyo optin DIAG] ${k}:`, JSON.stringify(resolved)?.slice(0, 600)) } catch { console.log(`[Xeyo optin DIAG] ${k}: (non-serializable)`) }
+      }
+    }
   } catch (e) { console.log('[Xeyo optin DIAG] error', e) }
 
   const address = shipping
