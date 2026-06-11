@@ -291,8 +291,8 @@ export default function TemplatesPage() {
                       <div className="mt-0.5 text-right text-[10px] text-gray-500">12:00 ✓✓</div>
                     </div>
                   </div>
-                  <div className="mx-auto mt-3 max-w-md text-center text-xs text-gray-600">
-                    {selectedTemplate.variables_count > 0 && `${selectedTemplate.variables_count} variable(s) — `}
+                  <div className="mx-auto mt-3 max-w-md rounded-full bg-black/55 px-3 py-1.5 text-center text-xs text-white/90 backdrop-blur-sm">
+                    {selectedTemplate.variables_count > 0 && `${selectedTemplate.variables_count} variable(s) · `}
                     Les variables {'{{1}}'}, {'{{2}}'}… seront remplacées à l&apos;envoi.
                   </div>
                   {selectedTemplate.status === 'rejected' && selectedTemplate.rejection_reason && (
