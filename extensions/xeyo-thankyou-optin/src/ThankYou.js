@@ -44,21 +44,36 @@ const STRINGS = {
   },
 }
 
+// Récupère la 1re valeur "current" non vide parmi des sources potentielles.
+function readCurrent(src) {
+  if (!src) return ''
+  if (typeof src === 'string') return src
+  if (src.current != null) return typeof src.current === 'string' ? src.current : (src.current?.phone || '')
+  return src.phone || ''
+}
+
 // Opt-in WhatsApp sur la page de remerciement (JS pur, sans React).
 export default extension('purchase.thank-you.block.render', (root, api) => {
-  const { shop, shippingAddress, billingAddress, localization, phone: apiPhone } = api
-  const address = shippingAddress?.current || {}
-  const billing = billingAddress?.current || {}
+  const { shop, localization } = api
 
   // Détection de la langue (anglais par défaut)
   const isoRaw = localization?.language?.current?.isoCode || localization?.isoCode || ''
   const lang = String(isoRaw).toLowerCase().startsWith('fr') ? 'fr' : 'en'
   const t = STRINGS[lang]
 
+  // Pré-remplissage du numéro : on tente toutes les sources de la page Merci.
+  const shipping = api.shippingAddress?.current || {}
+  const billing = api.billingAddress?.current || {}
+  let phone = (
+    readCurrent(api.phone) ||
+    shipping.phone ||
+    billing.phone ||
+    readCurrent(api.shippingAddress)?.phone ||
+    ''
+  ).toString().trim()
+
+  const address = shipping
   let optedIn = false
-  // Pré-remplissage : on essaie le téléphone de livraison, puis facturation,
-  // puis le téléphone du checkout. Modifiable par le client (best practice).
-  let phone = (address.phone || billing.phone || apiPhone?.current || '').trim()
   let busy = false
 
   const fullName = [address.firstName, address.lastName].filter(Boolean).join(' ')
