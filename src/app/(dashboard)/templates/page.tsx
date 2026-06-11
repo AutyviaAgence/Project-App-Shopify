@@ -22,9 +22,9 @@ const STATUS_STYLE: Record<string, { label: string; cls: string }> = {
 }
 
 const CATEGORIES = [
-  { value: 'UTILITY', label: 'Utilitaire (commande, livraison, SAV)' },
-  { value: 'MARKETING', label: 'Marketing (promo, relance)' },
-  { value: 'AUTHENTICATION', label: 'Authentification (code OTP)' },
+  { value: 'UTILITY', label: 'Utilitaire' },
+  { value: 'MARKETING', label: 'Marketing' },
+  { value: 'AUTHENTICATION', label: 'Authentification' },
 ]
 
 const LANGUAGES = [
