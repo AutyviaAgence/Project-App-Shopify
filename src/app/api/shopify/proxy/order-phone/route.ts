@@ -60,7 +60,6 @@ export async function GET(req: NextRequest) {
       { id: `gid://shopify/Order/${numericId}` }
     )
     if (r.ok && r.data.order) o = r.data.order
-    else if (!r.ok) console.log('[order-phone DIAG] by-id error:', r.error?.slice(0, 200))
   }
 
   // 2) Fallback : recherche par numéro de confirmation ou name
@@ -71,10 +70,7 @@ export async function GET(req: NextRequest) {
       { q: `confirmation_number:${orderNumber} OR name:${orderNumber} OR name:#${orderNumber}` }
     )
     if (r.ok) o = r.data.orders.nodes[0]
-    else console.log('[order-phone DIAG] by-name error:', r.error?.slice(0, 200))
   }
-
-  console.log('[order-phone DIAG] order=', orderNumber, 'id=', numericId, 'found=', !!o, 'data=', JSON.stringify(o)?.slice(0, 300))
   const phone = (
     o?.phone ||
     o?.shippingAddress?.phone ||
