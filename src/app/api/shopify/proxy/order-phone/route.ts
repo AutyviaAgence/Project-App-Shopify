@@ -17,10 +17,14 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const shop = searchParams.get('shop')
   const orderNumber = (searchParams.get('order') || '').trim()
+  const orderGid = (searchParams.get('id') || '').trim() // gid://shopify/OrderIdentity/123
 
-  if (!shop || !orderNumber) {
+  if (!shop || (!orderNumber && !orderGid)) {
     return NextResponse.json({ phone: null }, { headers: { 'Cache-Control': 'no-store' } })
   }
+
+  // Extrait l'ID numérique du gid (…/OrderIdentity/5934953922637 → 5934953922637)
+  const numericId = orderGid.match(/\/(\d+)$/)?.[1] || ''
 
   const admin = createAdminSupabase(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -38,36 +42,39 @@ export async function GET(req: NextRequest) {
 
   const token = decryptMessage(store.access_token)
 
-  // Recherche la commande par son name (ex: "#YWZAQ3HLD" ou "YWZAQ3HLD"),
-  // et renvoie le téléphone (commande > livraison > facturation > client).
-  const query = `
-    query($q: String!) {
-      orders(first: 1, query: $q) {
-        nodes {
-          phone
-          shippingAddress { phone }
-          billingAddress { phone }
-          customer { phone defaultPhoneNumber { phoneNumber } }
-        }
-      }
-    }`
-  // On cherche par numéro de commande (avec et sans #)
-  const q = `name:${orderNumber} OR name:#${orderNumber}`
-
-  const res = await shopifyGraphQL<{ orders: { nodes: Array<{
+  type OrderNode = {
     phone: string | null
     shippingAddress: { phone: string | null } | null
     billingAddress: { phone: string | null } | null
     customer: { phone: string | null; defaultPhoneNumber: { phoneNumber: string | null } | null } | null
-  }> } }>(store.shop_domain, token, query, { q })
+  }
+  const FIELDS = `phone shippingAddress { phone } billingAddress { phone } customer { phone defaultPhoneNumber { phoneNumber } }`
 
-  if (!res.ok) {
-    console.log('[order-phone DIAG] GraphQL error:', res.error?.slice(0, 300))
-    return NextResponse.json({ phone: null }, { headers: { 'Cache-Control': 'no-store' } })
+  let o: OrderNode | undefined
+
+  // 1) Le plus fiable : par ID direct (depuis orderConfirmation.order.id)
+  if (numericId) {
+    const r = await shopifyGraphQL<{ order: OrderNode | null }>(
+      store.shop_domain, token,
+      `query($id: ID!) { order(id: $id) { ${FIELDS} } }`,
+      { id: `gid://shopify/Order/${numericId}` }
+    )
+    if (r.ok && r.data.order) o = r.data.order
+    else if (!r.ok) console.log('[order-phone DIAG] by-id error:', r.error?.slice(0, 200))
   }
 
-  console.log('[order-phone DIAG] order=', orderNumber, 'nodes=', res.data.orders.nodes.length, 'data=', JSON.stringify(res.data.orders.nodes[0])?.slice(0, 300))
-  const o = res.data.orders.nodes[0]
+  // 2) Fallback : recherche par numéro de confirmation ou name
+  if (!o && orderNumber) {
+    const r = await shopifyGraphQL<{ orders: { nodes: OrderNode[] } }>(
+      store.shop_domain, token,
+      `query($q: String!) { orders(first: 1, query: $q) { nodes { ${FIELDS} } } }`,
+      { q: `confirmation_number:${orderNumber} OR name:${orderNumber} OR name:#${orderNumber}` }
+    )
+    if (r.ok) o = r.data.orders.nodes[0]
+    else console.log('[order-phone DIAG] by-name error:', r.error?.slice(0, 200))
+  }
+
+  console.log('[order-phone DIAG] order=', orderNumber, 'id=', numericId, 'found=', !!o, 'data=', JSON.stringify(o)?.slice(0, 300))
   const phone = (
     o?.phone ||
     o?.shippingAddress?.phone ||

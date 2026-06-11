@@ -78,9 +78,13 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
   // On le récupère côté serveur (Admin API) via notre App Proxy, à partir du
   // numéro de commande. On met à jour le champ dès la réponse (sauf saisie en cours).
   const orderNumber = api.orderConfirmation?.current?.number
-  if (orderNumber) {
+  const orderId = api.orderConfirmation?.current?.order?.id
+  if (orderNumber || orderId) {
     const domain = shop.myshopifyDomain
-    fetch(`https://${domain}/apps/xeyo/order-phone?shop=${encodeURIComponent(domain)}&order=${encodeURIComponent(orderNumber)}`)
+    const params = new URLSearchParams({ shop: domain })
+    if (orderNumber) params.set('order', orderNumber)
+    if (orderId) params.set('id', orderId)
+    fetch(`https://${domain}/apps/xeyo/order-phone?${params.toString()}`)
       .then((r) => r.json())
       .then((j) => {
         const found = (j?.phone || '').toString().trim()
