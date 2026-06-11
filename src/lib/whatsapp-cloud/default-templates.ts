@@ -39,6 +39,18 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
     sample_values: ['Marie', '#1024'],
   },
   {
+    key: 'order_welcome',
+    name: 'bienvenue_commande',
+    language: 'fr',
+    category: 'MARKETING',
+    label: 'Message de bienvenue',
+    description: 'Premier message chaleureux après une commande : remercie le client et ouvre la conversation WhatsApp.',
+    header_text: 'Merci pour votre commande 🎉',
+    body_text: 'Bonjour {{1}}, merci pour votre commande {{2}} ! Nous sommes ravis de vous compter parmi nos clients. Une question ? Répondez directement à ce message, nous sommes là pour vous aider.',
+    footer_text: 'Répondez STOP pour vous désinscrire',
+    sample_values: ['Marie', '#1024'],
+  },
+  {
     key: 'order_shipped',
     name: 'commande_expediee',
     language: 'fr',

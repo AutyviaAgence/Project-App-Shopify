@@ -21,7 +21,7 @@ function admin() {
   )
 }
 
-export type NotificationKind = 'order_shipped' | 'order_delivered' | 'order_confirmed'
+export type NotificationKind = 'order_shipped' | 'order_delivered' | 'order_confirmed' | 'order_welcome'
 
 export type NotificationPayload = {
   contactId: string
@@ -104,6 +104,7 @@ async function sendWhatsAppNotification(
     // Mapper le kind vers un template par défaut
     const templateKey = payload.kind === 'order_shipped' ? 'order_shipped'
       : payload.kind === 'order_delivered' ? 'order_delivered'
+      : payload.kind === 'order_welcome' ? 'order_welcome'
       : 'order_confirmation'
     const tpl = DEFAULT_TEMPLATES.find((t) => t.key === templateKey)
     if (!tpl) return false

@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
 
   // Upsert contact opted-in
   const now = new Date().toISOString()
-  const { error } = await admin
+  const { data: contact, error } = await admin
     .from('contacts')
     .upsert(
       {
@@ -97,7 +97,26 @@ export async function POST(req: NextRequest) {
       },
       { onConflict: 'session_id,phone_number' }
     )
+    .select('id')
+    .single()
   if (error) return J({ ok: false, error: error.message }, 500)
+
+  // Message de bienvenue (premier contact WhatsApp) — best effort.
+  // N'envoie que s'il s'agit d'un nouveau contact et si le template est approuvé.
+  if (contact?.id) {
+    try {
+      const { sendNotification } = await import('@/lib/notifications/send')
+      await sendNotification({
+        contactId: contact.id,
+        kind: 'order_welcome',
+        vars: { '1': name || 'cher client', '2': 'votre commande' },
+        emailSubject: 'Merci pour votre commande !',
+        emailBody: `Bonjour ${name || ''},\n\nMerci pour votre commande ! Nous sommes ravis de vous compter parmi nos clients.`,
+      })
+    } catch (e) {
+      console.error('[optin] message de bienvenue échec (non bloquant):', e)
+    }
+  }
 
   return J({ ok: true })
 }
