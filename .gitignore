@@ -50,3 +50,9 @@ next-env.d.ts
 backup_*.sql
 supabase/.temp/
 .git-rewrite/
+
+# Dépendances des extensions Shopify
+extensions/*/node_modules/
+extensions/**/node_modules/
+.shopify/
+extensions/*/dist/
