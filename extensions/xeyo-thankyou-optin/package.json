@@ -2,8 +2,8 @@
   "name": "xeyo-thankyou-optin",
   "private": true,
   "dependencies": {
-    "@shopify/ui-extensions": "2025.1.x",
-    "@shopify/ui-extensions-react": "2025.1.x",
+    "@shopify/ui-extensions": "2025.7.x",
+    "@shopify/ui-extensions-react": "2025.7.x",
     "react": "^18.2.0"
   }
 }

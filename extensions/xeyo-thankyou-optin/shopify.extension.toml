@@ -1,10 +1,12 @@
 # Checkout UI Extension — Opt-in WhatsApp sur la page de remerciement (Thank You)
 # S'affiche après l'achat. Le client coche pour recevoir le suivi sur WhatsApp.
-api_version = "2025-01"
+api_version = "2025-07"
 
 [[extensions]]
 name = "Xeyo — Opt-in WhatsApp (page Merci)"
 handle = "xeyo-thankyou-optin"
+
+uid = "8900acf1-c503-d000-d085-d9e6f7d280023d11b5cc"
 type = "ui_extension"
 
   [[extensions.targeting]]
