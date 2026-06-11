@@ -115,14 +115,54 @@ Routes : `/apps/xeyo/widget` (bulle), `/apps/xeyo/optin` (opt-in), `/apps/xeyo/o
 | `xeyo-widget` | Theme App Extension | Bulle WhatsApp flottante + opt-in page produit |
 | `xeyo-thankyou-optin` | Checkout UI Extension | Opt-in WhatsApp sur la page de remerciement |
 
-Déploiement : `shopify app deploy` (CLI). Network access retiré (App Proxy same-origin).
+Déploiement : `shopify app deploy` (CLI).
+
+---
+
+## 5.bis Network access (Checkout UI Extension) — ÉTAPE OBLIGATOIRE
+
+Les Checkout UI Extensions qui font des `fetch()` (notre opt-in + pré-remplissage)
+ont besoin de `network_access = true` dans `extensions/xeyo-thankyou-optin/shopify.extension.toml`.
+
+⚠️ **Sans approbation, la version ne se PUBLIE pas** ("L'accès au réseau doit être
+demandé et approuvé"). Les versions créées restent inactives.
+
+### Où l'autoriser (auto-approuvé instantanément)
+**Partner Dashboard → app Xeyo → Demandes d'accès à l'API →**
+section **"Autoriser l'accès réseau dans les extensions d'IU de paiement et de comptes"**
+→ bouton **"Autoriser l'accès au réseau"**.
+→ Approuvé immédiatement. Puis `shopify app deploy` publie la version.
+
+⚠️ Si erreur "Could not grant... scope" : renseigner **prénom + nom** dans le
+profil du compte Partner, puis réessayer.
+
+Doc : https://shopify.dev/docs/apps/build/checkout/capabilities
+
+## 5.ter Piège CORS sur les fetch via App Proxy
+
+Le proxy Shopify (`{shop}/apps/xeyo/...`) répond par un **302** vers app.xeyo.io.
+Un `fetch` POST avec `Content-Type: application/json` déclenche un **preflight CORS**
+qui ÉCHOUE sur la redirection ("Redirect is not allowed for a preflight request").
+→ **Solution** : envoyer avec `Content-Type: text/plain` (requête simple, pas de
+preflight). La route serveur lit quand même le body via `req.json()`.
+
+## 5.quater Pré-remplissage du téléphone (page Merci)
+
+Shopify n'expose PAS le téléphone aux extensions côté client. On le récupère
+côté serveur :
+- `orderConfirmation.order.id` (gid OrderIdentity) → ID numérique
+- l'extension appelle `/apps/xeyo/order-phone?id=...`
+- l'endpoint interroge l'Admin API (`order(id:)` → shippingAddress.phone)
+- nécessite **Protected Customer Data approuvé** + scope `read_orders` + **app
+  (ré)installée** après l'approbation (nouveau token).
 
 ---
 
 ## 6. Checklist de publication / review
 
 ### Avant de soumettre
-- [ ] **Protected Customer Data** approuvé (section 2)
+- [x] **Protected Customer Data** approuvé (section 2) — fait pour xeyo-dev
+- [x] **Network access** (Checkout UI) autorisé (section 5.bis) — fait
 - [ ] **3 webhooks RGPD** déclarés et fonctionnels (section 3)
 - [ ] **Pages légales** accessibles publiquement :
   - https://app.xeyo.io/privacy (politique de confidentialité)
@@ -154,9 +194,19 @@ Déploiement : `shopify app deploy` (CLI). Network access retiré (App Proxy sam
 - ✅ Webhooks RGPD : routes existantes (à RE-VÉRIFIER déclarées dans Dashboard)
 - ✅ Pages légales en ligne (FR/EN)
 - ✅ Opt-in conforme Meta/RGPD (consentement explicite, marketing, STOP, filtre campagnes)
-- ⏳ **Protected Customer Data : EN COURS d'approbation** (bloque le pré-remplissage
-  du téléphone côté serveur via Admin API)
+- ✅ **Protected Customer Data approuvé** (téléphone/nom/email/adresse) sur xeyo-dev
+- ✅ **Network access (Checkout UI) autorisé** → opt-in + pré-remplissage fonctionnent
+- ✅ **Pré-remplissage du numéro** sur la page Merci (via order-phone + Admin API)
+- ✅ Fix CORS (text/plain) pour le POST opt-in via proxy
 - ⏳ Billing API Shopify : NON faite (requise seulement pour l'App Store public)
+
+### IMPORTANT — à refaire pour CHAQUE nouvelle boutique cliente / la prod
+1. Protected Customer Data : à demander par app, pas par boutique (déjà fait au
+   niveau de l'app). Pour la prod App Store → soumettre à review.
+2. Network access (Checkout UI) : déjà au niveau de l'app (fait).
+3. Réinstaller l'app après ces approbations (nouveau token avec les accès).
+4. Déclarer les 3 webhooks RGPD.
+5. (App Store) Billing API + listing + review.
 
 ### Prochaine action immédiate
 Finaliser la demande **Protected Customer Data** (Service client + Fonctionnalité
