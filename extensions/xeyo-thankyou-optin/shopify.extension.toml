@@ -15,5 +15,5 @@ type = "ui_extension"
 
   [extensions.capabilities]
   api_access = true
-  # Requis pour les fetch() vers l'App Proxy (order-phone, optin).
+  # Requis : l'extension envoie l'opt-in et lit le téléphone via l'App Proxy (fetch).
   network_access = true
