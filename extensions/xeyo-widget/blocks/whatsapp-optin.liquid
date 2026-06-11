@@ -1,0 +1,138 @@
+{% comment %}
+  Xeyo — Opt-in WhatsApp (page produit / panier)
+  Block de section : le marchand l'ajoute sur sa page produit ou panier.
+  Le client saisit son numéro + coche le consentement → enregistré côté Xeyo
+  (preferred_channel = whatsapp) pour recevoir le suivi de commande.
+{% endcomment %}
+
+<div
+  class="xeyo-optin"
+  data-proxy="/apps/xeyo/optin"
+  data-shop="{{ shop.permanent_domain }}"
+  style="--xeyo-optin-color: {{ block.settings.accent_color }};"
+>
+  <label class="xeyo-optin-row">
+    <input type="checkbox" class="xeyo-optin-check" />
+    <span class="xeyo-optin-label">{{ block.settings.label }}</span>
+  </label>
+  <div class="xeyo-optin-fields" style="display:none;">
+    <input type="tel" class="xeyo-optin-phone" placeholder="{{ block.settings.placeholder }}" />
+    <button type="button" class="xeyo-optin-submit">{{ block.settings.button }}</button>
+  </div>
+  <p class="xeyo-optin-msg" aria-live="polite"></p>
+  {%- if block.settings.show_branding -%}
+    <a class="xeyo-optin-branding" href="https://xeyo.io" target="_blank" rel="noopener noreferrer">Powered by Xeyo.io</a>
+  {%- endif -%}
+</div>
+
+<style>
+  .xeyo-optin {
+    border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px 16px;
+    margin: 14px 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  .xeyo-optin-row { display: flex; align-items: center; gap: 10px; cursor: pointer; font-size: 14px; }
+  .xeyo-optin-check { width: 18px; height: 18px; accent-color: var(--xeyo-optin-color, #25D366); }
+  .xeyo-optin-fields { display: flex; gap: 8px; margin-top: 10px; }
+  .xeyo-optin-phone {
+    flex: 1; padding: 9px 12px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 14px;
+  }
+  .xeyo-optin-submit {
+    background: var(--xeyo-optin-color, #25D366); color: #fff; border: none;
+    border-radius: 8px; padding: 9px 16px; font-size: 14px; font-weight: 600; cursor: pointer;
+  }
+  .xeyo-optin-submit:disabled { opacity: .6; cursor: default; }
+  .xeyo-optin-msg { margin: 8px 0 0; font-size: 13px; min-height: 16px; }
+  .xeyo-optin-msg.ok { color: #15803d; }
+  .xeyo-optin-msg.err { color: #b91c1c; }
+  .xeyo-optin-branding { display: inline-block; margin-top: 8px; font-size: 10px; color: #9aa3ad; text-decoration: none; }
+</style>
+
+<script>
+  (function () {
+    var roots = document.querySelectorAll('.xeyo-optin');
+    roots.forEach(function (root) {
+      if (root.dataset.bound) return;
+      root.dataset.bound = '1';
+      var check = root.querySelector('.xeyo-optin-check');
+      var fields = root.querySelector('.xeyo-optin-fields');
+      var phone = root.querySelector('.xeyo-optin-phone');
+      var submit = root.querySelector('.xeyo-optin-submit');
+      var msg = root.querySelector('.xeyo-optin-msg');
+      var proxy = root.getAttribute('data-proxy');
+      var shop = root.getAttribute('data-shop');
+
+      check.addEventListener('change', function () {
+        fields.style.display = check.checked ? 'flex' : 'none';
+        if (check.checked) phone.focus();
+      });
+
+      submit.addEventListener('click', function () {
+        var val = (phone.value || '').replace(/[^0-9+]/g, '');
+        if (val.replace(/[^0-9]/g, '').length < 8) {
+          msg.className = 'xeyo-optin-msg err'; msg.textContent = 'Numéro invalide.'; return;
+        }
+        submit.disabled = true;
+        msg.className = 'xeyo-optin-msg'; msg.textContent = 'Enregistrement…';
+        fetch(proxy + '?shop=' + encodeURIComponent(shop), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: val })
+        })
+          .then(function (r) { return r.json(); })
+          .then(function (res) {
+            if (res && res.ok) {
+              msg.className = 'xeyo-optin-msg ok';
+              msg.textContent = 'C\'est noté ! Vous recevrez le suivi sur WhatsApp.';
+              fields.style.display = 'none'; check.checked = true; check.disabled = true;
+            } else {
+              msg.className = 'xeyo-optin-msg err';
+              msg.textContent = (res && res.error) ? res.error : 'Erreur, réessayez.';
+              submit.disabled = false;
+            }
+          })
+          .catch(function () {
+            msg.className = 'xeyo-optin-msg err'; msg.textContent = 'Erreur réseau.'; submit.disabled = false;
+          });
+      });
+    });
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Opt-in WhatsApp Xeyo",
+  "target": "section",
+  "settings": [
+    {
+      "type": "text",
+      "id": "label",
+      "label": "Texte de la case",
+      "default": "📦 Recevoir le suivi de ma commande sur WhatsApp"
+    },
+    {
+      "type": "text",
+      "id": "placeholder",
+      "label": "Placeholder du numéro",
+      "default": "+33 6 12 34 56 78"
+    },
+    {
+      "type": "text",
+      "id": "button",
+      "label": "Texte du bouton",
+      "default": "Valider"
+    },
+    {
+      "type": "color",
+      "id": "accent_color",
+      "label": "Couleur",
+      "default": "#25D366"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_branding",
+      "label": "Afficher \"Powered by Xeyo.io\"",
+      "default": true
+    }
+  ]
+}
+{% endschema %}
