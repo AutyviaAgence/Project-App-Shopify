@@ -134,11 +134,10 @@ export async function GET(
       if (clickErr) console.error('[wa/slug] link_clicks insert error:', clickErr.message)
     })
 
-  // Construire l'URL wa.me
-  let waUrl = `https://wa.me/${phone}`
-  if (link.pre_filled_message) {
-    waUrl += `?text=${encodeURIComponent(link.pre_filled_message)}`
-  }
+  // Construire l'URL WhatsApp via api.whatsapp.com/send (plus fiable que wa.me,
+  // qui échouait sur certains navigateurs/réseaux).
+  const text = link.pre_filled_message || ''
+  const waUrl = `https://api.whatsapp.com/send/?phone=${phone}&text=${encodeURIComponent(text)}&type=phone_number&app_absent=0`
 
   return NextResponse.redirect(waUrl)
 }
