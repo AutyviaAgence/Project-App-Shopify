@@ -310,16 +310,38 @@ function ConversationsPageContent() {
     }
   }, [selectedConv, sending, t])
 
-  // Charger les modèles approuvés quand on ouvre la bascule template
+  // Charger les modèles approuvés quand on ouvre la bascule template OU la nouvelle conversation
   useEffect(() => {
-    if (!templateDialogOpen) return
+    if (!templateDialogOpen && !newConvOpen) return
     fetch('/api/templates')
       .then((r) => r.json())
       .then((j) => {
         if (j.data) setApprovedTemplates(j.data.filter((tpl: { status: string }) => tpl.status === 'approved'))
       })
       .catch(() => {})
-  }, [templateDialogOpen])
+  }, [templateDialogOpen, newConvOpen])
+
+  // Créer une nouvelle conversation (numéro + template approuvé)
+  const handleNewConversation = useCallback(async () => {
+    if (!newConvPhone.trim() || !newConvTemplate) { toast.error('Numéro et modèle requis'); return }
+    setNewConvSending(true)
+    try {
+      const res = await fetch('/api/conversations/new', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: newConvPhone, template_id: newConvTemplate }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Erreur')
+      toast.success('Conversation démarrée')
+      setNewConvOpen(false)
+      await fetchConversations()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erreur')
+    } finally {
+      setNewConvSending(false)
+    }
+  }, [newConvPhone, newConvTemplate, fetchConversations])
 
   // Envoyer un modèle approuvé (recontact hors fenêtre 24h)
   const handleSendTemplate = useCallback(async (templateId: string) => {
@@ -888,6 +910,56 @@ function ConversationsPageContent() {
       />
 
       {/* Bascule template : le client est hors fenêtre 24h */}
+      {/* Nouvelle conversation : numéro + modèle approuvé */}
+      <Dialog open={newConvOpen} onOpenChange={setNewConvOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Nouvelle conversation</DialogTitle>
+            <DialogDescription>
+              Démarrez une conversation WhatsApp avec un nouveau numéro. Un modèle
+              approuvé par Meta est requis (seul moyen autorisé hors fenêtre 24h).
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Numéro WhatsApp (avec indicatif)</label>
+              <input
+                value={newConvPhone}
+                onChange={(e) => setNewConvPhone(e.target.value)}
+                placeholder="+33 6 12 34 56 78"
+                className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">Modèle</label>
+              {approvedTemplates.length === 0 ? (
+                <p className="rounded-md border border-dashed p-3 text-sm text-muted-foreground">
+                  Aucun modèle approuvé. Créez-en un dans <span className="font-medium">Modèles</span> et faites-le approuver par Meta.
+                </p>
+              ) : (
+                <select
+                  value={newConvTemplate}
+                  onChange={(e) => setNewConvTemplate(e.target.value)}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  <option value="">— Choisir un modèle —</option>
+                  {approvedTemplates.map((tpl) => (
+                    <option key={tpl.id} value={tpl.id}>{tpl.name} ({tpl.language})</option>
+                  ))}
+                </select>
+              )}
+            </div>
+            <Button
+              onClick={handleNewConversation}
+              disabled={newConvSending || !newConvPhone.trim() || !newConvTemplate}
+              className="w-full"
+            >
+              {newConvSending ? 'Envoi…' : 'Démarrer la conversation'}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
         <DialogContent>
           <DialogHeader>
