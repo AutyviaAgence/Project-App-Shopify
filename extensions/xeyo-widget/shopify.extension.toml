@@ -1,0 +1,9 @@
+# Theme App Extension — Widget Xeyo (bulle WhatsApp flottante)
+# Le marchand l'active en 1 clic dans l'éditeur de thème Shopify
+# (Personnaliser → Sections d'application / App embeds).
+api_version = "2025-01"
+
+[[extensions]]
+name = "Xeyo WhatsApp Widget"
+handle = "xeyo-widget"
+type = "theme"
