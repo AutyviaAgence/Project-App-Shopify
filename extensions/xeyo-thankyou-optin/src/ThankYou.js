@@ -84,16 +84,22 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
     const params = new URLSearchParams({ shop: domain })
     if (orderNumber) params.set('order', orderNumber)
     if (orderId) params.set('id', orderId)
-    fetch(`https://${domain}/apps/xeyo/order-phone?${params.toString()}`)
+    const url = `https://${domain}/apps/xeyo/order-phone?${params.toString()}`
+    console.log('[Xeyo prefill] fetching', url)
+    fetch(url)
       .then((r) => r.json())
       .then((j) => {
+        console.log('[Xeyo prefill] response', JSON.stringify(j))
         const found = (j?.phone || '').toString().trim()
         if (found && !phone) {
           phone = found
           phoneField.updateProps({ value: found })
+          console.log('[Xeyo prefill] updated field to', found)
         }
       })
-      .catch(() => { /* silencieux : saisie manuelle en fallback */ })
+      .catch((e) => { console.log('[Xeyo prefill] error', String(e)) })
+  } else {
+    console.log('[Xeyo prefill] no order number/id', JSON.stringify(api.orderConfirmation?.current))
   }
 
   const submitButton = root.createComponent(
