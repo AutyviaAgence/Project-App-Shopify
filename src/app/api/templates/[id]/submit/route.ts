@@ -52,6 +52,16 @@ export async function POST(
 
   const token = decryptMessage(session.waba_access_token)
 
+  // [DIAG] log temporaire : vérifier le token déchiffré en prod
+  console.log('[Template Submit DIAG]', {
+    sessionId: session.id,
+    waba: session.waba_business_account_id,
+    tokenLen: token?.length,
+    tokenPrefix: token?.slice(0, 12),
+    tokenSuffix: token?.slice(-6),
+    encryptedStartsWithIv: session.waba_access_token?.includes(':'),
+  })
+
   // Construire les composants au format Graph API
   const components: Record<string, unknown>[] = []
 
@@ -100,6 +110,7 @@ export async function POST(
   })
 
   if (!result.ok) {
+    console.log('[Template Submit DIAG] Meta error brute:', result.error)
     // Token expiré (OAuthException 190) : message clair + statut dédié pour l'UI
     const isTokenExpired = /expired|OAuthException|code.*190|access token/i.test(result.error)
     if (isTokenExpired) {
