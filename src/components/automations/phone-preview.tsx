@@ -213,13 +213,13 @@ export function PhonePreview({
                   {mediaType === 'document' && <div className="bg-slate-100 px-2 py-2 text-xs text-slate-500">📄 Document.pdf</div>}
                   <div className="px-2.5 py-1.5">
                     {headerText && mediaType === 'text' && (
-                      <p className="mb-0.5 text-[18px] font-semibold text-gray-900">{headerText}</p>
+                      <p className="mb-0.5 text-[21px] font-semibold text-gray-900">{headerText}</p>
                     )}
-                    <p className="whitespace-pre-wrap break-words text-[17px] leading-snug text-gray-800">
+                    <p className="whitespace-pre-wrap break-words text-[20px] leading-snug text-gray-800">
                       {renderFormat(resolved) || <span className="text-gray-400">Votre message…</span>}
                     </p>
-                    {footerText && <p className="mt-1 text-[14px] text-gray-500">{footerText}</p>}
-                    <div className="mt-0.5 flex items-center justify-end gap-0.5 text-[10px] text-gray-400">
+                    {footerText && <p className="mt-1 text-[16px] text-gray-500">{footerText}</p>}
+                    <div className="mt-0.5 flex items-center justify-end gap-0.5 text-[11px] text-gray-400">
                       <span>12:00</span>
                       <motion.span
                         initial={{ color: '#9ca3af' }}
