@@ -52,10 +52,10 @@ function PannableTimeline({ children }: { children: React.ReactNode }) {
       onPointerUp={endDrag}
       onPointerLeave={endDrag}
       onWheel={onWheel}
-      className={cn('relative overflow-hidden rounded-2xl border bg-background/40 select-none', grabbing ? 'cursor-grabbing' : 'cursor-grab')}
+      className={cn('relative overflow-hidden rounded-2xl border bg-muted/10 select-none', grabbing ? 'cursor-grabbing' : 'cursor-grab')}
     >
       {/* Fond animé Lightfall, confiné au cadre du canvas (coins arrondis) */}
-      <div className="pointer-events-none absolute inset-0 opacity-30">
+      <div className="pointer-events-none absolute inset-0 opacity-[0.18]">
         <Lightfall
           className="" dpr={1} mixBlendMode="normal"
           colors={['#A6C8FF', '#5227FF', '#FF9FFC']}
@@ -65,6 +65,8 @@ function PannableTimeline({ children }: { children: React.ReactNode }) {
           opacity={1} mouseInteraction mouseStrength={0.5} mouseRadius={1}
         />
       </div>
+      {/* Ancien fond discret par-dessus le Lightfall pour adoucir l'ensemble */}
+      <div className="pointer-events-none absolute inset-0 bg-background/40" />
       <div
         className="relative z-[1] h-full origin-top will-change-transform"
         style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`, transition: grabbing ? 'none' : 'transform 0.1s ease-out' }}
