@@ -40,6 +40,7 @@ import {
   ALargeSmall,
   Paperclip,
   X,
+  FileText,
 } from 'lucide-react'
 import { getSessionDisplayName, getContactDisplayName } from '@/lib/format-phone'
 import { useTranslation } from '@/i18n/context'
@@ -68,6 +69,7 @@ interface ChatAreaProps {
   onChangeLifecycleStage: (convId: string, stageId: string | null) => void
   onAnalyzeConversation: (convId: string) => void
   onActionsChange?: () => void
+  onSendTemplate?: () => void
 }
 
 export function ChatArea({
@@ -92,9 +94,21 @@ export function ChatArea({
   onChangeLifecycleStage,
   onAnalyzeConversation,
   onActionsChange,
+  onSendTemplate,
 }: ChatAreaProps) {
   const { t, locale } = useTranslation()
   const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  // Fenêtre de service 24h : ouverte si le dernier message ENTRANT date de
+  // moins de 24h. Hors fenêtre, WhatsApp interdit le texte libre → on bascule
+  // l'entrée sur un bouton "Envoyer un modèle".
+  const isWhatsApp = selectedConv?.channel !== 'email'
+  const windowOpen = (() => {
+    if (!isWhatsApp) return true // email : pas de fenêtre 24h
+    const lastInbound = [...messages].reverse().find((m) => m.direction === 'inbound')
+    if (!lastInbound?.created_at) return false
+    return Date.now() - new Date(lastInbound.created_at).getTime() < 24 * 60 * 60 * 1000
+  })()
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
   const prevMessageCountRef = useRef(0)
   const [emailSubject, setEmailSubject] = useState('')
@@ -711,13 +725,23 @@ export function ChatArea({
                 </Button>
               </div>
             </div>
-          ) : (
+          ) : windowOpen ? (
             <MessageInput
               onSendText={onSendText}
               onSendMedia={onSendMedia}
               sending={sending}
               conversationId={selectedConv?.id}
             />
+          ) : (
+            /* Hors fenêtre 24h : texte libre interdit par WhatsApp → modèle */
+            <div className="flex flex-col items-center gap-2 border-t bg-amber-500/5 px-4 py-4 text-center">
+              <p className="text-sm text-muted-foreground">
+                Ce client n’a pas écrit depuis plus de <b>24h</b>. WhatsApp n’autorise plus le message libre — utilisez un modèle approuvé pour le recontacter.
+              </p>
+              <Button onClick={() => onSendTemplate?.()} disabled={sending} className="gap-1.5">
+                <FileText className="h-4 w-4" /> Envoyer un modèle
+              </Button>
+            </div>
           )}
         </>
       ) : (

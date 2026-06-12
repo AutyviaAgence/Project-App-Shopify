@@ -895,6 +895,7 @@ function ConversationsPageContent() {
         onChangeLifecycleStage={handleChangeLifecycleStage}
         onAnalyzeConversation={handleAnalyzeConversation}
         onActionsChange={fetchPendingActions}
+        onSendTemplate={() => setTemplateDialogOpen(true)}
       />
 
       {/* Contexte Shopify : commandes du client (helpdesk e-commerce) */}
