@@ -899,7 +899,7 @@ function ConversationsPageContent() {
       />
 
       {/* Contexte Shopify : commandes du client (helpdesk e-commerce) */}
-      {selectedConv && <ShopifyContextPanel contactId={selectedConv.contact_id} />}
+      {selectedConv && <ShopifyContextPanel contactId={selectedConv.contact_id} conversationId={selectedConv.id} />}
 
       {/* Contact profile panel */}
       <ContactProfilePanel

@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ShoppingBag, Package, ExternalLink, Loader2 } from 'lucide-react'
+import { ShoppingBag, Package, ExternalLink, Loader2, History, Ban, RotateCcw, Tag, Check, X } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 type Order = {
   id: string
@@ -26,13 +27,37 @@ function fulfillmentLabel(s: string | null): { label: string; color: string } {
   }
 }
 
+// Action passée (historique)
+type ActionItem = {
+  id: string
+  action_type: 'cancel_order' | 'refund_order' | 'create_discount'
+  summary: string | null
+  status: 'pending' | 'confirmed' | 'rejected' | 'executed' | 'failed'
+  created_at: string
+}
+const ACTION_META: Record<ActionItem['action_type'], { label: string; icon: typeof Ban; cls: string }> = {
+  cancel_order: { label: 'Annulation', icon: Ban, cls: 'text-red-500' },
+  refund_order: { label: 'Remboursement', icon: RotateCcw, cls: 'text-amber-500' },
+  create_discount: { label: 'Code promo', icon: Tag, cls: 'text-green-600' },
+}
+const STATUS_META: Record<ActionItem['status'], { label: string; cls: string }> = {
+  pending: { label: 'À valider', cls: 'bg-amber-500/15 text-amber-600' },
+  confirmed: { label: 'Confirmée', cls: 'bg-blue-500/15 text-blue-500' },
+  executed: { label: 'Exécutée', cls: 'bg-green-500/15 text-green-600' },
+  rejected: { label: 'Refusée', cls: 'bg-muted text-muted-foreground' },
+  failed: { label: 'Échec', cls: 'bg-red-500/15 text-red-500' },
+}
+
 /**
- * Panneau de contexte Shopify : affiche les commandes récentes du client
- * à côté de la conversation (le moat helpdesk e-commerce).
+ * Panneau de contexte Shopify : commandes récentes du client + historique des
+ * actions de la conversation (annulations, remboursements, codes promo).
  */
-export function ShopifyContextPanel({ contactId }: { contactId: string | null }) {
+export function ShopifyContextPanel({ contactId, conversationId }: { contactId: string | null; conversationId?: string }) {
   const [data, setData] = useState<Data | null>(null)
   const [loading, setLoading] = useState(false)
+  const [tab, setTab] = useState<'orders' | 'history'>('orders')
+  const [actions, setActions] = useState<ActionItem[]>([])
+  const [actionsLoading, setActionsLoading] = useState(false)
 
   useEffect(() => {
     if (!contactId) { setData(null); return }
@@ -44,17 +69,67 @@ export function ShopifyContextPanel({ contactId }: { contactId: string | null })
       .finally(() => setLoading(false))
   }, [contactId])
 
+  // Historique des actions de la conversation (chargé à l'ouverture de l'onglet)
+  useEffect(() => {
+    if (tab !== 'history' || !conversationId) return
+    setActionsLoading(true)
+    fetch(`/api/shopify/actions?conversation_id=${conversationId}`)
+      .then((r) => r.json())
+      .then((j) => setActions(j.data || []))
+      .catch(() => setActions([]))
+      .finally(() => setActionsLoading(false))
+  }, [tab, conversationId])
+
   if (!contactId) return null
   // Boutique non connectée → on n'affiche pas le panneau
   if (data && !data.connected) return null
 
   return (
     <div className="hidden w-72 shrink-0 border-l bg-background xl:block">
-      <div className="flex items-center gap-2 border-b px-4 py-3">
-        <ShoppingBag className="h-4 w-4 text-primary" />
-        <span className="text-sm font-semibold">Commandes Shopify</span>
+      {/* Onglets Commandes / Historique */}
+      <div className="flex border-b">
+        <button onClick={() => setTab('orders')}
+          className={cn('flex flex-1 items-center justify-center gap-1.5 px-3 py-3 text-sm font-medium transition-colors',
+            tab === 'orders' ? 'border-b-2 border-primary text-primary' : 'text-muted-foreground hover:text-foreground')}>
+          <ShoppingBag className="h-4 w-4" /> Commandes
+        </button>
+        <button onClick={() => setTab('history')}
+          className={cn('flex flex-1 items-center justify-center gap-1.5 px-3 py-3 text-sm font-medium transition-colors',
+            tab === 'history' ? 'border-b-2 border-primary text-primary' : 'text-muted-foreground hover:text-foreground')}>
+          <History className="h-4 w-4" /> Historique
+        </button>
       </div>
 
+      {tab === 'history' ? (
+        <div className="space-y-2 p-4">
+          {actionsLoading ? (
+            <div className="flex items-center justify-center py-8 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /></div>
+          ) : actions.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">Aucune action sur cette conversation.</p>
+          ) : (
+            actions.map((a) => {
+              const meta = ACTION_META[a.action_type]
+              const st = STATUS_META[a.status]
+              const Icon = meta.icon
+              return (
+                <div key={a.id} className="rounded-xl border p-3">
+                  <div className="flex items-center gap-2">
+                    <Icon className={cn('h-4 w-4', meta.cls)} />
+                    <span className="text-sm font-medium">{meta.label}</span>
+                    <span className={cn('ml-auto flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium', st.cls)}>
+                      {a.status === 'executed' && <Check className="h-2.5 w-2.5" />}
+                      {a.status === 'rejected' && <X className="h-2.5 w-2.5" />}
+                      {st.label}
+                    </span>
+                  </div>
+                  {a.summary && <p className="mt-1 text-xs text-muted-foreground">{a.summary}</p>}
+                  <p className="mt-1 text-[11px] text-muted-foreground/70">{new Date(a.created_at).toLocaleString('fr-FR')}</p>
+                </div>
+              )
+            })
+          )}
+        </div>
+      ) : (
       <div className="space-y-3 p-4">
         {loading ? (
           <div className="flex items-center justify-center py-8 text-muted-foreground">
@@ -95,6 +170,7 @@ export function ShopifyContextPanel({ contactId }: { contactId: string | null })
           })
         )}
       </div>
+      )}
     </div>
   )
 }

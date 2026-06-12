@@ -378,9 +378,6 @@ export function ChatArea({
             </Button>
           </div>
 
-          {/* Actions Shopify à valider pour cette conversation */}
-          {selectedConv?.id && <ActionsPanel conversationId={selectedConv.id} onChange={onActionsChange} />}
-
           {/* Messages area */}
           <div className="flex-1 overflow-auto p-4 scrollbar-thin">
             {messagesLoading ? (
@@ -603,6 +600,10 @@ export function ChatArea({
               />
             )}
           </div>
+
+          {/* Actions Shopify à valider — juste au-dessus de la saisie pour
+              que l'utilisateur les voie en premier (le fil s'ouvre en bas). */}
+          {selectedConv?.id && <ActionsPanel conversationId={selectedConv.id} onChange={onActionsChange} />}
 
           {/* Zone d'envoi — email ou WhatsApp */}
           {isEmail ? (
