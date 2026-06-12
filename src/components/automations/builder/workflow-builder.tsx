@@ -6,6 +6,7 @@ import { insertAfter, removeNode, patchNode as patchNodeGraph } from './timeline
 import { PhonePreview } from '@/components/automations/phone-preview'
 import { cn } from '@/lib/utils'
 import { VARIABLE_BY_KEY } from '@/lib/templates/variables'
+import { TRIGGER_EVENTS } from '@/lib/automations/types'
 import type { WorkflowGraph, WorkflowNode } from '@/lib/automations/graph-types'
 import type { WhatsAppTemplate } from '@/types/database'
 
@@ -67,6 +68,49 @@ function templateSamples(tpl?: WhatsAppTemplate): string[] {
   return (tpl.sample_values as string[]) || []
 }
 
+function delayLabelMin(m: number): string {
+  if (m <= 0) return 'Immédiat'
+  if (m < 60) return `${m} min`
+  if (m < 1440) return `${Math.round(m / 60)} h`
+  return `${Math.round(m / 1440)} j`
+}
+
+/**
+ * Remonte du nœud action jusqu'au trigger pour reconstituer le contexte réel :
+ * l'événement déclencheur, le délai CUMULÉ, et la condition franchie (avec sa
+ * branche). Sert à alimenter la bulle système + l'horloge du mockup.
+ */
+function pathContext(graph: WorkflowGraph, actionId?: string): { eventValue?: string; delayMin: number; condition?: string } {
+  if (!actionId) {
+    const trig = graph.nodes.find((n) => n.type === 'trigger')
+    return { eventValue: trig?.type === 'trigger' ? trig.event : undefined, delayMin: 0 }
+  }
+  // chemin inverse : on reconstruit la suite de nœuds parents
+  const parents: { from: string; branch?: 'yes' | 'no' }[] = []
+  let cur: string | undefined = actionId
+  const seen = new Set<string>()
+  while (cur && !seen.has(cur)) {
+    seen.add(cur)
+    const inc = graph.edges.find((e) => e.to === cur)
+    if (!inc) break
+    parents.unshift({ from: inc.from, branch: inc.branch })
+    cur = inc.from
+  }
+  let delayMin = 0
+  let condition: string | undefined
+  let eventValue: string | undefined
+  for (const p of parents) {
+    const node = graph.nodes.find((n) => n.id === p.from)
+    if (!node) continue
+    if (node.type === 'trigger') eventValue = node.event
+    if (node.type === 'delay') delayMin += node.minutes || 0
+    if (node.type === 'condition' && p.branch) {
+      condition = p.branch === 'yes' ? 'condition remplie' : 'sinon'
+    }
+  }
+  return { eventValue, delayMin, condition }
+}
+
 /**
  * Builder = Timeline verticale (centre) + iPhone d'aperçu (droite).
  * La config de chaque bloc est inline dans le bloc (style Loops.so). Pas de
@@ -88,9 +132,14 @@ export function WorkflowBuilder({
   const onDelete = useCallback((id: string) => onChange(removeNode(graph, id)), [graph, onChange])
 
   // Modèle à prévisualiser : le dernier sélectionné, sinon le 1er nœud action.
-  const firstActionTpl = graph.nodes.find((n) => n.type === 'action' && n.templateId)
-  const previewId = previewTplId || (firstActionTpl?.type === 'action' ? firstActionTpl.templateId : null)
+  const firstAction = graph.nodes.find((n) => n.type === 'action' && n.templateId)
+  const previewId = previewTplId || (firstAction?.type === 'action' ? firstAction.templateId : null)
   const previewTpl = templates.find((t) => t.id === previewId)
+
+  // Contexte réel du chemin menant à ce message : événement déclencheur,
+  // délai cumulé, et condition rencontrée (pour la bulle système du mockup).
+  const previewActionNode = graph.nodes.find((n) => n.type === 'action' && n.templateId === previewId)
+  const ctx = pathContext(graph, previewActionNode?.id)
 
   return (
     <div className="grid h-full grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_440px]">
@@ -114,8 +163,9 @@ export function WorkflowBuilder({
         {previewTpl ? (
           <PhonePreview
             storeName={storeName}
-            eventLabel="Aperçu"
-            delayLabel="Immédiat"
+            eventLabel={TRIGGER_EVENTS.find((e) => e.value === ctx.eventValue)?.label || 'Déclencheur'}
+            conditionsText={ctx.condition}
+            delayLabel={delayLabelMin(ctx.delayMin)}
             headerText={previewTpl.header_text || undefined}
             bodyText={previewTpl.body_text}
             footerText={previewTpl.footer_text || undefined}
