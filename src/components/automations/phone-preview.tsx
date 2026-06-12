@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Check, Play, Clock, ShoppingBag } from 'lucide-react'
 import IPhoneMockup from '@/components/ui/iphone-mockup'
@@ -84,28 +84,58 @@ export function PhonePreview({
     return () => timers.forEach(clearTimeout)
   }, [playKey, resolved, delayLabel, immediate])
 
-  // Le mockup (852+24 de haut, 393+24 de large) est mis à l'échelle via
-  // transform:scale qui NE réduit PAS l'espace réservé → on contraint le
-  // wrapper à la taille réelle pour ne pas laisser un grand vide en dessous.
-  const realW = (393 + 24) * scale
-  const realH = (852 + 24) * scale
+  // Responsive : le mockup s'adapte à la HAUTEUR disponible de son conteneur.
+  // On mesure le parent et on calcule un scale (borné) pour qu'il rentre sans
+  // scroll. Dimensions nominales du mockup : 417 × 876 (incl. bezels).
+  const NOM_W = 417, NOM_H = 876
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const [fitScale, setFitScale] = useState(scale)
+  useEffect(() => {
+    const el = wrapRef.current?.parentElement
+    if (!el) return
+    const compute = () => {
+      // La mascotte déborde d'environ 0.43×largeur_mockup au-dessus. On réserve
+      // cet espace + ~50px pour le bouton "Rejouer", et on borne le scale.
+      const availW = el.clientWidth - 24
+      // hauteur dispo : on résout s tel que s*NOM_H + mascotteDébord(s) + bouton <= H
+      // mascotteDébord ≈ s*NOM_W*0.86*0.5 ; on simplifie en réservant un ratio.
+      const H = el.clientHeight - 60
+      const s = Math.min(
+        H / (NOM_H + (mascot ? NOM_W * 0.86 * 0.5 : 0)),
+        availW / NOM_W,
+        0.95,
+      )
+      setFitScale(Math.max(0.5, s))
+    }
+    compute()
+    const ro = new ResizeObserver(compute)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [mascot])
+
+  const realW = NOM_W * fitScale
+  const realH = NOM_H * fitScale
 
   return (
-    <div className={cn('flex flex-col items-center gap-3', mascot && 'pt-14')}>
+    <div ref={wrapRef} className={cn('flex flex-col items-center gap-3', mascot && 'pt-2')}>
      <div className="relative" style={{ width: realW, height: realH }}>
-      {/* Mascotte Xeyo posée SUR le haut du téléphone (mains qui agrippent le
-          bord). z-50 = au TOUT premier plan (passe devant la barre du nom). */}
+      {/* Mascotte Xeyo posée SUR le haut du téléphone. Sa hauteur visible
+          (~58% de sa largeur) déborde au-dessus ; les mains chevauchent le bord
+          du mockup. z-50 = au premier plan. */}
       {mascot && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src="/mascots/peeking.png"
           alt=""
           aria-hidden
-          className="pointer-events-none absolute bottom-full left-1/2 z-50 -translate-x-1/2 translate-y-[78px] select-none drop-shadow-2xl"
-          style={{ width: 250 * scale }}
+          className="pointer-events-none absolute left-1/2 z-50 -translate-x-1/2 select-none drop-shadow-2xl"
+          // Grosse mascotte : largeur ~85% du téléphone. L'image fait ~58% de
+          // hauteur ; on la remonte pour que la tête soit visible et les mains
+          // chevauchent le bord supérieur du mockup.
+          style={{ width: NOM_W * fitScale * 0.86, top: -(NOM_W * fitScale * 0.86 * 0.5) }}
         />
       )}
-      <IPhoneMockup model="15-pro" color="#3a4a63" scale={scale} screenBg="#0b141a" glass>
+      <IPhoneMockup model="15-pro" color="#3a4a63" scale={fitScale} screenBg="#0b141a" glass>
         <div className="flex h-full flex-col">
           {/* Barre WhatsApp (sous la Dynamic Island) */}
           <div className="flex items-center gap-2 bg-[#075E54] px-3 pb-2.5 pt-12 text-white">
