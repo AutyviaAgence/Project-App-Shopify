@@ -27,6 +27,17 @@ export async function GET(req: NextRequest) {
   )
   const now = new Date()
 
+  // Déclencheurs temporels (pas de réponse / date / anniversaire) : on les
+  // évalue ici pour n'avoir qu'UN SEUL schedule. Les jobs enfilés sont dus
+  // immédiatement et traités dès ce tick (requête jobs ci-dessous).
+  let temporalQueued = 0
+  try {
+    const { runTemporalTriggers } = await import('@/lib/automations/temporal')
+    temporalQueued = (await runTemporalTriggers(supabase)).queued
+  } catch (e) {
+    console.error('[cron] temporal triggers:', e)
+  }
+
   // Jobs dus (limite pour éviter les longues exécutions)
   const { data: jobs } = await supabase
     .from('automation_jobs')
@@ -111,7 +122,7 @@ export async function GET(req: NextRequest) {
     else { await mark(supabase, job.id, 'failed', r.error || 'échec'); failed++ }
   }
 
-  return NextResponse.json({ ok: true, processed: (jobs || []).length, sent, skipped, failed, deferred })
+  return NextResponse.json({ ok: true, processed: (jobs || []).length, sent, skipped, failed, deferred, temporalQueued })
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -45,6 +45,7 @@ export function PhonePreview({
   mediaType,
   mediaUrl,
   scale = 0.74,
+  mascot = false,
 }: {
   storeName: string
   eventLabel: string        // ex: "Commande expédiée"
@@ -57,6 +58,7 @@ export function PhonePreview({
   mediaType?: 'none' | 'text' | 'image' | 'video' | 'document'
   mediaUrl?: string
   scale?: number
+  mascot?: boolean
 }) {
   const resolved = resolvePreview(bodyText, samples)
   const customerName = samples[0] || 'Marie'
@@ -83,6 +85,18 @@ export function PhonePreview({
 
   return (
     <div className="flex flex-col items-center gap-3">
+     <div className="relative">
+      {/* Mascotte Xeyo qui "tient" le téléphone (dépasse au-dessus) */}
+      {mascot && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src="/mascots/peeking.png"
+          alt=""
+          aria-hidden
+          className="pointer-events-none absolute left-1/2 z-0 -translate-x-1/2 select-none drop-shadow-xl"
+          style={{ top: -68 * scale, width: 150 * scale }}
+        />
+      )}
       <IPhoneMockup model="15-pro" color="#3a4a63" scale={scale} screenBg="#0b141a" glass>
         <div className="flex h-full flex-col">
           {/* Barre WhatsApp (sous la Dynamic Island) */}
@@ -179,6 +193,7 @@ export function PhonePreview({
           </div>
         </div>
       </IPhoneMockup>
+     </div>
 
       <button
         onClick={() => setPlayKey((k) => k + 1)}

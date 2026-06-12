@@ -121,7 +121,8 @@ export function WorkflowBuilder({
             footerText={previewTpl.footer_text || undefined}
             samples={templateSamples(previewTpl)}
             mediaType={previewTpl.header_type}
-            scale={0.92}
+            scale={0.82}
+            mascot
           />
         ) : (
           <div className="flex h-full w-full items-center justify-center rounded-2xl border border-dashed p-4 text-center text-xs text-muted-foreground">
