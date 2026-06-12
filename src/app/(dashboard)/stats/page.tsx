@@ -57,6 +57,7 @@ import { fr, enUS } from 'date-fns/locale'
 import { getSessionDisplayName, formatPhoneNumber } from '@/lib/format-phone'
 import { useTranslation } from '@/i18n/context'
 import { BlobLoaderScreen } from '@/components/blob-loader'
+import { NumberTicker } from '@/components/ui/number-ticker'
 
 type SessionOption = {
   id: string
@@ -368,7 +369,7 @@ export default function StatsPage() {
                         <div className="grid grid-cols-2 gap-4">
                           <div>
                             <p className="text-2xl font-bold">
-                              {agent.messagesHandled.toLocaleString(numberLocale)}
+                              <NumberTicker value={agent.messagesHandled} />
                             </p>
                             <p className="text-xs text-muted-foreground">
                               {t('stats.messages_processed')}
@@ -376,7 +377,7 @@ export default function StatsPage() {
                           </div>
                           <div>
                             <p className="text-2xl font-bold">
-                              {agent.conversationsManaged.toLocaleString(numberLocale)}
+                              <NumberTicker value={agent.conversationsManaged} />
                             </p>
                             <p className="text-xs text-muted-foreground">
                               {t('stats.conversations')}

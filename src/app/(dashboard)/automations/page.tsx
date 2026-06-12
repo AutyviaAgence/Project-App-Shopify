@@ -17,6 +17,8 @@ import { VARIABLE_BY_KEY } from '@/lib/templates/variables'
 import type { WhatsAppTemplate } from '@/types/database'
 import { PhonePreview } from '@/components/automations/phone-preview'
 import { ConstellationFlow } from '@/components/automations/constellation-flow'
+import { BorderBeam } from '@/components/ui/border-beam'
+import { ShimmerButton } from '@/components/ui/shimmer-button'
 
 type Automation = {
   id: string
@@ -159,7 +161,9 @@ export default function AutomationsPage() {
           <h1 className="text-xl font-semibold flex items-center gap-2"><Workflow className="h-5 w-5" /> Automatisations</h1>
           <p className="text-sm text-muted-foreground">Envoyez un message automatiquement quand un événement se produit sur votre boutique.</p>
         </div>
-        <Button onClick={openNew}><Plus className="mr-1 h-4 w-4" />Nouvelle</Button>
+        <ShimmerButton onClick={openNew} background="linear-gradient(110deg, #3B82F6, #2563EB)">
+          <Plus className="mr-1 h-4 w-4" />Nouvelle
+        </ShimmerButton>
       </div>
 
       {/* Layout : liste (gauche) + téléphone fixe (droite) */}
@@ -199,8 +203,10 @@ export default function AutomationsPage() {
                   key={a.id}
                   layout
                   initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                  className={cn('overflow-hidden rounded-2xl border transition-colors', isOpen ? 'ring-1 ring-primary/30' : '', a.is_active ? 'bg-card' : 'bg-muted/30')}
+                  className={cn('relative overflow-hidden rounded-2xl border transition-colors', isOpen ? 'ring-1 ring-primary/30' : '', a.is_active ? 'bg-card' : 'bg-muted/30')}
                 >
+                  {/* Bordure lumineuse animée si l'automatisation tourne */}
+                  {a.is_active && <BorderBeam size={140} duration={8} borderWidth={1.5} colorFrom="#7DA0FF" colorTo="#22C55E" />}
                   {/* En-tête cliquable */}
                   <div className="cursor-pointer p-4" onClick={() => toggleOpen(a)}>
                     <div className="flex items-center justify-between gap-3">

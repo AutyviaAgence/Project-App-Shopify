@@ -65,11 +65,18 @@ export function PhonePreview({
   const [playKey, setPlayKey] = useState(0)
 
   useEffect(() => {
-    setStep(0)
-    const t1 = setTimeout(() => setStep(1), 600)
-    const t2 = setTimeout(() => setStep(2), immediate ? 900 : 1500)
-    const t3 = setTimeout(() => setStep(3), immediate ? 2100 : 2700)
-    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
+    // Scénario un peu plus lent, qui se REJOUE en boucle.
+    const timers: ReturnType<typeof setTimeout>[] = []
+    function runOnce() {
+      setStep(0)
+      timers.push(setTimeout(() => setStep(1), 1000))
+      timers.push(setTimeout(() => setStep(2), immediate ? 1700 : 2600))
+      timers.push(setTimeout(() => setStep(3), immediate ? 3000 : 3900))
+      // Pause puis relance (boucle infinie)
+      timers.push(setTimeout(runOnce, immediate ? 5200 : 6200))
+    }
+    runOnce()
+    return () => timers.forEach(clearTimeout)
   }, [playKey, resolved, delayLabel, immediate])
 
   return (
@@ -87,9 +94,9 @@ export function PhonePreview({
             </div>
           </div>
 
-          {/* Conversation (fond WhatsApp) */}
+          {/* Conversation (fond WhatsApp) — les bulles se remplissent par le bas */}
           <div
-            className="relative flex flex-1 flex-col gap-2 px-3 py-4"
+            className="relative flex flex-1 flex-col justify-end gap-2 px-3 pb-8 pt-4"
             style={{ backgroundImage: 'url(/whatsapp-bg.webp)', backgroundSize: 'cover' }}
           >
             <AnimatePresence>
