@@ -165,6 +165,51 @@ export const wabaClient = {
     )
   },
 
+  /**
+   * Resumable Upload API — obtient un `header_handle` pour un média d'en-tête
+   * de template. Meta EXIGE ce handle (une simple URL est refusée → erreur 422).
+   *
+   * Deux étapes :
+   *  1) POST /{app_id}/uploads → crée une session (retourne un upload id)
+   *  2) POST /{upload_id} avec les bytes + Authorization: OAuth → retourne { h }
+   *
+   * Le handle `h` est ensuite passé dans components HEADER.example.header_handle.
+   */
+  async uploadResumableMedia(
+    appId: string,
+    accessToken: string,
+    params: { buffer: Buffer; mimeType: string; fileName: string }
+  ): Promise<{ ok: true; handle: string } | { ok: false; error: string }> {
+    try {
+      // 1) Créer la session d'upload
+      const startUrl = `${GRAPH_API_BASE}/${appId}/uploads?file_name=${encodeURIComponent(params.fileName)}&file_length=${params.buffer.length}&file_type=${encodeURIComponent(params.mimeType)}&access_token=${encodeURIComponent(accessToken)}`
+      const startRes = await fetch(startUrl, { method: 'POST' })
+      const startText = await startRes.text()
+      if (!startRes.ok) return { ok: false, error: `upload session: HTTP ${startRes.status}: ${startText}` }
+      const startJson = JSON.parse(startText) as { id?: string }
+      if (!startJson.id) return { ok: false, error: `upload session: pas d'id (${startText})` }
+
+      // 2) Uploader les bytes (Authorization: OAuth, file_offset: 0)
+      const uploadRes = await fetch(`${GRAPH_API_BASE}/${startJson.id}`, {
+        method: 'POST',
+        headers: {
+          Authorization: `OAuth ${accessToken}`,
+          file_offset: '0',
+          'Content-Type': 'application/octet-stream',
+        },
+        body: new Uint8Array(params.buffer),
+      })
+      const upText = await uploadRes.text()
+      if (!uploadRes.ok) return { ok: false, error: `upload bytes: HTTP ${uploadRes.status}: ${upText}` }
+      const upJson = JSON.parse(upText) as { h?: string }
+      if (!upJson.h) return { ok: false, error: `upload bytes: pas de handle (${upText})` }
+
+      return { ok: true, handle: upJson.h }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : 'upload exception' }
+    }
+  },
+
   /** Supprimer un template par son nom */
   deleteTemplate(businessAccountId: string, accessToken: string, name: string) {
     return request<{ success: boolean }>(
