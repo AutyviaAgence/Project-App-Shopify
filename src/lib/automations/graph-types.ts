@@ -64,6 +64,18 @@ export function findNode(graph: WorkflowGraph, id: string): WorkflowNode | undef
   return graph.nodes.find((n) => n.id === id)
 }
 
+/** Graphe de départ : un trigger relié à une action (le cas le plus simple). */
+export function defaultGraph(event: TriggerEvent = 'order_fulfilled', templateId: string | null = null): WorkflowGraph {
+  return {
+    nodes: [
+      { id: 'trigger', type: 'trigger', event },
+      { id: 'action_1', type: 'action', templateId },
+    ],
+    edges: [{ from: 'trigger', to: 'action_1' }],
+    positions: { trigger: { x: 120, y: 30 }, action_1: { x: 120, y: 220 } },
+  }
+}
+
 export function triggerNode(graph: WorkflowGraph): TriggerNode | undefined {
   return graph.nodes.find((n): n is TriggerNode => n.type === 'trigger')
 }

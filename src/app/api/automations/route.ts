@@ -10,7 +10,7 @@ export async function GET() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase as any)
     .from('automations')
-    .select('id, name, trigger_event, template_id, delay_minutes, quiet_start, quiet_end, timezone, conditions, is_active, created_at, updated_at')
+    .select('id, name, trigger_event, template_id, delay_minutes, quiet_start, quiet_end, timezone, conditions, is_active, graph, builder_mode, created_at, updated_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
 

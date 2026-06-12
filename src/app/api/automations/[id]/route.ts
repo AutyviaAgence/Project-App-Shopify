@@ -10,10 +10,18 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const body = await req.json().catch(() => ({}))
   const updates: Record<string, unknown> = {}
-  for (const k of ['name', 'trigger_event', 'template_id', 'delay_minutes', 'quiet_start', 'quiet_end', 'timezone', 'conditions', 'is_active'] as const) {
+  for (const k of ['name', 'trigger_event', 'template_id', 'delay_minutes', 'quiet_start', 'quiet_end', 'timezone', 'conditions', 'is_active', 'graph', 'builder_mode'] as const) {
     if (body[k] !== undefined) updates[k] = body[k]
   }
   if (updates.delay_minutes !== undefined) updates.delay_minutes = Math.max(0, parseInt(String(updates.delay_minutes), 10) || 0)
+  // Si on sauve un graphe, on synchronise trigger_event depuis le nœud trigger
+  // (l'enqueue filtre les automatisations par trigger_event).
+  if (updates.graph && typeof updates.graph === 'object') {
+    const g = updates.graph as { nodes?: { type: string; event?: string }[] }
+    const trig = g.nodes?.find((n) => n.type === 'trigger')
+    if (trig?.event) updates.trigger_event = trig.event
+    updates.builder_mode = true
+  }
   updates.updated_at = new Date().toISOString()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -19,6 +19,9 @@ import { PhonePreview } from '@/components/automations/phone-preview'
 import { ConstellationFlow } from '@/components/automations/constellation-flow'
 import { BorderBeam } from '@/components/ui/border-beam'
 import { ShimmerButton } from '@/components/ui/shimmer-button'
+import { WorkflowBuilder } from '@/components/automations/builder/workflow-builder'
+import { defaultGraph, type WorkflowGraph } from '@/lib/automations/graph-types'
+import { GitBranch } from 'lucide-react'
 
 type Automation = {
   id: string
@@ -30,6 +33,8 @@ type Automation = {
   quiet_end: number | null
   conditions: { min_total?: number; max_total?: number; first_order_only?: boolean }
   is_active: boolean
+  graph?: WorkflowGraph | null
+  builder_mode?: boolean
 }
 
 const EVENT_LABEL: Record<string, string> = Object.fromEntries(TRIGGER_EVENTS.map((e) => [e.value, e.label]))
@@ -75,6 +80,9 @@ export default function AutomationsPage() {
   // Brouillon en cours d'édition (l'automatisation ouverte).
   const [draft, setDraft] = useState<Automation | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
+  // Builder visuel : automatisation ouverte en mode canvas + graphe en cours.
+  const [builderAuto, setBuilderAuto] = useState<Automation | null>(null)
+  const [builderGraph, setBuilderGraph] = useState<WorkflowGraph | null>(null)
 
   const load = useCallback(async () => {
     try {
@@ -147,6 +155,33 @@ export default function AutomationsPage() {
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Erreur') } finally { setBusyId(null) }
   }
 
+  // Ouvre le builder visuel pour une automatisation (graphe existant ou créé
+  // depuis le format linéaire actuel).
+  function openBuilder(a: Automation) {
+    const g = a.graph || defaultGraph((a.trigger_event as never) || 'order_fulfilled', a.template_id)
+    setBuilderAuto(a)
+    setBuilderGraph(g)
+  }
+  function closeBuilder() { setBuilderAuto(null); setBuilderGraph(null) }
+
+  async function saveBuilder() {
+    if (!builderAuto || !builderGraph) return
+    setBusyId('builder')
+    try {
+      const isNew = !builderAuto.id
+      const res = await fetch(isNew ? '/api/automations' : `/api/automations/${builderAuto.id}`, {
+        method: isNew ? 'POST' : 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...builderAuto, graph: builderGraph, builder_mode: true }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Erreur')
+      await load()
+      closeBuilder()
+      toast.success('Workflow enregistré')
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Erreur') } finally { setBusyId(null) }
+  }
+
   if (loading) return <BlobLoaderScreen />
 
   // Modèle prévisualisé dans le téléphone : celui du brouillon ouvert, sinon
@@ -182,7 +217,7 @@ export default function AutomationsPage() {
                     <span className="font-medium">Nouvelle automatisation</span>
                     <button onClick={closeEditor} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
                   </div>
-                  <Editor draft={draft} setDraft={setDraft} templates={templates} onSave={save} onCancel={closeEditor} busy={busyId === 'save'} />
+                  <Editor draft={draft} setDraft={setDraft} templates={templates} onSave={save} onCancel={closeEditor} onBuilder={() => draft && openBuilder(draft)} busy={busyId === "save"} />
                 </div>
               </motion.div>
             )}
@@ -242,7 +277,7 @@ export default function AutomationsPage() {
                         className="overflow-hidden border-t"
                       >
                         <div className="p-4">
-                          <Editor draft={draft} setDraft={setDraft} templates={templates} onSave={save} onCancel={closeEditor} busy={busyId === 'save'} />
+                          <Editor draft={draft} setDraft={setDraft} templates={templates} onSave={save} onCancel={closeEditor} onBuilder={() => draft && openBuilder(draft)} busy={busyId === "save"} />
                         </div>
                       </motion.div>
                     )}
@@ -277,17 +312,51 @@ export default function AutomationsPage() {
           </div>
         </div>
       </div>
+
+      {/* Modal plein écran : Builder visuel (drag & drop) */}
+      <AnimatePresence>
+        {builderAuto && builderGraph && (
+          <motion.div
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex flex-col bg-background"
+          >
+            <div className="flex items-center justify-between border-b px-4 py-3">
+              <div className="flex items-center gap-2">
+                <GitBranch className="h-5 w-5 text-violet-600" />
+                <span className="font-semibold">{builderAuto.name || 'Nouveau workflow'}</span>
+                <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[11px] font-medium text-violet-600">Builder visuel</span>
+              </div>
+              <div className="flex gap-2">
+                <Button variant="ghost" onClick={closeBuilder}>Fermer</Button>
+                <Button onClick={saveBuilder} disabled={busyId === 'builder'}>
+                  {busyId === 'builder' ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
+                  Enregistrer le workflow
+                </Button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-hidden p-4">
+              <WorkflowBuilder
+                graph={builderGraph}
+                templates={templates}
+                storeName={storeName}
+                onChange={setBuilderGraph}
+              />
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
 
 /** Formulaire d'édition (blocs Quand / Attendre / Envoyer / Conditions). */
-function Editor({ draft, setDraft, templates, onSave, onCancel, busy }: {
+function Editor({ draft, setDraft, templates, onSave, onCancel, onBuilder, busy }: {
   draft: Automation
   setDraft: (a: Automation) => void
   templates: WhatsAppTemplate[]
   onSave: () => void
   onCancel: () => void
+  onBuilder: () => void
   busy: boolean
 }) {
   return (
@@ -340,12 +409,17 @@ function Editor({ draft, setDraft, templates, onSave, onCancel, busy }: {
         </label>
       </StepBlock>
 
-      <div className="flex justify-end gap-2 pt-1">
-        <Button variant="ghost" onClick={onCancel}>Annuler</Button>
-        <Button onClick={onSave} disabled={busy}>
-          {busy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
-          {draft.id ? 'Enregistrer' : 'Créer'}
+      <div className="flex items-center justify-between gap-2 pt-1">
+        <Button variant="outline" size="sm" onClick={onBuilder} className="text-violet-600">
+          <GitBranch className="mr-1 h-4 w-4" />Mode avancé (branches)
         </Button>
+        <div className="flex gap-2">
+          <Button variant="ghost" onClick={onCancel}>Annuler</Button>
+          <Button onClick={onSave} disabled={busy}>
+            {busy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
+            {draft.id ? 'Enregistrer' : 'Créer'}
+          </Button>
+        </div>
       </div>
     </div>
   )
