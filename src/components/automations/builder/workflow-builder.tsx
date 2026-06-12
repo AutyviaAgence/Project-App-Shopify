@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useCallback, useRef, useState } from 'react'
+import dynamic from 'next/dynamic'
 import { Timeline } from './timeline'
 import { insertAfter, removeNode, patchNode as patchNodeGraph } from './timeline-model'
 import { PhonePreview } from '@/components/automations/phone-preview'
@@ -10,6 +11,8 @@ import { VARIABLE_BY_KEY } from '@/lib/templates/variables'
 import { TRIGGER_EVENTS } from '@/lib/automations/types'
 import type { WorkflowGraph, WorkflowNode } from '@/lib/automations/graph-types'
 import type { WhatsAppTemplate } from '@/types/database'
+
+const Lightfall = dynamic(() => import('@/components/Lightfall'), { ssr: false })
 
 /**
  * Zone de timeline déplaçable : on peut faire défiler le workflow en
@@ -49,10 +52,21 @@ function PannableTimeline({ children }: { children: React.ReactNode }) {
       onPointerUp={endDrag}
       onPointerLeave={endDrag}
       onWheel={onWheel}
-      className={cn('relative overflow-hidden rounded-2xl border bg-background/40 backdrop-blur-sm select-none', grabbing ? 'cursor-grabbing' : 'cursor-grab')}
+      className={cn('relative overflow-hidden rounded-2xl border bg-background/40 select-none', grabbing ? 'cursor-grabbing' : 'cursor-grab')}
     >
+      {/* Fond animé Lightfall, confiné au cadre du canvas (coins arrondis) */}
+      <div className="pointer-events-none absolute inset-0 opacity-30">
+        <Lightfall
+          className="" dpr={1} mixBlendMode="normal"
+          colors={['#A6C8FF', '#5227FF', '#FF9FFC']}
+          backgroundColor="#0A1530"
+          speed={0.5} streakCount={2} streakWidth={1} streakLength={1}
+          glow={1} density={0.6} twinkle={1} zoom={3} backgroundGlow={0.5}
+          opacity={1} mouseInteraction mouseStrength={0.5} mouseRadius={1}
+        />
+      </div>
       <div
-        className="h-full origin-top will-change-transform"
+        className="relative z-[1] h-full origin-top will-change-transform"
         style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`, transition: grabbing ? 'none' : 'transform 0.1s ease-out' }}
       >
         {children}
@@ -158,7 +172,7 @@ export function WorkflowBuilder({
   const ctx = pathContext(graph, previewActionNode?.id)
 
   return (
-    <div className="grid h-full grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_360px] 2xl:grid-cols-[minmax(0,1fr)_440px]">
+    <div className="grid h-full grid-cols-1 gap-4 xl:grid-cols-[minmax(0,1fr)_300px] 2xl:grid-cols-[minmax(0,1fr)_420px]">
       {/* Timeline centrale (déplaçable au clic-glissé). max-width pour ne pas
           occuper toute la largeur → le workflow respire. */}
       <PannableTimeline>
