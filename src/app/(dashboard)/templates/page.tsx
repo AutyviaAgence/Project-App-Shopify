@@ -1,7 +1,8 @@
 'use client'
 
 import React, { useEffect, useState, useCallback, useRef } from 'react'
-import type { WhatsAppTemplate, TemplateButton } from '@/types/database'
+import type { WhatsAppTemplate, TemplateButton, TemplateCard } from '@/types/database'
+import { CarouselEditor, CarouselPreview } from './_components/carousel-editor'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -76,6 +77,11 @@ export default function TemplatesPage() {
   const [mediaFilename, setMediaFilename] = useState('')
   const [uploadingMedia, setUploadingMedia] = useState(false)
   const [buttons, setButtons] = useState<TemplateButton[]>([])
+  // Carrousel
+  const [templateType, setTemplateType] = useState<'standard' | 'carousel'>('standard')
+  const [carouselCards, setCarouselCards] = useState<TemplateCard[]>([])
+  const [cardMediaKind, setCardMediaKind] = useState<'image' | 'video'>('image')
+  const [cardPreviews, setCardPreviews] = useState<Record<number, string>>({})
   const [saving, setSaving] = useState(false)
   const bodyRef = useRef<HTMLTextAreaElement>(null)
   const mediaInputRef = useRef<HTMLInputElement>(null)
@@ -196,6 +202,7 @@ export default function TemplatesPage() {
     setBodyText(''); setVariableKeys([]); setHeaderText(''); setFooterText('Powered by Xeyo.io')
     setHeaderType('none'); setHeaderMediaUrl(''); setButtons([])
     setMediaPreviewUrl(''); setMediaFilename('')
+    setTemplateType('standard'); setCarouselCards([]); setCardMediaKind('image'); setCardPreviews({})
     setMode('edit')
   }
 
@@ -220,6 +227,24 @@ export default function TemplatesPage() {
     } else if (t.header_media_url) {
       setMediaPreviewUrl(t.header_media_url)
     }
+    // Carrousel : charge les cartes + génère une URL signée d'aperçu par carte.
+    const tt = (t.template_type === 'carousel' ? 'carousel' : 'standard') as 'standard' | 'carousel'
+    setTemplateType(tt)
+    const cards = Array.isArray(t.carousel_cards) ? t.carousel_cards : []
+    setCarouselCards(cards)
+    setCardMediaKind((cards[0]?.header_type as 'image' | 'video') || 'image')
+    setCardPreviews({})
+    cards.forEach((card, i) => {
+      if (!card.header_media_url) return
+      if (/^https?:\/\//i.test(card.header_media_url)) {
+        setCardPreviews((p) => ({ ...p, [i]: card.header_media_url as string }))
+      } else {
+        fetch(`/api/templates/media/preview?path=${encodeURIComponent(card.header_media_url)}`)
+          .then((r) => (r.ok ? r.json() : null))
+          .then((j) => { if (j?.data?.signed_url) setCardPreviews((p) => ({ ...p, [i]: j.data.signed_url })) })
+          .catch(() => {})
+      }
+    })
     setMode('edit')
   }
 
@@ -233,7 +258,9 @@ export default function TemplatesPage() {
     footerText !== (editing.footer_text || '') ||
     headerType !== (editing.header_type || (editing.header_text ? 'text' : 'none')) ||
     headerMediaUrl !== (editing.header_media_url || '') ||
-    JSON.stringify(buttons) !== JSON.stringify(editing.buttons || [])
+    JSON.stringify(buttons) !== JSON.stringify(editing.buttons || []) ||
+    templateType !== ((editing.template_type === 'carousel' ? 'carousel' : 'standard')) ||
+    JSON.stringify(carouselCards) !== JSON.stringify(editing.carousel_cards || [])
   )
 
   // Recharge les valeurs d'origine du template (annule les modifications en cours)
@@ -276,11 +303,15 @@ export default function TemplatesPage() {
         body: JSON.stringify({
           name, language, category,
           body_text: bodyText,
-          header_text: headerType === 'text' ? headerText : '',
+          // En carrousel, l'en-tête média et les boutons globaux sont portés par
+          // les cartes → on neutralise l'en-tête/les boutons du message d'intro.
+          header_text: templateType === 'standard' && headerType === 'text' ? headerText : '',
           footer_text: footerText,
-          header_type: headerType,
-          header_media_url: (headerType === 'image' || headerType === 'video' || headerType === 'document') ? headerMediaUrl : null,
-          buttons: buttons.length > 0 ? buttons : null,
+          header_type: templateType === 'carousel' ? 'none' : headerType,
+          header_media_url: templateType === 'standard' && (headerType === 'image' || headerType === 'video' || headerType === 'document') ? headerMediaUrl : null,
+          buttons: templateType === 'standard' && buttons.length > 0 ? buttons : null,
+          template_type: templateType,
+          carousel_cards: templateType === 'carousel' && carouselCards.length > 0 ? carouselCards : null,
           // Mapping des variables + exemples Meta dérivés des clés choisies.
           variable_keys: variableKeys,
           sample_values: variableKeys.map((k) => VARIABLE_BY_KEY[k]?.sample || 'exemple'),
@@ -501,6 +532,34 @@ export default function TemplatesPage() {
                 )}
               </div>
             </div>
+            {/* Type de modèle : standard ou carrousel */}
+            <div className="space-y-1.5">
+              <Label>Type de modèle</Label>
+              <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1 text-xs">
+                {([
+                  { v: 'standard', l: 'Standard' },
+                  { v: 'carousel', l: 'Carrousel produit' },
+                ] as const).map(({ v, l }) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setTemplateType(v)}
+                    disabled={!!editing?.meta_id}
+                    className={cn('rounded-md py-1.5 font-medium transition-colors disabled:opacity-50',
+                      templateType === v ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground')}
+                  >{l}</button>
+                ))}
+              </div>
+              {editing?.meta_id ? (
+                <p className="text-[11px] text-muted-foreground">Le type d&apos;un modèle déjà soumis ne peut pas être changé.</p>
+              ) : templateType === 'carousel' ? (
+                <p className="text-[11px] text-muted-foreground">Message d&apos;introduction + cartes produit défilables (1 à 10).</p>
+              ) : null}
+            </div>
+
+            {/* En-tête : uniquement pour les modèles standard (le carrousel porte
+                ses médias sur les cartes). */}
+            {templateType === 'standard' && (
             <div className="space-y-2">
               <Label>En-tête (optionnel)</Label>
               {/* Sélecteur de type d'en-tête */}
@@ -569,8 +628,9 @@ export default function TemplatesPage() {
                 </div>
               )}
             </div>
+            )}
             <div className="space-y-1.5">
-              <Label>Message <span className="text-destructive">*</span></Label>
+              <Label>{templateType === 'carousel' ? 'Message d’introduction' : 'Message'} <span className="text-destructive">*</span></Label>
               <Textarea ref={bodyRef} value={bodyText}
                 onChange={(e) => { setBodyText(e.target.value); setVariableKeys((prev) => syncVariableKeys(e.target.value, prev)) }}
                 rows={5}
@@ -623,7 +683,23 @@ export default function TemplatesPage() {
               <Input value={footerText} onChange={(e) => setFooterText(e.target.value)} placeholder="Powered by Xeyo.io" maxLength={60} />
             </div>
 
-            {/* Boutons (optionnel) */}
+            {/* Éditeur des cartes du carrousel (uniquement en mode carrousel) */}
+            {templateType === 'carousel' && (
+              <CarouselEditor
+                cards={carouselCards}
+                onChange={setCarouselCards}
+                mediaKind={cardMediaKind}
+                onMediaKindChange={(k) => {
+                  setCardMediaKind(k)
+                  // aligne le type de média de toutes les cartes existantes
+                  setCarouselCards((prev) => prev.map((c) => ({ ...c, header_type: k })))
+                }}
+                initialPreviews={cardPreviews}
+              />
+            )}
+
+            {/* Boutons (optionnel) — standard uniquement */}
+            {templateType === 'standard' && (
             <div className="space-y-2">
               <Label>Boutons (optionnel)</Label>
               {buttons.map((b, i) => (
@@ -647,6 +723,7 @@ export default function TemplatesPage() {
                 </div>
               )}
             </div>
+            )}
           </div>
 
           {/* Aperçu WhatsApp en direct */}
@@ -679,8 +756,8 @@ export default function TemplatesPage() {
                   )}
                   <div className="mt-0.5 text-right text-[10px] text-gray-400">12:00 ✓✓</div>
                 </div>
-                {/* Boutons */}
-                {buttons.length > 0 && (
+                {/* Boutons globaux (standard uniquement) */}
+                {templateType === 'standard' && buttons.length > 0 && (
                   <div className="border-t border-slate-100">
                     {buttons.map((b, i) => (
                       <div key={i} className="flex items-center justify-center gap-1.5 border-t border-slate-100 py-2 text-[14px] font-medium text-[#1ca5e0] first:border-t-0">
@@ -690,6 +767,12 @@ export default function TemplatesPage() {
                         {b.text || 'Bouton'}
                       </div>
                     ))}
+                  </div>
+                )}
+                {/* Cartes du carrousel (sous le message d'intro) */}
+                {templateType === 'carousel' && (
+                  <div className="bg-slate-50 p-2">
+                    <CarouselPreview cards={carouselCards} previews={cardPreviews} />
                   </div>
                 )}
               </div>

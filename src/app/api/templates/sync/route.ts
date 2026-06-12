@@ -41,7 +41,7 @@ export async function POST() {
   // Mettre à jour les templates locaux
   const { data: locals } = await supabase
     .from('whatsapp_templates')
-    .select('id, name, language, status, category, body_text, header_text, footer_text, header_type, header_media_url')
+    .select('id, name, language, status, category, body_text, header_text, footer_text, header_type, header_media_url, template_type, carousel_cards')
     .eq('user_id', user.id)
 
   let synced = 0
@@ -67,6 +67,7 @@ export async function POST() {
           patch.approved_footer_text = tpl.footer_text
           patch.approved_header_type = tpl.header_type
           patch.approved_header_media_url = tpl.header_media_url
+          patch.approved_carousel_cards = tpl.carousel_cards
           patch.approved_at = new Date().toISOString()
         }
         await supabase

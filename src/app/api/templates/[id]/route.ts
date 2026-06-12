@@ -17,7 +17,7 @@ export async function PATCH(
 
   const body = await req.json().catch(() => ({}))
   const updates: Record<string, unknown> = {}
-  for (const k of ['language', 'category', 'body_text', 'header_text', 'footer_text', 'sample_values', 'header_type', 'header_media_url', 'buttons', 'variable_keys'] as const) {
+  for (const k of ['language', 'category', 'body_text', 'header_text', 'footer_text', 'sample_values', 'header_type', 'header_media_url', 'buttons', 'variable_keys', 'template_type', 'carousel_cards'] as const) {
     if (body[k] !== undefined) updates[k] = body[k]
   }
   if (body.body_text !== undefined) {
@@ -33,7 +33,7 @@ export async function PATCH(
   // doublon nom+langue — c'est l'erreur "déjà du contenu en French").
   // Changer le nom ou la langue, en revanche, crée un nouveau template Meta :
   // dans ce cas seulement on efface le meta_id.
-  const CONTENT_FIELDS = ['body_text', 'header_text', 'footer_text', 'header_type', 'header_media_url', 'buttons', 'category']
+  const CONTENT_FIELDS = ['body_text', 'header_text', 'footer_text', 'header_type', 'header_media_url', 'buttons', 'category', 'template_type', 'carousel_cards']
   const IDENTITY_FIELDS = ['name', 'language']
   const contentChanged = CONTENT_FIELDS.some((f) => body[f] !== undefined)
   const identityChanged = IDENTITY_FIELDS.some((f) => body[f] !== undefined)

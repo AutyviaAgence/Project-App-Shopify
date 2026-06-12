@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import type { TemplateButton } from '@/types/database'
+import type { TemplateButton, TemplateCard } from '@/types/database'
 
 /** Compte les variables {{1}}, {{2}}… dans un texte */
 function countVariables(text: string): number {
@@ -20,7 +20,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from('whatsapp_templates')
-    .select('id, session_id, meta_id, name, language, category, body_text, header_text, footer_text, header_type, header_media_url, buttons, variables_count, sample_values, variable_keys, status, rejection_reason, approved_body_text, approved_header_text, approved_footer_text, approved_at, created_at, updated_at')
+    .select('id, session_id, meta_id, name, language, category, body_text, header_text, footer_text, header_type, header_media_url, buttons, template_type, carousel_cards, approved_carousel_cards, variables_count, sample_values, variable_keys, status, rejection_reason, approved_body_text, approved_header_text, approved_footer_text, approved_at, created_at, updated_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
 
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => ({}))
-  const { session_id, name, language, category, body_text, header_text, footer_text, sample_values, header_type, header_media_url, buttons, variable_keys } = body as {
+  const { session_id, name, language, category, body_text, header_text, footer_text, sample_values, header_type, header_media_url, buttons, variable_keys, template_type, carousel_cards } = body as {
     session_id?: string
     name?: string
     language?: string
@@ -50,7 +50,10 @@ export async function POST(req: NextRequest) {
     header_media_url?: string | null
     buttons?: unknown[] | null
     variable_keys?: string[]
+    template_type?: 'standard' | 'carousel'
+    carousel_cards?: TemplateCard[] | null
   }
+  const isCarousel = template_type === 'carousel'
 
   if (!name?.trim() || !body_text?.trim()) {
     return NextResponse.json({ error: 'Nom et corps du message requis' }, { status: 400 })
@@ -73,6 +76,8 @@ export async function POST(req: NextRequest) {
       header_type: header_type || 'none',
       header_media_url: header_media_url || null,
       buttons: buttons && buttons.length > 0 ? (buttons as TemplateButton[]) : null,
+      template_type: isCarousel ? 'carousel' : 'standard',
+      carousel_cards: isCarousel && Array.isArray(carousel_cards) && carousel_cards.length > 0 ? carousel_cards : null,
       variables_count: countVariables(body_text),
       sample_values: sample_values || null,
       variable_keys: variable_keys || [],

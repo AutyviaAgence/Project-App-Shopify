@@ -651,6 +651,12 @@ export type WhatsAppTemplate = {
   header_type: 'none' | 'text' | 'image' | 'video' | 'document'
   header_media_url: string | null
   buttons: TemplateButton[] | null
+  /** 'standard' (par défaut) ou 'carousel' (carrousel de cartes produit). */
+  template_type: 'standard' | 'carousel'
+  /** Cartes du carrousel (si template_type === 'carousel'). */
+  carousel_cards: TemplateCard[] | null
+  /** Snapshot des cartes validées par Meta. */
+  approved_carousel_cards: TemplateCard[] | null
   created_at: string
   updated_at: string
 }
@@ -659,6 +665,24 @@ export type TemplateButton =
   | { type: 'URL'; text: string; url: string }
   | { type: 'PHONE_NUMBER'; text: string; phone: string }
   | { type: 'COPY_CODE'; text: string; code: string }
+  | { type: 'QUICK_REPLY'; text: string }
+
+/**
+ * Une carte de carrousel. Meta impose que TOUTES les cartes aient le même
+ * type de média (toutes image, ou toutes vidéo) et la même structure de
+ * boutons. Body ≤ 160 caractères, 1 à 2 boutons par carte.
+ */
+export type TemplateCard = {
+  header_type: 'image' | 'video'
+  /** storage_path (bucket privé) ou URL externe du média d'exemple. */
+  header_media_url: string | null
+  body_text: string
+  buttons: CardButton[]
+}
+
+/** Boutons autorisés sur une carte de carrousel (URL ou réponse rapide). */
+export type CardButton =
+  | { type: 'URL'; text: string; url: string }
   | { type: 'QUICK_REPLY'; text: string }
 
 export type Macro = {
