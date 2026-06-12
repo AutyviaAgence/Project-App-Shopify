@@ -432,3 +432,31 @@
 }
 .animate-shimmer-slide { animation: shimmer-slide var(--speed) ease-in-out infinite alternate; }
 .animate-spin-around { animation: spin-around calc(var(--speed) * 2) infinite linear; }
+
+/* Liquid Glass (style Apple) pour les blocs du workflow */
+.liquid-glass {
+  position: relative;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--lg-tint) 14%, transparent), color-mix(in srgb, var(--lg-tint) 5%, transparent));
+  backdrop-filter: blur(14px) saturate(160%);
+  -webkit-backdrop-filter: blur(14px) saturate(160%);
+  border: 1px solid color-mix(in srgb, var(--lg-tint) 35%, transparent);
+  box-shadow:
+    0 8px 24px -10px color-mix(in srgb, var(--lg-tint) 40%, transparent),
+    inset 0 1px 1px rgba(255,255,255,0.35),
+    inset 0 -1px 1px rgba(255,255,255,0.08);
+}
+.liquid-glass::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(140deg, rgba(255,255,255,0.22) 0%, rgba(255,255,255,0.06) 22%, transparent 45%);
+  pointer-events: none;
+}
+.dark .liquid-glass {
+  background: linear-gradient(135deg, color-mix(in srgb, var(--lg-tint) 22%, transparent), color-mix(in srgb, var(--lg-tint) 8%, transparent));
+  box-shadow:
+    0 10px 28px -12px color-mix(in srgb, var(--lg-tint) 55%, transparent),
+    inset 0 1px 1px rgba(255,255,255,0.18),
+    inset 0 -1px 1px rgba(255,255,255,0.04);
+}

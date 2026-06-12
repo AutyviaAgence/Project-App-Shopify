@@ -12,14 +12,22 @@ export type TriggerEvent =
   | 'order_cancelled'
   | 'refund_created'
   | 'checkout_abandoned'
+  | 'no_customer_reply'
+  | 'scheduled_date'
+  | 'customer_birthday'
 
-export const TRIGGER_EVENTS: { value: TriggerEvent; label: string; description: string }[] = [
-  { value: 'order_created', label: 'Commande créée', description: 'Dès qu’une commande est passée.' },
-  { value: 'order_paid', label: 'Commande payée', description: 'Quand le paiement est confirmé.' },
-  { value: 'order_fulfilled', label: 'Commande expédiée', description: 'Quand la commande est expédiée (suivi disponible).' },
-  { value: 'order_cancelled', label: 'Commande annulée', description: 'Quand une commande est annulée.' },
-  { value: 'refund_created', label: 'Remboursement', description: 'Quand un remboursement est émis.' },
-  { value: 'checkout_abandoned', label: 'Panier abandonné', description: 'Paiement non finalisé après un délai.' },
+export const TRIGGER_EVENTS: { value: TriggerEvent; label: string; description: string; group: string }[] = [
+  // Commande
+  { value: 'order_created', label: 'Commande créée', description: 'Dès qu’une commande est passée.', group: 'Commande' },
+  { value: 'order_paid', label: 'Commande payée', description: 'Quand le paiement est confirmé.', group: 'Commande' },
+  { value: 'order_fulfilled', label: 'Commande expédiée', description: 'Quand la commande est expédiée (suivi disponible).', group: 'Commande' },
+  { value: 'order_cancelled', label: 'Commande annulée', description: 'Quand une commande est annulée.', group: 'Commande' },
+  { value: 'refund_created', label: 'Remboursement', description: 'Quand un remboursement est émis.', group: 'Commande' },
+  { value: 'checkout_abandoned', label: 'Panier abandonné', description: 'Paiement non finalisé après un délai.', group: 'Commande' },
+  // Conversation / temps
+  { value: 'no_customer_reply', label: 'Pas de réponse client', description: 'Le client n’a pas répondu depuis un certain temps (relance SAV).', group: 'Conversation' },
+  { value: 'scheduled_date', label: 'Date précise', description: 'À une date/heure choisie (campagne planifiée).', group: 'Planifié' },
+  { value: 'customer_birthday', label: 'Anniversaire client', description: 'Le jour de l’anniversaire du client (si connu).', group: 'Planifié' },
 ]
 
 /** Conditions métier évaluées avant l'envoi. */

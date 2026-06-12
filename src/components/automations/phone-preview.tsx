@@ -44,6 +44,7 @@ export function PhonePreview({
   samples,
   mediaType,
   mediaUrl,
+  scale = 0.74,
 }: {
   storeName: string
   eventLabel: string        // ex: "Commande expédiée"
@@ -55,6 +56,7 @@ export function PhonePreview({
   samples: string[]
   mediaType?: 'none' | 'text' | 'image' | 'video' | 'document'
   mediaUrl?: string
+  scale?: number
 }) {
   const resolved = resolvePreview(bodyText, samples)
   const customerName = samples[0] || 'Marie'
@@ -81,7 +83,7 @@ export function PhonePreview({
 
   return (
     <div className="flex flex-col items-center gap-3">
-      <IPhoneMockup model="15-pro" color="#3a4a63" scale={0.74} screenBg="#0b141a" glass>
+      <IPhoneMockup model="15-pro" color="#3a4a63" scale={scale} screenBg="#0b141a" glass>
         <div className="flex h-full flex-col">
           {/* Barre WhatsApp (sous la Dynamic Island) */}
           <div className="flex items-center gap-2 bg-[#075E54] px-3 pb-2.5 pt-12 text-white">

@@ -88,13 +88,13 @@ function Branch({
 // ---- Blocs colorés "remplis" (style de l'ancien éditeur) --------------------
 
 function Shell({ tone, icon, kind, onDelete, children }: {
-  tone: { text: string; border: string; bg: string }
+  tone: { text: string; tint: string }
   icon: React.ReactNode; kind: string; onDelete?: () => void; children: React.ReactNode
 }) {
   return (
     <>
       <Connector />
-      <div className={cn('group relative w-72 rounded-xl border p-3', tone.border, tone.bg)}>
+      <div data-block className="liquid-glass group relative w-72 rounded-2xl p-3" style={{ ['--lg-tint' as string]: tone.tint }}>
         <div className="mb-2 flex items-center gap-1.5">
           <span className={cn('flex h-5 w-5 items-center justify-center rounded-full bg-current/10', tone.text)}>{icon}</span>
           <span className={cn('text-sm font-medium', tone.text)}>{kind}</span>
@@ -111,16 +111,16 @@ function Shell({ tone, icon, kind, onDelete, children }: {
 }
 
 const TONE = {
-  blue: { text: 'text-blue-600', border: 'border-blue-500/30', bg: 'bg-blue-500/5' },
-  amber: { text: 'text-amber-600', border: 'border-amber-500/30', bg: 'bg-amber-500/5' },
-  green: { text: 'text-green-600', border: 'border-green-500/30', bg: 'bg-green-500/5' },
-  violet: { text: 'text-violet-600', border: 'border-violet-500/30', bg: 'bg-violet-500/5' },
+  blue: { text: 'text-blue-600', tint: '#3B82F6' },
+  amber: { text: 'text-amber-600', tint: '#F59E0B' },
+  green: { text: 'text-green-600', tint: '#22C55E' },
+  violet: { text: 'text-violet-600', tint: '#8B5CF6' },
 }
 
 function TriggerBlock({ node, onPatch }: { node: WorkflowNode; onPatch: (id: string, p: Partial<WorkflowNode>) => void }) {
   if (node.type !== 'trigger') return null
   return (
-    <div className={cn('w-72 rounded-xl border p-3', TONE.blue.border, TONE.blue.bg)}>
+    <div data-block className="liquid-glass relative w-72 rounded-2xl p-3" style={{ ['--lg-tint' as string]: TONE.blue.tint }}>
       <div className="mb-2 flex items-center gap-1.5">
         <span className={cn('flex h-5 w-5 items-center justify-center rounded-full bg-current/10', TONE.blue.text)}><ShoppingBag className="h-4 w-4" /></span>
         <span className={cn('text-sm font-medium', TONE.blue.text)}>Quand</span>
