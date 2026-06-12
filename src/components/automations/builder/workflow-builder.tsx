@@ -5,6 +5,7 @@ import { Timeline } from './timeline'
 import { insertAfter, removeNode, patchNode as patchNodeGraph } from './timeline-model'
 import { PhonePreview } from '@/components/automations/phone-preview'
 import { cn } from '@/lib/utils'
+import { Plus, Minus, Maximize2 } from 'lucide-react'
 import { VARIABLE_BY_KEY } from '@/lib/templates/variables'
 import { TRIGGER_EVENTS } from '@/lib/automations/types'
 import type { WorkflowGraph, WorkflowNode } from '@/lib/automations/graph-types'
@@ -16,9 +17,9 @@ import type { WhatsAppTemplate } from '@/types/database'
  * ou un bouton reste normal (on n'amorce le pan que sur le fond).
  */
 function PannableTimeline({ children }: { children: React.ReactNode }) {
-  // Pan libre via translate (on peut déplacer le workflow dans tous les sens,
-  // même s'il tient dans la zone). On n'amorce que sur le fond (pas un bloc).
+  // Pan (clic-glissé) + ZOOM (molette). On n'amorce le pan que sur le fond.
   const [offset, setOffset] = useState({ x: 0, y: 0 })
+  const [zoom, setZoom] = useState(1)
   const drag = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null)
   const [grabbing, setGrabbing] = useState(false)
 
@@ -34,29 +35,44 @@ function PannableTimeline({ children }: { children: React.ReactNode }) {
   }
   function endDrag() { drag.current = null; setGrabbing(false) }
 
+  function onWheel(e: React.WheelEvent) {
+    // Molette = zoom (borné 0.5–2). Ctrl+molette aussi (trackpad pinch).
+    e.preventDefault()
+    setZoom((z) => Math.min(2, Math.max(0.5, z - e.deltaY * 0.0015)))
+  }
+  function reset() { setOffset({ x: 0, y: 0 }); setZoom(1) }
+
   return (
     <div
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={endDrag}
       onPointerLeave={endDrag}
+      onWheel={onWheel}
       className={cn('relative overflow-hidden rounded-2xl border bg-muted/10 select-none', grabbing ? 'cursor-grabbing' : 'cursor-grab')}
     >
       <div
         className="h-full origin-top will-change-transform"
-        style={{ transform: `translate(${offset.x}px, ${offset.y}px)`, transition: grabbing ? 'none' : 'transform 0.1s ease-out' }}
+        style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`, transition: grabbing ? 'none' : 'transform 0.1s ease-out' }}
       >
         {children}
       </div>
-      {/* Bouton recentrer */}
-      {(offset.x !== 0 || offset.y !== 0) && (
-        <button
-          onClick={() => setOffset({ x: 0, y: 0 })}
-          className="absolute bottom-3 right-3 z-10 rounded-full border bg-card px-3 py-1.5 text-xs text-muted-foreground shadow-sm hover:bg-muted"
-        >
-          Recentrer
+
+      {/* Contrôles zoom + recentrer */}
+      <div className="absolute bottom-3 right-3 z-10 flex items-center gap-1 rounded-full border bg-card px-1 py-1 shadow-sm">
+        <button onClick={() => setZoom((z) => Math.max(0.5, z - 0.15))} className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted" title="Dézoomer">
+          <Minus className="h-4 w-4" />
         </button>
-      )}
+        <span className="w-10 text-center text-xs tabular-nums text-muted-foreground">{Math.round(zoom * 100)}%</span>
+        <button onClick={() => setZoom((z) => Math.min(2, z + 0.15))} className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted" title="Zoomer">
+          <Plus className="h-4 w-4" />
+        </button>
+        {(offset.x !== 0 || offset.y !== 0 || zoom !== 1) && (
+          <button onClick={reset} className="ml-1 rounded-full px-2 py-1 text-xs text-muted-foreground hover:bg-muted" title="Recentrer">
+            <Maximize2 className="h-3.5 w-3.5" />
+          </button>
+        )}
+      </div>
     </div>
   )
 }

@@ -101,7 +101,7 @@ export function PhonePreview({
       // mascotteDébord ≈ s*NOM_W*0.86*0.5 ; on simplifie en réservant un ratio.
       const H = el.clientHeight - 60
       const s = Math.min(
-        H / (NOM_H + (mascot ? NOM_W * 0.86 * 0.5 : 0)),
+        H / (NOM_H + (mascot ? NOM_W * 0.86 * 0.6 : 0)),
         availW / NOM_W,
         0.95,
       )
@@ -118,7 +118,7 @@ export function PhonePreview({
 
   return (
     <div ref={wrapRef} className={cn('flex flex-col items-center gap-3', mascot && 'pt-2')}>
-     <div className="relative" style={{ width: realW, height: realH }}>
+     <div className="relative flex justify-center" style={{ width: realW, height: realH }}>
       {/* Mascotte Xeyo posée SUR le haut du téléphone. Sa hauteur visible
           (~58% de sa largeur) déborde au-dessus ; les mains chevauchent le bord
           du mockup. z-50 = au premier plan. */}
@@ -132,7 +132,7 @@ export function PhonePreview({
           // Grosse mascotte : largeur ~85% du téléphone. L'image fait ~58% de
           // hauteur ; on la remonte pour que la tête soit visible et les mains
           // chevauchent le bord supérieur du mockup.
-          style={{ width: NOM_W * fitScale * 0.86, top: -(NOM_W * fitScale * 0.86 * 0.5) }}
+          style={{ width: NOM_W * fitScale * 0.86, top: -(NOM_W * fitScale * 0.86 * 0.56) }}
         />
       )}
       <IPhoneMockup model="15-pro" color="#3a4a63" scale={fitScale} screenBg="#0b141a" glass>
