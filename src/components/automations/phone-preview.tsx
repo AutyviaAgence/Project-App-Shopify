@@ -85,17 +85,17 @@ export function PhonePreview({
   }, [playKey, resolved, delayLabel, immediate])
 
   return (
-    <div className={cn('flex flex-col items-center gap-3', mascot && 'pt-24')}>
+    <div className={cn('flex flex-col items-center gap-3', mascot && 'pt-14')}>
      <div className="relative">
-      {/* Mascotte Xeyo posée SUR le haut du téléphone (corps au-dessus, mains
-          qui agrippent le bord). z-20 = au premier plan, non coupée. */}
+      {/* Mascotte Xeyo posée SUR le haut du téléphone (mains qui agrippent le
+          bord). z-50 = au TOUT premier plan (passe devant la barre du nom). */}
       {mascot && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src="/mascots/peeking.png"
           alt=""
           aria-hidden
-          className="pointer-events-none absolute bottom-full left-1/2 z-20 -translate-x-1/2 translate-y-[40px] select-none drop-shadow-2xl"
+          className="pointer-events-none absolute bottom-full left-1/2 z-50 -translate-x-1/2 translate-y-[78px] select-none drop-shadow-2xl"
           style={{ width: 250 * scale }}
         />
       )}
