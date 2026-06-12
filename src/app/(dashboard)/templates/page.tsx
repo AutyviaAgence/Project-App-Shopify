@@ -411,9 +411,10 @@ export default function TemplatesPage() {
                     )}
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
-                    {/* Revenir à la dernière version validée par Meta (si un snapshot existe
-                        et que le modèle n'est pas déjà approuvé). */}
-                    {selectedTemplate?.approved_body_text && selectedTemplate.status !== 'approved' && (
+                    {/* Revenir à la dernière version validée par Meta. On l'affiche
+                        UNIQUEMENT si le modèle a réellement été validé chez Meta
+                        (meta_id présent) — sinon il n'y a pas de "version validée". */}
+                    {selectedTemplate?.meta_id && selectedTemplate?.approved_body_text && selectedTemplate.status !== 'approved' && (
                       <Button size="sm" variant="outline" disabled={busyId === selectedTemplate.id} onClick={() => restoreApproved(selectedTemplate)}>
                         {busyId === selectedTemplate.id ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-1 h-4 w-4" />}
                         Version validée
