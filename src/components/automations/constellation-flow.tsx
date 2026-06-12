@@ -72,8 +72,9 @@ export function ConstellationFlow({
 
       {active && (
         <>
-          <AnimatedBeam containerRef={containerRef} fromRef={fromRef} toRef={midRef} duration={3} gradientStartColor="#7DA0FF" gradientStopColor="#F59E0B" startYOffset={-22} endYOffset={-22} curvature={-14} />
-          <AnimatedBeam containerRef={containerRef} fromRef={midRef} toRef={toRef} duration={3} delay={0.6} gradientStartColor="#F59E0B" gradientStopColor="#22C55E" startYOffset={-22} endYOffset={-22} curvature={-14} />
+          {/* Ligne droite et horizontale, au niveau du centre des pastilles */}
+          <AnimatedBeam containerRef={containerRef} fromRef={fromRef} toRef={midRef} duration={3} curvature={0} gradientStartColor="#7DA0FF" gradientStopColor="#F59E0B" />
+          <AnimatedBeam containerRef={containerRef} fromRef={midRef} toRef={toRef} duration={3} delay={0.6} curvature={0} gradientStartColor="#F59E0B" gradientStopColor="#22C55E" />
         </>
       )}
     </div>
