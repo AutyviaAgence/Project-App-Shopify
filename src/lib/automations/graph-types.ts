@@ -29,7 +29,12 @@ export type ConditionRule = {
 
 // ---- Nœuds ---------------------------------------------------------------
 
-export type TriggerNode = { id: string; type: 'trigger'; event: TriggerEvent }
+export type TriggerNode = {
+  id: string; type: 'trigger'; event: TriggerEvent
+  // Paramètres des triggers temporels :
+  inactivityHours?: number   // no_customer_reply : délai sans réponse
+  scheduledAt?: string       // scheduled_date : date/heure ISO
+}
 export type DelayNode = { id: string; type: 'delay'; minutes: number }
 export type ConditionNode = { id: string; type: 'condition'; rule: ConditionRule; label?: string }
 export type ActionNode = { id: string; type: 'action'; templateId: string | null; label?: string }

@@ -130,6 +130,38 @@ function TriggerBlock({ node, onPatch }: { node: WorkflowNode; onPatch: (id: str
         <SelectContent>{TRIGGER_EVENTS.map((e) => <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>)}</SelectContent>
       </Select>
       <p className="mt-1.5 text-xs text-muted-foreground">{TRIGGER_EVENTS.find((e) => e.value === node.event)?.description}</p>
+
+      {/* Paramètres spécifiques aux triggers temporels */}
+      {node.event === 'no_customer_reply' && (
+        <div className="mt-2">
+          <p className="mb-1 text-xs text-muted-foreground">Sans réponse depuis</p>
+          <Select value={String(node.inactivityHours ?? 24)} onValueChange={(v) => onPatch(node.id, { inactivityHours: parseInt(v, 10) } as never)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="1">1 heure</SelectItem>
+              <SelectItem value="3">3 heures</SelectItem>
+              <SelectItem value="12">12 heures</SelectItem>
+              <SelectItem value="24">1 jour</SelectItem>
+              <SelectItem value="48">2 jours</SelectItem>
+              <SelectItem value="72">3 jours</SelectItem>
+              <SelectItem value="168">7 jours</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+      {node.event === 'scheduled_date' && (
+        <div className="mt-2">
+          <p className="mb-1 text-xs text-muted-foreground">Date et heure d’envoi</p>
+          <Input type="datetime-local"
+            value={node.scheduledAt ? node.scheduledAt.slice(0, 16) : ''}
+            onChange={(e) => onPatch(node.id, { scheduledAt: e.target.value ? new Date(e.target.value).toISOString() : undefined } as never)} />
+        </div>
+      )}
+      {node.event === 'customer_birthday' && (
+        <p className="mt-2 rounded-lg bg-muted/50 p-2 text-[11px] text-muted-foreground">
+          Envoyé le jour de l’anniversaire (si la date est connue dans la fiche du client).
+        </p>
+      )}
     </div>
   )
 }
