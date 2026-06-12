@@ -162,7 +162,9 @@ export async function registerWebhooks(shop: string, accessToken: string): Promi
     )
     if (!res.ok) errors.push(`${sub.topic}: ${res.error}`)
     else if (res.data.webhookSubscriptionCreate.userErrors.length > 0) {
-      errors.push(`${sub.topic}: ${res.data.webhookSubscriptionCreate.userErrors[0].message}`)
+      const msg = res.data.webhookSubscriptionCreate.userErrors[0].message
+      // Doublon (webhook déjà enregistré) → non bloquant, on ignore.
+      if (!/already|taken|exists/i.test(msg)) errors.push(`${sub.topic}: ${msg}`)
     }
   }
   return { ok: errors.length === 0, errors }

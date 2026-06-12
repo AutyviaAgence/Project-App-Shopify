@@ -1,0 +1,41 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminSupabase } from '@supabase/supabase-js'
+import { registerWebhooks } from '@/lib/shopify/client'
+import { decryptMessage } from '@/lib/crypto/encryption'
+
+/**
+ * POST /api/shopify/resync-webhooks
+ * Ré-enregistre les webhooks Shopify pour la boutique de l'utilisateur connecté.
+ *
+ * Nécessaire après l'ajout de nouveaux topics (les webhooks ne sont enregistrés
+ * qu'à l'installation). Évite de devoir réinstaller l'app.
+ * Shopify ignore les doublons (un même topic+URL n'est pas créé deux fois).
+ */
+export async function POST() {
+  const supabase = await createClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+
+  const admin = createAdminSupabase(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+
+  const { data: store } = await admin
+    .from('shopify_stores')
+    .select('shop_domain, access_token')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (!store?.access_token) {
+    return NextResponse.json({ error: 'Aucune boutique Shopify liée.' }, { status: 404 })
+  }
+
+  const token = decryptMessage(store.access_token)
+  const result = await registerWebhooks(store.shop_domain, token)
+
+  // Note : registerWebhooks renvoie des "errors" qui incluent les doublons
+  // (topic déjà existant) — non bloquants.
+  return NextResponse.json({ ok: true, shop: store.shop_domain, errors: result.errors })
+}
