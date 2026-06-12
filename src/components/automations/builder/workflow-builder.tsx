@@ -158,8 +158,8 @@ export function WorkflowBuilder({
         </div>
       </PannableTimeline>
 
-      {/* iPhone d'aperçu (tout à droite) — plus d'air horizontal */}
-      <div className="hidden px-6 pt-2 lg:flex lg:items-start lg:justify-center">
+      {/* iPhone d'aperçu (tout à droite) — plus d'air horizontal, scrollable */}
+      <div className="hidden overflow-y-auto px-6 pt-2 lg:flex lg:items-start lg:justify-center">
         {previewTpl ? (
           <PhonePreview
             storeName={storeName}

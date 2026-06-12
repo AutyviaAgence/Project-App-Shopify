@@ -84,9 +84,15 @@ export function PhonePreview({
     return () => timers.forEach(clearTimeout)
   }, [playKey, resolved, delayLabel, immediate])
 
+  // Le mockup (852+24 de haut, 393+24 de large) est mis à l'échelle via
+  // transform:scale qui NE réduit PAS l'espace réservé → on contraint le
+  // wrapper à la taille réelle pour ne pas laisser un grand vide en dessous.
+  const realW = (393 + 24) * scale
+  const realH = (852 + 24) * scale
+
   return (
     <div className={cn('flex flex-col items-center gap-3', mascot && 'pt-14')}>
-     <div className="relative">
+     <div className="relative" style={{ width: realW, height: realH }}>
       {/* Mascotte Xeyo posée SUR le haut du téléphone (mains qui agrippent le
           bord). z-50 = au TOUT premier plan (passe devant la barre du nom). */}
       {mascot && (

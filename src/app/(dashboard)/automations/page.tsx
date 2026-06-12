@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Plus, Loader2, Trash2, Workflow, Power, GitBranch } from 'lucide-react'
+import { Plus, Loader2, Trash2, Workflow, Power, GitBranch, ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BlobLoaderScreen } from '@/components/blob-loader'
 import type { WhatsAppTemplate } from '@/types/database'
@@ -28,6 +28,7 @@ export default function AutomationsPage() {
   const [storeName] = useState('Votre boutique')
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState<string | null>(null)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   // Automatisation actuellement ouverte dans le builder (au centre).
   const [current, setCurrent] = useState<Automation | null>(null)
@@ -146,16 +147,34 @@ export default function AutomationsPage() {
       </div>
 
       {/* 3 colonnes : sidebar | timeline | iPhone — tout sur la même page */}
-      <div className="grid flex-1 grid-cols-1 overflow-hidden md:grid-cols-[280px_1fr]">
-        {/* Sidebar : liste des workflows */}
-        <aside className="hidden flex-col overflow-y-auto border-r bg-muted/20 p-2 md:flex">
-          {/* En-tête sidebar : titre + bouton + (ajouter un workflow) */}
-          <div className="mb-2 flex items-center justify-between px-2 py-1">
-            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Workflows</span>
+      <div className={cn('grid min-h-0 flex-1 grid-cols-1', sidebarCollapsed ? 'md:grid-cols-[52px_1fr]' : 'md:grid-cols-[280px_1fr]')}>
+        {/* Sidebar repliée : juste + et flèche pour rouvrir */}
+        {sidebarCollapsed ? (
+          <aside className="hidden flex-col items-center gap-2 border-r bg-muted/20 p-2 md:flex">
+            <button onClick={() => setSidebarCollapsed(false)} title="Afficher les workflows"
+              className="flex h-7 w-7 items-center justify-center rounded-md border bg-card text-muted-foreground hover:text-primary">
+              <ChevronRight className="h-4 w-4" />
+            </button>
             <button onClick={openNew} title="Nouveau workflow"
-              className="flex h-6 w-6 items-center justify-center rounded-md border bg-card text-muted-foreground transition-colors hover:border-primary hover:text-primary">
+              className="flex h-7 w-7 items-center justify-center rounded-md border bg-card text-muted-foreground hover:border-primary hover:text-primary">
               <Plus className="h-4 w-4" />
             </button>
+          </aside>
+        ) : (
+        <aside className="hidden flex-col overflow-y-auto border-r bg-muted/20 p-2 md:flex">
+          {/* En-tête sidebar : titre + flèche replier + bouton + */}
+          <div className="mb-2 flex items-center justify-between px-2 py-1">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Workflows</span>
+            <div className="flex items-center gap-1">
+              <button onClick={openNew} title="Nouveau workflow"
+                className="flex h-6 w-6 items-center justify-center rounded-md border bg-card text-muted-foreground transition-colors hover:border-primary hover:text-primary">
+                <Plus className="h-4 w-4" />
+              </button>
+              <button onClick={() => setSidebarCollapsed(true)} title="Réduire"
+                className="flex h-6 w-6 items-center justify-center rounded-md border bg-card text-muted-foreground transition-colors hover:text-primary">
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+            </div>
           </div>
           <button
             onClick={openNew}
@@ -183,15 +202,16 @@ export default function AutomationsPage() {
             <p className="px-3 py-6 text-center text-xs text-muted-foreground">Aucun workflow. Créez le premier.</p>
           )}
         </aside>
+        )}
 
         {/* Zone centrale : nom + builder timeline + iPhone */}
         {current && graph ? (
-          <div className="flex flex-col overflow-hidden">
+          <div className="flex min-h-0 flex-col">
             <div className="flex items-center gap-2 border-b px-4 py-2.5">
               <GitBranch className="h-4 w-4 text-violet-600" />
               <Input value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} placeholder="Nom du workflow" className="h-8 max-w-xs border-0 bg-transparent px-0 text-sm font-medium focus-visible:ring-0" />
             </div>
-            <div className="flex-1 overflow-hidden p-4">
+            <div className="min-h-0 flex-1 p-4">
               <WorkflowBuilder graph={graph} templates={templates} storeName={storeName} onChange={setGraph} />
             </div>
           </div>

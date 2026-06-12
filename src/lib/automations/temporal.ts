@@ -20,13 +20,17 @@ export async function runTemporalTriggers(supabase: SB): Promise<{ queued: numbe
 
   const { data: autos } = await supabase
     .from('automations')
-    .select('id, user_id, trigger_event, graph')
+    .select('id, user_id, trigger_event, graph, triggered_once_at')
     .eq('is_active', true)
     .eq('builder_mode', true)
     .in('trigger_event', ['no_customer_reply', 'scheduled_date', 'customer_birthday'])
 
+  // Triggers à exécution UNIQUE : une fois déclenchés, on ne les rejoue plus.
+  const ONCE = new Set(['scheduled_date'])
+
   let queued = 0
   for (const a of autos || []) {
+    if (ONCE.has(a.trigger_event) && a.triggered_once_at) continue // déjà fait
     const trig = (a.graph?.nodes || []).find((n: { type: string }) => n.type === 'trigger') as
       | { event: string; inactivityHours?: number; scheduledAt?: string } | undefined
     if (!trig) continue
@@ -85,6 +89,9 @@ async function handleScheduled(supabase: SB, a: Auto, scheduledAt: string | unde
     const dedup = `sched:${a.id}:${scheduledAt}:${ct.id}`
     if (await enqueue(supabase, a, ct.id, { customer_first_name: (ct.name || '').split(' ')[0] || '' }, dedup)) n++
   }
+  // Date précise = envoi UNIQUE : on marque l'automatisation comme déclenchée
+  // pour ne plus jamais la rejouer.
+  await supabase.from('automations').update({ triggered_once_at: new Date().toISOString() }).eq('id', a.id)
   return n
 }
 
