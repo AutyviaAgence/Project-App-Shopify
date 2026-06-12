@@ -29,7 +29,8 @@ export const TEMPLATE_VARIABLES: TemplateVariable[] = [
   { key: 'order_status', label: 'Statut de la commande', group: 'Commande', sample: 'Expédiée' },
   { key: 'tracking_number', label: 'N° de suivi', group: 'Commande', sample: 'LP00123456789' },
   // Liens
-  { key: 'tracking_url', label: 'Lien de suivi', group: 'Liens', sample: 'https://suivi.exemple.com/1024' },
+  { key: 'order_status_url', label: 'Lien de suivi de commande (Shopify)', group: 'Liens', sample: 'https://boutique.exemple.com/orders/abc123' },
+  { key: 'tracking_url', label: 'Lien de suivi du colis', group: 'Liens', sample: 'https://suivi.exemple.com/1024' },
   { key: 'cart_url', label: 'Lien du panier', group: 'Liens', sample: 'https://boutique.exemple.com/panier' },
   { key: 'store_url', label: 'Lien de la boutique', group: 'Liens', sample: 'https://boutique.exemple.com' },
   { key: 'review_url', label: "Lien d'avis", group: 'Liens', sample: 'https://avis.exemple.com' },
@@ -44,3 +45,22 @@ export const VARIABLE_BY_KEY: Record<string, TemplateVariable> = Object.fromEntr
 
 /** Groupes ordonnés pour l'affichage dans le menu déroulant. */
 export const VARIABLE_GROUPS = ['Client', 'Commande', 'Liens', 'Boutique'] as const
+
+/** Contexte de données pour résoudre les variables à l'envoi. */
+export type VariableContext = Partial<Record<string, string | null | undefined>>
+
+/**
+ * Résout les paramètres d'un template (dans l'ordre des variables nommées)
+ * vers leurs vraies valeurs, à partir d'un contexte de données.
+ * Une clé absente du contexte donne une chaîne vide (Meta exige un paramètre
+ * non nul, on évite donc `undefined`).
+ */
+export function resolveVariables(
+  variableKeys: string[],
+  ctx: VariableContext
+): string[] {
+  return variableKeys.map((key) => {
+    const raw = ctx[key]
+    return (raw === undefined || raw === null) ? '' : String(raw)
+  })
+}

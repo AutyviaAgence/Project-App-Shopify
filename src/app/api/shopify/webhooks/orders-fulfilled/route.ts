@@ -23,6 +23,9 @@ export async function POST(req: NextRequest) {
   const order = JSON.parse(rawBody || '{}') as {
     name?: string
     order_number?: number
+    order_status_url?: string
+    total_price?: string
+    currency?: string
     customer?: { phone?: string; email?: string; first_name?: string; last_name?: string }
     fulfillments?: { tracking_url?: string; tracking_number?: string }[]
   }
@@ -78,12 +81,29 @@ export async function POST(req: NextRequest) {
 
   const orderName = order.name || `#${order.order_number || ''}`
   const tracking = order.fulfillments?.[0]?.tracking_url || ''
+  const firstName = order.customer?.first_name || ''
+  const lastName = order.customer?.last_name || ''
+  const total = order.total_price ? `${order.total_price}${order.currency ? ' ' + order.currency : ''}` : ''
 
   // Notifier sur le canal préféré (le moteur respecte opt-in + canal)
   const result = await sendNotification({
     contactId: contact.id,
     kind: 'order_shipped',
     vars: { order: orderName, tracking: tracking || 'suivi disponible bientôt' },
+    // Contexte par clé nommée pour les templates à variables nommées.
+    data: {
+      customer_first_name: firstName,
+      customer_last_name: lastName,
+      customer_full_name: [firstName, lastName].filter(Boolean).join(' '),
+      customer_phone: order.customer?.phone || '',
+      customer_email: order.customer?.email || '',
+      order_number: orderName,
+      order_total: total,
+      order_status: 'Expédiée',
+      tracking_number: order.fulfillments?.[0]?.tracking_number || '',
+      tracking_url: tracking,
+      order_status_url: order.order_status_url || '',
+    },
     emailSubject: `Votre commande ${orderName} est en route 🚚`,
     emailBody: `Bonjour,\n\nVotre commande ${orderName} vient d'être expédiée.${tracking ? `\nSuivi : ${tracking}` : ''}\n\nMerci pour votre confiance.`,
   })

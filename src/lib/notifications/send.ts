@@ -26,8 +26,12 @@ export type NotificationKind = 'order_shipped' | 'order_delivered' | 'order_conf
 export type NotificationPayload = {
   contactId: string
   kind: NotificationKind
-  // Variables d'affichage (n° commande, lien suivi…)
+  // Variables d'affichage par POSITION ({{1}}, {{2}}…) — rétrocompat / fallback
+  // quand le template n'a pas de mapping de variables nommées.
   vars: Record<string, string>
+  // Contexte de données par CLÉ nommée (customer_first_name, order_number…).
+  // Si le template a un `variable_keys`, les paramètres sont résolus depuis ici.
+  data?: import('@/lib/templates/variables').VariableContext
   // Sujet/corps email (si canal email)
   emailSubject?: string
   emailBody?: string
@@ -119,10 +123,11 @@ async function sendWhatsAppNotification(
     let sendName = tpl.name
     let sendLang = tpl.language
     let varsCount = tpl.sample_values.length
+    let variableKeys: string[] = []
     if (session.user_id) {
       const { data: approved } = await supabase
         .from('whatsapp_templates')
-        .select('name, language, status, variables_count')
+        .select('name, language, status, variables_count, variable_keys')
         .eq('user_id', session.user_id)
         .eq('name', tpl.name)
         .eq('status', 'approved')
@@ -134,11 +139,20 @@ async function sendWhatsAppNotification(
       sendName = approved.name
       sendLang = approved.language || tpl.language
       if (typeof approved.variables_count === 'number') varsCount = approved.variables_count
+      if (Array.isArray(approved.variable_keys)) variableKeys = approved.variable_keys
     }
 
-    // Composants Meta : on fournit exactement le nb de variables attendu par le
-    // template approuvé (tronqué/complété), sinon Meta rejette (132000).
-    const allParams = Object.values(payload.vars)
+    // Paramètres : si le template a un mapping de variables nommées ET qu'un
+    // contexte de données est fourni, on résout chaque {{n}} vers sa vraie
+    // valeur (prénom client, n° commande…). Sinon, fallback sur les valeurs
+    // positionnelles de payload.vars (rétrocompat).
+    const { resolveVariables } = await import('@/lib/templates/variables')
+    const allParams = (variableKeys.length > 0 && payload.data)
+      ? resolveVariables(variableKeys, payload.data)
+      : Object.values(payload.vars)
+
+    // On fournit exactement le nb de variables attendu par le template approuvé
+    // (tronqué/complété), sinon Meta rejette (132000).
     const params = allParams.slice(0, varsCount)
     while (params.length < varsCount) params.push('')
     const components = params.length > 0

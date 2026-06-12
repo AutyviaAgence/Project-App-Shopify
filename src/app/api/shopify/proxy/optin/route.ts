@@ -108,10 +108,19 @@ export async function POST(req: NextRequest) {
   if (contact?.id) {
     try {
       const { sendNotification } = await import('@/lib/notifications/send')
+      const firstName = (name || '').split(' ')[0] || 'cher client'
       const result = await sendNotification({
         contactId: contact.id,
         kind: 'order_confirmed',
+        // Fallback positionnel (templates sans variables nommées)
         vars: { '1': name || 'cher client', '2': 'votre commande' },
+        // Contexte par clé nommée (templates avec variables nommées)
+        data: {
+          customer_first_name: firstName,
+          customer_full_name: name || '',
+          customer_phone: phone,
+          store_name: shop?.replace('.myshopify.com', '') || 'la boutique',
+        },
         emailSubject: 'Merci pour votre commande !',
         emailBody: `Bonjour ${name || ''},\n\nMerci pour votre commande ! Nous sommes ravis de vous compter parmi nos clients.`,
       })
