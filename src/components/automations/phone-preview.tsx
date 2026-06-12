@@ -91,9 +91,9 @@ export function PhonePreview({
   // Mascotte "peeking" (recadrée) : ratio hauteur/largeur ≈ 0.77, largeur ≈ 0.86×mockup.
   // Les mains chevauchent le bord supérieur ; ~12% de l'image passe SOUS ce bord,
   // donc le débord visible au-dessus du mockup ≈ hauteurImage × 0.88.
-  const MASCOT_W = 0.86               // largeur image / largeur mockup
+  const MASCOT_W = 0.68               // largeur image / largeur mockup
   const MASCOT_RATIO = 0.77           // hauteur image / largeur image
-  const MASCOT_OVERLAP = 0.12         // part de l'image qui chevauche le mockup
+  const MASCOT_OVERLAP = 0.14         // part de l'image qui chevauche le mockup
   const mascotOverhang = MASCOT_W * MASCOT_RATIO * (1 - MASCOT_OVERLAP) // ×largeur mockup
   const wrapRef = useRef<HTMLDivElement>(null)
   const [fitScale, setFitScale] = useState(scale)
