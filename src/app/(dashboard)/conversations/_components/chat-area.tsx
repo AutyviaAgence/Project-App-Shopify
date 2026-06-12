@@ -44,6 +44,7 @@ import {
 import { getSessionDisplayName, getContactDisplayName } from '@/lib/format-phone'
 import { useTranslation } from '@/i18n/context'
 import type { ConversationWithJoins, Message, AIAgent, LifecycleStage } from './types'
+import { ActionsPanel } from './actions-panel'
 
 interface ChatAreaProps {
   selectedConv: ConversationWithJoins | null
@@ -66,6 +67,7 @@ interface ChatAreaProps {
   onToggleAI: (convId: string, isActive: boolean) => void
   onChangeLifecycleStage: (convId: string, stageId: string | null) => void
   onAnalyzeConversation: (convId: string) => void
+  onActionsChange?: () => void
 }
 
 export function ChatArea({
@@ -89,6 +91,7 @@ export function ChatArea({
   onToggleAI,
   onChangeLifecycleStage,
   onAnalyzeConversation,
+  onActionsChange,
 }: ChatAreaProps) {
   const { t, locale } = useTranslation()
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -360,6 +363,9 @@ export function ChatArea({
               <UserCircle className="h-5 w-5" />
             </Button>
           </div>
+
+          {/* Actions Shopify à valider pour cette conversation */}
+          {selectedConv?.id && <ActionsPanel conversationId={selectedConv.id} onChange={onActionsChange} />}
 
           {/* Messages area */}
           <div className="flex-1 overflow-auto p-4 scrollbar-thin">

@@ -47,6 +47,7 @@ const TAG_COLORS = [
 
 interface ConversationListProps {
   conversations: ConversationWithJoins[]
+  pendingActionConvIds?: Set<string>
   onNewConversation?: () => void
   selectedConvId: string | null
   totalPages: number
@@ -82,6 +83,7 @@ interface ConversationListProps {
 
 export function ConversationList({
   conversations,
+  pendingActionConvIds,
   onNewConversation,
   selectedConvId,
   totalPages,
@@ -428,8 +430,14 @@ export function ConversationList({
       ) : (
         <>
           <div className="flex-1 overflow-auto scrollbar-thin">
-            {conversations.map((conv) => {
+            {[...conversations].sort((a, b) => {
+              // Conversations avec une action à valider remontent en haut.
+              const pa = pendingActionConvIds?.has(a.id) ? 1 : 0
+              const pb = pendingActionConvIds?.has(b.id) ? 1 : 0
+              return pb - pa
+            }).map((conv) => {
               const isSelected = selectedConvId === conv.id
+              const hasPendingAction = pendingActionConvIds?.has(conv.id)
               return (
                 <button
                   key={conv.id}
@@ -504,6 +512,13 @@ export function ConversationList({
                     )}>
                       {cleanPreview(conv.last_message_preview) || t('conversations.no_message')}
                     </p>
+
+                    {/* Badge : action Shopify à valider sur cette conversation */}
+                    {hasPendingAction && (
+                      <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium text-amber-600">
+                        <span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> Action à valider
+                      </span>
+                    )}
 
                     {/* Meta + tags : toujours 1 seule ligne (overflow cache) pour
                         que toutes les conversations aient la meme hauteur. */}

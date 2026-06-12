@@ -10,6 +10,7 @@ export async function GET(req: NextRequest) {
   }
 
   const status = req.nextUrl.searchParams.get('status')
+  const conversationId = req.nextUrl.searchParams.get('conversation_id')
   let query = supabase
     .from('shopify_actions')
     .select('id, conversation_id, contact_id, action_type, payload, summary, status, error_message, created_at, executed_at')
@@ -18,6 +19,7 @@ export async function GET(req: NextRequest) {
     .limit(100)
 
   if (status) query = query.eq('status', status as 'pending' | 'confirmed' | 'rejected' | 'executed' | 'failed')
+  if (conversationId) query = query.eq('conversation_id', conversationId)
 
   const { data, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

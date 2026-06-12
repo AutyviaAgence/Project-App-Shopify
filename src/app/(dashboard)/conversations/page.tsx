@@ -45,6 +45,16 @@ function ConversationsPageContent() {
   const [conversations, setConversations] = useState<ConversationWithJoins[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedConv, setSelectedConv] = useState<ConversationWithJoins | null>(null)
+  // Conversations ayant une action Shopify en attente (badge + remontée en haut).
+  const [pendingActionConvIds, setPendingActionConvIds] = useState<Set<string>>(new Set())
+  const fetchPendingActions = useCallback(async () => {
+    try {
+      const res = await fetch('/api/shopify/actions/pending-conversations')
+      const json = await res.json()
+      if (res.ok) setPendingActionConvIds(new Set((json.conversationIds || []).filter(Boolean)))
+    } catch { /* silencieux */ }
+  }, [])
+  useEffect(() => { fetchPendingActions() }, [fetchPendingActions])
   const selectedConvIdRef = useRef<string | null>(null)
   const [pendingOpenConvId, setPendingOpenConvId] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
@@ -829,6 +839,7 @@ function ConversationsPageContent() {
     <div className="flex h-full pb-16 md:pb-0">
       <ConversationList
         conversations={conversations}
+        pendingActionConvIds={pendingActionConvIds}
         onNewConversation={() => { setNewConvOpen(true); setNewConvPhone(''); setNewConvTemplate('') }}
         selectedConvId={selectedConv?.id ?? null}
         totalPages={totalPages}
@@ -883,6 +894,7 @@ function ConversationsPageContent() {
         onToggleAI={handleToggleAI}
         onChangeLifecycleStage={handleChangeLifecycleStage}
         onAnalyzeConversation={handleAnalyzeConversation}
+        onActionsChange={fetchPendingActions}
       />
 
       {/* Contexte Shopify : commandes du client (helpdesk e-commerce) */}
