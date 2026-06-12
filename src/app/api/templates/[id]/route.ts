@@ -82,7 +82,7 @@ export async function PUT(
 
   const { data: tpl } = await supabase
     .from('whatsapp_templates')
-    .select('id, meta_id, approved_body_text, approved_header_text, approved_footer_text')
+    .select('id, meta_id, approved_body_text, approved_header_text, approved_footer_text, approved_header_type, approved_header_media_url')
     .eq('id', id)
     .eq('user_id', user.id)
     .maybeSingle()
@@ -96,12 +96,19 @@ export async function PUT(
   const m = restored.match(/\{\{\s*\d+\s*\}\}/g)
   const variables_count = m ? Math.max(...m.map((x) => parseInt(x.replace(/\D/g, ''), 10))) : 0
 
+  // En-tête de la version validée. Si le snapshot n'a pas de type d'en-tête,
+  // on retombe sur "texte si header_text présent, sinon aucun" → ça EFFACE un
+  // média ajouté après coup.
+  const restoredHeaderType = (tpl.approved_header_type || (tpl.approved_header_text ? 'text' : 'none')) as 'none' | 'text' | 'image' | 'video' | 'document'
+
   const { data, error } = await supabase
     .from('whatsapp_templates')
     .update({
       body_text: tpl.approved_body_text,
       header_text: tpl.approved_header_text,
       footer_text: tpl.approved_footer_text,
+      header_type: restoredHeaderType,
+      header_media_url: tpl.approved_header_media_url || null,
       variables_count,
       // Le contenu chez Meta correspond à cette version → on est de nouveau approuvé.
       status: tpl.meta_id ? 'approved' : 'draft',

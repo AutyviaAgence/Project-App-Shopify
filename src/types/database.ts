@@ -643,6 +643,8 @@ export type WhatsAppTemplate = {
   approved_body_text: string | null
   approved_header_text: string | null
   approved_footer_text: string | null
+  approved_header_type: string | null
+  approved_header_media_url: string | null
   approved_at: string | null
   header_type: 'none' | 'text' | 'image' | 'video' | 'document'
   header_media_url: string | null

@@ -229,8 +229,14 @@ export default function TemplatesPage() {
       const res = await fetch(`/api/templates/${t.id}`, { method: 'PUT' })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Erreur')
-      await fetchTemplates()
-      if (json.data) { openEdit(json.data as WhatsAppTemplate) }
+      const updated = json.data as WhatsAppTemplate
+      // Met à jour la liste EN MÉMOIRE immédiatement (le badge/statut affiché en
+      // dépend) puis recharge le formulaire — pas besoin de refresh manuel.
+      if (updated) {
+        setTemplates((prev) => prev.map((x) => x.id === updated.id ? updated : x))
+        openEdit(updated)
+      }
+      fetchTemplates() // resync en arrière-plan
       toast.success('Version validée restaurée')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erreur')
