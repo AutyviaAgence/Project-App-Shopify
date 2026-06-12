@@ -163,6 +163,11 @@ export default function AutomationsPage() {
     setBuilderGraph(g)
   }
   function closeBuilder() { setBuilderAuto(null); setBuilderGraph(null) }
+  // Bascule vers une autre automatisation depuis la sidebar du builder.
+  function selectBuilderAuto(a: Automation) {
+    const g = a.graph || defaultGraph((a.trigger_event as never) || 'order_fulfilled', a.template_id)
+    setBuilderAuto(a); setBuilderGraph(g)
+  }
 
   async function saveBuilder() {
     if (!builderAuto || !builderGraph) return
@@ -334,13 +339,41 @@ export default function AutomationsPage() {
                 </Button>
               </div>
             </div>
-            <div className="flex-1 overflow-hidden p-4">
-              <WorkflowBuilder
-                graph={builderGraph}
-                templates={templates}
-                storeName={storeName}
-                onChange={setBuilderGraph}
-              />
+            <div className="flex flex-1 overflow-hidden">
+              {/* Sidebar : toutes les automatisations, cliquables */}
+              <aside className="hidden w-60 shrink-0 flex-col overflow-y-auto border-r bg-muted/20 p-2 md:flex">
+                <button
+                  onClick={() => { openNew(); setTimeout(() => { if (draft) openBuilder(draft) }, 0) }}
+                  className="mb-2 flex items-center gap-2 rounded-lg border border-dashed px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted"
+                >
+                  <Plus className="h-4 w-4" /> Nouveau workflow
+                </button>
+                {automations.map((a) => {
+                  const active = builderAuto?.id === a.id
+                  return (
+                    <button
+                      key={a.id}
+                      onClick={() => selectBuilderAuto(a)}
+                      className={cn('mb-1 flex items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors',
+                        active ? 'bg-violet-500/10 text-violet-700 dark:text-violet-300' : 'hover:bg-muted')}
+                    >
+                      <span className={cn('h-2 w-2 shrink-0 rounded-full', a.is_active ? 'bg-green-500' : 'bg-muted-foreground/40')} />
+                      <span className="truncate">{a.name || 'Sans nom'}</span>
+                    </button>
+                  )
+                })}
+              </aside>
+
+              {/* Builder (canvas + config + téléphone à droite) */}
+              <div className="flex-1 overflow-hidden p-4">
+                <WorkflowBuilder
+                  key={builderAuto.id || 'new'}
+                  graph={builderGraph}
+                  templates={templates}
+                  storeName={storeName}
+                  onChange={setBuilderGraph}
+                />
+              </div>
             </div>
           </motion.div>
         )}

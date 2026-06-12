@@ -50,7 +50,7 @@ export function WorkflowBuilder({
     : undefined
 
   return (
-    <div className="grid h-[560px] grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]">
+    <div className="grid h-full min-h-[560px] grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_300px_300px]">
       {/* Canvas */}
       <div className="overflow-hidden rounded-2xl border bg-muted/20">
         <WorkflowCanvas
@@ -61,35 +61,39 @@ export function WorkflowBuilder({
         />
       </div>
 
-      {/* Panneau droit */}
-      <div className="flex flex-col gap-4 overflow-y-auto">
+      {/* Colonne 2 : configuration du nœud sélectionné */}
+      <div className="overflow-y-auto">
         {!selectedNode ? (
           <div className="flex h-full flex-col items-center justify-center rounded-2xl border border-dashed p-6 text-center text-xs text-muted-foreground">
             Cliquez sur un bloc pour le configurer.<br />
-            Utilisez la barre en haut à gauche pour ajouter Délai / Condition / Message.
+            Ajoutez Délai / Condition / Message via la barre en haut à gauche.
           </div>
         ) : (
-          <>
-            <div className="rounded-2xl border bg-card p-4">
-              <NodeConfig graph={graph} nodeId={selectedNode.id} templates={templates} onPatch={patchNode} />
-            </div>
+          <div className="rounded-2xl border bg-card p-4">
+            <NodeConfig graph={graph} nodeId={selectedNode.id} templates={templates} onPatch={patchNode} />
+          </div>
+        )}
+      </div>
 
-            {/* Aperçu téléphone pour un nœud action avec modèle choisi */}
-            {selectedTpl && (
-              <div className="rounded-2xl border bg-card p-3">
-                <PhonePreview
-                  storeName={storeName}
-                  eventLabel="Aperçu"
-                  delayLabel="Immédiat"
-                  headerText={selectedTpl.header_text || undefined}
-                  bodyText={selectedTpl.body_text}
-                  footerText={selectedTpl.footer_text || undefined}
-                  samples={templateSamples(selectedTpl)}
-                  mediaType={selectedTpl.header_type}
-                />
-              </div>
-            )}
-          </>
+      {/* Colonne 3 (tout à droite) : aperçu téléphone */}
+      <div className="hidden overflow-y-auto lg:block">
+        {selectedTpl ? (
+          <div className="sticky top-0 rounded-2xl border bg-card p-3">
+            <PhonePreview
+              storeName={storeName}
+              eventLabel="Aperçu"
+              delayLabel="Immédiat"
+              headerText={selectedTpl.header_text || undefined}
+              bodyText={selectedTpl.body_text}
+              footerText={selectedTpl.footer_text || undefined}
+              samples={templateSamples(selectedTpl)}
+              mediaType={selectedTpl.header_type}
+            />
+          </div>
+        ) : (
+          <div className="flex h-full items-center justify-center rounded-2xl border border-dashed p-4 text-center text-xs text-muted-foreground">
+            Sélectionnez un bloc <b className="mx-1 text-green-600">Message</b> pour voir l’aperçu.
+          </div>
         )}
       </div>
     </div>
