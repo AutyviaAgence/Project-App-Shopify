@@ -24,7 +24,7 @@ export async function enqueueAutomations(params: {
 
   const { data: automations } = await supabase
     .from('automations')
-    .select('id, delay_minutes')
+    .select('id, delay_minutes, builder_mode')
     .eq('user_id', params.userId)
     .eq('trigger_event', params.event)
     .eq('is_active', true)
@@ -34,7 +34,10 @@ export async function enqueueAutomations(params: {
   const now = Date.now()
   let queued = 0
   for (const a of automations) {
-    const scheduledAt = new Date(now + (a.delay_minutes || 0) * 60_000).toISOString()
+    // Builder : le graphe gère ses propres délais → on démarre immédiatement.
+    const scheduledAt = a.builder_mode
+      ? new Date(now).toISOString()
+      : new Date(now + (a.delay_minutes || 0) * 60_000).toISOString()
     const dedupKey = params.ctx.dedupKey ? `${params.event}:${params.ctx.dedupKey}` : null
 
     const { error } = await supabase.from('automation_jobs').insert({
@@ -45,9 +48,14 @@ export async function enqueueAutomations(params: {
         variables: params.ctx.variables,
         total: params.ctx.total ?? null,
         isFirstOrder: params.ctx.isFirstOrder ?? null,
+        productTitles: params.ctx.productTitles ?? null,
+        collections: params.ctx.collections ?? null,
+        country: params.ctx.country ?? null,
+        language: params.ctx.language ?? null,
       },
       scheduled_at: scheduledAt,
       status: 'pending',
+      current_node_id: null,
       dedup_key: dedupKey,
     })
     // 23505 = doublon dedup (déjà enfilé) → on ignore silencieusement

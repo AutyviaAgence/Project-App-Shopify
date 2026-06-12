@@ -54,6 +54,10 @@ export type EventContext = {
   // Données brutes utiles aux conditions
   total?: number
   isFirstOrder?: boolean
+  productTitles?: string[]     // titres des produits de la commande
+  collections?: string[]       // collections des produits
+  country?: string             // code ISO du pays (ex: FR)
+  language?: string            // langue du client (ex: fr)
   // Données par clé nommée pour résoudre les variables du template
   variables: Record<string, string>
   // Clé d'idempotence (ex: `${event}:${orderId}`)

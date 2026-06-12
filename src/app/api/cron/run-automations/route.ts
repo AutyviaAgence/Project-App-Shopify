@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
   // Jobs dus (limite pour éviter les longues exécutions)
   const { data: jobs } = await supabase
     .from('automation_jobs')
-    .select('id, automation_id, contact_id, event_data, scheduled_at')
+    .select('id, automation_id, contact_id, event_data, scheduled_at, current_node_id')
     .eq('status', 'pending')
     .lte('scheduled_at', now.toISOString())
     .order('scheduled_at', { ascending: true })
@@ -41,12 +41,11 @@ export async function GET(req: NextRequest) {
   for (const job of jobs || []) {
     const { data: auto } = await supabase
       .from('automations')
-      .select('id, template_id, conditions, quiet_start, quiet_end, timezone, trigger_event, is_active')
+      .select('id, template_id, conditions, quiet_start, quiet_end, timezone, trigger_event, is_active, builder_mode, graph')
       .eq('id', job.automation_id)
       .maybeSingle()
 
-    // Automation supprimée/désactivée → on annule le job
-    if (!auto || !auto.is_active || !auto.template_id) {
+    if (!auto || !auto.is_active) {
       await mark(supabase, job.id, 'skipped', 'automation inactive/supprimée')
       skipped++; continue
     }
@@ -58,13 +57,50 @@ export async function GET(req: NextRequest) {
       deferred++; continue
     }
 
-    const eventData = (job.event_data || {}) as { variables?: Record<string, string>; total?: number | null; isFirstOrder?: boolean | null }
+    const eventData = (job.event_data || {}) as {
+      variables?: Record<string, string>; total?: number | null; isFirstOrder?: boolean | null
+      productTitles?: string[]; collections?: string[]; country?: string; language?: string
+    }
+    if (!job.contact_id) { await mark(supabase, job.id, 'skipped', 'pas de contact'); skipped++; continue }
 
-    // Conditions métier
+    // ---- Mode BUILDER (graphe de nœuds) ----
+    if (auto.builder_mode && auto.graph) {
+      const { stepWorkflow } = await import('@/lib/automations/graph-engine')
+      const ctx = {
+        contactId: job.contact_id,
+        total: eventData.total ?? undefined,
+        isFirstOrder: eventData.isFirstOrder ?? undefined,
+        productTitles: eventData.productTitles,
+        collections: eventData.collections,
+        country: eventData.country,
+        language: eventData.language,
+        variables: eventData.variables || {},
+      }
+      // current_node_id null = on vient de finir un delay sur ce nœud → on le saute.
+      const step = stepWorkflow(auto.graph, ctx, job.current_node_id || null, !!job.current_node_id)
+
+      if (step.kind === 'done') { await mark(supabase, job.id, 'sent', 'workflow terminé'); sent++; continue }
+      if (step.kind === 'wait') {
+        const when = new Date(now.getTime() + step.minutes * 60_000).toISOString()
+        await supabase.from('automation_jobs').update({ current_node_id: step.nextNodeId, scheduled_at: when }).eq('id', job.id)
+        deferred++; continue
+      }
+      // send
+      const r = await sendTemplateToContact({ templateId: step.templateId, contactId: job.contact_id, variables: eventData.variables || {} })
+      if (!r.ok) { await mark(supabase, job.id, 'failed', r.error || 'échec'); failed++; continue }
+      if (step.nextNodeId) {
+        // Continuer le workflow immédiatement au prochain tick depuis le nœud suivant.
+        await supabase.from('automation_jobs').update({ current_node_id: step.nextNodeId, scheduled_at: now.toISOString() }).eq('id', job.id)
+      } else {
+        await mark(supabase, job.id, 'sent', null)
+      }
+      sent++; continue
+    }
+
+    // ---- Mode LINÉAIRE (rétrocompat) ----
+    if (!auto.template_id) { await mark(supabase, job.id, 'skipped', 'pas de modèle'); skipped++; continue }
     const reason = evaluateConditions(auto.conditions || {}, { total: eventData.total, isFirstOrder: eventData.isFirstOrder })
     if (reason) { await mark(supabase, job.id, 'skipped', reason); skipped++; continue }
-
-    if (!job.contact_id) { await mark(supabase, job.id, 'skipped', 'pas de contact'); skipped++; continue }
 
     const r = await sendTemplateToContact({
       templateId: auto.template_id,
