@@ -86,15 +86,15 @@ export function PhonePreview({
   return (
     <div className="flex flex-col items-center gap-3">
      <div className="relative">
-      {/* Mascotte Xeyo qui "tient" le téléphone (dépasse au-dessus) */}
+      {/* Mascotte Xeyo qui "tient" le téléphone — grosse et AU PREMIER PLAN */}
       {mascot && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src="/mascots/peeking.png"
           alt=""
           aria-hidden
-          className="pointer-events-none absolute left-1/2 z-0 -translate-x-1/2 select-none drop-shadow-xl"
-          style={{ top: -68 * scale, width: 150 * scale }}
+          className="pointer-events-none absolute left-1/2 z-20 -translate-x-1/2 select-none drop-shadow-2xl"
+          style={{ top: -120 * scale, width: 290 * scale }}
         />
       )}
       <IPhoneMockup model="15-pro" color="#3a4a63" scale={scale} screenBg="#0b141a" glass>
