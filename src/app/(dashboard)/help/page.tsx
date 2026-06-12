@@ -117,6 +117,11 @@ const CATEGORIES: Category[] = [
 ]
 
 export default function HelpPage() {
+  return <HelpContent />
+}
+
+/** Contenu du centre d'aide, réutilisable (page /help ET onglet Paramètres). */
+export function HelpContent({ embedded = false }: { embedded?: boolean }) {
   const [query, setQuery] = useState('')
   const [openKey, setOpenKey] = useState<string | null>(null)
 
@@ -135,15 +140,17 @@ export default function HelpPage() {
   }, [query])
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 p-6">
-      {/* En-tête */}
-      <div className="text-center">
-        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-          <LifeBuoy className="h-6 w-6" />
+    <div className={cn('space-y-6', embedded ? '' : 'mx-auto max-w-3xl p-6')}>
+      {/* En-tête (masqué en mode embarqué : l'onglet a déjà son titre) */}
+      {!embedded && (
+        <div className="text-center">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+            <LifeBuoy className="h-6 w-6" />
+          </div>
+          <h1 className="text-2xl font-bold">Centre d&apos;aide</h1>
+          <p className="mt-1 text-muted-foreground">Trouvez rapidement une réponse à vos questions.</p>
         </div>
-        <h1 className="text-2xl font-bold">Centre d&apos;aide</h1>
-        <p className="mt-1 text-muted-foreground">Trouvez rapidement une réponse à vos questions.</p>
-      </div>
+      )}
 
       {/* Recherche */}
       <div className="relative">

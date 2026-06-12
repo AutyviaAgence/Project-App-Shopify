@@ -66,9 +66,11 @@ import {
   User,
   Shield,
   Database,
+  HelpCircle,
 } from 'lucide-react'
 import Link from 'next/link'
 import { useTranslation } from '@/i18n/context'
+import { HelpContent } from '@/app/(dashboard)/help/page'
 import { useTenant } from '@/lib/tenant/context'
 import type { Locale } from '@/i18n/context'
 import { BlobLoaderScreen } from '@/components/blob-loader'
@@ -538,6 +540,7 @@ export default function SettingsPage() {
     { id: 'securite', label: 'Sécurité', icon: Shield },
     { id: 'macros', label: 'Macros', icon: Zap },
     { id: 'donnees', label: 'Données', icon: Database },
+    { id: 'aide', label: 'Aide', icon: HelpCircle },
     { id: 'danger', label: 'Zone de danger', icon: AlertTriangle },
   ]
 
@@ -1242,6 +1245,18 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
         </>)}
+
+        {tab === 'aide' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Centre d&apos;aide</CardTitle>
+              <CardDescription>Trouvez rapidement une réponse à vos questions.</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <HelpContent embedded />
+            </CardContent>
+          </Card>
+        )}
 
         {tab === 'danger' && (<>
         {/* Zone de danger - Suppression du compte */}

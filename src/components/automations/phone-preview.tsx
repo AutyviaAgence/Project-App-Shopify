@@ -96,7 +96,7 @@ export function PhonePreview({
 
           {/* Conversation (fond WhatsApp) — les bulles se remplissent par le bas */}
           <div
-            className="relative flex flex-1 flex-col justify-end gap-2 px-3 pb-8 pt-4"
+            className="relative flex flex-1 flex-col justify-center gap-2.5 px-3 py-4"
             style={{ backgroundImage: 'url(/whatsapp-bg.webp)', backgroundSize: 'cover' }}
           >
             <AnimatePresence>
@@ -107,12 +107,12 @@ export function PhonePreview({
                   initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
                   className="mx-auto max-w-[90%] rounded-lg bg-[#fdf4c9] px-3 py-1.5 text-center shadow-sm"
                 >
-                  <p className="flex items-center justify-center gap-1.5 text-[12px] font-medium text-amber-800">
+                  <p className="flex items-center justify-center gap-1.5 text-[13.5px] font-medium text-amber-800">
                     <ShoppingBag className="h-3.5 w-3.5" />
                     {customerName} — {eventLabel.toLowerCase()}
                   </p>
                   {conditionsText && (
-                    <p className="mt-0.5 text-[10.5px] text-amber-700/80">✓ {conditionsText}</p>
+                    <p className="mt-0.5 text-[12px] text-amber-700/80">✓ {conditionsText}</p>
                   )}
                 </motion.div>
               )}
@@ -122,7 +122,7 @@ export function PhonePreview({
                 <motion.div
                   key={`clock-${playKey}`}
                   initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
-                  className="mx-auto flex items-center gap-1.5 rounded-full bg-black/10 px-2.5 py-1 text-[11px] text-gray-700 backdrop-blur-sm"
+                  className="mx-auto flex items-center gap-1.5 rounded-full bg-black/10 px-3 py-1.5 text-[12.5px] text-gray-700 backdrop-blur-sm"
                 >
                   <motion.span
                     animate={{ rotate: immediate ? 0 : 360 }}
@@ -152,12 +152,12 @@ export function PhonePreview({
                   {mediaType === 'document' && <div className="bg-slate-100 px-2 py-2 text-xs text-slate-500">📄 Document.pdf</div>}
                   <div className="px-2.5 py-1.5">
                     {headerText && mediaType === 'text' && (
-                      <p className="mb-0.5 text-[13.5px] font-semibold text-gray-900">{headerText}</p>
+                      <p className="mb-0.5 text-[16px] font-semibold text-gray-900">{headerText}</p>
                     )}
-                    <p className="whitespace-pre-wrap break-words text-[13.5px] leading-snug text-gray-800">
+                    <p className="whitespace-pre-wrap break-words text-[15.5px] leading-snug text-gray-800">
                       {renderFormat(resolved) || <span className="text-gray-400">Votre message…</span>}
                     </p>
-                    {footerText && <p className="mt-1 text-[11px] text-gray-500">{footerText}</p>}
+                    {footerText && <p className="mt-1 text-[12.5px] text-gray-500">{footerText}</p>}
                     <div className="mt-0.5 flex items-center justify-end gap-0.5 text-[10px] text-gray-400">
                       <span>12:00</span>
                       <motion.span
