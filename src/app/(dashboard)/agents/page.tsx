@@ -534,7 +534,7 @@ export default function AgentsPage() {
                         {isCenter && (
                           <div
                             className="absolute right-0 top-6 z-10 flex translate-x-1/4 flex-col items-center gap-0.5 rounded-full py-1 shadow-lg sm:top-7 sm:translate-x-1/3 sm:py-1.5"
-                            style={{ background: '#7DC2A5' }}
+                            style={{ background: '#3b82f6' }}
                           >
                             <button
                               onClick={(e) => { e.stopPropagation(); handleTogglePin(agent) }}
