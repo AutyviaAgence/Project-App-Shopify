@@ -25,15 +25,15 @@ export async function POST() {
     return NextResponse.json({ data: { synced: 0 } })
   }
 
-  // Construire une map (name|language) → statut Meta
-  const metaStatus = new Map<string, { status: string; meta_id: string }>()
+  // Construire une map (name|language) → statut + catégorie Meta
+  const metaStatus = new Map<string, { status: string; meta_id: string; category: string }>()
   for (const s of sessions) {
     if (!s.waba_business_account_id || !s.waba_access_token) continue
     const token = decryptMessage(s.waba_access_token)
     const res = await wabaClient.listTemplates(s.waba_business_account_id, token)
     if (res.ok) {
       for (const t of res.data.data) {
-        metaStatus.set(`${t.name}|${t.language}`, { status: t.status, meta_id: t.id })
+        metaStatus.set(`${t.name}|${t.language}`, { status: t.status, meta_id: t.id, category: t.category })
       }
     }
   }
@@ -41,7 +41,7 @@ export async function POST() {
   // Mettre à jour les templates locaux
   const { data: locals } = await supabase
     .from('whatsapp_templates')
-    .select('id, name, language, status, body_text, header_text, footer_text, header_type, header_media_url')
+    .select('id, name, language, status, category, body_text, header_text, footer_text, header_type, header_media_url')
     .eq('user_id', user.id)
 
   let synced = 0
@@ -49,12 +49,16 @@ export async function POST() {
     const meta = metaStatus.get(`${tpl.name}|${tpl.language}`)
     if (meta) {
       const newStatus = meta.status.toLowerCase() as 'pending' | 'approved' | 'rejected'
-      if (newStatus !== tpl.status) {
+      // Meta peut RECLASSER la catégorie d'un template (UTILITY↔MARKETING).
+      // On aligne toujours la catégorie locale sur celle de Meta (source de vérité).
+      const categoryChanged = meta.category && meta.category !== tpl.category
+      if (newStatus !== tpl.status || categoryChanged) {
         const patch: Record<string, unknown> = {
           status: newStatus,
           meta_id: meta.meta_id,
           updated_at: new Date().toISOString(),
         }
+        if (categoryChanged) patch.category = meta.category
         // Quand un template devient approuvé, on fige son contenu comme
         // "dernière version validée" (pour pouvoir y revenir après édition).
         if (newStatus === 'approved') {

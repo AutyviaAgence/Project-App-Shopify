@@ -492,10 +492,13 @@ export default function TemplatesPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>Catégorie</Label>
-                <Select value={category} onValueChange={setCategory}>
+                <Select value={category} onValueChange={setCategory} disabled={!!editing?.meta_id}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{CATEGORIES.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
                 </Select>
+                {editing?.meta_id && (
+                  <p className="text-[11px] text-muted-foreground">La catégorie d’un modèle déjà soumis ne peut pas être modifiée (règle Meta).</p>
+                )}
               </div>
             </div>
             <div className="space-y-2">
