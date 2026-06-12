@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Check, Play, Clock, ShoppingBag } from 'lucide-react'
+import IPhoneMockup from '@/components/ui/iphone-mockup'
 
 /**
  * Aperçu téléphone WhatsApp animé — façon "story" dans une conversation :
@@ -73,23 +74,22 @@ export function PhonePreview({
 
   return (
     <div className="flex flex-col items-center gap-3">
-      <div className="relative w-[280px] rounded-[2.2rem] border-[10px] border-slate-900 bg-slate-900 shadow-2xl">
-        <div className="absolute left-1/2 top-0 z-10 h-5 w-28 -translate-x-1/2 rounded-b-2xl bg-slate-900" />
-        <div className="overflow-hidden rounded-[1.4rem] bg-[#e5ddd5]">
-          {/* Barre WhatsApp */}
-          <div className="flex items-center gap-2 bg-[#075E54] px-3 py-2.5 text-white">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-white/20 text-sm font-semibold">
+      <IPhoneMockup model="15-pro" color="natural-titanium" scale={0.74} screenBg="#0b141a" glass>
+        <div className="flex h-full flex-col">
+          {/* Barre WhatsApp (sous la Dynamic Island) */}
+          <div className="flex items-center gap-2 bg-[#075E54] px-3 pb-2.5 pt-12 text-white">
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/20 text-base font-semibold">
               {(storeName || 'X').charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="truncate text-sm font-medium">{storeName || 'Votre boutique'}</p>
-              <p className="text-[10px] text-white/70">en ligne</p>
+              <p className="truncate text-[15px] font-medium">{storeName || 'Votre boutique'}</p>
+              <p className="text-[11px] text-white/70">en ligne</p>
             </div>
           </div>
 
           {/* Conversation (fond WhatsApp) */}
           <div
-            className="relative flex min-h-[340px] flex-col gap-2 px-3 py-4"
+            className="relative flex flex-1 flex-col gap-2 px-3 py-4"
             style={{ backgroundImage: 'url(/whatsapp-bg.webp)', backgroundSize: 'cover' }}
           >
             <AnimatePresence>
@@ -169,7 +169,7 @@ export function PhonePreview({
             </AnimatePresence>
           </div>
         </div>
-      </div>
+      </IPhoneMockup>
 
       <button
         onClick={() => setPlayKey((k) => k + 1)}
