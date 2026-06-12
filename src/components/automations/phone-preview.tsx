@@ -88,20 +88,24 @@ export function PhonePreview({
   // On mesure le parent et on calcule un scale (borné) pour qu'il rentre sans
   // scroll. Dimensions nominales du mockup : 417 × 876 (incl. bezels).
   const NOM_W = 417, NOM_H = 876
+  // Mascotte "peeking" (recadrée) : ratio hauteur/largeur ≈ 0.77, largeur ≈ 0.86×mockup.
+  // Les mains chevauchent le bord supérieur ; ~12% de l'image passe SOUS ce bord,
+  // donc le débord visible au-dessus du mockup ≈ hauteurImage × 0.88.
+  const MASCOT_W = 0.86               // largeur image / largeur mockup
+  const MASCOT_RATIO = 0.77           // hauteur image / largeur image
+  const MASCOT_OVERLAP = 0.12         // part de l'image qui chevauche le mockup
+  const mascotOverhang = MASCOT_W * MASCOT_RATIO * (1 - MASCOT_OVERLAP) // ×largeur mockup
   const wrapRef = useRef<HTMLDivElement>(null)
   const [fitScale, setFitScale] = useState(scale)
   useEffect(() => {
     const el = wrapRef.current?.parentElement
     if (!el) return
     const compute = () => {
-      // La mascotte déborde d'environ 0.43×largeur_mockup au-dessus. On réserve
-      // cet espace + ~50px pour le bouton "Rejouer", et on borne le scale.
       const availW = el.clientWidth - 24
-      // hauteur dispo : on résout s tel que s*NOM_H + mascotteDébord(s) + bouton <= H
-      // mascotteDébord ≈ s*NOM_W*0.86*0.5 ; on simplifie en réservant un ratio.
+      // hauteur dispo : s*NOM_H + débordMascotte(s) + bouton "Rejouer" <= H
       const H = el.clientHeight - 60
       const s = Math.min(
-        H / (NOM_H + (mascot ? NOM_W * 0.86 * 0.6 : 0)),
+        H / (NOM_H + (mascot ? NOM_W * mascotOverhang : 0)),
         availW / NOM_W,
         0.95,
       )
@@ -129,10 +133,13 @@ export function PhonePreview({
           alt=""
           aria-hidden
           className="pointer-events-none absolute left-1/2 z-50 -translate-x-1/2 select-none drop-shadow-2xl"
-          // Grosse mascotte : largeur ~85% du téléphone. L'image fait ~58% de
-          // hauteur ; on la remonte pour que la tête soit visible et les mains
-          // chevauchent le bord supérieur du mockup.
-          style={{ width: NOM_W * fitScale * 0.86, top: -(NOM_W * fitScale * 0.86 * 0.56) }}
+          // Grosse mascotte : largeur ~86% du téléphone. On la remonte pour que
+          // la tête + cornes soient visibles et que les mains chevauchent le bord
+          // supérieur du mockup (≈12% de l'image passe sous le bord).
+          style={{
+            width: NOM_W * fitScale * MASCOT_W,
+            top: -(NOM_W * fitScale * mascotOverhang),
+          }}
         />
       )}
       <IPhoneMockup model="15-pro" color="#3a4a63" scale={fitScale} screenBg="#0b141a" glass>
