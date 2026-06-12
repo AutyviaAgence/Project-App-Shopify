@@ -37,7 +37,7 @@ export async function sendTemplateToContact(params: {
   // Template approuvé
   const { data: tpl } = await supabase
     .from('whatsapp_templates')
-    .select('name, language, status, variables_count, variable_keys, body_text')
+    .select('name, language, status, variables_count, variable_keys, body_text, template_type, carousel_cards')
     .eq('id', params.templateId)
     .maybeSingle()
   if (!tpl) return { ok: false, error: 'template_introuvable' }
@@ -61,9 +61,16 @@ export async function sendTemplateToContact(params: {
   const resolved = resolveVariables(keys, params.variables)
   const out = resolved.slice(0, varsCount)
   while (out.length < varsCount) out.push('')
-  const components = out.length > 0
+  const components: unknown[] = out.length > 0
     ? [{ type: 'body', parameters: out.map((p) => ({ type: 'text', text: p })) }]
     : []
+
+  // Carrousel avec variables par carte → ajoute le composant `carousel` résolu.
+  if (tpl.template_type === 'carousel' && Array.isArray(tpl.carousel_cards)) {
+    const { buildCarouselComponent } = await import('@/lib/templates/carousel-send')
+    const carousel = buildCarouselComponent(tpl.carousel_cards, params.variables)
+    if (carousel) components.push(carousel)
+  }
 
   const { wabaClient } = await import('@/lib/whatsapp-cloud/client')
   const res = await wabaClient.sendTemplateWithParams(

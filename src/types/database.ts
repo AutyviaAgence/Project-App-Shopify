@@ -678,6 +678,12 @@ export type TemplateCard = {
   header_media_url: string | null
   body_text: string
   buttons: CardButton[]
+  /**
+   * Clés des variables nommées du texte de la carte, ordre = numéro
+   * ({{1}} = body_variable_keys[0]). Résolues à l'envoi comme le body principal.
+   * Absent/[] = carte statique (rétrocompatible V1).
+   */
+  body_variable_keys?: string[]
 }
 
 /** Boutons autorisés sur une carte de carrousel (URL ou réponse rapide). */

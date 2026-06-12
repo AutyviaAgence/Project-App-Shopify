@@ -124,10 +124,11 @@ async function sendWhatsAppNotification(
     let sendLang = tpl.language
     let varsCount = tpl.sample_values.length
     let variableKeys: string[] = []
+    let carouselCards: unknown[] | null = null
     if (session.user_id) {
       const { data: approved } = await supabase
         .from('whatsapp_templates')
-        .select('name, language, status, variables_count, variable_keys')
+        .select('name, language, status, variables_count, variable_keys, template_type, carousel_cards')
         .eq('user_id', session.user_id)
         .eq('name', tpl.name)
         .eq('status', 'approved')
@@ -140,6 +141,9 @@ async function sendWhatsAppNotification(
       sendLang = approved.language || tpl.language
       if (typeof approved.variables_count === 'number') varsCount = approved.variables_count
       if (Array.isArray(approved.variable_keys)) variableKeys = approved.variable_keys
+      if (approved.template_type === 'carousel' && Array.isArray(approved.carousel_cards)) {
+        carouselCards = approved.carousel_cards
+      }
     }
 
     // Paramètres : si le template a un mapping de variables nommées ET qu'un
@@ -155,9 +159,16 @@ async function sendWhatsAppNotification(
     // (tronqué/complété), sinon Meta rejette (132000).
     const params = allParams.slice(0, varsCount)
     while (params.length < varsCount) params.push('')
-    const components = params.length > 0
+    const components: unknown[] = params.length > 0
       ? [{ type: 'body', parameters: params.map((p) => ({ type: 'text', text: p })) }]
       : []
+
+    // Carrousel avec variables par carte → composant `carousel` résolu.
+    if (carouselCards && payload.data) {
+      const { buildCarouselComponent } = await import('@/lib/templates/carousel-send')
+      const carousel = buildCarouselComponent(carouselCards as { body_text?: string; body_variable_keys?: string[] }[], payload.data)
+      if (carousel) components.push(carousel)
+    }
 
     const res = await wabaClient.sendTemplateWithParams(
       session.waba_phone_number_id,

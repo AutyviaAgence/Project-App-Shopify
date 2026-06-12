@@ -5,9 +5,21 @@ import { toast } from 'sonner'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { Plus, Trash2, Loader2, Image as ImageIcon, Video, ExternalLink, GripVertical } from 'lucide-react'
+import { Plus, Trash2, Loader2, Image as ImageIcon, Video, ExternalLink, GripVertical, Braces } from 'lucide-react'
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
+  DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import type { TemplateCard, CardButton } from '@/types/database'
+import { TEMPLATE_VARIABLES, VARIABLE_BY_KEY, VARIABLE_GROUPS } from '@/lib/templates/variables'
+
+/** Resynchronise les clés de variables d'une carte avec les {{n}} présents. */
+function syncCardKeys(text: string, keys: string[]): string[] {
+  const present = (text.match(/\{\{(\d+)\}\}/g) || []).map((v) => parseInt(v.replace(/\D/g, ''), 10))
+  const maxNum = present.length ? Math.max(...present) : 0
+  return keys.slice(0, maxNum)
+}
 
 /**
  * Éditeur des cartes d'un carrousel WhatsApp.
@@ -40,6 +52,7 @@ export function CarouselEditor({
   const [previews, setPreviews] = useState<PreviewMap>(initialPreviews || {})
   const [uploading, setUploading] = useState<number | null>(null)
   const fileInputs = useRef<Record<number, HTMLInputElement | null>>({})
+  const bodyRefs = useRef<Record<number, HTMLTextAreaElement | null>>({})
 
   // Si le parent fournit des aperçus (édition d'un carrousel existant), on les
   // adopte une fois.
@@ -52,6 +65,19 @@ export function CarouselEditor({
     onChange(cards.map((c, idx) => (idx === i ? { ...c, ...patch } : c)))
   }
 
+  // Insère une variable nommée dans le texte de la carte i : ajoute sa clé au
+  // mapping de la carte (→ numéro {{n}}) et insère le token à la position du curseur.
+  function insertCardVariable(i: number, key: string) {
+    const card = cards[i]
+    const keys = card.body_variable_keys || []
+    const token = `{{${keys.length + 1}}}`
+    const ta = bodyRefs.current[i]
+    const pos = ta ? ta.selectionStart : card.body_text.length
+    const nextText = card.body_text.slice(0, pos) + token + card.body_text.slice(pos)
+    patchCard(i, { body_text: nextText, body_variable_keys: [...keys, key] })
+    if (ta) requestAnimationFrame(() => { ta.focus(); ta.setSelectionRange(pos + token.length, pos + token.length) })
+  }
+
   function addCard() {
     if (cards.length >= 10) { toast.error('Maximum 10 cartes'); return }
     const next: TemplateCard = {
@@ -59,6 +85,7 @@ export function CarouselEditor({
       header_media_url: null,
       body_text: '',
       buttons: [{ type: 'URL', text: 'Découvrir', url: 'https://' }],
+      body_variable_keys: [],
     }
     onChange([...cards, next])
   }
@@ -194,13 +221,48 @@ export function CarouselEditor({
           {/* Texte de la carte */}
           <div className="space-y-1">
             <Textarea
+              ref={(el) => { bodyRefs.current[i] = el }}
               value={card.body_text}
-              onChange={(e) => patchCard(i, { body_text: e.target.value })}
+              onChange={(e) => patchCard(i, { body_text: e.target.value, body_variable_keys: syncCardKeys(e.target.value, card.body_variable_keys || []) })}
               rows={2}
               maxLength={160}
               placeholder="Nettoyant purifiant à l'acide salicylique. Élimine les impuretés."
             />
-            <p className="text-right text-[11px] text-muted-foreground">{card.body_text.length}/160</p>
+            <div className="flex items-center justify-between">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button type="button" className="flex h-6 items-center gap-1 rounded px-1.5 text-[11px] text-muted-foreground hover:bg-muted">
+                    <Braces className="h-3 w-3" /> Variable
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="max-h-72 overflow-y-auto">
+                  {VARIABLE_GROUPS.map((group, gi) => (
+                    <div key={group}>
+                      {gi > 0 && <DropdownMenuSeparator />}
+                      <DropdownMenuLabel className="text-[11px] uppercase text-muted-foreground">{group}</DropdownMenuLabel>
+                      {TEMPLATE_VARIABLES.filter((v) => v.group === group).map((v) => (
+                        <DropdownMenuItem key={v.key} onClick={() => insertCardVariable(i, v.key)} className="text-sm">
+                          {v.label}
+                        </DropdownMenuItem>
+                      ))}
+                    </div>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <span className="text-[11px] text-muted-foreground">{card.body_text.length}/160</span>
+            </div>
+            {/* Légende des variables de la carte */}
+            {(card.body_variable_keys || []).length > 0 && (
+              <div className="space-y-0.5 rounded-md border bg-muted/30 p-1.5">
+                {(card.body_variable_keys || []).map((key, vi) => (
+                  <div key={vi} className="flex items-center gap-1.5 text-[11px]">
+                    <code className="rounded bg-background px-1 py-0.5">{`{{${vi + 1}}}`}</code>
+                    <span className="text-muted-foreground">=</span>
+                    <span>{VARIABLE_BY_KEY[key]?.label || key}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Boutons de la carte */}
