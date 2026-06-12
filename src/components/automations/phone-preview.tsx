@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Check, Play, Clock, ShoppingBag } from 'lucide-react'
 import IPhoneMockup from '@/components/ui/iphone-mockup'
+import { cn } from '@/lib/utils'
 
 /**
  * Aperçu téléphone WhatsApp animé — façon "story" dans une conversation :
@@ -84,17 +85,18 @@ export function PhonePreview({
   }, [playKey, resolved, delayLabel, immediate])
 
   return (
-    <div className="flex flex-col items-center gap-3">
+    <div className={cn('flex flex-col items-center gap-3', mascot && 'pt-24')}>
      <div className="relative">
-      {/* Mascotte Xeyo qui "tient" le téléphone — grosse et AU PREMIER PLAN */}
+      {/* Mascotte Xeyo posée SUR le haut du téléphone (corps au-dessus, mains
+          qui agrippent le bord). z-20 = au premier plan, non coupée. */}
       {mascot && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
           src="/mascots/peeking.png"
           alt=""
           aria-hidden
-          className="pointer-events-none absolute left-1/2 z-20 -translate-x-1/2 select-none drop-shadow-2xl"
-          style={{ top: -120 * scale, width: 290 * scale }}
+          className="pointer-events-none absolute bottom-full left-1/2 z-20 -translate-x-1/2 translate-y-[40px] select-none drop-shadow-2xl"
+          style={{ width: 250 * scale }}
         />
       )}
       <IPhoneMockup model="15-pro" color="#3a4a63" scale={scale} screenBg="#0b141a" glass>
