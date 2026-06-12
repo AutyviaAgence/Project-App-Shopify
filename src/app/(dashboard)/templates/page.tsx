@@ -64,10 +64,43 @@ export default function TemplatesPage() {
   const [headerText, setHeaderText] = useState('')
   const [footerText, setFooterText] = useState('')
   const [headerType, setHeaderType] = useState<'none' | 'text' | 'image' | 'video' | 'document'>('none')
-  const [headerMediaUrl, setHeaderMediaUrl] = useState('')
+  const [headerMediaUrl, setHeaderMediaUrl] = useState('') // storage_path (privé) ou URL externe
+  const [mediaPreviewUrl, setMediaPreviewUrl] = useState('') // URL signée pour l'aperçu
+  const [mediaFilename, setMediaFilename] = useState('')
+  const [uploadingMedia, setUploadingMedia] = useState(false)
   const [buttons, setButtons] = useState<TemplateButton[]>([])
   const [saving, setSaving] = useState(false)
   const bodyRef = useRef<HTMLTextAreaElement>(null)
+  const mediaInputRef = useRef<HTMLInputElement>(null)
+
+  // Formats acceptés par type d'en-tête (limites Meta).
+  const MEDIA_ACCEPT = {
+    image: 'image/jpeg,image/png',
+    video: 'video/mp4',
+    document: 'application/pdf',
+  } as const
+
+  // Upload du média d'en-tête vers le bucket privé.
+  async function handleMediaUpload(file: File) {
+    if (headerType === 'none' || headerType === 'text') return
+    setUploadingMedia(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      fd.append('kind', headerType)
+      const res = await fetch('/api/templates/media', { method: 'POST', body: fd })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Upload échoué')
+      setHeaderMediaUrl(json.data.storage_path)
+      setMediaPreviewUrl(json.data.signed_url || '')
+      setMediaFilename(json.data.filename || file.name)
+      toast.success('Média importé')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erreur')
+    } finally {
+      setUploadingMedia(false)
+    }
+  }
 
   // Gestion des boutons
   function addButton(type: TemplateButton['type']) {
@@ -146,6 +179,7 @@ export default function TemplatesPage() {
     setName(''); setLanguage('fr'); setCategory('UTILITY')
     setBodyText(''); setHeaderText(''); setFooterText('Powered by Xeyo.io')
     setHeaderType('none'); setHeaderMediaUrl(''); setButtons([])
+    setMediaPreviewUrl(''); setMediaFilename('')
     setMode('edit')
   }
 
@@ -157,6 +191,16 @@ export default function TemplatesPage() {
     setHeaderType(t.header_type || (t.header_text ? 'text' : 'none'))
     setHeaderMediaUrl(t.header_media_url || '')
     setButtons(Array.isArray(t.buttons) ? t.buttons : [])
+    // Aperçu du média existant : génère une URL signée si c'est un chemin privé.
+    setMediaFilename(''); setMediaPreviewUrl('')
+    if (t.header_media_url && !/^https?:\/\//i.test(t.header_media_url)) {
+      fetch(`/api/templates/media/preview?path=${encodeURIComponent(t.header_media_url)}`)
+        .then((r) => r.ok ? r.json() : null)
+        .then((j) => { if (j?.data?.signed_url) setMediaPreviewUrl(j.data.signed_url) })
+        .catch(() => {})
+    } else if (t.header_media_url) {
+      setMediaPreviewUrl(t.header_media_url)
+    }
     setMode('edit')
   }
 
@@ -448,11 +492,49 @@ export default function TemplatesPage() {
                 <Input value={headerText} onChange={(e) => setHeaderText(e.target.value)} placeholder="Votre commande est confirmée" maxLength={60} />
               )}
               {(headerType === 'image' || headerType === 'video' || headerType === 'document') && (
-                <Input
-                  value={headerMediaUrl}
-                  onChange={(e) => setHeaderMediaUrl(e.target.value)}
-                  placeholder={headerType === 'image' ? 'URL de l\'image (exemple)' : headerType === 'video' ? 'URL de la vidéo' : 'URL du document'}
-                />
+                <div className="space-y-2">
+                  <input
+                    ref={mediaInputRef}
+                    type="file"
+                    accept={MEDIA_ACCEPT[headerType]}
+                    className="hidden"
+                    onChange={(e) => { const f = e.target.files?.[0]; if (f) handleMediaUpload(f); e.target.value = '' }}
+                  />
+                  {!headerMediaUrl ? (
+                    <button
+                      type="button"
+                      disabled={uploadingMedia}
+                      onClick={() => mediaInputRef.current?.click()}
+                      className="flex w-full flex-col items-center justify-center gap-1.5 rounded-lg border border-dashed py-6 text-sm text-muted-foreground transition-colors hover:bg-muted/50 disabled:opacity-60"
+                    >
+                      {uploadingMedia ? <Loader2 className="h-5 w-5 animate-spin" /> : (
+                        headerType === 'image' ? <ImageIcon className="h-5 w-5" /> : headerType === 'video' ? <Video className="h-5 w-5" /> : <FileText className="h-5 w-5" />
+                      )}
+                      <span>{uploadingMedia ? 'Import en cours…' : 'Importer un fichier'}</span>
+                      <span className="text-[11px] text-muted-foreground/70">
+                        {headerType === 'image' ? 'JPG ou PNG · max 5 Mo' : headerType === 'video' ? 'MP4 · max 16 Mo' : 'PDF · max 100 Mo'}
+                      </span>
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2 rounded-lg border p-2">
+                      {headerType === 'image' && mediaPreviewUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={mediaPreviewUrl} alt="" className="h-12 w-12 rounded object-cover" />
+                      ) : (
+                        <span className="flex h-12 w-12 items-center justify-center rounded bg-muted text-muted-foreground">
+                          {headerType === 'video' ? <Video className="h-5 w-5" /> : <FileText className="h-5 w-5" />}
+                        </span>
+                      )}
+                      <span className="flex-1 truncate text-xs">{mediaFilename || 'Fichier importé'}</span>
+                      <Button type="button" size="sm" variant="ghost" onClick={() => mediaInputRef.current?.click()} disabled={uploadingMedia}>
+                        {uploadingMedia ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Remplacer'}
+                      </Button>
+                      <button type="button" onClick={() => { setHeaderMediaUrl(''); setMediaPreviewUrl(''); setMediaFilename('') }} className="text-destructive hover:opacity-70">
+                        <Trash2 className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
             <div className="space-y-1.5">
@@ -508,9 +590,18 @@ export default function TemplatesPage() {
             <div className="flex min-h-[320px] items-center justify-center rounded-xl border bg-gradient-to-br from-slate-100 via-slate-50 to-blue-50 p-8 dark:from-slate-800 dark:via-slate-800/80 dark:to-slate-900">
               <div className="w-full max-w-md overflow-hidden rounded-2xl rounded-tr-sm bg-white shadow-md ring-1 ring-black/5">
                 {/* Header média */}
-                {headerType === 'image' && <div className="flex h-32 items-center justify-center bg-slate-200 text-slate-400"><ImageIcon className="h-10 w-10" /></div>}
-                {headerType === 'video' && <div className="flex h-32 items-center justify-center bg-slate-800 text-slate-400"><Video className="h-10 w-10" /></div>}
-                {headerType === 'document' && <div className="flex items-center gap-2 bg-slate-100 px-3 py-2.5 text-slate-500"><FileText className="h-5 w-5" /><span className="text-xs">Document.pdf</span></div>}
+                {headerType === 'image' && (
+                  mediaPreviewUrl
+                    // eslint-disable-next-line @next/next/no-img-element
+                    ? <img src={mediaPreviewUrl} alt="" className="h-32 w-full object-cover" />
+                    : <div className="flex h-32 items-center justify-center bg-slate-200 text-slate-400"><ImageIcon className="h-10 w-10" /></div>
+                )}
+                {headerType === 'video' && (
+                  mediaPreviewUrl
+                    ? <video src={mediaPreviewUrl} className="h-32 w-full bg-black object-contain" controls />
+                    : <div className="flex h-32 items-center justify-center bg-slate-800 text-slate-400"><Video className="h-10 w-10" /></div>
+                )}
+                {headerType === 'document' && <div className="flex items-center gap-2 bg-slate-100 px-3 py-2.5 text-slate-500"><FileText className="h-5 w-5" /><span className="text-xs">{mediaFilename || 'Document.pdf'}</span></div>}
                 <div className="px-3 py-2">
                   {headerType === 'text' && headerText && (
                     <p className="mb-0.5 text-[15px] font-semibold text-gray-900">{headerText}</p>

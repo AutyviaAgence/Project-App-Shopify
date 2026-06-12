@@ -32,17 +32,22 @@ async function ensureBucket() {
   const supabase = getAdminClient()
   const { data: buckets } = await supabase.storage.listBuckets()
   const exists = buckets?.some(b => b.name === BUCKET)
+  // 100 Mo : couvre les PDF d'en-tête de template (limite Meta).
+  const LIMIT = 100 * 1024 * 1024
   if (!exists) {
     console.log('[MediaStorage] Bucket "media" not found, creating...')
     const { error } = await supabase.storage.createBucket(BUCKET, {
       public: false,
-      fileSizeLimit: 50 * 1024 * 1024, // 50 MB
+      fileSizeLimit: LIMIT,
     })
     if (error) {
       console.error('[MediaStorage] Failed to create bucket:', error.message)
       return
     }
     console.log('[MediaStorage] Bucket "media" created successfully')
+  } else {
+    // S'assure que la limite couvre bien les gros PDF (idempotent).
+    await supabase.storage.updateBucket(BUCKET, { public: false, fileSizeLimit: LIMIT }).catch(() => {})
   }
   bucketChecked = true
 }
@@ -77,6 +82,57 @@ export async function uploadMedia(params: {
   }
 
   console.log('[MediaStorage] Uploaded:', storagePath, '| size:', params.buffer.length)
+  return { ok: true, storagePath }
+}
+
+/**
+ * Formats autorisés pour les en-têtes de templates WhatsApp (limites Meta).
+ * Meta n'accepte que JPG/PNG (image), MP4 (vidéo), PDF (document).
+ */
+export const TEMPLATE_HEADER_FORMATS = {
+  image: {
+    mimes: ['image/jpeg', 'image/png'],
+    exts: ['jpg', 'jpeg', 'png'],
+    maxBytes: 5 * 1024 * 1024, // 5 Mo
+  },
+  video: {
+    mimes: ['video/mp4'],
+    exts: ['mp4'],
+    maxBytes: 16 * 1024 * 1024, // 16 Mo
+  },
+  document: {
+    mimes: ['application/pdf'],
+    exts: ['pdf'],
+    maxBytes: 100 * 1024 * 1024, // 100 Mo
+  },
+} as const
+
+export type TemplateHeaderKind = keyof typeof TEMPLATE_HEADER_FORMATS
+
+/**
+ * Upload un média d'en-tête de template dans le bucket privé `media`.
+ * Path : template-headers/{userId}/{id}.{ext}
+ */
+export async function uploadTemplateHeaderMedia(params: {
+  userId: string
+  kind: TemplateHeaderKind
+  fileId: string
+  buffer: Buffer
+  mimeType: string
+}): Promise<{ ok: true; storagePath: string } | { ok: false; error: string }> {
+  await ensureBucket()
+  const ext = getExtensionFromMime(params.mimeType)
+  const storagePath = `template-headers/${params.userId}/${params.fileId}.${ext}`
+
+  const supabase = getAdminClient()
+  const { error } = await supabase.storage
+    .from(BUCKET)
+    .upload(storagePath, params.buffer, { contentType: params.mimeType, upsert: true })
+
+  if (error) {
+    console.error('[MediaStorage] Template header upload error:', error.message)
+    return { ok: false, error: error.message }
+  }
   return { ok: true, storagePath }
 }
 
