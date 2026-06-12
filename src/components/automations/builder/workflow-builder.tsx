@@ -49,7 +49,7 @@ function PannableTimeline({ children }: { children: React.ReactNode }) {
       onPointerUp={endDrag}
       onPointerLeave={endDrag}
       onWheel={onWheel}
-      className={cn('relative overflow-hidden rounded-2xl border bg-muted/10 select-none', grabbing ? 'cursor-grabbing' : 'cursor-grab')}
+      className={cn('relative overflow-hidden rounded-2xl border bg-background/40 backdrop-blur-sm select-none', grabbing ? 'cursor-grabbing' : 'cursor-grab')}
     >
       <div
         className="h-full origin-top will-change-transform"

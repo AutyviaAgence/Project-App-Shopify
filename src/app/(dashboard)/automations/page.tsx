@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useState, useCallback } from 'react'
+import dynamic from 'next/dynamic'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,6 +11,9 @@ import { BlobLoaderScreen } from '@/components/blob-loader'
 import type { WhatsAppTemplate } from '@/types/database'
 import { WorkflowBuilder } from '@/components/automations/builder/workflow-builder'
 import { defaultGraph, validateGraph, triggerNode, type WorkflowGraph } from '@/lib/automations/graph-types'
+
+// Fond animé WebGL (chargé côté client uniquement).
+const Lightfall = dynamic(() => import('@/components/Lightfall'), { ssr: false })
 
 type Automation = {
   id: string
@@ -211,8 +215,33 @@ export default function AutomationsPage() {
               <GitBranch className="h-4 w-4 text-violet-600" />
               <Input value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} placeholder="Nom du workflow" className="h-8 max-w-xs border-0 bg-transparent px-0 text-sm font-medium focus-visible:ring-0" />
             </div>
-            <div className="min-h-0 flex-1 p-4">
-              <WorkflowBuilder graph={graph} templates={templates} storeName={storeName} onChange={setGraph} />
+            <div className="relative min-h-0 flex-1 overflow-hidden p-4">
+              {/* Fond animé Lightfall (discret, derrière le workflow) */}
+              <div className="pointer-events-none absolute inset-0 opacity-30">
+                <Lightfall
+                  className=""
+                  dpr={1}
+                  mixBlendMode="normal"
+                  colors={['#A6C8FF', '#5227FF', '#FF9FFC']}
+                  backgroundColor="#0A1530"
+                  speed={0.5}
+                  streakCount={2}
+                  streakWidth={1}
+                  streakLength={1}
+                  glow={1}
+                  density={0.6}
+                  twinkle={1}
+                  zoom={3}
+                  backgroundGlow={0.5}
+                  opacity={1}
+                  mouseInteraction
+                  mouseStrength={0.5}
+                  mouseRadius={1}
+                />
+              </div>
+              <div className="relative z-10 h-full">
+                <WorkflowBuilder graph={graph} templates={templates} storeName={storeName} onChange={setGraph} />
+              </div>
             </div>
           </div>
         ) : (
