@@ -31,6 +31,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "framer-motion": "^12.40.0",
     "geoip-lite": "^1.4.10",
     "imap": "^0.8.19",
     "jszip": "^3.10.1",
