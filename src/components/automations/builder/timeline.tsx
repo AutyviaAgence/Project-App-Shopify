@@ -99,7 +99,8 @@ function Shell({ tone, icon, kind, onDelete, children }: {
           <span className={cn('flex h-5 w-5 items-center justify-center rounded-full bg-current/10', tone.text)}>{icon}</span>
           <span className={cn('text-sm font-medium', tone.text)}>{kind}</span>
           {onDelete && (
-            <button onClick={onDelete} className="ml-auto text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100">
+            <button onClick={(e) => { e.stopPropagation(); onDelete() }} title="Supprimer ce bloc"
+              className="ml-auto rounded-md p-1 text-muted-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive">
               <Trash2 className="h-3.5 w-3.5" />
             </button>
           )}

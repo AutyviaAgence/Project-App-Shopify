@@ -15,37 +15,47 @@ import type { WhatsAppTemplate } from '@/types/database'
  * ou un bouton reste normal (on n'amorce le pan que sur le fond).
  */
 function PannableTimeline({ children }: { children: React.ReactNode }) {
-  const ref = useRef<HTMLDivElement>(null)
-  const drag = useRef<{ x: number; y: number; left: number; top: number } | null>(null)
+  // Pan libre via translate (on peut déplacer le workflow dans tous les sens,
+  // même s'il tient dans la zone). On n'amorce que sur le fond (pas un bloc).
+  const [offset, setOffset] = useState({ x: 0, y: 0 })
+  const drag = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null)
   const [grabbing, setGrabbing] = useState(false)
 
   function onPointerDown(e: React.PointerEvent) {
-    // On n'amorce le pan que si on clique sur le FOND (pas un bouton/input/bloc).
     const target = e.target as HTMLElement
-    if (target.closest('button, input, select, [role="button"], [data-block]')) return
-    const el = ref.current
-    if (!el) return
-    drag.current = { x: e.clientX, y: e.clientY, left: el.scrollLeft, top: el.scrollTop }
+    if (target.closest('button, input, select, textarea, [role="button"], [data-block]')) return
+    drag.current = { sx: e.clientX, sy: e.clientY, ox: offset.x, oy: offset.y }
     setGrabbing(true)
-    el.setPointerCapture(e.pointerId)
   }
   function onPointerMove(e: React.PointerEvent) {
-    if (!drag.current || !ref.current) return
-    ref.current.scrollLeft = drag.current.left - (e.clientX - drag.current.x)
-    ref.current.scrollTop = drag.current.top - (e.clientY - drag.current.y)
+    if (!drag.current) return
+    setOffset({ x: drag.current.ox + (e.clientX - drag.current.sx), y: drag.current.oy + (e.clientY - drag.current.sy) })
   }
   function endDrag() { drag.current = null; setGrabbing(false) }
 
   return (
     <div
-      ref={ref}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={endDrag}
       onPointerLeave={endDrag}
-      className={cn('overflow-auto rounded-2xl border bg-muted/10 px-4 select-none', grabbing ? 'cursor-grabbing' : 'cursor-grab')}
+      className={cn('relative overflow-hidden rounded-2xl border bg-muted/10 select-none', grabbing ? 'cursor-grabbing' : 'cursor-grab')}
     >
-      {children}
+      <div
+        className="h-full origin-top will-change-transform"
+        style={{ transform: `translate(${offset.x}px, ${offset.y}px)`, transition: grabbing ? 'none' : 'transform 0.1s ease-out' }}
+      >
+        {children}
+      </div>
+      {/* Bouton recentrer */}
+      {(offset.x !== 0 || offset.y !== 0) && (
+        <button
+          onClick={() => setOffset({ x: 0, y: 0 })}
+          className="absolute bottom-3 right-3 z-10 rounded-full border bg-card px-3 py-1.5 text-xs text-muted-foreground shadow-sm hover:bg-muted"
+        >
+          Recentrer
+        </button>
+      )}
     </div>
   )
 }
@@ -83,21 +93,24 @@ export function WorkflowBuilder({
   const previewTpl = templates.find((t) => t.id === previewId)
 
   return (
-    <div className="grid h-full grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
-      {/* Timeline centrale (déplaçable au clic-glissé) */}
+    <div className="grid h-full grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_440px]">
+      {/* Timeline centrale (déplaçable au clic-glissé). max-width pour ne pas
+          occuper toute la largeur → le workflow respire. */}
       <PannableTimeline>
-        <Timeline
-          graph={graph}
-          templates={templates.map((t) => ({ id: t.id, name: t.name }))}
-          onPatch={onPatch}
-          onInsert={onInsert}
-          onDelete={onDelete}
-          onSelectAction={setPreviewTplId}
-        />
+        <div className="mx-auto w-full max-w-2xl">
+          <Timeline
+            graph={graph}
+            templates={templates.map((t) => ({ id: t.id, name: t.name }))}
+            onPatch={onPatch}
+            onInsert={onInsert}
+            onDelete={onDelete}
+            onSelectAction={setPreviewTplId}
+          />
+        </div>
       </PannableTimeline>
 
-      {/* iPhone d'aperçu (tout à droite) — plus grand et centré verticalement */}
-      <div className="hidden lg:flex lg:items-center lg:justify-center">
+      {/* iPhone d'aperçu (tout à droite) — plus d'air horizontal */}
+      <div className="hidden px-6 lg:flex lg:items-center lg:justify-center">
         {previewTpl ? (
           <PhonePreview
             storeName={storeName}

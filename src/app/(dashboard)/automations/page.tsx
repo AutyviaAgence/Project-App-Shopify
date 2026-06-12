@@ -146,9 +146,17 @@ export default function AutomationsPage() {
       </div>
 
       {/* 3 colonnes : sidebar | timeline | iPhone — tout sur la même page */}
-      <div className="grid flex-1 grid-cols-1 overflow-hidden md:grid-cols-[240px_1fr]">
+      <div className="grid flex-1 grid-cols-1 overflow-hidden md:grid-cols-[280px_1fr]">
         {/* Sidebar : liste des workflows */}
         <aside className="hidden flex-col overflow-y-auto border-r bg-muted/20 p-2 md:flex">
+          {/* En-tête sidebar : titre + bouton + (ajouter un workflow) */}
+          <div className="mb-2 flex items-center justify-between px-2 py-1">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Workflows</span>
+            <button onClick={openNew} title="Nouveau workflow"
+              className="flex h-6 w-6 items-center justify-center rounded-md border bg-card text-muted-foreground transition-colors hover:border-primary hover:text-primary">
+              <Plus className="h-4 w-4" />
+            </button>
+          </div>
           <button
             onClick={openNew}
             className={cn('mb-2 flex items-center gap-2 rounded-lg border border-dashed px-3 py-2 text-sm transition-colors hover:bg-muted',
@@ -165,7 +173,8 @@ export default function AutomationsPage() {
             >
               <span className={cn('h-2 w-2 shrink-0 rounded-full', a.is_active ? 'bg-green-500' : 'bg-muted-foreground/40')} />
               <span className="flex-1 truncate">{a.name || 'Sans nom'}</span>
-              <button onClick={(e) => { e.stopPropagation(); remove(a) }} className="text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100">
+              <button onClick={(e) => { e.stopPropagation(); remove(a) }} title="Supprimer"
+                className="rounded-md p-1 text-muted-foreground/60 transition-colors hover:bg-destructive/10 hover:text-destructive">
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
             </div>
