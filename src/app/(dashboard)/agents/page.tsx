@@ -349,7 +349,7 @@ export default function AgentsPage() {
       </div>
 
       {/* Zone : carrousel centré, bouton Nouvel agent juste en dessous */}
-      <div className={cn('relative flex flex-1 flex-col py-6', agents.length === 0 ? 'items-center justify-center px-6' : 'items-center justify-center')}>
+      <div className={cn('relative flex flex-1 flex-col py-6', agents.length === 0 ? 'items-center justify-center px-6' : 'items-center justify-start lg:justify-center')}>
       {/* Grille de carrés animée en arrière-fond (onboarding) */}
       {agents.length === 0 && (
         <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
@@ -422,11 +422,13 @@ export default function AgentsPage() {
           const go = (dir: number) => setCenterIndex(c => (((c + dir) % n) + n) % n)
 
           // Dimensions responsive : la carte ne doit jamais deborder du viewport.
-          // On reserve ~96px pour les fleches/marges, plafonne a 400px.
+          // Carte responsive : grandit avec l'écran (plafond plus haut sur desktop
+          // large) pour ne plus laisser un grand vide autour.
           const isMobile = viewportW < 640
-          const cardW = Math.min(400, Math.max(240, viewportW - 96))
-          const sceneW = Math.min(460, viewportW - 32)
-          const sceneH = cardW >= 360 ? 440 : cardW >= 300 ? 400 : 360
+          const cardCap = viewportW >= 1280 ? 480 : viewportW >= 1024 ? 440 : 400
+          const cardW = Math.min(cardCap, Math.max(240, viewportW - 96))
+          const sceneW = Math.min(cardCap + 80, viewportW - 32)
+          const sceneH = cardW >= 440 ? 500 : cardW >= 360 ? 440 : cardW >= 300 ? 400 : 360
           // Translation laterale des cartes voisines, proportionnelle a la largeur de carte
           const stepFront = cardW * 0.9
           const stepBack = cardW * 0.8
