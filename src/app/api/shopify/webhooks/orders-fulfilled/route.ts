@@ -108,6 +108,17 @@ export async function POST(req: NextRequest) {
     emailBody: `Bonjour,\n\nVotre commande ${orderName} vient d'être expédiée.${tracking ? `\nSuivi : ${tracking}` : ''}\n\nMerci pour votre confiance.`,
   })
 
+  // Déclencheur automatisations : événement "order_fulfilled" (templates
+  // branchés avec délai/conditions). En plus de la notif legacy ci-dessus.
+  try {
+    const { enqueueAutomations } = await import('@/lib/automations/engine')
+    const { buildOrderContext } = await import('@/lib/automations/shopify-context')
+    const ctx = await buildOrderContext(store.user_id, order, 'Expédiée')
+    if (ctx) await enqueueAutomations({ userId: store.user_id, event: 'order_fulfilled', ctx })
+  } catch (e) {
+    console.error('[orders-fulfilled] enqueue automations:', e)
+  }
+
   // Déclencheur campagne auto : événement Shopify "order_fulfilled"
   const { data: autoCampaigns } = await admin
     .from('campaigns')

@@ -49,6 +49,7 @@ const NAV_ITEMS_KEYS = [
   { href: '/agents', labelKey: 'nav.agents', icon: Bot },
   { href: '/actions', labelKey: 'nav.actions', icon: ShoppingBag },
   { href: '/templates', labelKey: 'nav.templates', icon: FileText },
+  { href: '/automations', labelKey: 'nav.automations', label: 'Automatisations', icon: Workflow },
   { href: '/stats', labelKey: 'nav.stats', icon: BarChart3 },
 ]
 
