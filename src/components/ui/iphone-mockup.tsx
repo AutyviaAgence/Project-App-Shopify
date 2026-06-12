@@ -90,8 +90,12 @@ export const IPhoneMockup: React.FC<IPhoneMockupProps> = ({
   const outerHeight = screenHeight + resolvedBezel * 2
   const outerRadius = resolvedRadius + resolvedBezel
   const colorHex = PRESET_COLORS[color] ?? color
-  const frameGradient = `linear-gradient(135deg, ${shade(colorHex, 8)} 0%, ${colorHex} 40%, ${shade(colorHex, -14)} 100%)`
-  const outerShadow = typeof shadow === 'string' ? shadow : shadow ? `0 25px 60px -15px rgba(0,0,0,0.55), 0 8px 20px rgba(0,0,0,0.3)` : 'none'
+  // Cadre titane : conic-gradient simulant les reflets métalliques sur les 4
+  // arêtes (clair en haut/bas, plus sombre sur les côtés) → effet brossé réel.
+  const hi = shade(colorHex, 26)
+  const lo = shade(colorHex, -22)
+  const frameGradient = `conic-gradient(from 90deg at 50% 50%, ${hi} 0deg, ${colorHex} 30deg, ${lo} 90deg, ${colorHex} 150deg, ${hi} 180deg, ${colorHex} 210deg, ${lo} 270deg, ${colorHex} 330deg, ${hi} 360deg)`
+  const outerShadow = typeof shadow === 'string' ? shadow : shadow ? `0 30px 70px -18px rgba(0,0,0,0.6), 0 10px 24px rgba(0,0,0,0.35)` : 'none'
   const innerShadowCss = innerShadow ? 'inset 0 0 0 1px rgba(255,255,255,0.04), inset 0 10px 20px rgba(0,0,0,0.35), inset 0 -8px 16px rgba(0,0,0,0.28)' : 'none'
 
   const notchSpec = spec.notch, islandSpec = spec.island
@@ -111,7 +115,8 @@ export const IPhoneMockup: React.FC<IPhoneMockupProps> = ({
 
   const wrapperStyle: CSSProperties = { boxSizing: 'border-box', display: 'inline-block', transform: `scale(${scale})`, transformOrigin: 'top center', ...style }
   const frameBoxStyle: CSSProperties = { width: outerWidth, height: outerHeight, borderRadius: outerRadius, background: frameGradient, padding: resolvedBezel, boxSizing: 'border-box', boxShadow: outerShadow, position: 'relative', overflow: 'hidden', ...frameStyle }
-  const screenBoxStyle: CSSProperties = { width: '100%', height: '100%', borderRadius: resolvedRadius, position: 'relative', overflow: 'hidden', background: screenBg, boxShadow: innerShadowCss, ...screenStyle }
+  // Fine bordure noire entre le métal et la dalle (caractéristique iPhone).
+  const screenBoxStyle: CSSProperties = { width: '100%', height: '100%', borderRadius: resolvedRadius, position: 'relative', overflow: 'hidden', background: screenBg, border: '3px solid #050505', boxSizing: 'border-box', boxShadow: innerShadowCss + ', 0 0 0 1px rgba(0,0,0,0.6)', ...screenStyle }
   const wallpaperStyle: CSSProperties | undefined = wallpaper ? { position: 'absolute', inset: 0, backgroundImage: `url(${wallpaper})`, backgroundSize: wallpaperFit, backgroundPosition: wallpaperPosition, backgroundRepeat: 'no-repeat', zIndex: 0 } : undefined
   const cutoutCommon: CSSProperties = { position: 'absolute', left: '50%', transform: 'translateX(-50%)', background: '#000', zIndex: 4, boxShadow: '0 1px 2px rgba(0,0,0,0.7)' }
   const homeIndicatorStyle: CSSProperties = { position: 'absolute', bottom: 8, left: '50%', transform: 'translateX(-50%)', width: Math.round(screenWidth * 0.34), maxWidth: 140, height: 5, borderRadius: 3, background: 'linear-gradient(180deg, rgba(0,0,0,0.45), rgba(0,0,0,0.25))', opacity: 0.5, zIndex: 5, pointerEvents: 'none' }
@@ -140,7 +145,10 @@ export const IPhoneMockup: React.FC<IPhoneMockupProps> = ({
           {wallpaper && <div aria-hidden style={wallpaperStyle} />}
 
           {useIsland && finalIslandW > 0 && finalIslandH > 0 && (
-            <div aria-hidden style={{ ...cutoutCommon, top: 12, width: finalIslandW, height: finalIslandH, borderRadius: finalIslandR }} />
+            <div aria-hidden style={{ ...cutoutCommon, top: 12, width: finalIslandW, height: finalIslandH, borderRadius: finalIslandR, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', paddingRight: 10, gap: 6 }}>
+              {/* Capteur de proximité (cerclé) + caméra avant */}
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: 'radial-gradient(circle at 35% 35%, #2b3a4a 0%, #0a0f14 70%)', boxShadow: 'inset 0 0 1px rgba(120,160,200,0.5)' }} />
+            </div>
           )}
           {!useIsland && useNotch && finalNotchW > 0 && finalNotchH > 0 && (
             <div aria-hidden style={{ ...cutoutCommon, top: 8, width: finalNotchW, height: finalNotchH, borderRadius: finalNotchR }} />
@@ -151,6 +159,12 @@ export const IPhoneMockup: React.FC<IPhoneMockupProps> = ({
           {glass && <div aria-hidden style={glassStyle} />}
           {showHomeIndicator && <div aria-hidden style={homeIndicatorStyle} />}
         </div>
+
+        {/* Reflet métallique sur le pourtour du cadre (highlight de bord) */}
+        <div aria-hidden style={{
+          position: 'absolute', inset: 0, borderRadius: outerRadius, pointerEvents: 'none',
+          boxShadow: 'inset 0 1.5px 1px rgba(255,255,255,0.45), inset 0 -1.5px 1px rgba(255,255,255,0.18), inset 1.5px 0 1px rgba(255,255,255,0.12), inset -1.5px 0 1px rgba(255,255,255,0.12)',
+        }} />
       </div>
     </div>
   )
