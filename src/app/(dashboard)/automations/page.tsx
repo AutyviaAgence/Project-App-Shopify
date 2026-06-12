@@ -1,27 +1,15 @@
 'use client'
 
 import React, { useEffect, useState, useCallback } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
-} from '@/components/ui/select'
-import { Plus, Loader2, Trash2, Workflow, Clock, ShoppingBag, MessageSquare, Power, X } from 'lucide-react'
+import { Plus, Loader2, Trash2, Workflow, Power, GitBranch } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BlobLoaderScreen } from '@/components/blob-loader'
-import { TRIGGER_EVENTS } from '@/lib/automations/types'
-import { VARIABLE_BY_KEY } from '@/lib/templates/variables'
 import type { WhatsAppTemplate } from '@/types/database'
-import { PhonePreview } from '@/components/automations/phone-preview'
-import { ConstellationFlow } from '@/components/automations/constellation-flow'
-import { BorderBeam } from '@/components/ui/border-beam'
-import { ShimmerButton } from '@/components/ui/shimmer-button'
 import { WorkflowBuilder } from '@/components/automations/builder/workflow-builder'
-import { defaultGraph, type WorkflowGraph } from '@/lib/automations/graph-types'
-import { GitBranch } from 'lucide-react'
+import { defaultGraph, validateGraph, triggerNode, type WorkflowGraph } from '@/lib/automations/graph-types'
 
 type Automation = {
   id: string
@@ -29,60 +17,22 @@ type Automation = {
   trigger_event: string
   template_id: string | null
   delay_minutes: number
-  quiet_start: number | null
-  quiet_end: number | null
-  conditions: { min_total?: number; max_total?: number; first_order_only?: boolean }
   is_active: boolean
   graph?: WorkflowGraph | null
   builder_mode?: boolean
 }
-
-const EVENT_LABEL: Record<string, string> = Object.fromEntries(TRIGGER_EVENTS.map((e) => [e.value, e.label]))
-
-const DELAY_PRESETS = [
-  { v: 0, l: 'Immédiat' }, { v: 30, l: '30 min' }, { v: 60, l: '1 heure' },
-  { v: 180, l: '3 heures' }, { v: 1440, l: '1 jour' }, { v: 2880, l: '2 jours' }, { v: 10080, l: '7 jours' },
-]
-function delayLabel(min: number): string {
-  const p = DELAY_PRESETS.find((d) => d.v === min)
-  if (p) return p.l
-  if (min < 60) return `${min} min`
-  if (min < 1440) return `${Math.round(min / 60)} h`
-  return `${Math.round(min / 1440)} j`
-}
-
-// Résumé lisible des conditions (pour la bulle système de l'aperçu).
-function conditionsSummary(c: Automation['conditions']): string | undefined {
-  const parts: string[] = []
-  if (c.min_total != null) parts.push(`montant ≥ ${c.min_total}€`)
-  if (c.max_total != null) parts.push(`montant ≤ ${c.max_total}€`)
-  if (c.first_order_only) parts.push('1ʳᵉ commande')
-  return parts.length ? parts.join(' · ') : undefined
-}
-
-// Échantillons pour l'aperçu : valeurs des variables nommées du template.
-function templateSamples(tpl?: WhatsAppTemplate): string[] {
-  if (!tpl) return []
-  const keys = (tpl.variable_keys as string[]) || []
-  if (keys.length > 0) return keys.map((k) => VARIABLE_BY_KEY[k]?.sample || 'exemple')
-  return (tpl.sample_values as string[]) || []
-}
-
-const NEW_ID = '__new__'
 
 export default function AutomationsPage() {
   const [automations, setAutomations] = useState<Automation[]>([])
   const [templates, setTemplates] = useState<WhatsAppTemplate[]>([])
   const [storeName] = useState('Votre boutique')
   const [loading, setLoading] = useState(true)
-  // Carte ouverte (accordéon). NEW_ID = carte de création en cours.
-  const [openId, setOpenId] = useState<string | null>(null)
-  // Brouillon en cours d'édition (l'automatisation ouverte).
-  const [draft, setDraft] = useState<Automation | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
-  // Builder visuel : automatisation ouverte en mode canvas + graphe en cours.
-  const [builderAuto, setBuilderAuto] = useState<Automation | null>(null)
-  const [builderGraph, setBuilderGraph] = useState<WorkflowGraph | null>(null)
+
+  // Automatisation actuellement ouverte dans le builder (au centre).
+  const [current, setCurrent] = useState<Automation | null>(null)
+  const [graph, setGraph] = useState<WorkflowGraph | null>(null)
+  const [nameDraft, setNameDraft] = useState('')
 
   const load = useCallback(async () => {
     try {
@@ -90,8 +40,11 @@ export default function AutomationsPage() {
         fetch('/api/automations').then((r) => r.json()),
         fetch('/api/templates').then((r) => r.json()),
       ])
-      setAutomations(aRes.data || [])
+      const autos: Automation[] = aRes.data || []
+      setAutomations(autos)
       setTemplates((tRes.data || []).filter((t: WhatsAppTemplate) => t.status === 'approved'))
+      // Ouvre la 1re automatisation par défaut (ou rien).
+      setCurrent((c) => c || autos[0] || null)
     } finally {
       setLoading(false)
     }
@@ -99,18 +52,17 @@ export default function AutomationsPage() {
 
   useEffect(() => { load() }, [load])
 
+  // Quand l'automatisation courante change, (re)charge son graphe + nom.
+  useEffect(() => {
+    if (!current) { setGraph(null); setNameDraft(''); return }
+    setGraph(current.graph || defaultGraph((current.trigger_event as never) || 'order_fulfilled', current.template_id))
+    setNameDraft(current.name || '')
+  }, [current])
+
   function openNew() {
-    setDraft({
-      id: '', name: '', trigger_event: 'order_fulfilled', template_id: null,
-      delay_minutes: 0, quiet_start: null, quiet_end: null, conditions: {}, is_active: true,
-    })
-    setOpenId(NEW_ID)
+    setCurrent({ id: '', name: '', trigger_event: 'order_fulfilled', template_id: null, delay_minutes: 0, is_active: true })
   }
-  function toggleOpen(a: Automation) {
-    if (openId === a.id) { setOpenId(null); setDraft(null) }
-    else { setDraft({ ...a }); setOpenId(a.id) }
-  }
-  function closeEditor() { setOpenId(null); setDraft(null) }
+  function selectAuto(a: Automation) { setCurrent(a) }
 
   async function toggleActive(a: Automation) {
     setBusyId(a.id)
@@ -121,367 +73,127 @@ export default function AutomationsPage() {
       })
       if (!res.ok) throw new Error()
       setAutomations((prev) => prev.map((x) => x.id === a.id ? { ...x, is_active: !x.is_active } : x))
+      if (current?.id === a.id) setCurrent({ ...a, is_active: !a.is_active })
     } catch { toast.error('Erreur') } finally { setBusyId(null) }
   }
 
   async function remove(a: Automation) {
+    if (!a.id) { setCurrent(automations[0] || null); return }
     setBusyId(a.id)
     try {
       const res = await fetch(`/api/automations/${a.id}`, { method: 'DELETE' })
       if (!res.ok) throw new Error()
-      setAutomations((prev) => prev.filter((x) => x.id !== a.id))
-      if (openId === a.id) closeEditor()
+      const next = automations.filter((x) => x.id !== a.id)
+      setAutomations(next)
+      if (current?.id === a.id) setCurrent(next[0] || null)
       toast.success('Automatisation supprimée')
     } catch { toast.error('Erreur') } finally { setBusyId(null) }
   }
 
   async function save() {
-    if (!draft) return
-    if (!draft.name.trim()) { toast.error('Donnez un nom à l’automatisation'); return }
-    if (!draft.template_id) { toast.error('Choisissez un modèle à envoyer'); return }
+    if (!current || !graph) return
+    if (!nameDraft.trim()) { toast.error('Donnez un nom à l’automatisation'); return }
+    const errors = validateGraph(graph)
+    if (errors.length) { toast.error(errors[0]); return }
     setBusyId('save')
     try {
-      const isNew = !draft.id
-      const res = await fetch(isNew ? '/api/automations' : `/api/automations/${draft.id}`, {
+      const isNew = !current.id
+      const trig = triggerNode(graph)
+      const res = await fetch(isNew ? '/api/automations' : `/api/automations/${current.id}`, {
         method: isNew ? 'POST' : 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(draft),
+        body: JSON.stringify({
+          name: nameDraft.trim(),
+          trigger_event: trig?.event || current.trigger_event,
+          graph, builder_mode: true, is_active: current.is_active,
+        }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Erreur')
       await load()
-      closeEditor()
-      toast.success(isNew ? 'Automatisation créée' : 'Automatisation modifiée')
-    } catch (e) { toast.error(e instanceof Error ? e.message : 'Erreur') } finally { setBusyId(null) }
-  }
-
-  // Ouvre le builder visuel pour une automatisation (graphe existant ou créé
-  // depuis le format linéaire actuel).
-  function openBuilder(a: Automation) {
-    const g = a.graph || defaultGraph((a.trigger_event as never) || 'order_fulfilled', a.template_id)
-    setBuilderAuto(a)
-    setBuilderGraph(g)
-  }
-  function closeBuilder() { setBuilderAuto(null); setBuilderGraph(null) }
-  // Bascule vers une autre automatisation depuis la sidebar du builder.
-  function selectBuilderAuto(a: Automation) {
-    const g = a.graph || defaultGraph((a.trigger_event as never) || 'order_fulfilled', a.template_id)
-    setBuilderAuto(a); setBuilderGraph(g)
-  }
-
-  async function saveBuilder() {
-    if (!builderAuto || !builderGraph) return
-    setBusyId('builder')
-    try {
-      const isNew = !builderAuto.id
-      const res = await fetch(isNew ? '/api/automations' : `/api/automations/${builderAuto.id}`, {
-        method: isNew ? 'POST' : 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...builderAuto, graph: builderGraph, builder_mode: true }),
-      })
-      const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Erreur')
-      await load()
-      closeBuilder()
+      if (json.data?.id) setCurrent(json.data as Automation)
       toast.success('Workflow enregistré')
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Erreur') } finally { setBusyId(null) }
   }
 
   if (loading) return <BlobLoaderScreen />
 
-  // Modèle prévisualisé dans le téléphone : celui du brouillon ouvert, sinon
-  // celui de la 1re automatisation (pour ne jamais avoir un téléphone vide).
-  const previewAuto = draft || automations[0] || null
-  const previewTpl = previewAuto ? templates.find((t) => t.id === previewAuto.template_id) : undefined
-
   return (
-    <div className="mx-auto max-w-6xl p-4 md:p-6">
-      <div className="mb-5 flex items-center justify-between gap-2">
+    <div className="flex h-full flex-col">
+      {/* En-tête */}
+      <div className="flex items-center justify-between gap-2 border-b px-4 py-3 md:px-6">
         <div>
-          <h1 className="text-xl font-semibold flex items-center gap-2"><Workflow className="h-5 w-5" /> Automatisations</h1>
-          <p className="text-sm text-muted-foreground">Envoyez un message automatiquement quand un événement se produit sur votre boutique.</p>
+          <h1 className="flex items-center gap-2 text-lg font-semibold"><Workflow className="h-5 w-5" /> Automatisations</h1>
+          <p className="text-xs text-muted-foreground">Construisez un parcours : événement → délai → condition → message.</p>
         </div>
-        <ShimmerButton onClick={openNew} background="linear-gradient(110deg, #3B82F6, #2563EB)">
-          <Plus className="mr-1 h-4 w-4" />Nouvelle
-        </ShimmerButton>
-      </div>
-
-      {/* Layout : liste (gauche) + téléphone fixe (droite) */}
-      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        {/* Colonne liste */}
-        <div className="space-y-3">
-          {/* Carte de création (accordéon ouvert) */}
-          <AnimatePresence>
-            {openId === NEW_ID && draft && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-                className="overflow-hidden rounded-2xl border bg-card"
+        {current && (
+          <div className="flex items-center gap-2">
+            {current.id && (
+              <button
+                onClick={() => toggleActive(current)} disabled={busyId === current.id}
+                className={cn('flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors',
+                  current.is_active ? 'bg-green-500/15 text-green-600' : 'bg-muted text-muted-foreground')}
               >
-                <div className="p-4">
-                  <div className="mb-3 flex items-center justify-between">
-                    <span className="font-medium">Nouvelle automatisation</span>
-                    <button onClick={closeEditor} className="text-muted-foreground hover:text-foreground"><X className="h-4 w-4" /></button>
-                  </div>
-                  <Editor draft={draft} setDraft={setDraft} templates={templates} onSave={save} onCancel={closeEditor} onBuilder={() => draft && openBuilder(draft)} busy={busyId === "save"} />
-                </div>
-              </motion.div>
+                <Power className="h-3 w-3" />{current.is_active ? 'Actif' : 'Inactif'}
+              </button>
             )}
-          </AnimatePresence>
-
-          {automations.length === 0 && openId !== NEW_ID ? (
-            <div className="rounded-2xl border border-dashed p-12 text-center text-muted-foreground">
-              <Workflow className="mx-auto h-10 w-10 mb-3 opacity-40" />
-              <p className="text-sm mb-4">Aucune automatisation. Créez votre première règle d’envoi automatique.</p>
-              <Button onClick={openNew}><Plus className="mr-1 h-4 w-4" />Créer une automatisation</Button>
-            </div>
-          ) : (
-            automations.map((a) => {
-              const tpl = templates.find((t) => t.id === a.template_id)
-              const isOpen = openId === a.id
-              return (
-                <motion.div
-                  key={a.id}
-                  layout
-                  initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                  className={cn('relative overflow-hidden rounded-2xl border transition-colors', isOpen ? 'ring-1 ring-primary/30' : '', a.is_active ? 'bg-card' : 'bg-muted/30')}
-                >
-                  {/* Bordure lumineuse animée si l'automatisation tourne */}
-                  {a.is_active && <BorderBeam size={140} duration={8} borderWidth={1.5} colorFrom="#7DA0FF" colorTo="#22C55E" />}
-                  {/* En-tête cliquable */}
-                  <div className="cursor-pointer p-4" onClick={() => toggleOpen(a)}>
-                    <div className="flex items-center justify-between gap-3">
-                      <span className="font-medium">{a.name}</span>
-                      <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          onClick={() => toggleActive(a)} disabled={busyId === a.id}
-                          className={cn('flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors',
-                            a.is_active ? 'bg-green-500/15 text-green-600' : 'bg-muted text-muted-foreground')}
-                        >
-                          <Power className="h-3 w-3" />{a.is_active ? 'Actif' : 'Inactif'}
-                        </button>
-                        <button onClick={() => remove(a)} disabled={busyId === a.id} className="p-1.5 text-destructive hover:opacity-70">
-                          {busyId === a.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
-                        </button>
-                      </div>
-                    </div>
-                    <ConstellationFlow
-                      active={a.is_active}
-                      stars={[
-                        { label: EVENT_LABEL[a.trigger_event] || a.trigger_event, color: '#7DA0FF' },
-                        { label: delayLabel(a.delay_minutes), sub: 'délai', color: '#F59E0B' },
-                        { label: tpl?.name || 'Modèle supprimé', sub: 'message', color: '#22C55E' },
-                      ]}
-                    />
-                  </div>
-
-                  {/* Paramètres (accordéon vers le bas) */}
-                  <AnimatePresence>
-                    {isOpen && draft && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-                        className="overflow-hidden border-t"
-                      >
-                        <div className="p-4">
-                          <Editor draft={draft} setDraft={setDraft} templates={templates} onSave={save} onCancel={closeEditor} onBuilder={() => draft && openBuilder(draft)} busy={busyId === "save"} />
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </motion.div>
-              )
-            })
-          )}
-        </div>
-
-        {/* Colonne téléphone (fixe / sticky) */}
-        <div className="hidden lg:block">
-          <div className="sticky top-6">
-            {previewTpl ? (
-              <PhonePreview
-                storeName={storeName}
-                eventLabel={EVENT_LABEL[previewAuto!.trigger_event] || previewAuto!.trigger_event}
-                conditionsText={conditionsSummary(previewAuto!.conditions)}
-                delayLabel={delayLabel(previewAuto!.delay_minutes)}
-                headerText={previewTpl.header_text || undefined}
-                bodyText={previewTpl.body_text}
-                footerText={previewTpl.footer_text || undefined}
-                samples={templateSamples(previewTpl)}
-                mediaType={previewTpl.header_type}
-                mediaUrl={undefined}
-              />
-            ) : (
-              <div className="flex h-[360px] items-center justify-center rounded-2xl border border-dashed p-6 text-center text-xs text-muted-foreground">
-                L’aperçu du message apparaîtra ici.
-              </div>
-            )}
+            <Button onClick={save} disabled={busyId === 'save'}>
+              {busyId === 'save' ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
+              Enregistrer
+            </Button>
           </div>
-        </div>
+        )}
       </div>
 
-      {/* Modal plein écran : Builder visuel (drag & drop) */}
-      <AnimatePresence>
-        {builderAuto && builderGraph && (
-          <motion.div
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 flex flex-col bg-background"
+      {/* 3 colonnes : sidebar | timeline | iPhone — tout sur la même page */}
+      <div className="grid flex-1 grid-cols-1 overflow-hidden md:grid-cols-[240px_1fr]">
+        {/* Sidebar : liste des workflows */}
+        <aside className="hidden flex-col overflow-y-auto border-r bg-muted/20 p-2 md:flex">
+          <button
+            onClick={openNew}
+            className={cn('mb-2 flex items-center gap-2 rounded-lg border border-dashed px-3 py-2 text-sm transition-colors hover:bg-muted',
+              current && !current.id ? 'border-primary text-primary' : 'text-muted-foreground')}
           >
-            <div className="flex items-center justify-between border-b px-4 py-3">
-              <div className="flex items-center gap-2">
-                <GitBranch className="h-5 w-5 text-violet-600" />
-                <span className="font-semibold">{builderAuto.name || 'Nouveau workflow'}</span>
-                <span className="rounded-full bg-violet-500/10 px-2 py-0.5 text-[11px] font-medium text-violet-600">Builder visuel</span>
-              </div>
-              <div className="flex gap-2">
-                <Button variant="ghost" onClick={closeBuilder}>Fermer</Button>
-                <Button onClick={saveBuilder} disabled={busyId === 'builder'}>
-                  {busyId === 'builder' ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
-                  Enregistrer le workflow
-                </Button>
-              </div>
+            <Plus className="h-4 w-4" /> Nouveau workflow
+          </button>
+          {automations.map((a) => (
+            <div
+              key={a.id}
+              onClick={() => selectAuto(a)}
+              className={cn('group mb-1 flex cursor-pointer items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors',
+                current?.id === a.id ? 'bg-primary/10 text-primary' : 'hover:bg-muted')}
+            >
+              <span className={cn('h-2 w-2 shrink-0 rounded-full', a.is_active ? 'bg-green-500' : 'bg-muted-foreground/40')} />
+              <span className="flex-1 truncate">{a.name || 'Sans nom'}</span>
+              <button onClick={(e) => { e.stopPropagation(); remove(a) }} className="text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100">
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
             </div>
-            <div className="flex flex-1 overflow-hidden">
-              {/* Sidebar : toutes les automatisations, cliquables */}
-              <aside className="hidden w-60 shrink-0 flex-col overflow-y-auto border-r bg-muted/20 p-2 md:flex">
-                <button
-                  onClick={() => { openNew(); setTimeout(() => { if (draft) openBuilder(draft) }, 0) }}
-                  className="mb-2 flex items-center gap-2 rounded-lg border border-dashed px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted"
-                >
-                  <Plus className="h-4 w-4" /> Nouveau workflow
-                </button>
-                {automations.map((a) => {
-                  const active = builderAuto?.id === a.id
-                  return (
-                    <button
-                      key={a.id}
-                      onClick={() => selectBuilderAuto(a)}
-                      className={cn('mb-1 flex items-center gap-2 rounded-lg px-3 py-2 text-left text-sm transition-colors',
-                        active ? 'bg-violet-500/10 text-violet-700 dark:text-violet-300' : 'hover:bg-muted')}
-                    >
-                      <span className={cn('h-2 w-2 shrink-0 rounded-full', a.is_active ? 'bg-green-500' : 'bg-muted-foreground/40')} />
-                      <span className="truncate">{a.name || 'Sans nom'}</span>
-                    </button>
-                  )
-                })}
-              </aside>
+          ))}
+          {automations.length === 0 && (
+            <p className="px-3 py-6 text-center text-xs text-muted-foreground">Aucun workflow. Créez le premier.</p>
+          )}
+        </aside>
 
-              {/* Builder (canvas + config + téléphone à droite) */}
-              <div className="flex-1 overflow-hidden p-4">
-                <WorkflowBuilder
-                  key={builderAuto.id || 'new'}
-                  graph={builderGraph}
-                  templates={templates}
-                  storeName={storeName}
-                  onChange={setBuilderGraph}
-                />
-              </div>
+        {/* Zone centrale : nom + builder timeline + iPhone */}
+        {current && graph ? (
+          <div className="flex flex-col overflow-hidden">
+            <div className="flex items-center gap-2 border-b px-4 py-2.5">
+              <GitBranch className="h-4 w-4 text-violet-600" />
+              <Input value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} placeholder="Nom du workflow" className="h-8 max-w-xs border-0 bg-transparent px-0 text-sm font-medium focus-visible:ring-0" />
             </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
-  )
-}
-
-/** Formulaire d'édition (blocs Quand / Attendre / Envoyer / Conditions). */
-function Editor({ draft, setDraft, templates, onSave, onCancel, onBuilder, busy }: {
-  draft: Automation
-  setDraft: (a: Automation) => void
-  templates: WhatsAppTemplate[]
-  onSave: () => void
-  onCancel: () => void
-  onBuilder: () => void
-  busy: boolean
-}) {
-  return (
-    <div className="space-y-3">
-      <div className="space-y-1.5">
-        <Label>Nom</Label>
-        <Input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="Ex : Suivi d’expédition" />
-      </div>
-
-      <StepBlock color="blue" icon={<ShoppingBag className="h-4 w-4" />} title="Quand" step={1}>
-        <Select value={draft.trigger_event} onValueChange={(v) => setDraft({ ...draft, trigger_event: v })}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>{TRIGGER_EVENTS.map((e) => <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>)}</SelectContent>
-        </Select>
-        <p className="mt-1 text-xs text-muted-foreground">{TRIGGER_EVENTS.find((e) => e.value === draft.trigger_event)?.description}</p>
-      </StepBlock>
-
-      <StepBlock color="amber" icon={<Clock className="h-4 w-4" />} title="Attendre" step={2}>
-        <Select value={String(draft.delay_minutes)} onValueChange={(v) => setDraft({ ...draft, delay_minutes: parseInt(v, 10) })}>
-          <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>{DELAY_PRESETS.map((d) => <SelectItem key={d.v} value={String(d.v)}>{d.l}</SelectItem>)}</SelectContent>
-        </Select>
-      </StepBlock>
-
-      <StepBlock color="green" icon={<MessageSquare className="h-4 w-4" />} title="Envoyer le modèle" step={3}>
-        {templates.length === 0 ? (
-          <p className="text-xs text-muted-foreground">Aucun modèle approuvé. Créez et faites approuver un modèle d’abord.</p>
+            <div className="flex-1 overflow-hidden p-4">
+              <WorkflowBuilder graph={graph} templates={templates} storeName={storeName} onChange={setGraph} />
+            </div>
+          </div>
         ) : (
-          <Select value={draft.template_id || ''} onValueChange={(v) => setDraft({ ...draft, template_id: v })}>
-            <SelectTrigger><SelectValue placeholder="Choisir un modèle" /></SelectTrigger>
-            <SelectContent>{templates.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
-          </Select>
+          <div className="flex flex-col items-center justify-center gap-3 p-12 text-center text-muted-foreground">
+            <Workflow className="h-10 w-10 opacity-40" />
+            <p className="text-sm">Sélectionnez un workflow ou créez-en un.</p>
+            <Button onClick={openNew}><Plus className="mr-1 h-4 w-4" />Nouveau workflow</Button>
+          </div>
         )}
-      </StepBlock>
-
-      <StepBlock color="slate" icon={<span className="text-xs">⚙</span>} title="Conditions (optionnel)" step={4}>
-        <div className="grid grid-cols-2 gap-2">
-          <div className="space-y-1">
-            <Label className="text-xs">Montant min (€)</Label>
-            <Input type="number" value={draft.conditions.min_total ?? ''} onChange={(e) => setDraft({ ...draft, conditions: { ...draft.conditions, min_total: e.target.value ? parseFloat(e.target.value) : undefined } })} placeholder="—" />
-          </div>
-          <div className="space-y-1">
-            <Label className="text-xs">Montant max (€)</Label>
-            <Input type="number" value={draft.conditions.max_total ?? ''} onChange={(e) => setDraft({ ...draft, conditions: { ...draft.conditions, max_total: e.target.value ? parseFloat(e.target.value) : undefined } })} placeholder="—" />
-          </div>
-        </div>
-        <label className="mt-2 flex items-center gap-2 text-sm">
-          <input type="checkbox" checked={!!draft.conditions.first_order_only} onChange={(e) => setDraft({ ...draft, conditions: { ...draft.conditions, first_order_only: e.target.checked } })} />
-          Uniquement la première commande
-        </label>
-      </StepBlock>
-
-      <div className="flex items-center justify-between gap-2 pt-1">
-        <Button variant="outline" size="sm" onClick={onBuilder} className="text-violet-600">
-          <GitBranch className="mr-1 h-4 w-4" />Mode avancé (branches)
-        </Button>
-        <div className="flex gap-2">
-          <Button variant="ghost" onClick={onCancel}>Annuler</Button>
-          <Button onClick={onSave} disabled={busy}>
-            {busy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
-            {draft.id ? 'Enregistrer' : 'Créer'}
-          </Button>
-        </div>
       </div>
     </div>
-  )
-}
-
-/** Bloc d'étape numéroté et coloré. */
-function StepBlock({ color, icon, title, step, children }: {
-  color: 'blue' | 'amber' | 'green' | 'slate'
-  icon: React.ReactNode
-  title: string
-  step: number
-  children: React.ReactNode
-}) {
-  const tone = {
-    blue: 'text-blue-600 border-blue-500/30 bg-blue-500/5',
-    amber: 'text-amber-600 border-amber-500/30 bg-amber-500/5',
-    green: 'text-green-600 border-green-500/30 bg-green-500/5',
-    slate: 'text-muted-foreground border-border bg-muted/30',
-  }[color]
-  return (
-    <motion.div
-      initial={{ opacity: 0, x: -8 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: step * 0.05 }}
-      className={cn('rounded-xl border p-3', tone)}
-    >
-      <p className="mb-2 flex items-center gap-1.5 text-sm font-medium">
-        <span className="flex h-5 w-5 items-center justify-center rounded-full bg-current/10">{icon}</span>
-        {title}
-      </p>
-      {children}
-    </motion.div>
   )
 }
