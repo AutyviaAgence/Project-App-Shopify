@@ -20,7 +20,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from('whatsapp_templates')
-    .select('id, session_id, meta_id, name, language, category, body_text, header_text, footer_text, header_type, header_media_url, buttons, variables_count, sample_values, status, rejection_reason, approved_body_text, approved_header_text, approved_footer_text, approved_at, created_at, updated_at')
+    .select('id, session_id, meta_id, name, language, category, body_text, header_text, footer_text, header_type, header_media_url, buttons, variables_count, sample_values, variable_keys, status, rejection_reason, approved_body_text, approved_header_text, approved_footer_text, approved_at, created_at, updated_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
 
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => ({}))
-  const { session_id, name, language, category, body_text, header_text, footer_text, sample_values, header_type, header_media_url, buttons } = body as {
+  const { session_id, name, language, category, body_text, header_text, footer_text, sample_values, header_type, header_media_url, buttons, variable_keys } = body as {
     session_id?: string
     name?: string
     language?: string
@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
     header_type?: 'none' | 'text' | 'image' | 'video' | 'document'
     header_media_url?: string | null
     buttons?: unknown[] | null
+    variable_keys?: string[]
   }
 
   if (!name?.trim() || !body_text?.trim()) {
@@ -74,6 +75,7 @@ export async function POST(req: NextRequest) {
       buttons: buttons && buttons.length > 0 ? (buttons as TemplateButton[]) : null,
       variables_count: countVariables(body_text),
       sample_values: sample_values || null,
+      variable_keys: variable_keys || [],
       status: 'draft',
     })
     .select()

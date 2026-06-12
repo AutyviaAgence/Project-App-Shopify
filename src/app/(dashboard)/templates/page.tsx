@@ -10,9 +10,14 @@ import { Label } from '@/components/ui/label'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
+  DropdownMenuSeparator, DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Plus, Loader2, Trash2, Send, RefreshCw, FileText, Sparkles, Bold, Italic, Strikethrough, Braces, Image as ImageIcon, Video, ExternalLink, Phone, Copy, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BlobLoaderScreen } from '@/components/blob-loader'
+import { TEMPLATE_VARIABLES, VARIABLE_BY_KEY, VARIABLE_GROUPS } from '@/lib/templates/variables'
 
 const STATUS_STYLE: Record<string, { label: string; cls: string }> = {
   draft: { label: 'Brouillon', cls: 'bg-muted text-muted-foreground' },
@@ -61,6 +66,8 @@ export default function TemplatesPage() {
   const [language, setLanguage] = useState('fr')
   const [category, setCategory] = useState('UTILITY')
   const [bodyText, setBodyText] = useState('')
+  // Clés des variables nommées, dans l'ordre : variableKeys[0] = {{1}}, etc.
+  const [variableKeys, setVariableKeys] = useState<string[]>([])
   const [headerText, setHeaderText] = useState('')
   const [footerText, setFooterText] = useState('')
   const [headerType, setHeaderType] = useState<'none' | 'text' | 'image' | 'video' | 'document'>('none')
@@ -124,16 +131,25 @@ export default function TemplatesPage() {
     requestAnimationFrame(() => { ta.focus(); ta.setSelectionRange(start + 1, start + 1 + sel.length) })
   }
 
-  // Insère la prochaine variable {{n}} à la position du curseur
-  function addVariable() {
-    const ta = bodyRef.current
-    const existing = (bodyText.match(/\{\{(\d+)\}\}/g) || []).map(v => parseInt(v.replace(/\D/g, '')))
-    const nextNum = existing.length ? Math.max(...existing) + 1 : 1
+  // Insère une variable nommée : ajoute sa clé au mapping (→ numéro {{n}}) et
+  // insère le token {{n}} à la position du curseur.
+  function insertVariable(key: string) {
+    const nextNum = variableKeys.length + 1
     const token = `{{${nextNum}}}`
+    setVariableKeys((prev) => [...prev, key])
+    const ta = bodyRef.current
     if (!ta) { setBodyText(bodyText + token); return }
     const pos = ta.selectionStart
     setBodyText(bodyText.slice(0, pos) + token + bodyText.slice(pos))
     requestAnimationFrame(() => { ta.focus(); ta.setSelectionRange(pos + token.length, pos + token.length) })
+  }
+
+  // Resynchronise variableKeys avec les {{n}} réellement présents dans le texte
+  // (si l'utilisateur supprime un {{n}} à la main, on retire la clé en trop).
+  function syncVariableKeys(text: string, keys: string[]): string[] {
+    const present = (text.match(/\{\{(\d+)\}\}/g) || []).map((v) => parseInt(v.replace(/\D/g, ''), 10))
+    const maxNum = present.length ? Math.max(...present) : 0
+    return keys.slice(0, maxNum)
   }
 
   const fetchTemplates = useCallback(async () => {
@@ -177,7 +193,7 @@ export default function TemplatesPage() {
     setEditing(null)
     setSelectedId(null)
     setName(''); setLanguage('fr'); setCategory('UTILITY')
-    setBodyText(''); setHeaderText(''); setFooterText('Powered by Xeyo.io')
+    setBodyText(''); setVariableKeys([]); setHeaderText(''); setFooterText('Powered by Xeyo.io')
     setHeaderType('none'); setHeaderMediaUrl(''); setButtons([])
     setMediaPreviewUrl(''); setMediaFilename('')
     setMode('edit')
@@ -187,7 +203,10 @@ export default function TemplatesPage() {
     setEditing(t)
     setSelectedId(t.id)
     setName(t.name); setLanguage(t.language); setCategory(t.category)
-    setBodyText(t.body_text); setHeaderText(t.header_text || ''); setFooterText(t.footer_text || '')
+    setBodyText(t.body_text)
+    // Mapping des variables : on aligne sur le nombre de {{n}} présents.
+    setVariableKeys(syncVariableKeys(t.body_text, (t.variable_keys as string[]) || []))
+    setHeaderText(t.header_text || ''); setFooterText(t.footer_text || '')
     setHeaderType(t.header_type || (t.header_text ? 'text' : 'none'))
     setHeaderMediaUrl(t.header_media_url || '')
     setButtons(Array.isArray(t.buttons) ? t.buttons : [])
@@ -262,6 +281,9 @@ export default function TemplatesPage() {
           header_type: headerType,
           header_media_url: (headerType === 'image' || headerType === 'video' || headerType === 'document') ? headerMediaUrl : null,
           buttons: buttons.length > 0 ? buttons : null,
+          // Mapping des variables + exemples Meta dérivés des clés choisies.
+          variable_keys: variableKeys,
+          sample_values: variableKeys.map((k) => VARIABLE_BY_KEY[k]?.sample || 'exemple'),
         }),
       })
       const json = await res.json()
@@ -546,7 +568,9 @@ export default function TemplatesPage() {
             </div>
             <div className="space-y-1.5">
               <Label>Message <span className="text-destructive">*</span></Label>
-              <Textarea ref={bodyRef} value={bodyText} onChange={(e) => setBodyText(e.target.value)} rows={5}
+              <Textarea ref={bodyRef} value={bodyText}
+                onChange={(e) => { setBodyText(e.target.value); setVariableKeys((prev) => syncVariableKeys(e.target.value, prev)) }}
+                rows={5}
                 placeholder={'Bonjour {{1}}, votre commande #{{2}} est confirmée ! Livraison prévue le {{3}}.'} />
               {/* Barre d'outils : formatage WhatsApp + variable */}
               <div className="flex items-center justify-between">
@@ -556,9 +580,40 @@ export default function TemplatesPage() {
                   <button type="button" onClick={() => wrapSelection('_')} title="Italique" className="flex h-7 w-7 items-center justify-center rounded hover:bg-muted"><Italic className="h-3.5 w-3.5" /></button>
                   <button type="button" onClick={() => wrapSelection('~')} title="Barré" className="flex h-7 w-7 items-center justify-center rounded hover:bg-muted"><Strikethrough className="h-3.5 w-3.5" /></button>
                   <span className="mx-1 h-4 w-px bg-border" />
-                  <button type="button" onClick={addVariable} className="flex h-7 items-center gap-1 rounded px-2 text-xs hover:bg-muted"><Braces className="h-3.5 w-3.5" /> Variable</button>
+                  {/* Menu déroulant de variables nommées (groupées) */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button type="button" className="flex h-7 items-center gap-1 rounded px-2 text-xs hover:bg-muted"><Braces className="h-3.5 w-3.5" /> Variable</button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="max-h-80 overflow-y-auto">
+                      {VARIABLE_GROUPS.map((group, gi) => (
+                        <div key={group}>
+                          {gi > 0 && <DropdownMenuSeparator />}
+                          <DropdownMenuLabel className="text-[11px] uppercase text-muted-foreground">{group}</DropdownMenuLabel>
+                          {TEMPLATE_VARIABLES.filter((v) => v.group === group).map((v) => (
+                            <DropdownMenuItem key={v.key} onClick={() => insertVariable(v.key)} className="text-sm">
+                              {v.label}
+                            </DropdownMenuItem>
+                          ))}
+                        </div>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </div>
+              {/* Légende : quelle variable correspond à quel {{n}} */}
+              {variableKeys.length > 0 && (
+                <div className="space-y-1 rounded-lg border bg-muted/30 p-2">
+                  <p className="text-[11px] font-medium text-muted-foreground">Variables utilisées</p>
+                  {variableKeys.map((key, i) => (
+                    <div key={i} className="flex items-center gap-2 text-xs">
+                      <code className="rounded bg-background px-1.5 py-0.5 text-[11px]">{`{{${i + 1}}}`}</code>
+                      <span className="text-muted-foreground">=</span>
+                      <span>{VARIABLE_BY_KEY[key]?.label || key}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label>Pied de page (optionnel)</Label>

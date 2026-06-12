@@ -637,6 +637,8 @@ export type WhatsAppTemplate = {
   footer_text: string | null
   variables_count: number
   sample_values: string[] | null
+  /** Clés des variables nommées, ordre = numéro ({{1}} = variable_keys[0]). */
+  variable_keys: string[] | null
   status: 'draft' | 'pending' | 'approved' | 'rejected'
   rejection_reason: string | null
   // Snapshot du dernier contenu validé par Meta (pour "revenir à la version validée")
