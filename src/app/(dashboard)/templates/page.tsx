@@ -53,16 +53,34 @@ const LANGUAGES = [
   { value: 'es', label: 'Espagnol' },
 ]
 
-/** Rend le formatage WhatsApp (*gras*, _italique_, ~barré~) en vrai style dans l'aperçu. */
-function renderWhatsAppFormat(text: string): React.ReactNode {
+/**
+ * Rend le formatage WhatsApp (*gras*, _italique_, ~barré~) en vrai style dans
+ * l'aperçu. Si `labels` est fourni, chaque {{n}} est affiché comme une pastille
+ * portant le NOM de la variable (« Prénom client »…) au lieu du numéro brut.
+ */
+function renderWhatsAppFormat(text: string, labels?: string[]): React.ReactNode {
   if (!text) return null
-  // Découpe sur les marqueurs en gardant le délimiteur
-  const parts = text.split(/(\*[^*]+\*|_[^_]+_|~[^~]+~)/g)
-  return parts.map((part, i) => {
-    if (/^\*[^*]+\*$/.test(part)) return <strong key={i}>{part.slice(1, -1)}</strong>
-    if (/^_[^_]+_$/.test(part)) return <em key={i}>{part.slice(1, -1)}</em>
-    if (/^~[^~]+~$/.test(part)) return <s key={i}>{part.slice(1, -1)}</s>
-    return <span key={i}>{part}</span>
+  // 1) On découpe d'abord sur les variables {{n}} pour les rendre en pastilles.
+  const chunks = text.split(/(\{\{\s*\d+\s*\}\})/g)
+  return chunks.map((chunk, ci) => {
+    const vm = chunk.match(/^\{\{\s*(\d+)\s*\}\}$/)
+    if (vm && labels) {
+      const n = parseInt(vm[1], 10)
+      return (
+        <span key={`v${ci}`} className="rounded bg-primary/15 px-1 py-0.5 text-[0.92em] font-medium text-primary">
+          {labels[n - 1] || `{{${n}}}`}
+        </span>
+      )
+    }
+    if (vm) return <span key={`v${ci}`}>{chunk}</span>
+    // 2) Sinon, formatage gras/italique/barré sur le segment de texte.
+    const parts = chunk.split(/(\*[^*]+\*|_[^_]+_|~[^~]+~)/g)
+    return parts.map((part, i) => {
+      if (/^\*[^*]+\*$/.test(part)) return <strong key={`${ci}-${i}`}>{part.slice(1, -1)}</strong>
+      if (/^_[^_]+_$/.test(part)) return <em key={`${ci}-${i}`}>{part.slice(1, -1)}</em>
+      if (/^~[^~]+~$/.test(part)) return <s key={`${ci}-${i}`}>{part.slice(1, -1)}</s>
+      return <span key={`${ci}-${i}`}>{part}</span>
+    })
   })
 }
 
@@ -173,6 +191,26 @@ export default function TemplatesPage() {
     const present = (text.match(/\{\{(\d+)\}\}/g) || []).map((v) => parseInt(v.replace(/\D/g, ''), 10))
     const maxNum = present.length ? Math.max(...present) : 0
     return keys.slice(0, maxNum)
+  }
+
+  // Renumérote les {{n}} pour qu'ils soient CONTIGUS à partir de 1, dans l'ordre
+  // d'apparition (Meta l'exige : {{1}},{{2}},{{3}}… sans trou). Remappe les clés
+  // de variables en conséquence. Ex : "{{3}} {{4}}" + [a,b,c,d] → "{{1}} {{2}}" + [c,d].
+  function normalizeVariables(text: string, keys: string[]): { text: string; keys: string[] } {
+    const order: number[] = [] // numéros d'origine, dans l'ordre d'apparition (1ère occurrence)
+    const seen = new Set<number>()
+    for (const m of text.match(/\{\{\s*\d+\s*\}\}/g) || []) {
+      const n = parseInt(m.replace(/\D/g, ''), 10)
+      if (!seen.has(n)) { seen.add(n); order.push(n) }
+    }
+    // Mapping ancien numéro → nouveau (1-indexé, contigu)
+    const remap = new Map<number, number>()
+    order.forEach((oldN, i) => remap.set(oldN, i + 1))
+    // Réécrit le texte
+    const newText = text.replace(/\{\{\s*(\d+)\s*\}\}/g, (_, d) => `{{${remap.get(parseInt(d, 10))}}}`)
+    // Réaligne les clés : nouvelle position i ← clé de l'ancien numéro order[i]
+    const newKeys = order.map((oldN) => keys[oldN - 1]).filter((k): k is string => !!k)
+    return { text: newText, keys: newKeys }
   }
 
   const fetchTemplates = useCallback(async () => {
@@ -316,6 +354,12 @@ export default function TemplatesPage() {
     if (!name.trim() || !bodyText.trim()) { toast.error('Nom et message requis'); return }
     setSaving(true)
     try {
+      // Renumérote les variables pour qu'elles soient contiguës à partir de 1
+      // (Meta refuse les trous : "{{3}} {{4}}" sans {{1}}/{{2}} → example invalide).
+      const norm = normalizeVariables(bodyText, variableKeys)
+      // Reflète la normalisation dans l'éditeur (texte + mapping) pour cohérence.
+      if (norm.text !== bodyText) setBodyText(norm.text)
+      if (JSON.stringify(norm.keys) !== JSON.stringify(variableKeys)) setVariableKeys(norm.keys)
       const url = editing ? `/api/templates/${editing.id}` : '/api/templates'
       const method = editing ? 'PATCH' : 'POST'
       const res = await fetch(url, {
@@ -323,7 +367,7 @@ export default function TemplatesPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           name, language, category,
-          body_text: bodyText,
+          body_text: norm.text,
           // En carrousel, l'en-tête média et les boutons globaux sont portés par
           // les cartes → on neutralise l'en-tête/les boutons du message d'intro.
           header_text: templateType === 'standard' && headerType === 'text' ? headerText : '',
@@ -335,9 +379,9 @@ export default function TemplatesPage() {
           carousel_cards: templateType === 'carousel' && carouselCards.length > 0 ? carouselCards : null,
           lto_title: templateType === 'limited_time_offer' ? ltoTitle : null,
           lto_default_hours: templateType === 'limited_time_offer' ? ltoHours : null,
-          // Mapping des variables + exemples Meta dérivés des clés choisies.
-          variable_keys: variableKeys,
-          sample_values: variableKeys.map((k) => VARIABLE_BY_KEY[k]?.sample || 'exemple'),
+          // Mapping des variables (normalisé) + exemples Meta dérivés des clés.
+          variable_keys: norm.keys,
+          sample_values: norm.keys.map((k) => VARIABLE_BY_KEY[k]?.sample || 'exemple'),
         }),
       })
       const json = await res.json()
@@ -827,7 +871,7 @@ export default function TemplatesPage() {
                     <p className="mb-0.5 text-[15px] font-semibold text-gray-900">{headerText}</p>
                   )}
                   <p className="whitespace-pre-wrap break-words text-[14.5px] leading-snug text-gray-800">
-                    {renderWhatsAppFormat(bodyText) || <span className="text-gray-400">Votre message apparaîtra ici…</span>}
+                    {renderWhatsAppFormat(bodyText, variableKeys.map((k) => VARIABLE_BY_KEY[k]?.label || k)) || <span className="text-gray-400">Votre message apparaîtra ici…</span>}
                   </p>
                   {footerText && (
                     <p className="mt-1.5 text-[12px] text-gray-400">{footerText}</p>
