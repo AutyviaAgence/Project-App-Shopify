@@ -1,0 +1,175 @@
+{% comment %}
+  Xeyo — Popup d'opt-in WhatsApp (page panier)
+  App Embed Block : le marchand l'active en 1 clic dans l'éditeur de thème.
+  S'affiche en POPUP AUTOMATIQUE sur la page PANIER (après un délai et/ou à
+  l'intention de sortie), pour capturer l'opt-in WhatsApp AVANT un éventuel
+  abandon → permet la relance de panier abandonné (sur tous les plans Shopify,
+  contrairement aux extensions de checkout réservées à Shopify Plus).
+{% endcomment %}
+
+<div
+  id="xeyo-optin-popup"
+  class="xeyo-pop"
+  style="--xeyo-pop-color: {{ block.settings.accent_color }}; display:none;"
+  data-proxy="/apps/xeyo/optin"
+  data-shop="{{ shop.permanent_domain }}"
+  data-delay="{{ block.settings.delay_seconds }}"
+  data-exit-intent="{{ block.settings.exit_intent }}"
+  data-cart-only="{{ block.settings.cart_only }}"
+>
+  <div class="xeyo-pop-card" role="dialog" aria-modal="true" aria-label="Opt-in WhatsApp">
+    <button type="button" class="xeyo-pop-close" aria-label="Fermer">&times;</button>
+    <p class="xeyo-pop-title">{{ block.settings.title }}</p>
+    <p class="xeyo-pop-text">{{ block.settings.subtitle }}</p>
+    <div class="xeyo-pop-fields">
+      <input type="tel" class="xeyo-pop-phone" placeholder="{{ block.settings.placeholder }}" />
+      <button type="button" class="xeyo-pop-submit">{{ block.settings.button }}</button>
+    </div>
+    <p class="xeyo-pop-consent">{{ block.settings.consent }}</p>
+    <p class="xeyo-pop-msg" aria-live="polite"></p>
+    {%- if block.settings.show_branding -%}
+      <a class="xeyo-pop-branding" href="https://xeyo.io" target="_blank" rel="noopener noreferrer">Powered by Xeyo.io</a>
+    {%- endif -%}
+  </div>
+</div>
+
+<style>
+  .xeyo-pop {
+    position: fixed; inset: 0; z-index: 2147483000;
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,.45); padding: 16px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  .xeyo-pop-card {
+    position: relative; width: 100%; max-width: 380px; background: #fff;
+    border-radius: 16px; padding: 22px 20px 18px; box-shadow: 0 20px 60px rgba(0,0,0,.25);
+    animation: xeyoPopIn .25s ease-out;
+  }
+  @keyframes xeyoPopIn { from { transform: translateY(12px); opacity: 0 } to { transform: none; opacity: 1 } }
+  .xeyo-pop-close {
+    position: absolute; top: 8px; right: 10px; background: none; border: none;
+    font-size: 26px; line-height: 1; color: #9aa3ad; cursor: pointer;
+  }
+  .xeyo-pop-title { margin: 0 0 4px; font-size: 17px; font-weight: 700; color: #111827; }
+  .xeyo-pop-text { margin: 0 0 14px; font-size: 13.5px; color: #4b5563; }
+  .xeyo-pop-fields { display: flex; gap: 8px; }
+  .xeyo-pop-phone {
+    flex: 1; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 9px; font-size: 14px;
+  }
+  .xeyo-pop-submit {
+    background: var(--xeyo-pop-color, #25D366); color: #fff; border: none;
+    border-radius: 9px; padding: 10px 16px; font-size: 14px; font-weight: 600; cursor: pointer; white-space: nowrap;
+  }
+  .xeyo-pop-submit:disabled { opacity: .6; cursor: default; }
+  .xeyo-pop-consent { margin: 10px 0 0; font-size: 11px; color: #9aa3ad; }
+  .xeyo-pop-msg { margin: 8px 0 0; font-size: 13px; min-height: 16px; }
+  .xeyo-pop-msg.ok { color: #15803d; }
+  .xeyo-pop-msg.err { color: #b91c1c; }
+  .xeyo-pop-branding { display: inline-block; margin-top: 8px; font-size: 10px; color: #9aa3ad; text-decoration: none; }
+</style>
+
+<script>
+  (function () {
+    var root = document.getElementById('xeyo-optin-popup');
+    if (!root || root.dataset.bound) return;
+    root.dataset.bound = '1';
+
+    var card = root.querySelector('.xeyo-pop-card');
+    var closeBtn = root.querySelector('.xeyo-pop-close');
+    var phone = root.querySelector('.xeyo-pop-phone');
+    var submit = root.querySelector('.xeyo-pop-submit');
+    var msg = root.querySelector('.xeyo-pop-msg');
+    var proxy = root.getAttribute('data-proxy');
+    var shop = root.getAttribute('data-shop');
+    var delay = parseInt(root.getAttribute('data-delay'), 10) || 8;
+    var exitIntent = root.getAttribute('data-exit-intent') === 'true';
+    var cartOnly = root.getAttribute('data-cart-only') === 'true';
+
+    var STORE_KEY = 'xeyo_optin_seen';
+    function alreadyHandled() {
+      try { return localStorage.getItem(STORE_KEY) === '1'; } catch (e) { return false; }
+    }
+    function markHandled() {
+      try { localStorage.setItem(STORE_KEY, '1'); } catch (e) {}
+    }
+
+    // Ne s'affiche que sur la page panier (sauf si cart_only = false).
+    var isCart = /\/cart(\b|\/|\?|$)/.test(location.pathname + location.search);
+    if (cartOnly && !isCart) return;
+    if (alreadyHandled()) return;
+
+    var shown = false;
+    function show() {
+      if (shown || alreadyHandled()) return;
+      shown = true;
+      root.style.display = 'flex';
+      phone.focus();
+    }
+    function hide() { root.style.display = 'none'; }
+
+    // Déclenchement : après un délai…
+    var timer = setTimeout(show, delay * 1000);
+    // …et/ou à l'intention de sortie (souris qui quitte le haut de la page).
+    if (exitIntent) {
+      document.addEventListener('mouseout', function (e) {
+        if (e.clientY <= 0 && !e.relatedTarget) show();
+      });
+    }
+
+    closeBtn.addEventListener('click', function () { hide(); markHandled(); clearTimeout(timer); });
+    root.addEventListener('click', function (e) { if (e.target === root) { hide(); markHandled(); } });
+
+    submit.addEventListener('click', function () {
+      var val = (phone.value || '').replace(/[^0-9+]/g, '');
+      if (val.replace(/[^0-9]/g, '').length < 8) {
+        msg.className = 'xeyo-pop-msg err'; msg.textContent = 'Numéro invalide.'; return;
+      }
+      submit.disabled = true;
+      msg.className = 'xeyo-pop-msg'; msg.textContent = 'Enregistrement…';
+      fetch(proxy + '?shop=' + encodeURIComponent(shop), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: val, marketing: true })
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (res) {
+          if (res && res.ok) {
+            msg.className = 'xeyo-pop-msg ok';
+            msg.textContent = 'C\'est noté ! Vous recevrez le suivi sur WhatsApp.';
+            markHandled();
+            setTimeout(hide, 1600);
+          } else {
+            msg.className = 'xeyo-pop-msg err';
+            msg.textContent = (res && res.error) ? res.error : 'Erreur, réessayez.';
+            submit.disabled = false;
+          }
+        })
+        .catch(function () {
+          msg.className = 'xeyo-pop-msg err'; msg.textContent = 'Erreur réseau.'; submit.disabled = false;
+        });
+    });
+  })();
+</script>
+
+{% schema %}
+{
+  "name": "Popup Opt-in WhatsApp Xeyo",
+  "target": "body",
+  "settings": [
+    {
+      "type": "paragraph",
+      "content": "Popup d'opt-in WhatsApp sur la page panier (avant l'abandon). Connectez votre WhatsApp dans Xeyo pour l'activer. Personnalisez ci-dessous."
+    },
+    { "type": "text", "id": "title", "label": "Titre", "default": "📦 Suivez votre commande sur WhatsApp" },
+    { "type": "text", "id": "subtitle", "label": "Sous-titre", "default": "Recevez le suivi de votre commande et nos offres exclusives." },
+    { "type": "text", "id": "placeholder", "label": "Placeholder du numéro", "default": "+33 6 12 34 56 78" },
+    { "type": "text", "id": "button", "label": "Texte du bouton", "default": "Recevoir sur WhatsApp" },
+    { "type": "text", "id": "consent", "label": "Mention de consentement", "default": "En validant, j'accepte de recevoir des messages WhatsApp (suivi + offres). STOP pour me désabonner." },
+    { "type": "range", "id": "delay_seconds", "label": "Délai avant affichage (secondes)", "min": 2, "max": 30, "step": 1, "default": 8 },
+    { "type": "checkbox", "id": "exit_intent", "label": "Afficher aussi à l'intention de sortie", "default": true },
+    { "type": "checkbox", "id": "cart_only", "label": "Uniquement sur la page panier", "default": true },
+    { "type": "color", "id": "accent_color", "label": "Couleur", "default": "#25D366" },
+    { "type": "checkbox", "id": "show_branding", "label": "Afficher \"Powered by Xeyo.io\"", "default": true }
+  ]
+}
+{% endschema %}
