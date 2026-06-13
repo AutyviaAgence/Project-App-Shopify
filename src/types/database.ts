@@ -651,12 +651,16 @@ export type WhatsAppTemplate = {
   header_type: 'none' | 'text' | 'image' | 'video' | 'document'
   header_media_url: string | null
   buttons: TemplateButton[] | null
-  /** 'standard' (par défaut) ou 'carousel' (carrousel de cartes produit). */
-  template_type: 'standard' | 'carousel'
+  /** Type de modèle : standard, carrousel, ou offre à durée limitée. */
+  template_type: 'standard' | 'carousel' | 'limited_time_offer'
   /** Cartes du carrousel (si template_type === 'carousel'). */
   carousel_cards: TemplateCard[] | null
   /** Snapshot des cartes validées par Meta. */
   approved_carousel_cards: TemplateCard[] | null
+  /** Limited-Time Offer : titre de l'offre (compte à rebours). */
+  lto_title: string | null
+  /** Limited-Time Offer : durée par défaut en heures (expiration à l'envoi). */
+  lto_default_hours: number | null
   created_at: string
   updated_at: string
 }

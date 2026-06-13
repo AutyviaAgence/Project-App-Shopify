@@ -78,10 +78,13 @@ export default function TemplatesPage() {
   const [uploadingMedia, setUploadingMedia] = useState(false)
   const [buttons, setButtons] = useState<TemplateButton[]>([])
   // Carrousel
-  const [templateType, setTemplateType] = useState<'standard' | 'carousel'>('standard')
+  const [templateType, setTemplateType] = useState<'standard' | 'carousel' | 'limited_time_offer'>('standard')
   const [carouselCards, setCarouselCards] = useState<TemplateCard[]>([])
   const [cardMediaKind, setCardMediaKind] = useState<'image' | 'video'>('image')
   const [cardPreviews, setCardPreviews] = useState<Record<number, string>>({})
+  // Offre à durée limitée
+  const [ltoTitle, setLtoTitle] = useState('')
+  const [ltoHours, setLtoHours] = useState(24)
   const [saving, setSaving] = useState(false)
   const bodyRef = useRef<HTMLTextAreaElement>(null)
   const mediaInputRef = useRef<HTMLInputElement>(null)
@@ -203,6 +206,7 @@ export default function TemplatesPage() {
     setHeaderType('none'); setHeaderMediaUrl(''); setButtons([])
     setMediaPreviewUrl(''); setMediaFilename('')
     setTemplateType('standard'); setCarouselCards([]); setCardMediaKind('image'); setCardPreviews({})
+    setLtoTitle(''); setLtoHours(24)
     setMode('edit')
   }
 
@@ -227,9 +231,10 @@ export default function TemplatesPage() {
     } else if (t.header_media_url) {
       setMediaPreviewUrl(t.header_media_url)
     }
-    // Carrousel : charge les cartes + génère une URL signée d'aperçu par carte.
-    const tt = (t.template_type === 'carousel' ? 'carousel' : 'standard') as 'standard' | 'carousel'
+    // Type de modèle + champs spécifiques.
+    const tt = (t.template_type === 'carousel' ? 'carousel' : t.template_type === 'limited_time_offer' ? 'limited_time_offer' : 'standard') as 'standard' | 'carousel' | 'limited_time_offer'
     setTemplateType(tt)
+    setLtoTitle(t.lto_title || ''); setLtoHours(t.lto_default_hours || 24)
     const cards = Array.isArray(t.carousel_cards) ? t.carousel_cards : []
     setCarouselCards(cards)
     setCardMediaKind((cards[0]?.header_type as 'image' | 'video') || 'image')
@@ -259,8 +264,10 @@ export default function TemplatesPage() {
     headerType !== (editing.header_type || (editing.header_text ? 'text' : 'none')) ||
     headerMediaUrl !== (editing.header_media_url || '') ||
     JSON.stringify(buttons) !== JSON.stringify(editing.buttons || []) ||
-    templateType !== ((editing.template_type === 'carousel' ? 'carousel' : 'standard')) ||
-    JSON.stringify(carouselCards) !== JSON.stringify(editing.carousel_cards || [])
+    templateType !== (editing.template_type || 'standard') ||
+    JSON.stringify(carouselCards) !== JSON.stringify(editing.carousel_cards || []) ||
+    ltoTitle !== (editing.lto_title || '') ||
+    ltoHours !== (editing.lto_default_hours || 24)
   )
 
   // Recharge les valeurs d'origine du template (annule les modifications en cours)
@@ -312,6 +319,8 @@ export default function TemplatesPage() {
           buttons: templateType === 'standard' && buttons.length > 0 ? buttons : null,
           template_type: templateType,
           carousel_cards: templateType === 'carousel' && carouselCards.length > 0 ? carouselCards : null,
+          lto_title: templateType === 'limited_time_offer' ? ltoTitle : null,
+          lto_default_hours: templateType === 'limited_time_offer' ? ltoHours : null,
           // Mapping des variables + exemples Meta dérivés des clés choisies.
           variable_keys: variableKeys,
           sample_values: variableKeys.map((k) => VARIABLE_BY_KEY[k]?.sample || 'exemple'),
@@ -532,18 +541,23 @@ export default function TemplatesPage() {
                 )}
               </div>
             </div>
-            {/* Type de modèle : standard ou carrousel */}
+            {/* Type de modèle : standard / carrousel / offre limitée */}
             <div className="space-y-1.5">
               <Label>Type de modèle</Label>
-              <div className="grid grid-cols-2 gap-1 rounded-lg bg-muted p-1 text-xs">
+              <div className="grid grid-cols-3 gap-1 rounded-lg bg-muted p-1 text-xs">
                 {([
                   { v: 'standard', l: 'Standard' },
-                  { v: 'carousel', l: 'Carrousel produit' },
+                  { v: 'carousel', l: 'Carrousel' },
+                  { v: 'limited_time_offer', l: 'Offre limitée' },
                 ] as const).map(({ v, l }) => (
                   <button
                     key={v}
                     type="button"
-                    onClick={() => setTemplateType(v)}
+                    onClick={() => {
+                      setTemplateType(v)
+                      // L'offre limitée impose la catégorie MARKETING (règle Meta).
+                      if (v === 'limited_time_offer') setCategory('MARKETING')
+                    }}
                     disabled={!!editing?.meta_id}
                     className={cn('rounded-md py-1.5 font-medium transition-colors disabled:opacity-50',
                       templateType === v ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground')}
@@ -554,12 +568,44 @@ export default function TemplatesPage() {
                 <p className="text-[11px] text-muted-foreground">Le type d&apos;un modèle déjà soumis ne peut pas être changé.</p>
               ) : templateType === 'carousel' ? (
                 <p className="text-[11px] text-muted-foreground">Message d&apos;introduction + cartes produit défilables (1 à 10).</p>
+              ) : templateType === 'limited_time_offer' ? (
+                <p className="text-[11px] text-muted-foreground">Compte à rebours + code promo. Catégorie Marketing obligatoire.</p>
               ) : null}
             </div>
 
-            {/* En-tête : uniquement pour les modèles standard (le carrousel porte
-                ses médias sur les cartes). */}
-            {templateType === 'standard' && (
+            {/* Paramètres de l'offre à durée limitée */}
+            {templateType === 'limited_time_offer' && (
+              <div className="space-y-3 rounded-xl border p-3">
+                <div className="space-y-1.5">
+                  <Label>Titre de l&apos;offre</Label>
+                  <Input value={ltoTitle} onChange={(e) => setLtoTitle(e.target.value)} placeholder="-10% pendant 2h" maxLength={16} />
+                  <p className="text-[11px] text-muted-foreground">{ltoTitle.length}/16 — affiché au-dessus du compte à rebours.</p>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Durée du compte à rebours</Label>
+                  <Select value={String(ltoHours)} onValueChange={(v) => setLtoHours(parseInt(v, 10))}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="1">1 heure</SelectItem>
+                      <SelectItem value="2">2 heures</SelectItem>
+                      <SelectItem value="6">6 heures</SelectItem>
+                      <SelectItem value="12">12 heures</SelectItem>
+                      <SelectItem value="24">24 heures</SelectItem>
+                      <SelectItem value="48">48 heures</SelectItem>
+                      <SelectItem value="72">72 heures</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-muted-foreground">L&apos;expiration est calculée à l&apos;envoi (maintenant + durée).</p>
+                </div>
+                <p className="rounded-lg bg-muted/50 p-2 text-[11px] text-muted-foreground">
+                  Ajoutez un bouton <strong>« Copier le code »</strong> (code promo) et/ou un bouton lien ci-dessous.
+                </p>
+              </div>
+            )}
+
+            {/* En-tête : pour standard et offre limitée (le carrousel porte ses
+                médias sur les cartes). */}
+            {templateType !== 'carousel' && (
             <div className="space-y-2">
               <Label>En-tête (optionnel)</Label>
               {/* Sélecteur de type d'en-tête */}
@@ -698,8 +744,9 @@ export default function TemplatesPage() {
               />
             )}
 
-            {/* Boutons (optionnel) — standard uniquement */}
-            {templateType === 'standard' && (
+            {/* Boutons — standard et offre limitée (pas le carrousel, qui a ses
+                boutons par carte) */}
+            {templateType !== 'carousel' && (
             <div className="space-y-2">
               <Label>Boutons (optionnel)</Label>
               {buttons.map((b, i) => (
@@ -756,8 +803,14 @@ export default function TemplatesPage() {
                   )}
                   <div className="mt-0.5 text-right text-[10px] text-gray-400">12:00 ✓✓</div>
                 </div>
-                {/* Boutons globaux (standard uniquement) */}
-                {templateType === 'standard' && buttons.length > 0 && (
+                {/* Badge offre limitée (compte à rebours) */}
+                {templateType === 'limited_time_offer' && (
+                  <div className="mx-3 mb-2 flex items-center gap-1.5 rounded-lg bg-red-50 px-2 py-1.5 text-[13px] font-medium text-red-600">
+                    ⏱ {ltoTitle || 'Offre limitée'} · expire dans {ltoHours}h
+                  </div>
+                )}
+                {/* Boutons globaux (standard + offre limitée) */}
+                {templateType !== 'carousel' && buttons.length > 0 && (
                   <div className="border-t border-slate-100">
                     {buttons.map((b, i) => (
                       <div key={i} className="flex items-center justify-center gap-1.5 border-t border-slate-100 py-2 text-[14px] font-medium text-[#1ca5e0] first:border-t-0">

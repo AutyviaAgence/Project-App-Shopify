@@ -37,7 +37,7 @@ export async function sendTemplateToContact(params: {
   // Template approuvé
   const { data: tpl } = await supabase
     .from('whatsapp_templates')
-    .select('name, language, status, variables_count, variable_keys, body_text, template_type, carousel_cards')
+    .select('name, language, status, variables_count, variable_keys, body_text, template_type, carousel_cards, lto_default_hours, buttons')
     .eq('id', params.templateId)
     .maybeSingle()
   if (!tpl) return { ok: false, error: 'template_introuvable' }
@@ -70,6 +70,26 @@ export async function sendTemplateToContact(params: {
     const { buildCarouselComponent } = await import('@/lib/templates/carousel-send')
     const carousel = buildCarouselComponent(tpl.carousel_cards, params.variables)
     if (carousel) components.push(carousel)
+  }
+
+  // Offre à durée limitée → composant d'expiration (compte à rebours) + le
+  // paramètre du bouton "copier le code" si présent.
+  if (tpl.template_type === 'limited_time_offer') {
+    const { buildLtoComponent } = await import('@/lib/templates/lto-send')
+    components.push(buildLtoComponent({ defaultHours: tpl.lto_default_hours, nowMs: Date.now() }))
+    const btns = Array.isArray(tpl.buttons) ? tpl.buttons as { type?: string; code?: string }[] : []
+    const codeIdx = btns.findIndex((b) => b.type === 'COPY_CODE')
+    if (codeIdx >= 0) {
+      const code = (params.variables.promo_code || btns[codeIdx].code || '').trim()
+      if (code) {
+        components.push({
+          type: 'button',
+          sub_type: 'copy_code',
+          index: String(codeIdx),
+          parameters: [{ type: 'coupon_code', coupon_code: code }],
+        })
+      }
+    }
   }
 
   const { wabaClient } = await import('@/lib/whatsapp-cloud/client')
