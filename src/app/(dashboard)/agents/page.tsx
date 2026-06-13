@@ -358,12 +358,12 @@ export default function AgentsPage() {
 
   return (
     <div className="relative flex min-h-full flex-col overflow-hidden p-4 pb-24 sm:p-6 sm:pb-6">
-      {/* Fond d'ambiance : glow coloré + grille subtile */}
+      {/* Fond d'ambiance : glow coloré + grille animée (toujours visible) */}
       <div className="pointer-events-none absolute inset-0 -z-10">
         <div className="absolute left-1/2 top-1/3 h-[600px] w-[900px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-[0.10] blur-[120px]"
           style={{ background: 'radial-gradient(circle, #0ea5e9 0%, #8b5cf6 45%, transparent 70%)' }} />
-        <div className="absolute inset-0 opacity-[0.025]"
-          style={{ backgroundImage: 'linear-gradient(#fff 1px,transparent 1px),linear-gradient(90deg,#fff 1px,transparent 1px)', backgroundSize: '48px 48px' }} />
+        {/* Grille bleue qui dérive lentement (visible en clair comme en sombre) */}
+        <div className="absolute inset-0 animated-grid-bg opacity-60" />
       </div>
 
       <div className="mb-6">
@@ -377,10 +377,10 @@ export default function AgentsPage() {
 
       {/* Zone : carrousel centré, bouton Nouvel agent juste en dessous */}
       <div className={cn('relative flex flex-1 flex-col py-6', agents.length === 0 ? 'items-center justify-center px-6' : 'items-center justify-start lg:justify-center')}>
-      {/* Grille de carrés animée en arrière-fond (onboarding) */}
+      {/* Carrés lumineux animés en arrière-fond (onboarding) — la grille de fond
+          est désormais affichée en permanence au niveau de la page. */}
       {agents.length === 0 && (
         <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
-          <div className="absolute inset-0 animated-grid-bg" />
           <span className="animated-grid-square" style={{ left: '18%', top: '28%', width: 28, height: 28, animationDelay: '0s' }} />
           <span className="animated-grid-square" style={{ left: '78%', top: '22%', width: 20, height: 20, animationDelay: '1.2s' }} />
           <span className="animated-grid-square" style={{ left: '24%', top: '72%', width: 24, height: 24, animationDelay: '2.4s' }} />
