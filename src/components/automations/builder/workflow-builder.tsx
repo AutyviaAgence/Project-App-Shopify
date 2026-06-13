@@ -12,7 +12,7 @@ import { TRIGGER_EVENTS } from '@/lib/automations/types'
 import type { WorkflowGraph, WorkflowNode } from '@/lib/automations/graph-types'
 import type { WhatsAppTemplate } from '@/types/database'
 
-const Grainient = dynamic(() => import('@/components/Grainient'), { ssr: false })
+const Lightfall = dynamic(() => import('@/components/Lightfall'), { ssr: false })
 
 /**
  * Zone de timeline déplaçable : on peut faire défiler le workflow en
@@ -54,35 +54,19 @@ function PannableTimeline({ children }: { children: React.ReactNode }) {
       onWheel={onWheel}
       className={cn('relative overflow-hidden rounded-2xl border bg-muted/10 select-none', grabbing ? 'cursor-grabbing' : 'cursor-grab')}
     >
-      {/* Fond animé Grainient (dégradé fluide), confiné au cadre du canvas */}
-      <div className="pointer-events-none absolute inset-0">
-        <Grainient
-          color1="#FF9FFC"
-          color2="#5227FF"
-          color3="#B497CF"
-          timeSpeed={0.25}
-          colorBalance={0}
-          warpStrength={1}
-          warpFrequency={5}
-          warpSpeed={2}
-          warpAmplitude={50}
-          blendAngle={0}
-          blendSoftness={0.05}
-          rotationAmount={500}
-          noiseScale={2}
-          grainAmount={0.1}
-          grainScale={2}
-          grainAnimated={false}
-          contrast={1.5}
-          gamma={1}
-          saturation={1}
-          centerX={0}
-          centerY={0}
-          zoom={0.9}
+      {/* Fond animé Lightfall, confiné au cadre du canvas (coins arrondis) */}
+      <div className="pointer-events-none absolute inset-0 opacity-[0.18]">
+        <Lightfall
+          className="" dpr={1} mixBlendMode="normal"
+          colors={['#A6C8FF', '#5227FF', '#FF9FFC']}
+          backgroundColor="#0A1530"
+          speed={0.5} streakCount={2} streakWidth={1} streakLength={1}
+          glow={1} density={0.6} twinkle={1} zoom={3} backgroundGlow={0.5}
+          opacity={1} mouseInteraction mouseStrength={0.5} mouseRadius={1}
         />
       </div>
-      {/* Voile discret par-dessus le fond animé pour conserver la lisibilité */}
-      <div className="pointer-events-none absolute inset-0 bg-background/55" />
+      {/* Ancien fond discret par-dessus le Lightfall pour adoucir l'ensemble */}
+      <div className="pointer-events-none absolute inset-0 bg-background/40" />
       <div
         className="relative z-[1] h-full origin-top will-change-transform"
         style={{ transform: `translate(${offset.x}px, ${offset.y}px) scale(${zoom})`, transition: grabbing ? 'none' : 'transform 0.1s ease-out' }}
