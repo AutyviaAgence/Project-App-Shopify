@@ -9,9 +9,23 @@
  *   4. langue par défaut du marchand
  */
 
-/** Langues supportées par l'app pour les templates. */
+/** Langues supportées par l'app pour la détection de langue d'un contact. */
 export const SUPPORTED_LANGUAGES = ['fr', 'en', 'es', 'de', 'it', 'pt', 'nl'] as const
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number]
+
+/**
+ * Langues dans lesquelles un modèle est décliné automatiquement (traduction IA).
+ * Source de vérité unique partagée par l'éditeur, l'API de traduction et le
+ * dispatch. Plus restreinte que SUPPORTED_LANGUAGES (chaque langue = 1 template
+ * Meta de plus, et la limite Meta est de 250 templates par compte).
+ */
+export const TEMPLATE_LANGUAGES = ['fr', 'en', 'es', 'de', 'it'] as const
+export type TemplateLanguage = (typeof TEMPLATE_LANGUAGES)[number]
+
+/** Libellés affichables des langues de template (UI). */
+export const TEMPLATE_LANGUAGE_LABELS: Record<string, string> = {
+  fr: 'Français', en: 'Anglais', es: 'Espagnol', de: 'Allemand', it: 'Italien',
+}
 
 /**
  * Normalise une locale (ex: 'fr-FR', 'de_DE', 'EN', 'pt-BR') en code court

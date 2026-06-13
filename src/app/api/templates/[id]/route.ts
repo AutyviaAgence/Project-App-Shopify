@@ -37,6 +37,10 @@ export async function PATCH(
   const IDENTITY_FIELDS = ['name', 'language']
   const contentChanged = CONTENT_FIELDS.some((f) => body[f] !== undefined)
   const identityChanged = IDENTITY_FIELDS.some((f) => body[f] !== undefined)
+
+  // Édition manuelle du contenu → cette langue n'est plus "auto-traduite" : on la
+  // protège des futures re-traductions (la re-traduction skip is_auto_translated=false).
+  if (contentChanged) updates.is_auto_translated = false
   if (contentChanged || identityChanged) {
     const { data: current } = await supabase
       .from('whatsapp_templates')

@@ -669,6 +669,14 @@ export type WhatsAppTemplate = {
   lto_title: string | null
   /** Limited-Time Offer : durée par défaut en heures (expiration à l'envoi). */
   lto_default_hours: number | null
+  /** Multilingue : la langue d'origine (celle tapée par le marchand). Les autres
+   *  langues du même `name` sont des traductions. */
+  source_language: string | null
+  /** Multilingue : true si cette ligne a été générée par traduction IA. Repasse à
+   *  false dès qu'un humain l'édite (protège du re-écrasement à la re-traduction). */
+  is_auto_translated: boolean
+  /** Multilingue : horodatage de la dernière génération IA. */
+  auto_translated_at: string | null
   created_at: string
   updated_at: string
 }
