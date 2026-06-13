@@ -228,32 +228,27 @@
     closeBtn.addEventListener('click', function () { hide(); markHandled(); cleanup(); });
     root.addEventListener('click', function (e) { if (e.target === root) { hide(); markHandled(); cleanup(); } });
 
-    submit.addEventListener('click', function () {
-      var dial = dialByIso[ccSelect.value] || '33';
-      var local = (phone.value || '').replace(/[^0-9]/g, '').replace(/^0+/, '');
-      if (local.length < 6) {
-        msg.className = 'xeyo-pop-msg err'; msg.textContent = 'Numéro invalide.'; return;
-      }
-      var val = dial + local; // E.164 sans le "+", le serveur ne garde que les chiffres
-      // Email du client connecté (rempli par Liquid) → sert de pont pour relier
-      // un panier abandonné (souvent identifié par email) à ce contact.
-      var custEmail = root.getAttribute('data-email') || '';
+    function doSubmit(val, custEmail) {
       submit.disabled = true;
       msg.className = 'xeyo-pop-msg'; msg.textContent = 'Enregistrement…';
+      var payload = {
+        phone: val,
+        email: custEmail || undefined,
+        marketing: true,
+        // Panier en cours → relance "panier abandonné" si pas de commande.
+        cart_url: cartHasItems ? cartUrl : undefined,
+        cart_total: cartTotal != null ? cartTotal : undefined
+      };
+      // Log de debug (visible dans la console) pour vérifier ce qui est envoyé.
+      try { console.log('[Xeyo opt-in] POST optin', payload); } catch (e) {}
       fetch(proxy + '?shop=' + encodeURIComponent(shop), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phone: val,
-          email: custEmail || undefined,
-          marketing: true,
-          // Panier en cours → relance "panier abandonné" si pas de commande.
-          cart_url: cartHasItems ? cartUrl : undefined,
-          cart_total: cartTotal != null ? cartTotal : undefined
-        })
+        body: JSON.stringify(payload)
       })
         .then(function (r) { return r.json(); })
         .then(function (res) {
+          try { console.log('[Xeyo opt-in] optin réponse', res); } catch (e) {}
           if (res && res.ok) {
             msg.className = 'xeyo-pop-msg ok';
             msg.textContent = 'C\'est noté ! Vous recevrez le suivi sur WhatsApp.';
@@ -268,6 +263,19 @@
         .catch(function () {
           msg.className = 'xeyo-pop-msg err'; msg.textContent = 'Erreur réseau.'; submit.disabled = false;
         });
+    }
+
+    submit.addEventListener('click', function () {
+      var dial = dialByIso[ccSelect.value] || '33';
+      var local = (phone.value || '').replace(/[^0-9]/g, '').replace(/^0+/, '');
+      if (local.length < 6) {
+        msg.className = 'xeyo-pop-msg err'; msg.textContent = 'Numéro invalide.'; return;
+      }
+      var val = dial + local; // E.164 sans le "+", le serveur ne garde que les chiffres
+      var custEmail = root.getAttribute('data-email') || '';
+      // On RAFRAÎCHIT le panier juste avant l'envoi (évite un état périmé : le
+      // cart_url n'était pas transmis si la 1re lecture async n'avait pas fini).
+      refreshCart(function () { doSubmit(val, custEmail); });
     });
   })();
 </script>
