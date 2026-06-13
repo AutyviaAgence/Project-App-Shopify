@@ -41,7 +41,7 @@ export async function GET(req: NextRequest) {
   // Jobs dus (limite pour éviter les longues exécutions)
   const { data: jobs } = await supabase
     .from('automation_jobs')
-    .select('id, automation_id, contact_id, event_data, scheduled_at, current_node_id')
+    .select('id, automation_id, contact_id, event_data, scheduled_at, current_node_id, created_at')
     .eq('status', 'pending')
     .lte('scheduled_at', now.toISOString())
     .order('scheduled_at', { ascending: true })
@@ -73,6 +73,19 @@ export async function GET(req: NextRequest) {
       productTitles?: string[]; collections?: string[]; country?: string; language?: string
     }
     if (!job.contact_id) { await mark(supabase, job.id, 'skipped', 'pas de contact'); skipped++; continue }
+
+    // PANIER ABANDONNÉ : annuler la relance si le contact a commandé entre-temps
+    // (last_order_at postérieur à la création du job). Évite de relancer un client
+    // qui a finalement finalisé son achat.
+    if (auto.trigger_event === 'checkout_abandoned') {
+      const { data: c } = await supabase
+        .from('contacts')
+        .select('last_order_at')
+        .eq('id', job.contact_id)
+        .maybeSingle()
+      const ordered = c?.last_order_at && job.created_at && new Date(c.last_order_at) > new Date(job.created_at)
+      if (ordered) { await mark(supabase, job.id, 'skipped', 'commande finalisée entre-temps'); skipped++; continue }
+    }
 
     // ---- Mode BUILDER (graphe de nœuds) ----
     if (auto.builder_mode && auto.graph) {

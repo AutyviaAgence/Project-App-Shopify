@@ -56,7 +56,10 @@ export async function resolveStoreUser(shopDomain: string): Promise<string | nul
 export async function buildOrderContext(
   userId: string,
   order: ShopifyOrder,
-  statusLabel: string
+  statusLabel: string,
+  // true pour une VRAIE commande (orders/*) → on note last_order_at sur le contact
+  // (sert à annuler une relance de panier abandonné). false pour un checkout.
+  isRealOrder = false
 ): Promise<EventContext | null> {
   const supabase = admin()
 
@@ -137,6 +140,15 @@ export async function buildOrderContext(
       .eq('id', contact.id)
   }
   if (!contact) return null
+
+  // Vraie commande → on note la date de dernière commande (sert à annuler une
+  // relance de panier abandonné si le client a finalement commandé).
+  if (isRealOrder) {
+    await supabase
+      .from('contacts')
+      .update({ last_order_at: new Date().toISOString() })
+      .eq('id', contact.id)
+  }
 
   const firstName = order.customer?.first_name || ''
   const lastName = order.customer?.last_name || ''

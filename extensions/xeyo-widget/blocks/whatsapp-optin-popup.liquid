@@ -145,12 +145,19 @@
     // panier via l'API Shopify /cart.js : si le client a des articles, on arme la
     // popup quelle que soit la page. C'est le vrai signal « en train d'acheter ».
     var cartHasItems = false;
+    var cartTotal = null; // en unité (ex: euros), pas en centimes
     function refreshCart(cb) {
       fetch('/cart.js', { headers: { 'Accept': 'application/json' } })
         .then(function (r) { return r.json(); })
-        .then(function (c) { cartHasItems = (c && c.item_count > 0); if (cb) cb(); })
+        .then(function (c) {
+          cartHasItems = (c && c.item_count > 0);
+          cartTotal = (c && typeof c.total_price === 'number') ? (c.total_price / 100) : null;
+          if (cb) cb();
+        })
         .catch(function () { if (cb) cb(); });
     }
+    // Lien de reprise du panier (universel sur Shopify).
+    var cartUrl = location.origin + '/cart';
 
     // Condition d'affichage selon le mode choisi par le marchand :
     //   • 'cart'   : panier non vide (marche page /cart ET tiroir/drawer)
@@ -236,7 +243,14 @@
       fetch(proxy + '?shop=' + encodeURIComponent(shop), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: val, email: custEmail || undefined, marketing: true })
+        body: JSON.stringify({
+          phone: val,
+          email: custEmail || undefined,
+          marketing: true,
+          // Panier en cours → relance "panier abandonné" si pas de commande.
+          cart_url: cartHasItems ? cartUrl : undefined,
+          cart_total: cartTotal != null ? cartTotal : undefined
+        })
       })
         .then(function (r) { return r.json(); })
         .then(function (res) {

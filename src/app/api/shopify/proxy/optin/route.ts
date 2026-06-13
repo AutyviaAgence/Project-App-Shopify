@@ -49,9 +49,12 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}))
   const phone = String(body.phone || '').replace(/[^0-9]/g, '')
   const name = (body.name as string)?.trim() || null
-  // Email (optionnel) : sert de pont pour relier un panier abandonné (qui n'a
-  // souvent que l'email côté Shopify) au contact opted-in via la popup.
   const email = (body.email as string)?.trim().toLowerCase() || null
+  // Infos panier (envoyées par la popup quand le panier n'est pas vide) → permet
+  // une relance "panier abandonné" 100% WhatsApp, sans dépendre du webhook Shopify
+  // ni de l'email : on a le numéro + le panier dès l'opt-in.
+  const cartUrl = (body.cart_url as string)?.trim() || null
+  const cartTotal = typeof body.cart_total === 'number' ? body.cart_total : null
   // L'opt-in page Merci couvre aussi le marketing (case "commande + offres")
   const marketing = body.marketing === true
 
@@ -115,22 +118,46 @@ export async function POST(req: NextRequest) {
     try {
       const { enqueueAutomations } = await import('@/lib/automations/engine')
       const firstName = (name || '').split(' ')[0] || ''
+      const baseVars = {
+        customer_first_name: firstName,
+        customer_full_name: name || '',
+        customer_phone: phone,
+        store_name: shop?.replace('.myshopify.com', '') || 'la boutique',
+      }
       await enqueueAutomations({
         userId: store.user_id,
         event: 'contact_opted_in',
         ctx: {
           contactId: contact.id,
-          variables: {
-            customer_first_name: firstName,
-            customer_full_name: name || '',
-            customer_phone: phone,
-            store_name: shop?.replace('.myshopify.com', '') || 'la boutique',
-          },
+          variables: baseVars,
           dedupKey: contact.id, // un seul message de bienvenue par contact
         },
       })
+
+      // Détection panier abandonné "maison" (100% WhatsApp) : si le client coche
+      // l'opt-in AVEC un panier non vide, on enfile l'événement checkout_abandoned.
+      // Le cron respecte le délai de l'automatisation et SKIP si une commande
+      // arrive entre-temps (vrai abandon uniquement).
+      if (cartUrl) {
+        await enqueueAutomations({
+          userId: store.user_id,
+          event: 'checkout_abandoned',
+          ctx: {
+            contactId: contact.id,
+            total: cartTotal ?? undefined,
+            variables: {
+              ...baseVars,
+              cart_url: cartUrl,
+              order_total: cartTotal != null ? String(cartTotal) : '',
+              order_status: 'Panier en attente',
+            },
+            // 1 relance max par contact+panier (le cart_url change à chaque panier)
+            dedupKey: `${contact.id}:${cartUrl}`,
+          },
+        })
+      }
     } catch (e) {
-      console.error('[optin] enqueue contact_opted_in échec (non bloquant):', e)
+      console.error('[optin] enqueue automations échec (non bloquant):', e)
     }
   }
 

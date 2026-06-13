@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     ? (payload.order || payload.order_adjustments?.[0] || payload)
     : payload
 
-  const ctx = await buildOrderContext(userId, order, mapping.status)
+  const ctx = await buildOrderContext(userId, order, mapping.status, true)
   if (!ctx) return NextResponse.json({ received: true, skipped: 'no contact/phone' })
 
   const { queued } = await enqueueAutomations({ userId, event: mapping.event, ctx })
