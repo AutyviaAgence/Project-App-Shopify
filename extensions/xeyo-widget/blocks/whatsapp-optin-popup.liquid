@@ -144,21 +144,46 @@
       if (shown || alreadyHandled()) return;
       shown = true;
       root.style.display = 'flex';
-      phone.focus();
+      try { phone.focus(); } catch (e) {}
     }
     function hide() { root.style.display = 'none'; }
 
-    // Déclenchement : après un délai…
-    var timer = setTimeout(show, delay * 1000);
-    // …et/ou à l'intention de sortie (souris qui quitte le haut de la page).
-    if (exitIntent) {
+    // ── Déclenchement intelligent (façon Cartloop/Privy) ────────────────────
+    // On n'affiche JAMAIS dès l'arrivée. La popup se déclenche sur un vrai signal
+    // d'ENGAGEMENT, avec un délai de sécurité minimum pour ne pas spammer :
+    //   • Desktop : exit-intent (souris qui remonte vers la fermeture)
+    //   • Mobile  : scroll significatif (le client parcourt la page)
+    //   • Filet   : après un délai plus long, si rien ne s'est déclenché
+    var MIN_DELAY = (delay || 8) * 1000;            // garde-fou avant tout déclenchement
+    var FALLBACK = Math.max(MIN_DELAY * 2, 18000);  // dernier recours
+    var armedAt = Date.now();
+    var isMobile = matchMedia('(pointer: coarse)').matches || innerWidth < 768;
+
+    function armed() { return Date.now() - armedAt >= MIN_DELAY; }
+
+    // Filet de dernier recours : si aucun signal, on finit par afficher.
+    var fallbackTimer = setTimeout(show, FALLBACK);
+
+    if (!isMobile && exitIntent) {
+      // Exit-intent desktop : la souris quitte par le haut de la fenêtre.
       document.addEventListener('mouseout', function (e) {
-        if (e.clientY <= 0 && !e.relatedTarget) show();
+        if (armed() && e.clientY <= 0 && !e.relatedTarget) show();
       });
     }
 
-    closeBtn.addEventListener('click', function () { hide(); markHandled(); clearTimeout(timer); });
-    root.addEventListener('click', function (e) { if (e.target === root) { hide(); markHandled(); } });
+    // Scroll significatif (surtout mobile, mais utile partout) : le client a
+    // parcouru ~40% de la page → signal d'intérêt.
+    function onScroll() {
+      if (!armed()) return;
+      var sc = window.scrollY || document.documentElement.scrollTop || 0;
+      var h = (document.documentElement.scrollHeight - window.innerHeight) || 1;
+      if (sc / h >= 0.4) show();
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+
+    function cleanup() { clearTimeout(fallbackTimer); }
+    closeBtn.addEventListener('click', function () { hide(); markHandled(); cleanup(); });
+    root.addEventListener('click', function (e) { if (e.target === root) { hide(); markHandled(); cleanup(); } });
 
     submit.addEventListener('click', function () {
       var dial = dialByIso[ccSelect.value] || '33';
@@ -208,8 +233,9 @@
     { "type": "text", "id": "placeholder", "label": "Placeholder du numéro", "default": "6 12 34 56 78" },
     { "type": "text", "id": "button", "label": "Texte du bouton", "default": "Recevoir sur WhatsApp" },
     { "type": "text", "id": "consent", "label": "Mention de consentement", "default": "En validant, j'accepte de recevoir des messages WhatsApp (suivi + offres). STOP pour me désabonner." },
-    { "type": "range", "id": "delay_seconds", "label": "Délai avant affichage (secondes)", "min": 2, "max": 30, "step": 1, "default": 8 },
-    { "type": "checkbox", "id": "exit_intent", "label": "Afficher aussi à l'intention de sortie", "default": true },
+    { "type": "paragraph", "content": "La popup s'affiche sur un signal d'engagement (intention de sortie sur ordinateur, défilement sur mobile), jamais dès l'arrivée. Le délai ci-dessous est un minimum de sécurité avant tout affichage." },
+    { "type": "range", "id": "delay_seconds", "label": "Délai minimum avant affichage (secondes)", "min": 3, "max": 30, "step": 1, "default": 8 },
+    { "type": "checkbox", "id": "exit_intent", "label": "Déclencher à l'intention de sortie (ordinateur)", "default": true },
     { "type": "checkbox", "id": "cart_only", "label": "Uniquement sur la page panier", "default": true },
     { "type": "color", "id": "accent_color", "label": "Couleur", "default": "#25D366" }
   ]
