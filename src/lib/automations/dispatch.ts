@@ -124,6 +124,12 @@ export async function sendTemplateToContact(params: {
     const userMsg = raw.match(/"error_user_msg"\s*:\s*"([^"]+)"/)?.[1]
       || raw.match(/"message"\s*:\s*"([^"]+)"/)?.[1] || ''
     const isNoWa = (code && NO_WHATSAPP_CODES.includes(Number(code))) || /not.*whatsapp|invalid.*recipient/i.test(raw)
+    // 132000 = le template approuvé chez Meta n'attend pas le même nombre de
+    // variables que ce qu'on envoie (le corps approuvé diffère de notre version
+    // locale). Message explicite plutôt que "no_whatsapp" trompeur.
+    if (code === '132000') {
+      return { ok: false, error: `params_mismatch (132000) — le modèle approuvé chez Meta n'a pas le même nombre de {{variables}} que la version locale. Resoumettez le modèle.` }
+    }
     // On garde le code + le message Meta dans le résultat (diagnostic).
     return { ok: false, error: isNoWa ? `no_whatsapp (code ${code}: ${userMsg.slice(0, 90)})` : `send_failed: ${raw.slice(0, 160)}` }
   }
