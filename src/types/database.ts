@@ -108,8 +108,6 @@ export type WhatsAppSession = {
   waba_phone_number_id: string | null
   waba_business_account_id: string | null
   waba_access_token: string | null
-  /** ID du catalogue Meta (Commerce Manager) pour les messages produit. */
-  waba_catalog_id: string | null
   qualifier_agent_id: string | null
   welcome_sent: boolean
   created_at: string

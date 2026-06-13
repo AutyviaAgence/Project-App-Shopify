@@ -15,7 +15,6 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { MessageBubbleContent } from '@/components/message-bubble-content'
 import { MessageInput } from './message-input'
-import { ProductSender } from './product-sender'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import {
@@ -728,21 +727,12 @@ export function ChatArea({
               </div>
             </div>
           ) : windowOpen ? (
-            <>
-              {/* Barre d'actions enrichies (envoi de produits du catalogue Meta) */}
-              {selectedConv?.id && (
-                <div className="flex items-center gap-2 border-t px-3 pt-2">
-                  <ProductSender conversationId={selectedConv.id} />
-                  <span className="text-[11px] text-muted-foreground">Envoyer des produits du catalogue</span>
-                </div>
-              )}
-              <MessageInput
-                onSendText={onSendText}
-                onSendMedia={onSendMedia}
-                sending={sending}
-                conversationId={selectedConv?.id}
-              />
-            </>
+            <MessageInput
+              onSendText={onSendText}
+              onSendMedia={onSendMedia}
+              sending={sending}
+              conversationId={selectedConv?.id}
+            />
           ) : (
             /* Hors fenêtre 24h : texte libre interdit par WhatsApp → modèle */
             <div className="flex flex-col items-center gap-2 border-t bg-amber-500/5 px-4 py-4 text-center">

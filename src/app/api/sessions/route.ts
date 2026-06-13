@@ -130,7 +130,7 @@ export async function GET() {
   // Sessions de l'utilisateur (système d'équipes retiré). Champs sensibles exclus.
   const { data: sessions, error } = await supabase
     .from('whatsapp_sessions')
-    .select('id, user_id, instance_name, status, phone_number, display_name, integration_type, waba_phone_number_id, waba_business_account_id, waba_catalog_id, daily_ai_message_limit, ai_message_delay, created_at, updated_at')
+    .select('id, user_id, instance_name, status, phone_number, display_name, integration_type, waba_phone_number_id, waba_business_account_id, daily_ai_message_limit, ai_message_delay, created_at, updated_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
 
