@@ -57,7 +57,7 @@ export async function PATCH(
 
   const body = await req.json()
   const {
-    name, description, system_prompt, objective, model, temperature, is_active, is_pinned,
+    name, description, system_prompt, objective, model, temperature, is_active, is_pinned, is_default,
     response_delay_min, response_delay_max, max_messages_per_conversation, inactivity_timeout_minutes,
     schedule_enabled, schedule_timezone, schedule_start_time, schedule_end_time, schedule_days,
     auto_detect_language, escalation_enabled, escalation_keywords, escalation_message, booking_url,
@@ -71,6 +71,7 @@ export async function PATCH(
     temperature?: number
     is_active?: boolean
     is_pinned?: boolean
+    is_default?: boolean
     response_delay_min?: number
     response_delay_max?: number
     max_messages_per_conversation?: number | null
@@ -103,6 +104,7 @@ export async function PATCH(
   }
   if (is_active !== undefined) updateData.is_active = is_active
   if (is_pinned !== undefined) updateData.is_pinned = is_pinned
+  if (is_default !== undefined) updateData.is_default = Boolean(is_default)
   if (mascot !== undefined) updateData.mascot = mascot
   if (mascot_bg !== undefined) updateData.mascot_bg = mascot_bg
   if (response_delay_min !== undefined) {
@@ -175,6 +177,17 @@ export async function PATCH(
   // Condition d'arrêt
   if (stop_condition !== undefined) {
     updateData.stop_condition = stop_condition?.trim() || null
+  }
+
+  // Agent référent : au plus un par utilisateur. Avant de marquer celui-ci, on
+  // démarque l'éventuel autre agent référent (sinon l'index unique partiel rejette).
+  if (is_default === true) {
+    await supabase
+      .from('ai_agents')
+      .update({ is_default: false })
+      .eq('user_id', user.id)
+      .eq('is_default', true)
+      .neq('id', id)
   }
 
   // Mise à jour si nécessaire

@@ -359,6 +359,28 @@ export async function POST(req: NextRequest) {
 
             if (!conversation) continue
 
+            // 2.5 Agent référent : si la conversation n'a pas encore d'agent IA
+            // assigné, on lui attribue l'agent "par défaut" du compte (et on
+            // active l'IA dessus). Permet à l'IA de répondre automatiquement sur
+            // toute nouvelle conversation sans assignation manuelle.
+            if (!conversation.ai_agent_id && session.user_id) {
+              const { data: defaultAgent } = await supabase
+                .from('ai_agents')
+                .select('id')
+                .eq('user_id', session.user_id)
+                .eq('is_default', true)
+                .eq('is_active', true)
+                .maybeSingle()
+              if (defaultAgent?.id) {
+                await supabase
+                  .from('conversations')
+                  .update({ ai_agent_id: defaultAgent.id, is_ai_active: true })
+                  .eq('id', conversation.id)
+                conversation.ai_agent_id = defaultAgent.id
+                ;(conversation as { is_ai_active?: boolean }).is_ai_active = true
+              }
+            }
+
             // Incrémenter unread (atomique via RPC pour éviter race conditions)
             const { error: rpcErr } = await supabase.rpc('increment_unread_count', {
               p_conversation_id: conversation.id,

@@ -35,6 +35,8 @@ import {
   PowerOff,
   Copy,
   MoreHorizontal,
+  Star,
+  StarOff,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -257,6 +259,31 @@ export default function AgentsPage() {
       const json = await res.json()
       if (res.ok && json.data) {
         setAgents((prev) => prev.map((a) => (a.id === agent.id ? json.data : a)))
+      }
+    } catch {
+      toast.error(t('common.network_error'))
+    }
+  }
+
+  // Définir / retirer l'agent référent (par défaut pour toutes les conversations).
+  // Un seul référent par compte : on démarque les autres localement.
+  async function handleToggleDefault(agent: AIAgent) {
+    const next = !agent.is_default
+    try {
+      const res = await fetch(`/api/agents/${agent.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        // Un agent référent doit être actif pour répondre → on l'active aussi.
+        body: JSON.stringify(next ? { is_default: true, is_active: true } : { is_default: false }),
+      })
+      const json = await res.json()
+      if (res.ok && json.data) {
+        setAgents((prev) => prev.map((a) =>
+          a.id === agent.id ? json.data : (next ? { ...a, is_default: false } : a)
+        ))
+        toast.success(next ? 'Agent référent défini' : 'Agent référent retiré')
+      } else {
+        toast.error(json.error || t('common.network_error'))
       }
     } catch {
       toast.error(t('common.network_error'))
@@ -557,6 +584,11 @@ export default function AgentsPage() {
                         {/* Infos — minimal : nom + statut */}
                         <div className="px-6 pt-5 text-center">
                           <h3 className="truncate text-[19px] font-bold tracking-tight text-foreground">{agent.name}</h3>
+                          {agent.is_default && (
+                            <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-medium text-amber-600">
+                              <Star className="h-3 w-3 fill-current" /> Agent référent
+                            </span>
+                          )}
                           <div className="mt-1.5 flex items-center justify-center gap-1.5 text-[13px] text-muted-foreground">
                             <span className={cn('h-1.5 w-1.5 rounded-full', agent.is_active ? 'bg-emerald-500' : 'bg-muted-foreground/40')} />
                             {agent.is_active ? t('common.active') : t('common.inactive')}
@@ -591,7 +623,11 @@ export default function AgentsPage() {
                                   <MoreHorizontal className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
                                 </button>
                               </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-48">
+                              <DropdownMenuContent align="end" className="w-56">
+                                <DropdownMenuItem onClick={() => handleToggleDefault(agent)}>
+                                  {agent.is_default ? <StarOff className="mr-2 h-3.5 w-3.5" /> : <Star className="mr-2 h-3.5 w-3.5" />}
+                                  {agent.is_default ? 'Retirer comme référent' : 'Définir comme référent'}
+                                </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleToggleActive(agent)}>
                                   {agent.is_active ? <PowerOff className="mr-2 h-3.5 w-3.5" /> : <Power className="mr-2 h-3.5 w-3.5" />}
                                   {agent.is_active ? 'Désactiver' : 'Activer'}
