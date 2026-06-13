@@ -68,12 +68,15 @@ export async function POST(req: NextRequest) {
     .maybeSingle()
   if (!store?.user_id) return J({ ok: false, error: 'boutique non liée' }, 404)
 
-  // Session WhatsApp connectée (pour rattacher le contact)
+  // Session WhatsApp connectée AVEC des credentials WABA valides (on ignore les
+  // sessions "connected" fantômes sans token/numéro, qui feraient échouer l'envoi).
   const { data: session } = await admin
     .from('whatsapp_sessions')
     .select('id')
     .eq('user_id', store.user_id)
     .eq('status', 'connected')
+    .not('waba_phone_number_id', 'is', null)
+    .not('waba_access_token', 'is', null)
     .limit(1)
     .maybeSingle()
   if (!session) return J({ ok: false, error: 'WhatsApp non connecté' }, 400)
@@ -136,11 +139,15 @@ export async function POST(req: NextRequest) {
 
       if (result.error) {
         // Échec d'envoi (template non approuvé, token, etc.) : le contact reste
-        // opt-in, mais on le journalise pour diagnostic.
+        // opt-in. On REMONTE l'erreur dans la réponse (diagnostic) — visible dans
+        // la console de l'extension ([Xeyo opt-in] order-phone/optin réponse).
         console.error('[optin] notif non envoyée:', result.error)
+        return J({ ok: true, sent: result.sent, notifyError: result.error })
       }
+      return J({ ok: true, sent: result.sent })
     } catch (e) {
       console.error('[optin] message de remerciement échec (non bloquant):', e)
+      return J({ ok: true, notifyError: e instanceof Error ? e.message : 'exception' })
     }
   }
 
