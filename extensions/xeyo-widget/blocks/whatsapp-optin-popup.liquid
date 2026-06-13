@@ -10,7 +10,7 @@
 <div
   id="xeyo-optin-popup"
   class="xeyo-pop"
-  style="--xeyo-pop-color: {{ block.settings.accent_color }}; display:none;"
+  style="--xeyo-pop-color: {{ block.settings.accent_color }};"
   data-proxy="/apps/xeyo/optin"
   data-shop="{{ shop.permanent_domain }}"
   data-delay="{{ block.settings.delay_seconds }}"
@@ -33,8 +33,11 @@
 </div>
 
 <style>
+  /* Caché par défaut. On NE force PAS display ici (sinon il écrase le masquage).
+     L'affichage est piloté par la classe .xeyo-open ajoutée par le JS. */
+  #xeyo-optin-popup.xeyo-pop { display: none !important; }
   /* Overlay plein écran, centré. !important pour résister aux styles du thème. */
-  #xeyo-optin-popup.xeyo-pop {
+  #xeyo-optin-popup.xeyo-pop.xeyo-open {
     position: fixed !important; top: 0 !important; left: 0 !important;
     right: 0 !important; bottom: 0 !important; width: 100% !important; height: 100% !important;
     z-index: 2147483000 !important; margin: 0 !important;
@@ -143,10 +146,10 @@
     function show() {
       if (shown || alreadyHandled()) return;
       shown = true;
-      root.style.display = 'flex';
+      root.classList.add('xeyo-open');
       try { phone.focus(); } catch (e) {}
     }
-    function hide() { root.style.display = 'none'; }
+    function hide() { root.classList.remove('xeyo-open'); }
 
     // ── Déclenchement intelligent (façon Cartloop/Privy) ────────────────────
     // On n'affiche JAMAIS dès l'arrivée. La popup se déclenche sur un vrai signal
