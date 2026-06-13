@@ -195,29 +195,17 @@ export async function POST(req: NextRequest) {
                 interactive?: {
                   button_reply?: { title?: string; id?: string }
                   list_reply?: { title?: string; id?: string }
-                  nfm_reply?: { response_json?: string; name?: string }
                 }
                 button?: { text?: string; payload?: string }
               }
-              // Réponse d'un Flow (formulaire) : données saisies en JSON.
-              const nfm = mAny.interactive?.nfm_reply
-              if (nfm?.response_json) {
-                let parsed: Record<string, unknown> = {}
-                try { parsed = JSON.parse(nfm.response_json) } catch { /* garde brut */ }
-                const entries = Object.entries(parsed).filter(([k]) => k !== 'flow_token')
-                const lines = entries.map(([k, v]) => `• ${k.replace(/_/g, ' ')} : ${Array.isArray(v) ? v.join(', ') : String(v)}`)
-                content = `📋 Réponse au formulaire :\n${lines.join('\n')}`
-                messageType = 'text'
-              } else {
-                clickedButtonTitle =
-                  mAny.interactive?.button_reply?.title
-                  || mAny.interactive?.list_reply?.title
-                  || mAny.button?.text
-                  || mAny.button?.payload
-                  || null
-                content = clickedButtonTitle || '[bouton]'
-                messageType = 'text' // stocké comme texte (le libellé) pour l'inbox
-              }
+              clickedButtonTitle =
+                mAny.interactive?.button_reply?.title
+                || mAny.interactive?.list_reply?.title
+                || mAny.button?.text
+                || mAny.button?.payload
+                || null
+              content = clickedButtonTitle || '[bouton]'
+              messageType = 'text' // stocké comme texte (le libellé) pour l'inbox
             } else if (msg.type === 'order') {
               // Panier WhatsApp : le client a ajouté des produits du catalogue et
               // envoyé une "commande" (pas encore payée). On résume le panier.
