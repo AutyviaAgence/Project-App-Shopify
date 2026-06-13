@@ -16,6 +16,10 @@ import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
   DropdownMenuSeparator, DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Plus, Loader2, Trash2, Send, RefreshCw, FileText, Sparkles, Bold, Italic, Strikethrough, Braces, Image as ImageIcon, Video, ExternalLink, Phone, Copy, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BlobLoaderScreen } from '@/components/blob-loader'
@@ -117,6 +121,8 @@ export default function TemplatesPage() {
   // Offre à durée limitée
   const [ltoTitle, setLtoTitle] = useState('')
   const [ltoHours, setLtoHours] = useState(24)
+  // Confirmation de suppression
+  const [confirmDelete, setConfirmDelete] = useState<WhatsAppTemplate | null>(null)
   const [saving, setSaving] = useState(false)
   const bodyRef = useRef<VariableTextareaHandle>(null)
   const mediaInputRef = useRef<HTMLInputElement>(null)
@@ -427,12 +433,15 @@ export default function TemplatesPage() {
     try {
       const res = await fetch(`/api/templates/${t.id}`, { method: 'DELETE' })
       if (!res.ok) throw new Error('Erreur')
+      // Quitte l'édition si on supprimait le modèle ouvert.
+      if (selectedId === t.id) { setSelectedId(null); setEditing(null); setMode('idle') }
       await fetchTemplates()
       toast.success('Modèle supprimé')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erreur')
     } finally {
       setBusyId(null)
+      setConfirmDelete(null)
     }
   }
 
@@ -557,7 +566,7 @@ export default function TemplatesPage() {
                       {editing ? 'Enregistrer' : 'Créer'}
                     </Button>
                     {selectedTemplate && (
-                      <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" disabled={busyId === selectedTemplate.id} onClick={() => handleDelete(selectedTemplate)}>
+                      <Button size="icon" variant="ghost" className="h-8 w-8 text-destructive" disabled={busyId === selectedTemplate.id} onClick={() => setConfirmDelete(selectedTemplate)}>
                         {busyId === selectedTemplate.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
                       </Button>
                     )}
@@ -924,6 +933,35 @@ export default function TemplatesPage() {
           </div>
         </div>
       )}
+
+      {/* Confirmation de suppression d'un modèle */}
+      <AlertDialog open={!!confirmDelete} onOpenChange={(o) => { if (!o) setConfirmDelete(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer ce modèle ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmDelete && (
+                <>
+                  Le modèle <strong>{confirmDelete.name}</strong> sera définitivement supprimé
+                  {confirmDelete.meta_id ? <> — y compris chez <strong>Meta</strong></> : null}.
+                  {' '}Cette action est <strong>irréversible</strong>.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!busyId}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={!!busyId}
+              onClick={(e) => { e.preventDefault(); if (confirmDelete) handleDelete(confirmDelete) }}
+            >
+              {busyId ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />}
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
