@@ -41,7 +41,7 @@ export async function POST() {
   // Mettre à jour les templates locaux
   const { data: locals } = await supabase
     .from('whatsapp_templates')
-    .select('id, name, language, status, category, body_text, header_text, footer_text, header_type, header_media_url, template_type, carousel_cards')
+    .select('id, name, language, status, category, meta_id, body_text, header_text, footer_text, header_type, header_media_url, template_type, carousel_cards')
     .eq('user_id', user.id)
 
   let synced = 0
@@ -52,7 +52,11 @@ export async function POST() {
       // Meta peut RECLASSER la catégorie d'un template (UTILITY↔MARKETING).
       // On aligne toujours la catégorie locale sur celle de Meta (source de vérité).
       const categoryChanged = meta.category && meta.category !== tpl.category
-      if (newStatus !== tpl.status || categoryChanged) {
+      // Le meta_id stocké peut être OBSOLÈTE (template supprimé/recréé chez Meta) →
+      // on le réaligne sur celui réellement renvoyé par Meta. C'est la cause de
+      // l'erreur "déjà du contenu" à l'édition (on éditait un mauvais id).
+      const metaIdChanged = meta.meta_id && meta.meta_id !== tpl.meta_id
+      if (newStatus !== tpl.status || categoryChanged || metaIdChanged) {
         const patch: Record<string, unknown> = {
           status: newStatus,
           meta_id: meta.meta_id,
