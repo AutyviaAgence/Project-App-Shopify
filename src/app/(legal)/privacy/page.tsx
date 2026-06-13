@@ -5,10 +5,10 @@ export default function PrivacyPage() {
     <LegalPageLayout
       title="Politique de Confidentialité"
       description="Découvrez comment nous collectons, utilisons et protégeons vos données personnelles."
-      lastUpdated="04 février 2026"
+      lastUpdated="13 juin 2026"
       titleEn="Privacy Policy"
       descriptionEn="Learn how we collect, use, and protect your personal data."
-      lastUpdatedEn="February 04, 2026"
+      lastUpdatedEn="June 13, 2026"
       childrenEn={
         <>
           <p className="lead text-lg">
@@ -137,6 +137,61 @@ export default function PrivacyPage() {
             <strong> WhatsApp end users</strong> (the customers of our merchants): numbers,
             names and message contents, solely to allow the merchant to reply to them.
             <strong> Meta Platforms</strong> acts as a processor for the routing of these messages.
+          </p>
+
+          <h2>WhatsApp Business Platform &amp; Meta</h2>
+          <p>
+            Xeyo connects to WhatsApp exclusively through the official <strong>WhatsApp Business
+            Platform (Cloud API)</strong> provided by Meta. Our processing of data obtained through
+            this platform complies with the{' '}
+            <a href="https://www.whatsapp.com/legal/business-policy" target="_blank" rel="noopener noreferrer">WhatsApp Business Messaging Policy</a>,
+            the{' '}
+            <a href="https://developers.facebook.com/terms/" target="_blank" rel="noopener noreferrer">Meta Platform Terms</a>{' '}
+            and the{' '}
+            <a href="https://developers.facebook.com/devpolicy/" target="_blank" rel="noopener noreferrer">Meta Developer Policies</a>.
+          </p>
+          <ul>
+            <li>We only use WhatsApp data to operate the messaging features the merchant has enabled (receiving, displaying and replying to conversations); we never use it for advertising or profiling.</li>
+            <li>We do not share WhatsApp message content with any third party other than the AI subprocessors strictly required to generate a reply (see &ldquo;Processing by artificial intelligence&rdquo;).</li>
+            <li>Message templates and marketing messages are sent only to end users who have opted in, and an opt-out (&ldquo;STOP&rdquo;) is always honoured immediately.</li>
+            <li>The handling of data by Meta is governed by Meta&apos;s own{' '}
+              <a href="https://www.facebook.com/privacy/policy/" target="_blank" rel="noopener noreferrer">Privacy Policy</a>.</li>
+          </ul>
+
+          <h2>International data transfers</h2>
+          <p>
+            Our application and database are hosted in the European Union (France / EU region). Some
+            of our subprocessors (OpenAI, Anthropic, Stripe, and Meta for routing) are located in or
+            may process data in the <strong>United States</strong>. When personal data is transferred
+            outside the European Economic Area, the transfer is governed by appropriate safeguards,
+            primarily the <strong>European Commission&apos;s Standard Contractual Clauses (SCC)</strong>,
+            and, where applicable, the <strong>EU–U.S. Data Privacy Framework</strong>. You may request
+            a copy of the relevant safeguards by contacting us.
+          </p>
+
+          <h2>Children&apos;s data &amp; no sale of data</h2>
+          <p>
+            Our Services are intended for businesses and are <strong>not directed at children under
+            16</strong>. We do not knowingly collect personal data from minors; if you believe a minor
+            has provided us data, contact us and we will delete it.
+          </p>
+          <p>
+            <strong>We do not sell your personal data, and we do not share it for advertising or
+            cross-context behavioural advertising purposes.</strong> Data is shared only with the
+            subprocessors listed above, strictly to provide the Service.
+          </p>
+
+          <h2>Cookies</h2>
+          <p>We use a limited set of cookies and similar technologies:</p>
+          <ul>
+            <li><strong>Strictly necessary cookies</strong>: authentication and session (keep you signed in, secure the app). Legal basis: performance of the contract.</li>
+            <li><strong>Functional cookies</strong>: remember your preferences (language, theme). Legal basis: legitimate interest.</li>
+            <li><strong>Analytics cookies</strong> (if enabled): measure usage to improve the Service. Legal basis: consent.</li>
+          </ul>
+          <p>
+            You can manage or refuse non-essential cookies through your browser settings or our cookie
+            banner where available. Strictly necessary cookies cannot be disabled without affecting the
+            operation of the Service.
           </p>
 
           <h2>Google connection (authentication)</h2>
@@ -353,6 +408,63 @@ export default function PrivacyPage() {
         <strong> utilisateurs finaux WhatsApp</strong> (les clients de nos marchands) : numéros,
         noms et contenus de messages, uniquement pour permettre au marchand de leur répondre.
         <strong> Meta Platforms</strong> intervient comme sous-traitant pour l&apos;acheminement de ces messages.
+      </p>
+
+      <h2>WhatsApp Business Platform &amp; Meta</h2>
+      <p>
+        Xeyo se connecte à WhatsApp exclusivement via la <strong>WhatsApp Business Platform
+        (Cloud API)</strong> officielle de Meta. Notre traitement des données obtenues via cette
+        plateforme est conforme à la{' '}
+        <a href="https://www.whatsapp.com/legal/business-policy" target="_blank" rel="noopener noreferrer">WhatsApp Business Messaging Policy</a>,
+        aux{' '}
+        <a href="https://developers.facebook.com/terms/" target="_blank" rel="noopener noreferrer">Meta Platform Terms</a>{' '}
+        et aux{' '}
+        <a href="https://developers.facebook.com/devpolicy/" target="_blank" rel="noopener noreferrer">Meta Developer Policies</a>.
+      </p>
+      <ul>
+        <li>Nous utilisons les données WhatsApp uniquement pour faire fonctionner les fonctionnalités de messagerie activées par le marchand (réception, affichage et réponse aux conversations) ; jamais à des fins publicitaires ou de profilage.</li>
+        <li>Nous ne partageons le contenu des messages WhatsApp avec aucun tiers autre que les sous-traitants d&apos;IA strictement nécessaires à la génération d&apos;une réponse (voir « Traitement par intelligence artificielle »).</li>
+        <li>Les modèles de messages et messages marketing ne sont envoyés qu&apos;aux utilisateurs finaux ayant donné leur accord (opt-in), et toute opposition (« STOP ») est honorée immédiatement.</li>
+        <li>Le traitement des données par Meta est régi par la{' '}
+          <a href="https://www.facebook.com/privacy/policy/" target="_blank" rel="noopener noreferrer">politique de confidentialité de Meta</a>.</li>
+      </ul>
+
+      <h2>Transferts internationaux de données</h2>
+      <p>
+        Notre application et notre base de données sont hébergées dans l&apos;Union européenne
+        (France / région UE). Certains de nos sous-traitants (OpenAI, Anthropic, Stripe, et Meta
+        pour l&apos;acheminement) sont situés ou peuvent traiter des données aux <strong>États-Unis</strong>.
+        Lorsqu&apos;une donnée personnelle est transférée hors de l&apos;Espace économique européen,
+        le transfert est encadré par des garanties appropriées, principalement les <strong>Clauses
+        Contractuelles Types (CCT) de la Commission européenne</strong> et, le cas échéant, le
+        <strong> cadre de protection des données UE–États-Unis (Data Privacy Framework)</strong>.
+        Vous pouvez demander une copie des garanties applicables en nous contactant.
+      </p>
+
+      <h2>Données des mineurs &amp; non-vente des données</h2>
+      <p>
+        Nos Services sont destinés aux professionnels et ne s&apos;adressent <strong>pas aux mineurs
+        de moins de 16 ans</strong>. Nous ne collectons pas sciemment de données personnelles de
+        mineurs ; si vous pensez qu&apos;un mineur nous a fourni des données, contactez-nous et nous
+        les supprimerons.
+      </p>
+      <p>
+        <strong>Nous ne vendons pas vos données personnelles et ne les partageons à aucune fin
+        publicitaire ou de publicité comportementale inter-contextes.</strong> Les données ne sont
+        partagées qu&apos;avec les sous-traitants listés ci-dessus, strictement pour fournir le Service.
+      </p>
+
+      <h2>Cookies</h2>
+      <p>Nous utilisons un ensemble limité de cookies et technologies similaires :</p>
+      <ul>
+        <li><strong>Cookies strictement nécessaires</strong> : authentification et session (vous maintenir connecté, sécuriser l&apos;application). Base légale : exécution du contrat.</li>
+        <li><strong>Cookies fonctionnels</strong> : mémoriser vos préférences (langue, thème). Base légale : intérêt légitime.</li>
+        <li><strong>Cookies de mesure d&apos;audience</strong> (si activés) : mesurer l&apos;utilisation pour améliorer le Service. Base légale : consentement.</li>
+      </ul>
+      <p>
+        Vous pouvez gérer ou refuser les cookies non essentiels via les paramètres de votre navigateur
+        ou notre bandeau cookies lorsqu&apos;il est disponible. Les cookies strictement nécessaires ne
+        peuvent pas être désactivés sans affecter le fonctionnement du Service.
       </p>
 
       <h2>Connexion Google (authentification)</h2>
