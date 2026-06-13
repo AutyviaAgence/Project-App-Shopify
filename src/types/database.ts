@@ -697,6 +697,40 @@ export type CardButton =
   | { type: 'URL'; text: string; url: string }
   | { type: 'QUICK_REPLY'; text: string }
 
+// ─── WhatsApp Flows (formulaires multi-écrans, mode navigate) ────────────────
+
+export type FlowFieldType = 'text' | 'textarea' | 'radio' | 'checkbox' | 'dropdown'
+
+export type FlowField = {
+  /** Nom technique (clé dans la réponse). */
+  name: string
+  label: string
+  type: FlowFieldType
+  required: boolean
+  /** Options pour radio/checkbox/dropdown. */
+  options?: string[]
+}
+
+export type FlowScreen = {
+  id: string
+  title: string
+  fields: FlowField[]
+}
+
+export type WhatsAppFlow = {
+  id: string
+  user_id: string
+  session_id: string | null
+  name: string
+  cta_text: string
+  body_text: string
+  screens: FlowScreen[]
+  meta_flow_id: string | null
+  status: 'draft' | 'published'
+  created_at: string
+  updated_at: string
+}
+
 export type Macro = {
   id: string
   user_id: string
@@ -904,6 +938,12 @@ export type Database = {
         Row: CampaignOptOutKeyword
         Insert: Partial<CampaignOptOutKeyword> & Pick<CampaignOptOutKeyword, 'keyword'>
         Update: Partial<CampaignOptOutKeyword>
+        Relationships: []
+      }
+      whatsapp_flows: {
+        Row: WhatsAppFlow
+        Insert: Partial<WhatsAppFlow> & Pick<WhatsAppFlow, 'user_id' | 'name'>
+        Update: Partial<WhatsAppFlow>
         Relationships: []
       }
       lifecycle_stages: {

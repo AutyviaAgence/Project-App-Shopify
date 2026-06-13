@@ -29,6 +29,7 @@ import {
   Workflow,
   ShieldCheck,
   ArrowRight,
+  FormInput,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { AlertsDropdown } from '@/components/alerts-dropdown'
@@ -48,6 +49,7 @@ const NAV_ITEMS_KEYS = [
   { href: '/conversations', labelKey: 'nav.conversations', icon: MessageSquare },
   { href: '/agents', labelKey: 'nav.agents', icon: Bot },
   { href: '/templates', labelKey: 'nav.templates', icon: FileText },
+  { href: '/flows', labelKey: 'nav.flows', label: 'Formulaires', icon: FormInput },
   { href: '/automations', labelKey: 'nav.automations', label: 'Automatisations', icon: Workflow },
   { href: '/stats', labelKey: 'nav.stats', icon: BarChart3 },
 ]

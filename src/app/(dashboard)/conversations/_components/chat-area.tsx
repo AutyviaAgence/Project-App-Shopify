@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils'
 import { MessageBubbleContent } from '@/components/message-bubble-content'
 import { MessageInput } from './message-input'
 import { ProductSender } from './product-sender'
+import { FlowSender } from './flow-sender'
 import { Textarea } from '@/components/ui/textarea'
 import { Input } from '@/components/ui/input'
 import {
@@ -733,7 +734,8 @@ export function ChatArea({
               {selectedConv?.id && (
                 <div className="flex items-center gap-2 border-t px-3 pt-2">
                   <ProductSender conversationId={selectedConv.id} />
-                  <span className="text-[11px] text-muted-foreground">Envoyer des produits du catalogue</span>
+                  <FlowSender conversationId={selectedConv.id} />
+                  <span className="text-[11px] text-muted-foreground">Produits du catalogue · formulaire</span>
                 </div>
               )}
               <MessageInput

@@ -453,4 +453,104 @@ export const wabaClient = {
       return { ok: false, error: `Media download failed: ${message}` }
     }
   },
+
+  // ─── WhatsApp Flows (formulaires multi-écrans) ──────────────────────
+  // Utilisent le Business Account ID (WABA), comme les templates.
+
+  /** Créer un Flow (vide) chez Meta. Retourne son id. */
+  createFlow(
+    businessAccountId: string,
+    accessToken: string,
+    payload: { name: string; categories?: string[] }
+  ) {
+    return request<{ id: string }>(`${GRAPH_API_BASE}/${businessAccountId}/flows`, accessToken, {
+      method: 'POST',
+      body: JSON.stringify({
+        name: payload.name,
+        categories: payload.categories || ['OTHER'],
+      }),
+    })
+  },
+
+  /**
+   * Téléverser le Flow JSON (définition des écrans) sur un Flow existant.
+   * Endpoint multipart : /{flow_id}/assets avec asset_type=FLOW_JSON.
+   */
+  async uploadFlowJSON(
+    flowId: string,
+    accessToken: string,
+    flowJson: Record<string, unknown>
+  ): Promise<{ ok: true; data: { success: boolean; validation_errors?: unknown[] } } | { ok: false; error: string }> {
+    try {
+      const blob = new Blob([JSON.stringify(flowJson)], { type: 'application/json' })
+      const formData = new FormData()
+      formData.append('asset_type', 'FLOW_JSON')
+      formData.append('file', blob, 'flow.json')
+
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 60000)
+      const res = await fetch(`${GRAPH_API_BASE}/${flowId}/assets`, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: { Authorization: `Bearer ${accessToken}` },
+        body: formData,
+      })
+      clearTimeout(timeoutId)
+      const text = await res.text()
+      if (!res.ok) return { ok: false, error: `HTTP ${res.status}: ${text}` }
+      return { ok: true, data: JSON.parse(text) }
+    } catch (err) {
+      return { ok: false, error: err instanceof Error ? err.message : 'Unknown error' }
+    }
+  },
+
+  /** Publier un Flow (passe de DRAFT à PUBLISHED → utilisable à l'envoi). */
+  publishFlow(flowId: string, accessToken: string) {
+    return request<{ success: boolean }>(`${GRAPH_API_BASE}/${flowId}/publish`, accessToken, {
+      method: 'POST',
+    })
+  },
+
+  /** Supprimer un Flow (DRAFT uniquement côté Meta). */
+  deleteFlow(flowId: string, accessToken: string) {
+    return request<{ success: boolean }>(`${GRAPH_API_BASE}/${flowId}`, accessToken, {
+      method: 'DELETE',
+    })
+  },
+
+  /**
+   * Envoyer un Flow dans une conversation (message interactive type 'flow').
+   * À utiliser DANS la fenêtre 24h. `firstScreenId` = écran d'entrée.
+   */
+  sendFlow(
+    phoneNumberId: string,
+    accessToken: string,
+    to: string,
+    params: { flowId: string; ctaText: string; bodyText: string; firstScreenId: string }
+  ) {
+    return request<{ messages: { id: string }[] }>(`${GRAPH_API_BASE}/${phoneNumberId}/messages`, accessToken, {
+      method: 'POST',
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        recipient_type: 'individual',
+        to,
+        type: 'interactive',
+        interactive: {
+          type: 'flow',
+          body: { text: params.bodyText },
+          action: {
+            name: 'flow',
+            parameters: {
+              flow_message_version: '3',
+              flow_action: 'navigate',
+              flow_token: `flow_${params.flowId}`,
+              flow_id: params.flowId,
+              flow_cta: params.ctaText,
+              flow_action_payload: { screen: params.firstScreenId },
+            },
+          },
+        },
+      }),
+    })
+  },
 }
