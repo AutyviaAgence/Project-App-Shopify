@@ -7,7 +7,6 @@ import { VariableTextarea, type VariableTextareaHandle } from './_components/var
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -466,6 +465,37 @@ export default function TemplatesPage() {
     }
   }
 
+  // Soumet à Meta TOUTES les langues du modèle en un clic (résultat par langue).
+  async function handleSubmitGroup(t: WhatsAppTemplate) {
+    setBusyId(t.id)
+    const tId = toast.loading('Soumission de toutes les langues à Meta…')
+    try {
+      const res = await fetch('/api/templates/submit-group', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: t.name }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Erreur')
+      await fetchTemplates()
+      const results = (json.results || []) as { language: string; ok: boolean; error?: string }[]
+      const ok = results.filter((r) => r.ok).map((r) => r.language.toUpperCase())
+      const ko = results.filter((r) => !r.ok)
+      if (ko.length === 0) {
+        toast.success(`Toutes les langues soumises (${ok.join(', ')}).`, { duration: 5000 })
+      } else {
+        toast.warning(
+          `Soumises : ${ok.join(', ') || '—'}. Échecs : ${ko.map((r) => `${r.language.toUpperCase()} (${r.error})`).join(' · ')}`,
+          { duration: 9000 }
+        )
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erreur')
+    } finally {
+      toast.dismiss(tId)
+      setBusyId(null)
+    }
+  }
+
   async function handleDelete(t: WhatsAppTemplate) {
     setBusyId(t.id)
     try {
@@ -641,6 +671,13 @@ export default function TemplatesPage() {
                       <Button size="sm" variant="outline" disabled={busyId === selectedTemplate.id} onClick={() => handleSubmit(selectedTemplate)}>
                         {busyId === selectedTemplate.id ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Send className="mr-1 h-4 w-4" />}
                         {selectedTemplate.status === 'draft' ? 'Soumettre' : 'Resoumettre'}
+                      </Button>
+                    )}
+                    {/* Soumettre toutes les langues en un clic (si le modèle est multilingue). */}
+                    {selectedTemplate && templates.filter((t) => t.name === selectedTemplate.name).length > 1 && (
+                      <Button size="sm" disabled={busyId === selectedTemplate.id} onClick={() => handleSubmitGroup(selectedTemplate)}>
+                        {busyId === selectedTemplate.id ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Send className="mr-1 h-4 w-4" />}
+                        Toutes les langues
                       </Button>
                     )}
                     <Button size="sm" disabled={saving || !name.trim() || !bodyText.trim()} onClick={handleSave}>
