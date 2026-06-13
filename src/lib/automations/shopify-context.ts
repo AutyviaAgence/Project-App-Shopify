@@ -20,16 +20,19 @@ export type ShopifyOrder = {
   cancelled_at?: string | null
   // Langue de la commande, choisie par le client au checkout (ex: 'fr', 'de-DE').
   customer_locale?: string | null
+  // Téléphone de la commande (souvent rempli au checkout au lieu de customer.phone).
+  phone?: string | null
   customer?: {
-    phone?: string
+    phone?: string | null
     email?: string
     first_name?: string
     last_name?: string
     orders_count?: number
     locale?: string | null
+    default_address?: { phone?: string | null; country_code?: string | null } | null
   }
-  shipping_address?: { country_code?: string | null } | null
-  billing_address?: { country_code?: string | null } | null
+  shipping_address?: { phone?: string | null; country_code?: string | null } | null
+  billing_address?: { phone?: string | null; country_code?: string | null } | null
   fulfillments?: { tracking_url?: string; tracking_number?: string }[]
 }
 
@@ -53,8 +56,20 @@ export async function buildOrderContext(
   statusLabel: string
 ): Promise<EventContext | null> {
   const supabase = admin()
-  const phone = order.customer?.phone?.replace(/\D/g, '')
-  if (!phone) return null
+  // Le numéro saisi au checkout peut arriver dans plusieurs champs selon Shopify
+  // (customer.phone n'est PAS toujours rempli). On les essaie dans l'ordre.
+  const rawPhone =
+    order.customer?.phone
+    || order.phone
+    || order.shipping_address?.phone
+    || order.billing_address?.phone
+    || order.customer?.default_address?.phone
+    || null
+  const phone = rawPhone ? rawPhone.replace(/\D/g, '') : ''
+  if (!phone) {
+    console.warn('[shopify-context] aucune commande sans numéro de téléphone exploitable')
+    return null
+  }
 
   const { data: sessions } = await supabase
     .from('whatsapp_sessions')
@@ -67,7 +82,7 @@ export async function buildOrderContext(
   const { resolveContactLanguage } = await import('@/lib/i18n/contact-language')
   const lang = resolveContactLanguage({
     shopifyLocale: order.customer_locale || order.customer?.locale,
-    country: order.shipping_address?.country_code || order.billing_address?.country_code,
+    country: order.shipping_address?.country_code || order.billing_address?.country_code || order.customer?.default_address?.country_code,
   })
 
   let { data: contact } = await supabase
