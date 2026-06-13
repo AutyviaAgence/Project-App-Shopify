@@ -12,6 +12,7 @@ export type TriggerEvent =
   | 'order_cancelled'
   | 'refund_created'
   | 'checkout_abandoned'
+  | 'contact_opted_in'
   | 'no_customer_reply'
   | 'scheduled_date'
   | 'customer_birthday'
@@ -25,6 +26,8 @@ export const TRIGGER_EVENTS: { value: TriggerEvent; label: string; description: 
   { value: 'order_cancelled', label: 'Commande annulée', description: 'Quand une commande est annulée.', group: 'Commande' },
   { value: 'refund_created', label: 'Remboursement', description: 'Quand un remboursement est émis.', group: 'Commande' },
   { value: 'checkout_abandoned', label: 'Panier abandonné', description: 'Paiement non finalisé après un délai.', group: 'Commande' },
+  // Contact
+  { value: 'contact_opted_in', label: 'Opt-in reçu', description: 'Un client vient de s’abonner sur WhatsApp (case cochée au checkout / page Merci). Idéal pour un message de bienvenue.', group: 'Contact' },
   // Conversation / temps
   { value: 'button_clicked', label: 'Clic sur un bouton', description: 'Le client clique sur un bouton « réponse rapide » d’un message (ex : « Suivre ma commande »).', group: 'Conversation' },
   { value: 'no_customer_reply', label: 'Pas de réponse client', description: 'Le client n’a pas répondu depuis un certain temps (relance SAV).', group: 'Conversation' },

@@ -13,6 +13,12 @@ type = "ui_extension"
   module = "./src/ThankYou.js"
   target = "purchase.thank-you.block.render"
 
+  # Opt-in PENDANT le checkout (sous le champ contact) → capture le consentement
+  # avant un éventuel abandon, ce qui rend possible la relance de panier abandonné.
+  [[extensions.targeting]]
+  module = "./src/Checkout.js"
+  target = "purchase.checkout.contact.render-after"
+
   [extensions.capabilities]
   api_access = true
   # Requis : l'extension envoie l'opt-in et lit le téléphone via l'App Proxy (fetch).

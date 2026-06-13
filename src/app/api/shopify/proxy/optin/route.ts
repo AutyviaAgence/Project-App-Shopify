@@ -104,50 +104,29 @@ export async function POST(req: NextRequest) {
     .single()
   if (error) return J({ ok: false, error: error.message }, 500)
 
-  // Message de remerciement (premier contact WhatsApp).
-  // Utilise le template confirmation_commande (déjà approuvé).
-  // On envoie de façon synchrone pour pouvoir signaler à la vitrine si le
-  // numéro n'a pas de compte WhatsApp (→ 422 no_whatsapp, message d'erreur ciblé).
+  // ENVOI = AUTOMATISATIONS. On n'envoie plus rien EN DUR ici. À la place, on
+  // émet l'événement "contact_opted_in" : le marchand branche son propre message
+  // de bienvenue via une automatisation (déclencheur « Opt-in reçu »).
   if (contact?.id) {
     try {
-      const { sendNotification } = await import('@/lib/notifications/send')
-      const firstName = (name || '').split(' ')[0] || 'cher client'
-      const result = await sendNotification({
-        contactId: contact.id,
-        kind: 'order_confirmed',
-        // Fallback positionnel (templates sans variables nommées)
-        vars: { '1': name || 'cher client', '2': 'votre commande' },
-        // Contexte par clé nommée (templates avec variables nommées)
-        data: {
-          customer_first_name: firstName,
-          customer_full_name: name || '',
-          customer_phone: phone,
-          store_name: shop?.replace('.myshopify.com', '') || 'la boutique',
+      const { enqueueAutomations } = await import('@/lib/automations/engine')
+      const firstName = (name || '').split(' ')[0] || ''
+      await enqueueAutomations({
+        userId: store.user_id,
+        event: 'contact_opted_in',
+        ctx: {
+          contactId: contact.id,
+          variables: {
+            customer_first_name: firstName,
+            customer_full_name: name || '',
+            customer_phone: phone,
+            store_name: shop?.replace('.myshopify.com', '') || 'la boutique',
+          },
+          dedupKey: contact.id, // un seul message de bienvenue par contact
         },
-        emailSubject: 'Merci pour votre commande !',
-        emailBody: `Bonjour ${name || ''},\n\nMerci pour votre commande ! Nous sommes ravis de vous compter parmi nos clients.`,
       })
-
-      // Numéro sans compte WhatsApp : on annule l'opt-in et on demande
-      // au client de corriger son numéro.
-      if (result.error === 'no_whatsapp') {
-        await admin.from('contacts')
-          .update({ opt_in_status: 'pending', preferred_channel: 'none' })
-          .eq('id', contact.id)
-        return J({ ok: false, error: 'no_whatsapp' }, 422)
-      }
-
-      if (result.error) {
-        // Échec d'envoi (template non approuvé, token, etc.) : le contact reste
-        // opt-in. On REMONTE l'erreur dans la réponse (diagnostic) — visible dans
-        // la console de l'extension ([Xeyo opt-in] order-phone/optin réponse).
-        console.error('[optin] notif non envoyée:', result.error)
-        return J({ ok: true, sent: result.sent, notifyError: result.error })
-      }
-      return J({ ok: true, sent: result.sent })
     } catch (e) {
-      console.error('[optin] message de remerciement échec (non bloquant):', e)
-      return J({ ok: true, notifyError: e instanceof Error ? e.message : 'exception' })
+      console.error('[optin] enqueue contact_opted_in échec (non bloquant):', e)
     }
   }
 
