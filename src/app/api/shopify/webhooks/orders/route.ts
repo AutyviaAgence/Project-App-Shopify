@@ -1,8 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { verifyWebhookHmac } from '@/lib/shopify/client'
+import { createClient as createAdminSupabase } from '@supabase/supabase-js'
+import { verifyWebhookHmac, fetchOrderById } from '@/lib/shopify/client'
+import { decryptMessage } from '@/lib/crypto/encryption'
 import { enqueueAutomations } from '@/lib/automations/engine'
 import { resolveStoreUser, buildOrderContext, type ShopifyOrder } from '@/lib/automations/shopify-context'
 import type { TriggerEvent } from '@/lib/automations/types'
+
+/**
+ * Récupère la commande complète associée à un remboursement, via l'Admin API.
+ * (Le webhook refunds/create ne fournit que order_id + lignes remboursées.)
+ */
+async function fetchRefundOrder(shopDomain: string, orderId: string | number): Promise<ShopifyOrder | null> {
+  const admin = createAdminSupabase(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+  const { data: store } = await admin
+    .from('shopify_stores')
+    .select('access_token')
+    .eq('shop_domain', shopDomain)
+    .maybeSingle()
+  if (!store?.access_token) return null
+  const token = decryptMessage(store.access_token)
+  const res = await fetchOrderById(shopDomain, token, orderId)
+  if (!res.ok) {
+    console.error('[refunds] fetch commande échec:', res.error)
+    return null
+  }
+  return res.order as ShopifyOrder
+}
 
 /**
  * Webhook Shopify unifié — orders/create, orders/paid, orders/cancelled,
@@ -34,10 +60,18 @@ export async function POST(req: NextRequest) {
   if (!userId) return NextResponse.json({ received: true })
 
   const payload = JSON.parse(rawBody || '{}')
-  // refunds/create encapsule la commande dans `order` ou expose order_id.
-  const order: ShopifyOrder = topic === 'refunds/create'
-    ? (payload.order || payload.order_adjustments?.[0] || payload)
-    : payload
+
+  // refunds/create : le payload est un objet REFUND (order_id + lignes
+  // remboursées), PAS une commande. On récupère donc la commande complète
+  // via l'Admin API pour avoir le client, le numéro et le montant.
+  let order: ShopifyOrder = payload
+  if (topic === 'refunds/create') {
+    const orderId = payload.order_id || payload.order?.id
+    if (!orderId) return NextResponse.json({ received: true, skipped: 'refund sans order_id' })
+    const fetched = await fetchRefundOrder(shopDomain, orderId)
+    if (!fetched) return NextResponse.json({ received: true, skipped: 'commande du remboursement introuvable' })
+    order = fetched
+  }
 
   const ctx = await buildOrderContext(userId, order, mapping.status, true)
   if (!ctx) return NextResponse.json({ received: true, skipped: 'no contact/phone' })

@@ -123,6 +123,34 @@ export async function shopifyGraphQL<T = unknown>(
   }
 }
 
+/**
+ * Récupère une commande complète par son ID via l'Admin API REST.
+ * Utile pour les webhooks dont le payload n'est pas une commande complète
+ * (ex: refunds/create, qui ne contient que order_id + lignes remboursées).
+ * Le format REST (snake_case) est compatible avec le type ShopifyOrder.
+ */
+export async function fetchOrderById(
+  shop: string,
+  accessToken: string,
+  orderId: string | number
+): Promise<{ ok: true; order: Record<string, unknown> } | { ok: false; error: string }> {
+  try {
+    const res = await fetch(
+      `https://${shop}/admin/api/${API_VERSION}/orders/${orderId}.json`,
+      { headers: { 'X-Shopify-Access-Token': accessToken } }
+    )
+    if (!res.ok) {
+      const text = await res.text()
+      return { ok: false, error: `HTTP ${res.status}: ${text}` }
+    }
+    const json = await res.json()
+    if (!json.order) return { ok: false, error: 'order absent de la réponse' }
+    return { ok: true, order: json.order as Record<string, unknown> }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Erreur réseau' }
+  }
+}
+
 /** Récupère les infos de base de la boutique (nom, devise, pays, email). */
 export async function fetchShopInfo(shop: string, accessToken: string) {
   return shopifyGraphQL<{ shop: { name: string; email: string; currencyCode: string; billingAddress: { country: string | null } } }>(
