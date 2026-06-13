@@ -151,10 +151,10 @@ export async function POST(req: NextRequest) {
               order_total: cartTotal != null ? String(cartTotal) : '',
               order_status: 'Panier en attente',
             },
-            // Anti-doublon par contact + tranche horaire : un même client ne reçoit
-            // pas plusieurs relances rapprochées, mais peut être relancé s'il
-            // re-remplit un panier plus tard (et permet de retester).
-            dedupKey: `cart:${contact.id}:${Math.floor(Date.now() / (60 * 60_000))}`,
+            // Anti-doublon par contact + tranche de 5 min : un même client ne
+            // reçoit pas plusieurs relances rapprochées, mais peut être relancé
+            // s'il re-remplit un panier un peu plus tard (et permet de retester).
+            dedupKey: `cart:${contact.id}:${Math.floor(Date.now() / (5 * 60_000))}`,
           },
         })
       }
