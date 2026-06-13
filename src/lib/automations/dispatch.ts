@@ -120,8 +120,12 @@ export async function sendTemplateToContact(params: {
   if (!res.ok) {
     const raw = String(res.error || '')
     const code = raw.match(/"code"\s*:\s*(\d+)/)?.[1]
+    // error_user_msg / message Meta lisible pour le diagnostic
+    const userMsg = raw.match(/"error_user_msg"\s*:\s*"([^"]+)"/)?.[1]
+      || raw.match(/"message"\s*:\s*"([^"]+)"/)?.[1] || ''
     const isNoWa = (code && NO_WHATSAPP_CODES.includes(Number(code))) || /not.*whatsapp|invalid.*recipient/i.test(raw)
-    return { ok: false, error: isNoWa ? 'no_whatsapp' : `send_failed: ${raw.slice(0, 160)}` }
+    // On garde le code + le message Meta dans le résultat (diagnostic).
+    return { ok: false, error: isNoWa ? `no_whatsapp (code ${code}: ${userMsg.slice(0, 90)})` : `send_failed: ${raw.slice(0, 160)}` }
   }
 
   // Trace inbox (conversation + message sortant) pour visibilité côté agent.
