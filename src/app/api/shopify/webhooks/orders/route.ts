@@ -7,10 +7,11 @@ import { resolveStoreUser, buildOrderContext, type ShopifyOrder } from '@/lib/au
 import type { TriggerEvent } from '@/lib/automations/types'
 
 /**
- * Récupère la commande complète associée à un remboursement, via l'Admin API.
- * (Le webhook refunds/create ne fournit que order_id + lignes remboursées.)
+ * Récupère la commande complète par son ID, via l'Admin API. Utile pour les
+ * webhooks dont le payload n'est PAS une commande complète (refunds/create,
+ * returns/request) : ils ne portent qu'un order_id + des lignes.
  */
-async function fetchRefundOrder(shopDomain: string, orderId: string | number): Promise<ShopifyOrder | null> {
+async function fetchOrderForWebhook(shopDomain: string, orderId: string | number): Promise<ShopifyOrder | null> {
   const admin = createAdminSupabase(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -24,7 +25,7 @@ async function fetchRefundOrder(shopDomain: string, orderId: string | number): P
   const token = decryptMessage(store.access_token)
   const res = await fetchOrderById(shopDomain, token, orderId)
   if (!res.ok) {
-    console.error('[refunds] fetch commande échec:', res.error)
+    console.error('[webhook orders] fetch commande échec:', res.error)
     return null
   }
   return res.order as ShopifyOrder
@@ -32,7 +33,7 @@ async function fetchRefundOrder(shopDomain: string, orderId: string | number): P
 
 /**
  * Webhook Shopify unifié — orders/create, orders/paid, orders/cancelled,
- * refunds/create. Le topic est dans le header x-shopify-topic.
+ * refunds/create, returns/request. Le topic est dans le header x-shopify-topic.
  *
  * On mappe le topic vers un événement d'automatisation et on enfile les jobs
  * correspondants (envoi immédiat ou différé selon le délai de la règle).
@@ -42,7 +43,11 @@ const TOPIC_TO_EVENT: Record<string, { event: TriggerEvent; status: string }> = 
   'orders/paid': { event: 'order_paid', status: 'Payée' },
   'orders/cancelled': { event: 'order_cancelled', status: 'Annulée' },
   'refunds/create': { event: 'refund_created', status: 'Remboursée' },
+  'returns/request': { event: 'return_requested', status: 'Retour demandé' },
 }
+
+// Topics dont le payload ne contient PAS la commande complète → fetch via API.
+const NEEDS_ORDER_FETCH = new Set(['refunds/create', 'returns/request'])
 
 export async function POST(req: NextRequest) {
   const rawBody = await req.text()
@@ -61,15 +66,15 @@ export async function POST(req: NextRequest) {
 
   const payload = JSON.parse(rawBody || '{}')
 
-  // refunds/create : le payload est un objet REFUND (order_id + lignes
-  // remboursées), PAS une commande. On récupère donc la commande complète
-  // via l'Admin API pour avoir le client, le numéro et le montant.
+  // refunds/create et returns/request : le payload n'est PAS une commande
+  // complète (juste order_id + lignes). On récupère la commande via l'Admin API
+  // pour avoir le client, le numéro et le montant.
   let order: ShopifyOrder = payload
-  if (topic === 'refunds/create') {
+  if (NEEDS_ORDER_FETCH.has(topic)) {
     const orderId = payload.order_id || payload.order?.id
-    if (!orderId) return NextResponse.json({ received: true, skipped: 'refund sans order_id' })
-    const fetched = await fetchRefundOrder(shopDomain, orderId)
-    if (!fetched) return NextResponse.json({ received: true, skipped: 'commande du remboursement introuvable' })
+    if (!orderId) return NextResponse.json({ received: true, skipped: `${topic} sans order_id` })
+    const fetched = await fetchOrderForWebhook(shopDomain, orderId)
+    if (!fetched) return NextResponse.json({ received: true, skipped: 'commande introuvable' })
     order = fetched
   }
 

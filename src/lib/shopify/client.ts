@@ -173,6 +173,7 @@ export async function registerWebhooks(shop: string, accessToken: string): Promi
     { topic: 'ORDERS_PAID', path: '/api/shopify/webhooks/orders' },
     { topic: 'ORDERS_CANCELLED', path: '/api/shopify/webhooks/orders' },
     { topic: 'REFUNDS_CREATE', path: '/api/shopify/webhooks/orders' },
+    { topic: 'RETURNS_REQUEST', path: '/api/shopify/webhooks/orders' },
     { topic: 'CHECKOUTS_CREATE', path: '/api/shopify/webhooks/checkouts' },
   ]
 
