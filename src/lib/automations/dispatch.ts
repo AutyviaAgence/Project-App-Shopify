@@ -72,11 +72,16 @@ export async function sendTemplateToContact(params: {
     if (carousel) components.push(carousel)
   }
 
-  // Offre à durée limitée → composant d'expiration (compte à rebours) + le
-  // paramètre du bouton "copier le code" si présent.
+  // Offre à durée limitée → composant d'expiration (compte à rebours).
   if (tpl.template_type === 'limited_time_offer') {
     const { buildLtoComponent } = await import('@/lib/templates/lto-send')
     components.push(buildLtoComponent({ defaultHours: tpl.lto_default_hours, nowMs: Date.now() }))
+  }
+
+  // Bouton "Copier le code" (COPY_CODE) — pour TOUT type de template. Meta exige
+  // le paramètre coupon_code à l'envoi. On résout via la variable promo_code
+  // (dynamique) sinon on retombe sur le code figé du template.
+  {
     const btns = Array.isArray(tpl.buttons) ? tpl.buttons as { type?: string; code?: string }[] : []
     const codeIdx = btns.findIndex((b) => b.type === 'COPY_CODE')
     if (codeIdx >= 0) {
