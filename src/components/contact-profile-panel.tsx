@@ -24,6 +24,7 @@ import {
   MessageSquare,
   Calendar,
   Trash2,
+  Languages,
 } from 'lucide-react'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { formatDistanceToNow, format } from 'date-fns'
@@ -55,6 +56,7 @@ export function ContactProfilePanel({
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
   const [notes, setNotes] = useState('')
+  const [language, setLanguage] = useState('')
 
   const fetchContact = useCallback(async (id: string) => {
     setLoading(true)
@@ -67,6 +69,7 @@ export function ContactProfilePanel({
         setLastName(json.data.last_name || '')
         setEmail(json.data.email || '')
         setNotes(json.data.notes || '')
+        setLanguage(json.data.preferred_language || '')
       } else {
         toast.error(json.error || 'Erreur lors du chargement du contact')
       }
@@ -95,6 +98,10 @@ export function ContactProfilePanel({
           last_name: lastName,
           email,
           notes,
+          // Langue choisie à la main → source 'manual' (ne sera plus écrasée
+          // par Shopify ni la détection conversationnelle).
+          preferred_language: language || null,
+          language_source: language ? 'manual' : null,
         }),
       })
       const json = await res.json()
@@ -186,7 +193,8 @@ export function ContactProfilePanel({
     (firstName !== (contact.first_name || '') ||
       lastName !== (contact.last_name || '') ||
       email !== (contact.email || '') ||
-      notes !== (contact.notes || ''))
+      notes !== (contact.notes || '') ||
+      language !== (contact.preferred_language || ''))
 
   async function handleDelete() {
     if (!contactId) return
@@ -344,6 +352,36 @@ export function ContactProfilePanel({
                       className="pl-8 h-8 text-xs"
                     />
                   </div>
+                </div>
+
+                <div className="space-y-1">
+                  <Label htmlFor="contact-language" className="text-[10px] text-muted-foreground">
+                    Langue préférée
+                  </Label>
+                  <div className="relative">
+                    <Languages className="absolute left-2.5 top-1/2 h-3 w-3 -translate-y-1/2 text-muted-foreground" />
+                    <select
+                      id="contact-language"
+                      value={language}
+                      onChange={(e) => setLanguage(e.target.value)}
+                      className="h-8 w-full rounded-md border bg-background pl-8 pr-2 text-xs"
+                    >
+                      <option value="">Auto (détectée)</option>
+                      <option value="fr">Français</option>
+                      <option value="en">Anglais</option>
+                      <option value="es">Espagnol</option>
+                      <option value="de">Allemand</option>
+                      <option value="it">Italien</option>
+                      <option value="pt">Portugais</option>
+                      <option value="nl">Néerlandais</option>
+                    </select>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">
+                    Utilisée pour envoyer les modèles dans la bonne langue.
+                    {contact?.language_source && contact.language_source !== 'manual' && !language && (
+                      <> Détectée via {contact.language_source === 'shopify' ? 'Shopify' : contact.language_source === 'country' ? 'le pays' : 'la conversation'}.</>
+                    )}
+                  </p>
                 </div>
 
                 <div className="space-y-1">

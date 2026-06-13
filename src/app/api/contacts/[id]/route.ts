@@ -71,11 +71,13 @@ export async function PATCH(
   }
 
   const body = await req.json()
-  const { first_name, last_name, email, notes } = body as {
+  const { first_name, last_name, email, notes, preferred_language, language_source } = body as {
     first_name?: string
     last_name?: string
     email?: string
     notes?: string
+    preferred_language?: string | null
+    language_source?: string | null
   }
 
   // Vérifier que le contact existe et appartient à l'utilisateur (réponse uniforme)
@@ -109,6 +111,8 @@ export async function PATCH(
   if (last_name !== undefined) updateData.last_name = last_name?.trim() || null
   if (email !== undefined) updateData.email = email?.trim() || null
   if (notes !== undefined) updateData.notes = notes?.trim() || null
+  if (preferred_language !== undefined) updateData.preferred_language = preferred_language || null
+  if (language_source !== undefined) updateData.language_source = language_source || null
 
   if (Object.keys(updateData).length === 0) {
     return NextResponse.json({ error: 'Rien à modifier' }, { status: 400 })
