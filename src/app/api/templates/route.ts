@@ -20,7 +20,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from('whatsapp_templates')
-    .select('id, session_id, meta_id, name, language, category, body_text, header_text, footer_text, header_type, header_media_url, buttons, template_type, carousel_cards, approved_carousel_cards, lto_title, lto_default_hours, variables_count, sample_values, variable_keys, status, rejection_reason, approved_body_text, approved_header_text, approved_footer_text, approved_at, created_at, updated_at')
+    .select('id, session_id, meta_id, name, language, category, body_text, header_text, footer_text, header_type, header_media_url, buttons, template_type, carousel_cards, approved_carousel_cards, lto_title, lto_default_hours, variables_count, sample_values, variable_keys, status, has_pending_changes, rejection_reason, approved_body_text, approved_header_text, approved_footer_text, approved_at, created_at, updated_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
 

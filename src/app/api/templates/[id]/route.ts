@@ -40,15 +40,29 @@ export async function PATCH(
   if (contentChanged || identityChanged) {
     const { data: current } = await supabase
       .from('whatsapp_templates')
-      .select('status')
+      .select('status, meta_id')
       .eq('id', id)
       .eq('user_id', user.id)
       .maybeSingle()
     if (current && current.status !== 'draft') {
-      updates.status = 'draft'
-      updates.rejection_reason = null
-      // Nom/langue modifiés → nouveau template Meta (l'ancien meta_id ne vaut plus)
-      if (identityChanged) updates.meta_id = null
+      if (identityChanged) {
+        // Nom/langue modifiés → c'est un NOUVEAU template Meta : l'ancien meta_id
+        // ne vaut plus et il n'y a pas de version approuvée correspondante → draft.
+        updates.status = 'draft'
+        updates.meta_id = null
+        updates.has_pending_changes = false
+        updates.rejection_reason = null
+      } else if (current.meta_id) {
+        // Contenu modifié sur un template DÉJÀ approuvé chez Meta : la version
+        // approuvée reste active (et continue d'être envoyée). On NE repasse PAS
+        // en draft — on marque seulement des modifications non soumises.
+        updates.has_pending_changes = true
+        updates.rejection_reason = null
+      } else {
+        // Pas de meta_id (jamais validé chez Meta) → comportement historique.
+        updates.status = 'draft'
+        updates.rejection_reason = null
+      }
     }
   }
 
@@ -114,6 +128,8 @@ export async function PUT(
       variables_count,
       // Le contenu chez Meta correspond à cette version → on est de nouveau approuvé.
       status: tpl.meta_id ? 'approved' : 'draft',
+      // On revient à la version approuvée → plus de modifications en attente.
+      has_pending_changes: false,
       rejection_reason: null,
       updated_at: new Date().toISOString(),
     })

@@ -25,6 +25,19 @@ const STATUS_STYLE: Record<string, { label: string; cls: string }> = {
   pending: { label: 'En attente Meta', cls: 'bg-amber-500/15 text-amber-500' },
   approved: { label: 'Approuvé', cls: 'bg-green-500/15 text-green-500' },
   rejected: { label: 'Refusé', cls: 'bg-red-500/15 text-red-500' },
+  // Template approuvé chez Meta, mais avec des modifications locales non soumises.
+  modified: { label: 'Modifié — à resoumettre', cls: 'bg-orange-500/15 text-orange-600' },
+}
+
+/**
+ * Statut "effectif" affiché : un template approuvé qui a des modifications
+ * locales non soumises est présenté comme « Modifié — à resoumettre » (le badge
+ * "Approuvé" seul serait trompeur, car la version approuvée chez Meta ne reflète
+ * pas encore les changements).
+ */
+function effectiveStatus(t: Pick<WhatsAppTemplate, 'status' | 'has_pending_changes'>): string {
+  if (t.status === 'approved' && t.has_pending_changes) return 'modified'
+  return t.status
 }
 
 const CATEGORIES = [
@@ -290,7 +303,7 @@ export default function TemplatesPage() {
         openEdit(updated)
       }
       fetchTemplates() // resync en arrière-plan
-      toast.success('Version validée restaurée')
+      toast.success('Version approuvée restaurée')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erreur')
     } finally {
@@ -328,13 +341,16 @@ export default function TemplatesPage() {
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Erreur')
-      // Le modèle était soumis/approuvé et le contenu a changé → repassé en brouillon par l'API
+      const saved = json.data as WhatsAppTemplate | undefined
       const wasSubmitted = editing && editing.status !== 'draft'
-      const nowDraft = json.data?.status === 'draft'
+      const nowDraft = saved?.status === 'draft'
+      const nowModified = saved?.status === 'approved' && saved?.has_pending_changes
       await fetchTemplates()
       // Reste en mode édition sur le modèle (re)sauvegardé pour un flux maître-détail fluide.
-      if (json.data?.id) { setEditing(json.data as WhatsAppTemplate); setSelectedId(json.data.id) }
-      if (wasSubmitted && nowDraft) {
+      if (saved?.id) { setEditing(saved); setSelectedId(saved.id) }
+      if (wasSubmitted && nowModified) {
+        toast.success('Modèle modifié — « à resoumettre ». La version approuvée reste active ; resoumettez à Meta pour activer vos changements.', { duration: 6000 })
+      } else if (wasSubmitted && nowDraft) {
         toast.success('Modèle modifié — repassé en brouillon. Resoumettez-le à Meta pour activer les changements.', { duration: 6000 })
       } else {
         toast.success(editing ? 'Modèle modifié' : 'Modèle créé')
@@ -436,7 +452,7 @@ export default function TemplatesPage() {
           {/* Sidebar gauche : liste des modèles */}
           <div className="space-y-1.5 overflow-y-auto rounded-xl border p-2">
             {templates.map((t) => {
-              const st = STATUS_STYLE[t.status] || STATUS_STYLE.draft
+              const st = STATUS_STYLE[effectiveStatus(t)] || STATUS_STYLE.draft
               const active = selectedTemplate?.id === t.id
               return (
                 <button
@@ -467,25 +483,28 @@ export default function TemplatesPage() {
                   <div className="flex flex-col min-w-0">
                     <span className="text-sm font-medium">{editing ? 'Modifier le modèle' : 'Nouveau modèle'}</span>
                     {selectedTemplate && (
-                      <span className={cn('mt-0.5 w-fit rounded-full px-2 py-0.5 text-[11px]', (STATUS_STYLE[selectedTemplate.status] || STATUS_STYLE.draft).cls)}>
-                        {(STATUS_STYLE[selectedTemplate.status] || STATUS_STYLE.draft).label}
+                      <span className={cn('mt-0.5 w-fit rounded-full px-2 py-0.5 text-[11px]', (STATUS_STYLE[effectiveStatus(selectedTemplate)] || STATUS_STYLE.draft).cls)}>
+                        {(STATUS_STYLE[effectiveStatus(selectedTemplate)] || STATUS_STYLE.draft).label}
                       </span>
                     )}
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
-                    {/* Revenir à la dernière version validée par Meta. On l'affiche
-                        UNIQUEMENT si le modèle a réellement été validé chez Meta
-                        (meta_id présent) — sinon il n'y a pas de "version validée". */}
-                    {selectedTemplate?.meta_id && selectedTemplate?.approved_body_text && selectedTemplate.status !== 'approved' && (
+                    {/* Revenir à la dernière version approuvée par Meta. Affiché si
+                        une version validée existe (meta_id + snapshot) ET que l'état
+                        courant n'est pas déjà "approuvé sans modif" (draft, rejeté,
+                        ou approuvé avec modifications non soumises). */}
+                    {selectedTemplate?.meta_id && selectedTemplate?.approved_body_text &&
+                      (selectedTemplate.status !== 'approved' || selectedTemplate.has_pending_changes) && (
                       <Button size="sm" variant="outline" disabled={busyId === selectedTemplate.id} onClick={() => restoreApproved(selectedTemplate)}>
                         {busyId === selectedTemplate.id ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-1 h-4 w-4" />}
-                        Version validée
+                        Version approuvée
                       </Button>
                     )}
-                    {(selectedTemplate?.status === 'draft' || selectedTemplate?.status === 'rejected') && (
+                    {(selectedTemplate?.status === 'draft' || selectedTemplate?.status === 'rejected' ||
+                      (selectedTemplate?.status === 'approved' && selectedTemplate?.has_pending_changes)) && (
                       <Button size="sm" variant="outline" disabled={busyId === selectedTemplate.id} onClick={() => handleSubmit(selectedTemplate)}>
                         {busyId === selectedTemplate.id ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Send className="mr-1 h-4 w-4" />}
-                        {selectedTemplate.status === 'rejected' ? 'Resoumettre' : 'Soumettre'}
+                        {selectedTemplate.status === 'draft' ? 'Soumettre' : 'Resoumettre'}
                       </Button>
                     )}
                     <Button size="sm" disabled={saving || !name.trim() || !bodyText.trim()} onClick={handleSave}>
@@ -500,13 +519,19 @@ export default function TemplatesPage() {
                   </div>
                 </div>
 
-                {/* Avertissement : modifier un modèle approuvé/soumis le repassera en brouillon */}
+                {/* Avertissement : modifier un modèle approuvé crée des modifications
+                    à resoumettre (la version approuvée reste active en attendant). */}
                 {editing && editing.status !== 'draft' && isDirty && (
                   <div className="flex items-start gap-3 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2.5">
                     <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
                     <div className="flex-1 text-xs text-amber-600 dark:text-amber-400">
-                      Ce modèle est <strong>{(STATUS_STYLE[editing.status] || STATUS_STYLE.draft).label.toLowerCase()}</strong> chez Meta.
-                      Si vous enregistrez, il repassera en <strong>brouillon</strong> et devra être <strong>resoumis à Meta</strong> pour activer vos changements.
+                      {editing.meta_id ? (
+                        <>La version <strong>approuvée</strong> reste active chez Meta et continue d&apos;être envoyée.
+                        Vos changements passeront en <strong>« Modifié — à resoumettre »</strong> : <strong>resoumettez à Meta</strong> pour les activer.</>
+                      ) : (
+                        <>Ce modèle est <strong>{(STATUS_STYLE[editing.status] || STATUS_STYLE.draft).label.toLowerCase()}</strong> chez Meta.
+                        Si vous enregistrez, il repassera en <strong>brouillon</strong> et devra être <strong>resoumis à Meta</strong>.</>
+                      )}
                     </div>
                     <Button size="sm" variant="outline" className="h-7 shrink-0 border-amber-500/40 text-amber-600 hover:bg-amber-500/10 dark:text-amber-400" onClick={revertChanges}>
                       Annuler mes modifications
