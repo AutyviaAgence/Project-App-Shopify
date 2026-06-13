@@ -358,15 +358,18 @@ export default function AgentsPage() {
 
   return (
     <div className="relative flex min-h-full flex-col overflow-hidden p-4 pb-24 sm:p-6 sm:pb-6">
-      {/* Fond d'ambiance : glow coloré + grille animée (toujours visible) */}
-      <div className="pointer-events-none absolute inset-0 -z-10">
+      {/* Fond d'ambiance : glow coloré + grille animée (toujours visible).
+          IMPORTANT : z-0 (PAS -z-10), sinon la grille passe derrière le fond
+          opaque (bg-background) du conteneur parent du layout et devient invisible.
+          Les contenus ci-dessous sont en relative z-10 pour passer au-dessus. */}
+      <div className="pointer-events-none absolute inset-0 z-0">
         <div className="absolute left-1/2 top-1/3 h-[600px] w-[900px] -translate-x-1/2 -translate-y-1/2 rounded-full opacity-[0.10] blur-[120px]"
           style={{ background: 'radial-gradient(circle, #0ea5e9 0%, #8b5cf6 45%, transparent 70%)' }} />
         {/* Grille bleue qui dérive lentement (visible en clair comme en sombre) */}
         <div className="absolute inset-0 animated-grid-bg opacity-60" />
       </div>
 
-      <div className="mb-6">
+      <div className="relative z-10 mb-6">
         <div data-tour="agents-header">
           <h1 className="text-xl sm:text-2xl font-bold">{t('agents.title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -376,7 +379,7 @@ export default function AgentsPage() {
       </div>
 
       {/* Zone : carrousel centré, bouton Nouvel agent juste en dessous */}
-      <div className={cn('relative flex flex-1 flex-col py-6', agents.length === 0 ? 'items-center justify-center px-6' : 'items-center justify-start lg:justify-center')}>
+      <div className={cn('relative z-10 flex flex-1 flex-col py-6', agents.length === 0 ? 'items-center justify-center px-6' : 'items-center justify-start lg:justify-center')}>
       {/* Carrés lumineux animés en arrière-fond (onboarding) — la grille de fond
           est désormais affichée en permanence au niveau de la page. */}
       {agents.length === 0 && (
