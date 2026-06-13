@@ -43,6 +43,32 @@ export function languageFromCountry(country: string | null | undefined): string 
 }
 
 /**
+ * Détection LÉGÈRE de la langue d'un texte (mots fréquents), sans appel IA — sûre
+ * à exécuter dans le webhook. Renvoie un code court supporté ou null si incertain.
+ * Volontairement conservatrice : on ne devine que si plusieurs marqueurs clairs.
+ */
+const LANG_MARKERS: Record<string, string[]> = {
+  fr: ['bonjour', 'merci', 'commande', 'oui', 'non', 'salut', 'pourquoi', 'où', 'comment', 'svp', "s'il", 'vous', 'je', 'pouvez'],
+  en: ['hello', 'thanks', 'thank', 'order', 'yes', 'please', 'where', 'how', 'the', 'you', 'can', 'my'],
+  es: ['hola', 'gracias', 'pedido', 'sí', 'por favor', 'dónde', 'cómo', 'usted', 'quiero', 'puede'],
+  de: ['hallo', 'danke', 'bestellung', 'ja', 'nein', 'bitte', 'wo', 'wie', 'ich', 'können', 'meine'],
+  it: ['ciao', 'grazie', 'ordine', 'sì', 'per favore', 'dove', 'come', 'vorrei', 'può', 'mio'],
+}
+
+export function detectLanguage(text: string | null | undefined): string | null {
+  if (!text) return null
+  const t = ` ${text.toLowerCase()} `
+  let best: { lang: string; score: number } | null = null
+  for (const [lang, words] of Object.entries(LANG_MARKERS)) {
+    let score = 0
+    for (const w of words) if (t.includes(` ${w} `) || t.includes(`${w} `)) score++
+    if (!best || score > best.score) best = { lang, score }
+  }
+  // On exige au moins 2 marqueurs pour éviter les faux positifs.
+  return best && best.score >= 2 ? best.lang : null
+}
+
+/**
  * Cascade complète : renvoie la meilleure langue connue + sa source, ou null.
  */
 export function resolveContactLanguage(opts: {

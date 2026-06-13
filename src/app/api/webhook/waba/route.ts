@@ -342,6 +342,23 @@ export async function POST(req: NextRequest) {
                 .eq('id', contact.id)
             }
 
+            // 1.6 Langue du contact : si on ne la connaît pas encore (Shopify ne
+            // l'a pas fournie), on l'estime depuis le texte du message. On
+            // n'écrase JAMAIS une langue déjà connue (Shopify reste prioritaire).
+            if (messageType === 'text' && content) {
+              const cl = contact as typeof contact & { preferred_language?: string | null }
+              if (!cl.preferred_language) {
+                const { detectLanguage } = await import('@/lib/i18n/contact-language')
+                const detected = detectLanguage(content)
+                if (detected) {
+                  await supabase
+                    .from('contacts')
+                    .update({ preferred_language: detected, language_source: 'conversation' })
+                    .eq('id', contact.id)
+                }
+              }
+            }
+
             // 2. Upsert conversation
             const { data: conversation } = await supabase
               .from('conversations')
