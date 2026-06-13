@@ -15,7 +15,8 @@
   data-shop="{{ shop.permanent_domain }}"
   data-delay="{{ block.settings.delay_seconds }}"
   data-exit-intent="{{ block.settings.exit_intent }}"
-  data-cart-only="{{ block.settings.cart_only }}"
+  data-display-mode="{{ block.settings.display_mode }}"
+  data-custom-paths="{{ block.settings.custom_paths | escape }}"
 >
   <div class="xeyo-pop-card" role="dialog" aria-modal="true" aria-label="Opt-in WhatsApp">
     <button type="button" class="xeyo-pop-close" aria-label="Fermer">&times;</button>
@@ -103,7 +104,6 @@
     var shop = root.getAttribute('data-shop');
     var delay = parseInt(root.getAttribute('data-delay'), 10) || 8;
     var exitIntent = root.getAttribute('data-exit-intent') === 'true';
-    var cartOnly = root.getAttribute('data-cart-only') === 'true';
 
     // Indicatifs pays (drapeau + nom + indicatif). Le client choisit, il ne tape
     // que la partie locale du numéro.
@@ -137,19 +137,51 @@
       try { localStorage.setItem(STORE_KEY, '1'); } catch (e) {}
     }
 
-    // Ne s'affiche que sur la page panier (sauf si cart_only = false).
-    var isCart = /\/cart(\b|\/|\?|$)/.test(location.pathname + location.search);
-    if (cartOnly && !isCart) return;
     if (alreadyHandled()) return;
+
+    // Détection UNIVERSELLE du panier (marche avec page /cart classique ET tiroir
+    // latéral / drawer, qui ne change pas l'URL). On vérifie le contenu réel du
+    // panier via l'API Shopify /cart.js : si le client a des articles, on arme la
+    // popup quelle que soit la page. C'est le vrai signal « en train d'acheter ».
+    var cartHasItems = false;
+    function refreshCart(cb) {
+      fetch('/cart.js', { headers: { 'Accept': 'application/json' } })
+        .then(function (r) { return r.json(); })
+        .then(function (c) { cartHasItems = (c && c.item_count > 0); if (cb) cb(); })
+        .catch(function () { if (cb) cb(); });
+    }
+
+    // Condition d'affichage selon le mode choisi par le marchand :
+    //   • 'cart'   : panier non vide (marche page /cart ET tiroir/drawer)
+    //   • 'all'    : partout
+    //   • 'custom' : uniquement si l'URL contient le chemin saisi (ex: /products,
+    //                /collections/promo…). Plusieurs chemins séparés par des virgules.
+    var displayMode = root.getAttribute('data-display-mode') || 'cart';
+    var customPaths = (root.getAttribute('data-custom-paths') || '')
+      .split(',').map(function (s) { return s.trim(); }).filter(Boolean);
+    function urlMatchesCustom() {
+      var path = location.pathname + location.search;
+      return customPaths.some(function (p) { return path.indexOf(p) !== -1; });
+    }
+    function cartGateOk() {
+      if (displayMode === 'all') return true;
+      if (displayMode === 'custom') return urlMatchesCustom();
+      return cartHasItems; // 'cart' (défaut)
+    }
 
     var shown = false;
     function show() {
-      if (shown || alreadyHandled()) return;
+      if (shown || alreadyHandled() || !cartGateOk()) return;
       shown = true;
       root.classList.add('xeyo-open');
       try { phone.focus(); } catch (e) {}
     }
     function hide() { root.classList.remove('xeyo-open'); }
+
+    // Charge l'état du panier au démarrage (et le rafraîchit périodiquement, car
+    // le client peut ajouter un article après le chargement de la page).
+    refreshCart();
+    var cartPoll = setInterval(function () { refreshCart(); }, 15000);
 
     // ── Déclenchement intelligent (façon Cartloop/Privy) ────────────────────
     // On n'affiche JAMAIS dès l'arrivée. La popup se déclenche sur un vrai signal
@@ -184,7 +216,7 @@
     }
     window.addEventListener('scroll', onScroll, { passive: true });
 
-    function cleanup() { clearTimeout(fallbackTimer); }
+    function cleanup() { clearTimeout(fallbackTimer); clearInterval(cartPoll); }
     closeBtn.addEventListener('click', function () { hide(); markHandled(); cleanup(); });
     root.addEventListener('click', function (e) { if (e.target === root) { hide(); markHandled(); cleanup(); } });
 
@@ -239,7 +271,18 @@
     { "type": "paragraph", "content": "La popup s'affiche sur un signal d'engagement (intention de sortie sur ordinateur, défilement sur mobile), jamais dès l'arrivée. Le délai ci-dessous est un minimum de sécurité avant tout affichage." },
     { "type": "range", "id": "delay_seconds", "label": "Délai minimum avant affichage (secondes)", "min": 3, "max": 30, "step": 1, "default": 8 },
     { "type": "checkbox", "id": "exit_intent", "label": "Déclencher à l'intention de sortie (ordinateur)", "default": true },
-    { "type": "checkbox", "id": "cart_only", "label": "Uniquement sur la page panier", "default": true },
+    {
+      "type": "select",
+      "id": "display_mode",
+      "label": "Où afficher la popup",
+      "options": [
+        { "value": "cart", "label": "Quand le panier n'est pas vide (recommandé)" },
+        { "value": "all", "label": "Sur toutes les pages" },
+        { "value": "custom", "label": "Sur des pages précises (ci-dessous)" }
+      ],
+      "default": "cart"
+    },
+    { "type": "text", "id": "custom_paths", "label": "Pages précises (si « pages précises »)", "info": "Chemins d'URL séparés par des virgules. Ex : /cart, /products, /collections/promo", "default": "/cart" },
     { "type": "color", "id": "accent_color", "label": "Couleur", "default": "#25D366" }
   ]
 }
