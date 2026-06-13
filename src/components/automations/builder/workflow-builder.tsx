@@ -12,7 +12,7 @@ import { TRIGGER_EVENTS } from '@/lib/automations/types'
 import type { WorkflowGraph, WorkflowNode } from '@/lib/automations/graph-types'
 import type { WhatsAppTemplate } from '@/types/database'
 
-const Lightfall = dynamic(() => import('@/components/Lightfall'), { ssr: false })
+const Particles = dynamic(() => import('@/components/Particles'), { ssr: false })
 
 /**
  * Zone de timeline déplaçable : on peut faire défiler le workflow en
@@ -54,18 +54,21 @@ function PannableTimeline({ children }: { children: React.ReactNode }) {
       onWheel={onWheel}
       className={cn('relative overflow-hidden rounded-2xl border bg-muted/10 select-none', grabbing ? 'cursor-grabbing' : 'cursor-grab')}
     >
-      {/* Fond animé Lightfall, confiné au cadre du canvas (coins arrondis) */}
-      <div className="pointer-events-none absolute inset-0 opacity-[0.18]">
-        <Lightfall
-          className="" dpr={1} mixBlendMode="normal"
-          colors={['#A6C8FF', '#5227FF', '#FF9FFC']}
-          backgroundColor="#0A1530"
-          speed={0.5} streakCount={2} streakWidth={1} streakLength={1}
-          glow={1} density={0.6} twinkle={1} zoom={3} backgroundGlow={0.5}
-          opacity={1} mouseInteraction mouseStrength={0.5} mouseRadius={1}
+      {/* Fond animé Particles, confiné au cadre du canvas (coins arrondis) */}
+      <div className="pointer-events-none absolute inset-0">
+        <Particles
+          className=""
+          particleColors={['#A6C8FF', '#5227FF', '#FF9FFC']}
+          particleCount={200}
+          particleSpread={10}
+          speed={0.1}
+          particleBaseSize={100}
+          moveParticlesOnHover
+          alphaParticles
+          disableRotation={false}
         />
       </div>
-      {/* Ancien fond discret par-dessus le Lightfall pour adoucir l'ensemble */}
+      {/* Voile discret par-dessus le fond animé pour conserver la lisibilité */}
       <div className="pointer-events-none absolute inset-0 bg-background/40" />
       <div
         className="relative z-[1] h-full origin-top will-change-transform"
