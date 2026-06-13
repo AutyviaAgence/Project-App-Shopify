@@ -11,6 +11,60 @@ function admin() {
 
 const NO_WHATSAPP_CODES = [131026, 131047, 131000, 470]
 
+type TemplateRow = {
+  id: string; user_id: string; name: string; language: string
+  source_language: string | null; status: string
+  variables_count: number | null; variable_keys: string[] | null; body_text: string | null
+  template_type: string | null; carousel_cards: unknown; lto_default_hours: number | null
+  buttons: unknown
+}
+
+/**
+ * Choisit la variante linguistique d'un modèle à envoyer au contact.
+ *
+ * Un même modèle existe en plusieurs langues (lignes `name` identiques, `language`
+ * différentes). On envoie celle qui colle à la langue du contact, avec repli :
+ *   langue contact → langue source du modèle → 'fr' → langue du modèle de base.
+ * Seules les variantes APPROUVÉES comptent (une langue en attente est ignorée et
+ * on retombe sur le repli — jamais d'envoi cassé).
+ *
+ * Renvoie la ligne du modèle à envoyer, ou null si aucune variante approuvée.
+ * Fonctionne sans surcoût pour les modèles mono-langue (la cascade retombe sur eux).
+ */
+async function resolveLanguageVariant(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  base: TemplateRow,
+  contactLang: string | null | undefined
+): Promise<TemplateRow | null> {
+  // Toutes les variantes approuvées de ce modèle (même utilisateur + même nom).
+  const { data: variants } = await supabase
+    .from('whatsapp_templates')
+    .select('id, user_id, name, language, source_language, status, variables_count, variable_keys, body_text, template_type, carousel_cards, lto_default_hours, buttons')
+    .eq('user_id', base.user_id)
+    .eq('name', base.name)
+    .eq('status', 'approved')
+
+  const approved: TemplateRow[] = variants || []
+  // Si le modèle de base lui-même est approuvé mais absent de la liste (course),
+  // on le garde comme dernier recours.
+  if (base.status === 'approved' && !approved.some((v) => v.id === base.id)) approved.push(base)
+  if (approved.length === 0) return null
+
+  // Ordre de préférence des langues, dédupliqué, sans valeurs vides.
+  const prefs = [contactLang, base.source_language, 'fr', base.language]
+    .filter((l): l is string => !!l)
+  const seen = new Set<string>()
+  for (const lang of prefs) {
+    if (seen.has(lang)) continue
+    seen.add(lang)
+    const match = approved.find((v) => v.language === lang)
+    if (match) return match
+  }
+  // Aucune langue préférée approuvée → on prend la première variante approuvée.
+  return approved[0]
+}
+
 /**
  * Envoie un template WhatsApp APPROUVÉ (par son id) à un contact, en résolvant
  * ses variables nommées depuis un contexte de données. Respecte l'opt-out.
@@ -23,10 +77,10 @@ export async function sendTemplateToContact(params: {
 }): Promise<{ ok: boolean; error?: string }> {
   const supabase = admin()
 
-  // Contact + opt-in
+  // Contact + opt-in (+ langue préférée pour choisir la bonne variante du modèle)
   const { data: contact } = await supabase
     .from('contacts')
-    .select('id, session_id, phone_number, opt_in_status, preferred_channel')
+    .select('id, session_id, phone_number, opt_in_status, preferred_channel, preferred_language')
     .eq('id', params.contactId)
     .maybeSingle()
   if (!contact) return { ok: false, error: 'contact_introuvable' }
@@ -34,14 +88,21 @@ export async function sendTemplateToContact(params: {
   if (!contact.phone_number) return { ok: false, error: 'no_phone' }
   if (contact.preferred_channel === 'none') return { ok: false, error: 'pas_dopt_in_canal' }
 
-  // Template approuvé
-  const { data: tpl } = await supabase
+  // Modèle de base (celui choisi dans l'automation). On l'utilise pour connaître
+  // le `name` et résoudre ensuite la variante linguistique du contact.
+  const SELECT = 'id, user_id, name, language, source_language, status, variables_count, variable_keys, body_text, template_type, carousel_cards, lto_default_hours, buttons'
+  const { data: baseTpl } = await supabase
     .from('whatsapp_templates')
-    .select('name, language, status, variables_count, variable_keys, body_text, template_type, carousel_cards, lto_default_hours, buttons')
+    .select(SELECT)
     .eq('id', params.templateId)
     .maybeSingle()
-  if (!tpl) return { ok: false, error: 'template_introuvable' }
-  if (tpl.status !== 'approved') return { ok: false, error: 'template_non_approuve' }
+  if (!baseTpl) return { ok: false, error: 'template_introuvable' }
+
+  // MULTILINGUE : envoyer la variante (même `name`) qui correspond à la langue du
+  // contact. Cascade : langue contact → langue source du modèle → 'fr' → langue
+  // du modèle de base. On ne considère que les variantes APPROUVÉES par Meta.
+  const tpl = await resolveLanguageVariant(supabase, baseTpl, contact.preferred_language)
+  if (!tpl) return { ok: false, error: 'template_non_approuve' }
 
   // Session WABA
   const { data: session } = await supabase

@@ -103,18 +103,31 @@ async function executeCampaign(supabase: any, campaign: Campaign): Promise<void>
   const userTimezone = profile?.timezone || 'Europe/Paris'
 
   // Récupérer le template Meta approuvé (mode prioritaire pour la relance hors fenêtre 24h)
-  let template: { name: string; language: string } | null = null
+  let template: { name: string; language: string; source_language: string | null } | null = null
   if (campaign.template_id) {
     const { data } = await supabase
       .from('whatsapp_templates')
-      .select('name, language, status')
+      .select('name, language, status, source_language')
       .eq('id', campaign.template_id)
       .single()
     if (data && data.status === 'approved') {
-      template = { name: data.name, language: data.language }
+      template = { name: data.name, language: data.language, source_language: data.source_language }
     } else {
       console.error(`[Campaign ${campaignId}] Template ${campaign.template_id} introuvable ou non approuvé`)
     }
+  }
+
+  // Variantes linguistiques APPROUVÉES de ce modèle (même nom), pour envoyer à
+  // chaque contact le template dans sa langue. Indexées par code langue.
+  const langVariants = new Map<string, string>() // language -> (toujours le même name)
+  if (template) {
+    const { data: variants } = await supabase
+      .from('whatsapp_templates')
+      .select('language, status')
+      .eq('user_id', campaign.user_id)
+      .eq('name', template.name)
+      .eq('status', 'approved')
+    for (const v of variants || []) langVariants.set(v.language, template.name)
   }
 
   // Récupérer l'agent IA si configuré (legacy — utilisé seulement sans template)
@@ -210,7 +223,7 @@ async function executeCampaign(supabase: any, campaign: Campaign): Promise<void>
 
     const { data: contact } = await supabase
       .from('contacts')
-      .select('id, phone_number, name')
+      .select('id, phone_number, name, preferred_language')
       .eq('id', recipient.contact_id)
       .single()
 
@@ -276,7 +289,12 @@ async function executeCampaign(supabase: any, campaign: Campaign): Promise<void>
         const params = Object.values(campaign.template_params || {}).map((v) =>
           String(v).replace(/{contact_name}/g, contact.name || 'Client')
         )
-        return sendCampaignTemplate(session, contact.phone_number, template!.name, template!.language, params)
+        // MULTILINGUE : choisir la langue de la variante selon le contact.
+        // Cascade : langue contact → langue source → 'fr' → langue du modèle.
+        const prefs = [contact.preferred_language, template!.source_language, 'fr', template!.language]
+          .filter((l): l is string => !!l)
+        const lang = prefs.find((l) => langVariants.has(l)) || template!.language
+        return sendCampaignTemplate(session, contact.phone_number, template!.name, lang, params)
       }
       return sendWhatsAppMessage(session, contact.phone_number, message)
     })
