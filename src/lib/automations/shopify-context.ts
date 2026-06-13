@@ -18,13 +18,18 @@ export type ShopifyOrder = {
   total_price?: string
   currency?: string
   cancelled_at?: string | null
+  // Langue de la commande, choisie par le client au checkout (ex: 'fr', 'de-DE').
+  customer_locale?: string | null
   customer?: {
     phone?: string
     email?: string
     first_name?: string
     last_name?: string
     orders_count?: number
+    locale?: string | null
   }
+  shipping_address?: { country_code?: string | null } | null
+  billing_address?: { country_code?: string | null } | null
   fulfillments?: { tracking_url?: string; tracking_number?: string }[]
 }
 
@@ -58,9 +63,16 @@ export async function buildOrderContext(
   const sessionIds = (sessions || []).map((s) => s.id)
   if (sessionIds.length === 0) return null
 
+  // Langue du client : locale Shopify d'abord, sinon pays de livraison/facturation.
+  const { resolveContactLanguage } = await import('@/lib/i18n/contact-language')
+  const lang = resolveContactLanguage({
+    shopifyLocale: order.customer_locale || order.customer?.locale,
+    country: order.shipping_address?.country_code || order.billing_address?.country_code,
+  })
+
   let { data: contact } = await supabase
     .from('contacts')
-    .select('id')
+    .select('id, preferred_language')
     .in('session_id', sessionIds)
     .eq('phone_number', phone)
     .maybeSingle()
@@ -74,10 +86,18 @@ export async function buildOrderContext(
         phone_number: phone,
         name: fullName,
         notify_email: order.customer?.email || null,
+        preferred_language: lang?.language || null,
+        language_source: lang?.source || null,
       })
-      .select('id')
+      .select('id, preferred_language')
       .single()
     contact = created || null
+  } else if (lang && !(contact as { preferred_language?: string | null }).preferred_language) {
+    // Contact existant sans langue → on l'enrichit (Shopify est fiable).
+    await supabase
+      .from('contacts')
+      .update({ preferred_language: lang.language, language_source: lang.source })
+      .eq('id', contact.id)
   }
   if (!contact) return null
 

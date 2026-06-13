@@ -190,6 +190,10 @@ export type Contact = {
   channel_optin_at: string | null
   marketing_consent: boolean
   marketing_consent_at: string | null
+  /** Langue préférée du contact (ISO court : 'fr', 'en', 'es', 'de'…). */
+  preferred_language: string | null
+  /** Origine de la langue : shopify | country | conversation | manual. */
+  language_source: string | null
   created_at: string
   updated_at: string
 }
