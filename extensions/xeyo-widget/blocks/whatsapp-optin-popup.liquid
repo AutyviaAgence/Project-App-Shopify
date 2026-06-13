@@ -17,6 +17,7 @@
   data-exit-intent="{{ block.settings.exit_intent }}"
   data-display-mode="{{ block.settings.display_mode }}"
   data-custom-paths="{{ block.settings.custom_paths | escape }}"
+  data-email="{{ customer.email | default: '' }}"
 >
   <div class="xeyo-pop-card" role="dialog" aria-modal="true" aria-label="Opt-in WhatsApp">
     <button type="button" class="xeyo-pop-close" aria-label="Fermer">&times;</button>
@@ -227,12 +228,15 @@
         msg.className = 'xeyo-pop-msg err'; msg.textContent = 'Numéro invalide.'; return;
       }
       var val = dial + local; // E.164 sans le "+", le serveur ne garde que les chiffres
+      // Email du client connecté (rempli par Liquid) → sert de pont pour relier
+      // un panier abandonné (souvent identifié par email) à ce contact.
+      var custEmail = root.getAttribute('data-email') || '';
       submit.disabled = true;
       msg.className = 'xeyo-pop-msg'; msg.textContent = 'Enregistrement…';
       fetch(proxy + '?shop=' + encodeURIComponent(shop), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: val, marketing: true })
+        body: JSON.stringify({ phone: val, email: custEmail || undefined, marketing: true })
       })
         .then(function (r) { return r.json(); })
         .then(function (res) {

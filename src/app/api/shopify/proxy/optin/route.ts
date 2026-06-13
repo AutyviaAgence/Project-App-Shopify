@@ -49,6 +49,9 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}))
   const phone = String(body.phone || '').replace(/[^0-9]/g, '')
   const name = (body.name as string)?.trim() || null
+  // Email (optionnel) : sert de pont pour relier un panier abandonné (qui n'a
+  // souvent que l'email côté Shopify) au contact opted-in via la popup.
+  const email = (body.email as string)?.trim().toLowerCase() || null
   // L'opt-in page Merci couvre aussi le marketing (case "commande + offres")
   const marketing = body.marketing === true
 
@@ -90,6 +93,7 @@ export async function POST(req: NextRequest) {
         session_id: session.id,
         phone_number: phone,
         name,
+        notify_email: email,
         opt_in_status: 'subscribed',
         opt_in_source: 'shopify_storefront',
         opt_in_at: now,

@@ -22,6 +22,9 @@ export type ShopifyOrder = {
   customer_locale?: string | null
   // Téléphone de la commande (souvent rempli au checkout au lieu de customer.phone).
   phone?: string | null
+  // Email du checkout (toujours présent quand le client saisit ses infos) →
+  // sert à relier un panier abandonné au contact opted-in via la popup.
+  email?: string | null
   customer?: {
     phone?: string | null
     email?: string
@@ -56,6 +59,14 @@ export async function buildOrderContext(
   statusLabel: string
 ): Promise<EventContext | null> {
   const supabase = admin()
+
+  const { data: sessions } = await supabase
+    .from('whatsapp_sessions')
+    .select('id')
+    .eq('user_id', userId)
+  const sessionIds = (sessions || []).map((s) => s.id)
+  if (sessionIds.length === 0) return null
+
   // Le numéro saisi au checkout peut arriver dans plusieurs champs selon Shopify
   // (customer.phone n'est PAS toujours rempli). On les essaie dans l'ordre.
   const rawPhone =
@@ -65,18 +76,29 @@ export async function buildOrderContext(
     || order.billing_address?.phone
     || order.customer?.default_address?.phone
     || null
-  const phone = rawPhone ? rawPhone.replace(/\D/g, '') : ''
-  if (!phone) {
-    console.warn('[shopify-context] aucune commande sans numéro de téléphone exploitable')
-    return null
+  let phone = rawPhone ? rawPhone.replace(/\D/g, '') : ''
+  const email = (order.email || order.customer?.email || '').trim().toLowerCase()
+
+  // CAS PANIER ABANDONNÉ : souvent pas de numéro dans le checkout, mais le client
+  // a donné son numéro via la POPUP d'opt-in. On relie alors par EMAIL : on
+  // cherche un contact opted-in avec cet email et on récupère SON numéro.
+  if (!phone && email) {
+    const { data: byEmail } = await supabase
+      .from('contacts')
+      .select('phone_number')
+      .in('session_id', sessionIds)
+      .or(`notify_email.ilike.${email},email.ilike.${email}`)
+      .not('phone_number', 'is', null)
+      .neq('phone_number', '')
+      .limit(1)
+      .maybeSingle()
+    if (byEmail?.phone_number) phone = byEmail.phone_number.replace(/\D/g, '')
   }
 
-  const { data: sessions } = await supabase
-    .from('whatsapp_sessions')
-    .select('id')
-    .eq('user_id', userId)
-  const sessionIds = (sessions || []).map((s) => s.id)
-  if (sessionIds.length === 0) return null
+  if (!phone) {
+    console.warn('[shopify-context] pas de numéro (ni checkout ni contact opted-in par email) → skip')
+    return null
+  }
 
   // Langue du client : locale Shopify d'abord, sinon pays de livraison/facturation.
   const { resolveContactLanguage } = await import('@/lib/i18n/contact-language')
@@ -100,7 +122,7 @@ export async function buildOrderContext(
         session_id: sessionIds[0],
         phone_number: phone,
         name: fullName,
-        notify_email: order.customer?.email || null,
+        notify_email: order.customer?.email || order.email || null,
         preferred_language: lang?.language || null,
         language_source: lang?.source || null,
       })
