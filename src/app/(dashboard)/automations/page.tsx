@@ -183,6 +183,15 @@ export default function AutomationsPage() {
           >
             <Plus className="h-4 w-4" /> Nouveau workflow
           </button>
+          {/* Entrée fantôme : brouillon en cours de création (pas encore sauvegardé).
+              Donne un retour visuel immédiat au clic sur « + Nouveau workflow ». */}
+          {current && !current.id && (
+            <div className="mb-1 flex items-center gap-2 rounded-lg border border-dashed border-primary/50 bg-primary/5 px-3 py-2 text-sm text-primary">
+              <span className="h-2 w-2 shrink-0 rounded-full bg-primary/40" />
+              <span className="flex-1 truncate italic">{nameDraft.trim() || 'Nouveau workflow'}</span>
+              <span className="text-[10px] uppercase tracking-wide text-primary/60">brouillon</span>
+            </div>
+          )}
           {automations.map((a) => (
             <div
               key={a.id}
@@ -198,7 +207,7 @@ export default function AutomationsPage() {
               </button>
             </div>
           ))}
-          {automations.length === 0 && (
+          {automations.length === 0 && !(current && !current.id) && (
             <p className="px-3 py-6 text-center text-xs text-muted-foreground">Aucun workflow. Créez le premier.</p>
           )}
         </aside>
