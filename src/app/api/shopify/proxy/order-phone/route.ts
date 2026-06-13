@@ -63,26 +63,55 @@ export async function GET(req: NextRequest) {
   const FIELDS = `phone shippingAddress { phone } billingAddress { phone } customer { phone defaultPhoneNumber { phoneNumber } }`
 
   let o: OrderNode | undefined
+  const tried: string[] = []
 
-  // 1) Le plus fiable : par ID direct (depuis orderConfirmation.order.id)
+  // 1) Par ID Order direct. ATTENTION : le gid reçu est souvent un
+  // `OrderIdentity` (Customer Account API) dont l'ID numérique == l'ID Order.
+  // On tente donc gid://shopify/Order/{numericId}.
   if (numericId) {
     const r = await shopifyGraphQL<{ order: OrderNode | null }>(
       store.shop_domain, token,
       `query($id: ID!) { order(id: $id) { ${FIELDS} } }`,
       { id: `gid://shopify/Order/${numericId}` }
     )
+    tried.push(`order-by-id:${r.ok ? (r.data.order ? 'found' : 'null') : 'err'}`)
     if (r.ok && r.data.order) o = r.data.order
   }
 
-  // 2) Fallback : recherche par numéro de confirmation ou name
+  // 2) Fallback : recherche par numéro de confirmation.
   if (!o && orderNumber) {
     const r = await shopifyGraphQL<{ orders: { nodes: OrderNode[] } }>(
       store.shop_domain, token,
       `query($q: String!) { orders(first: 1, query: $q) { nodes { ${FIELDS} } } }`,
-      { q: `confirmation_number:${orderNumber} OR name:${orderNumber} OR name:#${orderNumber}` }
+      { q: `confirmation_number:${orderNumber}` }
     )
+    tried.push(`by-confirmation:${r.ok ? (r.data.orders.nodes[0] ? 'found' : 'null') : 'err'}`)
     if (r.ok) o = r.data.orders.nodes[0]
   }
+
+  // 3) Fallback : par name (#1001) — utile si l'extension passe un order_number.
+  if (!o && orderNumber) {
+    const r = await shopifyGraphQL<{ orders: { nodes: OrderNode[] } }>(
+      store.shop_domain, token,
+      `query($q: String!) { orders(first: 1, query: $q) { nodes { ${FIELDS} } } }`,
+      { q: `name:${orderNumber} OR name:#${orderNumber}` }
+    )
+    tried.push(`by-name:${r.ok ? (r.data.orders.nodes[0] ? 'found' : 'null') : 'err'}`)
+    if (r.ok) o = r.data.orders.nodes[0]
+  }
+
+  // 4) Dernier recours : la commande la plus récente de la boutique (la commande
+  // vient d'être passée → c'est presque toujours la bonne sur la page Merci).
+  if (!o) {
+    const r = await shopifyGraphQL<{ orders: { nodes: OrderNode[] } }>(
+      store.shop_domain, token,
+      `query { orders(first: 1, sortKey: CREATED_AT, reverse: true) { nodes { ${FIELDS} } } }`,
+      {}
+    )
+    tried.push(`latest:${r.ok ? (r.data.orders.nodes[0] ? 'found' : 'null') : 'err'}`)
+    if (r.ok) o = r.data.orders.nodes[0]
+  }
+
   const phone = (
     o?.phone ||
     o?.shippingAddress?.phone ||
@@ -92,5 +121,6 @@ export async function GET(req: NextRequest) {
     null
   )
 
-  return NextResponse.json({ phone }, { headers: { ...CORS, 'Cache-Control': 'private, max-age=30' } })
+  // `tried` aide à diagnostiquer côté console quel chemin a résolu (ou non).
+  return NextResponse.json({ phone, tried }, { headers: { ...CORS, 'Cache-Control': 'private, max-age=15' } })
 }
