@@ -22,12 +22,24 @@ export async function enqueueAutomations(params: {
 }): Promise<{ queued: number }> {
   const supabase = admin()
 
-  const { data: automations } = await supabase
+  const { data: automationsRaw } = await supabase
     .from('automations')
-    .select('id, delay_minutes, builder_mode')
+    .select('id, delay_minutes, builder_mode, trigger_button_text')
     .eq('user_id', params.userId)
     .eq('trigger_event', params.event)
     .eq('is_active', true)
+
+  let automations = automationsRaw
+  // button_clicked : ne garder que les automations dont le libellé de bouton
+  // correspond (comparaison insensible casse/espaces). trigger_button_text NULL
+  // = "n'importe quel bouton".
+  if (params.event === 'button_clicked') {
+    const norm = (s?: string | null) => (s || '').trim().toLowerCase()
+    const clicked = norm(params.ctx.buttonTitle)
+    automations = (automationsRaw || []).filter(
+      (a) => !a.trigger_button_text || norm(a.trigger_button_text) === clicked
+    )
+  }
 
   if (!automations || automations.length === 0) return { queued: 0 }
 

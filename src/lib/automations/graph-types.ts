@@ -34,6 +34,7 @@ export type TriggerNode = {
   // Paramètres des triggers temporels :
   inactivityHours?: number   // no_customer_reply : délai sans réponse
   scheduledAt?: string       // scheduled_date : date/heure ISO
+  buttonText?: string        // button_clicked : libellé du bouton qui déclenche
 }
 export type DelayNode = { id: string; type: 'delay'; minutes: number }
 export type ConditionNode = { id: string; type: 'condition'; rule: ConditionRule; label?: string }

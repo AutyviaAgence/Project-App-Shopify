@@ -15,6 +15,7 @@ export type TriggerEvent =
   | 'no_customer_reply'
   | 'scheduled_date'
   | 'customer_birthday'
+  | 'button_clicked'
 
 export const TRIGGER_EVENTS: { value: TriggerEvent; label: string; description: string; group: string }[] = [
   // Commande
@@ -25,6 +26,7 @@ export const TRIGGER_EVENTS: { value: TriggerEvent; label: string; description: 
   { value: 'refund_created', label: 'Remboursement', description: 'Quand un remboursement est émis.', group: 'Commande' },
   { value: 'checkout_abandoned', label: 'Panier abandonné', description: 'Paiement non finalisé après un délai.', group: 'Commande' },
   // Conversation / temps
+  { value: 'button_clicked', label: 'Clic sur un bouton', description: 'Le client clique sur un bouton « réponse rapide » d’un message (ex : « Suivre ma commande »).', group: 'Conversation' },
   { value: 'no_customer_reply', label: 'Pas de réponse client', description: 'Le client n’a pas répondu depuis un certain temps (relance SAV).', group: 'Conversation' },
   { value: 'scheduled_date', label: 'Date précise', description: 'À une date/heure choisie (campagne planifiée).', group: 'Planifié' },
   { value: 'customer_birthday', label: 'Anniversaire client', description: 'Le jour de l’anniversaire du client (si connu).', group: 'Planifié' },
@@ -66,6 +68,9 @@ export type EventContext = {
   collections?: string[]       // collections des produits
   country?: string             // code ISO du pays (ex: FR)
   language?: string            // langue du client (ex: fr)
+  // button_clicked : texte du bouton cliqué (Meta ne renvoie pas de payload
+  // custom pour les quick-reply → on matche sur le libellé).
+  buttonTitle?: string
   // Données par clé nommée pour résoudre les variables du template
   variables: Record<string, string>
   // Clé d'idempotence (ex: `${event}:${orderId}`)

@@ -163,6 +163,19 @@ function TriggerBlock({ node, onPatch }: { node: WorkflowNode; onPatch: (id: str
           Envoyé le jour de l’anniversaire (si la date est connue dans la fiche du client).
         </p>
       )}
+      {node.event === 'button_clicked' && (
+        <div className="mt-2">
+          <p className="mb-1 text-xs text-muted-foreground">Libellé du bouton (laisser vide = tout bouton)</p>
+          <Input
+            placeholder="Ex : Suivre ma commande"
+            value={node.buttonText ?? ''}
+            onChange={(e) => onPatch(node.id, { buttonText: e.target.value } as never)}
+          />
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Se déclenche quand le client clique sur un bouton « réponse rapide » portant ce texte.
+          </p>
+        </div>
+      )}
     </div>
   )
 }

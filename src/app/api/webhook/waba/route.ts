@@ -178,11 +178,31 @@ export async function POST(req: NextRequest) {
             let transcriptionText: string | null = null
             let storagePath: string | null = null
             let mediaMimeType: string | null = null
+            // Clic sur un bouton "réponse rapide" (quick reply) : Meta n'envoie
+            // pas de payload custom → on récupère le LIBELLÉ du bouton cliqué.
+            let clickedButtonTitle: string | null = null
 
             const mediaTypes = ['image', 'audio', 'video', 'document', 'sticker'] as const
             if (msg.type === 'text') {
               content = msg.text?.body || ''
               messageType = 'text'
+            } else if (msg.type === 'interactive' || msg.type === 'button') {
+              // Deux formes possibles selon que le bouton vient d'un message
+              // interactif ou d'un template :
+              //   interactive.button_reply.title  (boutons interactifs)
+              //   button.text                      (boutons de template / quick reply)
+              const mAny = msg as unknown as {
+                interactive?: { button_reply?: { title?: string; id?: string }; list_reply?: { title?: string; id?: string } }
+                button?: { text?: string; payload?: string }
+              }
+              clickedButtonTitle =
+                mAny.interactive?.button_reply?.title
+                || mAny.interactive?.list_reply?.title
+                || mAny.button?.text
+                || mAny.button?.payload
+                || null
+              content = clickedButtonTitle || '[bouton]'
+              messageType = 'text' // stocké comme texte (le libellé) pour l'inbox
             } else if (mediaTypes.includes(msg.type as typeof mediaTypes[number])) {
               messageType = msg.type as typeof mediaTypes[number]
               const mediaObj = msg[msg.type as keyof typeof msg] as { id?: string; caption?: string; filename?: string } | undefined
@@ -416,6 +436,31 @@ export async function POST(req: NextRequest) {
                 analyzeConversationLifecycle(conversation.id, session.user_id).catch((err) =>
                   console.error('[WABA Webhook] Lifecycle analysis error:', err)
                 )
+              }
+            }
+
+            // 3c. Clic sur un bouton → déclenche les automations "button_clicked"
+            // (libellé du bouton = filtre). Non-bloquant.
+            if (clickedButtonTitle && session.user_id) {
+              try {
+                const { enqueueAutomations } = await import('@/lib/automations/engine')
+                await enqueueAutomations({
+                  userId: session.user_id,
+                  event: 'button_clicked',
+                  ctx: {
+                    contactId: contact.id,
+                    buttonTitle: clickedButtonTitle,
+                    variables: {
+                      button_title: clickedButtonTitle,
+                      customer_first_name: (contact.name || '').split(' ')[0] || '',
+                      customer_full_name: contact.name || '',
+                    },
+                    // idempotence : un même clic (wa_message_id) ne déclenche qu'une fois
+                    dedupKey: waMessageId || undefined,
+                  },
+                })
+              } catch (err) {
+                console.error('[WABA Webhook] button_clicked enqueue error:', err)
               }
             }
 

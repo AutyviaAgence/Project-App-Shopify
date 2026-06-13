@@ -10,7 +10,7 @@ export async function GET() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase as any)
     .from('automations')
-    .select('id, name, trigger_event, template_id, delay_minutes, quiet_start, quiet_end, timezone, conditions, is_active, graph, builder_mode, created_at, updated_at')
+    .select('id, name, trigger_event, trigger_button_text, template_id, delay_minutes, quiet_start, quiet_end, timezone, conditions, is_active, graph, builder_mode, created_at, updated_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
 
@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
       user_id: user.id,
       name: body.name.trim(),
       trigger_event: body.trigger_event,
+      trigger_button_text: body.trigger_event === 'button_clicked' ? (body.trigger_button_text?.trim() || null) : null,
       template_id: body.template_id || null,
       delay_minutes: Math.max(0, parseInt(body.delay_minutes, 10) || 0),
       quiet_start: body.quiet_start ?? null,

@@ -37,6 +37,8 @@ export const TEMPLATE_VARIABLES: TemplateVariable[] = [
   // Boutique
   { key: 'store_name', label: 'Nom de la boutique', group: 'Boutique', sample: 'Ma Boutique' },
   { key: 'promo_code', label: 'Code promo', group: 'Boutique', sample: 'PROMO10' },
+  // Interaction (clic de bouton)
+  { key: 'button_title', label: 'Bouton cliqué', group: 'Boutique', sample: 'Suivre ma commande' },
 ]
 
 export const VARIABLE_BY_KEY: Record<string, TemplateVariable> = Object.fromEntries(
