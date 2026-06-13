@@ -20,6 +20,9 @@ export type DefaultTemplate = {
   body_text: string
   footer_text?: string
   sample_values: string[]
+  /** Clés des variables nommées, ordre = numéro ({{1}} = variable_keys[0]).
+      Indispensable pour que l'envoi résolve les variables (sinon Meta 131008). */
+  variable_keys: string[]
   /** libellé lisible pour l'UI */
   label: string
   description: string
@@ -37,6 +40,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
     body_text: 'Bonjour {{1}}, votre commande {{2}} est bien confirmée. Merci pour votre confiance !',
     footer_text: 'Répondez STOP pour vous désinscrire',
     sample_values: ['Marie', '#1024'],
+    variable_keys: ['customer_first_name', 'order_number'],
   },
   {
     key: 'order_shipped',
@@ -49,6 +53,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
     body_text: 'Bonjour {{1}}, votre commande {{2}} vient d\'être expédiée. Suivez votre colis ici : {{3}} — merci pour votre confiance !',
     footer_text: 'Répondez STOP pour vous désinscrire',
     sample_values: ['Marie', '#1024', 'https://suivi.exemple.com/1024'],
+    variable_keys: ['customer_first_name', 'order_number', 'tracking_url'],
   },
   {
     key: 'order_delivered',
@@ -60,6 +65,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
     body_text: 'Bonjour {{1}}, votre commande {{2}} a été livrée. Tout s\'est bien passé ? N\'hésitez pas à nous écrire si besoin !',
     footer_text: 'Répondez STOP pour vous désinscrire',
     sample_values: ['Marie', '#1024'],
+    variable_keys: ['customer_first_name', 'order_number'],
   },
   {
     key: 'abandoned_cart',
@@ -71,6 +77,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
     body_text: 'Bonjour {{1}}, vous avez laissé des articles dans votre panier. Ils vous attendent toujours ! Finalisez votre commande ici : {{2}} — à très vite !',
     footer_text: 'Répondez STOP pour vous désinscrire',
     sample_values: ['Marie', 'https://boutique.exemple.com/panier'],
+    variable_keys: ['customer_first_name', 'cart_url'],
   },
   {
     key: 'review_request',
@@ -82,6 +89,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
     body_text: 'Bonjour {{1}}, avez-vous apprécié votre commande ? Votre avis compte beaucoup pour nous : {{2}}. Merci d\'avance pour votre retour !',
     footer_text: 'Répondez STOP pour vous désinscrire',
     sample_values: ['Marie', 'https://avis.exemple.com'],
+    variable_keys: ['customer_first_name', 'review_url'],
   },
   {
     key: 'return_received',
@@ -93,5 +101,6 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
     body_text: 'Bonjour {{1}}, nous avons bien reçu votre demande de retour pour la commande {{2}}. Un conseiller revient vers vous sous 24h.',
     footer_text: 'Répondez STOP pour vous désinscrire',
     sample_values: ['Marie', '#1024'],
+    variable_keys: ['customer_first_name', 'order_number'],
   },
 ]

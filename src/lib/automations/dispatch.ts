@@ -56,11 +56,27 @@ export async function sendTemplateToContact(params: {
   if (!token) return { ok: false, error: 'no_token' }
 
   // Résolution des variables nommées dans l'ordre.
-  const keys = Array.isArray(tpl.variable_keys) ? tpl.variable_keys : []
+  let keys = Array.isArray(tpl.variable_keys) ? tpl.variable_keys : []
+  // Fallback : ancien template par défaut sans variable_keys (seed historique) →
+  // on récupère le mapping depuis la bibliothèque par défaut (par nom). Évite
+  // l'erreur Meta 131008 "Required parameter is missing".
+  if (keys.length === 0) {
+    const { DEFAULT_TEMPLATES } = await import('@/lib/whatsapp-cloud/default-templates')
+    const def = DEFAULT_TEMPLATES.find((d) => d.name === tpl.name)
+    if (def?.variable_keys?.length) keys = def.variable_keys
+  }
   const varsCount = typeof tpl.variables_count === 'number' ? tpl.variables_count : keys.length
   const resolved = resolveVariables(keys, params.variables)
-  const out = resolved.slice(0, varsCount)
-  while (out.length < varsCount) out.push('')
+  // Valeur de secours par variable VIDE : Meta refuse les paramètres vides
+  // (#131008). Ex : prénom inconnu (client opt-in popup sans nom) → « bonjour ».
+  const fallbackFor = (key: string | undefined): string => {
+    if (!key) return '—'
+    if (/first_name|full_name|last_name|name/.test(key)) return 'cher client'
+    if (/url|link/.test(key)) return ''  // une URL vide casserait un bouton → géré ailleurs
+    return '—'
+  }
+  const out = resolved.slice(0, varsCount).map((v, i) => (v && v.trim() ? v : fallbackFor(keys[i])))
+  while (out.length < varsCount) out.push(fallbackFor(keys[out.length]))
   const components: unknown[] = out.length > 0
     ? [{ type: 'body', parameters: out.map((p) => ({ type: 'text', text: p })) }]
     : []

@@ -34,6 +34,7 @@ export async function POST() {
       footer_text: t.footer_text || null,
       variables_count: t.sample_values.length,
       sample_values: t.sample_values,
+      variable_keys: t.variable_keys,
       status: 'draft' as const,
     }))
 
