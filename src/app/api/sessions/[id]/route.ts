@@ -27,13 +27,19 @@ export async function PATCH(
   }
 
   const body = await req.json()
-  const { display_name, daily_ai_message_limit, ai_message_delay } = body as {
+  const { display_name, daily_ai_message_limit, ai_message_delay, waba_catalog_id } = body as {
     display_name?: string | null
     daily_ai_message_limit?: number | null
     ai_message_delay?: number | null
+    waba_catalog_id?: string | null
   }
 
   const updateData: Record<string, unknown> = {}
+
+  // Catalogue Meta (Multi-Product Message)
+  if (waba_catalog_id !== undefined) {
+    updateData.waba_catalog_id = waba_catalog_id?.trim() || null
+  }
 
   // Gestion du nom d'affichage
   if (display_name !== undefined) {

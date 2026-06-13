@@ -203,6 +203,18 @@ export async function POST(req: NextRequest) {
                 || null
               content = clickedButtonTitle || '[bouton]'
               messageType = 'text' // stocké comme texte (le libellé) pour l'inbox
+            } else if (msg.type === 'order') {
+              // Panier WhatsApp : le client a ajouté des produits du catalogue et
+              // envoyé une "commande" (pas encore payée). On résume le panier.
+              const order = (msg as unknown as {
+                order?: { catalog_id?: string; text?: string; product_items?: { product_retailer_id: string; quantity: number; item_price: number; currency: string }[] }
+              }).order
+              const items = order?.product_items || []
+              const total = items.reduce((s, it) => s + (it.item_price || 0) * (it.quantity || 0), 0)
+              const currency = items[0]?.currency || ''
+              const lines = items.map((it) => `• ${it.quantity}× ${it.product_retailer_id} (${it.item_price} ${it.currency})`)
+              content = `🛒 Panier WhatsApp (${items.length} article${items.length > 1 ? 's' : ''}, ${total.toFixed(2)} ${currency})\n${lines.join('\n')}${order?.text ? `\nNote: ${order.text}` : ''}`
+              messageType = 'text'
             } else if (mediaTypes.includes(msg.type as typeof mediaTypes[number])) {
               messageType = msg.type as typeof mediaTypes[number]
               const mediaObj = msg[msg.type as keyof typeof msg] as { id?: string; caption?: string; filename?: string } | undefined
