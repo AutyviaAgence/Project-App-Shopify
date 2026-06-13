@@ -24,6 +24,7 @@ import { Plus, Loader2, Trash2, Send, RefreshCw, FileText, Sparkles, Bold, Itali
 import { cn } from '@/lib/utils'
 import { BlobLoaderScreen } from '@/components/blob-loader'
 import { TEMPLATE_VARIABLES, VARIABLE_BY_KEY, VARIABLE_GROUPS } from '@/lib/templates/variables'
+import { TEMPLATE_LANGUAGES, TEMPLATE_LANGUAGE_LABELS } from '@/lib/i18n/contact-language'
 
 const STATUS_STYLE: Record<string, { label: string; cls: string }> = {
   draft: { label: 'Brouillon', cls: 'bg-muted text-muted-foreground' },
@@ -51,11 +52,7 @@ const CATEGORIES = [
   { value: 'AUTHENTICATION', label: 'Authentification' },
 ]
 
-const LANGUAGES = [
-  { value: 'fr', label: 'Français' },
-  { value: 'en', label: 'Anglais' },
-  { value: 'es', label: 'Espagnol' },
-]
+const LANGUAGES = TEMPLATE_LANGUAGES.map((v) => ({ value: v, label: TEMPLATE_LANGUAGE_LABELS[v] || v }))
 
 /**
  * Rend le formatage WhatsApp (*gras*, _italique_, ~barré~) en vrai style dans
@@ -311,6 +308,23 @@ export default function TemplatesPage() {
     setMode('edit')
   }
 
+  // Switch de langue : si une variante (même nom) existe déjà dans la langue
+  // choisie, on l'ouvre. Sinon on bascule juste le champ langue (création, ou
+  // langue pas encore traduite — sera générée à l'enregistrement de la source).
+  function switchLanguage(lang: string) {
+    if (lang === language) return
+    if (editing) {
+      const sibling = templates.find((t) => t.name === editing.name && t.language === lang)
+      if (sibling) { openEdit(sibling); return }
+    }
+    setLanguage(lang)
+  }
+
+  // Langues déjà créées pour le modèle en cours d'édition (pour le sélecteur).
+  const existingLangs = editing
+    ? templates.filter((t) => t.name === editing.name).map((t) => t.language)
+    : [language]
+
   // Le formulaire diffère-t-il du template chargé ? (pour avertir avant de repasser en brouillon)
   const isDirty = !!editing && (
     name !== editing.name ||
@@ -396,6 +410,30 @@ export default function TemplatesPage() {
       const wasSubmitted = editing && editing.status !== 'draft'
       const nowDraft = saved?.status === 'draft'
       const nowModified = saved?.status === 'approved' && saved?.has_pending_changes
+
+      // MULTILINGUE : on ne génère les traductions QUE pour la langue source.
+      // - création (pas de `editing`) → la langue tapée devient la source
+      // - édition d'une ligne qui EST sa propre langue source
+      // On ne (re)traduit pas en éditant une langue auto-traduite ou non-source.
+      const isSourceSave = saved && (
+        !editing || (editing.source_language ? editing.source_language === saved.language : true)
+      ) && !saved.is_auto_translated
+      let translateMsg = ''
+      if (isSourceSave && saved?.id) {
+        const tId = toast.loading('Traduction dans les autres langues…')
+        try {
+          const tr = await fetch('/api/templates/translate', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ source_template_id: saved.id }),
+          })
+          const tj = await tr.json().catch(() => ({}))
+          if (tr.ok && Array.isArray(tj.created) && tj.created.length > 0) {
+            translateMsg = ` Traduit en ${tj.created.join(', ').toUpperCase()}.`
+          }
+        } catch { /* non bloquant : la langue source est sauvée */ }
+        finally { toast.dismiss(tId) }
+      }
+
       await fetchTemplates()
       // Reste en mode édition sur le modèle (re)sauvegardé pour un flux maître-détail fluide.
       if (saved?.id) { setEditing(saved); setSelectedId(saved.id) }
@@ -404,7 +442,7 @@ export default function TemplatesPage() {
       } else if (wasSubmitted && nowDraft) {
         toast.success('Modèle modifié — repassé en brouillon. Resoumettez-le à Meta pour activer les changements.', { duration: 6000 })
       } else {
-        toast.success(editing ? 'Modèle modifié' : 'Modèle créé')
+        toast.success((editing ? 'Modèle modifié' : 'Modèle créé') + translateMsg, translateMsg ? { duration: 5000 } : undefined)
       }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erreur')
@@ -468,6 +506,27 @@ export default function TemplatesPage() {
   // Le formulaire d'édition est intégré dans la colonne de droite (layout maître-détail).
   const showForm = mode === 'edit'
 
+  // Groupement par NOM : un modèle = N langues (lignes séparées). La liste de
+  // gauche affiche UNE entrée par nom (pas 5). Statut agrégé = "pire-cas".
+  const STATUS_RANK: Record<string, number> = { rejected: 0, draft: 1, modified: 2, pending: 3, approved: 4 }
+  const groups = Object.values(
+    templates.reduce((acc, t) => {
+      (acc[t.name] ||= []).push(t)
+      return acc
+    }, {} as Record<string, WhatsAppTemplate[]>)
+  ).map((rows) => {
+    // Ligne "principale" = la langue source si connue, sinon 'fr', sinon la 1re.
+    const src = rows.find((r) => r.source_language && r.language === r.source_language)
+    const main = src || rows.find((r) => r.language === 'fr') || rows[0]
+    // Statut affiché = le plus faible (si une langue est en draft, le groupe l'est).
+    const worst = rows.reduce((w, r) => {
+      const s = effectiveStatus(r)
+      return STATUS_RANK[s] < STATUS_RANK[effectiveStatus(w)] ? r : w
+    }, rows[0])
+    const langs = rows.map((r) => r.language)
+    return { name: main.name, rows, main, worst, langs }
+  })
+
   return (
     <div className="flex h-full flex-col p-4 md:p-6 gap-4">
       <div className="flex items-center justify-between gap-2">
@@ -503,26 +562,49 @@ export default function TemplatesPage() {
         </div>
       ) : (
         <div className="grid flex-1 min-h-0 gap-4 md:grid-cols-[320px_1fr]">
-          {/* Sidebar gauche : liste des modèles */}
+          {/* Sidebar gauche : un modèle = une entrée (toutes langues regroupées) */}
           <div className="space-y-1.5 overflow-y-auto rounded-xl border p-2">
-            {templates.map((t) => {
-              const st = STATUS_STYLE[effectiveStatus(t)] || STATUS_STYLE.draft
-              const active = selectedTemplate?.id === t.id
+            {groups.map((g) => {
+              const st = STATUS_STYLE[effectiveStatus(g.worst)] || STATUS_STYLE.draft
+              const active = !!selectedTemplate && g.rows.some((r) => r.id === selectedTemplate.id)
+              // Au clic : ouvrir la variante de la langue déjà sélectionnée si ce
+              // groupe la possède, sinon sa langue principale.
+              const openLang = g.rows.find((r) => r.language === language) || g.main
               return (
                 <button
-                  key={t.id}
-                  onClick={() => openEdit(t)}
+                  key={g.name}
+                  onClick={() => openEdit(openLang)}
                   className={cn(
                     'w-full rounded-lg border px-3 py-2.5 text-left transition-colors',
                     active ? 'border-primary bg-primary/5' : 'border-transparent hover:bg-muted/50'
                   )}
                 >
                   <div className="flex items-center gap-2">
-                    <code className="truncate text-sm font-medium">{t.name}</code>
+                    <code className="truncate text-sm font-medium">{g.name}</code>
                     <span className={cn('ml-auto shrink-0 rounded-full px-1.5 py-0.5 text-[10px]', st.cls)}>{st.label}</span>
                   </div>
-                  <div className="mt-0.5 truncate text-xs text-muted-foreground">{t.body_text}</div>
-                  <div className="mt-0.5 text-[10px] uppercase text-muted-foreground/70">{t.language} · {t.category}</div>
+                  <div className="mt-0.5 truncate text-xs text-muted-foreground">{g.main.body_text}</div>
+                  <div className="mt-1 flex flex-wrap items-center gap-1">
+                    {TEMPLATE_LANGUAGES.filter((l) => g.langs.includes(l)).map((l) => {
+                      const row = g.rows.find((r) => r.language === l)!
+                      const rs = effectiveStatus(row)
+                      return (
+                        <span
+                          key={l}
+                          title={`${TEMPLATE_LANGUAGE_LABELS[l] || l} · ${(STATUS_STYLE[rs] || STATUS_STYLE.draft).label}`}
+                          className={cn(
+                            'rounded px-1 py-0.5 text-[9px] font-semibold uppercase',
+                            rs === 'approved' ? 'bg-green-500/15 text-green-600'
+                              : rs === 'pending' ? 'bg-amber-500/15 text-amber-600'
+                              : rs === 'rejected' ? 'bg-red-500/15 text-red-600'
+                              : 'bg-muted text-muted-foreground'
+                          )}
+                        >
+                          {l}
+                        </span>
+                      )
+                    })}
+                  </div>
                 </button>
               )
             })}
@@ -604,10 +686,20 @@ export default function TemplatesPage() {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label>Langue</Label>
-                <Select value={language} onValueChange={setLanguage}>
+                <Select value={language} onValueChange={switchLanguage}>
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{LANGUAGES.map(l => <SelectItem key={l.value} value={l.value}>{l.label}</SelectItem>)}</SelectContent>
+                  <SelectContent>{LANGUAGES.map(l => (
+                    <SelectItem key={l.value} value={l.value}>
+                      {l.label}{existingLangs.includes(l.value) ? '' : ' — à traduire'}
+                    </SelectItem>
+                  ))}</SelectContent>
                 </Select>
+                {editing?.source_language && editing.language === editing.source_language && (
+                  <p className="text-[11px] text-muted-foreground">Langue source (les autres en sont traduites).</p>
+                )}
+                {editing?.is_auto_translated && (
+                  <p className="text-[11px] text-amber-600">Traduit automatiquement — modifiez librement.</p>
+                )}
               </div>
               <div className="space-y-1.5">
                 <Label>Catégorie</Label>
