@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react'
 import type { WhatsAppTemplate, TemplateButton, TemplateCard } from '@/types/database'
 import { CarouselEditor, CarouselPreview } from './_components/carousel-editor'
+import { VariableTextarea, type VariableTextareaHandle } from './_components/variable-textarea'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -99,7 +100,7 @@ export default function TemplatesPage() {
   const [ltoTitle, setLtoTitle] = useState('')
   const [ltoHours, setLtoHours] = useState(24)
   const [saving, setSaving] = useState(false)
-  const bodyRef = useRef<HTMLTextAreaElement>(null)
+  const bodyRef = useRef<VariableTextareaHandle>(null)
   const mediaInputRef = useRef<HTMLInputElement>(null)
 
   // Formats acceptés par type d'en-tête (limites Meta).
@@ -702,10 +703,15 @@ export default function TemplatesPage() {
             )}
             <div className="space-y-1.5">
               <Label>{templateType === 'carousel' ? 'Message d’introduction' : 'Message'} <span className="text-destructive">*</span></Label>
-              <Textarea ref={bodyRef} value={bodyText}
-                onChange={(e) => { setBodyText(e.target.value); setVariableKeys((prev) => syncVariableKeys(e.target.value, prev)) }}
+              <VariableTextarea
+                ref={bodyRef}
+                value={bodyText}
+                onChange={(v) => { setBodyText(v); setVariableKeys((prev) => syncVariableKeys(v, prev)) }}
+                labels={variableKeys.map((k) => VARIABLE_BY_KEY[k]?.label || k)}
                 rows={5}
-                placeholder={'Bonjour {{1}}, votre commande #{{2}} est confirmée ! Livraison prévue le {{3}}.'} />
+                maxLength={1024}
+                placeholder={'Bonjour {{1}}, votre commande #{{2}} est confirmée ! Livraison prévue le {{3}}.'}
+              />
               {/* Barre d'outils : formatage WhatsApp + variable */}
               <div className="flex items-center justify-between">
                 <span className="text-[11px] text-muted-foreground">{bodyText.length}/1024</span>
