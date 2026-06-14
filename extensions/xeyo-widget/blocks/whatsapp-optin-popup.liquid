@@ -12,6 +12,7 @@
   class="xeyo-pop"
   style="--xeyo-pop-color: {{ block.settings.accent_color }};"
   data-proxy="/apps/xeyo/optin"
+  data-direct="https://app.xeyo.io/api/shopify/proxy/optin"
   data-shop="{{ shop.permanent_domain }}"
   data-delay="{{ block.settings.delay_seconds }}"
   data-exit-intent="{{ block.settings.exit_intent }}"
@@ -290,36 +291,77 @@
 
     // ── RELANCE PANIER AU DÉPART (le vrai déclencheur) ──────────────────────
     // Le signal d'abandon, c'est le client qui QUITTE la page avec un panier non
-    // vide après avoir donné son numéro. On envoie alors un "beacon" (survit à la
-    // fermeture de page, contrairement à fetch). Le serveur dédoublonne par
-    // contact + tranche de temps, donc déclencher ici en plus de l'opt-in est sûr.
+    // vide après avoir donné son numéro. On envoie un "beacon" (survit à la
+    // fermeture de page). Le serveur dédoublonne par contact + tranche de temps.
+    //
+    // Pour ne pas dépendre du poll (15s) au moment du départ, on garde le panier
+    // à jour en continu : poll rapproché (5s) + écoute des ajouts au panier
+    // (Shopify ne déclenche pas d'event standard fiable, donc on intercepte les
+    // appels /cart/add via fetch). On stocke aussi le panier dans une copie
+    // "dernière connue" utilisée par le beacon (lecture synchrone garantie).
+    var lastCartUrl = null;
+    var lastCartTotal = null;
+    var lastCartHasItems = false;
+    function snapshotCart() {
+      lastCartUrl = cartUrl;
+      lastCartTotal = cartTotal;
+      lastCartHasItems = cartHasItems;
+    }
+    // Poll plus rapproché pour le panier (en plus du poll 15s existant).
+    var fastPoll = setInterval(function () { refreshCart(snapshotCart); }, 5000);
+    refreshCart(snapshotCart);
+
+    // Intercepte les ajouts au panier (POST /cart/add) pour rafraîchir aussitôt.
+    try {
+      var _fetch = window.fetch;
+      window.fetch = function () {
+        var u = arguments[0];
+        var p = _fetch.apply(this, arguments);
+        try {
+          var url = (typeof u === 'string') ? u : (u && u.url) || '';
+          if (/\/cart\/(add|change|update|clear)/i.test(url)) {
+            p.then(function () { setTimeout(function () { refreshCart(snapshotCart); }, 300); });
+          }
+        } catch (e) {}
+        return p;
+      };
+    } catch (e) {}
+
     var exitArmed = false;
     function armCartRecoveryOnExit() {
-      if (exitArmed || !optedInPhone || !cartHasItems) return;
+      var hasItems = lastCartHasItems || cartHasItems;
+      var theUrl = lastCartUrl || cartUrl;
+      if (exitArmed) return;
+      if (!optedInPhone) { try { console.log('[Xeyo opt-in] départ ignoré : pas de numéro opt-in'); } catch (e) {} return; }
+      if (!hasItems) { try { console.log('[Xeyo opt-in] départ ignoré : panier vide'); } catch (e) {} return; }
       exitArmed = true; // une seule fois par page
       var payload = {
         phone: optedInPhone,
         email: root.getAttribute('data-email') || undefined,
         marketing: true,
-        cart_url: cartUrl,
-        cart_total: cartTotal != null ? cartTotal : undefined,
-        source: 'exit' // info de debug côté serveur
+        cart_url: theUrl,
+        cart_total: (lastCartTotal != null ? lastCartTotal : cartTotal),
+        source: 'exit'
       };
       try { console.log('[Xeyo opt-in] beacon panier (départ)', payload); } catch (e) {}
-      var url = proxy + '?shop=' + encodeURIComponent(shop);
+      // IMPORTANT : on vise l'URL DIRECTE (app.xeyo.io), pas le proxy Shopify
+      // relatif. Le proxy fait une redirection, or sendBeacon pendant un
+      // déchargement de page abandonne les requêtes redirigées → échec silencieux.
+      var url = (root.getAttribute('data-direct') || (proxy)) + '?shop=' + encodeURIComponent(shop);
+      var bodyStr = JSON.stringify(payload);
+      // sendBeacon en text/plain (Content-Type CORS-safe → plus fiable). Le
+      // serveur parse le JSON quel que soit le Content-Type.
       try {
-        var blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+        var blob = new Blob([bodyStr], { type: 'text/plain;charset=UTF-8' });
         if (navigator.sendBeacon && navigator.sendBeacon(url, blob)) return;
       } catch (e) {}
-      // Repli si sendBeacon indisponible : fetch keepalive.
       try {
         fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload), keepalive: true });
+          body: bodyStr, keepalive: true });
       } catch (e) {}
     }
-    // pagehide couvre la fermeture/navigation ; visibilitychange (hidden) couvre
-    // le passage en arrière-plan sur mobile (bascule d'app).
     window.addEventListener('pagehide', armCartRecoveryOnExit);
+    window.addEventListener('beforeunload', armCartRecoveryOnExit);
     document.addEventListener('visibilitychange', function () {
       if (document.visibilityState === 'hidden') armCartRecoveryOnExit();
     });
