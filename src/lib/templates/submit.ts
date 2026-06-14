@@ -124,11 +124,16 @@ export async function submitTemplateRow(
   // Composants au format Graph API.
   const components: Record<string, unknown>[] = []
 
-  // HEADER : texte ou média.
+  // Un carrousel ne peut PAS avoir de header/footer sur le message d'introduction
+  // (règle Meta : "Carousel templates cannot have a main message bubble that has
+  // a header or footer"). Le média/les boutons sont portés par les cartes.
+  const isCarousel = template.template_type === 'carousel'
+
+  // HEADER : texte ou média (sauf carrousel).
   const headerType = template.header_type || (template.header_text ? 'text' : 'none')
-  if (headerType === 'text' && template.header_text) {
+  if (!isCarousel && headerType === 'text' && template.header_text) {
     components.push({ type: 'HEADER', format: 'TEXT', text: template.header_text })
-  } else if ((headerType === 'image' || headerType === 'video' || headerType === 'document') && template.header_media_url) {
+  } else if (!isCarousel && (headerType === 'image' || headerType === 'video' || headerType === 'document') && template.header_media_url) {
     const h = await resolveHeaderHandle(template.header_media_url as string)
     if (!h.ok) {
       console.error('[submit] header handle échec:', h.error)
@@ -154,7 +159,8 @@ export async function submitTemplateRow(
   const bodyComponent: Record<string, unknown> = { type: 'BODY', text: norm.text }
   if (norm.count > 0) bodyComponent.example = { body_text: [norm.samples] }
   components.push(bodyComponent)
-  if (template.footer_text) components.push({ type: 'FOOTER', text: template.footer_text })
+  // FOOTER interdit sur le message d'intro d'un carrousel (règle Meta).
+  if (template.footer_text && !isCarousel) components.push({ type: 'FOOTER', text: template.footer_text })
 
   // LIMITED_TIME_OFFER.
   if (template.template_type === 'limited_time_offer') {

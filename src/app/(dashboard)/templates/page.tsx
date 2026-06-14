@@ -390,7 +390,8 @@ export default function TemplatesPage() {
           // En carrousel, l'en-tête média et les boutons globaux sont portés par
           // les cartes → on neutralise l'en-tête/les boutons du message d'intro.
           header_text: templateType === 'standard' && headerType === 'text' ? headerText : '',
-          footer_text: footerText,
+          // Un carrousel ne peut pas avoir de pied de page sur le message d'intro (règle Meta).
+          footer_text: templateType === 'carousel' ? '' : footerText,
           header_type: templateType === 'carousel' ? 'none' : headerType,
           header_media_url: templateType === 'standard' && (headerType === 'image' || headerType === 'video' || headerType === 'document') ? headerMediaUrl : null,
           buttons: templateType === 'standard' && buttons.length > 0 ? buttons : null,
@@ -937,10 +938,13 @@ export default function TemplatesPage() {
                 </div>
               )}
             </div>
-            <div className="space-y-1.5">
-              <Label>Pied de page (optionnel)</Label>
-              <Input value={footerText} onChange={(e) => setFooterText(e.target.value)} placeholder="Powered by Xeyo.io" maxLength={60} />
-            </div>
+            {/* Pied de page : interdit par Meta sur le message d'intro d'un carrousel. */}
+            {templateType !== 'carousel' && (
+              <div className="space-y-1.5">
+                <Label>Pied de page (optionnel)</Label>
+                <Input value={footerText} onChange={(e) => setFooterText(e.target.value)} placeholder="Powered by Xeyo.io" maxLength={60} />
+              </div>
+            )}
 
             {/* Éditeur des cartes du carrousel (uniquement en mode carrousel) */}
             {templateType === 'carousel' && (
@@ -1011,7 +1015,7 @@ export default function TemplatesPage() {
                   <p className="whitespace-pre-wrap break-words text-[14.5px] leading-snug text-gray-800">
                     {renderWhatsAppFormat(bodyText, variableKeys.map((k) => VARIABLE_BY_KEY[k]?.label || k)) || <span className="text-gray-400">Votre message apparaîtra ici…</span>}
                   </p>
-                  {footerText && (
+                  {footerText && templateType !== 'carousel' && (
                     <p className="mt-1.5 text-[12px] text-gray-400">{footerText}</p>
                   )}
                   <div className="mt-0.5 text-right text-[10px] text-gray-400">12:00 ✓✓</div>
