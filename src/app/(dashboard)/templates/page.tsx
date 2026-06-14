@@ -1069,13 +1069,17 @@ export default function TemplatesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Supprimer ce modèle ?</AlertDialogTitle>
             <AlertDialogDescription>
-              {confirmDelete && (
-                <>
-                  Le modèle <strong>{confirmDelete.name}</strong> sera définitivement supprimé
-                  {confirmDelete.meta_id ? <> — y compris chez <strong>Meta</strong></> : null}.
-                  {' '}Cette action est <strong>irréversible</strong>.
-                </>
-              )}
+              {confirmDelete && (() => {
+                const langs = templates.filter((t) => t.name === confirmDelete.name).map((t) => t.language)
+                return (
+                  <>
+                    Le modèle <strong>{confirmDelete.name}</strong> sera définitivement supprimé
+                    {langs.length > 1 ? <> dans <strong>toutes ses langues</strong> ({langs.map((l) => l.toUpperCase()).join(', ')})</> : null}
+                    {confirmDelete.meta_id ? <> — y compris chez <strong>Meta</strong></> : null}.
+                    {' '}Cette action est <strong>irréversible</strong>.
+                  </>
+                )
+              })()}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -146,7 +146,14 @@ export async function PUT(
   return NextResponse.json({ data })
 }
 
-/** DELETE /api/templates/[id] — Supprimer (local + Meta si soumis) */
+/**
+ * DELETE /api/templates/[id] — Supprimer un modèle (toutes ses langues).
+ *
+ * Meta supprime un template PAR NOM, ce qui efface d'un coup toutes ses langues
+ * (FR + EN). On aligne donc la base : on supprime TOUTES les lignes du même
+ * `name` (sinon une variante d'une autre langue resterait orpheline, pointant
+ * vers un template Meta qui n'existe plus).
+ */
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -169,12 +176,22 @@ export async function DELETE(
     return NextResponse.json({ error: 'Modèle introuvable' }, { status: 404 })
   }
 
-  // Si le template existe côté Meta, tenter de le supprimer là-bas aussi
-  if (template.status !== 'draft' && template.session_id) {
+  // Toutes les variantes (langues) de ce modèle, pour cet utilisateur.
+  const { data: siblings } = await supabase
+    .from('whatsapp_templates')
+    .select('id, status, session_id')
+    .eq('user_id', user.id)
+    .eq('name', template.name)
+  const rows = siblings && siblings.length > 0 ? siblings : [template]
+
+  // Si au moins une variante existe côté Meta, supprimer le template chez Meta
+  // (par nom → toutes les langues d'un coup). Une seule session suffit.
+  const submitted = rows.find((r) => r.status !== 'draft' && r.session_id)
+  if (submitted?.session_id) {
     const { data: session } = await supabase
       .from('whatsapp_sessions')
       .select('waba_business_account_id, waba_access_token')
-      .eq('id', template.session_id)
+      .eq('id', submitted.session_id)
       .eq('user_id', user.id)
       .single()
     if (session?.waba_business_account_id && session.waba_access_token) {
@@ -183,6 +200,7 @@ export async function DELETE(
     }
   }
 
-  await supabase.from('whatsapp_templates').delete().eq('id', id).eq('user_id', user.id)
+  // Supprime toutes les langues en base (par nom).
+  await supabase.from('whatsapp_templates').delete().eq('user_id', user.id).eq('name', template.name)
   return NextResponse.json({ success: true })
 }
