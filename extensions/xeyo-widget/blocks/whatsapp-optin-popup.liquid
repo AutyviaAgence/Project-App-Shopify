@@ -295,10 +295,7 @@
     // fermeture de page). Le serveur dédoublonne par contact + tranche de temps.
     //
     // Pour ne pas dépendre du poll (15s) au moment du départ, on garde le panier
-    // à jour en continu : poll rapproché (5s) + écoute des ajouts au panier
-    // (Shopify ne déclenche pas d'event standard fiable, donc on intercepte les
-    // appels /cart/add via fetch). On stocke aussi le panier dans une copie
-    // "dernière connue" utilisée par le beacon (lecture synchrone garantie).
+    // à jour via un poll rapproché (5s) et une copie "dernière connue".
     var lastCartUrl = null;
     var lastCartTotal = null;
     var lastCartHasItems = false;
@@ -307,25 +304,8 @@
       lastCartTotal = cartTotal;
       lastCartHasItems = cartHasItems;
     }
-    // Poll plus rapproché pour le panier (en plus du poll 15s existant).
-    var fastPoll = setInterval(function () { refreshCart(snapshotCart); }, 5000);
+    setInterval(function () { refreshCart(snapshotCart); }, 5000);
     refreshCart(snapshotCart);
-
-    // Intercepte les ajouts au panier (POST /cart/add) pour rafraîchir aussitôt.
-    try {
-      var _fetch = window.fetch;
-      window.fetch = function () {
-        var u = arguments[0];
-        var p = _fetch.apply(this, arguments);
-        try {
-          var url = (typeof u === 'string') ? u : (u && u.url) || '';
-          if (/\/cart\/(add|change|update|clear)/i.test(url)) {
-            p.then(function () { setTimeout(function () { refreshCart(snapshotCart); }, 300); });
-          }
-        } catch (e) {}
-        return p;
-      };
-    } catch (e) {}
 
     var exitArmed = false;
     function armCartRecoveryOnExit() {
@@ -365,6 +345,10 @@
     document.addEventListener('visibilitychange', function () {
       if (document.visibilityState === 'hidden') armCartRecoveryOnExit();
     });
+    // Expose le handler pour pouvoir le tester manuellement depuis la console :
+    //   window.__xeyoExit()
+    try { window.__xeyoExit = armCartRecoveryOnExit; } catch (e) {}
+    try { console.log('[Xeyo opt-in] relance départ armée (listeners en place)'); } catch (e) {}
   })();
 </script>
 
