@@ -77,6 +77,23 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: dbError.message }, { status: 500 })
   }
 
+  // Import des modèles déjà présents sur ce compte WhatsApp (best-effort) : on
+  // les récupère depuis Meta pour qu'ils apparaissent immédiatement, avec leur
+  // vrai meta_id/statut. Évite le bug du meta_id obsolète au changement de WABA.
+  // `session.waba_access_token` est la version CHIFFRÉE en base (le module la déchiffre).
+  let importedTemplates = 0
+  try {
+    const { importTemplatesFromMeta } = await import('@/lib/templates/meta-import')
+    const r = await importTemplatesFromMeta(supabase, user.id, {
+      id: session.id,
+      waba_business_account_id: session.waba_business_account_id,
+      waba_access_token: session.waba_access_token,
+    })
+    importedTemplates = r.imported
+  } catch (e) {
+    console.error('[sessions] import templates Meta échec (non bloquant):', e)
+  }
+
   // Création auto d'un lien WhatsApp associé à la session (best-effort).
   // Ne pas faire échouer la création de session si le lien échoue.
   try {
@@ -115,7 +132,7 @@ export async function POST(req: NextRequest) {
     console.error('[sessions] Erreur création auto du lien WA:', e)
   }
 
-  return NextResponse.json({ data: session })
+  return NextResponse.json({ data: session, imported_templates: importedTemplates })
 }
 
 /** GET /api/sessions — Lister les sessions de l'utilisateur (+ équipes avec permissions) */

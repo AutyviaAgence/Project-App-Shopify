@@ -169,7 +169,10 @@ export function WhatsAppConnect() {
       setPhoneId(''); setBusinessId(''); setToken('')
       setShowForm(false)
       await fetchSession()
-      toast.success('WhatsApp connecté')
+      const n = json.imported_templates || 0
+      toast.success(n > 0
+        ? `WhatsApp connecté — ${n} modèle${n > 1 ? 's' : ''} importé${n > 1 ? 's' : ''} depuis votre compte.`
+        : 'WhatsApp connecté')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erreur')
     } finally {

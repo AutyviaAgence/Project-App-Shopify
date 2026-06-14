@@ -58,6 +58,15 @@ export async function DELETE(
     return NextResponse.json({ error: 'Session introuvable' }, { status: 404 })
   }
 
+  // Supprimer les modèles de cette session (ils appartiennent au compte WhatsApp
+  // qu'on déconnecte). On NE touche PAS aux modèles chez Meta — ils restent sur
+  // le compte et seront réimportés si on reconnecte ce WABA.
+  await supabase
+    .from('whatsapp_templates')
+    .delete()
+    .eq('user_id', user.id)
+    .eq('session_id', id)
+
   // Supprimer en BDD (CASCADE supprime contacts, conversations, messages)
   await supabase
     .from('whatsapp_sessions')
