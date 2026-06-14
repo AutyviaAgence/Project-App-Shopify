@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { submitTemplateRow } from '@/lib/templates/submit'
 
 /**
  * POST /api/templates/submit-group  { name }
@@ -9,8 +10,8 @@ import { createClient } from '@/lib/supabase/server'
  * on renvoie un résultat PAR langue. Un échec (ex : limite 1 édition/24h sur une
  * langue) n'empêche pas les autres d'être soumises.
  *
- * Réutilise la route single-submit existante (/api/templates/[id]/submit) pour
- * ne pas dupliquer sa logique (validations Meta, upload média, dup/edit/24h).
+ * Appelle submitTemplateRow EN PROCESS (pas de self-fetch HTTP, qui échoue en
+ * self-hosted Dokploy → "fetch failed").
  */
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -21,8 +22,8 @@ export async function POST(req: NextRequest) {
   const name = String(body.name || '')
   if (!name) return NextResponse.json({ error: 'name requis' }, { status: 400 })
 
-  // Toutes les variantes (langues) de ce modèle, hors brouillons déjà à jour ?
-  // On soumet tout sauf ce qui est déjà 'approved' SANS modifications en attente.
+  // Toutes les variantes (langues) de ce modèle. On soumet tout sauf ce qui est
+  // déjà 'approved' SANS modifications en attente.
   const { data: rows } = await supabase
     .from('whatsapp_templates')
     .select('id, language, status, has_pending_changes')
@@ -34,23 +35,13 @@ export async function POST(req: NextRequest) {
 
   const toSubmit = rows.filter((r) => !(r.status === 'approved' && !r.has_pending_changes))
 
-  // On rappelle la route single-submit en interne, en transférant le cookie de
-  // session pour conserver l'authentification de l'utilisateur.
-  const origin = req.nextUrl.origin
-  const cookie = req.headers.get('cookie') || ''
-
   const results: { language: string; ok: boolean; error?: string }[] = []
   for (const r of toSubmit) {
     try {
-      const res = await fetch(`${origin}/api/templates/${r.id}/submit`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', cookie },
-        body: JSON.stringify({}),
-      })
-      const j = await res.json().catch(() => ({}))
-      results.push({ language: r.language, ok: res.ok, error: res.ok ? undefined : (j.error || `HTTP ${res.status}`) })
+      const sr = await submitTemplateRow(supabase, user.id, r.id)
+      results.push({ language: r.language, ok: sr.ok, error: sr.ok ? undefined : sr.error })
     } catch (e) {
-      results.push({ language: r.language, ok: false, error: e instanceof Error ? e.message : 'erreur réseau' })
+      results.push({ language: r.language, ok: false, error: e instanceof Error ? e.message : 'erreur' })
     }
   }
 
