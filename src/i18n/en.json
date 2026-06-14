@@ -239,6 +239,7 @@
     "send_media_error": "Failed to send media",
     "attach_file": "Attach file",
     "record_voice": "Record voice message",
+    "send_template": "Send a template",
     "recording": "Recording...",
     "file_too_large": "File too large (max 50 MB)",
     "caption_placeholder": "Add a caption...",

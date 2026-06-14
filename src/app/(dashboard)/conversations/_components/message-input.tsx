@@ -24,9 +24,11 @@ interface MessageInputProps {
   onSendMedia: (file: File, caption?: string) => Promise<void>
   sending: boolean
   conversationId?: string
+  /** Ouvre le sélecteur de modèle approuvé (template WhatsApp). */
+  onSendTemplate?: () => void
 }
 
-export function MessageInput({ onSendText, onSendMedia, sending, conversationId }: MessageInputProps) {
+export function MessageInput({ onSendText, onSendMedia, sending, conversationId, onSendTemplate }: MessageInputProps) {
   const { t } = useTranslation()
   const inputRef = useRef<HTMLInputElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -326,6 +328,21 @@ export function MessageInput({ onSendText, onSendMedia, sending, conversationId 
                 title="Suggérer une réponse (IA)"
               >
                 {suggesting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              </Button>
+            )}
+
+            {/* Envoyer un modèle approuvé (template WhatsApp) */}
+            {onSendTemplate && (
+              <Button
+                type="button"
+                size="icon"
+                variant="ghost"
+                onClick={onSendTemplate}
+                disabled={sending}
+                className="h-11 w-11 rounded-full shrink-0 text-muted-foreground hover:text-foreground"
+                title={t('conversations.send_template')}
+              >
+                <FileText className="h-4 w-4" />
               </Button>
             )}
 

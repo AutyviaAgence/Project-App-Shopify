@@ -732,6 +732,7 @@ export function ChatArea({
               onSendMedia={onSendMedia}
               sending={sending}
               conversationId={selectedConv?.id}
+              onSendTemplate={onSendTemplate}
             />
           ) : (
             /* Hors fenêtre 24h : texte libre interdit par WhatsApp → modèle */

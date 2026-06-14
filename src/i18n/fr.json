@@ -239,6 +239,7 @@
     "send_media_error": "Erreur lors de l'envoi du média",
     "attach_file": "Joindre un fichier",
     "record_voice": "Enregistrer un vocal",
+    "send_template": "Envoyer un modèle",
     "recording": "Enregistrement...",
     "file_too_large": "Fichier trop volumineux (max 50 MB)",
     "caption_placeholder": "Ajouter une légende...",
