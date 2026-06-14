@@ -1207,6 +1207,10 @@
     "cancel_error": "Erreur lors de l'annulation de l'abonnement"
   },
   "auth": {
+    "brand_headline_1": "Le support client e-commerce,",
+    "brand_headline_2": "automatisé par l'IA.",
+    "brand_subtitle": "WhatsApp, Email et Shopify réunis. Un agent qui répond à vos clients 24/7.",
+    "brand_rights": "Tous droits réservés.",
     "login": "Connexion",
     "login_desc": "Connectez-vous à votre compte {appName}",
     "email": "Email",

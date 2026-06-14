@@ -1207,6 +1207,10 @@
     "cancel_error": "Error cancelling subscription"
   },
   "auth": {
+    "brand_headline_1": "E-commerce customer support,",
+    "brand_headline_2": "automated by AI.",
+    "brand_subtitle": "WhatsApp, Email and Shopify in one place. An agent that answers your customers 24/7.",
+    "brand_rights": "All rights reserved.",
     "login": "Login",
     "login_desc": "Sign in to your {appName} account",
     "email": "Email",

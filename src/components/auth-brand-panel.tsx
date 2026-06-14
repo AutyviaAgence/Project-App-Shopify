@@ -2,6 +2,7 @@
 
 import Image from 'next/image'
 import { useTenant } from '@/lib/tenant/context'
+import { useTranslation } from '@/i18n/context'
 
 /**
  * Panneau de marque (côté gauche des écrans d'auth).
@@ -10,6 +11,7 @@ import { useTenant } from '@/lib/tenant/context'
  */
 export function AuthBrandPanel() {
   const tenant = useTenant()
+  const { t } = useTranslation()
 
   return (
     // Cadre dégradé : marge autour, coins arrondis (pas plein bord)
@@ -30,15 +32,15 @@ export function AuthBrandPanel() {
         {/* Accroche (sans encadrés) */}
         <div className="relative space-y-3">
           <h2 className="text-4xl font-bold leading-tight text-white">
-            Le support client e-commerce,<br />automatisé par l&apos;IA.
+            {t('auth.brand_headline_1')}<br />{t('auth.brand_headline_2')}
           </h2>
           <p className="max-w-sm text-white/70">
-            WhatsApp, Email et Shopify réunis. Un agent qui répond à vos clients 24/7.
+            {t('auth.brand_subtitle')}
           </p>
         </div>
 
         <div className="relative text-xs text-white/50">
-          © {tenant.appName} — Tous droits réservés.
+          © {tenant.appName} — {t('auth.brand_rights')}
         </div>
       </div>
     </div>
