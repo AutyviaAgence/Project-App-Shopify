@@ -65,13 +65,14 @@ export async function submitTemplateRow(
 
   if (!template) return { ok: false, status: 404, error: 'Modèle introuvable' }
 
-  // Règle Meta : le corps ne peut pas commencer ni finir par une variable {{n}}.
+  // Règle Meta : le corps ne peut pas commencer ni finir PAR une variable {{n}}.
+  // On teste littéralement le 1er/dernier token (en ignorant espaces autour),
+  // pas la ponctuation : "Bonjour …vous !" est valide (finit par du texte).
   const trimmedBody = (template.body_text || '').trim()
-  const withoutVars = trimmedBody.replace(/\{\{\s*\d+\s*\}\}/g, ' ')
-  const startsWithVar = /^[^\p{L}\p{N}]* /u.test(withoutVars)
-  const endsWithVar = / [^\p{L}\p{N}]*$/u.test(withoutVars)
+  const startsWithVar = /^\{\{\s*\d+\s*\}\}/.test(trimmedBody)
+  const endsWithVar = /\{\{\s*\d+\s*\}\}$/.test(trimmedBody)
   if (startsWithVar || endsWithVar) {
-    return { ok: false, status: 422, error: 'Le message ne peut pas commencer ou finir par une variable ({{1}}, {{2}}…). Ajoutez du vrai texte (pas seulement un emoji ou une ponctuation) avant/après la variable.' }
+    return { ok: false, status: 422, error: 'Le message ne peut pas commencer ni finir par une variable ({{1}}, {{2}}…). Ajoutez du texte avant/après la variable.' }
   }
 
   // Session WABA (celle du template, l'override, ou la première dispo).
@@ -235,7 +236,9 @@ export async function submitTemplateRow(
         }
       }
       cardComponents.push({ type: 'BUTTONS', buttons: metaCardButtons })
-      metaCards.push({ card_index: ci, components: cardComponents })
+      // Meta refuse une clé `card_index` (#100 Unexpected key) : chaque carte est
+      // juste { components: [...] }, l'ordre du tableau faisant foi.
+      metaCards.push({ components: cardComponents })
     }
     components.push({ type: 'CAROUSEL', cards: metaCards })
   }
