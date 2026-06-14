@@ -133,6 +133,13 @@ export default function PrivacyPage() {
             vis-à-vis their own customers (the end users).
           </p>
           <p>
+            The clauses in this section, together with those on <strong>sub-processors and hosting</strong>,
+            <strong> international transfers</strong>, <strong>security</strong> and <strong>data
+            retention</strong>, constitute our <strong>Data Processing Agreement (DPA)</strong> within
+            the meaning of Article 28 of the GDPR. Merchant customers may request a separate signed copy
+            by writing to <a href="mailto:contact@autyvia.fr">contact@autyvia.fr</a>.
+          </p>
+          <p>
             Within the framework of the WhatsApp Business API, we process the data of
             <strong> WhatsApp end users</strong> (the customers of our merchants): numbers,
             names and message contents, solely to allow the merchant to reply to them.
@@ -402,6 +409,14 @@ export default function PrivacyPage() {
         <strong> sous-traitant (data processor)</strong> au sens du RGPD : nous traitons les données
         pour le compte de nos clients marchands, qui restent les <strong>responsables de traitement</strong>
         (data controllers) vis-à-vis de leurs propres clients (les utilisateurs finaux).
+      </p>
+      <p>
+        Les clauses de cette section, complétées par celles relatives aux <strong>sous-traitants et
+        à l&apos;hébergement</strong>, aux <strong>transferts internationaux</strong>, à la
+        <strong> sécurité</strong> et à la <strong>durée de conservation</strong>, constituent notre
+        <strong> accord de traitement des données (Data Processing Agreement, DPA)</strong> au sens de
+        l&apos;article 28 du RGPD. Nos clients marchands peuvent demander un exemplaire signé distinct
+        en nous écrivant à <a href="mailto:contact@autyvia.fr">contact@autyvia.fr</a>.
       </p>
       <p>
         Dans le cadre de l&apos;API WhatsApp Business, nous traitons les données des
