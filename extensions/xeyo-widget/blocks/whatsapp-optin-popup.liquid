@@ -245,8 +245,6 @@
         cart_url: cartHasItems ? cartUrl : undefined,
         cart_total: cartTotal != null ? cartTotal : undefined
       };
-      // Log de debug (visible dans la console) pour vérifier ce qui est envoyé.
-      try { console.log('[Xeyo opt-in] POST optin', payload); } catch (e) {}
       fetch(proxy + '?shop=' + encodeURIComponent(shop), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -254,7 +252,6 @@
       })
         .then(function (r) { return r.json(); })
         .then(function (res) {
-          try { console.log('[Xeyo opt-in] optin réponse', res); } catch (e) {}
           if (res && res.ok) {
             msg.className = 'xeyo-pop-msg ok';
             msg.textContent = 'C\'est noté ! Vous recevrez le suivi sur WhatsApp.';
@@ -312,8 +309,8 @@
       var hasItems = lastCartHasItems || cartHasItems;
       var theUrl = lastCartUrl || cartUrl;
       if (exitArmed) return;
-      if (!optedInPhone) { try { console.log('[Xeyo opt-in] départ ignoré : pas de numéro opt-in'); } catch (e) {} return; }
-      if (!hasItems) { try { console.log('[Xeyo opt-in] départ ignoré : panier vide'); } catch (e) {} return; }
+      if (!optedInPhone) return;
+      if (!hasItems) return;
       exitArmed = true; // une seule fois par page
       var payload = {
         phone: optedInPhone,
@@ -323,7 +320,6 @@
         cart_total: (lastCartTotal != null ? lastCartTotal : cartTotal),
         source: 'exit'
       };
-      try { console.log('[Xeyo opt-in] beacon panier (départ)', payload); } catch (e) {}
       // IMPORTANT : on vise l'URL DIRECTE (app.xeyo.io), pas le proxy Shopify
       // relatif. Le proxy fait une redirection, or sendBeacon pendant un
       // déchargement de page abandonne les requêtes redirigées → échec silencieux.
@@ -371,21 +367,14 @@
             marketing: true, cart_url: cartUrl,
             cart_total: cartTotal != null ? cartTotal : undefined, source: 'active'
           };
-          try { console.log('[Xeyo opt-in] relance panier (armement actif)', payload); } catch (e) {}
           var url = (root.getAttribute('data-direct') || proxy) + '?shop=' + encodeURIComponent(shop);
           fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload) })
-            .then(function (r) { return r.json(); })
-            .then(function (res) { try { console.log('[Xeyo opt-in] relance réponse', res); } catch (e) {} })
-            .catch(function () {});
+            body: JSON.stringify(payload) }).catch(function () {});
         });
       }, ACTIVE_ARM_DELAY);
     }
     // On vérifie l'armement régulièrement (après opt-in et/ou ajout panier).
     setInterval(maybeArmActive, 3000);
-
-    try { window.__xeyoExit = armCartRecoveryOnExit; } catch (e) {}
-    try { console.log('[Xeyo opt-in] relance départ armée (listeners en place)'); } catch (e) {}
   })();
 </script>
 
