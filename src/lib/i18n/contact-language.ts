@@ -16,10 +16,11 @@ export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number]
 /**
  * Langues dans lesquelles un modèle est décliné automatiquement (traduction IA).
  * Source de vérité unique partagée par l'éditeur, l'API de traduction et le
- * dispatch. Plus restreinte que SUPPORTED_LANGUAGES (chaque langue = 1 template
- * Meta de plus, et la limite Meta est de 250 templates par compte).
+ * dispatch. Volontairement limitée à FR + EN : chaque langue = 1 soumission Meta
+ * de plus, et Meta limite à ~100 soumissions de templates par heure (+ 250
+ * templates par compte). Élargir cette liste suffit à ajouter des langues.
  */
-export const TEMPLATE_LANGUAGES = ['fr', 'en', 'es', 'de', 'it'] as const
+export const TEMPLATE_LANGUAGES = ['fr', 'en'] as const
 export type TemplateLanguage = (typeof TEMPLATE_LANGUAGES)[number]
 
 /** Libellés affichables des langues de template (UI). */
