@@ -345,8 +345,45 @@
     document.addEventListener('visibilitychange', function () {
       if (document.visibilityState === 'hidden') armCartRecoveryOnExit();
     });
-    // Expose le handler pour pouvoir le tester manuellement depuis la console :
-    //   window.__xeyoExit()
+
+    // ── ARMEMENT ACTIF (fiable) ─────────────────────────────────────────────
+    // Le beacon "au départ" est fragile (prefetch/prerender Shopify recrée le
+    // contexte). Filet fiable : tant que la page est active, dès qu'on a
+    // (numéro opt-in + panier non vide) depuis quelques secondes, on arme la
+    // relance par un fetch NORMAL (page vivante → pas de souci de déchargement).
+    // Le serveur dédoublonne (contact + tranche de temps) et SKIP si une commande
+    // arrive → un seul envoi, jamais à un acheteur. Délai = laisse le temps de
+    // partir au checkout sans être relancé inutilement.
+    var ACTIVE_ARM_DELAY = 12000; // 12s avec panier + opt-in → on considère l'intention d'abandon
+    var armTimer = null;
+    function maybeArmActive() {
+      if (exitArmed || armTimer) return;
+      if (!optedInPhone) return;
+      if (!(lastCartHasItems || cartHasItems)) return;
+      armTimer = setTimeout(function () {
+        // Re-vérifie au moment du tir (le client a pu vider son panier).
+        refreshCart(function () {
+          snapshotCart();
+          if (exitArmed || !optedInPhone || !cartHasItems) { armTimer = null; return; }
+          exitArmed = true;
+          var payload = {
+            phone: optedInPhone, email: root.getAttribute('data-email') || undefined,
+            marketing: true, cart_url: cartUrl,
+            cart_total: cartTotal != null ? cartTotal : undefined, source: 'active'
+          };
+          try { console.log('[Xeyo opt-in] relance panier (armement actif)', payload); } catch (e) {}
+          var url = (root.getAttribute('data-direct') || proxy) + '?shop=' + encodeURIComponent(shop);
+          fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload) })
+            .then(function (r) { return r.json(); })
+            .then(function (res) { try { console.log('[Xeyo opt-in] relance réponse', res); } catch (e) {} })
+            .catch(function () {});
+        });
+      }, ACTIVE_ARM_DELAY);
+    }
+    // On vérifie l'armement régulièrement (après opt-in et/ou ajout panier).
+    setInterval(maybeArmActive, 3000);
+
     try { window.__xeyoExit = armCartRecoveryOnExit; } catch (e) {}
     try { console.log('[Xeyo opt-in] relance départ armée (listeners en place)'); } catch (e) {}
   })();
