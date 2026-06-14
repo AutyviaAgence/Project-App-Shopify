@@ -130,6 +130,7 @@ const TIMEZONES = [
 ]
 
 function ReferralSection() {
+  const { t } = useTranslation()
   const [data, setData] = useState<{ referral_code: string; referral_link: string; referees: any[]; total_tokens_earned: number } | null>(null)
   const [copied, setCopied] = useState(false)
 
@@ -149,15 +150,15 @@ function ReferralSection() {
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Gift className="h-5 w-5" />
-          Parrainage
+          {t('settings.referral')}
         </CardTitle>
-        <CardDescription>Parrainez des amis et gagnez 500 000 tokens chacun dès leur premier paiement.</CardDescription>
+        <CardDescription>{t('settings.referral_desc')}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {data ? (
           <>
             <div className="space-y-2">
-              <Label>Votre lien de parrainage</Label>
+              <Label>{t('settings.referral_link')}</Label>
               <div className="flex gap-2">
                 <Input value={data.referral_link} readOnly className="font-mono text-xs" />
                 <Button variant="outline" size="icon" onClick={copyLink}>
@@ -167,11 +168,11 @@ function ReferralSection() {
             </div>
             <div className="flex gap-6 text-sm">
               <div>
-                <p className="text-muted-foreground">Filleuls</p>
+                <p className="text-muted-foreground">{t('settings.referees')}</p>
                 <p className="text-xl font-bold">{data.referees.length}</p>
               </div>
               <div>
-                <p className="text-muted-foreground">Tokens gagnés</p>
+                <p className="text-muted-foreground">{t('settings.tokens_earned')}</p>
                 <p className="text-xl font-bold">{(data.total_tokens_earned / 1000).toFixed(0)}k</p>
               </div>
             </div>
@@ -180,8 +181,8 @@ function ReferralSection() {
                 <table className="w-full text-sm">
                   <thead className="bg-muted/30 border-b">
                     <tr>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Filleul</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">Statut</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">{t('settings.referee')}</th>
+                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">{t('settings.status')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y">
@@ -190,7 +191,7 @@ function ReferralSection() {
                         <td className="px-3 py-2">{r.full_name || r.email}</td>
                         <td className="px-3 py-2">
                           <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${r.subscription_status === 'active' ? 'bg-green-100 text-green-700' : 'bg-muted text-muted-foreground'}`}>
-                            {r.subscription_status === 'active' ? 'Abonné' : 'Inscrit'}
+                            {r.subscription_status === 'active' ? t('settings.referee_subscribed') : t('settings.referee_signed_up')}
                           </span>
                         </td>
                       </tr>
@@ -379,7 +380,7 @@ export default function SettingsPage() {
       await supabase.auth.resetPasswordForEmail(user.email, {
         redirectTo: `${window.location.origin}/auth/callback?redirect=/settings`,
       })
-      toast.success('Email envoyé — vérifiez votre boîte mail pour définir votre mot de passe.')
+      toast.success(t('settings.password_email_sent'))
     } catch {
       toast.error(t('common.network_error'))
     }
@@ -481,7 +482,7 @@ export default function SettingsPage() {
       })
       const json = await res.json()
       if (res.ok) {
-        toast.success(json.message || 'Messages supprimés')
+        toast.success(json.message || t('settings.messages_purged'))
         setPurgeDialogOpen(false)
         setPurgePreview(null)
       } else {
@@ -535,13 +536,13 @@ export default function SettingsPage() {
   const deleteWord = locale === 'fr' ? 'SUPPRIMER' : 'DELETE'
 
   const TABS = [
-    { id: 'compte', label: 'Compte', icon: User },
-    { id: 'abonnement', label: 'Abonnement', icon: CreditCard },
-    { id: 'securite', label: 'Sécurité', icon: Shield },
-    { id: 'macros', label: 'Macros', icon: Zap },
-    { id: 'donnees', label: 'Données', icon: Database },
-    { id: 'aide', label: 'Aide', icon: HelpCircle },
-    { id: 'danger', label: 'Zone de danger', icon: AlertTriangle },
+    { id: 'compte', label: t('settings.tab_account'), icon: User },
+    { id: 'abonnement', label: t('settings.tab_subscription'), icon: CreditCard },
+    { id: 'securite', label: t('settings.tab_security'), icon: Shield },
+    { id: 'macros', label: t('settings.tab_macros'), icon: Zap },
+    { id: 'donnees', label: t('settings.tab_data'), icon: Database },
+    { id: 'aide', label: t('settings.tab_help'), icon: HelpCircle },
+    { id: 'danger', label: t('settings.tab_danger'), icon: AlertTriangle },
   ]
 
   return (
@@ -689,7 +690,7 @@ export default function SettingsPage() {
                   {Object.entries(timezonesByRegion).map(([region, tzs]) => (
                     <div key={region}>
                       <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
-                        {region}
+                        {t('settings.region_' + ({ 'Europe': 'europe', 'Amérique': 'america', 'Afrique': 'africa', 'Asie': 'asia', 'Océanie': 'oceania' }[region] || 'europe'))}
                       </div>
                       {tzs.map((tz) => (
                         <SelectItem key={tz.value} value={tz.value}>
@@ -749,8 +750,8 @@ export default function SettingsPage() {
               <div className="flex items-center gap-3">
                 {soundEnabled ? <Volume2 className="h-5 w-5 text-primary" /> : <VolumeX className="h-5 w-5 text-muted-foreground" />}
                 <div>
-                  <p className="text-sm font-medium">Sons de notification</p>
-                  <p className="text-xs text-muted-foreground">Jouer un son à chaque message entrant</p>
+                  <p className="text-sm font-medium">{t('settings.notif_sounds')}</p>
+                  <p className="text-xs text-muted-foreground">{t('settings.notif_sounds_desc')}</p>
                 </div>
               </div>
               <Switch checked={soundEnabled} onCheckedChange={handleSoundToggle} />
@@ -856,13 +857,13 @@ export default function SettingsPage() {
             {isOAuthUser ? (
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
-                  Votre compte est connecté via Google. Vous n&apos;avez pas de mot de passe défini sur {' '}
+                  {t('settings.oauth_no_password')}
                   {typeof window !== 'undefined' ? window.location.hostname : 'cette application'}.
-                  Vous pouvez en définir un pour pouvoir vous connecter par email/mot de passe.
+                  {' '}{t('settings.oauth_set_password_hint')}
                 </p>
                 <Button variant="outline" onClick={handleSendSetPasswordEmail}>
                   <Lock className="mr-2 h-4 w-4" />
-                  Définir un mot de passe par email
+                  {t('settings.set_password_email')}
                 </Button>
               </div>
             ) : (
@@ -1249,8 +1250,8 @@ export default function SettingsPage() {
         {tab === 'aide' && (
           <Card>
             <CardHeader>
-              <CardTitle>Centre d&apos;aide</CardTitle>
-              <CardDescription>Trouvez rapidement une réponse à vos questions.</CardDescription>
+              <CardTitle>{t('settings.help_center')}</CardTitle>
+              <CardDescription>{t('settings.help_center_desc')}</CardDescription>
             </CardHeader>
             <CardContent>
               <HelpContent embedded />
@@ -1285,11 +1286,9 @@ export default function SettingsPage() {
                 {t('settings.delete_my_account')}
               </Button>
               <p className="mt-3 text-xs text-muted-foreground">
-                {locale === 'fr'
-                  ? 'Vous pouvez aussi demander la suppression de vos données par email. '
-                  : 'You can also request the deletion of your data by email. '}
+                {t('settings.data_deletion_email_hint')}
                 <a href="/data-deletion" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                  {locale === 'fr' ? 'Voir la procédure' : 'See the procedure'}
+                  {t('settings.data_deletion_see_procedure')}
                 </a>
               </p>
             </div>
