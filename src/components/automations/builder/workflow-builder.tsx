@@ -15,6 +15,26 @@ import type { WhatsAppTemplate } from '@/types/database'
 const Particles = dynamic(() => import('@/components/Particles'), { ssr: false })
 
 /**
+ * Regroupe les modèles par NOM : un modèle multilingue ne doit apparaître qu'UNE
+ * fois dans le sélecteur « Envoyer le modèle » (la langue est choisie à l'envoi
+ * selon le contact, via resolveLanguageVariant). On garde une ligne par nom, en
+ * préférant la langue source, sinon FR, sinon la première.
+ */
+function dedupeByName(templates: WhatsAppTemplate[]): { id: string; name: string }[] {
+  const byName = new Map<string, WhatsAppTemplate>()
+  for (const t of templates) {
+    const cur = byName.get(t.name)
+    if (!cur) { byName.set(t.name, t); continue }
+    // Priorité : langue source > fr > existant.
+    const isSrc = t.source_language && t.language === t.source_language
+    const curIsSrc = cur.source_language && cur.language === cur.source_language
+    if (isSrc && !curIsSrc) byName.set(t.name, t)
+    else if (!curIsSrc && t.language === 'fr' && cur.language !== 'fr') byName.set(t.name, t)
+  }
+  return Array.from(byName.values()).map((t) => ({ id: t.id, name: t.name }))
+}
+
+/**
  * Zone de timeline déplaçable : on peut faire défiler le workflow en
  * cliquant-glissant sur le fond (pan), comme un canvas. Le clic sur un bloc
  * ou un bouton reste normal (on n'amorce le pan que sur le fond).
@@ -184,7 +204,7 @@ export function WorkflowBuilder({
         <div className="mx-auto w-full max-w-2xl">
           <Timeline
             graph={graph}
-            templates={templates.map((t) => ({ id: t.id, name: t.name }))}
+            templates={dedupeByName(templates)}
             onPatch={onPatch}
             onInsert={onInsert}
             onDelete={onDelete}
