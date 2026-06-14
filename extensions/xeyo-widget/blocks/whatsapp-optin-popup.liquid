@@ -191,6 +191,11 @@
     refreshCart();
     var cartPoll = setInterval(function () { refreshCart(); }, 15000);
 
+    // Numéro déjà opt-in (cette session ou une précédente) : permet d'armer la
+    // relance panier au DÉPART, même si l'opt-in a été fait avant l'ajout au panier.
+    var optedInPhone = null;
+    try { optedInPhone = localStorage.getItem('xeyo_optin_phone') || null; } catch (e) {}
+
     // ── Déclenchement intelligent (façon Cartloop/Privy) ────────────────────
     // On n'affiche JAMAIS dès l'arrivée. La popup se déclenche sur un vrai signal
     // d'ENGAGEMENT, avec un délai de sécurité minimum pour ne pas spammer :
@@ -252,6 +257,11 @@
           if (res && res.ok) {
             msg.className = 'xeyo-pop-msg ok';
             msg.textContent = 'C\'est noté ! Vous recevrez le suivi sur WhatsApp.';
+            // On mémorise le numéro opt-in : si le client ajoute un article APRÈS
+            // puis quitte sans commander, on arme la relance panier à la sortie
+            // (cf. armCartRecoveryOnExit). Couvre le cas opt-in d'abord, panier ensuite.
+            try { localStorage.setItem('xeyo_optin_phone', val); } catch (e) {}
+            optedInPhone = val;
             markHandled();
             setTimeout(hide, 1600);
           } else {
@@ -276,6 +286,42 @@
       // On RAFRAÎCHIT le panier juste avant l'envoi (évite un état périmé : le
       // cart_url n'était pas transmis si la 1re lecture async n'avait pas fini).
       refreshCart(function () { doSubmit(val, custEmail); });
+    });
+
+    // ── RELANCE PANIER AU DÉPART (le vrai déclencheur) ──────────────────────
+    // Le signal d'abandon, c'est le client qui QUITTE la page avec un panier non
+    // vide après avoir donné son numéro. On envoie alors un "beacon" (survit à la
+    // fermeture de page, contrairement à fetch). Le serveur dédoublonne par
+    // contact + tranche de temps, donc déclencher ici en plus de l'opt-in est sûr.
+    var exitArmed = false;
+    function armCartRecoveryOnExit() {
+      if (exitArmed || !optedInPhone || !cartHasItems) return;
+      exitArmed = true; // une seule fois par page
+      var payload = {
+        phone: optedInPhone,
+        email: root.getAttribute('data-email') || undefined,
+        marketing: true,
+        cart_url: cartUrl,
+        cart_total: cartTotal != null ? cartTotal : undefined,
+        source: 'exit' // info de debug côté serveur
+      };
+      try { console.log('[Xeyo opt-in] beacon panier (départ)', payload); } catch (e) {}
+      var url = proxy + '?shop=' + encodeURIComponent(shop);
+      try {
+        var blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+        if (navigator.sendBeacon && navigator.sendBeacon(url, blob)) return;
+      } catch (e) {}
+      // Repli si sendBeacon indisponible : fetch keepalive.
+      try {
+        fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload), keepalive: true });
+      } catch (e) {}
+    }
+    // pagehide couvre la fermeture/navigation ; visibilitychange (hidden) couvre
+    // le passage en arrière-plan sur mobile (bascule d'app).
+    window.addEventListener('pagehide', armCartRecoveryOnExit);
+    document.addEventListener('visibilitychange', function () {
+      if (document.visibilityState === 'hidden') armCartRecoveryOnExit();
     });
   })();
 </script>
