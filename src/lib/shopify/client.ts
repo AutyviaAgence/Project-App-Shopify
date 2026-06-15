@@ -12,7 +12,7 @@ const API_VERSION = '2026-04'
 export function getShopifyConfig() {
   const apiKey = process.env.SHOPIFY_API_KEY
   const apiSecret = process.env.SHOPIFY_API_SECRET
-  const scopes = process.env.SHOPIFY_SCOPES || 'read_products,read_content,read_orders,read_customers,read_returns'
+  const scopes = process.env.SHOPIFY_SCOPES || 'read_products,read_content,read_orders,read_customers,read_returns,read_legal_policies'
   const appUrl = process.env.SHOPIFY_APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://app.xeyo.io'
   return { apiKey, apiSecret, scopes, appUrl }
 }
