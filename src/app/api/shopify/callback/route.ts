@@ -74,9 +74,11 @@ export async function GET(req: NextRequest) {
   const wh = await registerWebhooks(shop, tokenResult.accessToken)
   if (!wh.ok) console.error('[Shopify] Abonnement webhooks partiel:', wh.errors)
 
-  // 7. Rediriger vers l'app embedded dans l'admin Shopify
+  // 7. Rediriger vers /shopify avec autolink : si l'utilisateur est déjà connecté
+  // à Xeyo (parcours depuis la landing), la boutique se lie automatiquement à son
+  // compte ; sinon il est invité à créer un compte / se connecter, puis revient ici.
   const { appUrl } = getShopifyConfig()
-  const res = NextResponse.redirect(`${appUrl}/shopify?shop=${encodeURIComponent(shop)}`)
+  const res = NextResponse.redirect(`${appUrl}/shopify?shop=${encodeURIComponent(shop)}&autolink=1`)
   res.cookies.delete('shopify_oauth_state')
   return res
 }

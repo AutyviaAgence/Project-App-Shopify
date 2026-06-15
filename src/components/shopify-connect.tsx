@@ -3,7 +3,17 @@
 import { useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Loader2, Store, RefreshCw, Check, X } from 'lucide-react'
+
+/** Normalise une saisie en domaine xxx.myshopify.com (accepte URL, nom seul, etc.). */
+function normalizeShopDomain(raw: string): string | null {
+  let s = raw.trim().toLowerCase()
+  if (!s) return null
+  s = s.replace(/^https?:\/\//, '').replace(/\/.*$/, '') // retire protocole + chemin
+  if (!s.includes('.')) s = `${s}.myshopify.com`         // "maboutique" → "maboutique.myshopify.com"
+  return /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(s) ? s : null
+}
 
 type StoreStatus = {
   connected: boolean
@@ -23,6 +33,18 @@ export function ShopifyConnect() {
   const [status, setStatus] = useState<StoreStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [resyncing, setResyncing] = useState(false)
+  const [shopInput, setShopInput] = useState('')
+
+  function startInstall() {
+    const domain = normalizeShopDomain(shopInput)
+    if (!domain) {
+      toast.error('Entrez un domaine valide, ex : maboutique.myshopify.com')
+      return
+    }
+    // Lance l'OAuth Shopify. Au retour, le callback redirige vers /shopify avec
+    // autolink → la boutique se lie automatiquement au compte connecté.
+    window.location.href = `/api/shopify/install?shop=${encodeURIComponent(domain)}`
+  }
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -108,11 +130,22 @@ export function ShopifyConnect() {
           <p className="text-sm text-muted-foreground">L&apos;agent IA répond avec votre catalogue, vos FAQ et vos politiques.</p>
         </div>
       </div>
-      <Button variant="outline" asChild>
-        <a href="https://apps.shopify.com" target="_blank" rel="noopener noreferrer">
-          <Store className="mr-1 h-4 w-4" /> Installer depuis Shopify
-        </a>
-      </Button>
+      {/* Saisie du domaine → lance l'OAuth Shopify, puis liaison auto au compte. */}
+      <div className="flex gap-2">
+        <Input
+          value={shopInput}
+          onChange={(e) => setShopInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') startInstall() }}
+          placeholder="maboutique.myshopify.com"
+          className="h-9"
+        />
+        <Button onClick={startInstall} className="shrink-0">
+          <Store className="mr-1 h-4 w-4" /> Connecter
+        </Button>
+      </div>
+      <p className="text-[11px] text-muted-foreground">
+        Entrez l&apos;adresse de votre boutique (xxx.myshopify.com). Vous serez redirigé vers Shopify pour autoriser l&apos;accès.
+      </p>
     </div>
   )
 }
