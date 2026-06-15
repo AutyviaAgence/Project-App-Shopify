@@ -23,11 +23,12 @@ import {
   Loader2, ShieldAlert, Users, Zap, FileText, ChevronDown, ChevronUp,
   CheckCircle2, XCircle, Clock, RefreshCw, ShieldCheck, CreditCard,
   TrendingUp, AlertCircle, ExternalLink, CheckCircle, Ban, Calendar,
-  Wifi, WifiOff, AlertTriangle, Gift, Tag as TagIcon, Trash2, Link2
+  Wifi, WifiOff, AlertTriangle, Gift, Tag as TagIcon, Trash2, Link2, Store as StoreIcon
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { PlanId } from '@/lib/stripe/plans'
 import { BlobLoaderScreen } from '@/components/blob-loader'
+import { InstallLinkGenerator } from './_components/install-link-generator'
 
 type OnboardingConfig = {
   main_function: string
@@ -155,7 +156,7 @@ export default function AdminPage() {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
   const [validating, setValidating] = useState(false)
   const [adminNotes, setAdminNotes] = useState('')
-  const [activeTab, setActiveTab] = useState<'clients' | 'billing' | 'sessions' | 'affiliate' | 'promo'>('clients')
+  const [activeTab, setActiveTab] = useState<'clients' | 'billing' | 'sessions' | 'affiliate' | 'promo' | 'install'>('clients')
   const [sessions, setSessions] = useState<SessionRow[]>([])
   const [sessionsLoading, setSessionsLoading] = useState(false)
   const [checkingZombies, setCheckingZombies] = useState(false)
@@ -443,7 +444,21 @@ export default function AdminPage() {
           <TagIcon className="h-4 w-4" />
           Codes promo
         </button>
+        <button
+          onClick={() => setActiveTab('install')}
+          className={cn(
+            'flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors',
+            activeTab === 'install'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          )}
+        >
+          <StoreIcon className="h-4 w-4" />
+          Lien install
+        </button>
       </div>
+
+      {activeTab === 'install' && <InstallLinkGenerator />}
 
       {activeTab === 'billing' && (
         <BillingTab billing={billing} loading={billingLoading} onRefresh={fetchBilling} />
