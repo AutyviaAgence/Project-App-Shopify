@@ -109,8 +109,8 @@ export function ShopifyConnect() {
         </div>
       </div>
       <Button variant="outline" asChild>
-        <a href="/shopify">
-          <Store className="mr-1 h-4 w-4" /> Connecter Shopify
+        <a href="https://apps.shopify.com" target="_blank" rel="noopener noreferrer">
+          <Store className="mr-1 h-4 w-4" /> Installer depuis Shopify
         </a>
       </Button>
     </div>
