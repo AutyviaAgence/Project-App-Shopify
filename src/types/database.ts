@@ -608,6 +608,14 @@ export type ShopifyStore = {
   is_active: boolean
   installed_at: string | null
   uninstalled_at: string | null
+  // Synchro RAG de la boutique (catalogue/pages/politiques).
+  last_synced_at: string | null
+  catalog_synced_at: string | null
+  last_sync_summary: { products?: number; pages?: boolean; policies?: boolean; at?: string } | null
+  catalog_doc_id: string | null
+  pages_doc_id: string | null
+  policies_doc_id: string | null
+  content_hashes: { catalog?: string; pages?: string; policies?: string } | null
   created_at: string
   updated_at: string
 }

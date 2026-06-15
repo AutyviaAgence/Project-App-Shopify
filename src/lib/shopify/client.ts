@@ -175,6 +175,11 @@ export async function registerWebhooks(shop: string, accessToken: string): Promi
     { topic: 'REFUNDS_CREATE', path: '/api/shopify/webhooks/orders' },
     { topic: 'RETURNS_REQUEST', path: '/api/shopify/webhooks/orders' },
     { topic: 'CHECKOUTS_CREATE', path: '/api/shopify/webhooks/checkouts' },
+    // Synchro RAG : catalogue (temps réel) + infos boutique (pages/politiques)
+    { topic: 'PRODUCTS_CREATE', path: '/api/shopify/webhooks/products' },
+    { topic: 'PRODUCTS_UPDATE', path: '/api/shopify/webhooks/products' },
+    { topic: 'PRODUCTS_DELETE', path: '/api/shopify/webhooks/products' },
+    { topic: 'SHOP_UPDATE', path: '/api/shopify/webhooks/shop' },
   ]
 
   const errors: string[] = []

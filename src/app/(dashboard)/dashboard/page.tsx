@@ -27,6 +27,7 @@ import {
 import { StartTourButton } from '@/components/guided-tour'
 import { WhatsAppConnect } from '@/components/whatsapp-connect'
 import { EmailConnect } from '@/components/email-connect'
+import { ShopifyConnect } from '@/components/shopify-connect'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
@@ -374,10 +375,11 @@ function StatsDashboard() {
             </Link>
           </div>
 
-          {/* Connexions canaux (remplacent la page Sessions) */}
-          <div className="grid gap-3 md:grid-cols-2">
+          {/* Connexions : WhatsApp, Email, Boutique Shopify */}
+          <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
             <WhatsAppConnect />
             <EmailConnect />
+            <ShopifyConnect />
           </div>
 
           {/* ═══ Bloc action : statut IA + CTA (les stats détaillées sont dans /stats) ═══ */}
