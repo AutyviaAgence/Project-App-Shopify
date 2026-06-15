@@ -182,6 +182,15 @@ export async function importTemplatesFromMeta(
     return { imported: 0, error: res.error }
   }
 
+  // AVANT import : on note la correspondance ancien_id → nom des templates
+  // existants. Sert ensuite à remapper les automations qui pointaient vers ces
+  // id si l'import les recrée avec un nouvel id (cas du changement de WABA).
+  const { data: before } = await supabase
+    .from('whatsapp_templates')
+    .select('id, name')
+    .eq('user_id', userId)
+  const oldIdToName = new Map<string, string>((before || []).map((r) => [r.id, r.name]))
+
   const templates = (res.data?.data || []) as MetaTemplate[]
   let imported = 0
   for (const t of templates) {
@@ -196,5 +205,69 @@ export async function importTemplatesFromMeta(
       console.error('[meta-import] parse échec', t.name, e)
     }
   }
+
+  // APRÈS import : remappe les automations dont le templateId n'existe plus vers
+  // le template du même NOM (par id actuel). Évite les automations cassées
+  // silencieusement après un changement de compte WhatsApp.
+  try {
+    await remapAutomationTemplates(supabase, userId, oldIdToName)
+  } catch (e) {
+    console.error('[meta-import] remap automations échec:', e)
+  }
+
   return { imported }
+}
+
+/**
+ * Remappe les `templateId` des automations (dans graph.nodes) qui pointent vers
+ * un template disparu, vers le template actuel du même nom. `oldIdToName` donne
+ * le nom d'un ancien id (capturé avant import).
+ */
+async function remapAutomationTemplates(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: SupabaseClient<any, any, any>,
+  userId: string,
+  oldIdToName: Map<string, string>
+): Promise<void> {
+  // Templates actuels : nom → id (langue source/fr de préférence).
+  const { data: current } = await supabase
+    .from('whatsapp_templates')
+    .select('id, name, language, source_language')
+    .eq('user_id', userId)
+  const nameToId = new Map<string, string>()
+  for (const t of current || []) {
+    const isPref = (t.source_language && t.language === t.source_language) || t.language === 'fr'
+    if (!nameToId.has(t.name) || isPref) nameToId.set(t.name, t.id)
+  }
+  const currentIds = new Set((current || []).map((t) => t.id))
+
+  // Automations en mode builder de l'utilisateur.
+  const { data: autos } = await supabase
+    .from('automations')
+    .select('id, graph, template_id')
+    .eq('user_id', userId)
+
+  for (const a of autos || []) {
+    let changed = false
+    const graph = a.graph as { nodes?: { type?: string; templateId?: string }[] } | null
+    if (graph?.nodes) {
+      for (const node of graph.nodes) {
+        if (node.type !== 'action' || !node.templateId) continue
+        if (currentIds.has(node.templateId)) continue // déjà valide
+        const name = oldIdToName.get(node.templateId)
+        const newId = name ? nameToId.get(name) : undefined
+        if (newId) { node.templateId = newId; changed = true }
+      }
+    }
+    // template_id linéaire (rétrocompat) éventuel.
+    let newTemplateId = a.template_id as string | null
+    if (a.template_id && !currentIds.has(a.template_id)) {
+      const name = oldIdToName.get(a.template_id)
+      const nid = name ? nameToId.get(name) : undefined
+      if (nid) { newTemplateId = nid; changed = true }
+    }
+    if (changed) {
+      await supabase.from('automations').update({ graph, template_id: newTemplateId }).eq('id', a.id)
+    }
+  }
 }
