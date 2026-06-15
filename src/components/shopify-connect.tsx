@@ -4,7 +4,11 @@ import { useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Loader2, Store, RefreshCw, Check, X } from 'lucide-react'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Loader2, Store, RefreshCw, Check, X, Trash2 } from 'lucide-react'
 
 /** Normalise une saisie en domaine xxx.myshopify.com (accepte URL, nom seul, etc.). */
 function normalizeShopDomain(raw: string): string | null {
@@ -34,6 +38,24 @@ export function ShopifyConnect() {
   const [loading, setLoading] = useState(true)
   const [resyncing, setResyncing] = useState(false)
   const [shopInput, setShopInput] = useState('')
+  const [confirmDisconnect, setConfirmDisconnect] = useState(false)
+  const [disconnecting, setDisconnecting] = useState(false)
+
+  async function disconnect() {
+    setDisconnecting(true)
+    try {
+      const res = await fetch('/api/shopify/disconnect', { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Erreur')
+      setConfirmDisconnect(false)
+      await fetchStatus()
+      toast.success('Boutique déconnectée.')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erreur')
+    } finally {
+      setDisconnecting(false)
+    }
+  }
 
   function startInstall() {
     const domain = normalizeShopDomain(shopInput)
@@ -102,9 +124,14 @@ export function ShopifyConnect() {
               <p className="text-sm text-muted-foreground truncate">{status.shop_name || status.shop_domain}</p>
             </div>
           </div>
-          <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground hover:text-foreground" disabled={resyncing} onClick={resync} title="Resynchroniser les informations de la boutique">
-            {resyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-          </Button>
+          <div className="flex shrink-0 items-center gap-1">
+            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" disabled={resyncing} onClick={resync} title="Resynchroniser les informations de la boutique">
+              {resyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            </Button>
+            <Button variant="ghost" size="icon" className="text-destructive" disabled={disconnecting} onClick={() => setConfirmDisconnect(true)} title="Déconnecter la boutique">
+              {disconnecting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+            </Button>
+          </div>
         </div>
 
         {/* Détail synchro */}
@@ -114,6 +141,31 @@ export function ShopifyConnect() {
           <span className="flex items-center gap-1">Politiques {status.has_policies ? <Check className="h-3 w-3 text-green-600" /> : <X className="h-3 w-3 text-muted-foreground/50" />}</span>
           <span className="ml-auto">Dernière synchro : {last}</span>
         </div>
+
+        {/* Confirmation de déconnexion */}
+        <AlertDialog open={confirmDisconnect} onOpenChange={setConfirmDisconnect}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Déconnecter la boutique ?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Le lien avec <strong>{status.shop_name || status.shop_domain}</strong> sera retiré, ainsi que les informations
+                synchronisées (catalogue, pages, politiques) de cette boutique. Votre agent IA et vos documents ajoutés à la
+                main sont conservés. Vous pourrez ensuite connecter une autre boutique.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={disconnecting}>Annuler</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={disconnecting}
+                onClick={(e) => { e.preventDefault(); disconnect() }}
+              >
+                {disconnecting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
+                Déconnecter
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     )
   }
