@@ -6,13 +6,9 @@ import type { StatsResponse } from '@/types/stats'
 import type { WhatsAppSession } from '@/types/database'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import dynamic from 'next/dynamic'
 
-const MessagesChart = dynamic(() => import('@/components/stats/charts').then(m => ({ default: m.MessagesChart })))
-const TimeSeriesChart = dynamic(() => import('@/components/stats/charts').then(m => ({ default: m.TimeSeriesChart })))
 import { toast } from 'sonner'
 import {
-  MessageSquare,
   Loader2,
   Smartphone,
   Bot,
@@ -328,7 +324,7 @@ function OnboardingChecklist({ checklist, onRefresh }: { checklist: Checklist; o
 // ─── Dashboard Stats (ancien dashboard) ──────────────────────────────────────
 
 function StatsDashboard() {
-  const { t, locale } = useTranslation()
+  const { t } = useTranslation()
   const tenant = useTenant()
   const [stats, setStats] = useState<StatsResponse | null>(null)
   const [sessions, setSessions] = useState<WhatsAppSession[]>([])
@@ -384,90 +380,30 @@ function StatsDashboard() {
             <EmailConnect />
           </div>
 
-          {/* ═══ Grille principale : graphes (gauche) + colonne IA/CTA/entonnoir (droite) ═══ */}
+          {/* ═══ Bloc action : statut IA + CTA (les stats détaillées sont dans /stats) ═══ */}
           <div className="grid grid-cols-1 gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-12">
-            {/* ── Colonne gauche : 2 graphes empiles ── */}
-            <div className="flex min-h-0 flex-col gap-3 lg:col-span-8">
-              {/* Graphe Messages par jour */}
-              <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-border bg-card p-5 shadow-sm">
-                <div className="mb-3 flex items-start justify-between">
-                  <div>
-                    <h3 className="text-sm text-muted-foreground">{t('dashboard.messages_per_day')}</h3>
-                    <p className="mt-0.5 text-2xl font-bold tracking-tight text-foreground">{stats.overview.totalMessages.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')}</p>
-                  </div>
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary">
-                    <MessageSquare className="h-4 w-4" />
-                  </div>
-                </div>
-                <div className="min-h-0 flex-1 overflow-hidden">
-                  <MessagesChart data={stats.charts.messagesOverTime} height="100%" />
-                </div>
-              </div>
-
-              {/* Graphe Nouvelles conversations */}
-              <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-sm">
-                <h3 className="mb-2 text-sm font-semibold">{t('dashboard.new_conversations')}</h3>
-                <div className="min-h-0 flex-1">
-                  <TimeSeriesChart data={stats.charts.conversationsOverTime} title="" color="var(--accent, #40E9BE)" height="100%" />
-                </div>
-                {(() => {
-                  const inbound = stats.charts.messagesOverTime.reduce((s, p) => s + p.inbound, 0)
-                  const outbound = stats.charts.messagesOverTime.reduce((s, p) => s + p.outbound, 0)
-                  const total = inbound + outbound || 1
-                  const pctIn = Math.round((inbound / total) * 100)
-                  return (
-                    <div className="mt-3 flex items-center gap-3 text-[11px] text-muted-foreground">
-                      <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-primary" />{t('dashboard.received')} {pctIn}%</span>
-                      <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-primary/50" />{t('dashboard.sent')} {100 - pctIn}%</span>
-                    </div>
-                  )
-                })()}
-              </div>
+            {/* CTA verte + mascotte */}
+            <div className="min-h-0 lg:col-span-8">
+              <DashboardCTA
+                connectedSessions={connectedSessions}
+                activeAgents={activeAgents}
+                t={t}
+              />
             </div>
 
-            {/* ── Colonne droite : IA en ligne (petit) + Tout roule (carre) + Entonnoir (carre) ── */}
+            {/* Statut IA + accès aux statistiques */}
             <div className="flex min-h-0 flex-col gap-3 lg:col-span-4">
-              {/* KPI IA en ligne — compact */}
-              <div className="shrink-0">
-                <AIStatusKPI label={t('dashboard.ai_online')} active={activeAgents} total={stats.agents.length} />
-              </div>
-
-              {/* CTA verte + mascotte */}
-              <div className="min-h-0 flex-[5]">
-                <DashboardCTA
-                  connectedSessions={connectedSessions}
-                  activeAgents={activeAgents}
-                  t={t}
-                />
-              </div>
-
-              {/* Funnel d'engagement */}
-              <div className="flex min-h-0 flex-[5] flex-col rounded-2xl border border-border bg-card p-5 shadow-sm">
-                <div className="mb-2 flex items-center justify-between">
-                  <div className="min-w-0">
-                    <h3 className="truncate text-sm font-semibold">{t('dashboard.engagement_funnel')}</h3>
-                    <p className="truncate text-xs text-muted-foreground">{t('dashboard.engagement_funnel_sub')}</p>
-                  </div>
-                  <Link href="/stats" className="shrink-0 text-muted-foreground transition-colors hover:text-foreground">
-                    <ArrowUpRight className="h-4 w-4" />
-                  </Link>
+              <AIStatusKPI label={t('dashboard.ai_online')} active={activeAgents} total={stats.agents.length} />
+              <Link
+                href="/stats"
+                className="flex items-center justify-between rounded-2xl border border-border bg-card p-5 shadow-sm transition-colors hover:border-primary/40"
+              >
+                <div className="min-w-0">
+                  <h3 className="truncate text-sm font-semibold">{t('dashboard.overview')}</h3>
+                  <p className="truncate text-xs text-muted-foreground">{t('dashboard.engagement_funnel_sub')}</p>
                 </div>
-                <div className="flex min-h-0 flex-1 items-center justify-center overflow-hidden">
-                  {(() => {
-                    const inbound = stats.charts.messagesOverTime.reduce((s, p) => s + p.inbound, 0)
-                    const outbound = stats.charts.messagesOverTime.reduce((s, p) => s + p.outbound, 0)
-                    const steps = [
-                      { label: t('dashboard.contacts'), value: stats.overview.totalContacts },
-                      { label: t('dashboard.conversations'), value: stats.overview.totalConversations },
-                      { label: t('dashboard.received'), value: inbound },
-                      { label: t('dashboard.replied'), value: outbound },
-                    ]
-                    return steps[0].value === 0 && steps[1].value === 0
-                      ? <p className="text-sm text-muted-foreground">{t('dashboard.no_data')}</p>
-                      : <EngagementFunnel steps={steps} />
-                  })()}
-                </div>
-              </div>
+                <ArrowUpRight className="h-5 w-5 shrink-0 text-muted-foreground" />
+              </Link>
             </div>
           </div>
         </>
@@ -494,107 +430,6 @@ function AIStatusKPI({ label, active, total }: { label: string; active: number; 
         {online && <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-500 opacity-60" />}
         <span className={cn('relative inline-flex h-3 w-3 rounded-full', online ? 'bg-emerald-500' : 'bg-red-500')} />
       </span>
-    </div>
-  )
-}
-
-// ─── EngagementFunnel — entonnoir d'engagement (variable universelle) ─────────
-
-function EngagementFunnel({ steps }: { steps: { label: string; value: number }[] }) {
-  // Reprise EXACTE de la maquette ai_automation_hub_funnel_v11.svg, rendue
-  // interactive : au survol/clic d'un etage, surbrillance + balayage lumineux.
-  // Geometrie du SVG d'origine (x 150..530, y 150..488), un objet par etage.
-  const [active, setActive] = useState<number | null>(null)
-
-  // Definition de chaque etage : polygone, liseré clair, etiquette (ligne+point+pill)
-  const tiers = [
-    {
-      body: '150,150 530,150 482,235 198,235', top: '150,150 530,150 524,162 156,162',
-      fill: '#7DA0FF', topFill: '#9DB6FF',
-      lineX1: 540, lineY: 175, dotX: 610, pillX: 630, pillY: 151, textX: 680,
-    },
-    {
-      body: '198,241 482,241 412,326 268,326', top: '198,241 482,241 476,253 204,253',
-      fill: '#5B7FFF', topFill: '#7DA0FF',
-      lineX1: 490, lineY: 280, dotX: 560, pillX: 580, pillY: 256, textX: 630,
-    },
-    {
-      body: '268,332 412,332 372,400 308,400', top: '268,332 412,332 406,344 274,344',
-      fill: '#3B82F6', topFill: '#5B7FFF',
-      lineX1: 420, lineY: 366, dotX: 490, pillX: 510, pillY: 342, textX: 560,
-    },
-    {
-      body: '308,406 372,406 372,488 308,462', top: '308,406 372,406 372,418 308,418',
-      fill: '#2563EB', topFill: '#3B82F6',
-      lineX1: 402, lineY: 431, dotX: 472, pillX: 492, pillY: 407, textX: 542,
-    },
-  ]
-
-  return (
-    <div className="h-full w-full">
-      <svg viewBox="140 140 600 358" className="h-full w-full" preserveAspectRatio="xMidYMid meet">
-        <defs>
-          {/* Degrade de balayage (userSpaceOnUse) : on anime le gradient, pas la forme */}
-          <linearGradient id="funnelShine" gradientUnits="userSpaceOnUse" x1="150" y1="0" x2="270" y2="0">
-            <stop offset="0%" stopColor="#ffffff" stopOpacity="0" />
-            <stop offset="50%" stopColor="#ffffff" stopOpacity="0.55" />
-            <stop offset="100%" stopColor="#ffffff" stopOpacity="0" />
-            <animate attributeName="x1" values="150;500" dur="1.1s" repeatCount="indefinite" />
-            <animate attributeName="x2" values="270;620" dur="1.1s" repeatCount="indefinite" />
-          </linearGradient>
-        </defs>
-
-        {steps.map((s, i) => {
-          const tier = tiers[i]
-          if (!tier) return null
-          const isActive = active === i
-          return (
-            <g
-              key={i}
-              className="cursor-pointer"
-              style={{ transition: 'opacity 200ms ease' }}
-              opacity={active === null || isActive ? 1 : 0.45}
-              onMouseEnter={() => setActive(i)}
-              onMouseLeave={() => setActive(null)}
-              onClick={() => setActive((cur) => (cur === i ? null : i))}
-            >
-              {/* Trapeze + liseré clair. 1er étage : coins supérieurs arrondis. */}
-              {i === 0 ? (
-                <>
-                  <path d="M 162,150 L 518,150 A 12 12 0 0 1 530,162 L 482,235 L 198,235 L 150,162 A 12 12 0 0 1 162,150 Z" fill={tier.fill} />
-                  <polygon points={tier.top} fill={tier.topFill} opacity={0.7} />
-                </>
-              ) : (
-                <>
-                  <polygon points={tier.body} fill={tier.fill} />
-                  <polygon points={tier.top} fill={tier.topFill} opacity={0.7} />
-                </>
-              )}
-
-              {/* Surbrillance pulsee + balayage lumineux quand actif */}
-              {isActive && (
-                <>
-                  <polygon points={tier.body} fill="#ffffff" opacity={0.18}>
-                    <animate attributeName="opacity" values="0.05;0.28;0.05" dur="1.4s" repeatCount="indefinite" />
-                  </polygon>
-                  <polygon points={tier.body} fill="url(#funnelShine)" />
-                </>
-              )}
-
-              {/* Etiquette : ligne + point + pill */}
-              <line x1={tier.lineX1} y1={tier.lineY} x2={tier.dotX} y2={tier.lineY} stroke={isActive ? '#3B82F6' : '#2A3645'} strokeWidth="2" />
-              <circle cx={tier.dotX} cy={tier.lineY} r={isActive ? 7 : 6} fill="#3B82F6" />
-              <rect
-                x={tier.pillX} y={tier.pillY} width="100" height="48" rx="10"
-                fill="#1A2433" stroke={isActive ? '#3B82F6' : '#2A3645'} strokeWidth={isActive ? 1.5 : 1}
-                style={{ transition: 'stroke 200ms ease' }}
-              />
-              <text x={tier.textX} y={tier.pillY + 22} fill="#8A95A5" fontSize="13" fontWeight="400" textAnchor="middle">{s.label}</text>
-              <text x={tier.textX} y={tier.pillY + 39} fill="#3B82F6" fontSize="16" fontWeight="700" textAnchor="middle">{s.value.toLocaleString('fr-FR')}</text>
-            </g>
-          )
-        })}
-      </svg>
     </div>
   )
 }
