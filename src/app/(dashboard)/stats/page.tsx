@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { KPICard } from '@/components/stats/kpi-card'
+import { EngagementFunnel } from '@/components/stats/engagement-funnel'
 import dynamic from 'next/dynamic'
 
 const MessagesChart = dynamic(() => import('@/components/stats/charts').then(m => ({ default: m.MessagesChart })))
@@ -1232,6 +1233,28 @@ export default function StatsPage() {
                 color="teal"
               />
             </div>
+
+            {/* Entonnoir d'engagement : contacts → conversations → reçus → répondus */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">{t('stats.engagement_funnel')}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                {(() => {
+                  const inbound = stats.charts.messagesOverTime.reduce((s, p) => s + p.inbound, 0)
+                  const outbound = stats.charts.messagesOverTime.reduce((s, p) => s + p.outbound, 0)
+                  const steps = [
+                    { label: t('stats.total_contacts'), value: stats.overview.totalContacts },
+                    { label: t('stats.conversations'), value: stats.overview.totalConversations },
+                    { label: t('stats.received'), value: inbound },
+                    { label: t('stats.replied'), value: outbound },
+                  ]
+                  return steps[0].value === 0 && steps[1].value === 0
+                    ? <p className="py-8 text-center text-sm text-muted-foreground">{t('stats.no_data')}</p>
+                    : <div className="mx-auto h-72 max-w-2xl"><EngagementFunnel steps={steps} /></div>
+                })()}
+              </CardContent>
+            </Card>
 
             <Card>
               <CardHeader>
