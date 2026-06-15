@@ -261,6 +261,7 @@ Exemples :
     if (lastUserMessage) {
       const ragResult = await retrieveContext({
         agentId: params.agentId,
+        userId: agent.user_id, // propriétaire de l'agent → inclut ses docs boutique (globaux)
         query: lastUserMessage.content,
         topK: 5,
         threshold: 0.35,

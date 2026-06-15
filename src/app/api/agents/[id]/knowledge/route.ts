@@ -39,7 +39,24 @@ export async function GET(
     return NextResponse.json({ data: [] })
   }
 
-  const docIds = associations.map((a) => a.document_id)
+  // Exclure les documents BOUTIQUE (catalogue/pages/politiques) : ils sont
+  // globaux (gérés sur le Dashboard) et inclus automatiquement dans le RAG.
+  // La section « Savoir » de l'agent n'affiche que les documents PERSO.
+  const { data: stores } = await supabase
+    .from('shopify_stores')
+    .select('catalog_doc_id, pages_doc_id, policies_doc_id')
+    .eq('user_id', agent.user_id)
+  const storeDocIds = new Set<string>()
+  for (const s of stores || []) {
+    for (const docId of [s.catalog_doc_id, s.pages_doc_id, s.policies_doc_id]) {
+      if (docId) storeDocIds.add(docId)
+    }
+  }
+
+  const docIds = associations.map((a) => a.document_id).filter((d) => !storeDocIds.has(d))
+  if (docIds.length === 0) {
+    return NextResponse.json({ data: [] })
+  }
   const { data: documents, error } = await supabase
     .from('knowledge_documents')
     .select('*')

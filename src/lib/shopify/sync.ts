@@ -242,17 +242,10 @@ export async function syncShopToKnowledge(
   const shopName = store.shop_name || shop
   const hashes = (store.content_hashes || {}) as { catalog?: string; pages?: string; policies?: string }
 
-  // Agent à lier seulement si un doc-id manque (sinon les docs sont déjà rattachés).
-  async function resolveAgentId(): Promise<string | null> {
-    const { data: a } = await supabase
-      .from('ai_agents')
-      .select('id')
-      .eq('user_id', store!.user_id)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    return a?.id || null
-  }
+  // Les documents BOUTIQUE ne sont PAS liés à un agent : ils sont globaux au
+  // compte et inclus automatiquement dans le RAG de tous les agents (cf.
+  // retrieveContext qui les fusionne via shopify_stores). On passe donc
+  // toujours agentId=null.
 
   let products = 0
   let pagesPresent = (store.last_sync_summary as { pages?: boolean } | null)?.pages ?? false
@@ -267,8 +260,7 @@ export async function syncShopToKnowledge(
     const { text, count } = await fetchAllProducts(shop, token)
     products = count
     if (text.trim().length > 20) {
-      const agentId = store.catalog_doc_id ? null : await resolveAgentId()
-      const r = await upsertDoc({ userId: store.user_id, agentId, existingDocId: store.catalog_doc_id, name: `Catalogue — ${shopName}`, content: text, previousHash: hashes.catalog || null })
+      const r = await upsertDoc({ userId: store.user_id, agentId: null, existingDocId: store.catalog_doc_id, name: `Catalogue — ${shopName}`, content: text, previousHash: hashes.catalog || null })
       if (r.docId) { updates.catalog_doc_id = r.docId; newHashes.catalog = r.hash; documents++; if (r.processed) processed++ }
     }
     updates.catalog_synced_at = new Date().toISOString()
@@ -283,13 +275,11 @@ export async function syncShopToKnowledge(
     policiesPresent = policiesText.trim().length > 20
 
     if (pagesPresent) {
-      const agentId = store.pages_doc_id ? null : await resolveAgentId()
-      const r = await upsertDoc({ userId: store.user_id, agentId, existingDocId: store.pages_doc_id, name: `Pages — ${shopName}`, content: pagesText, previousHash: hashes.pages || null })
+      const r = await upsertDoc({ userId: store.user_id, agentId: null, existingDocId: store.pages_doc_id, name: `Pages — ${shopName}`, content: pagesText, previousHash: hashes.pages || null })
       if (r.docId) { updates.pages_doc_id = r.docId; newHashes.pages = r.hash; documents++; if (r.processed) processed++ }
     }
     if (policiesPresent) {
-      const agentId = store.policies_doc_id ? null : await resolveAgentId()
-      const r = await upsertDoc({ userId: store.user_id, agentId, existingDocId: store.policies_doc_id, name: `Politiques — ${shopName}`, content: policiesText, previousHash: hashes.policies || null })
+      const r = await upsertDoc({ userId: store.user_id, agentId: null, existingDocId: store.policies_doc_id, name: `Politiques — ${shopName}`, content: policiesText, previousHash: hashes.policies || null })
       if (r.docId) { updates.policies_doc_id = r.docId; newHashes.policies = r.hash; documents++; if (r.processed) processed++ }
     }
     updates.last_synced_at = new Date().toISOString()
@@ -376,7 +366,8 @@ export async function autoConfigureAgentFromShop(storeId: string): Promise<AutoC
     ['policies', 'policies_doc_id', `Politiques — ${shopName}`, policies],
   ] as const) {
     if (content.trim().length > 20) {
-      const r = await upsertDoc({ userId: store.user_id, agentId: agent.id, existingDocId: null, name, content, previousHash: null })
+      // Docs boutique GLOBAUX (non liés à un agent) : le RAG les inclut pour tous.
+      const r = await upsertDoc({ userId: store.user_id, agentId: null, existingDocId: null, name, content, previousHash: null })
       if (r.docId) { docUpdates[idCol] = r.docId; hashes[key] = r.hash; documents++ }
     }
   }

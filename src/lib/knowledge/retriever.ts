@@ -20,6 +20,7 @@ export type RetrievedChunk = {
 export async function retrieveContext(params: {
   agentId: string
   query: string
+  userId?: string
   topK?: number
   threshold?: number
 }): Promise<{ ok: true; chunks: RetrievedChunk[]; context: string; tokensUsed: number } | { ok: false; error: string }> {
@@ -29,18 +30,44 @@ export async function retrieveContext(params: {
   )
 
   try {
-    // 1. Récupérer les document_ids associés à l'agent
+    // 1a. Documents liés à l'agent (docs perso assignés à cet agent).
     const { data: agentDocs } = await supabase
       .from('agent_knowledge_documents')
       .select('document_id')
       .eq('agent_id', params.agentId)
+    const ids = new Set<string>((agentDocs || []).map((d) => d.document_id))
 
-    if (!agentDocs || agentDocs.length === 0) {
+    // 1b. Documents BOUTIQUE (catalogue/pages/politiques) — GLOBAUX au compte :
+    // ils profitent à TOUS les agents du propriétaire, sans lien explicite.
+    // Propriétaire : fourni (params.userId) ou retrouvé via l'agent.
+    let ownerId = params.userId
+    if (!ownerId) {
+      const { data: agent } = await supabase
+        .from('ai_agents')
+        .select('user_id')
+        .eq('id', params.agentId)
+        .maybeSingle()
+      ownerId = agent?.user_id || undefined
+    }
+    if (ownerId) {
+      const { data: stores } = await supabase
+        .from('shopify_stores')
+        .select('catalog_doc_id, pages_doc_id, policies_doc_id')
+        .eq('user_id', ownerId)
+        .eq('is_active', true)
+      for (const s of stores || []) {
+        for (const id of [s.catalog_doc_id, s.pages_doc_id, s.policies_doc_id]) {
+          if (id) ids.add(id)
+        }
+      }
+    }
+
+    if (ids.size === 0) {
       return { ok: true, chunks: [], context: '', tokensUsed: 0 }
     }
 
     // Filtrer uniquement les documents prêts
-    const documentIds = agentDocs.map((d) => d.document_id)
+    const documentIds = Array.from(ids)
     const { data: readyDocs } = await supabase
       .from('knowledge_documents')
       .select('id')

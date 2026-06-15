@@ -392,7 +392,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
           >
             {docs.length === 0 && images.length === 0 ? (
               <button onClick={() => setAddDocOpen(true)} className="w-full py-6 text-center text-sm text-muted-foreground hover:text-foreground transition-colors">
-                Aucune ressource · Parcourir la bibliothèque →
+                Aucun document personnel · Ajouter un PDF ou texte →
               </button>
             ) : (
               <>
@@ -401,7 +401,18 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                     {i > 0 && <Divider />}
                     <div className="group flex items-center gap-3 py-3">
                       <FileText className="h-4 w-4 text-blue-500 shrink-0" />
-                      <span className="text-sm flex-1 truncate">{doc.name}</span>
+                      <div className="min-w-0 flex-1">
+                        <span className="block truncate text-sm">{doc.name}</span>
+                        <span className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                          <span className={cn('h-1.5 w-1.5 rounded-full',
+                            doc.status === 'ready' ? 'bg-emerald-500'
+                              : doc.status === 'error' ? 'bg-red-500'
+                              : 'bg-amber-500 animate-pulse')} />
+                          {doc.status === 'ready' ? `${doc.chunk_count} extrait${doc.chunk_count > 1 ? 's' : ''}`
+                            : doc.status === 'error' ? 'Erreur'
+                            : 'Traitement…'}
+                        </span>
+                      </div>
                       <button onClick={() => handleDetachDoc(doc.id)} className="opacity-0 group-hover:opacity-100 transition-opacity">
                         <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive transition-colors" />
                       </button>

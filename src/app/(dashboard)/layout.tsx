@@ -11,7 +11,6 @@ import {
   MessageSquare,
   Smartphone,
   Bot,
-  Library,
   BookOpen,
   BarChart3,
   LogOut,
@@ -344,7 +343,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           { href: '/dashboard', icon: LayoutDashboard, label: t('nav.home') },
           { href: '/conversations', icon: MessageSquare, label: t('nav.chat') },
           { href: '/agents', icon: Bot, label: t('common.agents') },
-          { href: '/ressources', icon: Library, label: t('nav.resources') },
           { href: '/settings', icon: Settings, label: t('nav.config') },
         ].map((item) => {
           const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
