@@ -56,6 +56,7 @@ import {
 import { formatDistanceToNow } from 'date-fns'
 import { fr, enUS } from 'date-fns/locale'
 import { getSessionDisplayName, formatPhoneNumber } from '@/lib/format-phone'
+import { EMAIL_UI_ENABLED } from '@/lib/features'
 import { useTranslation } from '@/i18n/context'
 import { BlobLoaderScreen } from '@/components/blob-loader'
 import { NumberTicker } from '@/components/ui/number-ticker'
@@ -182,7 +183,8 @@ export default function StatsPage() {
             </SelectContent>
           </Select>
 
-          {/* Filtre canal */}
+          {/* Filtre canal — masqué quand l'email est désactivé (tout est WhatsApp) */}
+          {EMAIL_UI_ENABLED && (
           <Select value={channelFilter} onValueChange={(v) => setChannelFilter(v as 'all' | 'whatsapp' | 'email')}>
             <SelectTrigger className="w-[150px] h-9">
               <SelectValue />
@@ -203,6 +205,7 @@ export default function StatsPage() {
               </SelectItem>
             </SelectContent>
           </Select>
+          )}
 
           {/* Filtre session */}
           <Select value={sessionFilter} onValueChange={setSessionFilter}>

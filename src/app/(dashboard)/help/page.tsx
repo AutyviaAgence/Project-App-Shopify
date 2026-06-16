@@ -25,10 +25,6 @@ const CATEGORIES: Category[] = [
         q: 'Pourquoi mes messages reçus n’apparaissent-ils pas ?',
         a: <>Vérifiez dans Meta (WhatsApp → Configuration → Webhooks) que l’URL de rappel est <code>https://app.xeyo.io/api/webhook/waba</code>, que le <em>verify token</em> correspond, et surtout que le champ <strong>messages</strong> est bien abonné. L’<em>App Secret</em> de votre app Meta doit aussi être correctement configuré.</>,
       },
-      {
-        q: 'Connecter une boîte email',
-        a: <>Sur le Dashboard, le bloc « Connexion Email » permet de relier Gmail en un clic ou un compte SMTP. Vos emails arrivent alors dans la même boîte de réception que WhatsApp.</>,
-      },
     ],
   },
   {
@@ -91,7 +87,7 @@ const CATEGORIES: Category[] = [
     articles: [
       {
         q: 'Notifier automatiquement après une commande',
-        a: <>Une fois votre boutique Shopify connectée, Xeyo envoie une notification (ex : « Commande expédiée ») sur le canal choisi par le client (WhatsApp ou email). Le message apparaît aussi dans votre boîte de réception.</>,
+        a: <>Une fois votre boutique Shopify connectée, Xeyo envoie une notification WhatsApp (ex : « Commande expédiée ») au client. Le message apparaît aussi dans votre boîte de réception.</>,
       },
       {
         q: 'Le contact est-il créé automatiquement ?',

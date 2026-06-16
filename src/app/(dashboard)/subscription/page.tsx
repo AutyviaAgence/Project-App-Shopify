@@ -63,7 +63,7 @@ const PLANS = [
     badgeBg: 'bg-blue-500/10 text-blue-600',
     buttonClass: 'bg-blue-500 hover:bg-blue-600 text-white',
     features: [
-      { text: '1 WhatsApp + Email', included: true },
+      { text: '1 numéro WhatsApp', included: true },
       { text: '2 agents IA', included: true },
       { text: 'Base de connaissances', included: true },
       { text: 'Actions Shopify', included: true },
@@ -85,7 +85,7 @@ const PLANS = [
     buttonClass: '',
     popular: true,
     features: [
-      { text: '1 WhatsApp + Email', included: true },
+      { text: '1 numéro WhatsApp', included: true },
       { text: '5 agents IA', included: true },
       { text: 'Base de connaissances', included: true },
       { text: 'Actions Shopify', included: true },
@@ -106,7 +106,7 @@ const PLANS = [
     badgeBg: 'bg-sky-500/10 text-sky-600',
     buttonClass: 'bg-sky-500 hover:bg-sky-600 text-white',
     features: [
-      { text: 'WhatsApp + Email illimités', included: true },
+      { text: 'Numéros WhatsApp illimités', included: true },
       { text: 'Agents IA illimités', included: true },
       { text: 'Base de connaissances', included: true },
       { text: 'Actions Shopify avancées', included: true },

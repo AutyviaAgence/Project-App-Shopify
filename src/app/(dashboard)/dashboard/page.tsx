@@ -28,6 +28,7 @@ import { StartTourButton } from '@/components/guided-tour'
 import { WhatsAppConnect } from '@/components/whatsapp-connect'
 import { EmailConnect } from '@/components/email-connect'
 import { ShopifyConnect } from '@/components/shopify-connect'
+import { EMAIL_UI_ENABLED } from '@/lib/features'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
@@ -147,7 +148,7 @@ function OnboardingChecklist({ checklist, onRefresh }: { checklist: Checklist; o
       iconBg: 'bg-pink-500/10',
       required: true,
     },
-    {
+    ...(EMAIL_UI_ENABLED ? [{
       key: 'email_connected' as const,
       label: 'Session Email',
       description: 'Gérez vos emails depuis le même inbox que WhatsApp.',
@@ -159,7 +160,7 @@ function OnboardingChecklist({ checklist, onRefresh }: { checklist: Checklist; o
       iconColor: 'text-indigo-400',
       iconBg: 'bg-indigo-500/10',
       required: false,
-    },
+    }] : []),
   ]
 
   const requiredSteps = steps.filter((s) => s.required)
@@ -173,7 +174,7 @@ function OnboardingChecklist({ checklist, onRefresh }: { checklist: Checklist; o
 
       {/* Connexions canaux (remplacent la page Sessions) */}
       <WhatsAppConnect />
-      <EmailConnect />
+      {EMAIL_UI_ENABLED && <EmailConnect />}
 
       {/* Hero banner */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-primary/20 via-primary/10 to-accent/10 border border-primary/20 p-6 md:p-8">
@@ -283,6 +284,7 @@ function OnboardingChecklist({ checklist, onRefresh }: { checklist: Checklist; o
       </div>
 
       {/* Bonus email */}
+      {EMAIL_UI_ENABLED && (
       <div
         className={cn(
           'flex items-center gap-4 rounded-xl border border-dashed p-4 transition-all',
@@ -314,6 +316,7 @@ function OnboardingChecklist({ checklist, onRefresh }: { checklist: Checklist; o
           <Button size="sm" variant="outline" className="shrink-0">Connecter</Button>
         )}
       </div>
+      )}
 
       <p className="text-center text-xs text-muted-foreground">
         Une fois toutes les étapes complétées, votre tableau de bord de statistiques s'affichera automatiquement.
@@ -375,10 +378,10 @@ function StatsDashboard() {
             </Link>
           </div>
 
-          {/* Connexions : WhatsApp, Email, Boutique Shopify */}
+          {/* Connexions : WhatsApp, (Email), Boutique Shopify */}
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
             <WhatsAppConnect />
-            <EmailConnect />
+            {EMAIL_UI_ENABLED && <EmailConnect />}
             <ShopifyConnect />
           </div>
 

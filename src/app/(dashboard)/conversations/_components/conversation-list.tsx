@@ -37,6 +37,7 @@ import {
 import { formatDistanceToNow } from 'date-fns'
 import { fr, enUS } from 'date-fns/locale'
 import { getSessionDisplayName, getContactDisplayName } from '@/lib/format-phone'
+import { EMAIL_UI_ENABLED } from '@/lib/features'
 import { useTranslation } from '@/i18n/context'
 import type { ConversationWithJoins, Team, ConversationTag, LifecycleStage } from './types'
 
@@ -192,6 +193,8 @@ export function ConversationList({
     { value: 'whatsapp', label: 'WhatsApp', icon: Smartphone },
     { value: 'email', label: 'Email', icon: Mail },
   ]
+  // Email masqué → les onglets canal n'ont plus d'intérêt (tout est WhatsApp).
+  const showChannelTabs = EMAIL_UI_ENABLED
 
   return (
     <div
@@ -224,6 +227,7 @@ export function ConversationList({
         </div>
 
         {/* Channel tabs */}
+        {showChannelTabs && (
         <div className="flex gap-1 rounded-lg bg-muted p-0.5">
           {channelTabs.map(({ value, label, icon: Icon }) => (
             <button
@@ -241,6 +245,7 @@ export function ConversationList({
             </button>
           ))}
         </div>
+        )}
 
         {/* Filter bar */}
         <div data-tour="conversations-filters" className="flex items-center gap-2">
