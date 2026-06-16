@@ -3,14 +3,21 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 
 const BUCKET = 'knowledge-images'
-const MAX_SIZE = 5 * 1024 * 1024 // 5 MB
-const ALLOWED_MIME = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+
+// Contraintes par type de média (aligné sur les limites WhatsApp Cloud API)
+const MEDIA_RULES = {
+  image: { maxSize: 5 * 1024 * 1024, mimes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'], label: 'image (jpeg, png, webp, gif — 5 Mo)' },
+  video: { maxSize: 16 * 1024 * 1024, mimes: ['video/mp4', 'video/3gpp'], label: 'vidéo (mp4, 3gp — 16 Mo)' },
+  document: { maxSize: 16 * 1024 * 1024, mimes: ['application/pdf'], label: 'document (pdf — 16 Mo)' },
+} as const
+type MediaKind = keyof typeof MEDIA_RULES
+const BUCKET_LIMIT = 16 * 1024 * 1024
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function ensureBucket(admin: any) {
   const { data: buckets } = await admin.storage.listBuckets()
   if (!buckets?.some((b: { name: string }) => b.name === BUCKET)) {
-    await admin.storage.createBucket(BUCKET, { public: false, fileSizeLimit: MAX_SIZE })
+    await admin.storage.createBucket(BUCKET, { public: false, fileSizeLimit: BUCKET_LIMIT })
   }
 }
 
@@ -23,7 +30,7 @@ export async function GET() {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase as any)
     .from('knowledge_images')
-    .select('id, ref, filename, mime_type, storage_path, agent_id, created_at')
+    .select('id, ref, filename, mime_type, storage_path, agent_id, media_kind, created_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
 
@@ -41,10 +48,13 @@ export async function POST(req: NextRequest) {
   const file = form.get('file') as File | null
   const ref = form.get('ref')?.toString().trim().toLowerCase().replace(/\s+/g, '-')
   const agentId = form.get('agent_id')?.toString() || null
+  const mediaKind = (form.get('media_kind')?.toString() || 'image') as MediaKind
 
   if (!file || !ref) return NextResponse.json({ error: 'Fichier et ref requis' }, { status: 400 })
-  if (!ALLOWED_MIME.includes(file.type)) return NextResponse.json({ error: 'Format non supporté (jpeg, png, webp, gif)' }, { status: 400 })
-  if (file.size > MAX_SIZE) return NextResponse.json({ error: 'Image trop volumineuse (max 5 Mo)' }, { status: 400 })
+  const rules = MEDIA_RULES[mediaKind]
+  if (!rules) return NextResponse.json({ error: 'Type de média invalide' }, { status: 400 })
+  if (!(rules.mimes as readonly string[]).includes(file.type)) return NextResponse.json({ error: `Format non supporté pour ${mediaKind} — attendu : ${rules.label}` }, { status: 400 })
+  if (file.size > rules.maxSize) return NextResponse.json({ error: `Fichier trop volumineux (max ${Math.round(rules.maxSize / 1024 / 1024)} Mo pour ${mediaKind})` }, { status: 400 })
   if (!/^[a-z0-9-_]+$/.test(ref)) return NextResponse.json({ error: 'La ref ne peut contenir que des lettres, chiffres, tirets et underscores' }, { status: 400 })
 
   const admin = createAdminClient(
@@ -79,6 +89,7 @@ export async function POST(req: NextRequest) {
         storage_path: storagePath,
         filename: file.name,
         mime_type: file.type,
+        media_kind: mediaKind,
       }, { onConflict: 'user_id,ref' })
       .select()
       .single()

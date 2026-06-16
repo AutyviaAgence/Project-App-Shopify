@@ -79,6 +79,37 @@ export async function sendMediaMessage(
 }
 
 /**
+ * Envoyer un message interactif (boutons de réponse rapide) via WABA.
+ * Message LIBRE — valable dans la fenêtre de 24h, aucun template requis.
+ */
+export async function sendInteractiveMessage(
+  session: Pick<WhatsAppSession, 'waba_phone_number_id' | 'waba_access_token'>,
+  phoneNumber: string,
+  opts: {
+    bodyText: string
+    buttons: { id: string; title: string }[]
+  }
+): Promise<SendResult> {
+  const token = decryptWabaToken(session)
+  if (!session.waba_phone_number_id || !token) {
+    return { ok: false, error: 'Credentials WABA manquants sur la session' }
+  }
+  if (!opts.bodyText.trim()) {
+    return { ok: false, error: 'Corps du message interactif vide' }
+  }
+  if (!opts.buttons.length) {
+    return { ok: false, error: 'Aucun bouton fourni' }
+  }
+  return wabaClient.sendInteractiveButtons(
+    session.waba_phone_number_id,
+    token,
+    phoneNumber,
+    opts.bodyText,
+    opts.buttons
+  )
+}
+
+/**
  * Indicateur de présence (typing) — WhatsApp Cloud API n'a pas d'équivalent natif.
  * Conservé comme no-op pour compatibilité des appels existants.
  */

@@ -80,6 +80,43 @@ export const wabaClient = {
     })
   },
 
+  /**
+   * Envoyer un message interactif avec boutons de réponse rapide (max 3).
+   * Message LIBRE (free-form) — valable uniquement dans la fenêtre de 24h,
+   * AUCUN template Meta requis. Le clic renvoie un message entrant
+   * (button_reply.title) que le webhook reconvertit en message texte.
+   *
+   * Contraintes Meta : body REQUIS (≤1024), max 3 boutons, title ≤20 car.
+   */
+  sendInteractiveButtons(
+    phoneNumberId: string,
+    accessToken: string,
+    to: string,
+    bodyText: string,
+    buttons: { id: string; title: string }[]
+  ) {
+    const safeButtons = buttons.slice(0, 3).map((b, i) => ({
+      type: 'reply' as const,
+      reply: {
+        id: (b.id || `qr_${i}`).slice(0, 256),
+        title: b.title.slice(0, 20),
+      },
+    }))
+    return request(`${GRAPH_API_BASE}/${phoneNumberId}/messages`, accessToken, {
+      method: 'POST',
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to,
+        type: 'interactive',
+        interactive: {
+          type: 'button',
+          body: { text: bodyText.slice(0, 1024) },
+          action: { buttons: safeButtons },
+        },
+      }),
+    })
+  },
+
   /** Marquer un message comme lu */
   markAsRead(phoneNumberId: string, accessToken: string, messageId: string) {
     return request(`${GRAPH_API_BASE}/${phoneNumberId}/messages`, accessToken, {

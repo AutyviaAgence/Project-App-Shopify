@@ -2,7 +2,7 @@ import 'server-only'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { generateAgentResponse, type ChatMessage, type OpenAIMessage } from './client'
 import { checkTokenLimit, recordTokenUsage } from './token-tracker'
-import { sendMessage, sendMediaMessage, sendPresence } from '@/lib/messaging/send'
+import { sendMessage, sendMediaMessage, sendInteractiveMessage, sendPresence } from '@/lib/messaging/send'
 import { retrieveContext } from '@/lib/knowledge/retriever'
 import { encryptMessage, decryptMessage } from '@/lib/crypto/encryption'
 import { getAgentTools, buildOpenAITools, executeToolCall } from '@/lib/tools/executor'
@@ -317,18 +317,47 @@ Exemples :
       systemPrompt += `\n\n--- Base de connaissances (PRIORITAIRE) ---\nIMPORTANT : Avant d'appeler un outil, vérifie TOUJOURS si la réponse se trouve dans la base de connaissances ci-dessous. N'appelle un outil que si l'information n'est PAS disponible ici. Utilise ces informations en priorité pour répondre de manière précise.\n\n${knowledgeContext}\n--- Fin de la base de connaissances ---`
     }
 
-    // Injecter les images disponibles si l'agent en a
+    // Injecter les "skills fenêtre 24h" : médias disponibles + boutons + lien.
+    // L'agent peut composer un message riche à la volée (sans template Meta) en
+    // insérant des balises dans sa réponse ; le système les exécute après coup.
     if (userId) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: allUserImages } = await (supabase as any)
+      const { data: allUserMedia } = await (supabase as any)
         .from('knowledge_images')
-        .select('ref, filename, agent_id')
-        .eq('user_id', userId) as { data: { ref: string; filename: string; agent_id: string | null }[] | null }
-      const agentImages = (allUserImages || []).filter(img => img.agent_id === null || img.agent_id === params.agentId)
-      if (agentImages.length > 0) {
-        const imgList = agentImages.map(i => `- [IMAGE:${i.ref}] → ${i.filename}`).join('\n')
-        systemPrompt += `\n\n--- Images disponibles (UTILISE-LES) ---\nQuand l'utilisateur demande une image ou que le contexte s'y prête, tu DOIS insérer la balise [IMAGE:ref] dans ta réponse. Le système enverra l'image automatiquement.\nImages disponibles :\n${imgList}\nRÈGLE : si l'utilisateur demande "l'image", "une image", ou un contenu visuel, insère IMMÉDIATEMENT la balise correspondante. Ne dis jamais que tu n'as pas d'image si une balise est listée ci-dessus.\nExemple : pour envoyer "menu-burger", écris [IMAGE:menu-burger] dans ta réponse.\n--- Fin des images ---`
+        .select('ref, filename, agent_id, media_kind')
+        .eq('user_id', userId) as { data: { ref: string; filename: string; agent_id: string | null; media_kind: string | null }[] | null }
+      const agentMedia = (allUserMedia || []).filter(m => m.agent_id === null || m.agent_id === params.agentId)
+
+      const images = agentMedia.filter(m => (m.media_kind || 'image') === 'image')
+      const videos = agentMedia.filter(m => m.media_kind === 'video')
+      const docs = agentMedia.filter(m => m.media_kind === 'document')
+
+      const skillLines: string[] = []
+      skillLines.push(`\n\n--- Compétences disponibles (fenêtre SAV, réponse libre) ---`)
+      skillLines.push(`Le client vient de t'écrire : tu peux enrichir ta réponse SANS modèle pré-approuvé, en insérant ces balises. Le système les exécute et les retire du texte.`)
+
+      if (images.length > 0) {
+        skillLines.push(`\n🖼️ ENVOYER UNE IMAGE — balise [IMAGE:ref]. Images disponibles :`)
+        skillLines.push(images.map(i => `  - [IMAGE:${i.ref}] → ${i.filename}`).join('\n'))
       }
+      if (videos.length > 0) {
+        skillLines.push(`\n🎬 ENVOYER UNE VIDÉO — balise [VIDEO:ref]. Vidéos disponibles :`)
+        skillLines.push(videos.map(v => `  - [VIDEO:${v.ref}] → ${v.filename}`).join('\n'))
+      }
+      if (docs.length > 0) {
+        skillLines.push(`\n📄 ENVOYER UN DOCUMENT — balise [DOC:ref]. Documents disponibles :`)
+        skillLines.push(docs.map(d => `  - [DOC:${d.ref}] → ${d.filename}`).join('\n'))
+      }
+
+      // Boutons et liens : toujours disponibles (pas besoin de bibliothèque)
+      skillLines.push(`\n🔘 PROPOSER DES BOUTONS — balise [BTN:Choix 1|Choix 2|Choix 3]. Quand tu offres au client des choix clairs (ex : "Suivre ma commande", "Parler à un humain"), ajoute cette balise. Règles : 1 à 3 boutons MAX, chaque libellé ≤ 20 caractères. Le texte que tu écris accompagne les boutons. Quand le client clique, tu reçois le libellé comme s'il l'avait tapé.`)
+      skillLines.push(`\n🔗 PARTAGER UN LIEN — balise [LINK:Libellé|https://url]. Le lien apparaît dans le message.`)
+
+      skillLines.push(`\nRÈGLES : n'utilise QUE des refs listés ci-dessus (n'invente jamais un ref). Insère la balise dès que le contexte s'y prête, et ne dis jamais que tu ne peux pas envoyer un média/bouton si la balise est disponible.`)
+      skillLines.push(`--- Fin des compétences ---`)
+
+      // N'injecter que s'il y a au moins les boutons/liens (toujours vrai) — donc systématique en fenêtre SAV
+      systemPrompt += skillLines.join('\n')
     }
 
     // 4.2. Lien de rendez-vous tracké
@@ -473,70 +502,115 @@ Exemples :
 
     console.log('[AI] Réponse OpenAI reçue:', aiResponseText.slice(0, 80) + '...')
 
-    // 6. Détecter et envoyer les images [IMAGE:ref] avant le message texte
-    const imageTagRegex = /\[IMAGE:([a-z0-9_-]+)\]/gi
-    const imageRefs = [...aiResponseText.matchAll(imageTagRegex)].map(m => m[1])
-    const textWithoutImages = aiResponseText.replace(imageTagRegex, '').replace(/\n{3,}/g, '\n\n').trim()
+    // 6. Skills "fenêtre 24h" : l'agent compose un message riche à la volée
+    //    (médias, boutons, lien) via des balises, SANS template Meta.
+    //    Balises supportées :
+    //      [IMAGE:ref] [VIDEO:ref] [DOC:ref]  → envoyer un média de la bibliothèque
+    //      [LINK:label|url]                    → dégradé en lien texte inline
+    //      [BTN:t1|t2|t3]                      → message interactif (1-3 boutons)
+    const mediaTagRegex = /\[(IMAGE|VIDEO|DOC):([a-z0-9_-]+)\]/gi
+    const mediaTags = [...aiResponseText.matchAll(mediaTagRegex)].map(m => ({
+      kind: m[1].toUpperCase() as 'IMAGE' | 'VIDEO' | 'DOC',
+      ref: m[2],
+    }))
 
-    if (imageRefs.length > 0) {
-      // Récupérer les images depuis la DB (supabase = service_role, bypass RLS)
+    // Boutons : on ne garde que le PREMIER bloc [BTN:...] (un seul message interactif)
+    const btnMatch = aiResponseText.match(/\[BTN:([^\]]+)\]/i)
+    const buttonTitles = btnMatch
+      ? btnMatch[1].split('|').map(t => t.trim()).filter(Boolean).slice(0, 3)
+      : []
+
+    // Texte nettoyé : retirer médias + boutons, remplacer [LINK:label|url] par "label : url"
+    const cleanText = aiResponseText
+      .replace(mediaTagRegex, '')
+      .replace(/\[BTN:[^\]]+\]/gi, '')
+      .replace(/\[LINK:([^|\]]+)\|([^\]]+)\]/gi, (_m, label, url) => `${label.trim()} : ${url.trim()}`)
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+
+    // 6.1 Helper : envoyer un média stocké (image/vidéo/document) depuis la bibliothèque
+    const mediaKindMap = { IMAGE: 'image', VIDEO: 'video', DOC: 'document' } as const
+    const sendStoredMedia = async (tag: { kind: 'IMAGE' | 'VIDEO' | 'DOC'; ref: string }) => {
+      const mediatype = mediaKindMap[tag.kind]
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let imgQuery = (supabase as any)
+      let mediaQuery = (supabase as any)
         .from('knowledge_images')
         .select('ref, storage_path, mime_type, filename')
-        .in('ref', imageRefs)
-      if (userId) imgQuery = imgQuery.eq('user_id', userId)
-      const { data: knowledgeImages } = await imgQuery as { data: { ref: string; storage_path: string; mime_type: string; filename: string }[] | null }
-
-      for (const ref of imageRefs) {
-        const imgRecord = knowledgeImages?.find(i => i.ref === ref)
-        if (!imgRecord) {
-          console.warn('[AI] Image ref introuvable:', ref)
-          continue
+        .eq('ref', tag.ref)
+      if (userId) mediaQuery = mediaQuery.eq('user_id', userId)
+      const { data: rows } = await mediaQuery as { data: { ref: string; storage_path: string; mime_type: string; filename: string }[] | null }
+      const record = rows?.[0]
+      if (!record) {
+        console.warn('[AI] Média ref introuvable:', tag.kind, tag.ref)
+        return
+      }
+      try {
+        const { data: fileData, error: dlError } = await supabase.storage
+          .from('knowledge-images')
+          .download(record.storage_path)
+        if (dlError || !fileData) {
+          console.warn('[AI] Média download failed:', tag.ref, dlError?.message)
+          return
         }
-        try {
-          const { data: fileData, error: dlError } = await supabase.storage
-            .from('knowledge-images')
-            .download(imgRecord.storage_path)
-          if (dlError || !fileData) {
-            console.warn('[AI] Image download failed:', ref, dlError?.message)
-            continue
-          }
-          const buffer = Buffer.from(await fileData.arrayBuffer())
-          const sendImgResult = await sendMediaMessage(sessionCtx, params.contactPhoneNumber, {
-            mediatype: 'image',
-            buffer,
-            mimetype: imgRecord.mime_type,
-            fileName: imgRecord.filename,
-          })
-          if (!sendImgResult.ok) console.warn('[AI] Image send failed:', ref, sendImgResult.error)
-          else {
-            await supabase.from('messages').insert({
-              conversation_id: params.conversationId,
-              session_id: params.sessionId,
-              direction: 'outbound',
-              content: encryptMessage(imgRecord.filename),
-              message_type: 'image',
-              media_url: `knowledge-images:${imgRecord.storage_path}`,
-              media_mime_type: imgRecord.mime_type,
-              sent_by: 'ai_agent',
-              ai_agent_id: params.agentId,
-              status: 'sent',
-            })
-          }
-        } catch (imgErr) {
-          console.warn('[AI] Image error for ref:', ref, imgErr)
+        const buffer = Buffer.from(await fileData.arrayBuffer())
+        const sendRes = await sendMediaMessage(sessionCtx, params.contactPhoneNumber, {
+          mediatype,
+          buffer,
+          mimetype: record.mime_type,
+          fileName: record.filename,
+        })
+        if (!sendRes.ok) {
+          console.warn('[AI] Média send failed:', tag.ref, sendRes.error)
+          return
         }
+        await supabase.from('messages').insert({
+          conversation_id: params.conversationId,
+          session_id: params.sessionId,
+          direction: 'outbound',
+          content: encryptMessage(record.filename),
+          message_type: mediatype,
+          media_url: `knowledge-images:${record.storage_path}`,
+          media_mime_type: record.mime_type,
+          sent_by: 'ai_agent',
+          ai_agent_id: params.agentId,
+          status: 'sent',
+        })
+      } catch (mediaErr) {
+        console.warn('[AI] Média error for ref:', tag.ref, mediaErr)
       }
     }
 
-    // Envoyer le texte (sans les tags [IMAGE:...])
-    const finalText = textWithoutImages
+    // 6.2 Envoyer les médias d'abord, dans l'ordre d'apparition
+    for (const tag of mediaTags) {
+      await sendStoredMedia(tag)
+    }
 
-    // 6. Envoyer le texte uniquement s'il est non vide (si réponse = image seule, pas de texte)
+    const finalText = cleanText
+
+    // 6.3 Message final : interactif (boutons) si présents, sinon texte simple
     let sendResult: { ok: boolean; error?: string } = { ok: true }
     let savedMessage: { id: string } | null = null
-    if (finalText) {
+
+    if (buttonTitles.length > 0) {
+      // Le corps interactif est REQUIS et non vide → fallback si l'agent n'a mis que des boutons
+      const bodyText = finalText || 'Que souhaitez-vous faire ?'
+      const buttons = buttonTitles.map((title, i) => ({ id: `qr_${i}`, title }))
+      sendResult = await sendInteractiveMessage(sessionCtx, params.contactPhoneNumber, { bodyText, buttons })
+      if (!sendResult.ok) console.error('[AI] Erreur envoi interactif:', sendResult.error)
+
+      const { data: saved } = await supabase.from('messages').insert({
+        conversation_id: params.conversationId,
+        session_id: params.sessionId,
+        direction: 'outbound',
+        content: encryptMessage(`${bodyText}\n[boutons: ${buttonTitles.join(' | ')}]`),
+        message_type: 'interactive',
+        sent_by: 'ai_agent',
+        ai_agent_id: params.agentId,
+        status: sendResult.ok ? 'sent' : 'failed',
+      }).select('id').single()
+      savedMessage = saved
+    } else if (finalText) {
+      // Envoyer le texte uniquement s'il est non vide (si réponse = média seul, pas de texte)
       sendResult = await sendMessage(
         sessionCtx,
         params.contactPhoneNumber,

@@ -18,7 +18,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-type KnowledgeImage = { id: string; ref: string; filename: string; agent_id: string | null }
+type KnowledgeImage = { id: string; ref: string; filename: string; agent_id: string | null; media_kind?: 'image' | 'video' | 'document' | null }
 type AgentWithExtras = AIAgent & { team_ids?: string[] }
 
 export default function AgentDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -38,6 +38,13 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   const [allDocs, setAllDocs]       = useState<KnowledgeDocument[]>([])
   const [uploadingDoc, setUploadingDoc] = useState(false)
   const uploadDocRef = useRef<HTMLInputElement>(null)
+
+  // Médias envoyables par l'agent (image/vidéo/document) — fenêtre SAV 24h
+  const [addMediaOpen, setAddMediaOpen] = useState(false)
+  const [mediaKind, setMediaKind] = useState<'image' | 'video' | 'document'>('image')
+  const [mediaRef, setMediaRef] = useState('')
+  const [mediaFile, setMediaFile] = useState<File | null>(null)
+  const [uploadingMedia, setUploadingMedia] = useState(false)
 
   const [name, setName]             = useState('')
   const [description, setDescription] = useState('')
@@ -187,6 +194,34 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
     } finally {
       setUploadingDoc(false)
     }
+  }
+
+  // Uploader un média (image/vidéo/document) attaché à cet agent
+  async function handleUploadMedia() {
+    if (!mediaFile || !mediaRef.trim()) { toast.error('Ref et fichier requis'); return }
+    setUploadingMedia(true)
+    try {
+      const form = new FormData()
+      form.append('file', mediaFile)
+      form.append('ref', mediaRef.trim())
+      form.append('agent_id', id)
+      form.append('media_kind', mediaKind)
+      const res = await fetch('/api/knowledge-images', { method: 'POST', body: form })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Erreur upload')
+      setImages(prev => [json.data, ...prev.filter(i => i.id !== json.data.id)])
+      setAddMediaOpen(false); setMediaRef(''); setMediaFile(null); setMediaKind('image')
+      toast.success('Média ajouté')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erreur')
+    } finally {
+      setUploadingMedia(false)
+    }
+  }
+
+  async function handleDeleteMedia(imgId: string) {
+    await fetch(`/api/knowledge-images?id=${imgId}`, { method: 'DELETE' })
+    setImages(prev => prev.filter(i => i.id !== imgId))
   }
 
   async function handleToggleSession(s: WhatsAppSession) {
@@ -390,7 +425,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
           <Group title="Savoir" subtitle="Documents que l'agent peut utiliser" className="md:col-span-1"
             trailing={<button onClick={() => setAddDocOpen(true)} className="flex items-center gap-1 text-[13px] text-blue-500 hover:text-blue-600 transition-colors"><Plus className="h-3.5 w-3.5" /> Ajouter</button>}
           >
-            {docs.length === 0 && images.length === 0 ? (
+            {docs.length === 0 ? (
               <button onClick={() => setAddDocOpen(true)} className="w-full py-6 text-center text-sm text-muted-foreground hover:text-foreground transition-colors">
                 Aucun document personnel · Ajouter un PDF ou texte →
               </button>
@@ -419,13 +454,40 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                     </div>
                   </div>
                 ))}
-                {images.map(img => (
-                  <div key={img.id} className="flex items-center gap-3 py-3">
-                    <Tag className="h-4 w-4 text-orange-500 shrink-0" />
-                    <code className="text-xs font-mono">{img.ref}</code>
-                  </div>
-                ))}
               </>
+            )}
+          </Group>
+
+          {/* ═══ MÉDIAS ═══ (médias que l'agent peut envoyer en SAV : image/vidéo/document) */}
+          <Group title="Médias" subtitle="Image, vidéo ou document que l'agent peut envoyer (fenêtre SAV 24h)" className="md:col-span-1"
+            trailing={<button onClick={() => setAddMediaOpen(true)} className="flex items-center gap-1 text-[13px] text-blue-500 hover:text-blue-600 transition-colors"><Plus className="h-3.5 w-3.5" /> Ajouter</button>}
+          >
+            {images.length === 0 ? (
+              <button onClick={() => setAddMediaOpen(true)} className="w-full py-6 text-center text-sm text-muted-foreground hover:text-foreground transition-colors">
+                Aucun média · Ajouter une image, vidéo ou PDF →
+              </button>
+            ) : (
+              images.map((img, i) => {
+                const kind = img.media_kind || 'image'
+                const Icon = kind === 'video' ? Play : kind === 'document' ? FileText : Tag
+                const color = kind === 'video' ? 'text-purple-500' : kind === 'document' ? 'text-blue-500' : 'text-orange-500'
+                const tag = kind === 'video' ? 'VIDEO' : kind === 'document' ? 'DOC' : 'IMAGE'
+                return (
+                  <div key={img.id}>
+                    {i > 0 && <Divider />}
+                    <div className="group flex items-center gap-3 py-3">
+                      <Icon className={cn('h-4 w-4 shrink-0', color)} />
+                      <div className="min-w-0 flex-1">
+                        <code className="text-xs font-mono">[{tag}:{img.ref}]</code>
+                        <span className="block truncate text-[11px] text-muted-foreground">{img.filename}</span>
+                      </div>
+                      <button onClick={() => handleDeleteMedia(img.id)} className="opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive transition-colors" />
+                      </button>
+                    </div>
+                  </div>
+                )
+              })
             )}
           </Group>
 
@@ -597,6 +659,69 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
             {uploadingDoc ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
             Uploader un document
           </Button>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={addMediaOpen} onOpenChange={setAddMediaOpen}>
+        <DialogContent className="sm:max-w-md rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Ajouter un média</DialogTitle>
+            <DialogDescription>L&apos;agent pourra l&apos;envoyer au client pendant le SAV (sans modèle).</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label className="text-xs text-muted-foreground">Type</Label>
+              <div className="grid grid-cols-3 gap-2 mt-1.5">
+                {([
+                  { id: 'image', label: 'Image', icon: Tag },
+                  { id: 'video', label: 'Vidéo', icon: Play },
+                  { id: 'document', label: 'Document', icon: FileText },
+                ] as const).map(k => {
+                  const on = mediaKind === k.id
+                  return (
+                    <button key={k.id} onClick={() => { setMediaKind(k.id); setMediaFile(null) }}
+                      className={cn('flex flex-col items-center gap-1 rounded-xl border py-2.5 text-xs transition-colors',
+                        on ? 'border-blue-500 bg-blue-500/10 text-foreground' : 'border-border text-muted-foreground hover:bg-muted/50')}>
+                      <k.icon className="h-4 w-4" />
+                      {k.label}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">Référence (utilisée par l&apos;agent)</Label>
+              <input
+                value={mediaRef}
+                onChange={e => setMediaRef(e.target.value.toLowerCase().replace(/[^a-z0-9-_]/g, '-'))}
+                placeholder="ex: guide-retour"
+                className="mt-1.5 w-full rounded-xl border border-border bg-transparent px-3 py-2 text-sm font-mono outline-none focus:border-blue-500"
+              />
+              {mediaRef && (
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  L&apos;agent écrira <code className="font-mono">[{mediaKind === 'video' ? 'VIDEO' : mediaKind === 'document' ? 'DOC' : 'IMAGE'}:{mediaRef}]</code>
+                </p>
+              )}
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">Fichier</Label>
+              <input
+                type="file"
+                accept={mediaKind === 'image' ? 'image/jpeg,image/png,image/webp,image/gif' : mediaKind === 'video' ? 'video/mp4,video/3gpp' : 'application/pdf'}
+                onChange={e => setMediaFile(e.target.files?.[0] || null)}
+                className="mt-1.5 w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-muted file:px-3 file:py-1.5 file:text-sm"
+              />
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                {mediaKind === 'image' ? 'jpeg, png, webp, gif — max 5 Mo'
+                  : mediaKind === 'video' ? 'mp4, 3gp — max 16 Mo'
+                  : 'pdf — max 16 Mo'}
+              </p>
+            </div>
+            <Button className="w-full rounded-xl" disabled={uploadingMedia || !mediaFile || !mediaRef.trim()} onClick={handleUploadMedia}>
+              {uploadingMedia ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+              Ajouter le média
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
 

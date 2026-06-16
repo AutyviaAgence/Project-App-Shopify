@@ -13,7 +13,7 @@ export async function GET() {
 
   const { data: store } = await supabase
     .from('shopify_stores')
-    .select('shop_name, shop_domain, last_synced_at, last_sync_summary')
+    .select('shop_name, shop_domain, last_synced_at, last_sync_summary, store_context')
     .eq('user_id', user.id)
     .eq('is_active', true)
     .maybeSingle()
@@ -21,6 +21,13 @@ export async function GET() {
   if (!store) return NextResponse.json({ data: { connected: false } })
 
   const summary = (store.last_sync_summary || {}) as { products?: number; pages?: boolean; policies?: boolean }
+  // store_context : { name, currency, country, links: { label, url }[] }
+  const ctx = (store.store_context || {}) as {
+    name?: string
+    currency?: string | null
+    country?: string | null
+    links?: { label: string; url: string }[]
+  }
   return NextResponse.json({
     data: {
       connected: true,
@@ -30,6 +37,12 @@ export async function GET() {
       products_synced: typeof summary.products === 'number' ? summary.products : null,
       has_pages: !!summary.pages,
       has_policies: !!summary.policies,
+      context: {
+        name: ctx.name || store.shop_name,
+        currency: ctx.currency || null,
+        country: ctx.country || null,
+        links: Array.isArray(ctx.links) ? ctx.links : [],
+      },
     },
   })
 }

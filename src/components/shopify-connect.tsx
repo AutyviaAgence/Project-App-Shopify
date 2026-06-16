@@ -8,7 +8,8 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { Loader2, Store, RefreshCw, Check, X, Trash2 } from 'lucide-react'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { Loader2, Store, RefreshCw, Check, X, Trash2, Info, ExternalLink } from 'lucide-react'
 
 /** Normalise une saisie en domaine xxx.myshopify.com (accepte URL, nom seul, etc.). */
 function normalizeShopDomain(raw: string): string | null {
@@ -27,6 +28,12 @@ type StoreStatus = {
   products_synced?: number | null
   has_pages?: boolean
   has_policies?: boolean
+  context?: {
+    name?: string | null
+    currency?: string | null
+    country?: string | null
+    links?: { label: string; url: string }[]
+  }
 }
 
 /**
@@ -40,6 +47,7 @@ export function ShopifyConnect() {
   const [shopInput, setShopInput] = useState('')
   const [confirmDisconnect, setConfirmDisconnect] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
+  const [detailOpen, setDetailOpen] = useState(false)
 
   async function disconnect() {
     setDisconnecting(true)
@@ -125,6 +133,9 @@ export function ShopifyConnect() {
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-1">
+            <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" onClick={() => setDetailOpen(true)} title="Voir le détail des informations récupérées">
+              <Info className="h-4 w-4" />
+            </Button>
             <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground" disabled={resyncing} onClick={resync} title="Resynchroniser les informations de la boutique">
               {resyncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             </Button>
@@ -140,7 +151,55 @@ export function ShopifyConnect() {
           <span className="flex items-center gap-1">Pages {status.has_pages ? <Check className="h-3 w-3 text-green-600" /> : <X className="h-3 w-3 text-muted-foreground/50" />}</span>
           <span className="flex items-center gap-1">Politiques {status.has_policies ? <Check className="h-3 w-3 text-green-600" /> : <X className="h-3 w-3 text-muted-foreground/50" />}</span>
           <span className="ml-auto">Dernière synchro : {last}</span>
+          <button onClick={() => setDetailOpen(true)} className="basis-full text-left text-blue-500 hover:text-blue-600 transition-colors">
+            Voir le détail récupéré →
+          </button>
         </div>
+
+        {/* Détail des informations récupérées */}
+        <Dialog open={detailOpen} onOpenChange={setDetailOpen}>
+          <DialogContent className="sm:max-w-md rounded-2xl">
+            <DialogHeader>
+              <DialogTitle>Informations récupérées</DialogTitle>
+              <DialogDescription>Ce que l&apos;agent IA connaît de votre boutique.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-1 text-sm">
+              <div className="grid grid-cols-2 gap-3">
+                <Info_Item label="Boutique" value={status.context?.name || status.shop_name || '—'} />
+                <Info_Item label="Domaine" value={status.shop_domain || '—'} />
+                <Info_Item label="Devise" value={status.context?.currency || '—'} />
+                <Info_Item label="Pays" value={status.context?.country || '—'} />
+                <Info_Item label="Produits synchronisés" value={status.products_synced != null ? String(status.products_synced) : '—'} />
+                <Info_Item label="Dernière synchro" value={last} />
+              </div>
+
+              {/* Liens des pages & politiques injectés à l'agent */}
+              <div>
+                <p className="mb-1.5 text-xs font-medium text-muted-foreground">Pages & politiques</p>
+                {status.context?.links && status.context.links.length > 0 ? (
+                  <div className="space-y-1">
+                    {status.context.links.map((lnk, i) => (
+                      <a key={`${lnk.url}-${i}`} href={lnk.url} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 hover:bg-muted/50 transition-colors">
+                        <span className="truncate">{lnk.label}</span>
+                        <ExternalLink className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                      </a>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Aucun lien détecté. Resynchronisez si vous avez ajouté des pages ou politiques.
+                  </p>
+                )}
+              </div>
+
+              <p className="text-[11px] text-muted-foreground border-t pt-3">
+                Le catalogue, les pages et les politiques sont injectés automatiquement dans tous vos agents.
+                Pour vérifier, demandez à un agent (ex : « Quelle est ta politique de retour ? »).
+              </p>
+            </div>
+          </DialogContent>
+        </Dialog>
 
         {/* Confirmation de déconnexion */}
         <AlertDialog open={confirmDisconnect} onOpenChange={setConfirmDisconnect}>
@@ -198,6 +257,16 @@ export function ShopifyConnect() {
       <p className="text-[11px] text-muted-foreground">
         Entrez l&apos;adresse de votre boutique (xxx.myshopify.com). Vous serez redirigé vers Shopify pour autoriser l&apos;accès.
       </p>
+    </div>
+  )
+}
+
+/** Petite cellule label/valeur pour la modale de détail. */
+function Info_Item({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <p className="text-[11px] text-muted-foreground">{label}</p>
+      <p className="truncate font-medium">{value}</p>
     </div>
   )
 }
