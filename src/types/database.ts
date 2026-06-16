@@ -616,6 +616,8 @@ export type ShopifyStore = {
   pages_doc_id: string | null
   policies_doc_id: string | null
   content_hashes: { catalog?: string; pages?: string; policies?: string } | null
+  /** Contexte boutique injecté aux agents : nom, devise, pays, liens pages/politiques. */
+  store_context: { name: string; currency: string | null; country: string | null; links: { label: string; url: string }[] } | null
   created_at: string
   updated_at: string
 }

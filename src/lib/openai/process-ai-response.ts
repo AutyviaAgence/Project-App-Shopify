@@ -275,6 +275,24 @@ Exemples :
       }
     }
 
+    // 3.6. Contexte boutique (nom + liens des pages/politiques) → injecté à TOUS
+    // les agents du propriétaire (la boutique profite à tous les agents).
+    let storeContextPrompt = ''
+    {
+      const { data: store } = await supabase
+        .from('shopify_stores')
+        .select('store_context')
+        .eq('user_id', agent.user_id)
+        .eq('is_active', true)
+        .not('store_context', 'is', null)
+        .maybeSingle()
+      if (store?.store_context) {
+        const { buildStoreContextPrompt } = await import('@/lib/shopify/sync')
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        storeContextPrompt = buildStoreContextPrompt(store.store_context as any)
+      }
+    }
+
     // 4. Construire le prompt système (inclure l'objectif + connaissances si disponibles)
     const now = new Date()
     const dateStr = now.toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Europe/Paris' })
@@ -291,6 +309,9 @@ Exemples :
     systemPrompt += `\n\n--- Contexte de la conversation ---\nNuméro WhatsApp du client : ${params.contactPhoneNumber}\nATTENTION : Ce numéro est "${params.contactPhoneNumber}". Quand tu dois inclure le numéro WhatsApp dans un message ou une notification, écris EXACTEMENT "${params.contactPhoneNumber}" — jamais de crochets, jamais de placeholder.`
     if (agent.objective) {
       systemPrompt += `\n\nObjectif principal : ${agent.objective}`
+    }
+    if (storeContextPrompt) {
+      systemPrompt += `\n\n${storeContextPrompt}`
     }
     if (knowledgeContext) {
       systemPrompt += `\n\n--- Base de connaissances (PRIORITAIRE) ---\nIMPORTANT : Avant d'appeler un outil, vérifie TOUJOURS si la réponse se trouve dans la base de connaissances ci-dessous. N'appelle un outil que si l'information n'est PAS disponible ici. Utilise ces informations en priorité pour répondre de manière précise.\n\n${knowledgeContext}\n--- Fin de la base de connaissances ---`

@@ -50,7 +50,7 @@ const PRODUCTS_QUERY = `
 const PAGES_QUERY = `
   query Pages($cursor: String) {
     pages(first: 50, after: $cursor) {
-      edges { cursor node { title body } }
+      edges { cursor node { title body handle } }
       pageInfo { hasNextPage }
     }
   }`
@@ -59,7 +59,8 @@ const SHOP_POLICIES_QUERY = `
   {
     shop {
       name
-      shopPolicies { title body }
+      currencyCode
+      shopPolicies { type title body url }
     }
   }`
 
@@ -137,6 +138,62 @@ async function fetchPolicies(shop: string, token: string): Promise<string> {
     if (pol.body) lines.push(pol.body.replace(/<[^>]+>/g, ' ').trim())
     lines.push('')
   }
+  return lines.join('\n')
+}
+
+/** Contexte boutique injecté aux agents : nom, devise, liens des politiques/pages. */
+export type StoreContext = {
+  name: string
+  currency: string | null
+  country: string | null
+  links: { label: string; url: string }[]
+}
+
+/**
+ * Récupère le contexte boutique (nom + devise + liens des politiques et pages).
+ * Léger : 2 requêtes GraphQL. Stocké sur shopify_stores.store_context et injecté
+ * dans le prompt de tous les agents.
+ */
+async function fetchStoreContext(shop: string, token: string, country: string | null): Promise<StoreContext | null> {
+  const links: { label: string; url: string }[] = []
+
+  // Politiques (url direct).
+  const pol = await shopifyGraphQL<{ shop: { name: string; currencyCode: string; shopPolicies: { type: string; title: string; url: string }[] } }>(
+    shop, token, SHOP_POLICIES_QUERY
+  )
+  let name = shop
+  let currency: string | null = null
+  if (pol.ok) {
+    name = pol.data.shop.name || shop
+    currency = pol.data.shop.currencyCode || null
+    for (const p of pol.data.shop.shopPolicies || []) {
+      if (p.url) links.push({ label: p.title, url: p.url })
+    }
+  }
+
+  // Pages (url reconstruite depuis le handle).
+  const pagesRes = await shopifyGraphQL<{ pages: { edges: { node: { title: string; handle: string } }[] } }>(
+    shop, token, `{ pages(first: 50) { edges { node { title handle } } } }`
+  )
+  if (pagesRes.ok) {
+    for (const { node } of pagesRes.data.pages.edges || []) {
+      if (node.handle) links.push({ label: node.title, url: `https://${shop}/pages/${node.handle}` })
+    }
+  }
+
+  return { name, currency, country, links }
+}
+
+/** Construit le bloc de contexte boutique à injecter dans le prompt d'un agent. */
+export function buildStoreContextPrompt(ctx: StoreContext): string {
+  const lines: string[] = ['--- Contexte boutique ---']
+  const loc = [ctx.currency, ctx.country].filter(Boolean).join(', ')
+  lines.push(`Tu réponds pour la boutique « ${ctx.name} »${loc ? ` (${loc})` : ''}.`)
+  if (ctx.links.length > 0) {
+    lines.push('Liens utiles à partager aux clients quand c\'est pertinent (donne le lien exact, ne l\'invente jamais) :')
+    for (const l of ctx.links) lines.push(`- ${l.label} : ${l.url}`)
+  }
+  lines.push('--- Fin contexte boutique ---')
   return lines.join('\n')
 }
 
@@ -230,7 +287,7 @@ export async function syncShopToKnowledge(
 
   const { data: store } = await supabase
     .from('shopify_stores')
-    .select('id, user_id, shop_domain, access_token, shop_name, catalog_doc_id, pages_doc_id, policies_doc_id, content_hashes, last_sync_summary')
+    .select('id, user_id, shop_domain, access_token, shop_name, country, catalog_doc_id, pages_doc_id, policies_doc_id, content_hashes, last_sync_summary')
     .eq('id', storeId)
     .single()
   if (!store || !store.user_id || !store.access_token) {
@@ -282,6 +339,9 @@ export async function syncShopToKnowledge(
       const r = await upsertDoc({ userId: store.user_id, agentId: null, existingDocId: store.policies_doc_id, name: `Politiques — ${shopName}`, content: policiesText, previousHash: hashes.policies || null })
       if (r.docId) { updates.policies_doc_id = r.docId; newHashes.policies = r.hash; documents++; if (r.processed) processed++ }
     }
+    // Contexte boutique (nom + devise + liens) → injecté aux agents.
+    const ctx = await fetchStoreContext(shop, token, (store as { country?: string | null }).country ?? null)
+    if (ctx) updates.store_context = ctx
     updates.last_synced_at = new Date().toISOString()
   }
 
@@ -307,7 +367,7 @@ export async function autoConfigureAgentFromShop(storeId: string): Promise<AutoC
 
   const { data: store } = await supabase
     .from('shopify_stores')
-    .select('id, user_id, shop_domain, access_token, shop_name')
+    .select('id, user_id, shop_domain, access_token, shop_name, country')
     .eq('id', storeId)
     .single()
 
@@ -372,12 +432,16 @@ export async function autoConfigureAgentFromShop(storeId: string): Promise<AutoC
     }
   }
 
+  // Contexte boutique (nom + devise + liens) → injecté aux agents.
+  const storeCtx = await fetchStoreContext(shop, token, (store as { country?: string | null }).country ?? null)
+
   const now = new Date().toISOString()
   await supabase.from('shopify_stores').update({
     ...docUpdates,
     content_hashes: hashes,
     last_synced_at: now,
     catalog_synced_at: now,
+    store_context: storeCtx || undefined,
     last_sync_summary: { products: productCount, pages: pagesPresent, policies: policiesPresent, at: now },
   }).eq('id', storeId)
 
