@@ -1,17 +1,22 @@
 /**
  * Construction du composant `carousel` au moment de l'ENVOI d'un template.
  *
- * Pour un template carrousel, Meta exige TOUJOURS un composant `carousel`
- * listant CHAQUE carte par son `card_index` — même si les cartes n'ont pas de
- * variables. Omettre ce composant (ou n'envoyer que le body) déclenche l'erreur
- * 132012 « Parameter format does not match format in the created template ».
+ * RÈGLE META (confirmée sur la définition réelle d'un template approuvé) :
+ * le composant `carousel` ne transporte QUE les paramètres des variables {{n}}
+ * présentes dans les cartes. Tout ce qui est figé (image d'en-tête approuvée,
+ * texte de carte sans variable, bouton URL statique) est déjà dans le template
+ * approuvé chez Meta et ne doit PAS être renvoyé.
  *
- *   { type: 'carousel', cards: [ { card_index, components: [ { type: 'body',
- *       parameters: [ { type: 'text', text: '...' } ] } ] }, ... ] }
+ * Conséquences :
+ *  - Une carte SANS variable de body → on ne l'inclut PAS dans le composant
+ *    (l'inclure avec un body vide déclenche 132012 « parameter format mismatch »,
+ *    et `components: []` déclenche l'erreur 100 « cards.components is required »).
+ *  - Si AUCUNE carte n'a de variable → on ne renvoie RIEN (null). Seul le body
+ *    principal du template porte alors ses {{n}} (géré en amont).
+ *  - Une carte AVEC variable(s) de body → { card_index, components: [ body ] }.
  *
- * Une carte SANS variable n'a pas de paramètres → `components: []`, mais elle
- * DOIT tout de même apparaître avec son `card_index` (Meta affiche alors le
- * texte figé approuvé pour cette carte).
+ * (Les variables dans les boutons URL/header de carte ne sont pas gérées ici en
+ * v1 — les modèles actuels ont des boutons/images figés.)
  */
 import { resolveVariables, type VariableContext } from './variables'
 
@@ -28,9 +33,8 @@ function countVars(text: string): number {
 }
 
 /**
- * Renvoie le composant `carousel` à ajouter aux components d'envoi.
- * Toujours présent dès qu'il y a au moins une carte (toutes les cartes sont
- * listées par card_index). Renvoie null seulement s'il n'y a aucune carte.
+ * Renvoie le composant `carousel` à ajouter aux components d'envoi, ou null si
+ * aucune carte n'a de variable (carrousel entièrement figé → rien à paramétrer).
  */
 export function buildCarouselComponent(
   cards: SendCard[],
@@ -38,21 +42,24 @@ export function buildCarouselComponent(
 ): { type: 'carousel'; cards: unknown[] } | null {
   if (!Array.isArray(cards) || cards.length === 0) return null
 
-  const outCards = cards.map((card, idx) => {
+  const outCards: { card_index: number; components: unknown[] }[] = []
+
+  cards.forEach((card, idx) => {
     const varCount = countVars(card.body_text || '')
-    // Meta EXIGE un tableau `components` non vide pour CHAQUE carte (sinon
-    // erreur 100 « cards.components is required »). Une carte statique porte
-    // donc un body avec des paramètres VIDES, pas un components vide.
-    const keys = varCount > 0 && Array.isArray(card.body_variable_keys) ? card.body_variable_keys : []
+    if (varCount === 0) return // carte figée → omise (tout est dans le modèle approuvé)
+
+    const keys = Array.isArray(card.body_variable_keys) ? card.body_variable_keys : []
     const resolved = resolveVariables(keys, ctx).slice(0, varCount)
     while (resolved.length < varCount) resolved.push('')
-    return {
+    outCards.push({
       card_index: idx,
       components: [
         { type: 'body', parameters: resolved.map((t) => ({ type: 'text', text: t })) },
       ],
-    }
+    })
   })
 
+  // Aucune carte paramétrée → pas de composant carousel.
+  if (outCards.length === 0) return null
   return { type: 'carousel', cards: outCards }
 }
