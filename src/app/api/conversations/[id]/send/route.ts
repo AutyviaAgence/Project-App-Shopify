@@ -1,10 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
-import { sendMessage, sendMediaMessage, decryptWabaToken } from '@/lib/messaging/send'
-import { wabaClient } from '@/lib/whatsapp-cloud/client'
+import { sendMessage, sendMediaMessage } from '@/lib/messaging/send'
 import { getConversationWindow } from '@/lib/whatsapp-cloud/window'
-import { encryptMessage } from '@/lib/crypto/encryption'
+import { encryptMessage, decryptMessage } from '@/lib/crypto/encryption'
 import { uploadMedia } from '@/lib/storage/media'
 
 /**
@@ -235,46 +234,51 @@ export async function POST(
   // === TEMPLATE (recontact hors fenêtre 24h) ===
   // Si un template_id est fourni, on envoie un modèle approuvé : c'est le SEUL
   // moyen autorisé par Meta de recontacter un client hors de la fenêtre 24h.
+  //
+  // On DÉLÈGUE à sendTemplateToContact (le même moteur que les automatisations) :
+  // il construit correctement TOUS les composants Meta — body + variables,
+  // carrousel, offre limitée (LTO), boutons COPY_CODE — et choisit la bonne
+  // variante linguistique. L'ancienne version ne montait qu'un body simple, ce
+  // qui cassait les carrousels/LTO (d'où le 502). `manual: true` saute les
+  // garde-fous opt-in (le marchand assume le recontact).
   if (templateId) {
-    const { data: tpl } = await supabase
-      .from('whatsapp_templates')
-      .select('name, language, status, body_text')
-      .eq('id', templateId)
-      .maybeSingle()
-    if (!tpl || tpl.status !== 'approved') {
-      return NextResponse.json({ error: 'Modèle introuvable ou non approuvé' }, { status: 400 })
-    }
-    const params = Array.isArray(body.template_params) ? (body.template_params as string[]) : []
-    const components = params.length > 0
-      ? [{ type: 'body', parameters: params.map((p) => ({ type: 'text', text: String(p) })) }]
-      : []
-    const token = decryptWabaToken(session)
-    if (!session.waba_phone_number_id || !token) {
-      return NextResponse.json({ error: 'Credentials WABA manquants' }, { status: 502 })
-    }
-    const tplRes = await wabaClient.sendTemplateWithParams(
-      session.waba_phone_number_id, token, contact.phone_number, tpl.name, tpl.language, components
-    )
+    // Map variables nommées éventuellement fournies par l'UI (clé → valeur).
+    const variables = (body.variables && typeof body.variables === 'object')
+      ? body.variables as Record<string, string>
+      : {}
+
+    const { sendTemplateToContact } = await import('@/lib/automations/dispatch')
+    const tplRes = await sendTemplateToContact({
+      templateId,
+      contactId: conversation.contact_id,
+      variables,
+      manual: true,
+    })
+
     if (!tplRes.ok) {
-      const wasDisconnected = await handleDisconnectedSession(tplRes.error, session)
-      return NextResponse.json({ error: tplRes.error, disconnected: wasDisconnected }, { status: wasDisconnected ? 409 : 502 })
+      // Modèle introuvable / non approuvé → 400 ; sinon échec d'envoi → 502.
+      const notFound = tplRes.error === 'template_introuvable' || tplRes.error === 'template_non_approuve'
+      return NextResponse.json(
+        { error: tplRes.error || 'Échec de l\'envoi du modèle' },
+        { status: notFound ? 400 : 502 }
+      )
     }
-    // Enregistrer le message (le corps du template comme aperçu)
-    const preview = tpl.body_text || `[Modèle : ${tpl.name}]`
+
+    // sendTemplateToContact a déjà tracé le message en inbox. On le récupère pour
+    // l'affichage optimiste côté UI (le dernier sortant de cette conversation).
     const { data: msg } = await supabase
       .from('messages')
-      .insert({
-        conversation_id: id,
-        session_id: session.id,
-        direction: 'outbound',
-        content: encryptMessage(preview),
-        message_type: 'text',
-        sent_by: 'user',
-        status: 'sent',
-      })
-      .select()
-      .single()
-    return NextResponse.json({ data: msg ? { ...msg, content: preview } : null })
+      .select('*')
+      .eq('conversation_id', id)
+      .eq('direction', 'outbound')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    let preview = `[Modèle envoyé]`
+    if (msg?.content) {
+      try { preview = decryptMessage(msg.content) } catch { /* garde le fallback */ }
+    }
+    return NextResponse.json({ data: msg ? { ...msg, content: preview } : { sent: true } })
   }
 
   if (!content || content.trim().length === 0) {

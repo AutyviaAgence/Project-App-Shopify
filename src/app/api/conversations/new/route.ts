@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { decryptWabaToken } from '@/lib/messaging/send'
-import { wabaClient } from '@/lib/whatsapp-cloud/client'
-import { encryptMessage } from '@/lib/crypto/encryption'
+import { sendTemplateToContact } from '@/lib/automations/dispatch'
 
 /**
  * POST /api/conversations/new
  * Initie une conversation WhatsApp avec un nouveau numéro en envoyant un
  * template approuvé (seul moyen autorisé par Meta hors fenêtre 24h).
- * Crée le contact + la conversation + le message.
+ * Crée le contact puis délègue à sendTemplateToContact (moteur unifié : body +
+ * variables, carrousel, LTO, COPY_CODE, variante linguistique, trace inbox).
  */
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -18,7 +17,9 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}))
   const phoneRaw = (body.phone as string || '').replace(/\D/g, '')
   const templateId = body.template_id as string | undefined
-  const params = Array.isArray(body.template_params) ? (body.template_params as string[]) : []
+  const variables = (body.variables && typeof body.variables === 'object')
+    ? body.variables as Record<string, string>
+    : {}
 
   if (!phoneRaw) return NextResponse.json({ error: 'Numéro requis' }, { status: 400 })
   if (!templateId) return NextResponse.json({ error: 'Modèle requis' }, { status: 400 })
@@ -26,67 +27,52 @@ export async function POST(req: NextRequest) {
   // Session WhatsApp de l'utilisateur
   const { data: session } = await supabase
     .from('whatsapp_sessions')
-    .select('id, waba_phone_number_id, waba_access_token')
+    .select('id')
     .eq('user_id', user.id)
     .eq('integration_type', 'waba')
     .eq('status', 'connected')
     .limit(1)
     .maybeSingle()
-  if (!session?.waba_phone_number_id) {
+  if (!session?.id) {
     return NextResponse.json({ error: 'Aucune session WhatsApp connectée' }, { status: 400 })
   }
 
-  // Template approuvé
+  // Le template doit appartenir à l'utilisateur (l'envoi vérifie ensuite l'approbation).
   const { data: tpl } = await supabase
     .from('whatsapp_templates')
-    .select('name, language, status, body_text')
+    .select('id')
     .eq('id', templateId)
     .eq('user_id', user.id)
     .maybeSingle()
-  if (!tpl || tpl.status !== 'approved') {
-    return NextResponse.json({ error: 'Modèle introuvable ou non approuvé' }, { status: 400 })
-  }
+  if (!tpl) return NextResponse.json({ error: 'Modèle introuvable' }, { status: 400 })
 
-  const token = decryptWabaToken(session)
-  if (!token) return NextResponse.json({ error: 'Credentials WABA manquants' }, { status: 502 })
-
-  // Envoi du template
-  const components = params.length > 0
-    ? [{ type: 'body', parameters: params.map((p) => ({ type: 'text', text: String(p) })) }]
-    : []
-  const res = await wabaClient.sendTemplateWithParams(
-    session.waba_phone_number_id, token, phoneRaw, tpl.name, tpl.language, components
-  )
-  if (!res.ok) return NextResponse.json({ error: res.error }, { status: 502 })
-
-  // Upsert contact + conversation + message
+  // Créer/retrouver le contact AVANT l'envoi (sendTemplateToContact exige un contactId).
   const { data: contact } = await supabase
     .from('contacts')
     .upsert({ session_id: session.id, phone_number: phoneRaw }, { onConflict: 'session_id,phone_number' })
-    .select()
+    .select('id')
     .single()
   if (!contact) return NextResponse.json({ error: 'Erreur contact' }, { status: 500 })
 
-  const preview = tpl.body_text || `[Modèle : ${tpl.name}]`
+  // Envoi (manuel → saute les garde-fous opt-in) + trace inbox gérée en interne.
+  const res = await sendTemplateToContact({
+    templateId,
+    contactId: contact.id,
+    variables,
+    manual: true,
+  })
+  if (!res.ok) {
+    const notFound = res.error === 'template_introuvable' || res.error === 'template_non_approuve'
+    return NextResponse.json({ error: res.error || 'Échec de l\'envoi' }, { status: notFound ? 400 : 502 })
+  }
+
+  // Récupérer l'id de la conversation (upsertée par sendTemplateToContact).
   const { data: conversation } = await supabase
     .from('conversations')
-    .upsert(
-      { session_id: session.id, contact_id: contact.id, last_message_at: new Date().toISOString(), last_message_preview: preview },
-      { onConflict: 'session_id,contact_id' }
-    )
-    .select()
-    .single()
-  if (!conversation) return NextResponse.json({ error: 'Erreur conversation' }, { status: 500 })
+    .select('id')
+    .eq('session_id', session.id)
+    .eq('contact_id', contact.id)
+    .maybeSingle()
 
-  await supabase.from('messages').insert({
-    conversation_id: conversation.id,
-    session_id: session.id,
-    direction: 'outbound',
-    content: encryptMessage(preview),
-    message_type: 'text',
-    sent_by: 'user',
-    status: 'sent',
-  })
-
-  return NextResponse.json({ data: { conversation_id: conversation.id } })
+  return NextResponse.json({ data: { conversation_id: conversation?.id } })
 }

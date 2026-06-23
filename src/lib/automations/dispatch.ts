@@ -74,6 +74,13 @@ export async function sendTemplateToContact(params: {
   templateId: string
   contactId: string
   variables: Record<string, string>
+  /**
+   * Envoi MANUEL depuis l'inbox (le marchand clique « Envoyer le modèle » dans
+   * une conversation). Dans ce cas on saute les garde-fous opt-in / canal pensés
+   * pour l'automatisation : c'est une action explicite de l'humain. Tout le reste
+   * (variantes linguistiques, carrousel, LTO, COPY_CODE, trace inbox) est conservé.
+   */
+  manual?: boolean
 }): Promise<{ ok: boolean; error?: string }> {
   const supabase = admin()
 
@@ -84,9 +91,13 @@ export async function sendTemplateToContact(params: {
     .eq('id', params.contactId)
     .maybeSingle()
   if (!contact) return { ok: false, error: 'contact_introuvable' }
-  if (contact.opt_in_status === 'opted_out') return { ok: false, error: 'opted_out' }
   if (!contact.phone_number) return { ok: false, error: 'no_phone' }
-  if (contact.preferred_channel === 'none') return { ok: false, error: 'pas_dopt_in_canal' }
+  // Garde-fous opt-in : uniquement pour les envois AUTOMATIQUES. En manuel, le
+  // marchand assume l'envoi (recontact explicite via un modèle approuvé).
+  if (!params.manual) {
+    if (contact.opt_in_status === 'opted_out') return { ok: false, error: 'opted_out' }
+    if (contact.preferred_channel === 'none') return { ok: false, error: 'pas_dopt_in_canal' }
+  }
 
   // Modèle de base (celui choisi dans l'automation). On l'utilise pour connaître
   // le `name` et résoudre ensuite la variante linguistique du contact.
