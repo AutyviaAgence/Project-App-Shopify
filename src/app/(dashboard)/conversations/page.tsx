@@ -780,6 +780,7 @@ function ConversationsPageContent() {
                 : newMsg.message_type === 'image' ? '📷 Image'
                 : newMsg.message_type === 'audio' ? '🎤 Audio'
                 : newMsg.message_type === 'video' ? '🎥 Vidéo'
+                : newMsg.message_type === 'carousel' ? '🎠 Carrousel'
                 : '📎 Fichier'
               return {
                 ...c,

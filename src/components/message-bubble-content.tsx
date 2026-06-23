@@ -70,6 +70,44 @@ export function MessageBubbleContent({ msg, isOutbound, channel }: { msg: Extend
     }
   }
 
+  // Carrousel : aperçu enrichi (body principal + vignettes des cartes)
+  if (msg.message_type === 'carousel') {
+    let body = msg.content || ''
+    let cards: { body?: string; header?: string | null }[] = []
+    try {
+      const parsed = JSON.parse(msg.transcription || '{}')
+      if (parsed.body) body = parsed.body
+      if (Array.isArray(parsed.cards)) cards = parsed.cards
+    } catch { /* transcription non-JSON : on garde le body brut */ }
+
+    return (
+      <div className="space-y-2">
+        {body && <p className="whitespace-pre-wrap break-words text-sm">{body}</p>}
+        <div className={`flex items-center gap-1.5 text-[11px] ${isOutbound ? 'text-white/70' : 'text-muted-foreground'}`}>
+          <ImageIcon className="h-3 w-3" />
+          Carrousel · {cards.length} carte{cards.length > 1 ? 's' : ''}
+        </div>
+        {cards.length > 0 && (
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {cards.map((c, i) => (
+              <div
+                key={i}
+                className={`shrink-0 w-[120px] rounded-lg border p-2 ${
+                  isOutbound ? 'border-white/20 bg-white/10' : 'border-border bg-muted/30'
+                }`}
+              >
+                <div className={`mb-1 flex h-[60px] items-center justify-center rounded ${isOutbound ? 'bg-white/10' : 'bg-muted/50'}`}>
+                  <ImageIcon className={`h-5 w-5 ${isOutbound ? 'text-white/40' : 'text-muted-foreground/40'}`} />
+                </div>
+                <p className="truncate text-[11px] font-medium">{c.body || `Carte ${i + 1}`}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   // Messages texte ou types sans média
   if (msg.message_type === 'text' || !isMediaType) {
     const content = msg.content || ''

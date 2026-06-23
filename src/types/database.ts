@@ -222,7 +222,7 @@ export type Message = {
   session_id: string
   direction: 'inbound' | 'outbound'
   content: string | null
-  message_type: 'text' | 'image' | 'audio' | 'video' | 'document' | 'sticker' | 'location' | 'contact'
+  message_type: 'text' | 'image' | 'audio' | 'video' | 'document' | 'sticker' | 'location' | 'contact' | 'carousel' | 'interactive'
   media_url: string | null
   media_mime_type: string | null
   transcription: string | null

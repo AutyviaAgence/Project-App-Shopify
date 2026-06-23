@@ -242,7 +242,6 @@ export async function POST(
   // qui cassait les carrousels/LTO (d'où le 502). `manual: true` saute les
   // garde-fous opt-in (le marchand assume le recontact).
   if (templateId) {
-    console.log('[Send] Template branch START', { templateId, conversationId: id })
     try {
       // Map variables nommées éventuellement fournies par l'UI (clé → valeur).
       const variables = (body.variables && typeof body.variables === 'object')
@@ -250,14 +249,12 @@ export async function POST(
         : {}
 
       const { sendTemplateToContact } = await import('@/lib/automations/dispatch')
-      console.log('[Send] dispatch importé, envoi…')
       const tplRes = await sendTemplateToContact({
         templateId,
         contactId: conversation.contact_id,
         variables,
         manual: true,
       })
-      console.log('[Send] sendTemplateToContact →', tplRes)
 
       if (!tplRes.ok) {
         // Modèle introuvable / non approuvé → 400 ; sinon échec d'envoi → 502.

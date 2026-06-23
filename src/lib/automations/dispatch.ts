@@ -192,9 +192,6 @@ export async function sendTemplateToContact(params: {
   }
 
   const { wabaClient } = await import('@/lib/whatsapp-cloud/client')
-  console.log('[dispatch] ENVOI template', tpl.name, tpl.language, 'type=', tpl.template_type,
-    'varsCount=', varsCount, 'keys=', JSON.stringify(keys),
-    'components=', JSON.stringify(components))
   const res = await wabaClient.sendTemplateWithParams(
     session.waba_phone_number_id, token, contact.phone_number, tpl.name, tpl.language, components
   )
@@ -220,6 +217,21 @@ export async function sendTemplateToContact(params: {
     const { encryptMessage } = await import('@/lib/crypto/encryption')
     let preview = tpl.body_text || `[Modèle : ${tpl.name}]`
     out.forEach((v, i) => { preview = preview.replace(`{{${i + 1}}}`, v) })
+
+    // Pour un carrousel : on enrichit la trace (type + métadonnées des cartes)
+    // pour un aperçu correct dans l'inbox au lieu d'une simple ligne de texte.
+    const isCarousel = tpl.template_type === 'carousel' && Array.isArray(tpl.carousel_cards)
+    let messageType = 'text'
+    let transcription: string | null = null
+    if (isCarousel) {
+      messageType = 'carousel'
+      const cards = (tpl.carousel_cards as { body_text?: string; header_media_url?: string | null }[])
+        .map((c) => ({ body: c.body_text || '', header: c.header_media_url || null }))
+      transcription = JSON.stringify({ body: preview, cards })
+      const aperçu = preview.length > 60 ? preview.slice(0, 60) + '…' : preview
+      preview = `🎠 ${aperçu}`
+    }
+
     const { data: conv } = await supabase
       .from('conversations')
       .upsert(
@@ -231,7 +243,8 @@ export async function sendTemplateToContact(params: {
     if (conv) {
       await supabase.from('messages').insert({
         conversation_id: conv.id, session_id: contact.session_id, direction: 'outbound',
-        content: encryptMessage(preview), message_type: 'text', sent_by: 'user', status: 'sent',
+        content: encryptMessage(messageType === 'carousel' ? (transcription ? JSON.parse(transcription).body : preview) : preview),
+        message_type: messageType, transcription, sent_by: 'user', status: 'sent',
       })
     }
   } catch (e) {
