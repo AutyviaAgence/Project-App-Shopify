@@ -242,43 +242,53 @@ export async function POST(
   // qui cassait les carrousels/LTO (d'où le 502). `manual: true` saute les
   // garde-fous opt-in (le marchand assume le recontact).
   if (templateId) {
-    // Map variables nommées éventuellement fournies par l'UI (clé → valeur).
-    const variables = (body.variables && typeof body.variables === 'object')
-      ? body.variables as Record<string, string>
-      : {}
+    console.log('[Send] Template branch START', { templateId, conversationId: id })
+    try {
+      // Map variables nommées éventuellement fournies par l'UI (clé → valeur).
+      const variables = (body.variables && typeof body.variables === 'object')
+        ? body.variables as Record<string, string>
+        : {}
 
-    const { sendTemplateToContact } = await import('@/lib/automations/dispatch')
-    const tplRes = await sendTemplateToContact({
-      templateId,
-      contactId: conversation.contact_id,
-      variables,
-      manual: true,
-    })
+      const { sendTemplateToContact } = await import('@/lib/automations/dispatch')
+      console.log('[Send] dispatch importé, envoi…')
+      const tplRes = await sendTemplateToContact({
+        templateId,
+        contactId: conversation.contact_id,
+        variables,
+        manual: true,
+      })
+      console.log('[Send] sendTemplateToContact →', tplRes)
 
-    if (!tplRes.ok) {
-      // Modèle introuvable / non approuvé → 400 ; sinon échec d'envoi → 502.
-      const notFound = tplRes.error === 'template_introuvable' || tplRes.error === 'template_non_approuve'
-      return NextResponse.json(
-        { error: tplRes.error || 'Échec de l\'envoi du modèle' },
-        { status: notFound ? 400 : 502 }
-      )
+      if (!tplRes.ok) {
+        // Modèle introuvable / non approuvé → 400 ; sinon échec d'envoi → 502.
+        const notFound = tplRes.error === 'template_introuvable' || tplRes.error === 'template_non_approuve'
+        return NextResponse.json(
+          { error: tplRes.error || 'Échec de l\'envoi du modèle' },
+          { status: notFound ? 400 : 502 }
+        )
+      }
+
+      // sendTemplateToContact a déjà tracé le message en inbox. On le récupère pour
+      // l'affichage optimiste côté UI (le dernier sortant de cette conversation).
+      const { data: msg } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('conversation_id', id)
+        .eq('direction', 'outbound')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      let preview = `[Modèle envoyé]`
+      if (msg?.content) {
+        try { preview = decryptMessage(msg.content) } catch { /* garde le fallback */ }
+      }
+      return NextResponse.json({ data: msg ? { ...msg, content: preview } : { sent: true } })
+    } catch (err) {
+      // Ne JAMAIS laisser une exception tomber le worker en silence (→ 502 muet).
+      console.error('[Send] Template branch EXCEPTION:', err)
+      const message = err instanceof Error ? `${err.message}` : String(err)
+      return NextResponse.json({ error: `Erreur envoi modèle: ${message}` }, { status: 500 })
     }
-
-    // sendTemplateToContact a déjà tracé le message en inbox. On le récupère pour
-    // l'affichage optimiste côté UI (le dernier sortant de cette conversation).
-    const { data: msg } = await supabase
-      .from('messages')
-      .select('*')
-      .eq('conversation_id', id)
-      .eq('direction', 'outbound')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-    let preview = `[Modèle envoyé]`
-    if (msg?.content) {
-      try { preview = decryptMessage(msg.content) } catch { /* garde le fallback */ }
-    }
-    return NextResponse.json({ data: msg ? { ...msg, content: preview } : { sent: true } })
   }
 
   if (!content || content.trim().length === 0) {
