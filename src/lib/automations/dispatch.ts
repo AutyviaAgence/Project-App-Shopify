@@ -153,11 +153,16 @@ export async function sendTemplateToContact(params: {
     ? [{ type: 'body', parameters: out.map((p) => ({ type: 'text', text: p })) }]
     : []
 
-  // Carrousel → ajoute le composant `carousel` (TOUJOURS requis par Meta pour ce
-  // type, même sans variables de carte : chaque card_index doit être listé).
+  // Carrousel → ajoute le composant `carousel`. Chaque carte doit re-fournir son
+  // média d'en-tête (upload Meta → media_id), c'est pourquoi c'est async et qu'on
+  // passe le phone_number_id + token. Requis pour TOUT carrousel (même figé).
   if (tpl.template_type === 'carousel' && Array.isArray(tpl.carousel_cards)) {
     const { buildCarouselComponent } = await import('@/lib/templates/carousel-send')
-    const carousel = buildCarouselComponent(tpl.carousel_cards, params.variables)
+    const carousel = await buildCarouselComponent(
+      tpl.carousel_cards as never[],
+      params.variables,
+      { phoneNumberId: session.waba_phone_number_id, token }
+    )
     if (carousel) components.push(carousel)
   }
 

@@ -1,28 +1,33 @@
+import 'server-only'
 /**
  * Construction du composant `carousel` au moment de l'ENVOI d'un template.
  *
- * RÈGLE META (confirmée sur la définition réelle d'un template approuvé) :
- * le composant `carousel` ne transporte QUE les paramètres des variables {{n}}
- * présentes dans les cartes. Tout ce qui est figé (image d'en-tête approuvée,
- * texte de carte sans variable, bouton URL statique) est déjà dans le template
- * approuvé chez Meta et ne doit PAS être renvoyé.
+ * RÈGLE META (confirmée par la doc + la définition réelle du template) :
+ * pour un template carrousel, l'envoi DOIT inclure le composant `carousel` avec
+ * CHAQUE carte (card_index), et chaque carte doit re-fournir son média d'en-tête
+ * (image/vidéo) via un `media_id` uploadé à l'envoi — le média n'est PAS rejoué
+ * automatiquement par Meta. Omettre le header → erreur 132012.
  *
- * Conséquences :
- *  - Une carte SANS variable de body → on ne l'inclut PAS dans le composant
- *    (l'inclure avec un body vide déclenche 132012 « parameter format mismatch »,
- *    et `components: []` déclenche l'erreur 100 « cards.components is required »).
- *  - Si AUCUNE carte n'a de variable → on ne renvoie RIEN (null). Seul le body
- *    principal du template porte alors ses {{n}} (géré en amont).
- *  - Une carte AVEC variable(s) de body → { card_index, components: [ body ] }.
+ * Structure par carte :
+ *   { card_index, components: [
+ *       { type:'header', parameters:[{ type:'image', image:{ id:<media_id> } }] },
+ *       { type:'body',   parameters:[{ type:'text', text:'...' }] }   // si variables
+ *   ] }
  *
- * (Les variables dans les boutons URL/header de carte ne sont pas gérées ici en
- * v1 — les modèles actuels ont des boutons/images figés.)
+ * Le body de carte n'est inclus que si la carte a des variables {{n}}. Les
+ * boutons (URL/quick_reply) figés ne sont pas renvoyés (ils sont dans le modèle
+ * approuvé). Le média d'en-tête, lui, est TOUJOURS requis.
  */
 import { resolveVariables, type VariableContext } from './variables'
+import { downloadMediaFromStorage } from '@/lib/storage/media'
+import { wabaClient } from '@/lib/whatsapp-cloud/client'
 
+/** Carte de carrousel telle que stockée en base (carousel_cards). */
 export type SendCard = {
   body_text?: string
   body_variable_keys?: string[]
+  header_type?: string | null         // 'image' | 'video' | 'document'
+  header_media_url?: string | null    // storage path (bucket media) ou URL
 }
 
 /** Nombre de variables {{n}} dans un texte. */
@@ -32,34 +37,66 @@ function countVars(text: string): number {
   return Math.max(...m.map((x) => parseInt(x.replace(/\D/g, ''), 10)))
 }
 
+/** Type de média WhatsApp pour le paramètre header d'une carte. */
+function headerMediaType(kind: string | null | undefined): 'image' | 'video' | 'document' {
+  if (kind === 'video') return 'video'
+  if (kind === 'document') return 'document'
+  return 'image'
+}
+
 /**
- * Renvoie le composant `carousel` à ajouter aux components d'envoi, ou null si
- * aucune carte n'a de variable (carrousel entièrement figé → rien à paramétrer).
+ * Construit le composant `carousel` à envoyer. ASYNC : upload chaque image
+ * d'en-tête de carte vers Meta pour obtenir un media_id.
+ *
+ * Renvoie null si aucune carte (carrousel vide). Si une image d'en-tête échoue
+ * à s'uploader, on lève une erreur explicite (mieux qu'un 132012 opaque).
  */
-export function buildCarouselComponent(
+export async function buildCarouselComponent(
   cards: SendCard[],
-  ctx: VariableContext
-): { type: 'carousel'; cards: unknown[] } | null {
+  ctx: VariableContext,
+  meta: { phoneNumberId: string; token: string }
+): Promise<{ type: 'carousel'; cards: unknown[] } | null> {
   if (!Array.isArray(cards) || cards.length === 0) return null
 
   const outCards: { card_index: number; components: unknown[] }[] = []
 
-  cards.forEach((card, idx) => {
+  for (let idx = 0; idx < cards.length; idx++) {
+    const card = cards[idx]
+    const components: unknown[] = []
+
+    // 1) HEADER média — requis pour chaque carte qui en a un.
+    if (card.header_media_url) {
+      const mediatype = headerMediaType(card.header_type)
+      const dl = await downloadMediaFromStorage(card.header_media_url)
+      if (!dl.ok) {
+        throw new Error(`carte ${idx}: header introuvable (${card.header_media_url}): ${dl.error}`)
+      }
+      const up = await wabaClient.uploadMedia(
+        meta.phoneNumberId, meta.token, dl.buffer, dl.mimeType, `card-${idx}.${mediatype}`
+      )
+      if (!up.ok) {
+        throw new Error(`carte ${idx}: upload header Meta échoué: ${up.error}`)
+      }
+      components.push({
+        type: 'header',
+        parameters: [{ type: mediatype, [mediatype]: { id: up.data.id } }],
+      })
+    }
+
+    // 2) BODY — uniquement si la carte a des variables {{n}}.
     const varCount = countVars(card.body_text || '')
-    if (varCount === 0) return // carte figée → omise (tout est dans le modèle approuvé)
+    if (varCount > 0) {
+      const keys = Array.isArray(card.body_variable_keys) ? card.body_variable_keys : []
+      const resolved = resolveVariables(keys, ctx).slice(0, varCount)
+      while (resolved.length < varCount) resolved.push('')
+      components.push({
+        type: 'body',
+        parameters: resolved.map((t) => ({ type: 'text', text: t })),
+      })
+    }
 
-    const keys = Array.isArray(card.body_variable_keys) ? card.body_variable_keys : []
-    const resolved = resolveVariables(keys, ctx).slice(0, varCount)
-    while (resolved.length < varCount) resolved.push('')
-    outCards.push({
-      card_index: idx,
-      components: [
-        { type: 'body', parameters: resolved.map((t) => ({ type: 'text', text: t })) },
-      ],
-    })
-  })
+    outCards.push({ card_index: idx, components })
+  }
 
-  // Aucune carte paramétrée → pas de composant carousel.
-  if (outCards.length === 0) return null
   return { type: 'carousel', cards: outCards }
 }
