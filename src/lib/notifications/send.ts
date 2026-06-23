@@ -163,10 +163,14 @@ async function sendWhatsAppNotification(
       ? [{ type: 'body', parameters: params.map((p) => ({ type: 'text', text: p })) }]
       : []
 
-    // Carrousel avec variables par carte → composant `carousel` résolu.
+    // Carrousel → composant `carousel` (upload du média d'en-tête de chaque carte).
     if (carouselCards && payload.data) {
       const { buildCarouselComponent } = await import('@/lib/templates/carousel-send')
-      const carousel = buildCarouselComponent(carouselCards as { body_text?: string; body_variable_keys?: string[] }[], payload.data)
+      const carousel = await buildCarouselComponent(
+        carouselCards as never[],
+        payload.data,
+        { phoneNumberId: session.waba_phone_number_id, token }
+      )
       if (carousel) components.push(carousel)
     }
 
