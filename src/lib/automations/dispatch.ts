@@ -187,6 +187,9 @@ export async function sendTemplateToContact(params: {
   }
 
   const { wabaClient } = await import('@/lib/whatsapp-cloud/client')
+  console.log('[dispatch] ENVOI template', tpl.name, tpl.language, 'type=', tpl.template_type,
+    'varsCount=', varsCount, 'keys=', JSON.stringify(keys),
+    'components=', JSON.stringify(components))
   const res = await wabaClient.sendTemplateWithParams(
     session.waba_phone_number_id, token, contact.phone_number, tpl.name, tpl.language, components
   )
