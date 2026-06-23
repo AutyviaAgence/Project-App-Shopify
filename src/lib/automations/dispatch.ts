@@ -153,7 +153,8 @@ export async function sendTemplateToContact(params: {
     ? [{ type: 'body', parameters: out.map((p) => ({ type: 'text', text: p })) }]
     : []
 
-  // Carrousel avec variables par carte → ajoute le composant `carousel` résolu.
+  // Carrousel → ajoute le composant `carousel` (TOUJOURS requis par Meta pour ce
+  // type, même sans variables de carte : chaque card_index doit être listé).
   if (tpl.template_type === 'carousel' && Array.isArray(tpl.carousel_cards)) {
     const { buildCarouselComponent } = await import('@/lib/templates/carousel-send')
     const carousel = buildCarouselComponent(tpl.carousel_cards, params.variables)
