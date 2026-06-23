@@ -40,11 +40,10 @@ export function buildCarouselComponent(
 
   const outCards = cards.map((card, idx) => {
     const varCount = countVars(card.body_text || '')
-    if (varCount === 0) {
-      // Carte statique : pas de paramètres, mais le card_index est obligatoire.
-      return { card_index: idx, components: [] as unknown[] }
-    }
-    const keys = Array.isArray(card.body_variable_keys) ? card.body_variable_keys : []
+    // Meta EXIGE un tableau `components` non vide pour CHAQUE carte (sinon
+    // erreur 100 « cards.components is required »). Une carte statique porte
+    // donc un body avec des paramètres VIDES, pas un components vide.
+    const keys = varCount > 0 && Array.isArray(card.body_variable_keys) ? card.body_variable_keys : []
     const resolved = resolveVariables(keys, ctx).slice(0, varCount)
     while (resolved.length < varCount) resolved.push('')
     return {
