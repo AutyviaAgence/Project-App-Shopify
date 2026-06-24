@@ -15,7 +15,7 @@ type TemplateRow = {
   id: string; user_id: string; name: string; language: string
   source_language: string | null; status: string
   variables_count: number | null; variable_keys: string[] | null; body_text: string | null
-  template_type: string | null; carousel_cards: unknown; lto_default_hours: number | null
+  template_type: string | null; carousel_cards: unknown; lto_default_hours: number | null; lto_title: string | null
   buttons: unknown
 }
 
@@ -40,7 +40,7 @@ async function resolveLanguageVariant(
   // Toutes les variantes approuvées de ce modèle (même utilisateur + même nom).
   const { data: variants } = await supabase
     .from('whatsapp_templates')
-    .select('id, user_id, name, language, source_language, status, variables_count, variable_keys, body_text, template_type, carousel_cards, lto_default_hours, buttons')
+    .select('id, user_id, name, language, source_language, status, variables_count, variable_keys, body_text, template_type, carousel_cards, lto_default_hours, lto_title, buttons')
     .eq('user_id', base.user_id)
     .eq('name', base.name)
     .eq('status', 'approved')
@@ -101,7 +101,7 @@ export async function sendTemplateToContact(params: {
 
   // Modèle de base (celui choisi dans l'automation). On l'utilise pour connaître
   // le `name` et résoudre ensuite la variante linguistique du contact.
-  const SELECT = 'id, user_id, name, language, source_language, status, variables_count, variable_keys, body_text, template_type, carousel_cards, lto_default_hours, buttons'
+  const SELECT = 'id, user_id, name, language, source_language, status, variables_count, variable_keys, body_text, template_type, carousel_cards, lto_default_hours, lto_title, buttons'
   const { data: baseTpl } = await supabase
     .from('whatsapp_templates')
     .select(SELECT)
@@ -218,18 +218,36 @@ export async function sendTemplateToContact(params: {
     let preview = tpl.body_text || `[Modèle : ${tpl.name}]`
     out.forEach((v, i) => { preview = preview.replace(`{{${i + 1}}}`, v) })
 
-    // Pour un carrousel : on enrichit la trace (type + métadonnées des cartes)
-    // pour un aperçu correct dans l'inbox au lieu d'une simple ligne de texte.
+    // On enrichit la trace (type + métadonnées) pour un aperçu correct dans
+    // l'inbox au lieu d'une simple ligne de texte.
     const isCarousel = tpl.template_type === 'carousel' && Array.isArray(tpl.carousel_cards)
+    const isLto = tpl.template_type === 'limited_time_offer'
     let messageType = 'text'
     let transcription: string | null = null
+    const bodyText = preview // le body résolu (avant ajout d'emoji)
+
     if (isCarousel) {
       messageType = 'carousel'
       const cards = (tpl.carousel_cards as { body_text?: string; header_media_url?: string | null }[])
         .map((c) => ({ body: c.body_text || '', header: c.header_media_url || null }))
-      transcription = JSON.stringify({ body: preview, cards })
+      transcription = JSON.stringify({ body: bodyText, cards })
       const aperçu = preview.length > 60 ? preview.slice(0, 60) + '…' : preview
       preview = `🎠 ${aperçu}`
+    } else if (isLto) {
+      messageType = 'interactive'
+      const btns = Array.isArray(tpl.buttons)
+        ? (tpl.buttons as { type?: string; text?: string; url?: string; code?: string }[])
+            .map((b) => ({ type: b.type || '', text: b.text || '', url: b.url || '', code: b.code || '' }))
+        : []
+      transcription = JSON.stringify({
+        kind: 'lto',
+        body: bodyText,
+        lto_title: tpl.lto_title || '',
+        lto_hours: tpl.lto_default_hours || 24,
+        buttons: btns,
+      })
+      const aperçu = preview.length > 50 ? preview.slice(0, 50) + '…' : preview
+      preview = `🏷️ ${aperçu}`
     }
 
     const { data: conv } = await supabase
@@ -243,7 +261,7 @@ export async function sendTemplateToContact(params: {
     if (conv) {
       await supabase.from('messages').insert({
         conversation_id: conv.id, session_id: contact.session_id, direction: 'outbound',
-        content: encryptMessage(messageType === 'carousel' ? (transcription ? JSON.parse(transcription).body : preview) : preview),
+        content: encryptMessage(bodyText),
         message_type: messageType, transcription, sent_by: 'user', status: 'sent',
       })
     }

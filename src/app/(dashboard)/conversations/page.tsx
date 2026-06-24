@@ -781,6 +781,7 @@ function ConversationsPageContent() {
                 : newMsg.message_type === 'audio' ? '🎤 Audio'
                 : newMsg.message_type === 'video' ? '🎥 Vidéo'
                 : newMsg.message_type === 'carousel' ? '🎠 Carrousel'
+                : newMsg.message_type === 'interactive' ? '🏷️ Offre'
                 : '📎 Fichier'
               return {
                 ...c,

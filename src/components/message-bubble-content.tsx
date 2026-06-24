@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Loader2, FileText, Download, Eye, EyeOff, Image as ImageIcon, Mic, Play, Paperclip } from 'lucide-react'
+import { Loader2, FileText, Download, Eye, EyeOff, Image as ImageIcon, Mic, Play, Paperclip, Copy, ExternalLink, Clock } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Message } from '@/types/database'
 
@@ -73,6 +73,11 @@ export function MessageBubbleContent({ msg, isOutbound, channel }: { msg: Extend
   // Carrousel : rendu façon WhatsApp (body principal + cartes avec vraies images)
   if (msg.message_type === 'carousel') {
     return <CarouselMessage msg={msg} isOutbound={isOutbound} />
+  }
+
+  // Message interactif : offre à durée limitée (LTO) ou boutons SAV.
+  if (msg.message_type === 'interactive') {
+    return <InteractiveMessage msg={msg} isOutbound={isOutbound} />
   }
 
   // Messages texte ou types sans média
@@ -380,6 +385,69 @@ function CarouselMessage({ msg, isOutbound }: { msg: ExtendedMessage; isOutbound
           </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+/**
+ * Rendu d'un message interactif. Aujourd'hui : l'offre à durée limitée (LTO)
+ * façon WhatsApp — le body, un bandeau « titre · expire dans Xh », puis les
+ * boutons (Copier le code / Visiter le site).
+ */
+function InteractiveMessage({ msg, isOutbound }: { msg: ExtendedMessage; isOutbound: boolean }) {
+  let parsed: {
+    kind?: string; body?: string; lto_title?: string; lto_hours?: number
+    buttons?: { type: string; text: string; url?: string; code?: string }[]
+  } = {}
+  try { parsed = JSON.parse(msg.transcription || '{}') } catch { /* ignore */ }
+
+  const body = parsed.body || msg.content || ''
+  const buttons = Array.isArray(parsed.buttons) ? parsed.buttons : []
+
+  // Offre à durée limitée
+  if (parsed.kind === 'lto') {
+    return (
+      <div className="space-y-2">
+        {body && <p className="whitespace-pre-wrap break-words text-sm">{body}</p>}
+        {parsed.lto_title && (
+          <div className={`flex items-center gap-2 rounded-lg px-3 py-2 text-[12px] font-medium ${
+            isOutbound ? 'bg-white/15 text-white' : 'bg-rose-500/10 text-rose-600'
+          }`}>
+            <Clock className="h-3.5 w-3.5 shrink-0" />
+            <span>{parsed.lto_title}</span>
+            <span className="opacity-70">· expire dans {parsed.lto_hours ?? 24}h</span>
+          </div>
+        )}
+        {buttons.length > 0 && (
+          <div className="flex flex-col gap-1 border-t pt-1.5" style={{ borderColor: isOutbound ? 'rgba(255,255,255,0.2)' : undefined }}>
+            {buttons.map((b, i) => (
+              <div key={i} className={`flex items-center justify-center gap-1.5 py-1 text-[13px] font-medium ${
+                isOutbound ? 'text-white' : 'text-blue-600'
+              }`}>
+                {b.type === 'COPY_CODE' ? <Copy className="h-3.5 w-3.5" /> : <ExternalLink className="h-3.5 w-3.5" />}
+                {b.text || (b.type === 'COPY_CODE' ? 'Copier le code' : 'Visiter le site')}
+                {b.type === 'COPY_CODE' && b.code && <span className="opacity-70">({b.code})</span>}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
+  // Boutons SAV génériques (fallback)
+  return (
+    <div className="space-y-2">
+      {body && <p className="whitespace-pre-wrap break-words text-sm">{body}</p>}
+      {buttons.length > 0 && (
+        <div className="flex flex-col gap-1 border-t pt-1.5" style={{ borderColor: isOutbound ? 'rgba(255,255,255,0.2)' : undefined }}>
+          {buttons.map((b, i) => (
+            <div key={i} className={`text-center text-[13px] font-medium ${isOutbound ? 'text-white' : 'text-blue-600'}`}>
+              {b.text}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
