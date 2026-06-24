@@ -70,42 +70,9 @@ export function MessageBubbleContent({ msg, isOutbound, channel }: { msg: Extend
     }
   }
 
-  // Carrousel : aperçu enrichi (body principal + vignettes des cartes)
+  // Carrousel : rendu façon WhatsApp (body principal + cartes avec vraies images)
   if (msg.message_type === 'carousel') {
-    let body = msg.content || ''
-    let cards: { body?: string; header?: string | null }[] = []
-    try {
-      const parsed = JSON.parse(msg.transcription || '{}')
-      if (parsed.body) body = parsed.body
-      if (Array.isArray(parsed.cards)) cards = parsed.cards
-    } catch { /* transcription non-JSON : on garde le body brut */ }
-
-    return (
-      <div className="space-y-2">
-        {body && <p className="whitespace-pre-wrap break-words text-sm">{body}</p>}
-        <div className={`flex items-center gap-1.5 text-[11px] ${isOutbound ? 'text-white/70' : 'text-muted-foreground'}`}>
-          <ImageIcon className="h-3 w-3" />
-          Carrousel · {cards.length} carte{cards.length > 1 ? 's' : ''}
-        </div>
-        {cards.length > 0 && (
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {cards.map((c, i) => (
-              <div
-                key={i}
-                className={`shrink-0 w-[120px] rounded-lg border p-2 ${
-                  isOutbound ? 'border-white/20 bg-white/10' : 'border-border bg-muted/30'
-                }`}
-              >
-                <div className={`mb-1 flex h-[60px] items-center justify-center rounded ${isOutbound ? 'bg-white/10' : 'bg-muted/50'}`}>
-                  <ImageIcon className={`h-5 w-5 ${isOutbound ? 'text-white/40' : 'text-muted-foreground/40'}`} />
-                </div>
-                <p className="truncate text-[11px] font-medium">{c.body || `Carte ${i + 1}`}</p>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    )
+    return <CarouselMessage msg={msg} isOutbound={isOutbound} />
   }
 
   // Messages texte ou types sans média
@@ -339,6 +306,80 @@ export function MessageBubbleContent({ msg, isOutbound, channel }: { msg: Extend
           />
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * Rendu d'un message carrousel façon WhatsApp : le texte du body principal,
+ * puis les cartes (image + titre) dans une bande horizontale scrollable.
+ * Charge les vraies images via /api/messages/[id]/carousel (URLs signées).
+ */
+function CarouselMessage({ msg, isOutbound }: { msg: ExtendedMessage; isOutbound: boolean }) {
+  // État initial calculé depuis `transcription` (cartes sans images) — évite un
+  // setState synchrone dans l'effet.
+  const initial = (() => {
+    try {
+      const parsed = JSON.parse(msg.transcription || '{}')
+      const cards = Array.isArray(parsed.cards)
+        ? parsed.cards.map((c: { body?: string }) => ({ body: c.body || '', image: null as string | null }))
+        : []
+      return { body: parsed.body || msg.content || '', cards }
+    } catch {
+      return { body: msg.content || '', cards: [] as { body: string; image: string | null }[] }
+    }
+  })()
+
+  const [body, setBody] = useState<string>(initial.body)
+  const [cards, setCards] = useState<{ body: string; image: string | null }[]>(initial.cards)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    // Enrichir avec les vraies images signées.
+    fetch(`/api/messages/${msg.id}/carousel`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (cancelled || !j?.data) return
+        if (j.data.body) setBody(j.data.body)
+        if (Array.isArray(j.data.cards)) setCards(j.data.cards)
+      })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [msg.id, msg.transcription])
+
+  return (
+    <div className="space-y-2">
+      {body && <p className="whitespace-pre-wrap break-words text-sm">{body}</p>}
+      <div className={`flex items-center gap-1.5 text-[11px] ${isOutbound ? 'text-white/70' : 'text-muted-foreground'}`}>
+        <ImageIcon className="h-3 w-3" />
+        Carrousel · {cards.length} carte{cards.length > 1 ? 's' : ''}
+      </div>
+      <div className="flex gap-2 overflow-x-auto pb-1">
+        {cards.map((c, i) => (
+          <div
+            key={i}
+            className={`shrink-0 w-[150px] overflow-hidden rounded-xl border ${
+              isOutbound ? 'border-white/20 bg-white/5' : 'border-border bg-card'
+            }`}
+          >
+            <div className={`flex h-[100px] w-full items-center justify-center ${isOutbound ? 'bg-white/10' : 'bg-muted/50'}`}>
+              {c.image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={c.image} alt={c.body || `Carte ${i + 1}`} className="h-full w-full object-cover" loading="lazy" />
+              ) : loading ? (
+                <Loader2 className={`h-4 w-4 animate-spin ${isOutbound ? 'text-white/40' : 'text-muted-foreground/40'}`} />
+              ) : (
+                <ImageIcon className={`h-6 w-6 ${isOutbound ? 'text-white/40' : 'text-muted-foreground/40'}`} />
+              )}
+            </div>
+            <p className={`truncate px-2 py-1.5 text-[12px] font-medium ${isOutbound ? 'text-white' : 'text-foreground'}`}>
+              {c.body || `Carte ${i + 1}`}
+            </p>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
