@@ -605,11 +605,14 @@ export default function TemplatesPage() {
               // groupe la possède, sinon sa langue principale.
               const openLang = g.rows.find((r) => r.language === language) || g.main
               return (
-                <button
+                <div
                   key={g.name}
+                  role="button"
+                  tabIndex={0}
                   onClick={() => openEdit(openLang)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openEdit(openLang) } }}
                   className={cn(
-                    'w-full rounded-lg border px-3 py-2.5 text-left transition-colors',
+                    'w-full cursor-pointer rounded-lg border px-3 py-2.5 text-left transition-colors',
                     active ? 'border-primary bg-primary/5' : 'border-transparent hover:bg-muted/50'
                   )}
                 >
@@ -622,12 +625,17 @@ export default function TemplatesPage() {
                     {TEMPLATE_LANGUAGES.filter((l) => g.langs.includes(l)).map((l) => {
                       const row = g.rows.find((r) => r.language === l)!
                       const rs = effectiveStatus(row)
+                      const isOpen = !!selectedTemplate && selectedTemplate.id === row.id
                       return (
-                        <span
+                        <button
                           key={l}
-                          title={`${TEMPLATE_LANGUAGE_LABELS[l] || l} · ${(STATUS_STYLE[rs] || STATUS_STYLE.draft).label}`}
+                          type="button"
+                          // Clic sur un badge de langue → ouvre CETTE variante pour l'éditer.
+                          onClick={(e) => { e.stopPropagation(); openEdit(row) }}
+                          title={`Modifier ${TEMPLATE_LANGUAGE_LABELS[l] || l} · ${(STATUS_STYLE[rs] || STATUS_STYLE.draft).label}`}
                           className={cn(
-                            'rounded px-1 py-0.5 text-[9px] font-semibold uppercase',
+                            'rounded px-1 py-0.5 text-[9px] font-semibold uppercase transition-all hover:ring-1 hover:ring-primary/50',
+                            isOpen && 'ring-1 ring-primary',
                             rs === 'approved' ? 'bg-green-500/15 text-green-600'
                               : rs === 'pending' ? 'bg-amber-500/15 text-amber-600'
                               : rs === 'rejected' ? 'bg-red-500/15 text-red-600'
@@ -635,11 +643,11 @@ export default function TemplatesPage() {
                           )}
                         >
                           {l}
-                        </span>
+                        </button>
                       )
                     })}
                   </div>
-                </button>
+                </div>
               )
             })}
           </div>
