@@ -391,7 +391,8 @@ export default function TemplatesPage() {
           // les cartes → on neutralise l'en-tête/les boutons du message d'intro.
           header_text: templateType === 'standard' && headerType === 'text' ? headerText : '',
           // Un carrousel ne peut pas avoir de pied de page sur le message d'intro (règle Meta).
-          footer_text: templateType === 'carousel' ? '' : footerText,
+          // Footer interdit par Meta sur carrousel ET offre limitée.
+          footer_text: (templateType === 'carousel' || templateType === 'limited_time_offer') ? '' : footerText,
           header_type: templateType === 'carousel' ? 'none' : headerType,
           header_media_url: templateType === 'standard' && (headerType === 'image' || headerType === 'video' || headerType === 'document') ? headerMediaUrl : null,
           // Boutons : pour standard ET offre limitée (LTO exige un bouton CODE/lien).
@@ -940,8 +941,8 @@ export default function TemplatesPage() {
                 </div>
               )}
             </div>
-            {/* Pied de page : interdit par Meta sur le message d'intro d'un carrousel. */}
-            {templateType !== 'carousel' && (
+            {/* Pied de page : interdit par Meta sur carrousel ET offre limitée. */}
+            {templateType !== 'carousel' && templateType !== 'limited_time_offer' && (
               <div className="space-y-1.5">
                 <Label>Pied de page (optionnel)</Label>
                 <Input value={footerText} onChange={(e) => setFooterText(e.target.value)} placeholder="Powered by Xeyo.io" maxLength={60} />

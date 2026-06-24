@@ -159,13 +159,16 @@ export async function submitTemplateRow(
   const bodyComponent: Record<string, unknown> = { type: 'BODY', text: norm.text }
   if (norm.count > 0) bodyComponent.example = { body_text: [norm.samples] }
   components.push(bodyComponent)
-  // FOOTER interdit sur le message d'intro d'un carrousel (règle Meta).
-  if (template.footer_text && !isCarousel) components.push({ type: 'FOOTER', text: template.footer_text })
+  // FOOTER interdit sur un carrousel ET sur une offre limitée (règles Meta).
+  const isLto = template.template_type === 'limited_time_offer'
+  if (template.footer_text && !isCarousel && !isLto) components.push({ type: 'FOOTER', text: template.footer_text })
 
   // LIMITED_TIME_OFFER.
-  if (template.template_type === 'limited_time_offer') {
+  if (isLto) {
     const ltoTitle = (template.lto_title || '').trim()
     if (!ltoTitle) return { ok: false, status: 422, error: 'L’offre à durée limitée doit avoir un titre (ex : « -10% pendant 2h »).' }
+    // Meta limite le titre de l'offre à 16 caractères.
+    if (ltoTitle.length > 16) return { ok: false, status: 422, error: `Le titre de l'offre est trop long (${ltoTitle.length} car). Meta limite à 16 caractères — ex : « -10% pendant 2h ».` }
     if (template.category !== 'MARKETING') return { ok: false, status: 422, error: 'Une offre à durée limitée doit être en catégorie Marketing (règle Meta).' }
     const hasCode = Array.isArray(template.buttons) && template.buttons.some((b: { type?: string }) => b.type === 'COPY_CODE')
     const hasUrl = Array.isArray(template.buttons) && template.buttons.some((b: { type?: string }) => b.type === 'URL')
