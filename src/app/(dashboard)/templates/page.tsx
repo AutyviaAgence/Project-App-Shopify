@@ -341,6 +341,15 @@ export default function TemplatesPage() {
     ltoHours !== (editing.lto_default_hours || 24)
   )
 
+  // Règle Meta : le message ne peut pas COMMENCER ni FINIR par une variable {{n}}.
+  // On le signale en direct (même logique que la validation de soumission).
+  const trimmedBody = bodyText.trim()
+  const bodyStartsWithVar = /^\{\{\s*\d+\s*\}\}/.test(trimmedBody)
+  const bodyEndsWithVar = /\{\{\s*\d+\s*\}\}$/.test(trimmedBody)
+  const bodyEdgeError = (bodyStartsWithVar || bodyEndsWithVar)
+    ? `Le message ne peut pas ${bodyStartsWithVar && bodyEndsWithVar ? 'commencer ni finir' : bodyStartsWithVar ? 'commencer' : 'finir'} par une variable. Ajoutez du texte ${bodyStartsWithVar && bodyEndsWithVar ? 'avant et après' : bodyStartsWithVar ? 'avant' : 'après'}.`
+    : null
+
   // Recharge les valeurs d'origine du template (annule les modifications en cours)
   function revertChanges() {
     if (editing) openEdit(editing)
@@ -692,7 +701,7 @@ export default function TemplatesPage() {
                         Toutes les langues
                       </Button>
                     )}
-                    <Button size="sm" disabled={saving || !name.trim() || !bodyText.trim()} onClick={handleSave}>
+                    <Button size="sm" disabled={saving || !name.trim() || !bodyText.trim() || !!bodyEdgeError} onClick={handleSave} title={bodyEdgeError || undefined}>
                       {saving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
                       {editing ? 'Enregistrer' : 'Créer'}
                     </Button>
@@ -936,6 +945,13 @@ export default function TemplatesPage() {
                   </DropdownMenu>
                 </div>
               </div>
+              {/* Message d'erreur en direct : variable en début/fin (refusé par Meta). */}
+              {bodyEdgeError && (
+                <p className="flex items-start gap-1.5 text-[12px] text-destructive">
+                  <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                  {bodyEdgeError}
+                </p>
+              )}
               {/* Légende : quelle variable correspond à quel {{n}} */}
               {variableKeys.length > 0 && (
                 <div className="space-y-1 rounded-lg border bg-muted/30 p-2">
