@@ -172,16 +172,13 @@ export async function submitTemplateRow(
     if (template.category !== 'MARKETING') return { ok: false, status: 422, error: 'Une offre à durée limitée doit être en catégorie Marketing (règle Meta).' }
     const hasCode = Array.isArray(template.buttons) && template.buttons.some((b: { type?: string }) => b.type === 'COPY_CODE')
     const hasUrl = Array.isArray(template.buttons) && template.buttons.some((b: { type?: string }) => b.type === 'URL')
-    // Règle Meta : une offre limitée DOIT avoir un bouton lien (URL). Si un bouton
-    // « Copier le code » est présent, le bouton URL reste obligatoire en plus
-    // (Meta : "URL is required at index 1 when Limited Time Offer is present").
+    // Une offre limitée exige les DEUX boutons : « Copier le code » (code promo)
+    // ET un bouton lien (URL) — Meta impose l'URL à l'index 1.
+    if (!hasCode) {
+      return { ok: false, status: 422, error: 'Une offre à durée limitée doit avoir un bouton « Copier le code » (code promo).' }
+    }
     if (!hasUrl) {
-      return {
-        ok: false, status: 422,
-        error: hasCode
-          ? 'Une offre limitée avec « Copier le code » exige AUSSI un bouton lien (Visiter le site). Ajoutez un bouton lien.'
-          : 'Une offre à durée limitée doit avoir un bouton lien (Visiter le site), et éventuellement un bouton « Copier le code ».',
-      }
+      return { ok: false, status: 422, error: 'Une offre à durée limitée doit aussi avoir un bouton lien (Visiter le site) — exigé par Meta.' }
     }
     components.push({ type: 'LIMITED_TIME_OFFER', limited_time_offer: { text: ltoTitle, has_expiration: true } })
   }
