@@ -28,7 +28,7 @@ const LANG_NAMES: Record<string, string> = {
 }
 
 /** Limites Meta par champ (caractères). */
-const LIMITS = { body: 1024, header: 60, footer: 60, button: 25, card: 160 }
+const LIMITS = { body: 1024, header: 60, footer: 60, button: 25, card: 160, lto: 16 }
 
 /** Contenu traduisible d'un modèle (source ET résultat ont cette forme). */
 export type TranslatableContent = {
@@ -92,6 +92,7 @@ RÈGLES STRICTES :
 - Ne traduis PAS : les URLs, les codes promo, les noms de marque ou de produit.
 - Conserve le formatage WhatsApp : *gras*, _italique_, ~barré~.
 - Reste concis (limites : message ${LIMITS.body}, en-tête ${LIMITS.header}, pied ${LIMITS.footer}, bouton ${LIMITS.button}, carte ${LIMITS.card} caractères).
+- IMPÉRATIF : le titre d'offre "lto_title" doit faire AU MAXIMUM ${LIMITS.lto} caractères (limite stricte Meta). Abrège si besoin (ex : "24h" au lieu de "24 hours", "-10%" gardé court). Compte les caractères avant de répondre.
 - Réponds UNIQUEMENT avec un objet JSON ayant EXACTEMENT les mêmes clés que l'entrée (mêmes tableaux, même ordre). Aucune autre clé, aucun commentaire.
 
 ENTRÉE :
@@ -143,7 +144,7 @@ export async function translateTemplateContent(args: {
       ? safeField(source.footer_text, out.footer_text as string, LIMITS.footer)
       : source.footer_text,
     lto_title: source.lto_title != null
-      ? safeField(source.lto_title, out.lto_title as string, LIMITS.button)
+      ? safeField(source.lto_title, out.lto_title as string, LIMITS.lto)
       : source.lto_title,
   }
 
