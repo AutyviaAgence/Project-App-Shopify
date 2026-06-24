@@ -394,7 +394,9 @@ export default function TemplatesPage() {
           footer_text: templateType === 'carousel' ? '' : footerText,
           header_type: templateType === 'carousel' ? 'none' : headerType,
           header_media_url: templateType === 'standard' && (headerType === 'image' || headerType === 'video' || headerType === 'document') ? headerMediaUrl : null,
-          buttons: templateType === 'standard' && buttons.length > 0 ? buttons : null,
+          // Boutons : pour standard ET offre limitée (LTO exige un bouton CODE/lien).
+          // Le carrousel porte ses boutons dans les cartes → pas de boutons globaux.
+          buttons: templateType !== 'carousel' && buttons.length > 0 ? buttons : null,
           template_type: templateType,
           carousel_cards: templateType === 'carousel' && carouselCards.length > 0 ? carouselCards : null,
           lto_title: templateType === 'limited_time_offer' ? ltoTitle : null,
