@@ -172,13 +172,31 @@ export async function submitTemplateRow(
     if (template.category !== 'MARKETING') return { ok: false, status: 422, error: 'Une offre à durée limitée doit être en catégorie Marketing (règle Meta).' }
     const hasCode = Array.isArray(template.buttons) && template.buttons.some((b: { type?: string }) => b.type === 'COPY_CODE')
     const hasUrl = Array.isArray(template.buttons) && template.buttons.some((b: { type?: string }) => b.type === 'URL')
-    if (!hasCode && !hasUrl) return { ok: false, status: 422, error: 'Une offre à durée limitée doit avoir un bouton « Copier le code » et/ou un bouton lien.' }
+    // Règle Meta : une offre limitée DOIT avoir un bouton lien (URL). Si un bouton
+    // « Copier le code » est présent, le bouton URL reste obligatoire en plus
+    // (Meta : "URL is required at index 1 when Limited Time Offer is present").
+    if (!hasUrl) {
+      return {
+        ok: false, status: 422,
+        error: hasCode
+          ? 'Une offre limitée avec « Copier le code » exige AUSSI un bouton lien (Visiter le site). Ajoutez un bouton lien.'
+          : 'Une offre à durée limitée doit avoir un bouton lien (Visiter le site), et éventuellement un bouton « Copier le code ».',
+      }
+    }
     components.push({ type: 'LIMITED_TIME_OFFER', limited_time_offer: { text: ltoTitle, has_expiration: true } })
   }
 
   // BUTTONS.
   if (Array.isArray(template.buttons) && template.buttons.length > 0) {
     const httpUrl = /^https?:\/\/.+\..+/i
+    // Pour une offre limitée, Meta impose l'ordre : COPY_CODE (index 0) puis URL
+    // (index 1). On réordonne pour éviter « URL is required at index 1 ».
+    if (isLto) {
+      const order = (t: string) => (t === 'COPY_CODE' ? 0 : t === 'URL' ? 1 : 2)
+      template.buttons = [...template.buttons].sort(
+        (a: { type: string }, b: { type: string }) => order(a.type) - order(b.type)
+      )
+    }
     for (const b of template.buttons as { type: string; text?: string; url?: string; phone?: string; code?: string }[]) {
       if (!b.text || !b.text.trim()) return { ok: false, status: 422, error: 'Chaque bouton doit avoir un libellé.' }
       if (b.type === 'URL') {

@@ -810,7 +810,8 @@ export default function TemplatesPage() {
                   <p className="text-[11px] text-muted-foreground">L&apos;expiration est calculée à l&apos;envoi (maintenant + durée).</p>
                 </div>
                 <p className="rounded-lg bg-muted/50 p-2 text-[11px] text-muted-foreground">
-                  Ajoutez un bouton <strong>« Copier le code »</strong> (code promo) et/ou un bouton lien ci-dessous.
+                  Ajoutez OBLIGATOIREMENT un bouton <strong>lien « Visiter le site »</strong> ci-dessous (exigé par Meta),
+                  et éventuellement un bouton <strong>« Copier le code »</strong> (code promo).
                 </p>
               </div>
             )}
