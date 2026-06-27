@@ -25,7 +25,7 @@ import { BlobLoaderScreen } from '@/components/blob-loader'
 import { TEMPLATE_VARIABLES, VARIABLE_BY_KEY, VARIABLE_GROUPS } from '@/lib/templates/variables'
 import { TEMPLATE_LANGUAGES, TEMPLATE_LANGUAGE_LABELS } from '@/lib/i18n/contact-language'
 import { USE_CASES, USE_CASE_BY_KEY, guessUseCase, type UseCaseKey } from '@/lib/templates/use-cases'
-import { Package, ShoppingCart, Megaphone, MessageCircle, CreditCard, Smartphone } from 'lucide-react'
+import { Package, ShoppingCart, Megaphone, MessageCircle, CreditCard, Smartphone, ChevronDown } from 'lucide-react'
 import Link from 'next/link'
 
 /** Résout l'icône lucide d'un use_case (les noms viennent de use-cases.ts). */
@@ -101,6 +101,12 @@ export default function TemplatesPage() {
   // Filtres de la liste : catégorie e-commerce (use_case) + recherche par nom.
   const [useCaseFilter, setUseCaseFilter] = useState<UseCaseKey | 'all'>('all')
   const [search, setSearch] = useState('')
+
+  // Galerie de modèles suggérés (bibliothèque prête à l'emploi).
+  type LibraryItem = { key: string; label: string; description: string; name: string; language: string; use_case: UseCaseKey; body_text: string; added: boolean }
+  const [library, setLibrary] = useState<LibraryItem[]>([])
+  const [libraryOpen, setLibraryOpen] = useState(true)
+  const [addingKey, setAddingKey] = useState<string | null>(null)
 
   // Form
   const [name, setName] = useState('')
@@ -234,13 +240,42 @@ export default function TemplatesPage() {
     }
   }, [])
 
+  const fetchLibrary = useCallback(async () => {
+    try {
+      const res = await fetch('/api/templates/library')
+      const json = await res.json()
+      if (res.ok) setLibrary(json.data || [])
+    } catch { /* silencieux */ }
+  }, [])
+
+  // Ajoute un modèle de la galerie en 1 clic (crée le brouillon).
+  async function addFromLibrary(key: string) {
+    setAddingKey(key)
+    try {
+      const res = await fetch('/api/templates/seed', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Erreur')
+      await Promise.all([fetchTemplates(), fetchLibrary()])
+      toast.success('Modèle ajouté à vos brouillons')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erreur')
+    } finally {
+      setAddingKey(null)
+    }
+  }
+
   useEffect(() => {
     // Y a-t-il au moins une session WhatsApp connectée ? (prérequis aux modèles)
     fetch('/api/sessions')
       .then((r) => (r.ok ? r.json() : { data: [] }))
       .then((j) => {
         const sessions = Array.isArray(j.data) ? j.data : []
-        setHasWhatsApp(sessions.some((s: { status?: string }) => s.status === 'connected'))
+        const connected = sessions.some((s: { status?: string }) => s.status === 'connected')
+        setHasWhatsApp(connected)
+        if (connected) fetchLibrary()
       })
       .catch(() => setHasWhatsApp(false))
 
@@ -252,7 +287,7 @@ export default function TemplatesPage() {
         .then((j) => { if (j.data?.synced > 0) fetchTemplates() })
         .catch(() => {})
     })
-  }, [fetchTemplates])
+  }, [fetchTemplates, fetchLibrary])
 
   async function handleSeedDefaults() {
     setSeeding(true)
@@ -671,6 +706,56 @@ export default function TemplatesPage() {
           </div>
         </div>
       )}
+
+      {/* Galerie de modèles suggérés (prêts à ajouter en 1 clic). Filtrée par
+          l'onglet actif ; on n'affiche que les modèles pas encore ajoutés. */}
+      {hasWhatsApp !== false && (() => {
+        const suggestions = library.filter((l) =>
+          !l.added && (useCaseFilter === 'all' || l.use_case === useCaseFilter)
+        )
+        if (suggestions.length === 0) return null
+        return (
+          <div className="rounded-xl border bg-muted/20">
+            <button
+              type="button"
+              onClick={() => setLibraryOpen((o) => !o)}
+              className="flex w-full items-center gap-2 px-4 py-2.5 text-sm font-medium"
+            >
+              <Sparkles className="h-4 w-4 text-primary" />
+              Modèles suggérés
+              <span className="rounded-full bg-primary/15 px-1.5 py-0.5 text-[11px] text-primary">{suggestions.length}</span>
+              <ChevronDown className={cn('ml-auto h-4 w-4 text-muted-foreground transition-transform', !libraryOpen && '-rotate-90')} />
+            </button>
+            {libraryOpen && (
+              <div className="grid gap-2 px-4 pb-4 sm:grid-cols-2 lg:grid-cols-3">
+                {suggestions.map((l) => {
+                  const uc = USE_CASE_BY_KEY[l.use_case]
+                  const Icon = uc ? (USE_CASE_ICONS[uc.icon] || FileText) : FileText
+                  return (
+                    <div key={l.key} className="flex flex-col rounded-lg border bg-card p-3">
+                      <div className="flex items-center gap-2">
+                        <Icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <span className="truncate text-sm font-medium">{l.label}</span>
+                      </div>
+                      <p className="mt-1 line-clamp-2 flex-1 text-xs text-muted-foreground">{l.description}</p>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="mt-2.5 h-7 w-full"
+                        disabled={addingKey === l.key}
+                        onClick={() => addFromLibrary(l.key)}
+                      >
+                        {addingKey === l.key ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Plus className="mr-1 h-3.5 w-3.5" />}
+                        Ajouter
+                      </Button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {hasWhatsApp === false ? (
         /* Prérequis : sans WhatsApp connecté, impossible de créer/soumettre/envoyer. */

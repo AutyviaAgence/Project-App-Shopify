@@ -10,12 +10,16 @@
  * puis il la soumet à SON compte Meta (chaque WABA a sa propre bibliothèque).
  */
 
+import type { UseCaseKey } from '@/lib/templates/use-cases'
+
 export type DefaultTemplate = {
   /** clé stable pour éviter les doublons à la création */
   key: string
   name: string
   language: string
   category: 'MARKETING' | 'UTILITY' | 'AUTHENTICATION'
+  /** catégorie e-commerce (pour la galerie + le classement) */
+  use_case: UseCaseKey
   header_text?: string
   body_text: string
   footer_text?: string
@@ -31,6 +35,7 @@ export type DefaultTemplate = {
 export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
   {
     key: 'order_confirmation',
+    use_case: 'order_status',
     name: 'confirmation_commande',
     language: 'fr',
     category: 'UTILITY',
@@ -44,6 +49,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
   },
   {
     key: 'order_shipped',
+    use_case: 'order_status',
     name: 'commande_expediee',
     language: 'fr',
     category: 'UTILITY',
@@ -57,6 +63,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
   },
   {
     key: 'order_delivered',
+    use_case: 'order_status',
     name: 'commande_livree',
     language: 'fr',
     category: 'UTILITY',
@@ -69,6 +76,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
   },
   {
     key: 'order_cancelled',
+    use_case: 'order_status',
     name: 'commande_annulee',
     language: 'fr',
     category: 'UTILITY',
@@ -81,6 +89,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
   },
   {
     key: 'refund_created',
+    use_case: 'billing',
     name: 'remboursement_effectue',
     language: 'fr',
     category: 'UTILITY',
@@ -93,6 +102,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
   },
   {
     key: 'welcome_optin',
+    use_case: 'support',
     name: 'message_bienvenue',
     language: 'fr',
     category: 'MARKETING',
@@ -105,6 +115,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
   },
   {
     key: 'abandoned_cart',
+    use_case: 'cart',
     name: 'panier_abandonne',
     language: 'fr',
     category: 'MARKETING',
@@ -117,6 +128,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
   },
   {
     key: 'review_request',
+    use_case: 'support',
     name: 'demande_avis',
     language: 'fr',
     category: 'MARKETING',
@@ -129,6 +141,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
   },
   {
     key: 'birthday',
+    use_case: 'marketing',
     name: 'anniversaire_client',
     language: 'fr',
     category: 'MARKETING',
@@ -141,6 +154,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
   },
   {
     key: 'promotion',
+    use_case: 'marketing',
     name: 'offre_promo',
     language: 'fr',
     category: 'MARKETING',
@@ -153,6 +167,7 @@ export const DEFAULT_TEMPLATES: DefaultTemplate[] = [
   },
   {
     key: 'return_received',
+    use_case: 'support',
     name: 'retour_recu',
     language: 'fr',
     category: 'UTILITY',
