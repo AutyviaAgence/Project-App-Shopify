@@ -25,7 +25,8 @@ import { BlobLoaderScreen } from '@/components/blob-loader'
 import { TEMPLATE_VARIABLES, VARIABLE_BY_KEY, VARIABLE_GROUPS } from '@/lib/templates/variables'
 import { TEMPLATE_LANGUAGES, TEMPLATE_LANGUAGE_LABELS } from '@/lib/i18n/contact-language'
 import { USE_CASES, USE_CASE_BY_KEY, guessUseCase, type UseCaseKey } from '@/lib/templates/use-cases'
-import { Package, ShoppingCart, Megaphone, MessageCircle, CreditCard } from 'lucide-react'
+import { Package, ShoppingCart, Megaphone, MessageCircle, CreditCard, Smartphone } from 'lucide-react'
+import Link from 'next/link'
 
 /** Résout l'icône lucide d'un use_case (les noms viennent de use-cases.ts). */
 const USE_CASE_ICONS: Record<string, typeof Package> = {
@@ -88,6 +89,8 @@ function renderWhatsAppFormat(text: string, labels?: string[]): React.ReactNode 
 export default function TemplatesPage() {
   const [templates, setTemplates] = useState<WhatsAppTemplate[]>([])
   const [loading, setLoading] = useState(true)
+  // Un WhatsApp connecté est requis pour créer/soumettre/envoyer des modèles.
+  const [hasWhatsApp, setHasWhatsApp] = useState<boolean | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [seeding, setSeeding] = useState(false)
   const [mode, setMode] = useState<'idle' | 'edit'>('idle')
@@ -232,6 +235,15 @@ export default function TemplatesPage() {
   }, [])
 
   useEffect(() => {
+    // Y a-t-il au moins une session WhatsApp connectée ? (prérequis aux modèles)
+    fetch('/api/sessions')
+      .then((r) => (r.ok ? r.json() : { data: [] }))
+      .then((j) => {
+        const sessions = Array.isArray(j.data) ? j.data : []
+        setHasWhatsApp(sessions.some((s: { status?: string }) => s.status === 'connected'))
+      })
+      .catch(() => setHasWhatsApp(false))
+
     // Charge la liste puis auto-synchronise le statut Meta en arrière-plan
     // (pas de bouton manuel obligatoire — comme Respond.io).
     fetchTemplates().then(() => {
@@ -600,7 +612,8 @@ export default function TemplatesPage() {
             Messages pré-approuvés par Meta, requis pour relancer un client hors fenêtre de 24h.
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
+        {/* Actions masquées tant qu'aucun WhatsApp n'est connecté (rien à faire). */}
+        <div className={cn('flex items-center gap-2 flex-wrap', hasWhatsApp === false && 'hidden')}>
           <Button variant="outline" size="sm" onClick={handleSeedDefaults} disabled={seeding}>
             {seeding ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1 h-4 w-4" />}
             Modèles par défaut
@@ -616,7 +629,7 @@ export default function TemplatesPage() {
       </div>
 
       {/* Onglets par catégorie e-commerce + recherche (cachés si aucun modèle). */}
-      {templates.length > 0 && (
+      {hasWhatsApp !== false && templates.length > 0 && (
         <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex flex-wrap items-center gap-1.5">
             <button
@@ -659,7 +672,24 @@ export default function TemplatesPage() {
         </div>
       )}
 
-      {templates.length === 0 ? (
+      {hasWhatsApp === false ? (
+        /* Prérequis : sans WhatsApp connecté, impossible de créer/soumettre/envoyer. */
+        <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed p-10 text-center">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/10">
+            <Smartphone className="h-7 w-7 text-emerald-600" />
+          </div>
+          <h2 className="text-lg font-semibold">Connectez d&apos;abord votre WhatsApp</h2>
+          <p className="mt-1 max-w-md text-sm text-muted-foreground">
+            Les modèles de messages sont liés à votre compte WhatsApp Business : ils y sont soumis pour approbation par Meta.
+            Connectez votre WhatsApp depuis le tableau de bord pour commencer à créer vos modèles.
+          </p>
+          <Link href="/dashboard" className="mt-6">
+            <Button>
+              <Smartphone className="mr-1 h-4 w-4" /> Connecter mon WhatsApp
+            </Button>
+          </Link>
+        </div>
+      ) : templates.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed p-10 text-center">
           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
             <Sparkles className="h-7 w-7 text-primary" />
