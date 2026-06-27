@@ -350,7 +350,14 @@ Exemples :
       }
 
       // Boutons et liens : toujours disponibles (pas besoin de bibliothèque)
-      skillLines.push(`\n🔘 PROPOSER DES BOUTONS — balise [BTN:Choix 1|Choix 2|Choix 3]. Quand tu offres au client des choix clairs (ex : "Suivre ma commande", "Parler à un humain"), ajoute cette balise. Règles : 1 à 3 boutons MAX, chaque libellé ≤ 20 caractères. Le texte que tu écris accompagne les boutons. Quand le client clique, tu reçois le libellé comme s'il l'avait tapé.`)
+      skillLines.push(`\n🔘 PROPOSER DES BOUTONS — balise [BTN:Choix 1|Choix 2|Choix 3] (1 à 3 boutons, chaque libellé ≤ 20 caractères).
+TU DOIS impérativement ajouter cette balise CHAQUE FOIS que tu proposes au client plusieurs options, choix, ou actions possibles — au lieu de les lister en texte. C'est OBLIGATOIRE, pas optionnel.
+Exemples de déclenchement (insère TOUJOURS [BTN:...] dans ces cas) :
+  - Le client dit "suivre ma commande ou parler à un conseiller" → réponds avec [BTN:Suivre ma commande|Parler à un conseiller]
+  - Tu proposes plusieurs rubriques (livraison, retours, paiement) → [BTN:Livraison|Retours|Paiement]
+  - Tu demandes au client de choisir (oui/non, telle ou telle option) → mets les choix en boutons.
+La balise se place À LA FIN de ton message. Le texte que tu écris au-dessus accompagne les boutons. Quand le client clique, tu reçois le libellé comme s'il l'avait tapé.
+NE liste JAMAIS des options en texte (genre "1. ... 2. ...") si tu peux les mettre en boutons.`)
       skillLines.push(`\n🔗 PARTAGER UN LIEN — balise [LINK:Libellé|https://url]. Le lien apparaît dans le message.`)
 
       skillLines.push(`\nRÈGLES : n'utilise QUE des refs listés ci-dessus (n'invente jamais un ref). Insère la balise dès que le contexte s'y prête, et ne dis jamais que tu ne peux pas envoyer un média/bouton si la balise est disponible.`)
