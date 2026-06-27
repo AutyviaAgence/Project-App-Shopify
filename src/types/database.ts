@@ -648,6 +648,7 @@ export type WhatsAppTemplate = {
   name: string
   language: string
   category: 'MARKETING' | 'UTILITY' | 'AUTHENTICATION'
+  use_case: 'order_status' | 'cart' | 'marketing' | 'support' | 'billing' | null
   body_text: string
   header_text: string | null
   footer_text: string | null

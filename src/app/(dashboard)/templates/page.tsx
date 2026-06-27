@@ -24,6 +24,13 @@ import { cn } from '@/lib/utils'
 import { BlobLoaderScreen } from '@/components/blob-loader'
 import { TEMPLATE_VARIABLES, VARIABLE_BY_KEY, VARIABLE_GROUPS } from '@/lib/templates/variables'
 import { TEMPLATE_LANGUAGES, TEMPLATE_LANGUAGE_LABELS } from '@/lib/i18n/contact-language'
+import { USE_CASES, USE_CASE_BY_KEY, guessUseCase, type UseCaseKey } from '@/lib/templates/use-cases'
+import { Package, ShoppingCart, Megaphone, MessageCircle, CreditCard } from 'lucide-react'
+
+/** Résout l'icône lucide d'un use_case (les noms viennent de use-cases.ts). */
+const USE_CASE_ICONS: Record<string, typeof Package> = {
+  Package, ShoppingCart, Megaphone, MessageCircle, CreditCard,
+}
 
 const STATUS_STYLE: Record<string, { label: string; cls: string }> = {
   draft: { label: 'Brouillon', cls: 'bg-muted text-muted-foreground' },
@@ -44,12 +51,6 @@ function effectiveStatus(t: Pick<WhatsAppTemplate, 'status' | 'has_pending_chang
   if (t.status === 'approved' && t.has_pending_changes) return 'modified'
   return t.status
 }
-
-const CATEGORIES = [
-  { value: 'UTILITY', label: 'Utilitaire' },
-  { value: 'MARKETING', label: 'Marketing' },
-  { value: 'AUTHENTICATION', label: 'Authentification' },
-]
 
 const LANGUAGES = TEMPLATE_LANGUAGES.map((v) => ({ value: v, label: TEMPLATE_LANGUAGE_LABELS[v] || v }))
 
@@ -94,10 +95,15 @@ export default function TemplatesPage() {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
+  // Filtres de la liste : catégorie e-commerce (use_case) + recherche par nom.
+  const [useCaseFilter, setUseCaseFilter] = useState<UseCaseKey | 'all'>('all')
+  const [search, setSearch] = useState('')
+
   // Form
   const [name, setName] = useState('')
   const [language, setLanguage] = useState('fr')
   const [category, setCategory] = useState('UTILITY')
+  const [useCase, setUseCase] = useState<UseCaseKey>('support')
   const [bodyText, setBodyText] = useState('')
   // Clés des variables nommées, dans l'ordre : variableKeys[0] = {{1}}, etc.
   const [variableKeys, setVariableKeys] = useState<string[]>([])
@@ -255,7 +261,7 @@ export default function TemplatesPage() {
   function openCreate() {
     setEditing(null)
     setSelectedId(null)
-    setName(''); setLanguage('fr'); setCategory('UTILITY')
+    setName(''); setLanguage('fr'); setCategory('UTILITY'); setUseCase('support')
     setBodyText(''); setVariableKeys([]); setHeaderText(''); setFooterText('Powered by Xeyo.io')
     setHeaderType('none'); setHeaderMediaUrl(''); setButtons([])
     setMediaPreviewUrl(''); setMediaFilename('')
@@ -268,6 +274,7 @@ export default function TemplatesPage() {
     setEditing(t)
     setSelectedId(t.id)
     setName(t.name); setLanguage(t.language); setCategory(t.category)
+    setUseCase((t.use_case as UseCaseKey) || guessUseCase(t.name, t.category))
     setBodyText(t.body_text)
     // Mapping des variables : on aligne sur le nombre de {{n}} présents.
     setVariableKeys(syncVariableKeys(t.body_text, (t.variable_keys as string[]) || []))
@@ -329,6 +336,7 @@ export default function TemplatesPage() {
     name !== editing.name ||
     language !== editing.language ||
     category !== editing.category ||
+    useCase !== (editing.use_case || guessUseCase(editing.name, editing.category)) ||
     bodyText !== editing.body_text ||
     headerText !== (editing.header_text || '') ||
     footerText !== (editing.footer_text || '') ||
@@ -394,7 +402,7 @@ export default function TemplatesPage() {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name, language, category,
+          name, language, category, use_case: useCase,
           body_text: norm.text,
           // En carrousel, l'en-tête média et les boutons globaux sont portés par
           // les cartes → on neutralise l'en-tête/les boutons du message d'intro.
@@ -567,8 +575,21 @@ export default function TemplatesPage() {
       return STATUS_RANK[s] < STATUS_RANK[effectiveStatus(w)] ? r : w
     }, rows[0])
     const langs = rows.map((r) => r.language)
-    return { name: main.name, rows, main, worst, langs }
+    const uc = (main.use_case as UseCaseKey) || guessUseCase(main.name, main.category)
+    return { name: main.name, rows, main, worst, langs, useCase: uc }
   })
+
+  // Filtrage par onglet de catégorie + recherche par nom.
+  const filteredGroups = groups.filter((g) => {
+    if (useCaseFilter !== 'all' && g.useCase !== useCaseFilter) return false
+    if (search.trim() && !g.name.toLowerCase().includes(search.trim().toLowerCase())) return false
+    return true
+  })
+  // Compte par catégorie pour les onglets.
+  const useCaseCounts = groups.reduce((acc, g) => {
+    acc[g.useCase] = (acc[g.useCase] || 0) + 1
+    return acc
+  }, {} as Record<string, number>)
 
   return (
     <div className="flex h-full flex-col p-4 md:p-6 gap-4">
@@ -594,22 +615,93 @@ export default function TemplatesPage() {
         </div>
       </div>
 
+      {/* Onglets par catégorie e-commerce + recherche (cachés si aucun modèle). */}
+      {templates.length > 0 && (
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setUseCaseFilter('all')}
+              className={cn(
+                'rounded-full px-3 py-1 text-xs font-medium transition-colors',
+                useCaseFilter === 'all' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'
+              )}
+            >
+              Tous ({groups.length})
+            </button>
+            {USE_CASES.map((u) => {
+              const Icon = USE_CASE_ICONS[u.icon] || FileText
+              const count = useCaseCounts[u.key] || 0
+              if (count === 0) return null
+              return (
+                <button
+                  key={u.key}
+                  type="button"
+                  onClick={() => setUseCaseFilter(u.key)}
+                  className={cn(
+                    'flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium transition-colors',
+                    useCaseFilter === u.key ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  <Icon className="h-3.5 w-3.5" /> {u.label} ({count})
+                </button>
+              )
+            })}
+          </div>
+          <div className="relative sm:w-56">
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Rechercher un modèle…"
+              className="w-full rounded-lg border border-border bg-transparent px-3 py-1.5 text-sm outline-none focus:border-primary"
+            />
+          </div>
+        </div>
+      )}
+
       {templates.length === 0 ? (
-        <div className="rounded-xl border border-dashed p-10 text-center text-muted-foreground">
-          <FileText className="mx-auto h-8 w-8 mb-2 opacity-50" />
-          <p className="text-sm mb-3">Aucun modèle. Démarrez avec nos modèles e-commerce prêts à l&apos;emploi.</p>
-          <Button size="sm" onClick={handleSeedDefaults} disabled={seeding}>
-            {seeding ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1 h-4 w-4" />}
-            Ajouter les modèles par défaut
-          </Button>
+        <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed p-10 text-center">
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
+            <Sparkles className="h-7 w-7 text-primary" />
+          </div>
+          <h2 className="text-lg font-semibold">Créez vos premiers modèles</h2>
+          <p className="mt-1 max-w-md text-sm text-muted-foreground">
+            Les modèles sont des messages pré-approuvés par Meta (confirmation de commande, panier abandonné, promo…),
+            indispensables pour recontacter un client hors de la fenêtre de 24h.
+          </p>
+          {/* Aperçu des catégories e-commerce disponibles */}
+          <div className="mt-5 flex flex-wrap justify-center gap-2">
+            {USE_CASES.map((u) => {
+              const Icon = USE_CASE_ICONS[u.icon] || FileText
+              return (
+                <span key={u.key} className="flex items-center gap-1.5 rounded-full bg-muted px-3 py-1 text-xs text-muted-foreground">
+                  <Icon className="h-3.5 w-3.5" /> {u.label}
+                </span>
+              )
+            })}
+          </div>
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-2">
+            <Button onClick={handleSeedDefaults} disabled={seeding}>
+              {seeding ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1 h-4 w-4" />}
+              Ajouter les modèles prêts à l&apos;emploi
+            </Button>
+            <Button variant="outline" onClick={openCreate}>
+              <Plus className="mr-1 h-4 w-4" /> Créer un modèle vierge
+            </Button>
+          </div>
         </div>
       ) : (
         <div className="grid flex-1 min-h-0 gap-4 md:grid-cols-[320px_1fr]">
           {/* Sidebar gauche : un modèle = une entrée (toutes langues regroupées) */}
           <div className="space-y-1.5 overflow-y-auto rounded-xl border p-2">
-            {groups.map((g) => {
+            {filteredGroups.length === 0 && (
+              <p className="px-3 py-6 text-center text-sm text-muted-foreground">Aucun modèle dans cette catégorie.</p>
+            )}
+            {filteredGroups.map((g) => {
               const st = STATUS_STYLE[effectiveStatus(g.worst)] || STATUS_STYLE.draft
               const active = !!selectedTemplate && g.rows.some((r) => r.id === selectedTemplate.id)
+              const ucMeta = USE_CASE_BY_KEY[g.useCase]
+              const UcIcon = ucMeta ? (USE_CASE_ICONS[ucMeta.icon] || FileText) : FileText
               // Au clic : ouvrir la variante de la langue déjà sélectionnée si ce
               // groupe la possède, sinon sa langue principale.
               const openLang = g.rows.find((r) => r.language === language) || g.main
@@ -626,6 +718,7 @@ export default function TemplatesPage() {
                   )}
                 >
                   <div className="flex items-center gap-2">
+                    <UcIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                     <code className="truncate text-sm font-medium">{g.name}</code>
                     <span className={cn('ml-auto shrink-0 rounded-full px-1.5 py-0.5 text-[10px]', st.cls)}>{st.label}</span>
                   </div>
@@ -761,9 +854,27 @@ export default function TemplatesPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>Catégorie</Label>
-                <Select value={category} onValueChange={setCategory} disabled={!!editing?.meta_id}>
+                <Select
+                  value={useCase}
+                  onValueChange={(v) => {
+                    const uc = USE_CASE_BY_KEY[v]
+                    setUseCase(v as UseCaseKey)
+                    // Le use_case fixe la catégorie Meta (sauf LTO qui force MARKETING).
+                    if (templateType !== 'limited_time_offer' && uc) setCategory(uc.metaCategory)
+                  }}
+                  disabled={!!editing?.meta_id || templateType === 'limited_time_offer'}
+                >
                   <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>{CATEGORIES.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent>
+                  <SelectContent>
+                    {USE_CASES.map((u) => {
+                      const Icon = USE_CASE_ICONS[u.icon] || FileText
+                      return (
+                        <SelectItem key={u.key} value={u.key}>
+                          <span className="flex items-center gap-2"><Icon className="h-3.5 w-3.5" /> {u.label}</span>
+                        </SelectItem>
+                      )
+                    })}
+                  </SelectContent>
                 </Select>
                 {editing?.meta_id && (
                   <p className="text-[11px] text-muted-foreground">La catégorie d’un modèle déjà soumis ne peut pas être modifiée (règle Meta).</p>

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import type { TemplateButton, TemplateCard } from '@/types/database'
+import { guessUseCase, type UseCaseKey } from '@/lib/templates/use-cases'
 
 /** Compte les variables {{1}}, {{2}}… dans un texte */
 function countVariables(text: string): number {
@@ -20,7 +21,7 @@ export async function GET() {
 
   const { data, error } = await supabase
     .from('whatsapp_templates')
-    .select('id, session_id, meta_id, name, language, category, body_text, header_text, footer_text, header_type, header_media_url, buttons, template_type, carousel_cards, approved_carousel_cards, lto_title, lto_default_hours, variables_count, sample_values, variable_keys, status, has_pending_changes, rejection_reason, approved_body_text, approved_header_text, approved_footer_text, approved_at, created_at, updated_at')
+    .select('id, session_id, meta_id, name, language, category, use_case, body_text, header_text, footer_text, header_type, header_media_url, buttons, template_type, carousel_cards, approved_carousel_cards, lto_title, lto_default_hours, variables_count, sample_values, variable_keys, status, has_pending_changes, rejection_reason, approved_body_text, approved_header_text, approved_footer_text, approved_at, created_at, updated_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
 
@@ -37,11 +38,12 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => ({}))
-  const { session_id, name, language, category, body_text, header_text, footer_text, sample_values, header_type, header_media_url, buttons, variable_keys, template_type, carousel_cards, lto_title, lto_default_hours } = body as {
+  const { session_id, name, language, category, use_case, body_text, header_text, footer_text, sample_values, header_type, header_media_url, buttons, variable_keys, template_type, carousel_cards, lto_title, lto_default_hours } = body as {
     session_id?: string
     name?: string
     language?: string
     category?: 'MARKETING' | 'UTILITY' | 'AUTHENTICATION'
+    use_case?: UseCaseKey
     body_text?: string
     header_text?: string
     footer_text?: string
@@ -73,6 +75,7 @@ export async function POST(req: NextRequest) {
       name: safeName,
       language: language || 'fr',
       category: category || 'UTILITY',
+      use_case: use_case || guessUseCase(safeName, category),
       body_text: body_text.trim(),
       header_text: header_text?.trim() || null,
       footer_text: footer_text?.trim() || null,
