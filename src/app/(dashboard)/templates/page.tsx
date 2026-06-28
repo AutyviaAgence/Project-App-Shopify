@@ -25,7 +25,7 @@ import { BlobLoaderScreen } from '@/components/blob-loader'
 import { TEMPLATE_VARIABLES, VARIABLE_BY_KEY, VARIABLE_GROUPS } from '@/lib/templates/variables'
 import { TEMPLATE_LANGUAGES, TEMPLATE_LANGUAGE_LABELS } from '@/lib/i18n/contact-language'
 import { USE_CASES, USE_CASE_BY_KEY, guessUseCase, type UseCaseKey } from '@/lib/templates/use-cases'
-import { Package, ShoppingCart, Megaphone, MessageCircle, CreditCard, Smartphone, ChevronDown } from 'lucide-react'
+import { Package, ShoppingCart, Megaphone, MessageCircle, CreditCard, Smartphone, ChevronDown, Check } from 'lucide-react'
 import Link from 'next/link'
 
 /** Résout l'icône lucide d'un use_case (les noms viennent de use-cases.ts). */
@@ -93,7 +93,15 @@ export default function TemplatesPage() {
   const [hasWhatsApp, setHasWhatsApp] = useState<boolean | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [seeding, setSeeding] = useState(false)
-  const [mode, setMode] = useState<'idle' | 'edit'>('idle')
+  const [mode, setMode] = useState<'idle' | 'edit' | 'choose' | 'ai'>('idle')
+
+  // Génération IA : questionnaire + propositions.
+  const [aiObjective, setAiObjective] = useState('')
+  const [aiTone, setAiTone] = useState<'professional' | 'friendly' | 'casual'>('professional')
+  const [aiUseCase, setAiUseCase] = useState<UseCaseKey>('marketing')
+  const [aiVarKeys, setAiVarKeys] = useState<string[]>([])
+  const [aiGenerating, setAiGenerating] = useState(false)
+  const [aiProposals, setAiProposals] = useState<{ body_text: string; variable_keys: string[] }[]>([])
   const [editing, setEditing] = useState<WhatsAppTemplate | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -315,6 +323,56 @@ export default function TemplatesPage() {
     setTemplateType('standard'); setCarouselCards([]); setCardMediaKind('image'); setCardPreviews({})
     setLtoTitle(''); setLtoHours(24)
     setMode('edit')
+  }
+
+  // Au clic « Nouveau modèle » : écran de choix (manuel vs IA).
+  function openChoose() {
+    setEditing(null); setSelectedId(null)
+    setAiProposals([]); setAiObjective(''); setAiVarKeys([]); setAiTone('professional'); setAiUseCase('marketing')
+    setMode('choose')
+  }
+
+  // Lance la génération IA (3 propositions).
+  async function runGenerate() {
+    if (!aiObjective.trim()) { toast.error('Décrivez l\'objectif du message'); return }
+    setAiGenerating(true)
+    setAiProposals([])
+    try {
+      const res = await fetch('/api/templates/generate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ use_case: aiUseCase, objective: aiObjective.trim(), tone: aiTone, variable_keys: aiVarKeys }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Erreur de génération')
+      setAiProposals(json.data?.proposals || [])
+      if (!json.data?.proposals?.length) toast.error('Aucune proposition, reformulez l\'objectif.')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erreur')
+    } finally {
+      setAiGenerating(false)
+    }
+  }
+
+  // Choisit une proposition → pré-remplit l'éditeur en brouillon.
+  function chooseProposal(p: { body_text: string; variable_keys: string[] }) {
+    const uc = USE_CASE_BY_KEY[aiUseCase]
+    // Nom technique auto à partir de l'objectif (slug), modifiable ensuite.
+    const slug = aiObjective.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+      .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40) || 'modele_ia'
+    setEditing(null); setSelectedId(null)
+    setName(slug)
+    setLanguage('fr')
+    setUseCase(aiUseCase)
+    setCategory(uc?.metaCategory || 'MARKETING')
+    setBodyText(p.body_text)
+    setVariableKeys(p.variable_keys)
+    setHeaderText(''); setFooterText('Powered by Xeyo.io')
+    setHeaderType('none'); setHeaderMediaUrl(''); setButtons([])
+    setMediaPreviewUrl(''); setMediaFilename('')
+    setTemplateType('standard'); setCarouselCards([]); setCardMediaKind('image'); setCardPreviews({})
+    setLtoTitle(''); setLtoHours(24)
+    setMode('edit')
+    toast.success('Modèle pré-rempli — personnalisez puis enregistrez')
   }
 
   function openEdit(t: WhatsAppTemplate) {
@@ -657,7 +715,7 @@ export default function TemplatesPage() {
             <RefreshCw className={cn('mr-1 h-4 w-4', syncing && 'animate-spin')} />
             Synchroniser
           </Button>
-          <Button size="sm" onClick={openCreate}>
+          <Button size="sm" onClick={openChoose}>
             <Plus className="mr-1 h-4 w-4" />Nouveau modèle
           </Button>
         </div>
@@ -774,7 +832,7 @@ export default function TemplatesPage() {
             </Button>
           </Link>
         </div>
-      ) : templates.length === 0 ? (
+      ) : templates.length === 0 && mode === 'idle' ? (
         <div className="flex flex-1 flex-col items-center justify-center rounded-2xl border border-dashed p-10 text-center">
           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10">
             <Sparkles className="h-7 w-7 text-primary" />
@@ -800,8 +858,8 @@ export default function TemplatesPage() {
               {seeding ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1 h-4 w-4" />}
               Ajouter les modèles prêts à l&apos;emploi
             </Button>
-            <Button variant="outline" onClick={openCreate}>
-              <Plus className="mr-1 h-4 w-4" /> Créer un modèle vierge
+            <Button variant="outline" onClick={openChoose}>
+              <Plus className="mr-1 h-4 w-4" /> Créer un modèle
             </Button>
           </div>
         </div>
@@ -1308,11 +1366,133 @@ export default function TemplatesPage() {
                   </div>
                 </div>
               </>
+            ) : mode === 'choose' ? (
+              /* Écran de choix : manuel vs IA */
+              <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8">
+                <p className="text-sm text-muted-foreground">Comment voulez-vous créer votre modèle ?</p>
+                <div className="grid w-full max-w-md gap-3 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={openCreate}
+                    className="flex flex-col items-center gap-2 rounded-2xl border p-6 text-center transition-colors hover:border-primary/50 hover:bg-muted/30"
+                  >
+                    <FileText className="h-7 w-7 text-muted-foreground" />
+                    <span className="text-sm font-semibold">Manuellement</span>
+                    <span className="text-xs text-muted-foreground">J&apos;écris moi-même le message.</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMode('ai')}
+                    className="flex flex-col items-center gap-2 rounded-2xl border border-primary/30 bg-primary/5 p-6 text-center transition-colors hover:border-primary/60 hover:bg-primary/10"
+                  >
+                    <Sparkles className="h-7 w-7 text-primary" />
+                    <span className="text-sm font-semibold">Générer avec l&apos;IA</span>
+                    <span className="text-xs text-muted-foreground">Je réponds à 3 questions, l&apos;IA propose.</span>
+                  </button>
+                </div>
+              </div>
+            ) : mode === 'ai' ? (
+              /* Questionnaire IA + 3 propositions */
+              <div className="flex flex-1 flex-col overflow-y-auto p-4">
+                <div className="mb-3 flex items-center gap-2">
+                  <button type="button" onClick={openChoose} className="text-xs text-muted-foreground hover:text-foreground">← Retour</button>
+                  <span className="text-sm font-medium">Générer un modèle avec l&apos;IA</span>
+                </div>
+
+                {/* Questionnaire */}
+                <div className="space-y-4 rounded-xl border p-4">
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Catégorie</Label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {USE_CASES.map((u) => {
+                        const Icon = USE_CASE_ICONS[u.icon] || FileText
+                        return (
+                          <button key={u.key} type="button" onClick={() => setAiUseCase(u.key)}
+                            className={cn('flex items-center gap-1.5 rounded-full px-3 py-1 text-xs transition-colors',
+                              aiUseCase === u.key ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground')}>
+                            <Icon className="h-3.5 w-3.5" /> {u.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Objectif du message</Label>
+                    <textarea
+                      value={aiObjective}
+                      onChange={(e) => setAiObjective(e.target.value)}
+                      rows={2}
+                      placeholder="Ex : relancer un client qui a abandonné son panier avec un code promo"
+                      className="w-full rounded-lg border border-border bg-transparent px-3 py-2 text-sm outline-none focus:border-primary"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Ton</Label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {([['professional', 'Professionnel'], ['friendly', 'Chaleureux'], ['casual', 'Décontracté']] as const).map(([v, l]) => (
+                        <button key={v} type="button" onClick={() => setAiTone(v)}
+                          className={cn('rounded-full px-3 py-1 text-xs transition-colors',
+                            aiTone === v ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground')}>
+                          {l}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs">Variables à inclure (optionnel)</Label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {TEMPLATE_VARIABLES.map((v) => {
+                        const on = aiVarKeys.includes(v.key)
+                        return (
+                          <button key={v.key} type="button"
+                            onClick={() => setAiVarKeys((prev) => on ? prev.filter((k) => k !== v.key) : [...prev, v.key])}
+                            className={cn('rounded-full border px-2.5 py-1 text-[11px] transition-colors',
+                              on ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-muted/50')}>
+                            {v.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+
+                  <Button className="w-full" disabled={aiGenerating || !aiObjective.trim()} onClick={runGenerate}>
+                    {aiGenerating ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1 h-4 w-4" />}
+                    {aiProposals.length > 0 ? 'Régénérer' : 'Générer 3 propositions'}
+                  </Button>
+                </div>
+
+                {/* 3 propositions en aperçu WhatsApp */}
+                {aiProposals.length > 0 && (
+                  <div className="mt-4 space-y-3">
+                    <p className="text-xs font-medium text-muted-foreground">Choisissez une proposition :</p>
+                    {aiProposals.map((p, i) => {
+                      const labels = p.variable_keys.map((k) => VARIABLE_BY_KEY[k]?.label || k)
+                      return (
+                        <div key={i} className="rounded-xl border p-3">
+                          {/* Bulle WhatsApp */}
+                          <div className="rounded-2xl rounded-tr-sm bg-white px-3 py-2 shadow-sm ring-1 ring-black/5">
+                            <p className="whitespace-pre-wrap break-words text-[14px] leading-snug text-gray-800">
+                              {renderWhatsAppFormat(p.body_text, labels)}
+                            </p>
+                            <div className="mt-0.5 text-right text-[10px] text-gray-400">12:00 ✓✓</div>
+                          </div>
+                          <Button size="sm" variant="outline" className="mt-2 w-full" onClick={() => chooseProposal(p)}>
+                            <Check className="mr-1 h-3.5 w-3.5" /> Choisir cette version
+                          </Button>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
             ) : (
               <div className="flex flex-1 flex-col items-center justify-center gap-3 p-8 text-center text-sm text-muted-foreground">
                 <FileText className="h-8 w-8 opacity-50" />
                 <p>Sélectionnez un modèle ou créez-en un.</p>
-                <Button size="sm" onClick={openCreate}>
+                <Button size="sm" onClick={openChoose}>
                   <Plus className="mr-1 h-4 w-4" />Nouveau modèle
                 </Button>
               </div>
