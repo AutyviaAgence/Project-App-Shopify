@@ -36,7 +36,6 @@ const PRODUCTS_QUERY = `
           id
           title
           handle
-          onlineStoreUrl
           description
           productType
           vendor
@@ -71,7 +70,7 @@ const SHOP_POLICIES_QUERY = `
 // ─── Pull + formatage en texte ──────────────────────────────────────
 
 type ProductNode = {
-  id: string; title: string; handle: string; onlineStoreUrl: string | null
+  id: string; title: string; handle: string
   description: string; productType: string; vendor: string; tags: string[]
   featuredImage: { url: string } | null
   variants: { edges: { node: { title: string; price: string; sku: string; availableForSale: boolean } }[] }
@@ -110,11 +109,10 @@ async function fetchAllProducts(
       if (variants.length) lines.push(`Variantes : ${variants.join(' · ')}`)
       lines.push('')
 
-      // Version structurée (pour carrousels/liens). URL = onlineStoreUrl (publique)
-      // ou repli {domain}/products/{handle}. Sans URL publique → on garde le produit
-      // mais url=null (il ne pourra pas servir de lien/carte cliquable).
+      // Version structurée (pour carrousels/liens). URL construite depuis le
+      // handle : {domain}/products/{handle} (toujours valide pour un produit publié).
       const firstVariant = p.variants.edges[0]?.node
-      const url = p.onlineStoreUrl || (p.handle ? `https://${shop}/products/${p.handle}` : null)
+      const url = p.handle ? `https://${shop}/products/${p.handle}` : null
       products.push({
         shopify_id: p.id,
         title: p.title,
