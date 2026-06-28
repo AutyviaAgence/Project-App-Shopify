@@ -69,3 +69,44 @@ export async function GET(
 
   return NextResponse.json({ data: documents || [] })
 }
+
+/** POST /api/agents/[id]/knowledge — Attacher un document à un agent */
+export async function POST(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id } = await params
+  const supabase = await createClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+
+  const body = await req.json().catch(() => ({}))
+  const documentId = body.document_id as string | undefined
+  if (!documentId) return NextResponse.json({ error: 'document_id requis' }, { status: 400 })
+
+  // Vérifier que l'agent ET le document appartiennent à l'utilisateur.
+  const { data: agent } = await supabase
+    .from('ai_agents')
+    .select('id, user_id')
+    .eq('id', id)
+    .maybeSingle()
+  if (!agent) return NextResponse.json({ error: 'Agent introuvable' }, { status: 404 })
+  if (agent.user_id !== user.id) return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+
+  const { data: doc } = await supabase
+    .from('knowledge_documents')
+    .select('id, user_id')
+    .eq('id', documentId)
+    .maybeSingle()
+  if (!doc || doc.user_id !== user.id) {
+    return NextResponse.json({ error: 'Document introuvable' }, { status: 404 })
+  }
+
+  // Insérer l'association (idempotent : ignore le doublon).
+  const { error } = await supabase
+    .from('agent_knowledge_documents')
+    .upsert({ agent_id: id, document_id: documentId }, { onConflict: 'agent_id,document_id' })
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ data: { ok: true } }, { status: 201 })
+}

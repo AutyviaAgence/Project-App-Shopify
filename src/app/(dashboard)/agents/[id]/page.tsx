@@ -167,10 +167,15 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   }
 
   async function handleAttachDoc(docId: string) {
-    await fetch(`/api/agents/${id}/knowledge`, {
+    const res = await fetch(`/api/agents/${id}/knowledge`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ document_id: docId }),
     })
+    if (!res.ok) {
+      const j = await res.json().catch(() => ({}))
+      toast.error(j.error || 'Impossible d\'ajouter ce document')
+      return
+    }
     const json = await (await fetch(`/api/agents/${id}/knowledge`)).json()
     setDocs(json.data || []); setAddDocOpen(false); toast.success('Document ajouté')
   }
@@ -667,16 +672,22 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
             <DialogDescription>Choisissez depuis votre bibliothèque</DialogDescription>
           </DialogHeader>
           <div className="space-y-1 py-2 max-h-60 overflow-y-auto">
-            {allDocs.filter(d => !docs.find(dd => dd.id === d.id)).map(doc => (
-              <button key={doc.id} onClick={() => handleAttachDoc(doc.id)}
-                className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-muted/50 transition-colors text-left">
-                <FileText className="h-4 w-4 text-blue-500 shrink-0" />
-                <span className="text-sm">{doc.name}</span>
-              </button>
-            ))}
-            {allDocs.filter(d => !docs.find(dd => dd.id === d.id)).length === 0 && (
-              <p className="text-sm text-center text-muted-foreground py-4">Tous les documents sont déjà attachés</p>
-            )}
+            {(() => {
+              // Docs boutique (Catalogue/Pages/Politiques) = globaux, déjà inclus
+              // automatiquement dans le RAG → on ne les propose pas à l'attache.
+              const isStoreDoc = (n: string) => /^(Catalogue|Pages|Politiques)\s*—/.test(n)
+              const attachable = allDocs.filter(d => !docs.find(dd => dd.id === d.id) && !isStoreDoc(d.name))
+              if (attachable.length === 0) {
+                return <p className="text-sm text-center text-muted-foreground py-4">Aucun document à attacher. Uploadez-en un ci-dessous.</p>
+              }
+              return attachable.map(doc => (
+                <button key={doc.id} onClick={() => handleAttachDoc(doc.id)}
+                  className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-muted/50 transition-colors text-left">
+                  <FileText className="h-4 w-4 text-blue-500 shrink-0" />
+                  <span className="text-sm">{doc.name}</span>
+                </button>
+              ))
+            })()}
           </div>
           <input
             ref={uploadDocRef}
