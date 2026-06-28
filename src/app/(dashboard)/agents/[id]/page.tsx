@@ -13,8 +13,9 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import {
   ArrowLeft, Loader2, Plus, Trash2,
-  ChevronDown, FileText, Link2, QrCode, Check,
+  FileText, Link2, QrCode, Check,
   Upload, Tag, Play,
+  Sparkles, BookOpen, Smartphone, SlidersHorizontal, Settings2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -68,6 +69,9 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   const [scheduleStart, setScheduleStart] = useState('09:00')
   const [scheduleEnd, setScheduleEnd] = useState('18:00')
   const [scheduleDays, setScheduleDays] = useState<number[]>([1, 2, 3, 4, 5])
+
+  type TabKey = 'personality' | 'knowledge' | 'channels' | 'behavior' | 'advanced'
+  const [activeTab, setActiveTab] = useState<TabKey>('personality')
 
   const [addDocOpen, setAddDocOpen] = useState(false)
   const [addLinkOpen, setAddLinkOpen] = useState(false)
@@ -298,12 +302,12 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
         </div>
       </header>
 
-      {/* ── Bento : blocs de tailles variées ── */}
+      {/* ── Contenu en onglets ── */}
       <main className="flex-1 overflow-y-auto">
-        <div className="w-full px-8 pb-24">
+        <div className="mx-auto w-full max-w-3xl px-6 pb-24">
 
           {/* Titre */}
-          <div className="pt-8 pb-8">
+          <div className="pt-8 pb-5">
             <input
               value={name}
               onChange={e => setName(e.target.value)}
@@ -318,11 +322,40 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
             </button>
           </div>
 
-          {/* Grille bento : Personnalité (large, 2 col) + Canaux (haut, 1 col x 2 rangées) ; Savoir + Comportement en bas */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 auto-rows-min">
+          {/* Barre d'onglets */}
+          <div className="sticky top-0 z-10 -mx-6 mb-6 border-b border-border/60 bg-background/80 px-6 backdrop-blur">
+            <div className="flex gap-1 overflow-x-auto">
+              {([
+                { key: 'personality', label: 'Personnalité', icon: Sparkles },
+                { key: 'knowledge', label: 'Savoir & médias', icon: BookOpen },
+                { key: 'channels', label: 'Canaux', icon: Smartphone },
+                { key: 'behavior', label: 'Comportement', icon: SlidersHorizontal },
+                { key: 'advanced', label: 'Avancé', icon: Settings2 },
+              ] as const).map(t => {
+                const on = activeTab === t.key
+                return (
+                  <button
+                    key={t.key}
+                    onClick={() => setActiveTab(t.key)}
+                    className={cn(
+                      'flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-3 text-sm font-medium transition-colors',
+                      on ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    <t.icon className={cn('h-4 w-4', on ? 'text-primary' : '')} />
+                    {t.label}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
 
-          {/* ═══ PERSONNALITÉ ═══ (large : 2 colonnes) */}
-          <Group title="Personnalité" className="md:col-span-2">
+          {/* Contenu de l'onglet actif */}
+          <div className="space-y-4">
+
+          {/* ═══ PERSONNALITÉ ═══ */}
+          {activeTab === 'personality' && (
+          <Group title="Personnalité">
             <RowField label="Description" hint="Affiché sous le nom de l'agent" stacked>
               <CleanInput value={description} onChange={setDescription} placeholder="Assistant commercial WhatsApp" />
             </RowField>
@@ -354,9 +387,11 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
               <Switch checked={autoDetectLanguage} onCheckedChange={setAutoDetectLanguage} />
             </RowField>
           </Group>
+          )}
 
-          {/* ═══ CANAUX ═══ (colonne droite, haute : 2 rangées) */}
-          <Group title="Canaux" subtitle="Numéros sur lesquels cet agent répond" className="md:col-span-1 md:row-span-2">
+          {/* ═══ CANAUX ═══ */}
+          {activeTab === 'channels' && (
+          <Group title="Canaux" subtitle="Numéros sur lesquels cet agent répond">
             {sessions.length === 0 ? (
               <button onClick={() => router.push('/dashboard')} className="w-full py-6 text-center text-sm text-muted-foreground hover:text-foreground transition-colors">
                 Aucune session · Connecter WhatsApp →
@@ -420,9 +455,11 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
               </div>
             ))}
           </Group>
+          )}
 
-          {/* ═══ SAVOIR ═══ (sous Personnalité, colonne gauche) */}
-          <Group title="Savoir" subtitle="Documents que l'agent peut utiliser" className="md:col-span-1"
+          {/* ═══ SAVOIR & MÉDIAS ═══ */}
+          {activeTab === 'knowledge' && (<>
+          <Group title="Savoir" subtitle="Documents que l'agent peut utiliser"
             trailing={<button onClick={() => setAddDocOpen(true)} className="flex items-center gap-1 text-[13px] text-blue-500 hover:text-blue-600 transition-colors"><Plus className="h-3.5 w-3.5" /> Ajouter</button>}
           >
             {docs.length === 0 ? (
@@ -459,7 +496,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
           </Group>
 
           {/* ═══ MÉDIAS ═══ (médias que l'agent peut envoyer en SAV : image/vidéo/document) */}
-          <Group title="Médias" subtitle="Image, vidéo ou document que l'agent peut envoyer (fenêtre SAV 24h)" className="md:col-span-1"
+          <Group title="Médias" subtitle="Image, vidéo ou document que l'agent peut envoyer (fenêtre SAV 24h)"
             trailing={<button onClick={() => setAddMediaOpen(true)} className="flex items-center gap-1 text-[13px] text-blue-500 hover:text-blue-600 transition-colors"><Plus className="h-3.5 w-3.5" /> Ajouter</button>}
           >
             {images.length === 0 ? (
@@ -490,9 +527,11 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
               })
             )}
           </Group>
+          </>)}
 
-          {/* ═══ COMPORTEMENT ═══ (à côté de Savoir) */}
-          <Group title="Comportement" className="md:col-span-1">
+          {/* ═══ COMPORTEMENT ═══ */}
+          {activeTab === 'behavior' && (<>
+          <Group title="Comportement">
             <RowField label="Transfert vers un humain" hint="Si le client le demande">
               <Switch checked={escalationEnabled} onCheckedChange={setEscalationEnabled} />
             </RowField>
@@ -528,42 +567,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
             </RowField>
           </Group>
 
-          </div>{/* fin grille bento */}
-
-          {/* ═══ AVANCÉ (replié) ═══ */}
-          <details className="group mt-4">
-            <summary className="flex cursor-pointer list-none items-center justify-center gap-2 py-3 text-[13px] font-medium text-muted-foreground hover:text-foreground transition-colors select-none">
-              Paramètres avancés
-              <ChevronDown className="h-4 w-4 group-open:rotate-180 transition-transform" />
-            </summary>
-
-            <Group title="Modèle & génération" className="mt-4">
-              <RowField label="Modèle IA" stacked>
-                <div className="grid grid-cols-2 gap-2 mt-1">
-                  {(['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4.1'] as const).map(m => {
-                    const on = model === m
-                    return (
-                      <button key={m} onClick={() => setModel(m)}
-                        className={cn('rounded-xl px-4 py-2.5 text-xs font-semibold text-left transition-all', on ? 'bg-foreground/[0.08] ring-1 ring-foreground/20 text-foreground' : 'bg-muted/40 text-muted-foreground hover:text-foreground')}>
-                        {m}
-                      </button>
-                    )
-                  })}
-                </div>
-              </RowField>
-              <Divider />
-              <RowField label={`Créativité`} trailing={<span className="text-sm text-muted-foreground">{Math.round(temperature * 100)}%</span>} stacked>
-                <input type="range" min="0" max="1" step="0.1" value={temperature}
-                  onChange={e => setTemperature(parseFloat(e.target.value))} className="w-full accent-foreground mt-2" />
-              </RowField>
-              <Divider />
-              <RowField label="Prompt système" stacked>
-                <textarea value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)}
-                  className="w-full min-h-[120px] rounded-xl bg-muted/40 px-3.5 py-3 text-xs font-mono resize-y focus:outline-none focus:ring-1 focus:ring-foreground/20 transition-all mt-1" />
-              </RowField>
-            </Group>
-
-            <Group title="Limites & timing" className="mt-4">
+          <Group title="Limites & timing">
               <RowField label="Délai de réponse">
                 <span className="flex items-center gap-2 text-sm">
                   <MiniNum value={delayMin} onChange={v => setDelayMin(parseInt(v) || 0)} />
@@ -620,7 +624,38 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                 </>
               )}
             </Group>
-          </details>
+          </>)}
+
+          {/* ═══ AVANCÉ ═══ */}
+          {activeTab === 'advanced' && (
+          <Group title="Modèle & génération" subtitle="Réservé aux réglages fins de l'IA">
+            <RowField label="Modèle IA" stacked>
+              <div className="grid grid-cols-2 gap-2 mt-1">
+                {(['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4.1'] as const).map(m => {
+                  const on = model === m
+                  return (
+                    <button key={m} onClick={() => setModel(m)}
+                      className={cn('rounded-xl px-4 py-2.5 text-xs font-semibold text-left transition-all', on ? 'bg-foreground/[0.08] ring-1 ring-foreground/20 text-foreground' : 'bg-muted/40 text-muted-foreground hover:text-foreground')}>
+                      {m}
+                    </button>
+                  )
+                })}
+              </div>
+            </RowField>
+            <Divider />
+            <RowField label="Créativité" trailing={<span className="text-sm text-muted-foreground">{Math.round(temperature * 100)}%</span>} stacked>
+              <input type="range" min="0" max="1" step="0.1" value={temperature}
+                onChange={e => setTemperature(parseFloat(e.target.value))} className="w-full accent-foreground mt-2" />
+            </RowField>
+            <Divider />
+            <RowField label="Prompt système" stacked>
+              <textarea value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)}
+                className="w-full min-h-[120px] rounded-xl bg-muted/40 px-3.5 py-3 text-xs font-mono resize-y focus:outline-none focus:ring-1 focus:ring-foreground/20 transition-all mt-1" />
+            </RowField>
+          </Group>
+          )}
+
+          </div>{/* fin contenu onglet */}
         </div>
       </main>
 
@@ -774,11 +809,11 @@ function Group({ title, subtitle, trailing, children, className }: {
   className?: string
 }) {
   return (
-    <section className={cn('flex flex-col rounded-3xl bg-muted/[0.18] p-5', className)}>
+    <section className={cn('flex flex-col rounded-2xl border border-border/50 bg-card/40 p-5 shadow-sm', className)}>
       <div className="mb-3 flex items-baseline justify-between">
         <div>
-          <h2 className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground/50">{title}</h2>
-          {subtitle && <p className="text-[11px] text-muted-foreground/40 mt-0.5">{subtitle}</p>}
+          <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+          {subtitle && <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>}
         </div>
         {trailing}
       </div>
