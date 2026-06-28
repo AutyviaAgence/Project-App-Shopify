@@ -27,23 +27,35 @@ export async function POST(req: NextRequest) {
 
   // Contexte boutique Shopify (optionnel) → texte injecté au prompt.
   let storeContextPrompt: string | null = null
+  let products: { title: string; url: string | null; image_url: string | null; price: string | null }[] = []
   try {
     const { data: store } = await supabase
       .from('shopify_stores')
-      .select('store_context')
+      .select('id, store_context')
       .eq('user_id', user.id)
       .eq('is_active', true)
-      .not('store_context', 'is', null)
       .maybeSingle()
     if (store?.store_context) {
       const { buildStoreContextPrompt } = await import('@/lib/shopify/sync')
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       storeContextPrompt = buildStoreContextPrompt(store.store_context as any)
     }
+    // Produits réels (pour liens & carrousels), uniquement ceux avec URL publique.
+    if (store?.id) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: prods } = await (supabase as any)
+        .from('shopify_products')
+        .select('title, url, image_url, price')
+        .eq('store_id', store.id)
+        .not('url', 'is', null)
+        .order('position', { ascending: true })
+        .limit(12)
+      products = prods || []
+    }
   } catch { /* contexte boutique facultatif */ }
 
   try {
-    const proposals = await generateTemplates({ useCase, objective, tone, variableKeys, storeContextPrompt })
+    const proposals = await generateTemplates({ useCase, objective, tone, variableKeys, storeContextPrompt, products })
     if (proposals.length === 0) {
       return NextResponse.json({ error: 'Aucune proposition exploitable, reformulez l\'objectif.' }, { status: 422 })
     }

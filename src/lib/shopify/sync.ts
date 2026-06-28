@@ -33,11 +33,15 @@ const PRODUCTS_QUERY = `
       edges {
         cursor
         node {
+          id
           title
+          handle
+          onlineStoreUrl
           description
           productType
           vendor
           tags
+          featuredImage { url }
           variants(first: 20) {
             edges { node { title price sku availableForSale } }
           }
@@ -67,7 +71,9 @@ const SHOP_POLICIES_QUERY = `
 // ─── Pull + formatage en texte ──────────────────────────────────────
 
 type ProductNode = {
-  title: string; description: string; productType: string; vendor: string; tags: string[]
+  id: string; title: string; handle: string; onlineStoreUrl: string | null
+  description: string; productType: string; vendor: string; tags: string[]
+  featuredImage: { url: string } | null
   variants: { edges: { node: { title: string; price: string; sku: string; availableForSale: boolean } }[] }
 }
 
@@ -76,8 +82,17 @@ type ProductsResp = { products: { edges: { cursor: string; node: ProductNode }[]
 type ProductEdge = { cursor: string; node: ProductNode }
 type VariantEdge = { node: { title: string; price: string; sku: string; availableForSale: boolean } }
 
-async function fetchAllProducts(shop: string, token: string): Promise<{ text: string; count: number }> {
+/** Produit structuré (pour shopify_products + carrousels/liens IA). */
+export type StructuredProduct = {
+  shopify_id: string; title: string; handle: string | null; url: string | null
+  image_url: string | null; price: string | null; available: boolean; position: number
+}
+
+async function fetchAllProducts(
+  shop: string, token: string
+): Promise<{ text: string; count: number; products: StructuredProduct[] }> {
   const lines: string[] = ['# Catalogue produits', '']
+  const products: StructuredProduct[] = []
   let cursor: string | null = null
   let pages = 0
   let count = 0
@@ -94,13 +109,29 @@ async function fetchAllProducts(shop: string, token: string): Promise<{ text: st
       const variants = p.variants.edges.map((v: VariantEdge) => `${v.node.title} — ${v.node.price}${v.node.availableForSale ? '' : ' (rupture)'}`)
       if (variants.length) lines.push(`Variantes : ${variants.join(' · ')}`)
       lines.push('')
+
+      // Version structurée (pour carrousels/liens). URL = onlineStoreUrl (publique)
+      // ou repli {domain}/products/{handle}. Sans URL publique → on garde le produit
+      // mais url=null (il ne pourra pas servir de lien/carte cliquable).
+      const firstVariant = p.variants.edges[0]?.node
+      const url = p.onlineStoreUrl || (p.handle ? `https://${shop}/products/${p.handle}` : null)
+      products.push({
+        shopify_id: p.id,
+        title: p.title,
+        handle: p.handle || null,
+        url,
+        image_url: p.featuredImage?.url || null,
+        price: firstVariant?.price || null,
+        available: p.variants.edges.some((v) => v.node.availableForSale),
+        position: count - 1,
+      })
     }
     if (!res.data.products.pageInfo.hasNextPage) break
     cursor = edges.length ? edges[edges.length - 1].cursor : null
     if (!cursor) break
     pages++
   }
-  return { text: lines.join('\n'), count }
+  return { text: lines.join('\n'), count, products }
 }
 
 type PageEdge = { cursor: string; node: { title: string; body: string } }
@@ -213,6 +244,35 @@ function hashContent(content: string): string {
  * Renvoie { docId, hash, processed } : docId = id du document (créé ou existant),
  * processed = true si on a (re)traité (donc consommé des embeddings).
  */
+/**
+ * Remplace les produits structurés d'une boutique (table shopify_products).
+ * On fait simple : delete-all puis insert (catalogues modestes ≤1000 produits).
+ */
+async function upsertStructuredProducts(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  storeId: string,
+  userId: string,
+  products: StructuredProduct[]
+): Promise<void> {
+  try {
+    await supabase.from('shopify_products').delete().eq('store_id', storeId)
+    if (products.length === 0) return
+    const rows = products.map((p) => ({
+      store_id: storeId, user_id: userId,
+      shopify_id: p.shopify_id, title: p.title, handle: p.handle,
+      url: p.url, image_url: p.image_url, price: p.price,
+      available: p.available, position: p.position,
+    }))
+    // Insert par lots de 500 (limite Postgrest).
+    for (let i = 0; i < rows.length; i += 500) {
+      await supabase.from('shopify_products').insert(rows.slice(i, i + 500))
+    }
+  } catch (e) {
+    console.error('[shopify] upsert produits structurés échec:', e)
+  }
+}
+
 async function upsertDoc(args: {
   userId: string
   agentId: string | null
@@ -314,12 +374,14 @@ export async function syncShopToKnowledge(
 
   // Catalogue (toujours, pour les 2 scopes).
   {
-    const { text, count } = await fetchAllProducts(shop, token)
+    const { text, count, products: structured } = await fetchAllProducts(shop, token)
     products = count
     if (text.trim().length > 20) {
       const r = await upsertDoc({ userId: store.user_id, agentId: null, existingDocId: store.catalog_doc_id, name: `Catalogue — ${shopName}`, content: text, previousHash: hashes.catalog || null })
       if (r.docId) { updates.catalog_doc_id = r.docId; newHashes.catalog = r.hash; documents++; if (r.processed) processed++ }
     }
+    // Produits structurés (pour carrousels/liens des templates IA).
+    await upsertStructuredProducts(supabase, storeId, store.user_id, structured)
     updates.catalog_synced_at = new Date().toISOString()
   }
 
@@ -409,7 +471,8 @@ export async function autoConfigureAgentFromShop(storeId: string): Promise<AutoC
   // 2. Pull + ingestion (catalogue, pages, politiques) via upsertDoc (création
   // ici, mais on persiste les doc-ids/hashes/summary pour les resync futurs).
   let documents = 0
-  const { text: products, count: productCount } = await fetchAllProducts(shop, token)
+  const { text: products, count: productCount, products: structuredProducts } = await fetchAllProducts(shop, token)
+  await upsertStructuredProducts(supabase, storeId, store.user_id, structuredProducts)
   const [pages, policies] = await Promise.all([
     fetchAllPages(shop, token),
     fetchPolicies(shop, token),

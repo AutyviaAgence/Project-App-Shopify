@@ -101,7 +101,16 @@ export default function TemplatesPage() {
   const [aiUseCase, setAiUseCase] = useState<UseCaseKey>('marketing')
   const [aiVarKeys, setAiVarKeys] = useState<string[]>([])
   const [aiGenerating, setAiGenerating] = useState(false)
-  const [aiProposals, setAiProposals] = useState<{ body_text: string; variable_keys: string[] }[]>([])
+  type AiProposal = {
+    template_type: 'standard' | 'limited_time_offer' | 'carousel'
+    body_text: string
+    variable_keys: string[]
+    buttons: ({ type: 'URL'; text: string; url: string } | { type: 'COPY_CODE'; text: string; code: string })[]
+    lto_title?: string | null
+    lto_hours?: number | null
+    cards?: { title: string; body: string; image_url: string | null; url: string | null }[]
+  }
+  const [aiProposals, setAiProposals] = useState<AiProposal[]>([])
   const [editing, setEditing] = useState<WhatsAppTemplate | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -353,24 +362,52 @@ export default function TemplatesPage() {
     }
   }
 
-  // Choisit une proposition → pré-remplit l'éditeur en brouillon.
-  function chooseProposal(p: { body_text: string; variable_keys: string[] }) {
+  // Choisit une proposition → pré-remplit l'éditeur en brouillon (avec format riche).
+  function chooseProposal(p: AiProposal) {
     const uc = USE_CASE_BY_KEY[aiUseCase]
-    // Nom technique auto à partir de l'objectif (slug), modifiable ensuite.
     const slug = aiObjective.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
       .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40) || 'modele_ia'
     setEditing(null); setSelectedId(null)
     setName(slug)
     setLanguage('fr')
     setUseCase(aiUseCase)
-    setCategory(uc?.metaCategory || 'MARKETING')
+    // LTO impose MARKETING ; sinon catégorie du use_case.
+    setCategory(p.template_type === 'limited_time_offer' ? 'MARKETING' : (uc?.metaCategory || 'MARKETING'))
     setBodyText(p.body_text)
     setVariableKeys(p.variable_keys)
-    setHeaderText(''); setFooterText('Powered by Xeyo.io')
-    setHeaderType('none'); setHeaderMediaUrl(''); setButtons([])
+    setHeaderText(''); setFooterText(p.template_type === 'standard' ? 'Powered by Xeyo.io' : '')
+    setHeaderType('none'); setHeaderMediaUrl('')
     setMediaPreviewUrl(''); setMediaFilename('')
-    setTemplateType('standard'); setCarouselCards([]); setCardMediaKind('image'); setCardPreviews({})
-    setLtoTitle(''); setLtoHours(24)
+    setCardMediaKind('image'); setCardPreviews({})
+
+    // Boutons (mappés vers TemplateButton de l'éditeur).
+    const mappedButtons = (p.buttons || []).map((b) =>
+      b.type === 'URL' ? { type: 'URL' as const, text: b.text, url: b.url }
+        : { type: 'COPY_CODE' as const, text: b.text, code: b.code }
+    )
+    setButtons(mappedButtons)
+
+    // Type + champs spécifiques.
+    setTemplateType(p.template_type)
+    if (p.template_type === 'limited_time_offer') {
+      setLtoTitle(p.lto_title || ''); setLtoHours(p.lto_hours || 24)
+      setCarouselCards([])
+    } else if (p.template_type === 'carousel' && p.cards) {
+      setLtoTitle(''); setLtoHours(24)
+      // Chaque carte : image (URL Shopify) + texte + bouton lien vers le produit.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const cards: any[] = p.cards.map((c) => ({
+        header_type: 'image',
+        header_media_url: c.image_url || '',
+        body_text: c.body || c.title,
+        buttons: c.url ? [{ type: 'URL', text: 'Voir', url: c.url }] : [],
+        body_variable_keys: [],
+      }))
+      setCarouselCards(cards)
+      setCardPreviews(Object.fromEntries(p.cards.map((c, i) => [i, c.image_url || ''])))
+    } else {
+      setLtoTitle(''); setLtoHours(24); setCarouselCards([])
+    }
     setMode('edit')
     toast.success('Modèle pré-rempli — personnalisez puis enregistrez')
   }
@@ -1471,14 +1508,50 @@ export default function TemplatesPage() {
                     <p className="text-xs font-medium text-muted-foreground">Choisissez une proposition :</p>
                     {aiProposals.map((p, i) => {
                       const labels = p.variable_keys.map((k) => VARIABLE_BY_KEY[k]?.label || k)
+                      const typeLabel = p.template_type === 'limited_time_offer' ? '🏷️ Offre limitée'
+                        : p.template_type === 'carousel' ? '🎠 Carrousel produits' : '💬 Message + boutons'
                       return (
                         <div key={i} className="rounded-xl border p-3">
+                          <div className="mb-1.5 text-[11px] font-medium text-muted-foreground">{typeLabel}</div>
                           {/* Bulle WhatsApp */}
-                          <div className="rounded-2xl rounded-tr-sm bg-white px-3 py-2 shadow-sm ring-1 ring-black/5">
-                            <p className="whitespace-pre-wrap break-words text-[14px] leading-snug text-gray-800">
-                              {renderWhatsAppFormat(p.body_text, labels)}
-                            </p>
-                            <div className="mt-0.5 text-right text-[10px] text-gray-400">12:00 ✓✓</div>
+                          <div className="overflow-hidden rounded-2xl rounded-tr-sm bg-white shadow-sm ring-1 ring-black/5">
+                            <div className="px-3 py-2">
+                              <p className="whitespace-pre-wrap break-words text-[14px] leading-snug text-gray-800">
+                                {renderWhatsAppFormat(p.body_text, labels)}
+                              </p>
+                              {/* Bandeau offre limitée */}
+                              {p.template_type === 'limited_time_offer' && p.lto_title && (
+                                <div className="mt-1.5 flex items-center gap-1.5 rounded bg-rose-50 px-2 py-1 text-[12px] font-medium text-rose-600">
+                                  ⏱ {p.lto_title} · expire dans {p.lto_hours ?? 24}h
+                                </div>
+                              )}
+                              <div className="mt-0.5 text-right text-[10px] text-gray-400">12:00 ✓✓</div>
+                            </div>
+                            {/* Boutons */}
+                            {p.buttons.length > 0 && (
+                              <div className="border-t border-slate-100">
+                                {p.buttons.map((b, bi) => (
+                                  <div key={bi} className="flex items-center justify-center gap-1.5 border-t border-slate-100 py-1.5 text-[13px] font-medium text-[#1ca5e0] first:border-t-0">
+                                    {b.type === 'URL' ? <ExternalLink className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                                    {b.text}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                            {/* Cartes carrousel produits */}
+                            {p.template_type === 'carousel' && p.cards && p.cards.length > 0 && (
+                              <div className="flex gap-2 overflow-x-auto border-t border-slate-100 p-2">
+                                {p.cards.map((c, ci) => (
+                                  <div key={ci} className="w-[110px] shrink-0 overflow-hidden rounded-lg border">
+                                    {c.image_url
+                                      // eslint-disable-next-line @next/next/no-img-element
+                                      ? <img src={c.image_url} alt="" className="h-[70px] w-full object-cover" />
+                                      : <div className="flex h-[70px] items-center justify-center bg-slate-100 text-slate-300"><ImageIcon className="h-5 w-5" /></div>}
+                                    <p className="truncate px-1.5 py-1 text-[11px] font-medium text-gray-700">{c.title || c.body}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </div>
                           <Button size="sm" variant="outline" className="mt-2 w-full" onClick={() => chooseProposal(p)}>
                             <Check className="mr-1 h-3.5 w-3.5" /> Choisir cette version
