@@ -8,7 +8,10 @@ import { Input } from '@/components/ui/input'
 import { TRIGGER_EVENTS } from '@/lib/automations/types'
 import { CONDITION_FIELDS } from './field-labels'
 import { chainFrom, getNode } from './timeline-model'
+import { TemplateBubble } from '@/components/template-bubble'
+import { VARIABLE_BY_KEY } from '@/lib/templates/variables'
 import type { WorkflowGraph, WorkflowNode } from '@/lib/automations/graph-types'
+import type { WhatsAppTemplate } from '@/types/database'
 
 const DELAY_PRESETS = [
   { v: 0, l: 'Immédiat' }, { v: 30, l: '30 min' }, { v: 60, l: '1 heure' },
@@ -17,7 +20,7 @@ const DELAY_PRESETS = [
 
 type TimelineProps = {
   graph: WorkflowGraph
-  templates: { id: string; name: string }[]
+  templates: WhatsAppTemplate[]
   onPatch: (id: string, patch: Partial<WorkflowNode>) => void
   onInsert: (afterId: string, kind: 'delay' | 'condition' | 'action', branch?: 'yes' | 'no') => void
   onDelete: (id: string) => void
@@ -193,19 +196,37 @@ function DelayBlock({ node, onPatch, onDelete }: { node: WorkflowNode; onPatch: 
 }
 
 function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction }: {
-  node: WorkflowNode; templates: { id: string; name: string }[]
+  node: WorkflowNode; templates: WhatsAppTemplate[]
   onPatch: (id: string, p: Partial<WorkflowNode>) => void; onDelete: () => void; onSelectAction: (t: string | null) => void
 }) {
   if (node.type !== 'action') return null
+  const selected = templates.find((t) => t.id === node.templateId) || null
+  const typeBadge = selected
+    ? (selected.template_type === 'carousel' ? '🎠 Carrousel'
+      : selected.template_type === 'limited_time_offer' ? '🏷️ Offre limitée'
+      : '💬 Message')
+    : null
   return (
     <Shell tone={TONE.green} icon={<MessageSquare className="h-4 w-4" />} kind="Envoyer le modèle" onDelete={onDelete}>
       {templates.length === 0 ? (
         <p className="text-xs text-muted-foreground">Aucun modèle approuvé.</p>
       ) : (
-        <Select value={node.templateId || ''} onValueChange={(v) => { onPatch(node.id, { templateId: v } as never); onSelectAction(v) }}>
-          <SelectTrigger><SelectValue placeholder="Choisir un modèle" /></SelectTrigger>
-          <SelectContent>{templates.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
-        </Select>
+        <div className="space-y-2">
+          <Select value={node.templateId || ''} onValueChange={(v) => { onPatch(node.id, { templateId: v } as never); onSelectAction(v) }}>
+            <SelectTrigger><SelectValue placeholder="Choisir un modèle" /></SelectTrigger>
+            <SelectContent>{templates.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+          </Select>
+          {/* Aperçu du message (bulle WhatsApp) directement dans le nœud. */}
+          {selected && (
+            <div>
+              <div className="mb-1 text-[10px] font-medium text-muted-foreground">{typeBadge}</div>
+              <TemplateBubble
+                template={selected}
+                labels={(selected.variable_keys || []).map((k) => VARIABLE_BY_KEY[k]?.label || k)}
+              />
+            </div>
+          )}
+        </div>
       )}
     </Shell>
   )

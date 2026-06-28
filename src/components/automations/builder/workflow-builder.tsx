@@ -20,7 +20,7 @@ const Particles = dynamic(() => import('@/components/Particles'), { ssr: false }
  * selon le contact, via resolveLanguageVariant). On garde une ligne par nom, en
  * préférant la langue source, sinon FR, sinon la première.
  */
-function dedupeByName(templates: WhatsAppTemplate[]): { id: string; name: string }[] {
+function dedupeByName(templates: WhatsAppTemplate[]): WhatsAppTemplate[] {
   const byName = new Map<string, WhatsAppTemplate>()
   for (const t of templates) {
     const cur = byName.get(t.name)
@@ -31,7 +31,8 @@ function dedupeByName(templates: WhatsAppTemplate[]): { id: string; name: string
     if (isSrc && !curIsSrc) byName.set(t.name, t)
     else if (!curIsSrc && t.language === 'fr' && cur.language !== 'fr') byName.set(t.name, t)
   }
-  return Array.from(byName.values()).map((t) => ({ id: t.id, name: t.name }))
+  // Templates complets (dédupliqués par nom) — pour afficher un aperçu dans le nœud.
+  return Array.from(byName.values())
 }
 
 /**
