@@ -213,8 +213,8 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction }: {
       ) : (
         <div className="space-y-2">
           <Select value={node.templateId || ''} onValueChange={(v) => { onPatch(node.id, { templateId: v } as never); onSelectAction(v) }}>
-            <SelectTrigger><SelectValue placeholder="Choisir un modèle" /></SelectTrigger>
-            <SelectContent>{templates.map((t) => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}</SelectContent>
+            <SelectTrigger className="w-full min-w-0"><SelectValue placeholder="Choisir un modèle" /></SelectTrigger>
+            <SelectContent>{templates.map((t) => <SelectItem key={t.id} value={t.id}><span className="block max-w-[240px] truncate">{t.name}</span></SelectItem>)}</SelectContent>
           </Select>
           {/* Aperçu du message (bulle WhatsApp) directement dans le nœud. */}
           {selected && (
