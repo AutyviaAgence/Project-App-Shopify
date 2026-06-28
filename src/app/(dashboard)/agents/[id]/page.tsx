@@ -16,6 +16,7 @@ import {
   FileText, Link2, QrCode, Check,
   Upload, Tag, Play,
   Sparkles, BookOpen, Smartphone, SlidersHorizontal, Settings2,
+  Globe, Shield, Bot, Image as ImageIcon, ChevronRight, MessageSquare,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -272,6 +273,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
 
   const DAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
   const toneLabel = tone === 'professional' ? 'Professionnel' : tone === 'friendly' ? 'Chaleureux' : 'Décontracté'
+  const channelCount = sessions.filter(s => s.qualifier_agent_id === id).length
 
   if (loading) return <BlobLoaderScreen />
   if (!agent) return null
@@ -307,29 +309,43 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
         </div>
       </header>
 
-      {/* ── Contenu en onglets ── */}
+      {/* ── Contenu : config (gauche) + aperçu sticky (droite) ── */}
       <main className="flex-1 overflow-y-auto">
-        <div className="mx-auto w-full max-w-3xl px-6 pb-24">
+        <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-8 px-6 pb-24 lg:grid-cols-[1fr_360px]">
 
-          {/* Titre */}
+          {/* ════ COLONNE GAUCHE : configuration ════ */}
+          <div className="min-w-0">
+
+          {/* En-tête : fil d'ariane + titre + badges */}
           <div className="pt-8 pb-5">
+            <div className="mb-3 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+              <Link href="/agents" className="hover:text-foreground transition-colors">Agents</Link>
+              <span className="text-muted-foreground/40">/</span>
+              <span className="text-foreground/70 truncate">{name || 'Agent'}</span>
+            </div>
             <input
               value={name}
               onChange={e => setName(e.target.value)}
               className="w-full bg-transparent text-3xl font-bold tracking-tight focus:outline-none"
             />
-            <button
-              onClick={handleToggleActive}
-              className="mt-2 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <span className={cn('h-2 w-2 rounded-full', agent.is_active ? 'bg-emerald-500' : 'bg-muted-foreground/40')} />
-              {agent.is_active ? 'Actif' : 'Inactif'}
-            </button>
+            {/* Rangée de badges */}
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button onClick={handleToggleActive}>
+                <HeaderBadge>
+                  <span className={cn('h-2 w-2 rounded-full', agent.is_active ? 'bg-emerald-500' : 'bg-muted-foreground/40')} />
+                  {agent.is_active ? 'Actif' : 'Inactif'}
+                </HeaderBadge>
+              </button>
+              <HeaderBadge icon={Sparkles}>{toneLabel}</HeaderBadge>
+              <HeaderBadge icon={Smartphone}>{channelCount} {channelCount > 1 ? 'canaux' : 'canal'}</HeaderBadge>
+              <HeaderBadge icon={FileText}>{docs.length} document{docs.length > 1 ? 's' : ''}</HeaderBadge>
+              <HeaderBadge icon={Globe}>{autoDetectLanguage ? 'Auto' : 'Français'}</HeaderBadge>
+            </div>
           </div>
 
-          {/* Barre d'onglets */}
-          <div className="sticky top-0 z-10 -mx-6 mb-6 border-b border-border/60 bg-background/80 px-6 backdrop-blur">
-            <div className="flex gap-1 overflow-x-auto">
+          {/* Barre d'onglets en pills */}
+          <div className="sticky top-0 z-10 -mx-1 mb-6 px-1 py-2">
+            <div className="flex gap-1 overflow-x-auto rounded-2xl border border-border/50 bg-card/60 p-1.5 backdrop-blur">
               {([
                 { key: 'personality', label: 'Personnalité', icon: Sparkles },
                 { key: 'knowledge', label: 'Savoir & médias', icon: BookOpen },
@@ -343,11 +359,13 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                     key={t.key}
                     onClick={() => setActiveTab(t.key)}
                     className={cn(
-                      'flex shrink-0 items-center gap-1.5 border-b-2 px-3 py-3 text-sm font-medium transition-colors',
-                      on ? 'border-primary text-foreground' : 'border-transparent text-muted-foreground hover:text-foreground'
+                      'flex shrink-0 items-center gap-1.5 rounded-xl px-3.5 py-2 text-[13px] font-medium transition-all',
+                      on
+                        ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-background shadow-sm'
+                        : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
                     )}
                   >
-                    <t.icon className={cn('h-4 w-4', on ? 'text-primary' : '')} />
+                    <t.icon className="h-4 w-4" />
                     {t.label}
                   </button>
                 )
@@ -360,13 +378,14 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
 
           {/* ═══ PERSONNALITÉ ═══ */}
           {activeTab === 'personality' && (
-          <Group title="Personnalité">
+          <Group title="Personnalité" subtitle="Identité, objectif et ton de l'agent" icon={Sparkles} color="violet">
             <RowField label="Description" hint="Affiché sous le nom de l'agent" stacked>
               <CleanInput value={description} onChange={setDescription} placeholder="Assistant commercial WhatsApp" />
             </RowField>
             <Divider />
-            <RowField label="Objectif" hint="Ce que l'agent doit accomplir" stacked>
-              <CleanTextarea value={objective} onChange={setObjective} placeholder="Qualifier les prospects et proposer un rendez-vous" rows={4} />
+            <RowField label="Objectif" hint="Ce que l'agent doit accomplir" stacked
+              trailing={<span className="text-[11px] tabular-nums text-muted-foreground/60">{objective.length}/2000</span>}>
+              <CleanTextarea value={objective} onChange={setObjective} placeholder="Qualifier les prospects et proposer un rendez-vous" rows={4} maxLength={2000} />
             </RowField>
             <Divider />
             <RowField label="Ton" trailing={<span className="text-sm text-muted-foreground">{toneLabel}</span>} stacked>
@@ -396,7 +415,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
 
           {/* ═══ CANAUX ═══ */}
           {activeTab === 'channels' && (
-          <Group title="Canaux" subtitle="Numéros sur lesquels cet agent répond">
+          <Group title="Canaux" subtitle="Numéros sur lesquels cet agent répond" icon={Smartphone} color="emerald">
             {sessions.length === 0 ? (
               <button onClick={() => router.push('/dashboard')} className="w-full py-6 text-center text-sm text-muted-foreground hover:text-foreground transition-colors">
                 Aucune session · Connecter WhatsApp →
@@ -464,7 +483,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
 
           {/* ═══ SAVOIR & MÉDIAS ═══ */}
           {activeTab === 'knowledge' && (<>
-          <Group title="Savoir" subtitle="Documents que l'agent peut utiliser"
+          <Group title="Savoir" subtitle="Documents que l'agent peut utiliser" icon={BookOpen} color="blue"
             trailing={<button onClick={() => setAddDocOpen(true)} className="flex items-center gap-1 text-[13px] text-blue-500 hover:text-blue-600 transition-colors"><Plus className="h-3.5 w-3.5" /> Ajouter</button>}
           >
             {docs.length === 0 ? (
@@ -501,7 +520,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
           </Group>
 
           {/* ═══ MÉDIAS ═══ (médias que l'agent peut envoyer en SAV : image/vidéo/document) */}
-          <Group title="Médias" subtitle="Image, vidéo ou document que l'agent peut envoyer (fenêtre SAV 24h)"
+          <Group title="Médias" subtitle="Image, vidéo ou document que l'agent peut envoyer (fenêtre SAV 24h)" icon={ImageIcon} color="orange"
             trailing={<button onClick={() => setAddMediaOpen(true)} className="flex items-center gap-1 text-[13px] text-blue-500 hover:text-blue-600 transition-colors"><Plus className="h-3.5 w-3.5" /> Ajouter</button>}
           >
             {images.length === 0 ? (
@@ -536,7 +555,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
 
           {/* ═══ COMPORTEMENT ═══ */}
           {activeTab === 'behavior' && (<>
-          <Group title="Comportement">
+          <Group title="Comportement" subtitle="Transfert humain et prise de rendez-vous" icon={SlidersHorizontal} color="blue">
             <RowField label="Transfert vers un humain" hint="Si le client le demande">
               <Switch checked={escalationEnabled} onCheckedChange={setEscalationEnabled} />
             </RowField>
@@ -572,7 +591,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
             </RowField>
           </Group>
 
-          <Group title="Réponses">
+          <Group title="Réponses" subtitle="Délai et condition d'arrêt" icon={MessageSquare} color="violet">
               <RowField label="Délai de réponse" hint="Temps d'attente avant que l'agent réponde">
                 <span className="flex items-center gap-2 text-sm">
                   <MiniNum value={delayMin} onChange={v => setDelayMin(parseInt(v) || 0)} />
@@ -587,7 +606,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
               </RowField>
             </Group>
 
-            <Group title="Planning horaire" className="mt-4">
+            <Group title="Planning horaire" subtitle="Créneaux d'activité de l'agent" icon={SlidersHorizontal} color="amber" className="mt-4">
               <RowField label="Activer le planning" hint="L'agent ne répond que sur ces créneaux">
                 <Switch checked={scheduleEnabled} onCheckedChange={setScheduleEnabled} />
               </RowField>
@@ -622,7 +641,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
 
           {/* ═══ AVANCÉ ═══ */}
           {activeTab === 'advanced' && (
-          <Group title="Modèle & génération" subtitle="Réservé aux réglages fins de l'IA">
+          <Group title="Modèle & génération" subtitle="Réservé aux réglages fins de l'IA" icon={Settings2} color="slate">
             <RowField label="Modèle IA" stacked>
               <div className="grid grid-cols-2 gap-2 mt-1">
                 {(['gpt-4o-mini', 'gpt-4o', 'gpt-4.1-mini', 'gpt-4.1'] as const).map(m => {
@@ -650,6 +669,25 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
           )}
 
           </div>{/* fin contenu onglet */}
+          </div>{/* fin colonne gauche */}
+
+          {/* ════ COLONNE DROITE : aperçu sticky ════ */}
+          <div className="lg:sticky lg:top-6 lg:self-start">
+            <AgentPreviewCard
+              name={name}
+              description={description}
+              toneLabel={toneLabel}
+              isActive={agent.is_active}
+              channelCount={channelCount}
+              docCount={docs.length}
+              mediaCount={images.length}
+              language={autoDetectLanguage ? 'Auto' : 'Français'}
+              onTest={() => setTestOpen(true)}
+              onViewChannels={() => setActiveTab('channels')}
+              onPermissions={() => setActiveTab('advanced')}
+            />
+          </div>
+
         </div>
       </main>
 
@@ -799,25 +837,48 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   )
 }
 
-// ─── Sous-composants (style Revolut : minimal, peu de bordures) ───────────────
+// ─── Sous-composants (style Kanal : cartes douces, icônes colorées) ──────────
 
-function Group({ title, subtitle, trailing, children, className }: {
+/** Couleurs d'accent par section (fond teinté + icône). */
+const ACCENT: Record<string, string> = {
+  violet: 'bg-violet-500/15 text-violet-400',
+  amber: 'bg-amber-500/15 text-amber-400',
+  blue: 'bg-blue-500/15 text-blue-400',
+  emerald: 'bg-emerald-500/15 text-emerald-400',
+  orange: 'bg-orange-500/15 text-orange-400',
+  slate: 'bg-slate-500/15 text-slate-300',
+}
+
+function SectionIcon({ icon: Icon, color = 'violet' }: { icon: React.ElementType; color?: keyof typeof ACCENT | string }) {
+  return (
+    <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', ACCENT[color] || ACCENT.violet)}>
+      <Icon className="h-[18px] w-[18px]" />
+    </span>
+  )
+}
+
+function Group({ title, subtitle, trailing, children, className, icon, color, badge }: {
   title: string
   subtitle?: string
   trailing?: React.ReactNode
   children: React.ReactNode
   className?: string
+  icon?: React.ElementType
+  color?: string
+  badge?: React.ReactNode
 }) {
   return (
-    <section className={cn('flex flex-col rounded-2xl border border-border/50 bg-card/40 p-5 shadow-sm', className)}>
-      <div className="mb-3 flex items-baseline justify-between">
-        <div>
-          <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+    <section className={cn('flex flex-col rounded-2xl border border-border/60 bg-card/40 p-5 shadow-sm', className)}>
+      <div className="flex items-center gap-3">
+        {icon && <SectionIcon icon={icon} color={color} />}
+        <div className="min-w-0 flex-1">
+          <h2 className="text-[15px] font-semibold text-foreground">{title}</h2>
           {subtitle && <p className="mt-0.5 text-xs text-muted-foreground">{subtitle}</p>}
         </div>
+        {badge}
         {trailing}
       </div>
-      <div className="flex-1">
+      <div className="mt-4 border-t border-border/40 pt-1">
         {children}
       </div>
     </section>
@@ -833,23 +894,21 @@ function RowField({ label, hint, trailing, stacked, children }: {
 }) {
   if (stacked) {
     return (
-      <div className="py-3.5">
-        <div className="flex items-baseline justify-between mb-1.5">
-          <div>
-            <Label className="text-sm font-medium">{label}</Label>
-            {hint && <span className="ml-2 text-xs text-muted-foreground/60">{hint}</span>}
-          </div>
+      <div className="py-3">
+        <div className="mb-1.5 flex items-baseline justify-between">
+          <Label className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</Label>
           {trailing}
         </div>
+        {hint && <p className="mb-1.5 text-xs text-muted-foreground/70">{hint}</p>}
         {children}
       </div>
     )
   }
   return (
-    <div className="flex items-center justify-between gap-3 py-3.5">
+    <div className="flex items-center justify-between gap-3 rounded-xl px-1 py-3">
       <div className="min-w-0">
-        <Label className="text-sm font-medium">{label}</Label>
-        {hint && <p className="text-xs text-muted-foreground/60">{hint}</p>}
+        <Label className="text-sm font-medium text-foreground">{label}</Label>
+        {hint && <p className="text-xs text-muted-foreground/70">{hint}</p>}
       </div>
       <div className="shrink-0">{children ?? trailing}</div>
     </div>
@@ -866,20 +925,31 @@ function CleanInput({ value, onChange, placeholder }: { value: string; onChange:
       value={value}
       onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
-      className="w-full rounded-xl bg-muted/40 px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-foreground/20 transition-all"
+      className="w-full rounded-xl border border-border/50 bg-muted/30 px-3.5 py-2.5 text-sm placeholder:text-muted-foreground/40 transition-all focus:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/20"
     />
   )
 }
 
-function CleanTextarea({ value, onChange, placeholder, rows = 2 }: { value: string; onChange: (v: string) => void; placeholder?: string; rows?: number }) {
+function CleanTextarea({ value, onChange, placeholder, rows = 2, maxLength }: { value: string; onChange: (v: string) => void; placeholder?: string; rows?: number; maxLength?: number }) {
   return (
     <textarea
       value={value}
       onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
       rows={rows}
-      className="w-full rounded-xl bg-muted/40 px-3.5 py-2.5 text-sm leading-relaxed placeholder:text-muted-foreground/40 resize-y focus:outline-none focus:ring-1 focus:ring-foreground/20 transition-all"
+      maxLength={maxLength}
+      className="w-full resize-y rounded-xl border border-border/50 bg-muted/30 px-3.5 py-2.5 text-sm leading-relaxed placeholder:text-muted-foreground/40 transition-all focus:border-primary/40 focus:outline-none focus:ring-2 focus:ring-primary/20"
     />
+  )
+}
+
+/** Petit badge d'en-tête (pill grise avec icône). */
+function HeaderBadge({ icon: Icon, children }: { icon?: React.ElementType; children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-border/50 bg-muted/40 px-3 py-1 text-xs font-medium text-muted-foreground">
+      {Icon && <Icon className="h-3.5 w-3.5" />}
+      {children}
+    </span>
   )
 }
 
@@ -892,5 +962,93 @@ function MiniNum({ value, onChange, placeholder }: { value: string | number; onC
       placeholder={placeholder}
       className="w-16 rounded-lg bg-muted/40 px-2.5 py-1.5 text-sm text-center placeholder:text-muted-foreground/40 focus:outline-none focus:ring-1 focus:ring-foreground/20 transition-all"
     />
+  )
+}
+
+// ─── Carte d'aperçu de l'agent (panneau live, colonne droite) ────────────────
+
+function MiniStat({ icon: Icon, label, value, color }: { icon: React.ElementType; label: string; value: React.ReactNode; color: string }) {
+  return (
+    <div className="rounded-xl border border-border/50 bg-muted/20 p-3">
+      <div className="flex items-center gap-1.5">
+        <Icon className={cn('h-3.5 w-3.5', color)} />
+        <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">{label}</span>
+      </div>
+      <p className="mt-1 text-base font-semibold text-foreground">{value}</p>
+    </div>
+  )
+}
+
+function PreviewAction({ icon: Icon, label, onClick }: { icon: React.ElementType; label: string; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex w-full items-center gap-2.5 rounded-xl border border-border/50 bg-muted/20 px-3.5 py-2.5 text-sm font-medium text-foreground transition-colors hover:bg-muted/50"
+    >
+      <Icon className="h-4 w-4 text-muted-foreground" />
+      <span className="flex-1 text-left">{label}</span>
+      <ChevronRight className="h-4 w-4 text-muted-foreground/50" />
+    </button>
+  )
+}
+
+function AgentPreviewCard({
+  name, description, toneLabel, isActive, channelCount, docCount, mediaCount, language,
+  onTest, onViewChannels, onPermissions,
+}: {
+  name: string
+  description: string
+  toneLabel: string
+  isActive: boolean
+  channelCount: number
+  docCount: number
+  mediaCount: number
+  language: string
+  onTest: () => void
+  onViewChannels: () => void
+  onPermissions: () => void
+}) {
+  return (
+    <div className="overflow-hidden rounded-2xl border border-border/60 bg-card/40 shadow-sm">
+      {/* Bandeau dégradé + avatar */}
+      <div className="relative h-20 bg-gradient-to-br from-violet-500/40 via-emerald-500/30 to-teal-500/40">
+        <div className="absolute -bottom-6 left-5 flex h-14 w-14 items-center justify-center rounded-2xl border-4 border-card bg-gradient-to-br from-emerald-500 to-teal-500 shadow-md">
+          <Bot className="h-6 w-6 text-background" />
+        </div>
+        <span className={cn(
+          'absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold backdrop-blur',
+          isActive ? 'bg-emerald-500/20 text-emerald-300' : 'bg-muted/40 text-muted-foreground'
+        )}>
+          <span className={cn('h-1.5 w-1.5 rounded-full', isActive ? 'bg-emerald-400' : 'bg-muted-foreground/40')} />
+          {isActive ? 'Actif' : 'Inactif'}
+        </span>
+      </div>
+
+      <div className="px-5 pb-5 pt-8">
+        <h3 className="truncate text-lg font-bold tracking-tight text-foreground">{name || 'Agent'}</h3>
+        <p className="mt-0.5 line-clamp-2 text-sm text-muted-foreground">{description || 'Aucune description'}</p>
+        <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-violet-500/15 px-2.5 py-1 text-[11px] font-medium text-violet-400">
+          <Sparkles className="h-3 w-3" /> {toneLabel}
+        </span>
+
+        {/* 4 mini-stats */}
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <MiniStat icon={Smartphone} label="Canaux" value={channelCount} color="text-emerald-400" />
+          <MiniStat icon={FileText} label="Docs" value={docCount} color="text-blue-400" />
+          <MiniStat icon={ImageIcon} label="Médias" value={mediaCount} color="text-orange-400" />
+          <MiniStat icon={Globe} label="Langue" value={language} color="text-violet-400" />
+        </div>
+
+        {/* Actions */}
+        <div className="mt-5">
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Actions</p>
+          <div className="space-y-2">
+            <PreviewAction icon={Play} label="Tester l'agent" onClick={onTest} />
+            <PreviewAction icon={Smartphone} label="Voir les canaux" onClick={onViewChannels} />
+            <PreviewAction icon={Shield} label="Permissions" onClick={onPermissions} />
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
