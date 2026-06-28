@@ -254,9 +254,8 @@ async function upsertStructuredProducts(
   products: StructuredProduct[]
 ): Promise<void> {
   try {
-    const del = await supabase.from('shopify_products').delete().eq('store_id', storeId)
-    if (del.error) console.error('[shopify] delete produits err:', del.error.message)
-    if (products.length === 0) { console.log('[shopify] aucun produit à insérer'); return }
+    await supabase.from('shopify_products').delete().eq('store_id', storeId)
+    if (products.length === 0) return
     const rows = products.map((p) => ({
       store_id: storeId, user_id: userId,
       shopify_id: p.shopify_id, title: p.title, handle: p.handle,
@@ -268,7 +267,6 @@ async function upsertStructuredProducts(
       const ins = await supabase.from('shopify_products').insert(rows.slice(i, i + 500))
       if (ins.error) console.error('[shopify] insert produits err:', ins.error.message)
     }
-    console.log('[shopify] produits structurés insérés:', rows.length)
   } catch (e) {
     console.error('[shopify] upsert produits structurés échec:', e)
   }
@@ -377,7 +375,6 @@ export async function syncShopToKnowledge(
   {
     const { text, count, products: structured } = await fetchAllProducts(shop, token)
     products = count
-    console.log('[shopify sync] produits récupérés:', count, '| structurés:', structured.length, '| 1er:', structured[0]?.title)
     if (text.trim().length > 20) {
       const r = await upsertDoc({ userId: store.user_id, agentId: null, existingDocId: store.catalog_doc_id, name: `Catalogue — ${shopName}`, content: text, previousHash: hashes.catalog || null })
       if (r.docId) { updates.catalog_doc_id = r.docId; newHashes.catalog = r.hash; documents++; if (r.processed) processed++ }
