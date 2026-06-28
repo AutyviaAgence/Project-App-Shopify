@@ -1,12 +1,12 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Clock, GitBranch, MessageSquare, Plus, ShoppingBag, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
 import { TRIGGER_EVENTS } from '@/lib/automations/types'
-import { CONDITION_FIELDS } from './field-labels'
+import { CONDITION_FIELDS, COUNTRY_OPTIONS, LANGUAGE_OPTIONS } from './field-labels'
 import { chainFrom, getNode } from './timeline-model'
 import { TemplateBubble } from '@/components/template-bubble'
 import { VARIABLE_BY_KEY } from '@/lib/templates/variables'
@@ -17,6 +17,29 @@ const DELAY_PRESETS = [
   { v: 0, l: 'Immédiat' }, { v: 30, l: '30 min' }, { v: 60, l: '1 heure' },
   { v: 180, l: '3 heures' }, { v: 1440, l: '1 jour' }, { v: 2880, l: '2 jours' }, { v: 10080, l: '7 jours' },
 ]
+
+// Produits de la boutique (titres) — chargés une seule fois, partagés par tous
+// les blocs condition pour la liste déroulante « Produit contient ».
+let productsCache: { title: string }[] | null = null
+let productsPromise: Promise<{ title: string }[]> | null = null
+function loadProducts(): Promise<{ title: string }[]> {
+  if (productsCache) return Promise.resolve(productsCache)
+  if (!productsPromise) {
+    productsPromise = fetch('/api/shopify/products')
+      .then((r) => (r.ok ? r.json() : { data: [] }))
+      .then((j): { title: string }[] => { const list = Array.isArray(j.data) ? j.data : []; productsCache = list; return list })
+      .catch((): { title: string }[] => { productsCache = []; return [] })
+  }
+  return productsPromise
+}
+function useShopProducts(): { title: string }[] {
+  const [products, setProducts] = useState<{ title: string }[]>(productsCache || [])
+  useEffect(() => {
+    if (productsCache) return
+    loadProducts().then((p) => setProducts(p))
+  }, [])
+  return products
+}
 
 type TimelineProps = {
   graph: WorkflowGraph
@@ -233,33 +256,67 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction }: {
 }
 
 function ConditionBlock({ node, onPatch, onDelete }: { node: WorkflowNode; onPatch: (id: string, p: Partial<WorkflowNode>) => void; onDelete: () => void }) {
+  const products = useShopProducts()
   if (node.type !== 'condition') return null
-  const field = CONDITION_FIELDS.find((f) => f.value === node.rule.field) || CONDITION_FIELDS[0]
+  const rule = node.rule
+  const nodeId = node.id
+  const field = CONDITION_FIELDS.find((f) => f.value === rule.field) || CONDITION_FIELDS[0]
+  const setValue = (value: string | number | boolean) => onPatch(nodeId, { rule: { ...rule, value } } as never)
+
+  // Choix de l'éditeur de VALEUR selon la source du champ.
+  function valueEditor() {
+    if (field.valueType === 'boolean') {
+      return (
+        <Select value={String(rule.value)} onValueChange={(v) => setValue(v === 'true')}>
+          <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
+          <SelectContent><SelectItem value="true">Oui</SelectItem><SelectItem value="false">Non</SelectItem></SelectContent>
+        </Select>
+      )
+    }
+    if (field.source === 'country' || field.source === 'language') {
+      const options = field.source === 'country' ? COUNTRY_OPTIONS : LANGUAGE_OPTIONS
+      return (
+        <Select value={String(rule.value ?? '')} onValueChange={setValue}>
+          <SelectTrigger className="flex-1 min-w-0"><SelectValue placeholder={field.source === 'country' ? 'Choisir un pays' : 'Choisir une langue'} /></SelectTrigger>
+          <SelectContent>{options.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+        </Select>
+      )
+    }
+    if (field.source === 'product') {
+      // La valeur stockée reste le TITRE (la condition fait « commande contient ce titre »).
+      return products.length > 0 ? (
+        <Select value={String(rule.value ?? '')} onValueChange={setValue}>
+          <SelectTrigger className="flex-1 min-w-0"><SelectValue placeholder="Choisir un produit" /></SelectTrigger>
+          <SelectContent>{products.map((p, i) => <SelectItem key={i} value={p.title}><span className="block max-w-[220px] truncate">{p.title}</span></SelectItem>)}</SelectContent>
+        </Select>
+      ) : (
+        <Input className="flex-1" placeholder="nom du produit" value={String(rule.value ?? '')} onChange={(e) => setValue(e.target.value)} />
+      )
+    }
+    // Saisie libre (nombre / texte) — collection, montant…
+    return (
+      <Input className="flex-1" type={field.valueType === 'number' ? 'number' : 'text'} placeholder={field.placeholder}
+        value={String(rule.value ?? '')}
+        onChange={(e) => setValue(field.valueType === 'number' ? parseFloat(e.target.value) : e.target.value)} />
+    )
+  }
+
   return (
     <Shell tone={TONE.violet} icon={<GitBranch className="h-4 w-4" />} kind="Si (condition)" onDelete={onDelete}>
       <div className="space-y-2">
-        <Select value={node.rule.field} onValueChange={(v) => {
+        <Select value={rule.field} onValueChange={(v) => {
           const f = CONDITION_FIELDS.find((x) => x.value === v)!
-          onPatch(node.id, { rule: { field: v as never, op: f.ops[0], value: f.valueType === 'boolean' ? true : '' } } as never)
+          onPatch(nodeId, { rule: { field: v as never, op: f.ops[0], value: f.valueType === 'boolean' ? true : '' } } as never)
         }}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>{CONDITION_FIELDS.map((f) => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}</SelectContent>
         </Select>
         <div className="flex gap-2">
-          <Select value={node.rule.op} onValueChange={(v) => onPatch(node.id, { rule: { ...node.rule, op: v as never } } as never)}>
+          <Select value={rule.op} onValueChange={(v) => onPatch(nodeId, { rule: { ...rule, op: v as never } } as never)}>
             <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
             <SelectContent>{field.ops.map((op) => <SelectItem key={op} value={op}>{op}</SelectItem>)}</SelectContent>
           </Select>
-          {field.valueType === 'boolean' ? (
-            <Select value={String(node.rule.value)} onValueChange={(v) => onPatch(node.id, { rule: { ...node.rule, value: v === 'true' } } as never)}>
-              <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
-              <SelectContent><SelectItem value="true">Oui</SelectItem><SelectItem value="false">Non</SelectItem></SelectContent>
-            </Select>
-          ) : (
-            <Input className="flex-1" type={field.valueType === 'number' ? 'number' : 'text'} placeholder={field.placeholder}
-              value={String(node.rule.value ?? '')}
-              onChange={(e) => onPatch(node.id, { rule: { ...node.rule, value: field.valueType === 'number' ? parseFloat(e.target.value) : e.target.value } } as never)} />
-          )}
+          {valueEditor()}
         </div>
       </div>
     </Shell>

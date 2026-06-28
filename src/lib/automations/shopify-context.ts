@@ -37,6 +37,8 @@ export type ShopifyOrder = {
   shipping_address?: { phone?: string | null; country_code?: string | null } | null
   billing_address?: { phone?: string | null; country_code?: string | null } | null
   fulfillments?: { tracking_url?: string; tracking_number?: string }[]
+  // Lignes de la commande (pour les conditions « Produit contient »).
+  line_items?: { title?: string; name?: string }[]
 }
 
 /** Boutique → user_id. */
@@ -156,10 +158,21 @@ export async function buildOrderContext(
   const total = order.total_price ? parseFloat(order.total_price) : undefined
   const tracking = order.fulfillments?.[0]?.tracking_url || ''
 
+  // Données pour les CONDITIONS d'automatisation.
+  const country = (order.shipping_address?.country_code
+    || order.billing_address?.country_code
+    || order.customer?.default_address?.country_code || '').toUpperCase() || undefined
+  const productTitles = Array.isArray(order.line_items)
+    ? order.line_items.map((li) => (li.title || li.name || '').trim()).filter(Boolean)
+    : undefined
+
   return {
     contactId: contact.id,
     total,
     isFirstOrder: typeof order.customer?.orders_count === 'number' ? order.customer.orders_count <= 1 : undefined,
+    country,
+    language: lang?.language || (contact as { preferred_language?: string | null }).preferred_language || undefined,
+    productTitles,
     dedupKey: order.id ? String(order.id) : orderName,
     variables: {
       customer_first_name: firstName,
