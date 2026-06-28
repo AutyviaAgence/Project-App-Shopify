@@ -66,11 +66,12 @@ export async function submitTemplateRow(
   if (!template) return { ok: false, status: 404, error: 'Modèle introuvable' }
 
   // Règle Meta : le corps ne peut pas commencer ni finir PAR une variable {{n}}.
-  // On teste littéralement le 1er/dernier token (en ignorant espaces autour),
-  // pas la ponctuation : "Bonjour …vous !" est valide (finit par du texte).
+  // ATTENTION : Meta considère qu'une variable suivie/précédée UNIQUEMENT de
+  // ponctuation ou d'espaces est « au bord » (ex : "...chez {{4}}." est refusé).
+  // Il faut du vrai texte (lettre/chiffre) avant la 1re variable et après la dernière.
   const trimmedBody = (template.body_text || '').trim()
-  const startsWithVar = /^\{\{\s*\d+\s*\}\}/.test(trimmedBody)
-  const endsWithVar = /\{\{\s*\d+\s*\}\}$/.test(trimmedBody)
+  const startsWithVar = /^[\s\p{P}]*\{\{\s*\d+\s*\}\}/u.test(trimmedBody)
+  const endsWithVar = /\{\{\s*\d+\s*\}\}[\s\p{P}]*$/u.test(trimmedBody)
   if (startsWithVar || endsWithVar) {
     return { ok: false, status: 422, error: 'Le message ne peut pas commencer ni finir par une variable ({{1}}, {{2}}…). Ajoutez du texte avant/après la variable.' }
   }

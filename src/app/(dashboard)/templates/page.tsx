@@ -457,8 +457,9 @@ export default function TemplatesPage() {
   // Règle Meta : le message ne peut pas COMMENCER ni FINIR par une variable {{n}}.
   // On le signale en direct (même logique que la validation de soumission).
   const trimmedBody = bodyText.trim()
-  const bodyStartsWithVar = /^\{\{\s*\d+\s*\}\}/.test(trimmedBody)
-  const bodyEndsWithVar = /\{\{\s*\d+\s*\}\}$/.test(trimmedBody)
+  // Meta refuse une variable au bord, même suivie/précédée seulement de ponctuation.
+  const bodyStartsWithVar = /^[\s\p{P}]*\{\{\s*\d+\s*\}\}/u.test(trimmedBody)
+  const bodyEndsWithVar = /\{\{\s*\d+\s*\}\}[\s\p{P}]*$/u.test(trimmedBody)
   const bodyEdgeError = (bodyStartsWithVar || bodyEndsWithVar)
     ? `Le message ne peut pas ${bodyStartsWithVar && bodyEndsWithVar ? 'commencer ni finir' : bodyStartsWithVar ? 'commencer' : 'finir'} par une variable. Ajoutez du texte ${bodyStartsWithVar && bodyEndsWithVar ? 'avant et après' : bodyStartsWithVar ? 'avant' : 'après'}.`
     : null

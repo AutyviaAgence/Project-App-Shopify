@@ -67,12 +67,14 @@ function normalize(text: string, requestedKeys: string[]): GeneratedProposal {
   return { body_text: body.trim(), variable_keys: keys }
 }
 
-/** Valide qu'un corps est exploitable (non vide, pas de {{n}} en début/fin). */
+/** Valide qu'un corps est exploitable (non vide, pas de {{n}} en début/fin).
+    Meta refuse une variable suivie/précédée seulement de ponctuation ou
+    d'espaces (ex : "...chez {{4}}." invalide) → il faut du vrai texte au bord. */
 function isValidBody(text: string): boolean {
   const t = (text || '').trim()
   if (!t) return false
-  if (/^\{\{\s*\d+\s*\}\}/.test(t)) return false
-  if (/\{\{\s*\d+\s*\}\}$/.test(t)) return false
+  if (/^[\s\p{P}]*\{\{\s*\d+\s*\}\}/u.test(t)) return false
+  if (/\{\{\s*\d+\s*\}\}[\s\p{P}]*$/u.test(t)) return false
   if (t.length > 1024) return false
   return true
 }
@@ -106,7 +108,7 @@ ${varList}
 
 ${input.storeContextPrompt ? input.storeContextPrompt + '\n' : ''}
 RÈGLES STRICTES (Meta) :
-- Le message ne doit JAMAIS commencer ni finir par une variable {{n}} : mets toujours du texte avant ET après.
+- Le message ne doit JAMAIS commencer ni finir par une variable {{n}}. Après la DERNIÈRE variable et avant la PREMIÈRE, il faut de VRAIS MOTS (pas seulement de la ponctuation ou un point). INTERDIT : "...chez {{4}}." ou "{{1}}, bonjour". CORRECT : "...chez {{4}}, à très vite !" ou "Bonjour {{1}}, ...". Termine toujours par une phrase de conclusion SANS variable.
 - Utilise UNIQUEMENT les variables listées ci-dessus, avec leur numéro exact ({{1}}, {{2}}…). N'invente pas de variable.
 - Numérotation contiguë à partir de {{1}}.
 - 1024 caractères maximum par message, idéalement 2 à 4 phrases.
