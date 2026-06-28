@@ -572,8 +572,8 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
             </RowField>
           </Group>
 
-          <Group title="Limites & timing">
-              <RowField label="Délai de réponse">
+          <Group title="Réponses">
+              <RowField label="Délai de réponse" hint="Temps d'attente avant que l'agent réponde">
                 <span className="flex items-center gap-2 text-sm">
                   <MiniNum value={delayMin} onChange={v => setDelayMin(parseInt(v) || 0)} />
                   <span className="text-muted-foreground">–</span>
@@ -582,18 +582,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                 </span>
               </RowField>
               <Divider />
-              <RowField label="Max messages">
-                <MiniNum value={maxMessages} onChange={setMaxMessages} placeholder="∞" />
-              </RowField>
-              <Divider />
-              <RowField label="Timeout inactivité">
-                <span className="flex items-center gap-2 text-sm">
-                  <MiniNum value={inactivityTimeout} onChange={setInactivityTimeout} placeholder="—" />
-                  <span className="text-muted-foreground text-xs">min</span>
-                </span>
-              </RowField>
-              <Divider />
-              <RowField label="Condition d'arrêt" stacked>
+              <RowField label="Condition d'arrêt" hint="L'agent se met en pause si remplie" stacked>
                 <CleanTextarea value={stopCondition} onChange={setStopCondition} placeholder="Ex: si le client a confirmé son rendez-vous…" />
               </RowField>
             </Group>
