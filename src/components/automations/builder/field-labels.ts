@@ -6,6 +6,7 @@ import type { ConditionField, ConditionOp } from '@/lib/automations/graph-types'
  *  - undefined : saisie libre (number/text) ou booléen (oui/non)
  *  - 'country' | 'language' : liste fixe (cf. plus bas)
  *  - 'product' : liste des produits Shopify (chargée via /api/shopify/products)
+ *  - 'collection' : liste des collections Shopify (/api/shopify/collections)
  */
 export const CONDITION_FIELDS: {
   value: ConditionField
@@ -13,12 +14,12 @@ export const CONDITION_FIELDS: {
   valueType: 'number' | 'boolean' | 'text'
   ops: ConditionOp[]
   placeholder?: string
-  source?: 'country' | 'language' | 'product'
+  source?: 'country' | 'language' | 'product' | 'collection'
 }[] = [
   { value: 'order_total', label: 'Montant de la commande (€)', valueType: 'number', ops: ['>', '>=', '<', '<=', '==', '!='], placeholder: '50' },
   { value: 'is_first_order', label: 'Première commande', valueType: 'boolean', ops: ['==', '!='] },
   { value: 'product_contains', label: 'Produit contient', valueType: 'text', ops: ['contains', '!='], source: 'product' },
-  { value: 'collection_contains', label: 'Collection contient', valueType: 'text', ops: ['contains', '!='], placeholder: 'nom de la collection' },
+  { value: 'collection_contains', label: 'Collection contient', valueType: 'text', ops: ['contains', '!='], source: 'collection' },
   { value: 'country', label: 'Pays du client', valueType: 'text', ops: ['==', '!='], source: 'country' },
   { value: 'language', label: 'Langue du client', valueType: 'text', ops: ['==', '!='], source: 'language' },
 ]

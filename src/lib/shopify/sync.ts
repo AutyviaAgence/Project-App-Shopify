@@ -41,6 +41,7 @@ const PRODUCTS_QUERY = `
           vendor
           tags
           featuredImage { url }
+          collections(first: 10) { edges { node { title } } }
           variants(first: 20) {
             edges { node { title price sku availableForSale } }
           }
@@ -54,6 +55,14 @@ const PAGES_QUERY = `
   query Pages($cursor: String) {
     pages(first: 50, after: $cursor) {
       edges { cursor node { title body handle } }
+      pageInfo { hasNextPage }
+    }
+  }`
+
+const COLLECTIONS_QUERY = `
+  query Collections($cursor: String) {
+    collections(first: 100, after: $cursor) {
+      edges { cursor node { id title handle } }
       pageInfo { hasNextPage }
     }
   }`
@@ -73,6 +82,7 @@ type ProductNode = {
   id: string; title: string; handle: string
   description: string; productType: string; vendor: string; tags: string[]
   featuredImage: { url: string } | null
+  collections: { edges: { node: { title: string } }[] }
   variants: { edges: { node: { title: string; price: string; sku: string; availableForSale: boolean } }[] }
 }
 
@@ -85,6 +95,7 @@ type VariantEdge = { node: { title: string; price: string; sku: string; availabl
 export type StructuredProduct = {
   shopify_id: string; title: string; handle: string | null; url: string | null
   image_url: string | null; price: string | null; available: boolean; position: number
+  collections: string[]
 }
 
 async function fetchAllProducts(
@@ -122,6 +133,7 @@ async function fetchAllProducts(
         price: firstVariant?.price || null,
         available: p.variants.edges.some((v) => v.node.availableForSale),
         position: count - 1,
+        collections: (p.collections?.edges || []).map((e) => e.node.title).filter(Boolean),
       })
     }
     if (!res.data.products.pageInfo.hasNextPage) break
@@ -130,6 +142,32 @@ async function fetchAllProducts(
     pages++
   }
   return { text: lines.join('\n'), count, products }
+}
+
+/** Collection structurée (pour la liste des conditions d'automatisation). */
+export type StructuredCollection = { shopify_id: string; title: string; handle: string | null; position: number }
+
+type CollectionEdge = { cursor: string; node: { id: string; title: string; handle: string } }
+type CollectionsResp = { collections: { edges: CollectionEdge[]; pageInfo: { hasNextPage: boolean } } }
+
+async function fetchAllCollections(shop: string, token: string): Promise<StructuredCollection[]> {
+  const out: StructuredCollection[] = []
+  let cursor: string | null = null
+  let pages = 0
+  let pos = 0
+  while (pages < 10) {
+    const res = await shopifyGraphQL<CollectionsResp>(shop, token, COLLECTIONS_QUERY, { cursor })
+    if (!res.ok) break
+    const edges: CollectionEdge[] = res.data.collections.edges
+    for (const { node } of edges) {
+      out.push({ shopify_id: node.id, title: node.title, handle: node.handle || null, position: pos++ })
+    }
+    if (!res.data.collections.pageInfo.hasNextPage) break
+    cursor = edges.length ? edges[edges.length - 1].cursor : null
+    if (!cursor) break
+    pages++
+  }
+  return out
 }
 
 type PageEdge = { cursor: string; node: { title: string; body: string } }
@@ -260,7 +298,7 @@ async function upsertStructuredProducts(
       store_id: storeId, user_id: userId,
       shopify_id: p.shopify_id, title: p.title, handle: p.handle,
       url: p.url, image_url: p.image_url, price: p.price,
-      available: p.available, position: p.position,
+      available: p.available, position: p.position, collections: p.collections,
     }))
     // Insert par lots de 500 (limite Postgrest).
     for (let i = 0; i < rows.length; i += 500) {
@@ -269,6 +307,30 @@ async function upsertStructuredProducts(
     }
   } catch (e) {
     console.error('[shopify] upsert produits structurés échec:', e)
+  }
+}
+
+/** Remplace les collections structurées d'une boutique (delete-all + insert). */
+async function upsertStructuredCollections(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  storeId: string,
+  userId: string,
+  collections: StructuredCollection[]
+): Promise<void> {
+  try {
+    await supabase.from('shopify_collections').delete().eq('store_id', storeId)
+    if (collections.length === 0) return
+    const rows = collections.map((c) => ({
+      store_id: storeId, user_id: userId,
+      shopify_id: c.shopify_id, title: c.title, handle: c.handle, position: c.position,
+    }))
+    for (let i = 0; i < rows.length; i += 500) {
+      const ins = await supabase.from('shopify_collections').insert(rows.slice(i, i + 500))
+      if (ins.error) console.error('[shopify] insert collections err:', ins.error.message)
+    }
+  } catch (e) {
+    console.error('[shopify] upsert collections échec:', e)
   }
 }
 
@@ -382,6 +444,9 @@ export async function syncShopToKnowledge(
     // Produits structurés (pour carrousels/liens des templates IA) — TOUJOURS,
     // indépendamment du hash anti-doublon du catalogue texte.
     await upsertStructuredProducts(supabase, storeId, store.user_id, structured)
+    // Collections structurées (pour les conditions d'automatisation).
+    const cols = await fetchAllCollections(shop, token)
+    await upsertStructuredCollections(supabase, storeId, store.user_id, cols)
     updates.catalog_synced_at = new Date().toISOString()
   }
 
@@ -473,6 +538,8 @@ export async function autoConfigureAgentFromShop(storeId: string): Promise<AutoC
   let documents = 0
   const { text: products, count: productCount, products: structuredProducts } = await fetchAllProducts(shop, token)
   await upsertStructuredProducts(supabase, storeId, store.user_id, structuredProducts)
+  const cols = await fetchAllCollections(shop, token)
+  await upsertStructuredCollections(supabase, storeId, store.user_id, cols)
   const [pages, policies] = await Promise.all([
     fetchAllPages(shop, token),
     fetchPolicies(shop, token),

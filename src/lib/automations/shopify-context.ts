@@ -37,8 +37,8 @@ export type ShopifyOrder = {
   shipping_address?: { phone?: string | null; country_code?: string | null } | null
   billing_address?: { phone?: string | null; country_code?: string | null } | null
   fulfillments?: { tracking_url?: string; tracking_number?: string }[]
-  // Lignes de la commande (pour les conditions « Produit contient »).
-  line_items?: { title?: string; name?: string }[]
+  // Lignes de la commande (pour les conditions « Produit contient » / collection).
+  line_items?: { title?: string; name?: string; product_id?: number | string | null }[]
 }
 
 /** Boutique → user_id. */
@@ -166,6 +166,26 @@ export async function buildOrderContext(
     ? order.line_items.map((li) => (li.title || li.name || '').trim()).filter(Boolean)
     : undefined
 
+  // Collections de la commande : on retrouve les produits commandés (par leur id
+  // numérique, suffixe du gid stocké) puis on agrège leurs collections.
+  let collections: string[] | undefined
+  if (Array.isArray(order.line_items)) {
+    const ids = order.line_items.map((li) => (li.product_id != null ? String(li.product_id) : '')).filter(Boolean)
+    if (ids.length > 0) {
+      // gid Shopify = gid://shopify/Product/<id> → on matche sur le suffixe.
+      const gids = ids.map((id) => `gid://shopify/Product/${id}`)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: prods } = await (supabase as any)
+        .from('shopify_products')
+        .select('collections')
+        .eq('user_id', userId)
+        .in('shopify_id', gids)
+      const set = new Set<string>()
+      for (const p of prods || []) for (const c of (p.collections || [])) set.add(c)
+      collections = set.size > 0 ? Array.from(set) : undefined
+    }
+  }
+
   return {
     contactId: contact.id,
     total,
@@ -173,6 +193,7 @@ export async function buildOrderContext(
     country,
     language: lang?.language || (contact as { preferred_language?: string | null }).preferred_language || undefined,
     productTitles,
+    collections,
     dedupKey: order.id ? String(order.id) : orderName,
     variables: {
       customer_first_name: firstName,

@@ -18,27 +18,23 @@ const DELAY_PRESETS = [
   { v: 180, l: '3 heures' }, { v: 1440, l: '1 jour' }, { v: 2880, l: '2 jours' }, { v: 10080, l: '7 jours' },
 ]
 
-// Produits de la boutique (titres) — chargés une seule fois, partagés par tous
-// les blocs condition pour la liste déroulante « Produit contient ».
-let productsCache: { title: string }[] | null = null
-let productsPromise: Promise<{ title: string }[]> | null = null
-function loadProducts(): Promise<{ title: string }[]> {
-  if (productsCache) return Promise.resolve(productsCache)
-  if (!productsPromise) {
-    productsPromise = fetch('/api/shopify/products')
-      .then((r) => (r.ok ? r.json() : { data: [] }))
-      .then((j): { title: string }[] => { const list = Array.isArray(j.data) ? j.data : []; productsCache = list; return list })
-      .catch((): { title: string }[] => { productsCache = []; return [] })
-  }
-  return productsPromise
-}
-function useShopProducts(): { title: string }[] {
-  const [products, setProducts] = useState<{ title: string }[]>(productsCache || [])
+// Produits / collections de la boutique (titres) — chargés une seule fois et
+// partagés par tous les blocs condition (listes déroulantes des conditions).
+const listCache: Record<string, { title: string }[]> = {}
+const listPromise: Record<string, Promise<{ title: string }[]>> = {}
+function useShopList(endpoint: string): { title: string }[] {
+  const [items, setItems] = useState<{ title: string }[]>(listCache[endpoint] || [])
   useEffect(() => {
-    if (productsCache) return
-    loadProducts().then((p) => setProducts(p))
-  }, [])
-  return products
+    if (listCache[endpoint]) return
+    if (!listPromise[endpoint]) {
+      listPromise[endpoint] = fetch(endpoint)
+        .then((r) => (r.ok ? r.json() : { data: [] }))
+        .then((j): { title: string }[] => { const list = Array.isArray(j.data) ? j.data : []; listCache[endpoint] = list; return list })
+        .catch((): { title: string }[] => { listCache[endpoint] = []; return [] })
+    }
+    listPromise[endpoint].then((p) => setItems(p))
+  }, [endpoint])
+  return items
 }
 
 type TimelineProps = {
@@ -256,7 +252,8 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction }: {
 }
 
 function ConditionBlock({ node, onPatch, onDelete }: { node: WorkflowNode; onPatch: (id: string, p: Partial<WorkflowNode>) => void; onDelete: () => void }) {
-  const products = useShopProducts()
+  const products = useShopList('/api/shopify/products')
+  const collections = useShopList('/api/shopify/collections')
   if (node.type !== 'condition') return null
   const rule = node.rule
   const nodeId = node.id
@@ -282,15 +279,17 @@ function ConditionBlock({ node, onPatch, onDelete }: { node: WorkflowNode; onPat
         </Select>
       )
     }
-    if (field.source === 'product') {
+    if (field.source === 'product' || field.source === 'collection') {
       // La valeur stockée reste le TITRE (la condition fait « commande contient ce titre »).
-      return products.length > 0 ? (
+      const items = field.source === 'product' ? products : collections
+      const ph = field.source === 'product' ? 'Choisir un produit' : 'Choisir une collection'
+      return items.length > 0 ? (
         <Select value={String(rule.value ?? '')} onValueChange={setValue}>
-          <SelectTrigger className="flex-1 min-w-0"><SelectValue placeholder="Choisir un produit" /></SelectTrigger>
-          <SelectContent>{products.map((p, i) => <SelectItem key={i} value={p.title}><span className="block max-w-[220px] truncate">{p.title}</span></SelectItem>)}</SelectContent>
+          <SelectTrigger className="flex-1 min-w-0"><SelectValue placeholder={ph} /></SelectTrigger>
+          <SelectContent>{items.map((it, i) => <SelectItem key={i} value={it.title}><span className="block max-w-[220px] truncate">{it.title}</span></SelectItem>)}</SelectContent>
         </Select>
       ) : (
-        <Input className="flex-1" placeholder="nom du produit" value={String(rule.value ?? '')} onChange={(e) => setValue(e.target.value)} />
+        <Input className="flex-1" placeholder={ph} value={String(rule.value ?? '')} onChange={(e) => setValue(e.target.value)} />
       )
     }
     // Saisie libre (nombre / texte) — collection, montant…
