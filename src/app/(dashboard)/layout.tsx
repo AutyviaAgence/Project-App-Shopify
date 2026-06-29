@@ -146,23 +146,42 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   // Lien de nav. Mobile : pleine largeur + libellé. Desktop : carré 56px replié,
   // ou pleine largeur + libellé quand la sidebar est élargie (épinglée/survolée).
+  // Quand la sidebar est épinglée (collée au panneau), l'onglet actif prend le
+  // fond du panneau (--background) et se raccorde via des coins inversés.
   const NavLink = ({ item }: { item: typeof NAV_ITEMS[0] }) => {
     const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+    // Effet « languette » uniquement quand la sidebar est épinglée (pas au survol,
+    // où elle flotte encore) et large.
+    const tab = pinned
     return (
       <Link
         href={item.href}
         title={!expanded ? item.label : undefined}
         className={cn(
-          'group flex items-center gap-3 rounded-xl text-[15px] font-medium transition-all duration-200',
-          'px-3 py-3',
+          'group relative flex items-center gap-3 text-[15px] font-medium transition-all duration-200',
+          'rounded-xl px-3 py-3',
           expanded
             ? 'md:w-full md:justify-start md:px-3 md:py-2.5'
             : 'md:h-12 md:w-12 md:justify-center md:gap-0 md:px-0 md:py-0',
           isActive
-            ? 'bg-white/10 text-white ring-1 ring-white/15'
+            ? tab
+              // Languette : fond = panneau, arrondi à gauche, colle au bord droit
+              ? 'md:-mr-2 md:rounded-r-none md:rounded-l-xl md:bg-background md:text-foreground'
+              : 'bg-white/10 text-white ring-1 ring-white/15'
             : 'text-white/55 hover:bg-white/[0.06] hover:text-white'
         )}
       >
+        {/* Coins inversés : raccordent l'onglet au panneau */}
+        {isActive && tab && (
+          <>
+            <span className="pointer-events-none absolute -top-3 right-0 hidden h-3 w-3 bg-background md:block" aria-hidden>
+              <span className="absolute inset-0 rounded-br-[12px] bg-[#0d0d0f]" />
+            </span>
+            <span className="pointer-events-none absolute -bottom-3 right-0 hidden h-3 w-3 bg-background md:block" aria-hidden>
+              <span className="absolute inset-0 rounded-tr-[12px] bg-[#0d0d0f]" />
+            </span>
+          </>
+        )}
         <item.icon className="h-[22px] w-[22px] shrink-0" />
         <span className={cn(expanded ? 'md:inline' : 'md:hidden')}>{item.label}</span>
       </Link>
@@ -187,7 +206,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         onMouseLeave={() => setHovered(false)}
         className={cn(
           'group/sidebar fixed inset-y-0 left-0 z-50 flex w-[260px] max-w-[80vw] flex-col bg-[#0a0a0c] transition-all duration-300',
-          'md:relative md:inset-y-auto md:m-2 md:mr-0 md:h-[calc(100dvh-1rem)] md:max-w-none md:rounded-[10px] md:p-2',
+          'md:relative md:inset-y-auto md:m-2 md:mr-0 md:h-[calc(100dvh-1rem)] md:max-w-none md:p-2',
+          // Épinglée : colle au panneau (pas d'arrondi à droite). Sinon : carte arrondie.
+          pinned ? 'md:rounded-l-[10px] md:rounded-r-none' : 'md:rounded-[10px]',
           expanded ? 'md:w-[240px]' : 'md:w-[81px]',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         )}
@@ -275,8 +296,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </aside>
 
-      {/* Main content — panneau arrondi flottant. */}
-      <div className="relative flex flex-1 flex-col overflow-hidden bg-background md:m-2 md:ml-2 md:rounded-[20px] md:shadow-2xl md:ring-1 md:ring-black/5 dark:md:ring-white/10">
+      {/* Main content — panneau. Collé à la sidebar quand elle est épinglée
+          (l'onglet actif s'y raccorde via la languette), sinon flottant. */}
+      <div className={cn(
+        'relative flex flex-1 flex-col overflow-hidden bg-background md:my-2 md:mr-2 md:shadow-2xl md:ring-1 md:ring-black/5 dark:md:ring-white/10',
+        pinned ? 'md:ml-0 md:rounded-l-none md:rounded-r-[20px]' : 'md:ml-2 md:rounded-[20px]'
+      )}>
         {/* Topbar globale : menu mobile (gauche) + cloche/réglages/profil (droite) */}
         <DashboardTopBar onOpenSidebar={() => setSidebarOpen(true)} />
 

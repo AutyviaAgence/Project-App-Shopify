@@ -15,7 +15,7 @@ function FrameCard({ className, children, gradient }: { className?: string; chil
   return (
     <div
       className={cn(
-        'rounded-2xl border border-white/10 p-5',
+        'rounded-2xl border border-white/[0.14] p-5',
         gradient ? 'bg-gradient-to-b from-black to-[#09090b]' : 'bg-black',
         className
       )}
