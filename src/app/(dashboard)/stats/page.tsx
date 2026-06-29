@@ -15,9 +15,9 @@ import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { KPICard } from '@/components/stats/kpi-card'
 import { EngagementFunnel } from '@/components/stats/engagement-funnel'
+import { StatsOverviewBoard } from '@/components/stats/overview-board'
 import dynamic from 'next/dynamic'
 
-const MessagesChart = dynamic(() => import('@/components/stats/charts').then(m => ({ default: m.MessagesChart })))
 const TimeSeriesChart = dynamic(() => import('@/components/stats/charts').then(m => ({ default: m.TimeSeriesChart })))
 const AgentsComparisonChart = dynamic(() => import('@/components/stats/charts').then(m => ({ default: m.AgentsComparisonChart })))
 const StageDistributionChart = dynamic(() => import('@/components/stats/charts').then(m => ({ default: m.StageDistributionChart })))
@@ -30,7 +30,6 @@ const PeakHoursChart = dynamic(() => import('@/components/stats/charts').then(m 
 import { toast } from 'sonner'
 import {
   MessageSquare,
-  ArrowDownLeft,
   Users,
   UserPlus,
   Bot,
@@ -38,7 +37,6 @@ import {
   MousePointerClick,
   ArrowRightLeft,
   Phone,
-  Zap,
   Clock,
   Megaphone,
   Send,
@@ -249,98 +247,18 @@ export default function StatsPage() {
           {/* ================================================================ */}
           {/* === Vue globale === */}
           {/* ================================================================ */}
-          <TabsContent value="overview" className="space-y-8">
-            {/* Section 1: Activité */}
-            <div>
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                {t('stats.section_activity')}
-              </h3>
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                <KPICard
-                  title={t('stats.total_messages')}
-                  value={stats.overview.totalMessages}
-                  trend={stats.overview.messagesTrend}
-                  icon={MessageSquare}
-                />
-                <KPICard
-                  title={t('stats.messages_received')}
-                  value={stats.overview.messagesIn}
-                  trend={null}
-                  icon={ArrowDownLeft}
-                  color="blue"
-                />
-                <KPICard
-                  title={t('stats.active_conversations')}
-                  value={stats.overview.activeConversations}
-                  trend={stats.overview.conversationsTrend}
-                  icon={Users}
-                  color="teal"
-                />
-                <KPICard
-                  title={t('stats.new_contacts')}
-                  value={stats.overview.newContacts}
-                  trend={stats.overview.contactsTrend}
-                  icon={UserPlus}
-                  color="orange"
-                />
-              </div>
-            </div>
-
-            {/* Section 2: Performance */}
-            <div>
-              <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">
-                {t('stats.section_performance')}
-              </h3>
-              <div className="grid gap-4 sm:grid-cols-3">
-                <KPICard
-                  title={t('stats.contact_response_rate')}
-                  value={stats.overview.contactResponseRate ?? 0}
-                  trend={null}
-                  icon={TrendingUp}
-                  formatValue={(v) => `${v}%`}
-                />
-                <KPICard
-                  title={t('stats.ai_response_rate')}
-                  value={stats.overview.responseRate ?? 0}
-                  trend={null}
-                  icon={Zap}
-                  formatValue={(v) => `${v}%`}
-                  color="blue"
-                />
-                <KPICard
-                  title={t('stats.avg_response_time')}
-                  value={stats.overview.avgResponseTime ?? 0}
-                  trend={null}
-                  icon={Clock}
-                  formatValue={(v) => v > 0 ? formatSeconds(v) : '—'}
-                  color="teal"
-                />
-              </div>
-            </div>
-
-            {/* Section 3: Graphiques */}
-            <div className="grid gap-6 lg:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">{t('stats.messages_per_day')}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <MessagesChart data={stats.charts.messagesOverTime} />
-                </CardContent>
-              </Card>
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-base">{t('stats.new_conversations')}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <TimeSeriesChart
-                    data={stats.charts.conversationsOverTime}
-                    title=""
-                    color="var(--accent,#40E9BE)"
-                  />
-                </CardContent>
-              </Card>
-            </div>
+          <TabsContent value="overview">
+            <StatsOverviewBoard
+              stats={stats}
+              locale={locale}
+              labels={{
+                title: t('stats.title'),
+                perDay: t('stats.messages_per_day'),
+                aiResponse: t('stats.ai_response_rate'),
+                templates: 'Modèles WhatsApp',
+                templatesSub: 'Pré-approuvés par Meta, prêts pour relancer et convertir.',
+              }}
+            />
           </TabsContent>
 
           {/* ================================================================ */}

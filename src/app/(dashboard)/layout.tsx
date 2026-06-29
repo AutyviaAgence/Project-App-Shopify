@@ -17,6 +17,8 @@ import {
   HelpCircle,
   FileText,
   X,
+  ChevronLeft,
+  ChevronRight,
   AlertTriangle,
   CreditCard,
   Workflow,
@@ -58,7 +60,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname()
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [pinned, setPinned] = useState(false)   // sidebar épinglée ouverte (desktop)
+  const [hovered, setHovered] = useState(false)  // survol → élargissement temporaire
   const [profile, setProfile] = useState<{ full_name?: string | null; avatar_url?: string | null } | null>(null)
+  // Sur desktop, la sidebar est « large » si épinglée ou survolée.
+  const expanded = pinned || hovered
   const { subscription, loading: subscriptionLoading, refetch: refetchSubscription } = useSubscription()
   const { t } = useTranslation()
   const tenant = useTenant()
@@ -138,25 +144,27 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.refresh()
   }, [router, t])
 
-  // Lien de nav : carré d'icône compact sur desktop (sidebar fine 81px), avec
-  // libellé sur mobile (le drawer est large). Actif = pastille claire.
+  // Lien de nav. Mobile : pleine largeur + libellé. Desktop : carré 56px replié,
+  // ou pleine largeur + libellé quand la sidebar est élargie (épinglée/survolée).
   const NavLink = ({ item }: { item: typeof NAV_ITEMS[0] }) => {
     const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
     return (
       <Link
         href={item.href}
-        title={item.label}
+        title={!expanded ? item.label : undefined}
         className={cn(
           'group flex items-center gap-3 rounded-xl text-[15px] font-medium transition-all duration-200',
-          // Mobile : pleine largeur avec libellé. Desktop : carré centré 56px.
-          'px-3 py-3 md:h-14 md:w-14 md:justify-center md:gap-0 md:px-0 md:py-0',
+          'px-3 py-3',
+          expanded
+            ? 'md:w-full md:justify-start md:px-3 md:py-2.5'
+            : 'md:h-12 md:w-12 md:justify-center md:gap-0 md:px-0 md:py-0',
           isActive
             ? 'bg-white/10 text-white ring-1 ring-white/15'
             : 'text-white/55 hover:bg-white/[0.06] hover:text-white'
         )}
       >
         <item.icon className="h-[22px] w-[22px] shrink-0" />
-        <span className="md:hidden">{item.label}</span>
+        <span className={cn(expanded ? 'md:inline' : 'md:hidden')}>{item.label}</span>
       </Link>
     )
   }
@@ -172,63 +180,97 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         />
       )}
 
-      {/* Sidebar — carte flottante fine (style Framer : 81px, radius 10px, #0a0a0c).
-          Sur mobile : drawer large avec libellés. */}
+      {/* Sidebar — carte flottante (style Framer). Repliée : 81px (icônes).
+          Élargie (épinglée ou survolée) : 240px avec libellés. Mobile : drawer. */}
       <aside
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex w-[260px] max-w-[80vw] flex-col bg-[#0a0a0c] transition-transform duration-300',
-          'md:relative md:inset-y-auto md:m-2 md:mr-0 md:h-[calc(100dvh-1rem)] md:w-[81px] md:max-w-none md:rounded-[10px] md:p-2',
+          'group/sidebar fixed inset-y-0 left-0 z-50 flex w-[260px] max-w-[80vw] flex-col bg-[#0a0a0c] transition-all duration-300',
+          'md:relative md:inset-y-auto md:m-2 md:mr-0 md:h-[calc(100dvh-1rem)] md:max-w-none md:rounded-[10px] md:p-2',
+          expanded ? 'md:w-[240px]' : 'md:w-[81px]',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         )}
       >
-        {/* Logo & Close */}
-        <div className="flex h-[60px] items-center justify-between px-5 md:h-auto md:justify-center md:px-0 md:pb-2 md:pt-1">
-          <Link href="/dashboard" className="flex items-center gap-3 md:gap-0">
+        {/* Logo & Close + flèche pin (desktop) */}
+        <div className={cn(
+          'relative flex h-[60px] items-center px-5 md:h-auto md:px-0 md:pb-2 md:pt-1',
+          expanded ? 'justify-between md:px-2' : 'justify-between md:justify-center'
+        )}>
+          <Link href="/dashboard" className="flex items-center gap-3">
             <Image src={tenant.logoUrl} alt={tenant.appName} width={40} height={40} className="h-10 w-10 md:h-9 md:w-9" />
-            <span className="text-2xl font-bold text-white md:hidden">{tenant.appName}</span>
+            <span className={cn('text-2xl font-bold text-white', expanded ? 'md:inline' : 'md:hidden')}>{tenant.appName}</span>
           </Link>
+
+          {/* Mobile : fermer */}
           <button
             onClick={() => setSidebarOpen(false)}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-white/70 hover:bg-white/10 hover:text-white md:hidden"
           >
             <X className="h-5 w-5" />
           </button>
+
+          {/* Desktop : flèche pour épingler/ouvrir la sidebar */}
+          <button
+            onClick={() => setPinned(p => !p)}
+            title={pinned ? 'Réduire le menu' : 'Agrandir le menu'}
+            className={cn(
+              'hidden h-7 w-7 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white/70 transition-all hover:bg-white/15 hover:text-white md:flex',
+              expanded ? '' : 'md:absolute md:-right-1 md:top-1/2 md:-translate-y-1/2 md:opacity-0 md:group-hover/sidebar:opacity-100'
+            )}
+          >
+            {expanded ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+          </button>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 space-y-1.5 overflow-y-auto overflow-x-hidden px-3 py-2 md:flex md:flex-col md:items-center md:gap-3 md:space-y-0 md:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <nav className={cn(
+          'flex-1 space-y-1.5 overflow-y-auto overflow-x-hidden px-3 py-2 md:flex md:flex-col md:gap-2 md:space-y-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+          expanded ? 'md:items-stretch md:px-2' : 'md:items-center md:px-0'
+        )}>
           {NAV_ITEMS.map((item) => (
             <NavLink key={item.href} item={item} />
           ))}
         </nav>
 
         {/* Bas : nav secondaire + déconnexion + avatar */}
-        <div className="space-y-1.5 px-3 py-2 md:flex md:flex-col md:items-center md:gap-2 md:space-y-0 md:px-0">
+        <div className={cn(
+          'space-y-1.5 px-3 py-2 md:flex md:flex-col md:gap-2 md:space-y-0',
+          expanded ? 'md:items-stretch md:px-2' : 'md:items-center md:px-0'
+        )}>
           {BOTTOM_NAV_ITEMS.map((item) => (
             <NavLink key={item.href} item={item} />
           ))}
 
           <button
             onClick={handleSignOut}
-            title={t('nav.signout')}
+            title={!expanded ? t('nav.signout') : undefined}
             className={cn(
               'flex items-center gap-3 rounded-xl text-[15px] font-medium text-white/55 transition-all duration-200 hover:bg-white/[0.06] hover:text-white',
-              'px-3 py-3 md:h-14 md:w-14 md:justify-center md:gap-0 md:px-0 md:py-0'
+              'px-3 py-3',
+              expanded ? 'md:w-full md:justify-start md:px-3 md:py-2.5' : 'md:h-12 md:w-12 md:justify-center md:gap-0 md:px-0 md:py-0'
             )}
           >
             <LogOut className="h-[22px] w-[22px] shrink-0" />
-            <span className="md:hidden">{t('nav.signout')}</span>
+            <span className={cn(expanded ? 'md:inline' : 'md:hidden')}>{t('nav.signout')}</span>
           </button>
 
-          {/* Avatar (juste l'icône sur desktop) */}
-          <Link href="/settings" className="mt-1 flex items-center gap-3 rounded-xl px-3 py-2 md:justify-center md:px-0" title={profile?.full_name || 'Profil'}>
+          {/* Avatar */}
+          <Link
+            href="/settings"
+            title={profile?.full_name || 'Profil'}
+            className={cn(
+              'mt-1 flex items-center gap-3 rounded-xl px-3 py-2',
+              expanded ? 'md:justify-start md:px-3' : 'md:justify-center md:px-0'
+            )}
+          >
             <Avatar size="default" className="ring-1 ring-white/15">
               {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt={profile.full_name || 'Profil'} />}
               <AvatarFallback className="bg-white/10 text-[11px] font-semibold text-white">
                 {(profile?.full_name || '').split(' ').map(p => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '·'}
               </AvatarFallback>
             </Avatar>
-            <span className="text-sm font-medium text-white/80 md:hidden">{profile?.full_name || 'Profil'}</span>
+            <span className={cn('text-sm font-medium text-white/80', expanded ? 'md:inline' : 'md:hidden')}>{profile?.full_name || 'Profil'}</span>
           </Link>
         </div>
       </aside>
