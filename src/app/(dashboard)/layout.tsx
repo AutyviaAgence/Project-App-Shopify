@@ -175,10 +175,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {isActive && tab && (
           <>
             <span className="pointer-events-none absolute -top-3 right-0 hidden h-3 w-3 bg-background md:block" aria-hidden>
-              <span className="absolute inset-0 rounded-br-[12px] bg-[#0d0d0f]" />
+              <span className="absolute inset-0 rounded-br-[12px] bg-[#0a0a0c]" />
             </span>
             <span className="pointer-events-none absolute -bottom-3 right-0 hidden h-3 w-3 bg-background md:block" aria-hidden>
-              <span className="absolute inset-0 rounded-tr-[12px] bg-[#0d0d0f]" />
+              <span className="absolute inset-0 rounded-tr-[12px] bg-[#0a0a0c]" />
             </span>
           </>
         )}

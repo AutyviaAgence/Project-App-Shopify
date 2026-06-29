@@ -6,7 +6,7 @@ const AUTH_ROUTES = ['/login', '/register', '/forgot-password']
 
 // Bump pour invalider tous les cookies tenant en cache (ex: changement de
 // palette de thème). Un cookie sans cette version est régénéré depuis la DB.
-const TENANT_COOKIE_VERSION = '3'
+const TENANT_COOKIE_VERSION = '4'
 
 export async function middleware(request: NextRequest) {
   const { user, supabaseResponse } = await updateSession(request)
