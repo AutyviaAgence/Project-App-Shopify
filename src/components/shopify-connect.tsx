@@ -121,13 +121,13 @@ export function ShopifyConnect() {
       <div className="rounded-xl border p-5">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-500/15">
-              <Store className="h-5 w-5 text-green-600" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/15">
+              <Store className="h-5 w-5 text-blue-600" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <span className="font-medium">Boutique Shopify</span>
-                <span className="rounded-full bg-green-500/15 px-2 py-0.5 text-xs text-green-600">Connectée</span>
+                <span className="rounded-full bg-blue-500/15 px-2 py-0.5 text-xs text-blue-600">Connectée</span>
               </div>
               <p className="text-sm text-muted-foreground truncate">{status.shop_name || status.shop_domain}</p>
             </div>
@@ -148,8 +148,8 @@ export function ShopifyConnect() {
         {/* Détail synchro */}
         <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 border-t pt-3 text-xs text-muted-foreground">
           <span>{status.products_synced != null ? `${status.products_synced} produit${status.products_synced > 1 ? 's' : ''}` : 'Catalogue'}</span>
-          <span className="flex items-center gap-1">Pages {status.has_pages ? <Check className="h-3 w-3 text-green-600" /> : <X className="h-3 w-3 text-muted-foreground/50" />}</span>
-          <span className="flex items-center gap-1">Politiques {status.has_policies ? <Check className="h-3 w-3 text-green-600" /> : <X className="h-3 w-3 text-muted-foreground/50" />}</span>
+          <span className="flex items-center gap-1">Pages {status.has_pages ? <Check className="h-3 w-3 text-blue-600" /> : <X className="h-3 w-3 text-muted-foreground/50" />}</span>
+          <span className="flex items-center gap-1">Politiques {status.has_policies ? <Check className="h-3 w-3 text-blue-600" /> : <X className="h-3 w-3 text-muted-foreground/50" />}</span>
           <span className="ml-auto">Dernière synchro : {last}</span>
           <button onClick={() => setDetailOpen(true)} className="basis-full text-left text-blue-500 hover:text-blue-600 transition-colors">
             Voir le détail récupéré →

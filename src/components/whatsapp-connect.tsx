@@ -210,14 +210,14 @@ export function WhatsAppConnect() {
       <div className="rounded-xl border p-5">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-green-500/15">
-              <Smartphone className="h-5 w-5 text-green-600" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/15">
+              <Smartphone className="h-5 w-5 text-blue-600" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 <span className="font-medium">WhatsApp Business</span>
                 {connected ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-green-500/15 px-2 py-0.5 text-xs text-green-600">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/15 px-2 py-0.5 text-xs text-blue-600">
                     <Wifi className="h-3 w-3" /> Connecté
                   </span>
                 ) : (
