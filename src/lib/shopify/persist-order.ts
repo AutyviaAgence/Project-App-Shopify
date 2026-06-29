@@ -75,6 +75,13 @@ export async function persistShopifyOrder(
     const total = order.total_price ? parseFloat(order.total_price) : 0
     // Date de la commande : Shopify envoie created_at sur le payload complet.
     const orderedAt = (order as { created_at?: string }).created_at || new Date().toISOString()
+    // Pays (adresse de livraison d'abord, sinon facturation, sinon contact).
+    const country = (
+      order.shipping_address?.country_code
+      || order.billing_address?.country_code
+      || order.customer?.default_address?.country_code
+      || ''
+    ).toUpperCase() || null
 
     await supabase
       .from('shopify_orders')
@@ -90,6 +97,7 @@ export async function persistShopifyOrder(
           fulfillment_status: (order as { fulfillment_status?: string }).fulfillment_status || null,
           contact_id: contactId,
           is_whatsapp: isWhatsapp,
+          country,
           ordered_at: orderedAt,
           updated_at: new Date().toISOString(),
         },

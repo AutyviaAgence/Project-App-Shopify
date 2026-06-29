@@ -3,7 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 
 export const dynamic = 'force-dynamic'
 
-type OrderRow = { total_price: number | string; currency: string | null; is_whatsapp: boolean; ordered_at: string }
+type OrderRow = { total_price: number | string; currency: string | null; is_whatsapp: boolean; ordered_at: string; country: string | null }
 
 /**
  * GET /api/shopify/sales?months=6
@@ -25,7 +25,7 @@ export async function GET(req: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase as any)
     .from('shopify_orders')
-    .select('total_price, currency, is_whatsapp, ordered_at')
+    .select('total_price, currency, is_whatsapp, ordered_at, country')
     .eq('user_id', user.id)
     .gte('ordered_at', start.toISOString())
     .order('ordered_at', { ascending: true })
@@ -47,6 +47,7 @@ export async function GET(req: NextRequest) {
   let currency: string | null = null
   let totalAll = 0
   let totalWhatsapp = 0
+  const countryCount = new Map<string, number>()
   for (const r of rows) {
     const d = new Date(r.ordered_at)
     const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
@@ -60,7 +61,11 @@ export async function GET(req: NextRequest) {
     totalAll += val
     if (r.is_whatsapp) totalWhatsapp += val
     if (!currency && r.currency) currency = r.currency
+    if (r.country) countryCount.set(r.country, (countryCount.get(r.country) || 0) + 1)
   }
+  const countries = Array.from(countryCount.entries())
+    .map(([country, count]) => ({ country, count }))
+    .sort((a, b) => b.count - a.count)
 
   // Arrondi à 2 décimales pour l'affichage.
   for (const b of buckets) {
@@ -74,6 +79,7 @@ export async function GET(req: NextRequest) {
       months: buckets,
       totalAll: Math.round(totalAll * 100) / 100,
       totalWhatsapp: Math.round(totalWhatsapp * 100) / 100,
+      countries,
     },
   })
 }

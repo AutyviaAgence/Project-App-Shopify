@@ -6,11 +6,13 @@ import { ArrowUpRight, ChevronRight, TrendingUp, TrendingDown } from 'lucide-rea
 import { cn } from '@/lib/utils'
 import { Globe } from '@/components/ui/globe'
 import { NumberTicker } from '@/components/ui/number-ticker'
+import { countryToCoords } from '@/lib/country-coords'
 import type { StatsResponse } from '@/types/stats'
 
 type TemplateLite = { id: string; name: string; status: string }
 type SalesMonth = { month: string; total: number; whatsapp: number }
-type SalesData = { currency: string; months: SalesMonth[]; totalAll: number; totalWhatsapp: number }
+type SalesCountry = { country: string; count: number }
+type SalesData = { currency: string; months: SalesMonth[]; totalAll: number; totalWhatsapp: number; countries?: SalesCountry[] }
 
 // ── Carte de base (style Framer : noir, bordure translucide, radius 4px) ──────
 function FrameCard({ className, children, gradient }: { className?: string; children: React.ReactNode; gradient?: boolean }) {
@@ -124,6 +126,37 @@ export function StatsOverviewBoard({
   const respRate = o.responseRate ?? 0
   const nf = (n: number) => n.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')
 
+  // Marqueurs du globe : un point par pays de commande, taille selon le volume.
+  const globeConfig = useMemo(() => {
+    const list = sales?.countries || []
+    if (list.length === 0) return undefined
+    const max = Math.max(1, ...list.map(c => c.count))
+    const markers = list
+      .map(c => {
+        const loc = countryToCoords(c.country)
+        if (!loc) return null
+        return { location: loc, size: 0.04 + (c.count / max) * 0.08 }
+      })
+      .filter(Boolean) as { location: [number, number]; size: number }[]
+    if (markers.length === 0) return undefined
+    return {
+      width: 800,
+      height: 800,
+      onRender: () => {},
+      devicePixelRatio: 2,
+      phi: 0,
+      theta: 0.3,
+      dark: 0,
+      diffuse: 0.4,
+      mapSamples: 16000,
+      mapBrightness: 1.2,
+      baseColor: [1, 1, 1] as [number, number, number],
+      markerColor: [0.23, 0.51, 0.96] as [number, number, number], // bleu #3B82F6
+      glowColor: [1, 1, 1] as [number, number, number],
+      markers,
+    }
+  }, [sales])
+
   return (
     <div className="space-y-3">
       {/* ── Rang 1 : 4 mini-cartes ── */}
@@ -229,17 +262,22 @@ export function StatsOverviewBoard({
           })()}
         </FrameCard>
 
-        {/* Taux de réponse IA + globe */}
+        {/* Taux de réponse IA + globe (marqueurs = pays des ventes) */}
         <FrameCard gradient className="relative overflow-hidden">
-          <div className="flex items-start justify-between">
+          <div className="relative z-10 flex items-start justify-between">
             <div>
               <p className="text-base font-semibold text-foreground">{labels.aiResponse}</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">{respRate}% de réponses automatisées</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {globeConfig ? `${sales?.countries?.length ?? 0} pays · ${respRate}% automatisé` : `${respRate}% de réponses automatisées`}
+              </p>
             </div>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </div>
+          {/* Zoom moyen : le globe est agrandi et clippé par la carte. */}
           <div className="relative mt-2 h-56">
-            <Globe className="!top-8" />
+            <div className="absolute inset-0 scale-[1.35]">
+              <Globe className="!top-10" config={globeConfig} />
+            </div>
           </div>
         </FrameCard>
       </div>
