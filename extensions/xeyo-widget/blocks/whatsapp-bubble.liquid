@@ -21,6 +21,7 @@
   data-choices="{{ block.settings.enable_choices }}"
   data-header-name="{{ block.settings.header_name | escape }}"
   data-header-subtitle="{{ block.settings.header_subtitle | escape }}"
+  data-bg="{{ 'whatsapp-bg.webp' | asset_url }}"
   data-choices-title="{{ block.settings.choices_title | escape }}"
   data-choice1-label="{{ block.settings.choice1_label | escape }}"
   data-choice1-message="{{ block.settings.choice1_message | escape }}"
@@ -84,12 +85,12 @@
   .xeyo-wa-panel-meta strong { display: block; font-size: 14px; font-weight: 700; }
   .xeyo-wa-panel-meta span { font-size: 11px; opacity: .85; }
   .xeyo-wa-panel-close { background: none; border: none; color: #fff; font-size: 20px; line-height: 1; cursor: pointer; opacity: .9; }
-  /* Fond façon WhatsApp : crème + motif de doodles */
+  /* Fond façon WhatsApp : image officielle (appliquée en JS via data-bg) */
   .xeyo-wa-panel-body {
     padding: 16px 14px;
     background-color: #e5ddd5 !important;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cg fill='none' stroke='%239a8f80' stroke-width='1.4' stroke-opacity='0.22' stroke-linecap='round'%3E%3Cpath d='M22 26c0-5 4-9 9-9s9 4 9 9-4 9-9 9'/%3E%3Ccircle cx='120' cy='30' r='8'/%3E%3Cpath d='M118 30h4M120 28v4'/%3E%3Cpath d='M30 90l8-6 8 6-3 9h-10z'/%3E%3Cpath d='M96 78c6 0 10 4 10 9s-4 9-10 9h-2v6l-6-6c-1 0-2-4-2-9 0-5 4-9 10-9z'/%3E%3Crect x='128' y='112' width='16' height='12' rx='2'/%3E%3Cpath d='M132 112v-4h8v4'/%3E%3Cpath d='M20 130c4-4 10-4 14 0M64 40c3-3 7-3 10 0'/%3E%3Ccircle cx='70' cy='126' r='7'/%3E%3C/g%3E%3C/svg%3E") !important;
     background-repeat: repeat !important;
+    background-size: 366px auto !important;
   }
   .xeyo-wa-accroche {
     position: relative; background: #fff; color: #1a1a1a; border-radius: 8px;
@@ -216,8 +217,8 @@
               +     (hSub ? '<span>' + hSub + '</span>' : '') + '</span>'
               +   '<button class="xeyo-wa-panel-close" id="xeyo-wa-panel-close" aria-label="Fermer">&times;</button>'
               + '</div>'
-              // Corps : heure + accroche + choix
-              + '<div class="xeyo-wa-panel-body">'
+              // Corps : heure + accroche + choix (fond WhatsApp officiel)
+              + '<div class="xeyo-wa-panel-body" style="background-image:url(\'' + attr('data-bg') + '\')">'
               +   '<span class="xeyo-wa-time">' + time + '</span>'
               +   '<p class="xeyo-wa-accroche">' + attr('data-choices-title') + '</p>';
             if (c1l) html += '<a class="xeyo-wa-choice" href="' + waUrl(c1m || c1l) + '" target="_blank" rel="noopener noreferrer">' + c1l + '</a>';
