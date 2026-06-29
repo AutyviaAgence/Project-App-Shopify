@@ -4,6 +4,10 @@ import { updateSession } from '@/lib/supabase/middleware'
 const PUBLIC_ROUTES = ['/login', '/register', '/forgot-password', '/update-password', '/shopify', '/cgu', '/cgv', '/privacy', '/legal', '/terms', '/data-deletion', '/auth/callback']
 const AUTH_ROUTES = ['/login', '/register', '/forgot-password']
 
+// Bump pour invalider tous les cookies tenant en cache (ex: changement de
+// palette de thème). Un cookie sans cette version est régénéré depuis la DB.
+const TENANT_COOKIE_VERSION = '2'
+
 export async function middleware(request: NextRequest) {
   const { user, supabaseResponse } = await updateSession(request)
   const { pathname } = request.nextUrl
@@ -22,7 +26,7 @@ export async function middleware(request: NextRequest) {
     try {
       const domain = host.split(':')[0] // strip port
       const tenantConfig = await resolveTenantDirect(domain)
-      const cookieValue = JSON.stringify({ ...tenantConfig, _host: domain })
+      const cookieValue = JSON.stringify({ ...tenantConfig, _host: domain, _v: TENANT_COOKIE_VERSION })
       supabaseResponse.cookies.set('x-tenant', cookieValue, {
         path: '/',
         maxAge: 3600, // 1 hour
@@ -56,11 +60,11 @@ export async function middleware(request: NextRequest) {
   return supabaseResponse
 }
 
-/** Check if the tenant cookie matches the current host */
+/** Check if the tenant cookie matches the current host AND the current version */
 function isTenantCookieValid(cookieValue: string, host: string): boolean {
   try {
     const parsed = JSON.parse(decodeURIComponent(cookieValue))
-    return parsed._host === host.split(':')[0]
+    return parsed._host === host.split(':')[0] && parsed._v === TENANT_COOKIE_VERSION
   } catch {
     return false
   }
