@@ -15,7 +15,7 @@ function FrameCard({ className, children, gradient }: { className?: string; chil
   return (
     <div
       className={cn(
-        'rounded-[6px] border border-white/10 p-4',
+        'rounded-2xl border border-white/10 p-5',
         gradient ? 'bg-gradient-to-b from-black to-[#09090b]' : 'bg-black',
         className
       )}
@@ -127,9 +127,9 @@ export function StatsOverviewBoard({
   const nf = (n: number) => n.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       {/* ── Rang 1 : 4 mini-cartes ── */}
-      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <FrameCard>
           <p className="text-sm text-white/60">Messages total</p>
           <p className="mt-1 text-3xl font-bold text-white"><NumberTicker value={o.totalMessages} /></p>
@@ -158,7 +158,7 @@ export function StatsOverviewBoard({
       </div>
 
       {/* ── Rang 2 : 3 big cards ── */}
-      <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
         {/* Messages cette semaine */}
         <FrameCard gradient>
           <div className="flex items-start justify-between">
@@ -214,7 +214,7 @@ export function StatsOverviewBoard({
       </div>
 
       {/* ── Rang 3 : Modèles WhatsApp + jauge ── */}
-      <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
         <div className="pt-4">
           <h3 className="text-xl font-bold text-white">{labels.templates}</h3>
           <p className="mt-1 text-sm text-white/50">{labels.templatesSub}</p>
