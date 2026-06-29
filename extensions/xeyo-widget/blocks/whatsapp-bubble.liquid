@@ -4,7 +4,7 @@
   Le numéro WhatsApp et l'activation sont récupérés AUTOMATIQUEMENT depuis
   le compte Xeyo du marchand via l'App Proxy (/apps/xeyo/widget). Le marchand
   n'a qu'à connecter son WhatsApp dans Xeyo — rien à recopier ici.
-  Le marchand peut juste personnaliser l'apparence ci-dessous.
+  Le marchand peut personnaliser l'apparence + un mode « 2 choix » ci-dessous.
 {% endcomment %}
 
 <div
@@ -13,10 +13,17 @@
   style="--xeyo-wa-color: {{ block.settings.bubble_color }}; display:none;"
   data-proxy="/apps/xeyo/widget"
   data-shop="{{ shop.permanent_domain }}"
+  data-display="{{ block.settings.button_display }}"
   data-greeting="{{ block.settings.show_greeting }}"
   data-greeting-text="{{ block.settings.greeting_text | escape }}"
   data-button-label="{{ block.settings.button_label | escape }}"
   data-branding="{{ block.settings.show_branding }}"
+  data-choices="{{ block.settings.enable_choices }}"
+  data-choices-title="{{ block.settings.choices_title | escape }}"
+  data-choice1-label="{{ block.settings.choice1_label | escape }}"
+  data-choice1-message="{{ block.settings.choice1_message | escape }}"
+  data-choice2-label="{{ block.settings.choice2_label | escape }}"
+  data-choice2-message="{{ block.settings.choice2_message | escape }}"
 >
 </div>
 
@@ -34,6 +41,7 @@
     padding: 12px; border-radius: 999px;
     box-shadow: 0 6px 20px rgba(0,0,0,0.18); text-decoration: none;
     transition: transform .15s ease, box-shadow .15s ease; cursor: pointer;
+    border: none;
   }
   .xeyo-wa-button:hover { transform: scale(1.06); box-shadow: 0 8px 26px rgba(0,0,0,0.24); }
   .xeyo-wa-label { font-size: 15px; font-weight: 600; padding-right: 6px; white-space: nowrap; }
@@ -49,6 +57,31 @@
   }
   .xeyo-wa-branding { font-size: 10px; color: #9aa3ad; text-decoration: none; letter-spacing: .2px; }
   .xeyo-wa-branding:hover { color: #6b7280; }
+  /* Panneau de choix (style image : bulle d'accroche + boutons) */
+  .xeyo-wa-panel {
+    width: 300px; max-width: 80vw; background: #e8e3dc;
+    border-radius: 16px; overflow: hidden; box-shadow: 0 12px 36px rgba(0,0,0,0.22);
+    animation: xeyo-wa-pop .25s ease;
+  }
+  .xeyo-wa-panel-head {
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--xeyo-wa-color, #25D366); color: #fff; padding: 12px 14px;
+  }
+  .xeyo-wa-panel-head strong { font-size: 14px; font-weight: 700; }
+  .xeyo-wa-panel-close { background: none; border: none; color: #fff; font-size: 20px; line-height: 1; cursor: pointer; opacity: .9; }
+  .xeyo-wa-panel-body { padding: 14px; }
+  .xeyo-wa-accroche {
+    background: #fff; color: #1a1a1a; border-radius: 14px; padding: 14px;
+    font-size: 14px; line-height: 1.45; margin: 0 0 12px;
+  }
+  .xeyo-wa-choice {
+    display: block; width: 100%; text-align: center; background: #fff;
+    color: var(--xeyo-wa-color, #128C7E); font-weight: 600; font-size: 14px;
+    border: none; border-radius: 12px; padding: 12px; margin-top: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08); cursor: pointer; text-decoration: none;
+    transition: transform .12s ease;
+  }
+  .xeyo-wa-choice:hover { transform: translateY(-1px); }
   @keyframes xeyo-wa-pop { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
   @media (max-width: 480px) { .xeyo-wa-label { display: none; } .xeyo-wa-greeting { max-width: 200px; } }
 </style>
@@ -59,43 +92,89 @@
     if (!el) return;
     var proxy = el.getAttribute('data-proxy');
     var shop = el.getAttribute('data-shop');
+    var attr = function (k) { return el.getAttribute(k) || ''; };
 
     fetch(proxy + '?shop=' + encodeURIComponent(shop))
       .then(function (r) { return r.json(); })
       .then(function (cfg) {
         // N'affiche le widget que si WhatsApp est connecté côté Xeyo
         if (!cfg || !cfg.enabled || !cfg.phone) return;
+        var phone = String(cfg.phone || '').replace(/[^0-9]/g, '');
 
-        // On pointe vers la redirection Xeyo (tracking + format géré côté serveur).
-        // Fallback direct WhatsApp si pas d'URL Xeyo.
-        var href;
-        if (cfg.url) {
-          href = cfg.url;
-        } else {
-          var phone = String(cfg.phone || '').replace(/[^0-9]/g, '');
-          var msg = cfg.message || '';
-          href = 'https://api.whatsapp.com/send/?phone=' + phone
-            + '&text=' + encodeURIComponent(msg) + '&type=phone_number&app_absent=0';
+        // Construit une URL WhatsApp directe avec un message donné.
+        function waUrl(message) {
+          return 'https://api.whatsapp.com/send/?phone=' + phone
+            + '&text=' + encodeURIComponent(message || '')
+            + '&type=phone_number&app_absent=0';
+        }
+        // URL « par défaut » (1 lien) : redirection Xeyo si dispo, sinon directe.
+        var defaultHref = cfg.url ? cfg.url : waUrl(cfg.message || '');
+
+        // SVG logo WhatsApp.
+        var waSvg = '<svg viewBox="0 0 32 32" width="30" height="30" fill="#fff" aria-hidden="true"><path d="M16.004 0h-.008C7.174 0 0 7.176 0 16c0 3.5 1.128 6.744 3.05 9.38L1.05 31.3l6.13-1.96A15.9 15.9 0 0 0 16.004 32C24.826 32 32 24.824 32 16S24.826 0 16.004 0zm9.31 22.6c-.386 1.09-1.92 1.994-3.142 2.258-.836.178-1.928.32-5.604-1.204-4.7-1.948-7.726-6.724-7.962-7.034-.226-.31-1.9-2.53-1.9-4.826s1.166-3.42 1.58-3.888c.34-.386.9-.562 1.436-.562.174 0 .33.008.472.016.414.018.622.042.896.696.34.82 1.17 2.84 1.27 3.046.102.206.17.448.034.758-.128.31-.24.45-.448.696-.206.246-.4.434-.604.696-.188.226-.4.47-.16.876.24.396 1.07 1.762 2.296 2.854 1.582 1.41 2.88 1.85 3.336 2.04.34.142.74.108 1.006-.16.34-.34.756-.902 1.18-1.456.302-.396.682-.446 1.082-.296.408.142 2.578 1.214 3.022 1.436.444.222.74.33.85.516.108.188.108 1.072-.278 2.162z"/></svg>';
+
+        var displayLabel = attr('data-display') !== 'icon'; // 'icon' = logo seul
+        var label = attr('data-button-label');
+        var useChoices = attr('data-choices') === 'true';
+
+        // Bouton flottant (logo seul ou logo + texte).
+        function buttonHtml(tag, hrefOrEmpty) {
+          var open = tag === 'a'
+            ? '<a class="xeyo-wa-button" href="' + hrefOrEmpty + '" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp">'
+            : '<button class="xeyo-wa-button" type="button" id="xeyo-wa-toggle" aria-label="Ouvrir les options">';
+          return open + waSvg
+            + (displayLabel && label ? '<span class="xeyo-wa-label">' + label + '</span>' : '')
+            + (tag === 'a' ? '</a>' : '</button>');
         }
 
         var html = '';
-        if (el.getAttribute('data-greeting') === 'true') {
+        // Greeting (petite bulle au-dessus) — uniquement en mode 1 lien.
+        if (!useChoices && attr('data-greeting') === 'true') {
           html += '<div class="xeyo-wa-greeting" id="xeyo-wa-greeting">'
             + '<button class="xeyo-wa-greeting-close" aria-label="Fermer" onclick="document.getElementById(\'xeyo-wa-greeting\').style.display=\'none\'">&times;</button>'
-            + '<p class="xeyo-wa-greeting-text">' + (el.getAttribute('data-greeting-text') || '') + '</p>'
+            + '<p class="xeyo-wa-greeting-text">' + attr('data-greeting-text') + '</p>'
             + '</div>';
         }
-        var label = el.getAttribute('data-button-label') || '';
-        html += '<a class="xeyo-wa-button" href="' + href + '" target="_blank" rel="noopener noreferrer" aria-label="Discuter sur WhatsApp">'
-          + '<svg viewBox="0 0 32 32" width="30" height="30" fill="#fff" aria-hidden="true"><path d="M16.004 0h-.008C7.174 0 0 7.176 0 16c0 3.5 1.128 6.744 3.05 9.38L1.05 31.3l6.13-1.96A15.9 15.9 0 0 0 16.004 32C24.826 32 32 24.824 32 16S24.826 0 16.004 0zm9.31 22.6c-.386 1.09-1.92 1.994-3.142 2.258-.836.178-1.928.32-5.604-1.204-4.7-1.948-7.726-6.724-7.962-7.034-.226-.31-1.9-2.53-1.9-4.826s1.166-3.42 1.58-3.888c.34-.386.9-.562 1.436-.562.174 0 .33.008.472.016.414.018.622.042.896.696.34.82 1.17 2.84 1.27 3.046.102.206.17.448.034.758-.128.31-.24.45-.448.696-.206.246-.4.434-.604.696-.188.226-.4.47-.16.876.24.396 1.07 1.762 2.296 2.854 1.582 1.41 2.88 1.85 3.336 2.04.34.142.74.108 1.006-.16.34-.34.756-.902 1.18-1.456.302-.396.682-.446 1.082-.296.408.142 2.578 1.214 3.022 1.436.444.222.74.33.85.516.108.188.108 1.072-.278 2.162z"/></svg>'
-          + (label ? '<span class="xeyo-wa-label">' + label + '</span>' : '')
-          + '</a>';
-        if (el.getAttribute('data-branding') === 'true') {
+
+        if (useChoices) {
+          // Mode 2 choix : le bouton ouvre un panneau (accroche + 2 boutons).
+          html += '<div id="xeyo-wa-panel-wrap"></div>';
+          html += buttonHtml('button');
+        } else {
+          // Mode classique : 1 lien direct.
+          html += buttonHtml('a', defaultHref);
+        }
+
+        if (attr('data-branding') === 'true') {
           html += '<a class="xeyo-wa-branding" href="https://xeyo.io" target="_blank" rel="noopener noreferrer">Powered by Xeyo.io</a>';
         }
 
         el.innerHTML = html;
         el.style.display = 'flex';
+
+        // Logique du panneau de choix.
+        if (useChoices) {
+          var wrap = document.getElementById('xeyo-wa-panel-wrap');
+          var toggle = document.getElementById('xeyo-wa-toggle');
+          var open = false;
+          function renderPanel() {
+            if (!open) { wrap.innerHTML = ''; return; }
+            var c1l = attr('data-choice1-label'), c1m = attr('data-choice1-message');
+            var c2l = attr('data-choice2-label'), c2m = attr('data-choice2-message');
+            var html = '<div class="xeyo-wa-panel">'
+              + '<div class="xeyo-wa-panel-head"><strong>WhatsApp</strong>'
+              + '<button class="xeyo-wa-panel-close" id="xeyo-wa-panel-close" aria-label="Fermer">&times;</button></div>'
+              + '<div class="xeyo-wa-panel-body">'
+              + '<p class="xeyo-wa-accroche">' + attr('data-choices-title') + '</p>';
+            if (c1l) html += '<a class="xeyo-wa-choice" href="' + waUrl(c1m || c1l) + '" target="_blank" rel="noopener noreferrer">' + c1l + '</a>';
+            if (c2l) html += '<a class="xeyo-wa-choice" href="' + waUrl(c2m || c2l) + '" target="_blank" rel="noopener noreferrer">' + c2l + '</a>';
+            html += '</div></div>';
+            wrap.innerHTML = html;
+            var close = document.getElementById('xeyo-wa-panel-close');
+            if (close) close.onclick = function () { open = false; renderPanel(); };
+          }
+          if (toggle) toggle.onclick = function () { open = !open; renderPanel(); };
+        }
       })
       .catch(function () { /* silencieux : pas de widget si erreur */ });
   })();
@@ -108,12 +187,22 @@
   "settings": [
     {
       "type": "paragraph",
-      "content": "Le numéro WhatsApp est récupéré automatiquement depuis votre compte Xeyo. Connectez votre WhatsApp dans Xeyo pour activer la bulle. Personnalisez juste l'apparence ci-dessous."
+      "content": "Le numéro WhatsApp est récupéré automatiquement depuis votre compte Xeyo. Connectez votre WhatsApp dans Xeyo pour activer la bulle. Personnalisez l'apparence ci-dessous."
+    },
+    {
+      "type": "select",
+      "id": "button_display",
+      "label": "Affichage du bouton",
+      "options": [
+        { "value": "icon", "label": "Logo WhatsApp seul" },
+        { "value": "label", "label": "Logo + texte" }
+      ],
+      "default": "label"
     },
     {
       "type": "text",
       "id": "button_label",
-      "label": "Texte du bouton (optionnel)",
+      "label": "Texte du bouton",
       "default": "Besoin d'aide ?"
     },
     {
@@ -133,9 +222,57 @@
       "default": "#25D366"
     },
     {
+      "type": "header",
+      "content": "Mode 2 choix"
+    },
+    {
+      "type": "paragraph",
+      "content": "Si activé, cliquer sur la bulle affiche un message d'accroche et 2 boutons. Chaque bouton ouvre WhatsApp avec son propre message."
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_choices",
+      "label": "Activer le mode 2 choix",
+      "default": false
+    },
+    {
+      "type": "textarea",
+      "id": "choices_title",
+      "label": "Message d'accroche",
+      "default": "Bonjour ! Comment pouvons-nous vous aider ?"
+    },
+    {
+      "type": "text",
+      "id": "choice1_label",
+      "label": "Choix 1 — texte du bouton",
+      "default": "J'ai une question"
+    },
+    {
+      "type": "textarea",
+      "id": "choice1_message",
+      "label": "Choix 1 — message WhatsApp pré-rempli",
+      "default": "Bonjour, j'ai une question."
+    },
+    {
+      "type": "text",
+      "id": "choice2_label",
+      "label": "Choix 2 — texte du bouton",
+      "default": "Je cherche un cadeau"
+    },
+    {
+      "type": "textarea",
+      "id": "choice2_message",
+      "label": "Choix 2 — message WhatsApp pré-rempli",
+      "default": "Bonjour, je cherche un cadeau."
+    },
+    {
+      "type": "header",
+      "content": "Autres options"
+    },
+    {
       "type": "checkbox",
       "id": "show_greeting",
-      "label": "Afficher un message d'accueil",
+      "label": "Afficher un message d'accueil (mode 1 lien)",
       "default": true
     },
     {
