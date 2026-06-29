@@ -28,7 +28,6 @@ import {
   CheckCheck,
   Clock,
   Sparkles,
-  Workflow,
   Wrench,
   CheckCircle,
   XCircle,
@@ -92,7 +91,6 @@ export function ChatArea({
   onSendEmail,
   onAssignAgent,
   onToggleAI,
-  onChangeLifecycleStage,
   onAnalyzeConversation,
   onActionsChange,
   onSendTemplate,
@@ -296,49 +294,26 @@ export function ChatArea({
 
             {/* Agent IA controls */}
             <div className="hidden sm:flex items-center gap-2">
-              {/* Lifecycle stage selector */}
-              {lifecycleStages.length > 0 && (
+              {/* Le tag (stage) se définit dans la liste de gauche. Ici on garde
+                  uniquement l'analyse IA : bouton ✨ (manuel) + tag auto IA. */}
+              {lifecycleStages.length > 0 && canAnalyze && (
                 <div className="flex items-center gap-1">
-                  <Select
-                    value={selectedConv.lifecycle_stage_id || 'none'}
-                    onValueChange={(val) =>
-                      onChangeLifecycleStage(selectedConv.id, val === 'none' ? null : val)
-                    }
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => onAnalyzeConversation(selectedConv.id)}
+                    disabled={analyzingConvId === selectedConv.id}
+                    title={t('conversations.analyze_ai')}
                   >
-                    <SelectTrigger className="h-8 w-[130px] text-xs border-0 bg-muted/50">
-                      <Workflow className="mr-1.5 h-3.5 w-3.5 text-muted-foreground" />
-                      <SelectValue placeholder={t('conversations.stage')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">{t('conversations.unclassified')}</SelectItem>
-                      {lifecycleStages.map((s) => (
-                        <SelectItem key={s.id} value={s.id}>
-                          <span className="flex items-center gap-1.5">
-                            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: s.color }} />
-                            {s.name}
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {canAnalyze && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => onAnalyzeConversation(selectedConv.id)}
-                      disabled={analyzingConvId === selectedConv.id}
-                      title={t('conversations.analyze_ai')}
-                    >
-                      {analyzingConvId === selectedConv.id ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Sparkles className="h-3.5 w-3.5" />
-                      )}
-                    </Button>
-                  )}
+                    {analyzingConvId === selectedConv.id ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-3.5 w-3.5" />
+                    )}
+                  </Button>
                   {/* Activation rapide du tag automatique IA (même réglage que Settings) */}
-                  {canAnalyze && <AutoTagToggle />}
+                  <AutoTagToggle />
                 </div>
               )}
 
