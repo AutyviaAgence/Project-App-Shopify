@@ -264,87 +264,61 @@ export default function StatsPage() {
           {/* ================================================================ */}
           {/* === Agents IA === */}
           {/* ================================================================ */}
-          <TabsContent value="agents" className="space-y-6">
+          <TabsContent value="agents" className="space-y-3">
             {stats.agents.length === 0 ? (
-              <Card>
-                <CardContent className="flex h-40 items-center justify-center">
-                  <p className="text-muted-foreground">{t('stats.no_agents')}</p>
-                </CardContent>
-              </Card>
+              <div className="flex h-40 items-center justify-center rounded-2xl border border-border bg-card">
+                <p className="text-muted-foreground">{t('stats.no_agents')}</p>
+              </div>
             ) : (
               <>
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
                   {stats.agents.map((agent) => (
-                    <Card key={agent.id}>
-                      <CardHeader className="pb-3">
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="flex items-center gap-2 text-base">
-                            <Bot className="h-4 w-4" />
-                            {agent.name}
-                          </CardTitle>
-                          <Badge variant={agent.isActive ? 'default' : 'secondary'}>
-                            {agent.isActive ? t('common.active') : t('common.inactive')}
-                          </Badge>
+                    <div key={agent.id} className="rounded-2xl border border-border bg-card p-5 transition-colors hover:border-foreground/20">
+                      {/* En-tête : icône colorée + nom + badge actif */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-blue-500/15">
+                            <Bot className="h-[18px] w-[18px] text-blue-400" />
+                          </span>
+                          <span className="truncate text-[15px] font-semibold text-foreground">{agent.name}</span>
                         </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="grid grid-cols-2 gap-4">
-                          <div>
-                            <p className="text-2xl font-bold">
-                              <NumberTicker value={agent.messagesHandled} />
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {t('stats.messages_processed')}
-                            </p>
+                        <span className={cn(
+                          'shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1',
+                          agent.isActive ? 'bg-emerald-500/15 text-emerald-400 ring-emerald-500/30' : 'bg-muted text-muted-foreground ring-border'
+                        )}>
+                          {agent.isActive ? t('common.active') : t('common.inactive')}
+                        </span>
+                      </div>
+
+                      {/* 4 mini-stats (style Vue globale) */}
+                      <div className="mt-4 grid grid-cols-2 gap-2">
+                        {[
+                          { label: t('stats.messages_processed'), value: <NumberTicker value={agent.messagesHandled} /> },
+                          { label: t('stats.conversations'), value: <NumberTicker value={agent.conversationsManaged} /> },
+                          { label: t('stats.response_rate'), value: agent.responseRate != null ? `${agent.responseRate}%` : '—' },
+                          { label: t('stats.avg_time'), value: agent.avgResponseTime != null ? formatSeconds(agent.avgResponseTime) : '—' },
+                        ].map((s, i) => (
+                          <div key={i} className="rounded-xl border border-border/60 bg-muted/20 p-3">
+                            <p className="text-xl font-bold tracking-tight text-foreground">{s.value}</p>
+                            <p className="mt-0.5 text-[11px] text-muted-foreground">{s.label}</p>
                           </div>
-                          <div>
-                            <p className="text-2xl font-bold">
-                              <NumberTicker value={agent.conversationsManaged} />
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {t('stats.conversations')}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-2xl font-bold">
-                              {agent.responseRate != null ? `${agent.responseRate}%` : '—'}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {t('stats.response_rate')}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-2xl font-bold">
-                              {agent.avgResponseTime != null ? formatSeconds(agent.avgResponseTime) : '—'}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {t('stats.avg_time')}
-                            </p>
-                          </div>
-                          {agent.hasBookingUrl && (
-                            <div className="col-span-2 border-t pt-3 mt-2">
-                              <p className="text-2xl font-bold text-primary">
-                                {agent.bookingClicks.toLocaleString(numberLocale)}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {t('stats.booking_clicks')}
-                              </p>
-                            </div>
-                          )}
+                        ))}
+                      </div>
+
+                      {agent.hasBookingUrl && (
+                        <div className="mt-2 rounded-xl border border-blue-500/30 bg-blue-500/10 p-3">
+                          <p className="text-xl font-bold tracking-tight text-blue-400">{agent.bookingClicks.toLocaleString(numberLocale)}</p>
+                          <p className="mt-0.5 text-[11px] text-muted-foreground">{t('stats.booking_clicks')}</p>
                         </div>
-                      </CardContent>
-                    </Card>
+                      )}
+                    </div>
                   ))}
                 </div>
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-base">{t('stats.agent_comparison')}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <AgentsComparisonChart data={stats.agents} />
-                  </CardContent>
-                </Card>
+                <div className="rounded-2xl border border-border bg-card p-5">
+                  <h3 className="mb-4 text-[15px] font-semibold text-foreground">{t('stats.agent_comparison')}</h3>
+                  <AgentsComparisonChart data={stats.agents} />
+                </div>
               </>
             )}
           </TabsContent>
