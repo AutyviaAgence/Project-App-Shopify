@@ -199,7 +199,7 @@ export function ConversationList({
   return (
     <div
       className={cn(
-        'w-full flex-col bg-background md:w-80 lg:w-96 md:border-r',
+        'h-full min-h-0 w-full flex-col overflow-hidden bg-background md:w-80 lg:w-96 md:border-r',
         selectedConvId ? 'hidden md:flex' : 'flex'
       )}
     >
@@ -434,7 +434,7 @@ export function ConversationList({
         </div>
       ) : (
         <>
-          <div className="flex-1 overflow-auto scrollbar-thin">
+          <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin">
             {[...conversations].sort((a, b) => {
               // Conversations avec une action à valider remontent en haut.
               const pa = pendingActionConvIds?.has(a.id) ? 1 : 0

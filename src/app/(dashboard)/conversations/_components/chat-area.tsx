@@ -250,7 +250,7 @@ export function ChatArea({
   return (
     <div
       className={cn(
-        'flex flex-1 flex-col bg-background',
+        'h-full min-h-0 flex-1 flex-col overflow-hidden bg-background',
         !selectedConv ? 'hidden md:flex' : 'flex'
       )}
     >
@@ -357,7 +357,7 @@ export function ChatArea({
           </div>
 
           {/* Messages area */}
-          <div className="flex-1 overflow-auto p-4 scrollbar-thin">
+          <div className="min-h-0 flex-1 overflow-y-auto p-4 scrollbar-thin">
             {messagesLoading ? (
               <div className="flex h-full items-center justify-center">
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />

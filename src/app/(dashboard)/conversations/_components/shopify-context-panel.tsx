@@ -135,9 +135,9 @@ export function ShopifyContextPanel({ contactId, conversationId, contactName }: 
   }
 
   return (
-    <div className="hidden w-72 shrink-0 border-l bg-background xl:block">
+    <div className="hidden h-full min-h-0 w-72 shrink-0 flex-col overflow-hidden border-l bg-background xl:flex">
       {/* En-tête : conversation liée + bouton replier */}
-      <div className="flex items-center gap-2 border-b px-3 py-2">
+      <div className="flex shrink-0 items-center gap-2 border-b px-3 py-2">
         <MessageSquare className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         <span className="min-w-0 flex-1 truncate text-xs font-medium text-muted-foreground">
           {contactName || 'Conversation'}
@@ -151,7 +151,7 @@ export function ShopifyContextPanel({ contactId, conversationId, contactName }: 
         </button>
       </div>
       {/* Onglets Commandes / Historique */}
-      <div className="flex border-b">
+      <div className="flex shrink-0 border-b">
         <button onClick={() => setTab('orders')}
           className={cn('flex flex-1 items-center justify-center gap-1.5 px-3 py-3 text-sm font-medium transition-colors',
             tab === 'orders' ? 'border-b-2 border-primary text-primary' : 'text-muted-foreground hover:text-foreground')}>
@@ -165,7 +165,7 @@ export function ShopifyContextPanel({ contactId, conversationId, contactName }: 
       </div>
 
       {tab === 'history' ? (
-        <div className="space-y-2 p-4">
+        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4">
           {actionsLoading ? (
             <div className="flex items-center justify-center py-8 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /></div>
           ) : actions.length === 0 ? (
@@ -194,7 +194,7 @@ export function ShopifyContextPanel({ contactId, conversationId, contactName }: 
           )}
         </div>
       ) : (
-      <div className="flex flex-col gap-3 overflow-y-auto p-4 [scrollbar-width:thin]">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4 [scrollbar-width:thin]">
         {loading ? (
           <div className="flex items-center justify-center py-8 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
