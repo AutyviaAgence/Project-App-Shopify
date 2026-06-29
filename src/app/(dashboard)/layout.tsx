@@ -165,7 +165,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             : 'md:h-12 md:w-12 md:justify-center md:gap-0 md:px-0 md:py-0',
           isActive
             ? tab
-              ? 'md:rounded-r-none md:rounded-l-xl md:bg-background md:text-foreground'
+              ? 'md:rounded-xl md:bg-background md:text-foreground'
               : 'bg-white/10 text-white ring-1 ring-white/15'
             : 'text-white/55 hover:bg-white/[0.06] hover:text-white'
         )}
