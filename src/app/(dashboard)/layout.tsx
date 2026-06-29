@@ -172,13 +172,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             : 'text-white/55 hover:bg-white/[0.06] hover:text-white'
         )}
       >
-        {/* Coins inversés : raccordent l'onglet au panneau */}
+        {/* Coins inversés : raccordent l'onglet au panneau (haut + bas) */}
         {isActive && tab && (
           <>
-            <span className="pointer-events-none absolute -top-3 right-0 hidden h-3 w-3 bg-background md:block" aria-hidden>
+            <span className="pointer-events-none absolute -top-3 right-0 hidden h-3 w-4 bg-background md:block" aria-hidden>
               <span className="absolute inset-0 rounded-br-[12px] bg-[var(--sidebar)]" />
             </span>
-            <span className="pointer-events-none absolute -bottom-3 right-0 hidden h-3 w-3 bg-background md:block" aria-hidden>
+            <span className="pointer-events-none absolute -bottom-3 right-0 hidden h-3 w-4 bg-background md:block" aria-hidden>
               <span className="absolute inset-0 rounded-tr-[12px] bg-[var(--sidebar)]" />
             </span>
           </>
@@ -300,8 +300,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {/* Main content — panneau. Collé à la sidebar quand elle est épinglée
           (l'onglet actif s'y raccorde via la languette), sinon flottant. */}
       <div className={cn(
-        'relative flex flex-1 flex-col overflow-hidden bg-background md:my-2 md:mr-2 md:shadow-2xl md:ring-1 md:ring-black/5 dark:md:ring-white/10',
-        pinned ? 'md:ml-0 md:rounded-l-none md:rounded-r-[20px]' : 'md:ml-2 md:rounded-[20px]'
+        'relative flex flex-1 flex-col overflow-hidden bg-background md:my-2 md:mr-2 md:shadow-2xl',
+        // Anneau seulement quand le panneau flotte (non épinglé) : sinon il dessine
+        // un liseré sur le bord gauche, juste là où la languette doit fusionner.
+        pinned ? 'md:ml-0 md:rounded-l-none md:rounded-r-[20px]' : 'md:ml-2 md:rounded-[20px] md:ring-1 md:ring-black/5 dark:md:ring-white/10'
       )}>
         {/* Topbar globale : menu mobile (gauche) + cloche/réglages/profil (droite) */}
         <DashboardTopBar onOpenSidebar={() => setSidebarOpen(true)} />
