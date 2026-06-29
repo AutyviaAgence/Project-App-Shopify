@@ -165,7 +165,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             : 'md:h-12 md:w-12 md:justify-center md:gap-0 md:px-0 md:py-0',
           isActive
             ? tab
-              ? 'md:-mr-5 md:rounded-r-none md:rounded-l-xl md:bg-background md:text-foreground'
+              ? 'md:rounded-r-none md:rounded-l-xl md:bg-background md:text-foreground'
               : 'bg-white/10 text-white ring-1 ring-white/15'
             : 'text-white/55 hover:bg-white/[0.06] hover:text-white'
         )}
@@ -194,7 +194,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         onMouseLeave={() => setHovered(false)}
         className={cn(
           'group/sidebar fixed inset-y-0 left-0 z-50 flex w-[260px] max-w-[80vw] flex-col bg-[var(--sidebar)] transition-all duration-300',
-          'md:relative md:inset-y-auto md:m-2 md:mr-0 md:h-[calc(100dvh-1rem)] md:max-w-none md:p-2',
+          'md:relative md:inset-y-auto md:m-2 md:mr-0 md:h-[calc(100dvh-1rem)] md:max-w-none md:py-2 md:pl-2',
+          expanded ? 'md:pr-0' : 'md:pr-2',
           // Épinglée : colle au panneau (pas d'arrondi à droite). Sinon : carte arrondie.
           expanded ? 'md:rounded-l-[10px] md:rounded-r-none' : 'md:rounded-[10px]',
           expanded ? 'md:w-[240px]' : 'md:w-[81px]',
@@ -235,7 +236,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Navigation */}
         <nav className={cn(
           'flex-1 space-y-1.5 overflow-y-auto overflow-x-hidden px-3 py-2 md:flex md:flex-col md:gap-2 md:space-y-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
-          expanded ? 'md:items-stretch md:px-2' : 'md:items-center md:px-0'
+          expanded ? 'md:items-stretch md:px-2 md:pr-0' : 'md:items-center md:px-0'
         )}>
           {NAV_ITEMS.map((item) => (
             <NavLink key={item.href} item={item} />
