@@ -9,6 +9,8 @@ import { ShopifyConnect } from '@/components/shopify-connect'
 import { EMAIL_UI_ENABLED } from '@/lib/features'
 import { cn } from '@/lib/utils'
 import { useTenant } from '@/lib/tenant/context'
+import { Meteors } from '@/components/ui/meteors'
+import { TypingAnimation } from '@/components/ui/typing-animation'
 
 // ─── Dashboard épuré — accueil + connexions, sans stats ──────────────────────
 
@@ -17,10 +19,19 @@ function DashboardHome() {
   const tenant = useTenant()
 
   return (
-    <div className="mx-auto flex w-full max-w-5xl flex-col gap-8 p-4 pb-20 md:p-8 md:pt-12">
+    <div className="relative mx-auto flex w-full max-w-5xl flex-col gap-8 p-4 pb-20 md:p-8 md:pt-12">
+      {/* Animation météores en fond */}
+      <Meteors number={24} className="opacity-60" />
+
       {/* Accueil sobre */}
-      <div data-tour="header" data-page-header className="space-y-1">
-        <p className="text-sm text-muted-foreground">{t('dashboard.greeting')}</p>
+      <div data-tour="header" data-page-header className="relative z-10 space-y-1">
+        <TypingAnimation
+          as="p"
+          className="text-sm font-normal leading-normal tracking-normal text-muted-foreground"
+          duration={70}
+        >
+          {t('dashboard.greeting')}
+        </TypingAnimation>
         <h1 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">{tenant.appName}</h1>
         <p className="max-w-xl pt-1 text-sm text-muted-foreground">
           Votre espace de connexion. Reliez vos canaux et votre boutique pour que vos agents IA prennent le relais.
@@ -29,7 +40,7 @@ function DashboardHome() {
 
       {/* Connexions : WhatsApp, (Email), Boutique Shopify.
           La grille s'adapte au nombre de cartes (2 sans email, 3 avec). */}
-      <div className={cn('grid gap-4', EMAIL_UI_ENABLED ? 'md:grid-cols-2 lg:grid-cols-3' : 'md:grid-cols-2')}>
+      <div className={cn('relative z-10 grid gap-4', EMAIL_UI_ENABLED ? 'md:grid-cols-2 lg:grid-cols-3' : 'md:grid-cols-2')}>
         <WhatsAppConnect />
         {EMAIL_UI_ENABLED && <EmailConnect />}
         <ShopifyConnect />
@@ -38,7 +49,7 @@ function DashboardHome() {
       {/* Accès discret aux ressources/médias (docs + images/vidéos envoyables). */}
       <Link
         href="/ressources"
-        className="group flex items-center gap-3 rounded-xl border border-dashed border-border px-4 py-3 text-sm transition-colors hover:border-primary/40 hover:bg-muted/30"
+        className="group relative z-10 flex items-center gap-3 rounded-xl border border-dashed border-border px-4 py-3 text-sm transition-colors hover:border-primary/40 hover:bg-muted/30"
       >
         <BookOpen className="h-4 w-4 shrink-0 text-muted-foreground" />
         <div className="min-w-0 flex-1">

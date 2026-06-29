@@ -271,9 +271,10 @@ export default function StatsPage() {
               </div>
             ) : (
               <>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                {/* Cartes agents défilables horizontalement (gauche/droite) */}
+                <div className="-mx-1 flex snap-x snap-mandatory gap-3 overflow-x-auto px-1 pb-2 scrollbar-thin">
                   {stats.agents.map((agent) => (
-                    <div key={agent.id} className="rounded-2xl border border-border bg-card p-5 transition-colors hover:border-foreground/20">
+                    <div key={agent.id} className="w-[300px] shrink-0 snap-start rounded-2xl border border-border bg-card p-5 transition-colors hover:border-foreground/20">
                       {/* En-tête : icône colorée + nom + badge actif */}
                       <div className="flex items-center justify-between gap-2">
                         <div className="flex min-w-0 items-center gap-2.5">
