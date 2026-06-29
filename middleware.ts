@@ -68,8 +68,9 @@ function isTenantCookieValid(cookieValue: string, host: string): boolean {
 
 const DEFAULT_TENANT = {
   id: '', slug: 'autyvia', appName: 'Autyvia', logoUrl: '/logo.svg',
-  faviconUrl: null, primaryColor: '#7DC2A5', accentColor: '#40E9BE',
-  sidebarColor: '#2D3E48', bgColor: null, textColor: null, supportEmail: null,
+  faviconUrl: null, primaryColor: '#40E9BE', accentColor: '#40E9BE',
+  // Palette « Xeyo dark » (quasi-noir) par défaut.
+  sidebarColor: '#0a0a0c', bgColor: null, textColor: null, supportEmail: null,
   themeConfig: null,
 }
 
