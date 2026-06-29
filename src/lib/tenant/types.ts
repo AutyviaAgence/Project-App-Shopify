@@ -35,9 +35,12 @@ export const DEFAULT_TENANT: TenantConfig = {
   appName: 'Xeyo',
   logoUrl: '/xeyo-logo.png',
   faviconUrl: null,
-  primaryColor: '#7DC2A5',
+  primaryColor: '#40E9BE',
   accentColor: '#40E9BE',
-  sidebarColor: '#2D3E48',
+  // Palette « Xeyo dark » (style Framer) : sidebar quasi-noire. On laisse
+  // bgColor/textColor à null pour que globals.css (.dark) reste la source de
+  // vérité des fonds/bordures (sinon adjustColor éclaircirait les cartes).
+  sidebarColor: '#0a0a0c',
   bgColor: null,
   textColor: null,
   supportEmail: null,

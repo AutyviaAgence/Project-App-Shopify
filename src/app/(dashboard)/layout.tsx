@@ -60,7 +60,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname()
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [pinned, setPinned] = useState(false)   // sidebar épinglée ouverte (desktop)
+  const [pinned, setPinned] = useState(true)   // sidebar épinglée ouverte par défaut (desktop)
   const [hovered, setHovered] = useState(false)  // survol → élargissement temporaire
   const [profile, setProfile] = useState<{ full_name?: string | null; avatar_url?: string | null } | null>(null)
   // Sur desktop, la sidebar est « large » si épinglée ou survolée.
