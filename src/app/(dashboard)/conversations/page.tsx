@@ -901,7 +901,18 @@ function ConversationsPageContent() {
       />
 
       {/* Contexte Shopify : commandes du client (helpdesk e-commerce) */}
-      {selectedConv && <ShopifyContextPanel contactId={selectedConv.contact_id} conversationId={selectedConv.id} />}
+      {selectedConv && (
+        <ShopifyContextPanel
+          contactId={selectedConv.contact_id}
+          conversationId={selectedConv.id}
+          contactName={
+            selectedConv.contact?.name
+            || [selectedConv.contact?.first_name, selectedConv.contact?.last_name].filter(Boolean).join(' ')
+            || selectedConv.contact?.phone_number
+            || null
+          }
+        />
+      )}
 
       {/* Contact profile panel */}
       <ContactProfilePanel

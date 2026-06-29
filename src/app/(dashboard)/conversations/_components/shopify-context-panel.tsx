@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ShoppingBag, Package, ExternalLink, Loader2, History, Ban, RotateCcw, Tag, Check, X } from 'lucide-react'
+import { ShoppingBag, Package, ExternalLink, Loader2, History, Ban, RotateCcw, Tag, Check, X, ChevronRight, ChevronLeft, MessageSquare } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 type Order = {
@@ -17,13 +17,13 @@ type Order = {
 
 type Data = { connected: boolean; orders: Order[]; error?: string }
 
-/** Traduit le statut de livraison Shopify en libellé FR + dégradé de carte. */
-function fulfillmentLabel(s: string | null): { label: string; badge: string; gradient: string } {
+/** Traduit le statut de livraison Shopify en libellé FR + style du badge. */
+function fulfillmentLabel(s: string | null): { label: string; badge: string } {
   switch (s) {
-    case 'FULFILLED': return { label: 'Expédiée', badge: 'text-emerald-300 bg-emerald-500/15 ring-emerald-500/30', gradient: 'from-emerald-500/25 to-teal-500/10' }
-    case 'PARTIALLY_FULFILLED': return { label: 'Partielle', badge: 'text-amber-300 bg-amber-500/15 ring-amber-500/30', gradient: 'from-amber-500/25 to-orange-500/10' }
-    case 'UNFULFILLED': return { label: 'En préparation', badge: 'text-blue-300 bg-blue-500/15 ring-blue-500/30', gradient: 'from-blue-500/25 to-indigo-500/10' }
-    default: return { label: s || '—', badge: 'text-muted-foreground bg-muted ring-border', gradient: 'from-white/10 to-white/0' }
+    case 'FULFILLED': return { label: 'Expédiée', badge: 'text-emerald-500 bg-emerald-500/15 ring-emerald-500/30' }
+    case 'PARTIALLY_FULFILLED': return { label: 'Partielle', badge: 'text-amber-500 bg-amber-500/15 ring-amber-500/30' }
+    case 'UNFULFILLED': return { label: 'En préparation', badge: 'text-blue-500 bg-blue-500/15 ring-blue-500/30' }
+    default: return { label: s || '—', badge: 'text-muted-foreground bg-muted ring-border' }
   }
 }
 
@@ -64,40 +64,92 @@ const STATUS_META: Record<ActionItem['status'], { label: string; cls: string }> 
  * Panneau de contexte Shopify : commandes récentes du client + historique des
  * actions de la conversation (annulations, remboursements, codes promo).
  */
-export function ShopifyContextPanel({ contactId, conversationId }: { contactId: string | null; conversationId?: string }) {
+export function ShopifyContextPanel({ contactId, conversationId, contactName }: { contactId: string | null; conversationId?: string; contactName?: string | null }) {
   const [data, setData] = useState<Data | null>(null)
   const [loading, setLoading] = useState(false)
   const [tab, setTab] = useState<'orders' | 'history'>('orders')
   const [actions, setActions] = useState<ActionItem[]>([])
   const [actionsLoading, setActionsLoading] = useState(false)
+  const [collapsed, setCollapsed] = useState(false)
 
   useEffect(() => {
+    let active = true
     if (!contactId) { setData(null); return }
-    setLoading(true)
-    fetch(`/api/shopify/orders?contact_id=${contactId}`)
-      .then((r) => r.json())
-      .then((j) => setData(j.data || null))
-      .catch(() => setData(null))
-      .finally(() => setLoading(false))
+    ;(async () => {
+      setLoading(true)
+      try {
+        const j = await (await fetch(`/api/shopify/orders?contact_id=${contactId}`)).json()
+        if (active) setData(j.data || null)
+      } catch {
+        if (active) setData(null)
+      } finally {
+        if (active) setLoading(false)
+      }
+    })()
+    return () => { active = false }
   }, [contactId])
 
   // Historique des actions de la conversation (chargé à l'ouverture de l'onglet)
   useEffect(() => {
     if (tab !== 'history' || !conversationId) return
-    setActionsLoading(true)
-    fetch(`/api/shopify/actions?conversation_id=${conversationId}`)
-      .then((r) => r.json())
-      .then((j) => setActions(j.data || []))
-      .catch(() => setActions([]))
-      .finally(() => setActionsLoading(false))
+    let active = true
+    ;(async () => {
+      setActionsLoading(true)
+      try {
+        const j = await (await fetch(`/api/shopify/actions?conversation_id=${conversationId}`)).json()
+        if (active) setActions(j.data || [])
+      } catch {
+        if (active) setActions([])
+      } finally {
+        if (active) setActionsLoading(false)
+      }
+    })()
+    return () => { active = false }
   }, [tab, conversationId])
 
   if (!contactId) return null
   // Boutique non connectée → on n'affiche pas le panneau
   if (data && !data.connected) return null
 
+  const orderCount = data?.orders.length ?? 0
+
+  // Replié : fine bande verticale avec une flèche pour rouvrir (comme la sidebar).
+  if (collapsed) {
+    return (
+      <div className="hidden w-12 shrink-0 flex-col items-center gap-3 border-l bg-background py-3 xl:flex">
+        <button
+          onClick={() => setCollapsed(false)}
+          title="Afficher les commandes"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </button>
+        <div className="relative">
+          <ShoppingBag className="h-5 w-5 text-muted-foreground" />
+          {orderCount > 0 && (
+            <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[9px] font-bold text-primary-foreground">{orderCount}</span>
+          )}
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="hidden w-72 shrink-0 border-l bg-background xl:block">
+      {/* En-tête : conversation liée + bouton replier */}
+      <div className="flex items-center gap-2 border-b px-3 py-2">
+        <MessageSquare className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        <span className="min-w-0 flex-1 truncate text-xs font-medium text-muted-foreground">
+          {contactName || 'Conversation'}
+        </span>
+        <button
+          onClick={() => setCollapsed(true)}
+          title="Réduire"
+          className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          <ChevronRight className="h-4 w-4" />
+        </button>
+      </div>
       {/* Onglets Commandes / Historique */}
       <div className="flex border-b">
         <button onClick={() => setTab('orders')}
@@ -155,51 +207,39 @@ export function ShopifyContextPanel({ contactId, conversationId }: { contactId: 
             <p className="text-sm text-muted-foreground">Aucune commande trouvée pour ce client.</p>
           </div>
         ) : (
-          data.orders.map((o, i) => {
+          data.orders.map((o) => {
             const fl = fulfillmentLabel(o.fulfillmentStatus)
             return (
               <div
                 key={o.id}
-                className="group overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm transition-colors hover:border-border"
+                className="group rounded-xl border border-border/60 bg-card p-3 transition-colors hover:border-border"
               >
-                {/* Bandeau dégradé selon le statut + n° commande */}
-                <div className={cn('flex items-center justify-between bg-gradient-to-br px-4 pb-8 pt-4', fl.gradient)}>
-                  <div className="flex items-center gap-2">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-background/40 backdrop-blur">
-                      <ShoppingBag className="h-4 w-4 text-foreground" />
-                    </span>
-                    <span className="text-base font-bold tracking-tight">{o.name}</span>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <ShoppingBag className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                    <span className="truncate text-sm font-semibold tracking-tight">{o.name}</span>
                   </div>
-                  <span className={cn('rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1', fl.badge)}>{fl.label}</span>
+                  <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1', fl.badge)}>{fl.label}</span>
                 </div>
-
-                {/* Corps : montant + métadonnées (remonte sur le bandeau) */}
-                <div className="-mt-5 space-y-3 px-4 pb-4">
-                  <div className="rounded-xl border border-border/60 bg-background/80 p-3 backdrop-blur">
-                    <p className="text-2xl font-bold tracking-tight">
-                      {o.total} <span className="text-sm font-medium text-muted-foreground">{o.currency}</span>
-                    </p>
-                    <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
-                      <span>{financialLabel(o.financialStatus)}</span>
-                      <span className="h-1 w-1 rounded-full bg-muted-foreground/40" />
-                      <span>{new Date(o.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
-                    </div>
-                  </div>
-
-                  {o.tracking?.url ? (
+                <div className="mt-1.5 flex items-end justify-between gap-2">
+                  <span className="text-base font-bold tracking-tight">
+                    {o.total} <span className="text-[11px] font-medium text-muted-foreground">{o.currency}</span>
+                  </span>
+                  <span className="shrink-0 text-[10px] text-muted-foreground">
+                    {new Date(o.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+                  </span>
+                </div>
+                <div className="mt-1 flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
+                  <span>{financialLabel(o.financialStatus)}</span>
+                  {o.tracking?.url && (
                     <a
                       href={o.tracking.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center justify-center gap-1.5 rounded-xl bg-primary/10 py-2 text-xs font-semibold text-primary transition-colors hover:bg-primary/20"
+                      className="inline-flex items-center gap-1 font-medium text-primary hover:underline"
                     >
-                      <Package className="h-3.5 w-3.5" /> Suivre le colis
-                      <ExternalLink className="h-3 w-3" />
+                      <Package className="h-3 w-3" /> Suivi <ExternalLink className="h-2.5 w-2.5" />
                     </a>
-                  ) : (
-                    <p className="text-center text-[11px] text-muted-foreground/60">
-                      {i === 0 ? 'Pas encore de suivi' : ''}
-                    </p>
                   )}
                 </div>
               </div>
