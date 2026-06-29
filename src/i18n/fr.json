@@ -271,6 +271,11 @@
     "new_tag_placeholder": "Nouveau tag...",
     "agent_ia": "Agent IA",
     "analyze_ai": "Analyser avec l'IA",
+    "autotag_label": "Tag auto IA",
+    "autotag_title": "Tag automatique IA",
+    "autotag_desc": "L'IA classe automatiquement les conversations.",
+    "autotag_on_toast": "Tag automatique IA activé",
+    "autotag_off_toast": "Tag automatique IA désactivé (manuel)",
     "conversations_count": "{count} conversation(s)"
   },
   "agents": {

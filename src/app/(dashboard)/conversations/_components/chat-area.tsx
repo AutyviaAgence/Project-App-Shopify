@@ -46,6 +46,7 @@ import { getSessionDisplayName, getContactDisplayName } from '@/lib/format-phone
 import { useTranslation } from '@/i18n/context'
 import type { ConversationWithJoins, Message, AIAgent, LifecycleStage } from './types'
 import { ActionsPanel } from './actions-panel'
+import { AutoTagToggle } from './auto-tag-toggle'
 
 interface ChatAreaProps {
   selectedConv: ConversationWithJoins | null
@@ -336,6 +337,8 @@ export function ChatArea({
                       )}
                     </Button>
                   )}
+                  {/* Activation rapide du tag automatique IA (même réglage que Settings) */}
+                  {canAnalyze && <AutoTagToggle />}
                 </div>
               )}
 
