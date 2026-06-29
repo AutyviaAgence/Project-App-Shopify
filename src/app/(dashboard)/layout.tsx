@@ -152,7 +152,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
     // Effet « languette » uniquement quand la sidebar est épinglée (pas au survol,
     // où elle flotte encore) et large.
-    const tab = pinned
+    const tab = expanded
     return (
       <Link
         href={item.href}
@@ -165,24 +165,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             : 'md:h-12 md:w-12 md:justify-center md:gap-0 md:px-0 md:py-0',
           isActive
             ? tab
-              // Languette : fond = panneau, arrondi à gauche, traverse le padding
-              // de la sidebar (px-2 nav + p-2 aside = -mr-4) pour coller au panneau.
-              ? 'md:-mr-4 md:rounded-r-none md:rounded-l-xl md:bg-background md:text-foreground'
+              ? 'md:-mr-5 md:rounded-r-none md:rounded-l-xl md:bg-background md:text-foreground'
               : 'bg-white/10 text-white ring-1 ring-white/15'
             : 'text-white/55 hover:bg-white/[0.06] hover:text-white'
         )}
       >
-        {/* Coins inversés : raccordent l'onglet au panneau (haut + bas) */}
-        {isActive && tab && (
-          <>
-            <span className="pointer-events-none absolute -top-3 right-0 hidden h-3 w-4 bg-background md:block" aria-hidden>
-              <span className="absolute inset-0 rounded-br-[12px] bg-[var(--sidebar)]" />
-            </span>
-            <span className="pointer-events-none absolute -bottom-3 right-0 hidden h-3 w-4 bg-background md:block" aria-hidden>
-              <span className="absolute inset-0 rounded-tr-[12px] bg-[var(--sidebar)]" />
-            </span>
-          </>
-        )}
         <item.icon className="h-[22px] w-[22px] shrink-0" />
         <span className={cn(expanded ? 'md:inline' : 'md:hidden')}>{item.label}</span>
       </Link>
@@ -209,7 +196,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           'group/sidebar fixed inset-y-0 left-0 z-50 flex w-[260px] max-w-[80vw] flex-col bg-[var(--sidebar)] transition-all duration-300',
           'md:relative md:inset-y-auto md:m-2 md:mr-0 md:h-[calc(100dvh-1rem)] md:max-w-none md:p-2',
           // Épinglée : colle au panneau (pas d'arrondi à droite). Sinon : carte arrondie.
-          pinned ? 'md:rounded-l-[10px] md:rounded-r-none' : 'md:rounded-[10px]',
+          expanded ? 'md:rounded-l-[10px] md:rounded-r-none' : 'md:rounded-[10px]',
           expanded ? 'md:w-[240px]' : 'md:w-[81px]',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         )}
@@ -303,7 +290,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         'relative flex flex-1 flex-col overflow-hidden bg-background md:my-2 md:mr-2 md:shadow-2xl',
         // Anneau seulement quand le panneau flotte (non épinglé) : sinon il dessine
         // un liseré sur le bord gauche, juste là où la languette doit fusionner.
-        pinned ? 'md:ml-0 md:rounded-l-none md:rounded-r-[20px]' : 'md:ml-2 md:rounded-[20px] md:ring-1 md:ring-black/5 dark:md:ring-white/10'
+        expanded ? 'md:ml-0 md:rounded-l-none md:rounded-r-[20px]' : 'md:ml-2 md:rounded-[20px] md:ring-1 md:ring-black/5 dark:md:ring-white/10'
       )}>
         {/* Topbar globale : menu mobile (gauche) + cloche/réglages/profil (droite) */}
         <DashboardTopBar onOpenSidebar={() => setSidebarOpen(true)} />
