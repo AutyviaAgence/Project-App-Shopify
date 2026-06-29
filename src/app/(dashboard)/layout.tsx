@@ -194,10 +194,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         onMouseLeave={() => setHovered(false)}
         className={cn(
           'group/sidebar fixed inset-y-0 left-0 z-50 flex w-[260px] max-w-[80vw] flex-col bg-[var(--sidebar)] transition-all duration-300',
-          'md:relative md:inset-y-auto md:m-2 md:mr-0 md:h-[calc(100dvh-1rem)] md:max-w-none md:py-2 md:pl-2',
-          expanded ? 'md:pr-0' : 'md:pr-2',
+          'md:relative md:inset-y-auto md:m-2 md:mr-0 md:h-[calc(100dvh-1rem)] md:max-w-none md:p-2',
           // Épinglée : colle au panneau (pas d'arrondi à droite). Sinon : carte arrondie.
-          expanded ? 'md:rounded-l-[10px] md:rounded-r-none' : 'md:rounded-[10px]',
+          'md:rounded-[10px]',
           expanded ? 'md:w-[240px]' : 'md:w-[81px]',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         )}
@@ -236,7 +235,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* Navigation */}
         <nav className={cn(
           'flex-1 space-y-1.5 overflow-y-auto overflow-x-hidden px-3 py-2 md:flex md:flex-col md:gap-2 md:space-y-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
-          expanded ? 'md:items-stretch md:px-2 md:pr-0' : 'md:items-center md:px-0'
+          expanded ? 'md:items-stretch md:px-2' : 'md:items-center md:px-0'
         )}>
           {NAV_ITEMS.map((item) => (
             <NavLink key={item.href} item={item} />
@@ -291,7 +290,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         'relative flex flex-1 flex-col overflow-hidden bg-background md:my-2 md:mr-2 md:shadow-2xl',
         // Anneau seulement quand le panneau flotte (non épinglé) : sinon il dessine
         // un liseré sur le bord gauche, juste là où la languette doit fusionner.
-        expanded ? 'md:ml-0 md:rounded-l-none md:rounded-r-[20px]' : 'md:ml-2 md:rounded-[20px] md:ring-1 md:ring-black/5 dark:md:ring-white/10'
+        'md:ml-2 md:rounded-[20px] md:ring-1 md:ring-black/5 dark:md:ring-white/10'
       )}>
         {/* Topbar globale : menu mobile (gauche) + cloche/réglages/profil (droite) */}
         <DashboardTopBar onOpenSidebar={() => setSidebarOpen(true)} />
