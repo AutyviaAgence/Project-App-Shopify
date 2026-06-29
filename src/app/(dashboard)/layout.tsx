@@ -165,8 +165,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             : 'md:h-12 md:w-12 md:justify-center md:gap-0 md:px-0 md:py-0',
           isActive
             ? tab
-              // Languette : fond = panneau, arrondi à gauche, colle au bord droit
-              ? 'md:-mr-2 md:rounded-r-none md:rounded-l-xl md:bg-background md:text-foreground'
+              // Languette : fond = panneau, arrondi à gauche, traverse le padding
+              // de la sidebar (px-2 nav + p-2 aside = -mr-4) pour coller au panneau.
+              ? 'md:-mr-4 md:rounded-r-none md:rounded-l-xl md:bg-background md:text-foreground'
               : 'bg-white/10 text-white ring-1 ring-white/15'
             : 'text-white/55 hover:bg-white/[0.06] hover:text-white'
         )}
