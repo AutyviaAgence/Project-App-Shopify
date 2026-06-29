@@ -175,10 +175,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {isActive && tab && (
           <>
             <span className="pointer-events-none absolute -top-3 right-0 hidden h-3 w-3 bg-background md:block" aria-hidden>
-              <span className="absolute inset-0 rounded-br-[12px] bg-[#0a0a0c]" />
+              <span className="absolute inset-0 rounded-br-[12px] bg-[var(--sidebar)]" />
             </span>
             <span className="pointer-events-none absolute -bottom-3 right-0 hidden h-3 w-3 bg-background md:block" aria-hidden>
-              <span className="absolute inset-0 rounded-tr-[12px] bg-[#0a0a0c]" />
+              <span className="absolute inset-0 rounded-tr-[12px] bg-[var(--sidebar)]" />
             </span>
           </>
         )}
@@ -205,7 +205,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         className={cn(
-          'group/sidebar fixed inset-y-0 left-0 z-50 flex w-[260px] max-w-[80vw] flex-col bg-[#0a0a0c] transition-all duration-300',
+          'group/sidebar fixed inset-y-0 left-0 z-50 flex w-[260px] max-w-[80vw] flex-col bg-[var(--sidebar)] transition-all duration-300',
           'md:relative md:inset-y-auto md:m-2 md:mr-0 md:h-[calc(100dvh-1rem)] md:max-w-none md:p-2',
           // Épinglée : colle au panneau (pas d'arrondi à droite). Sinon : carte arrondie.
           pinned ? 'md:rounded-l-[10px] md:rounded-r-none' : 'md:rounded-[10px]',

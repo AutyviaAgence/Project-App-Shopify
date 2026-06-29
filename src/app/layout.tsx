@@ -19,7 +19,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="fr" className="dark" suppressHydrationWarning>
+    <html lang="fr" suppressHydrationWarning>
       <head>
         <link rel="icon" href="/logo-xeyo.svg" type="image/svg+xml" />
       </head>
@@ -27,7 +27,6 @@ export default function RootLayout({
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
-          forcedTheme="dark"
           enableSystem={false}
           disableTransitionOnChange
         >
