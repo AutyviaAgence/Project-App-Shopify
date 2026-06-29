@@ -53,7 +53,7 @@ export function AutoTagToggle() {
     setSaving(true)
     try {
       const res = await fetch('/api/profile', {
-        method: 'PUT',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ lifecycle_analysis_threshold: next }),
       })
