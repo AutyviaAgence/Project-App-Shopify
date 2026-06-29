@@ -17,13 +17,25 @@ type Order = {
 
 type Data = { connected: boolean; orders: Order[]; error?: string }
 
-/** Traduit le statut de livraison Shopify en libellé FR lisible. */
-function fulfillmentLabel(s: string | null): { label: string; color: string } {
+/** Traduit le statut de livraison Shopify en libellé FR + dégradé de carte. */
+function fulfillmentLabel(s: string | null): { label: string; badge: string; gradient: string } {
   switch (s) {
-    case 'FULFILLED': return { label: 'Expédiée', color: 'text-green-600 bg-green-500/10' }
-    case 'PARTIALLY_FULFILLED': return { label: 'Partielle', color: 'text-amber-600 bg-amber-500/10' }
-    case 'UNFULFILLED': return { label: 'En préparation', color: 'text-blue-600 bg-blue-500/10' }
-    default: return { label: s || '—', color: 'text-muted-foreground bg-muted' }
+    case 'FULFILLED': return { label: 'Expédiée', badge: 'text-emerald-300 bg-emerald-500/15 ring-emerald-500/30', gradient: 'from-emerald-500/25 to-teal-500/10' }
+    case 'PARTIALLY_FULFILLED': return { label: 'Partielle', badge: 'text-amber-300 bg-amber-500/15 ring-amber-500/30', gradient: 'from-amber-500/25 to-orange-500/10' }
+    case 'UNFULFILLED': return { label: 'En préparation', badge: 'text-blue-300 bg-blue-500/15 ring-blue-500/30', gradient: 'from-blue-500/25 to-indigo-500/10' }
+    default: return { label: s || '—', badge: 'text-muted-foreground bg-muted ring-border', gradient: 'from-white/10 to-white/0' }
+  }
+}
+
+/** Statut de paiement Shopify → libellé FR. */
+function financialLabel(s: string | null): string {
+  switch (s) {
+    case 'PAID': return 'Payée'
+    case 'PENDING': return 'En attente'
+    case 'REFUNDED': return 'Remboursée'
+    case 'PARTIALLY_REFUNDED': return 'Part. remboursée'
+    case 'VOIDED': return 'Annulée'
+    default: return s || '—'
   }
 }
 
@@ -130,41 +142,66 @@ export function ShopifyContextPanel({ contactId, conversationId }: { contactId: 
           )}
         </div>
       ) : (
-      <div className="space-y-3 p-4">
+      <div className="flex flex-col gap-3 overflow-y-auto p-4 [scrollbar-width:thin]">
         {loading ? (
           <div className="flex items-center justify-center py-8 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
           </div>
         ) : !data || data.orders.length === 0 ? (
-          <p className="py-6 text-center text-sm text-muted-foreground">
-            Aucune commande trouvée pour ce client.
-          </p>
+          <div className="flex flex-col items-center gap-2 py-10 text-center">
+            <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/40">
+              <ShoppingBag className="h-5 w-5 text-muted-foreground" />
+            </span>
+            <p className="text-sm text-muted-foreground">Aucune commande trouvée pour ce client.</p>
+          </div>
         ) : (
-          data.orders.map((o) => {
+          data.orders.map((o, i) => {
             const fl = fulfillmentLabel(o.fulfillmentStatus)
             return (
-              <div key={o.id} className="rounded-xl border p-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-sm">{o.name}</span>
-                  <span className="text-sm font-semibold">{o.total} {o.currency}</span>
+              <div
+                key={o.id}
+                className="group overflow-hidden rounded-2xl border border-border/60 bg-card shadow-sm transition-colors hover:border-border"
+              >
+                {/* Bandeau dégradé selon le statut + n° commande */}
+                <div className={cn('flex items-center justify-between bg-gradient-to-br px-4 pb-8 pt-4', fl.gradient)}>
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-background/40 backdrop-blur">
+                      <ShoppingBag className="h-4 w-4 text-foreground" />
+                    </span>
+                    <span className="text-base font-bold tracking-tight">{o.name}</span>
+                  </div>
+                  <span className={cn('rounded-full px-2.5 py-1 text-[11px] font-semibold ring-1', fl.badge)}>{fl.label}</span>
                 </div>
-                <div className="mt-1.5 flex items-center gap-2">
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${fl.color}`}>{fl.label}</span>
-                  <span className="text-[11px] text-muted-foreground">
-                    {new Date(o.createdAt).toLocaleDateString('fr-FR')}
-                  </span>
+
+                {/* Corps : montant + métadonnées (remonte sur le bandeau) */}
+                <div className="-mt-5 space-y-3 px-4 pb-4">
+                  <div className="rounded-xl border border-border/60 bg-background/80 p-3 backdrop-blur">
+                    <p className="text-2xl font-bold tracking-tight">
+                      {o.total} <span className="text-sm font-medium text-muted-foreground">{o.currency}</span>
+                    </p>
+                    <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
+                      <span>{financialLabel(o.financialStatus)}</span>
+                      <span className="h-1 w-1 rounded-full bg-muted-foreground/40" />
+                      <span>{new Date(o.createdAt).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                    </div>
+                  </div>
+
+                  {o.tracking?.url ? (
+                    <a
+                      href={o.tracking.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-1.5 rounded-xl bg-primary/10 py-2 text-xs font-semibold text-primary transition-colors hover:bg-primary/20"
+                    >
+                      <Package className="h-3.5 w-3.5" /> Suivre le colis
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  ) : (
+                    <p className="text-center text-[11px] text-muted-foreground/60">
+                      {i === 0 ? 'Pas encore de suivi' : ''}
+                    </p>
+                  )}
                 </div>
-                {o.tracking?.url && (
-                  <a
-                    href={o.tracking.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-2 inline-flex items-center gap-1 text-xs text-primary hover:underline"
-                  >
-                    <Package className="h-3 w-3" /> Suivre le colis
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
-                )}
               </div>
             )
           })
