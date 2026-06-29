@@ -9,28 +9,22 @@ import { cn } from '@/lib/utils'
 import {
   LayoutDashboard,
   MessageSquare,
-  Smartphone,
   Bot,
-  BookOpen,
   BarChart3,
   LogOut,
   Settings,
   ScrollText,
   HelpCircle,
   FileText,
-  ShoppingBag,
-  Menu,
   X,
-  ChevronLeft,
-  ChevronRight,
   AlertTriangle,
   CreditCard,
   Workflow,
   ShieldCheck,
-  ArrowRight,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { AlertsDropdown } from '@/components/alerts-dropdown'
+import { DashboardTopBar } from '@/components/dashboard-topbar'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { BlobLoaderScreen } from '@/components/blob-loader'
 import dynamic from 'next/dynamic'
 
@@ -64,7 +58,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname()
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [collapsed, setCollapsed] = useState(false)
+  const [profile, setProfile] = useState<{ full_name?: string | null; avatar_url?: string | null } | null>(null)
   const { subscription, loading: subscriptionLoading, refetch: refetchSubscription } = useSubscription()
   const { t } = useTranslation()
   const tenant = useTenant()
@@ -123,6 +117,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return () => window.removeEventListener('keydown', handleEsc)
   }, [])
 
+  // Profil (avatar du bas de sidebar)
+  useEffect(() => {
+    let active = true
+    fetch('/api/profile')
+      .then(r => (r.ok ? r.json() : null))
+      .then(json => { if (active && json?.data) setProfile(json.data) })
+      .catch(() => {})
+    return () => { active = false }
+  }, [])
+
   const handleSignOut = useCallback(async () => {
     const supabase = createClient()
     const { error } = await supabase.auth.signOut()
@@ -134,43 +138,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     router.refresh()
   }, [router, t])
 
-  const NavLink = ({ item, showLabel = true }: { item: typeof NAV_ITEMS[0]; showLabel?: boolean }) => {
-    const isActive = pathname === item.href
-      || pathname.startsWith(item.href + '/')
+  // Lien de nav : carré d'icône compact sur desktop (sidebar fine 81px), avec
+  // libellé sur mobile (le drawer est large). Actif = pastille claire.
+  const NavLink = ({ item }: { item: typeof NAV_ITEMS[0] }) => {
+    const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
     return (
       <Link
         href={item.href}
+        title={item.label}
         className={cn(
-          'group relative flex items-center gap-4 px-4 py-4 text-[16px] font-semibold transition-all duration-200',
+          'group flex items-center gap-3 rounded-xl text-[15px] font-medium transition-all duration-200',
+          // Mobile : pleine largeur avec libellé. Desktop : carré centré 56px.
+          'px-3 py-3 md:h-14 md:w-14 md:justify-center md:gap-0 md:px-0 md:py-0',
           isActive
-            // Onglet actif : couleur du panneau (--background), arrondi à gauche, colle au bord droit
-            // (le panneau est colle ml-0) → fusion sans debordement ni scroll
-            ? 'rounded-l-2xl rounded-r-none bg-background text-foreground md:shadow-[-6px_0_16px_-8px_rgba(0,0,0,0.3)]'
-            : 'mr-3 rounded-2xl text-white/70 hover:bg-white/10 hover:text-white',
-          collapsed && 'justify-center px-2 mr-0'
+            ? 'bg-white/10 text-white ring-1 ring-white/15'
+            : 'text-white/55 hover:bg-white/[0.06] hover:text-white'
         )}
-        title={collapsed ? item.label : undefined}
       >
-        {/* Coins inversés : raccordent l'onglet au panneau (effet "languette") */}
-        {isActive && !collapsed && (
-          <>
-            <span className="pointer-events-none absolute -top-3 right-0 hidden h-3 w-3 bg-background md:block" aria-hidden>
-              <span className="absolute inset-0 rounded-br-[12px] bg-[var(--sidebar)]" />
-            </span>
-            <span className="pointer-events-none absolute -bottom-3 right-0 hidden h-3 w-3 bg-background md:block" aria-hidden>
-              <span className="absolute inset-0 rounded-tr-[12px] bg-[var(--sidebar)]" />
-            </span>
-          </>
-        )}
-        <item.icon className="h-[25px] w-[25px] shrink-0" />
-        {showLabel && (
-          <span className={cn(
-            'transition-all duration-200',
-            collapsed ? 'w-0 opacity-0 overflow-hidden' : 'w-auto opacity-100'
-          )}>
-            {item.label}
-          </span>
-        )}
+        <item.icon className="h-[22px] w-[22px] shrink-0" />
+        <span className="md:hidden">{item.label}</span>
       </Link>
     )
   }
@@ -186,99 +172,77 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         />
       )}
 
-      {/* Sidebar */}
+      {/* Sidebar — carte flottante fine (style Framer : 81px, radius 10px, #0a0a0c).
+          Sur mobile : drawer large avec libellés. */}
       <aside
         className={cn(
-          'fixed inset-y-0 left-0 z-50 flex flex-col bg-[var(--sidebar)] transition-all duration-300 md:relative md:bg-transparent',
-          sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
-          collapsed ? 'w-[84px]' : 'w-[280px] max-w-[85vw] md:w-[300px] md:max-w-none'
+          'fixed inset-y-0 left-0 z-50 flex w-[260px] max-w-[80vw] flex-col bg-[#0a0a0c] transition-transform duration-300',
+          'md:relative md:inset-y-auto md:m-2 md:mr-0 md:h-[calc(100dvh-1rem)] md:w-[81px] md:max-w-none md:rounded-[10px] md:p-2',
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         )}
       >
         {/* Logo & Close */}
-        <div className={cn(
-          'relative flex h-[76px] items-center px-5',
-          collapsed ? 'justify-center px-4' : 'justify-between'
-        )}>
-          {!collapsed && (
-            <Link href="/dashboard" className="flex items-center gap-3">
-              <Image src={tenant.logoUrl} alt={tenant.appName} width={44} height={44} className="h-11 w-11" />
-              <span className="text-2xl font-bold text-white">{tenant.appName}</span>
-            </Link>
-          )}
-          {collapsed && (
-            <Link href="/dashboard">
-              <Image src={tenant.logoUrl} alt={tenant.appName} width={38} height={38} className="h-[38px] w-[38px]" />
-            </Link>
-          )}
+        <div className="flex h-[60px] items-center justify-between px-5 md:h-auto md:justify-center md:px-0 md:pb-2 md:pt-1">
+          <Link href="/dashboard" className="flex items-center gap-3 md:gap-0">
+            <Image src={tenant.logoUrl} alt={tenant.appName} width={40} height={40} className="h-10 w-10 md:h-9 md:w-9" />
+            <span className="text-2xl font-bold text-white md:hidden">{tenant.appName}</span>
+          </Link>
           <button
             onClick={() => setSidebarOpen(false)}
-            className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-lg text-white/70 hover:bg-white/10 hover:text-white md:hidden"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-white/70 hover:bg-white/10 hover:text-white md:hidden"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 space-y-1.5 overflow-y-auto overflow-x-hidden py-3 pl-3 pr-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <nav className="flex-1 space-y-1.5 overflow-y-auto overflow-x-hidden px-3 py-2 md:flex md:flex-col md:items-center md:gap-3 md:space-y-0 md:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {NAV_ITEMS.map((item) => (
-            <NavLink key={item.href} item={item} showLabel={!collapsed} />
+            <NavLink key={item.href} item={item} />
           ))}
         </nav>
 
-        {/* Bottom section — pr-0 comme le haut pour que l'onglet actif fusionne
-            avec le panneau (sinon separation de couleur a droite) */}
-        <div className="py-3 pl-3 pr-0 space-y-1.5">
+        {/* Bas : nav secondaire + déconnexion + avatar */}
+        <div className="space-y-1.5 px-3 py-2 md:flex md:flex-col md:items-center md:gap-2 md:space-y-0 md:px-0">
           {BOTTOM_NAV_ITEMS.map((item) => (
-            <NavLink key={item.href} item={item} showLabel={!collapsed} />
+            <NavLink key={item.href} item={item} />
           ))}
 
           <button
             onClick={handleSignOut}
+            title={t('nav.signout')}
             className={cn(
-              'group mr-3 flex w-[calc(100%-0.75rem)] items-center gap-4 rounded-2xl px-4 py-4 text-[16px] font-semibold text-white/70 transition-all duration-200 hover:bg-white/10 hover:text-white',
-              collapsed && 'mr-0 w-full justify-center px-2'
+              'flex items-center gap-3 rounded-xl text-[15px] font-medium text-white/55 transition-all duration-200 hover:bg-white/[0.06] hover:text-white',
+              'px-3 py-3 md:h-14 md:w-14 md:justify-center md:gap-0 md:px-0 md:py-0'
             )}
-            title={collapsed ? t('nav.signout') : undefined}
           >
-            <LogOut className="h-[25px] w-[25px] shrink-0" />
-            {!collapsed && <span>{t('nav.signout')}</span>}
+            <LogOut className="h-[22px] w-[22px] shrink-0" />
+            <span className="md:hidden">{t('nav.signout')}</span>
           </button>
-        </div>
 
-        {/* Collapse toggle (desktop only) — en haut a droite de la sidebar */}
-        <button
-          onClick={() => setCollapsed(!collapsed)}
-          title={collapsed ? 'Déplier le menu' : 'Replier le menu'}
-          className="absolute right-3 top-6 z-[60] hidden h-8 w-8 items-center justify-center rounded-full border border-white/15 bg-white/5 text-white/70 shadow-lg backdrop-blur transition-all hover:scale-110 hover:bg-white/15 hover:text-white md:flex"
-        >
-          {collapsed ? (
-            <ChevronRight className="h-4 w-4" />
-          ) : (
-            <ChevronLeft className="h-4 w-4" />
-          )}
-        </button>
+          {/* Avatar (juste l'icône sur desktop) */}
+          <Link href="/settings" className="mt-1 flex items-center gap-3 rounded-xl px-3 py-2 md:justify-center md:px-0" title={profile?.full_name || 'Profil'}>
+            <Avatar size="default" className="ring-1 ring-white/15">
+              {profile?.avatar_url && <AvatarImage src={profile.avatar_url} alt={profile.full_name || 'Profil'} />}
+              <AvatarFallback className="bg-white/10 text-[11px] font-semibold text-white">
+                {(profile?.full_name || '').split(' ').map(p => p[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '·'}
+              </AvatarFallback>
+            </Avatar>
+            <span className="text-sm font-medium text-white/80 md:hidden">{profile?.full_name || 'Profil'}</span>
+          </Link>
+        </div>
       </aside>
 
-      {/* Main content — panneau arrondi flottant. Fond global = --sidebar (plus foncé),
-          panneau = --background (moins foncé) → démarcation nette en clair ET sombre. */}
-      <div className="relative flex flex-1 flex-col overflow-hidden bg-background md:m-3 md:ml-0 md:rounded-[28px] md:shadow-2xl md:ring-1 md:ring-black/5 dark:md:ring-white/10">
-        {/* Plus de barre de notif : menu mobile (gauche) + cloche (droite) flottants
-            au-dessus du contenu, sans bandeau pleine largeur. */}
-        <button
-          onClick={() => setSidebarOpen(true)}
-          className="absolute left-3 top-3 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-background/70 text-muted-foreground backdrop-blur hover:bg-muted hover:text-foreground md:hidden"
-        >
-          <Menu className="h-5 w-5" />
-        </button>
-        <div className="absolute right-3 top-3 z-30 md:right-5 md:top-4">
-          <AlertsDropdown />
-        </div>
+      {/* Main content — panneau arrondi flottant. */}
+      <div className="relative flex flex-1 flex-col overflow-hidden bg-background md:m-2 md:ml-2 md:rounded-[20px] md:shadow-2xl md:ring-1 md:ring-black/5 dark:md:ring-white/10">
+        {/* Topbar globale : menu mobile (gauche) + cloche/réglages/profil (droite) */}
+        <DashboardTopBar onOpenSidebar={() => setSidebarOpen(true)} />
 
         {/* Subscription banner */}
         <SubscriptionBanner subscription={subscription} />
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto bg-transparent [&_[data-page-header]]:md:pr-14">
+        <main className="flex-1 overflow-y-auto bg-transparent">
           {subscriptionLoading ? (
             <BlobLoaderScreen />
           ) : isPlanBlocked ? (
