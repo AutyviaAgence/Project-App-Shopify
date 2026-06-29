@@ -4,7 +4,9 @@ import React, { useState, useEffect } from 'react'
 import { Clock, GitBranch, MessageSquare, Plus, ShoppingBag, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
+import { ChevronDown } from 'lucide-react'
 import { TRIGGER_EVENTS } from '@/lib/automations/types'
 import { CONDITION_FIELDS, COUNTRY_OPTIONS, LANGUAGE_OPTIONS } from './field-labels'
 import { chainFrom, getNode } from './timeline-model'
@@ -218,31 +220,64 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction }: {
   node: WorkflowNode; templates: WhatsAppTemplate[]
   onPatch: (id: string, p: Partial<WorkflowNode>) => void; onDelete: () => void; onSelectAction: (t: string | null) => void
 }) {
+  const [pickerOpen, setPickerOpen] = useState(false)
   if (node.type !== 'action') return null
   const selected = templates.find((t) => t.id === node.templateId) || null
-  const typeBadge = selected
-    ? (selected.template_type === 'carousel' ? '🎠 Carrousel'
-      : selected.template_type === 'limited_time_offer' ? '🏷️ Offre limitée'
-      : '💬 Message')
-    : null
+  const badge = (t: WhatsAppTemplate) =>
+    t.template_type === 'carousel' ? '🎠 Carrousel'
+    : t.template_type === 'limited_time_offer' ? '🏷️ Offre limitée'
+    : '💬 Message'
+  const labelsFor = (t: WhatsAppTemplate) => (t.variable_keys || []).map((k) => VARIABLE_BY_KEY[k]?.label || k)
+
   return (
     <Shell tone={TONE.green} icon={<MessageSquare className="h-4 w-4" />} kind="Envoyer le modèle" onDelete={onDelete}>
       {templates.length === 0 ? (
         <p className="text-xs text-muted-foreground">Aucun modèle approuvé.</p>
       ) : (
         <div className="space-y-2">
-          <Select value={node.templateId || ''} onValueChange={(v) => { onPatch(node.id, { templateId: v } as never); onSelectAction(v) }}>
-            <SelectTrigger className="w-full min-w-0"><SelectValue placeholder="Choisir un modèle" /></SelectTrigger>
-            <SelectContent>{templates.map((t) => <SelectItem key={t.id} value={t.id}><span className="block max-w-[240px] truncate">{t.name}</span></SelectItem>)}</SelectContent>
-          </Select>
-          {/* Aperçu du message (bulle WhatsApp) directement dans le nœud. */}
+          {/* Sélecteur VISUEL : ouvre une galerie de bulles de message. */}
+          <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+            <PopoverTrigger asChild>
+              <button className="flex w-full items-center justify-between gap-2 rounded-lg border border-border bg-background px-3 py-2 text-left text-sm transition-colors hover:border-foreground/30">
+                <span className={cn('truncate', selected ? 'font-medium' : 'text-muted-foreground')}>
+                  {selected ? selected.name : 'Choisir un modèle'}
+                </span>
+                <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent align="start" className="max-h-[420px] w-[320px] overflow-y-auto p-2">
+              <p className="px-1 pb-2 pt-1 text-[11px] font-medium text-muted-foreground">Choisir un modèle</p>
+              <div className="space-y-2">
+                {templates.map((t) => {
+                  const isSel = t.id === node.templateId
+                  return (
+                    <button
+                      key={t.id}
+                      onClick={() => { onPatch(node.id, { templateId: t.id } as never); onSelectAction(t.id); setPickerOpen(false) }}
+                      className={cn(
+                        'block w-full rounded-xl border p-2 text-left transition-colors',
+                        isSel ? 'border-primary/50 bg-primary/5 ring-1 ring-primary/30' : 'border-border hover:border-foreground/30 hover:bg-muted/40'
+                      )}
+                    >
+                      <div className="mb-1 flex items-center justify-between gap-2">
+                        <span className="truncate text-xs font-medium">{t.name}</span>
+                        <span className="shrink-0 text-[10px] text-muted-foreground">{badge(t)}</span>
+                      </div>
+                      <div className="pointer-events-none origin-top-left scale-[0.92]">
+                        <TemplateBubble template={t} labels={labelsFor(t)} />
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          {/* Aperçu du modèle sélectionné directement dans le nœud. */}
           {selected && (
             <div>
-              <div className="mb-1 text-[10px] font-medium text-muted-foreground">{typeBadge}</div>
-              <TemplateBubble
-                template={selected}
-                labels={(selected.variable_keys || []).map((k) => VARIABLE_BY_KEY[k]?.label || k)}
-              />
+              <div className="mb-1 text-[10px] font-medium text-muted-foreground">{badge(selected)}</div>
+              <TemplateBubble template={selected} labels={labelsFor(selected)} />
             </div>
           )}
         </div>
