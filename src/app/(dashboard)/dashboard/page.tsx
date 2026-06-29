@@ -19,9 +19,9 @@ function DashboardHome() {
   const tenant = useTenant()
 
   return (
-    <div className="relative mx-auto flex w-full max-w-5xl flex-col gap-8 p-4 pb-20 md:p-8 md:pt-12">
-      {/* Animation météores en fond */}
-      <Meteors number={24} className="opacity-60" />
+    <div className="relative flex w-full flex-col gap-8 overflow-x-hidden p-4 pb-20 md:p-8 md:pt-12">
+      {/* Animation météores en fond (clippées au conteneur) */}
+      <Meteors number={20} className="opacity-60" />
 
       {/* Accueil sobre */}
       <div data-tour="header" data-page-header className="relative z-10 space-y-1">
