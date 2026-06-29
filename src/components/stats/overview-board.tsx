@@ -9,6 +9,8 @@ import { NumberTicker } from '@/components/ui/number-ticker'
 import type { StatsResponse } from '@/types/stats'
 
 type TemplateLite = { id: string; name: string; status: string }
+type SalesMonth = { month: string; total: number; whatsapp: number }
+type SalesData = { currency: string; months: SalesMonth[]; totalAll: number; totalWhatsapp: number }
 
 // ── Carte de base (style Framer : noir, bordure translucide, radius 4px) ──────
 function FrameCard({ className, children, gradient }: { className?: string; children: React.ReactNode; gradient?: boolean }) {
@@ -94,12 +96,17 @@ export function StatsOverviewBoard({
 }) {
   const o = stats.overview
   const [templates, setTemplates] = useState<TemplateLite[]>([])
+  const [sales, setSales] = useState<SalesData | null>(null)
 
   useEffect(() => {
     let active = true
     fetch('/api/templates')
       .then(r => (r.ok ? r.json() : null))
       .then(json => { if (active && json?.data) setTemplates(json.data.slice(0, 3)) })
+      .catch(() => {})
+    fetch('/api/shopify/sales?months=6')
+      .then(r => (r.ok ? r.json() : null))
+      .then(json => { if (active && json?.data) setSales(json.data) })
       .catch(() => {})
     return () => { active = false }
   }, [])
@@ -113,15 +120,6 @@ export function StatsOverviewBoard({
     () => stats.charts.messagesOverTime.slice(-7).reduce((s, p) => s + p.inbound + p.outbound, 0),
     [stats.charts.messagesOverTime]
   )
-  const monthlyBars = useMemo(() => {
-    // Regroupe par mois (max 6 derniers)
-    const byMonth = new Map<string, number>()
-    for (const p of stats.charts.messagesOverTime) {
-      const m = p.date.slice(0, 7)
-      byMonth.set(m, (byMonth.get(m) || 0) + p.inbound + p.outbound)
-    }
-    return Array.from(byMonth.entries()).slice(-6).map(([m, v]) => ({ m, v }))
-  }, [stats.charts.messagesOverTime])
 
   const respRate = o.responseRate ?? 0
   const nf = (n: number) => n.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')
@@ -179,23 +177,56 @@ export function StatsOverviewBoard({
           </ul>
         </FrameCard>
 
-        {/* Activité mensuelle (bar chart) */}
+        {/* Ventes Shopify (CA total + part WhatsApp) */}
         <FrameCard gradient>
-          <p className="text-base font-semibold text-white">Activité mensuelle</p>
-          <p className="mt-0.5 text-xs text-white/50">6 derniers mois</p>
-          <div className="mt-6 flex h-48 items-end justify-between gap-3">
-            {(monthlyBars.length ? monthlyBars : [{ m: '—', v: 1 }]).map((b, i) => {
-              const max = Math.max(1, ...monthlyBars.map(x => x.v))
+          <div className="flex items-start justify-between">
+            <div>
+              <p className="text-base font-semibold text-white">Ventes Shopify</p>
+              <p className="mt-0.5 text-xs text-white/50">6 derniers mois</p>
+            </div>
+            {sales && (
+              <div className="text-right">
+                <p className="text-lg font-bold text-white">{nf(Math.round(sales.totalAll))} <span className="text-xs font-medium text-white/50">{sales.currency}</span></p>
+                <p className="text-[11px] text-blue-400">dont {nf(Math.round(sales.totalWhatsapp))} via WhatsApp</p>
+              </div>
+            )}
+          </div>
+          {(() => {
+            const ms = sales?.months || []
+            const hasData = ms.some(m => m.total > 0)
+            const max = Math.max(1, ...ms.map(m => m.total))
+            if (!hasData) {
               return (
-                <div key={i} className="flex flex-1 flex-col items-center gap-2">
-                  <div className="flex w-full flex-1 items-end">
-                    <div className="w-full rounded-t-[4px] bg-white" style={{ height: `${Math.max(8, (b.v / max) * 100)}%` }} />
-                  </div>
-                  <span className="text-[11px] text-white/40">{b.m.slice(5)}</span>
+                <div className="mt-6 flex h-48 flex-col items-center justify-center gap-2 text-center">
+                  <p className="text-sm text-white/50">Aucune vente sur la période.</p>
+                  <p className="text-[11px] text-white/30">Les commandes apparaîtront ici dès réception.</p>
                 </div>
               )
-            })}
-          </div>
+            }
+            return (
+              <>
+                <div className="mt-6 flex h-44 items-end justify-between gap-3">
+                  {ms.map((b, i) => (
+                    <div key={i} className="flex flex-1 flex-col items-center gap-2">
+                      {/* Barre empilée : total (clair) avec part WhatsApp (bleue) au pied */}
+                      <div className="relative flex w-full flex-1 items-end">
+                        <div className="w-full overflow-hidden rounded-t-[4px] bg-white/85" style={{ height: `${Math.max(4, (b.total / max) * 100)}%` }}>
+                          {b.total > 0 && (
+                            <div className="absolute bottom-0 w-full bg-blue-500" style={{ height: `${(b.whatsapp / max) * 100}%` }} />
+                          )}
+                        </div>
+                      </div>
+                      <span className="text-[11px] text-white/40">{b.month.slice(5)}</span>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3 flex items-center gap-4 text-[11px] text-white/50">
+                  <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-white/85" /> Total</span>
+                  <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-blue-500" /> WhatsApp</span>
+                </div>
+              </>
+            )
+          })()}
         </FrameCard>
 
         {/* Taux de réponse IA + globe */}

@@ -4,6 +4,7 @@ import { verifyWebhookHmac, fetchOrderById } from '@/lib/shopify/client'
 import { decryptMessage } from '@/lib/crypto/encryption'
 import { enqueueAutomations } from '@/lib/automations/engine'
 import { resolveStoreUser, buildOrderContext, type ShopifyOrder } from '@/lib/automations/shopify-context'
+import { persistShopifyOrder } from '@/lib/shopify/persist-order'
 import type { TriggerEvent } from '@/lib/automations/types'
 
 /**
@@ -77,6 +78,10 @@ export async function POST(req: NextRequest) {
     if (!fetched) return NextResponse.json({ received: true, skipped: 'commande introuvable' })
     order = fetched
   }
+
+  // Persiste la commande pour les stats de ventes (best-effort, non bloquant).
+  // On le fait avant les automatisations pour ne rien perdre même sans contact.
+  await persistShopifyOrder(userId, shopDomain, order)
 
   const ctx = await buildOrderContext(userId, order, mapping.status, true)
   if (!ctx) return NextResponse.json({ received: true, skipped: 'no contact/phone' })
