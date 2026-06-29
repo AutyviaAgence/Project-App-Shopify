@@ -19,6 +19,8 @@
   data-button-label="{{ block.settings.button_label | escape }}"
   data-branding="{{ block.settings.show_branding }}"
   data-choices="{{ block.settings.enable_choices }}"
+  data-header-name="{{ block.settings.header_name | escape }}"
+  data-header-subtitle="{{ block.settings.header_subtitle | escape }}"
   data-choices-title="{{ block.settings.choices_title | escape }}"
   data-choice1-label="{{ block.settings.choice1_label | escape }}"
   data-choice1-message="{{ block.settings.choice1_message | escape }}"
@@ -57,31 +59,60 @@
   }
   .xeyo-wa-branding { font-size: 10px; color: #9aa3ad; text-decoration: none; letter-spacing: .2px; }
   .xeyo-wa-branding:hover { color: #6b7280; }
-  /* Panneau de choix (style image : bulle d'accroche + boutons) */
+  /* Panneau de choix (style conversation WhatsApp) */
   .xeyo-wa-panel {
-    width: 300px; max-width: 80vw; background: #e8e3dc;
-    border-radius: 16px; overflow: hidden; box-shadow: 0 12px 36px rgba(0,0,0,0.22);
-    animation: xeyo-wa-pop .25s ease;
+    width: 320px; max-width: 82vw; border-radius: 16px; overflow: hidden;
+    box-shadow: 0 16px 44px rgba(0,0,0,0.28); animation: xeyo-wa-pop .25s ease;
+    background: #efeae2;
   }
   .xeyo-wa-panel-head {
-    display: flex; align-items: center; justify-content: space-between;
-    background: var(--xeyo-wa-color, #25D366); color: #fff; padding: 12px 14px;
+    display: flex; align-items: center; gap: 10px;
+    background: #075E54; color: #fff; padding: 12px 14px;
   }
-  .xeyo-wa-panel-head strong { font-size: 14px; font-weight: 700; }
+  .xeyo-wa-panel-avatar {
+    width: 36px; height: 36px; border-radius: 50%; background: #25D366;
+    display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
+  }
+  .xeyo-wa-panel-meta { flex: 1 1 auto; min-width: 0; line-height: 1.2; }
+  .xeyo-wa-panel-meta strong { display: block; font-size: 14px; font-weight: 700; }
+  .xeyo-wa-panel-meta span { font-size: 11px; opacity: .85; }
   .xeyo-wa-panel-close { background: none; border: none; color: #fff; font-size: 20px; line-height: 1; cursor: pointer; opacity: .9; }
-  .xeyo-wa-panel-body { padding: 14px; }
+  /* Fond façon WhatsApp : crème + motif de doodles subtil */
+  .xeyo-wa-panel-body {
+    padding: 16px 14px; background-color: #e5ddd5;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cg fill='%23000000' fill-opacity='0.035'%3E%3Ccircle cx='20' cy='20' r='3'/%3E%3Ccircle cx='80' cy='40' r='2.5'/%3E%3Ccircle cx='50' cy='80' r='3'/%3E%3Ccircle cx='100' cy='95' r='2'/%3E%3Cpath d='M30 60c4 0 6-3 6-6s-2-6-6-6'/%3E%3Cpath d='M90 15c-3 2-3 6 0 8'/%3E%3Crect x='62' y='62' width='8' height='8' rx='2'/%3E%3C/g%3E%3C/svg%3E");
+  }
   .xeyo-wa-accroche {
-    background: #fff; color: #1a1a1a; border-radius: 14px; padding: 14px;
-    font-size: 14px; line-height: 1.45; margin: 0 0 12px;
+    position: relative; background: #fff; color: #1a1a1a; border-radius: 8px;
+    border-top-left-radius: 0; padding: 10px 12px; font-size: 14px; line-height: 1.45;
+    margin: 0 0 14px; max-width: 88%;
+    box-shadow: 0 1px 1px rgba(0,0,0,0.12);
   }
   .xeyo-wa-choice {
     display: block; width: 100%; text-align: center; background: #fff;
     color: var(--xeyo-wa-color, #128C7E); font-weight: 600; font-size: 14px;
-    border: none; border-radius: 12px; padding: 12px; margin-top: 8px;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.08); cursor: pointer; text-decoration: none;
-    transition: transform .12s ease;
+    border: none; border-radius: 10px; padding: 12px; margin-top: 8px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.12); cursor: pointer; text-decoration: none;
+    transition: transform .12s ease, background .12s ease;
   }
-  .xeyo-wa-choice:hover { transform: translateY(-1px); }
+  .xeyo-wa-choice:hover { transform: translateY(-1px); background: #f6fdf9; }
+  .xeyo-wa-time {
+    display: block; text-align: center; font-size: 11px; color: #667781;
+    margin: 0 0 10px; opacity: .8;
+  }
+  /* Barre de saisie décorative (ouvre WhatsApp au clic) */
+  .xeyo-wa-input {
+    display: flex; align-items: center; gap: 8px; background: #f0f0f0;
+    padding: 8px 10px; cursor: pointer; text-decoration: none;
+  }
+  .xeyo-wa-input span {
+    flex: 1 1 auto; background: #fff; border-radius: 999px; padding: 9px 14px;
+    color: #8696a0; font-size: 13px;
+  }
+  .xeyo-wa-input-send {
+    width: 38px; height: 38px; border-radius: 50%; background: #25D366;
+    display: flex; align-items: center; justify-content: center; flex: 0 0 auto;
+  }
   @keyframes xeyo-wa-pop { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
   @media (max-width: 480px) { .xeyo-wa-label { display: none; } .xeyo-wa-greeting { max-width: 200px; } }
 </style>
@@ -161,14 +192,32 @@
             if (!open) { wrap.innerHTML = ''; return; }
             var c1l = attr('data-choice1-label'), c1m = attr('data-choice1-message');
             var c2l = attr('data-choice2-label'), c2m = attr('data-choice2-message');
+            var hName = attr('data-header-name') || 'WhatsApp';
+            var hSub = attr('data-header-subtitle');
+            var now = new Date();
+            var time = ('0' + now.getHours()).slice(-2) + ':' + ('0' + now.getMinutes()).slice(-2);
+
             var html = '<div class="xeyo-wa-panel">'
-              + '<div class="xeyo-wa-panel-head"><strong>WhatsApp</strong>'
-              + '<button class="xeyo-wa-panel-close" id="xeyo-wa-panel-close" aria-label="Fermer">&times;</button></div>'
+              // En-tête : avatar + nom + sous-titre
+              + '<div class="xeyo-wa-panel-head">'
+              +   '<span class="xeyo-wa-panel-avatar">' + waSvg + '</span>'
+              +   '<span class="xeyo-wa-panel-meta"><strong>' + hName + '</strong>'
+              +     (hSub ? '<span>' + hSub + '</span>' : '') + '</span>'
+              +   '<button class="xeyo-wa-panel-close" id="xeyo-wa-panel-close" aria-label="Fermer">&times;</button>'
+              + '</div>'
+              // Corps : heure + accroche + choix
               + '<div class="xeyo-wa-panel-body">'
-              + '<p class="xeyo-wa-accroche">' + attr('data-choices-title') + '</p>';
+              +   '<span class="xeyo-wa-time">' + time + '</span>'
+              +   '<p class="xeyo-wa-accroche">' + attr('data-choices-title') + '</p>';
             if (c1l) html += '<a class="xeyo-wa-choice" href="' + waUrl(c1m || c1l) + '" target="_blank" rel="noopener noreferrer">' + c1l + '</a>';
             if (c2l) html += '<a class="xeyo-wa-choice" href="' + waUrl(c2m || c2l) + '" target="_blank" rel="noopener noreferrer">' + c2l + '</a>';
-            html += '</div></div>';
+            html += '</div>'
+              // Barre de saisie décorative → ouvre WhatsApp
+              + '<a class="xeyo-wa-input" href="' + waUrl(cfg.message || '') + '" target="_blank" rel="noopener noreferrer">'
+              +   '<span>Écrivez votre message…</span>'
+              +   '<span class="xeyo-wa-input-send"><svg viewBox="0 0 24 24" width="18" height="18" fill="#fff"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></span>'
+              + '</a>'
+              + '</div>';
             wrap.innerHTML = html;
             var close = document.getElementById('xeyo-wa-panel-close');
             if (close) close.onclick = function () { open = false; renderPanel(); };
@@ -234,6 +283,18 @@
       "id": "enable_choices",
       "label": "Activer le mode 2 choix",
       "default": false
+    },
+    {
+      "type": "text",
+      "id": "header_name",
+      "label": "Nom affiché (en-tête)",
+      "default": "Support"
+    },
+    {
+      "type": "text",
+      "id": "header_subtitle",
+      "label": "Sous-titre (en-tête)",
+      "default": "Pour toute demande, écrivez-nous"
     },
     {
       "type": "textarea",
