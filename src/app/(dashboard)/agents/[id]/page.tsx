@@ -300,7 +300,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
             disabled={saving}
             className={cn(
               'flex items-center gap-2 rounded-full px-5 py-2 text-[13px] font-semibold transition-all',
-              saved ? 'bg-emerald-500 text-white' : 'bg-foreground text-background hover:opacity-90'
+              saved ? "bg-blue-500 text-white" : 'bg-foreground text-background hover:opacity-90'
             )}
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : saved ? <Check className="h-4 w-4" /> : null}
@@ -361,7 +361,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                     className={cn(
                       'flex shrink-0 items-center gap-1.5 rounded-xl px-3.5 py-2 text-[13px] font-medium transition-all',
                       on
-                        ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-background shadow-sm'
+                        ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm'
                         : 'text-muted-foreground hover:bg-muted/50 hover:text-foreground'
                     )}
                   >
@@ -415,7 +415,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
 
           {/* ═══ CANAUX ═══ */}
           {activeTab === 'channels' && (
-          <Group title="Canaux" subtitle="Numéros sur lesquels cet agent répond" icon={Smartphone} color="emerald">
+          <Group title="Canaux" subtitle="Numéros sur lesquels cet agent répond" icon={Smartphone} color="blue">
             {sessions.length === 0 ? (
               <button onClick={() => router.push('/dashboard')} className="w-full py-6 text-center text-sm text-muted-foreground hover:text-foreground transition-colors">
                 Aucune session · Connecter WhatsApp →
@@ -445,7 +445,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                       ) : (
                         <span className={cn(
                           'flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-all',
-                          assigned ? 'border-emerald-500 bg-emerald-500 text-white' : 'border-border'
+                          assigned ? 'border-blue-500 bg-blue-500 text-white' : 'border-border'
                         )}>
                           {assigned && <Check className="h-3.5 w-3.5" />}
                         </span>
@@ -459,7 +459,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
             {/* Liens QR */}
             <Divider />
             <RowField label="Liens WhatsApp" trailing={
-              <button onClick={() => setAddLinkOpen(true)} className="flex items-center gap-1 text-[13px] text-emerald-500 hover:text-emerald-600 transition-colors">
+              <button onClick={() => setAddLinkOpen(true)} className="flex items-center gap-1 text-[13px] text-blue-500 hover:text-blue-600 transition-colors">
                 <Plus className="h-3.5 w-3.5" /> Créer
               </button>
             }>
@@ -469,7 +469,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
               <div key={link.id}>
                 {i > 0 && <Divider />}
                 <div className="flex items-center gap-3 py-3">
-                  <QrCode className="h-4 w-4 text-emerald-500 shrink-0" />
+                  <QrCode className="h-4 w-4 text-blue-500 shrink-0" />
                   <div className="min-w-0 flex-1">
                     <p className="text-sm truncate">{link.name}</p>
                     <p className="text-[11px] font-mono text-muted-foreground">/{link.slug}</p>
@@ -1011,8 +1011,8 @@ function AgentPreviewCard({
   return (
     <div className="overflow-hidden rounded-2xl border border-border/60 bg-card/40 shadow-sm">
       {/* Bandeau dégradé + avatar */}
-      <div className="relative h-20 bg-gradient-to-br from-violet-500/40 via-emerald-500/30 to-teal-500/40">
-        <div className="absolute -bottom-6 left-5 flex h-14 w-14 items-center justify-center rounded-2xl border-4 border-card bg-gradient-to-br from-emerald-500 to-teal-500 shadow-md">
+      <div className="relative h-20 bg-gradient-to-br from-violet-500/40 via-blue-500/30 to-indigo-500/40">
+        <div className="absolute -bottom-6 left-5 flex h-14 w-14 items-center justify-center rounded-2xl border-4 border-card bg-gradient-to-br from-blue-500 to-indigo-500 shadow-md">
           <Bot className="h-6 w-6 text-background" />
         </div>
         <span className={cn(
@@ -1033,7 +1033,7 @@ function AgentPreviewCard({
 
         {/* 4 mini-stats */}
         <div className="mt-4 grid grid-cols-2 gap-2">
-          <MiniStat icon={Smartphone} label="Canaux" value={channelCount} color="text-emerald-400" />
+          <MiniStat icon={Smartphone} label="Canaux" value={channelCount} color="text-blue-400" />
           <MiniStat icon={FileText} label="Docs" value={docCount} color="text-blue-400" />
           <MiniStat icon={ImageIcon} label="Médias" value={mediaCount} color="text-orange-400" />
           <MiniStat icon={Globe} label="Langue" value={language} color="text-violet-400" />
