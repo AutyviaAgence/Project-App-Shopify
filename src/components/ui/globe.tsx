@@ -39,13 +39,17 @@ const GLOBE_CONFIG: COBEOptions = {
 export function Globe({
   className,
   config = GLOBE_CONFIG,
+  zoomable = false,
 }: {
   className?: string
   config?: COBEOptions
+  /** Permet de zoomer le globe à la molette. */
+  zoomable?: boolean
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const phiRef = useRef(0)
   const widthRef = useRef(0)
+  const zoomRef = useRef(1) // facteur de zoom (1 = défaut), pilote state.scale
   const pointerInteracting = useRef<number | null>(null)
   const pointerInteractionMovement = useRef(0)
 
@@ -90,6 +94,8 @@ export function Globe({
         state.phi = phiRef.current + rs.get()
         state.width = widthRef.current * 2
         state.height = widthRef.current * 2
+        // Zoom molette : cobe applique state.scale (1 = défaut).
+        ;(state as { scale?: number }).scale = zoomRef.current
       },
     })
 
@@ -122,6 +128,11 @@ export function Globe({
         onTouchMove={(e) =>
           e.touches[0] && updateMovement(e.touches[0].clientX)
         }
+        onWheel={zoomable ? (e) => {
+          e.preventDefault()
+          const next = zoomRef.current - e.deltaY * 0.0015
+          zoomRef.current = Math.min(2.5, Math.max(0.8, next))
+        } : undefined}
       />
     </div>
   )

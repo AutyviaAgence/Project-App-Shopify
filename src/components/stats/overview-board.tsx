@@ -126,10 +126,10 @@ export function StatsOverviewBoard({
   const respRate = o.responseRate ?? 0
   const nf = (n: number) => n.toLocaleString(locale === 'fr' ? 'fr-FR' : 'en-US')
 
-  // Marqueurs du globe : un point par pays de commande, taille selon le volume.
+  // Marqueurs du globe : un point BLEU par pays de commande (taille selon le
+  // volume). Sans données → liste vide (pas de points orange par défaut).
   const globeConfig = useMemo(() => {
     const list = sales?.countries || []
-    if (list.length === 0) return undefined
     const max = Math.max(1, ...list.map(c => c.count))
     const markers = list
       .map(c => {
@@ -138,7 +138,6 @@ export function StatsOverviewBoard({
         return { location: loc, size: 0.04 + (c.count / max) * 0.08 }
       })
       .filter(Boolean) as { location: [number, number]; size: number }[]
-    if (markers.length === 0) return undefined
     return {
       width: 800,
       height: 800,
@@ -153,9 +152,10 @@ export function StatsOverviewBoard({
       baseColor: [1, 1, 1] as [number, number, number],
       markerColor: [0.23, 0.51, 0.96] as [number, number, number], // bleu #3B82F6
       glowColor: [1, 1, 1] as [number, number, number],
-      markers,
+      markers, // vide si pas de ventes → aucun point parasite
     }
   }, [sales])
+  const countryCount = sales?.countries?.length ?? 0
 
   return (
     <div className="space-y-3">
@@ -262,21 +262,23 @@ export function StatsOverviewBoard({
           })()}
         </FrameCard>
 
-        {/* Taux de réponse IA + globe (marqueurs = pays des ventes) */}
-        <FrameCard gradient className="relative overflow-hidden">
+        {/* Taux de réponse IA + globe (marqueurs = pays des ventes).
+            Survol : la carte s'agrandit légèrement. Molette : zoom du globe. */}
+        <FrameCard gradient className="group/globe relative overflow-hidden transition-transform duration-300 hover:scale-[1.02] hover:shadow-xl">
           <div className="relative z-10 flex items-start justify-between">
             <div>
               <p className="text-base font-semibold text-foreground">{labels.aiResponse}</p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                {globeConfig ? `${sales?.countries?.length ?? 0} pays · ${respRate}% automatisé` : `${respRate}% de réponses automatisées`}
+                {countryCount > 0 ? `${countryCount} pays · ${respRate}% automatisé` : `${respRate}% de réponses automatisées`}
               </p>
             </div>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </div>
-          {/* Zoom moyen : le globe est agrandi et clippé par la carte. */}
+          {/* Globe : zoom moyen de base (scale 1.35), zoomable à la molette,
+              + léger agrandissement au survol. */}
           <div className="relative mt-2 h-56">
-            <div className="absolute inset-0 scale-[1.35]">
-              <Globe className="!top-10" config={globeConfig} />
+            <div className="absolute inset-0 scale-[1.35] transition-transform duration-300 group-hover/globe:scale-[1.5]">
+              <Globe className="!top-10" config={globeConfig} zoomable />
             </div>
           </div>
         </FrameCard>
