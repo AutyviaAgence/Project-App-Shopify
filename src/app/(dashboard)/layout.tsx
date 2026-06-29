@@ -150,9 +150,6 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // fond du panneau (--background) et se raccorde via des coins inversés.
   const NavLink = ({ item }: { item: typeof NAV_ITEMS[0] }) => {
     const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
-    // Effet « languette » uniquement quand la sidebar est épinglée (pas au survol,
-    // où elle flotte encore) et large.
-    const tab = expanded
     return (
       <Link
         href={item.href}
@@ -164,10 +161,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             ? 'md:w-full md:justify-start md:px-3 md:py-2.5'
             : 'md:h-12 md:w-12 md:justify-center md:gap-0 md:px-0 md:py-0',
           isActive
-            ? tab
-              ? 'md:rounded-xl md:bg-background md:text-foreground'
-              : 'bg-white/10 text-white ring-1 ring-white/15'
-            : 'text-white/55 hover:bg-white/[0.06] hover:text-white'
+            ? 'rounded-xl bg-white/10 text-white ring-1 ring-white/15'
+            : 'rounded-xl text-white/55 hover:bg-white/[0.06] hover:text-white'
         )}
       >
         <item.icon className="h-[22px] w-[22px] shrink-0" />
