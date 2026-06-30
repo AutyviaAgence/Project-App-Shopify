@@ -75,6 +75,12 @@ export async function buildOrderContext(
   const sessionIds = (sessions || []).map((s) => s.id)
   if (sessionIds.length === 0) return null
 
+  // Numéro saisi dans le champ de l'extension checkout (si le tél de la commande
+  // est vide) → posé en attribut xeyo_whatsapp_phone par l'extension.
+  const attrPhone = Array.isArray(order.note_attributes)
+    ? (order.note_attributes.find((a) => a?.name === 'xeyo_whatsapp_phone')?.value || '')
+    : ''
+
   // Le numéro saisi au checkout peut arriver dans plusieurs champs selon Shopify
   // (customer.phone n'est PAS toujours rempli). On les essaie dans l'ordre.
   const rawPhone =
@@ -83,6 +89,7 @@ export async function buildOrderContext(
     || order.shipping_address?.phone
     || order.billing_address?.phone
     || order.customer?.default_address?.phone
+    || attrPhone
     || null
   let phone = rawPhone ? rawPhone.replace(/\D/g, '') : ''
   const email = (order.email || order.customer?.email || '').trim().toLowerCase()
