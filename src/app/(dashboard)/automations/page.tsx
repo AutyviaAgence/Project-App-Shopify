@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
+import { track } from '@/lib/posthog/events'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Plus, Loader2, Trash2, Workflow, Power, GitBranch, ChevronLeft, ChevronRight } from 'lucide-react'
@@ -113,6 +114,8 @@ export default function AutomationsPage() {
       if (!res.ok) throw new Error(json.error || 'Erreur')
       await load()
       if (json.data?.id) setCurrent(json.data as Automation)
+      if (isNew) track('automation_created', { trigger: trig?.event || undefined })
+      if (current.is_active) track('automation_activated', { id: json.data?.id })
       toast.success('Workflow enregistré')
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Erreur') } finally { setBusyId(null) }
   }

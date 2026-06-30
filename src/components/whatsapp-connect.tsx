@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog'
 import { Loader2, Smartphone, Wifi, WifiOff, Plus, Trash2, Link2, Copy } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { track } from '@/lib/posthog/events'
 
 type Session = {
   id: string
@@ -170,6 +171,7 @@ export function WhatsAppConnect() {
       setShowForm(false)
       await fetchSession()
       const n = json.imported_templates || 0
+      track('whatsapp_connected', { imported_templates: n })
       toast.success(n > 0
         ? `WhatsApp connecté — ${n} modèle${n > 1 ? 's' : ''} importé${n > 1 ? 's' : ''} depuis votre compte.`
         : 'WhatsApp connecté')

@@ -15,6 +15,7 @@ export type XeyoEvent =
   | 'shopify_connected'
   | 'automation_created'
   | 'automation_activated'
+  | 'automation_saved'
   | 'link_created'
   | 'subscription_started'
 

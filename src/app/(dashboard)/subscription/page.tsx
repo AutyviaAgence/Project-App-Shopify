@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
+import { track } from '@/lib/posthog/events'
 import { Progress } from '@/components/ui/progress'
 import {
   AlertDialog,
@@ -137,6 +138,7 @@ function SubscriptionContent() {
 
   useEffect(() => {
     if (searchParams.get('success') === 'true') {
+      track('subscription_started')
       fetch('/api/subscription/sync', { method: 'POST' })
         .then(() => refetch())
         .then(() => toast.success(t('subscription.payment_success')))

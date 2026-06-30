@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/alert-dialog'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Loader2, Store, RefreshCw, Check, X, Trash2, Info, ExternalLink } from 'lucide-react'
+import { track } from '@/lib/posthog/events'
 
 /** Normalise une saisie en domaine xxx.myshopify.com (accepte URL, nom seul, etc.). */
 function normalizeShopDomain(raw: string): string | null {
@@ -87,6 +88,17 @@ export function ShopifyConnect() {
   }, [])
 
   useEffect(() => { fetchStatus() }, [fetchStatus])
+
+  // Tracke la connexion Shopify une seule fois (quand le statut passe à connecté).
+  useEffect(() => {
+    if (status?.connected && typeof window !== 'undefined') {
+      const key = 'xeyo_ph_shopify_' + (status.shop_domain || '1')
+      if (!sessionStorage.getItem(key)) {
+        sessionStorage.setItem(key, '1')
+        track('shopify_connected', { shop: status.shop_domain || undefined })
+      }
+    }
+  }, [status?.connected, status?.shop_domain])
 
   async function resync() {
     setResyncing(true)
