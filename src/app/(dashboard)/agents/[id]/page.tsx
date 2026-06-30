@@ -246,6 +246,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
       })
       if (res.ok) {
         setSessions(prev => prev.map(x => x.id === s.id ? { ...x, qualifier_agent_id: newValue } : x))
+        if (!assigned) track('agent_activated_on_session')
         toast.success(assigned ? 'Agent retiré de la session' : 'Agent activé sur la session')
       } else {
         const json = await res.json()

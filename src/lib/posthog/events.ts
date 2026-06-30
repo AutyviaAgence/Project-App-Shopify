@@ -11,6 +11,7 @@ export type XeyoEvent =
   | 'agent_created'
   | 'agent_tested'
   | 'agent_saved'
+  | 'agent_activated_on_session'
   | 'ai_toggle_changed'
   | 'auto_tag_enabled'
   // Templates
