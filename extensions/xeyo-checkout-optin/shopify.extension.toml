@@ -23,3 +23,10 @@ type = "ui_extension"
   [extensions.capabilities]
   # Pas d'appel réseau : on pose juste un attribut de commande (applyAttributeChange).
   api_access = true
+  # IMPORTANT — pré-remplissage du numéro depuis le checkout
+  # (buyerIdentity.phone / shippingAddress.phone) : ce N'EST PAS un flag toml.
+  # Il faut approuver "Protected customer data access — Level 2" au niveau de
+  # l'APP : Partner Dashboard → Apps → (cette app) → API access → Protected
+  # customer data access → demander Level 2 (champs : phone, shipping address).
+  # Sans cette approbation, buyerIdentity est undefined → l'extension affiche
+  # simplement le champ téléphone (dégradation propre gérée dans Checkout.js).
