@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge'
 import { KPICard } from '@/components/stats/kpi-card'
 import { EngagementFunnel } from '@/components/stats/engagement-funnel'
 import { StatsOverviewBoard } from '@/components/stats/overview-board'
+import { OptinsTab } from '@/components/stats/optins-tab'
 import dynamic from 'next/dynamic'
 
 const TimeSeriesChart = dynamic(() => import('@/components/stats/charts').then(m => ({ default: m.TimeSeriesChart })))
@@ -241,6 +242,7 @@ export default function StatsPage() {
               <TabsTrigger value="lifecycle">{t('stats.lifecycle_tab')}</TabsTrigger>
               <TabsTrigger value="campaigns">{t('stats.campaigns_tab')}</TabsTrigger>
               <TabsTrigger value="contacts">{t('stats.contacts_tab')}</TabsTrigger>
+              <TabsTrigger value="optins">{t('stats.optins_tab')}</TabsTrigger>
             </TabsList>
           </div>
 
@@ -1238,6 +1240,13 @@ export default function StatsPage() {
                 </CardContent>
               </Card>
             )}
+          </TabsContent>
+
+          {/* ================================================================ */}
+          {/* === Opt-in === */}
+          {/* ================================================================ */}
+          <TabsContent value="optins">
+            <OptinsTab period={period} sessionId={sessionFilter} locale={locale} />
           </TabsContent>
         </Tabs>
       ) : null}
