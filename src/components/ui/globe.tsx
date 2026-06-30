@@ -106,6 +106,38 @@ export function Globe({
     }
   }, [rs, config])
 
+  // Rotation au glisser : on suit le pointeur sur TOUTE la fenêtre tant que le
+  // bouton est maintenu (la rotation continue même si on sort du canvas).
+  useEffect(() => {
+    const onMove = (clientX: number) => updateMovement(clientX)
+    const onPointerMove = (e: PointerEvent) => onMove(e.clientX)
+    const onPointerUp = () => updatePointerInteraction(null)
+    window.addEventListener("pointermove", onPointerMove)
+    window.addEventListener("pointerup", onPointerUp)
+    window.addEventListener("pointercancel", onPointerUp)
+    return () => {
+      window.removeEventListener("pointermove", onPointerMove)
+      window.removeEventListener("pointerup", onPointerUp)
+      window.removeEventListener("pointercancel", onPointerUp)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // Zoom molette : attaché en NON-passif pour que preventDefault stoppe bien le
+  // scroll de la page (React onWheel est passif et ignore preventDefault).
+  useEffect(() => {
+    if (!zoomable) return
+    const el = canvasRef.current
+    if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault()
+      const next = zoomRef.current - e.deltaY * 0.0015
+      zoomRef.current = Math.min(2.5, Math.max(0.8, next))
+    }
+    el.addEventListener("wheel", onWheel, { passive: false })
+    return () => el.removeEventListener("wheel", onWheel)
+  }, [zoomable])
+
   return (
     <div
       className={cn(
@@ -115,24 +147,19 @@ export function Globe({
     >
       <canvas
         className={cn(
-          "size-full opacity-0 transition-opacity duration-500 contain-[layout_paint_size]"
+          "size-full cursor-grab opacity-0 transition-opacity duration-500 contain-[layout_paint_size]"
         )}
         ref={canvasRef}
         onPointerDown={(e) => {
           pointerInteracting.current = e.clientX
           updatePointerInteraction(e.clientX)
+          // Capture le pointeur : le drag suit même hors du canvas.
+          try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* no-op */ }
         }}
         onPointerUp={() => updatePointerInteraction(null)}
-        onPointerOut={() => updatePointerInteraction(null)}
-        onMouseMove={(e) => updateMovement(e.clientX)}
         onTouchMove={(e) =>
           e.touches[0] && updateMovement(e.touches[0].clientX)
         }
-        onWheel={zoomable ? (e) => {
-          e.preventDefault()
-          const next = zoomRef.current - e.deltaY * 0.0015
-          zoomRef.current = Math.min(2.5, Math.max(0.8, next))
-        } : undefined}
       />
     </div>
   )

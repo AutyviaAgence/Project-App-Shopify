@@ -264,7 +264,7 @@ export function StatsOverviewBoard({
 
         {/* Taux de réponse IA + globe (marqueurs = pays des ventes).
             Survol : la carte s'agrandit légèrement. Molette : zoom du globe. */}
-        <FrameCard gradient className="group/globe relative overflow-hidden transition-transform duration-300 hover:scale-[1.02] hover:shadow-xl">
+        <FrameCard gradient className="group/globe relative overflow-hidden transition-all duration-300 hover:z-10 hover:scale-[1.04] hover:shadow-2xl">
           <div className="relative z-10 flex items-start justify-between">
             <div>
               <p className="text-base font-semibold text-foreground">{labels.aiResponse}</p>
