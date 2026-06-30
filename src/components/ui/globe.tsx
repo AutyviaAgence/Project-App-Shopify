@@ -50,7 +50,9 @@ export function Globe({
   const phiRef = useRef(0)
   const widthRef = useRef(0)
   const zoomRef = useRef(1) // facteur de zoom (1 = défaut), pilote state.scale
+  const thetaRef = useRef(0.3) // inclinaison verticale (drag vertical)
   const pointerInteracting = useRef<number | null>(null)
+  const pointerInteractingY = useRef<number | null>(null)
   const pointerInteractionMovement = useRef(0)
 
   const r = useMotionValue(0)
@@ -67,11 +69,17 @@ export function Globe({
     }
   }
 
-  const updateMovement = (clientX: number) => {
+  const updateMovement = (clientX: number, clientY?: number) => {
     if (pointerInteracting.current !== null) {
       const delta = clientX - pointerInteracting.current
       pointerInteractionMovement.current = delta
       r.set(r.get() + delta / MOVEMENT_DAMPING)
+    }
+    // Glisser vertical → inclinaison (theta), bornée pour ne pas retourner le globe.
+    if (clientY != null && pointerInteractingY.current !== null) {
+      const deltaY = clientY - pointerInteractingY.current
+      pointerInteractingY.current = clientY
+      thetaRef.current = Math.max(-0.6, Math.min(1.1, thetaRef.current + deltaY / 200))
     }
   }
 
@@ -92,6 +100,7 @@ export function Globe({
       onRender: (state) => {
         if (!pointerInteracting.current) phiRef.current += 0.005
         state.phi = phiRef.current + rs.get()
+        state.theta = thetaRef.current // inclinaison verticale (drag vertical)
         state.width = widthRef.current * 2
         state.height = widthRef.current * 2
         // Zoom molette : cobe applique state.scale (1 = défaut).
@@ -109,9 +118,8 @@ export function Globe({
   // Rotation au glisser : on suit le pointeur sur TOUTE la fenêtre tant que le
   // bouton est maintenu (la rotation continue même si on sort du canvas).
   useEffect(() => {
-    const onMove = (clientX: number) => updateMovement(clientX)
-    const onPointerMove = (e: PointerEvent) => onMove(e.clientX)
-    const onPointerUp = () => updatePointerInteraction(null)
+    const onPointerMove = (e: PointerEvent) => updateMovement(e.clientX, e.clientY)
+    const onPointerUp = () => { pointerInteractingY.current = null; updatePointerInteraction(null) }
     window.addEventListener("pointermove", onPointerMove)
     window.addEventListener("pointerup", onPointerUp)
     window.addEventListener("pointercancel", onPointerUp)
@@ -152,11 +160,12 @@ export function Globe({
         ref={canvasRef}
         onPointerDown={(e) => {
           pointerInteracting.current = e.clientX
+          pointerInteractingY.current = e.clientY
           updatePointerInteraction(e.clientX)
           // Capture le pointeur : le drag suit même hors du canvas.
           try { e.currentTarget.setPointerCapture(e.pointerId) } catch { /* no-op */ }
         }}
-        onPointerUp={() => updatePointerInteraction(null)}
+        onPointerUp={() => { pointerInteractingY.current = null; updatePointerInteraction(null) }}
         onTouchMove={(e) =>
           e.touches[0] && updateMovement(e.touches[0].clientX)
         }
