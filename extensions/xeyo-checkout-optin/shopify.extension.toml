@@ -12,6 +12,7 @@ api_version = "2025-07"
 [[extensions]]
 name = "Xeyo — Opt-in WhatsApp (checkout)"
 handle = "xeyo-checkout-optin"
+uid = "b822d0f4-625a-4ac3-6fbe-64065f0f502ddeaf8b3f"
 
 type = "ui_extension"
 

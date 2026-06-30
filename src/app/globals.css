@@ -88,42 +88,43 @@
 
   --radius: 0.5rem;
 
-  /* Light Theme - Autyvia */
-  --background: #FFFFFF;
-  --foreground: #2D3E48;
-  --card: #FFFFFF;
-  --card-foreground: #2D3E48;
-  --popover: #FFFFFF;
-  --popover-foreground: #2D3E48;
-  --primary: #7DC2A5;
-  --primary-foreground: #FFFFFF;
-  --secondary: #F5F7FA;
-  --secondary-foreground: #2D3E48;
-  --muted: #F5F7FA;
-  --muted-foreground: #6B7B8A;
-  --accent: #40E9BE;
-  --accent-foreground: #2D3E48;
+  /* Light Theme — plus contraste : fond gris clair, cartes blanches franches,
+     texte fonce, bordures bien visibles (style SaaS net). */
+  --background: #f4f5f7;
+  --foreground: #11181f;
+  --card: #ffffff;
+  --card-foreground: #11181f;
+  --popover: #ffffff;
+  --popover-foreground: #11181f;
+  --primary: #3B82F6;
+  --primary-foreground: #ffffff;
+  --secondary: #eceef1;
+  --secondary-foreground: #11181f;
+  --muted: #eceef1;
+  --muted-foreground: #5b6675;
+  --accent: #3B82F6;
+  --accent-foreground: #ffffff;
   --destructive: #EF4444;
-  --border: #E5E9ED;
-  --input: #E5E9ED;
-  --ring: #7DC2A5;
+  --border: #d4d8de;
+  --input: #cfd4db;
+  --ring: #3B82F6;
 
-  /* Charts - Autyvia palette */
-  --chart-1: #7DC2A5;
-  --chart-2: #40E9BE;
-  --chart-3: #33B89A;
-  --chart-4: #2D3E48;
-  --chart-5: #6B7B8A;
+  /* Charts */
+  --chart-1: #3B82F6;
+  --chart-2: #60a5fa;
+  --chart-3: #1d4ed8;
+  --chart-4: #11181f;
+  --chart-5: #5b6675;
 
-  /* Sidebar - Style Linear/Crisp */
-  --sidebar: #2D3E48;
+  /* Sidebar sombre (tranche avec le contenu clair) */
+  --sidebar: #0f1115;
   --sidebar-foreground: #FFFFFF;
-  --sidebar-primary: #7DC2A5;
+  --sidebar-primary: #3B82F6;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #3D4E58;
+  --sidebar-accent: #1c1f26;
   --sidebar-accent-foreground: #FFFFFF;
-  --sidebar-border: #3D4E58;
-  --sidebar-ring: #7DC2A5;
+  --sidebar-border: #2a2d35;
+  --sidebar-ring: #3B82F6;
 }
 
 .dark {
