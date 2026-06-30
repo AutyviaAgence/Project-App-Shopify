@@ -14,6 +14,7 @@ import { useSubscription } from '@/hooks/use-subscription'
 import { ConversationList } from './_components/conversation-list'
 import { ChatArea } from './_components/chat-area'
 import { ShopifyContextPanel } from './_components/shopify-context-panel'
+import { track } from '@/lib/posthog/events'
 import type { ConversationWithJoins, Team, Message, AIAgent, LifecycleStage } from './_components/types'
 import { BlobLoaderScreen } from '@/components/blob-loader'
 
@@ -266,6 +267,7 @@ function ConversationsPageContent() {
   const handleSendText = useCallback(async (content: string) => {
     if (!selectedConv || sending) return
     setSending(true)
+    track('message_sent', { type: 'text' })
 
     const optimistic: Message = {
       id: `temp-${Date.now()}`,
@@ -357,6 +359,7 @@ function ConversationsPageContent() {
   const handleSendTemplate = useCallback(async (templateId: string) => {
     if (!selectedConv) return
     setSending(true)
+    track('template_sent_in_chat', { template_id: templateId })
     try {
       const res = await fetch(`/api/conversations/${selectedConv.id}/send`, {
         method: 'POST',
@@ -440,6 +443,7 @@ function ConversationsPageContent() {
   const handleSendMedia = useCallback(async (file: File, caption?: string) => {
     if (!selectedConv || sending) return
     setSending(true)
+    track('media_sent', { mime: file.type })
 
     const mediatype = file.type.startsWith('image/') ? 'image'
       : file.type.startsWith('audio/') ? 'audio'
@@ -531,6 +535,7 @@ function ConversationsPageContent() {
   }, [selectedConv?.id, t])
 
   const handleToggleAI = useCallback(async (convId: string, isActive: boolean) => {
+    track('ai_toggle_changed', { active: isActive })
     try {
       const res = await fetch(`/api/conversations/${convId}/agent`, {
         method: 'PATCH',
@@ -859,7 +864,7 @@ function ConversationsPageContent() {
         filterTeam={filterTeam}
         filterLifecycleStage={filterLifecycleStage}
         filterTags={filterTags}
-        onSelectConversation={(conv) => { setSelectedConv(conv); setProfileOpen(false) }}
+        onSelectConversation={(conv) => { setSelectedConv(conv); setProfileOpen(false); track('conversation_opened') }}
         onTogglePin={togglePin}
         onSetPage={setPage}
         onSetSearchQuery={setSearchQuery}

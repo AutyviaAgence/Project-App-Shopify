@@ -7,16 +7,34 @@ import posthog from 'posthog-js'
  * Usage : `import { track } from '@/lib/posthog/events'; track('agent_created', {...})`
  */
 export type XeyoEvent =
+  // Agents & IA
   | 'agent_created'
   | 'agent_tested'
+  | 'agent_saved'
+  | 'ai_toggle_changed'
+  | 'auto_tag_enabled'
+  // Templates
   | 'template_created'
+  | 'template_ai_generated'
+  | 'template_submitted'
+  | 'template_published'
   | 'template_sent'
+  // Inbox & messages
+  | 'conversation_opened'
+  | 'message_sent'
+  | 'template_sent_in_chat'
+  | 'media_sent'
+  // Connexions
   | 'whatsapp_connected'
   | 'shopify_connected'
+  // Automatisations
   | 'automation_created'
   | 'automation_activated'
   | 'automation_saved'
+  // Liens & widget
   | 'link_created'
+  | 'qr_downloaded'
+  // Monétisation
   | 'subscription_started'
 
 export function track(event: XeyoEvent, props?: Record<string, unknown>) {

@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { track } from '@/lib/posthog/events'
 import { useTranslation } from '@/i18n/context'
 
 // Fréquence par défaut quand on active depuis l'interrupteur.
@@ -58,6 +59,7 @@ export function AutoTagToggle() {
         body: JSON.stringify({ lifecycle_analysis_threshold: next }),
       })
       if (!res.ok) throw new Error()
+      if (next) track('auto_tag_enabled', { frequency: next })
       toast.success(next ? t('conversations.autotag_on_toast') : t('conversations.autotag_off_toast'))
     } catch {
       setThreshold(prev)        // rollback

@@ -10,6 +10,7 @@ import { Switch } from '@/components/ui/switch'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { toast } from 'sonner'
+import { track } from '@/lib/posthog/events'
 import {
   Plus, Link2, Copy, Trash2, Pencil, Loader2,
   MousePointerClick, ExternalLink, Bot, QrCode, RotateCcw,
@@ -128,6 +129,7 @@ export function LinksSection() {
         : await fetch('/api/links', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
       const json = await res.json()
       if (res.ok) {
+        if (!editing) track('link_created', { source: 'ressources' })
         toast.success(editing ? 'Portail mis à jour' : 'Portail créé')
         fetchAll()
         setDialogOpen(false)
@@ -176,6 +178,7 @@ export function LinksSection() {
     if (!url) return
     const a = document.createElement('a')
     a.href = url; a.download = `qr-${name}.png`; a.click()
+    track('qr_downloaded')
   }
 
   if (loading) {

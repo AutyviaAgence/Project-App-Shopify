@@ -19,6 +19,7 @@ import {
   Globe, Shield, Bot, Image as ImageIcon, ChevronRight, MessageSquare,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { track } from '@/lib/posthog/events'
 
 type KnowledgeImage = { id: string; ref: string; filename: string; agent_id: string | null; media_kind?: 'image' | 'video' | 'document' | null }
 type AgentWithExtras = AIAgent & { team_ids?: string[] }
@@ -149,7 +150,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
         }),
       })
       const json = await res.json()
-      if (res.ok) { setAgent(json.data); setSaved(true); setTimeout(() => setSaved(false), 2000) }
+      if (res.ok) { setAgent(json.data); setSaved(true); track('agent_saved'); setTimeout(() => setSaved(false), 2000) }
       else toast.error(json.error || 'Erreur')
     } catch { toast.error('Erreur réseau') }
     finally { setSaving(false) }
@@ -266,6 +267,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
       if (res.ok) {
         setLinks(prev => [...prev, json.data]); setAddLinkOpen(false)
         setLinkName(''); setLinkSession(''); setLinkMessage('')
+        track('link_created')
         toast.success('Lien créé')
       } else toast.error(json.error || 'Erreur')
     } finally { setLinkSaving(false) }

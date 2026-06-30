@@ -355,6 +355,7 @@ export default function TemplatesPage() {
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Erreur de génération')
+      track('template_ai_generated', { use_case: aiUseCase, count: json.data?.proposals?.length || 0 })
       setAiProposals(json.data?.proposals || [])
       if (!json.data?.proposals?.length) toast.error('Aucune proposition, reformulez l\'objectif.')
     } catch (e) {
@@ -622,6 +623,7 @@ export default function TemplatesPage() {
       const res = await fetch(`/api/templates/${t.id}/submit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Erreur')
+      track('template_submitted', { template_id: t.id, template_type: t.template_type || 'standard' })
       await fetchTemplates()
       toast.success('Soumis à Meta pour approbation')
     } catch (e) {
