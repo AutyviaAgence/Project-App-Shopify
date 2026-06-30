@@ -39,6 +39,9 @@ export type ShopifyOrder = {
   fulfillments?: { tracking_url?: string; tracking_number?: string }[]
   // Lignes de la commande (pour les conditions « Produit contient » / collection).
   line_items?: { title?: string; name?: string; product_id?: number | string | null }[]
+  // Attributs de commande (cart attributes). L'extension checkout y pose
+  // xeyo_whatsapp_optin=true quand le client coche l'opt-in WhatsApp.
+  note_attributes?: { name?: string; value?: string }[] | null
 }
 
 /** Boutique → user_id. */
@@ -112,9 +115,24 @@ export async function buildOrderContext(
     country: order.shipping_address?.country_code || order.billing_address?.country_code || order.customer?.default_address?.country_code,
   })
 
+  // Opt-in WhatsApp coché au CHECKOUT : l'extension pose l'attribut
+  // xeyo_whatsapp_optin=true → arrive ici dans note_attributes.
+  const checkoutOptin = Array.isArray(order.note_attributes)
+    && order.note_attributes.some((a) => a?.name === 'xeyo_whatsapp_optin' && String(a?.value).toLowerCase() === 'true')
+  const nowIso = new Date().toISOString()
+  const optinFields = checkoutOptin
+    ? {
+        opt_in_status: 'subscribed' as const,
+        opt_in_source: 'checkout',
+        opt_in_at: nowIso,
+        preferred_channel: 'whatsapp' as const,
+        channel_optin_at: nowIso,
+      }
+    : {}
+
   let { data: contact } = await supabase
     .from('contacts')
-    .select('id, preferred_language')
+    .select('id, preferred_language, opt_in_status')
     .in('session_id', sessionIds)
     .eq('phone_number', phone)
     .maybeSingle()
@@ -130,16 +148,25 @@ export async function buildOrderContext(
         notify_email: order.customer?.email || order.email || null,
         preferred_language: lang?.language || null,
         language_source: lang?.source || null,
+        ...optinFields,
       })
-      .select('id, preferred_language')
+      .select('id, preferred_language, opt_in_status')
       .single()
     contact = created || null
-  } else if (lang && !(contact as { preferred_language?: string | null }).preferred_language) {
-    // Contact existant sans langue → on l'enrichit (Shopify est fiable).
-    await supabase
-      .from('contacts')
-      .update({ preferred_language: lang.language, language_source: lang.source })
-      .eq('id', contact.id)
+  } else {
+    const updates: Record<string, unknown> = {}
+    if (lang && !(contact as { preferred_language?: string | null }).preferred_language) {
+      updates.preferred_language = lang.language
+      updates.language_source = lang.source
+    }
+    // N'écrase pas un opt_out explicite ; n'active que si pas déjà opted-in.
+    const status = (contact as { opt_in_status?: string }).opt_in_status
+    if (checkoutOptin && status !== 'subscribed' && status !== 'opted_out') {
+      Object.assign(updates, optinFields)
+    }
+    if (Object.keys(updates).length > 0) {
+      await supabase.from('contacts').update(updates).eq('id', contact.id)
+    }
   }
   if (!contact) return null
 

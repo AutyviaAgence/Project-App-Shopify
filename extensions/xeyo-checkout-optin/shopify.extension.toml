@@ -1,0 +1,25 @@
+# Checkout UI Extension — Opt-in WhatsApp DANS le checkout (Shopify Plus)
+# S'affiche AVANT la création de la commande, après la section contact.
+# Le client coche pour recevoir le suivi sur WhatsApp. On enregistre le choix
+# via applyAttributeChange → devient note_attributes sur la commande créée,
+# que notre webhook orders/create lit pour marquer le contact opted-in.
+#
+# Note : les cibles purchase.checkout.* sont réservées à Shopify Plus. Sur les
+# autres plans, cette extension est simplement ignorée (la popup panier + la
+# page Merci couvrent l'opt-in).
+api_version = "2025-07"
+
+[[extensions]]
+name = "Xeyo — Opt-in WhatsApp (checkout)"
+handle = "xeyo-checkout-optin"
+
+uid = "c7e1a2b4-9f30-4d56-8a1c-3e9f0a1b2c4d"
+type = "ui_extension"
+
+  [[extensions.targeting]]
+  module = "./src/Checkout.js"
+  target = "purchase.checkout.contact.render-after"
+
+  [extensions.capabilities]
+  # Pas d'appel réseau : on pose juste un attribut de commande (applyAttributeChange).
+  api_access = true

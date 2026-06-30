@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Loader2, UserCheck, ShoppingBag, MessageSquare, HelpCircle, Phone } from 'lucide-react'
+import { Loader2, UserCheck, ShoppingBag, MessageSquare, HelpCircle, Phone, CreditCard } from 'lucide-react'
 import dynamic from 'next/dynamic'
 import { cn } from '@/lib/utils'
 import { formatPhoneNumber } from '@/lib/format-phone'
@@ -20,6 +20,7 @@ type OptinData = {
 function sourceMeta(source: string | null): { label: string; icon: typeof ShoppingBag; cls: string } {
   switch (source) {
     case 'shopify_storefront': return { label: 'Boutique Shopify', icon: ShoppingBag, cls: 'text-blue-500 bg-blue-500/10' }
+    case 'checkout': return { label: 'Checkout', icon: CreditCard, cls: 'text-violet-500 bg-violet-500/10' }
     case 'inbound_message': return { label: 'Message entrant', icon: MessageSquare, cls: 'text-emerald-500 bg-emerald-500/10' }
     default: return { label: 'Autre / manuel', icon: HelpCircle, cls: 'text-muted-foreground bg-muted' }
   }
@@ -63,14 +64,14 @@ export function OptinsTab({ period, sessionId, locale }: { period: string; sessi
   return (
     <div className="space-y-3">
       {/* Compteurs : total + par source */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <div className="rounded-2xl border border-border bg-card p-5">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             <UserCheck className="h-4 w-4 text-primary" /> Total opt-in
           </div>
           <p className="mt-2 text-3xl font-bold tracking-tight">{data.total.toLocaleString(numberLocale)}</p>
         </div>
-        {(['shopify_storefront', 'inbound_message'] as const).map((src) => {
+        {(['shopify_storefront', 'checkout', 'inbound_message'] as const).map((src) => {
           const m = sourceMeta(src)
           const count = data.bySource.find(s => s.source === src)?.count || 0
           return (
