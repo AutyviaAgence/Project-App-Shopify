@@ -68,7 +68,7 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://challenges.cloudflare.com https://connect.facebook.net",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://challenges.cloudflare.com https://connect.facebook.net https://eu-assets.i.posthog.com https://eu.i.posthog.com",
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https://supabase.autyvia.fr https://jdeslkxwbtqkeifrlmnf.supabase.co https://challenges.cloudflare.com https://www.facebook.com https://cdn.shopify.com https://lh3.googleusercontent.com https://*.googleusercontent.com",
               "font-src 'self' https://challenges.cloudflare.com",
