@@ -5,6 +5,7 @@ import { Toaster } from 'sonner'
 import { ThemeProvider } from 'next-themes'
 import { LanguageProvider } from '@/i18n/context'
 import { TenantProvider } from '@/lib/tenant/context'
+import { PostHogProvider } from '@/lib/posthog/provider'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -30,12 +31,14 @@ export default function RootLayout({
           enableSystem={false}
           disableTransitionOnChange
         >
-          <LanguageProvider>
-            <TenantProvider>
-              {children}
-              <Toaster richColors position="bottom-right" />
-            </TenantProvider>
-          </LanguageProvider>
+          <PostHogProvider>
+            <LanguageProvider>
+              <TenantProvider>
+                {children}
+                <Toaster richColors position="bottom-right" />
+              </TenantProvider>
+            </LanguageProvider>
+          </PostHogProvider>
         </ThemeProvider>
       </body>
     </html>

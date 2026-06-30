@@ -26,6 +26,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { DashboardTopBar } from '@/components/dashboard-topbar'
+import { identifyMerchant, resetAnalytics } from '@/lib/posthog/events'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { BlobLoaderScreen } from '@/components/blob-loader'
 import dynamic from 'next/dynamic'
@@ -123,14 +124,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     return () => window.removeEventListener('keydown', handleEsc)
   }, [])
 
-  // Profil (avatar du bas de sidebar)
+  // Profil (avatar du bas de sidebar) + identification PostHog du marchand.
   useEffect(() => {
     let active = true
     fetch('/api/profile')
       .then(r => (r.ok ? r.json() : null))
-      .then(json => { if (active && json?.data) setProfile(json.data) })
+      .then(json => {
+        if (!active || !json?.data) return
+        setProfile(json.data)
+        if (json.data.id) {
+          identifyMerchant(json.data.id, {
+            email: json.data.email || undefined,
+            name: json.data.full_name || undefined,
+            plan: subscription?.plan || undefined,
+          })
+        }
+      })
       .catch(() => {})
     return () => { active = false }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const handleSignOut = useCallback(async () => {
@@ -140,6 +152,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       toast.error(t('nav.signout_error'))
       return
     }
+    resetAnalytics()  // dissocie la session PostHog au logout
     router.push('/login')
     router.refresh()
   }, [router, t])

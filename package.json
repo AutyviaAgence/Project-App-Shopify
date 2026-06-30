@@ -44,6 +44,8 @@
     "ogl": "^1.0.11",
     "openai": "^6.16.0",
     "pdf-parse-fork": "^1.2.0",
+    "posthog-js": "^1.396.2",
+    "posthog-node": "^5.21.2",
     "qrcode": "^1.5.4",
     "react": "19.2.3",
     "react-dom": "19.2.3",

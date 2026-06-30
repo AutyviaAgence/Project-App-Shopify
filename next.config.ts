@@ -21,6 +21,15 @@ const nextConfig: NextConfig = {
       "@supabase/supabase-js",
     ],
   },
+  // Reverse-proxy PostHog (EU) via /ingest → évite les bloqueurs de pub.
+  async rewrites() {
+    return [
+      { source: '/ingest/static/:path*', destination: 'https://eu-assets.i.posthog.com/static/:path*' },
+      { source: '/ingest/:path*', destination: 'https://eu.i.posthog.com/:path*' },
+    ]
+  },
+  // Le proxy /ingest gère des sous-chemins (skip trailing-slash redirect).
+  skipTrailingSlashRedirect: true,
   async headers() {
     return [
       {
@@ -63,8 +72,9 @@ const nextConfig: NextConfig = {
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https://supabase.autyvia.fr https://jdeslkxwbtqkeifrlmnf.supabase.co https://challenges.cloudflare.com https://www.facebook.com https://cdn.shopify.com https://lh3.googleusercontent.com https://*.googleusercontent.com",
               "font-src 'self' https://challenges.cloudflare.com",
-              "connect-src 'self' https://supabase.autyvia.fr wss://supabase.autyvia.fr https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://api.openai.com https://graph.facebook.com https://challenges.cloudflare.com https://connect.facebook.net https://www.facebook.com",
+              "connect-src 'self' https://supabase.autyvia.fr wss://supabase.autyvia.fr https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://api.openai.com https://graph.facebook.com https://challenges.cloudflare.com https://connect.facebook.net https://www.facebook.com https://eu.i.posthog.com https://eu-assets.i.posthog.com",
               "frame-src https://js.stripe.com https://hooks.stripe.com https://challenges.cloudflare.com",
+              "worker-src 'self' blob:",
               "object-src 'none'",
               "base-uri 'self'",
               "form-action 'self'",
