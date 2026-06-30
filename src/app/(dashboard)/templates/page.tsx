@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback, useRef } from 'react'
 import type { WhatsAppTemplate, TemplateButton, TemplateCard } from '@/types/database'
+import { track } from '@/lib/posthog/events'
 import { CarouselEditor, CarouselPreview } from './_components/carousel-editor'
 import { VariableTextarea, type VariableTextareaHandle } from './_components/variable-textarea'
 import { toast } from 'sonner'
@@ -276,6 +277,7 @@ export default function TemplatesPage() {
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Erreur')
       await Promise.all([fetchTemplates(), fetchLibrary()])
+      track('template_created', { source: 'library', key })
       toast.success('Modèle ajouté à vos brouillons')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erreur')

@@ -13,6 +13,7 @@ import { Loader2, Send, Bot, User, Trash2, AlertCircle, Wrench, CheckCircle, XCi
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/i18n/context'
 import { toast } from 'sonner'
+import { track } from '@/lib/posthog/events'
 
 type ToolExecution = {
   name: string
@@ -93,6 +94,7 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
     setError(null)
     setMessages(prev => [...prev, { role: 'user', content: userMessage }])
     setLoading(true)
+    track('agent_tested', { agent_id: agentId })
 
     try {
       const res = await fetch(`/api/agents/${agentId}/test`, {

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { createAgentFromConfig } from '@/lib/agents/create-from-config'
+import { track } from '@/lib/posthog/events'
 import { BlobLoader } from '@/components/blob-loader'
 import { AgentTestChat } from '@/components/agent-test-chat'
 import {
@@ -137,6 +138,7 @@ export default function NewAgentPage() {
         toast.error(result.error)
         return
       }
+      track('agent_created', { method: 'ai' })
       setCreatedAgent(result.agent)
       setScreen('done')
     } catch {
@@ -158,6 +160,7 @@ export default function NewAgentPage() {
         agent_type: 'conversation',
       })
       if (result.ok) {
+        track('agent_created', { method: 'manual' })
         router.push(`/agents/${result.agent.id}`)
       } else {
         toast.error(result.error)
