@@ -274,11 +274,11 @@ export function StatsOverviewBoard({
             </div>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </div>
-          {/* Globe : zoom moyen de base (scale 1.35), zoomable à la molette,
-              + léger agrandissement au survol. */}
+          {/* Globe : par défaut zoomé/décalé (gros plan bas de carte). Au survol,
+              il se dézoome et se recentre → on voit la Terre entière au milieu. */}
           <div className="relative mt-2 h-56">
-            <div className="absolute inset-0 scale-[1.35] transition-transform duration-300 group-hover/globe:scale-[1.5]">
-              <Globe className="!top-10" config={globeConfig} zoomable />
+            <div className="absolute inset-0 translate-y-8 scale-[1.35] transition-transform duration-500 ease-out group-hover/globe:translate-y-0 group-hover/globe:scale-90">
+              <Globe className="!top-0" config={globeConfig} zoomable />
             </div>
           </div>
         </FrameCard>
