@@ -6,7 +6,8 @@ import { useMotionValue, useSpring } from "motion/react"
 
 import { cn } from "@/lib/utils"
 
-const MOVEMENT_DAMPING = 1400
+// Plus la valeur est basse, plus le glisser horizontal fait tourner vite.
+const MOVEMENT_DAMPING = 600
 
 const GLOBE_CONFIG: COBEOptions = {
   width: 800,
@@ -75,11 +76,12 @@ export function Globe({
       pointerInteractionMovement.current = delta
       r.set(r.get() + delta / MOVEMENT_DAMPING)
     }
-    // Glisser vertical → inclinaison (theta), bornée pour ne pas retourner le globe.
+    // Glisser vertical → inclinaison (theta). Borne large pour voir les pôles
+    // (haut et bas), sans retourner complètement le globe.
     if (clientY != null && pointerInteractingY.current !== null) {
       const deltaY = clientY - pointerInteractingY.current
       pointerInteractingY.current = clientY
-      thetaRef.current = Math.max(-0.6, Math.min(1.1, thetaRef.current + deltaY / 200))
+      thetaRef.current = Math.max(-Math.PI / 2 + 0.15, Math.min(Math.PI / 2 - 0.15, thetaRef.current + deltaY / 120))
     }
   }
 
