@@ -1,5 +1,8 @@
 import type { WorkflowGraph, WorkflowNode, ConditionRule, NodePosition } from '@/lib/automations/graph-types'
+import { variantBranch } from '@/lib/automations/graph-types'
 import type { TriggerEvent } from '@/lib/automations/types'
+
+export type InsertKind = 'delay' | 'condition' | 'action' | 'ab_test'
 
 /**
  * Modèle de TIMELINE : on lit le graphe comme une suite verticale de blocs.
@@ -15,7 +18,7 @@ import type { TriggerEvent } from '@/lib/automations/types'
 // ---- Lecture : graphe → séquence linéaire de la branche principale ----------
 
 /** Renvoie la liste ordonnée des ids depuis un nœud, en suivant la branche. */
-export function chainFrom(graph: WorkflowGraph, startId: string | undefined, branch?: 'yes' | 'no'): string[] {
+export function chainFrom(graph: WorkflowGraph, startId: string | undefined, branch?: string): string[] {
   const out: string[] = []
   let cur = startId
     ? graph.edges.find((e) => e.from === startId && (branch === undefined || e.branch === branch))?.to
@@ -25,8 +28,8 @@ export function chainFrom(graph: WorkflowGraph, startId: string | undefined, bra
     seen.add(cur)
     out.push(cur)
     const node = graph.nodes.find((n) => n.id === cur)
-    // Une condition arrête la chaîne linéaire (ses branches sont rendues à part).
-    if (node?.type === 'condition') break
+    // Une condition ou un test A/B arrêtent la chaîne (branches rendues à part).
+    if (node?.type === 'condition' || node?.type === 'ab_test') break
     cur = graph.edges.find((e) => e.from === cur)?.to
   }
   return out
@@ -48,21 +51,22 @@ function newId(prefix: string): string {
   return `${prefix}_${_seq}_${Math.floor(performance.now())}`
 }
 
-function blankNode(kind: 'delay' | 'condition' | 'action'): WorkflowNode {
+function blankNode(kind: InsertKind): WorkflowNode {
   if (kind === 'delay') return { id: newId('delay'), type: 'delay', minutes: 60 }
   if (kind === 'condition') return { id: newId('cond'), type: 'condition', rule: { field: 'order_total', op: '>', value: 50 } as ConditionRule }
+  if (kind === 'ab_test') return { id: newId('ab'), type: 'ab_test', variants: [{ key: 'A', weight: 50 }, { key: 'B', weight: 50 }] }
   return { id: newId('action'), type: 'action', templateId: null }
 }
 
 /**
  * Insère un nouveau nœud APRÈS `afterId` (sur la branche donnée si afterId est
- * une condition). Reconnecte proprement : after → new → (ancien suivant).
+ * une condition/test A/B). Reconnecte proprement : after → new → (ancien suivant).
  */
 export function insertAfter(
   graph: WorkflowGraph,
   afterId: string,
-  kind: 'delay' | 'condition' | 'action',
-  branch?: 'yes' | 'no',
+  kind: InsertKind,
+  branch?: string,
 ): WorkflowGraph {
   const node = blankNode(kind)
   const nodes = [...graph.nodes, node]
@@ -70,14 +74,43 @@ export function insertAfter(
   const existing = graph.edges.find((e) => e.from === afterId && (branch === undefined || e.branch === branch))
   const edges = graph.edges.filter((e) => e !== existing)
   edges.push({ from: afterId, to: node.id, branch })
-  // Si une condition, on lui crée 2 branches vides (oui/non) — sinon on relie
-  // le nouveau nœud à l'ancien suivant.
+  // Condition → 2 branches (l'ancien suivant rebranché sur "yes").
+  // Test A/B → une branche par variante (l'ancien suivant sur la 1re variante).
   if (kind === 'condition') {
-    // les branches restent vides ; l'ancien suivant est rebranché sur "yes"
     if (existing) edges.push({ from: node.id, to: existing.to, branch: 'yes' })
+  } else if (kind === 'ab_test' && node.type === 'ab_test') {
+    if (existing) edges.push({ from: node.id, to: existing.to, branch: variantBranch(node.variants[0].key) })
   } else if (existing) {
     edges.push({ from: node.id, to: existing.to })
   }
+  return { ...graph, nodes, edges }
+}
+
+/** Ajoute une variante (jusqu'à 4) à un nœud A/B, ré-équilibre les poids. */
+export function addVariant(graph: WorkflowGraph, nodeId: string): WorkflowGraph {
+  const node = graph.nodes.find((n) => n.id === nodeId)
+  if (!node || node.type !== 'ab_test' || node.variants.length >= 4) return graph
+  const nextKey = ['A', 'B', 'C', 'D'][node.variants.length]
+  const variants = [...node.variants, { key: nextKey, weight: 0 }]
+  // Répartit équitablement (arrondi, le reste sur la 1re).
+  const even = Math.floor(100 / variants.length)
+  variants.forEach((v, i) => { v.weight = even })
+  variants[0].weight = 100 - even * (variants.length - 1)
+  const nodes = graph.nodes.map((n) => n.id === nodeId ? { ...node, variants } : n)
+  return { ...graph, nodes }
+}
+
+/** Retire une variante (min 2) d'un nœud A/B + sa branche, ré-équilibre. */
+export function removeVariant(graph: WorkflowGraph, nodeId: string, key: string): WorkflowGraph {
+  const node = graph.nodes.find((n) => n.id === nodeId)
+  if (!node || node.type !== 'ab_test' || node.variants.length <= 2) return graph
+  const variants = node.variants.filter((v) => v.key !== key)
+  const even = Math.floor(100 / variants.length)
+  variants.forEach((v) => { v.weight = even })
+  variants[0].weight = 100 - even * (variants.length - 1)
+  const nodes = graph.nodes.map((n) => n.id === nodeId ? { ...node, variants } : n)
+  // Supprime la branche de la variante retirée (et ce qui en dépend).
+  const edges = graph.edges.filter((e) => !(e.from === nodeId && e.branch === variantBranch(key)))
   return { ...graph, nodes, edges }
 }
 

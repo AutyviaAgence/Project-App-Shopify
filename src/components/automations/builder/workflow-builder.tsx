@@ -3,7 +3,7 @@
 import React, { useCallback, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { Timeline } from './timeline'
-import { insertAfter, removeNode, patchNode as patchNodeGraph } from './timeline-model'
+import { insertAfter, removeNode, patchNode as patchNodeGraph, addVariant, removeVariant } from './timeline-model'
 import { PhonePreview } from '@/components/automations/phone-preview'
 import { cn } from '@/lib/utils'
 import { Plus, Minus, Maximize2 } from 'lucide-react'
@@ -142,7 +142,7 @@ function pathContext(graph: WorkflowGraph, actionId?: string): { eventValue?: st
     return { eventValue: trig?.type === 'trigger' ? trig.event : undefined, delayMin: 0 }
   }
   // chemin inverse : on reconstruit la suite de nœuds parents
-  const parents: { from: string; branch?: 'yes' | 'no' }[] = []
+  const parents: { from: string; branch?: string }[] = []
   let cur: string | undefined = actionId
   const seen = new Set<string>()
   while (cur && !seen.has(cur)) {
@@ -173,19 +173,22 @@ function pathContext(graph: WorkflowGraph, actionId?: string): { eventValue?: st
  * drag & drop : structure alignée automatiquement, impossible de se perdre.
  */
 export function WorkflowBuilder({
-  graph, templates, storeName, onChange,
+  graph, templates, storeName, onChange, automationId,
 }: {
   graph: WorkflowGraph
   templates: WhatsAppTemplate[]
   storeName: string
   onChange: (g: WorkflowGraph) => void
+  automationId?: string | null
 }) {
   // Dernier modèle choisi → alimente l'aperçu téléphone.
   const [previewTplId, setPreviewTplId] = useState<string | null>(null)
 
   const onPatch = useCallback((id: string, patch: Partial<WorkflowNode>) => onChange(patchNodeGraph(graph, id, patch)), [graph, onChange])
-  const onInsert = useCallback((afterId: string, kind: 'delay' | 'condition' | 'action', branch?: 'yes' | 'no') => onChange(insertAfter(graph, afterId, kind, branch)), [graph, onChange])
+  const onInsert = useCallback((afterId: string, kind: 'delay' | 'condition' | 'action' | 'ab_test', branch?: string) => onChange(insertAfter(graph, afterId, kind, branch)), [graph, onChange])
   const onDelete = useCallback((id: string) => onChange(removeNode(graph, id)), [graph, onChange])
+  const onAddVariant = useCallback((nodeId: string) => onChange(addVariant(graph, nodeId)), [graph, onChange])
+  const onRemoveVariant = useCallback((nodeId: string, key: string) => onChange(removeVariant(graph, nodeId, key)), [graph, onChange])
 
   // Modèle à prévisualiser : le dernier sélectionné, sinon le 1er nœud action.
   const firstAction = graph.nodes.find((n) => n.type === 'action' && n.templateId)
@@ -210,6 +213,9 @@ export function WorkflowBuilder({
             onInsert={onInsert}
             onDelete={onDelete}
             onSelectAction={setPreviewTplId}
+            onAddVariant={onAddVariant}
+            onRemoveVariant={onRemoveVariant}
+            automationId={automationId}
           />
         </div>
       </PannableTimeline>

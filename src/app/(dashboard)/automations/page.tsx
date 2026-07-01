@@ -224,7 +224,7 @@ export default function AutomationsPage() {
               <Input value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} placeholder="Nom du workflow" className="h-8 max-w-xs border-0 bg-transparent px-0 text-sm font-medium focus-visible:ring-0" />
             </div>
             <div className="min-h-0 flex-1 p-4">
-              <WorkflowBuilder graph={graph} templates={templates} storeName={storeName} onChange={setGraph} />
+              <WorkflowBuilder graph={graph} templates={templates} storeName={storeName} onChange={setGraph} automationId={current?.id ?? null} />
             </div>
           </div>
         ) : (

@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
   for (const job of jobs || []) {
     const { data: auto } = await supabase
       .from('automations')
-      .select('id, template_id, conditions, quiet_start, quiet_end, timezone, trigger_event, is_active, builder_mode, graph')
+      .select('id, user_id, template_id, conditions, quiet_start, quiet_end, timezone, trigger_event, is_active, builder_mode, graph')
       .eq('id', job.automation_id)
       .maybeSingle()
 
@@ -112,6 +112,16 @@ export async function GET(req: NextRequest) {
       // send
       const r = await sendTemplateToContact({ templateId: step.templateId, contactId: job.contact_id, variables: eventData.variables || {} })
       if (!r.ok) { await mark(supabase, job.id, 'failed', r.error || 'échec'); failed++; continue }
+      // Test A/B : enregistre la variante reçue par ce contact (pour les stats).
+      if (step.abTest) {
+        await supabase.from('ab_test_assignments').upsert({
+          user_id: auto.user_id ?? null,
+          automation_id: auto.id,
+          node_id: step.abTest.nodeId,
+          contact_id: job.contact_id,
+          variant_key: step.abTest.variant,
+        }, { onConflict: 'automation_id,node_id,contact_id', ignoreDuplicates: true })
+      }
       if (step.nextNodeId) {
         // Continuer le workflow immédiatement au prochain tick depuis le nœud suivant.
         await supabase.from('automation_jobs').update({ current_node_id: step.nextNodeId, scheduled_at: now.toISOString() }).eq('id', job.id)
@@ -138,8 +148,8 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ ok: true, processed: (jobs || []).length, sent, skipped, failed, deferred, temporalQueued })
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function mark(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
   id: string,
   status: 'sent' | 'skipped' | 'failed',

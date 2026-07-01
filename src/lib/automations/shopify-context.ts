@@ -180,10 +180,17 @@ export async function buildOrderContext(
   // Vraie commande → on note la date de dernière commande (sert à annuler une
   // relance de panier abandonné si le client a finalement commandé).
   if (isRealOrder) {
+    const nowIso2 = new Date().toISOString()
     await supabase
       .from('contacts')
-      .update({ last_order_at: new Date().toISOString() })
+      .update({ last_order_at: nowIso2 })
       .eq('id', contact.id)
+    // Test A/B : le contact a commandé → marque ses assignations comme "ordered".
+    await supabase
+      .from('ab_test_assignments')
+      .update({ ordered: true, ordered_at: nowIso2 })
+      .eq('contact_id', contact.id)
+      .eq('ordered', false)
   }
 
   const firstName = order.customer?.first_name || ''

@@ -376,6 +376,14 @@ export async function POST(req: NextRequest) {
 
             if (!conversation) continue
 
+            // Test A/B : le contact a répondu → marque ses assignations comme "responded".
+            supabase
+              .from('ab_test_assignments')
+              .update({ responded: true, responded_at: new Date().toISOString() })
+              .eq('contact_id', contact.id)
+              .eq('responded', false)
+              .then(undefined, () => {})
+
             // 2.5 Agent référent : si la conversation n'a pas encore d'agent IA
             // assigné, on lui attribue l'agent "par défaut" du compte (et on
             // active l'IA dessus). Permet à l'IA de répondre automatiquement sur

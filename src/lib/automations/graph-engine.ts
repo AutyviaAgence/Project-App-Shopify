@@ -1,8 +1,20 @@
 import 'server-only'
 import type { WorkflowGraph } from './graph-types'
-import { findNode, triggerNode, nextNodes } from './graph-types'
+import { findNode, triggerNode, nextNodes, variantBranch } from './graph-types'
 import { evaluateCondition } from './graph-conditions'
 import type { EventContext } from './types'
+
+/** Tire une variante A/B selon les poids (%). Retourne la clé choisie. */
+function pickVariant(variants: { key: string; weight: number }[]): string {
+  const total = variants.reduce((s, v) => s + Math.max(0, Number(v.weight) || 0), 0)
+  if (total <= 0) return variants[0]?.key
+  let r = Math.random() * total
+  for (const v of variants) {
+    r -= Math.max(0, Number(v.weight) || 0)
+    if (r < 0) return v.key
+  }
+  return variants[variants.length - 1].key
+}
 
 /**
  * Moteur d'exécution du graphe (state-machine).
@@ -19,7 +31,7 @@ import type { EventContext } from './types'
  */
 
 export type WorkflowStep =
-  | { kind: 'send'; templateId: string; nextNodeId: string | null }
+  | { kind: 'send'; templateId: string; nextNodeId: string | null; abTest?: { nodeId: string; variant: string } }
   | { kind: 'wait'; minutes: number; nextNodeId: string }
   | { kind: 'done' }
 
@@ -44,9 +56,18 @@ export function stepWorkflow(
   }
 
   let guard = 0 // garde-fou anti-boucle
+  let pendingAb: { nodeId: string; variant: string } | undefined
   while (nodeId && guard++ < 200) {
     const node = findNode(graph, nodeId)
     if (!node) return { kind: 'done' }
+
+    if (node.type === 'ab_test') {
+      // Tire une variante selon les poids, puis suit la branche variant:<key>.
+      const variant = pickVariant(node.variants || [])
+      pendingAb = { nodeId: node.id, variant }
+      nodeId = nextNodes(graph, node.id, variantBranch(variant))[0]
+      continue
+    }
 
     if (node.type === 'delay') {
       if (skipCurrentDelay) {
@@ -74,7 +95,7 @@ export function stepWorkflow(
         continue
       }
       const next = nextNodes(graph, node.id)[0] || null
-      return { kind: 'send', templateId: node.templateId, nextNodeId: next }
+      return { kind: 'send', templateId: node.templateId, nextNodeId: next, abTest: pendingAb }
     }
 
     // trigger ou type inconnu → avancer

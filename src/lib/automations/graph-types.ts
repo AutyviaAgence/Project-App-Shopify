@@ -40,19 +40,31 @@ export type DelayNode = { id: string; type: 'delay'; minutes: number }
 export type ConditionNode = { id: string; type: 'condition'; rule: ConditionRule; label?: string }
 export type ActionNode = { id: string; type: 'action'; templateId: string | null; label?: string }
 
-export type WorkflowNode = TriggerNode | DelayNode | ConditionNode | ActionNode
+/** Test A/B : répartit les contacts entre 2 à 4 variantes selon des poids (%).
+ *  Chaque variante a une branche `variant:<key>` menant à sa propre suite. */
+export type ABVariant = { key: string; weight: number }
+export type ABTestNode = { id: string; type: 'ab_test'; variants: ABVariant[]; label?: string }
+
+export type WorkflowNode = TriggerNode | DelayNode | ConditionNode | ActionNode | ABTestNode
 export type NodeType = WorkflowNode['type']
+
+/** Branche d'une arête sortant d'un test A/B : `variant:A`, `variant:B`… */
+export function variantBranch(key: string): string {
+  return `variant:${key}`
+}
 
 // Position pour le canvas (React Flow). Optionnelle : le moteur ne s'en sert pas.
 export type NodePosition = { x: number; y: number }
 
 // ---- Arêtes --------------------------------------------------------------
 
-/** Une arête relie deux nœuds. `branch` n'a de sens que pour un ConditionNode. */
+/** Une arête relie deux nœuds. `branch` :
+ *  - 'yes'/'no' pour une condition
+ *  - 'variant:<key>' pour un test A/B (une branche par variante) */
 export type WorkflowEdge = {
   from: string
   to: string
-  branch?: 'yes' | 'no'
+  branch?: string
 }
 
 // ---- Graphe complet ------------------------------------------------------
@@ -87,7 +99,7 @@ export function triggerNode(graph: WorkflowGraph): TriggerNode | undefined {
 }
 
 /** Le(s) nœud(s) suivant(s) à partir d'un nœud, en suivant une branche donnée. */
-export function nextNodes(graph: WorkflowGraph, fromId: string, branch?: 'yes' | 'no'): string[] {
+export function nextNodes(graph: WorkflowGraph, fromId: string, branch?: string): string[] {
   return graph.edges
     .filter((e) => e.from === fromId && (branch === undefined || e.branch === branch || e.branch === undefined))
     .map((e) => e.to)
@@ -108,6 +120,18 @@ export function validateGraph(graph: WorkflowGraph): string[] {
       const yes = graph.edges.some((e) => e.from === n.id && e.branch === 'yes')
       const no = graph.edges.some((e) => e.from === n.id && e.branch === 'no')
       if (!yes && !no) errors.push(`La condition "${n.label || n.id}" n'a aucune branche.`)
+    }
+    if (n.type === 'ab_test') {
+      if (!n.variants || n.variants.length < 2) errors.push(`Le test A/B "${n.label || n.id}" doit avoir au moins 2 variantes.`)
+      else {
+        const total = n.variants.reduce((s, v) => s + (Number(v.weight) || 0), 0)
+        if (Math.round(total) !== 100) errors.push(`Le test A/B "${n.label || n.id}" : la somme des pourcentages doit faire 100 % (actuel : ${total} %).`)
+        for (const v of n.variants) {
+          if (!graph.edges.some((e) => e.from === n.id && e.branch === variantBranch(v.key))) {
+            errors.push(`Le test A/B "${n.label || n.id}" : la variante ${v.key} n'a pas de suite.`)
+          }
+        }
+      }
     }
   }
   return errors
