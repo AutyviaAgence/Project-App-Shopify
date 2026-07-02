@@ -68,6 +68,15 @@ export async function GET(req: NextRequest) {
     console.error('[cron] drain ai_jobs:', e)
   }
 
+  // Maintenance : purge des vieux webhook_logs (throttlé à 1×/h en interne) pour
+  // éviter que la table gonfle (payloads JSON complets → grossit vite).
+  try {
+    const { purgeWebhookLogs } = await import('@/lib/maintenance/purge-webhook-logs')
+    await purgeWebhookLogs(supabase, now.getTime())
+  } catch (e) {
+    console.error('[cron] purge webhook_logs:', e)
+  }
+
   return NextResponse.json({ ok: true, processed: allJobs.length, ...counts, temporalQueued, aiJobs })
 }
 
