@@ -24,7 +24,6 @@ import {
   Loader2,
   ArrowLeft,
   Megaphone,
-  Bot,
   MessageSquare,
   MessageCircle,
   Filter,
@@ -40,7 +39,7 @@ import {
 import { getSessionDisplayName } from '@/lib/format-phone'
 import { BlobLoaderScreen } from '@/components/blob-loader'
 
-type AgentWithType = AIAgent & { agent_type?: 'conversation' | 'relance' }
+type AgentWithType = AIAgent & { agent_type?: 'conversation' }
 type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
 
 export default function EditCampaignPage({ params }: { params: Promise<{ id: string }> }) {
@@ -62,8 +61,6 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
   // Form state
   const [name, setName] = useState('')
   const [teamIds, setTeamIds] = useState<string[]>([])
-  const [useAgent, setUseAgent] = useState(true)
-  const [agentId, setAgentId] = useState<string>('')
   const [conversationAgentId, setConversationAgentId] = useState<string>('')
   const [messageTemplate, setMessageTemplate] = useState('')
 
@@ -117,8 +114,6 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
       setName(c.name)
       const existingTeamIds = (c as unknown as { team_ids?: string[] }).team_ids
       setTeamIds(existingTeamIds || (c.team_id ? [c.team_id] : []))
-      setUseAgent(!!c.relance_agent_id)
-      setAgentId(c.relance_agent_id || '')
       setConversationAgentId(c.conversation_agent_id || '')
       setMessageTemplate(c.message_template || '')
       setFilterSessionIds(c.filter_session_ids || [])
@@ -166,12 +161,7 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
       return
     }
 
-    if (useAgent && !agentId) {
-      toast.error(t('campaigns.agent_required'))
-      return
-    }
-
-    if (!useAgent && !messageTemplate.trim()) {
+    if (!messageTemplate.trim()) {
       toast.error(t('campaigns.template_required'))
       return
     }
@@ -184,9 +174,8 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
         body: JSON.stringify({
           name: name.trim(),
           team_ids: teamIds,
-          relance_agent_id: useAgent && agentId ? agentId : null,
           conversation_agent_id: conversationAgentId || null,
-          message_template: !useAgent ? messageTemplate : null,
+          message_template: messageTemplate || null,
           filter_session_ids: filterSessionIds.length > 0 ? filterSessionIds : null,
           filter_tracking_sources: filterTrackingSources.length > 0 ? filterTrackingSources : null,
           filter_link_ids: filterLinkIds.length > 0 ? filterLinkIds : null,
@@ -229,8 +218,6 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
   }
 
   const canEdit = campaign.status === 'draft' || campaign.status === 'scheduled'
-
-  const relanceAgents = agents.filter(a => a.agent_type === 'relance')
 
   return (
     <div className="p-4 sm:p-6 max-w-4xl mx-auto">
@@ -323,58 +310,20 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <Label className="flex items-center gap-2">
-                <Bot className="h-4 w-4" />
-                {t('campaigns.use_ai_agent')}
-              </Label>
-              <Switch checked={useAgent} onCheckedChange={setUseAgent} disabled={!canEdit} />
+            <div className="space-y-2">
+              <Label htmlFor="template">{t('campaigns.message_template')}</Label>
+              <Textarea
+                id="template"
+                placeholder={t('campaigns.message_template_placeholder')}
+                value={messageTemplate}
+                onChange={(e) => setMessageTemplate(e.target.value)}
+                rows={4}
+                disabled={!canEdit}
+              />
+              <p className="text-xs text-muted-foreground">
+                {t('campaigns.message_template_help')}
+              </p>
             </div>
-
-            {useAgent ? (
-              <div className="space-y-2">
-                <Label>{t('campaigns.relance_agent')}</Label>
-                {relanceAgents.length === 0 ? (
-                  <div className="p-4 bg-muted rounded-lg text-center">
-                    <AlertTriangle className="h-8 w-8 mx-auto mb-2 text-yellow-500" />
-                    <p className="text-sm text-muted-foreground">
-                      {t('campaigns.no_relance_agent')}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {t('campaigns.create_relance_help')}
-                    </p>
-                  </div>
-                ) : (
-                  <Select value={agentId} onValueChange={setAgentId} disabled={!canEdit}>
-                    <SelectTrigger>
-                      <SelectValue placeholder={t('campaigns.select_agent')} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {relanceAgents.map((agent) => (
-                        <SelectItem key={agent.id} value={agent.id}>
-                          {agent.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <Label htmlFor="template">{t('campaigns.message_template')}</Label>
-                <Textarea
-                  id="template"
-                  placeholder={t('campaigns.message_template_placeholder')}
-                  value={messageTemplate}
-                  onChange={(e) => setMessageTemplate(e.target.value)}
-                  rows={4}
-                  disabled={!canEdit}
-                />
-                <p className="text-xs text-muted-foreground">
-                  {t('campaigns.message_template_help')}
-                </p>
-              </div>
-            )}
 
             {/* Agent de conversation (suivi) */}
             <div className="space-y-2 pt-4 border-t">
@@ -721,7 +670,7 @@ export default function EditCampaignPage({ params }: { params: Promise<{ id: str
             <Button
               className="flex-1"
               onClick={handleSave}
-              disabled={saving || !name.trim() || (useAgent && !agentId) || (!useAgent && !messageTemplate.trim())}
+              disabled={saving || !name.trim() || !messageTemplate.trim()}
             >
               {saving ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

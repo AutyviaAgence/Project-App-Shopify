@@ -6,7 +6,7 @@ export interface AgentCreateConfig {
   description?: string
   system_prompt: string
   objective?: string
-  agent_type?: 'conversation' | 'relance' | 'qualifier'
+  agent_type?: 'conversation'
   escalation_enabled?: boolean
   escalation_mode?: 'keywords' | 'ai' | 'both'
   escalation_keywords?: string[]

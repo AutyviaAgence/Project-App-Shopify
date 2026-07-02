@@ -39,7 +39,7 @@ import {
 import { getSessionDisplayName } from '@/lib/format-phone'
 import { BlobLoaderScreen } from '@/components/blob-loader'
 
-type AgentWithType = AIAgent & { agent_type?: 'conversation' | 'relance' }
+type AgentWithType = AIAgent & { agent_type?: 'conversation' }
 type TeamWithRole = Team & { my_role: 'owner' | 'admin' | 'member' }
 
 export default function NewCampaignPage() {
@@ -62,7 +62,6 @@ export default function NewCampaignPage() {
   // Form state
   const [name, setName] = useState('')
   const [teamIds, setTeamIds] = useState<string[]>([])
-  const [agentId, setAgentId] = useState<string>('')
   const [conversationAgentId, setConversationAgentId] = useState<string>('')
   // Template Meta approuvé (remplace l'agent IA / message libre pour les campagnes)
   const [templateId, setTemplateId] = useState<string>('')
@@ -154,7 +153,6 @@ export default function NewCampaignPage() {
         body: JSON.stringify({
           name: name.trim(),
           team_ids: teamIds.length > 0 ? teamIds : undefined,
-          relance_agent_id: null,
           conversation_agent_id: conversationAgentId || null,
           message_template: null,
           template_id: templateId || null,
@@ -234,7 +232,6 @@ export default function NewCampaignPage() {
         body: JSON.stringify({
           name: name.trim(),
           team_ids: teamIds.length > 0 ? teamIds : undefined,
-          relance_agent_id: null,
           conversation_agent_id: conversationAgentId || null,
           message_template: null,
           template_id: templateId || null,
@@ -279,7 +276,6 @@ export default function NewCampaignPage() {
     )
   }
 
-  const relanceAgents = agents.filter(a => a.agent_type === 'relance')
   const conversationAgents = agents.filter(a => a.agent_type === 'conversation' || !a.agent_type)
 
   return (

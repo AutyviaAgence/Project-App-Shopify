@@ -16,7 +16,7 @@ import {
 
 // ─── Données du questionnaire ─────────────────────────────────────────────────
 
-type AgentType = 'conversation' | 'relance' | 'qualifier'
+type AgentType = 'conversation'
 
 const ROLES: { id: string; label: string; desc: string; icon: React.ComponentType<{ className?: string }>; agentType: AgentType }[] = [
   { id: 'secretary', label: 'Remplacer une secrétaire', desc: 'Répond, oriente, prend les demandes', icon: Headset, agentType: 'conversation' },

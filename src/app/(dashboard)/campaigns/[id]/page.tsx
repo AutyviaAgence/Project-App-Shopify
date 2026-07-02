@@ -78,7 +78,6 @@ type RecipientWithContact = CampaignRecipient & {
 }
 
 type CampaignWithDetails = Campaign & {
-  relance_agent?: { id: string; name: string; system_prompt: string } | null
   recipients?: RecipientWithContact[]
 }
 
@@ -587,11 +586,7 @@ export default function CampaignDetailPage() {
           <CardContent className="space-y-3 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">{t('campaigns.message')}</span>
-              <span>
-                {campaign.relance_agent
-                  ? `${t('campaigns.agent_label')} ${campaign.relance_agent.name}`
-                  : t('campaigns.fixed_template')}
-              </span>
+              <span>{t('campaigns.fixed_template')}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">{t('campaigns.max_recipients_label')}</span>

@@ -1,6 +1,4 @@
 import { getAdminSupabase } from '@/lib/supabase/admin-singleton'
-import { checkTokenLimit, recordTokenUsage } from '@/lib/openai/token-tracker'
-import { logAiUsage } from '@/lib/openai/usage-log'
 import { withSessionDelay } from '@/lib/messaging/session-queue'
 import { decryptMessage } from '@/lib/crypto/encryption'
 
@@ -14,10 +12,9 @@ interface Campaign {
   user_id: string
   name: string
   status: string
-  relance_agent_id: string | null
   conversation_agent_id: string | null
   message_template: string | null
-  // Nouveau : template Meta approuvé (prioritaire sur message_template/agent IA)
+  // Template Meta approuvé (prioritaire sur message_template)
   template_id: string | null
   template_params: Record<string, string> | null
   delay_between_min: number
@@ -25,19 +22,6 @@ interface Campaign {
   messages_per_hour: number
   send_hour_start: number
   send_hour_end: number
-}
-
-interface AIAgent {
-  id: string
-  system_prompt: string
-  model: string
-  temperature: number
-}
-
-interface Contact {
-  id: string
-  phone_number: string
-  name: string | null
 }
 
 // Lock in-memory pour éviter l'exécution concurrente d'une même campagne
@@ -128,16 +112,6 @@ async function executeCampaign(supabase: any, campaign: Campaign): Promise<void>
     for (const v of variants || []) langVariants.set(v.language, template.name)
   }
 
-  // Récupérer l'agent IA si configuré (legacy — utilisé seulement sans template)
-  let agent: AIAgent | null = null
-  if (!template && campaign.relance_agent_id) {
-    const { data } = await supabase
-      .from('ai_agents')
-      .select('id, system_prompt, model, temperature')
-      .eq('id', campaign.relance_agent_id)
-      .single()
-    agent = data
-  }
 
   // Récupérer les destinataires en attente
   const { data: recipients } = await supabase
@@ -233,37 +207,13 @@ async function executeCampaign(supabase: any, campaign: Campaign): Promise<void>
       continue
     }
 
-    // Générer le message
-    let message: string
-    if (agent) {
-      // Vérifier la limite de tokens avant de générer
-      const tokenCheck = await checkTokenLimit(campaign.user_id)
-      if (!tokenCheck.allowed) {
-        console.log(`[Campaign ${campaignId}] Token limit reached, pausing campaign`)
-        await supabase
-          .from('campaigns')
-          .update({
-            status: 'paused',
-            paused_at: new Date().toISOString(),
-            pause_reason: 'Limite de tokens IA atteinte'
-          })
-          .eq('id', campaignId)
-        break
-      } else {
-        try {
-          message = await generateAIMessage(agent, contact, campaign.user_id)
-        } catch (error) {
-          console.error(`[Campaign ${campaignId}] AI error:`, error)
-          message = campaign.message_template || ''
-        }
-      }
-    } else {
-      const safeName = sanitizeForPrompt(contact.name || 'Client')
-      const safePhone = contact.phone_number.replace(/[^0-9+]/g, '')
-      message = (campaign.message_template || '')
-        .replace(/{contact_name}/g, safeName)
-        .replace(/{phone_number}/g, safePhone)
-    }
+    // Générer le message depuis le message_template (le template Meta approuvé,
+    // s'il existe, est envoyé séparément plus bas via sendTemplate).
+    const safeName = sanitizeForPrompt(contact.name || 'Client')
+    const safePhone = contact.phone_number.replace(/[^0-9+]/g, '')
+    const message = (campaign.message_template || '')
+      .replace(/{contact_name}/g, safeName)
+      .replace(/{phone_number}/g, safePhone)
 
     if (!message && !template) {
       await supabase
@@ -372,50 +322,6 @@ function sanitizeForPrompt(value: string): string {
     .replace(/[{}]/g, '')
     .slice(0, 100)
     .trim()
-}
-
-async function generateAIMessage(agent: AIAgent, contact: Contact, userId: string): Promise<string> {
-  const safeName = sanitizeForPrompt(contact.name || 'Client')
-  const safePhone = contact.phone_number.replace(/[^0-9+]/g, '')
-
-  const systemPrompt = agent.system_prompt
-    .replace(/{contact_name}/g, safeName)
-    .replace(/{phone_number}/g, safePhone)
-
-  const response = await fetch('https://api.openai.com/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${process.env.OPENAI_API_KEY}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: agent.model || 'gpt-4o-mini',
-      temperature: agent.temperature ?? 0.7,
-      max_tokens: 500,
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: `Génère un message de relance personnalisé pour ${safeName}.` }
-      ]
-    })
-  })
-
-  if (!response.ok) {
-    throw new Error(`OpenAI error: ${response.statusText}`)
-  }
-
-  const data = await response.json()
-  const tokensUsed = data.usage?.total_tokens || 0
-  void logAiUsage({
-    feature: 'campaign',
-    model: data.model || agent.model || 'gpt-4o-mini',
-    promptTokens: data.usage?.prompt_tokens || 0,
-    completionTokens: data.usage?.completion_tokens || 0,
-    userId,
-  })
-  if (tokensUsed > 0) {
-    await recordTokenUsage(userId, tokensUsed)
-  }
-  return data.choices[0]?.message?.content || ''
 }
 
 async function sendWhatsAppMessage(

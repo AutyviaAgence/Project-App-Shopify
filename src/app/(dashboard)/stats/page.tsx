@@ -1041,14 +1041,6 @@ export default function StatsPage() {
                               </p>
                             </div>
                           </div>
-                          {campaign.relanceAgentName && (
-                            <div className="mt-3 pt-3 border-t">
-                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                                <Bot className="h-3 w-3" />
-                                {t('stats.agent')} : {campaign.relanceAgentName}
-                              </div>
-                            </div>
-                          )}
                           {campaign.failedCount > 0 && (
                             <div className="mt-2 flex items-center gap-1 text-xs text-destructive">
                               <XCircle className="h-3 w-3" />
@@ -1061,53 +1053,6 @@ export default function StatsPage() {
                   })}
                 </div>
 
-                {/* Stats par agent de relance */}
-                {stats.campaigns.relanceAgentStats.length > 0 && (
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="text-base">{t('stats.relance_performance')}</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm">
-                          <thead>
-                            <tr className="border-b bg-muted/30 text-left text-muted-foreground">
-                              <th className="px-4 py-3 font-medium">{t('stats.agent')}</th>
-                              <th className="px-4 py-3 font-medium text-right">{t('stats.campaigns_tab')}</th>
-                              <th className="px-4 py-3 font-medium text-right">{t('stats.sent')}</th>
-                              <th className="px-4 py-3 font-medium text-right">{t('stats.responses')}</th>
-                              <th className="px-4 py-3 font-medium text-right">{t('stats.rate')}</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {stats.campaigns.relanceAgentStats.map((agent, i) => (
-                              <tr key={agent.id} className={cn('border-b last:border-0', i % 2 === 0 ? '' : 'bg-muted/10')}>
-                                <td className="px-4 py-3 font-medium">
-                                  <div className="flex items-center gap-2">
-                                    <Bot className="h-4 w-4 text-muted-foreground" />
-                                    {agent.name}
-                                  </div>
-                                </td>
-                                <td className="px-4 py-3 text-right">
-                                  {agent.campaignsCount}
-                                </td>
-                                <td className="px-4 py-3 text-right">
-                                  {agent.totalSent.toLocaleString(numberLocale)}
-                                </td>
-                                <td className="px-4 py-3 text-right">
-                                  {agent.totalReplied.toLocaleString(numberLocale)}
-                                </td>
-                                <td className="px-4 py-3 text-right font-semibold text-primary">
-                                  {agent.responseRate}%
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
               </>
             )}
           </TabsContent>

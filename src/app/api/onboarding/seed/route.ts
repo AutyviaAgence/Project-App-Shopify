@@ -44,7 +44,7 @@ export async function POST() {
       .insert({
         user_id: user.id,
         name: SEED_AGENT_NAME,
-        agent_type: 'qualifier',
+        agent_type: 'conversation',
         model: 'gpt-4o-mini',
         temperature: 0.7,
         is_active: true,

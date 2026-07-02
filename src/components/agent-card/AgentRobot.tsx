@@ -60,7 +60,6 @@ export const AGENT_COLORS: Record<string, string> = {
   booking: '#06b6d4',
   leads: '#8b5cf6',
   sales: '#f97316',
-  qualifier: '#10b981',
   default: '#7DC2A5',
 }
 

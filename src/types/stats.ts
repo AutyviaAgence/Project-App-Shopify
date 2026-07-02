@@ -121,8 +121,6 @@ export type StatsCampaign = {
   repliedCount: number
   failedCount: number
   responseRate: number
-  relanceAgentId: string | null
-  relanceAgentName: string | null
   startedAt: string | null
   completedAt: string | null
 }
@@ -137,16 +135,6 @@ export type StatsCampaigns = {
   totalFailed: number
   overallResponseRate: number
   campaigns: StatsCampaign[]
-  relanceAgentStats: StatsRelanceAgent[]
-}
-
-export type StatsRelanceAgent = {
-  id: string
-  name: string
-  campaignsCount: number
-  totalSent: number
-  totalReplied: number
-  responseRate: number
 }
 
 export type StatsLifecycleStage = {

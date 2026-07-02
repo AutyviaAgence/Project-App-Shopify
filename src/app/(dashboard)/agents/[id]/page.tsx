@@ -81,7 +81,6 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   const [linkSession, setLinkSession] = useState('')
   const [linkMessage, setLinkMessage] = useState('')
   const [linkSaving, setLinkSaving] = useState(false)
-  const [savingSession, setSavingSession] = useState<string | null>(null)
 
   useEffect(() => {
     async function load() {
@@ -235,27 +234,6 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
     setImages(prev => prev.filter(i => i.id !== imgId))
   }
 
-  async function handleToggleSession(s: WhatsAppSession) {
-    const assigned = s.qualifier_agent_id === id
-    const newValue = assigned ? null : id
-    setSavingSession(s.id)
-    try {
-      const res = await fetch(`/api/sessions/${s.id}`, {
-        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ qualifier_agent_id: newValue }),
-      })
-      if (res.ok) {
-        setSessions(prev => prev.map(x => x.id === s.id ? { ...x, qualifier_agent_id: newValue } : x))
-        if (!assigned) track('agent_activated_on_session')
-        toast.success(assigned ? 'Agent retiré de la session' : 'Agent activé sur la session')
-      } else {
-        const json = await res.json()
-        toast.error(json.error || 'Erreur')
-      }
-    } catch { toast.error('Erreur réseau') }
-    finally { setSavingSession(null) }
-  }
-
   async function handleCreateLink() {
     if (!linkName.trim() || !linkSession) return
     setLinkSaving(true)
@@ -276,7 +254,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
 
   const DAYS = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
   const toneLabel = tone === 'professional' ? 'Professionnel' : tone === 'friendly' ? 'Chaleureux' : 'Décontracté'
-  const channelCount = sessions.filter(s => s.qualifier_agent_id === id).length
+  const channelCount = sessions.length
 
   if (loading) return <BlobLoaderScreen />
   if (!agent) return null
@@ -340,7 +318,6 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                 </HeaderBadge>
               </button>
               <HeaderBadge icon={Sparkles}>{toneLabel}</HeaderBadge>
-              <HeaderBadge icon={Smartphone}>{channelCount} {channelCount > 1 ? 'canaux' : 'canal'}</HeaderBadge>
               <HeaderBadge icon={FileText}>{docs.length} document{docs.length > 1 ? 's' : ''}</HeaderBadge>
               <HeaderBadge icon={Globe}>{autoDetectLanguage ? 'Auto' : 'Français'}</HeaderBadge>
             </div>
@@ -424,39 +401,18 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                 Aucune session · Connecter WhatsApp →
               </button>
             ) : (
-              sessions.map((s, i) => {
-                const assigned = s.qualifier_agent_id === id
-                const takenByOther = !!s.qualifier_agent_id && !assigned
-                return (
-                  <div key={s.id}>
-                    {i > 0 && <Divider />}
-                    <button
-                      onClick={() => handleToggleSession(s)}
-                      disabled={savingSession === s.id}
-                      className="w-full flex items-center gap-3 py-3.5 text-left"
-                    >
-                      <span className={cn('h-2.5 w-2.5 shrink-0 rounded-full', s.status === 'connected' ? 'bg-emerald-500' : 'bg-muted-foreground/30')} />
-                      <div className="min-w-0 flex-1">
-                        <p className="text-sm font-medium truncate">{s.display_name || s.instance_name}</p>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {s.phone_number || '—'}
-                          {takenByOther && <span className="text-amber-500"> · autre agent</span>}
-                        </p>
-                      </div>
-                      {savingSession === s.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-muted-foreground shrink-0" />
-                      ) : (
-                        <span className={cn(
-                          'flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-all',
-                          assigned ? 'border-blue-500 bg-blue-500 text-white' : 'border-border'
-                        )}>
-                          {assigned && <Check className="h-3.5 w-3.5" />}
-                        </span>
-                      )}
-                    </button>
+              sessions.map((s, i) => (
+                <div key={s.id}>
+                  {i > 0 && <Divider />}
+                  <div className="w-full flex items-center gap-3 py-3.5">
+                    <span className={cn('h-2.5 w-2.5 shrink-0 rounded-full', s.status === 'connected' ? 'bg-emerald-500' : 'bg-muted-foreground/30')} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate">{s.display_name || s.instance_name}</p>
+                      <p className="text-xs text-muted-foreground truncate">{s.phone_number || '—'}</p>
+                    </div>
                   </div>
-                )
-              })
+                </div>
+              ))
             )}
 
             {/* Liens QR */}

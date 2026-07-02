@@ -36,9 +36,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { fr, enUS } from 'date-fns/locale'
 import { BlobLoaderScreen } from '@/components/blob-loader'
 
-type CampaignWithAgent = Campaign & {
-  relance_agent?: { id: string; name: string } | null
-}
+type CampaignWithAgent = Campaign
 
 const statusVariants: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   draft: 'secondary',
@@ -246,11 +244,9 @@ export default function CampaignsPage() {
                       </div>
                     )}
 
-                    {/* Agent ou template */}
+                    {/* Template */}
                     <div className="text-xs text-muted-foreground">
-                      {campaign.relance_agent ? (
-                        <span>{t('campaigns.agent_label')} {campaign.relance_agent.name}</span>
-                      ) : campaign.message_template ? (
+                      {campaign.message_template ? (
                         <span className="line-clamp-2">{t('campaigns.template_label')} {campaign.message_template}</span>
                       ) : (
                         <span className="text-destructive">{t('campaigns.no_message')}</span>

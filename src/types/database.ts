@@ -108,7 +108,6 @@ export type WhatsAppSession = {
   waba_phone_number_id: string | null
   waba_business_account_id: string | null
   waba_access_token: string | null
-  qualifier_agent_id: string | null
   welcome_sent: boolean
   created_at: string
   updated_at: string
@@ -140,7 +139,7 @@ export type AIAgent = {
   escalation_keywords: string[]
   escalation_message: string | null
   booking_url: string | null
-  agent_type: 'conversation' | 'relance' | 'qualifier'
+  agent_type: 'conversation'
   stop_condition: string | null
   is_pinned: boolean
   /** Agent référent : assigné par défaut à toutes les nouvelles conversations. */
@@ -488,9 +487,6 @@ export type Campaign = {
   team_id: string | null
   name: string
   status: CampaignStatus
-
-  // Agent IA pour personnalisation (optionnel, doit être type 'relance')
-  relance_agent_id: string | null
 
   // Agent IA pour les réponses après relance (optionnel, doit être type 'conversation')
   conversation_agent_id: string | null

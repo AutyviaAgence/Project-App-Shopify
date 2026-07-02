@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient, createAdminClient } from '@/lib/supabase/server'
 import { getDateRange, computeTrend, groupByDate, groupMessagesByDate, groupTransitionsByDate } from '@/lib/stats/helpers'
-import type { StatsResponse, StatsAgent, StatsLink, StatsTopContact, StatsContactsBySession, StatsCampaign, StatsCampaigns, StatsRelanceAgent, StatsLifecycle, StatsLifecycleStage, StatsLifecycleTransitionPoint } from '@/types/stats'
+import type { StatsResponse, StatsAgent, StatsLink, StatsTopContact, StatsContactsBySession, StatsCampaign, StatsCampaigns, StatsLifecycle, StatsLifecycleStage, StatsLifecycleTransitionPoint } from '@/types/stats'
 
 /** GET /api/stats?period=30&session_id=all */
 export async function GET(req: NextRequest) {
@@ -131,7 +131,7 @@ export async function GET(req: NextRequest) {
     // Campagnes (utilisateur)
     supabase
       .from('campaigns')
-      .select('id, name, status, total_recipients, sent_count, delivered_count, replied_count, failed_count, relance_agent_id, started_at, completed_at')
+      .select('id, name, status, total_recipients, sent_count, delivered_count, replied_count, failed_count, started_at, completed_at')
       .eq('user_id', user.id),
     // Lifecycle stages
     supabase
@@ -502,7 +502,6 @@ export async function GET(req: NextRequest) {
     const responseRate = campaign.sent_count > 0
       ? Math.round((campaign.replied_count / campaign.sent_count) * 100)
       : 0
-    const relanceAgent = agents.find((a) => a.id === campaign.relance_agent_id)
     return {
       id: campaign.id,
       name: campaign.name,
@@ -513,8 +512,6 @@ export async function GET(req: NextRequest) {
       repliedCount: campaign.replied_count,
       failedCount: campaign.failed_count,
       responseRate,
-      relanceAgentId: campaign.relance_agent_id,
-      relanceAgentName: relanceAgent?.name || null,
       startedAt: campaign.started_at,
       completedAt: campaign.completed_at,
     }
@@ -532,36 +529,6 @@ export async function GET(req: NextRequest) {
     ? Math.round((totalCampaignReplied / totalCampaignSent) * 100)
     : 0
 
-  // Relance agent stats
-  const relanceAgentStatsMap = new Map<string, { name: string; campaigns: number; sent: number; replied: number }>()
-  for (const campaign of campaigns) {
-    if (campaign.relance_agent_id) {
-      const existing = relanceAgentStatsMap.get(campaign.relance_agent_id)
-      const agentName = agents.find((a) => a.id === campaign.relance_agent_id)?.name || 'Agent inconnu'
-      if (existing) {
-        existing.campaigns += 1
-        existing.sent += campaign.sent_count
-        existing.replied += campaign.replied_count
-      } else {
-        relanceAgentStatsMap.set(campaign.relance_agent_id, {
-          name: agentName,
-          campaigns: 1,
-          sent: campaign.sent_count,
-          replied: campaign.replied_count,
-        })
-      }
-    }
-  }
-
-  const relanceAgentStats: StatsRelanceAgent[] = [...relanceAgentStatsMap.entries()].map(([id, stats]) => ({
-    id,
-    name: stats.name,
-    campaignsCount: stats.campaigns,
-    totalSent: stats.sent,
-    totalReplied: stats.replied,
-    responseRate: stats.sent > 0 ? Math.round((stats.replied / stats.sent) * 100) : 0,
-  }))
-
   const campaignsData: StatsCampaigns = {
     totalCampaigns,
     activeCampaigns,
@@ -572,7 +539,6 @@ export async function GET(req: NextRequest) {
     totalFailed: totalCampaignFailed,
     overallResponseRate: overallCampaignResponseRate,
     campaigns: campaignStats,
-    relanceAgentStats,
   }
 
   // --- Lifecycle ---

@@ -14,10 +14,9 @@ export async function GET(
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  // Récupérer la campagne avec l'agent de relance
   const { data: campaign, error } = await supabase
     .from('campaigns')
-    .select('*, relance_agent:ai_agents!relance_agent_id(id, name, system_prompt)')
+    .select('*')
     .eq('id', id)
     .eq('user_id', user.id)
     .single()
@@ -83,7 +82,6 @@ export async function PATCH(
   // Champs modifiables
   const fields = [
     'name',
-    'relance_agent_id',
     'conversation_agent_id',
     'message_template',
     'filter_session_ids',
@@ -106,22 +104,6 @@ export async function PATCH(
   for (const field of fields) {
     if (field in otherFields) {
       updateData[field] = otherFields[field]
-    }
-  }
-
-  // Vérifier que l'agent est bien de type 'relance' si modifié
-  if (updateData.relance_agent_id && typeof updateData.relance_agent_id === 'string') {
-    const { data: agent } = await supabase
-      .from('ai_agents')
-      .select('agent_type')
-      .eq('id', updateData.relance_agent_id)
-      .single()
-
-    if (!agent || agent.agent_type !== 'relance') {
-      return NextResponse.json(
-        { error: 'L\'agent doit être de type "relance"' },
-        { status: 400 }
-      )
     }
   }
 

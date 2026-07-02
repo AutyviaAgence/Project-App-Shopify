@@ -488,10 +488,9 @@ export default function AgentsPage() {
                   const isCenter = offset === 0
                   const isFront = abs <= 1 // les 3 cards "plein face" (centre + 2 voisines)
                   const isDeleting = deleting === agent.id
-                  const baseTypeColor = agent.agent_type === 'qualifier' ? '#0ea5e9' : agent.agent_type === 'relance' ? '#f97316' : '#8b5cf6'
-                  // Couleur de halo/fond : choix de l'agent sinon couleur du type
-                  const typeColor = mascotBgColor(agent.mascot_bg, baseTypeColor)
-                  const typeLabel = agent.agent_type === 'qualifier' ? 'Qualificateur' : agent.agent_type === 'relance' ? t('agents.relance') : 'Conversation'
+                  // Couleur de halo/fond : choix de l'agent sinon couleur par défaut
+                  const typeColor = mascotBgColor(agent.mascot_bg, '#8b5cf6')
+                  const typeLabel = 'Conversation'
 
                   // Les voisines immédiates (±1) restent quasi de face ; au-delà, fort retrait.
                   const tx = offset * (isFront ? stepFront : stepBack)
@@ -534,7 +533,7 @@ export default function AgentsPage() {
                           {/* Mascotte (buste) : ancree en bas, le bras + enveloppe deborde a gauche.
                               Sur la carte centrale, clic = popover de selection mascotte + fond. */}
                           {isCenter ? (
-                            <MascotPicker agent={agent} typeColor={baseTypeColor} onChange={(patch) => handleUpdateMascot(agent, patch)}>
+                            <MascotPicker agent={agent} typeColor="#8b5cf6" onChange={(patch) => handleUpdateMascot(agent, patch)}>
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img
                                 src={mascotSrc(agent.mascot)}

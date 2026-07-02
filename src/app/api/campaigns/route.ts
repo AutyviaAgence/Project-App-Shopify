@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
   // Construire la requête
   let query = supabase
     .from('campaigns')
-    .select('*, relance_agent:ai_agents!relance_agent_id(id, name)')
+    .select('*')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
 
@@ -49,7 +49,6 @@ export async function POST(req: NextRequest) {
   const body = await req.json()
   const {
     name,
-    relance_agent_id,
     conversation_agent_id,
     message_template,
     filter_session_ids,
@@ -75,7 +74,6 @@ export async function POST(req: NextRequest) {
     is_active,
   } = body as {
     name: string
-    relance_agent_id?: string
     conversation_agent_id?: string
     message_template?: string
     template_id?: string
@@ -106,33 +104,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Le nom est requis' }, { status: 400 })
   }
 
-  // Nouvelle logique : un template Meta approuvé est requis (les campagnes
-  // n'utilisent plus l'agent IA). On garde la compat si un template_id est fourni.
-  if (!template_id && !message_template && !relance_agent_id) {
+  // Un template Meta approuvé (ou un message) est requis pour créer une campagne.
+  if (!template_id && !message_template) {
     return NextResponse.json(
       { error: 'Un modèle WhatsApp approuvé est requis' },
       { status: 400 }
     )
-  }
-
-  // Vérifier que l'agent est bien de type 'relance' si spécifié
-  if (relance_agent_id) {
-    const { data: agent, error: agentError } = await supabase
-      .from('ai_agents')
-      .select('id, agent_type')
-      .eq('id', relance_agent_id)
-      .single()
-
-    if (agentError || !agent) {
-      return NextResponse.json({ error: 'Agent non trouvé' }, { status: 404 })
-    }
-
-    if (agent.agent_type !== 'relance') {
-      return NextResponse.json(
-        { error: 'L\'agent doit être de type "relance"' },
-        { status: 400 }
-      )
-    }
   }
 
   // Créer la campagne
@@ -142,7 +119,6 @@ export async function POST(req: NextRequest) {
       user_id: user.id,
       name: name.trim(),
       status: scheduled_at ? 'scheduled' : 'draft',
-      relance_agent_id: relance_agent_id || null,
       conversation_agent_id: conversation_agent_id || null,
       message_template: message_template?.trim() || null,
       template_id: template_id || null,
