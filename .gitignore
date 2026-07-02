@@ -56,3 +56,6 @@ extensions/*/node_modules/
 extensions/**/node_modules/
 .shopify/
 extensions/*/dist/
+
+# k6 load test artifact
+scripts/loadtest/last-run-summary.json
