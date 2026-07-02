@@ -49,6 +49,7 @@ export async function logAiUsage(params: {
   completionTokens?: number
   totalTokens?: number
   costUsdOverride?: number
+  latencyMs?: number
   userId?: string | null
   contactId?: string | null
   conversationId?: string | null
@@ -69,6 +70,7 @@ export async function logAiUsage(params: {
       completion_tokens: completion,
       total_tokens: total,
       cost_usd: Number(cost.toFixed(6)),
+      latency_ms: params.latencyMs ?? null,
     })
   } catch (err) {
     console.error('[ai-usage-log] échec log:', err instanceof Error ? err.message : err)

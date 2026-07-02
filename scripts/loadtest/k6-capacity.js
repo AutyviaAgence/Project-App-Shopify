@@ -41,6 +41,12 @@ import http from 'k6/http'
 import { check, sleep } from 'k6'
 import { Rate } from 'k6/metrics'
 
+// Le webhook GET renvoie 403 quand le verify_token est faux (cas normal de ce
+// test). Sans ça, k6 compterait tout 4xx comme "échec HTTP" et gonflerait
+// http_req_failed. On déclare 200-499 comme "attendus" : seuls les 5xx (vraie
+// défaillance serveur) comptent comme échec.
+http.setResponseCallback(http.expectedStatuses({ min: 200, max: 499 }))
+
 const BASE_URL = (__ENV.BASE_URL || '').replace(/\/$/, '')
 const PROFILE = __ENV.PROFILE || 'load'
 const SCENARIO = __ENV.SCENARIO || 'safe'
@@ -88,10 +94,12 @@ const PROFILES = {
 
 export const options = {
   stages: (PROFILES[PROFILE] || PROFILES.load).stages,
+  // Expose p99 dans le résumé (par défaut k6 ne calcule que p90/p95).
+  summaryTrendStats: ['avg', 'min', 'med', 'max', 'p(90)', 'p(95)', 'p(99)'],
   thresholds: {
     // Seuils d'alerte : au-delà, on considère le palier comme saturé.
     http_req_duration: ['p(95)<1500', 'p(99)<3000'],
-    http_req_failed: ['rate<0.02'], // <2% d'erreurs
+    http_req_failed: ['rate<0.02'], // <2% de VRAIES erreurs (5xx uniquement)
     errors: ['rate<0.05'],
   },
 }
@@ -168,8 +176,9 @@ export default function () {
 // Résumé lisible en fin de run (en plus du rapport k6 standard).
 export function handleSummary(data) {
   const m = data.metrics
-  const p95 = m.http_req_duration ? m.http_req_duration.values['p(95)'] : 0
-  const p99 = m.http_req_duration ? m.http_req_duration.values['p(99)'] : 0
+  const dur = m.http_req_duration ? m.http_req_duration.values : {}
+  const p95 = dur['p(95)'] || 0
+  const p99 = dur['p(99)'] || 0
   const failed = m.http_req_failed ? m.http_req_failed.values.rate : 0
   const reqs = m.http_reqs ? m.http_reqs.values.count : 0
   const line = (s) => s + '\n'

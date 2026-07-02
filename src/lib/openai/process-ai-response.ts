@@ -422,6 +422,7 @@ NE liste JAMAIS des options en texte (genre "1. ... 2. ...") si tu peux les mett
     let aiResponseText = ''
 
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+      const aiStartedAt = Date.now()
       const result = await generateAgentResponse({
         model: agent.model,
         temperature: agent.temperature,
@@ -439,6 +440,7 @@ NE liste JAMAIS des options en texte (genre "1. ... 2. ...") si tu peux les mett
       void logAiUsage({
         feature: 'sav_reply', model: agent.model,
         promptTokens: result.promptTokens, completionTokens: result.completionTokens,
+        latencyMs: Date.now() - aiStartedAt,
         userId, conversationId: params.conversationId,
       })
 
