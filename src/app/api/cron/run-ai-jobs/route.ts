@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAdminSupabase } from '@/lib/supabase/admin-singleton'
 import { processAIResponse } from '@/lib/openai/process-ai-response'
+import { enqueueAiJob } from '@/lib/ai-queue/enqueue'
 
 /**
  * Cron — draine la file ai_jobs (réponses IA enfilées en pic).
@@ -35,6 +36,14 @@ export async function drainAiJobs(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any
 ): Promise<{ processed: number; sent: number; failed: number }> {
+  // 0. Rattrapage : ré-enfile les messages entrants restés sans réponse IA
+  //    (crash/redéploiement en plein traitement). Idempotent via la dédup ai_jobs.
+  try {
+    await recoverOrphanedAiReplies(supabase)
+  } catch (e) {
+    console.error('[ai-jobs] recover orphans:', e)
+  }
+
   const { data: jobs } = await supabase
     .from('ai_jobs')
     .select('id, conversation_id, session_id, agent_id, contact_phone, instance_name, attempts')
@@ -111,4 +120,107 @@ async function mark(
   await supabase.from('ai_jobs')
     .update({ status, result, processed_at: new Date().toISOString() })
     .eq('id', id)
+}
+
+/**
+ * RATTRAPAGE — ré-enfile les messages entrants restés sans réponse IA.
+ *
+ * Cas couverts : crash/redéploiement pendant qu'une réponse IA était en vol
+ * (message inséré, ai_processed=false, jamais répondu). Sans ce filet, le
+ * client n'aurait JAMAIS sa réponse.
+ *
+ * Garde-fous :
+ * - Fenêtre 10 min → 24 h : >10 min évite de doubler une réponse encore en vol
+ *   (l'appel OpenAI + retries peut durer plusieurs minutes) ; <24 h évite de
+ *   ressusciter de vieux historiques au premier déploiement.
+ * - 1 seul job par CONVERSATION (le plus récent) : l'IA relit tout l'historique
+ *   à chaque réponse → inutile de répondre 3 fois pour 3 messages orphelins.
+ * - Skip si une réponse sortante existe déjà après le message (réponse manuelle
+ *   du marchand) → on marque ai_processed pour ne plus le rescanner.
+ * - Idempotent : la dédup ai_jobs (wa_message_id) bloque tout double enqueue.
+ */
+async function recoverOrphanedAiReplies(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any
+): Promise<void> {
+  const now = Date.now()
+  const olderThan = new Date(now - 10 * 60 * 1000).toISOString()   // > 10 min
+  const newerThan = new Date(now - 24 * 60 * 60 * 1000).toISOString() // < 24 h
+
+  const { data: orphans } = await supabase
+    .from('messages')
+    .select('id, wa_message_id, conversation_id, created_at, conversations!inner(id, is_ai_active, ai_agent_id, session_id, contact_id)')
+    .eq('direction', 'inbound')
+    .eq('ai_processed', false)
+    .eq('conversations.is_ai_active', true)
+    .not('conversations.ai_agent_id', 'is', null)
+    .not('conversations.session_id', 'is', null) // exclut les conversations email
+    .lt('created_at', olderThan)
+    .gt('created_at', newerThan)
+    .order('created_at', { ascending: false })
+    .limit(50)
+
+  if (!orphans || orphans.length === 0) return
+
+  // 1 seul candidat par conversation : le message le PLUS RÉCENT (l'ordre DESC
+  // garantit qu'on le voit en premier) ; les plus anciens sont juste marqués
+  // traités (la réponse IA couvrira tout l'historique).
+  const seenConversations = new Set<string>()
+  type OrphanRow = {
+    id: string; wa_message_id: string | null; conversation_id: string; created_at: string
+    conversations: { id: string; is_ai_active: boolean; ai_agent_id: string; session_id: string; contact_id: string | null }
+  }
+
+  for (const o of orphans as OrphanRow[]) {
+    if (seenConversations.has(o.conversation_id)) {
+      await supabase.from('messages').update({ ai_processed: true }).eq('id', o.id)
+      continue
+    }
+    seenConversations.add(o.conversation_id)
+
+    // Le marchand (ou l'IA) a-t-il déjà répondu après ce message ? → rien à
+    // rattraper, on marque pour ne plus rescanner.
+    const { data: reply } = await supabase
+      .from('messages')
+      .select('id')
+      .eq('conversation_id', o.conversation_id)
+      .eq('direction', 'outbound')
+      .gt('created_at', o.created_at)
+      .limit(1)
+      .maybeSingle()
+    if (reply) {
+      await supabase.from('messages').update({ ai_processed: true }).eq('id', o.id)
+      continue
+    }
+
+    // Contexte nécessaire au job : téléphone du contact + instance de la session.
+    const conv = o.conversations
+    const [{ data: contact }, { data: sess }] = await Promise.all([
+      conv.contact_id
+        ? supabase.from('contacts').select('phone_number').eq('id', conv.contact_id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      supabase.from('whatsapp_sessions').select('instance_name, user_id').eq('id', conv.session_id).maybeSingle(),
+    ])
+    if (!contact?.phone_number || !sess) {
+      // Impossible de reconstruire le contexte → marquer pour ne pas boucler.
+      await supabase.from('messages').update({ ai_processed: true }).eq('id', o.id)
+      continue
+    }
+
+    console.log(`[ai-jobs] rattrapage message orphelin ${o.id} (conv ${o.conversation_id})`)
+    await enqueueAiJob({
+      conversationId: o.conversation_id,
+      sessionId: conv.session_id,
+      agentId: conv.ai_agent_id,
+      contactPhone: contact.phone_number,
+      instanceName: sess.instance_name || '',
+      userId: sess.user_id ?? null,
+      // Même convention de dédup que le webhook (wa_message_id brut) pour que
+      // l'index unique bloque tout doublon avec un job déjà enfilé en burst.
+      waMessageId: o.wa_message_id || `recover:${o.id}`,
+    })
+    // NB : on ne marque PAS ai_processed ici — c'est processAIResponse qui le
+    // fera quand le job aura réellement répondu. Si le job échoue, le message
+    // reste candidat mais la dédup ai_jobs empêche tout ré-enqueue en boucle.
+  }
 }

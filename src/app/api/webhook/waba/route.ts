@@ -80,9 +80,17 @@ export async function POST(req: NextRequest) {
   const startTime = Date.now()
   const supabase = getAdminSupabase()
 
+  // Payload illisible → 200 : un retry Meta renverrait le même JSON cassé,
+  // inutile. (Les erreurs de TRAITEMENT, elles, renvoient 500 → Meta renvoie.)
+  let payload: { entry?: unknown }
   try {
-    // If signature validation read the body, parse it; otherwise read from request
-    const payload = sigResult.body ? JSON.parse(sigResult.body) : await req.json()
+    payload = sigResult.body ? JSON.parse(sigResult.body) : await req.json()
+  } catch (err) {
+    console.error('[WABA Webhook] Unparseable payload:', err)
+    return NextResponse.json({ ok: true })
+  }
+
+  try {
 
     // Meta envoie un objet avec entry[].changes[].value
     const entries = payload.entry as Array<{
@@ -170,6 +178,23 @@ export async function POST(req: NextRequest) {
             const waMessageId: string = msg.id
             const contactProfile = value.contacts?.find(c => c.wa_id === phoneNumber)
             const pushName = contactProfile?.profile?.name || null
+
+            // Dédup EN TÊTE de boucle : si Meta renvoie un message déjà traité
+            // (retry après timeout/erreur), on l'ignore AVANT tout travail coûteux
+            // (transcription média, upserts, unread). Rend les retries Meta
+            // totalement idempotents → on peut renvoyer 500 sur erreur sans risque.
+            if (waMessageId) {
+              const { data: existingMsg } = await supabase
+                .from('messages')
+                .select('id')
+                .eq('wa_message_id', waMessageId)
+                .eq('session_id', session.id)
+                .maybeSingle()
+              if (existingMsg) {
+                console.log(`[WABA Webhook] Message already exists, skipping: ${waMessageId}`)
+                continue
+              }
+            }
 
             // Déterminer le type et contenu du message
             let content = ''
@@ -423,22 +448,8 @@ export async function POST(req: NextRequest) {
                 .eq('id', conversation.id)
             }
 
-            // 3. Insérer le message (dédupliqué via wa_message_id)
+            // 3. Insérer le message (la dédup wa_message_id est faite en tête de boucle)
             const encryptedContent = content ? encryptMessage(content) : ''
-
-            // Vérifier si le message existe déjà pour CETTE session (Meta peut renvoyer le même message)
-            if (waMessageId) {
-              const { data: existing } = await supabase
-                .from('messages')
-                .select('id')
-                .eq('wa_message_id', waMessageId)
-                .eq('session_id', session.id)
-                .maybeSingle()
-              if (existing) {
-                console.log(`[WABA Webhook] Message already exists, skipping: ${waMessageId}`)
-                continue
-              }
-            }
 
             // Insérer le message avec les champs média (fallback sans si colonnes absentes)
             let insertedMessage = null
@@ -594,7 +605,11 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ ok: true })
   } catch (error) {
+    // Erreur de TRAITEMENT (DB indisponible, etc.) → 500 pour que Meta RENVOIE
+    // le webhook au lieu de perdre le message. Sûr : la dédup wa_message_id en
+    // tête de boucle rend les retries idempotents (les messages déjà insérés
+    // sont ignorés, seuls les manqués sont traités).
     console.error('[WABA Webhook] Error:', error)
-    return NextResponse.json({ ok: true }) // Toujours 200 pour éviter les retries Meta
+    return NextResponse.json({ error: 'processing failed' }, { status: 500 })
   }
 }
