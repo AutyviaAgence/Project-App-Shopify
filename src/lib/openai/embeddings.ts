@@ -8,7 +8,9 @@ function getClient(): OpenAI {
   if (client) return client
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) throw new Error('[OpenAI] OPENAI_API_KEY is required')
-  client = new OpenAI({ apiKey })
+  // Backoff exponentiel intégré du SDK sur 429/5xx : monté à 4 pour éviter qu'un
+  // upload RAG (nombreux appels embeddings) échoue en entier sur un pic de 429.
+  client = new OpenAI({ apiKey, maxRetries: 4, timeout: 60_000 })
   return client
 }
 

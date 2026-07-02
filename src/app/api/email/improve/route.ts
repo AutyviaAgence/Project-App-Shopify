@@ -41,7 +41,7 @@ ${actionInstructions}
 Retourne uniquement le texte amélioré, sans commentaire ni introduction.${safeContext ? `\nContexte: ${safeContext}` : ''}`
 
   try {
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, maxRetries: 4, timeout: 60_000 })
     const completion = await openai.chat.completions.create({
       store: false,
       model: 'gpt-4o-mini',

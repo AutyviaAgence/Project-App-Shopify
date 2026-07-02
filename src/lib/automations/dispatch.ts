@@ -1,12 +1,9 @@
 import 'server-only'
-import { createClient as createAdminSupabase } from '@supabase/supabase-js'
+import { getAdminSupabase } from '@/lib/supabase/admin-singleton'
 import { resolveVariables } from '@/lib/templates/variables'
 
 function admin() {
-  return createAdminSupabase(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+  return getAdminSupabase()
 }
 
 const NO_WHATSAPP_CODES = [131026, 131047, 131000, 470]

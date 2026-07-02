@@ -19,7 +19,7 @@ function getOpenAI(): OpenAI {
   if (client) return client
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) throw new Error('[generate] OPENAI_API_KEY requis')
-  client = new OpenAI({ apiKey })
+  client = new OpenAI({ apiKey, maxRetries: 4, timeout: 60_000 })
   return client
 }
 

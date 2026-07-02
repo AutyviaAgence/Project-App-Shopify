@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient as createAdminSupabase } from '@supabase/supabase-js'
+import { getAdminSupabase } from '@/lib/supabase/admin-singleton'
 import { createHmac, timingSafeEqual } from 'crypto'
 import { processAIResponse } from '@/lib/openai/process-ai-response'
 import { withSessionDelay } from '@/lib/messaging/session-queue'
@@ -76,10 +76,7 @@ export async function POST(req: NextRequest) {
   if (rateLimitResponse) return rateLimitResponse
 
   const startTime = Date.now()
-  const supabase = createAdminSupabase(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+  const supabase = getAdminSupabase()
 
   try {
     // If signature validation read the body, parse it; otherwise read from request

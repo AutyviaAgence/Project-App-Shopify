@@ -1,15 +1,12 @@
 import 'server-only'
 import OpenAI from 'openai'
-import { createClient as createAdminSupabase } from '@supabase/supabase-js'
+import { getAdminSupabase } from '@/lib/supabase/admin-singleton'
 import { decryptMessage } from '@/lib/crypto/encryption'
 import { recordTokenUsage } from './token-tracker'
 import { logAiUsage } from './usage-log'
 
 function getAdminClient() {
-  return createAdminSupabase(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+  return getAdminSupabase()
 }
 
 let openaiClient: OpenAI | null = null
@@ -17,7 +14,7 @@ function getOpenAI(): OpenAI {
   if (openaiClient) return openaiClient
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) throw new Error('[Lifecycle] OPENAI_API_KEY is required')
-  openaiClient = new OpenAI({ apiKey })
+  openaiClient = new OpenAI({ apiKey, maxRetries: 4, timeout: 60_000 })
   return openaiClient
 }
 

@@ -1,5 +1,5 @@
 import 'server-only'
-import { createClient as createAdminSupabase } from '@supabase/supabase-js'
+import { getAdminSupabase } from '@/lib/supabase/admin-singleton'
 import { generateAgentResponse, type ChatMessage, type OpenAIMessage } from './client'
 import { checkTokenLimit, recordTokenUsage } from './token-tracker'
 import { logAiUsage } from './usage-log'
@@ -26,10 +26,7 @@ export async function processAIResponse(params: {
   agentId: string
   session?: Pick<WhatsAppSession, 'integration_type' | 'instance_name' | 'waba_phone_number_id' | 'waba_access_token'>
 }) {
-  const supabase = createAdminSupabase(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+  const supabase = getAdminSupabase()
 
   try {
     // 1. Récupérer la config de l'agent

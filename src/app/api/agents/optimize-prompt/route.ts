@@ -28,6 +28,8 @@ export async function POST(request: Request) {
   try {
     const openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
+      maxRetries: 4,
+      timeout: 60_000,
     })
 
     const supabase = await createClient()

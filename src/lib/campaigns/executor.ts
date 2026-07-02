@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+import { getAdminSupabase } from '@/lib/supabase/admin-singleton'
 import { checkTokenLimit, recordTokenUsage } from '@/lib/openai/token-tracker'
 import { logAiUsage } from '@/lib/openai/usage-log'
 import { withSessionDelay } from '@/lib/messaging/session-queue'
@@ -66,10 +66,7 @@ export function startCampaignExecution(campaignId: string): void {
 }
 
 async function executeCampaignById(campaignId: string): Promise<void> {
-  const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+  const supabase = getAdminSupabase()
 
   const { data: campaign, error } = await supabase
     .from('campaigns')

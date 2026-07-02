@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { getAdminSupabase } from '@/lib/supabase/admin-singleton'
 import { pollImapInbox } from '@/lib/email/imap-poller'
 import { pollGmailInbox } from '@/lib/email/gmail-client'
 import { encryptMessage } from '@/lib/crypto/encryption'
@@ -21,10 +21,7 @@ export async function GET(req: NextRequest) {
 }
 
 async function runPollEmail() {
-  const adminSupabase = createAdminClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+  const adminSupabase = getAdminSupabase()
 
   // Renouveler le watch Gmail Pub/Sub (expire tous les 7 jours — on le renouvelle à chaque cron)
   const appUrl = process.env.NEXT_PUBLIC_APP_URL
@@ -170,35 +167,42 @@ async function runPollEmail() {
 
         if (!msgInsertError) totalEmails++
 
-        // Uploader chaque PJ dans Storage et créer un message document par fichier
-        for (const att of (email.attachments ?? [])) {
-          const attMsgId = `in-att-${Date.now()}-${Math.random().toString(36).slice(2)}`
-          const storagePath = `email/${conversationId}/${attMsgId}-${att.filename}`
-          const uploadResult = await uploadMedia({
-            sessionId: 'email',
-            messageId: attMsgId,
-            buffer: att.content,
-            mimeType: att.contentType,
-            storagePath,
-          })
-          if (!uploadResult.ok) continue
-
-          const isImage = att.contentType.startsWith('image/')
-          const msgType = isImage ? 'image' : 'document'
-
-          await adminSupabase.from('messages').insert({
-            conversation_id: conversationId,
-            session_id: null,
-            direction: 'inbound',
-            content: encryptMessage(`[${isImage ? 'Image' : 'Document'}: ${att.filename}]`),
-            message_type: msgType,
-            channel_message_id: attMsgId,
-            sent_by: 'contact',
-            status: 'delivered',
-            ai_processed: false,
-            media_url: uploadResult.storagePath,
-            media_mime_type: att.contentType,
-          })
+        // Uploader les PJ dans Storage EN PARALLÈLE (I/O indépendantes), puis
+        // batch-insert des messages document en une seule requête. Évite le
+        // chaînage séquentiel upload→insert par pièce jointe.
+        const attachments = email.attachments ?? []
+        if (attachments.length > 0) {
+          const convId = conversationId
+          const uploaded = await Promise.all(
+            attachments.map(async (att, idx) => {
+              const attMsgId = `in-att-${email.messageId || contactId}-${idx}-${att.filename}`
+              const storagePath = `email/${convId}/${attMsgId}-${att.filename}`
+              const uploadResult = await uploadMedia({
+                sessionId: 'email',
+                messageId: attMsgId,
+                buffer: att.content,
+                mimeType: att.contentType,
+                storagePath,
+              })
+              if (!uploadResult.ok) return null
+              const isImage = att.contentType.startsWith('image/')
+              return {
+                conversation_id: convId,
+                session_id: null,
+                direction: 'inbound' as const,
+                content: encryptMessage(`[${isImage ? 'Image' : 'Document'}: ${att.filename}]`),
+                message_type: isImage ? 'image' : 'document',
+                channel_message_id: attMsgId,
+                sent_by: 'contact' as const,
+                status: 'delivered' as const,
+                ai_processed: false,
+                media_url: uploadResult.storagePath,
+                media_mime_type: att.contentType,
+              }
+            })
+          )
+          const rows = uploaded.filter((r): r is NonNullable<typeof r> => r !== null)
+          if (rows.length > 0) await adminSupabase.from('messages').insert(rows)
         }
       }
     } catch (err) {

@@ -11,7 +11,10 @@ function getClient(): OpenAI {
   if (client) return client
   const apiKey = process.env.OPENAI_API_KEY
   if (!apiKey) throw new Error('[OpenAI] OPENAI_API_KEY is required')
-  client = new OpenAI({ apiKey })
+  // maxRetries : le SDK OpenAI applique déjà un backoff exponentiel sur les 429
+  // (rate limit) et les 5xx/timeouts. On monte à 4 (défaut 2) pour absorber les
+  // pics de charge sans perdre de réponses SAV. timeout à 60s par appel.
+  client = new OpenAI({ apiKey, maxRetries: 4, timeout: 60_000 })
   return client
 }
 
