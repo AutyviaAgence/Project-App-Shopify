@@ -3,6 +3,8 @@ import { getAdminSupabase } from '@/lib/supabase/admin-singleton'
 import { createHmac, timingSafeEqual } from 'crypto'
 import { processAIResponse } from '@/lib/openai/process-ai-response'
 import { withSessionDelay } from '@/lib/messaging/session-queue'
+import { tryAcquire } from '@/lib/concurrency/semaphore'
+import { enqueueAiJob } from '@/lib/ai-queue/enqueue'
 import { analyzeConversationLifecycle } from '@/lib/openai/lifecycle-analyzer'
 import { processWabaMediaMessage } from '@/lib/openai/media-processor'
 import { encryptMessage, decryptMessage } from '@/lib/crypto/encryption'
@@ -531,23 +533,49 @@ export async function POST(req: NextRequest) {
               .single()
 
             if (convFresh?.is_ai_active && convFresh?.ai_agent_id) {
-              console.log('[WABA Webhook] Triggering AI response...')
-              const sessionDelay = session.ai_message_delay ?? 0
-              await withSessionDelay(session.id, sessionDelay, () =>
-                processAIResponse({
+              // Backpressure : borne le nombre de réponses IA simultanées par
+              // process. Sous le seuil → réponse inline (rapide). Au-dessus (burst)
+              // → on enfile dans ai_jobs (drainé par le cron run-ai-jobs), et le
+              // webhook rend son 200 sans attendre. Évite qu'un afflux de messages
+              // sature le VPS (CPU + pool Postgres).
+              const AI_MAX_INFLIGHT = Number(process.env.AI_MAX_INFLIGHT ?? 8)
+              const release = tryAcquire('ai-reply', AI_MAX_INFLIGHT)
+
+              if (release) {
+                console.log('[WABA Webhook] Triggering AI response (inline)...')
+                const sessionDelay = session.ai_message_delay ?? 0
+                // Fire-and-forget : on N'AWAIT PAS → le webhook répond à Meta
+                // immédiatement. Le slot est libéré dans le finally (succès ou échec).
+                void withSessionDelay(session.id, sessionDelay, () =>
+                  processAIResponse({
+                    conversationId: conversation.id,
+                    sessionId: session.id,
+                    instanceName: session.instance_name,
+                    contactPhoneNumber: phoneNumber,
+                    agentId: convFresh.ai_agent_id,
+                    session: {
+                      integration_type: 'waba',
+                      instance_name: session.instance_name,
+                      waba_phone_number_id: session.waba_phone_number_id,
+                      waba_access_token: session.waba_access_token,
+                    },
+                  })
+                )
+                  .catch((err) => console.error('[WABA Webhook] inline AI error:', err))
+                  .finally(() => release())
+              } else {
+                // Gate pleine → on enfile (persistant, dédup sur wa_message_id).
+                console.log('[WABA Webhook] AI gate full → enqueue ai_job')
+                await enqueueAiJob({
                   conversationId: conversation.id,
                   sessionId: session.id,
-                  instanceName: session.instance_name,
-                  contactPhoneNumber: phoneNumber,
                   agentId: convFresh.ai_agent_id,
-                  session: {
-                    integration_type: 'waba',
-                    instance_name: session.instance_name,
-                    waba_phone_number_id: session.waba_phone_number_id,
-                    waba_access_token: session.waba_access_token,
-                  },
+                  contactPhone: phoneNumber,
+                  instanceName: session.instance_name,
+                  userId: session.user_id,
+                  waMessageId: waMessageId || null,
                 })
-              )
+              }
             }
           }
         }
