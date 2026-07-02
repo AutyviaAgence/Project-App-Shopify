@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import OpenAI from 'openai'
 import { checkTokenLimit, recordTokenUsage } from '@/lib/openai/token-tracker'
+import { logAiUsage } from '@/lib/openai/usage-log'
 
 const OPTIMIZATION_PROMPT = `Tu es un expert en conception de prompts pour agents conversationnels WhatsApp.
 
@@ -88,6 +89,13 @@ export async function POST(request: Request) {
     }
 
     // Enregistrer l'utilisation des tokens
+    void logAiUsage({
+      feature: 'optimize_prompt',
+      model: completion.model || 'gpt-4o-mini',
+      promptTokens: completion.usage?.prompt_tokens || 0,
+      completionTokens: completion.usage?.completion_tokens || 0,
+      userId: user.id,
+    })
     await recordTokenUsage(user.id, completion.usage?.total_tokens || 0)
 
     return NextResponse.json({

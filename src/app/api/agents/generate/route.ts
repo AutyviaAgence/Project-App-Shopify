@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import OpenAI from 'openai'
 import { checkTokenLimit, recordTokenUsage } from '@/lib/openai/token-tracker'
+import { logAiUsage } from '@/lib/openai/usage-log'
 
 // Génère la configuration complète d'un agent WhatsApp à partir des réponses
 // du questionnaire d'onboarding (style Blow Up). Calqué sur optimize-prompt.
@@ -143,6 +144,13 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Réponse IA invalide' }, { status: 500 })
     }
 
+    void logAiUsage({
+      feature: 'agent_generate',
+      model: completion.model || 'gpt-4o',
+      promptTokens: completion.usage?.prompt_tokens || 0,
+      completionTokens: completion.usage?.completion_tokens || 0,
+      userId: user.id,
+    })
     await recordTokenUsage(user.id, completion.usage?.total_tokens || 0)
 
     // Garde-fous : valeurs par défaut si l'IA omet un champ

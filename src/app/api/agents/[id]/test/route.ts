@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { generateAgentResponse, type ChatMessage, type OpenAIMessage } from '@/lib/openai/client'
 import { checkTokenLimit, recordTokenUsage } from '@/lib/openai/token-tracker'
+import { logAiUsage } from '@/lib/openai/usage-log'
 import { retrieveContext } from '@/lib/knowledge/retriever'
 import { getAgentTools, buildOpenAITools, executeToolCall } from '@/lib/tools/executor'
 
@@ -173,7 +174,7 @@ export async function POST(
       .eq('agent_id', id)
       .eq('is_active', true)
     if (toolsFromAuth && toolsFromAuth.length > 0) {
-      agentTools = toolsFromAuth as any
+      agentTools = toolsFromAuth as typeof agentTools
     }
   }
 
@@ -205,6 +206,14 @@ export async function POST(
     if (!result.ok) {
       return NextResponse.json({ error: result.error }, { status: 500 })
     }
+
+    void logAiUsage({
+      feature: 'agent_generate',
+      model: agent.model || 'gpt-4o-mini',
+      promptTokens: result.promptTokens,
+      completionTokens: result.completionTokens,
+      userId: user.id,
+    })
 
     totalTokens += result.tokensUsed
 

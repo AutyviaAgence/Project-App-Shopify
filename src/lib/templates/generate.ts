@@ -1,7 +1,8 @@
 import 'server-only'
 import OpenAI from 'openai'
-import { TEMPLATE_VARIABLES, VARIABLE_BY_KEY } from './variables'
+import { VARIABLE_BY_KEY } from './variables'
 import { USE_CASE_BY_KEY, type UseCaseKey } from './use-cases'
+import { logAiUsage } from '@/lib/openai/usage-log'
 
 /**
  * Génération IA de templates WhatsApp RICHES.
@@ -152,6 +153,13 @@ Omets buttons/cards/lto_* quand le format ne les utilise pas. Aucune autre clé,
     messages: [{ role: 'user', content: prompt }],
     temperature: 0.8,
     response_format: { type: 'json_object' },
+  })
+
+  void logAiUsage({
+    feature: 'template_generate',
+    model: res.model || 'gpt-4o-mini',
+    promptTokens: res.usage?.prompt_tokens || 0,
+    completionTokens: res.usage?.completion_tokens || 0,
   })
 
   const raw = res.choices[0]?.message?.content || ''

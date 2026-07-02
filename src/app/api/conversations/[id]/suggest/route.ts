@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { decryptMessage } from '@/lib/crypto/encryption'
 import { generateAgentResponse, type OpenAIMessage } from '@/lib/openai/client'
+import { logAiUsage } from '@/lib/openai/usage-log'
 
 /**
  * POST /api/conversations/[id]/suggest
@@ -75,5 +76,13 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 502 })
   }
+  void logAiUsage({
+    feature: 'sav_reply',
+    model: agent.model || 'gpt-4o-mini',
+    promptTokens: result.promptTokens,
+    completionTokens: result.completionTokens,
+    userId: user.id,
+    conversationId: id,
+  })
   return NextResponse.json({ text: result.content || '' })
 }

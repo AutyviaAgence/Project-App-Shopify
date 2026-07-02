@@ -2,6 +2,7 @@ import 'server-only'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { generateAgentResponse, type ChatMessage, type OpenAIMessage } from './client'
 import { checkTokenLimit, recordTokenUsage } from './token-tracker'
+import { logAiUsage } from './usage-log'
 import { sendMessage, sendMediaMessage, sendInteractiveMessage, sendPresence } from '@/lib/messaging/send'
 import { retrieveContext } from '@/lib/knowledge/retriever'
 import { encryptMessage, decryptMessage } from '@/lib/crypto/encryption'
@@ -152,6 +153,11 @@ Exemples :
 
           if (aiCheck.ok) {
             totalTokensUsed += aiCheck.tokensUsed
+            void logAiUsage({
+              feature: 'escalation', model: 'gpt-4o-mini',
+              promptTokens: aiCheck.promptTokens, completionTokens: aiCheck.completionTokens,
+              userId, conversationId: params.conversationId,
+            })
             const response = aiCheck.content?.trim() || ''
             if (response.toUpperCase().startsWith('OUI')) {
               escalationTriggered = true
@@ -433,6 +439,11 @@ NE liste JAMAIS des options en texte (genre "1. ... 2. ...") si tu peux les mett
       }
 
       totalTokensUsed += result.tokensUsed
+      void logAiUsage({
+        feature: 'sav_reply', model: agent.model,
+        promptTokens: result.promptTokens, completionTokens: result.completionTokens,
+        userId, conversationId: params.conversationId,
+      })
 
       // If no tool calls, we have our final response
       if (!result.toolCalls) {

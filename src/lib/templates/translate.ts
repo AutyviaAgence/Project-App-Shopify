@@ -1,6 +1,7 @@
 import 'server-only'
 import OpenAI from 'openai'
 import type { TemplateCard, TemplateButton, CardButton } from '@/types/database'
+import { logAiUsage } from '@/lib/openai/usage-log'
 
 /**
  * Traduction automatique du CONTENU d'un modèle WhatsApp d'une langue vers une
@@ -105,6 +106,12 @@ ${JSON.stringify(payload, null, 2)}`
     messages: [{ role: 'user', content: prompt }],
     temperature: 0.3,
     response_format: { type: 'json_object' },
+  })
+  void logAiUsage({
+    feature: 'translate',
+    model: res.model || 'gpt-4o-mini',
+    promptTokens: res.usage?.prompt_tokens || 0,
+    completionTokens: res.usage?.completion_tokens || 0,
   })
   const raw = res.choices[0]?.message?.content || ''
   try {

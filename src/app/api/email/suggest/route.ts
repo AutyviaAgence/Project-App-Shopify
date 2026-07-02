@@ -5,6 +5,7 @@ import { decryptMessage } from '@/lib/crypto/encryption'
 import { retrieveContext } from '@/lib/knowledge/retriever'
 import { getAgentTools, buildOpenAITools, executeToolCall } from '@/lib/tools/executor'
 import { generateAgentResponse, type OpenAIMessage } from '@/lib/openai/client'
+import { logAiUsage } from '@/lib/openai/usage-log'
 
 const MAX_TOOL_ROUNDS = 10
 
@@ -150,6 +151,15 @@ Sois concis, professionnel et adapte-toi au ton du dernier message reçu.`
       if (!result.ok) {
         return NextResponse.json({ error: `Erreur IA : ${result.error}` }, { status: 500 })
       }
+
+      void logAiUsage({
+        feature: 'email',
+        model: agent.model || 'gpt-4o-mini',
+        promptTokens: result.promptTokens,
+        completionTokens: result.completionTokens,
+        userId: user.id,
+        conversationId: conversation_id,
+      })
 
       totalTokensUsed += result.tokensUsed
 

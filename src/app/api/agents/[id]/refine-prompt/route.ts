@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import OpenAI from 'openai'
 import { checkTokenLimit, recordTokenUsage } from '@/lib/openai/token-tracker'
+import { logAiUsage } from '@/lib/openai/usage-log'
 
 // Assistant d'ajustement du prompt système, façon copilote :
 // l'utilisateur exprime ce qu'il aime/n'aime pas dans les réponses de l'agent,
@@ -125,6 +126,13 @@ export async function POST(
       response_format: { type: 'json_object' },
     })
 
+    void logAiUsage({
+      feature: 'refine_prompt',
+      model: completion.model || 'gpt-4o',
+      promptTokens: completion.usage?.prompt_tokens || 0,
+      completionTokens: completion.usage?.completion_tokens || 0,
+      userId: user.id,
+    })
     await recordTokenUsage(user.id, completion.usage?.total_tokens || 0)
 
     const raw = completion.choices[0]?.message?.content?.trim()

@@ -112,8 +112,8 @@ export async function generateAgentResponse(params: {
   messages: (ChatMessage | OpenAIMessage)[]
   tools?: Array<{ type: 'function'; function: { name: string; description: string; parameters: Record<string, unknown> } }>
 }): Promise<
-  | { ok: true; content: string; tokensUsed: number; toolCalls?: undefined }
-  | { ok: true; content: null; tokensUsed: number; toolCalls: ToolCallResult[]; rawMessage: OpenAI.Chat.ChatCompletionMessage }
+  | { ok: true; content: string; tokensUsed: number; promptTokens: number; completionTokens: number; toolCalls?: undefined }
+  | { ok: true; content: null; tokensUsed: number; promptTokens: number; completionTokens: number; toolCalls: ToolCallResult[]; rawMessage: OpenAI.Chat.ChatCompletionMessage }
   | { ok: false; error: string }
 > {
   try {
@@ -136,27 +136,29 @@ export async function generateAgentResponse(params: {
     const response = await openai.chat.completions.create(createParams)
     const message = response.choices[0]?.message
     const tokensUsed = response.usage?.total_tokens || 0
+    const promptTokens = response.usage?.prompt_tokens || 0
+    const completionTokens = response.usage?.completion_tokens || 0
 
     // Handle tool calls
     if (message?.tool_calls && message.tool_calls.length > 0) {
       const toolCalls: ToolCallResult[] = message.tool_calls
         .filter(tc => tc.type === 'function')
         .map(tc => {
-          const fn = (tc as any).function as { name: string; arguments: string }
+          const fn = (tc as { function: { name: string; arguments: string } }).function
           return {
             toolCallId: tc.id,
             functionName: fn.name,
             arguments: JSON.parse(fn.arguments || '{}'),
           }
         })
-      return { ok: true, content: null, tokensUsed, toolCalls, rawMessage: message }
+      return { ok: true, content: null, tokensUsed, promptTokens, completionTokens, toolCalls, rawMessage: message }
     }
 
     const content = message?.content
     if (!content) {
       return { ok: false, error: 'Empty response from OpenAI' }
     }
-    return { ok: true, content, tokensUsed }
+    return { ok: true, content, tokensUsed, promptTokens, completionTokens }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown OpenAI error'
     console.error('[OpenAI] Error:', message)

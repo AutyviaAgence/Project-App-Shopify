@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { checkTokenLimit, recordTokenUsage } from '@/lib/openai/token-tracker'
+import { logAiUsage } from '@/lib/openai/usage-log'
 import { withSessionDelay } from '@/lib/messaging/session-queue'
 import { decryptMessage } from '@/lib/crypto/encryption'
 
@@ -407,6 +408,13 @@ async function generateAIMessage(agent: AIAgent, contact: Contact, userId: strin
 
   const data = await response.json()
   const tokensUsed = data.usage?.total_tokens || 0
+  void logAiUsage({
+    feature: 'campaign',
+    model: data.model || agent.model || 'gpt-4o-mini',
+    promptTokens: data.usage?.prompt_tokens || 0,
+    completionTokens: data.usage?.completion_tokens || 0,
+    userId,
+  })
   if (tokensUsed > 0) {
     await recordTokenUsage(userId, tokensUsed)
   }

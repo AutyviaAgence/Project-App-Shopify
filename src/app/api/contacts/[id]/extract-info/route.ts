@@ -5,6 +5,7 @@ import { generateAgentResponse } from '@/lib/openai/client'
 import { checkTokenLimit, recordTokenUsage } from '@/lib/openai/token-tracker'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { decryptMessage } from '@/lib/crypto/encryption'
+import { logAiUsage } from '@/lib/openai/usage-log'
 
 /** POST /api/contacts/[id]/extract-info — Extraire les informations du contact via IA */
 export async function POST(
@@ -164,6 +165,14 @@ Ne devine RIEN. Extrais uniquement les informations explicites.`,
   }
 
   // Enregistrer l'utilisation des tokens
+  void logAiUsage({
+    feature: 'extract_info',
+    model: 'gpt-4o-mini',
+    promptTokens: result.promptTokens,
+    completionTokens: result.completionTokens,
+    userId: user.id,
+    contactId: id,
+  })
   await recordTokenUsage(user.id, result.tokensUsed)
 
   console.log('[extract-info] OpenAI response:', result.content)

@@ -1,5 +1,6 @@
 import 'server-only'
 import OpenAI from 'openai'
+import { logAiUsage } from './usage-log'
 
 let client: OpenAI | null = null
 
@@ -25,6 +26,12 @@ export async function generateEmbedding(
       model: EMBEDDING_MODEL,
       input: text,
     })
+    void logAiUsage({
+      feature: 'embedding',
+      model: response.model || EMBEDDING_MODEL,
+      promptTokens: response.usage?.total_tokens || 0,
+      totalTokens: response.usage?.total_tokens || 0,
+    })
     return { ok: true, embedding: response.data[0].embedding, tokensUsed: response.usage?.total_tokens || 0 }
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown embedding error'
@@ -44,6 +51,12 @@ export async function generateEmbeddings(
     const response = await openai.embeddings.create({
       model: EMBEDDING_MODEL,
       input: texts,
+    })
+    void logAiUsage({
+      feature: 'embedding',
+      model: response.model || EMBEDDING_MODEL,
+      promptTokens: response.usage?.total_tokens || 0,
+      totalTokens: response.usage?.total_tokens || 0,
     })
     const embeddings = response.data
       .sort((a, b) => a.index - b.index)

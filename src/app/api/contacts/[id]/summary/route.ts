@@ -5,6 +5,7 @@ import { generateAgentResponse } from '@/lib/openai/client'
 import { checkTokenLimit, recordTokenUsage } from '@/lib/openai/token-tracker'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { decryptMessage } from '@/lib/crypto/encryption'
+import { logAiUsage } from '@/lib/openai/usage-log'
 
 /** POST /api/contacts/[id]/summary — Générer un résumé IA de la conversation */
 export async function POST(
@@ -155,6 +156,14 @@ Sois concis et factuel. Maximum 400 mots au total.`,
   }
 
   // Enregistrer l'utilisation des tokens
+  void logAiUsage({
+    feature: 'summary',
+    model: 'gpt-4o-mini',
+    promptTokens: result.promptTokens,
+    completionTokens: result.completionTokens,
+    userId: user.id,
+    contactId: id,
+  })
   await recordTokenUsage(user.id, result.tokensUsed)
 
   // Sauvegarder le résumé

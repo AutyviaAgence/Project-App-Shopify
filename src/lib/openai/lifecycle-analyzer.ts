@@ -3,6 +3,7 @@ import OpenAI from 'openai'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { decryptMessage } from '@/lib/crypto/encryption'
 import { recordTokenUsage } from './token-tracker'
+import { logAiUsage } from './usage-log'
 
 function getAdminClient() {
   return createAdminSupabase(
@@ -161,6 +162,15 @@ La reason doit être une phrase courte en français expliquant pourquoi.`
 
     const tokensUsed = response.usage?.total_tokens || 0
     const rawContent = response.choices[0]?.message?.content || ''
+
+    void logAiUsage({
+      feature: 'lifecycle',
+      model: response.model || 'gpt-4o-mini',
+      promptTokens: response.usage?.prompt_tokens || 0,
+      completionTokens: response.usage?.completion_tokens || 0,
+      userId,
+      conversationId,
+    })
 
     console.log(`[Lifecycle] AI response for ${conversationId}: ${rawContent} (${tokensUsed} tokens)`)
 
