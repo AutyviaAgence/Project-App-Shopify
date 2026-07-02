@@ -58,7 +58,17 @@ export async function GET(req: NextRequest) {
     for (const o of outcomes) counts[o]++
   }
 
-  return NextResponse.json({ ok: true, processed: allJobs.length, ...counts, temporalQueued })
+  // Draine aussi la file des réponses IA enfilées en pic (backpressure). On
+  // mutualise ce schedule d'une minute plutôt que d'ajouter une tâche cron dédiée.
+  let aiJobs = { processed: 0, sent: 0, failed: 0 }
+  try {
+    const { drainAiJobs } = await import('@/app/api/cron/run-ai-jobs/route')
+    aiJobs = await drainAiJobs(supabase)
+  } catch (e) {
+    console.error('[cron] drain ai_jobs:', e)
+  }
+
+  return NextResponse.json({ ok: true, processed: allJobs.length, ...counts, temporalQueued, aiJobs })
 }
 
 type JobRow = {
