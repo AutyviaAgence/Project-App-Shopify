@@ -82,6 +82,7 @@ export async function POST(req: NextRequest) {
     })
 
     return NextResponse.json({ success: true })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     console.error('[Stripe] Error changing plan:', error?.message || error)
     return NextResponse.json({ error: error?.message || 'Erreur lors du changement de plan' }, { status: 500 })

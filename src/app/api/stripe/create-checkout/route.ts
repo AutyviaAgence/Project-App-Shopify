@@ -161,6 +161,7 @@ export async function POST(req: NextRequest) {
     const session = await stripe.checkout.sessions.create(sessionParams)
 
     return NextResponse.json({ url: session.url })
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   } catch (error: any) {
     console.error('[Stripe] Error creating checkout session:', error?.message || error)
     const message = error?.message || 'Erreur lors de la création de la session'

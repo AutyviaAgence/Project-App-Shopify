@@ -56,6 +56,7 @@ export async function checkPlanQuota(
   let current = 0
 
   if (resource === 'teams') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { count } = await (supabase as any)
       .from('teams')
       .select('id', { count: 'exact', head: true })
@@ -70,6 +71,7 @@ export async function checkPlanQuota(
     ])
     current = (waResult.count ?? 0) + (emailResult.count ?? 0)
   } else {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { count } = await (supabase as any)
       .from(RESOURCE_TABLE[resource])
       .select('id', { count: 'exact', head: true })
