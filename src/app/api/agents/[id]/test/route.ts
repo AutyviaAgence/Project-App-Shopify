@@ -6,6 +6,7 @@ import { checkTokenLimit, recordTokenUsage } from '@/lib/openai/token-tracker'
 import { logAiUsage } from '@/lib/openai/usage-log'
 import { retrieveContext } from '@/lib/knowledge/retriever'
 import { getAgentTools, buildOpenAITools, executeToolCall } from '@/lib/tools/executor'
+import { canUseAi } from '@/lib/plans/gate'
 
 async function resolveImageTags(text: string, userId: string): Promise<{ cleanText: string; images: { ref: string; url: string }[] }> {
   const refs = [...text.matchAll(/\[IMAGE:([a-z0-9_-]+)\]/gi)].map(m => m[1])
@@ -58,6 +59,14 @@ export async function POST(
 
   if (authError || !user) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  }
+
+  const gate = await canUseAi(user.id)
+  if (!gate.allowed) {
+    return NextResponse.json(
+      { error: "Cette fonctionnalité IA nécessite un plan payant." },
+      { status: 403 }
+    )
   }
 
   // Récupérer l'agent

@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import OpenAI from 'openai'
 import { checkTokenLimit, recordTokenUsage } from '@/lib/openai/token-tracker'
 import { logAiUsage } from '@/lib/openai/usage-log'
+import { canUseAi } from '@/lib/plans/gate'
 
 // Assistant d'ajustement du prompt système, façon copilote :
 // l'utilisateur exprime ce qu'il aime/n'aime pas dans les réponses de l'agent,
@@ -41,6 +42,14 @@ export async function POST(
 
   if (authError || !user) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  }
+
+  const gate = await canUseAi(user.id)
+  if (!gate.allowed) {
+    return NextResponse.json(
+      { error: "Cette fonctionnalité IA nécessite un plan payant." },
+      { status: 403 }
+    )
   }
 
   // Récupérer l'agent

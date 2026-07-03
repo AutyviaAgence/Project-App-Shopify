@@ -1,5 +1,5 @@
 import Stripe from 'stripe'
-export type { PlanId } from './plans'
+export type { PlanId, PaidPlanId } from './plans'
 export { PLAN_PRICES_EUR, PLAN_TOKEN_LIMITS, VALID_PLANS, resolvePlan } from './plans'
 
 // Prix de l'abonnement mensuel en centimes (150€) — conservé pour compatibilité
@@ -12,8 +12,9 @@ export const CUSTOM_SETUP_TOTAL_EUR = 990
 export const CUSTOM_BOOKING_URL = 'https://cal.com/autyvia/appel-on-boarding'
 export const DISCOVERY_CALL_URL = 'https://cal.com/autyvia/appel-decouverte'
 
-import type { PlanId } from './plans'
-export const PLAN_PRICE_IDS: Record<PlanId, string> = {
+import type { PaidPlanId } from './plans'
+// Seuls les plans payants ont un Price Stripe (free = pas de checkout).
+export const PLAN_PRICE_IDS: Record<PaidPlanId, string> = {
   starter: process.env.STRIPE_STARTER_PRICE_ID!,
   pro: process.env.STRIPE_PRO_PRICE_ID!,
   scale: process.env.STRIPE_SCALE_PRICE_ID!,

@@ -1,71 +1,31 @@
 import 'server-only'
-import { createClient as createAdminSupabase } from '@supabase/supabase-js'
+import { getAdminSupabase } from '@/lib/supabase/admin-singleton'
+import { PLANS as GRID, resolvePlan, type PlanId, type PlanDef } from '@/lib/plans'
 
 /**
- * Plans & quotas Xeyo (côté Shopify Billing).
+ * Quotas de conversations IA (grille unifiée @/lib/plans).
  *
  * Unité vendue : "conversation traitée" = conversation où l'agent IA a généré
- * au moins une réponse (comptée une fois). Garde-fou interne : tokens (déjà
- * géré par profiles.tokens_limit/tokens_used).
+ * au moins une réponse (comptée une fois par mois). Garde-fou interne : tokens
+ * (profiles.tokens_limit/tokens_used, backstop silencieux).
  *
- * Le plan free n'utilise PAS la Billing API Shopify (gratuit). Les plans
- * payants créent un AppSubscription Shopify.
+ * Le plan free n'a AUCUNE IA (gating via @/lib/plans/gate). Scale est
+ * « illimité » fair-use : au-delà de fairUseCap on ALERTE (1×/mois) sans
+ * jamais bloquer.
  */
 
-export type PlanId = 'free' | 'starter' | 'growth' | 'scale'
-
-export type Plan = {
-  id: PlanId
-  name: string
-  pricePerMonth: number // EUR
-  conversations: number // conversations IA incluses / mois (Infinity = illimité)
-  features: string[]
-}
-
-export const PLANS: Record<PlanId, Plan> = {
-  free: {
-    id: 'free',
-    name: 'Gratuit',
-    pricePerMonth: 0,
-    conversations: 10,
-    features: ['10 conversations IA / mois', '1 numéro WhatsApp', 'Agent IA auto-configuré'],
-  },
-  starter: {
-    id: 'starter',
-    name: 'Starter',
-    pricePerMonth: 29,
-    conversations: 200,
-    features: ['200 conversations IA / mois', 'Modèles WhatsApp', 'Base de connaissances Shopify'],
-  },
-  growth: {
-    id: 'growth',
-    name: 'Growth',
-    pricePerMonth: 79,
-    conversations: 1000,
-    features: ['1 000 conversations IA / mois', 'Actions Shopify (annulation, remboursement…)', 'Multi-agents'],
-  },
-  scale: {
-    id: 'scale',
-    name: 'Scale',
-    pricePerMonth: 149,
-    conversations: 3000,
-    features: ['3 000 conversations IA / mois', 'Support prioritaire', 'Volume élevé'],
-  },
-}
-
-export const PAID_PLANS: PlanId[] = ['starter', 'growth', 'scale']
+export type { PlanId } from '@/lib/plans'
+export { PLANS, PAID_PLANS } from '@/lib/plans'
 
 function admin() {
-  return createAdminSupabase(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
+  return getAdminSupabase()
 }
 
 /**
  * Compte les conversations traitées par l'IA ce mois-ci pour un utilisateur.
  * = nombre de conversations distinctes ayant au moins un message sortant IA
- * (sent_by = 'ai_agent') depuis le début du mois.
+ * (sent_by = 'ai_agent') depuis le début du mois. Auto-reset mensuel par
+ * construction (fenêtre depuis le 1er du mois).
  */
 export async function countAiConversationsThisMonth(userId: string): Promise<number> {
   const supabase = admin()
@@ -95,11 +55,11 @@ export async function countAiConversationsThisMonth(userId: string): Promise<num
 }
 
 /**
- * Détermine le plan effectif d'un utilisateur et son quota de conversations.
- * Source de vérité : billing_source. Si shopify → plan de shopify_stores ;
- * sinon → plan de profiles. Défaut : free.
+ * Détermine le plan effectif d'un utilisateur (grille unifiée).
+ * Source de vérité : billing_source. Si shopify → plan de shopify_stores
+ * ('growth' legacy → 'pro') ; sinon → profiles.plan. Défaut : free (IA OFF).
  */
-export async function getUserPlan(userId: string): Promise<Plan> {
+export async function getUserPlan(userId: string): Promise<PlanDef> {
   const supabase = admin()
 
   // Boutique Shopify liée ?
@@ -111,23 +71,25 @@ export async function getUserPlan(userId: string): Promise<Plan> {
     .maybeSingle()
 
   if (store?.billing_source === 'shopify') {
-    return PLANS[(store.plan as PlanId) in PLANS ? (store.plan as PlanId) : 'free']
+    return GRID[resolvePlan(store.plan)]
   }
 
-  // Sinon plan direct (profiles.plan) — fallback free
+  // Sinon plan direct (profiles.plan) — défaut free
   const { data: profile } = await supabase
     .from('profiles')
     .select('plan')
     .eq('id', userId)
     .maybeSingle()
 
-  const p = (profile?.plan as PlanId)
-  return PLANS[p in PLANS ? p : 'free']
+  return GRID[resolvePlan(profile?.plan)]
 }
 
 /**
  * Vérifie si l'utilisateur peut encore faire répondre l'IA (quota conversations).
- * Renvoie allowed=false avec used/limit si le quota est atteint.
+ * - Plans à quota : allowed=false quand used >= limit.
+ * - Scale (illimité fair-use) : TOUJOURS allowed ; au-delà de fairUseCap,
+ *   une alerte 'fair_use_reached' est insérée (1×/mois) pour ouvrir la
+ *   discussion sur-mesure — sans couper l'IA (promesse « illimité »).
  */
 export async function checkConversationQuota(userId: string): Promise<{
   allowed: boolean
@@ -136,9 +98,46 @@ export async function checkConversationQuota(userId: string): Promise<{
   plan: PlanId
 }> {
   const plan = await getUserPlan(userId)
-  if (plan.conversations === Infinity) {
-    return { allowed: true, used: 0, limit: Infinity, plan: plan.id }
+
+  // Illimité (fair-use)
+  if (plan.conversationsPerMonth === null) {
+    const used = await countAiConversationsThisMonth(userId)
+    if (plan.fairUseCap && used >= plan.fairUseCap) {
+      await alertFairUseOnce(userId, used, plan.fairUseCap)
+    }
+    return { allowed: true, used, limit: Infinity, plan: plan.id }
   }
+
   const used = await countAiConversationsThisMonth(userId)
-  return { allowed: used < plan.conversations, used, limit: plan.conversations, plan: plan.id }
+  return { allowed: used < plan.conversationsPerMonth, used, limit: plan.conversationsPerMonth, plan: plan.id }
+}
+
+/** Alerte fair-use dédupliquée : une seule par mois calendaire. */
+async function alertFairUseOnce(userId: string, used: number, cap: number): Promise<void> {
+  try {
+    const supabase = admin()
+    const periodStart = new Date()
+    periodStart.setDate(1)
+    periodStart.setHours(0, 0, 0, 0)
+
+    const { data: existing } = await supabase
+      .from('user_alerts')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('alert_type', 'fair_use_reached')
+      .gte('created_at', periodStart.toISOString())
+      .limit(1)
+      .maybeSingle()
+    if (existing) return
+
+    await supabase.from('user_alerts').insert({
+      user_id: userId,
+      alert_type: 'fair_use_reached',
+      title: 'Volume élevé ce mois-ci',
+      message: `Vous avez dépassé ${cap} conversations IA ce mois-ci (${used}). Votre service continue normalement — contactez-nous pour un accompagnement adapté à votre volume.`,
+      metadata: { used, cap },
+    })
+  } catch (err) {
+    console.error('[plans] alerte fair-use:', err)
+  }
 }

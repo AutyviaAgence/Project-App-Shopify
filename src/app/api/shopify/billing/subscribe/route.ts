@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
 
   const result = await createAppSubscription(shop, token, {
     name: `Xeyo ${planDef.name}`,
-    price: planDef.pricePerMonth,
+    price: planDef.priceEur,
     currencyCode: 'EUR',
     returnUrl,
     test: !isProd,

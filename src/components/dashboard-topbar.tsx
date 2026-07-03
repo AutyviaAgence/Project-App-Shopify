@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Menu, Settings } from 'lucide-react'
 import { AlertsDropdown } from '@/components/alerts-dropdown'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { UsageBar } from '@/components/usage-bar'
 import { cn } from '@/lib/utils'
 
 type Profile = { full_name?: string | null; avatar_url?: string | null }
@@ -45,8 +46,13 @@ export function DashboardTopBar({ onOpenSidebar }: { onOpenSidebar: () => void }
         <Menu className="h-5 w-5" />
       </button>
 
+      {/* Consommation IA du mois (centre) — lien vers /subscription */}
+      <div className="flex flex-1 items-center justify-center">
+        <UsageBar />
+      </div>
+
       {/* Actions à droite */}
-      <div className="ml-auto flex items-center gap-1.5">
+      <div className="flex items-center gap-1.5">
         <AlertsDropdown />
 
         <Link

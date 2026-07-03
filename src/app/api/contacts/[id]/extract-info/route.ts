@@ -6,6 +6,7 @@ import { checkTokenLimit, recordTokenUsage } from '@/lib/openai/token-tracker'
 import { checkRateLimit } from '@/lib/rate-limit'
 import { decryptMessage } from '@/lib/crypto/encryption'
 import { logAiUsage } from '@/lib/openai/usage-log'
+import { canUseAi } from '@/lib/plans/gate'
 
 /** POST /api/contacts/[id]/extract-info — Extraire les informations du contact via IA */
 export async function POST(
@@ -22,6 +23,14 @@ export async function POST(
 
   if (authError || !user) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  }
+
+  const gate = await canUseAi(user.id)
+  if (!gate.allowed) {
+    return NextResponse.json(
+      { error: "Cette fonctionnalité IA nécessite un plan payant." },
+      { status: 403 }
+    )
   }
 
   const adminSupabase = createAdminClient(

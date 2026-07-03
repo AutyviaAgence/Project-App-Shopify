@@ -1,6 +1,7 @@
 import { getAdminSupabase } from '@/lib/supabase/admin-singleton'
 import { withSessionDelay } from '@/lib/messaging/session-queue'
 import { decryptMessage } from '@/lib/crypto/encryption'
+import { canUseAi } from '@/lib/plans/gate'
 
 /**
  * Exécuteur de campagnes de relance WhatsApp
@@ -75,6 +76,22 @@ async function executeCampaignById(campaignId: string): Promise<void> {
 async function executeCampaign(supabase: any, campaign: Campaign): Promise<void> {
   const campaignId = campaign.id
   console.log(`[Campaign ${campaignId}] Starting execution...`)
+
+  // Gate plan : les campagnes nécessitent un plan payant (ou trial actif).
+  // Plan free → campagne mise en pause avec raison explicite.
+  const gate = await canUseAi(campaign.user_id)
+  if (!gate.allowed) {
+    console.log(`[Campaign ${campaignId}] Plan ${gate.plan} sans campagnes (${gate.reason}) — mise en pause`)
+    await supabase
+      .from('campaigns')
+      .update({
+        status: 'paused',
+        paused_at: new Date().toISOString(),
+        pause_reason: 'Les campagnes nécessitent un plan payant. Passez à un plan supérieur pour continuer.',
+      })
+      .eq('id', campaignId)
+    return
+  }
 
   // Récupérer le timezone de l'utilisateur
   const { data: profile } = await supabase

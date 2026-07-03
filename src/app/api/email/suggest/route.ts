@@ -6,6 +6,7 @@ import { retrieveContext } from '@/lib/knowledge/retriever'
 import { getAgentTools, buildOpenAITools, executeToolCall } from '@/lib/tools/executor'
 import { generateAgentResponse, type OpenAIMessage } from '@/lib/openai/client'
 import { logAiUsage } from '@/lib/openai/usage-log'
+import { canUseAi } from '@/lib/plans/gate'
 
 const MAX_TOOL_ROUNDS = 10
 
@@ -16,6 +17,14 @@ export async function POST(req: NextRequest) {
 
   if (authError || !user) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  }
+
+  const gate = await canUseAi(user.id)
+  if (!gate.allowed) {
+    return NextResponse.json(
+      { error: "Cette fonctionnalité IA nécessite un plan payant." },
+      { status: 403 }
+    )
   }
 
   const body = await req.json().catch(() => ({}))

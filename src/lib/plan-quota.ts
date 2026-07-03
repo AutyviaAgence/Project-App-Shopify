@@ -47,7 +47,10 @@ export async function checkPlanQuota(
     return { allowed: false, limit: 0, current: 0, plan: resolvePlan(raw?.plan), reason: 'no_subscription' }
   }
 
-  const plan = resolvePlan(raw?.plan)
+  // Trial sans plan posé : limites Starter (l'essai doit permettre de goûter
+  // au produit — le défaut 'free' de resolvePlan serait trop restrictif ici).
+  const resolved = resolvePlan(raw?.plan)
+  const plan = subscriptionStatus === 'trialing' && !raw?.plan ? 'starter' : resolved
   const limit = PLAN_LIMITS[plan][resource]
 
   let current = 0

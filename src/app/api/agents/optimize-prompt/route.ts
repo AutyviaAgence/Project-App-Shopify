@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import OpenAI from 'openai'
 import { checkTokenLimit, recordTokenUsage } from '@/lib/openai/token-tracker'
 import { logAiUsage } from '@/lib/openai/usage-log'
+import { canUseAi } from '@/lib/plans/gate'
 
 const OPTIMIZATION_PROMPT = `Tu es un expert en conception de prompts pour agents conversationnels WhatsApp.
 
@@ -37,6 +38,14 @@ export async function POST(request: Request) {
 
     if (authError || !user) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+    }
+
+    const gate = await canUseAi(user.id)
+    if (!gate.allowed) {
+      return NextResponse.json(
+        { error: "Cette fonctionnalité IA nécessite un plan payant." },
+        { status: 403 }
+      )
     }
 
     const body = await request.json()

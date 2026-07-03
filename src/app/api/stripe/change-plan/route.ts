@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-import { getStripe, PLAN_PRICE_IDS, PLAN_TOKEN_LIMITS } from '@/lib/stripe/client'
-import type { PlanId } from '@/lib/stripe/plans'
+import { getStripe, PLAN_PRICE_IDS } from '@/lib/stripe/client'
+import type { PaidPlanId } from '@/lib/stripe/plans'
 
-const VALID_PLANS: PlanId[] = ['starter', 'pro', 'scale']
+const VALID_PLANS: PaidPlanId[] = ['starter', 'pro', 'scale']
 
 /** POST /api/stripe/change-plan — Changer de plan sans recréer un abonnement */
 export async function POST(req: NextRequest) {
@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => ({}))
-  const newPlan: PlanId = VALID_PLANS.includes(body.plan) ? body.plan : null
+  const newPlan: PaidPlanId | null = VALID_PLANS.includes(body.plan) ? body.plan : null
   if (!newPlan) {
     return NextResponse.json({ error: 'Plan invalide' }, { status: 400 })
   }

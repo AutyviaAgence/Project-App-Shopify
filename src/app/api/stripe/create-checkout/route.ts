@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getStripe, PLAN_PRICE_IDS, PLAN_PRICES_EUR, type PlanId } from '@/lib/stripe/client'
+import { getStripe, PLAN_PRICE_IDS, PLAN_PRICES_EUR, type PaidPlanId } from '@/lib/stripe/client'
 import { getSubscriptionEndDate } from '@/lib/stripe/helpers'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { getTenantFromCookies } from '@/lib/tenant/server'
 
-const VALID_PLANS: PlanId[] = ['starter', 'pro', 'scale']
+const VALID_PLANS: PaidPlanId[] = ['starter', 'pro', 'scale']
 
 /** POST /api/stripe/create-checkout — Créer une session Stripe Checkout */
 export async function POST(req: NextRequest) {
@@ -17,7 +17,8 @@ export async function POST(req: NextRequest) {
   }
 
   const body = await req.json().catch(() => ({}))
-  const plan: PlanId = VALID_PLANS.includes(body.plan) ? body.plan : 'scale'
+  // Seuls les plans payants sont achetables (free ne passe pas par un checkout).
+  const plan: PaidPlanId = VALID_PLANS.includes(body.plan) ? body.plan : 'scale'
   const promoCodeInput: string | undefined = body.promo_code?.toString().toUpperCase()
   const affiliateCodeInput: string | undefined = body.affiliate_code?.toString().toUpperCase()
 
@@ -119,7 +120,7 @@ export async function POST(req: NextRequest) {
     // Créer la session Checkout
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const priceId = PLAN_PRICE_IDS[plan]
-    const planNames: Record<PlanId, string> = { starter: 'Starter', pro: 'Pro', scale: 'Scale' }
+    const planNames: Record<PaidPlanId, string> = { starter: 'Starter', pro: 'Pro', scale: 'Scale' }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sessionParams: any = {

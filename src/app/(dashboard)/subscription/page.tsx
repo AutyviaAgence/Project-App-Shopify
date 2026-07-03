@@ -50,13 +50,34 @@ import { useTenant } from '@/lib/tenant/context'
 import Link from 'next/link'
 import type { PlanId } from '@/lib/stripe/plans'
 
+// Grille commerciale (source de vérité : @/lib/plans). Les limites IA sont
+// affichées en CONVERSATIONS estimées ; les tokens restent un backstop interne.
 const PLANS = [
+  {
+    id: 'free' as PlanId,
+    name: 'Gratuit',
+    price: 0,
+    limitDesc: 'Sans IA — gestion manuelle + onboarding',
+    icon: Cpu,
+    color: 'text-slate-400',
+    borderColor: 'border-border/60',
+    bgGradient: 'from-muted/20',
+    badgeBg: 'bg-muted text-muted-foreground',
+    buttonClass: '',
+    features: [
+      { text: 'Boîte de réception WhatsApp', included: true },
+      { text: 'Réponses manuelles illimitées', included: true },
+      { text: 'Modèles WhatsApp', included: true },
+      { text: 'Réponses IA automatiques', included: false },
+      { text: 'Automatisations', included: false },
+      { text: 'Campagnes', included: false },
+    ],
+  },
   {
     id: 'starter' as PlanId,
     name: 'Starter',
     price: 29,
-    tokens: '500 000',
-    tokensDesc: '~400 conv/mois',
+    limitDesc: '~100 conversations IA / mois',
     icon: Zap,
     color: 'text-blue-500',
     borderColor: 'border-blue-500/30',
@@ -67,7 +88,7 @@ const PLANS = [
       { text: '1 numéro WhatsApp', included: true },
       { text: '2 agents IA', included: true },
       { text: 'Base de connaissances', included: true },
-      { text: 'Actions Shopify', included: true },
+      { text: 'Automatisations (panier abandonné…)', included: true },
       { text: 'Lifecycle (relances)', included: false },
       { text: 'Campagnes', included: false },
     ],
@@ -75,9 +96,8 @@ const PLANS = [
   {
     id: 'pro' as PlanId,
     name: 'Pro',
-    price: 79,
-    tokens: '1 500 000',
-    tokensDesc: '~1 200 conv/mois',
+    price: 89,
+    limitDesc: '~500 conversations IA / mois',
     icon: Rocket,
     color: 'text-primary',
     borderColor: 'border-primary/50',
@@ -88,18 +108,17 @@ const PLANS = [
     features: [
       { text: '1 numéro WhatsApp', included: true },
       { text: '5 agents IA', included: true },
-      { text: 'Base de connaissances', included: true },
-      { text: 'Actions Shopify', included: true },
+      { text: 'Actions Shopify (annulation, remboursement…)', included: true },
+      { text: 'Automatisations + Campagnes', included: true },
       { text: 'Lifecycle (relances)', included: true },
-      { text: 'Campagnes', included: true },
+      { text: 'Analyse lifecycle IA', included: true },
     ],
   },
   {
     id: 'scale' as PlanId,
     name: 'Scale',
-    price: 149,
-    tokens: '4 000 000',
-    tokensDesc: '~3 200 conv/mois',
+    price: 249,
+    limitDesc: 'Conversations IA illimitées (fair-use)',
     icon: Crown,
     color: 'text-sky-500',
     borderColor: 'border-sky-500/30',
@@ -107,11 +126,11 @@ const PLANS = [
     badgeBg: 'bg-sky-500/10 text-sky-600',
     buttonClass: 'bg-sky-500 hover:bg-sky-600 text-white',
     features: [
+      { text: 'Conversations IA illimitées (fair-use)', included: true },
+      { text: 'GPT-4o sur les conversations', included: true },
       { text: 'Numéros WhatsApp illimités', included: true },
       { text: 'Agents IA illimités', included: true },
-      { text: 'Base de connaissances', included: true },
       { text: 'Actions Shopify avancées', included: true },
-      { text: 'Lifecycle (relances)', included: true },
       { text: 'Support prioritaire', included: true },
     ],
   },
@@ -576,10 +595,12 @@ function SubscriptionContent() {
           ? 'Changer de plan'
           : 'Plans disponibles'}
       </h2>
-      <div className="grid md:grid-cols-3 gap-5 mb-8">
+      <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
         {PLANS.map((plan) => {
           const Icon = plan.icon
-          const isCurrent = isActive && (!!currentPlan) && currentPlan === plan.id && !pendingPlan
+          const isCurrent = plan.id === 'free'
+            ? (!isActive || currentPlan === 'free') && !pendingPlan
+            : isActive && (!!currentPlan) && currentPlan === plan.id && !pendingPlan
           const isPending = pendingPlan === plan.id
           return (
             <Card
@@ -623,7 +644,7 @@ function SubscriptionContent() {
                   <span className="text-3xl font-bold">{plan.price}€</span>
                   <span className="text-muted-foreground mb-0.5 text-sm">/mois</span>
                 </div>
-                <p className="text-xs text-muted-foreground">{plan.tokens} tokens · {plan.tokensDesc}</p>
+                <p className="text-xs text-muted-foreground">{plan.limitDesc}</p>
               </CardHeader>
               <CardContent className="flex-1 pt-0">
                 <ul className="space-y-2">
@@ -647,6 +668,12 @@ function SubscriptionContent() {
                   <Button className="w-full" disabled variant="outline">
                     <Clock className="mr-2 h-4 w-4 text-amber-500" />
                     Prochain renouvellement
+                  </Button>
+                ) : plan.id === 'free' ? (
+                  // Le plan gratuit ne passe pas par un checkout : c'est l'état
+                  // par défaut (on y revient en résiliant un plan payant).
+                  <Button className="w-full" disabled variant="outline">
+                    Inclus par défaut
                   </Button>
                 ) : (
                   <Button
@@ -697,7 +724,7 @@ function SubscriptionContent() {
                 <span className="font-semibold">Plan {planDetails.name}</span>
                 <span className="font-bold">{planDetails.price}€/mois</span>
               </div>
-              <p className="text-sm text-muted-foreground">{planDetails.tokens} tokens IA/mois</p>
+              <p className="text-sm text-muted-foreground">{planDetails.limitDesc}</p>
               {!isActive && !isCancelled && (
                 <p className="text-xs text-muted-foreground mt-1">
                   14 jours d&apos;essai gratuit — vous ne serez prélevé qu&apos;à l&apos;issue de la période d&apos;essai.

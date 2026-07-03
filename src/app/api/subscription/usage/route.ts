@@ -1,7 +1,13 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { getUserPlan, countAiConversationsThisMonth } from '@/lib/shopify/plans'
+import { canUseAi } from '@/lib/plans/gate'
 
-/** GET /api/subscription/usage — Récupérer l'utilisation des tokens */
+/**
+ * GET /api/subscription/usage — Utilisation du mois.
+ * - conversations : la limite COMMERCIALE affichée (barre topbar, page abo)
+ * - tokens : le backstop technique (conservé pour la page abonnement)
+ */
 export async function GET() {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -25,6 +31,18 @@ export async function GET() {
     ? Math.round((profile.tokens_used / profile.tokens_limit) * 100)
     : 100
 
+  // Conversations du mois vs limite du plan (l'unité commerciale affichée).
+  const [plan, conversationsUsed, gate] = await Promise.all([
+    getUserPlan(user.id),
+    countAiConversationsThisMonth(user.id),
+    canUseAi(user.id),
+  ])
+  const unlimited = plan.conversationsPerMonth === null
+  const convLimit = plan.conversationsPerMonth ?? null
+  const convPercentage = unlimited || !convLimit
+    ? 0
+    : Math.min(100, Math.round((conversationsUsed / convLimit) * 100))
+
   return NextResponse.json({
     data: {
       tokens_used: profile.tokens_used,
@@ -32,6 +50,14 @@ export async function GET() {
       tokens_remaining: tokensRemaining,
       usage_percentage: usagePercentage,
       period_start: profile.token_usage_period_start,
+      plan: plan.id,
+      ai_enabled: gate.allowed,
+      conversations: {
+        used: conversationsUsed,
+        limit: convLimit, // null = illimité (fair-use)
+        unlimited,
+        percentage: convPercentage,
+      },
     },
   })
 }

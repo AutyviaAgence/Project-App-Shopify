@@ -4,6 +4,7 @@ import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { decryptMessage } from '@/lib/crypto/encryption'
 import { generateAgentResponse, type OpenAIMessage } from '@/lib/openai/client'
 import { logAiUsage } from '@/lib/openai/usage-log'
+import { canUseAi } from '@/lib/plans/gate'
 
 /**
  * POST /api/conversations/[id]/suggest
@@ -16,6 +17,14 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+
+  const gate = await canUseAi(user.id)
+  if (!gate.allowed) {
+    return NextResponse.json(
+      { error: "Cette fonctionnalité IA nécessite un plan payant." },
+      { status: 403 }
+    )
+  }
 
   const admin = createAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,

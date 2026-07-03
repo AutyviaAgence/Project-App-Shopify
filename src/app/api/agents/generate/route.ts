@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import OpenAI from 'openai'
 import { checkTokenLimit, recordTokenUsage } from '@/lib/openai/token-tracker'
 import { logAiUsage } from '@/lib/openai/usage-log'
+import { canUseAi } from '@/lib/plans/gate'
 
 // Génère la configuration complète d'un agent WhatsApp à partir des réponses
 // du questionnaire d'onboarding (style Blow Up). Calqué sur optimize-prompt.
@@ -88,6 +89,14 @@ export async function POST(request: Request) {
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
       return NextResponse.json({ error: 'Non autorisé' }, { status: 401 })
+    }
+
+    const gate = await canUseAi(user.id)
+    if (!gate.allowed) {
+      return NextResponse.json(
+        { error: "Cette fonctionnalité IA nécessite un plan payant." },
+        { status: 403 }
+      )
     }
 
     const tokenCheck = await checkTokenLimit(user.id)
