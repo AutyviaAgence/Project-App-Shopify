@@ -1,0 +1,3 @@
+# Les scripts shell doivent garder des fins de ligne LF (Unix) même sur un
+# checkout Windows : avec CRLF, bash sur le VPS échoue ("bash\r: not found").
+*.sh text eol=lf
