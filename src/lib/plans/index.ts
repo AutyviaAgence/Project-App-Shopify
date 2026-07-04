@@ -100,3 +100,36 @@ export function resolvePlan(value: string | null | undefined): PlanId {
   if (value === 'growth') return 'pro' // legacy shopify_stores.plan
   return 'free'
 }
+
+/**
+ * Convertit une consommation de tokens en « conversations » pour l'affichage.
+ *
+ * On ne compte PAS les conversations réelles : on part des tokens consommés
+ * (profiles.tokens_used) et on divise par un ratio « tokens par conversation »
+ * calé sur la grille — pour que la jauge affiche pile les ~100/~500 conv
+ * annoncées quand tokens_used atteint tokens_limit. Ratio = tokens_limit du
+ * plan ÷ conversations du plan (ex. Starter 500 000 ÷ 100 = 5 000 tok/conv).
+ *
+ * @param tokensUsed   tokens consommés ce mois (profiles.tokens_used)
+ * @param tokensLimit  quota tokens du plan (profiles.tokens_limit)
+ * @param conversationsPerMonth  conversations affichées du plan (null = illimité)
+ */
+export function tokensToConversations(
+  tokensUsed: number,
+  tokensLimit: number,
+  conversationsPerMonth: number | null
+): { used: number; limit: number | null; remaining: number | null; percentage: number; unlimited: boolean } {
+  // Plan illimité (scale) : pas de limite convertie, on montre juste le nombre
+  // estimé de conversations consommées (ratio par défaut ~5000 tok/conv).
+  if (conversationsPerMonth === null || conversationsPerMonth <= 0) {
+    const used = Math.floor(tokensUsed / 5000)
+    return { used, limit: null, remaining: null, percentage: 0, unlimited: true }
+  }
+  const tokensPerConversation = Math.max(1, Math.round(tokensLimit / conversationsPerMonth))
+  const used = Math.floor(tokensUsed / tokensPerConversation)
+  const remaining = Math.max(0, conversationsPerMonth - used)
+  const percentage = tokensLimit > 0
+    ? Math.min(100, Math.round((tokensUsed / tokensLimit) * 100))
+    : 0
+  return { used, limit: conversationsPerMonth, remaining, percentage, unlimited: false }
+}

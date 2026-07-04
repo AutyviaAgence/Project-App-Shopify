@@ -18,7 +18,13 @@ import { cn } from '@/lib/utils'
 type Usage = {
   plan: string
   ai_enabled: boolean
-  conversations: { used: number; limit: number | null; unlimited: boolean; percentage: number }
+  conversations: {
+    used: number
+    limit: number | null
+    remaining: number | null
+    unlimited: boolean
+    percentage: number
+  }
 }
 
 export function UsageBar() {
@@ -53,7 +59,7 @@ export function UsageBar() {
     )
   }
 
-  const { used, limit, unlimited, percentage } = usage.conversations
+  const { used, limit, remaining, unlimited, percentage } = usage.conversations
 
   // Scale : illimité fair-use, pas de barre pleine.
   if (unlimited || limit === null) {
@@ -69,14 +75,16 @@ export function UsageBar() {
     )
   }
 
-  // Plans à quota : mini-barre + compteur, couleurs par seuil (mêmes seuils que
-  // la page abonnement : vert <70 %, ambre 70-90 %, rouge ≥90 %).
+  // Plans à quota : mini-barre qui SE REMPLIT avec la conso (tokens), texte en
+  // « conversations restantes ». Couleurs par seuil : vert <70 %, ambre 70-90 %,
+  // rouge ≥90 % (mêmes seuils que la page abonnement).
+  const left = remaining ?? Math.max(0, limit - used)
   const barColor = percentage >= 90 ? 'bg-red-500' : percentage >= 70 ? 'bg-amber-500' : 'bg-emerald-500'
 
   return (
     <Link
       href="/subscription"
-      title={`${used} conversation${used > 1 ? 's' : ''} IA utilisée${used > 1 ? 's' : ''} sur ${limit} ce mois-ci`}
+      title={`${used} / ${limit} conversations IA utilisées ce mois-ci — ${left} restantes`}
       className="hidden items-center gap-2.5 rounded-full border border-border/60 bg-muted/30 px-3.5 py-1.5 transition-colors hover:border-primary/40 md:flex"
     >
       <MessageSquare className={cn('h-3.5 w-3.5', percentage >= 90 ? 'text-red-500' : 'text-muted-foreground')} />
@@ -87,8 +95,7 @@ export function UsageBar() {
         />
       </div>
       <span className="text-xs text-muted-foreground">
-        <span className="tabular-nums font-medium text-foreground">{used}</span>
-        <span className="tabular-nums"> / {limit}</span> conversations
+        <span className="tabular-nums font-medium text-foreground">{left}</span> conversation{left > 1 ? 's' : ''} restante{left > 1 ? 's' : ''}
       </span>
     </Link>
   )
