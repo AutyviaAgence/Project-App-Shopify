@@ -6,6 +6,8 @@ import {
   cancelOrder,
   refundOrder,
   createDiscountCode,
+  getRefundableOrder,
+  type RefundLineItem,
 } from './client'
 
 /**
@@ -25,7 +27,11 @@ function admin() {
 
 export type ActionType = 'cancel_order' | 'refund_order' | 'create_discount'
 
-/** Crée une action en attente de validation (appelé par l'agent IA). */
+/**
+ * Crée une action de validation (appelé par l'agent IA).
+ * `autoConfirm` = mode remboursement automatique : l'action est créée déjà
+ * `confirmed` (l'appelant enchaîne executeAction). Défaut : pending (manuel).
+ */
 export async function createPendingAction(params: {
   userId: string
   conversationId?: string | null
@@ -33,6 +39,7 @@ export async function createPendingAction(params: {
   actionType: ActionType
   payload: Record<string, unknown>
   summary: string
+  autoConfirm?: boolean
 }): Promise<{ ok: boolean; id?: string }> {
   const supabase = admin()
 
@@ -54,7 +61,8 @@ export async function createPendingAction(params: {
       action_type: params.actionType,
       payload: params.payload,
       summary: params.summary,
-      status: 'pending',
+      status: params.autoConfirm ? 'confirmed' : 'pending',
+      ...(params.autoConfirm ? { reviewed_at: new Date().toISOString() } : {}),
     })
     .select('id')
     .single()
@@ -105,9 +113,30 @@ export async function executeAction(actionId: string): Promise<{ ok: boolean; er
         await markFailed(actionId, `Commande ${orderName} introuvable`)
         return { ok: false, error: 'Commande introuvable' }
       }
-      result = action.action_type === 'cancel_order'
-        ? await cancelOrder(shop, token, orderId)
-        : await refundOrder(shop, token, orderId, String(payload.note || ''))
+      if (action.action_type === 'cancel_order') {
+        result = await cancelOrder(shop, token, orderId)
+      } else {
+        // Remboursement : note = raison du client, partiel selon le payload.
+        const note = String(payload.reason || payload.note || '')
+        const refundType = String(payload.refund_type || 'full')
+        let refundLineItems: RefundLineItem[] | undefined
+        // Partiel par articles : l'IA a décrit des articles → on résout les IDs.
+        if (refundType === 'partial_items' && Array.isArray(payload.line_items)) {
+          const order = await getRefundableOrder(shop, token, orderId)
+          if (order) {
+            refundLineItems = (payload.line_items as { title?: string; quantity?: number }[])
+              .map((wanted) => {
+                const match = order.lineItems.find(
+                  (li) => li.title.toLowerCase().includes(String(wanted.title || '').toLowerCase())
+                )
+                return match ? { lineItemId: match.id, quantity: Number(wanted.quantity) || match.quantity } : null
+              })
+              .filter((x): x is RefundLineItem => x !== null)
+          }
+        }
+        const amount = refundType === 'partial_amount' && payload.amount != null ? Number(payload.amount) : undefined
+        result = await refundOrder(shop, token, orderId, { note, refundLineItems, amount })
+      }
     } else if (action.action_type === 'create_discount') {
       result = await createDiscountCode(shop, token, {
         code: String(payload.code || `XEYO${Date.now().toString().slice(-5)}`),

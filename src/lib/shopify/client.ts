@@ -12,7 +12,8 @@ const API_VERSION = '2026-04'
 export function getShopifyConfig() {
   const apiKey = process.env.SHOPIFY_API_KEY
   const apiSecret = process.env.SHOPIFY_API_SECRET
-  const scopes = process.env.SHOPIFY_SCOPES || 'read_products,read_content,read_orders,read_customers,read_returns,read_legal_policies'
+  // write_orders : requis pour refundCreate/orderCancel (remboursements & annulations).
+  const scopes = process.env.SHOPIFY_SCOPES || 'read_products,read_content,read_orders,write_orders,read_customers,read_returns,read_legal_policies'
   const appUrl = process.env.SHOPIFY_APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://app.xeyo.io'
   return { apiKey, apiSecret, scopes, appUrl }
 }
@@ -292,16 +293,176 @@ export async function cancelOrder(shop: string, accessToken: string, orderId: st
   )
 }
 
-/** Rembourse intégralement une commande. */
-export async function refundOrder(shop: string, accessToken: string, orderId: string, note?: string) {
-  return shopifyGraphQL<{ refundCreate: { userErrors: { message: string }[]; refund: { id: string } | null } }>(
+// ─── Remboursements ─────────────────────────────────────────────────
+//
+// Un refund Shopify DOIT inclure des `transactions` pour que l'argent bouge
+// (sinon Shopify enregistre un remboursement à 0€). On passe donc toujours par
+// `order.suggestedRefund` qui calcule le montant ET fournit les
+// `suggestedTransactions` prêtes à injecter dans `refundCreate`.
+
+export type RefundLineItem = { lineItemId: string; quantity: number }
+
+export type RefundableOrder = {
+  id: string
+  name: string
+  currency: string
+  total: number
+  totalRefunded: number
+  refundableAmount: number // total - déjà remboursé
+  lineItems: { id: string; title: string; quantity: number; unitPrice: number }[]
+}
+
+/** Détails d'une commande utiles au remboursement (montants + articles). */
+export async function getRefundableOrder(
+  shop: string,
+  accessToken: string,
+  orderId: string
+): Promise<RefundableOrder | null> {
+  const res = await shopifyGraphQL<{
+    order: {
+      id: string
+      name: string
+      totalPriceSet: { shopMoney: { amount: string; currencyCode: string } }
+      totalRefundedSet: { shopMoney: { amount: string } }
+      lineItems: { nodes: { id: string; title: string; quantity: number; discountedUnitPriceSet: { shopMoney: { amount: string } } }[] }
+    } | null
+  }>(
+    shop,
+    accessToken,
+    `query($id: ID!) {
+       order(id: $id) {
+         id name
+         totalPriceSet { shopMoney { amount currencyCode } }
+         totalRefundedSet { shopMoney { amount } }
+         lineItems(first: 50) {
+           nodes { id title quantity discountedUnitPriceSet { shopMoney { amount } } }
+         }
+       }
+     }`,
+    { id: orderId }
+  )
+  if (!res.ok || !res.data.order) return null
+  const o = res.data.order
+  const total = Number(o.totalPriceSet.shopMoney.amount) || 0
+  const totalRefunded = Number(o.totalRefundedSet?.shopMoney?.amount) || 0
+  return {
+    id: o.id,
+    name: o.name,
+    currency: o.totalPriceSet.shopMoney.currencyCode,
+    total,
+    totalRefunded,
+    refundableAmount: Math.max(0, total - totalRefunded),
+    lineItems: o.lineItems.nodes.map((li) => ({
+      id: li.id,
+      title: li.title,
+      quantity: li.quantity,
+      unitPrice: Number(li.discountedUnitPriceSet?.shopMoney?.amount) || 0,
+    })),
+  }
+}
+
+type SuggestedTransaction = { amount: string; gateway: string; parentTransaction: { id: string } }
+
+/**
+ * Suggestion de remboursement Shopify : renvoie le montant calculé et les
+ * transactions à rejouer. Sans refundLineItems → suggestion de refund TOTAL.
+ */
+export async function getSuggestedRefund(
+  shop: string,
+  accessToken: string,
+  orderId: string,
+  opts?: { refundLineItems?: RefundLineItem[]; refundShipping?: boolean }
+): Promise<{ amount: number; currency: string; transactions: SuggestedTransaction[]; refundLineItems: RefundLineItem[] } | null> {
+  const res = await shopifyGraphQL<{
+    order: {
+      suggestedRefund: {
+        amountSet: { shopMoney: { amount: string; currencyCode: string } }
+        refundLineItems: { nodes: { lineItem: { id: string }; quantity: number }[] }
+        suggestedTransactions: SuggestedTransaction[]
+      } | null
+    } | null
+  }>(
+    shop,
+    accessToken,
+    `query($id: ID!, $refundLineItems: [RefundLineItemInput!], $refundShipping: ShippingRefundInput) {
+       order(id: $id) {
+         suggestedRefund(refundLineItems: $refundLineItems, refundShipping: $refundShipping) {
+           amountSet { shopMoney { amount currencyCode } }
+           refundLineItems { nodes { lineItem { id } quantity } }
+           suggestedTransactions { amount gateway parentTransaction { id } }
+         }
+       }
+     }`,
+    {
+      id: orderId,
+      refundLineItems: opts?.refundLineItems?.map((li) => ({ lineItemId: li.lineItemId, quantity: li.quantity })) ?? null,
+      refundShipping: opts?.refundShipping ? { fullRefund: true } : null,
+    }
+  )
+  if (!res.ok || !res.data.order?.suggestedRefund) return null
+  const sr = res.data.order.suggestedRefund
+  return {
+    amount: Number(sr.amountSet.shopMoney.amount) || 0,
+    currency: sr.amountSet.shopMoney.currencyCode,
+    transactions: sr.suggestedTransactions || [],
+    refundLineItems: sr.refundLineItems.nodes.map((n) => ({ lineItemId: n.lineItem.id, quantity: n.quantity })),
+  }
+}
+
+/**
+ * Rembourse une commande (partiel ou total) — VRAI mouvement d'argent.
+ * - opts.refundLineItems : articles précis (partiel par article)
+ * - opts.amount : plafonne le montant remboursé (partiel par montant)
+ * - opts.note : raison (visible dans Shopify)
+ * Passe par getSuggestedRefund pour obtenir les transactions requises.
+ */
+export async function refundOrder(
+  shop: string,
+  accessToken: string,
+  orderId: string,
+  opts?: { note?: string; refundLineItems?: RefundLineItem[]; refundShipping?: boolean; amount?: number }
+): Promise<{ ok: true; data: { refundId: string | null; amount: number; currency: string } } | { ok: false; error: string }> {
+  const suggested = await getSuggestedRefund(shop, accessToken, orderId, {
+    refundLineItems: opts?.refundLineItems,
+    refundShipping: opts?.refundShipping,
+  })
+  if (!suggested) return { ok: false, error: 'Impossible de calculer le remboursement (commande introuvable ou non remboursable)' }
+  if (suggested.transactions.length === 0) return { ok: false, error: 'Aucune transaction remboursable sur cette commande' }
+
+  // Partiel par montant : on plafonne la 1re transaction au montant demandé.
+  let transactions = suggested.transactions.map((t) => ({
+    orderId,
+    gateway: t.gateway,
+    kind: 'REFUND',
+    parentId: t.parentTransaction.id,
+    amount: t.amount,
+  }))
+  let effectiveAmount = suggested.amount
+  if (opts?.amount != null && opts.amount > 0 && opts.amount < suggested.amount) {
+    effectiveAmount = opts.amount
+    transactions = [{ ...transactions[0], amount: opts.amount.toFixed(2) }]
+  }
+
+  const res = await shopifyGraphQL<{ refundCreate: { userErrors: { message: string }[]; refund: { id: string } | null } }>(
     shop,
     accessToken,
     `mutation($input: RefundInput!) {
        refundCreate(input: $input) { userErrors { message } refund { id } }
      }`,
-    { input: { orderId, note: note || 'Remboursement validé via Xeyo', notify: true } }
+    {
+      input: {
+        orderId,
+        note: opts?.note || 'Remboursement validé via Xeyo',
+        notify: true,
+        refundLineItems: opts?.refundLineItems?.map((li) => ({ lineItemId: li.lineItemId, quantity: li.quantity, restockType: 'NO_RESTOCK' })) ?? undefined,
+        transactions,
+      },
+    }
   )
+  if (!res.ok) return { ok: false, error: res.error }
+  const errs = res.data.refundCreate.userErrors
+  if (errs && errs.length > 0) return { ok: false, error: errs.map((e) => e.message).join(', ') }
+  return { ok: true, data: { refundId: res.data.refundCreate.refund?.id ?? null, amount: effectiveAmount, currency: suggested.currency } }
 }
 
 /**

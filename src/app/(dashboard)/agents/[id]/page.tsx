@@ -17,6 +17,7 @@ import {
   Upload, Tag, Play,
   Sparkles, BookOpen, Smartphone, SlidersHorizontal, Settings2,
   Globe, Shield, Bot, Image as ImageIcon, ChevronRight, MessageSquare,
+  RotateCcw,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { track } from '@/lib/posthog/events'
@@ -66,6 +67,9 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   const [escalationMode, setEscalationMode] = useState<'keywords' | 'ai' | 'both'>('keywords')
   const [escalationKeywords, setEscalationKeywords] = useState('')
   const [escalationMessage, setEscalationMessage] = useState('')
+  const [refundAutoEnabled, setRefundAutoEnabled] = useState(false)
+  const [refundAutoRules, setRefundAutoRules] = useState('')
+  const [refundAutoMax, setRefundAutoMax] = useState('')
   const [bookingUrl, setBookingUrl] = useState('')
   const [scheduleEnabled, setScheduleEnabled] = useState(false)
   const [scheduleStart, setScheduleStart] = useState('09:00')
@@ -108,6 +112,9 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
         setEscalationMode(a.escalation_mode || 'keywords')
         setEscalationKeywords(a.escalation_keywords?.join(', ') || '')
         setEscalationMessage(a.escalation_message || '')
+        setRefundAutoEnabled(a.refund_auto_enabled ?? false)
+        setRefundAutoRules(a.refund_auto_rules || '')
+        setRefundAutoMax(a.refund_auto_max_amount != null ? String(a.refund_auto_max_amount) : '')
         setBookingUrl(a.booking_url || '')
         setScheduleEnabled(a.schedule_enabled)
         setScheduleStart(a.schedule_start_time || '09:00')
@@ -143,6 +150,9 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
           escalation_enabled: escalationEnabled, escalation_mode: escalationMode,
           escalation_keywords: escalationKeywords.split(',').map(k => k.trim()).filter(Boolean),
           escalation_message: escalationMessage.trim() || null,
+          refund_auto_enabled: refundAutoEnabled,
+          refund_auto_rules: refundAutoRules.trim() || null,
+          refund_auto_max_amount: refundAutoMax.trim() ? Number(refundAutoMax) : null,
           booking_url: bookingUrl.trim() || null,
           schedule_enabled: scheduleEnabled, schedule_start_time: scheduleStart,
           schedule_end_time: scheduleEnd, schedule_days: scheduleDays,
@@ -548,6 +558,31 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
             <RowField label="Lien de rendez-vous" hint="Calendly, Cal.com…" stacked>
               <CleanInput value={bookingUrl} onChange={setBookingUrl} placeholder="https://calendly.com/votre-lien" />
             </RowField>
+          </Group>
+
+          <Group title="Remboursement automatique" subtitle="L'agent rembourse seul selon vos règles" icon={RotateCcw} color="amber" className="mt-4">
+            <RowField label="Activer le remboursement automatique" hint="⚠️ L'agent IA pourra rembourser SEUL, sans validation">
+              <Switch checked={refundAutoEnabled} onCheckedChange={setRefundAutoEnabled} />
+            </RowField>
+            {refundAutoEnabled && (
+              <>
+                <Divider />
+                <div className="rounded-lg bg-amber-500/10 border border-amber-500/30 p-3 text-xs text-amber-700">
+                  ⚠️ Attention : avec ce mode, l&apos;agent IA décide et exécute des remboursements réels sans votre validation, selon les règles ci-dessous et dans la limite du plafond. Écrivez des règles précises.
+                </div>
+                <Divider />
+                <RowField label="Plafond par remboursement (€)" hint="Au-delà, validation manuelle requise">
+                  <span className="flex items-center gap-2 text-sm">
+                    <MiniNum value={refundAutoMax} onChange={setRefundAutoMax} placeholder="50" />
+                    <span className="text-muted-foreground text-xs">€</span>
+                  </span>
+                </RowField>
+                <Divider />
+                <RowField label="Règles de remboursement automatique" stacked>
+                  <CleanTextarea value={refundAutoRules} onChange={setRefundAutoRules} placeholder="Ex : Rembourser automatiquement uniquement si : commande passée il y a moins de 30 jours, produit défectueux signalé avec photo, montant inférieur au plafond. Ne jamais rembourser en cas de doute." rows={4} />
+                </RowField>
+              </>
+            )}
           </Group>
 
           <Group title="Réponses" subtitle="Délai et condition d'arrêt" icon={MessageSquare} color="violet">

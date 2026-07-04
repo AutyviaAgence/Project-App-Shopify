@@ -139,6 +139,9 @@ export type AIAgent = {
   escalation_keywords: string[]
   escalation_message: string | null
   booking_url: string | null
+  refund_auto_enabled: boolean
+  refund_auto_rules: string | null
+  refund_auto_max_amount: number | null
   agent_type: 'conversation'
   stop_condition: string | null
   is_pinned: boolean

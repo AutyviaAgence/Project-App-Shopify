@@ -80,6 +80,11 @@ export function ActionsPanel({ conversationId, onChange }: { conversationId: str
                 <div className="flex items-center gap-2">
                   <Icon className={cn('h-4 w-4', meta.cls)} />
                   <span className="text-sm font-medium">{meta.label}</span>
+                  {a.action_type === 'refund_order' && a.payload.amount_estimated != null && (
+                    <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-600">
+                      {Number(a.payload.amount_estimated).toFixed(2)} {String(a.payload.currency || '')}
+                    </span>
+                  )}
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">{a.summary || JSON.stringify(a.payload)}</p>
               </div>
