@@ -7,7 +7,7 @@ import { sendMessage, sendMediaMessage, sendInteractiveMessage, sendPresence } f
 import { retrieveContext } from '@/lib/knowledge/retriever'
 import { encryptMessage, decryptMessage } from '@/lib/crypto/encryption'
 import { getAgentTools, buildOpenAITools, executeToolCall } from '@/lib/tools/executor'
-import { SHOPIFY_ACTION_TOOLS, isShopifyActionTool, handleActionTool, handleAutoRefund, userHasShopifyStore, NOTIFICATION_CHANNEL_TOOL, isNotificationChannelTool, handleNotificationChannelTool } from '@/lib/shopify/ai-tools'
+import { SHOPIFY_ACTION_TOOLS, isShopifyActionTool, handleActionTool, handleAutoRefund, userHasShopifyStore, NOTIFICATION_CHANNEL_TOOL, isNotificationChannelTool, handleNotificationChannelTool, TRACK_ORDER_TOOL, isTrackOrderTool, handleTrackOrder } from '@/lib/shopify/ai-tools'
 import { checkConversationQuota } from '@/lib/shopify/plans'
 import { canUseAi } from '@/lib/plans/gate'
 import type { WhatsAppSession } from '@/types/database'
@@ -419,6 +419,7 @@ NE liste JAMAIS des options en texte (genre "1. ... 2. ...") si tu peux les mett
     if (userId && (await userHasShopifyStore(userId))) {
       openaiTools.push(...SHOPIFY_ACTION_TOOLS)
       openaiTools.push(NOTIFICATION_CHANNEL_TOOL)
+      openaiTools.push(TRACK_ORDER_TOOL)
     }
 
     if (openaiTools.length > 0) {
@@ -505,6 +506,13 @@ NE liste JAMAIS des options en texte (genre "1. ... 2. ...") si tu peux les mett
             .maybeSingle()
           const channelMsg = await handleNotificationChannelTool(tc.arguments, { contactId: conv?.contact_id })
           toolMessages.push({ role: 'tool', tool_call_id: tc.toolCallId, content: channelMsg })
+          continue
+        }
+
+        // Suivi de commande (lecture seule) : « où est ma commande ? ».
+        if (isTrackOrderTool(tc.functionName)) {
+          const trackMsg = await handleTrackOrder(tc.arguments, { userId: userId!, conversationId: params.conversationId })
+          toolMessages.push({ role: 'tool', tool_call_id: tc.toolCallId, content: trackMsg })
           continue
         }
 

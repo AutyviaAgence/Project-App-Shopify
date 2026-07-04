@@ -117,6 +117,98 @@ export const NOTIFICATION_CHANNEL_TOOL = {
   },
 }
 
+/**
+ * Outil de SUIVI DE COMMANDE (lecture seule) : quand le client demande « où est
+ * ma commande ? », l'agent va chercher en temps réel le statut + le lien de
+ * suivi sur Shopify et répond directement (aucune validation humaine requise).
+ */
+export const TRACK_ORDER_TOOL = {
+  type: 'function' as const,
+  function: {
+    name: 'track_order',
+    description:
+      "Récupère le statut et le suivi de livraison des commandes du client (ex: « où est ma commande ? », « c'est quand la livraison ? », « ma commande #1024 »). Utilise le numéro de commande si le client le donne, sinon les dernières commandes du client. Réponds ensuite clairement avec le statut et le lien de suivi s'il existe.",
+    parameters: {
+      type: 'object',
+      properties: {
+        order_name: { type: 'string', description: "Numéro de commande si fourni par le client (ex: #1024). Optionnel." },
+      },
+      required: [] as string[],
+    },
+  },
+}
+
+export function isTrackOrderTool(name: string): boolean {
+  return name === 'track_order'
+}
+
+/**
+ * Handler du suivi de commande. Retrouve le téléphone du contact de la
+ * conversation, interroge Shopify, et renvoie à l'agent un résumé lisible des
+ * commandes (statut + tracking). Read-only : rien n'est écrit ni validé.
+ */
+export async function handleTrackOrder(
+  args: Record<string, unknown>,
+  ctx: { userId: string; conversationId?: string | null }
+): Promise<string> {
+  const store = await getUserStore(ctx.userId)
+  if (!store) return "Impossible d'accéder à la boutique. Propose au client de contacter un conseiller."
+
+  const supabase = createAdminSupabase(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+
+  // Retrouver le contact (téléphone + email) de la conversation.
+  let phone: string | null = null
+  let email: string | null = null
+  if (ctx.conversationId) {
+    const { data: conv } = await supabase
+      .from('conversations')
+      .select('contact_id, contacts(phone_number, notify_email, email)')
+      .eq('id', ctx.conversationId)
+      .maybeSingle()
+    const c = conv?.contacts as { phone_number?: string; notify_email?: string; email?: string } | null
+    phone = c?.phone_number || null
+    email = c?.notify_email || c?.email || null
+  }
+  if (!phone && !email) return "Je n'ai pas retrouvé les coordonnées du client pour chercher sa commande. Demande-lui son numéro de commande ou son email."
+
+  const { findOrdersByCustomer } = await import('./client')
+  const res = await findOrdersByCustomer(store.shop, store.token, { email, phone })
+  if (!res.ok) return "Le suivi n'est pas accessible pour le moment. Propose au client de réessayer ou de contacter un conseiller."
+
+  let orders = res.data
+  // Si le client a précisé un numéro, on filtre dessus.
+  const wanted = args.order_name ? String(args.order_name).replace(/^#/, '') : null
+  if (wanted) {
+    const match = orders.filter((o) => o.name.replace(/^#/, '') === wanted)
+    if (match.length > 0) orders = match
+  }
+  if (orders.length === 0) {
+    return wanted
+      ? `Aucune commande ${args.order_name} trouvée pour ce client. Demande-lui de vérifier le numéro.`
+      : "Aucune commande récente trouvée pour ce client."
+  }
+
+  const statusFr = (s: string | null): string => {
+    switch ((s || '').toUpperCase()) {
+      case 'FULFILLED': return 'expédiée'
+      case 'PARTIALLY_FULFILLED': return 'partiellement expédiée'
+      case 'UNFULFILLED': return 'en préparation (pas encore expédiée)'
+      case 'IN_PROGRESS': return 'en cours de traitement'
+      case 'ON_HOLD': return 'en attente'
+      default: return s || 'statut inconnu'
+    }
+  }
+
+  const lines = orders.slice(0, 3).map((o) => {
+    const st = statusFr(o.fulfillmentStatus)
+    const track = o.tracking?.url ? ` Suivi : ${o.tracking.url}` : o.tracking?.number ? ` N° de suivi : ${o.tracking.number}` : ''
+    const date = o.createdAt ? new Date(o.createdAt).toLocaleDateString('fr-FR') : ''
+    return `Commande ${o.name}${date ? ` (du ${date})` : ''} : ${st}.${track}`
+  })
+
+  return `Voici les informations de suivi (transmets-les clairement au client, donne le lien de suivi tel quel s'il existe, n'invente jamais de date de livraison) :\n${lines.join('\n')}`
+}
+
 const ACTION_FN_NAMES = new Set(SHOPIFY_ACTION_TOOLS.map((t) => t.function.name))
 
 export function isShopifyActionTool(name: string): boolean {
