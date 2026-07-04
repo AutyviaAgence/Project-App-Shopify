@@ -46,8 +46,8 @@ export function DashboardTopBar({ onOpenSidebar }: { onOpenSidebar: () => void }
         <Menu className="h-5 w-5" />
       </button>
 
-      {/* Consommation IA du mois (centre) — lien vers /subscription */}
-      <div className="flex flex-1 items-center justify-center">
+      {/* Consommation IA du mois — barre pleine largeur, lien vers /subscription */}
+      <div className="flex flex-1 items-center px-1 md:px-3">
         <UsageBar />
       </div>
 
