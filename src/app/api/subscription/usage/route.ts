@@ -64,6 +64,9 @@ export async function GET() {
         remaining: conv.remaining,  // null = illimité
         unlimited: conv.unlimited,
         percentage: conv.percentage, // % rempli = tokens_used / tokens_limit
+        // Plafond fair-use (scale) : sert de repère visuel pour la barre des
+        // plans « illimités » (0 pour les autres plans).
+        fairUseCap: plan.fairUseCap ?? null,
       },
     },
   })

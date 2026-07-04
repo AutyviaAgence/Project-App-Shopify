@@ -8,10 +8,11 @@ import { cn } from '@/lib/utils'
 /**
  * Barre de consommation IA (topbar globale).
  *
- * Affiche l'usage du mois en CONVERSATIONS (l'unité commerciale des plans) :
- * - plan à quota  : mini-barre de progression + « 37 / 100 conversations »
- * - scale         : « 214 conversations · Illimité » (fair-use, pas de barre)
- * - free sans IA  : « IA désactivée · Passer au plan payant »
+ * TOUJOURS une vraie barre qui se remplit avec la conso (tokens), affichée en
+ * conversations restantes :
+ * - plan à quota (starter/pro) : barre sur la limite du plan
+ * - scale « illimité »          : barre sur le plafond fair-use (repère visuel)
+ * - free sans IA                : « IA désactivée · Passer au plan payant »
  * Toute la zone est un lien vers /subscription. Rafraîchi toutes les 60 s.
  */
 
@@ -24,6 +25,7 @@ type Usage = {
     remaining: number | null
     unlimited: boolean
     percentage: number
+    fairUseCap: number | null
   }
 }
 
@@ -45,7 +47,7 @@ export function UsageBar() {
 
   if (!usage) return null
 
-  // Free (IA off) : invitation à passer au payant.
+  // Free (IA off) : invitation à passer au payant (pas de barre).
   if (!usage.ai_enabled) {
     return (
       <Link
@@ -59,44 +61,41 @@ export function UsageBar() {
     )
   }
 
-  const { used, limit, remaining, unlimited, percentage } = usage.conversations
+  const { used, limit, remaining, unlimited, percentage, fairUseCap } = usage.conversations
 
-  // Scale : illimité fair-use, pas de barre pleine.
-  if (unlimited || limit === null) {
-    return (
-      <Link
-        href="/subscription"
-        className="hidden items-center gap-2 rounded-full border border-border/60 bg-muted/30 px-3.5 py-1.5 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground md:flex"
-      >
-        <MessageSquare className="h-3.5 w-3.5 text-emerald-500" />
-        <span className="tabular-nums font-medium text-foreground">{used}</span>
-        <span>conversations · Illimité</span>
-      </Link>
-    )
-  }
+  // Barre de référence :
+  // - plan à quota → la limite du plan
+  // - scale illimité → le plafond fair-use (repère), sinon un défaut raisonnable
+  const refLimit = unlimited ? (fairUseCap ?? 2000) : (limit ?? 0)
+  const fillPercent = unlimited
+    ? (refLimit > 0 ? Math.min(100, Math.round((used / refLimit) * 100)) : 0)
+    : Math.min(100, percentage)
 
-  // Plans à quota : mini-barre qui SE REMPLIT avec la conso (tokens), texte en
-  // « conversations restantes ». Couleurs par seuil : vert <70 %, ambre 70-90 %,
-  // rouge ≥90 % (mêmes seuils que la page abonnement).
-  const left = remaining ?? Math.max(0, limit - used)
-  const barColor = percentage >= 90 ? 'bg-red-500' : percentage >= 70 ? 'bg-amber-500' : 'bg-emerald-500'
+  const left = unlimited ? null : (remaining ?? Math.max(0, (limit ?? 0) - used))
+  const barColor = fillPercent >= 90 ? 'bg-red-500' : fillPercent >= 70 ? 'bg-amber-500' : 'bg-emerald-500'
+
+  const label = unlimited
+    ? <><span className="tabular-nums font-medium text-foreground">{used}</span> conversation{used > 1 ? 's' : ''} · Illimité</>
+    : <><span className="tabular-nums font-medium text-foreground">{left}</span> conversation{(left ?? 0) > 1 ? 's' : ''} restante{(left ?? 0) > 1 ? 's' : ''}</>
+
+  const titleText = unlimited
+    ? `${used} conversations IA ce mois-ci · illimité (fair-use ${refLimit})`
+    : `${used} / ${limit} conversations IA utilisées ce mois-ci — ${left} restantes`
 
   return (
     <Link
       href="/subscription"
-      title={`${used} / ${limit} conversations IA utilisées ce mois-ci — ${left} restantes`}
+      title={titleText}
       className="hidden items-center gap-2.5 rounded-full border border-border/60 bg-muted/30 px-3.5 py-1.5 transition-colors hover:border-primary/40 md:flex"
     >
-      <MessageSquare className={cn('h-3.5 w-3.5', percentage >= 90 ? 'text-red-500' : 'text-muted-foreground')} />
+      <MessageSquare className={cn('h-3.5 w-3.5', fillPercent >= 90 ? 'text-red-500' : 'text-muted-foreground')} />
       <div className="h-1.5 w-28 overflow-hidden rounded-full bg-muted">
         <div
           className={cn('h-full rounded-full transition-all', barColor)}
-          style={{ width: `${Math.min(100, percentage)}%` }}
+          style={{ width: `${fillPercent}%` }}
         />
       </div>
-      <span className="text-xs text-muted-foreground">
-        <span className="tabular-nums font-medium text-foreground">{left}</span> conversation{left > 1 ? 's' : ''} restante{left > 1 ? 's' : ''}
-      </span>
+      <span className="text-xs text-muted-foreground">{label}</span>
     </Link>
   )
 }
