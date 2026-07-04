@@ -3,7 +3,6 @@
 import { Suspense, useEffect, useState, useCallback, useRef } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import type { ConversationTag } from '@/types/database'
 import { toast } from 'sonner'
 import { ContactProfilePanel } from '@/components/contact-profile-panel'
 import { LifecycleStagesDialog } from '@/components/lifecycle-stages-dialog'
@@ -74,12 +73,10 @@ function ConversationsPageContent() {
   const [agents, setAgents] = useState<AIAgent[]>([])
   const [profileOpen, setProfileOpen] = useState(false)
 
-  // Tags
-  const [allTags, setAllTags] = useState<ConversationTag[]>([])
-  const [conversationTags, setConversationTags] = useState<Record<string, ConversationTag[]>>({})
-
-  // Lifecycle stages
+  // Lifecycle stages (= « étapes », l'ancien système de tags a été fusionné ici)
   const [lifecycleStages, setLifecycleStages] = useState<LifecycleStage[]>([])
+  // Étapes (multi) par conversation, pour l'affichage des badges dans la liste.
+  const [conversationStages, setConversationStages] = useState<Record<string, LifecycleStage[]>>({})
   const [analyzingConvId, setAnalyzingConvId] = useState<string | null>(null)
   const [manageStagesOpen, setManageStagesOpen] = useState(false)
 
@@ -91,7 +88,6 @@ function ConversationsPageContent() {
   const [filterAiActive, setFilterAiActive] = useState<string>('all')
   const [filterTeam, setFilterTeam] = useState<string>('all')
   const [filterLifecycleStage, setFilterLifecycleStage] = useState<string>('all')
-  const [filterTags, setFilterTags] = useState<string[]>([])
   const [searchQuery, setSearchQuery] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
 
@@ -127,35 +123,18 @@ function ConversationsPageContent() {
   // Système d'équipes retiré : plus d'appel /api/teams.
   const fetchTeams = useCallback(async () => {}, [])
 
-  const fetchTags = useCallback(async () => {
-    try {
-      const res = await fetch('/api/tags')
-      const json = await res.json()
-      if (res.ok && json.data) setAllTags(json.data)
-    } catch { /* silently ignore */ }
-  }, [])
-
-  const fetchConversationTags = useCallback(async (convId: string) => {
-    try {
-      const res = await fetch(`/api/conversations/${convId}/tags`)
-      const json = await res.json()
-      if (res.ok && json.data) {
-        setConversationTags((prev) => ({ ...prev, [convId]: json.data }))
-      }
-    } catch { /* silently ignore */ }
-  }, [])
-
-  const fetchAllConversationTags = useCallback(async (convIds: string[]) => {
+  // Charge les ÉTAPES (multi) de plusieurs conversations en un appel.
+  const fetchAllConversationStages = useCallback(async (convIds: string[]) => {
     if (convIds.length === 0) return
     try {
-      const res = await fetch('/api/conversations/tags/batch', {
+      const res = await fetch('/api/conversations/lifecycle/batch', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ conversation_ids: convIds }),
       })
       const json = await res.json()
       if (res.ok && json.data) {
-        setConversationTags((prev) => ({ ...prev, ...json.data }))
+        setConversationStages((prev) => ({ ...prev, ...json.data }))
       }
     } catch { /* silently ignore */ }
   }, [])
@@ -176,7 +155,6 @@ function ConversationsPageContent() {
       if (filterAiActive !== 'all') params.set('is_ai_active', filterAiActive)
       if (filterTeam !== 'all') params.set('team_id', filterTeam)
       if (filterLifecycleStage !== 'all') params.set('lifecycle_stage_id', filterLifecycleStage)
-      if (filterTags.length > 0) params.set('tag_ids', filterTags.join(','))
       if (debouncedSearch.trim()) params.set('search', debouncedSearch.trim())
       params.set('page', page.toString())
       params.set('limit', ITEMS_PER_PAGE.toString())
@@ -190,14 +168,14 @@ function ConversationsPageContent() {
           setTotalConversations(json.pagination.total)
         }
         const convIds = json.data.map((c: ConversationWithJoins) => c.id)
-        if (convIds.length > 0) fetchAllConversationTags(convIds)
+        if (convIds.length > 0) fetchAllConversationStages(convIds)
       }
     } catch {
       toast.error(t('conversations.load_error'))
     } finally {
       setLoading(false)
     }
-  }, [filterChannel, filterSession, filterAiActive, filterTeam, filterLifecycleStage, filterTags, page, debouncedSearch, fetchAllConversationTags])
+  }, [filterChannel, filterSession, filterAiActive, filterTeam, filterLifecycleStage, page, debouncedSearch, fetchAllConversationStages])
 
   // --- Actions ---
   const togglePin = useCallback(async (convId: string, currentPinned: boolean) => {
@@ -575,7 +553,10 @@ function ConversationsPageContent() {
         if (selectedConv?.id === convId) {
           setSelectedConv((prev) => prev ? { ...prev, lifecycle_stage_id: stageId } : prev)
         }
-        const stageName = lifecycleStages.find((s) => s.id === stageId)?.name || t('conversations.unclassified')
+        // Sync des badges multi : le sélecteur du chat pose UNE étape (remplace).
+        const stage = stageId ? lifecycleStages.find((s) => s.id === stageId) : null
+        setConversationStages((prev) => ({ ...prev, [convId]: stage ? [stage] : [] }))
+        const stageName = stage?.name || t('conversations.unclassified')
         toast.success(t('conversations.stage_label', { name: stageName }))
       } else {
         const json = await res.json()
@@ -615,52 +596,35 @@ function ConversationsPageContent() {
     }
   }, [analyzingConvId, selectedConv?.id, t])
 
-  const handleToggleTag = useCallback(async (convId: string, tag: ConversationTag) => {
-    const currentTags = conversationTags[convId] || []
-    const hasTag = currentTags.some((t) => t.id === tag.id)
-    const newTagIds = hasTag
-      ? currentTags.filter((t) => t.id !== tag.id).map((t) => t.id)
-      : [...currentTags.map((t) => t.id), tag.id]
+  // Ajoute/retire une ÉTAPE sur une conversation (multi, plafonné à 3).
+  // Optimiste + rollback ; persiste la liste complète via PUT lifecycle.
+  const handleToggleStage = useCallback(async (convId: string, stageId: string) => {
+    const current = conversationStages[convId] || []
+    const has = current.some((s) => s.id === stageId)
+    if (!has && current.length >= 3) {
+      toast.error(t('conversations.max_stages') || 'Maximum 3 étapes par conversation')
+      return
+    }
+    const stage = lifecycleStages.find((s) => s.id === stageId)
+    if (!stage) return
 
-    const newTags = hasTag
-      ? currentTags.filter((t) => t.id !== tag.id)
-      : [...currentTags, tag]
-    setConversationTags((prev) => ({ ...prev, [convId]: newTags }))
+    const next = has ? current.filter((s) => s.id !== stageId) : [...current, stage]
+    setConversationStages((prev) => ({ ...prev, [convId]: next }))
+    // Refléter la 1re étape sur la conv (colonne legacy, affichage badge unique ailleurs)
+    setConversations((prev) => prev.map((c) => c.id === convId ? { ...c, lifecycle_stage_id: next[0]?.id ?? null } : c))
 
     try {
-      const res = await fetch(`/api/conversations/${convId}/tags`, {
+      const res = await fetch(`/api/conversations/${convId}/lifecycle`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tag_ids: newTagIds }),
+        body: JSON.stringify({ stage_ids: next.map((s) => s.id) }),
       })
-      if (!res.ok) {
-        setConversationTags((prev) => ({ ...prev, [convId]: currentTags }))
-        toast.error(t('conversations.tag_update_error'))
-      }
+      if (!res.ok) throw new Error()
     } catch {
-      setConversationTags((prev) => ({ ...prev, [convId]: currentTags }))
+      setConversationStages((prev) => ({ ...prev, [convId]: current }))
       toast.error(t('common.network_error'))
     }
-  }, [conversationTags, t])
-
-  const handleCreateTag = useCallback(async (name: string, color: string) => {
-    try {
-      const res = await fetch('/api/tags', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, color }),
-      })
-      const json = await res.json()
-      if (res.ok && json.data) {
-        setAllTags((prev) => [...prev, json.data].sort((a, b) => a.name.localeCompare(b.name)))
-        toast.success(t('conversations.tag_created'))
-      } else {
-        toast.error(json.error || t('conversations.tag_create_error'))
-      }
-    } catch {
-      toast.error(t('common.network_error'))
-    }
-  }, [t])
+  }, [conversationStages, lifecycleStages, t])
 
   // --- Effects ---
   useEffect(() => {
@@ -668,11 +632,10 @@ function ConversationsPageContent() {
       fetchConversations(),
       fetchAgents(),
       fetchSessions(),
-      fetchTags(),
       fetchTeams(),
       fetchLifecycleStages(),
     ])
-  }, [fetchConversations, fetchAgents, fetchSessions, fetchTags, fetchTeams, fetchLifecycleStages])
+  }, [fetchConversations, fetchAgents, fetchSessions, fetchTeams, fetchLifecycleStages])
 
   // Handle ?open=conversationId URL param
   useEffect(() => {
@@ -854,8 +817,7 @@ function ConversationsPageContent() {
         page={page}
         sessions={sessions}
         teams={teams}
-        allTags={allTags}
-        conversationTags={conversationTags}
+        conversationStages={conversationStages}
         lifecycleStages={lifecycleStages}
         searchQuery={searchQuery}
         filterChannel={filterChannel}
@@ -863,7 +825,6 @@ function ConversationsPageContent() {
         filterAiActive={filterAiActive}
         filterTeam={filterTeam}
         filterLifecycleStage={filterLifecycleStage}
-        filterTags={filterTags}
         onSelectConversation={(conv) => { setSelectedConv(conv); setProfileOpen(false); track('conversation_opened') }}
         onTogglePin={togglePin}
         onSetPage={setPage}
@@ -873,10 +834,7 @@ function ConversationsPageContent() {
         onSetFilterAiActive={setFilterAiActive}
         onSetFilterTeam={setFilterTeam}
         onSetFilterLifecycleStage={setFilterLifecycleStage}
-        onSetFilterTags={setFilterTags}
-        onFetchConversationTags={fetchConversationTags}
-        onToggleTag={handleToggleTag}
-        onCreateTag={handleCreateTag}
+        onToggleStage={handleToggleStage}
         onManageStages={() => setManageStagesOpen(true)}
       />
 

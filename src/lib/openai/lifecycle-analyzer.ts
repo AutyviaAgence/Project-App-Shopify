@@ -135,16 +135,20 @@ export async function analyzeConversationLifecycle(
 
   const systemPrompt = `Tu es un assistant de classification de conversations WhatsApp.
 
-Voici les stades du pipeline commercial de l'utilisateur :
+Voici les étapes du pipeline commercial de l'utilisateur :
 ${stagesListForPrompt}
 
 Voici les derniers messages de la conversation (du plus ancien au plus récent) :
 ${messagesList}
 
-Quel stade correspond le mieux à cette conversation ?
-Réponds UNIQUEMENT en JSON : { "stage_name": "...", "reason": "..." }
-Le stage_name doit correspondre EXACTEMENT à un des noms de stades listés ci-dessus (copie le nom tel quel).
-La reason doit être une phrase courte en français expliquant pourquoi.`
+Quelles étapes correspondent le mieux à cette conversation ?
+Choisis de 0 à 3 étapes MAXIMUM, les plus pertinentes, de la plus pertinente à la moins pertinente.
+- Ne mets QUE des étapes qui correspondent vraiment. Si une seule correspond, n'en mets qu'une.
+- Si AUCUNE ne correspond, renvoie un tableau vide.
+- N'invente jamais d'étape : chaque nom doit correspondre EXACTEMENT à un des noms listés ci-dessus (copie le nom tel quel).
+
+Réponds UNIQUEMENT en JSON : { "stages": ["...", "..."], "reason": "..." }
+La reason doit être une phrase courte en français expliquant ton choix.`
 
   // 5. Appeler GPT-4o-mini
   try {
@@ -171,82 +175,78 @@ La reason doit être une phrase courte en français expliquant pourquoi.`
 
     console.log(`[Lifecycle] AI response for ${conversationId}: ${rawContent} (${tokensUsed} tokens)`)
 
-    // 6. Parser la réponse JSON
-    let stageName: string | null = null
+    // 6. Parser la réponse JSON : tableau de 0 à 3 noms d'étapes.
+    let stageNames: string[] = []
     let reason = 'Impossible de parser la réponse IA'
 
     try {
-      // Extraire le JSON même si entouré de markdown
       const jsonMatch = rawContent.match(/\{[\s\S]*\}/)
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[0])
-        stageName = parsed.stage_name || null
+        // Rétrocompat : accepte "stages" (tableau) ou l'ancien "stage_name".
+        if (Array.isArray(parsed.stages)) {
+          stageNames = parsed.stages.filter((s: unknown) => typeof s === 'string')
+        } else if (parsed.stage_name) {
+          stageNames = [parsed.stage_name]
+        }
         reason = parsed.reason || 'Pas de raison fournie'
       }
     } catch {
       console.error('[Lifecycle] Failed to parse AI response:', rawContent)
     }
 
-    // 7. Trouver le stage correspondant (exact match, puis fuzzy)
-    let matchedStage = stageName
-      ? stages.find((s) => s.name.toLowerCase() === stageName!.toLowerCase())
-      : null
-
-    // Fuzzy match si exact match échoue (accents, espaces, etc.)
-    if (!matchedStage && stageName) {
-      const normalized = normalizeForMatch(stageName)
-      matchedStage = stages.find((s) => normalizeForMatch(s.name) === normalized)
-
-      // Fallback: match partiel (le nom du stage est contenu dans la réponse ou vice-versa)
-      if (!matchedStage) {
-        matchedStage = stages.find(
-          (s) => normalizeForMatch(s.name).includes(normalized) || normalized.includes(normalizeForMatch(s.name))
-        )
+    // 7. Matcher chaque nom (exact → fuzzy → partiel), dédupliquer, plafonner à 3.
+    const matchStage = (name: string) => {
+      let m = stages.find((s) => s.name.toLowerCase() === name.toLowerCase())
+      if (!m) {
+        const normalized = normalizeForMatch(name)
+        m = stages.find((s) => normalizeForMatch(s.name) === normalized)
+        if (!m) {
+          m = stages.find(
+            (s) => normalizeForMatch(s.name).includes(normalized) || normalized.includes(normalizeForMatch(s.name))
+          )
+        }
       }
-
-      if (matchedStage) {
-        console.log(`[Lifecycle] Fuzzy matched "${stageName}" → "${matchedStage.name}"`)
-      } else {
-        console.warn(`[Lifecycle] No match found for stage_name "${stageName}". Available: ${stages.map(s => s.name).join(', ')}`)
-      }
+      return m
     }
 
-    const newStageId = matchedStage?.id || null
+    const matchedIds: string[] = []
+    for (const name of stageNames) {
+      const m = matchStage(name)
+      if (m && !matchedIds.includes(m.id)) matchedIds.push(m.id)
+      if (matchedIds.length >= 3) break // plafond : 3 étapes max
+    }
+    const primaryStageId = matchedIds[0] || null // 1re = la plus pertinente (legacy + historique)
+    const matchedNames = matchedIds.map((id) => stages.find((s) => s.id === id)?.name).filter(Boolean)
 
-    // 8. Timestamps d'analyse (toujours mis à jour)
+    // 8. Timestamps + colonne legacy (1re étape, compat affichage/stats).
     await supabase
       .from('conversations')
       .update({
         lifecycle_last_analyzed_at: new Date().toISOString(),
         lifecycle_messages_since_analysis: 0,
-        // lien legacy : refléter le stage détecté (compat affichage)
-        lifecycle_stage_id: newStageId,
+        lifecycle_stage_id: primaryStageId,
       })
       .eq('id', conversationId)
 
-    // 8b. ÉTIQUETTES MULTIPLES : l'IA AJOUTE le stage détecté (sans écraser les autres)
-    let alreadyAssigned = false
-    if (newStageId) {
-      const { data: existing } = await supabase
+    // 8b. RECALCUL : les étapes auto reflètent l'état ACTUEL. Remplacement
+    //     atomique — on efface les étiquettes existantes puis on pose les
+    //     nouvelles (0 à 3). Si aucune ne correspond, la conversation se
+    //     retrouve sans étape auto (nettoyée).
+    const changed = primaryStageId !== currentStageId
+    await supabase.from('conversation_lifecycle_stages').delete().eq('conversation_id', conversationId)
+    if (matchedIds.length > 0) {
+      await supabase
         .from('conversation_lifecycle_stages')
-        .select('id')
-        .eq('conversation_id', conversationId)
-        .eq('stage_id', newStageId)
-        .maybeSingle()
-      alreadyAssigned = !!existing
-      if (!alreadyAssigned) {
-        await supabase
-          .from('conversation_lifecycle_stages')
-          .insert({ conversation_id: conversationId, stage_id: newStageId })
-      }
+        .insert(matchedIds.map((sid) => ({ conversation_id: conversationId, stage_id: sid })))
     }
 
-    // 9. Historique (seulement si une nouvelle étiquette a été ajoutée)
-    if (newStageId && !alreadyAssigned) {
+    // 9. Historique (seulement si l'étape principale a changé).
+    if (changed && primaryStageId) {
       const { error: historyError } = await supabase.from('lifecycle_history').insert({
         conversation_id: conversationId,
         from_stage_id: currentStageId,
-        to_stage_id: newStageId,
+        to_stage_id: primaryStageId,
         reason: reason,
         changed_by: 'ai',
         tokens_used: tokensUsed,
@@ -261,12 +261,12 @@ La reason doit être une phrase courte en français expliquant pourquoi.`
       await recordTokenUsage(userId, tokensUsed)
     }
 
-    console.log(`[Lifecycle] ✓ Conversation ${conversationId} → ${matchedStage?.name || 'null'} (${reason})`)
+    console.log(`[Lifecycle] ✓ Conversation ${conversationId} → [${matchedNames.join(', ') || 'aucune'}] (${reason})`)
 
     return {
       conversationId,
-      stageId: newStageId,
-      stageName: matchedStage?.name || null,
+      stageId: primaryStageId,
+      stageName: matchedNames[0] || null,
       reason,
       tokensUsed,
     }

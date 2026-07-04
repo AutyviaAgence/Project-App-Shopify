@@ -27,7 +27,6 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  Tag,
   Plus,
   Search,
   Workflow,
@@ -39,12 +38,7 @@ import { fr, enUS } from 'date-fns/locale'
 import { getSessionDisplayName, getContactDisplayName } from '@/lib/format-phone'
 import { EMAIL_UI_ENABLED } from '@/lib/features'
 import { useTranslation } from '@/i18n/context'
-import type { ConversationWithJoins, Team, ConversationTag, LifecycleStage } from './types'
-
-const TAG_COLORS = [
-  '#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6',
-  '#EC4899', '#06B6D4', '#F97316', '#6366F1', '#84CC16',
-]
+import type { ConversationWithJoins, Team, LifecycleStage } from './types'
 
 interface ConversationListProps {
   conversations: ConversationWithJoins[]
@@ -56,8 +50,7 @@ interface ConversationListProps {
   page: number
   sessions: { id: string; instance_name: string; phone_number: string | null }[]
   teams: Team[]
-  allTags: ConversationTag[]
-  conversationTags: Record<string, ConversationTag[]>
+  conversationStages: Record<string, LifecycleStage[]>
   lifecycleStages: LifecycleStage[]
   searchQuery: string
   filterChannel: string
@@ -65,7 +58,6 @@ interface ConversationListProps {
   filterAiActive: string
   filterTeam: string
   filterLifecycleStage: string
-  filterTags: string[]
   onSelectConversation: (conv: ConversationWithJoins) => void
   onTogglePin: (convId: string, currentPinned: boolean) => void
   onSetPage: (page: number) => void
@@ -75,10 +67,7 @@ interface ConversationListProps {
   onSetFilterAiActive: (value: string) => void
   onSetFilterTeam: (value: string) => void
   onSetFilterLifecycleStage: (value: string) => void
-  onSetFilterTags: (tags: string[]) => void
-  onFetchConversationTags: (convId: string) => void
-  onToggleTag: (convId: string, tag: ConversationTag) => void
-  onCreateTag: (name: string, color: string) => Promise<void>
+  onToggleStage: (convId: string, stageId: string) => void
   onManageStages?: () => void
 }
 
@@ -92,8 +81,7 @@ export function ConversationList({
   page,
   sessions,
   teams,
-  allTags,
-  conversationTags,
+  conversationStages,
   lifecycleStages,
   searchQuery,
   filterChannel,
@@ -101,7 +89,6 @@ export function ConversationList({
   filterAiActive,
   filterTeam,
   filterLifecycleStage,
-  filterTags,
   onSelectConversation,
   onTogglePin,
   onSetPage,
@@ -111,17 +98,11 @@ export function ConversationList({
   onSetFilterAiActive,
   onSetFilterTeam,
   onSetFilterLifecycleStage,
-  onSetFilterTags,
-  onFetchConversationTags,
-  onToggleTag,
-  onCreateTag,
+  onToggleStage,
   onManageStages,
 }: ConversationListProps) {
   const { t, locale } = useTranslation()
   const [showFilters, setShowFilters] = useState(false)
-  const [newTagName, setNewTagName] = useState('')
-  const [newTagColor, setNewTagColor] = useState('#3B82F6')
-  const [creatingTag, setCreatingTag] = useState(false)
 
   function getContactDisplay(conv: ConversationWithJoins) {
     if (!conv.contact) return conv.last_message_preview?.slice(0, 30) || 'Inconnu'
@@ -173,20 +154,8 @@ export function ConversationList({
     })
   }
 
-  async function handleCreateTag() {
-    if (!newTagName.trim() || creatingTag) return
-    setCreatingTag(true)
-    try {
-      await onCreateTag(newTagName.trim(), newTagColor)
-      setNewTagName('')
-      setNewTagColor('#3B82F6')
-    } finally {
-      setCreatingTag(false)
-    }
-  }
-
-  const hasActiveFilters = filterSession !== 'all' || filterAiActive !== 'all' || filterTeam !== 'all' || filterLifecycleStage !== 'all' || filterTags.length > 0
-  const activeFilterCount = (filterSession !== 'all' ? 1 : 0) + (filterAiActive !== 'all' ? 1 : 0) + (filterTeam !== 'all' ? 1 : 0) + (filterLifecycleStage !== 'all' ? 1 : 0) + (filterTags.length > 0 ? 1 : 0)
+  const hasActiveFilters = filterSession !== 'all' || filterAiActive !== 'all' || filterTeam !== 'all' || filterLifecycleStage !== 'all'
+  const activeFilterCount = (filterSession !== 'all' ? 1 : 0) + (filterAiActive !== 'all' ? 1 : 0) + (filterTeam !== 'all' ? 1 : 0) + (filterLifecycleStage !== 'all' ? 1 : 0)
 
   const channelTabs = [
     { value: 'all', label: 'Tous', icon: MessageSquare },
@@ -346,70 +315,12 @@ export function ConversationList({
               </Button>
             )}
 
-            {allTags.length > 0 && (
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant={filterTags.length > 0 ? 'secondary' : 'outline'}
-                    size="sm"
-                    className="h-8 gap-1.5 text-xs"
-                  >
-                    <Tag className="h-3 w-3" />
-                    {filterTags.length > 0
-                      ? t('conversations.filter_tags_count', { count: String(filterTags.length) })
-                      : t('conversations.filter_tags')}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-56 p-2" align="start">
-                  <div className="space-y-1 max-h-48 overflow-y-auto">
-                    {allTags.map((tag) => {
-                      const isSelected = filterTags.includes(tag.id)
-                      return (
-                        <button
-                          key={tag.id}
-                          onClick={() => {
-                            onSetFilterTags(
-                              isSelected
-                                ? filterTags.filter((id) => id !== tag.id)
-                                : [...filterTags, tag.id]
-                            )
-                            onSetPage(1)
-                          }}
-                          className={cn(
-                            'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs hover:bg-muted transition-colors',
-                            isSelected && 'bg-muted'
-                          )}
-                        >
-                          <span
-                            className="h-2.5 w-2.5 rounded-full shrink-0"
-                            style={{ backgroundColor: tag.color }}
-                          />
-                          <span className="truncate">{tag.name}</span>
-                          {isSelected && <Check className="h-3 w-3 ml-auto text-primary shrink-0" />}
-                        </button>
-                      )
-                    })}
-                  </div>
-                  {filterTags.length > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="w-full mt-1 h-7 text-xs"
-                      onClick={() => { onSetFilterTags([]); onSetPage(1) }}
-                    >
-                      {t('common.reset')}
-                    </Button>
-                  )}
-                </PopoverContent>
-              </Popover>
-            )}
-
             {hasActiveFilters && (
               <Button
                 variant="ghost"
                 size="sm"
                 className="h-8 px-2 text-xs"
-                onClick={() => { onSetFilterSession('all'); onSetFilterAiActive('all'); onSetFilterTeam('all'); onSetFilterLifecycleStage('all'); onSetFilterTags([]); onSetPage(1) }}
+                onClick={() => { onSetFilterSession('all'); onSetFilterAiActive('all'); onSetFilterTeam('all'); onSetFilterLifecycleStage('all'); onSetPage(1) }}
               >
                 <X className="h-3 w-3 mr-1" />
                 {t('common.reset')}
@@ -567,44 +478,39 @@ export function ConversationList({
                           {locale === 'fr' ? 'IA' : 'AI'}
                         </Badge>
                       )}
-                      {conv.lifecycle_stage_id && (() => {
-                        const stage = lifecycleStages.find((s) => s.id === conv.lifecycle_stage_id)
-                        return stage ? (
-                          <Badge
-                            className="h-4 shrink-0 px-1.5 text-[9px] border-0"
-                            style={{ backgroundColor: `${stage.color}15`, color: stage.color }}
-                          >
-                            {stage.name}
-                          </Badge>
-                        ) : null
+                      {/* Étapes de la conversation (multi) — 2 badges visibles + « +N ».
+                          Triées par position (l'ordre défini dans le gestionnaire d'étapes). */}
+                      {(() => {
+                        const convStages = (conversationStages[conv.id] || [])
+                          .slice()
+                          .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+                        return (
+                          <>
+                            {convStages.slice(0, 2).map((stage) => (
+                              <Badge
+                                key={stage.id}
+                                className="h-4 shrink-0 px-1.5 text-[9px] border-0"
+                                style={{ backgroundColor: `${stage.color}15`, color: stage.color }}
+                              >
+                                {stage.name}
+                              </Badge>
+                            ))}
+                            {convStages.length > 2 && (
+                              <span className="shrink-0 text-[9px] text-muted-foreground">+{convStages.length - 2}</span>
+                            )}
+                          </>
+                        )
                       })()}
 
-                      {/* Tags (meme rangee que la meta) — 2 visibles, surplus coupe par overflow */}
-                      {(conversationTags[conv.id] || []).slice(0, 2).map((tag) => (
-                        <span
-                          key={tag.id}
-                          className="inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[9px] font-medium"
-                          style={{ backgroundColor: `${tag.color}15`, color: tag.color }}
-                        >
-                          {tag.name}
-                        </span>
-                      ))}
-                      {(() => {
-                        const total = (conversationTags[conv.id] || []).length
-                        return total > 2 ? (
-                          <span className="shrink-0 text-[9px] text-muted-foreground">+{total - 2}</span>
-                        ) : null
-                      })()}
+                      {/* Sélecteur d'étapes (multi, plafonné à 3) sur la conversation */}
                       <Popover>
                         <PopoverTrigger asChild>
                           <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              if (!conversationTags[conv.id]) onFetchConversationTags(conv.id)
-                            }}
+                            onClick={(e) => e.stopPropagation()}
                             className="inline-flex shrink-0 items-center rounded-full px-1.5 py-0.5 text-[9px] text-muted-foreground hover:bg-muted"
+                            title={t('conversations.stage')}
                           >
-                            <Tag className="h-2.5 w-2.5" />
+                            <Workflow className="h-2.5 w-2.5" />
                           </button>
                         </PopoverTrigger>
                         <PopoverContent
@@ -613,69 +519,40 @@ export function ConversationList({
                           onClick={(e) => e.stopPropagation()}
                         >
                           <div className="space-y-2">
-                            <p className="text-xs font-medium px-1">Tags</p>
-                            <div className="max-h-32 overflow-auto space-y-0.5">
-                              {allTags.map((tag) => {
-                                const isTagSelected = (conversationTags[conv.id] || []).some((t) => t.id === tag.id)
+                            <p className="text-xs font-medium px-1">{t('conversations.stage')}</p>
+                            <div className="max-h-40 overflow-auto space-y-0.5">
+                              {lifecycleStages.map((stage) => {
+                                const current = conversationStages[conv.id] || []
+                                const isSelected = current.some((s) => s.id === stage.id)
+                                const atCap = !isSelected && current.length >= 3
                                 return (
                                   <button
-                                    key={tag.id}
-                                    onClick={() => onToggleTag(conv.id, tag)}
+                                    key={stage.id}
+                                    disabled={atCap}
+                                    onClick={() => onToggleStage(conv.id, stage.id)}
                                     className={cn(
                                       'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-xs transition-colors',
-                                      isTagSelected ? 'bg-muted' : 'hover:bg-muted/50'
+                                      isSelected ? 'bg-muted' : atCap ? 'opacity-40 cursor-not-allowed' : 'hover:bg-muted/50'
                                     )}
                                   >
-                                    <span
-                                      className="h-2.5 w-2.5 rounded-full shrink-0"
-                                      style={{ backgroundColor: tag.color }}
-                                    />
-                                    <span className="flex-1 text-left truncate">{tag.name}</span>
-                                    {isTagSelected && <Check className="h-3 w-3 text-primary" />}
+                                    <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: stage.color }} />
+                                    <span className="flex-1 text-left truncate">{stage.name}</span>
+                                    {isSelected && <Check className="h-3 w-3 text-primary" />}
                                   </button>
                                 )
                               })}
-                              {allTags.length === 0 && (
-                                <p className="text-xs text-muted-foreground py-2 text-center">{t('conversations.no_tags')}</p>
+                              {lifecycleStages.length === 0 && (
+                                <p className="text-xs text-muted-foreground py-2 text-center">{t('conversations.no_stages')}</p>
                               )}
                             </div>
-                            <div className="border-t pt-2 space-y-2">
-                              <div className="flex gap-1">
-                                <Input
-                                  value={newTagName}
-                                  onChange={(e) => setNewTagName(e.target.value)}
-                                  placeholder={t('conversations.new_tag_placeholder')}
-                                  className="h-7 text-xs"
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      e.preventDefault()
-                                      handleCreateTag()
-                                    }
-                                  }}
-                                />
-                                <Button
-                                  size="sm"
-                                  className="h-7 w-7 p-0"
-                                  onClick={handleCreateTag}
-                                  disabled={!newTagName.trim() || creatingTag}
-                                >
-                                  <Plus className="h-3 w-3" />
-                                </Button>
-                              </div>
-                              <div className="flex flex-wrap gap-1">
-                                {TAG_COLORS.map((color) => (
-                                  <button
-                                    key={color}
-                                    onClick={() => setNewTagColor(color)}
-                                    className={cn(
-                                      'h-5 w-5 rounded-full transition-all',
-                                      newTagColor === color ? 'ring-2 ring-offset-1 ring-primary' : 'hover:scale-110'
-                                    )}
-                                    style={{ backgroundColor: color }}
-                                  />
-                                ))}
-                              </div>
-                            </div>
+                            {onManageStages && (
+                              <button
+                                onClick={onManageStages}
+                                className="w-full rounded-md border-t pt-2 text-[11px] text-primary hover:underline"
+                              >
+                                {t('conversations.manage_stages')}
+                              </button>
+                            )}
                           </div>
                         </PopoverContent>
                       </Popover>
