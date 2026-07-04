@@ -231,20 +231,23 @@ export async function findOrdersByCustomer(
           displayFinancialStatus: string | null
           displayFulfillmentStatus: string | null
           totalPriceSet: { shopMoney: { amount: string; currencyCode: string } }
-          fulfillments: { trackingInfo: { number: string | null; url: string | null }[] }[]
+          fulfillments: { displayStatus: string | null; trackingInfo: { number: string | null; url: string | null }[] }[]
         }
       }[]
     }
   }>(
     shop,
     accessToken,
+    // displayStatus = statut de livraison FIN du transporteur (IN_TRANSIT,
+    // OUT_FOR_DELIVERY, DELIVERED…) — rempli seulement si le transporteur pousse
+    // ses événements à Shopify (souvent absent en France → fallback tracking).
     `query($q: String!) {
        orders(first: 5, query: $q, sortKey: CREATED_AT, reverse: true) {
          edges { node {
            id name createdAt
            displayFinancialStatus displayFulfillmentStatus
            totalPriceSet { shopMoney { amount currencyCode } }
-           fulfillments(first: 1) { trackingInfo { number url } }
+           fulfillments(first: 1) { displayStatus trackingInfo { number url } }
          } }
        }
      }`,
@@ -257,6 +260,7 @@ export async function findOrdersByCustomer(
     createdAt: e.node.createdAt,
     financialStatus: e.node.displayFinancialStatus,
     fulfillmentStatus: e.node.displayFulfillmentStatus,
+    deliveryStatus: e.node.fulfillments[0]?.displayStatus || null,
     total: e.node.totalPriceSet.shopMoney.amount,
     currency: e.node.totalPriceSet.shopMoney.currencyCode,
     tracking: e.node.fulfillments[0]?.trackingInfo[0] || null,

@@ -188,7 +188,23 @@ export async function handleTrackOrder(
       : "Aucune commande récente trouvée pour ce client."
   }
 
-  const statusFr = (s: string | null): string => {
+  // Statut de LIVRAISON fin (transporteur), plus précis que le statut
+  // d'expédition Shopify quand il est disponible.
+  const deliveryFr = (s: string | null): string | null => {
+    switch ((s || '').toUpperCase()) {
+      case 'DELIVERED': return 'livrée ✅'
+      case 'OUT_FOR_DELIVERY': return 'en cours de livraison (arrive aujourd\'hui)'
+      case 'IN_TRANSIT': return 'en transit (en route vers le client)'
+      case 'ATTEMPTED_DELIVERY': return 'livraison tentée (le transporteur a essayé de livrer)'
+      case 'FAILURE': return 'problème de livraison signalé'
+      case 'LABEL_PRINTED':
+      case 'READY_FOR_PICKUP': return 'prête, en attente de prise en charge par le transporteur'
+      default: return null // pas d'info fine → on retombe sur le statut d'expédition
+    }
+  }
+
+  // Statut d'EXPÉDITION Shopify (fallback quand le transporteur ne pousse rien).
+  const shipFr = (s: string | null): string => {
     switch ((s || '').toUpperCase()) {
       case 'FULFILLED': return 'expédiée'
       case 'PARTIALLY_FULFILLED': return 'partiellement expédiée'
@@ -200,13 +216,14 @@ export async function handleTrackOrder(
   }
 
   const lines = orders.slice(0, 3).map((o) => {
-    const st = statusFr(o.fulfillmentStatus)
+    // On privilégie le statut de livraison fin s'il existe, sinon l'expédition.
+    const st = deliveryFr(o.deliveryStatus) || shipFr(o.fulfillmentStatus)
     const track = o.tracking?.url ? ` Suivi : ${o.tracking.url}` : o.tracking?.number ? ` N° de suivi : ${o.tracking.number}` : ''
     const date = o.createdAt ? new Date(o.createdAt).toLocaleDateString('fr-FR') : ''
     return `Commande ${o.name}${date ? ` (du ${date})` : ''} : ${st}.${track}`
   })
 
-  return `Voici les informations de suivi (transmets-les clairement au client, donne le lien de suivi tel quel s'il existe, n'invente jamais de date de livraison) :\n${lines.join('\n')}`
+  return `Voici les informations de suivi (transmets-les clairement au client, donne le lien de suivi tel quel s'il existe, n'invente jamais de date de livraison précise — pour la position exacte, invite le client à cliquer le lien de suivi) :\n${lines.join('\n')}`
 }
 
 const ACTION_FN_NAMES = new Set(SHOPIFY_ACTION_TOOLS.map((t) => t.function.name))
