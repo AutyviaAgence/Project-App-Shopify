@@ -812,46 +812,46 @@ function ConversationsPageContent() {
     return <BlobLoaderScreen />
   }
 
-  // Bouton de bascule chat ↔ tableau, ancré en haut à droite au-dessus des vues.
+  // Bouton de bascule chat ↔ tableau. Rendu inline (pas en absolute) : en vue
+  // tableau il est intégré à la barre d'outils, en vue chat il flotte au-dessus
+  // de l'en-tête de la liste (où il y a de la place).
   const viewToggle = (
-    <div className="pointer-events-none absolute right-3 top-3 z-30">
-      <div className="pointer-events-auto inline-flex rounded-lg border bg-background/90 p-0.5 shadow-sm backdrop-blur">
-        <button
-          onClick={() => setViewMode('chat')}
-          className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors ${
-            viewMode === 'chat' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
-          }`}
-          title="Vue messagerie"
-        >
-          <MessageSquare className="h-4 w-4" />
-          <span className="hidden sm:inline">Messagerie</span>
-        </button>
-        <button
-          onClick={() => setViewMode('table')}
-          className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors ${
-            viewMode === 'table' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
-          }`}
-          title="Vue tableau"
-        >
-          <Table2 className="h-4 w-4" />
-          <span className="hidden sm:inline">Tableau</span>
-        </button>
-      </div>
+    <div className="inline-flex rounded-lg border bg-background/90 p-0.5 shadow-sm backdrop-blur">
+      <button
+        onClick={() => setViewMode('chat')}
+        className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors ${
+          viewMode === 'chat' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+        }`}
+        title="Vue messagerie"
+      >
+        <MessageSquare className="h-4 w-4" />
+        <span className="hidden sm:inline">Messagerie</span>
+      </button>
+      <button
+        onClick={() => setViewMode('table')}
+        className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors ${
+          viewMode === 'table' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+        }`}
+        title="Vue tableau"
+      >
+        <Table2 className="h-4 w-4" />
+        <span className="hidden sm:inline">Tableau</span>
+      </button>
     </div>
   )
 
   if (viewMode === 'table') {
     return (
       <div className="relative flex h-full min-h-0 overflow-hidden pb-16 md:pb-0">
-        {viewToggle}
-        <ContactsTableView sessions={sessions} />
+        <ContactsTableView sessions={sessions} toolbarExtra={viewToggle} />
       </div>
     )
   }
 
   return (
     <div className="relative flex h-full min-h-0 overflow-hidden pb-16 md:pb-0">
-      {viewToggle}
+      {/* Toggle flottant en vue chat (l'en-tête de la liste a de la place). */}
+      <div className="absolute right-3 top-3 z-30">{viewToggle}</div>
       <ConversationList
         conversations={conversations}
         pendingActionConvIds={pendingActionConvIds}

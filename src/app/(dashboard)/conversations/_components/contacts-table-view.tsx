@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import { toast } from 'sonner'
 import { ArrowUpDown, ArrowUp, ArrowDown, Download, Search, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -34,8 +34,11 @@ function fmtMoney(v: number, currency: string | null): string {
 
 export function ContactsTableView({
   sessions,
+  toolbarExtra,
 }: {
   sessions: { id: string; instance_name: string; phone_number: string | null }[]
+  /** Élément additionnel affiché à droite de la barre d'outils (ex : bascule de vue). */
+  toolbarExtra?: ReactNode
 }) {
   const [rows, setRows] = useState<ContactTableRow[]>([])
   const [loading, setLoading] = useState(true)
@@ -152,10 +155,11 @@ export function ContactsTableView({
           <span className="text-sm text-muted-foreground">
             {loading ? '…' : `${sorted.length} contact${sorted.length > 1 ? 's' : ''}`}
           </span>
-          <Button size="sm" variant="outline" onClick={handleExport} disabled={exporting || loading || rows.length === 0}>
+          <Button size="sm" onClick={handleExport} disabled={exporting || loading || rows.length === 0}>
             {exporting ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Download className="mr-1.5 h-4 w-4" />}
             Exporter CSV
           </Button>
+          {toolbarExtra}
         </div>
       </div>
 
