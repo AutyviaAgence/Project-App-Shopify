@@ -1,6 +1,7 @@
 'use client'
 
 import { Suspense, useEffect, useState, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
@@ -76,6 +77,9 @@ function ConversationsPageContent() {
   const [profileOpen, setProfileOpen] = useState(false)
   // Bascule d'affichage : messagerie (chat) ↔ tableau exportable des contacts.
   const [viewMode, setViewMode] = useState<'chat' | 'table'>('chat')
+  // Cible du portail : l'emplacement réservé dans la barre du haut globale.
+  const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null)
+  useEffect(() => { setTopbarSlot(document.getElementById('topbar-slot')) }, [])
 
   // Lifecycle stages (= « étapes », l'ancien système de tags a été fusionné ici)
   const [lifecycleStages, setLifecycleStages] = useState<LifecycleStage[]>([])
@@ -812,11 +816,11 @@ function ConversationsPageContent() {
     return <BlobLoaderScreen />
   }
 
-  // Bouton de bascule chat ↔ tableau. Rendu inline (pas en absolute) : en vue
-  // tableau il est intégré à la barre d'outils, en vue chat il flotte au-dessus
-  // de l'en-tête de la liste (où il y a de la place).
+  // Bouton de bascule chat ↔ tableau, rendu dans la barre du haut globale
+  // (emplacement #topbar-slot) via un portail : toujours visible en haut à
+  // droite, jamais recouvert par un panneau.
   const viewToggle = (
-    <div className="inline-flex rounded-lg border bg-background/90 p-0.5 shadow-sm backdrop-blur">
+    <div className="inline-flex rounded-lg border bg-background/90 p-0.5 shadow-sm">
       <button
         onClick={() => setViewMode('chat')}
         className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors ${
@@ -840,18 +844,21 @@ function ConversationsPageContent() {
     </div>
   )
 
+  const portaledToggle = topbarSlot ? createPortal(viewToggle, topbarSlot) : null
+
   if (viewMode === 'table') {
     return (
       <div className="relative flex h-full min-h-0 overflow-hidden pb-16 md:pb-0">
-        <ContactsTableView sessions={sessions} toolbarExtra={viewToggle} />
+        {portaledToggle}
+        <ContactsTableView sessions={sessions} />
       </div>
     )
   }
 
   return (
     <div className="relative flex h-full min-h-0 overflow-hidden pb-16 md:pb-0">
+      {portaledToggle}
       <ConversationList
-        headerExtra={viewToggle}
         conversations={conversations}
         pendingActionConvIds={pendingActionConvIds}
         onNewConversation={() => { setNewConvOpen(true); setNewConvPhone(''); setNewConvTemplate('') }}

@@ -152,6 +152,47 @@ export async function fetchOrderById(
   }
 }
 
+/**
+ * Liste TOUTES les commandes de la boutique (REST, paginé via le header Link).
+ * Sert au backfill de `shopify_orders` : Shopify ne rejoue pas les commandes
+ * antérieures à l'abonnement webhook, donc on les récupère à la demande.
+ *
+ * Retourne les objets commande REST complets (mêmes champs que le webhook
+ * orders/create), directement consommables par persistShopifyOrder.
+ * `max` borne le nombre total récupéré (garde-fou anti-boucle).
+ */
+export async function listAllOrders(
+  shop: string,
+  accessToken: string,
+  max = 2000
+): Promise<{ ok: true; orders: Record<string, unknown>[] } | { ok: false; error: string }> {
+  const orders: Record<string, unknown>[] = []
+  // status=any inclut les commandes annulées/archivées ; 250 = max Shopify.
+  let url: string | null =
+    `https://${shop}/admin/api/${API_VERSION}/orders.json?status=any&limit=250`
+  try {
+    while (url && orders.length < max) {
+      const res: Response = await fetch(url, {
+        headers: { 'X-Shopify-Access-Token': accessToken },
+      })
+      if (!res.ok) {
+        const text = await res.text()
+        return { ok: false, error: `HTTP ${res.status}: ${text}` }
+      }
+      const json = await res.json()
+      if (Array.isArray(json.orders)) orders.push(...json.orders)
+
+      // Pagination cursor : header Link `<...page_info=...>; rel="next"`.
+      const link = res.headers.get('link') || res.headers.get('Link') || ''
+      const match = link.match(/<([^>]+)>;\s*rel="next"/)
+      url = match ? match[1] : null
+    }
+    return { ok: true, orders: orders.slice(0, max) }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Erreur réseau' }
+  }
+}
+
 /** Récupère les infos de base de la boutique (nom, devise, pays, email). */
 export async function fetchShopInfo(shop: string, accessToken: string) {
   return shopifyGraphQL<{ shop: { name: string; email: string; currencyCode: string; billingAddress: { country: string | null } } }>(

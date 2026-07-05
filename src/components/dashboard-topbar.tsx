@@ -53,6 +53,10 @@ export function DashboardTopBar({ onOpenSidebar }: { onOpenSidebar: () => void }
 
       {/* Actions à droite */}
       <div className="flex items-center gap-1.5">
+        {/* Emplacement rempli par la page courante (ex : bascule Messagerie/Tableau
+            dans Conversations) via un portail sur cet id. */}
+        <div id="topbar-slot" className="flex items-center" />
+
         <AlertsDropdown />
 
         <Link
