@@ -27,6 +27,19 @@ ENV NEXT_PUBLIC_POSTHOG_KEY=$NEXT_PUBLIC_POSTHOG_KEY
 ENV NEXT_PUBLIC_POSTHOG_HOST=$NEXT_PUBLIC_POSTHOG_HOST
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# Commit + date de build, écrits dans public/version.json (statique, servi tel
+# quel). Permet de vérifier la version RÉELLEMENT déployée via
+# https://app.xeyo.io/version.json. Dokploy peut passer SOURCE_COMMIT ; sinon on
+# dérive du .git présent dans le contexte (COPY . . l'inclut).
+ARG BUILD_COMMIT
+RUN COMMIT="$BUILD_COMMIT"; \
+    if [ -z "$COMMIT" ] && [ -d .git ]; then \
+      apk add --no-cache git >/dev/null 2>&1 || true; \
+      COMMIT="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"; \
+    fi; \
+    printf '{"commit":"%s","builtAt":"%s"}\n' "${COMMIT:-unknown}" "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > public/version.json; \
+    cat public/version.json
+
 RUN npm run build
 
 # Production image, copy all the files and run next
