@@ -13,6 +13,8 @@ import { useSubscription } from '@/hooks/use-subscription'
 import { ConversationList } from './_components/conversation-list'
 import { ChatArea } from './_components/chat-area'
 import { ShopifyContextPanel } from './_components/shopify-context-panel'
+import { ContactsTableView } from './_components/contacts-table-view'
+import { MessageSquare, Table2 } from 'lucide-react'
 import { track } from '@/lib/posthog/events'
 import type { ConversationWithJoins, Team, Message, AIAgent, LifecycleStage } from './_components/types'
 import { BlobLoaderScreen } from '@/components/blob-loader'
@@ -72,6 +74,8 @@ function ConversationsPageContent() {
   const [newConvSending, setNewConvSending] = useState(false)
   const [agents, setAgents] = useState<AIAgent[]>([])
   const [profileOpen, setProfileOpen] = useState(false)
+  // Bascule d'affichage : messagerie (chat) ↔ tableau exportable des contacts.
+  const [viewMode, setViewMode] = useState<'chat' | 'table'>('chat')
 
   // Lifecycle stages (= « étapes », l'ancien système de tags a été fusionné ici)
   const [lifecycleStages, setLifecycleStages] = useState<LifecycleStage[]>([])
@@ -264,6 +268,7 @@ function ConversationsPageContent() {
       status: 'pending',
       reaction_emoji: null,
       ai_processed: false,
+      read_at: null,
       created_at: new Date().toISOString(),
     }
     setMessages((prev) => [...prev, optimistic])
@@ -379,6 +384,7 @@ function ConversationsPageContent() {
       status: 'pending',
       reaction_emoji: null,
       ai_processed: false,
+      read_at: null,
       created_at: new Date().toISOString(),
     }
     setMessages((prev) => [...prev, optimistic])
@@ -445,6 +451,7 @@ function ConversationsPageContent() {
       status: 'pending',
       reaction_emoji: null,
       ai_processed: false,
+      read_at: null,
       created_at: new Date().toISOString(),
     }
     setMessages((prev) => [...prev, optimistic])
@@ -805,8 +812,46 @@ function ConversationsPageContent() {
     return <BlobLoaderScreen />
   }
 
+  // Bouton de bascule chat ↔ tableau, ancré en haut à droite au-dessus des vues.
+  const viewToggle = (
+    <div className="pointer-events-none absolute right-3 top-3 z-30">
+      <div className="pointer-events-auto inline-flex rounded-lg border bg-background/90 p-0.5 shadow-sm backdrop-blur">
+        <button
+          onClick={() => setViewMode('chat')}
+          className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors ${
+            viewMode === 'chat' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+          }`}
+          title="Vue messagerie"
+        >
+          <MessageSquare className="h-4 w-4" />
+          <span className="hidden sm:inline">Messagerie</span>
+        </button>
+        <button
+          onClick={() => setViewMode('table')}
+          className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors ${
+            viewMode === 'table' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+          }`}
+          title="Vue tableau"
+        >
+          <Table2 className="h-4 w-4" />
+          <span className="hidden sm:inline">Tableau</span>
+        </button>
+      </div>
+    </div>
+  )
+
+  if (viewMode === 'table') {
+    return (
+      <div className="relative flex h-full min-h-0 overflow-hidden pb-16 md:pb-0">
+        {viewToggle}
+        <ContactsTableView sessions={sessions} />
+      </div>
+    )
+  }
+
   return (
-    <div className="flex h-full min-h-0 overflow-hidden pb-16 md:pb-0">
+    <div className="relative flex h-full min-h-0 overflow-hidden pb-16 md:pb-0">
+      {viewToggle}
       <ConversationList
         conversations={conversations}
         pendingActionConvIds={pendingActionConvIds}

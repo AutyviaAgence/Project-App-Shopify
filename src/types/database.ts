@@ -235,6 +235,8 @@ export type Message = {
   status: 'pending' | 'sent' | 'delivered' | 'read' | 'failed'
   reaction_emoji: string | null
   ai_processed: boolean
+  /** Horodatage de l'accusé de lecture WhatsApp (double coche bleue). */
+  read_at: string | null
   created_at: string
 }
 

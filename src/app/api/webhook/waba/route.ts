@@ -162,7 +162,63 @@ export async function POST(req: NextRequest) {
               : status.status === 'sent' ? 'sent'
               : null
 
-            if (waStatus) {
+            if (!waStatus) continue
+
+            // Meta envoie le timestamp du statut en secondes Unix.
+            const statusTs = status.timestamp
+              ? new Date(Number(status.timestamp) * 1000).toISOString()
+              : new Date().toISOString()
+
+            if (waStatus === 'read') {
+              // Pour l'accusé de lecture : on ne l'enregistre (et ne déclenche
+              // l'automation `message_read`) QU'UNE FOIS. read_at IS NULL sert
+              // de garde : le 2e « read » que Meta pourrait renvoyer n'écrit rien
+              // et ne re-déclenche pas. On récupère la ligne pour connaître le
+              // contact à notifier.
+              const { data: updatedRows } = await supabase
+                .from('messages')
+                .update({ status: 'read', read_at: statusTs })
+                .eq('wa_message_id', status.id)
+                .is('read_at', null)
+                .select('id, conversation_id')
+
+              const row = updatedRows?.[0]
+              if (row?.conversation_id && session.user_id) {
+                // conversation → contact (les messages n'ont pas de contact_id)
+                const { data: conv } = await supabase
+                  .from('conversations')
+                  .select('contact_id')
+                  .eq('id', row.conversation_id)
+                  .single()
+
+                if (conv?.contact_id) {
+                  const { data: readContact } = await supabase
+                    .from('contacts')
+                    .select('name')
+                    .eq('id', conv.contact_id)
+                    .single()
+
+                  try {
+                    const { enqueueAutomations } = await import('@/lib/automations/engine')
+                    await enqueueAutomations({
+                      userId: session.user_id,
+                      event: 'message_read',
+                      ctx: {
+                        contactId: conv.contact_id,
+                        variables: {
+                          customer_first_name: (readContact?.name || '').split(' ')[0] || '',
+                          customer_full_name: readContact?.name || '',
+                        },
+                        // idempotence : un message lu ne déclenche qu'une fois
+                        dedupKey: `read:${status.id}`,
+                      },
+                    })
+                  } catch (err) {
+                    console.error('[WABA Webhook] message_read enqueue error:', err)
+                  }
+                }
+              }
+            } else {
               await supabase
                 .from('messages')
                 .update({ status: waStatus })

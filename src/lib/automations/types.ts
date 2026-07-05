@@ -16,6 +16,7 @@ export type TriggerEvent =
   | 'checkout_abandoned'
   | 'contact_opted_in'
   | 'no_customer_reply'
+  | 'message_read'
   | 'scheduled_date'
   | 'customer_birthday'
   | 'button_clicked'
@@ -34,6 +35,7 @@ export const TRIGGER_EVENTS: { value: TriggerEvent; label: string; description: 
   { value: 'contact_opted_in', label: 'Opt-in reçu', description: 'Un client vient de s’abonner sur WhatsApp (case cochée au checkout / page Merci). Idéal pour un message de bienvenue.', group: 'Contact' },
   // Conversation / temps
   { value: 'button_clicked', label: 'Clic sur un bouton', description: 'Le client clique sur un bouton « réponse rapide » d’un message (ex : « Suivre ma commande »).', group: 'Conversation' },
+  { value: 'message_read', label: 'Message lu', description: 'Le client vient de lire un message envoyé (double coche bleue WhatsApp). Idéal pour relancer un lecteur silencieux.', group: 'Conversation' },
   { value: 'no_customer_reply', label: 'Pas de réponse client', description: 'Le client n’a pas répondu depuis un certain temps (relance SAV).', group: 'Conversation' },
   { value: 'scheduled_date', label: 'Date précise', description: 'À une date/heure choisie (campagne planifiée).', group: 'Planifié' },
   { value: 'customer_birthday', label: 'Anniversaire client', description: 'Le jour de l’anniversaire du client (si connu).', group: 'Planifié' },
