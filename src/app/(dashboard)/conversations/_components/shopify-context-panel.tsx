@@ -260,20 +260,7 @@ export function ShopifyContextPanel({ contactId, conversationId, contactName }: 
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex min-w-0 items-center gap-2">
                     <ShoppingBag className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                    {adminUrl ? (
-                      <a
-                        href={adminUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="group/link inline-flex min-w-0 items-center gap-1 truncate text-sm font-semibold tracking-tight hover:text-primary hover:underline"
-                        title="Ouvrir la commande dans Shopify"
-                      >
-                        <span className="truncate">{o.name}</span>
-                        <ExternalLink className="h-3 w-3 shrink-0 opacity-0 transition-opacity group-hover/link:opacity-100" />
-                      </a>
-                    ) : (
-                      <span className="truncate text-sm font-semibold tracking-tight">{o.name}</span>
-                    )}
+                    <span className="truncate text-sm font-semibold tracking-tight">{o.name}</span>
                   </div>
                   <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1', fl.badge)}>{fl.label}</span>
                 </div>
@@ -307,6 +294,17 @@ export function ShopifyContextPanel({ contactId, conversationId, contactName }: 
                       {refund.label}
                     </span>
                   </div>
+                )}
+                {/* Bouton : ouvrir la commande dans l'admin Shopify. */}
+                {adminUrl && (
+                  <a
+                    href={adminUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 flex items-center justify-center gap-1.5 rounded-lg border border-border/60 bg-muted/30 px-2 py-1.5 text-[11px] font-medium text-foreground transition-colors hover:border-primary/40 hover:bg-primary/10 hover:text-primary"
+                  >
+                    <ShoppingBag className="h-3 w-3" /> Voir dans Shopify <ExternalLink className="h-2.5 w-2.5" />
+                  </a>
                 )}
               </div>
             )
