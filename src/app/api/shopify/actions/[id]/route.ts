@@ -18,7 +18,17 @@ export async function PATCH(
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  const { decision } = (await req.json().catch(() => ({}))) as { decision?: 'confirm' | 'reject' }
+  const body = (await req.json().catch(() => ({}))) as {
+    decision?: 'confirm' | 'reject'
+    // Options de remboursement saisies dans le formulaire de validation.
+    refund?: {
+      reason?: string
+      amount?: number
+      method?: 'original' | 'store_credit' | 'both'
+      storeCreditAmount?: number
+    }
+  }
+  const { decision, refund } = body
   if (decision !== 'confirm' && decision !== 'reject') {
     return NextResponse.json({ error: 'Décision invalide' }, { status: 400 })
   }
@@ -26,7 +36,7 @@ export async function PATCH(
   // Vérifier que l'action appartient à l'utilisateur et est en attente
   const { data: action } = await supabase
     .from('shopify_actions')
-    .select('id, status')
+    .select('id, status, action_type, payload')
     .eq('id', id)
     .eq('user_id', user.id)
     .single()
@@ -49,10 +59,22 @@ export async function PATCH(
     return NextResponse.json({ data: { status: 'rejected' } })
   }
 
-  // Confirmer → marquer confirmed puis exécuter
+  // Confirmer → fusionner les options du formulaire dans le payload (motif,
+  // montant, méthode de remboursement), marquer confirmed, puis exécuter.
+  const updates: Record<string, unknown> = {
+    status: 'confirmed', reviewed_by: user.id, reviewed_at: new Date().toISOString(),
+  }
+  if (action.action_type === 'refund_order' && refund) {
+    const payload = { ...(action.payload as Record<string, unknown>) }
+    if (refund.reason != null) payload.reason = refund.reason
+    if (refund.amount != null) payload.refund_amount = refund.amount
+    if (refund.method) payload.refund_method = refund.method
+    if (refund.storeCreditAmount != null) payload.store_credit_amount = refund.storeCreditAmount
+    updates.payload = payload
+  }
   await admin
     .from('shopify_actions')
-    .update({ status: 'confirmed', reviewed_by: user.id, reviewed_at: new Date().toISOString() })
+    .update(updates)
     .eq('id', id)
 
   const result = await executeAction(id)

@@ -464,12 +464,25 @@ export async function getSuggestedRefund(
  * - opts.note : raison (visible dans Shopify)
  * Passe par getSuggestedRefund pour obtenir les transactions requises.
  */
+/** Méthode de remboursement choisie par le marchand. */
+export type RefundMethod = 'original' | 'store_credit' | 'both'
+
 export async function refundOrder(
   shop: string,
   accessToken: string,
   orderId: string,
-  opts?: { note?: string; refundLineItems?: RefundLineItem[]; refundShipping?: boolean; amount?: number }
-): Promise<{ ok: true; data: { refundId: string | null; amount: number; currency: string } } | { ok: false; error: string }> {
+  opts?: {
+    note?: string
+    refundLineItems?: RefundLineItem[]
+    refundShipping?: boolean
+    amount?: number
+    // Méthode : 'original' (moyen de paiement d'origine, défaut), 'store_credit'
+    // (avoir), ou 'both' (part en avoir + reste sur le moyen d'origine).
+    method?: RefundMethod
+    // Pour 'both' : montant à mettre en avoir (le reste part sur l'original).
+    storeCreditAmount?: number
+  }
+): Promise<{ ok: true; data: { refundId: string | null; amount: number; currency: string; method: RefundMethod } } | { ok: false; error: string }> {
   // Remboursement TOTAL (aucun article précisé) : Shopify renvoie un montant
   // suggéré de 0 si on ne lui passe PAS les articles (cas confirmé sur une
   // commande expédiée). On résout donc tous les line items non encore remboursés
@@ -490,23 +503,45 @@ export async function refundOrder(
   if (suggested.transactions.length === 0) return { ok: false, error: 'Aucune transaction remboursable sur cette commande' }
   if (suggested.amount <= 0) return { ok: false, error: 'Cette commande n’a rien à rembourser (déjà remboursée ou montant nul).' }
 
-  // Partiel par montant : on plafonne la 1re transaction au montant demandé.
-  let transactions = suggested.transactions.map((t) => ({
-    orderId,
-    gateway: t.gateway,
-    kind: 'REFUND',
-    parentId: t.parentTransaction.id,
-    amount: t.amount,
-  }))
-  // Partiel PAR MONTANT : remboursement purement monétaire → on ne rattache
-  // AUCUN article (sinon Shopify recalcule sur les articles). Sinon (total ou
-  // partiel par article), on rattache les articles résolus pour tracer/restocker.
+  const method: RefundMethod = opts?.method || 'original'
+  const currency = suggested.currency
+
+  // Montant total effectivement remboursé (plafonné au suggéré).
   const isPartialByAmount = opts?.amount != null && opts.amount > 0 && opts.amount < suggested.amount
-  let effectiveAmount = suggested.amount
-  if (isPartialByAmount) {
-    effectiveAmount = opts!.amount!
-    transactions = [{ ...transactions[0], amount: opts!.amount!.toFixed(2) }]
+  const effectiveAmount = isPartialByAmount ? opts!.amount! : suggested.amount
+
+  // Répartition entre avoir (store credit) et moyen d'origine (transactions).
+  let storeCreditPart = 0
+  let originalPart = effectiveAmount
+  if (method === 'store_credit') {
+    storeCreditPart = effectiveAmount
+    originalPart = 0
+  } else if (method === 'both') {
+    // La part avoir ne peut pas dépasser le total remboursé.
+    storeCreditPart = Math.min(Math.max(0, opts?.storeCreditAmount ?? 0), effectiveAmount)
+    originalPart = Math.round((effectiveAmount - storeCreditPart) * 100) / 100
   }
+
+  // Transactions (part sur le moyen d'origine). Vide si tout en avoir.
+  let transactions: { orderId: string; gateway: string; kind: string; parentId: string; amount: string }[] = []
+  if (originalPart > 0) {
+    transactions = suggested.transactions.map((t) => ({
+      orderId, gateway: t.gateway, kind: 'REFUND', parentId: t.parentTransaction.id, amount: t.amount,
+    }))
+    // Si on ne rembourse qu'une partie sur l'original, plafonner la 1re transaction.
+    if (originalPart < suggested.amount) {
+      transactions = [{ ...transactions[0], amount: originalPart.toFixed(2) }]
+    }
+  }
+
+  // refundMethods : la part en avoir (store credit). Nécessite que la boutique
+  // ait le store credit activé (sinon Shopify renvoie une userError explicite).
+  const refundMethods = storeCreditPart > 0
+    ? [{ storeCreditRefund: { amount: { amount: storeCreditPart.toFixed(2), currencyCode: currency } } }]
+    : undefined
+
+  // Un remboursement par montant pur (ou tout en avoir) ne rattache pas d'article.
+  const attachLineItems = !isPartialByAmount && method !== 'store_credit'
 
   const res = await shopifyGraphQL<{ refundCreate: { userErrors: { message: string }[]; refund: { id: string } | null } }>(
     shop,
@@ -519,17 +554,18 @@ export async function refundOrder(
         orderId,
         note: opts?.note || 'Remboursement validé via Xeyo',
         notify: true,
-        refundLineItems: isPartialByAmount
-          ? undefined
-          : refundLineItems?.map((li) => ({ lineItemId: li.lineItemId, quantity: li.quantity, restockType: 'NO_RESTOCK' })),
-        transactions,
+        refundLineItems: attachLineItems
+          ? refundLineItems?.map((li) => ({ lineItemId: li.lineItemId, quantity: li.quantity, restockType: 'NO_RESTOCK' }))
+          : undefined,
+        transactions: transactions.length > 0 ? transactions : undefined,
+        refundMethods,
       },
     }
   )
   if (!res.ok) return { ok: false, error: res.error }
   const errs = res.data.refundCreate.userErrors
   if (errs && errs.length > 0) return { ok: false, error: errs.map((e) => e.message).join(', ') }
-  return { ok: true, data: { refundId: res.data.refundCreate.refund?.id ?? null, amount: effectiveAmount, currency: suggested.currency } }
+  return { ok: true, data: { refundId: res.data.refundCreate.refund?.id ?? null, amount: effectiveAmount, currency, method } }
 }
 
 /**

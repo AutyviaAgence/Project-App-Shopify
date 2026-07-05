@@ -134,8 +134,15 @@ export async function executeAction(actionId: string): Promise<{ ok: boolean; er
               .filter((x): x is RefundLineItem => x !== null)
           }
         }
-        const amount = refundType === 'partial_amount' && payload.amount != null ? Number(payload.amount) : undefined
-        result = await refundOrder(shop, token, orderId, { note, refundLineItems, amount })
+        // Montant : soit un montant explicite saisi à la validation
+        // (refund_amount), soit le montant partiel de la demande initiale.
+        const amount = payload.refund_amount != null
+          ? Number(payload.refund_amount)
+          : (refundType === 'partial_amount' && payload.amount != null ? Number(payload.amount) : undefined)
+        // Méthode choisie à la validation (défaut : moyen d'origine).
+        const method = (payload.refund_method as 'original' | 'store_credit' | 'both' | undefined) || 'original'
+        const storeCreditAmount = payload.store_credit_amount != null ? Number(payload.store_credit_amount) : undefined
+        result = await refundOrder(shop, token, orderId, { note, refundLineItems, amount, method, storeCreditAmount })
       }
     } else if (action.action_type === 'create_discount') {
       result = await createDiscountCode(shop, token, {
