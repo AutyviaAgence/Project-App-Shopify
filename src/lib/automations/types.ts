@@ -9,6 +9,7 @@ export type TriggerEvent =
   | 'order_created'
   | 'order_paid'
   | 'order_fulfilled'
+  | 'order_delivered'
   | 'order_cancelled'
   | 'refund_created'
   | 'return_requested'
@@ -24,6 +25,7 @@ export const TRIGGER_EVENTS: { value: TriggerEvent; label: string; description: 
   { value: 'order_created', label: 'Commande créée', description: 'Dès qu’une commande est passée.', group: 'Commande' },
   { value: 'order_paid', label: 'Commande payée', description: 'Quand le paiement est confirmé.', group: 'Commande' },
   { value: 'order_fulfilled', label: 'Commande expédiée', description: 'Quand la commande est expédiée (suivi disponible).', group: 'Commande' },
+  { value: 'order_delivered', label: 'Commande livrée', description: 'Quand le colis est livré au client (si le transporteur transmet l’info à Shopify).', group: 'Commande' },
   { value: 'order_cancelled', label: 'Commande annulée', description: 'Quand une commande est annulée.', group: 'Commande' },
   { value: 'refund_created', label: 'Remboursement', description: 'Quand un remboursement est émis.', group: 'Commande' },
   { value: 'return_requested', label: 'Demande de retour', description: 'Quand un client ouvre une demande de retour (SAV).', group: 'Commande' },

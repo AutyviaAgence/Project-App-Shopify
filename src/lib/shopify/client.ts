@@ -169,6 +169,9 @@ export async function registerWebhooks(shop: string, accessToken: string): Promi
   const { appUrl } = getShopifyConfig()
   const subscriptions: { topic: string; path: string }[] = [
     { topic: 'ORDERS_FULFILLED', path: '/api/shopify/webhooks/orders-fulfilled' },
+    // Livraison : fulfillment_events (statut du colis chez le transporteur) →
+    // on filtre le statut 'delivered' pour émettre order_delivered.
+    { topic: 'FULFILLMENT_EVENTS_CREATE', path: '/api/shopify/webhooks/fulfillment-events' },
     // Événements d'automatisation
     { topic: 'ORDERS_CREATE', path: '/api/shopify/webhooks/orders' },
     { topic: 'ORDERS_PAID', path: '/api/shopify/webhooks/orders' },

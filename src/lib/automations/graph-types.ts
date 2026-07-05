@@ -146,8 +146,9 @@ Un workflow est un objet JSON { "nodes": [...], "edges": [...] }.
 
 NŒUDS (nodes) — chaque nœud a un "id" unique (string) et un "type" :
 - trigger   : { id, type:"trigger", event } — déclencheur Shopify. event ∈
-              order_created | order_paid | order_fulfilled | order_cancelled |
-              refund_created | checkout_abandoned. UN SEUL trigger par workflow.
+              order_created | order_paid | order_fulfilled | order_delivered |
+              order_cancelled | refund_created | checkout_abandoned. UN SEUL
+              trigger par workflow.
 - delay     : { id, type:"delay", minutes } — attente (minutes, 0 = immédiat).
 - condition : { id, type:"condition", rule:{ field, op, value }, label? }
               field ∈ order_total | is_first_order | product_contains |
