@@ -11,8 +11,25 @@ type Order = {
   financialStatus: string | null
   fulfillmentStatus: string | null
   total: string
+  totalRefunded?: string
   currency: string
   tracking: { number: string | null; url: string | null } | null
+}
+
+/** Statut de remboursement calculé depuis Shopify (montant remboursé vs total). */
+function refundInfo(o: Order): { label: string; badge: string } | null {
+  const total = Number(o.total) || 0
+  const refunded = Number(o.totalRefunded) || 0
+  if (refunded <= 0) return null
+  const full = refunded >= total - 0.001
+  return {
+    label: full
+      ? `Remboursée (${refunded.toFixed(2)} ${o.currency})`
+      : `Remboursé ${refunded.toFixed(2)} / ${total.toFixed(2)} ${o.currency}`,
+    badge: full
+      ? 'text-rose-500 bg-rose-500/15 ring-rose-500/30'
+      : 'text-amber-500 bg-amber-500/15 ring-amber-500/30',
+  }
 }
 
 type Data = { connected: boolean; orders: Order[]; error?: string }
@@ -225,6 +242,7 @@ export function ShopifyContextPanel({ contactId, conversationId, contactName }: 
         ) : (
           data.orders.map((o) => {
             const fl = fulfillmentLabel(o.fulfillmentStatus)
+            const refund = refundInfo(o)
             return (
               <div
                 key={o.id}
@@ -258,6 +276,16 @@ export function ShopifyContextPanel({ contactId, conversationId, contactName }: 
                     </a>
                   )}
                 </div>
+                {/* Statut de remboursement (source Shopify : marche aussi pour un
+                    remboursement fait directement dans l'admin Shopify). */}
+                {refund && (
+                  <div className="mt-1.5 flex items-center gap-1.5">
+                    <RotateCcw className="h-3 w-3 shrink-0 text-amber-500" />
+                    <span className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1', refund.badge)}>
+                      {refund.label}
+                    </span>
+                  </div>
+                )}
               </div>
             )
           })

@@ -275,6 +275,7 @@ export async function findOrdersByCustomer(
           displayFinancialStatus: string | null
           displayFulfillmentStatus: string | null
           totalPriceSet: { shopMoney: { amount: string; currencyCode: string } }
+          totalRefundedSet: { shopMoney: { amount: string } }
           fulfillments: { displayStatus: string | null; trackingInfo: { number: string | null; url: string | null }[] }[]
         }
       }[]
@@ -285,12 +286,15 @@ export async function findOrdersByCustomer(
     // displayStatus = statut de livraison FIN du transporteur (IN_TRANSIT,
     // OUT_FOR_DELIVERY, DELIVERED…) — rempli seulement si le transporteur pousse
     // ses événements à Shopify (souvent absent en France → fallback tracking).
+    // totalRefundedSet = montant déjà remboursé (source de vérité Shopify, que le
+    // remboursement ait été fait via l'app OU directement dans l'admin Shopify).
     `query($q: String!) {
        orders(first: 5, query: $q, sortKey: CREATED_AT, reverse: true) {
          edges { node {
            id name createdAt
            displayFinancialStatus displayFulfillmentStatus
            totalPriceSet { shopMoney { amount currencyCode } }
+           totalRefundedSet { shopMoney { amount } }
            fulfillments(first: 1) { displayStatus trackingInfo { number url } }
          } }
        }
@@ -306,6 +310,7 @@ export async function findOrdersByCustomer(
     fulfillmentStatus: e.node.displayFulfillmentStatus,
     deliveryStatus: e.node.fulfillments[0]?.displayStatus || null,
     total: e.node.totalPriceSet.shopMoney.amount,
+    totalRefunded: e.node.totalRefundedSet?.shopMoney?.amount || '0',
     currency: e.node.totalPriceSet.shopMoney.currencyCode,
     tracking: e.node.fulfillments[0]?.trackingInfo[0] || null,
   }))
