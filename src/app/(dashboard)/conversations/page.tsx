@@ -850,9 +850,8 @@ function ConversationsPageContent() {
 
   return (
     <div className="relative flex h-full min-h-0 overflow-hidden pb-16 md:pb-0">
-      {/* Toggle flottant en vue chat (l'en-tête de la liste a de la place). */}
-      <div className="absolute right-3 top-3 z-30">{viewToggle}</div>
       <ConversationList
+        headerExtra={viewToggle}
         conversations={conversations}
         pendingActionConvIds={pendingActionConvIds}
         onNewConversation={() => { setNewConvOpen(true); setNewConvPhone(''); setNewConvTemplate('') }}

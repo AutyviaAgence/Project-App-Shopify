@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -69,6 +69,8 @@ interface ConversationListProps {
   onSetFilterLifecycleStage: (value: string) => void
   onToggleStage: (convId: string, stageId: string) => void
   onManageStages?: () => void
+  /** Élément affiché dans l'en-tête (ex : bascule Messagerie/Tableau). */
+  headerExtra?: ReactNode
 }
 
 export function ConversationList({
@@ -100,6 +102,7 @@ export function ConversationList({
   onSetFilterLifecycleStage,
   onToggleStage,
   onManageStages,
+  headerExtra,
 }: ConversationListProps) {
   const { t, locale } = useTranslation()
   const [showFilters, setShowFilters] = useState(false)
@@ -174,6 +177,9 @@ export function ConversationList({
     >
       {/* Search header */}
       <div data-tour="conversations-header" className="p-3 space-y-3">
+        {headerExtra && (
+          <div className="flex justify-end">{headerExtra}</div>
+        )}
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
