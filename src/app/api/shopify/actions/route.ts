@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
   const conversationId = req.nextUrl.searchParams.get('conversation_id')
   let query = supabase
     .from('shopify_actions')
-    .select('id, conversation_id, contact_id, action_type, payload, summary, status, error_message, created_at, executed_at')
+    .select('id, conversation_id, contact_id, action_type, payload, result, summary, status, error_message, created_at, executed_at')
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
     .limit(100)

@@ -45,6 +45,10 @@ type ActionItem = {
   action_type: 'cancel_order' | 'refund_order' | 'create_discount'
   summary: string | null
   status: 'pending' | 'confirmed' | 'rejected' | 'executed' | 'failed'
+  // Résultat réel après exécution (montant vraiment remboursé pour un refund).
+  result: { amount?: number; currency?: string; refundId?: string } | null
+  // Payload de la demande (contient le montant estimé + refund_auto le cas échéant).
+  payload?: { amount_estimated?: number; currency?: string; refund_auto?: boolean } | null
   created_at: string
 }
 const ACTION_META: Record<ActionItem['action_type'], { label: string; icon: typeof Ban; cls: string }> = {
@@ -180,6 +184,11 @@ export function ShopifyContextPanel({ contactId, conversationId, contactName }: 
                   <div className="flex items-center gap-2">
                     <Icon className={cn('h-4 w-4', meta.cls)} />
                     <span className="text-sm font-medium">{meta.label}</span>
+                    {a.payload?.refund_auto && (
+                      <span className="rounded-full bg-violet-500/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-violet-600 dark:text-violet-400">
+                        Auto IA
+                      </span>
+                    )}
                     <span className={cn('ml-auto flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium', st.cls)}>
                       {a.status === 'executed' && <Check className="h-2.5 w-2.5" />}
                       {a.status === 'rejected' && <X className="h-2.5 w-2.5" />}
@@ -187,6 +196,13 @@ export function ShopifyContextPanel({ contactId, conversationId, contactName }: 
                     </span>
                   </div>
                   {a.summary && <p className="mt-1 text-xs text-muted-foreground">{a.summary}</p>}
+                  {/* Montant RÉELLEMENT remboursé (source de vérité, ≠ estimé) une
+                      fois l'action exécutée. */}
+                  {a.action_type === 'refund_order' && a.status === 'executed' && a.result?.amount != null && (
+                    <p className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">
+                      Remboursé : {Number(a.result.amount).toFixed(2)} {a.result.currency || ''}
+                    </p>
+                  )}
                   <p className="mt-1 text-[11px] text-muted-foreground/70">{new Date(a.created_at).toLocaleString('fr-FR')}</p>
                 </div>
               )
