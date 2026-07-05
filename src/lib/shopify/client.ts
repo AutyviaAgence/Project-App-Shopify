@@ -470,12 +470,25 @@ export async function refundOrder(
   orderId: string,
   opts?: { note?: string; refundLineItems?: RefundLineItem[]; refundShipping?: boolean; amount?: number }
 ): Promise<{ ok: true; data: { refundId: string | null; amount: number; currency: string } } | { ok: false; error: string }> {
+  // Remboursement TOTAL (aucun article précisé) : Shopify renvoie un montant
+  // suggéré de 0 si on ne lui passe PAS les articles (cas confirmé sur une
+  // commande expédiée). On résout donc tous les line items non encore remboursés
+  // et on les passe à suggestedRefund, sinon le remboursement total échouerait.
+  let refundLineItems = opts?.refundLineItems
+  if (!refundLineItems || refundLineItems.length === 0) {
+    const refundable = await getRefundableOrder(shop, accessToken, orderId)
+    if (refundable && refundable.lineItems.length > 0) {
+      refundLineItems = refundable.lineItems.map((li) => ({ lineItemId: li.id, quantity: li.quantity }))
+    }
+  }
+
   const suggested = await getSuggestedRefund(shop, accessToken, orderId, {
-    refundLineItems: opts?.refundLineItems,
+    refundLineItems,
     refundShipping: opts?.refundShipping,
   })
   if (!suggested) return { ok: false, error: 'Impossible de calculer le remboursement (commande introuvable ou non remboursable)' }
   if (suggested.transactions.length === 0) return { ok: false, error: 'Aucune transaction remboursable sur cette commande' }
+  if (suggested.amount <= 0) return { ok: false, error: 'Cette commande n’a rien à rembourser (déjà remboursée ou montant nul).' }
 
   // Partiel par montant : on plafonne la 1re transaction au montant demandé.
   let transactions = suggested.transactions.map((t) => ({
@@ -485,10 +498,14 @@ export async function refundOrder(
     parentId: t.parentTransaction.id,
     amount: t.amount,
   }))
+  // Partiel PAR MONTANT : remboursement purement monétaire → on ne rattache
+  // AUCUN article (sinon Shopify recalcule sur les articles). Sinon (total ou
+  // partiel par article), on rattache les articles résolus pour tracer/restocker.
+  const isPartialByAmount = opts?.amount != null && opts.amount > 0 && opts.amount < suggested.amount
   let effectiveAmount = suggested.amount
-  if (opts?.amount != null && opts.amount > 0 && opts.amount < suggested.amount) {
-    effectiveAmount = opts.amount
-    transactions = [{ ...transactions[0], amount: opts.amount.toFixed(2) }]
+  if (isPartialByAmount) {
+    effectiveAmount = opts!.amount!
+    transactions = [{ ...transactions[0], amount: opts!.amount!.toFixed(2) }]
   }
 
   const res = await shopifyGraphQL<{ refundCreate: { userErrors: { message: string }[]; refund: { id: string } | null } }>(
@@ -502,7 +519,9 @@ export async function refundOrder(
         orderId,
         note: opts?.note || 'Remboursement validé via Xeyo',
         notify: true,
-        refundLineItems: opts?.refundLineItems?.map((li) => ({ lineItemId: li.lineItemId, quantity: li.quantity, restockType: 'NO_RESTOCK' })) ?? undefined,
+        refundLineItems: isPartialByAmount
+          ? undefined
+          : refundLineItems?.map((li) => ({ lineItemId: li.lineItemId, quantity: li.quantity, restockType: 'NO_RESTOCK' })),
         transactions,
       },
     }

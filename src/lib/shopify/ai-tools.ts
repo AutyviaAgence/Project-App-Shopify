@@ -320,10 +320,28 @@ export async function resolveRefundForOrder(
         })
         .filter((x): x is RefundLineItem => x !== null)
     }
+  } else if (refundType !== 'partial_amount') {
+    // Remboursement TOTAL : Shopify renvoie 0 si on n'envoie pas les articles.
+    // On résout donc tous les line items de la commande pour l'estimation.
+    const order = await getRefundableOrder(store.shop, store.token, orderId)
+    if (order && order.lineItems.length > 0) {
+      refundLineItems = order.lineItems.map((li) => ({ lineItemId: li.id, quantity: li.quantity }))
+    }
   }
 
-  const suggested = await getSuggestedRefund(store.shop, store.token, orderId, { refundLineItems })
+  // Pour l'estimation par montant, on demande le suggestedRefund TOTAL (avec
+  // articles) puis on plafonne au montant voulu ci-dessous.
+  let suggestLineItems = refundLineItems
+  if (refundType === 'partial_amount') {
+    const order = await getRefundableOrder(store.shop, store.token, orderId)
+    if (order && order.lineItems.length > 0) {
+      suggestLineItems = order.lineItems.map((li) => ({ lineItemId: li.id, quantity: li.quantity }))
+    }
+  }
+
+  const suggested = await getSuggestedRefund(store.shop, store.token, orderId, { refundLineItems: suggestLineItems })
   if (!suggested) return null
+  if (suggested.amount <= 0) return null
 
   // Partiel par montant : plafonner au montant demandé (sans dépasser le suggéré).
   let amount = suggested.amount
