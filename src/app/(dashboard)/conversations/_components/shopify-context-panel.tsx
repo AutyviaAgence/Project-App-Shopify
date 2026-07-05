@@ -32,7 +32,15 @@ function refundInfo(o: Order): { label: string; badge: string } | null {
   }
 }
 
-type Data = { connected: boolean; orders: Order[]; error?: string }
+type Data = { connected: boolean; orders: Order[]; error?: string; shopDomain?: string }
+
+/** Lien direct vers la commande dans l'admin Shopify (id gid → numérique). */
+function orderAdminUrl(shopDomain: string | undefined, orderId: string): string | null {
+  if (!shopDomain) return null
+  const numeric = orderId.split('/').pop() // gid://shopify/Order/12345 → 12345
+  if (!numeric) return null
+  return `https://${shopDomain}/admin/orders/${numeric}`
+}
 
 /** Traduit le statut de livraison Shopify en libellé FR + style du badge. */
 function fulfillmentLabel(s: string | null): { label: string; badge: string } {
@@ -243,6 +251,7 @@ export function ShopifyContextPanel({ contactId, conversationId, contactName }: 
           data.orders.map((o) => {
             const fl = fulfillmentLabel(o.fulfillmentStatus)
             const refund = refundInfo(o)
+            const adminUrl = orderAdminUrl(data.shopDomain, o.id)
             return (
               <div
                 key={o.id}
@@ -251,7 +260,20 @@ export function ShopifyContextPanel({ contactId, conversationId, contactName }: 
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex min-w-0 items-center gap-2">
                     <ShoppingBag className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                    <span className="truncate text-sm font-semibold tracking-tight">{o.name}</span>
+                    {adminUrl ? (
+                      <a
+                        href={adminUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group/link inline-flex min-w-0 items-center gap-1 truncate text-sm font-semibold tracking-tight hover:text-primary hover:underline"
+                        title="Ouvrir la commande dans Shopify"
+                      >
+                        <span className="truncate">{o.name}</span>
+                        <ExternalLink className="h-3 w-3 shrink-0 opacity-0 transition-opacity group-hover/link:opacity-100" />
+                      </a>
+                    ) : (
+                      <span className="truncate text-sm font-semibold tracking-tight">{o.name}</span>
+                    )}
                   </div>
                   <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ring-1', fl.badge)}>{fl.label}</span>
                 </div>

@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
   })
 
   if (!result.ok) {
-    return NextResponse.json({ data: { connected: true, orders: [], error: result.error } })
+    return NextResponse.json({ data: { connected: true, orders: [], error: result.error, shopDomain: store.shop_domain } })
   }
-  return NextResponse.json({ data: { connected: true, orders: result.data } })
+  return NextResponse.json({ data: { connected: true, orders: result.data, shopDomain: store.shop_domain } })
 }
