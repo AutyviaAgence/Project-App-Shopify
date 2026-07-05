@@ -479,46 +479,72 @@ export function ConversationList({
                         </Badge>
                       )}
                       {/* Étapes de la conversation (multi) — 2 badges visibles + « +N ».
-                          Triées par position (l'ordre défini dans le gestionnaire d'étapes). */}
-                      {(() => {
-                        const convStages = (conversationStages[conv.id] || [])
-                          .slice()
-                          .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
-                        return (
-                          <>
-                            {convStages.slice(0, 2).map((stage) => (
-                              <Badge
-                                key={stage.id}
-                                className="h-4 shrink-0 px-1.5 text-[9px] border-0"
-                                style={{ backgroundColor: `${stage.color}15`, color: stage.color }}
-                              >
-                                {stage.name}
-                              </Badge>
-                            ))}
-                            {convStages.length > 2 && (
-                              <span className="shrink-0 text-[9px] text-muted-foreground">+{convStages.length - 2}</span>
-                            )}
-                          </>
-                        )
-                      })()}
-
-                      {/* Sélecteur d'étapes (multi, plafonné à 3) sur la conversation */}
+                          CLIQUABLES : ouvrir le sélecteur qui montre TOUTES les étapes
+                          (les cochées = celles de la conversation) + ajout/retrait.
+                          Triées par position (l'ordre du gestionnaire d'étapes). */}
                       <Popover>
-                        <PopoverTrigger asChild>
-                          <button
-                            onClick={(e) => e.stopPropagation()}
-                            className="inline-flex shrink-0 items-center rounded-full px-1.5 py-0.5 text-[9px] text-muted-foreground hover:bg-muted"
-                            title={t('conversations.stage')}
-                          >
-                            <Workflow className="h-2.5 w-2.5" />
-                          </button>
-                        </PopoverTrigger>
+                        {(() => {
+                          const convStages = (conversationStages[conv.id] || [])
+                            .slice()
+                            .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+                          return (
+                            <PopoverTrigger asChild>
+                              <button
+                                onClick={(e) => e.stopPropagation()}
+                                className="flex min-w-0 shrink items-center gap-x-1.5 rounded-md hover:bg-muted/60"
+                                title={t('conversations.stage')}
+                              >
+                                {convStages.slice(0, 2).map((stage) => (
+                                  <Badge
+                                    key={stage.id}
+                                    className="h-4 shrink-0 px-1.5 text-[9px] border-0"
+                                    style={{ backgroundColor: `${stage.color}15`, color: stage.color }}
+                                  >
+                                    {stage.name}
+                                  </Badge>
+                                ))}
+                                {convStages.length > 2 && (
+                                  <span className="shrink-0 rounded-full bg-muted px-1.5 text-[9px] font-medium text-muted-foreground">
+                                    +{convStages.length - 2}
+                                  </span>
+                                )}
+                                {/* Icône d'ajout (toujours visible, même sans étape) */}
+                                <span className="inline-flex shrink-0 items-center rounded-full px-1 py-0.5 text-[9px] text-muted-foreground">
+                                  <Workflow className="h-2.5 w-2.5" />
+                                </span>
+                              </button>
+                            </PopoverTrigger>
+                          )
+                        })()}
                         <PopoverContent
-                          className="w-52 p-2"
+                          className="w-56 p-2"
                           align="start"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <div className="space-y-2">
+                            {/* Étapes ACTUELLES de la conversation (récap en haut). */}
+                            {(() => {
+                              const current = (conversationStages[conv.id] || [])
+                                .slice()
+                                .sort((a, b) => (a.position ?? 0) - (b.position ?? 0))
+                              if (current.length === 0) return null
+                              return (
+                                <div className="flex flex-wrap gap-1 border-b pb-2">
+                                  {current.map((stage) => (
+                                    <button
+                                      key={stage.id}
+                                      onClick={() => onToggleStage(conv.id, stage.id)}
+                                      className="group/tag inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px] font-medium"
+                                      style={{ backgroundColor: `${stage.color}20`, color: stage.color }}
+                                      title="Retirer cette étape"
+                                    >
+                                      {stage.name}
+                                      <X className="h-2.5 w-2.5 opacity-50 group-hover/tag:opacity-100" />
+                                    </button>
+                                  ))}
+                                </div>
+                              )
+                            })()}
                             <p className="text-xs font-medium px-1">{t('conversations.stage')}</p>
                             <div className="max-h-40 overflow-auto space-y-0.5">
                               {lifecycleStages.map((stage) => {
