@@ -12,8 +12,8 @@ const API_VERSION = '2026-04'
 export function getShopifyConfig() {
   const apiKey = process.env.SHOPIFY_API_KEY
   const apiSecret = process.env.SHOPIFY_API_SECRET
-  // write_orders : requis pour refundCreate/orderCancel (remboursements & annulations).
-  const scopes = process.env.SHOPIFY_SCOPES || 'read_products,read_content,read_orders,write_orders,read_customers,read_returns,read_legal_policies'
+  // write_orders : refundCreate/orderCancel · read_fulfillments : webhook livraison (FULFILLMENT_EVENTS_CREATE)
+  const scopes = process.env.SHOPIFY_SCOPES || 'read_products,read_content,read_orders,write_orders,read_customers,read_returns,read_legal_policies,read_fulfillments'
   const appUrl = process.env.SHOPIFY_APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://app.xeyo.io'
   return { apiKey, apiSecret, scopes, appUrl }
 }
