@@ -243,6 +243,7 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction }: {
   onPatch: (id: string, p: Partial<WorkflowNode>) => void; onDelete: () => void; onSelectAction: (t: string | null) => void
 }) {
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [pickerCat, setPickerCat] = useState<string>('all')
   if (node.type !== 'action') return null
   const selected = templates.find((t) => t.id === node.templateId) || null
   const badge = (t: WhatsAppTemplate) =>
@@ -267,30 +268,70 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction }: {
                 <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
               </button>
             </PopoverTrigger>
-            <PopoverContent align="start" className="max-h-[420px] w-[320px] overflow-y-auto p-2">
+            <PopoverContent
+              align="start"
+              className="w-[420px] max-w-[92vw] overscroll-contain p-2"
+              onWheel={(e) => e.stopPropagation()}
+            >
               <p className="px-1 pb-2 pt-1 text-[11px] font-medium text-muted-foreground">Choisir un modèle</p>
-              <div className="space-y-2">
-                {templates.map((t) => {
-                  const isSel = t.id === node.templateId
-                  return (
-                    <button
-                      key={t.id}
-                      onClick={() => { onPatch(node.id, { templateId: t.id } as never); onSelectAction(t.id); setPickerOpen(false) }}
-                      className={cn(
-                        'block w-full rounded-xl border p-2 text-left transition-colors',
-                        isSel ? 'border-primary/50 bg-primary/5 ring-1 ring-primary/30' : 'border-border hover:border-foreground/30 hover:bg-muted/40'
-                      )}
-                    >
-                      <div className="mb-1 flex items-center justify-between gap-2">
-                        <span className="truncate text-xs font-medium">{t.name}</span>
-                        <span className="shrink-0 text-[10px] text-muted-foreground">{badge(t)}</span>
-                      </div>
-                      <div className="pointer-events-none origin-top-left scale-[0.92]">
-                        <TemplateBubble template={t} labels={labelsFor(t)} />
-                      </div>
-                    </button>
-                  )
-                })}
+
+              {/* Filtre par catégorie (puces) */}
+              {(() => {
+                const CATS: { key: string; label: string }[] = [
+                  { key: 'all', label: 'Tous' },
+                  { key: 'order_status', label: 'Commande' },
+                  { key: 'cart', label: 'Panier' },
+                  { key: 'marketing', label: 'Marketing' },
+                  { key: 'support', label: 'SAV' },
+                  { key: 'billing', label: 'Facturation' },
+                ]
+                // On n'affiche que les catégories qui ont au moins un modèle.
+                const present = new Set(templates.map((t) => (t as { use_case?: string }).use_case || 'other'))
+                const cats = CATS.filter((c) => c.key === 'all' || present.has(c.key))
+                return (
+                  <div className="mb-2 flex flex-wrap gap-1">
+                    {cats.map((c) => (
+                      <button key={c.key} onClick={() => setPickerCat(c.key)}
+                        className={cn('rounded-full px-2.5 py-1 text-[11px] transition-colors',
+                          pickerCat === c.key ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground')}>
+                        {c.label}
+                      </button>
+                    ))}
+                  </div>
+                )
+              })()}
+
+              {/* Bulles en défilement HORIZONTAL (le scroll reste dans la galerie). */}
+              <div
+                className="flex gap-2 overflow-x-auto overscroll-contain pb-1 [scrollbar-width:thin]"
+                onWheel={(e) => {
+                  // Convertit le scroll vertical de la molette en scroll horizontal.
+                  if (e.deltaY !== 0) { e.currentTarget.scrollLeft += e.deltaY; e.stopPropagation() }
+                }}
+              >
+                {templates
+                  .filter((t) => pickerCat === 'all' || (t as { use_case?: string }).use_case === pickerCat)
+                  .map((t) => {
+                    const isSel = t.id === node.templateId
+                    return (
+                      <button
+                        key={t.id}
+                        onClick={() => { onPatch(node.id, { templateId: t.id } as never); onSelectAction(t.id); setPickerOpen(false) }}
+                        className={cn(
+                          'w-[180px] shrink-0 rounded-xl border p-2 text-left transition-colors',
+                          isSel ? 'border-primary/50 bg-primary/5 ring-1 ring-primary/30' : 'border-border hover:border-foreground/30 hover:bg-muted/40'
+                        )}
+                      >
+                        <div className="mb-1 flex items-center justify-between gap-2">
+                          <span className="truncate text-xs font-medium">{t.name}</span>
+                          <span className="shrink-0 text-[10px] text-muted-foreground">{badge(t)}</span>
+                        </div>
+                        <div className="pointer-events-none origin-top-left scale-[0.82]">
+                          <TemplateBubble template={t} labels={labelsFor(t)} />
+                        </div>
+                      </button>
+                    )
+                  })}
               </div>
             </PopoverContent>
           </Popover>
