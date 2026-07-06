@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { track } from '@/lib/posthog/events'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Plus, Loader2, Trash2, Workflow, Power, GitBranch, ChevronLeft, ChevronRight, Folder, FolderPlus, GripVertical } from 'lucide-react'
+import { Plus, Loader2, Trash2, Workflow, Power, GitBranch, ChevronLeft, ChevronRight, Folder, FolderPlus, GripVertical, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BlobLoaderScreen } from '@/components/blob-loader'
 import type { WhatsAppTemplate } from '@/types/database'
@@ -36,6 +36,11 @@ export default function AutomationsPage() {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [showWizard, setShowWizard] = useState(false)
+  // Écran de choix « Guidé (wizard) ou Manuel (builder) » avant la création.
+  const [showChoose, setShowChoose] = useState(false)
+  // Saisie inline du nom de dossier (au lieu d'un window.prompt).
+  const [creatingFolder, setCreatingFolder] = useState(false)
+  const [newFolderName, setNewFolderName] = useState('')
   // Dossier survolé pendant un drag (surbrillance) + workflow en cours de drag.
   const [dragOverFolder, setDragOverFolder] = useState<string | null | 'none'>(null)
 
@@ -62,16 +67,16 @@ export default function AutomationsPage() {
     }
   }, [])
 
-  // Créer un dossier (prompt simple pour le nom).
+  // Créer un dossier depuis la saisie inline (nom déjà tapé dans la sidebar).
   async function createFolder() {
-    const name = window.prompt('Nom du dossier ?')?.trim()
-    if (!name) return
+    const name = newFolderName.trim()
+    if (!name) { setCreatingFolder(false); return }
     const res = await fetch('/api/automation-folders', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ name }),
     })
     const json = await res.json()
-    if (res.ok && json.data) setFolders((prev) => [...prev, json.data])
+    if (res.ok && json.data) { setFolders((prev) => [...prev, json.data]); setNewFolderName(''); setCreatingFolder(false) }
     else toast.error(json.error || 'Erreur')
   }
 
@@ -104,11 +109,15 @@ export default function AutomationsPage() {
   }, [current])
 
   function openNew() {
-    // Création guidée par le wizard (au lieu d'ouvrir directement le builder vide).
-    setShowWizard(true)
-    setCurrent(null)
+    // On demande d'abord : création guidée (wizard) ou manuelle (builder) ?
+    setShowChoose(true); setShowWizard(false); setCurrent(null)
   }
-  function selectAuto(a: Automation) { setShowWizard(false); setCurrent(a) }
+  function startGuided() { setShowChoose(false); setShowWizard(true); setCurrent(null) }
+  function startManual() {
+    setShowChoose(false); setShowWizard(false)
+    setCurrent({ id: '', name: '', trigger_event: 'order_fulfilled', template_id: null, delay_minutes: 0, is_active: true })
+  }
+  function selectAuto(a: Automation) { setShowChoose(false); setShowWizard(false); setCurrent(a) }
 
   // Le wizard a fini : on crée l'automatisation AVEC son graphe, puis on l'ouvre
   // dans le builder pour affiner.
@@ -232,7 +241,7 @@ export default function AutomationsPage() {
           <div className="mb-2 flex items-center justify-between px-2 py-1">
             <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Workflows</span>
             <div className="flex items-center gap-1">
-              <button onClick={createFolder} title="Nouveau dossier"
+              <button onClick={() => { setCreatingFolder(true); setNewFolderName('') }} title="Nouveau dossier"
                 className="flex h-6 w-6 items-center justify-center rounded-md border bg-card text-muted-foreground transition-colors hover:border-primary hover:text-primary">
                 <FolderPlus className="h-4 w-4" />
               </button>
@@ -253,6 +262,21 @@ export default function AutomationsPage() {
           >
             <Plus className="h-4 w-4" /> Nouveau workflow
           </button>
+          {/* Saisie inline d'un nouveau dossier (remplace window.prompt). */}
+          {creatingFolder && (
+            <div className="mb-2 flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/5 px-2 py-1.5">
+              <Folder className="h-3.5 w-3.5 shrink-0 text-primary" />
+              <input
+                autoFocus
+                value={newFolderName}
+                onChange={(e) => setNewFolderName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') createFolder(); if (e.key === 'Escape') { setCreatingFolder(false); setNewFolderName('') } }}
+                onBlur={createFolder}
+                placeholder="Nom du dossier…"
+                className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/60"
+              />
+            </div>
+          )}
           {/* Entrée fantôme : brouillon en cours de création (pas encore sauvegardé).
               Donne un retour visuel immédiat au clic sur « + Nouveau workflow ». */}
           {current && !current.id && (
@@ -343,13 +367,37 @@ export default function AutomationsPage() {
         </aside>
         )}
 
-        {/* Zone centrale : wizard de création, sinon builder, sinon vide. */}
-        {showWizard ? (
+        {/* Zone centrale : choix création → wizard/builder, sinon builder, sinon vide. */}
+        {showChoose ? (
+          <div className="flex min-h-0 items-center justify-center p-6">
+            <div className="w-full max-w-lg space-y-3">
+              <div className="flex items-center gap-2">
+                <button onClick={() => { setShowChoose(false); setCurrent(automations[0] || null) }} className="text-xs text-muted-foreground hover:text-foreground">← Retour</button>
+                <span className="text-sm font-semibold">Nouvelle automatisation</span>
+              </div>
+              <p className="text-sm text-muted-foreground">Comment voulez-vous la créer ?</p>
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <button onClick={startGuided}
+                  className="rounded-xl border p-4 text-left transition-colors hover:border-primary hover:bg-primary/5">
+                  <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10"><Sparkles className="h-5 w-5 text-primary" /></div>
+                  <p className="font-medium">Création guidée</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">L’assistant vous pose des questions étape par étape (recommandé).</p>
+                </button>
+                <button onClick={startManual}
+                  className="rounded-xl border p-4 text-left transition-colors hover:border-primary hover:bg-primary/5">
+                  <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-muted"><GitBranch className="h-5 w-5 text-violet-600" /></div>
+                  <p className="font-medium">Création manuelle</p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">Construisez le parcours vous-même dans l’éditeur visuel.</p>
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : showWizard ? (
           <div className="min-h-0 overflow-y-auto">
             <WorkflowWizard
               templates={templates}
               onComplete={onWizardComplete}
-              onCancel={() => { setShowWizard(false); setCurrent(automations[0] || null) }}
+              onCancel={() => { setShowWizard(false); setShowChoose(true) }}
             />
           </div>
         ) : current && graph ? (

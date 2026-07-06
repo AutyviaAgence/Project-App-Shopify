@@ -9,6 +9,8 @@ import { TRIGGER_EVENTS, type TriggerEvent } from '@/lib/automations/types'
 import { CONDITION_FIELDS } from '@/components/automations/builder/field-labels'
 import type { WorkflowGraph, WorkflowNode, WorkflowEdge, ConditionRule } from '@/lib/automations/graph-types'
 import type { WhatsAppTemplate } from '@/types/database'
+import { TemplateBubble } from '@/components/template-bubble'
+import { VARIABLE_BY_KEY } from '@/lib/templates/variables'
 
 const DELAY_PRESETS: { label: string; minutes: number }[] = [
   { label: 'Immédiat', minutes: 0 },
@@ -338,15 +340,35 @@ function AiHelp({ value, onChange, busy, onGo, placeholder }: {
   )
 }
 
-/** Sélecteur de template (approuvés). */
-function TemplateSelect({ templates, value, onChange, compact }: {
+/** Sélecteur VISUEL de template : bulles d'aperçu en défilement horizontal. */
+function TemplateSelect({ templates, value, onChange }: {
   templates: WhatsAppTemplate[]; value: string | null; onChange: (id: string) => void; compact?: boolean
 }) {
+  const labelsFor = (t: WhatsAppTemplate) => (t.variable_keys || []).map((k) => VARIABLE_BY_KEY[k]?.label || k)
+  if (templates.length === 0) {
+    return <p className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">Aucun modèle approuvé. Créez-en un dans « Modèles ».</p>
+  }
   return (
-    <select value={value || ''} onChange={(e) => onChange(e.target.value)}
-      className={cn('w-full rounded-md border border-input bg-background px-3 text-sm', compact ? 'h-9' : 'h-10')}>
-      <option value="">— Choisir un modèle —</option>
-      {templates.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
-    </select>
+    <div
+      className="flex gap-2 overflow-x-auto overscroll-contain pb-1 [scrollbar-width:thin]"
+      onWheel={(e) => { if (e.deltaY !== 0) { e.currentTarget.scrollLeft += e.deltaY; e.stopPropagation() } }}
+    >
+      {templates.map((t) => {
+        const sel = t.id === value
+        return (
+          <button key={t.id} type="button" onClick={() => onChange(t.id)}
+            className={cn('w-[160px] shrink-0 rounded-xl border p-2 text-left transition-colors',
+              sel ? 'border-primary/60 bg-primary/5 ring-1 ring-primary/30' : 'border-border hover:border-foreground/30 hover:bg-muted/40')}>
+            <p className="mb-1 truncate text-xs font-medium">{t.name}</p>
+            <div className="relative max-h-[140px] overflow-hidden">
+              <div className="pointer-events-none origin-top-left scale-[0.78]">
+                <TemplateBubble template={t} labels={labelsFor(t)} />
+              </div>
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-background to-transparent" />
+            </div>
+          </button>
+        )
+      })}
+    </div>
   )
 }
