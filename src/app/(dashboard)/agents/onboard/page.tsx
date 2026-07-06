@@ -143,9 +143,9 @@ export default function AgentOnboardPage() {
   if (loading) return <BlobLoaderScreen />
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-5 p-6">
+    <div className="mx-auto flex w-full max-w-5xl flex-col gap-5 p-6 md:p-8">
       <div>
-        <h1 className="flex items-center gap-2 text-xl font-semibold"><Sparkles className="h-5 w-5 text-primary" /> Votre agent IA est prêt</h1>
+        <h1 className="flex items-center gap-2 text-2xl font-semibold"><Sparkles className="h-6 w-6 text-primary" /> Votre agent IA est prêt</h1>
         <p className="mt-1 text-sm text-muted-foreground">Nous l’avons pré-configuré à partir de votre boutique. Vérifiez et ajustez, puis activez.</p>
       </div>
 
@@ -154,7 +154,9 @@ export default function AgentOnboardPage() {
           <Loader2 className="h-4 w-4 animate-spin" /> Analyse de votre boutique…
         </div>
       ) : (
-        <>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 lg:items-start">
+          {/* Colonne gauche : réglages */}
+          <div className="space-y-5">
           {/* Nom */}
           <div className="space-y-1.5">
             <label className="text-sm font-medium">Nom de l’agent</label>
@@ -268,21 +270,21 @@ export default function AgentOnboardPage() {
               </div>
             )}
           </div>
+          </div>
 
-          {/* Instructions générales de l'agent — MODIFIABLES */}
-          <div className="space-y-1.5">
+          {/* Colonne droite : instructions générales (remplit la hauteur) */}
+          <div className="space-y-1.5 lg:sticky lg:top-6">
             <label className="text-sm font-medium">Instructions générales de l’agent</label>
             <p className="text-xs text-muted-foreground">Générées à partir de votre boutique. Vous pouvez les ajuster librement.</p>
             <textarea
               value={systemPrompt}
               onChange={(e) => setSystemPrompt(e.target.value)}
-              rows={12}
-              className="w-full resize-y rounded-md border border-input bg-background p-3 font-mono text-xs leading-relaxed"
+              className="w-full resize-y rounded-md border border-input bg-background p-3 font-mono text-xs leading-relaxed min-h-[420px] lg:h-[calc(100vh-320px)]"
             />
           </div>
 
-          {/* Actions */}
-          <div className="flex items-center justify-between pt-2">
+          {/* Actions — pleine largeur sous les deux colonnes */}
+          <div className="flex items-center justify-between border-t pt-4 lg:col-span-2">
             <Button variant="outline" size="sm" disabled={regenerating} onClick={() => generate(objectives)}>
               {regenerating ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1 h-4 w-4" />}
               Régénérer
@@ -292,7 +294,7 @@ export default function AgentOnboardPage() {
               Activer mon agent
             </Button>
           </div>
-        </>
+        </div>
       )}
     </div>
   )
