@@ -12,6 +12,13 @@ RUN npm ci
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
+
+# Casse-cache : invalide TOUT ce qui suit (COPY du code source + build) à chaque
+# build. Évite qu'un cache Docker Dokploy serve un ancien bundle après un push.
+# Bump cette valeur (ou laisse Dokploy passer --build-arg CACHEBUST=$(date)).
+ARG CACHEBUST=2026-07-06-1
+RUN echo "cache bust: $CACHEBUST"
+
 COPY . .
 
 # Next.js inlines NEXT_PUBLIC_* vars at build time
