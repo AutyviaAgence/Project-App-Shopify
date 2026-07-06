@@ -24,6 +24,8 @@ type RefundOptions = {
   amount?: number
   method?: 'original' | 'store_credit' | 'both'
   storeCreditAmount?: number
+  // Message de confirmation à envoyer au client (optionnel).
+  notify?: { message: string }
 }
 
 const REFUND_REASONS = [
@@ -85,6 +87,26 @@ export function ActionsPanel({ conversationId, onChange }: { conversationId: str
       })
       const json = await res.json()
       if (!res.ok && !json.data) throw new Error(json.error || 'Erreur')
+
+      // Remboursement réussi + case « prévenir le client » → envoyer le message
+      // via l'endpoint de conversation existant (gère fenêtre 24h + persistance).
+      if (decision === 'confirm' && json.data?.status === 'executed' && refund?.notify?.message) {
+        try {
+          const sendRes = await fetch(`/api/conversations/${conversationId}/send`, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ content: refund.notify.message }),
+          })
+          if (!sendRes.ok) {
+            const sj = await sendRes.json().catch(() => ({}))
+            toast.warning(`Remboursement fait, mais message non envoyé : ${sj.error || 'hors fenêtre 24h ?'}`)
+          } else {
+            toast.success('Client prévenu du remboursement')
+          }
+        } catch {
+          toast.warning('Remboursement fait, mais message non envoyé.')
+        }
+      }
+
       await fetchActions()
       onChange?.()
       if (decision === 'reject') toast.success('Action refusée')
@@ -184,6 +206,9 @@ function RefundDialog({
   const [amount, setAmount] = useState<string>(estimated != null ? String(estimated) : '')
   const [method, setMethod] = useState<'original' | 'store_credit' | 'both'>('original')
   const [storeCredit, setStoreCredit] = useState<string>('')
+  // Prévenir le client : case + lien optionnel.
+  const [notifyClient, setNotifyClient] = useState(true)
+  const [notifyLink, setNotifyLink] = useState('')
 
   useEffect(() => {
     let active = true
@@ -210,6 +235,15 @@ function RefundDialog({
   const scValid = method !== 'both' || (storeCredit !== '' && !isNaN(scNum) && scNum > 0 && scNum <= amountNum)
   const reason = reasonChoice === 'Autre' ? reasonCustom.trim() : reasonChoice
   const canConfirm = amountValid && scValid && reason.length > 0 && !busy
+
+  // Message de confirmation envoyé au client (aperçu + envoi si case cochée).
+  const orderLabel = String(action.payload.order_name || '').replace(/^#?/, '#')
+  const methodFr = method === 'store_credit' ? 'en crédit magasin' : method === 'both' ? 'en partie en crédit magasin' : 'sur votre moyen de paiement'
+  const notifyMessage = [
+    `Bonjour, votre remboursement de ${amountValid ? money(amountNum, currency) : '—'} pour la commande ${orderLabel} a bien été effectué ${methodFr}.`,
+    notifyLink.trim() ? `\nDétails : ${notifyLink.trim()}` : '',
+    `\nMerci pour votre confiance !`,
+  ].join('')
 
   return (
     <Dialog open={!!action} onOpenChange={(o) => { if (!o) onClose() }}>
@@ -332,6 +366,32 @@ function RefundDialog({
             )}
           </div>
 
+          {/* Prévenir le client */}
+          <div className="space-y-2 rounded-lg border p-3">
+            <label className="flex cursor-pointer items-center gap-2 text-sm font-medium">
+              <input
+                type="checkbox"
+                checked={notifyClient}
+                onChange={(e) => setNotifyClient(e.target.checked)}
+                className="h-4 w-4 rounded border-input accent-primary"
+              />
+              Prévenir le client du remboursement
+            </label>
+            {notifyClient && (
+              <div className="space-y-2">
+                <input
+                  value={notifyLink}
+                  onChange={(e) => setNotifyLink(e.target.value)}
+                  placeholder="Lien à joindre (optionnel) — ex : suivi, politique…"
+                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                />
+                <div className="rounded-md bg-muted/40 p-2 text-xs text-muted-foreground whitespace-pre-line">
+                  {notifyMessage}
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={onClose} disabled={busy}>Annuler</Button>
             <Button
@@ -341,6 +401,7 @@ function RefundDialog({
                 amount: amountNum,
                 method,
                 storeCreditAmount: method === 'both' ? scNum : undefined,
+                notify: notifyClient ? { message: notifyMessage } : undefined,
               })}
             >
               {busy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Check className="mr-1 h-4 w-4" />}
