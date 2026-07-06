@@ -93,7 +93,7 @@ const STATUS_META: Record<ActionItem['status'], { label: string; cls: string }> 
  * Panneau de contexte Shopify : commandes récentes du client + historique des
  * actions de la conversation (annulations, remboursements, codes promo).
  */
-export function ShopifyContextPanel({ contactId, conversationId, contactName }: { contactId: string | null; conversationId?: string; contactName?: string | null }) {
+export function ShopifyContextPanel({ contactId, conversationId, contactName, refreshKey }: { contactId: string | null; conversationId?: string; contactName?: string | null; refreshKey?: number }) {
   const [data, setData] = useState<Data | null>(null)
   const [loading, setLoading] = useState(false)
   const [tab, setTab] = useState<'orders' | 'history'>('orders')
@@ -116,7 +116,7 @@ export function ShopifyContextPanel({ contactId, conversationId, contactName }: 
       }
     })()
     return () => { active = false }
-  }, [contactId])
+  }, [contactId, refreshKey])
 
   // Historique des actions de la conversation (chargé à l'ouverture de l'onglet)
   useEffect(() => {
@@ -134,7 +134,7 @@ export function ShopifyContextPanel({ contactId, conversationId, contactName }: 
       }
     })()
     return () => { active = false }
-  }, [tab, conversationId])
+  }, [tab, conversationId, refreshKey])
 
   if (!contactId) return null
   // Boutique non connectée → on n'affiche pas le panneau

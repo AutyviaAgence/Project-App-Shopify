@@ -50,7 +50,11 @@ function ConversationsPageContent() {
   const [selectedConv, setSelectedConv] = useState<ConversationWithJoins | null>(null)
   // Conversations ayant une action Shopify en attente (badge + remontée en haut).
   const [pendingActionConvIds, setPendingActionConvIds] = useState<Set<string>>(new Set())
+  // Incrémenté après une action Shopify (remboursement…) → force le panneau
+  // commandes/historique à se recharger sans rafraîchir la page.
+  const [shopifyRefreshKey, setShopifyRefreshKey] = useState(0)
   const fetchPendingActions = useCallback(async () => {
+    setShopifyRefreshKey((k) => k + 1)
     try {
       const res = await fetch('/api/shopify/actions/pending-conversations')
       const json = await res.json()
@@ -919,6 +923,7 @@ function ConversationsPageContent() {
         <ShopifyContextPanel
           contactId={selectedConv.contact_id}
           conversationId={selectedConv.id}
+          refreshKey={shopifyRefreshKey}
           contactName={
             selectedConv.contact?.name
             || [selectedConv.contact?.first_name, selectedConv.contact?.last_name].filter(Boolean).join(' ')
