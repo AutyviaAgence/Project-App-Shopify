@@ -144,8 +144,11 @@ export function WorkflowWizard({
     (step === 3) ||
     step === 4
 
+  // L'étape « Message(s) » (galeries de templates) prend toute la largeur ;
+  // les autres restent lisibles dans une colonne centrée.
+  const wide = step === 2
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 p-4">
+    <div className={cn('mx-auto flex w-full flex-col gap-4 p-4 md:p-6', wide ? 'max-w-none' : 'max-w-2xl')}>
       {/* Barre d'étapes */}
       <div className="flex items-center gap-2">
         <button onClick={onCancel} className="text-xs text-muted-foreground hover:text-foreground">← Retour</button>
@@ -243,16 +246,24 @@ export function WorkflowWizard({
           ) : (
             <div className="space-y-2">
               {variants.map((v, i) => (
-                <div key={i} className="flex items-center gap-2 rounded-lg border p-2">
-                  <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">{String.fromCharCode(65 + i)}</span>
-                  <div className="flex-1"><TemplateSelect templates={templates} value={v.templateId} onChange={(id) => setVariants((prev) => prev.map((x, j) => j === i ? { ...x, templateId: id } : x))} compact /></div>
-                  <input type="number" min={1} max={100} value={v.weight}
-                    onChange={(e) => setVariants((prev) => prev.map((x, j) => j === i ? { ...x, weight: Number(e.target.value) || 0 } : x))}
-                    className="h-9 w-16 rounded-md border border-input bg-background px-2 text-sm" />
-                  <span className="text-xs text-muted-foreground">%</span>
-                  {variants.length > 2 && (
-                    <button onClick={() => setVariants((prev) => prev.filter((_, j) => j !== i))} className="text-xs text-muted-foreground hover:text-destructive">✕</button>
-                  )}
+                <div key={i} className="min-w-0 space-y-2 rounded-lg border p-3">
+                  {/* En-tête variante : lettre + poids % + suppression */}
+                  <div className="flex items-center gap-2">
+                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">{String.fromCharCode(65 + i)}</span>
+                    <span className="text-sm font-medium">Variante {String.fromCharCode(65 + i)}</span>
+                    <div className="ml-auto flex items-center gap-1">
+                      <input type="number" min={1} max={100} value={v.weight}
+                        onChange={(e) => setVariants((prev) => prev.map((x, j) => j === i ? { ...x, weight: Number(e.target.value) || 0 } : x))}
+                        className="h-8 w-16 rounded-md border border-input bg-background px-2 text-sm" />
+                      <span className="text-xs text-muted-foreground">%</span>
+                      {variants.length > 2 && (
+                        <button onClick={() => setVariants((prev) => prev.filter((_, j) => j !== i))} title="Retirer la variante"
+                          className="ml-1 rounded p-1 text-muted-foreground hover:text-destructive">✕</button>
+                      )}
+                    </div>
+                  </div>
+                  {/* Galerie de templates, sur toute la largeur (défilement horizontal contenu) */}
+                  <TemplateSelect templates={templates} value={v.templateId} onChange={(id) => setVariants((prev) => prev.map((x, j) => j === i ? { ...x, templateId: id } : x))} />
                 </div>
               ))}
               {variants.length < 4 && (
