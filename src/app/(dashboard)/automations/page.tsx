@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils'
 import { BlobLoaderScreen } from '@/components/blob-loader'
 import type { WhatsAppTemplate } from '@/types/database'
 import { WorkflowBuilder } from '@/components/automations/builder/workflow-builder'
+import { WorkflowWizard } from '@/components/automations/workflow-wizard'
 import { defaultGraph, validateGraph, triggerNode, type WorkflowGraph } from '@/lib/automations/graph-types'
 
 type Automation = {
@@ -34,6 +35,7 @@ export default function AutomationsPage() {
   const [loading, setLoading] = useState(true)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [showWizard, setShowWizard] = useState(false)
   // Dossier survolé pendant un drag (surbrillance) + workflow en cours de drag.
   const [dragOverFolder, setDragOverFolder] = useState<string | null | 'none'>(null)
 
@@ -102,9 +104,30 @@ export default function AutomationsPage() {
   }, [current])
 
   function openNew() {
-    setCurrent({ id: '', name: '', trigger_event: 'order_fulfilled', template_id: null, delay_minutes: 0, is_active: true })
+    // Création guidée par le wizard (au lieu d'ouvrir directement le builder vide).
+    setShowWizard(true)
+    setCurrent(null)
   }
-  function selectAuto(a: Automation) { setCurrent(a) }
+  function selectAuto(a: Automation) { setShowWizard(false); setCurrent(a) }
+
+  // Le wizard a fini : on crée l'automatisation AVEC son graphe, puis on l'ouvre
+  // dans le builder pour affiner.
+  async function onWizardComplete(data: { name: string; graph: WorkflowGraph; trigger: string }) {
+    setBusyId('save')
+    try {
+      const res = await fetch('/api/automations', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: data.name, trigger_event: data.trigger, graph: data.graph, builder_mode: true, is_active: true }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Erreur')
+      track('automation_created', { trigger: data.trigger, via: 'wizard' })
+      await load()
+      setShowWizard(false)
+      if (json.data) setCurrent(json.data as Automation)
+      toast.success('Automatisation créée — ajustez-la ici.')
+    } catch (e) { toast.error(e instanceof Error ? e.message : 'Erreur') } finally { setBusyId(null) }
+  }
 
   async function toggleActive(a: Automation) {
     setBusyId(a.id)
@@ -320,8 +343,16 @@ export default function AutomationsPage() {
         </aside>
         )}
 
-        {/* Zone centrale : nom + builder timeline + iPhone */}
-        {current && graph ? (
+        {/* Zone centrale : wizard de création, sinon builder, sinon vide. */}
+        {showWizard ? (
+          <div className="min-h-0 overflow-y-auto">
+            <WorkflowWizard
+              templates={templates}
+              onComplete={onWizardComplete}
+              onCancel={() => { setShowWizard(false); setCurrent(automations[0] || null) }}
+            />
+          </div>
+        ) : current && graph ? (
           <div className="flex min-h-0 flex-col">
             <div className="flex items-center gap-2 border-b px-4 py-2.5">
               <GitBranch className="h-4 w-4 text-violet-600" />

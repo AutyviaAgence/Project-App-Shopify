@@ -45,6 +45,9 @@ export async function POST(req: NextRequest) {
       conditions: body.conditions || {},
       is_active: body.is_active === true,
       folder_id: body.folder_id || null,
+      // Le graphe du builder peut être fourni dès la création (wizard).
+      graph: body.graph ?? null,
+      builder_mode: body.graph ? true : (body.builder_mode === true),
     })
     .select()
     .single()
