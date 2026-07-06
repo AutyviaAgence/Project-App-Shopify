@@ -60,7 +60,7 @@ export async function PATCH(
     name, description, system_prompt, objective, model, temperature, is_active, is_pinned, is_default,
     response_delay_min, response_delay_max, max_messages_per_conversation, inactivity_timeout_minutes,
     schedule_enabled, schedule_timezone, schedule_start_time, schedule_end_time, schedule_days,
-    auto_detect_language, escalation_enabled, escalation_keywords, escalation_message, booking_url,
+    auto_detect_language, escalation_enabled, escalation_mode, escalation_keywords, escalation_situations, escalation_message, booking_url,
     stop_condition, mascot, mascot_bg
   } = body as {
     name?: string
@@ -83,7 +83,9 @@ export async function PATCH(
     schedule_days?: number[]
     auto_detect_language?: boolean
     escalation_enabled?: boolean
+    escalation_mode?: string
     escalation_keywords?: string[]
+    escalation_situations?: string
     escalation_message?: string
     booking_url?: string
     stop_condition?: string | null
@@ -157,6 +159,12 @@ export async function PATCH(
   // Escalation (garde-fou)
   if (escalation_enabled !== undefined) {
     updateData.escalation_enabled = Boolean(escalation_enabled)
+  }
+  if (escalation_mode !== undefined) {
+    updateData.escalation_mode = ['keywords', 'ai', 'both'].includes(escalation_mode) ? escalation_mode : 'ai'
+  }
+  if (escalation_situations !== undefined) {
+    updateData.escalation_situations = escalation_situations?.trim() || null
   }
   if (escalation_keywords !== undefined) {
     // Filtrer et nettoyer les mots-clés

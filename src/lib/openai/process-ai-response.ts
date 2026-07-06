@@ -155,17 +155,27 @@ export async function processAIResponse(params: {
 
         // Mode 2: AI detection
         if (!escalationTriggered && (escalationMode === 'ai' || escalationMode === 'both')) {
+          // Situations de transfert décrites par le marchand (langage naturel).
+          // Injectées en priorité ; à défaut, le détecteur applique ses règles par défaut.
+          const merchantSituations = (agent.escalation_situations || '').trim()
+          const situationsBlock = merchantSituations
+            ? `Le marchand a défini les SITUATIONS qui doivent déclencher un transfert vers un conseiller humain :
+"""
+${merchantSituations}
+"""
+Déclenche le transfert dès qu'une de ces situations est présente. En complément, déclenche aussi pour :`
+            : `Analyse le message d'un contact et détermine s'il correspond à une situation nécessitant un conseiller humain :`
           const aiCheck = await generateAgentResponse({
             model: 'gpt-4o-mini',
             temperature: 0,
-            systemPrompt: `Tu es un détecteur de messages problématiques. Analyse le message d'un contact et détermine s'il contient :
+            systemPrompt: `Tu es un détecteur de situations nécessitant le transfert d'une conversation e-commerce vers un conseiller humain. ${situationsBlock}
 - Des insultes ou injures (même en argot, verlan, abrégé)
 - Un ton agressif ou menaçant
 - Des menaces légales ou physiques
 - Du harcèlement
 - Une demande explicite de parler à un humain
 
-Réponds UNIQUEMENT par "OUI:raison" si le message est problématique, ou "NON" sinon.
+Réponds UNIQUEMENT par "OUI:raison" si un transfert est justifié, ou "NON" sinon.
 Exemples :
 - "t'es un con" → OUI:insulte
 - "je vais porter plainte" → OUI:menace légale

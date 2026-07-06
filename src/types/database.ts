@@ -137,6 +137,7 @@ export type AIAgent = {
   escalation_enabled: boolean
   escalation_mode: 'keywords' | 'ai' | 'both'
   escalation_keywords: string[]
+  escalation_situations: string | null
   escalation_message: string | null
   booking_url: string | null
   refund_auto_enabled: boolean
