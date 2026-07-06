@@ -335,6 +335,19 @@ export const wabaClient = {
     })
   },
 
+  /** Envoyer une image via URL publique (pas d'upload). Utile pour les photos produits (CDN Shopify). */
+  sendImageByLink(phoneNumberId: string, accessToken: string, to: string, link: string, caption?: string) {
+    return request(`${GRAPH_API_BASE}/${phoneNumberId}/messages`, accessToken, {
+      method: 'POST',
+      body: JSON.stringify({
+        messaging_product: 'whatsapp',
+        to,
+        type: 'image',
+        image: { link, ...(caption ? { caption } : {}) },
+      }),
+    })
+  },
+
   /** Envoyer un audio via media_id */
   sendAudio(phoneNumberId: string, accessToken: string, to: string, mediaId: string) {
     return request(`${GRAPH_API_BASE}/${phoneNumberId}/messages`, accessToken, {

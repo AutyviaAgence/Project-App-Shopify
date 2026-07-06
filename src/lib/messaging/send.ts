@@ -79,6 +79,23 @@ export async function sendMediaMessage(
 }
 
 /**
+ * Envoyer une image par URL publique (sans upload) — pour les photos produits
+ * (CDN Shopify). Légende = nom/prix/lien du produit.
+ */
+export async function sendImageLink(
+  session: Pick<WhatsAppSession, 'waba_phone_number_id' | 'waba_access_token'>,
+  phoneNumber: string,
+  link: string,
+  caption?: string
+): Promise<SendResult> {
+  const token = decryptWabaToken(session)
+  if (!session.waba_phone_number_id || !token) {
+    return { ok: false, error: 'Credentials WABA manquants sur la session' }
+  }
+  return wabaClient.sendImageByLink(session.waba_phone_number_id, token, phoneNumber, link, caption)
+}
+
+/**
  * Envoyer un message interactif (boutons de réponse rapide) via WABA.
  * Message LIBRE — valable dans la fenêtre de 24h, aucun template requis.
  */

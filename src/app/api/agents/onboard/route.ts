@@ -80,6 +80,7 @@ CONSEIL PRODUIT — recommande à partir du CATALOGUE réel (jamais inventer un 
 CONVERSION — répond aux objections, propose des produits pertinents, relance avec tact.
 BASE DE CONNAISSANCES — catalogue, pages, politiques : consulte TOUJOURS, n'invente jamais. Si absent → transfert humain.
 TRANSMISSION — quand escalader vers un conseiller.
+FORMATS ENRICHIS — précise que l'agent peut, quand c'est pertinent, proposer des boutons de choix, partager des liens, envoyer des photos et présenter plusieurs produits sous forme de carrousel (le système fournit les balises à l'exécution ; ne pas détailler la syntaxe ici).
 CE QUE TU NE FAIS JAMAIS — 8 à 12 interdits e-commerce concrets.
 
 Pour "escalation_situations" : appuie-toi sur les POLITIQUES et PAGES listées (retours, remboursements, livraison, CGV) pour décrire des situations CONCRÈTES propres à cette boutique. Une situation par ligne, phrases courtes. Couvre au minimum : litige/désaccord sur un remboursement ou un retour hors des conditions de la boutique, réclamation sur un délai ou une commande non reçue/endommagée, client mécontent/agressif ou menace d'avis négatif ou de plainte, demande explicite de parler à un humain, et toute question sortant du périmètre (juridique, sur-mesure, gros volume). N'invente pas de politique : reste cohérent avec les liens fournis.`

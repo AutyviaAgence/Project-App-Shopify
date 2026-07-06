@@ -3,7 +3,7 @@ import { getAdminSupabase } from '@/lib/supabase/admin-singleton'
 import { generateAgentResponse, type ChatMessage, type OpenAIMessage } from './client'
 import { checkTokenLimit, recordTokenUsage } from './token-tracker'
 import { logAiUsage } from './usage-log'
-import { sendMessage, sendMediaMessage, sendInteractiveMessage, sendPresence } from '@/lib/messaging/send'
+import { sendMessage, sendMediaMessage, sendInteractiveMessage, sendImageLink, sendPresence } from '@/lib/messaging/send'
 import { retrieveContext } from '@/lib/knowledge/retriever'
 import { encryptMessage, decryptMessage } from '@/lib/crypto/encryption'
 import { getAgentTools, buildOpenAITools, executeToolCall } from '@/lib/tools/executor'
@@ -456,8 +456,9 @@ Exemples de déclenchement (insère TOUJOURS [BTN:...] dans ces cas) :
 La balise se place À LA FIN de ton message. Le texte que tu écris au-dessus accompagne les boutons. Quand le client clique, tu reçois le libellé comme s'il l'avait tapé.
 NE liste JAMAIS des options en texte (genre "1. ... 2. ...") si tu peux les mettre en boutons.`)
       skillLines.push(`\n🔗 PARTAGER UN LIEN — balise [LINK:Libellé|https://url]. Le lien apparaît dans le message.`)
+      skillLines.push(`\n🛍️ PRÉSENTER DES PRODUITS (CARROUSEL) — balise [CAROUSEL:handle1,handle2,...] (2 à 5 produits). Le système envoie pour chaque produit sa photo + son nom, prix et lien. Utilise UNIQUEMENT des "handle" de produits qui figurent dans le catalogue/la base de connaissances ci-dessus (jamais inventé). Insère cette balise quand tu recommandes ou compares plusieurs produits, au lieu de les décrire en texte.`)
 
-      skillLines.push(`\nRÈGLES : n'utilise QUE des refs listés ci-dessus (n'invente jamais un ref). Insère la balise dès que le contexte s'y prête, et ne dis jamais que tu ne peux pas envoyer un média/bouton si la balise est disponible.`)
+      skillLines.push(`\nRÈGLES : n'utilise QUE des refs/handles listés ci-dessus (n'invente jamais un ref/handle). Insère la balise dès que le contexte s'y prête, et ne dis jamais que tu ne peux pas envoyer un média/bouton/carrousel si la balise est disponible.`)
       skillLines.push(`--- Fin des compétences ---`)
 
       // N'injecter que s'il y a au moins les boutons/liens (toujours vrai) — donc systématique en fenêtre SAV
@@ -660,10 +661,17 @@ NE liste JAMAIS des options en texte (genre "1. ... 2. ...") si tu peux les mett
       ? btnMatch[1].split('|').map(t => t.trim()).filter(Boolean).slice(0, 3)
       : []
 
-    // Texte nettoyé : retirer médias + boutons, remplacer [LINK:label|url] par "label : url"
+    // Carrousel produits : [CAROUSEL:handle1,handle2,...] → on garde le PREMIER bloc (2 à 5 handles)
+    const carouselMatch = aiResponseText.match(/\[CAROUSEL:([^\]]+)\]/i)
+    const carouselHandles = carouselMatch
+      ? carouselMatch[1].split(',').map(h => h.trim().toLowerCase()).filter(Boolean).slice(0, 5)
+      : []
+
+    // Texte nettoyé : retirer médias + boutons + carrousel, remplacer [LINK:label|url] par "label : url"
     const cleanText = aiResponseText
       .replace(mediaTagRegex, '')
       .replace(/\[BTN:[^\]]+\]/gi, '')
+      .replace(/\[CAROUSEL:[^\]]+\]/gi, '')
       .replace(/\[LINK:([^|\]]+)\|([^\]]+)\]/gi, (_m, label, url) => `${label.trim()} : ${url.trim()}`)
       .replace(/\n{3,}/g, '\n\n')
       .trim()
@@ -773,6 +781,36 @@ NE liste JAMAIS des options en texte (genre "1. ... 2. ...") si tu peux les mett
         status: sendResult.ok ? 'sent' : 'failed',
       }).select('id').single()
       savedMessage = saved
+    }
+
+    // 7.05 Carrousel produits : une image + légende (nom, prix, lien) par produit.
+    if (carouselHandles.length > 0) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let prodQuery = (supabase as any)
+        .from('shopify_products')
+        .select('handle, title, price, url, image_url')
+        .in('handle', carouselHandles)
+      if (userId) prodQuery = prodQuery.eq('user_id', userId)
+      const { data: prodRows } = await prodQuery as { data: { handle: string; title: string; price: string | null; url: string | null; image_url: string | null }[] | null }
+      // Respecter l'ordre demandé par l'agent + ne garder que ceux avec image.
+      const byHandle = new Map((prodRows || []).map(p => [p.handle, p]))
+      const ordered = carouselHandles.map(h => byHandle.get(h)).filter((p): p is NonNullable<typeof p> => !!p && !!p.image_url)
+      for (const p of ordered) {
+        const priceStr = p.price ? ` — ${p.price}` : ''
+        const caption = `${p.title}${priceStr}${p.url ? `\n${p.url}` : ''}`
+        const r = await sendImageLink(sessionCtx, params.contactPhoneNumber, p.image_url!, caption)
+        if (!r.ok) { console.warn('[AI] Carrousel image échec:', p.handle, r.error); continue }
+        await supabase.from('messages').insert({
+          conversation_id: params.conversationId,
+          session_id: params.sessionId,
+          direction: 'outbound',
+          content: encryptMessage(caption),
+          message_type: 'image',
+          sent_by: 'ai_agent',
+          ai_agent_id: params.agentId,
+          status: 'sent',
+        })
+      }
     }
 
     // 7.1 Tracker si l'agent a proposé un lien de RDV dans sa réponse
