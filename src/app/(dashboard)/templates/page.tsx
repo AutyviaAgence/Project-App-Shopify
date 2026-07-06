@@ -101,7 +101,12 @@ export default function TemplatesPage() {
   const [aiTone, setAiTone] = useState<'professional' | 'friendly' | 'casual'>('professional')
   const [aiUseCase, setAiUseCase] = useState<UseCaseKey>('marketing')
   const [aiVarKeys, setAiVarKeys] = useState<string[]>([])
-  const [aiGenerating, setAiGenerating] = useState(false)
+  // Assistant conversationnel : fil de discussion + question courante + saisie.
+  type ChatMsg = { role: 'user' | 'assistant'; content: string }
+  const [aiChat, setAiChat] = useState<ChatMsg[]>([])
+  const [aiOptions, setAiOptions] = useState<string[]>([])
+  const [aiInput, setAiInput] = useState('')
+  const [aiThinking, setAiThinking] = useState(false)
   type AiProposal = {
     template_type: 'standard' | 'limited_time_offer' | 'carousel'
     body_text: string
@@ -340,29 +345,50 @@ export default function TemplatesPage() {
   function openChoose() {
     setEditing(null); setSelectedId(null)
     setAiProposals([]); setAiObjective(''); setAiVarKeys([]); setAiTone('professional'); setAiUseCase('marketing')
+    setAiChat([]); setAiOptions([]); setAiInput('')
     setMode('choose')
   }
 
-  // Lance la génération IA (3 propositions).
-  async function runGenerate() {
-    if (!aiObjective.trim()) { toast.error('Décrivez l\'objectif du message'); return }
-    setAiGenerating(true)
-    setAiProposals([])
+  // Assistant conversationnel : envoie le fil, reçoit une question OU les propositions.
+  async function converse(nextChat: ChatMsg[]) {
+    setAiThinking(true)
+    setAiOptions([])
     try {
-      const res = await fetch('/api/templates/generate', {
+      const res = await fetch('/api/templates/converse', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ use_case: aiUseCase, objective: aiObjective.trim(), tone: aiTone, variable_keys: aiVarKeys }),
+        body: JSON.stringify({ messages: nextChat }),
       })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Erreur de génération')
-      track('template_ai_generated', { use_case: aiUseCase, count: json.data?.proposals?.length || 0 })
-      setAiProposals(json.data?.proposals || [])
-      if (!json.data?.proposals?.length) toast.error('Aucune proposition, reformulez l\'objectif.')
+      if (!res.ok) throw new Error(json.error || 'Erreur')
+      if (json.mode === 'ready') {
+        // L'IA a assez d'infos → propositions générées (variables auto).
+        if (json.meta?.use_case) setAiUseCase(json.meta.use_case)
+        if (json.meta?.tone) setAiTone(json.meta.tone)
+        if (json.meta?.objective) setAiObjective(json.meta.objective)
+        setAiProposals(json.proposals || [])
+        setAiChat((c) => [...c, { role: 'assistant', content: 'Voici 3 propositions basées sur votre demande 👇' }])
+        if (!json.proposals?.length) toast.error('Aucune proposition, précisez votre demande.')
+      } else {
+        // Question suivante.
+        setAiChat((c) => [...c, { role: 'assistant', content: json.question }])
+        setAiOptions(Array.isArray(json.options) ? json.options : [])
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erreur')
     } finally {
-      setAiGenerating(false)
+      setAiThinking(false)
     }
+  }
+
+  // Envoie une réponse du marchand (saisie libre ou puce d'option).
+  function sendAiAnswer(text: string) {
+    const t = text.trim()
+    if (!t || aiThinking) return
+    const next: ChatMsg[] = [...aiChat, { role: 'user', content: t }]
+    setAiChat(next)
+    setAiInput('')
+    setAiProposals([])
+    converse(next)
   }
 
   // Choisit une proposition → pré-remplit l'éditeur en brouillon (avec format riche).
@@ -1441,69 +1467,62 @@ export default function TemplatesPage() {
                   <span className="text-sm font-medium">Générer un modèle avec l&apos;IA</span>
                 </div>
 
-                {/* Questionnaire */}
-                <div className="space-y-4 rounded-xl border p-4">
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Catégorie</Label>
-                    <div className="flex flex-wrap gap-1.5">
-                      {USE_CASES.map((u) => {
-                        const Icon = USE_CASE_ICONS[u.icon] || FileText
-                        return (
-                          <button key={u.key} type="button" onClick={() => setAiUseCase(u.key)}
-                            className={cn('flex items-center gap-1.5 rounded-full px-3 py-1 text-xs transition-colors',
-                              aiUseCase === u.key ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground')}>
-                            <Icon className="h-3.5 w-3.5" /> {u.label}
-                          </button>
-                        )
-                      })}
-                    </div>
+                {/* Assistant conversationnel : l'IA pose des questions, variables auto */}
+                <div className="flex flex-col gap-3 rounded-xl border p-4">
+                  {/* Fil de discussion */}
+                  <div className="space-y-2.5">
+                    {aiChat.length === 0 && (
+                      <div className="flex items-start gap-2">
+                        <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10"><Sparkles className="h-3.5 w-3.5 text-primary" /></span>
+                        <div className="rounded-2xl rounded-tl-sm bg-muted px-3 py-2 text-sm">
+                          Bonjour ! Décrivez-moi le message que vous voulez créer — par exemple « relancer un panier abandonné » ou « prévenir que la commande est expédiée ».
+                        </div>
+                      </div>
+                    )}
+                    {aiChat.map((m, i) => (
+                      <div key={i} className={cn('flex items-start gap-2', m.role === 'user' && 'flex-row-reverse')}>
+                        <span className={cn('mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full', m.role === 'user' ? 'bg-primary/20' : 'bg-primary/10')}>
+                          {m.role === 'user' ? <span className="text-[10px] font-semibold">Vous</span> : <Sparkles className="h-3.5 w-3.5 text-primary" />}
+                        </span>
+                        <div className={cn('max-w-[85%] rounded-2xl px-3 py-2 text-sm',
+                          m.role === 'user' ? 'rounded-tr-sm bg-primary text-primary-foreground' : 'rounded-tl-sm bg-muted')}>
+                          {m.content}
+                        </div>
+                      </div>
+                    ))}
+                    {aiThinking && (
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" /> L&apos;assistant réfléchit…
+                      </div>
+                    )}
                   </div>
 
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Objectif du message</Label>
-                    <textarea
-                      value={aiObjective}
-                      onChange={(e) => setAiObjective(e.target.value)}
-                      rows={2}
-                      placeholder="Ex : relancer un client qui a abandonné son panier avec un code promo"
-                      className="w-full rounded-lg border border-border bg-transparent px-3 py-2 text-sm outline-none focus:border-primary"
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Ton</Label>
+                  {/* Réponses rapides suggérées par l'IA */}
+                  {aiOptions.length > 0 && !aiThinking && (
                     <div className="flex flex-wrap gap-1.5">
-                      {([['professional', 'Professionnel'], ['friendly', 'Chaleureux'], ['casual', 'Décontracté']] as const).map(([v, l]) => (
-                        <button key={v} type="button" onClick={() => setAiTone(v)}
-                          className={cn('rounded-full px-3 py-1 text-xs transition-colors',
-                            aiTone === v ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground')}>
-                          {l}
+                      {aiOptions.map((opt) => (
+                        <button key={opt} type="button" onClick={() => sendAiAnswer(opt)}
+                          className="rounded-full border border-primary/40 bg-primary/5 px-3 py-1 text-xs text-primary transition-colors hover:bg-primary/10">
+                          {opt}
                         </button>
                       ))}
                     </div>
-                  </div>
+                  )}
 
-                  <div className="space-y-1.5">
-                    <Label className="text-xs">Variables à inclure (optionnel)</Label>
-                    <div className="flex flex-wrap gap-1.5">
-                      {TEMPLATE_VARIABLES.map((v) => {
-                        const on = aiVarKeys.includes(v.key)
-                        return (
-                          <button key={v.key} type="button"
-                            onClick={() => setAiVarKeys((prev) => on ? prev.filter((k) => k !== v.key) : [...prev, v.key])}
-                            className={cn('rounded-full border px-2.5 py-1 text-[11px] transition-colors',
-                              on ? 'border-primary bg-primary/10 text-primary' : 'border-border text-muted-foreground hover:bg-muted/50')}>
-                            {v.label}
-                          </button>
-                        )
-                      })}
-                    </div>
+                  {/* Saisie */}
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={aiInput}
+                      onChange={(e) => setAiInput(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') sendAiAnswer(aiInput) }}
+                      placeholder="Votre réponse…"
+                      disabled={aiThinking}
+                      className="flex-1 rounded-lg border border-border bg-transparent px-3 py-2 text-sm outline-none focus:border-primary disabled:opacity-50"
+                    />
+                    <Button size="sm" disabled={aiThinking || !aiInput.trim()} onClick={() => sendAiAnswer(aiInput)}>
+                      {aiThinking ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Envoyer'}
+                    </Button>
                   </div>
-
-                  <Button className="w-full" disabled={aiGenerating || !aiObjective.trim()} onClick={runGenerate}>
-                    {aiGenerating ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1 h-4 w-4" />}
-                    {aiProposals.length > 0 ? 'Régénérer' : 'Générer 3 propositions'}
-                  </Button>
                 </div>
 
                 {/* 3 propositions en aperçu WhatsApp */}
