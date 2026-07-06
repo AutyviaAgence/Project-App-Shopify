@@ -30,14 +30,33 @@ export async function GET(req: NextRequest) {
   // Contact (téléphone) + email éventuel
   const { data: contact } = await supabase
     .from('contacts')
-    .select('phone_number, notify_email, name')
+    .select('phone_number, notify_email, email, name')
     .eq('id', contactId)
     .maybeSingle()
   if (!contact) return NextResponse.json({ data: { connected: true, orders: [] } })
 
-  const phone = contact.phone_number ? `+${contact.phone_number.replace(/\D/g, '')}` : null
+  // ROBUSTESSE : le champ phone_number peut contenir un email (données WhatsApp
+  // Email, ou import). On ne construit une clause phone Shopify QUE si c'est un
+  // vrai numéro (assez de chiffres) — sinon la requête devient `phone:+` et
+  // matche TOUTES les commandes de la boutique.
+  const rawPhone = (contact.phone_number || '').trim()
+  const digits = rawPhone.replace(/\D/g, '')
+  const looksLikePhone = !rawPhone.includes('@') && digits.length >= 6
+  const phone = looksLikePhone ? `+${digits}` : null
+
+  // Email : notify_email en priorité, sinon email du contact, sinon le
+  // phone_number s'il contient en réalité un email.
+  const emailFromPhone = rawPhone.includes('@') ? rawPhone : null
+  const email = contact.notify_email || contact.email || emailFromPhone || null
+
+  // Si on n'a NI numéro valide NI email, on n'interroge pas Shopify (éviter de
+  // tout ramener). Retour vide explicite.
+  if (!phone && !email) {
+    return NextResponse.json({ data: { connected: true, orders: [], shopDomain: store.shop_domain } })
+  }
+
   const result = await findOrdersByCustomer(store.shop_domain, decryptMessage(store.access_token), {
-    email: contact.notify_email,
+    email,
     phone,
   })
 

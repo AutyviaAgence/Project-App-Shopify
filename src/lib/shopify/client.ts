@@ -258,10 +258,14 @@ export async function findOrdersByCustomer(
   accessToken: string,
   opts: { email?: string | null; phone?: string | null }
 ) {
-  // Construire la requête de recherche Shopify (email prioritaire, sinon téléphone)
+  // Construire la requête de recherche Shopify (email prioritaire, sinon téléphone).
+  // GARDE-FOU : on ignore une valeur dégénérée (email sans @, téléphone sans
+  // assez de chiffres comme « + ») — sinon Shopify matcherait TOUTES les commandes.
   const clauses: string[] = []
-  if (opts.email) clauses.push(`email:${opts.email}`)
-  if (opts.phone) clauses.push(`phone:${opts.phone}`)
+  const email = (opts.email || '').trim()
+  const phone = (opts.phone || '').trim()
+  if (email.includes('@')) clauses.push(`email:${email}`)
+  if (phone.replace(/\D/g, '').length >= 6) clauses.push(`phone:${phone}`)
   if (clauses.length === 0) return { ok: true as const, data: [] }
 
   const q = clauses.join(' OR ')
