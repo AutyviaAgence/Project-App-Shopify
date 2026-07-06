@@ -194,6 +194,10 @@ export type Contact = {
   preferred_language: string | null
   /** Origine de la langue : shopify | country | conversation | manual. */
   language_source: string | null
+  /** Client Shopify relié (gid GraphQL) — pour retrouver ses commandes de façon fiable. */
+  shopify_customer_id: string | null
+  /** Date de la dernière commande (maj par les webhooks Shopify). */
+  last_order_at: string | null
   created_at: string
   updated_at: string
 }

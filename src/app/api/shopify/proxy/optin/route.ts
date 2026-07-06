@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
+import { decryptMessage } from '@/lib/crypto/encryption'
+import { findCustomerByEmail, findCustomerByPhone } from '@/lib/shopify/client'
 
 // L'extension checkout (extensions.shopifycdn.com) appelle en cross-origin.
 const CORS = {
@@ -66,10 +68,10 @@ export async function POST(req: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  // Boutique → user
+  // Boutique → user (+ token pour relier le client Shopify)
   const { data: store } = await admin
     .from('shopify_stores')
-    .select('user_id')
+    .select('user_id, access_token')
     .eq('shop_domain', shop)
     .maybeSingle()
   if (!store?.user_id) return J({ ok: false, error: 'boutique non liée' }, 404)
@@ -86,6 +88,18 @@ export async function POST(req: NextRequest) {
     .limit(1)
     .maybeSingle()
   if (!session) return J({ ok: false, error: 'WhatsApp non connecté' }, 400)
+
+  // Cas 3 (opt-in) : relier le contact à son client Shopify si possible, par
+  // email d'abord (le plus fiable), sinon par téléphone. Best-effort, non bloquant.
+  let shopifyCustomerId: string | null = null
+  if (store.access_token) {
+    try {
+      const token = decryptMessage(store.access_token)
+      const cust = (email ? await findCustomerByEmail(shop, token, email) : null)
+        || await findCustomerByPhone(shop, token, phone)
+      shopifyCustomerId = cust?.id ?? null
+    } catch { /* non bloquant */ }
+  }
 
   // Upsert contact opted-in
   const now = new Date().toISOString()
@@ -104,6 +118,7 @@ export async function POST(req: NextRequest) {
         channel_optin_at: now,
         marketing_consent: marketing,
         marketing_consent_at: marketing ? now : null,
+        ...(shopifyCustomerId ? { shopify_customer_id: shopifyCustomerId } : {}),
       },
       { onConflict: 'session_id,phone_number' }
     )

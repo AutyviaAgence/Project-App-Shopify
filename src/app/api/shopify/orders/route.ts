@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { decryptMessage } from '@/lib/crypto/encryption'
-import { findOrdersByCustomer } from '@/lib/shopify/client'
+import { findOrdersByCustomer, findOrdersByCustomerId } from '@/lib/shopify/client'
 
 /**
  * GET /api/shopify/orders?contact_id=xxx
@@ -27,13 +27,23 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ data: { connected: false, orders: [] } })
   }
 
-  // Contact (téléphone) + email éventuel
+  // Contact (téléphone) + email + lien client Shopify éventuel
   const { data: contact } = await supabase
     .from('contacts')
-    .select('phone_number, notify_email, email, name')
+    .select('phone_number, notify_email, email, name, shopify_customer_id')
     .eq('id', contactId)
     .maybeSingle()
   if (!contact) return NextResponse.json({ data: { connected: true, orders: [] } })
+
+  // Si le contact est RELIÉ à un client Shopify → recherche fiable par
+  // customer_id (pas de faux positifs). C'est le chemin privilégié.
+  if (contact.shopify_customer_id) {
+    const byId = await findOrdersByCustomerId(store.shop_domain, decryptMessage(store.access_token), contact.shopify_customer_id)
+    if (byId.ok) {
+      return NextResponse.json({ data: { connected: true, orders: byId.data, shopDomain: store.shop_domain, linked: true } })
+    }
+    // En cas d'échec (client supprimé côté Shopify), on retombe sur email/tel.
+  }
 
   // ROBUSTESSE : le champ phone_number peut contenir un email (données WhatsApp
   // Email, ou import). On ne construit une clause phone Shopify QUE si c'est un

@@ -25,6 +25,7 @@ import {
   Calendar,
   Trash2,
   Languages,
+  ShoppingBag,
 } from 'lucide-react'
 import { ConfirmDeleteDialog } from '@/components/confirm-delete-dialog'
 import { formatDistanceToNow, format } from 'date-fns'
@@ -352,6 +353,14 @@ export function ContactProfilePanel({
                       className="pl-8 h-8 text-xs"
                     />
                   </div>
+                  {/* Statut de liaison au client Shopify. */}
+                  {contact?.shopify_customer_id ? (
+                    <div className="mt-1 inline-flex items-center gap-1 rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-600 dark:text-emerald-400">
+                      <ShoppingBag className="h-3 w-3" /> Client Shopify relié
+                    </div>
+                  ) : (
+                    <p className="mt-1 text-[10px] text-muted-foreground">Non relié à un client Shopify (aucune commande visible tant que le compte n&apos;est pas identifié).</p>
+                  )}
                 </div>
 
                 <div className="space-y-1">

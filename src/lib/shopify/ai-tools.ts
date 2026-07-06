@@ -2,7 +2,7 @@ import 'server-only'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { createPendingAction, type ActionType } from './actions'
 import { decryptMessage } from '@/lib/crypto/encryption'
-import { findOrderIdByName, getRefundableOrder, getSuggestedRefund, type RefundLineItem } from './client'
+import { findOrderIdByName, getRefundableOrder, getSuggestedRefund, findCustomerByEmail, findOrdersByCustomerId, type RefundLineItem } from './client'
 
 /**
  * Outils IA (function calling) pour les actions Shopify.
@@ -139,6 +139,64 @@ export const TRACK_ORDER_TOOL = {
 
 export function isTrackOrderTool(name: string): boolean {
   return name === 'track_order'
+}
+
+/**
+ * Outil de LIAISON COMPTE (Cas 2 — SAV) : quand un client écrit sur WhatsApp
+ * pour du SAV mais qu'on ne le reconnaît pas encore comme client Shopify,
+ * l'agent lui demande l'email de sa commande et appelle cet outil pour relier
+ * son compte. Une fois relié, l'agent peut voir ses commandes de façon fiable.
+ */
+export const LINK_CUSTOMER_TOOL = {
+  type: 'function' as const,
+  function: {
+    name: 'link_customer',
+    description:
+      "Relie le contact WhatsApp à son compte client Shopify via l'email de sa commande. À appeler quand le client fait une demande liée à une commande (SAV, suivi, remboursement) MAIS qu'on ne connaît pas encore son email/compte. Demande d'abord poliment l'email utilisé pour la commande, puis appelle cet outil. Réponds ensuite selon le résultat (compte trouvé ou non).",
+    parameters: {
+      type: 'object',
+      properties: {
+        email: { type: 'string', description: "Email fourni par le client (celui utilisé pour sa commande)." },
+      },
+      required: ['email'],
+    },
+  },
+}
+
+export function isLinkCustomerTool(name: string): boolean {
+  return name === 'link_customer'
+}
+
+/** Relie le contact de la conversation à un client Shopify via son email. */
+export async function handleLinkCustomer(
+  args: Record<string, unknown>,
+  ctx: { userId: string; conversationId: string }
+): Promise<string> {
+  const email = String(args.email || '').trim().toLowerCase()
+  if (!email.includes('@')) return "Cet email ne semble pas valide. Peux-tu redemander poliment au client l'email utilisé pour sa commande ?"
+
+  const store = await getUserStore(ctx.userId)
+  if (!store) return "Aucune boutique connectée — impossible de relier le compte pour l'instant."
+
+  const customer = await findCustomerByEmail(store.shop, store.token, email)
+  if (!customer) {
+    return `Aucun compte client trouvé avec l'email ${email}. Dis au client qu'on ne trouve pas de commande à cet email et demande s'il a utilisé une autre adresse.`
+  }
+
+  // Retrouver le contact de la conversation et stocker le lien + l'email.
+  const supabase = createAdminSupabase(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+  const { data: conv } = await supabase
+    .from('conversations')
+    .select('contact_id')
+    .eq('id', ctx.conversationId)
+    .maybeSingle()
+  if (conv?.contact_id) {
+    await supabase
+      .from('contacts')
+      .update({ shopify_customer_id: customer.id, notify_email: email })
+      .eq('id', conv.contact_id)
+  }
+  return `Compte client relié (${customer.displayName || email}). Tu peux maintenant consulter ses commandes et traiter sa demande. Confirme au client que son compte est bien retrouvé.`
 }
 
 /**
@@ -364,6 +422,44 @@ async function estimateRefundAmount(
 }
 
 /**
+ * Vérifie l'identité avant un remboursement : le contact doit être relié à un
+ * client Shopify (via opt-in Cas 3, ou via link_customer Cas 2) ET la commande
+ * demandée doit appartenir à CE client. Sinon on refuse et on demande à l'agent
+ * de vérifier l'identité (email + n° de commande).
+ */
+async function verifyRefundIdentity(
+  ctx: { userId: string; conversationId?: string | null },
+  orderName: string
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  if (!ctx.conversationId) return { ok: false, message: "Impossible de vérifier l'identité (conversation inconnue). Demande à un conseiller humain." }
+
+  const supabase = createAdminSupabase(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+  const { data: conv } = await supabase
+    .from('conversations')
+    .select('contact:contacts(shopify_customer_id)')
+    .eq('id', ctx.conversationId)
+    .maybeSingle()
+  const customerId = (conv?.contact as unknown as { shopify_customer_id: string | null } | null)?.shopify_customer_id || null
+
+  if (!customerId) {
+    return { ok: false, message: "Avant tout remboursement, tu DOIS vérifier l'identité du client : demande-lui l'email utilisé pour sa commande et appelle l'outil link_customer. Ne crée PAS de demande de remboursement tant que le compte n'est pas relié." }
+  }
+
+  // La commande demandée appartient-elle bien à ce client ?
+  const store = await getUserStore(ctx.userId)
+  if (!store) return { ok: false, message: "Boutique indisponible pour vérifier la commande. Réessaie plus tard." }
+  const orders = await findOrdersByCustomerId(store.shop, store.token, customerId, 50)
+  if (orders.ok) {
+    const wanted = orderName.replace(/^#?/, '#').toLowerCase()
+    const found = orders.data.some((o) => o.name.toLowerCase() === wanted)
+    if (!found) {
+      return { ok: false, message: `La commande ${orderName} ne figure pas parmi les commandes de ce client. Demande-lui de reconfirmer le numéro exact de sa commande — ne rembourse pas une commande qui n'est pas la sienne.` }
+    }
+  }
+  return { ok: true }
+}
+
+/**
  * Traite l'appel d'un outil d'action : crée l'action pending et renvoie un
  * message destiné à l'agent (qui le reformulera au client).
  */
@@ -380,6 +476,14 @@ export async function handleActionTool(
     summary = `Annulation de la commande ${args.order_name}${args.reason ? ` — ${args.reason}` : ''}`
   } else if (call.functionName === 'request_refund') {
     actionType = 'refund_order'
+
+    // GARDE-FOU IDENTITÉ (Cas 2 SAV) : un remboursement n'est enregistré QUE si
+    // le contact est relié à un client Shopify ET que la commande demandée
+    // appartient bien à ce client (email + n° de commande cohérents). Empêche
+    // qu'un inconnu se fasse rembourser la commande de quelqu'un d'autre.
+    const gate = await verifyRefundIdentity(ctx, String(args.order_name || ''))
+    if (!gate.ok) return gate.message
+
     // Estimer le montant remboursable pour l'afficher avant validation.
     const est = await estimateRefundAmount(ctx.userId, args)
     if (est) {

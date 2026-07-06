@@ -7,7 +7,7 @@ import { sendMessage, sendMediaMessage, sendInteractiveMessage, sendPresence } f
 import { retrieveContext } from '@/lib/knowledge/retriever'
 import { encryptMessage, decryptMessage } from '@/lib/crypto/encryption'
 import { getAgentTools, buildOpenAITools, executeToolCall } from '@/lib/tools/executor'
-import { SHOPIFY_ACTION_TOOLS, isShopifyActionTool, handleActionTool, userHasShopifyStore, NOTIFICATION_CHANNEL_TOOL, isNotificationChannelTool, handleNotificationChannelTool, TRACK_ORDER_TOOL, isTrackOrderTool, handleTrackOrder } from '@/lib/shopify/ai-tools'
+import { SHOPIFY_ACTION_TOOLS, isShopifyActionTool, handleActionTool, userHasShopifyStore, NOTIFICATION_CHANNEL_TOOL, isNotificationChannelTool, handleNotificationChannelTool, TRACK_ORDER_TOOL, isTrackOrderTool, handleTrackOrder, LINK_CUSTOMER_TOOL, isLinkCustomerTool, handleLinkCustomer } from '@/lib/shopify/ai-tools'
 import { checkConversationQuota } from '@/lib/shopify/plans'
 import { canUseAi } from '@/lib/plans/gate'
 import type { WhatsAppSession } from '@/types/database'
@@ -321,6 +321,23 @@ Exemples :
 
     systemPrompt += `\n\n--- Date et heure actuelles ---\nNous sommes le ${dateStr}, il est ${timeStr} (fuseau horaire : Europe/Paris).\nUtilise TOUJOURS cette date comme référence. "Demain" = le jour suivant cette date. Pour les dates et heures dans les outils, utilise le format ISO 8601 avec timezone, par exemple : 2026-03-06T15:00:00+01:00.`
     systemPrompt += `\n\n--- Contexte de la conversation ---\nNuméro WhatsApp du client : ${params.contactPhoneNumber}\nATTENTION : Ce numéro est "${params.contactPhoneNumber}". Quand tu dois inclure le numéro WhatsApp dans un message ou une notification, écris EXACTEMENT "${params.contactPhoneNumber}" — jamais de crochets, jamais de placeholder.`
+
+    // Identité du contact : email connu + s'il est relié à un client Shopify.
+    // Sert à l'agent pour savoir s'il doit demander l'email (SAV) ou non.
+    if (userId && (await userHasShopifyStore(userId))) {
+      const { data: convForContact } = await supabase
+        .from('conversations')
+        .select('contact:contacts(notify_email, email, name, shopify_customer_id)')
+        .eq('id', params.conversationId)
+        .maybeSingle()
+      const c = (convForContact?.contact as unknown as { notify_email: string | null; email: string | null; name: string | null; shopify_customer_id: string | null } | null)
+      const contactEmail = c?.notify_email || c?.email || null
+      if (c?.shopify_customer_id) {
+        systemPrompt += `\nCe client est IDENTIFIÉ (compte Shopify relié${contactEmail ? `, email : ${contactEmail}` : ''}). Tu peux consulter ses commandes directement.`
+      } else {
+        systemPrompt += `\nCe client n'est PAS encore relié à un compte Shopify.${contactEmail ? ` Email connu : ${contactEmail}.` : ''} Pour toute demande liée à une commande (SAV, suivi, remboursement), demande d'abord poliment l'email utilisé pour la commande puis appelle l'outil link_customer. Ne traite JAMAIS un remboursement sans avoir vérifié l'identité (email + numéro de commande qui correspondent).`
+      }
+    }
     if (agent.objective) {
       systemPrompt += `\n\nObjectif principal : ${agent.objective}`
     }
@@ -420,6 +437,7 @@ NE liste JAMAIS des options en texte (genre "1. ... 2. ...") si tu peux les mett
       openaiTools.push(...SHOPIFY_ACTION_TOOLS)
       openaiTools.push(NOTIFICATION_CHANNEL_TOOL)
       openaiTools.push(TRACK_ORDER_TOOL)
+      openaiTools.push(LINK_CUSTOMER_TOOL)
     }
 
     if (openaiTools.length > 0) {
@@ -496,6 +514,13 @@ NE liste JAMAIS des options en texte (genre "1. ... 2. ...") si tu peux les mett
         if (isTrackOrderTool(tc.functionName)) {
           const trackMsg = await handleTrackOrder(tc.arguments, { userId: userId!, conversationId: params.conversationId })
           toolMessages.push({ role: 'tool', tool_call_id: tc.toolCallId, content: trackMsg })
+          continue
+        }
+
+        // Liaison compte client Shopify (SAV) via l'email fourni par le client.
+        if (isLinkCustomerTool(tc.functionName)) {
+          const linkMsg = await handleLinkCustomer(tc.arguments, { userId: userId!, conversationId: params.conversationId })
+          toolMessages.push({ role: 'tool', tool_call_id: tc.toolCallId, content: linkMsg })
           continue
         }
 

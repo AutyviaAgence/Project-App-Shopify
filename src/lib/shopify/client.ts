@@ -343,6 +343,110 @@ export async function findOrdersByCustomer(
   return { ok: true as const, data: orders }
 }
 
+// ─── Liaison contact ↔ client Shopify (customer_id) ────────────────
+
+type OrderNode = {
+  id: string
+  name: string
+  createdAt: string
+  displayFinancialStatus: string | null
+  displayFulfillmentStatus: string | null
+  totalPriceSet: { shopMoney: { amount: string; currencyCode: string } }
+  totalRefundedSet: { shopMoney: { amount: string } } | null
+  fulfillments: { displayStatus: string | null; trackingInfo: { number: string | null; url: string | null }[] }[]
+}
+
+const ORDER_FIELDS = `
+  id name createdAt
+  displayFinancialStatus displayFulfillmentStatus
+  totalPriceSet { shopMoney { amount currencyCode } }
+  totalRefundedSet { shopMoney { amount } }
+  fulfillments(first: 1) { displayStatus trackingInfo { number url } }
+`
+
+function mapOrder(n: OrderNode) {
+  return {
+    id: n.id,
+    name: n.name,
+    createdAt: n.createdAt,
+    financialStatus: n.displayFinancialStatus,
+    fulfillmentStatus: n.displayFulfillmentStatus,
+    deliveryStatus: n.fulfillments[0]?.displayStatus || null,
+    total: n.totalPriceSet.shopMoney.amount,
+    totalRefunded: n.totalRefundedSet?.shopMoney?.amount || '0',
+    currency: n.totalPriceSet.shopMoney.currencyCode,
+    tracking: n.fulfillments[0]?.trackingInfo[0] || null,
+  }
+}
+
+/** Trouve un client Shopify par email. Renvoie son gid + email/phone/nom, ou null. */
+export async function findCustomerByEmail(
+  shop: string,
+  accessToken: string,
+  email: string
+): Promise<{ id: string; email: string | null; phone: string | null; displayName: string | null } | null> {
+  const clean = email.trim().toLowerCase()
+  if (!clean.includes('@')) return null
+  const res = await shopifyGraphQL<{
+    customers: { edges: { node: { id: string; email: string | null; phone: string | null; displayName: string | null } }[] }
+  }>(
+    shop,
+    accessToken,
+    `query($q: String!) { customers(first: 1, query: $q) { edges { node { id email phone displayName } } } }`,
+    { q: `email:${clean}` }
+  )
+  if (!res.ok) return null
+  return res.data.customers.edges[0]?.node ?? null
+}
+
+/** Trouve un client Shopify par téléphone (numéro E.164 sans espaces). */
+export async function findCustomerByPhone(
+  shop: string,
+  accessToken: string,
+  phone: string
+): Promise<{ id: string; email: string | null; phone: string | null; displayName: string | null } | null> {
+  const digits = phone.replace(/\D/g, '')
+  if (digits.length < 6) return null
+  const res = await shopifyGraphQL<{
+    customers: { edges: { node: { id: string; email: string | null; phone: string | null; displayName: string | null } }[] }
+  }>(
+    shop,
+    accessToken,
+    `query($q: String!) { customers(first: 5, query: $q) { edges { node { id email phone displayName } } } }`,
+    { q: `phone:+${digits}` }
+  )
+  if (!res.ok) return null
+  // Sécurité : ne garder qu'un client dont le téléphone matche vraiment (9 derniers chiffres).
+  const node = res.data.customers.edges
+    .map((e) => e.node)
+    .find((n) => (n.phone || '').replace(/\D/g, '').endsWith(digits.slice(-9)))
+  return node ?? null
+}
+
+/** Commandes d'un client par son gid Shopify — FIABLE (pas de faux positifs). */
+export async function findOrdersByCustomerId(
+  shop: string,
+  accessToken: string,
+  customerId: string,
+  limit = 5
+) {
+  const res = await shopifyGraphQL<{ customer: { orders: { edges: { node: OrderNode }[] } } | null }>(
+    shop,
+    accessToken,
+    `query($id: ID!, $n: Int!) {
+       customer(id: $id) {
+         orders(first: $n, sortKey: CREATED_AT, reverse: true) {
+           edges { node { ${ORDER_FIELDS} } }
+         }
+       }
+     }`,
+    { id: customerId, n: limit }
+  )
+  if (!res.ok) return res
+  const nodes = res.data.customer?.orders.edges.map((e) => e.node) ?? []
+  return { ok: true as const, data: nodes.map(mapOrder) }
+}
+
 // ─── Actions write (exécutées UNIQUEMENT après validation humaine) ──
 
 /** Retrouve l'ID GraphQL d'une commande à partir de son numéro (#1024 → gid). */
