@@ -145,6 +145,29 @@ function SubscriptionContent() {
   const [isCancelling, setIsCancelling] = useState(false)
   const [selectedPlan, setSelectedPlan] = useState<PlanId | null>(null)
   const [cgvAccepted, setCgvAccepted] = useState(false)
+  const [buyingCredits, setBuyingCredits] = useState(false)
+  // Crédits IA = conversations IA du mois (compteur réel).
+  const [aiCredits, setAiCredits] = useState<{ used: number; limit: number | null; percentage: number } | null>(null)
+
+  useEffect(() => {
+    fetch('/api/subscription/usage')
+      .then(r => (r.ok ? r.json() : null))
+      .then(json => { if (json?.data?.conversations) setAiCredits(json.data.conversations) })
+      .catch(() => {})
+  }, [])
+
+  const rechargeAiCredits = async () => {
+    setBuyingCredits(true)
+    try {
+      const res = await fetch('/api/stripe/buy-ai-credits', { method: 'POST' })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      window.location.href = data.url
+    } catch {
+      toast.error('Impossible de lancer l’achat de crédits.')
+      setBuyingCredits(false)
+    }
+  }
 
   useEffect(() => {
     const p = searchParams.get('plan')
@@ -401,95 +424,79 @@ function SubscriptionContent() {
       )}
 
 
-      {/* Tokens — visible pour onboarding, active et skipped */}
-      {subscription && (!!currentPlan) && (
+      {/* Crédits IA (conversations) — visible pour onboarding, active et skipped */}
+      {subscription && (!!currentPlan) && aiCredits && aiCredits.limit !== null && (
         <Card className="mb-8">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Cpu className="h-5 w-5 text-muted-foreground" />
-                <span className="font-semibold">{t('subscription.token_usage')}</span>
+                <Zap className="h-5 w-5 text-amber-500" />
+                <span className="font-semibold">Crédits IA (conversations)</span>
               </div>
               <Button
                 size="sm"
                 variant="outline"
                 className="h-7 text-xs"
-                onClick={async () => {
-                  try {
-                    const res = await fetch('/api/stripe/buy-tokens', { method: 'POST' })
-                    const data = await res.json()
-                    if (!res.ok) throw new Error(data.error)
-                    window.location.href = data.url
-                  } catch {
-                    toast.error(t('subscription.buy_tokens_error'))
-                  }
-                }}
+                onClick={rechargeAiCredits}
+                disabled={buyingCredits}
               >
                 <Zap className="mr-1 h-3 w-3" />
-                Acheter +500k tokens (50€)
+                {buyingCredits ? 'Redirection…' : 'Recharger +500 conversations (45€)'}
               </Button>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Barre globale */}
+            {/* Barre de conversations IA du mois */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">
-                  {subscription.tokensUsed.toLocaleString()} / {subscription.tokensTotal.toLocaleString()} tokens utilisés
+                  <span className="font-semibold text-foreground">{aiCredits.used.toLocaleString('fr-FR')}</span>
+                  {' / '}{aiCredits.limit.toLocaleString('fr-FR')} conversations IA ce mois-ci
                 </span>
                 <span className={cn(
                   'font-medium',
-                  subscription.usagePercentage < 70 && 'text-green-600',
-                  subscription.usagePercentage >= 70 && subscription.usagePercentage < 90 && 'text-amber-600',
-                  subscription.usagePercentage >= 90 && 'text-red-600',
+                  aiCredits.percentage < 80 && 'text-green-600',
+                  aiCredits.percentage >= 80 && aiCredits.percentage < 95 && 'text-amber-600',
+                  aiCredits.percentage >= 95 && 'text-red-600',
                 )}>
-                  {subscription.usagePercentage}%
+                  {aiCredits.percentage}%
                 </span>
               </div>
               <Progress
-                value={Math.min(subscription.usagePercentage, 100)}
+                value={Math.min(aiCredits.percentage, 100)}
                 className={cn(
                   'h-2.5',
-                  subscription.usagePercentage >= 90 && '[&>div]:bg-red-500',
-                  subscription.usagePercentage >= 70 && subscription.usagePercentage < 90 && '[&>div]:bg-amber-500',
+                  aiCredits.percentage >= 95 && '[&>div]:bg-red-500',
+                  aiCredits.percentage >= 80 && aiCredits.percentage < 95 && '[&>div]:bg-amber-500',
                 )}
               />
               <p className="text-xs text-muted-foreground">
-                {subscription.tokensRemaining.toLocaleString()} tokens restants
+                {Math.max(0, aiCredits.limit - aiCredits.used).toLocaleString('fr-FR')} conversations IA restantes
               </p>
             </div>
 
-            {/* Détail : plan + extra */}
             <div className="grid grid-cols-2 gap-3 pt-1">
               <div className="rounded-lg border bg-muted/30 p-3 space-y-0.5">
-                <p className="text-xs text-muted-foreground">Tokens du plan</p>
-                <p className="text-sm font-semibold">{subscription.tokensLimit.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground">Inclus dans le plan</p>
+                <p className="text-sm font-semibold">{aiCredits.limit.toLocaleString('fr-FR')} conv.</p>
                 <p className="text-xs text-muted-foreground/70">Remis à zéro chaque mois</p>
               </div>
-              <div className={cn(
-                'rounded-lg border p-3 space-y-0.5',
-                subscription.tokensExtra > 0 ? 'bg-primary/5 border-primary/20' : 'bg-muted/30',
-              )}>
-                <p className="text-xs text-muted-foreground">Tokens supplémentaires</p>
-                <p className={cn('text-sm font-semibold', subscription.tokensExtra > 0 && 'text-primary')}>
-                  {subscription.tokensExtra.toLocaleString()}
-                </p>
-                <p className="text-xs text-muted-foreground/70">Permanent jusqu&apos;à épuisement</p>
+              <div className="rounded-lg border bg-muted/30 p-3 space-y-0.5">
+                <p className="text-xs text-muted-foreground">Recharge</p>
+                <p className="text-sm font-semibold">500 conv. · 45€</p>
+                <p className="text-xs text-muted-foreground/70">Ne périment pas</p>
               </div>
             </div>
 
-            {subscription.usagePercentage >= 80 && (
+            {aiCredits.percentage >= 80 && (
               <div className={cn(
                 'rounded-lg p-3 text-xs',
-                subscription.usagePercentage >= 100 ? 'bg-red-500/10 text-red-700 border border-red-500/20' :
-                subscription.usagePercentage >= 90 ? 'bg-orange-500/10 text-orange-700 border border-orange-500/20' :
+                aiCredits.percentage >= 100 ? 'bg-red-500/10 text-red-700 border border-red-500/20' :
                 'bg-amber-500/10 text-amber-700 border border-amber-500/20',
               )}>
-                {subscription.usagePercentage >= 100
-                  ? "Limite atteinte — l'IA est suspendue. Achetez des tokens pour continuer."
-                  : subscription.usagePercentage >= 90
-                  ? "Vous approchez de la limite. Rechargez maintenant pour éviter une interruption."
-                  : "Vous avez consommé plus de 80% de vos tokens. Pensez à recharger bientôt."}
+                {aiCredits.percentage >= 100
+                  ? "Crédits IA épuisés — l'IA est en pause. Rechargez pour continuer à répondre automatiquement."
+                  : "Vous avez consommé plus de 80% de vos crédits IA. Pensez à recharger bientôt."}
               </div>
             )}
           </CardContent>
