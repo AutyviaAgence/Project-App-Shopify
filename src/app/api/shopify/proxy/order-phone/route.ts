@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { shopifyGraphQL } from '@/lib/shopify/client'
 import { decryptMessage } from '@/lib/crypto/encryption'
+import { verifyAppProxySignature } from '@/lib/shopify/proxy-auth'
 
 // L'extension checkout (origine extensions.shopifycdn.com) appelle cette route
 // en cross-origin → headers CORS requis.
@@ -27,8 +28,17 @@ export async function OPTIONS() {
  */
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
+
+  // SÉCURITÉ : cette route renvoie un téléphone client (PII). On exige la
+  // signature App Proxy de Shopify (fail-closed) pour empêcher l'énumération.
+  if (!verifyAppProxySignature(searchParams)) {
+    return NextResponse.json({ phone: null, error: 'signature invalide' }, { status: 401, headers: { ...CORS, 'Cache-Control': 'no-store' } })
+  }
+
   const shop = searchParams.get('shop')
-  const orderNumber = (searchParams.get('order') || '').trim()
+  // Numéro de commande : uniquement chiffres/#/lettres (empêche l'injection de
+  // filtre dans la recherche Shopify `query:`).
+  const orderNumber = (searchParams.get('order') || '').trim().replace(/[^A-Za-z0-9#-]/g, '')
   const orderGid = (searchParams.get('id') || '').trim() // gid://shopify/OrderIdentity/123
 
   if (!shop || (!orderNumber && !orderGid)) {
@@ -100,17 +110,8 @@ export async function GET(req: NextRequest) {
     if (r.ok) o = r.data.orders.nodes[0]
   }
 
-  // 4) Dernier recours : la commande la plus récente de la boutique (la commande
-  // vient d'être passée → c'est presque toujours la bonne sur la page Merci).
-  if (!o) {
-    const r = await shopifyGraphQL<{ orders: { nodes: OrderNode[] } }>(
-      store.shop_domain, token,
-      `query { orders(first: 1, sortKey: CREATED_AT, reverse: true) { nodes { ${FIELDS} } } }`,
-      {}
-    )
-    tried.push(`latest:${r.ok ? (r.data.orders.nodes[0] ? 'found' : 'null') : 'err'}`)
-    if (r.ok) o = r.data.orders.nodes[0]
-  }
+  // NB : PAS de fallback « dernière commande de la boutique » — il renvoyait le
+  // téléphone d'un autre client si le numéro ne matchait pas (fuite PII).
 
   const phone = (
     o?.phone ||

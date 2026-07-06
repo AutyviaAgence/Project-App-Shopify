@@ -18,16 +18,20 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const shop = searchParams.get('shop')
 
-  // Vérification de la signature App Proxy (Shopify)
+  // Vérification de la signature App Proxy (Shopify) — comparaison timing-safe.
   const secret = process.env.SHOPIFY_API_SECRET
   if (secret) {
     const signature = searchParams.get('signature') || ''
-    const params: Record<string, string> = {}
-    searchParams.forEach((value, key) => { if (key !== 'signature') params[key] = value })
-    const sorted = Object.keys(params).sort().map((k) => `${k}=${params[k]}`).join('')
-    const computed = crypto.createHmac('sha256', secret).update(sorted).digest('hex')
-    if (signature && computed !== signature) {
-      return NextResponse.json({ enabled: false, error: 'invalid signature' }, { status: 401 })
+    if (signature) {
+      const params: Record<string, string> = {}
+      searchParams.forEach((value, key) => { if (key !== 'signature') params[key] = value })
+      const sorted = Object.keys(params).sort().map((k) => `${k}=${params[k]}`).join('')
+      const computed = crypto.createHmac('sha256', secret).update(sorted).digest('hex')
+      const a = Buffer.from(computed, 'utf8')
+      const b = Buffer.from(signature, 'utf8')
+      if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
+        return NextResponse.json({ enabled: false, error: 'invalid signature' }, { status: 401 })
+      }
     }
   }
 

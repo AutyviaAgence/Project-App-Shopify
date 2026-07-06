@@ -16,12 +16,14 @@ export async function POST(req: NextRequest) {
     // Auth: internal server calls use X-Internal-Secret header, browser calls use Supabase session
     const internalSecret = req.headers.get('x-internal-secret')
     const isInternalCall = internalSecret === process.env.SUPABASE_SERVICE_ROLE_KEY
+    let callerUserId: string | null = null
     if (!isInternalCall) {
       const supabaseAuth = await createClient()
       const { data: { user }, error: authError } = await supabaseAuth.auth.getUser()
       if (authError || !user) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
       }
+      callerUserId = user.id
     }
     const { agent_id, session_id: explicitSessionId, contact_name, phone_number, message, send_delay } = body
 
@@ -56,12 +58,19 @@ export async function POST(req: NextRequest) {
 
     const { data: session } = await supabase
       .from('whatsapp_sessions')
-      .select('integration_type, instance_name, waba_phone_number_id, waba_access_token, daily_ai_message_limit, ai_message_delay')
+      .select('user_id, integration_type, instance_name, waba_phone_number_id, waba_access_token, daily_ai_message_limit, ai_message_delay')
       .eq('id', sessionId)
       .single()
 
     if (!session) {
       return NextResponse.json({ error: 'WhatsApp session not found' }, { status: 404 })
+    }
+
+    // SÉCURITÉ (IDOR) : pour un appel navigateur, la session doit appartenir à
+    // l'utilisateur connecté — sinon on pourrait envoyer depuis le numéro d'un
+    // autre marchand. Les appels internes (agent) sont déjà de confiance.
+    if (!isInternalCall && session.user_id !== callerUserId) {
+      return NextResponse.json({ error: 'Accès refusé à cette session' }, { status: 403 })
     }
 
     // Check daily message limit

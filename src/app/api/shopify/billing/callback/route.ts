@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
-import { isValidShopDomain, getShopifyConfig } from '@/lib/shopify/client'
+import { isValidShopDomain, getShopifyConfig, getAppSubscriptionStatus } from '@/lib/shopify/client'
+import { decryptMessage } from '@/lib/crypto/encryption'
 import { PLANS, type PlanId } from '@/lib/shopify/plans'
 
 /**
  * GET /api/shopify/billing/callback?shop=…&plan=…
  * Retour après confirmation du paiement par le marchand (Billing API).
- * Marque l'abonnement actif et redirige vers l'app embedded.
+ *
+ * ⚠️ SÉCURITÉ : ne JAMAIS faire confiance aux query params seuls. On vérifie
+ * auprès de Shopify que l'abonnement (charge_id stocké au subscribe) est bien
+ * ACTIVE avant d'activer le plan — sinon n'importe qui pourrait forger ce
+ * callback (?shop=X&plan=scale) et débloquer un plan payant sans payer.
  */
 export async function GET(req: NextRequest) {
   const shop = req.nextUrl.searchParams.get('shop')
@@ -21,7 +26,28 @@ export async function GET(req: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  // Active l'abonnement (Shopify a confirmé le paiement avant de rediriger ici).
+  // Récupérer l'abonnement en attente (créé par /subscribe) + le token.
+  const { data: store } = await admin
+    .from('shopify_stores')
+    .select('id, access_token, shopify_charge_id')
+    .eq('shop_domain', shop)
+    .eq('is_active', true)
+    .maybeSingle()
+
+  if (!store?.access_token || !store.shopify_charge_id) {
+    return NextResponse.json({ error: 'Aucun abonnement en attente pour cette boutique.' }, { status: 400 })
+  }
+
+  // VÉRIFICATION auprès de Shopify : l'abonnement doit être ACTIVE.
+  const token = decryptMessage(store.access_token)
+  const sub = await getAppSubscriptionStatus(shop, token, store.shopify_charge_id)
+  if (!sub || sub.status !== 'ACTIVE') {
+    return NextResponse.json(
+      { error: `Abonnement non confirmé (statut : ${sub?.status || 'inconnu'}).` },
+      { status: 402 }
+    )
+  }
+
   const periodEnd = new Date()
   periodEnd.setDate(periodEnd.getDate() + 30)
 
@@ -34,7 +60,7 @@ export async function GET(req: NextRequest) {
       current_period_end: periodEnd.toISOString(),
       updated_at: new Date().toISOString(),
     })
-    .eq('shop_domain', shop)
+    .eq('id', store.id)
 
   const { appUrl } = getShopifyConfig()
   return NextResponse.redirect(`${appUrl}/shopify?shop=${encodeURIComponent(shop)}&subscribed=1`)

@@ -9,6 +9,17 @@ import crypto from 'crypto'
 
 const API_VERSION = '2026-04'
 
+/**
+ * Échappe une valeur utilisateur avant de l'injecter dans une recherche Shopify
+ * (`query:`). On l'entoure de guillemets et on neutralise les caractères qui
+ * pourraient altérer la sémantique du filtre (guillemets, `:`, parenthèses,
+ * opérateurs OR/AND). Empêche l'injection de filtre (ex : `x OR status:any`).
+ */
+function shopifySearchValue(v: string): string {
+  const cleaned = String(v).replace(/["():]/g, ' ').replace(/\s+/g, ' ').trim()
+  return `"${cleaned}"`
+}
+
 export function getShopifyConfig() {
   const apiKey = process.env.SHOPIFY_API_KEY
   const apiSecret = process.env.SHOPIFY_API_SECRET
@@ -264,8 +275,8 @@ export async function findOrdersByCustomer(
   const clauses: string[] = []
   const email = (opts.email || '').trim()
   const phone = (opts.phone || '').trim()
-  if (email.includes('@')) clauses.push(`email:${email}`)
-  if (phone.replace(/\D/g, '').length >= 6) clauses.push(`phone:${phone}`)
+  if (email.includes('@')) clauses.push(`email:${shopifySearchValue(email)}`)
+  if (phone.replace(/\D/g, '').length >= 6) clauses.push(`phone:${shopifySearchValue(phone)}`)
   if (clauses.length === 0) return { ok: true as const, data: [] }
 
   const q = clauses.join(' OR ')
@@ -393,7 +404,7 @@ export async function findCustomerByEmail(
     shop,
     accessToken,
     `query($q: String!) { customers(first: 1, query: $q) { edges { node { id email phone displayName } } } }`,
-    { q: `email:${clean}` }
+    { q: `email:${shopifySearchValue(clean)}` }
   )
   if (!res.ok) return null
   return res.data.customers.edges[0]?.node ?? null
@@ -413,7 +424,7 @@ export async function findCustomerByPhone(
     shop,
     accessToken,
     `query($q: String!) { customers(first: 5, query: $q) { edges { node { id email phone displayName } } } }`,
-    { q: `phone:+${digits}` }
+    { q: `phone:${shopifySearchValue('+' + digits)}` }
   )
   if (!res.ok) return null
   // Sécurité : ne garder qu'un client dont le téléphone matche vraiment (9 derniers chiffres).
@@ -456,7 +467,7 @@ export async function findOrderIdByName(shop: string, accessToken: string, order
     shop,
     accessToken,
     `query($q: String!) { orders(first: 1, query: $q) { edges { node { id name } } } }`,
-    { q: `name:${name}` }
+    { q: `name:${shopifySearchValue(name)}` }
   )
   if (!res.ok) return null
   return res.data.orders.edges[0]?.node.id ?? null
@@ -769,6 +780,26 @@ export async function cancelAppSubscription(shop: string, accessToken: string, s
     `mutation($id: ID!) { appSubscriptionCancel(id: $id) { userErrors { message } } }`,
     { id: subscriptionId }
   )
+}
+
+/**
+ * Statut d'un abonnement app par son gid. Sert à VÉRIFIER auprès de Shopify
+ * qu'un paiement est bien ACTIVE avant d'activer le plan côté Xeyo (sinon un
+ * appelant pourrait forger le callback billing et activer un plan sans payer).
+ */
+export async function getAppSubscriptionStatus(
+  shop: string,
+  accessToken: string,
+  subscriptionId: string
+): Promise<{ status: string; name: string } | null> {
+  const res = await shopifyGraphQL<{ node: { status: string; name: string } | null }>(
+    shop,
+    accessToken,
+    `query($id: ID!) { node(id: $id) { ... on AppSubscription { status name } } }`,
+    { id: subscriptionId }
+  )
+  if (!res.ok || !res.data.node) return null
+  return res.data.node
 }
 
 /** Crée un code de réduction (montant ou pourcentage). */

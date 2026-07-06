@@ -3,6 +3,7 @@ import crypto from 'crypto'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { decryptMessage } from '@/lib/crypto/encryption'
 import { findCustomerByEmail, findCustomerByPhone } from '@/lib/shopify/client'
+import { checkRateLimit } from '@/lib/rate-limit'
 
 // L'extension checkout (extensions.shopifycdn.com) appelle en cross-origin.
 const CORS = {
@@ -30,18 +31,28 @@ function verifyProxySignature(searchParams: URLSearchParams): boolean {
   const secret = process.env.SHOPIFY_API_SECRET
   if (!secret) return true // pas de secret configuré → on n'impose pas (dev)
   const signature = searchParams.get('signature') || ''
-  // Pas de signature : autorisé (appel depuis une Checkout UI Extension, qui
-  // ne passe pas par le proxy signé). L'opt-in n'est pas une action sensible
-  // et la boutique est validée ensuite (doit exister + WhatsApp connecté).
+  // Pas de signature : toléré (la popup du site appelle l'URL directe, non
+  // signée). Le rate-limit ci-dessous et la validation stricte du numéro
+  // limitent l'abus. Si signature présente, elle DOIT être valide (timing-safe).
   if (!signature) return true
   const params: Record<string, string> = {}
   searchParams.forEach((value, key) => { if (key !== 'signature') params[key] = value })
   const sorted = Object.keys(params).sort().map((k) => `${k}=${params[k]}`).join('')
   const computed = crypto.createHmac('sha256', secret).update(sorted).digest('hex')
-  return computed === signature
+  const a = Buffer.from(computed, 'utf8')
+  const b = Buffer.from(signature, 'utf8')
+  return a.length === b.length && crypto.timingSafeEqual(a, b)
 }
 
 export async function POST(req: NextRequest) {
+  // Anti-abus : limite les opt-ins (pas de signature possible depuis la popup,
+  // donc on protège par le débit). Empêche l'abonnement massif de numéros tiers.
+  const limited = checkRateLimit(req, 'AUTH')
+  if (limited) {
+    Object.entries(CORS).forEach(([k, v]) => limited.headers.set(k, v))
+    return limited
+  }
+
   const { searchParams } = new URL(req.url)
   if (!verifyProxySignature(searchParams)) {
     return J({ ok: false, error: 'invalid signature' }, 401)

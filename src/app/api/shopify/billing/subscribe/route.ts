@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { isValidShopDomain, createAppSubscription, getShopifyConfig } from '@/lib/shopify/client'
 import { decryptMessage } from '@/lib/crypto/encryption'
@@ -13,6 +14,15 @@ import { PLANS, PAID_PLANS, type PlanId } from '@/lib/shopify/plans'
  * OBLIGATOIREMENT via la Billing API (jamais en direct).
  */
 export async function POST(req: NextRequest) {
+  // SÉCURITÉ : action de facturation → utilisateur authentifié + propriétaire
+  // de la boutique. Sinon un anonyme pouvait manipuler la facturation d'un
+  // marchand en connaissant juste son domaine.
+  const rls = await createClient()
+  const { data: { user }, error: authError } = await rls.auth.getUser()
+  if (authError || !user) {
+    return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  }
+
   const { shop, plan } = (await req.json().catch(() => ({}))) as { shop?: string; plan?: PlanId }
 
   if (!shop || !isValidShopDomain(shop)) {
@@ -27,10 +37,12 @@ export async function POST(req: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
+  // La boutique doit appartenir à l'utilisateur connecté.
   const { data: store } = await admin
     .from('shopify_stores')
     .select('id, access_token')
     .eq('shop_domain', shop)
+    .eq('user_id', user.id)
     .eq('is_active', true)
     .maybeSingle()
 

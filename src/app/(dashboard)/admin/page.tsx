@@ -315,8 +315,11 @@ export default function AdminPage() {
   const checkZombies = async () => {
     setCheckingZombies(true)
     try {
-      const res = await fetch(`/api/cron/check-sessions?secret=${process.env.NEXT_PUBLIC_CRON_SECRET || ''}`, )
+      // Appel via une route admin AUTHENTIFIÉE (le CRON_SECRET ne doit JAMAIS
+      // être exposé côté navigateur). La route vérifie le rôle admin en session.
+      const res = await fetch('/api/admin/check-sessions', { method: 'POST' })
       const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Erreur')
       toast.success(`Vérification terminée : ${data.zombies?.length ?? 0} zombie(s) détecté(s)`)
       fetchSessions()
     } catch {
