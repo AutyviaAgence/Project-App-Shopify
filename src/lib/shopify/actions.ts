@@ -109,6 +109,7 @@ export async function executeAction(actionId: string): Promise<{ ok: boolean; er
     if (action.action_type === 'cancel_order' || action.action_type === 'refund_order') {
       const orderName = String(payload.order_name || payload.order || '')
       const orderId = await findOrderIdByName(shop, token, orderName)
+      console.log(`[refund] action=${action.action_type} order="${orderName}" resolvedId=${orderId || 'NULL'} shop=${shop}`)
       if (!orderId) {
         await markFailed(actionId, `Commande ${orderName} introuvable`)
         return { ok: false, error: 'Commande introuvable' }
@@ -142,7 +143,10 @@ export async function executeAction(actionId: string): Promise<{ ok: boolean; er
         // Méthode choisie à la validation (défaut : moyen d'origine).
         const method = (payload.refund_method as 'original' | 'store_credit' | 'both' | undefined) || 'original'
         const storeCreditAmount = payload.store_credit_amount != null ? Number(payload.store_credit_amount) : undefined
+        console.log(`[refund] refundType=${refundType} amount=${amount ?? 'auto'} method=${method} lineItems=${refundLineItems?.length ?? 0}`)
         result = await refundOrder(shop, token, orderId, { note, refundLineItems, amount, method, storeCreditAmount })
+        if (!result.ok) console.error(`[refund] ÉCHEC refundOrder pour ${orderName}: ${result.error}`)
+        else console.log(`[refund] OK ${orderName}: ${JSON.stringify(result.data)}`)
       }
     } else if (action.action_type === 'create_discount') {
       result = await createDiscountCode(shop, token, {
