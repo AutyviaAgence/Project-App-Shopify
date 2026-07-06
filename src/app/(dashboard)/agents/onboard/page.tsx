@@ -162,17 +162,17 @@ export default function AgentOnboardPage() {
   }
 
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-120px)] w-full max-w-2xl flex-col gap-6 p-6 md:p-8">
+    <div className="mx-auto flex min-h-[calc(100vh-120px)] w-full max-w-3xl flex-col gap-6 px-4 py-6 sm:px-6 md:px-8 lg:max-w-4xl">
       {/* En-tête + progression */}
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-semibold"><Sparkles className="h-6 w-6 text-primary" /> Configurons votre agent IA</h1>
         <p className="mt-1 text-sm text-muted-foreground">Pré-rempli à partir de votre boutique. Quelques étapes pour vérifier et ajuster.</p>
-        <div className="mt-5 flex items-center gap-2">
+        <div className="mt-5 flex items-center gap-1.5 sm:gap-2">
           {STEPS.map((s, i) => (
-            <div key={s.key} className="flex flex-1 flex-col gap-1.5">
+            <div key={s.key} className="flex min-w-0 flex-1 flex-col gap-1.5">
               <div className={cn('h-1.5 w-full rounded-full transition-colors', i <= step ? 'bg-primary' : 'bg-muted')} />
               <span className={cn('flex items-center gap-1 text-[11px] font-medium', i === step ? 'text-foreground' : 'text-muted-foreground')}>
-                <s.icon className="h-3 w-3" /> {s.label}
+                <s.icon className="h-3 w-3 shrink-0" /> <span className="hidden truncate sm:inline">{s.label}</span>
               </span>
             </div>
           ))}
@@ -325,8 +325,8 @@ export default function AgentOnboardPage() {
                 { label: 'Transfert humain', value: escalation ? 'Activé (détection IA)' : 'Désactivé' },
               ].map((row) => (
                 <div key={row.label} className="flex items-start justify-between gap-4 px-4 py-3">
-                  <dt className="text-sm text-muted-foreground">{row.label}</dt>
-                  <dd className="text-right text-sm font-medium">{row.value}</dd>
+                  <dt className="shrink-0 text-sm text-muted-foreground">{row.label}</dt>
+                  <dd className="min-w-0 break-words text-right text-sm font-medium">{row.value}</dd>
                 </div>
               ))}
             </dl>
