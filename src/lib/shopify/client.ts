@@ -434,18 +434,21 @@ export async function getSuggestedRefund(
     order: {
       suggestedRefund: {
         amountSet: { shopMoney: { amount: string; currencyCode: string } }
-        refundLineItems: { nodes: { lineItem: { id: string }; quantity: number }[] }
+        refundLineItems: { lineItem: { id: string }; quantity: number }[]
         suggestedTransactions: SuggestedTransaction[]
       } | null
     } | null
   }>(
     shop,
     accessToken,
-    `query($id: ID!, $refundLineItems: [RefundLineItemInput!], $refundShipping: ShippingRefundInput) {
+    // NB : `refundShipping` est un Boolean (pas ShippingRefundInput), et
+    // `refundLineItems` est une LISTE directe (pas une connexion `nodes`).
+    // Se tromper là-dessus fait échouer TOUTE la requête → suggestedRefund null.
+    `query($id: ID!, $refundLineItems: [RefundLineItemInput!], $refundShipping: Boolean) {
        order(id: $id) {
          suggestedRefund(refundLineItems: $refundLineItems, refundShipping: $refundShipping) {
            amountSet { shopMoney { amount currencyCode } }
-           refundLineItems { nodes { lineItem { id } quantity } }
+           refundLineItems { lineItem { id } quantity }
            suggestedTransactions { amount gateway parentTransaction { id } }
          }
        }
@@ -453,16 +456,23 @@ export async function getSuggestedRefund(
     {
       id: orderId,
       refundLineItems: opts?.refundLineItems?.map((li) => ({ lineItemId: li.lineItemId, quantity: li.quantity })) ?? null,
-      refundShipping: opts?.refundShipping ? { fullRefund: true } : null,
+      refundShipping: opts?.refundShipping ?? true,
     }
   )
-  if (!res.ok || !res.data.order?.suggestedRefund) return null
+  if (!res.ok) {
+    console.error(`[getSuggestedRefund] erreur GraphQL: ${res.error}`)
+    return null
+  }
+  if (!res.data.order?.suggestedRefund) {
+    console.error(`[getSuggestedRefund] suggestedRefund null (order=${res.data.order ? 'présent' : 'null'})`)
+    return null
+  }
   const sr = res.data.order.suggestedRefund
   return {
     amount: Number(sr.amountSet.shopMoney.amount) || 0,
     currency: sr.amountSet.shopMoney.currencyCode,
     transactions: sr.suggestedTransactions || [],
-    refundLineItems: sr.refundLineItems.nodes.map((n) => ({ lineItemId: n.lineItem.id, quantity: n.quantity })),
+    refundLineItems: (sr.refundLineItems || []).map((n) => ({ lineItemId: n.lineItem.id, quantity: n.quantity })),
   }
 }
 
