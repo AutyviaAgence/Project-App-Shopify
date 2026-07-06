@@ -145,6 +145,23 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Onboarding e-commerce de l'agent : au 1er accès après connexion de la boutique,
+  // on redirige UNE fois vers le configurateur pré-rempli. Un flag DB
+  // (`agent_onboarding_done`) empêche toute redirection ultérieure.
+  useEffect(() => {
+    // Ne pas rediriger si déjà sur l'onboarding, ni sur les pages sans abo.
+    if (pathname.startsWith('/agents/onboard') || isAllowedPage) return
+    let active = true
+    fetch('/api/agents/onboard/status')
+      .then(r => (r.ok ? r.json() : null))
+      .then(json => {
+        if (active && json?.shouldOnboard) router.replace('/agents/onboard')
+      })
+      .catch(() => {})
+    return () => { active = false }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const handleSignOut = useCallback(async () => {
     const supabase = createClient()
     const { error } = await supabase.auth.signOut()
