@@ -34,6 +34,21 @@ const REFUND_REASONS = [
   'Autre',
 ]
 
+// Détails de la commande affichés dans le formulaire de remboursement.
+type OrderDetails = {
+  name: string
+  currency: string
+  total: number
+  totalRefunded: number
+  refundableAmount: number
+  lineItems: { title: string; quantity: number; unitPrice: number }[]
+}
+
+function money(v: number, c: string) {
+  try { return new Intl.NumberFormat('fr-FR', { style: 'currency', currency: c || 'EUR' }).format(v) }
+  catch { return `${v.toFixed(2)} ${c}` }
+}
+
 const TYPE_META: Record<Action['action_type'], { label: string; icon: typeof Ban; cls: string }> = {
   cancel_order: { label: 'Annulation de commande', icon: Ban, cls: 'text-red-500' },
   refund_order: { label: 'Remboursement', icon: RotateCcw, cls: 'text-amber-500' },
@@ -159,7 +174,10 @@ function RefundDialog({
   onConfirm: (opts: RefundOptions) => void
 }) {
   const estimated = action.payload.amount_estimated != null ? Number(action.payload.amount_estimated) : undefined
-  const currency = String(action.payload.currency || '')
+
+  // Détails de la commande, chargés depuis Shopify à l'ouverture.
+  const [details, setDetails] = useState<OrderDetails | null>(null)
+  const [detailsLoading, setDetailsLoading] = useState(true)
 
   const [reasonChoice, setReasonChoice] = useState(REFUND_REASONS[0])
   const [reasonCustom, setReasonCustom] = useState('')
@@ -167,9 +185,28 @@ function RefundDialog({
   const [method, setMethod] = useState<'original' | 'store_credit' | 'both'>('original')
   const [storeCredit, setStoreCredit] = useState<string>('')
 
+  useEffect(() => {
+    let active = true
+    fetch(`/api/shopify/actions/${action.id}/refundable`)
+      .then((r) => r.json())
+      .then((j) => {
+        if (!active || !j.data) return
+        setDetails(j.data)
+        // Pré-remplir le montant avec le remboursable si pas déjà saisi.
+        setAmount((prev) => (prev === '' ? String(j.data.refundableAmount) : prev))
+      })
+      .catch(() => {})
+      .finally(() => { if (active) setDetailsLoading(false) })
+    return () => { active = false }
+  }, [action.id])
+
+  // Devise + plafond : depuis les détails Shopify si dispo, sinon l'estimation.
+  const currency = details?.currency || String(action.payload.currency || '')
+  const maxRefundable = details?.refundableAmount ?? estimated
+
   const amountNum = Number(amount)
   const scNum = Number(storeCredit)
-  const amountValid = amount !== '' && !isNaN(amountNum) && amountNum > 0 && (estimated == null || amountNum <= estimated + 0.001)
+  const amountValid = amount !== '' && !isNaN(amountNum) && amountNum > 0 && (maxRefundable == null || amountNum <= maxRefundable + 0.001)
   const scValid = method !== 'both' || (storeCredit !== '' && !isNaN(scNum) && scNum > 0 && scNum <= amountNum)
   const reason = reasonChoice === 'Autre' ? reasonCustom.trim() : reasonChoice
   const canConfirm = amountValid && scValid && reason.length > 0 && !busy
@@ -185,6 +222,35 @@ function RefundDialog({
             Vérifiez le motif, le montant et la méthode avant de rembourser. Cette action est définitive côté Shopify.
           </DialogDescription>
         </DialogHeader>
+
+        {/* Détails de la commande (Shopify) */}
+        <div className="rounded-lg border bg-muted/30 p-3 text-sm">
+          {detailsLoading ? (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Chargement de la commande…
+            </div>
+          ) : details ? (
+            <div className="space-y-1.5">
+              <div className="flex justify-between"><span className="text-muted-foreground">Total commande</span><span className="font-medium">{money(details.total, details.currency)}</span></div>
+              {details.totalRefunded > 0 && (
+                <div className="flex justify-between"><span className="text-muted-foreground">Déjà remboursé</span><span className="font-medium text-amber-600">− {money(details.totalRefunded, details.currency)}</span></div>
+              )}
+              <div className="flex justify-between border-t pt-1.5"><span className="text-muted-foreground">Remboursable</span><span className="font-semibold text-emerald-600">{money(details.refundableAmount, details.currency)}</span></div>
+              {details.lineItems.length > 0 && (
+                <div className="mt-2 space-y-0.5 border-t pt-2">
+                  {details.lineItems.map((li, i) => (
+                    <div key={i} className="flex justify-between text-xs text-muted-foreground">
+                      <span className="truncate">{li.quantity}× {li.title}</span>
+                      <span className="shrink-0">{money(li.unitPrice * li.quantity, details.currency)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">Détails de la commande indisponibles.</p>
+          )}
+        </div>
 
         <div className="space-y-4">
           {/* Motif */}
@@ -216,11 +282,11 @@ function RefundDialog({
               onChange={(e) => setAmount(e.target.value)}
               className="flex h-10 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             />
-            {estimated != null && (
-              <p className="text-xs text-muted-foreground">Remboursable : {estimated.toFixed(2)} {currency}</p>
+            {maxRefundable != null && (
+              <p className="text-xs text-muted-foreground">Remboursable : {maxRefundable.toFixed(2)} {currency}</p>
             )}
             {!amountValid && amount !== '' && (
-              <p className="text-xs text-rose-500">Le montant doit être &gt; 0 et ≤ {estimated?.toFixed(2) ?? '—'} {currency}.</p>
+              <p className="text-xs text-rose-500">Le montant doit être &gt; 0 et ≤ {maxRefundable?.toFixed(2) ?? '—'} {currency}.</p>
             )}
           </div>
 

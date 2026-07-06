@@ -564,11 +564,14 @@ export async function refundOrder(
   // Un remboursement par montant pur (ou tout en avoir) ne rattache pas d'article.
   const attachLineItems = !isPartialByAmount && method !== 'store_credit'
 
+  // Depuis l'API 2026-04, refundCreate EXIGE la directive @idempotent(key: ...)
+  // (clé unique) pour éviter les doubles remboursements. On génère une UUID.
+  const idempotencyKey = crypto.randomUUID()
   const res = await shopifyGraphQL<{ refundCreate: { userErrors: { message: string }[]; refund: { id: string } | null } }>(
     shop,
     accessToken,
     `mutation($input: RefundInput!) {
-       refundCreate(input: $input) { userErrors { message } refund { id } }
+       refundCreate(input: $input) @idempotent(key: "${idempotencyKey}") { userErrors { message } refund { id } }
      }`,
     {
       input: {
