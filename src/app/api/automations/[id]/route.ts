@@ -10,7 +10,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const body = await req.json().catch(() => ({}))
   const updates: Record<string, unknown> = {}
-  for (const k of ['name', 'trigger_event', 'trigger_button_text', 'template_id', 'delay_minutes', 'quiet_start', 'quiet_end', 'timezone', 'conditions', 'is_active', 'graph', 'builder_mode'] as const) {
+  for (const k of ['name', 'trigger_event', 'trigger_button_text', 'template_id', 'delay_minutes', 'quiet_start', 'quiet_end', 'timezone', 'conditions', 'is_active', 'graph', 'builder_mode', 'folder_id'] as const) {
     if (body[k] !== undefined) updates[k] = body[k]
   }
   if (updates.delay_minutes !== undefined) updates.delay_minutes = Math.max(0, parseInt(String(updates.delay_minutes), 10) || 0)
