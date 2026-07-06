@@ -50,7 +50,6 @@ export default function AgentOnboardPage() {
   const [systemPrompt, setSystemPrompt] = useState('')
   const [delayMin, setDelayMin] = useState(2)
   const [delayMax, setDelayMax] = useState(5)
-  const [stopCondition, setStopCondition] = useState('')
   const [saving, setSaving] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
 
@@ -65,7 +64,6 @@ export default function AgentOnboardPage() {
           // Reprend les réglages existants de l'agent (créé à la connexion).
           if (typeof first.response_delay_min === 'number') setDelayMin(first.response_delay_min)
           if (typeof first.response_delay_max === 'number') setDelayMax(first.response_delay_max)
-          if (first.stop_condition) setStopCondition(first.stop_condition)
         }
         await generate(['sav', 'advice', 'conversion', 'loyalty'])
       } finally {
@@ -114,7 +112,6 @@ export default function AgentOnboardPage() {
         escalation_situations: escalation ? escalationSituations.trim() || null : null,
         response_delay_min: delayMin,
         response_delay_max: delayMax,
-        stop_condition: stopCondition.trim() || null,
         is_active: true,
       }
       // Met à jour l'agent existant, ou en crée un si aucun.
@@ -217,7 +214,7 @@ export default function AgentOnboardPage() {
             </div>
           </div>
 
-          {/* Réponses : délai + condition d'arrêt */}
+          {/* Réponses : délai */}
           <div className="space-y-3 rounded-lg border p-3">
             <div className="flex items-center justify-between gap-3">
               <div>
@@ -234,13 +231,6 @@ export default function AgentOnboardPage() {
                   className="h-9 w-14 rounded-md border border-input bg-background px-2 text-center text-sm" />
                 <span className="text-xs text-muted-foreground">sec</span>
               </span>
-            </div>
-            <div className="border-t pt-3">
-              <label className="text-sm font-medium">Condition d’arrêt</label>
-              <p className="text-xs text-muted-foreground">L’agent se met en pause sur la conversation quand c’est rempli.</p>
-              <textarea value={stopCondition} onChange={(e) => setStopCondition(e.target.value)} rows={2}
-                placeholder="Ex : quand la commande a été remboursée, ou quand le client dit que son problème est résolu."
-                className="mt-1.5 w-full resize-y rounded-md border border-input bg-background p-2 text-xs leading-relaxed" />
             </div>
           </div>
 
