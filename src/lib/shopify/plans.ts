@@ -108,8 +108,15 @@ export async function checkConversationQuota(userId: string): Promise<{
     return { allowed: true, used, limit: Infinity, plan: plan.id }
   }
 
+  // Crédits achetés en plus (ne périment pas) → s'ajoutent au quota mensuel.
+  const supabase = admin()
+  const { data: prof } = await supabase
+    .from('profiles').select('ai_conversations_extra').eq('id', userId).maybeSingle()
+  const extra = (prof as { ai_conversations_extra?: number } | null)?.ai_conversations_extra || 0
+
   const used = await countAiConversationsThisMonth(userId)
-  return { allowed: used < plan.conversationsPerMonth, used, limit: plan.conversationsPerMonth, plan: plan.id }
+  const limit = plan.conversationsPerMonth + extra
+  return { allowed: used < limit, used, limit, plan: plan.id }
 }
 
 /** Alerte fair-use dédupliquée : une seule par mois calendaire. */

@@ -243,6 +243,43 @@ export async function POST(req: NextRequest) {
           break
         }
 
+        // Achat de crédits IA (conversations supplémentaires, ne périment pas)
+        if (session.mode === 'payment' && session.metadata?.type === 'ai_credits_purchase') {
+          const userId = session.metadata?.user_id
+          const creditsToAdd = parseInt(session.metadata?.credits || '500', 10)
+          if (userId) {
+            const { data: profile } = await supabase
+              .from('profiles')
+              .select('ai_conversations_extra')
+              .eq('id', userId)
+              .single() as { data: { ai_conversations_extra: number | null } | null }
+            if (profile) {
+              await supabase
+                .from('profiles')
+                .update({ ai_conversations_extra: (profile.ai_conversations_extra || 0) + creditsToAdd })
+                .eq('id', userId)
+            }
+            await supabase.from('payment_history').insert({
+              user_id: userId,
+              amount: session.amount_total || 4500,
+              currency: session.currency || 'eur',
+              status: 'succeeded',
+              stripe_payment_intent_id: (session.payment_intent as string) || null,
+              description: `Achat de ${creditsToAdd} conversations IA`,
+              metadata: { checkout_session_id: session.id, type: 'ai_credits_purchase', credits: creditsToAdd },
+            })
+            await supabase.from('user_alerts').insert({
+              user_id: userId,
+              alert_type: 'info',
+              title: 'Crédits IA ajoutés',
+              message: `${creditsToAdd} conversations IA ont été ajoutées à votre compte (elles ne périment pas).`,
+              metadata: { type: 'ai_credits_purchase', credits: creditsToAdd },
+            })
+            console.log('[Stripe Webhook] AI credits purchase completed for user:', userId, '+', creditsToAdd)
+          }
+          break
+        }
+
         if (session.mode === 'subscription' && session.subscription) {
           const stripe = getStripe()
           const subscription = await stripe.subscriptions.retrieve(session.subscription as string) as Stripe.Subscription

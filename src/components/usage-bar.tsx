@@ -33,6 +33,20 @@ const PLAN_LABEL: Record<string, string> = {
 
 export function UsageBar() {
   const [usage, setUsage] = useState<Usage | null>(null)
+  const [buying, setBuying] = useState(false)
+
+  // Achat d'un pack de crédits IA (recharge). Redirige vers Stripe Checkout.
+  const rechargeCredits = async () => {
+    setBuying(true)
+    try {
+      const res = await fetch('/api/stripe/buy-ai-credits', { method: 'POST' })
+      const json = await res.json()
+      if (json.url) window.location.href = json.url
+      else setBuying(false)
+    } catch {
+      setBuying(false)
+    }
+  }
 
   useEffect(() => {
     let active = true
@@ -105,9 +119,14 @@ export function UsageBar() {
 
       {/* Bouton recharger quand il reste peu de crédits */}
       {low ? (
-        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[11px] font-medium text-primary-foreground">
-          <Plus className="h-3 w-3" /> Recharger
-        </span>
+        <button
+          type="button"
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); rechargeCredits() }}
+          disabled={buying}
+          className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[11px] font-medium text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
+        >
+          <Plus className="h-3 w-3" /> {buying ? '…' : 'Recharger'}
+        </button>
       ) : (
         <span className="hidden shrink-0 text-[11px] text-muted-foreground md:inline">{planName}</span>
       )}
