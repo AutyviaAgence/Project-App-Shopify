@@ -66,7 +66,8 @@ export async function POST(req: Request) {
   "objective": "sa mission en une phrase",
   "tone": "professional | friendly | casual (déduis le ton adapté à la marque)",
   "languages": ["fr", ...] (langues probables des clients d'après la boutique/le pays),
-  "system_prompt": "prompt système COMPLET (voir structure)"
+  "system_prompt": "prompt système COMPLET (voir structure)",
+  "escalation_situations": "texte (4 à 8 lignes) décrivant les SITUATIONS où l'agent doit transférer à un conseiller humain, DÉDUITES des politiques de la boutique (retours, remboursements, délais, livraison, litiges) + bonnes pratiques e-commerce"
 }
 
 Le system_prompt (texte brut, titres en MAJUSCULES, ≥500 mots, français) couvre :
@@ -79,7 +80,9 @@ CONSEIL PRODUIT — recommande à partir du CATALOGUE réel (jamais inventer un 
 CONVERSION — répond aux objections, propose des produits pertinents, relance avec tact.
 BASE DE CONNAISSANCES — catalogue, pages, politiques : consulte TOUJOURS, n'invente jamais. Si absent → transfert humain.
 TRANSMISSION — quand escalader vers un conseiller.
-CE QUE TU NE FAIS JAMAIS — 8 à 12 interdits e-commerce concrets.`
+CE QUE TU NE FAIS JAMAIS — 8 à 12 interdits e-commerce concrets.
+
+Pour "escalation_situations" : appuie-toi sur les POLITIQUES et PAGES listées (retours, remboursements, livraison, CGV) pour décrire des situations CONCRÈTES propres à cette boutique. Une situation par ligne, phrases courtes. Couvre au minimum : litige/désaccord sur un remboursement ou un retour hors des conditions de la boutique, réclamation sur un délai ou une commande non reçue/endommagée, client mécontent/agressif ou menace d'avis négatif ou de plainte, demande explicite de parler à un humain, et toute question sortant du périmètre (juridique, sur-mesure, gros volume). N'invente pas de politique : reste cohérent avec les liens fournis.`
 
   const userMsg = `BOUTIQUE : ${shopName}${store.country ? ` (${store.country})` : ''}
 ${storeContextPrompt}
@@ -112,6 +115,11 @@ Génère la config de l'agent pour CETTE boutique.`
       latencyMs: Date.now() - started, userId: user.id,
     })
     const cfg = JSON.parse(res.choices[0]?.message?.content || '{}')
+    const DEFAULT_SITUATIONS = `Le client est mécontent, agressif ou menace de laisser un mauvais avis ou de porter plainte.
+Litige ou désaccord sur un remboursement ou un retour (hors des conditions de la boutique).
+Réclamation sur un délai de livraison, une commande non reçue, incomplète ou endommagée.
+Le client demande explicitement à parler à un conseiller humain.
+Question hors du périmètre de l'agent (juridique, demande sur-mesure, gros volume).`
     return NextResponse.json({
       data: {
         name: cfg.name || `Assistant ${shopName}`,
@@ -120,6 +128,9 @@ Génère la config de l'agent pour CETTE boutique.`
         tone: ['professional', 'friendly', 'casual'].includes(cfg.tone) ? cfg.tone : 'friendly',
         languages: Array.isArray(cfg.languages) && cfg.languages.length ? cfg.languages : ['fr'],
         system_prompt: cfg.system_prompt || '',
+        escalation_situations: (typeof cfg.escalation_situations === 'string' && cfg.escalation_situations.trim())
+          ? cfg.escalation_situations.trim()
+          : DEFAULT_SITUATIONS,
         objectives,
       },
     })
