@@ -153,8 +153,9 @@ export async function POST(req: NextRequest) {
       // l'opt-in AVEC un panier non vide, on enfile l'événement checkout_abandoned.
       // Le cron respecte le délai de l'automatisation et SKIP si une commande
       // arrive entre-temps (vrai abandon uniquement).
+      console.log(`[optin] contact=${contact.id} cart_url=${cartUrl ? 'présent' : 'ABSENT'} cart_total=${cartTotal ?? 'null'}`)
       if (cartUrl) {
-        await enqueueAutomations({
+        const r = await enqueueAutomations({
           userId: store.user_id,
           event: 'checkout_abandoned',
           ctx: {
@@ -172,6 +173,9 @@ export async function POST(req: NextRequest) {
             dedupKey: `cart:${contact.id}:${Math.floor(Date.now() / (5 * 60_000))}`,
           },
         })
+        console.log(`[optin] checkout_abandoned → ${r.queued} job(s) créé(s)`)
+      } else {
+        console.log('[optin] pas de panier → pas de relance panier abandonné (normal si panier vide)')
       }
     } catch (e) {
       console.error('[optin] enqueue automations échec (non bloquant):', e)
