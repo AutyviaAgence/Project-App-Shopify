@@ -421,21 +421,6 @@ export default function AgentsPage() {
           <span className="animated-grid-square" style={{ left: '40%', top: '82%', width: 22, height: 22, animationDelay: '1.8s' }} />
         </div>
       )}
-      {/* Bouton "Nouvel agent" — au-dessus des cartes */}
-      {agents.length > 0 && (
-        <div className="mb-8 flex justify-center">
-          <button
-            data-tour="new-agent-btn"
-            onClick={openCreateDialog}
-            className="group flex items-center gap-2.5 rounded-3xl bg-primary px-6 py-3.5 text-sm font-semibold text-primary-foreground shadow-[0_12px_30px_-8px] shadow-primary/40 ring-1 ring-white/10 transition-all hover:scale-[1.03] hover:shadow-primary/50"
-          >
-            <span className="flex h-6 w-6 items-center justify-center rounded-xl bg-white/20">
-              <Plus className="h-4 w-4" />
-            </span>
-            {t('agents.new_agent')}
-          </button>
-        </div>
-      )}
       {agents.length === 0 ? (
         // Onboarding intégré, centré et animé (au-dessus de la grille)
         <div className="relative z-10 w-full max-w-lg">
@@ -715,6 +700,20 @@ export default function AgentsPage() {
           )
         })()
       )}
+
+      {/* Bouton "Nouvel agent" — juste sous les cartes et les points */}
+      <div className="mt-8 flex justify-center sm:mt-12">
+        <button
+          data-tour="new-agent-btn"
+          onClick={openCreateDialog}
+          className="group flex items-center gap-2.5 rounded-3xl bg-primary px-6 py-3.5 text-sm font-semibold text-primary-foreground shadow-[0_12px_30px_-8px] shadow-primary/40 ring-1 ring-white/10 transition-all hover:scale-[1.03] hover:shadow-primary/50"
+        >
+          <span className="flex h-6 w-6 items-center justify-center rounded-xl bg-white/20">
+            <Plus className="h-4 w-4" />
+          </span>
+          {t('agents.new_agent')}
+        </button>
+      </div>
       </div>
 
 
