@@ -153,6 +153,10 @@ export default function AgentsPage() {
   const [toolsOpen, setToolsOpen] = useState(false)
   const [toolsAgent, setToolsAgent] = useState<AgentWithTeamIds | null>(null)
 
+  // Choix du mode de création : automatique (onboarding boutique) ou manuel (fiche vierge)
+  const [createChoiceOpen, setCreateChoiceOpen] = useState(false)
+  const [creatingManual, setCreatingManual] = useState(false)
+
   // Carrousel coverflow : index de la carte centrale
   const [centerIndex, setCenterIndex] = useState(0)
 
@@ -196,7 +200,35 @@ export default function AgentsPage() {
     }
   }, [router])
 
-  // Création → onboarding pré-rempli. Édition → fiche détail.
+  // Création → écran de choix (automatique / manuel). Édition → fiche détail.
+  function openCreateDialog() {
+    setCreateChoiceOpen(true)
+  }
+
+  // Mode manuel : crée un agent vierge et ouvre sa fiche de configuration complète.
+  async function createManualAgent() {
+    if (creatingManual) return
+    setCreatingManual(true)
+    try {
+      const res = await fetch('/api/agents', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'Nouvel agent',
+          system_prompt: 'Tu es un assistant e-commerce. Réponds aux clients de la boutique de manière utile et fiable.',
+          is_active: false,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Erreur')
+      setCreateChoiceOpen(false)
+      router.push(`/agents/${json.data.id}`)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erreur')
+    } finally {
+      setCreatingManual(false)
+    }
+  }
 
   function openEditDialog(agent: AgentWithTeamIds) {
     router.push(`/agents/${agent.id}`)
@@ -410,7 +442,7 @@ export default function AgentsPage() {
 
           <div className="mt-7 space-y-3">
             <button
-              onClick={() => router.push('/agents/onboard')}
+              onClick={openCreateDialog}
               className="group relative flex w-full items-center gap-4 overflow-hidden rounded-2xl border border-primary/40 bg-gradient-to-br from-primary/10 to-accent/5 p-5 text-left shadow-sm transition-all hover:border-primary hover:shadow-md hover:shadow-primary/10"
             >
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-white shadow-sm transition-transform group-hover:scale-105">
@@ -671,20 +703,63 @@ export default function AgentsPage() {
 
       {/* Bouton "Nouvel agent" — juste sous les cartes et les points */}
       <div className="mt-8 flex justify-center sm:mt-12">
-        <Link href="/agents/onboard">
-          <button
-            data-tour="new-agent-btn"
-            className="group flex items-center gap-2.5 rounded-3xl bg-primary px-6 py-3.5 text-sm font-semibold text-primary-foreground shadow-[0_12px_30px_-8px] shadow-primary/40 ring-1 ring-white/10 transition-all hover:scale-[1.03] hover:shadow-primary/50"
-          >
-            <span className="flex h-6 w-6 items-center justify-center rounded-xl bg-white/20">
-              <Plus className="h-4 w-4" />
-            </span>
-            {t('agents.new_agent')}
-          </button>
-        </Link>
+        <button
+          data-tour="new-agent-btn"
+          onClick={openCreateDialog}
+          className="group flex items-center gap-2.5 rounded-3xl bg-primary px-6 py-3.5 text-sm font-semibold text-primary-foreground shadow-[0_12px_30px_-8px] shadow-primary/40 ring-1 ring-white/10 transition-all hover:scale-[1.03] hover:shadow-primary/50"
+        >
+          <span className="flex h-6 w-6 items-center justify-center rounded-xl bg-white/20">
+            <Plus className="h-4 w-4" />
+          </span>
+          {t('agents.new_agent')}
+        </button>
       </div>
       </div>
 
+
+      {/* Choix du mode de création : automatique (boutique) ou manuel (fiche vierge) */}
+      <Dialog open={createChoiceOpen} onOpenChange={(o) => { if (!creatingManual) setCreateChoiceOpen(o) }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Créer un agent IA</DialogTitle>
+            <DialogDescription>Comment veux-tu le configurer ?</DialogDescription>
+          </DialogHeader>
+          <div className="mt-2 space-y-3">
+            <button
+              onClick={() => { setCreateChoiceOpen(false); router.push('/agents/onboard') }}
+              disabled={creatingManual}
+              className="group relative flex w-full items-center gap-4 overflow-hidden rounded-2xl border border-primary/40 bg-gradient-to-br from-primary/10 to-accent/5 p-5 text-left transition-all hover:border-primary hover:shadow-md hover:shadow-primary/10 disabled:opacity-60"
+            >
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-white shadow-sm transition-transform group-hover:scale-105">
+                <Sparkles className="h-6 w-6" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold">Automatique</span>
+                  <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">Recommandé</span>
+                </div>
+                <div className="mt-0.5 text-sm text-muted-foreground">Pré-configuré à partir de ta boutique (SAV, suivi commande, conseil). Tu vérifies et tu actives.</div>
+              </div>
+              <ArrowRight className="h-5 w-5 shrink-0 text-primary transition-transform group-hover:translate-x-1" />
+            </button>
+
+            <button
+              onClick={createManualAgent}
+              disabled={creatingManual}
+              className="group flex w-full items-center gap-4 rounded-2xl border p-5 text-left transition-all hover:border-foreground/20 hover:bg-muted/40 disabled:opacity-60"
+            >
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground transition-transform group-hover:scale-105">
+                {creatingManual ? <Loader2 className="h-6 w-6 animate-spin" /> : <Wrench className="h-6 w-6" />}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="font-semibold">Manuel</div>
+                <div className="mt-0.5 text-sm text-muted-foreground">Crée un agent vierge et configure tout toi-même dans sa fiche.</div>
+              </div>
+              <ArrowRight className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" />
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Confirm Delete Dialog */}
       <ConfirmDeleteDialog
