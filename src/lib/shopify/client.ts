@@ -499,6 +499,7 @@ export async function refundOrder(
   let refundLineItems = opts?.refundLineItems
   if (!refundLineItems || refundLineItems.length === 0) {
     const refundable = await getRefundableOrder(shop, accessToken, orderId)
+    console.log(`[refundOrder] getRefundableOrder → ${refundable ? `${refundable.lineItems.length} articles, remboursable ${refundable.refundableAmount}` : 'NULL'}`)
     if (refundable && refundable.lineItems.length > 0) {
       refundLineItems = refundable.lineItems.map((li) => ({ lineItemId: li.id, quantity: li.quantity }))
     }
@@ -508,6 +509,7 @@ export async function refundOrder(
     refundLineItems,
     refundShipping: opts?.refundShipping,
   })
+  console.log(`[refundOrder] getSuggestedRefund(articles=${refundLineItems?.length ?? 0}) → ${suggested ? `amount ${suggested.amount}, ${suggested.transactions.length} tx` : 'NULL'}`)
   if (!suggested) return { ok: false, error: 'Impossible de calculer le remboursement (commande introuvable ou non remboursable)' }
   if (suggested.transactions.length === 0) return { ok: false, error: 'Aucune transaction remboursable sur cette commande' }
   if (suggested.amount <= 0) return { ok: false, error: 'Cette commande n’a rien à rembourser (déjà remboursée ou montant nul).' }
