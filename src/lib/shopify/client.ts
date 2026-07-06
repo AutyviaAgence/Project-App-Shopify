@@ -276,6 +276,9 @@ export async function findOrdersByCustomer(
           id: string
           name: string
           createdAt: string
+          email: string | null
+          phone: string | null
+          customer: { email: string | null; phone: string | null } | null
           displayFinancialStatus: string | null
           displayFulfillmentStatus: string | null
           totalPriceSet: { shopMoney: { amount: string; currencyCode: string } }
@@ -287,15 +290,16 @@ export async function findOrdersByCustomer(
   }>(
     shop,
     accessToken,
-    // displayStatus = statut de livraison FIN du transporteur (IN_TRANSIT,
-    // OUT_FOR_DELIVERY, DELIVERED…) — rempli seulement si le transporteur pousse
-    // ses événements à Shopify (souvent absent en France → fallback tracking).
-    // totalRefundedSet = montant déjà remboursé (source de vérité Shopify, que le
-    // remboursement ait été fait via l'app OU directement dans l'admin Shopify).
+    // On récupère email/phone de la commande ET du client pour FILTRER côté code :
+    // la recherche `phone:` de Shopify peut, quand aucune commande ne matche,
+    // retomber sur « toutes les commandes récentes » → on ne garde que celles qui
+    // correspondent VRAIMENT au contact.
     `query($q: String!) {
-       orders(first: 5, query: $q, sortKey: CREATED_AT, reverse: true) {
+       orders(first: 20, query: $q, sortKey: CREATED_AT, reverse: true) {
          edges { node {
            id name createdAt
+           email phone
+           customer { email phone }
            displayFinancialStatus displayFulfillmentStatus
            totalPriceSet { shopMoney { amount currencyCode } }
            totalRefundedSet { shopMoney { amount } }
@@ -306,7 +310,25 @@ export async function findOrdersByCustomer(
     { q }
   )
   if (!res.ok) return res
-  const orders = res.data.orders.edges.map((e) => ({
+
+  // FILTRE de sécurité : ne garder que les commandes correspondant réellement à
+  // l'email ou au téléphone du contact (défait le piège « phone: → tout »).
+  const wantEmail = email.includes('@') ? email.toLowerCase() : null
+  const wantDigits = phone.replace(/\D/g, '')
+  const wantPhone = wantDigits.length >= 6 ? wantDigits : null
+  const matches = (n: { email: string | null; phone: string | null; customer: { email: string | null; phone: string | null } | null }): boolean => {
+    const emails = [n.email, n.customer?.email].filter(Boolean).map((e) => e!.toLowerCase())
+    const phones = [n.phone, n.customer?.phone].filter(Boolean).map((p) => p!.replace(/\D/g, ''))
+    if (wantEmail && emails.includes(wantEmail)) return true
+    // Téléphone : comparaison sur les 9 derniers chiffres (tolère indicatif/0).
+    if (wantPhone && phones.some((p) => p.endsWith(wantPhone.slice(-9)) || wantPhone.endsWith(p.slice(-9)))) return true
+    return false
+  }
+
+  const orders = res.data.orders.edges
+    .filter((e) => matches(e.node))
+    .slice(0, 5)
+    .map((e) => ({
     id: e.node.id,
     name: e.node.name,
     createdAt: e.node.createdAt,

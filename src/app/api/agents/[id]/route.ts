@@ -61,7 +61,6 @@ export async function PATCH(
     response_delay_min, response_delay_max, max_messages_per_conversation, inactivity_timeout_minutes,
     schedule_enabled, schedule_timezone, schedule_start_time, schedule_end_time, schedule_days,
     auto_detect_language, escalation_enabled, escalation_keywords, escalation_message, booking_url,
-    refund_auto_enabled, refund_auto_rules, refund_auto_max_amount,
     stop_condition, mascot, mascot_bg
   } = body as {
     name?: string
@@ -87,9 +86,6 @@ export async function PATCH(
     escalation_keywords?: string[]
     escalation_message?: string
     booking_url?: string
-    refund_auto_enabled?: boolean
-    refund_auto_rules?: string | null
-    refund_auto_max_amount?: number | null
     stop_condition?: string | null
     mascot?: string | null
     mascot_bg?: string | null
@@ -171,18 +167,6 @@ export async function PATCH(
   }
   if (escalation_message !== undefined) {
     updateData.escalation_message = escalation_message?.trim() || null
-  }
-
-  // Remboursement automatique (OPT-IN, sensible : l'IA rembourse seule)
-  if (refund_auto_enabled !== undefined) {
-    updateData.refund_auto_enabled = Boolean(refund_auto_enabled)
-  }
-  if (refund_auto_rules !== undefined) {
-    updateData.refund_auto_rules = refund_auto_rules?.trim() || null
-  }
-  if (refund_auto_max_amount !== undefined) {
-    const n = refund_auto_max_amount == null ? null : Number(refund_auto_max_amount)
-    updateData.refund_auto_max_amount = n != null && n > 0 ? n : null
   }
 
   // Lien de rendez-vous

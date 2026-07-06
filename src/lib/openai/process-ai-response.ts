@@ -7,7 +7,7 @@ import { sendMessage, sendMediaMessage, sendInteractiveMessage, sendPresence } f
 import { retrieveContext } from '@/lib/knowledge/retriever'
 import { encryptMessage, decryptMessage } from '@/lib/crypto/encryption'
 import { getAgentTools, buildOpenAITools, executeToolCall } from '@/lib/tools/executor'
-import { SHOPIFY_ACTION_TOOLS, isShopifyActionTool, handleActionTool, handleAutoRefund, userHasShopifyStore, NOTIFICATION_CHANNEL_TOOL, isNotificationChannelTool, handleNotificationChannelTool, TRACK_ORDER_TOOL, isTrackOrderTool, handleTrackOrder } from '@/lib/shopify/ai-tools'
+import { SHOPIFY_ACTION_TOOLS, isShopifyActionTool, handleActionTool, userHasShopifyStore, NOTIFICATION_CHANNEL_TOOL, isNotificationChannelTool, handleNotificationChannelTool, TRACK_ORDER_TOOL, isTrackOrderTool, handleTrackOrder } from '@/lib/shopify/ai-tools'
 import { checkConversationQuota } from '@/lib/shopify/plans'
 import { canUseAi } from '@/lib/plans/gate'
 import type { WhatsAppSession } from '@/types/database'
@@ -469,30 +469,13 @@ NE liste JAMAIS des options en texte (genre "1. ... 2. ...") si tu peux les mett
       toolMessages.push(result.rawMessage as OpenAIMessage)
 
       for (const tc of result.toolCalls) {
-        // Outils d'action Shopify : créer une action en attente (pas d'exécution).
+        // Outils d'action Shopify : on crée TOUJOURS une action en attente de
+        // validation humaine (aucune exécution automatique).
         if (isShopifyActionTool(tc.functionName)) {
-          // Mode remboursement AUTO (opt-in par agent) : si activé, on tente une
-          // exécution directe encadrée (double validation IA + plafond). Sinon,
-          // ou si un garde-fou n'est pas satisfait, on retombe sur le pending manuel.
-          let actionMsg: string | null = null
-          if (tc.functionName === 'request_refund' && agent.refund_auto_enabled) {
-            actionMsg = await handleAutoRefund(
-              { functionName: tc.functionName, arguments: tc.arguments },
-              {
-                userId: userId!,
-                conversationId: params.conversationId,
-                rules: agent.refund_auto_rules || '',
-                maxAmount: agent.refund_auto_max_amount,
-                chatMessages,
-              }
-            )
-          }
-          if (actionMsg == null) {
-            actionMsg = await handleActionTool(
-              { functionName: tc.functionName, arguments: tc.arguments },
-              { userId: userId!, conversationId: params.conversationId }
-            )
-          }
+          const actionMsg = await handleActionTool(
+            { functionName: tc.functionName, arguments: tc.arguments },
+            { userId: userId!, conversationId: params.conversationId }
+          )
           toolMessages.push({ role: 'tool', tool_call_id: tc.toolCallId, content: actionMsg })
           continue
         }
