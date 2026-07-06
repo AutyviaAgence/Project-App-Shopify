@@ -369,25 +369,28 @@ export default function AutomationsPage() {
 
         {/* Zone centrale : choix création → wizard/builder, sinon builder, sinon vide. */}
         {showChoose ? (
-          <div className="flex min-h-0 items-center justify-center p-6">
-            <div className="w-full max-w-lg space-y-3">
-              <div className="flex items-center gap-2">
-                <button onClick={() => { setShowChoose(false); setCurrent(automations[0] || null) }} className="text-xs text-muted-foreground hover:text-foreground">← Retour</button>
-                <span className="text-sm font-semibold">Nouvelle automatisation</span>
-              </div>
-              <p className="text-sm text-muted-foreground">Comment voulez-vous la créer ?</p>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="flex min-h-0 flex-col p-6">
+            <div className="mb-6 flex items-center gap-2">
+              <button onClick={() => { setShowChoose(false); setCurrent(automations[0] || null) }} className="text-xs text-muted-foreground hover:text-foreground">← Retour</button>
+              <span className="text-sm font-semibold">Nouvelle automatisation</span>
+            </div>
+            <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center">
+              <h2 className="mb-1 text-xl font-semibold">Comment voulez-vous la créer ?</h2>
+              <p className="mb-6 text-sm text-muted-foreground">Choisissez votre méthode de création.</p>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <button onClick={startGuided}
-                  className="rounded-xl border p-4 text-left transition-colors hover:border-primary hover:bg-primary/5">
-                  <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10"><Sparkles className="h-5 w-5 text-primary" /></div>
-                  <p className="font-medium">Création guidée</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">L’assistant vous pose des questions étape par étape (recommandé).</p>
+                  className="group flex flex-col rounded-2xl border p-6 text-left transition-all hover:border-primary hover:bg-primary/5 hover:shadow-lg">
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10"><Sparkles className="h-6 w-6 text-primary" /></div>
+                  <p className="text-base font-semibold">Création guidée</p>
+                  <p className="mt-1 text-sm text-muted-foreground">L’assistant vous pose des questions étape par étape et construit le workflow pour vous.</p>
+                  <span className="mt-3 inline-flex w-fit items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">Recommandé</span>
                 </button>
                 <button onClick={startManual}
-                  className="rounded-xl border p-4 text-left transition-colors hover:border-primary hover:bg-primary/5">
-                  <div className="mb-2 flex h-9 w-9 items-center justify-center rounded-lg bg-muted"><GitBranch className="h-5 w-5 text-violet-600" /></div>
-                  <p className="font-medium">Création manuelle</p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">Construisez le parcours vous-même dans l’éditeur visuel.</p>
+                  className="group flex flex-col rounded-2xl border p-6 text-left transition-all hover:border-primary hover:bg-primary/5 hover:shadow-lg">
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-muted"><GitBranch className="h-6 w-6 text-violet-600" /></div>
+                  <p className="text-base font-semibold">Création manuelle</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Construisez le parcours vous-même, bloc par bloc, dans l’éditeur visuel.</p>
+                  <span className="mt-3 inline-flex w-fit items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">Avancé</span>
                 </button>
               </div>
             </div>

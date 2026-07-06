@@ -270,7 +270,7 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction }: {
             </PopoverTrigger>
             <PopoverContent
               align="start"
-              className="w-[420px] max-w-[92vw] overscroll-contain p-2"
+              className="w-[540px] max-w-[92vw] overscroll-contain p-2"
               onWheel={(e) => e.stopPropagation()}
             >
               <p className="px-1 pb-2 pt-1 text-[11px] font-medium text-muted-foreground">Choisir un modèle</p>
@@ -318,21 +318,18 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction }: {
                         key={t.id}
                         onClick={() => { onPatch(node.id, { templateId: t.id } as never); onSelectAction(t.id); setPickerOpen(false) }}
                         className={cn(
-                          'w-[170px] shrink-0 rounded-xl border p-2 text-left transition-colors',
+                          'w-[230px] shrink-0 rounded-xl border p-2.5 text-left transition-colors',
                           isSel ? 'border-primary/50 bg-primary/5 ring-1 ring-primary/30' : 'border-border hover:border-foreground/30 hover:bg-muted/40'
                         )}
                       >
-                        <div className="mb-1 flex items-center justify-between gap-2">
+                        <div className="mb-1.5 flex items-center justify-between gap-2">
                           <span className="truncate text-xs font-medium">{t.name}</span>
                           <span className="shrink-0 text-[10px] text-muted-foreground">{badge(t)}</span>
                         </div>
-                        {/* Aperçu plafonné en hauteur (les longs modèles ne s'étirent
-                            plus) + fondu bas pour indiquer qu'il y a la suite. */}
-                        <div className="relative max-h-[150px] overflow-hidden">
-                          <div className="pointer-events-none origin-top-left scale-[0.78]">
-                            <TemplateBubble template={t} labels={labelsFor(t)} />
-                          </div>
-                          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-background to-transparent" />
+                        {/* Aperçu grand : on voit le message en entier (scroll interne
+                            si vraiment très long). */}
+                        <div className="max-h-[360px] overflow-y-auto [scrollbar-width:thin]">
+                          <TemplateBubble template={t} labels={labelsFor(t)} />
                         </div>
                       </button>
                     )

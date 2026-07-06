@@ -238,9 +238,18 @@ export function WorkflowBuilder({
             mascot
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center rounded-2xl border border-dashed p-4 text-center text-xs text-muted-foreground">
-            Choisissez un modèle dans un bloc <b className="mx-1 text-green-600">Message</b> pour voir l’aperçu.
-          </div>
+          // Aperçu iPhone vide : le cadre du téléphone reste visible, avec un
+          // message d'invitation à l'intérieur (plus visuel qu'un texte seul).
+          <PhonePreview
+            storeName={storeName}
+            eventLabel={TRIGGER_EVENTS.find((e) => e.value === ctx.eventValue)?.label || 'Déclencheur'}
+            conditionsText={ctx.condition}
+            delayLabel={delayLabelMin(ctx.delayMin)}
+            bodyText="Choisissez un modèle dans un bloc « Message » pour voir l’aperçu ici."
+            samples={[]}
+            scale={0.82}
+            mascot
+          />
         )}
       </div>
     </div>

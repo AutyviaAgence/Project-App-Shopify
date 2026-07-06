@@ -340,35 +340,59 @@ function AiHelp({ value, onChange, busy, onGo, placeholder }: {
   )
 }
 
-/** Sélecteur VISUEL de template : bulles d'aperçu en défilement horizontal. */
+const PICKER_CATS: { key: string; label: string }[] = [
+  { key: 'all', label: 'Tous' },
+  { key: 'order_status', label: 'Commande' },
+  { key: 'cart', label: 'Panier' },
+  { key: 'marketing', label: 'Marketing' },
+  { key: 'support', label: 'SAV' },
+  { key: 'billing', label: 'Facturation' },
+]
+
+/** Sélecteur VISUEL de template : catégories + bulles d'aperçu horizontales.
+ *  Bulles assez grandes pour lire le message en entier. */
 function TemplateSelect({ templates, value, onChange }: {
   templates: WhatsAppTemplate[]; value: string | null; onChange: (id: string) => void; compact?: boolean
 }) {
+  const [cat, setCat] = useState('all')
   const labelsFor = (t: WhatsAppTemplate) => (t.variable_keys || []).map((k) => VARIABLE_BY_KEY[k]?.label || k)
   if (templates.length === 0) {
     return <p className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">Aucun modèle approuvé. Créez-en un dans « Modèles ».</p>
   }
+  const present = new Set(templates.map((t) => (t as { use_case?: string }).use_case || 'other'))
+  const cats = PICKER_CATS.filter((c) => c.key === 'all' || present.has(c.key))
+  const shown = templates.filter((t) => cat === 'all' || (t as { use_case?: string }).use_case === cat)
   return (
-    <div
-      className="flex gap-2 overflow-x-auto overscroll-contain pb-1 [scrollbar-width:thin]"
-      onWheel={(e) => { if (e.deltaY !== 0) { e.currentTarget.scrollLeft += e.deltaY; e.stopPropagation() } }}
-    >
-      {templates.map((t) => {
-        const sel = t.id === value
-        return (
-          <button key={t.id} type="button" onClick={() => onChange(t.id)}
-            className={cn('w-[160px] shrink-0 rounded-xl border p-2 text-left transition-colors',
-              sel ? 'border-primary/60 bg-primary/5 ring-1 ring-primary/30' : 'border-border hover:border-foreground/30 hover:bg-muted/40')}>
-            <p className="mb-1 truncate text-xs font-medium">{t.name}</p>
-            <div className="relative max-h-[140px] overflow-hidden">
-              <div className="pointer-events-none origin-top-left scale-[0.78]">
+    <div className="space-y-2">
+      {/* Catégories */}
+      <div className="flex flex-wrap gap-1">
+        {cats.map((c) => (
+          <button key={c.key} type="button" onClick={() => setCat(c.key)}
+            className={cn('rounded-full px-2.5 py-1 text-[11px] transition-colors',
+              cat === c.key ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground')}>
+            {c.label}
+          </button>
+        ))}
+      </div>
+      {/* Bulles (grandes) en défilement horizontal */}
+      <div
+        className="flex gap-3 overflow-x-auto overscroll-contain pb-2 [scrollbar-width:thin]"
+        onWheel={(e) => { if (e.deltaY !== 0) { e.currentTarget.scrollLeft += e.deltaY; e.stopPropagation() } }}
+      >
+        {shown.map((t) => {
+          const sel = t.id === value
+          return (
+            <button key={t.id} type="button" onClick={() => onChange(t.id)}
+              className={cn('w-[240px] shrink-0 rounded-xl border p-2.5 text-left transition-colors',
+                sel ? 'border-primary/60 bg-primary/5 ring-1 ring-primary/30' : 'border-border hover:border-foreground/30 hover:bg-muted/40')}>
+              <p className="mb-1.5 truncate text-xs font-medium">{t.name}</p>
+              <div className="max-h-[360px] overflow-y-auto [scrollbar-width:thin]">
                 <TemplateBubble template={t} labels={labelsFor(t)} />
               </div>
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-background to-transparent" />
-            </div>
-          </button>
-        )
-      })}
+            </button>
+          )
+        })}
+      </div>
     </div>
   )
 }
