@@ -10,6 +10,7 @@ import { getAgentTools, buildOpenAITools, executeToolCall } from '@/lib/tools/ex
 import { SHOPIFY_ACTION_TOOLS, isShopifyActionTool, handleActionTool, userHasShopifyStore, NOTIFICATION_CHANNEL_TOOL, isNotificationChannelTool, handleNotificationChannelTool, TRACK_ORDER_TOOL, isTrackOrderTool, handleTrackOrder, LINK_CUSTOMER_TOOL, isLinkCustomerTool, handleLinkCustomer } from '@/lib/shopify/ai-tools'
 import { checkConversationQuota } from '@/lib/shopify/plans'
 import { canUseAi } from '@/lib/plans/gate'
+import { pickInitialModel, isSensitiveToolName, MODEL_QUALITY } from './model-router'
 import type { WhatsAppSession } from '@/types/database'
 
 const MAX_CONTEXT_MESSAGES = 50
@@ -96,11 +97,28 @@ export async function processAIResponse(params: {
         await supabase.from('user_alerts').insert({
           user_id: userId,
           alert_type: 'quota_reached',
-          title: 'Quota de conversations atteint',
-          message: `Vous avez atteint ${quota.limit} conversations IA ce mois-ci (plan ${quota.plan}). Passez à un plan supérieur pour continuer à répondre automatiquement.`,
+          title: 'Crédits IA épuisés',
+          message: `Vous avez atteint ${quota.limit} conversations IA ce mois-ci (plan ${quota.plan}). Rechargez des crédits ou passez à un plan supérieur pour continuer à répondre automatiquement.`,
           metadata: { used: quota.used, limit: quota.limit, plan: quota.plan },
         }).then(() => {}, () => {})
         return
+      }
+      // Alerte à 80% (une seule fois par mois calendaire) : crédits IA bientôt épuisés.
+      if (quota.limit !== Infinity && quota.used >= Math.floor(quota.limit * 0.8)) {
+        const periodStart = new Date(); periodStart.setDate(1); periodStart.setHours(0, 0, 0, 0)
+        const { data: warned } = await supabase
+          .from('user_alerts').select('id')
+          .eq('user_id', userId).eq('alert_type', 'ai_credits_low')
+          .gte('created_at', periodStart.toISOString()).limit(1).maybeSingle()
+        if (!warned) {
+          await supabase.from('user_alerts').insert({
+            user_id: userId,
+            alert_type: 'ai_credits_low',
+            title: 'Crédits IA bientôt épuisés',
+            message: `Il vous reste ${quota.limit - quota.used} conversations IA ce mois-ci (${quota.used}/${quota.limit}). Pensez à recharger pour éviter une interruption.`,
+            metadata: { used: quota.used, limit: quota.limit, plan: quota.plan },
+          }).then(() => {}, () => {})
+        }
       }
     }
 
@@ -240,6 +258,44 @@ Exemples :
           }
           return
         }
+      }
+    }
+
+    // 1.7. PLAFOND de messages IA par conversation : au-delà, on NE COUPE PAS
+    // l'IA (soft) mais on notifie le marchand UNE SEULE FOIS « conversation
+    // longue, voulez-vous reprendre la main ? ». Borne le coût des conversations
+    // qui s'éternisent + qualité (l'IA tourne parfois en rond au-delà).
+    const aiCap = agent.max_messages_per_conversation
+    if (aiCap && aiCap > 0) {
+      const { count: aiMsgCount } = await supabase
+        .from('messages')
+        .select('id', { count: 'exact', head: true })
+        .eq('conversation_id', params.conversationId)
+        .eq('sent_by', 'ai_agent')
+
+      if ((aiMsgCount ?? 0) >= aiCap) {
+        // Alerte unique : on ne re-notifie pas à chaque message au-delà du seuil.
+        const { data: session2 } = await supabase
+          .from('whatsapp_sessions').select('user_id').eq('id', params.sessionId).single()
+        if (session2?.user_id) {
+          const { data: existing } = await supabase
+            .from('user_alerts')
+            .select('id')
+            .eq('user_id', session2.user_id)
+            .eq('alert_type', 'conversation_long')
+            .contains('metadata', { conversation_id: params.conversationId })
+            .maybeSingle()
+          if (!existing) {
+            await supabase.from('user_alerts').insert({
+              user_id: session2.user_id,
+              alert_type: 'conversation_long',
+              title: 'Conversation longue',
+              message: `Une conversation dure depuis ${aiMsgCount} réponses de l'IA. Voulez-vous reprendre la main ?`,
+              metadata: { conversation_id: params.conversationId, session_id: params.sessionId, agent_id: params.agentId, ai_messages: aiMsgCount },
+            })
+          }
+        }
+        // On continue quand même (soft cap) : l'IA répond, le marchand décide.
       }
     }
 
@@ -451,10 +507,15 @@ NE liste JAMAIS des options en texte (genre "1. ... 2. ...") si tu peux les mett
     const toolMessages: OpenAIMessage[] = []
     let aiResponseText = ''
 
+    // ROUTEUR DE MODÈLE : mini par défaut, gpt-4o si demande sensible détectée
+    // (mots-clés) ou si un outil sensible est appelé en cours de route. Réduit
+    // fortement le coût sans sacrifier la qualité sur les cas qui comptent.
+    let chosenModel = pickInitialModel(agent.model, lastUserMessage?.content)
+
     for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
       const aiStartedAt = Date.now()
       const result = await generateAgentResponse({
-        model: agent.model,
+        model: chosenModel,
         temperature: agent.temperature,
         systemPrompt,
         messages: [...chatMessages, ...toolMessages],
@@ -468,7 +529,7 @@ NE liste JAMAIS des options en texte (genre "1. ... 2. ...") si tu peux les mett
 
       totalTokensUsed += result.tokensUsed
       void logAiUsage({
-        feature: 'sav_reply', model: agent.model,
+        feature: 'sav_reply', model: chosenModel,
         promptTokens: result.promptTokens, completionTokens: result.completionTokens,
         latencyMs: Date.now() - aiStartedAt,
         userId, conversationId: params.conversationId,
@@ -482,6 +543,13 @@ NE liste JAMAIS des options en texte (genre "1. ... 2. ...") si tu peux les mett
 
       // Process tool calls
       console.log('[AI] Tool calls reçus:', result.toolCalls.length)
+
+      // Escalade de modèle : si un outil SENSIBLE est demandé (remboursement,
+      // annulation, réduction), on passe en gpt-4o pour la qualité sur l'action.
+      if (chosenModel !== MODEL_QUALITY && result.toolCalls.some((tc) => isSensitiveToolName(tc.functionName))) {
+        chosenModel = MODEL_QUALITY
+        console.log('[AI] Outil sensible détecté → passage en', MODEL_QUALITY)
+      }
 
       // Add the assistant message with tool_calls (native OpenAI format)
       toolMessages.push(result.rawMessage as OpenAIMessage)

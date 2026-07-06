@@ -19,11 +19,14 @@ export const PLAN_PRICES_EUR: Record<PlanId, number> = {
 }
 
 // Backstop tokens (anti-abus silencieux). free = 0 : aucune IA.
+// Dimensionné large : c'est le QUOTA DE CONVERSATIONS (plans/index.ts) qui est la
+// vraie limite commerciale ; ce backstop ne doit bloquer qu'en cas d'abus extrême.
+// ~40k tokens/conversation → on prévoit avec marge.
 export const PLAN_TOKEN_LIMITS: Record<PlanId, number> = {
   free: 0,
-  starter: 500_000,
-  pro: 1_500_000,
-  scale: 4_000_000,
+  starter: 30_000_000,   // ~550 conv
+  pro: 90_000_000,       // ~1 800 conv
+  scale: 220_000_000,    // ~4 500 conv
 }
 
 export const VALID_PLANS: PaidPlanId[] = ['starter', 'pro', 'scale']
