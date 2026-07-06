@@ -48,11 +48,13 @@ export default function AgentOnboardPage() {
   const [escalation, setEscalation] = useState(true)
   const [escalationSituations, setEscalationSituations] = useState('')
   const [systemPrompt, setSystemPrompt] = useState('')
-  const [delayMin, setDelayMin] = useState(2)
-  const [delayMax, setDelayMax] = useState(5)
+  const [delayMin, setDelayMin] = useState(30)
+  const [delayMax, setDelayMax] = useState(60)
   const [saving, setSaving] = useState(false)
   const [regenerating, setRegenerating] = useState(false)
   const [step, setStep] = useState(0)
+  const [feedback, setFeedback] = useState<string | null>(null)
+  const [advancing, setAdvancing] = useState(false)
 
   // Récupère l'agent existant (créé à la connexion) + génère la config déduite.
   useEffect(() => {
@@ -138,6 +140,32 @@ export default function AgentOnboardPage() {
     setLangs((prev) => prev.includes(k) ? prev.filter((x) => x !== k) : [...prev, k])
   }
 
+  // Petit message encourageant façon "blow up" selon l'étape qu'on vient de valider.
+  function feedbackFor(s: number): string {
+    switch (s) {
+      case 0: return name.trim() ? `Joli nom, ${name.trim()} ✨` : 'Noté ✨'
+      case 1: return objectives.length > 1 ? 'Bel éventail de missions 💪' : 'Mission claire 🎯'
+      case 2: return 'Un ton qui vous ressemble 🎨'
+      case 3: return langs.length > 1 ? 'Multilingue, malin 🌍' : 'Parfait 👌'
+      case 4: return 'Timing réglé ⏱️'
+      case 5: return escalation ? 'Bien vu, vos clients seront entre de bonnes mains 🤝' : 'Compris 👍'
+      case 6: return 'Instructions calées 📝'
+      default: return 'Super !'
+    }
+  }
+
+  // Avance à l'étape suivante en flashant un feedback animé (façon questionnaire "blow up").
+  function goNext() {
+    if (advancing) return
+    setFeedback(feedbackFor(step))
+    setAdvancing(true)
+    setTimeout(() => {
+      setStep((s) => Math.min(TOTAL - 1, s + 1))
+      setFeedback(null)
+      setAdvancing(false)
+    }, 650)
+  }
+
   if (loading) return <BlobLoaderScreen />
 
   // Une question par écran. 8 écrans.
@@ -170,7 +198,7 @@ export default function AgentOnboardPage() {
   ]
 
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-120px)] w-full max-w-xl flex-col gap-6 px-4 py-8 sm:px-6">
+    <div className="mx-auto flex min-h-[calc(100vh-120px)] w-full max-w-2xl flex-col gap-6 px-4 py-8 sm:px-6 lg:max-w-3xl">
       {/* Progression : barre + compteur */}
       <div>
         <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
@@ -183,7 +211,17 @@ export default function AgentOnboardPage() {
       </div>
 
       {/* Question courante */}
-      <div className="flex flex-1 flex-col">
+      <div className="relative flex flex-1 flex-col">
+        {/* Feedback encourageant façon "blow up" */}
+        {feedback && (
+          <div className="pointer-events-none absolute inset-x-0 top-1/3 z-10 flex justify-center">
+            <div className="animate-feedback-pop rounded-2xl border border-primary/30 bg-primary/10 px-5 py-3 text-center text-base font-semibold text-primary shadow-lg backdrop-blur">
+              {feedback}
+            </div>
+          </div>
+        )}
+
+        <div key={step} className={cn('flex flex-1 flex-col transition-opacity duration-200', advancing ? 'opacity-0' : 'animate-question-enter opacity-100')}>
         <h1 className="text-xl font-semibold sm:text-2xl">{QUESTIONS[step]}</h1>
 
         <div className="mt-5 flex-1">
@@ -258,14 +296,14 @@ export default function AgentOnboardPage() {
           {step === 4 && (
             <>
               <p className="mb-4 text-sm text-muted-foreground">Un léger délai rend l’échange plus naturel (effet « humain »).</p>
-              <div className="flex items-center gap-3 text-base">
+              <div className="flex flex-wrap items-center gap-3 text-base">
                 <span className="text-muted-foreground">Entre</span>
-                <input type="number" min={0} max={30} value={delayMin}
-                  onChange={(e) => setDelayMin(Math.max(0, Math.min(30, parseInt(e.target.value) || 0)))}
+                <input type="number" min={0} max={60} value={delayMin}
+                  onChange={(e) => setDelayMin(Math.max(0, Math.min(60, parseInt(e.target.value) || 0)))}
                   className="h-12 w-16 rounded-lg border border-input bg-background px-2 text-center" />
                 <span className="text-muted-foreground">et</span>
-                <input type="number" min={0} max={30} value={delayMax}
-                  onChange={(e) => setDelayMax(Math.max(0, Math.min(30, parseInt(e.target.value) || 0)))}
+                <input type="number" min={0} max={60} value={delayMax}
+                  onChange={(e) => setDelayMax(Math.max(0, Math.min(60, parseInt(e.target.value) || 0)))}
                   className="h-12 w-16 rounded-lg border border-input bg-background px-2 text-center" />
                 <span className="text-muted-foreground">secondes</span>
               </div>
@@ -337,11 +375,12 @@ export default function AgentOnboardPage() {
             </dl>
           )}
         </div>
+        </div>
       </div>
 
       {/* Navigation */}
       <div className="flex items-center justify-between border-t pt-4">
-        <Button variant="ghost" size="sm" disabled={step === 0 || saving} onClick={() => setStep((s) => Math.max(0, s - 1))}>
+        <Button variant="ghost" size="sm" disabled={step === 0 || saving || advancing} onClick={() => setStep((s) => Math.max(0, s - 1))}>
           <ArrowLeft className="mr-1 h-4 w-4" /> Retour
         </Button>
         {isLast ? (
@@ -350,7 +389,7 @@ export default function AgentOnboardPage() {
             Activer mon agent
           </Button>
         ) : (
-          <Button onClick={() => setStep((s) => Math.min(TOTAL - 1, s + 1))}>
+          <Button disabled={advancing} onClick={goNext}>
             Suivant <ArrowRight className="ml-1 h-4 w-4" />
           </Button>
         )}

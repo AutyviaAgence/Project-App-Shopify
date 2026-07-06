@@ -110,11 +110,11 @@ export async function PATCH(
   if (mascot !== undefined) updateData.mascot = mascot
   if (mascot_bg !== undefined) updateData.mascot_bg = mascot_bg
   if (response_delay_min !== undefined) {
-    updateData.response_delay_min = Math.max(0, Math.min(30, Math.floor(Number(response_delay_min) || 0)))
+    updateData.response_delay_min = Math.max(0, Math.min(60, Math.floor(Number(response_delay_min) || 0)))
   }
   if (response_delay_max !== undefined) {
     const min = typeof updateData.response_delay_min === 'number' ? updateData.response_delay_min as number : 0
-    updateData.response_delay_max = Math.max(min, Math.min(30, Math.floor(Number(response_delay_max) || 0)))
+    updateData.response_delay_max = Math.max(min, Math.min(60, Math.floor(Number(response_delay_max) || 0)))
   }
   if (max_messages_per_conversation !== undefined) {
     updateData.max_messages_per_conversation = max_messages_per_conversation != null

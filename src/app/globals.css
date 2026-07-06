@@ -338,6 +338,41 @@
   animation: pulse-soft 2s ease-in-out infinite;
 }
 
+/* Feedback encourageant entre deux questions de l'onboarding (façon "blow up") */
+@keyframes feedback-pop {
+  0% {
+    transform: scale(0.85) translateY(6px);
+    opacity: 0;
+  }
+  55% {
+    transform: scale(1.04) translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1) translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-feedback-pop {
+  animation: feedback-pop 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes question-enter {
+  from {
+    transform: translateY(14px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-question-enter {
+  animation: question-enter 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
 /* ===========================================
    MOBILE OPTIMIZATIONS
    =========================================== */

@@ -174,10 +174,10 @@ export async function POST(req: Request) {
     ? Math.max(0, Math.min(2, temperature))
     : 0.7
   const finalDelayMin = typeof response_delay_min === 'number'
-    ? Math.max(0, Math.min(30, Math.floor(response_delay_min)))
+    ? Math.max(0, Math.min(60, Math.floor(response_delay_min)))
     : 0
   const finalDelayMax = typeof response_delay_max === 'number'
-    ? Math.max(finalDelayMin, Math.min(30, Math.floor(response_delay_max)))
+    ? Math.max(finalDelayMin, Math.min(60, Math.floor(response_delay_max)))
     : finalDelayMin
 
   const finalMaxMessages = max_messages_per_conversation != null
