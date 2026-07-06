@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { track } from '@/lib/posthog/events'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Plus, Loader2, Trash2, Workflow, Power, GitBranch, ChevronLeft, ChevronRight, Folder, FolderPlus, GripVertical, Sparkles } from 'lucide-react'
+import { Plus, Loader2, Trash2, Workflow, GitBranch, ChevronLeft, ChevronRight, Folder, FolderPlus, GripVertical, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BlobLoaderScreen } from '@/components/blob-loader'
 import type { WhatsAppTemplate } from '@/types/database'
@@ -207,10 +207,21 @@ export default function AutomationsPage() {
             {current.id && (
               <button
                 onClick={() => toggleActive(current)} disabled={busyId === current.id}
-                className={cn('flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors',
-                  current.is_active ? 'bg-green-500/15 text-green-600' : 'bg-muted text-muted-foreground')}
+                title={current.is_active ? 'Cliquez pour désactiver' : 'Cliquez pour activer'}
+                className={cn(
+                  'flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium shadow-sm transition-all',
+                  current.is_active
+                    ? 'border-green-500 bg-green-500 text-white hover:bg-green-600'
+                    : 'border-border bg-muted text-muted-foreground hover:bg-muted/70'
+                )}
               >
-                <Power className="h-3 w-3" />{current.is_active ? 'Actif' : 'Inactif'}
+                {/* Interrupteur visuel (on/off) */}
+                <span className={cn('relative inline-flex h-4 w-7 shrink-0 items-center rounded-full transition-colors',
+                  current.is_active ? 'bg-white/30' : 'bg-foreground/20')}>
+                  <span className={cn('inline-block h-3 w-3 transform rounded-full bg-white shadow transition-transform',
+                    current.is_active ? 'translate-x-3.5' : 'translate-x-0.5')} />
+                </span>
+                {current.is_active ? 'Activé' : 'Désactivé'}
               </button>
             )}
             <Button onClick={save} disabled={busyId === 'save'}>

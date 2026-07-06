@@ -60,9 +60,17 @@ function PannableTimeline({ children }: { children: React.ReactNode }) {
   function endDrag() { drag.current = null; setGrabbing(false) }
 
   function onWheel(e: React.WheelEvent) {
-    // Molette = zoom (borné 0.5–2). Ctrl+molette aussi (trackpad pinch).
     e.preventDefault()
-    setZoom((z) => Math.min(2, Math.max(0.5, z - e.deltaY * 0.0015)))
+    // Ctrl/⌘ + molette (ou pinch trackpad) = ZOOM. Sinon = déplacement (pan) :
+    // molette verticale → haut/bas, Shift ou molette latérale → gauche/droite.
+    if (e.ctrlKey || e.metaKey) {
+      setZoom((z) => Math.min(2, Math.max(0.5, z - e.deltaY * 0.0015)))
+    } else {
+      setOffset((o) => ({
+        x: o.x - (e.shiftKey ? e.deltaY : e.deltaX),
+        y: o.y - (e.shiftKey ? 0 : e.deltaY),
+      }))
+    }
   }
   function reset() { setOffset({ x: 0, y: 0 }); setZoom(1) }
 
