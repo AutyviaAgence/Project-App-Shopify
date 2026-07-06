@@ -57,6 +57,9 @@ export async function POST(req: NextRequest) {
   // ni de l'email : on a le numéro + le panier dès l'opt-in.
   const cartUrl = (body.cart_url as string)?.trim() || null
   const cartTotal = typeof body.cart_total === 'number' ? body.cart_total : null
+  // Origine de l'opt-in : 'popup' (widget site), 'thankyou' (page Merci), etc.
+  // Sert à déclencher un message spécifique selon la source.
+  const source = (body.source as string)?.trim() || null
   // L'opt-in page Merci couvre aussi le marketing (case "commande + offres")
   const marketing = body.marketing === true
 
@@ -148,6 +151,21 @@ export async function POST(req: NextRequest) {
           dedupKey: contact.id, // un seul message de bienvenue par contact
         },
       })
+
+      // Événement SPÉCIFIQUE à l'opt-in via la popup du site : permet un message
+      // dédié (distinct de l'opt-in au checkout). Le marchand branche l'auto
+      // « Opt-in via popup ».
+      if (source === 'popup') {
+        await enqueueAutomations({
+          userId: store.user_id,
+          event: 'optin_popup',
+          ctx: {
+            contactId: contact.id,
+            variables: baseVars,
+            dedupKey: `optin_popup:${contact.id}`,
+          },
+        })
+      }
 
       // Détection panier abandonné "maison" (100% WhatsApp) : si le client coche
       // l'opt-in AVEC un panier non vide, on enfile l'événement checkout_abandoned.

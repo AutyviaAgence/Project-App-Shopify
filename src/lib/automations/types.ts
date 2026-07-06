@@ -15,6 +15,7 @@ export type TriggerEvent =
   | 'return_requested'
   | 'checkout_abandoned'
   | 'contact_opted_in'
+  | 'optin_popup'
   | 'no_customer_reply'
   | 'message_read'
   | 'scheduled_date'
@@ -32,7 +33,8 @@ export const TRIGGER_EVENTS: { value: TriggerEvent; label: string; description: 
   { value: 'return_requested', label: 'Demande de retour', description: 'Quand un client ouvre une demande de retour (SAV).', group: 'Commande' },
   { value: 'checkout_abandoned', label: 'Panier abandonné', description: 'Paiement non finalisé après un délai.', group: 'Commande' },
   // Contact
-  { value: 'contact_opted_in', label: 'Opt-in reçu', description: 'Un client vient de s’abonner sur WhatsApp (case cochée au checkout / page Merci). Idéal pour un message de bienvenue.', group: 'Contact' },
+  { value: 'contact_opted_in', label: 'Opt-in reçu', description: 'Un client vient de s’abonner sur WhatsApp (peu importe la source : popup, checkout, page Merci). Idéal pour un message de bienvenue.', group: 'Contact' },
+  { value: 'optin_popup', label: 'Opt-in via popup', description: 'Un client s’abonne spécifiquement via la popup WhatsApp du site (pas au checkout). Pour un message dédié aux visiteurs qui laissent leur numéro sur le site.', group: 'Contact' },
   // Conversation / temps
   { value: 'button_clicked', label: 'Clic sur un bouton', description: 'Le client clique sur un bouton « réponse rapide » d’un message (ex : « Suivre ma commande »).', group: 'Conversation' },
   { value: 'message_read', label: 'Message lu', description: 'Le client vient de lire un message envoyé (double coche bleue WhatsApp). Idéal pour relancer un lecteur silencieux.', group: 'Conversation' },

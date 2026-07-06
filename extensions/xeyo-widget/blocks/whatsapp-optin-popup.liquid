@@ -197,14 +197,13 @@
     var optedInPhone = null;
     try { optedInPhone = localStorage.getItem('xeyo_optin_phone') || null; } catch (e) {}
 
-    // ── Déclenchement intelligent (façon Cartloop/Privy) ────────────────────
-    // On n'affiche JAMAIS dès l'arrivée. La popup se déclenche sur un vrai signal
-    // d'ENGAGEMENT, avec un délai de sécurité minimum pour ne pas spammer :
-    //   • Desktop : exit-intent (souris qui remonte vers la fermeture)
-    //   • Mobile  : scroll significatif (le client parcourt la page)
-    //   • Filet   : après un délai plus long, si rien ne s'est déclenché
-    var MIN_DELAY = (delay || 8) * 1000;            // garde-fou avant tout déclenchement
-    var FALLBACK = Math.max(MIN_DELAY * 2, 18000);  // dernier recours
+    // ── Déclenchement ───────────────────────────────────────────────────────
+    // La popup s'affiche APRÈS le délai configuré par le marchand (en secondes).
+    // Les signaux d'engagement (exit-intent desktop, scroll mobile) peuvent
+    // l'afficher PLUS TÔT une fois le délai minimal atteint, mais elle n'attend
+    // jamais plus longtemps que le délai configuré.
+    var MIN_DELAY = (delay || 3) * 1000;   // délai avant qu'un signal puisse afficher
+    var FALLBACK = MIN_DELAY;              // affichage garanti = délai configuré (pas de plancher forcé)
     var armedAt = Date.now();
     var isMobile = matchMedia('(pointer: coarse)').matches || innerWidth < 768;
 
@@ -241,6 +240,7 @@
         phone: val,
         email: custEmail || undefined,
         marketing: true,
+        source: 'popup',
         // Panier en cours → relance "panier abandonné" si pas de commande.
         cart_url: cartHasItems ? cartUrl : undefined,
         cart_total: cartTotal != null ? cartTotal : undefined
