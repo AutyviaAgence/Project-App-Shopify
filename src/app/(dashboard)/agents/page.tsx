@@ -23,7 +23,6 @@ import {
   Loader2,
   Brain,
   Sparkles,
-  Settings2,
   ArrowRight,
   ChevronLeft,
   ChevronRight,
@@ -187,19 +186,17 @@ export default function AgentsPage() {
   }, [fetchAgents])
 
 
-  // Chemin de création UNIQUE : on redirige toujours vers le wizard guidé.
+  // Chemin de création UNIQUE : onboarding e-commerce pré-rempli depuis
+  // l'analyse boutique (plus d'ancien wizard générique secrétaire/RDV).
   useEffect(() => {
     if (typeof window === 'undefined') return
     const params = new URLSearchParams(window.location.search)
     if (params.get('new') === 'manual') {
-      router.push('/agents/new')
+      router.push('/agents/onboard')
     }
   }, [router])
 
-  // Création → wizard guidé. Édition → fiche détail. (Plus de Dialog.)
-  function openCreateDialog() {
-    router.push('/agents/new')
-  }
+  // Création → onboarding pré-rempli. Édition → fiche détail.
 
   function openEditDialog(agent: AgentWithTeamIds) {
     router.push(`/agents/${agent.id}`)
@@ -413,7 +410,7 @@ export default function AgentsPage() {
 
           <div className="mt-7 space-y-3">
             <button
-              onClick={() => router.push('/agents/new')}
+              onClick={() => router.push('/agents/onboard')}
               className="group relative flex w-full items-center gap-4 overflow-hidden rounded-2xl border border-primary/40 bg-gradient-to-br from-primary/10 to-accent/5 p-5 text-left shadow-sm transition-all hover:border-primary hover:shadow-md hover:shadow-primary/10"
             >
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-white shadow-sm transition-transform group-hover:scale-105">
@@ -421,26 +418,12 @@ export default function AgentsPage() {
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="font-semibold">Je débute</span>
-                  <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">Recommandé</span>
+                  <span className="font-semibold">Configurer mon agent</span>
+                  <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-primary">Auto</span>
                 </div>
-                <div className="mt-0.5 text-sm text-muted-foreground">On te pose quelques questions et on crée l&apos;agent pour toi.</div>
+                <div className="mt-0.5 text-sm text-muted-foreground">On l&apos;a pré-configuré à partir de ta boutique : tu vérifies et tu actives.</div>
               </div>
               <ArrowRight className="h-5 w-5 shrink-0 text-primary transition-transform group-hover:translate-x-1" />
-            </button>
-
-            <button
-              onClick={openCreateDialog}
-              className="group flex w-full items-center gap-4 rounded-2xl border p-5 text-left transition-all hover:border-foreground/20 hover:bg-muted/40"
-            >
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground transition-transform group-hover:scale-105">
-                <Settings2 className="h-6 w-6" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="font-semibold">Je suis à l&apos;aise</div>
-                <div className="mt-0.5 text-sm text-muted-foreground">Accès direct à la configuration manuelle complète.</div>
-              </div>
-              <ArrowRight className="h-5 w-5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-1" />
             </button>
           </div>
         </div>
@@ -688,7 +671,7 @@ export default function AgentsPage() {
 
       {/* Bouton "Nouvel agent" — juste sous les cartes et les points */}
       <div className="mt-8 flex justify-center sm:mt-12">
-        <Link href="/agents/new">
+        <Link href="/agents/onboard">
           <button
             data-tour="new-agent-btn"
             className="group flex items-center gap-2.5 rounded-3xl bg-primary px-6 py-3.5 text-sm font-semibold text-primary-foreground shadow-[0_12px_30px_-8px] shadow-primary/40 ring-1 ring-white/10 transition-all hover:scale-[1.03] hover:shadow-primary/50"
