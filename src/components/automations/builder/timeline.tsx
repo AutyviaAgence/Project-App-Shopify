@@ -318,7 +318,7 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction }: {
                         key={t.id}
                         onClick={() => { onPatch(node.id, { templateId: t.id } as never); onSelectAction(t.id); setPickerOpen(false) }}
                         className={cn(
-                          'w-[180px] shrink-0 rounded-xl border p-2 text-left transition-colors',
+                          'w-[170px] shrink-0 rounded-xl border p-2 text-left transition-colors',
                           isSel ? 'border-primary/50 bg-primary/5 ring-1 ring-primary/30' : 'border-border hover:border-foreground/30 hover:bg-muted/40'
                         )}
                       >
@@ -326,8 +326,13 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction }: {
                           <span className="truncate text-xs font-medium">{t.name}</span>
                           <span className="shrink-0 text-[10px] text-muted-foreground">{badge(t)}</span>
                         </div>
-                        <div className="pointer-events-none origin-top-left scale-[0.82]">
-                          <TemplateBubble template={t} labels={labelsFor(t)} />
+                        {/* Aperçu plafonné en hauteur (les longs modèles ne s'étirent
+                            plus) + fondu bas pour indiquer qu'il y a la suite. */}
+                        <div className="relative max-h-[150px] overflow-hidden">
+                          <div className="pointer-events-none origin-top-left scale-[0.78]">
+                            <TemplateBubble template={t} labels={labelsFor(t)} />
+                          </div>
+                          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-background to-transparent" />
                         </div>
                       </button>
                     )
