@@ -45,7 +45,7 @@ type AgentOption = {
 export function WhatsAppConnect() {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
-  const [health, setHealth] = useState<{ quality: string | null; tierLabel: string | null } | null>(null)
+  const [health, setHealth] = useState<{ quality: string | null; tierLabel: string | null; used?: number; limit?: number | null } | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -255,10 +255,15 @@ export function WhatsAppConnect() {
                       Qualité : {health.quality === 'GREEN' ? 'bonne' : health.quality === 'YELLOW' ? 'moyenne' : 'critique'}
                     </span>
                   )}
-                  {health.tierLabel && (
-                    <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground"
-                      title="Plafond Meta d'envois initiés par l'entreprise (templates) sur 24h — les réponses SAV ne comptent pas">
-                      Envois : {health.tierLabel}
+                  {typeof health.used === 'number' && (
+                    <span className={
+                      'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] ' +
+                      (health.limit && health.used / health.limit >= 0.9
+                        ? 'bg-amber-500/15 text-amber-600'
+                        : 'bg-muted text-muted-foreground')
+                    }
+                      title="Contacts uniques joints par vos automatisations sur les dernières 24h, vs le plafond Meta de votre compte — les réponses SAV ne comptent pas">
+                      Envois (24h) : {health.used}{health.limit ? `/${health.limit}` : health.tierLabel ? ` · ${health.tierLabel}` : ''}
                     </span>
                   )}
                 </div>
