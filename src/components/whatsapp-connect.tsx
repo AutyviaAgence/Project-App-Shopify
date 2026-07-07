@@ -45,6 +45,7 @@ type AgentOption = {
 export function WhatsAppConnect() {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
+  const [health, setHealth] = useState<{ quality: string | null; tierLabel: string | null } | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -148,6 +149,16 @@ export function WhatsAppConnect() {
 
   useEffect(() => { fetchSession() }, [fetchSession])
 
+  // Santé du numéro (qualité Meta + palier d'envoi) — clé pour l'e-commerce à
+  // fort volume de templates : voir venir les restrictions avant le ban.
+  useEffect(() => {
+    if (session?.status !== 'connected') return
+    fetch('/api/whatsapp/health')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => { if (json?.data?.connected) setHealth(json.data) })
+      .catch(() => {})
+  }, [session?.status])
+
   async function handleConnect() {
     if (!phoneId.trim() || !businessId.trim() || !token.trim()) {
       toast.error('Tous les champs WhatsApp Business sont requis')
@@ -230,6 +241,27 @@ export function WhatsAppConnect() {
               </div>
               {session.phone_number && (
                 <p className="text-sm text-muted-foreground truncate">+{session.phone_number}</p>
+              )}
+              {health && (health.quality || health.tierLabel) && (
+                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                  {health.quality && health.quality !== 'UNKNOWN' && (
+                    <span className={
+                      'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] ' +
+                      (health.quality === 'GREEN' ? 'bg-emerald-500/15 text-emerald-600'
+                        : health.quality === 'YELLOW' ? 'bg-amber-500/15 text-amber-600'
+                        : 'bg-red-500/15 text-red-600')
+                    }>
+                      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                      Qualité : {health.quality === 'GREEN' ? 'bonne' : health.quality === 'YELLOW' ? 'moyenne' : 'critique'}
+                    </span>
+                  )}
+                  {health.tierLabel && (
+                    <span className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground"
+                      title="Plafond Meta d'envois initiés par l'entreprise (templates) sur 24h — les réponses SAV ne comptent pas">
+                      Envois : {health.tierLabel}
+                    </span>
+                  )}
+                </div>
               )}
             </div>
           </div>

@@ -141,6 +141,19 @@ export const wabaClient = {
     })
   },
 
+  /** Santé du numéro : qualité (GREEN/YELLOW/RED) + palier d'envoi (TIER_250…).
+      Sert au badge santé du dashboard — anticiper les restrictions Meta. */
+  getPhoneNumberHealth(phoneNumberId: string, accessToken: string) {
+    return request<{
+      id: string
+      display_phone_number?: string
+      quality_rating?: string
+      messaging_limit_tier?: string
+    }>(`${GRAPH_API_BASE}/${phoneNumberId}?fields=display_phone_number,quality_rating,messaging_limit_tier`, accessToken, {
+      method: 'GET',
+    })
+  },
+
   // ─── Gestion des templates (Message Templates) ──────────────────────
   // Ces endpoints utilisent le Business Account ID (WABA), pas le phone_number_id.
 
