@@ -12,7 +12,7 @@ import { toast } from 'sonner'
 import { useTranslation } from '@/i18n/context'
 import { useTenant } from '@/lib/tenant/context'
 
-const TURNSTILE_SITE_KEY = '0x4AAAAAACxrGN3L2YWh3XHJ'
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '0x4AAAAAACxrGN3L2YWh3XHJ'
 
 export default function ForgotPasswordPage() {
   const { t } = useTranslation()
@@ -43,10 +43,10 @@ export default function ForgotPasswordPage() {
           sitekey: TURNSTILE_SITE_KEY,
           callback: (token: string) => { setCaptchaToken(token); setCaptchaReady(true) },
           'expired-callback': () => setCaptchaToken(null),
-          'error-callback': () => { setCaptchaReady(false) },
+          // Widget en erreur → on ne bloque pas la demande (captcha = bonus).
+          'error-callback': () => { setCaptchaReady(false); setCaptchaToken(null) },
           theme: 'auto',
         })
-        setCaptchaReady(true)
       }
     }
 

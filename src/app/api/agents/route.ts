@@ -148,8 +148,20 @@ export async function POST(req: Request) {
     stop_condition?: string
   }
 
-  // Vérifier le quota d'agents selon le plan
-  const agentQuota = await checkPlanQuota(supabase, user.id, 'agents')
+  // Vérifier le quota d'agents selon le plan.
+  // Exception onboarding : le 1er agent est autorisé AVANT le choix du plan
+  // (l'abonnement est la DERNIÈRE étape du grand onboarding).
+  let agentQuota: Awaited<ReturnType<typeof checkPlanQuota>> = await checkPlanQuota(supabase, user.id, 'agents')
+  if (!agentQuota.allowed && agentQuota.reason === 'no_subscription') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: prof } = await (supabase as any)
+      .from('profiles').select('onboarding_completed_at').eq('id', user.id).maybeSingle()
+    const { count: agCount } = await supabase
+      .from('ai_agents').select('id', { count: 'exact', head: true }).eq('user_id', user.id)
+    if (!prof?.onboarding_completed_at && (agCount ?? 0) === 0) {
+      agentQuota = { allowed: true }
+    }
+  }
   if (!agentQuota.allowed) {
     const error = agentQuota.reason === 'observer_mode'
       ? 'Votre compte est en mode visualisation. Souscrivez à un plan pour créer des agents IA.'

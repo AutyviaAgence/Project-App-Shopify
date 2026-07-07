@@ -52,10 +52,10 @@ function LoginForm() {
           sitekey: TURNSTILE_SITE_KEY,
           callback: (token: string) => { setCaptchaToken(token); setCaptchaReady(true) },
           'expired-callback': () => setCaptchaToken(null),
-          'error-callback': () => { setCaptchaReady(false) },
+          // Widget en erreur → on ne bloque pas la connexion (captcha = bonus).
+          'error-callback': () => { setCaptchaReady(false); setCaptchaToken(null) },
           theme: 'auto',
         })
-        setCaptchaReady(true)
       }
     }
 

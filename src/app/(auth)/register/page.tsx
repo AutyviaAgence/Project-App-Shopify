@@ -18,7 +18,7 @@ import { useTenant } from '@/lib/tenant/context'
 import { AuthBrandPanel } from '@/components/auth-brand-panel'
 import { AuthLegalFooter } from '@/components/auth-legal-footer'
 
-const TURNSTILE_SITE_KEY = '0x4AAAAAACxrGN3L2YWh3XHJ'
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '0x4AAAAAACxrGN3L2YWh3XHJ'
 
 function RegisterForm() {
   const { t } = useTranslation()
@@ -65,10 +65,12 @@ function RegisterForm() {
           sitekey: TURNSTILE_SITE_KEY,
           callback: (token: string) => { setCaptchaToken(token); setCaptchaReady(true) },
           'expired-callback': () => setCaptchaToken(null),
-          'error-callback': () => { setCaptchaReady(false) },
+          // Widget en erreur (ex: 110200 domaine non autorisé) → on NE bloque
+          // PAS l'inscription : le captcha est une protection additionnelle,
+          // pas un mur. captchaReady ne passe à true qu'à réception d'un token.
+          'error-callback': () => { setCaptchaReady(false); setCaptchaToken(null) },
           theme: 'auto',
         })
-        setCaptchaReady(true)
       }
     }
 
@@ -94,10 +96,9 @@ function RegisterForm() {
           sitekey: TURNSTILE_SITE_KEY,
           callback: (token: string) => { setCaptchaToken(token); setCaptchaReady(true) },
           'expired-callback': () => setCaptchaToken(null),
-          'error-callback': () => { setCaptchaReady(false) },
+          'error-callback': () => { setCaptchaReady(false); setCaptchaToken(null) },
           theme: 'auto',
         })
-        setCaptchaReady(true)
       }
     }
   }, [emailSent])
