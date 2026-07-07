@@ -10,7 +10,7 @@ const NO_WHATSAPP_CODES = [131026, 131047, 131000, 470]
 
 type TemplateRow = {
   id: string; user_id: string; name: string; language: string
-  source_language: string | null; status: string
+  source_language: string | null; status: string; category: string | null
   variables_count: number | null; variable_keys: string[] | null; body_text: string | null
   template_type: string | null; carousel_cards: unknown; lto_default_hours: number | null; lto_title: string | null
   buttons: unknown
@@ -37,7 +37,7 @@ async function resolveLanguageVariant(
   // Toutes les variantes approuvées de ce modèle (même utilisateur + même nom).
   const { data: variants } = await supabase
     .from('whatsapp_templates')
-    .select('id, user_id, name, language, source_language, status, variables_count, variable_keys, body_text, template_type, carousel_cards, lto_default_hours, lto_title, buttons')
+    .select('id, user_id, name, language, source_language, status, category, variables_count, variable_keys, body_text, template_type, carousel_cards, lto_default_hours, lto_title, buttons')
     .eq('user_id', base.user_id)
     .eq('name', base.name)
     .eq('status', 'approved')
@@ -98,7 +98,7 @@ export async function sendTemplateToContact(params: {
 
   // Modèle de base (celui choisi dans l'automation). On l'utilise pour connaître
   // le `name` et résoudre ensuite la variante linguistique du contact.
-  const SELECT = 'id, user_id, name, language, source_language, status, variables_count, variable_keys, body_text, template_type, carousel_cards, lto_default_hours, lto_title, buttons'
+  const SELECT = 'id, user_id, name, language, source_language, status, category, variables_count, variable_keys, body_text, template_type, carousel_cards, lto_default_hours, lto_title, buttons'
   const { data: baseTpl } = await supabase
     .from('whatsapp_templates')
     .select(SELECT)
@@ -112,13 +112,21 @@ export async function sendTemplateToContact(params: {
   const tpl = await resolveLanguageVariant(supabase, baseTpl, contact.preferred_language)
   if (!tpl) return { ok: false, error: 'template_non_approuve' }
 
-  // Session WABA
+  // Session WABA (+ état qualité pour les garde-fous)
   const { data: session } = await supabase
     .from('whatsapp_sessions')
-    .select('waba_phone_number_id, waba_access_token')
+    .select('waba_phone_number_id, waba_access_token, marketing_paused')
     .eq('id', contact.session_id)
     .maybeSingle()
   if (!session?.waba_phone_number_id) return { ok: false, error: 'no_phone_number_id' }
+
+  // GARDE-FOU QUALITÉ : si le marketing est en pause (numéro classé ROUGE par
+  // Meta), on ne bloque QUE les templates MARKETING. Les UTILITY (confirmation,
+  // expédition…) et les envois manuels passent toujours. Non bloquant sur
+  // 'rate_limited' : le cron reprogramme, il ne marque pas en échec.
+  if (!params.manual && session.marketing_paused && (tpl as { category?: string }).category === 'MARKETING') {
+    return { ok: false, error: 'marketing_paused' }
+  }
 
   const { decryptWabaToken } = await import('@/lib/messaging/send')
   const token = decryptWabaToken(session)
@@ -198,6 +206,13 @@ export async function sendTemplateToContact(params: {
     // error_user_msg / message Meta lisible pour le diagnostic
     const userMsg = raw.match(/"error_user_msg"\s*:\s*"([^"]+)"/)?.[1]
       || raw.match(/"message"\s*:\s*"([^"]+)"/)?.[1] || ''
+    // Limite Meta atteinte (palier 24h / anti-spam) : PAS un échec — on demande
+    // au cron de REPROGRAMMER (la fenêtre glissante libère de la place). Codes :
+    // 130429 rate limit · 131048 spam rate · 131056 pair rate · 80007 rate.
+    const RATE_CODES = ['130429', '131048', '131056', '80007']
+    if ((code && RATE_CODES.includes(code)) || /rate.?limit|too many/i.test(raw)) {
+      return { ok: false, error: 'rate_limited' }
+    }
     const isNoWa = (code && NO_WHATSAPP_CODES.includes(Number(code))) || /not.*whatsapp|invalid.*recipient/i.test(raw)
     // 132000 = le template approuvé chez Meta n'attend pas le même nombre de
     // variables que ce qu'on envoie (le corps approuvé diffère de notre version

@@ -118,6 +118,14 @@ export async function POST(req: NextRequest) {
             timestamp: string
             recipient_id: string
           }>
+          // Champs de surveillance qualité (structure différente de `messages`).
+          display_phone_number?: string
+          event?: string
+          current_limit?: string
+          message_template_id?: string
+          message_template_name?: string
+          message_template_language?: string
+          reason?: string
         }
         field: string
       }>
@@ -129,6 +137,18 @@ export async function POST(req: NextRequest) {
 
     for (const entry of entries) {
       for (const change of entry.changes) {
+        // ── Santé du numéro & statut des templates (surveillance qualité) ──
+        // Ces champs n'ont PAS la structure `messages` : on les traite à part,
+        // via le business account id (entry.id) qui identifie le WABA.
+        if (change.field === 'phone_number_quality_update' || change.field === 'message_template_status_update') {
+          try {
+            await handleQualityChange(supabase, entry.id, change.field, change.value as unknown as Record<string, unknown>)
+          } catch (e) {
+            console.error('[WABA Webhook] quality change:', e)
+          }
+          continue
+        }
+
         if (change.field !== 'messages') continue
 
         const value = change.value
@@ -667,5 +687,72 @@ export async function POST(req: NextRequest) {
     // sont ignorés, seuls les manqués sont traités).
     console.error('[WABA Webhook] Error:', error)
     return NextResponse.json({ error: 'processing failed' }, { status: 500 })
+  }
+}
+
+/**
+ * Traite les webhooks de SURVEILLANCE (hors `messages`) :
+ *  - phone_number_quality_update : qualité + palier du numéro
+ *  - message_template_status_update : statut d'un template (APPROVED/PAUSED…)
+ * Identifie le WABA par le business account id (entry.id).
+ */
+async function handleQualityChange(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  wabaId: string,
+  field: string,
+  value: Record<string, unknown>
+) {
+  // Session correspondant à ce WABA (business account id).
+  const { data: session } = await supabase
+    .from('whatsapp_sessions')
+    .select('id, user_id, quality_rating, messaging_limit_tier, marketing_paused')
+    .eq('integration_type', 'waba')
+    .eq('waba_business_account_id', wabaId)
+    .maybeSingle()
+  if (!session) return
+
+  if (field === 'phone_number_quality_update') {
+    const { normalizeQualityEvent, applyQualityUpdate } = await import('@/lib/whatsapp/quality')
+    const quality = normalizeQualityEvent(value.event as string | undefined)
+    const tier = (value.current_limit as string | undefined) || null
+    await applyQualityUpdate(supabase, session, { quality: quality || undefined, tier })
+    return
+  }
+
+  if (field === 'message_template_status_update') {
+    const status = String(value.event || '').toUpperCase()
+    const name = value.message_template_name as string | undefined
+    const lang = value.message_template_language as string | undefined
+    if (!name) return
+
+    // Statut local (approved / rejected / paused / disabled).
+    const localStatus = status === 'APPROVED' ? 'approved'
+      : status === 'REJECTED' ? 'rejected'
+      : status === 'PAUSED' ? 'paused'
+      : status === 'DISABLED' ? 'disabled'
+      : status === 'PENDING' ? 'pending' : null
+    if (!localStatus) return
+
+    let q = supabase.from('whatsapp_templates').update({ status: localStatus }).eq('name', name)
+    if (session.user_id) q = q.eq('user_id', session.user_id)
+    if (lang) q = q.eq('language', lang)
+    const { data: updated } = await q.select('id')
+
+    // Si Meta met le template en pause/désactive : on met en pause les
+    // automatisations qui l'utilisent (sinon elles échouent en boucle).
+    if ((localStatus === 'paused' || localStatus === 'disabled') && Array.isArray(updated) && updated.length > 0) {
+      const ids = updated.map((t: { id: string }) => t.id)
+      await supabase.from('automations').update({ is_active: false }).in('template_id', ids)
+      if (session.user_id) {
+        await supabase.from('user_alerts').insert({
+          user_id: session.user_id,
+          alert_type: 'whatsapp_template_paused',
+          title: localStatus === 'disabled' ? `Modèle désactivé par Meta : ${name}` : `Modèle mis en pause par Meta : ${name}`,
+          message: `Meta a ${localStatus === 'disabled' ? 'désactivé' : 'mis en pause'} le modèle « ${name} »${value.reason ? ` (${value.reason})` : ''}. Les automatisations qui l'utilisent ont été désactivées pour éviter des envois en échec. Corrigez le modèle puis resoumettez-le.`,
+          metadata: { template: name, status: localStatus, reason: value.reason || null },
+        })
+      }
+    }
   }
 }

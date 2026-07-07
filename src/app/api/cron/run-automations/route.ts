@@ -77,6 +77,15 @@ export async function GET(req: NextRequest) {
     console.error('[cron] purge webhook_logs:', e)
   }
 
+  // Filet de sécurité qualité WhatsApp : relit la santé de tous les numéros
+  // chez Meta (throttlé 1×/6h) pour les marchands sans webhooks abonnés.
+  try {
+    const { sweepWhatsappHealth } = await import('@/lib/whatsapp/health-sweep')
+    await sweepWhatsappHealth(supabase, now.getTime())
+  } catch (e) {
+    console.error('[cron] whatsapp health sweep:', e)
+  }
+
   return NextResponse.json({ ok: true, processed: allJobs.length, ...counts, temporalQueued, aiJobs })
 }
 
@@ -158,7 +167,11 @@ async function processJob(
     }
     // send
     const r = await sendTemplateToContact({ templateId: step.templateId, contactId: job.contact_id, variables: eventData.variables || {} })
-    if (!r.ok) { await mark(supabase, job.id, 'failed', r.error || 'échec'); return 'failed' }
+    if (!r.ok) {
+      const d = deferReason(r.error)
+      if (d) { await deferJob(supabase, job.id, now, d); return 'deferred' }
+      await mark(supabase, job.id, 'failed', r.error || 'échec'); return 'failed'
+    }
     // Test A/B : enregistre la variante reçue par ce contact (pour les stats).
     if (step.abTest) {
       await supabase.from('ab_test_assignments').upsert({
@@ -189,8 +202,36 @@ async function processJob(
     variables: eventData.variables || {},
   })
   if (r.ok) { await mark(supabase, job.id, 'sent', null); return 'sent' }
+  const d = deferReason(r.error)
+  if (d) { await deferJob(supabase, job.id, now, d); return 'deferred' }
   await mark(supabase, job.id, 'failed', r.error || 'échec')
   return 'failed'
+}
+
+/**
+ * Certaines "erreurs" ne sont PAS des échecs : l'envoi doit être RÉESSAYÉ plus
+ * tard (jamais perdu). Renvoie le délai de report en minutes, ou null si c'est
+ * un vrai échec.
+ *   - rate_limited    : palier Meta 24h atteint → +60 min (fenêtre glissante)
+ *   - marketing_paused: numéro classé ROUGE → +180 min (attendre le retour vert)
+ */
+function deferReason(error: string | undefined): number | null {
+  if (error === 'rate_limited') return 60
+  if (error === 'marketing_paused') return 180
+  return null
+}
+
+async function deferJob(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  id: string,
+  now: Date,
+  minutes: number
+) {
+  const when = new Date(now.getTime() + minutes * 60_000).toISOString()
+  // On garde status 'pending' → le job sera re-tenté ; on ne le marque JAMAIS
+  // 'failed' (l'envoi n'est pas perdu, juste étalé).
+  await supabase.from('automation_jobs').update({ scheduled_at: when, result: `report: ${minutes}min` }).eq('id', id)
 }
 
 async function mark(

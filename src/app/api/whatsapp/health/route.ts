@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { wabaClient } from '@/lib/whatsapp-cloud/client'
 import { decryptWabaToken } from '@/lib/messaging/send'
 
@@ -34,9 +33,10 @@ export async function GET() {
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
-  const { data: session } = await supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: session } = await (supabase as any)
     .from('whatsapp_sessions')
-    .select('id, waba_phone_number_id, waba_access_token')
+    .select('id, user_id, waba_phone_number_id, waba_access_token, quality_rating, messaging_limit_tier, quality_updated_at, marketing_paused')
     .eq('user_id', user.id)
     .eq('status', 'connected')
     .maybeSingle()
@@ -44,16 +44,31 @@ export async function GET() {
     return NextResponse.json({ data: { connected: false } })
   }
 
-  const token = decryptWabaToken(session)
-  if (!token) return NextResponse.json({ data: { connected: false } })
+  // État STOCKÉ (rafraîchi en continu par les webhooks + le sweep) : source
+  // principale. On ne rappelle Meta en direct que s'il est absent ou vieux (>1h).
+  const storedAge = session.quality_updated_at
+    ? Date.now() - new Date(session.quality_updated_at).getTime()
+    : Infinity
+  let quality = (session.quality_rating || 'UNKNOWN').toUpperCase()
+  let tier = session.messaging_limit_tier || null
+  let marketingPaused = Boolean(session.marketing_paused)
 
-  const res = await wabaClient.getPhoneNumberHealth(session.waba_phone_number_id, token)
-  if (!res.ok) {
-    return NextResponse.json({ data: { connected: true, quality: null, tier: null } })
+  if (!session.quality_rating || storedAge > 60 * 60 * 1000) {
+    const token = decryptWabaToken(session)
+    if (token) {
+      const res = await wabaClient.getPhoneNumberHealth(session.waba_phone_number_id, token)
+      if (res.ok) {
+        const { applyQualityUpdate } = await import('@/lib/whatsapp/quality')
+        const applied = await applyQualityUpdate(supabase, session, {
+          quality: res.data.quality_rating || undefined,
+          tier: res.data.messaging_limit_tier || undefined,
+        })
+        quality = applied.quality
+        tier = applied.tier
+        marketingPaused = applied.marketingPaused
+      }
+    }
   }
-
-  const quality = (res.data.quality_rating || 'UNKNOWN').toUpperCase()
-  const tier = res.data.messaging_limit_tier || null
 
   // Utilisation : contacts UNIQUES joints par les automatisations sur les
   // dernières 24h GLISSANTES — la sémantique exacte de la limite Meta
@@ -72,33 +87,8 @@ export async function GET() {
     used = new Set((jobs || []).map((j: { contact_id: string }) => j.contact_id).filter(Boolean)).size
   } catch { /* compteur best effort */ }
 
-  // Alerte si la qualité se dégrade (dédupliquée : 1 par jour max).
-  if (quality === 'YELLOW' || quality === 'RED') {
-    try {
-      const admin = createAdminSupabase(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!
-      )
-      const since = new Date(); since.setHours(0, 0, 0, 0)
-      const { count } = await admin
-        .from('user_alerts')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .eq('alert_type', 'whatsapp_quality')
-        .gte('created_at', since.toISOString())
-      if ((count ?? 0) === 0) {
-        await admin.from('user_alerts').insert({
-          user_id: user.id,
-          alert_type: 'whatsapp_quality',
-          title: quality === 'RED' ? 'Qualité WhatsApp CRITIQUE' : 'Qualité WhatsApp en baisse',
-          message: quality === 'RED'
-            ? 'Meta a classé votre numéro en qualité ROUGE : risque imminent de restriction. Suspendez les envois marketing (paniers abandonnés, campagnes) quelques jours et privilégiez les réponses SAV.'
-            : 'Meta a classé votre numéro en qualité JAUNE (blocages/signalements en hausse). Réduisez le volume de templates marketing et vérifiez le consentement de vos contacts.',
-          metadata: { quality, tier },
-        })
-      }
-    } catch { /* best effort */ }
-  }
+  // Les alertes (qualité, montée de palier) sont gérées par applyQualityUpdate
+  // — pas de duplication ici.
 
   return NextResponse.json({
     data: {
@@ -110,6 +100,8 @@ export async function GET() {
       used,
       /** Plafond numérique du palier (null = illimité ou palier inconnu) */
       limit: tier ? (TIER_VALUES[tier] ?? null) : null,
+      /** Marketing suspendu automatiquement (qualité ROUGE) */
+      marketingPaused,
     },
   })
 }

@@ -45,7 +45,7 @@ type AgentOption = {
 export function WhatsAppConnect() {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
-  const [health, setHealth] = useState<{ quality: string | null; tierLabel: string | null; used?: number; limit?: number | null } | null>(null)
+  const [health, setHealth] = useState<{ quality: string | null; tierLabel: string | null; used?: number; limit?: number | null; marketingPaused?: boolean } | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -279,6 +279,18 @@ export function WhatsAppConnect() {
             </Button>
           </div>
         </div>
+
+        {/* Marketing suspendu automatiquement (qualité ROUGE) */}
+        {health?.marketingPaused && (
+          <div className="mt-3 flex items-start gap-2 rounded-lg border border-red-500/30 bg-red-500/5 p-3 text-xs text-red-600">
+            <WifiOff className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            <span>
+              <span className="font-medium">Envois marketing suspendus.</span> Meta a classé votre numéro en qualité critique.
+              Xeyo a mis en pause les campagnes et relances pour protéger votre numéro — le SAV et les messages transactionnels
+              continuent. Réactivation automatique dès le retour au vert.
+            </span>
+          </div>
+        )}
 
         <Dialog open={linkOpen} onOpenChange={setLinkOpen}>
           <DialogContent className="sm:max-w-md">
