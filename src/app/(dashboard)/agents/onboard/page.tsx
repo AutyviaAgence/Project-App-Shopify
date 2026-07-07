@@ -186,7 +186,7 @@ export default function AgentOnboardPage() {
   ]
 
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-120px)] w-full max-w-2xl flex-col gap-6 px-4 py-8 sm:px-6 lg:max-w-3xl">
+    <div className="mx-auto flex min-h-[calc(100vh-120px)] w-full max-w-2xl flex-col gap-6 px-4 py-8 sm:px-6 md:max-w-3xl lg:max-w-4xl xl:max-w-5xl">
       {/* Progression : barre + compteur */}
       <div>
         <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
@@ -209,10 +209,10 @@ export default function AgentOnboardPage() {
           </div>
         )}
 
-        <div key={step} className={cn('flex flex-1 flex-col transition-all duration-300', advancing ? 'scale-[0.98] opacity-30 blur-[1px]' : 'animate-question-enter opacity-100')}>
-        <h1 className="text-xl font-semibold sm:text-2xl">{QUESTIONS[step]}</h1>
+        <div key={step} className={cn('flex flex-1 flex-col justify-center transition-all duration-300', advancing ? 'scale-[0.98] opacity-30 blur-[1px]' : 'animate-question-enter opacity-100')}>
+        <h1 className="text-xl font-semibold sm:text-2xl md:text-3xl">{QUESTIONS[step]}</h1>
 
-        <div className="mt-5 flex-1">
+        <div className="mt-5">
           {/* Q1 — Nom */}
           {step === 0 && (
             <input value={name} onChange={(e) => setName(e.target.value)} autoFocus
