@@ -149,7 +149,9 @@ export const wabaClient = {
       display_phone_number?: string
       quality_rating?: string
       messaging_limit_tier?: string
-    }>(`${GRAPH_API_BASE}/${phoneNumberId}?fields=display_phone_number,quality_rating,messaging_limit_tier`, accessToken, {
+      /** APPROVED | DECLINED | PENDING… — un nom refusé masque le palier chez Meta. */
+      name_status?: string
+    }>(`${GRAPH_API_BASE}/${phoneNumberId}?fields=display_phone_number,quality_rating,messaging_limit_tier,name_status`, accessToken, {
       method: 'GET',
     })
   },

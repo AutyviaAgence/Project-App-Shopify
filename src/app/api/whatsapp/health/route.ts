@@ -52,12 +52,16 @@ export async function GET() {
   let quality = (session.quality_rating || 'UNKNOWN').toUpperCase()
   let tier = session.messaging_limit_tier || null
   let marketingPaused = Boolean(session.marketing_paused)
+  let nameStatus: string | null = null
 
-  if (!session.quality_rating || storedAge > 60 * 60 * 1000) {
+  // Appel live si l'état stocké est absent/vieux, OU si le palier est inconnu
+  // (le cas « nom refusé » : on veut alors récupérer name_status pour l'expliquer).
+  if (!session.quality_rating || !tier || storedAge > 60 * 60 * 1000) {
     const token = decryptWabaToken(session)
     if (token) {
       const res = await wabaClient.getPhoneNumberHealth(session.waba_phone_number_id, token)
       if (res.ok) {
+        nameStatus = (res.data.name_status || '').toUpperCase() || null
         const { applyQualityUpdate } = await import('@/lib/whatsapp/quality')
         const applied = await applyQualityUpdate(supabase, session, {
           quality: res.data.quality_rating || undefined,
@@ -102,6 +106,8 @@ export async function GET() {
       limit: tier ? (TIER_VALUES[tier] ?? null) : null,
       /** Marketing suspendu automatiquement (qualité ROUGE) */
       marketingPaused,
+      /** Nom d'affichage refusé → palier bloqué chez Meta (à corriger) */
+      nameDeclined: nameStatus === 'DECLINED',
     },
   })
 }
