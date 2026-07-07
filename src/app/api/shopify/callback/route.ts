@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  await supabase
+  const { data: storeRow } = await supabase
     .from('shopify_stores')
     .upsert(
       {
@@ -78,15 +78,51 @@ export async function GET(req: NextRequest) {
       },
       { onConflict: 'shop_domain' }
     )
+    .select('id, user_id')
+    .single()
 
   // 6.5. S'abonner aux webhooks métier (orders/fulfilled…) — best effort
   const wh = await registerWebhooks(shop, tokenResult.accessToken)
   if (!wh.ok) console.error('[Shopify] Abonnement webhooks partiel:', wh.errors)
 
-  // 7. Rediriger vers /shopify avec autolink : si l'utilisateur est déjà connecté
-  // à Xeyo (parcours depuis la landing), la boutique se lie automatiquement à son
-  // compte ; sinon il est invité à créer un compte / se connecter, puis revient ici.
   const { appUrl } = getShopifyConfig()
+
+  // 7. LIEN DIRECT : la requête de callback porte les cookies de session Xeyo
+  // (navigation top-level sur le même domaine). Si l'utilisateur est connecté,
+  // on lie la boutique ICI — sans rebond fragile par /shopify — et on le
+  // renvoie dans l'onboarding (ou le dashboard si onboarding déjà terminé).
+  try {
+    const { createClient: createSessionClient } = await import('@/lib/supabase/server')
+    const session = await createSessionClient()
+    const { data: { user } } = await session.auth.getUser()
+    if (user && storeRow && (!storeRow.user_id || storeRow.user_id === user.id)) {
+      if (storeRow.user_id !== user.id) {
+        await supabase
+          .from('shopify_stores')
+          .update({ user_id: user.id, billing_source: 'direct' })
+          .eq('id', storeRow.id)
+      }
+      // Agent + sync catalogue/pages/politiques (best effort, comme /connect).
+      try {
+        const { autoConfigureAgentFromShop } = await import('@/lib/shopify/sync')
+        await autoConfigureAgentFromShop(storeRow.id)
+      } catch (e) {
+        console.error('[Shopify callback] auto-config échec (non bloquant):', e)
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: prof } = await (supabase as any)
+        .from('profiles').select('onboarding_completed_at').eq('id', user.id).maybeSingle()
+      const dest = prof?.onboarding_completed_at ? '/dashboard' : '/onboarding'
+      const res = NextResponse.redirect(`${appUrl}${dest}`)
+      res.cookies.delete('shopify_oauth_state')
+      return res
+    }
+  } catch (e) {
+    console.error('[Shopify callback] lien direct échec, fallback /shopify:', e)
+  }
+
+  // 8. Fallback (pas de session : install App Store sans compte, iframe…) :
+  // parcours historique /shopify?autolink=1 (création de compte puis lien).
   const res = NextResponse.redirect(`${appUrl}/shopify?shop=${encodeURIComponent(shop)}&autolink=1`)
   res.cookies.delete('shopify_oauth_state')
   return res
