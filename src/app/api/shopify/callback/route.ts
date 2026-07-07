@@ -30,10 +30,19 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'HMAC invalide' }, { status: 401 })
   }
 
-  // 3. Vérifier le state anti-CSRF (cookie posé à l'install)
+  // 3. Anti-rejeu : le HMAC (étape 2) prouve déjà que la requête vient de
+  //    Shopify avec NOTRE secret ; on exige en plus un timestamp frais.
+  //    Le cookie state n'est PAS exigé : les installs initiées côté Shopify
+  //    (App Store / installation managée) n'ont jamais traversé /install,
+  //    et un double-clic sur « Connecter » écrase le cookie du 1er essai.
+  const ts = parseInt(params.timestamp || '0', 10)
+  if (!ts || Math.abs(Date.now() / 1000 - ts) > 600) {
+    return NextResponse.json({ error: 'Requête expirée (timestamp)' }, { status: 401 })
+  }
   const cookieState = req.cookies.get('shopify_oauth_state')?.value
-  if (!cookieState || cookieState !== state) {
-    return NextResponse.json({ error: 'State invalide (CSRF)' }, { status: 401 })
+  if (cookieState && state && cookieState !== state) {
+    // Trace sans bloquer : state d'un essai précédent (double-clic) ou multi-onglets.
+    console.warn('[shopify callback] state cookie ≠ param (toléré, HMAC+timestamp valides)', { shop })
   }
 
   // 4. Échanger le code contre un access_token permanent

@@ -236,6 +236,9 @@ export async function registerWebhooks(shop: string, accessToken: string): Promi
     { topic: 'PRODUCTS_UPDATE', path: '/api/shopify/webhooks/products' },
     { topic: 'PRODUCTS_DELETE', path: '/api/shopify/webhooks/products' },
     { topic: 'SHOP_UPDATE', path: '/api/shopify/webhooks/shop' },
+    // Désinstallation : marque la boutique inactive (sinon elle reste
+    // « Connectée » pour toujours avec un token révoqué).
+    { topic: 'APP_UNINSTALLED', path: '/api/shopify/webhooks/app-uninstalled' },
   ]
 
   const errors: string[] = []
