@@ -9,7 +9,7 @@ const AUTH_ROUTES = ['/login', '/register', '/forgot-password']
 const TENANT_COOKIE_VERSION = '6'
 
 export async function middleware(request: NextRequest) {
-  const { user, supabaseResponse } = await updateSession(request)
+  const { user, supabaseResponse, supabase } = await updateSession(request)
   const { pathname } = request.nextUrl
 
   // Routes API et assets — laisser passer
@@ -39,7 +39,11 @@ export async function middleware(request: NextRequest) {
     }
   }
 
+  // /register/complete (acceptation CGV post-OAuth) doit rester accessible
+  // AUX UTILISATEURS AUTHENTIFIÉS — sinon startsWith('/register') les éjecte
+  // vers le dashboard avant qu'ils aient pu accepter.
   const isAuthRoute = AUTH_ROUTES.some(route => pathname.startsWith(route))
+    && !pathname.startsWith('/register/complete')
 
   const isPublicRoute = PUBLIC_ROUTES.some(route => pathname.startsWith(route))
 
@@ -55,6 +59,30 @@ export async function middleware(request: NextRequest) {
     const url = request.nextUrl.clone()
     url.pathname = '/dashboard'
     return NextResponse.redirect(url)
+  }
+
+  // GRAND ONBOARDING (gate SERVEUR — fiable, pas de dépendance au JS client) :
+  // un utilisateur authentifié qui n'a pas terminé l'onboarding est redirigé
+  // vers /onboarding depuis toute page protégée. Fail-open sur erreur (jamais
+  // de blocage si la colonne/ligne n'existe pas encore côté anciens tenants).
+  if (
+    user && !isPublicRoute &&
+    !pathname.startsWith('/onboarding') &&
+    !pathname.startsWith('/register/complete')
+  ) {
+    try {
+      const { data: prof, error } = await supabase
+        .from('profiles')
+        .select('onboarding_completed_at, role')
+        .eq('id', user.id)
+        .maybeSingle()
+      const p = prof as { onboarding_completed_at: string | null; role: string | null } | null
+      if (!error && p && p.role !== 'admin' && !p.onboarding_completed_at) {
+        const url = request.nextUrl.clone()
+        url.pathname = '/onboarding'
+        return NextResponse.redirect(url)
+      }
+    } catch { /* fail-open */ }
   }
 
   return supabaseResponse
