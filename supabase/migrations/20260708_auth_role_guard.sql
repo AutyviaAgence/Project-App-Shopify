@@ -22,9 +22,12 @@ BEGIN
   RETURN NEW;
 END; $$;
 
+-- INSERT **ET UPDATE** : GoTrue réécrit role='' à CHAQUE login (pas seulement
+-- à la création) — constaté en prod le 2026-07-07 (le rôle réparé était
+-- redevenu vide après une reconnexion Google).
 DROP TRIGGER IF EXISTS ensure_auth_role_defaults ON auth.users;
 CREATE TRIGGER ensure_auth_role_defaults
-  BEFORE INSERT ON auth.users
+  BEFORE INSERT OR UPDATE ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.ensure_auth_role_defaults();
 
 -- Répare les comptes existants nés avec un role vide.
