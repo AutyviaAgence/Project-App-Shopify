@@ -246,11 +246,18 @@ export function WhatsAppConnect() {
                 <div className="mt-1 flex flex-wrap items-center gap-1.5">
                   {health.quality && health.quality !== 'UNKNOWN' && (
                     <span className={
-                      'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] ' +
+                      'inline-flex cursor-help items-center gap-1 rounded-full px-2 py-0.5 text-[11px] ' +
                       (health.quality === 'GREEN' ? 'bg-emerald-500/15 text-emerald-600'
                         : health.quality === 'YELLOW' ? 'bg-amber-500/15 text-amber-600'
                         : 'bg-red-500/15 text-red-600')
-                    }>
+                    }
+                      title={
+                        'La note de qualité vient de Meta : elle mesure la satisfaction de vos destinataires (blocages et signalements « spam » sur vos messages).\n\n' +
+                        '🟢 Bonne : peu ou pas de plaintes — vous pouvez envoyer normalement.\n' +
+                        '🟡 Moyenne : plaintes en hausse — réduisez le marketing et vérifiez que vos contacts ont bien consenti, sous peine de restriction.\n' +
+                        '🔴 Critique : trop de plaintes — Meta va restreindre votre numéro. Xeyo suspend automatiquement le marketing pour le protéger.\n\n' +
+                        'Les réponses SAV n’affectent pas cette note.'
+                      }>
                       <span className="h-1.5 w-1.5 rounded-full bg-current" />
                       Qualité : {health.quality === 'GREEN' ? 'bonne' : health.quality === 'YELLOW' ? 'moyenne' : 'critique'}
                     </span>
