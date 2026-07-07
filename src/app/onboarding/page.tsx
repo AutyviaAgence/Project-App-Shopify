@@ -10,6 +10,7 @@ import {
   Bot, FileText, Workflow, CreditCard, ShieldCheck, PackageCheck, LogOut,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
+import { MascotRunner } from '@/components/mascot-runner'
 
 /**
  * GRAND ONBOARDING BLOQUANT (« blow up ») :
@@ -163,47 +164,53 @@ export default function OnboardingPage() {
     return () => clearInterval(iv)
   }, [step, fetchState])
 
+  // Générations en arrière-plan (relançables en cas d'échec).
+  function loadPack() {
+    setPackLoading(true)
+    fetch('/api/onboarding/generate-pack', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) })
+      .then((r) => r.json())
+      .then((json) => {
+        const items: PackItem[] = json.data?.items || []
+        if (items.length === 0) throw new Error(json.error || 'Pack vide')
+        setPack(items)
+        setSelTemplates(new Set(items.map((i) => i.trigger)))
+        setSelAutomations(new Set(items.map((i) => i.trigger)))
+        setDelays(Object.fromEntries(items.map((i) => [i.trigger, i.delay_minutes])))
+      })
+      .catch((e) => { setPack(null); toast.error(e instanceof Error ? e.message : 'Génération des modèles indisponible') })
+      .finally(() => setPackLoading(false))
+  }
+
+  function loadAgentCfg() {
+    setAgentLoading(true)
+    Promise.all([
+      fetch('/api/agents').then((r) => r.json()).catch(() => null),
+      fetch('/api/agents/onboard', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ objectives: ['sav', 'advice', 'conversion', 'loyalty'] }),
+      }).then((r) => r.json()).catch(() => null),
+    ]).then(([agents, gen]) => {
+      const first = agents?.data?.[0]
+      if (first) setAgentId(first.id)
+      const c = gen?.data as AgentCfg | undefined
+      if (c) {
+        setAgentCfg(c)
+        setAgentName(c.name)
+        setAgentTone(c.tone)
+        setAgentPrompt(c.system_prompt || '')
+        setAgentSituations(c.escalation_situations || '')
+      } else if (gen?.error) {
+        toast.error(gen.error)
+      }
+    }).finally(() => setAgentLoading(false))
+  }
+
   // Dès que la boutique est synchronisée : lancer la génération du pack ET la
   // config d'agent EN ARRIÈRE-PLAN (le temps d'attente est masqué par le flow).
   useEffect(() => {
     if (!state?.shopifyLinked || !state.storeSynced) return
-    if (!packRequested.current) {
-      packRequested.current = true
-      setPackLoading(true)
-      fetch('/api/onboarding/generate-pack', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) })
-        .then((r) => r.json())
-        .then((json) => {
-          const items: PackItem[] = json.data?.items || []
-          setPack(items)
-          setSelTemplates(new Set(items.map((i) => i.trigger)))
-          setSelAutomations(new Set(items.map((i) => i.trigger)))
-          setDelays(Object.fromEntries(items.map((i) => [i.trigger, i.delay_minutes])))
-        })
-        .catch(() => {})
-        .finally(() => setPackLoading(false))
-    }
-    if (!agentRequested.current) {
-      agentRequested.current = true
-      setAgentLoading(true)
-      Promise.all([
-        fetch('/api/agents').then((r) => r.json()).catch(() => null),
-        fetch('/api/agents/onboard', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ objectives: ['sav', 'advice', 'conversion', 'loyalty'] }),
-        }).then((r) => r.json()).catch(() => null),
-      ]).then(([agents, gen]) => {
-        const first = agents?.data?.[0]
-        if (first) setAgentId(first.id)
-        const c = gen?.data as AgentCfg | undefined
-        if (c) {
-          setAgentCfg(c)
-          setAgentName(c.name)
-          setAgentTone(c.tone)
-          setAgentPrompt(c.system_prompt || '')
-          setAgentSituations(c.escalation_situations || '')
-        }
-      }).finally(() => setAgentLoading(false))
-    }
+    if (!packRequested.current) { packRequested.current = true; loadPack() }
+    if (!agentRequested.current) { agentRequested.current = true; loadAgentCfg() }
   }, [state?.shopifyLinked, state?.storeSynced])
 
   // Reprise post-OAuth : la boutique a été installée mais le lien au compte a
@@ -570,8 +577,18 @@ export default function OnboardingPage() {
               {step === 'agent' && (
                 <div className="space-y-4">
                   {agentLoading || !agentCfg ? (
-                    <div className="flex items-center gap-2 rounded-xl border p-6 text-sm text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin text-primary" /> L’IA prépare votre agent à partir de la boutique…
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between gap-2 rounded-xl border p-4 text-sm text-muted-foreground">
+                        {agentLoading ? (
+                          <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin text-primary" /> L’IA prépare votre agent à partir de la boutique…</span>
+                        ) : (
+                          <>
+                            <span>La génération n’a pas abouti.</span>
+                            <Button size="sm" variant="outline" onClick={loadAgentCfg}>Réessayer</Button>
+                          </>
+                        )}
+                      </div>
+                      <MascotRunner />
                     </div>
                   ) : (
                     <>
@@ -618,8 +635,18 @@ export default function OnboardingPage() {
               {step === 'templates' && (
                 <div className="space-y-4">
                   {packLoading || !pack ? (
-                    <div className="flex items-center gap-2 rounded-xl border p-6 text-sm text-muted-foreground">
-                      <Loader2 className="h-4 w-4 animate-spin text-primary" /> Rédaction de vos {15} modèles personnalisés…
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between gap-2 rounded-xl border p-4 text-sm text-muted-foreground">
+                        {packLoading ? (
+                          <span className="flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin text-primary" /> Rédaction de vos {15} modèles personnalisés…</span>
+                        ) : (
+                          <>
+                            <span>La génération n’a pas abouti.</span>
+                            <Button size="sm" variant="outline" onClick={loadPack}>Réessayer</Button>
+                          </>
+                        )}
+                      </div>
+                      <MascotRunner />
                     </div>
                   ) : (
                     <>
