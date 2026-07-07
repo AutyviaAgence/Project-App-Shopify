@@ -6,7 +6,6 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Loader2, Sparkles, Check, ShoppingBag, Package, Repeat, Heart, MessageSquare, ArrowLeft, ArrowRight } from 'lucide-react'
-import { BlobLoaderScreen } from '@/components/blob-loader'
 
 /**
  * Onboarding e-commerce PRÉ-REMPLI de l'agent SAV.
@@ -38,7 +37,6 @@ type Config = {
 
 export default function AgentOnboardPage() {
   const router = useRouter()
-  const [loading, setLoading] = useState(true)
   const [cfg, setCfg] = useState<Config | null>(null)
   const [agentId, setAgentId] = useState<string | null>(null)
   const [objectives, setObjectives] = useState<string[]>(['sav', 'advice', 'conversion', 'loyalty'])
@@ -57,22 +55,21 @@ export default function AgentOnboardPage() {
   const [advancing, setAdvancing] = useState(false)
 
   // Récupère l'agent existant (créé à la connexion) + génère la config déduite.
+  // Les deux appels partent EN PARALLÈLE : la génération IA (le plus long) ne
+  // dépend pas de la liste d'agents, donc on ne l'attend pas pour la lancer.
   useEffect(() => {
-    (async () => {
-      try {
-        const agentsRes = await fetch('/api/agents').then((r) => r.json())
+    fetch('/api/agents')
+      .then((r) => r.json())
+      .then((agentsRes) => {
         const first = agentsRes.data?.[0]
         if (first) {
           setAgentId(first.id)
-          // Reprend les réglages existants de l'agent (créé à la connexion).
           if (typeof first.response_delay_min === 'number') setDelayMin(first.response_delay_min)
           if (typeof first.response_delay_max === 'number') setDelayMax(first.response_delay_max)
         }
-        await generate(['sav', 'advice', 'conversion', 'loyalty'])
-      } finally {
-        setLoading(false)
-      }
-    })()
+      })
+      .catch(() => {})
+    generate(['sav', 'advice', 'conversion', 'loyalty'])
   }, [])
 
   async function generate(objs: string[]) {
@@ -167,24 +164,14 @@ export default function AgentOnboardPage() {
     }, 1300)
   }
 
-  if (loading) return <BlobLoaderScreen />
-
-  // Une question par écran. 8 écrans.
+  // Une question par écran. 8 écrans. Le questionnaire démarre TOUT DE SUITE ;
+  // la génération IA (ton/langues/instructions) se fait en arrière-plan pendant
+  // que l'utilisateur remplit les premières étapes.
   const TOTAL = 8
   const isLast = step === TOTAL - 1
   const toneLabel = TONES.find((t) => t.key === tone)?.label || tone
   const langLabels = langs.map((k) => LANGS.find((l) => l.key === k)?.label || k)
   const objLabels = objectives.map((k) => OBJECTIVES.find((o) => o.key === k)?.label || k)
-
-  if (!cfg) {
-    return (
-      <div className="mx-auto flex w-full max-w-xl flex-col gap-5 p-6 md:p-8">
-        <div className="flex items-center gap-2 rounded-xl border p-6 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" /> Analyse de votre boutique…
-        </div>
-      </div>
-    )
-  }
 
   // Titres de chaque question (pour l'en-tête)
   const QUESTIONS = [
@@ -349,11 +336,21 @@ export default function AgentOnboardPage() {
                   Régénérer
                 </Button>
               </div>
-              <textarea
-                value={systemPrompt}
-                onChange={(e) => setSystemPrompt(e.target.value)}
-                className="w-full flex-1 resize-y rounded-lg border border-input bg-background p-3 font-mono text-xs leading-relaxed min-h-[380px]"
-              />
+              <div className="relative flex-1">
+                <textarea
+                  value={systemPrompt}
+                  onChange={(e) => setSystemPrompt(e.target.value)}
+                  disabled={regenerating}
+                  className="h-full w-full resize-y rounded-lg border border-input bg-background p-3 font-mono text-xs leading-relaxed min-h-[380px]"
+                />
+                {regenerating && (
+                  <div className="absolute inset-0 flex items-center justify-center rounded-lg bg-background/70 backdrop-blur-sm">
+                    <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Loader2 className="h-4 w-4 animate-spin text-primary" /> Rédaction des instructions depuis votre boutique…
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -361,7 +358,7 @@ export default function AgentOnboardPage() {
           {step === 7 && (
             <dl className="divide-y rounded-xl border">
               {[
-                { label: 'Nom', value: name || cfg.name },
+                { label: 'Nom', value: name || cfg?.name || 'Assistant' },
                 { label: 'Objectifs', value: objLabels.join(', ') || '—' },
                 { label: 'Ton', value: toneLabel },
                 { label: 'Langues', value: langLabels.join(', ') },
@@ -385,9 +382,9 @@ export default function AgentOnboardPage() {
           <ArrowLeft className="mr-1 h-4 w-4" /> Retour
         </Button>
         {isLast ? (
-          <Button disabled={saving || regenerating} onClick={activate}>
-            {saving ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Check className="mr-1 h-4 w-4" />}
-            Activer mon agent
+          <Button disabled={saving || regenerating || !cfg} onClick={activate}>
+            {saving || !cfg ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Check className="mr-1 h-4 w-4" />}
+            {!cfg ? 'Préparation…' : 'Activer mon agent'}
           </Button>
         ) : (
           <Button disabled={advancing} onClick={goNext}>
