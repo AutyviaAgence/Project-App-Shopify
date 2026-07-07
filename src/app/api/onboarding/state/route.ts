@@ -20,10 +20,15 @@ export async function GET() {
     .eq('id', user.id)
     .maybeSingle()
 
-  // FAIL-OPEN : si la colonne n'existe pas encore (migration non appliquée)
-  // ou toute erreur de lecture → on ne bloque JAMAIS l'accès au dashboard.
-  if (profileError || !profile) {
+  // FAIL-OPEN : erreur de lecture (ex : migration non appliquée) → on ne
+  // bloque JAMAIS l'accès au dashboard.
+  if (profileError) {
     return NextResponse.json({ completed: true, failOpen: true })
+  }
+  // Pas encore de ligne profil = compte TOUT NEUF (la ligne est créée au 1er
+  // GET /api/profile) → onboarding requis.
+  if (!profile) {
+    return NextResponse.json({ completed: false, step: null, shopifyLinked: false, storeSynced: false, whatsappConnected: false, agentDone: false, packReady: false, plan: null })
   }
 
   // Admins : jamais bloqués par l'onboarding.
