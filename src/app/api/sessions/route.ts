@@ -23,8 +23,20 @@ export async function POST(req: NextRequest) {
     waba_access_token?: string
   }
 
-  // Vérifier le quota de sessions selon le plan
-  const sessionQuota = await checkPlanQuota(supabase, user.id, 'sessions')
+  // Vérifier le quota de sessions selon le plan.
+  // Exception onboarding : la 1ʳᵉ session WhatsApp est autorisée AVANT le choix
+  // du plan (l'abonnement est la DERNIÈRE étape du grand onboarding).
+  let sessionQuota: Awaited<ReturnType<typeof checkPlanQuota>> = await checkPlanQuota(supabase, user.id, 'sessions')
+  if (!sessionQuota.allowed && sessionQuota.reason === 'no_subscription') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: prof } = await (supabase as any)
+      .from('profiles').select('onboarding_completed_at').eq('id', user.id).maybeSingle()
+    const { count: waCount } = await supabase
+      .from('whatsapp_sessions').select('id', { count: 'exact', head: true }).eq('user_id', user.id)
+    if (!prof?.onboarding_completed_at && (waCount ?? 0) === 0) {
+      sessionQuota = { allowed: true }
+    }
+  }
   if (!sessionQuota.allowed) {
     const error = sessionQuota.reason === 'observer_mode'
       ? 'Votre compte est en mode visualisation. Souscrivez à un plan pour créer des sessions WhatsApp.'

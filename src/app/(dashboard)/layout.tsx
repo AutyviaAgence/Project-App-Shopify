@@ -145,17 +145,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Onboarding e-commerce de l'agent : au 1er accès après connexion de la boutique,
-  // on redirige UNE fois vers le configurateur pré-rempli. Un flag DB
-  // (`agent_onboarding_done`) empêche toute redirection ultérieure.
+  // GRAND ONBOARDING BLOQUANT : tant que le marchand n'a pas terminé
+  // l'onboarding (Shopify obligatoire → pack → abonnement), toutes les pages
+  // du dashboard redirigent vers /onboarding (page plein écran hors layout).
+  // Les admins et comptes existants (grandfathered) sont `completed`.
   useEffect(() => {
-    // Ne pas rediriger si déjà sur l'onboarding, ni sur les pages sans abo.
-    if (pathname.startsWith('/agents/onboard') || isAllowedPage) return
     let active = true
-    fetch('/api/agents/onboard/status')
+    fetch('/api/onboarding/state')
       .then(r => (r.ok ? r.json() : null))
       .then(json => {
-        if (active && json?.shouldOnboard) router.replace('/agents/onboard')
+        if (active && json && json.completed === false) router.replace('/onboarding')
       })
       .catch(() => {})
     return () => { active = false }

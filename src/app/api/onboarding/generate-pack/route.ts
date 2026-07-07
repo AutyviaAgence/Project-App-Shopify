@@ -1,0 +1,129 @@
+import { NextRequest, NextResponse } from 'next/server'
+import OpenAI from 'openai'
+import { createClient } from '@/lib/supabase/server'
+import { logAiUsage } from '@/lib/openai/usage-log'
+import { buildStoreContextPrompt } from '@/lib/shopify/sync'
+import { PACK_SPECS, isValidBody, type OnboardingPack, type PackItem } from '@/lib/onboarding/pack-spec'
+
+/**
+ * POST /api/onboarding/generate-pack
+ *
+ * Génère le pack d'onboarding : pour CHAQUE trigger d'automatisation (15),
+ * un modèle WhatsApp personnalisé au ton de la boutique. PUR : ne persiste
+ * RIEN en base métier — le pack est seulement mis en cache sur le profil
+ * (profiles.onboarding_pack) pour éviter toute re-génération au retour.
+ * La persistance réelle passe par /api/onboarding/apply-pack après
+ * VALIDATION explicite du marchand.
+ *
+ * L'IA ne rédige QUE les textes (body/header/label) : les variables {{n}}
+ * et les délais viennent de PACK_SPECS → modèles toujours envoyables.
+ *
+ * Body : { tone?, objectives?: string[], refresh?: boolean }
+ */
+export async function POST(req: NextRequest) {
+  const supabase = await createClient()
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+
+  const body = (await req.json().catch(() => ({}))) as { tone?: string; objectives?: string[]; refresh?: boolean }
+
+  // Cache de reprise : pack déjà généré → renvoyé tel quel (pas de re-coût IA).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: profile } = await (supabase as any)
+    .from('profiles').select('onboarding_pack').eq('id', user.id).maybeSingle()
+  if (profile?.onboarding_pack && !body.refresh) {
+    return NextResponse.json({ data: profile.onboarding_pack, cached: true })
+  }
+
+  // Boutique requise (le pack est personnalisé à partir de son analyse).
+  const { data: store } = await supabase
+    .from('shopify_stores')
+    .select('shop_name, shop_domain, country, store_context')
+    .eq('user_id', user.id)
+    .eq('is_active', true)
+    .maybeSingle()
+  if (!store) return NextResponse.json({ error: 'Aucune boutique Shopify connectée.' }, { status: 400 })
+
+  const shopName = store.shop_name || store.shop_domain
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const storeContextPrompt = store.store_context ? buildStoreContextPrompt(store.store_context as any) : ''
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: products } = await (supabase as any)
+    .from('shopify_products').select('title').eq('user_id', user.id).order('position').limit(12)
+  const productList = (products || []).map((p: { title: string }) => p.title).join(' · ') || '(catalogue non disponible)'
+
+  const toneLine = body.tone === 'professional' ? 'professionnel et sobre'
+    : body.tone === 'casual' ? 'décontracté et complice'
+    : 'chaleureux et humain'
+
+  const specLines = PACK_SPECS.map((s) => {
+    const vars = s.variable_keys.map((k, i) => `{{${i + 1}}}=${k}`).join(', ')
+    return `- id "${s.trigger}" — ${s.label}. Intention : ${s.intent} Variables imposées : ${vars}.`
+  }).join('\n')
+
+  const SYSTEM = `Tu rédiges des messages WhatsApp e-commerce pour la boutique « ${shopName} ». Ton : ${toneLine}. Langue : français.
+Pour CHAQUE id listé, écris un message court (2 à 4 phrases max, ≤ 550 caractères) qui utilise LES variables imposées sous leur forme numérotée {{1}}, {{2}}… (toutes, dans un ordre naturel — n'invente JAMAIS d'autre variable ni de {{n}} non listé). Mentionne la marque quand c'est naturel. Pas de MAJUSCULES criardes, pas de spam, emojis sobres autorisés (0 à 2).
+Réponds UNIQUEMENT en JSON : { "items": [ { "id": "<trigger>", "header": "titre court (≤ 40 car.) ou null", "body": "le message avec {{n}}" } ] } — un item par id, tous les ids.`
+
+  const USER = `BOUTIQUE : ${shopName}${store.country ? ` (${store.country})` : ''}
+${storeContextPrompt}
+PRODUITS (échantillon) : ${productList}
+
+MESSAGES À RÉDIGER :
+${specLines}`
+
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY!, maxRetries: 2, timeout: 90_000 })
+  const started = Date.now()
+  let generated: Record<string, { header?: string | null; body?: string }> = {}
+  try {
+    const res = await openai.chat.completions.create({
+      store: false,
+      model: 'gpt-4o',
+      messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content: USER }],
+      temperature: 0.6,
+      max_tokens: 3500,
+      response_format: { type: 'json_object' },
+    })
+    void logAiUsage({
+      feature: 'agent_generate', model: res.model || 'gpt-4o',
+      promptTokens: res.usage?.prompt_tokens || 0, completionTokens: res.usage?.completion_tokens || 0,
+      latencyMs: Date.now() - started, userId: user.id,
+    })
+    const parsed = JSON.parse(res.choices[0]?.message?.content || '{}')
+    for (const it of parsed.items || []) {
+      if (it?.id && typeof it.body === 'string') generated[it.id] = { header: it.header ?? null, body: it.body }
+    }
+  } catch {
+    generated = {} // fallback intégral sur les corps de secours
+  }
+
+  // Assemblage : IA si valide, sinon fallback de la spec (toujours envoyable).
+  const items: PackItem[] = PACK_SPECS.map((s) => {
+    const g = generated[s.trigger]
+    const body_text = g && isValidBody(g.body || '', s.variable_keys.length) ? g.body!.trim() : s.fallback_body
+    const header_text = g?.header && g.header.length <= 60 ? g.header.trim() : null
+    return {
+      trigger: s.trigger,
+      templateName: s.templateName,
+      label: s.label,
+      category: s.category,
+      use_case: s.use_case,
+      header_text,
+      body_text,
+      footer_text: 'Répondez STOP pour vous désinscrire',
+      variable_keys: s.variable_keys,
+      sample_values: s.sample_values,
+      delay_minutes: s.default_delay_minutes,
+      automation_name: s.label,
+      description: s.intent,
+    }
+  })
+
+  const pack: OnboardingPack = { generated_at: new Date().toISOString(), language: 'fr', items }
+
+  // Cache serveur (reprise sans re-génération).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  await (supabase as any).from('profiles').update({ onboarding_pack: pack }).eq('id', user.id)
+
+  return NextResponse.json({ data: pack })
+}

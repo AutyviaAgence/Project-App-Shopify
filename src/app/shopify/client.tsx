@@ -68,6 +68,17 @@ export default function ShopifyEmbeddedClient() {
       }
       if (!res.ok && !json.data?.linked) throw new Error(json.error || 'Erreur de connexion')
       await fetchStatus()
+      // Si le grand onboarding est en cours, on y retourne directement
+      // (la connexion Shopify en est la 1ʳᵉ étape).
+      try {
+        const st = await fetch(`${APP_BASE}/api/onboarding/state`).then((r) => (r.ok ? r.json() : null))
+        if (st && st.completed === false) {
+          const url = `${APP_BASE}/onboarding`
+          if (window.top) window.top.location.href = url
+          else window.location.href = url
+          return
+        }
+      } catch { /* silencieux : on reste sur la checklist */ }
       setMessage(
         json.data?.documents != null
           ? `Boutique connectée ! Agent créé avec ${json.data.documents} source(s) de connaissance.`
