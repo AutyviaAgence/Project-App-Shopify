@@ -148,7 +148,7 @@ export function WorkflowWizard({
   // les autres restent lisibles dans une colonne centrée.
   const wide = step === 2
   return (
-    <div className={cn('mx-auto flex w-full flex-col gap-4 p-4 md:p-6', wide ? 'max-w-none' : 'max-w-2xl')}>
+    <div className={cn('mx-auto flex w-full flex-col gap-4 p-4 md:p-6', wide ? 'max-w-none' : 'max-w-3xl lg:max-w-4xl')}>
       {/* Barre d'étapes */}
       <div className="flex items-center gap-2">
         <button onClick={onCancel} className="text-xs text-muted-foreground hover:text-foreground">← Retour</button>
