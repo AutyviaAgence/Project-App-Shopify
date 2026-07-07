@@ -160,10 +160,11 @@ export default function AgentsPage() {
   // Carrousel coverflow : index de la carte centrale
   const [centerIndex, setCenterIndex] = useState(0)
 
-  // Largeur de viewport pour rendre le carrousel responsive (cartes + translations)
+  // Largeur/hauteur de viewport pour rendre le carrousel responsive (cartes + translations)
   const [viewportW, setViewportW] = useState(1024)
+  const [viewportH, setViewportH] = useState(800)
   useEffect(() => {
-    const onResize = () => setViewportW(window.innerWidth)
+    const onResize = () => { setViewportW(window.innerWidth); setViewportH(window.innerHeight) }
     onResize()
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
@@ -473,7 +474,11 @@ export default function AgentsPage() {
           const cardCap = viewportW >= 1280 ? 480 : viewportW >= 1024 ? 440 : 400
           const cardW = Math.min(cardCap, Math.max(240, viewportW - 96))
           const sceneW = Math.min(cardCap + 80, viewportW - 32)
-          const sceneH = cardW >= 440 ? 500 : cardW >= 360 ? 440 : cardW >= 300 ? 400 : 360
+          // Hauteur de scène : idéale selon la carte, MAIS plafonnée par la hauteur
+          // dispo (topbar + titre au-dessus, flèches/points + bouton "Nouvel agent"
+          // en dessous ≈ 320px réservés) pour que le bouton reste visible sans scroll.
+          const idealSceneH = cardW >= 440 ? 500 : cardW >= 360 ? 440 : cardW >= 300 ? 400 : 360
+          const sceneH = Math.max(300, Math.min(idealSceneH, viewportH - 320))
           // Translation laterale des cartes voisines, proportionnelle a la largeur de carte
           const stepFront = cardW * 0.9
           const stepBack = cardW * 0.8
@@ -702,7 +707,7 @@ export default function AgentsPage() {
       )}
 
       {/* Bouton "Nouvel agent" — juste sous les cartes et les points */}
-      <div className="mt-8 flex justify-center sm:mt-12">
+      <div className="mt-6 flex shrink-0 justify-center">
         <button
           data-tour="new-agent-btn"
           onClick={openCreateDialog}
