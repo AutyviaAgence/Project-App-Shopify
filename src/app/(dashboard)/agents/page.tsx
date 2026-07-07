@@ -694,7 +694,7 @@ export default function AgentsPage() {
 
               {/* Indicateurs (points) */}
               {n > 1 && (
-                <div className="absolute -bottom-7 left-1/2 z-30 flex -translate-x-1/2 gap-1.5">
+                <div className="absolute bottom-2 left-1/2 z-30 flex -translate-x-1/2 gap-1.5">
                   {sorted.map((_, i) => (
                     <button key={i} onClick={() => setCenterIndex(i)} aria-label={`Agent ${i + 1}`}
                       className={cn('h-1.5 rounded-full transition-all', i === center ? 'w-5 bg-foreground/70' : 'w-1.5 bg-muted-foreground/30 hover:bg-muted-foreground/50')} />
