@@ -206,6 +206,28 @@ export default function OnboardingPage() {
     }
   }, [state?.shopifyLinked, state?.storeSynced])
 
+  // Reprise post-OAuth : la boutique a été installée mais le lien au compte a
+  // pu se perdre en route (cookies absents au callback). Dès qu'on revient ici
+  // avec une boutique en attente, on la lie depuis CETTE session.
+  const pendingConnectTried = useRef(false)
+  useEffect(() => {
+    if (!state || state.shopifyLinked || step !== 'shopify' || pendingConnectTried.current) return
+    const pending = typeof window !== 'undefined' ? localStorage.getItem('onb_pending_shop') : null
+    if (!pending) return
+    pendingConnectTried.current = true
+    ;(async () => {
+      setBusy(true)
+      const r = await tryDirectConnect(pending)
+      if (r === 'linked') {
+        localStorage.removeItem('onb_pending_shop')
+        const s = await fetchState()
+        goTo(s?.storeSynced ? 'whatsapp' : 'sync', 'Boutique liée ✓')
+      }
+      setBusy(false)
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state, step])
+
   function flash(msg: string) {
     setFeedback(msg)
     setTimeout(() => setFeedback(null), 1300)
@@ -226,13 +248,46 @@ export default function OnboardingPage() {
   }
 
   // ── Actions ──────────────────────────────────────────────────────────
-  function startShopifyInstall() {
+
+  /** Tente le lien direct (boutique déjà installée) — depuis CETTE session,
+      qui est garantie authentifiée (pas de dépendance aux cookies du callback). */
+  async function tryDirectConnect(shop: string): Promise<'linked' | 'not_installed' | 'error'> {
+    try {
+      const res = await fetch('/api/shopify/connect', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shop }),
+      })
+      if (res.ok || res.status === 207) return 'linked'
+      if (res.status === 404) return 'not_installed'
+      const j = await res.json().catch(() => ({}))
+      toast.error(j.error || 'Impossible de lier la boutique')
+      return 'error'
+    } catch {
+      return 'error'
+    }
+  }
+
+  async function startShopifyInstall() {
     const raw = shopInput.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '')
     const shop = raw.endsWith('.myshopify.com') ? raw : `${raw}.myshopify.com`
     if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(shop)) {
       toast.error('Domaine invalide — format attendu : maboutique.myshopify.com')
       return
     }
+    // Mémorise la boutique en cours : au retour d'OAuth (quel que soit le
+    // chemin), l'onboarding retentera le lien depuis sa propre session.
+    localStorage.setItem('onb_pending_shop', shop)
+    setBusy(true)
+    // App déjà installée ? Lien immédiat, sans repasser par OAuth.
+    const direct = await tryDirectConnect(shop)
+    if (direct === 'linked') {
+      localStorage.removeItem('onb_pending_shop')
+      const s = await fetchState()
+      setBusy(false)
+      goTo(s?.storeSynced ? 'whatsapp' : 'sync', 'Boutique liée ✓')
+      return
+    }
+    if (direct === 'error') { setBusy(false); return }
     window.location.href = `/api/shopify/install?shop=${encodeURIComponent(shop)}`
   }
 
@@ -436,11 +491,11 @@ export default function OnboardingPage() {
                   </p>
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <input value={shopInput} onChange={(e) => setShopInput(e.target.value)}
-                      onKeyDown={(e) => { if (e.key === 'Enter') startShopifyInstall() }}
-                      placeholder="maboutique.myshopify.com"
+                      onKeyDown={(e) => { if (e.key === 'Enter' && !busy) startShopifyInstall() }}
+                      placeholder="maboutique.myshopify.com" disabled={busy}
                       className="h-12 flex-1 rounded-lg border border-input bg-background px-4 text-base" />
-                    <Button size="lg" className="h-12" onClick={startShopifyInstall}>
-                      Connecter Shopify <ArrowRight className="ml-1 h-4 w-4" />
+                    <Button size="lg" className="h-12" disabled={busy} onClick={startShopifyInstall}>
+                      {busy ? <><Loader2 className="mr-1 h-4 w-4 animate-spin" /> Connexion…</> : <>Connecter Shopify <ArrowRight className="ml-1 h-4 w-4" /></>}
                     </Button>
                   </div>
                   <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
