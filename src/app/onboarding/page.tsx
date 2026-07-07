@@ -7,8 +7,9 @@ import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import {
   Loader2, Sparkles, Check, ArrowLeft, ArrowRight, Store, MessageSquare,
-  Bot, FileText, Workflow, CreditCard, ShieldCheck, PackageCheck,
+  Bot, FileText, Workflow, CreditCard, ShieldCheck, PackageCheck, LogOut,
 } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
 
 /**
  * GRAND ONBOARDING BLOQUANT (« blow up ») :
@@ -390,9 +391,18 @@ export default function OnboardingPage() {
         <div>
           <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
             <span>Étape {stepIndex + 1} sur {STEPS.length}</span>
-            <span className="flex items-center gap-1">
-              <Sparkles className="h-3 w-3 text-primary" />
-              {state.shopName ? `Boutique : ${state.shopName}` : 'Configuration de votre espace'}
+            <span className="flex items-center gap-3">
+              <span className="flex items-center gap-1">
+                <Sparkles className="h-3 w-3 text-primary" />
+                {state.shopName ? `Boutique : ${state.shopName}` : 'Configuration de votre espace'}
+              </span>
+              {/* Sortie de secours : changer de compte sans être enfermé par le gate */}
+              <button
+                onClick={async () => { await createClient().auth.signOut(); window.location.href = '/login' }}
+                className="flex items-center gap-1 rounded-md px-2 py-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+              >
+                <LogOut className="h-3 w-3" /> Se déconnecter
+              </button>
             </span>
           </div>
           <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
