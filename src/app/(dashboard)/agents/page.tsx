@@ -387,7 +387,7 @@ export default function AgentsPage() {
   }
 
   return (
-    <div className="relative flex min-h-full flex-col overflow-hidden p-4 pb-24 sm:p-6 sm:pb-6">
+    <div className="relative flex min-h-full flex-col overflow-x-hidden overflow-y-auto p-4 pb-24 sm:p-6 sm:pb-6">
       {/* Fond d'ambiance : glow coloré + grille animée (toujours visible).
           IMPORTANT : z-0 (PAS -z-10), sinon la grille passe derrière le fond
           opaque (bg-background) du conteneur parent du layout et devient invisible.
@@ -484,7 +484,7 @@ export default function AgentsPage() {
           const stepBack = cardW * 0.8
 
           return (
-            <div className="relative flex w-full items-center justify-center pt-10" style={{ perspective: '2000px' }}>
+            <div className="relative flex w-full items-center justify-center pb-10 pt-10" style={{ perspective: '2000px' }}>
               {/* Flèche gauche */}
               {n > 1 && (
                 <button onClick={() => go(-1)} aria-label="Précédent"
@@ -692,9 +692,9 @@ export default function AgentsPage() {
                 </button>
               )}
 
-              {/* Indicateurs (points) */}
+              {/* Indicateurs (points) — dans la zone de padding basse, sous les cartes */}
               {n > 1 && (
-                <div className="absolute bottom-2 left-1/2 z-30 flex -translate-x-1/2 gap-1.5">
+                <div className="absolute bottom-0 left-1/2 z-30 flex -translate-x-1/2 gap-1.5">
                   {sorted.map((_, i) => (
                     <button key={i} onClick={() => setCenterIndex(i)} aria-label={`Agent ${i + 1}`}
                       className={cn('h-1.5 rounded-full transition-all', i === center ? 'w-5 bg-foreground/70' : 'w-1.5 bg-muted-foreground/30 hover:bg-muted-foreground/50')} />
