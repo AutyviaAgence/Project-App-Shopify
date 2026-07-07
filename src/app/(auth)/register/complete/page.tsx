@@ -27,7 +27,8 @@ export default function RegisterCompletePage() {
     try {
       const res = await fetch('/api/account/accept-terms', { method: 'POST' })
       if (!res.ok) throw new Error('api error')
-      router.push('/dashboard')
+      // Nouveau compte → grand onboarding (la page renvoie vers /dashboard si déjà fait).
+      router.push('/onboarding')
     } catch {
       toast.error('Une erreur est survenue. Veuillez réessayer.')
       setLoading(false)
