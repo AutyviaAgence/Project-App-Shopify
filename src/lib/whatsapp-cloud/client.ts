@@ -262,6 +262,35 @@ export const wabaClient = {
     }
   },
 
+  /** Lire le profil business du numéro (about, description, coordonnées, photo). */
+  getBusinessProfile(phoneNumberId: string, accessToken: string) {
+    return request<{ data?: Array<{
+      about?: string; description?: string; address?: string; email?: string;
+      vertical?: string; websites?: string[]; profile_picture_url?: string;
+    }> }>(
+      `${GRAPH_API_BASE}/${phoneNumberId}/whatsapp_business_profile?fields=about,description,address,email,vertical,websites,profile_picture_url`,
+      accessToken,
+      { method: 'GET' }
+    )
+  },
+
+  /** Mettre à jour le profil business (champs texte + éventuellement la photo
+      via un `profile_picture_handle` obtenu par uploadResumableMedia). */
+  updateBusinessProfile(
+    phoneNumberId: string,
+    accessToken: string,
+    fields: {
+      about?: string; description?: string; address?: string; email?: string;
+      vertical?: string; websites?: string[]; profile_picture_handle?: string;
+    }
+  ) {
+    return request<{ success: boolean }>(
+      `${GRAPH_API_BASE}/${phoneNumberId}/whatsapp_business_profile`,
+      accessToken,
+      { method: 'POST', body: JSON.stringify({ messaging_product: 'whatsapp', ...fields }) }
+    )
+  },
+
   /** Supprimer un template par son nom */
   deleteTemplate(businessAccountId: string, accessToken: string, name: string) {
     return request<{ success: boolean }>(

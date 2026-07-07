@@ -12,9 +12,10 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog'
-import { Loader2, Smartphone, Wifi, WifiOff, Plus, Trash2, Link2, Copy } from 'lucide-react'
+import { Loader2, Smartphone, Wifi, WifiOff, Plus, Trash2, Link2, Copy, UserCog } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { track } from '@/lib/posthog/events'
+import { WhatsAppProfileDialog } from '@/components/whatsapp-profile-dialog'
 
 type Session = {
   id: string
@@ -58,6 +59,7 @@ export function WhatsAppConnect() {
   // Modale "Lien WhatsApp"
   const [linkOpen, setLinkOpen] = useState(false)
   const [linkLoading, setLinkLoading] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
   const [link, setLink] = useState<WALink | null>(null)
   const [agents, setAgents] = useState<AgentOption[]>([])
   const [welcomeMsg, setWelcomeMsg] = useState('')
@@ -290,6 +292,9 @@ export function WhatsAppConnect() {
             </div>
           </div>
           <div className="flex items-center gap-1 shrink-0">
+            <Button variant="outline" size="sm" onClick={() => setProfileOpen(true)}>
+              <UserCog className="mr-1 h-4 w-4" /> Profil
+            </Button>
             <Button variant="outline" size="sm" onClick={openLinkModal}>
               <Link2 className="mr-1 h-4 w-4" /> Lien
             </Button>
@@ -310,6 +315,8 @@ export function WhatsAppConnect() {
             </span>
           </div>
         )}
+
+        <WhatsAppProfileDialog open={profileOpen} onOpenChange={setProfileOpen} />
 
         <Dialog open={linkOpen} onOpenChange={setLinkOpen}>
           <DialogContent className="sm:max-w-md">
