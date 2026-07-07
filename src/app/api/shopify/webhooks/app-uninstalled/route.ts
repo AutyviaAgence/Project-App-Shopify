@@ -24,9 +24,12 @@ export async function POST(req: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
+  // Désinstaller = LIBÉRER : on délie aussi le compte (user_id null), sinon
+  // une réinstallation resterait coincée sur l'ancien propriétaire (409 au
+  // connect depuis un autre compte).
   const { error } = await admin
     .from('shopify_stores')
-    .update({ is_active: false, access_token: '', subscription_status: null })
+    .update({ is_active: false, access_token: '', subscription_status: null, user_id: null })
     .eq('shop_domain', shopDomain)
 
   if (error) console.error('[webhook app-uninstalled] update échec:', error.message)

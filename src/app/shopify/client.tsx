@@ -49,6 +49,14 @@ export default function ShopifyEmbeddedClient() {
   }, [loading, autolink, status?.linked])
 
   async function handleConnect() {
+    // Dans l'IFRAME de l'admin Shopify, les cookies de session Xeyo ne sont
+    // jamais envoyés (SameSite) → le connect ferait toujours 401. On sort en
+    // top-level : la page /shopify pleine fenêtre porte la session (ou passe
+    // par le login) et refait l'autolink correctement.
+    if (typeof window !== 'undefined' && window.top && window.top !== window.self) {
+      window.top.location.href = `${APP_BASE}/shopify?shop=${encodeURIComponent(shop)}&autolink=1`
+      return
+    }
     setConnecting(true)
     setMessage(null)
     try {
