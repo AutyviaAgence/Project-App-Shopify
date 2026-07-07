@@ -123,7 +123,9 @@ export async function GET(req: NextRequest) {
 
   // 8. Fallback (pas de session : install App Store sans compte, iframe…) :
   // parcours historique /shopify?autolink=1 (création de compte puis lien).
-  const res = NextResponse.redirect(`${appUrl}/shopify?shop=${encodeURIComponent(shop)}&autolink=1`)
+  // `sbdbg` = nb de cookies Supabase reçus par le callback (diagnostic session).
+  const sbCount = req.cookies.getAll().filter((c) => c.name.startsWith('sb-')).length
+  const res = NextResponse.redirect(`${appUrl}/shopify?shop=${encodeURIComponent(shop)}&autolink=1&sbdbg=${sbCount}`)
   res.cookies.delete('shopify_oauth_state')
   return res
 }

@@ -66,14 +66,45 @@ export function ShopifyConnect() {
     }
   }
 
-  function startInstall() {
+  /** Lien direct depuis CETTE session (boutique déjà installée et libre). */
+  async function tryDirectConnect(shop: string): Promise<'linked' | 'not_installed' | 'error'> {
+    try {
+      const res = await fetch('/api/shopify/connect', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shop }),
+      })
+      if (res.ok || res.status === 207) return 'linked'
+      if (res.status === 404) return 'not_installed'
+      const j = await res.json().catch(() => ({}))
+      toast.error(j.error || 'Impossible de lier la boutique')
+      return 'error'
+    } catch {
+      return 'error'
+    }
+  }
+
+  const [connectingStore, setConnectingStore] = useState(false)
+
+  async function startInstall() {
     const domain = normalizeShopDomain(shopInput)
     if (!domain) {
       toast.error('Entrez un domaine valide, ex : maboutique.myshopify.com')
       return
     }
-    // Lance l'OAuth Shopify. Au retour, le callback redirige vers /shopify avec
-    // autolink → la boutique se lie automatiquement au compte connecté.
+    // Mémorise la boutique : au retour d'OAuth (quel que soit le chemin), le
+    // dashboard retentera le lien depuis sa propre session.
+    localStorage.setItem('onb_pending_shop', domain)
+    setConnectingStore(true)
+    // App déjà installée ? Lien immédiat, sans OAuth.
+    const direct = await tryDirectConnect(domain)
+    if (direct === 'linked') {
+      localStorage.removeItem('onb_pending_shop')
+      setConnectingStore(false)
+      await fetchStatus()
+      toast.success('Boutique connectée ✓')
+      return
+    }
+    if (direct === 'error') { setConnectingStore(false); return }
     window.location.href = `/api/shopify/install?shop=${encodeURIComponent(domain)}`
   }
 
@@ -88,6 +119,27 @@ export function ShopifyConnect() {
   }, [])
 
   useEffect(() => { fetchStatus() }, [fetchStatus])
+
+  // Reprise post-OAuth : si une boutique est en attente (installée pendant
+  // l'OAuth mais lien perdu en route), on la lie depuis CETTE session.
+  useEffect(() => {
+    if (loading || status?.connected) return
+    const pending = typeof window !== 'undefined' ? localStorage.getItem('onb_pending_shop') : null
+    if (!pending) return
+    ;(async () => {
+      setConnectingStore(true)
+      const r = await tryDirectConnect(pending)
+      if (r === 'linked') {
+        localStorage.removeItem('onb_pending_shop')
+        await fetchStatus()
+        toast.success('Boutique connectée ✓')
+      } else if (r === 'not_installed') {
+        localStorage.removeItem('onb_pending_shop') // install jamais aboutie : on ne boucle pas
+      }
+      setConnectingStore(false)
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, status?.connected])
 
   // Tracke la connexion Shopify une seule fois (quand le statut passe à connecté).
   useEffect(() => {
@@ -258,12 +310,14 @@ export function ShopifyConnect() {
         <Input
           value={shopInput}
           onChange={(e) => setShopInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') startInstall() }}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !connectingStore) startInstall() }}
           placeholder="maboutique.myshopify.com"
           className="h-9"
+          disabled={connectingStore}
         />
-        <Button onClick={startInstall} className="shrink-0">
-          <Store className="mr-1 h-4 w-4" /> Connecter
+        <Button onClick={startInstall} className="shrink-0" disabled={connectingStore}>
+          {connectingStore ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Store className="mr-1 h-4 w-4" />}
+          {connectingStore ? 'Connexion…' : 'Connecter'}
         </Button>
       </div>
       <p className="text-[11px] text-muted-foreground">
