@@ -355,7 +355,7 @@
 }
 
 .animate-feedback-pop {
-  animation: feedback-pop 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: feedback-pop 0.6s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 @keyframes question-enter {

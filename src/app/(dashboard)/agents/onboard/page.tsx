@@ -159,11 +159,12 @@ export default function AgentOnboardPage() {
     if (advancing) return
     setFeedback(feedbackFor(step))
     setAdvancing(true)
+    // Le feedback reste visible ~1,3 s pour bien le voir avant de passer à la suite.
     setTimeout(() => {
       setStep((s) => Math.min(TOTAL - 1, s + 1))
       setFeedback(null)
       setAdvancing(false)
-    }, 650)
+    }, 1300)
   }
 
   if (loading) return <BlobLoaderScreen />
@@ -221,7 +222,7 @@ export default function AgentOnboardPage() {
           </div>
         )}
 
-        <div key={step} className={cn('flex flex-1 flex-col transition-opacity duration-200', advancing ? 'opacity-0' : 'animate-question-enter opacity-100')}>
+        <div key={step} className={cn('flex flex-1 flex-col transition-all duration-300', advancing ? 'scale-[0.98] opacity-30 blur-[1px]' : 'animate-question-enter opacity-100')}>
         <h1 className="text-xl font-semibold sm:text-2xl">{QUESTIONS[step]}</h1>
 
         <div className="mt-5 flex-1">
