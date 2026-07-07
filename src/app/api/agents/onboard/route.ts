@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import OpenAI from 'openai'
 import { createClient } from '@/lib/supabase/server'
 import { logAiUsage } from '@/lib/openai/usage-log'
-import { canUseAi } from '@/lib/plans/gate'
 import { buildStoreContextPrompt } from '@/lib/shopify/sync'
 
 /**
@@ -27,17 +26,10 @@ export async function POST(req: Request) {
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
-  // Gate IA — EXCEPTION onboarding : la génération de l'agent doit marcher
-  // AVANT le choix du plan (l'abonnement est la dernière étape du flow).
-  const gate = await canUseAi(user.id)
-  if (!gate.allowed) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: prof } = await (supabase as any)
-      .from('profiles').select('onboarding_completed_at').eq('id', user.id).maybeSingle()
-    if (prof?.onboarding_completed_at) {
-      return NextResponse.json({ error: 'IA non disponible sur votre plan' }, { status: 403 })
-    }
-  }
+  // PAS de gate de plan ici : la génération d'onboarding est OFFERTE à tous
+  // (décision produit). Elle ne consomme pas les crédits IA du marchand
+  // (crédits = conversations WhatsApp) — seul le journal de coûts opérateur
+  // (ai_usage_log) trace l'appel.
 
   const body = (await req.json().catch(() => ({}))) as { objectives?: string[] }
   const objectives = (body.objectives?.length ? body.objectives : ['sav', 'advice', 'conversion', 'loyalty'])
