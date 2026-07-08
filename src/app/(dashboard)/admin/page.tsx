@@ -23,7 +23,7 @@ import {
   Loader2, ShieldAlert, Users, Zap, FileText, ChevronDown, ChevronUp,
   CheckCircle2, XCircle, Clock, RefreshCw, ShieldCheck, CreditCard,
   TrendingUp, AlertCircle, ExternalLink, CheckCircle, Ban, Calendar,
-  Wifi, WifiOff, AlertTriangle, Gift, Tag as TagIcon, Trash2, Link2, Store as StoreIcon
+  Wifi, WifiOff, Gift, Tag as TagIcon, Trash2, Link2, Store as StoreIcon
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { PlanId } from '@/lib/stripe/plans'
@@ -159,7 +159,6 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<'clients' | 'billing' | 'sessions' | 'affiliate' | 'promo' | 'install'>('clients')
   const [sessions, setSessions] = useState<SessionRow[]>([])
   const [sessionsLoading, setSessionsLoading] = useState(false)
-  const [checkingZombies, setCheckingZombies] = useState(false)
   const [billing, setBilling] = useState<{ subscriptions: BillingSubscription[]; invoices: BillingInvoice[] } | null>(null)
   const [billingLoading, setBillingLoading] = useState(false)
 
@@ -312,23 +311,6 @@ export default function AdminPage() {
     }
   }, [])
 
-  const checkZombies = async () => {
-    setCheckingZombies(true)
-    try {
-      // Appel via une route admin AUTHENTIFIÉE (le CRON_SECRET ne doit JAMAIS
-      // être exposé côté navigateur). La route vérifie le rôle admin en session.
-      const res = await fetch('/api/admin/check-sessions', { method: 'POST' })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || 'Erreur')
-      toast.success(`Vérification terminée : ${data.zombies?.length ?? 0} zombie(s) détecté(s)`)
-      fetchSessions()
-    } catch {
-      toast.error('Erreur lors de la vérification')
-    } finally {
-      setCheckingZombies(false)
-    }
-  }
-
   useEffect(() => {
     if (subscription?.role === 'admin' && activeTab === 'sessions' && sessions.length === 0) {
       fetchSessions()
@@ -475,10 +457,6 @@ export default function AdminPage() {
               <Button variant="outline" size="sm" onClick={fetchSessions} disabled={sessionsLoading}>
                 <RefreshCw className={cn('h-4 w-4 mr-2', sessionsLoading && 'animate-spin')} />
                 Actualiser
-              </Button>
-              <Button size="sm" onClick={checkZombies} disabled={checkingZombies} className="gap-2">
-                {checkingZombies ? <Loader2 className="h-4 w-4 animate-spin" /> : <AlertTriangle className="h-4 w-4" />}
-                Détecter zombies
               </Button>
             </div>
           </div>
