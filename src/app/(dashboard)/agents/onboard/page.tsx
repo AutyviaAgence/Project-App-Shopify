@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Loader2, Sparkles, Check, ShoppingBag, Package, Repeat, Heart, MessageSquare, ArrowLeft, ArrowRight } from 'lucide-react'
+import { OnboardingFeedback } from '@/components/onboarding-feedback'
 
 /**
  * Onboarding e-commerce PRÉ-REMPLI de l'agent SAV.
@@ -200,16 +201,9 @@ export default function AgentOnboardPage() {
 
       {/* Question courante */}
       <div className="relative flex flex-1 flex-col">
-        {/* Feedback encourageant façon "blow up" */}
-        {feedback && (
-          <div className="pointer-events-none absolute inset-x-0 top-1/3 z-10 flex justify-center">
-            <div className="animate-feedback-pop rounded-2xl border border-primary/30 bg-primary/10 px-5 py-3 text-center text-base font-semibold text-primary shadow-lg backdrop-blur">
-              {feedback}
-            </div>
-          </div>
-        )}
+        <OnboardingFeedback message={feedback} />
 
-        <div key={step} className={cn('flex flex-1 flex-col justify-center transition-all duration-300', advancing ? 'scale-[0.98] opacity-30 blur-[1px]' : 'animate-question-enter opacity-100')}>
+        <div key={step} className={cn('flex flex-1 flex-col justify-center transition-opacity duration-200', advancing ? 'opacity-0' : 'animate-question-enter opacity-100')}>
         <h1 className="text-xl font-semibold sm:text-2xl md:text-3xl">{QUESTIONS[step]}</h1>
 
         <div className="mt-5">

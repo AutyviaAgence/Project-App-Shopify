@@ -338,14 +338,16 @@
   animation: pulse-soft 2s ease-in-out infinite;
 }
 
-/* Feedback encourageant entre deux questions de l'onboarding (façon "blow up") */
+/* Feedback encourageant entre deux questions de l'onboarding.
+   Overlay plein écran (ne chevauche plus le texte) : entrée avec léger
+   overshoot depuis le bas, puis maintien. */
 @keyframes feedback-pop {
   0% {
-    transform: scale(0.85) translateY(6px);
+    transform: scale(0.9) translateY(14px);
     opacity: 0;
   }
-  55% {
-    transform: scale(1.04) translateY(0);
+  45% {
+    transform: scale(1.03) translateY(0);
     opacity: 1;
   }
   100% {
@@ -353,24 +355,53 @@
     opacity: 1;
   }
 }
-
 .animate-feedback-pop {
-  animation: feedback-pop 0.6s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: feedback-pop 0.5s cubic-bezier(0.34, 1.4, 0.5, 1);
 }
 
+/* Voile qui apparaît en fondu derrière le feedback (masque le contenu). */
+@keyframes feedback-veil {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-feedback-veil {
+  animation: feedback-veil 0.25s ease-out;
+}
+
+/* Coche animée dans le badge de feedback. */
+@keyframes check-pop {
+  0% { transform: scale(0); opacity: 0; }
+  60% { transform: scale(1.2); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-check-pop {
+  animation: check-pop 0.45s 0.1s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+/* Entrée d'une nouvelle question : glisse depuis la droite + fondu. */
 @keyframes question-enter {
   from {
-    transform: translateY(14px);
+    transform: translateX(24px);
     opacity: 0;
   }
   to {
-    transform: translateY(0);
+    transform: translateX(0);
     opacity: 1;
   }
 }
-
 .animate-question-enter {
-  animation: question-enter 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: question-enter 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* Barre lumineuse qui balaie verticalement (remplace le mini-jeu d'attente). */
+@keyframes vscan {
+  0% { top: -30%; opacity: 0; }
+  15% { opacity: 1; }
+  85% { opacity: 1; }
+  100% { top: 100%; opacity: 0; }
+}
+.animate-vscan {
+  animation: vscan 2.4s ease-in-out infinite;
 }
 
 /* ===========================================
