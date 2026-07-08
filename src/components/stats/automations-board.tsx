@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
-import { Loader2, Send, Eye, MessageSquare, ShoppingBag, Trophy } from 'lucide-react'
+import { Loader2, Eye, MessageSquare, ShoppingBag, Trophy } from 'lucide-react'
+import { EngagementFunnel } from '@/components/stats/engagement-funnel'
 
 type Variant = { key: string; sent: number; openRate: number; responseRate: number; orderRate: number }
 type AutoRow = {
@@ -48,44 +49,67 @@ export function AutomationsBoard({ days }: { days: number }) {
     )
   }
 
-  const steps = [
-    { key: 'sent', label: 'Messages envoyés', value: funnel.sent, rate: 100, icon: Send, color: 'bg-sky-500' },
-    { key: 'opened', label: 'Ouverts', value: funnel.opened, rate: funnel.openRate, icon: Eye, color: 'bg-indigo-500' },
-    { key: 'responded', label: 'Réponses', value: funnel.responded, rate: funnel.responseRate, icon: MessageSquare, color: 'bg-violet-500' },
-    { key: 'ordered', label: 'Ventes', value: funnel.ordered, rate: funnel.orderRate, icon: ShoppingBag, color: 'bg-emerald-500' },
-  ]
-
   return (
     <div className="space-y-6">
-      {/* ── Entonnoir d'engagement ── */}
+      {/* ── Entonnoir d'engagement (visuel 3D) ── */}
       <div className="rounded-2xl border border-border bg-card p-5">
         <h3 className="text-lg font-semibold">Entonnoir d’engagement</h3>
         <p className="mt-0.5 text-sm text-muted-foreground">Ce que deviennent vos messages initiés (les réponses SAV ne comptent pas).</p>
-        <div className="mt-4 space-y-2.5">
-          {steps.map((s) => (
-            <div key={s.key} className="flex items-center gap-3">
-              <span className="flex w-36 shrink-0 items-center gap-2 text-sm text-muted-foreground">
-                <s.icon className="h-4 w-4" /> {s.label}
-              </span>
-              <div className="relative h-8 flex-1 overflow-hidden rounded-lg bg-muted">
-                <div className={cn('flex h-full items-center rounded-lg px-3 text-sm font-semibold text-white transition-all', s.color)}
-                  style={{ width: `${Math.max(s.rate, 6)}%` }}>
-                  {s.value}
-                </div>
-              </div>
-              <span className="w-14 shrink-0 text-right text-sm font-medium tabular-nums">{s.rate}%</span>
-            </div>
-          ))}
+        <div className="mx-auto h-[300px] w-full max-w-2xl">
+          <EngagementFunnel steps={[
+            { label: 'Messages envoyés', value: funnel.sent },
+            { label: 'Ouverts', value: funnel.opened },
+            { label: 'Réponses', value: funnel.responded },
+            { label: 'Ventes', value: funnel.ordered },
+          ]} />
+        </div>
+        {/* Taux clés sous l'entonnoir */}
+        <div className="mx-auto mt-2 grid max-w-md grid-cols-3 gap-2">
+          <Metric icon={Eye} label="Ouverture" value={funnel.openRate} />
+          <Metric icon={MessageSquare} label="Réponse" value={funnel.responseRate} />
+          <Metric icon={ShoppingBag} label="Vente" value={funnel.orderRate} accent />
         </div>
       </div>
 
-      {/* ── Résultats par automatisation ── */}
+      {/* ── Tests A/B en cours (mis en avant) ── */}
+      {rows.some((a) => a.hasAbTest) && (
+        <div className="rounded-2xl border border-primary/30 bg-primary/[0.03] p-5">
+          <div className="flex items-center gap-2">
+            <Trophy className="h-4 w-4 text-primary" />
+            <h3 className="text-lg font-semibold">Tests A/B</h3>
+            <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
+              {rows.filter((a) => a.hasAbTest).length}
+            </span>
+          </div>
+          <p className="mt-0.5 text-sm text-muted-foreground">Vos automatisations qui comparent plusieurs messages — et la variante gagnante.</p>
+          <div className="mt-4 space-y-3">
+            {rows.filter((a) => a.hasAbTest).map((a) => (
+              <AutoCard key={a.id} a={a} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Toutes les automatisations ── */}
       <div className="rounded-2xl border border-border bg-card p-5">
-        <h3 className="text-lg font-semibold">Par automatisation</h3>
-        <p className="mt-0.5 text-sm text-muted-foreground">Taux d’ouverture, de réponse et de vente — et le message gagnant pour vos tests A/B.</p>
+        <h3 className="text-lg font-semibold">Toutes les automatisations</h3>
+        <p className="mt-0.5 text-sm text-muted-foreground">Taux d’ouverture, de réponse et de vente pour chaque automatisation active.</p>
 
         <div className="mt-4 space-y-3">
-          {rows.map((a) => (
+          {rows.filter((a) => !a.hasAbTest).length === 0 && rows.some((a) => a.hasAbTest) ? (
+            <p className="text-sm text-muted-foreground">Toutes vos automatisations avec des envois sont des tests A/B (voir ci-dessus).</p>
+          ) : rows.filter((a) => !a.hasAbTest).map((a) => (
+            <AutoCard key={a.id} a={a} />
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/** Carte de résultats d'une automatisation (taux + variantes A/B éventuelles). */
+function AutoCard({ a }: { a: AutoRow }) {
+  return (
             <div key={a.id} className="rounded-xl border p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
@@ -141,10 +165,6 @@ export function AutomationsBoard({ days }: { days: number }) {
                   )}
                 </div>
               )}
-            </div>
-          ))}
-        </div>
-      </div>
     </div>
   )
 }
