@@ -264,27 +264,18 @@ export function WhatsAppConnect() {
                       Qualité : {health.quality === 'GREEN' ? 'bonne' : health.quality === 'YELLOW' ? 'moyenne' : 'critique'}
                     </span>
                   )}
-                  {health.limit ? (
-                    // Palier connu → compteur / plafond (ambre à ≥90 %).
+                  {typeof health.used === 'number' && (
+                    // Compteur honnête : volume d'envois INITIÉS sur 24h glissantes.
+                    // Meta ne renvoie pas de plafond fiable par API → on n'affiche
+                    // que le consommé (avec /plafond seulement s'il est connu).
                     <span className={
-                      'inline-flex items-center rounded-full px-2 py-0.5 text-[11px] ' +
-                      (typeof health.used === 'number' && health.used / health.limit >= 0.9
+                      'inline-flex cursor-help items-center rounded-full px-2 py-0.5 text-[11px] ' +
+                      (health.limit && health.used / health.limit >= 0.9
                         ? 'bg-amber-500/15 text-amber-600'
                         : 'bg-muted text-muted-foreground')
                     }
-                      title="Contacts uniques joints par vos automatisations sur les dernières 24h, vs le plafond Meta de votre compte — les réponses SAV ne comptent pas">
-                      Envois (24h) : {health.used ?? 0}/{health.limit}
-                    </span>
-                  ) : (
-                    // Palier inconnu (souvent : nom d'affichage refusé) → action.
-                    <span className="inline-flex cursor-help items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] text-amber-600"
-                      title={
-                        (health.nameDeclined
-                          ? 'Votre nom d’affichage WhatsApp a été REFUSÉ par Meta : tant qu’il n’est pas approuvé, Meta ne communique pas votre limite d’envoi.\n\n'
-                          : 'Meta ne communique pas encore votre limite d’envoi pour ce numéro.\n\n') +
-                        'À faire : WhatsApp Manager → votre numéro → Nom d’affichage → soumettre à nouveau. Une fois approuvé, votre limite s’affichera ici.'
-                      }>
-                      Limite : à débloquer
+                      title="Contacts uniques joints par vos automatisations/campagnes sur les dernières 24h. Les réponses SAV (fenêtre de 24h après un message client) ne comptent pas. Votre plafond exact est visible dans WhatsApp Manager.">
+                      Envois initiés (24h) : {health.used}{health.limit ? `/${health.limit}` : ''}
                     </span>
                   )}
                 </div>
