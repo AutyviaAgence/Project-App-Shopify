@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSubscription } from '@/hooks/use-subscription'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
 import {
   Select,
@@ -23,7 +24,8 @@ import {
   Loader2, ShieldAlert, Users, Zap, FileText, ChevronDown, ChevronUp,
   CheckCircle2, XCircle, Clock, RefreshCw, ShieldCheck, CreditCard,
   TrendingUp, AlertCircle, ExternalLink, CheckCircle, Ban, Calendar,
-  Wifi, WifiOff, Gift, Tag as TagIcon, Trash2, Link2, Store as StoreIcon
+  Wifi, WifiOff, Gift, Tag as TagIcon, Trash2, Link2, Store as StoreIcon,
+  ChevronLeft, ChevronRight
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { PlanId } from '@/lib/stripe/plans'
@@ -123,19 +125,6 @@ const ESCALATION_LABELS: Record<string, string> = {
   off_hours: 'Hors horaires',
 }
 
-const AUDIT_OPTIONS: { value: string; label: string; description: string; color: string }[] = [
-  { value: 'none',         label: 'Sans audit',    description: 'Pas d\'audit en cours',                          color: 'bg-gray-100 text-gray-700' },
-  { value: 'acompte_paid', label: 'Audit en cours', description: 'Acompte 445€ payé — audit en cours',            color: 'bg-blue-500 text-white' },
-  { value: 'solde_paid',   label: 'Audit livré',    description: 'Solde 445€ payé — audit terminé et livré',      color: 'bg-green-500 text-white' },
-  { value: 'refunded',     label: 'Remboursé',      description: 'Audit remboursé selon conditions des CGU',       color: 'bg-red-500 text-white' },
-]
-
-function AuditStatusBadge({ status }: { status: string | null }) {
-  const opt = AUDIT_OPTIONS.find(o => o.value === (status || 'none'))
-  if (!opt) return <Badge variant="secondary">{status}</Badge>
-  return <Badge className={opt.color}>{opt.label}</Badge>
-}
-
 function SubStatusBadge({ status }: { status: string | null }) {
   if (!status || status === 'none') return <Badge variant="outline" className="text-muted-foreground border-muted-foreground/30">Aucun</Badge>
   if (status === 'active') return <Badge className="bg-green-500">Actif</Badge>
@@ -150,6 +139,11 @@ export default function AdminPage() {
   const { subscription, loading: subLoading } = useSubscription()
   const [clients, setClients] = useState<ClientRow[]>([])
   const [loading, setLoading] = useState(true)
+  // Filtres / tri / pagination de la liste clients.
+  const [clientSearch, setClientSearch] = useState('')
+  const [clientPlanFilter, setClientPlanFilter] = useState<string>('all')
+  const [clientSort, setClientSort] = useState<'name_asc' | 'name_desc' | 'plan' | 'tokens_desc' | 'tokens_asc' | 'recent'>('recent')
+  const [clientVisible, setClientVisible] = useState(30)
   const [activating, setActivating] = useState<string | null>(null)
   const [selectedPlans, setSelectedPlans] = useState<Record<string, PlanId | 'none'>>({})
   const [configModal, setConfigModal] = useState<{ config: OnboardingConfig; userId: string } | null>(null)
@@ -348,6 +342,34 @@ export default function AdminPage() {
   const refunded = clients.filter(c => c.audit_status === 'refunded')
   const activeSubscriptions = clients.filter(c => c.subscription_status === 'active' || c.subscription_status === 'trialing')
 
+  // Liste des plans présents (pour le filtre déroulant).
+  const availablePlans = Array.from(new Set(clients.map(c => c.plan).filter(Boolean))) as string[]
+
+  // Filtrage (recherche + plan) puis tri.
+  const filteredClients = clients
+    .filter(c => {
+      if (clientPlanFilter !== 'all' && (c.plan ?? '') !== clientPlanFilter) return false
+      const q = clientSearch.trim().toLowerCase()
+      if (!q) return true
+      return (c.full_name ?? '').toLowerCase().includes(q) ||
+        c.email.toLowerCase().includes(q) ||
+        (c.tenant_name ?? '').toLowerCase().includes(q)
+    })
+    .sort((a, b) => {
+      switch (clientSort) {
+        case 'name_asc': return (a.full_name || a.email).localeCompare(b.full_name || b.email, 'fr')
+        case 'name_desc': return (b.full_name || b.email).localeCompare(a.full_name || a.email, 'fr')
+        case 'plan': return (a.plan ?? '').localeCompare(b.plan ?? '', 'fr')
+        case 'tokens_desc': return b.tokens_used - a.tokens_used
+        case 'tokens_asc': return a.tokens_used - b.tokens_used
+        case 'recent':
+        default: return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      }
+    })
+
+  const visibleClients = filteredClients.slice(0, clientVisible)
+  const hasMoreClients = filteredClients.length > clientVisible
+
   return (
     <div className="container mx-auto py-8 px-4 max-w-7xl space-y-8">
       {/* Header */}
@@ -532,6 +554,41 @@ export default function AdminPage() {
         </div>
       </div>
 
+      {/* Filtres + tri */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="relative w-full sm:max-w-xs">
+          <Input
+            value={clientSearch}
+            onChange={e => { setClientSearch(e.target.value); setClientVisible(30) }}
+            placeholder="Rechercher (nom, email, site)…"
+            className="h-9"
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Select value={clientPlanFilter} onValueChange={v => { setClientPlanFilter(v); setClientVisible(30) }}>
+            <SelectTrigger className="h-9 w-40 text-sm"><SelectValue placeholder="Plan" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous les plans</SelectItem>
+              {availablePlans.map(p => (
+                <SelectItem key={p} value={p}><span className="capitalize">{p}</span></SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={clientSort} onValueChange={v => setClientSort(v as typeof clientSort)}>
+            <SelectTrigger className="h-9 w-52 text-sm"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="recent">Plus récents</SelectItem>
+              <SelectItem value="name_asc">Nom (A → Z)</SelectItem>
+              <SelectItem value="name_desc">Nom (Z → A)</SelectItem>
+              <SelectItem value="plan">Par abonnement (plan)</SelectItem>
+              <SelectItem value="tokens_desc">Tokens (plus consommé)</SelectItem>
+              <SelectItem value="tokens_asc">Tokens (moins consommé)</SelectItem>
+            </SelectContent>
+          </Select>
+          <span className="text-xs text-muted-foreground">{filteredClients.length} client{filteredClients.length > 1 ? 's' : ''}</span>
+        </div>
+      </div>
+
       {/* Table clients */}
       <div className="rounded-xl border overflow-hidden">
         <table className="w-full text-sm">
@@ -539,7 +596,6 @@ export default function AdminPage() {
             <tr>
               <th className="px-4 py-3 text-left font-semibold">Client</th>
               <th className="px-4 py-3 text-left font-semibold">Site</th>
-              <th className="px-4 py-3 text-left font-semibold">Audit</th>
               <th className="px-4 py-3 text-left font-semibold">Abonnement</th>
               <th className="px-4 py-3 text-left font-semibold">Plan</th>
               <th className="px-4 py-3 text-left font-semibold">Tokens</th>
@@ -549,7 +605,7 @@ export default function AdminPage() {
             </tr>
           </thead>
           <tbody className="divide-y">
-            {clients.map(client => {
+            {visibleClients.map(client => {
               const usagePct = client.tokens_limit > 0
                 ? Math.round((client.tokens_used / client.tokens_limit) * 100)
                 : 0
@@ -573,32 +629,6 @@ export default function AdminPage() {
                       ) : (
                         <span className="text-xs text-muted-foreground">—</span>
                       )}
-                    </td>
-
-                    {/* Audit status */}
-                    <td className="px-4 py-3">
-                      <div className="space-y-1.5">
-                        <AuditStatusBadge status={client.audit_status} />
-                        <Select
-                          value={client.audit_status || 'none'}
-                          onValueChange={v => handleUpdateStatus(client.id, 'audit_status', v)}
-                          disabled={activating === client.id}
-                        >
-                          <SelectTrigger className="h-6 w-32 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className="w-72">
-                            {AUDIT_OPTIONS.map(opt => (
-                              <SelectItem key={opt.value} value={opt.value}>
-                                <div>
-                                  <span className="font-medium">{opt.label}</span>
-                                  <p className="text-xs text-muted-foreground">{opt.description}</p>
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
                     </td>
 
                     {/* Subscription status */}
@@ -737,14 +767,14 @@ export default function AdminPage() {
                   {/* Row étendue */}
                   {isExpanded && client.onboarding_config && (
                     <tr key={`${client.id}-expanded`} className="bg-muted/10">
-                      <td colSpan={9} className="px-6 py-4">
+                      <td colSpan={8} className="px-6 py-4">
                         <ConfigDetails config={client.onboarding_config} />
                       </td>
                     </tr>
                   )}
                   {isExpanded && !client.onboarding_config && (
                     <tr key={`${client.id}-expanded-empty`} className="bg-muted/10">
-                      <td colSpan={8} className="px-6 py-4 text-sm text-muted-foreground">
+                      <td colSpan={7} className="px-6 py-4 text-sm text-muted-foreground">
                         Aucun configurateur soumis pour ce client.
                       </td>
                     </tr>
@@ -752,9 +782,9 @@ export default function AdminPage() {
                 </>
               )
             })}
-            {clients.length === 0 && (
+            {visibleClients.length === 0 && (
               <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
                   Aucun client trouvé.
                 </td>
               </tr>
@@ -762,6 +792,18 @@ export default function AdminPage() {
           </tbody>
         </table>
       </div>
+
+      {/* Pagination : « Afficher plus » (pas de liste infinie) */}
+      {hasMoreClients && (
+        <div className="flex justify-center">
+          <button
+            onClick={() => setClientVisible(c => c + 30)}
+            className="rounded-lg border px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            Afficher plus ({filteredClients.length - clientVisible} restant{filteredClients.length - clientVisible > 1 ? 's' : ''})
+          </button>
+        </div>
+      )}
 
       {/* Modal configurateur */}
       <Dialog open={!!configModal} onOpenChange={() => { setConfigModal(null); setAdminNotes('') }}>
@@ -872,6 +914,82 @@ function BillingTab({
   const totalMonthly = activeSubscriptions.reduce((acc, s) => acc + (s.amount ?? 0), 0)
 
   return (
+    <BillingContent
+      billing={billing}
+      now={now}
+      activeSubscriptions={activeSubscriptions}
+      cancelledSubscriptions={cancelledSubscriptions}
+      totalMonthly={totalMonthly}
+      fmt={fmt}
+      fmtAmount={fmtAmount}
+    />
+  )
+}
+
+// ─── Billing content (vue par mois, onglets, pagination) ─────────────────────
+const BILLING_PAGE_SIZE = 30
+
+function BillingContent({
+  billing, now, activeSubscriptions, cancelledSubscriptions, totalMonthly, fmt, fmtAmount,
+}: {
+  billing: { subscriptions: BillingSubscription[]; invoices: BillingInvoice[] }
+  now: Date
+  activeSubscriptions: BillingSubscription[]
+  cancelledSubscriptions: BillingSubscription[]
+  totalMonthly: number
+  fmt: (iso: string | null) => string
+  fmtAmount: (amount: number | null, currency: string) => string
+}) {
+  // Vue affichée séparément : renouvellements OU historique.
+  const [view, setView] = useState<'renewals' | 'history'>('renewals')
+  // Décalage de mois : 0 = mois courant, -1 = mois précédent, etc.
+  const [monthOffset, setMonthOffset] = useState(0)
+  // Pagination : on n'affiche que N lignes, « Afficher plus » ajoute une page.
+  const [visibleCount, setVisibleCount] = useState(BILLING_PAGE_SIZE)
+
+  // Reset de la pagination dès qu'on change de vue ou de mois.
+  useEffect(() => { setVisibleCount(BILLING_PAGE_SIZE) }, [view, monthOffset])
+
+  // Bornes [début, fin[ du mois sélectionné.
+  const { monthStart, monthEnd, monthLabel } = useMemo(() => {
+    const start = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1)
+    const end = new Date(now.getFullYear(), now.getMonth() + monthOffset + 1, 1)
+    return {
+      monthStart: start,
+      monthEnd: end,
+      monthLabel: start.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
+    }
+  }, [now, monthOffset])
+
+  const inMonth = (iso: string | null) => {
+    if (!iso) return false
+    const t = new Date(iso).getTime()
+    return t >= monthStart.getTime() && t < monthEnd.getTime()
+  }
+
+  // Renouvellements du mois : prochain prélèvement dans le mois sélectionné.
+  const renewalsOfMonth = useMemo(() =>
+    activeSubscriptions
+      .filter(s => inMonth(s.current_period_end))
+      .sort((a, b) => new Date(a.current_period_end ?? '').getTime() - new Date(b.current_period_end ?? '').getTime()),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [activeSubscriptions, monthStart, monthEnd])
+
+  // Paiements du mois (les plus récents d'abord).
+  const invoicesOfMonth = useMemo(() =>
+    billing.invoices
+      .filter(inv => inMonth(inv.created))
+      .sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime()),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [billing.invoices, monthStart, monthEnd])
+
+  const rows = view === 'renewals' ? renewalsOfMonth : invoicesOfMonth
+  const visibleRows = rows.slice(0, visibleCount)
+  const hasMore = rows.length > visibleCount
+  // On ne va pas dans le futur : le mois courant (offset 0) est la borne droite.
+  const canGoNext = monthOffset < 0
+
+  return (
     <div className="space-y-8">
 
       {/* KPIs billing */}
@@ -894,27 +1012,61 @@ function BillingTab({
         </div>
       </div>
 
-      {/* Abonnements actifs — prochains prélèvements */}
-      <div>
-        <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-          <Calendar className="h-5 w-5 text-green-500" />
-          Prochains renouvellements
-        </h2>
-        <div className="rounded-xl border overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="border-b bg-muted/30">
-              <tr>
-                <th className="px-4 py-3 text-left font-semibold">Client</th>
-                <th className="px-4 py-3 text-left font-semibold">Plan</th>
-                <th className="px-4 py-3 text-left font-semibold">Montant</th>
-                <th className="px-4 py-3 text-left font-semibold">Prochain prélèvement</th>
-                <th className="px-4 py-3 text-left font-semibold">Statut Stripe</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {activeSubscriptions
-                .sort((a, b) => new Date(a.current_period_end ?? '').getTime() - new Date(b.current_period_end ?? '').getTime())
-                .map(s => {
+      {/* Onglets (séparés) + navigation par mois */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="inline-flex rounded-lg border p-1">
+          <button
+            onClick={() => setView('renewals')}
+            className={cn('flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+              view === 'renewals' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}
+          >
+            <Calendar className="h-4 w-4" /> Prochains renouvellements
+          </button>
+          <button
+            onClick={() => setView('history')}
+            className={cn('flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+              view === 'history' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}
+          >
+            <TrendingUp className="h-4 w-4" /> Historique des paiements
+          </button>
+        </div>
+        {/* Navigation mois précédent / suivant */}
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setMonthOffset(o => o - 1)}
+            className="flex h-8 w-8 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:text-foreground"
+            title="Mois précédent"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <span className="min-w-[9rem] text-center text-sm font-medium capitalize">{monthLabel}</span>
+          <button
+            onClick={() => setMonthOffset(o => Math.min(0, o + 1))}
+            disabled={!canGoNext}
+            className="flex h-8 w-8 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
+            title="Mois suivant"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Prochains renouvellements (du mois sélectionné) */}
+      {view === 'renewals' && (
+        <div>
+          <div className="rounded-xl border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="border-b bg-muted/30">
+                <tr>
+                  <th className="px-4 py-3 text-left font-semibold">Client</th>
+                  <th className="px-4 py-3 text-left font-semibold">Plan</th>
+                  <th className="px-4 py-3 text-left font-semibold">Montant</th>
+                  <th className="px-4 py-3 text-left font-semibold">Prochain prélèvement</th>
+                  <th className="px-4 py-3 text-left font-semibold">Statut Stripe</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {(visibleRows as BillingSubscription[]).map(s => {
                   const daysLeft = s.current_period_end
                     ? Math.ceil((new Date(s.current_period_end).getTime() - now.getTime()) / 86400000)
                     : null
@@ -952,13 +1104,76 @@ function BillingTab({
                     </tr>
                   )
                 })}
-              {activeSubscriptions.length === 0 && (
-                <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">Aucun abonnement actif.</td></tr>
-              )}
-            </tbody>
-          </table>
+                {renewalsOfMonth.length === 0 && (
+                  <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">Aucun renouvellement en {monthLabel}.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Historique des paiements (du mois sélectionné) */}
+      {view === 'history' && (
+        <div>
+          <div className="rounded-xl border overflow-hidden">
+            <table className="w-full text-sm">
+              <thead className="border-b bg-muted/30">
+                <tr>
+                  <th className="px-4 py-3 text-left font-semibold">Date</th>
+                  <th className="px-4 py-3 text-left font-semibold">Client</th>
+                  <th className="px-4 py-3 text-left font-semibold">Plan</th>
+                  <th className="px-4 py-3 text-left font-semibold">Montant</th>
+                  <th className="px-4 py-3 text-left font-semibold">Statut</th>
+                  <th className="px-4 py-3 text-left font-semibold">Facture</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {(visibleRows as BillingInvoice[]).map(inv => (
+                  <tr key={inv.id} className="hover:bg-muted/20">
+                    <td className="px-4 py-3 text-muted-foreground">{fmt(inv.created)}</td>
+                    <td className="px-4 py-3">
+                      <p className="font-medium">{inv.full_name || inv.email}</p>
+                      <p className="text-xs text-muted-foreground">{inv.email}</p>
+                    </td>
+                    <td className="px-4 py-3 capitalize">{inv.plan ?? '—'}</td>
+                    <td className="px-4 py-3 font-semibold">{fmtAmount(inv.amount, inv.currency)}</td>
+                    <td className="px-4 py-3">
+                      {inv.status === 'paid' && <span className="inline-flex items-center gap-1 text-xs text-green-600 font-medium"><CheckCircle className="h-3 w-3" /> Payé</span>}
+                      {inv.status === 'open' && <span className="inline-flex items-center gap-1 text-xs text-amber-600 font-medium"><Clock className="h-3 w-3" /> En attente</span>}
+                      {inv.status === 'void' && <span className="text-xs text-muted-foreground">Annulé</span>}
+                      {inv.status === 'uncollectible' && <span className="inline-flex items-center gap-1 text-xs text-red-600 font-medium"><XCircle className="h-3 w-3" /> Impayé</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      {inv.invoice_url && (
+                        <a href={inv.invoice_url} target="_blank" rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
+                          <ExternalLink className="h-3 w-3" /> Voir
+                        </a>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+                {invoicesOfMonth.length === 0 && (
+                  <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">Aucun paiement en {monthLabel}.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Pagination : « Afficher plus » (pas de scroll infini) */}
+      {hasMore && (
+        <div className="flex justify-center">
+          <button
+            onClick={() => setVisibleCount(c => c + BILLING_PAGE_SIZE)}
+            className="rounded-lg border px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            Afficher plus ({rows.length - visibleCount} restant{rows.length - visibleCount > 1 ? 's' : ''})
+          </button>
+        </div>
+      )}
 
       {/* Abonnements annulés */}
       {billing.subscriptions.filter(s => s.stripe_status === 'canceled' && !s.cancel_at_period_end).length > 0 && (
@@ -998,58 +1213,6 @@ function BillingTab({
           </div>
         </div>
       )}
-
-      {/* Historique des paiements */}
-      <div>
-        <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-          <TrendingUp className="h-5 w-5 text-blue-500" />
-          Historique des paiements
-        </h2>
-        <div className="rounded-xl border overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="border-b bg-muted/30">
-              <tr>
-                <th className="px-4 py-3 text-left font-semibold">Date</th>
-                <th className="px-4 py-3 text-left font-semibold">Client</th>
-                <th className="px-4 py-3 text-left font-semibold">Plan</th>
-                <th className="px-4 py-3 text-left font-semibold">Montant</th>
-                <th className="px-4 py-3 text-left font-semibold">Statut</th>
-                <th className="px-4 py-3 text-left font-semibold">Facture</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {billing.invoices.map(inv => (
-                <tr key={inv.id} className="hover:bg-muted/20">
-                  <td className="px-4 py-3 text-muted-foreground">{fmt(inv.created)}</td>
-                  <td className="px-4 py-3">
-                    <p className="font-medium">{inv.full_name || inv.email}</p>
-                    <p className="text-xs text-muted-foreground">{inv.email}</p>
-                  </td>
-                  <td className="px-4 py-3 capitalize">{inv.plan ?? '—'}</td>
-                  <td className="px-4 py-3 font-semibold">{fmtAmount(inv.amount, inv.currency)}</td>
-                  <td className="px-4 py-3">
-                    {inv.status === 'paid' && <span className="inline-flex items-center gap-1 text-xs text-green-600 font-medium"><CheckCircle className="h-3 w-3" /> Payé</span>}
-                    {inv.status === 'open' && <span className="inline-flex items-center gap-1 text-xs text-amber-600 font-medium"><Clock className="h-3 w-3" /> En attente</span>}
-                    {inv.status === 'void' && <span className="text-xs text-muted-foreground">Annulé</span>}
-                    {inv.status === 'uncollectible' && <span className="inline-flex items-center gap-1 text-xs text-red-600 font-medium"><XCircle className="h-3 w-3" /> Impayé</span>}
-                  </td>
-                  <td className="px-4 py-3">
-                    {inv.invoice_url && (
-                      <a href={inv.invoice_url} target="_blank" rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
-                        <ExternalLink className="h-3 w-3" /> Voir
-                      </a>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {billing.invoices.length === 0 && (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">Aucun paiement trouvé.</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
 
     </div>
   )
