@@ -368,7 +368,7 @@ export default function OnboardingPage() {
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Erreur')
-      goTo('automations', `${json.data?.templatesCreated ?? selTemplates.size} modèles créés ✓`)
+      goTo('automations', `${json.data?.templatesCreated ?? selTemplates.size} modèles prêts (brouillons) ✓`)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erreur')
     } finally {
@@ -657,6 +657,11 @@ export default function OnboardingPage() {
                       <p className="text-sm text-muted-foreground">
                         Un modèle par événement, rédigé au ton de <span className="font-medium text-foreground">{state.shopName}</span>. Décochez ce que vous ne voulez pas, cliquez pour relire/modifier. <span className="font-medium text-foreground">Rien n’est créé avant votre validation.</span>
                       </p>
+                      {!state.whatsappConnected && (
+                        <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-600">
+                          WhatsApp n’est pas encore connecté : vos modèles seront enregistrés en <span className="font-medium">brouillon</span> et vous les soumettrez à Meta dès que votre numéro sera relié.
+                        </p>
+                      )}
                       <div className="max-h-[46vh] space-y-2 overflow-y-auto pr-1">
                         {pack.map((item, idx) => {
                           const on = selTemplates.has(item.trigger)

@@ -89,8 +89,14 @@ export async function POST(req: NextRequest) {
     if (toInsert.length > 0) {
       const { error } = await supabase.from('whatsapp_templates').insert(toInsert)
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-      templatesCreated = toInsert.length
     }
+    // On renvoie le nombre TOTAL de modèles validés PRÊTS (nouveaux + déjà
+    // présents), pas seulement les nouvellement insérés — sinon un 2e passage
+    // (idempotent) afficherait « 0 créés », trompeur. Les brouillons sont
+    // conservés même sans WhatsApp : le marchand les retrouve dans /templates.
+    templatesCreated = body.templates
+      .map((tr) => byTrigger.get(tr))
+      .filter((i): i is NonNullable<typeof i> => Boolean(i)).length
   }
 
   // ── 2. Automatisations validées ───────────────────────────────────────
