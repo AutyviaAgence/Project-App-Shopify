@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { generateTemplates } from '@/lib/templates/generate'
 import type { UseCaseKey } from '@/lib/templates/use-cases'
+import { canUseAiOrOnboarding } from '@/lib/plans/gate'
 
 /**
  * POST /api/templates/generate
@@ -14,6 +15,10 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+
+  // Génération IA de modèles : réservée aux plans payants (offerte pendant l'onboarding).
+  const gate = await canUseAiOrOnboarding(user.id)
+  if (!gate.allowed) return NextResponse.json({ error: 'La génération IA de modèles nécessite un plan payant.', upgrade: true }, { status: 403 })
 
   const body = await req.json().catch(() => ({}))
   const useCase = body.use_case as UseCaseKey

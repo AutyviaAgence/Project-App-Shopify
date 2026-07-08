@@ -4,6 +4,8 @@ import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useTranslation } from '@/i18n/context'
+import { useSubscription } from '@/hooks/use-subscription'
+import { UpgradeBadge } from '@/components/upgrade-badge'
 import { cn } from '@/lib/utils'
 import type { AIAgent, Team } from '@/types/database'
 import { Button } from '@/components/ui/button'
@@ -137,6 +139,9 @@ function MascotPicker({ agent, typeColor, onChange, children }: {
 export default function AgentsPage() {
   const { t } = useTranslation()
   const router = useRouter()
+  const { subscription } = useSubscription()
+  // L'agent IA (création + réponses) est réservé aux plans payants.
+  const aiEnabled = subscription?.aiEnabled !== false
   const [agents, setAgents] = useState<AgentWithTeamIds[]>(() => getCache<AgentWithTeamIds[]>('agents') || [])
   const [loading, setLoading] = useState(() => !getCache('agents'))
   const [saving, setSaving] = useState(false)
@@ -442,9 +447,20 @@ export default function AgentsPage() {
           </div>
 
           <div className="mt-7 space-y-3">
+            {!aiEnabled && (
+              <div className="flex items-center justify-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-amber-600">
+                L’agent IA est réservé aux plans payants. <UpgradeBadge label="Voir les formules" />
+              </div>
+            )}
             <button
-              onClick={openCreateDialog}
-              className="group relative flex w-full items-center gap-4 overflow-hidden rounded-2xl border border-primary/40 bg-gradient-to-br from-primary/10 to-accent/5 p-5 text-left shadow-sm transition-all hover:border-primary hover:shadow-md hover:shadow-primary/10"
+              onClick={aiEnabled ? openCreateDialog : undefined}
+              disabled={!aiEnabled}
+              className={cn(
+                'group relative flex w-full items-center gap-4 overflow-hidden rounded-2xl border p-5 text-left shadow-sm transition-all',
+                aiEnabled
+                  ? 'border-primary/40 bg-gradient-to-br from-primary/10 to-accent/5 hover:border-primary hover:shadow-md hover:shadow-primary/10'
+                  : 'cursor-not-allowed border-border bg-muted/30 opacity-60'
+              )}
             >
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent text-white shadow-sm transition-transform group-hover:scale-105">
                 <Sparkles className="h-6 w-6" />
@@ -707,17 +723,24 @@ export default function AgentsPage() {
       )}
 
       {/* Bouton "Nouvel agent" — juste sous les cartes et les points */}
-      <div className="mt-6 flex shrink-0 justify-center">
+      <div className="mt-6 flex shrink-0 flex-col items-center gap-2">
         <button
           data-tour="new-agent-btn"
-          onClick={openCreateDialog}
-          className="group flex items-center gap-2.5 rounded-3xl bg-primary px-6 py-3.5 text-sm font-semibold text-primary-foreground shadow-[0_12px_30px_-8px] shadow-primary/40 ring-1 ring-white/10 transition-all hover:scale-[1.03] hover:shadow-primary/50"
+          onClick={aiEnabled ? openCreateDialog : undefined}
+          disabled={!aiEnabled}
+          className={cn(
+            'group flex items-center gap-2.5 rounded-3xl px-6 py-3.5 text-sm font-semibold ring-1 transition-all',
+            aiEnabled
+              ? 'bg-primary text-primary-foreground shadow-[0_12px_30px_-8px] shadow-primary/40 ring-white/10 hover:scale-[1.03] hover:shadow-primary/50'
+              : 'cursor-not-allowed bg-muted text-muted-foreground ring-border'
+          )}
         >
           <span className="flex h-6 w-6 items-center justify-center rounded-xl bg-white/20">
             <Plus className="h-4 w-4" />
           </span>
           {t('agents.new_agent')}
         </button>
+        {!aiEnabled && <UpgradeBadge label="Agent IA — plan payant" />}
       </div>
       </div>
 

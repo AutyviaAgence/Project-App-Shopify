@@ -45,3 +45,38 @@ export async function canUseAi(userId: string): Promise<AiGateResult> {
   if (PLANS[plan].aiEnabled) return { allowed: true, reason: 'ok', plan }
   return { allowed: false, reason: 'free_plan', plan }
 }
+
+/**
+ * Variante ONBOARDING : autorise l'IA/les créations tant que l'onboarding
+ * n'est pas terminé (le pack gratuit — agent, modèles, automatisations — est
+ * généré/appliqué AVANT le choix du plan). Après l'onboarding, applique les
+ * règles normales de canUseAi (Gratuit bloqué).
+ *
+ * Sert aux endpoints de création/IA qui doivent marcher pendant l'onboarding
+ * mais rester payants ensuite (templates generate/converse, automations
+ * suggest…). Évite de dupliquer le pattern onboarding_completed_at partout.
+ */
+export async function canUseAiOrOnboarding(userId: string): Promise<AiGateResult> {
+  const gate = await canUseAi(userId)
+  if (gate.allowed) return gate
+  // Non autorisé (Gratuit) : on laisse passer UNIQUEMENT si l'onboarding est
+  // encore en cours.
+  const supabase = getAdminSupabase()
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('onboarding_completed_at')
+    .eq('id', userId)
+    .maybeSingle()
+  if (profile && !(profile as { onboarding_completed_at: string | null }).onboarding_completed_at) {
+    return { allowed: true, reason: 'ok', plan: gate.plan }
+  }
+  return gate
+}
+
+/**
+ * Droit de CRÉER du contenu premium (modèles de messages, agents).
+ * Même règle que l'IA : réservé aux plans payants ; toléré pendant l'onboarding
+ * (le pack gratuit crée des modèles avant le choix du plan). Alias sémantique
+ * de canUseAiOrOnboarding pour la lisibilité côté endpoints non-IA.
+ */
+export const canCreateContent = canUseAiOrOnboarding

@@ -3,6 +3,8 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react'
 import type { WhatsAppTemplate, TemplateButton, TemplateCard } from '@/types/database'
 import { track } from '@/lib/posthog/events'
+import { useSubscription } from '@/hooks/use-subscription'
+import { UpgradeBadge } from '@/components/upgrade-badge'
 import { CarouselEditor, CarouselPreview } from './_components/carousel-editor'
 import { VariableTextarea, type VariableTextareaHandle } from './_components/variable-textarea'
 import { toast } from 'sonner'
@@ -88,6 +90,9 @@ function renderWhatsAppFormat(text: string, labels?: string[]): React.ReactNode 
 }
 
 export default function TemplatesPage() {
+  const { subscription } = useSubscription()
+  // La création de modèles (manuelle ou IA) est réservée aux plans payants.
+  const aiEnabled = subscription?.aiEnabled !== false
   const [templates, setTemplates] = useState<WhatsAppTemplate[]>([])
   const [loading, setLoading] = useState(true)
   // Un WhatsApp connecté est requis pour créer/soumettre/envoyer des modèles.
@@ -775,7 +780,7 @@ export default function TemplatesPage() {
         </div>
         {/* Actions masquées tant qu'aucun WhatsApp n'est connecté (rien à faire). */}
         <div className={cn('flex items-center gap-2 flex-wrap', hasWhatsApp === false && 'hidden')}>
-          <Button variant="outline" size="sm" onClick={handleSeedDefaults} disabled={seeding}>
+          <Button variant="outline" size="sm" onClick={handleSeedDefaults} disabled={seeding || !aiEnabled}>
             {seeding ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Sparkles className="mr-1 h-4 w-4" />}
             Modèles par défaut
           </Button>
@@ -783,9 +788,18 @@ export default function TemplatesPage() {
             <RefreshCw className={cn('mr-1 h-4 w-4', syncing && 'animate-spin')} />
             Synchroniser
           </Button>
-          <Button size="sm" onClick={openChoose}>
-            <Plus className="mr-1 h-4 w-4" />Nouveau modèle
-          </Button>
+          {aiEnabled ? (
+            <Button size="sm" onClick={openChoose}>
+              <Plus className="mr-1 h-4 w-4" />Nouveau modèle
+            </Button>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <Button size="sm" disabled className="cursor-not-allowed opacity-60">
+                <Plus className="mr-1 h-4 w-4" />Nouveau modèle
+              </Button>
+              <UpgradeBadge />
+            </div>
+          )}
         </div>
       </div>
 

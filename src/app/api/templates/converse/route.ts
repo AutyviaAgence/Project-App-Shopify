@@ -6,6 +6,7 @@ import { generateTemplates } from '@/lib/templates/generate'
 import { TEMPLATE_VARIABLES } from '@/lib/templates/variables'
 import { USE_CASES } from '@/lib/templates/use-cases'
 import { buildStoreContextPrompt } from '@/lib/shopify/sync'
+import { canUseAiOrOnboarding } from '@/lib/plans/gate'
 
 /**
  * POST /api/templates/converse
@@ -26,6 +27,9 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+
+  const gate = await canUseAiOrOnboarding(user.id)
+  if (!gate.allowed) return NextResponse.json({ error: 'L’assistant IA de création de modèles nécessite un plan payant.', upgrade: true }, { status: 403 })
 
   const body = (await req.json().catch(() => ({}))) as { messages?: Msg[] }
   const messages = (body.messages || []).filter((m) => m && m.content?.trim()).slice(-20)

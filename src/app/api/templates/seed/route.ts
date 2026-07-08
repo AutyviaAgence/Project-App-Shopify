@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { DEFAULT_TEMPLATES } from '@/lib/whatsapp-cloud/default-templates'
+import { canCreateContent } from '@/lib/plans/gate'
 
 /**
  * POST /api/templates/seed
@@ -16,6 +17,9 @@ export async function POST(req: NextRequest) {
   if (authError || !user) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
+
+  const gate = await canCreateContent(user.id)
+  if (!gate.allowed) return NextResponse.json({ error: 'La création de modèles nécessite un plan payant.', upgrade: true }, { status: 403 })
 
   const body = await req.json().catch(() => ({}))
   const onlyKey = typeof body.key === 'string' ? body.key : null

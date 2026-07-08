@@ -26,6 +26,8 @@ type SubscriptionInfo = {
   auditStatus: AuditStatus
   onboardingPlan: PlanId | null
   configurateurSubmitted: boolean
+  /** L'IA (agent, génération, assistant) est-elle disponible ? (payant/trial) */
+  aiEnabled: boolean
 }
 
 export function useSubscription() {
@@ -91,6 +93,7 @@ export function useSubscription() {
           auditStatus: (data.data.audit_status || 'none') as AuditStatus,
           onboardingPlan: (data.data.onboarding_plan || null) as PlanId | null,
           configurateurSubmitted: data.data.configurateur_submitted === true,
+          aiEnabled: data.data.aiEnabled === true,
         })
       }
     } catch (error) {

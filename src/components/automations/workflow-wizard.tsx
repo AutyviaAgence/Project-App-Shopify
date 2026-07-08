@@ -10,6 +10,8 @@ import { CONDITION_FIELDS } from '@/components/automations/builder/field-labels'
 import type { WorkflowGraph, WorkflowNode, WorkflowEdge, ConditionRule } from '@/lib/automations/graph-types'
 import type { WhatsAppTemplate } from '@/types/database'
 import { TemplateBubble } from '@/components/template-bubble'
+import { useSubscription } from '@/hooks/use-subscription'
+import { UpgradeBadge } from '@/components/upgrade-badge'
 import { VARIABLE_BY_KEY } from '@/lib/templates/variables'
 
 const DELAY_PRESETS: { label: string; minutes: number }[] = [
@@ -39,6 +41,10 @@ export function WorkflowWizard({
   onComplete: (data: { name: string; graph: WorkflowGraph; trigger: TriggerEvent }) => void
   onCancel: () => void
 }) {
+  const { subscription } = useSubscription()
+  // L'ASSISTANT IA du wizard est réservé aux plans payants ; la création
+  // manuelle d'automatisation reste ouverte (plan Gratuit inclus).
+  const aiEnabled = subscription?.aiEnabled !== false
   const [step, setStep] = useState(0)
   const [event, setEvent] = useState<TriggerEvent | null>(null)
   const [useCondition, setUseCondition] = useState(false)
@@ -169,8 +175,15 @@ export function WorkflowWizard({
       {/* ── Étape 0 : Événement ── */}
       {step === 0 && (
         <div className="space-y-3">
-          <AiHelp value={aiText} onChange={setAiText} busy={aiBusy} onGo={suggestEvent}
-            placeholder="Ex : quand un client abandonne son panier…" />
+          {aiEnabled ? (
+            <AiHelp value={aiText} onChange={setAiText} busy={aiBusy} onGo={suggestEvent}
+              placeholder="Ex : quand un client abandonne son panier…" />
+          ) : (
+            <div className="flex items-center justify-between gap-2 rounded-xl border border-dashed p-3 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5" /> L’assistant IA vous aide à décrire l’événement.</span>
+              <UpgradeBadge />
+            </div>
+          )}
           {['Commande', 'Contact', 'Conversation', 'Planifié'].map((group) => (
             <div key={group} className="space-y-1.5">
               <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{group}</p>
@@ -206,8 +219,10 @@ export function WorkflowWizard({
           </div>
           {useCondition && (
             <div className="space-y-2 rounded-lg border p-3">
-              <AiHelp value={aiText} onChange={setAiText} busy={aiBusy} onGo={suggestCondition}
-                placeholder="Ex : si la commande dépasse 100 €…" />
+              {aiEnabled && (
+                <AiHelp value={aiText} onChange={setAiText} busy={aiBusy} onGo={suggestCondition}
+                  placeholder="Ex : si la commande dépasse 100 €…" />
+              )}
               <div className="flex flex-wrap items-center gap-2">
                 <select value={rule.field}
                   onChange={(e) => { const f = CONDITION_FIELDS.find((x) => x.value === e.target.value)!; setRule({ field: f.value, op: f.ops[0], value: f.valueType === 'boolean' ? true : '' }) }}

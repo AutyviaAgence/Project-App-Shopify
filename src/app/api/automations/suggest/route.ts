@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { logAiUsage } from '@/lib/openai/usage-log'
 import { TRIGGER_EVENTS } from '@/lib/automations/types'
 import { CONDITION_FIELDS } from '@/components/automations/builder/field-labels'
+import { canUseAiOrOnboarding } from '@/lib/plans/gate'
 
 /**
  * POST /api/automations/suggest — Aide IA contextuelle du wizard d'automatisation.
@@ -18,6 +19,9 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+
+  const gate = await canUseAiOrOnboarding(user.id)
+  if (!gate.allowed) return NextResponse.json({ error: 'L’assistant IA nécessite un plan payant.', upgrade: true }, { status: 403 })
 
   const { kind, text } = (await req.json().catch(() => ({}))) as { kind?: string; text?: string }
   const phrase = (text || '').trim()

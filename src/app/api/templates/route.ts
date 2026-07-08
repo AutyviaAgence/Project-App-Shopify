@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import type { TemplateButton, TemplateCard } from '@/types/database'
 import { guessUseCase, type UseCaseKey } from '@/lib/templates/use-cases'
+import { canCreateContent } from '@/lib/plans/gate'
 
 /** Compte les variables {{1}}, {{2}}… dans un texte */
 function countVariables(text: string): number {
@@ -36,6 +37,10 @@ export async function POST(req: NextRequest) {
   if (authError || !user) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
+
+  // Création de modèles : plan payant (offerte pendant l'onboarding).
+  const gate = await canCreateContent(user.id)
+  if (!gate.allowed) return NextResponse.json({ error: 'La création de modèles nécessite un plan payant.', upgrade: true }, { status: 403 })
 
   const body = await req.json().catch(() => ({}))
   const { session_id, name, language, category, use_case, body_text, header_text, footer_text, sample_values, header_type, header_media_url, buttons, variable_keys, template_type, carousel_cards, lto_title, lto_default_hours } = body as {
