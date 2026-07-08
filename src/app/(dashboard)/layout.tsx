@@ -98,8 +98,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // Nouveau modèle : accès direct (essai libre). Plus de redirection forcée
   // vers le configurateur/welcome-v2. Les limites (conversations/tokens IA)
   // sont gérées au cas par cas ; l'abonnement se gère depuis /subscription.
-  // Blocage niveau 2 : a un plan mais subscription inactive (past_due/canceled)
-  const isBlocked = !isAdmin && subscription && !!plan && !subscription.isActive && !isAllowedPage
+  // Blocage niveau 2 : a un plan PAYANT mais subscription inactive
+  // (past_due/canceled). Le plan Gratuit garde l'accès (sans IA) → jamais bloqué.
+  const isBlocked = !isAdmin && subscription && !!plan && plan !== 'free' && !subscription.isActive && !isAllowedPage
 
   // Feature gating : Lifecycle est désormais universel (remplace Tags). Seule
   // l'analyse IA dedans est gated par plan (géré dans la page elle-même).

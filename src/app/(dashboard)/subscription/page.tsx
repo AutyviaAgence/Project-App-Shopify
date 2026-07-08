@@ -274,9 +274,13 @@ function SubscriptionContent() {
     return date.toLocaleDateString(dateLocale, { day: 'numeric', month: 'long', year: 'numeric' })
   }
 
-  const isActive = subscription?.status === 'active' || subscription?.status === 'trialing'
+  // Sans abonnement payant explicite, le compte est sur le plan GRATUIT (0€) :
+  // c'est un vrai plan (pas « aucun plan »), avec accès à la plateforme (sans IA).
+  const currentPlan = (subscription?.plan ?? 'free') as PlanId
+  const isFree = currentPlan === 'free'
+  // Accès : payant actif/trial OU plan gratuit (le Gratuit n'est jamais « suspendu »).
+  const isActive = subscription?.status === 'active' || subscription?.status === 'trialing' || isFree
   const isCancelled = subscription?.status === 'canceled'
-  const currentPlan = subscription?.plan ?? null
   // For cancelled subscriptions, ignore pending_plan — user needs to re-subscribe fresh
   const pendingPlan = !isCancelled ? (subscription?.pendingPlan ?? null) : null
   const planDetails = PLANS.find(p => p.id === selectedPlan)
@@ -398,21 +402,24 @@ function SubscriptionContent() {
                 {/* Accès */}
                 <div className={cn(
                   'rounded-lg border p-3 space-y-0.5 col-span-2 sm:col-span-1',
-                  subscription.isActive ? 'bg-green-500/5 border-green-500/20' : 'bg-red-500/5 border-red-500/20',
+                  isActive ? 'bg-green-500/5 border-green-500/20' : 'bg-red-500/5 border-red-500/20',
                 )}>
                   <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    {subscription.isActive
+                    {isActive
                       ? <CheckCircle className="h-3 w-3 text-green-500" />
                       : <XCircle className="h-3 w-3 text-red-500" />}
                     Accès plateforme
                   </p>
-                  <p className={cn('text-sm font-semibold', subscription.isActive ? 'text-green-600' : 'text-red-600')}>
-                    {subscription.isActive ? 'Actif' : 'Suspendu'}
+                  <p className={cn('text-sm font-semibold', isActive ? 'text-green-600' : 'text-red-600')}>
+                    {isActive ? 'Actif' : 'Suspendu'}
                   </p>
-                  {subscription.status === 'canceled' && subscription.isActive && (
+                  {subscription.status === 'canceled' && isActive && (
                     <p className="text-xs text-orange-600 dark:text-orange-400">jusqu&apos;à fin de période</p>
                   )}
-                  {!subscription.isActive && (
+                  {isFree && (
+                    <p className="text-xs text-muted-foreground/70">Sans IA — passez à un plan payant pour l&apos;activer</p>
+                  )}
+                  {!isActive && !isFree && (
                     <p className="text-xs text-red-500/70">Réabonnez-vous pour accéder</p>
                   )}
                 </div>
