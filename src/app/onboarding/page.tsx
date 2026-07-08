@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import {
   Loader2, Sparkles, Check, ArrowLeft, ArrowRight, Store, MessageSquare,
   Bot, FileText, Workflow, CreditCard, ShieldCheck, PackageCheck, LogOut,
+  AlertTriangle,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { MascotRunner } from '@/components/mascot-runner'
@@ -96,6 +97,8 @@ export default function OnboardingPage() {
 
   // Étape Shopify
   const [shopInput, setShopInput] = useState('')
+  // Boutique déjà rattachée à un AUTRE compte (409) : domaine concerné → bannière.
+  const [shopTaken, setShopTaken] = useState<string | null>(null)
 
   // Étape WhatsApp
   const [waPhoneId, setWaPhoneId] = useState('')
@@ -261,14 +264,21 @@ export default function OnboardingPage() {
 
   /** Tente le lien direct (boutique déjà installée) — depuis CETTE session,
       qui est garantie authentifiée (pas de dépendance aux cookies du callback). */
-  async function tryDirectConnect(shop: string): Promise<'linked' | 'not_installed' | 'error'> {
+  async function tryDirectConnect(shop: string): Promise<'linked' | 'not_installed' | 'taken' | 'error'> {
     try {
       const res = await fetch('/api/shopify/connect', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ shop }),
       })
-      if (res.ok || res.status === 207) return 'linked'
+      if (res.ok || res.status === 207) { setShopTaken(null); return 'linked' }
       if (res.status === 404) return 'not_installed'
+      // 409 : la boutique appartient déjà à un autre compte → bannière persistante
+      // (pas un simple toast qui disparaît), et on ne retente pas d'installer.
+      if (res.status === 409) {
+        setShopTaken(shop)
+        localStorage.removeItem('onb_pending_shop')
+        return 'taken'
+      }
       const j = await res.json().catch(() => ({}))
       toast.error(j.error || 'Impossible de lier la boutique')
       return 'error'
@@ -284,6 +294,7 @@ export default function OnboardingPage() {
       toast.error('Domaine invalide — format attendu : maboutique.myshopify.com')
       return
     }
+    setShopTaken(null)
     // Mémorise la boutique en cours : au retour d'OAuth (quel que soit le
     // chemin), l'onboarding retentera le lien depuis sa propre session.
     localStorage.setItem('onb_pending_shop', shop)
@@ -297,7 +308,8 @@ export default function OnboardingPage() {
       goTo(s?.storeSynced ? 'whatsapp' : 'sync', 'Boutique liée ✓')
       return
     }
-    if (direct === 'error') { setBusy(false); return }
+    // Déjà liée à un autre compte, ou autre erreur : on s'arrête (pas d'OAuth).
+    if (direct === 'taken' || direct === 'error') { setBusy(false); return }
     window.location.href = `/api/shopify/install?shop=${encodeURIComponent(shop)}`
   }
 
@@ -494,7 +506,7 @@ export default function OnboardingPage() {
                     <span className="font-medium text-foreground"> Cette étape est indispensable.</span>
                   </p>
                   <div className="flex flex-col gap-2 sm:flex-row">
-                    <input value={shopInput} onChange={(e) => setShopInput(e.target.value)}
+                    <input value={shopInput} onChange={(e) => { setShopInput(e.target.value); if (shopTaken) setShopTaken(null) }}
                       onKeyDown={(e) => { if (e.key === 'Enter' && !busy) startShopifyInstall() }}
                       placeholder="maboutique.myshopify.com" disabled={busy}
                       className="h-12 flex-1 rounded-lg border border-input bg-background px-4 text-base" />
@@ -502,6 +514,20 @@ export default function OnboardingPage() {
                       {busy ? <><Loader2 className="mr-1 h-4 w-4 animate-spin" /> Connexion…</> : <>Connecter Shopify <ArrowRight className="ml-1 h-4 w-4" /></>}
                     </Button>
                   </div>
+                  {/* Boutique déjà rattachée à un autre compte Xeyo (sécurité) */}
+                  {shopTaken && (
+                    <div className="flex items-start gap-2.5 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+                      <div className="space-y-1">
+                        <p className="font-medium text-red-600 dark:text-red-400">Cette boutique est déjà connectée à un autre compte</p>
+                        <p className="text-xs text-muted-foreground">
+                          <span className="font-medium text-foreground">{shopTaken}</span> est rattachée à un autre compte Xeyo.
+                          Une boutique ne peut être liée qu&apos;à un seul compte. Connectez-vous avec le compte propriétaire,
+                          ou demandez-lui de la déconnecter (Réglages → Boutique Shopify) avant de la relier ici.
+                        </p>
+                      </div>
+                    </div>
+                  )}
                   <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                     <ShieldCheck className="h-3.5 w-3.5" /> Vous serez redirigé vers Shopify pour autoriser l’application, puis ramené ici automatiquement.
                   </p>

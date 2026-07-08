@@ -25,6 +25,8 @@ export default function ShopifyEmbeddedClient() {
   const [loading, setLoading] = useState(true)
   const [connecting, setConnecting] = useState(false)
   const [message, setMessage] = useState<string | null>(null)
+  // Boutique déjà rattachée à un autre compte (409) : bloque l'autolink en boucle.
+  const [taken, setTaken] = useState(false)
 
   const fetchStatus = useCallback(async () => {
     if (!shop) { setLoading(false); return }
@@ -42,11 +44,11 @@ export default function ShopifyEmbeddedClient() {
   // Retour de login (?autolink=1) : si la boutique n'est pas encore liée, lancer la liaison.
   const autolink = searchParams.get('autolink') === '1'
   useEffect(() => {
-    if (!loading && autolink && status && !status.linked && !connecting) {
+    if (!loading && autolink && status && !status.linked && !connecting && !taken) {
       handleConnect()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, autolink, status?.linked])
+  }, [loading, autolink, status?.linked, taken])
 
   async function handleConnect() {
     // Dans l'IFRAME de l'admin Shopify, les cookies de session Xeyo ne sont
@@ -72,6 +74,12 @@ export default function ShopifyEmbeddedClient() {
         const loginUrl = `${APP_BASE}/login?redirect=${back}`
         if (window.top) window.top.location.href = loginUrl
         else window.location.href = loginUrl
+        return
+      }
+      if (res.status === 409) {
+        // Boutique déjà liée à un autre compte Xeyo → message clair, pas de retry.
+        setTaken(true)
+        setConnecting(false)
         return
       }
       if (!res.ok && !json.data?.linked) throw new Error(json.error || 'Erreur de connexion')
@@ -126,12 +134,23 @@ export default function ShopifyEmbeddedClient() {
             {status?.shop_name || shop || 'Votre boutique Shopify'}
           </div>
 
+          {taken && (
+            <div className="mt-4 rounded-lg border border-red-300 bg-red-50 px-4 py-3 text-sm">
+              <p className="font-semibold text-red-700">Boutique déjà connectée à un autre compte</p>
+              <p className="mt-1 text-xs text-red-600/90">
+                <span className="font-medium">{shop}</span> est rattachée à un autre compte Xeyo. Une boutique ne peut
+                appartenir qu&apos;à un seul compte. Connectez-vous avec le compte propriétaire, ou demandez-lui de la
+                déconnecter avant de la relier ici.
+              </p>
+            </div>
+          )}
+
           <button
             onClick={handleConnect}
-            disabled={connecting}
+            disabled={connecting || taken}
             className="mt-4 w-full rounded-lg bg-gray-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:opacity-50"
           >
-            {connecting ? 'Configuration en cours…' : 'Connecter ma boutique'}
+            {connecting ? 'Configuration en cours…' : taken ? 'Indisponible' : 'Connecter ma boutique'}
           </button>
 
           <div className="my-5 flex items-center gap-3">

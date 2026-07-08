@@ -9,7 +9,7 @@ import {
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
-import { Loader2, Store, RefreshCw, Check, X, Trash2, Info, ExternalLink } from 'lucide-react'
+import { Loader2, Store, RefreshCw, Check, X, Trash2, Info, ExternalLink, AlertTriangle } from 'lucide-react'
 import { track } from '@/lib/posthog/events'
 
 /** Normalise une saisie en domaine xxx.myshopify.com (accepte URL, nom seul, etc.). */
@@ -49,6 +49,8 @@ export function ShopifyConnect() {
   const [confirmDisconnect, setConfirmDisconnect] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
   const [detailOpen, setDetailOpen] = useState(false)
+  // Boutique déjà rattachée à un AUTRE compte (409) → bannière persistante.
+  const [shopTaken, setShopTaken] = useState<string | null>(null)
 
   async function disconnect() {
     setDisconnecting(true)
@@ -67,14 +69,20 @@ export function ShopifyConnect() {
   }
 
   /** Lien direct depuis CETTE session (boutique déjà installée et libre). */
-  async function tryDirectConnect(shop: string): Promise<'linked' | 'not_installed' | 'error'> {
+  async function tryDirectConnect(shop: string): Promise<'linked' | 'not_installed' | 'taken' | 'error'> {
     try {
       const res = await fetch('/api/shopify/connect', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ shop }),
       })
-      if (res.ok || res.status === 207) return 'linked'
+      if (res.ok || res.status === 207) { setShopTaken(null); return 'linked' }
       if (res.status === 404) return 'not_installed'
+      // 409 : boutique déjà liée à un autre compte → bannière persistante.
+      if (res.status === 409) {
+        setShopTaken(shop)
+        localStorage.removeItem('onb_pending_shop')
+        return 'taken'
+      }
       const j = await res.json().catch(() => ({}))
       toast.error(j.error || 'Impossible de lier la boutique')
       return 'error'
@@ -91,6 +99,7 @@ export function ShopifyConnect() {
       toast.error('Entrez un domaine valide, ex : maboutique.myshopify.com')
       return
     }
+    setShopTaken(null)
     // Mémorise la boutique : au retour d'OAuth (quel que soit le chemin), le
     // dashboard retentera le lien depuis sa propre session.
     localStorage.setItem('onb_pending_shop', domain)
@@ -104,7 +113,8 @@ export function ShopifyConnect() {
       toast.success('Boutique connectée ✓')
       return
     }
-    if (direct === 'error') { setConnectingStore(false); return }
+    // Déjà liée à un autre compte, ou autre erreur : on s'arrête (pas d'OAuth).
+    if (direct === 'taken' || direct === 'error') { setConnectingStore(false); return }
     window.location.href = `/api/shopify/install?shop=${encodeURIComponent(domain)}`
   }
 
@@ -305,11 +315,25 @@ export function ShopifyConnect() {
           <p className="text-sm text-muted-foreground">L&apos;agent IA répond avec votre catalogue, vos FAQ et vos politiques.</p>
         </div>
       </div>
+      {/* Boutique déjà rattachée à un autre compte Xeyo (sécurité) */}
+      {shopTaken && (
+        <div className="flex items-start gap-2.5 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
+          <div className="space-y-1">
+            <p className="font-medium text-red-600 dark:text-red-400">Cette boutique est déjà connectée à un autre compte</p>
+            <p className="text-xs text-muted-foreground">
+              <span className="font-medium text-foreground">{shopTaken}</span> est rattachée à un autre compte Xeyo.
+              Une boutique ne peut être liée qu&apos;à un seul compte. Connectez-vous avec le compte propriétaire,
+              ou demandez-lui de la déconnecter avant de la relier ici.
+            </p>
+          </div>
+        </div>
+      )}
       {/* Saisie du domaine → lance l'OAuth Shopify, puis liaison auto au compte. */}
       <div className="flex gap-2">
         <Input
           value={shopInput}
-          onChange={(e) => setShopInput(e.target.value)}
+          onChange={(e) => { setShopInput(e.target.value); if (shopTaken) setShopTaken(null) }}
           onKeyDown={(e) => { if (e.key === 'Enter' && !connectingStore) startInstall() }}
           placeholder="maboutique.myshopify.com"
           className="h-9"
