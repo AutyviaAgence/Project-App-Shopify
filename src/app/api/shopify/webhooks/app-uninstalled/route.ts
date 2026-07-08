@@ -24,12 +24,19 @@ export async function POST(req: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  // Désinstaller = LIBÉRER : on délie aussi le compte (user_id null), sinon
-  // une réinstallation resterait coincée sur l'ancien propriétaire (409 au
-  // connect depuis un autre compte).
+  // Désinstaller = marquer INACTIVE + purger le token révoqué, mais SURTOUT
+  // conserver `user_id` : la boutique reste la propriété de son marchand.
+  // ⚠️ SÉCURITÉ : ne JAMAIS remettre user_id à null ici. Sinon un uninstall
+  // (déclenchable par Shopify lors d'une simple réinstallation, ou par
+  // n'importe qui ayant accès admin à la boutique) rendrait la boutique
+  // « orpheline », et le PREMIER autre compte qui la reconnecte se
+  // l'approprierait (vol de boutique inter-comptes). La réinstallation par le
+  // MÊME propriétaire fonctionne toujours (le garde autorise user_id === user.id).
+  // Le seul chemin légitime pour libérer une boutique est /api/shopify/disconnect,
+  // initié par le propriétaire lui-même.
   const { error } = await admin
     .from('shopify_stores')
-    .update({ is_active: false, access_token: '', subscription_status: null, user_id: null })
+    .update({ is_active: false, access_token: '', subscription_status: null })
     .eq('shop_domain', shopDomain)
 
   if (error) console.error('[webhook app-uninstalled] update échec:', error.message)
