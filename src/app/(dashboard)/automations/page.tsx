@@ -151,6 +151,33 @@ export default function AutomationsPage() {
     } catch { toast.error('Erreur') } finally { setBusyId(null) }
   }
 
+  // Active (ou désactive) TOUS les workflows d'un coup. Si au moins un est
+  // inactif → on active tout ; sinon on désactive tout. Optimiste, en parallèle.
+  async function toggleAll() {
+    if (automations.length === 0) return
+    const target = automations.some((a) => !a.is_active) // true = on active tout
+    setBusyId('bulk')
+    // Optimiste tout de suite (retour visuel immédiat sur les pastilles).
+    setAutomations((prev) => prev.map((a) => ({ ...a, is_active: target })))
+    if (current) setCurrent((c) => (c ? { ...c, is_active: target } : c))
+    try {
+      const results = await Promise.allSettled(
+        automations.map((a) =>
+          fetch(`/api/automations/${a.id}`, {
+            method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ is_active: target }),
+          }).then((r) => { if (!r.ok) throw new Error() })
+        )
+      )
+      const failed = results.filter((r) => r.status === 'rejected').length
+      if (failed > 0) { toast.error(`${failed} workflow(s) non ${target ? 'activé' : 'désactivé'}(s)`); load() }
+      else {
+        if (target) track('automation_activated', { bulk: true, count: automations.length })
+        toast.success(target ? 'Tous les workflows activés' : 'Tous les workflows désactivés')
+      }
+    } finally { setBusyId(null) }
+  }
+
   async function remove(a: Automation) {
     if (!a.id) { setCurrent(automations[0] || null); return }
     setBusyId(a.id)
@@ -273,6 +300,28 @@ export default function AutomationsPage() {
           >
             <Plus className="h-4 w-4" /> Nouveau workflow
           </button>
+          {/* Bascule groupée : active tout si au moins un est OFF, sinon désactive tout. */}
+          {automations.length > 1 && (() => {
+            const willActivate = automations.some((a) => !a.is_active)
+            return (
+              <button
+                onClick={toggleAll}
+                disabled={busyId === 'bulk'}
+                title={willActivate ? 'Activer tous les workflows' : 'Désactiver tous les workflows'}
+                className={cn('mb-2 flex items-center justify-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors disabled:opacity-60',
+                  willActivate
+                    ? 'border-green-500/40 bg-green-500/10 text-green-600 hover:bg-green-500/20 dark:text-green-400'
+                    : 'border-border bg-muted text-muted-foreground hover:bg-muted/70')}
+              >
+                {busyId === 'bulk'
+                  ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  : <span className={cn('relative inline-flex h-3.5 w-6 shrink-0 items-center rounded-full transition-colors', willActivate ? 'bg-foreground/20' : 'bg-green-500/60')}>
+                      <span className={cn('inline-block h-2.5 w-2.5 transform rounded-full bg-white shadow transition-transform', willActivate ? 'translate-x-0.5' : 'translate-x-3')} />
+                    </span>}
+                {willActivate ? 'Tout activer' : 'Tout désactiver'}
+              </button>
+            )
+          })()}
           {/* Saisie inline d'un nouveau dossier (remplace window.prompt). */}
           {creatingFolder && (
             <div className="mb-2 flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/5 px-2 py-1.5">
