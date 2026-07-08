@@ -68,7 +68,8 @@ export async function POST(req: Request) {
   "tone": "professional | friendly | casual (déduis le ton adapté à la marque)",
   "languages": ["fr", ...] (langues probables des clients d'après la boutique/le pays),
   "system_prompt": "prompt système COMPLET (voir structure)",
-  "escalation_situations": "texte (4 à 8 lignes) décrivant les SITUATIONS où l'agent doit transférer à un conseiller humain, DÉDUITES des politiques de la boutique (retours, remboursements, délais, livraison, litiges) + bonnes pratiques e-commerce"
+  "escalation_situations": "texte (4 à 8 lignes) décrivant les SITUATIONS où l'agent doit transférer à un conseiller humain, DÉDUITES des politiques de la boutique (retours, remboursements, délais, livraison, litiges) + bonnes pratiques e-commerce",
+  "sample_questions": ["2 questions COURTES qu'un VRAI client de CETTE boutique poserait sur WhatsApp (basées sur le catalogue/le secteur réel), pour tester l'agent. Ex : « Vous avez ça en taille M ? », « Où en est ma commande #1024 ? ». Formulées comme un client, à la 1re personne."]
 }
 
 Le system_prompt (texte brut, titres en MAJUSCULES, ≥500 mots, français) couvre :
@@ -133,6 +134,9 @@ Question hors du périmètre de l'agent (juridique, demande sur-mesure, gros vol
         escalation_situations: (typeof cfg.escalation_situations === 'string' && cfg.escalation_situations.trim())
           ? cfg.escalation_situations.trim()
           : DEFAULT_SITUATIONS,
+        sample_questions: (Array.isArray(cfg.sample_questions) ? cfg.sample_questions : [])
+          .filter((q: unknown): q is string => typeof q === 'string' && q.trim().length > 0)
+          .slice(0, 2),
         objectives,
       },
     })

@@ -12,6 +12,7 @@ import {
 import { createClient } from '@/lib/supabase/client'
 import { MascotRunner } from '@/components/mascot-runner'
 import { OnboardingFeedback } from '@/components/onboarding-feedback'
+import { AgentTryChat } from '@/components/onboarding/agent-try-chat'
 
 /**
  * GRAND ONBOARDING BLOQUANT (« blow up ») :
@@ -56,6 +57,7 @@ type PackItem = {
 type AgentCfg = {
   name: string; description: string; objective: string; tone: string
   languages: string[]; system_prompt: string; escalation_situations: string
+  sample_questions?: string[]
 }
 
 const STEPS = ['shopify', 'sync', 'whatsapp', 'agent', 'templates', 'automations', 'plan'] as const
@@ -605,6 +607,13 @@ export default function OnboardingPage() {
                           ))}
                         </div>
                       </div>
+                      {/* Test en direct de l'agent (avec le prompt en cours) */}
+                      <AgentTryChat
+                        agentId={agentId}
+                        systemPrompt={agentPrompt || agentCfg.system_prompt}
+                        suggestions={agentCfg.sample_questions || []}
+                      />
+
                       <div className="space-y-1.5">
                         <label className="text-sm font-medium">Situations de transfert à un humain <span className="text-xs text-muted-foreground">(détection IA)</span></label>
                         <textarea value={agentSituations} onChange={(e) => setAgentSituations(e.target.value)} rows={3}

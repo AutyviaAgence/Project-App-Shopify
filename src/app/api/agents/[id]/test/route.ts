@@ -61,12 +61,19 @@ export async function POST(
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
+  // Gate IA — EXCEPTION onboarding : tester l'agent doit marcher AVANT le
+  // choix du plan (le test fait partie de la config initiale offerte).
   const gate = await canUseAi(user.id)
   if (!gate.allowed) {
-    return NextResponse.json(
-      { error: "Cette fonctionnalité IA nécessite un plan payant." },
-      { status: 403 }
-    )
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: prof } = await (supabase as any)
+      .from('profiles').select('onboarding_completed_at').eq('id', user.id).maybeSingle()
+    if (prof?.onboarding_completed_at) {
+      return NextResponse.json(
+        { error: "Cette fonctionnalité IA nécessite un plan payant." },
+        { status: 403 }
+      )
+    }
   }
 
   // Récupérer l'agent
@@ -86,9 +93,11 @@ export async function POST(
   }
 
   const body = await req.json()
-  const { message, history } = body as {
+  const { message, history, system_prompt_override } = body as {
     message: string
     history?: ChatMessage[]
+    /** Prompt en cours d'édition (onboarding) — testé sans sauvegarder l'agent. */
+    system_prompt_override?: string
   }
 
   if (!message || typeof message !== 'string' || message.trim().length === 0) {
@@ -145,7 +154,11 @@ export async function POST(
   const dateStr = now.toLocaleDateString('fr-FR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'Europe/Paris' })
   const timeStr = now.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' })
 
-  let systemPrompt = agent.system_prompt
+  // Onboarding : on teste le prompt en cours d'édition (override), sinon celui
+  // sauvegardé sur l'agent.
+  let systemPrompt = (typeof system_prompt_override === 'string' && system_prompt_override.trim())
+    ? system_prompt_override.trim()
+    : agent.system_prompt
 
   // Détection automatique de langue — injectée EN PREMIER pour priorité maximale
   if (agent.auto_detect_language) {
