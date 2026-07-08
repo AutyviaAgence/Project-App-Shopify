@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge'
 import { KPICard } from '@/components/stats/kpi-card'
 import { EngagementFunnel } from '@/components/stats/engagement-funnel'
 import { StatsOverviewBoard } from '@/components/stats/overview-board'
+import { AutomationsBoard } from '@/components/stats/automations-board'
 import { OptinsTab } from '@/components/stats/optins-tab'
 import dynamic from 'next/dynamic'
 
@@ -221,6 +222,7 @@ export default function StatsPage() {
           <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <TabsList className="w-max gap-1">
               <TabsTrigger value="overview">{t('stats.overview')}</TabsTrigger>
+              <TabsTrigger value="automations">Automatisations</TabsTrigger>
               <TabsTrigger value="agents">{t('stats.agents_tab')}</TabsTrigger>
               <TabsTrigger value="lifecycle">{t('stats.lifecycle_tab')}</TabsTrigger>
               <TabsTrigger value="contacts">{t('stats.contacts_tab')}</TabsTrigger>
@@ -239,10 +241,15 @@ export default function StatsPage() {
                 title: t('stats.title'),
                 perDay: t('stats.messages_per_day'),
                 aiResponse: t('stats.ai_response_rate'),
-                templates: 'Modèles WhatsApp',
-                templatesSub: 'Pré-approuvés par Meta, prêts pour relancer et convertir.',
               }}
             />
+          </TabsContent>
+
+          {/* ================================================================ */}
+          {/* === Automatisations (entonnoir + A/B) === */}
+          {/* ================================================================ */}
+          <TabsContent value="automations">
+            <AutomationsBoard days={parseInt(period, 10) || 30} />
           </TabsContent>
 
           {/* ================================================================ */}

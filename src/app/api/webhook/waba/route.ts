@@ -212,6 +212,15 @@ export async function POST(req: NextRequest) {
                   .single()
 
                 if (conv?.contact_id) {
+                  // Test A/B : le contact a LU notre message → marque ses
+                  // assignations comme "opened" (taux d'ouverture de l'entonnoir).
+                  supabase
+                    .from('ab_test_assignments')
+                    .update({ opened: true, opened_at: statusTs })
+                    .eq('contact_id', conv.contact_id)
+                    .eq('opened', false)
+                    .then(undefined, () => {})
+
                   const { data: readContact } = await supabase
                     .from('contacts')
                     .select('name')

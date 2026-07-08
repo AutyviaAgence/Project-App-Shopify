@@ -172,16 +172,11 @@ async function processJob(
       if (d) { await deferJob(supabase, job.id, now, d); return 'deferred' }
       await mark(supabase, job.id, 'failed', r.error || 'échec'); return 'failed'
     }
-    // Test A/B : enregistre la variante reçue par ce contact (pour les stats).
-    if (step.abTest) {
-      await supabase.from('ab_test_assignments').upsert({
-        user_id: auto.user_id ?? null,
-        automation_id: auto.id,
-        node_id: step.abTest.nodeId,
-        contact_id: job.contact_id,
-        variant_key: step.abTest.variant,
-      }, { onConflict: 'automation_id,node_id,contact_id', ignoreDuplicates: true })
-    }
+    // Engagement : on enregistre CHAQUE envoi (pour l'entonnoir global +
+    // les résultats A/B). Variante réelle si nœud A/B, sinon '_'.
+    await recordEngagement(supabase, auto.user_id, auto.id,
+      step.abTest ? step.abTest.nodeId : '_send', job.contact_id,
+      step.abTest ? step.abTest.variant : '_')
     if (step.nextNodeId) {
       // Continuer le workflow immédiatement au prochain tick depuis le nœud suivant.
       await supabase.from('automation_jobs').update({ current_node_id: step.nextNodeId, scheduled_at: now.toISOString() }).eq('id', job.id)
@@ -201,11 +196,37 @@ async function processJob(
     contactId: job.contact_id,
     variables: eventData.variables || {},
   })
-  if (r.ok) { await mark(supabase, job.id, 'sent', null); return 'sent' }
+  if (r.ok) {
+    await recordEngagement(supabase, auto.user_id, auto.id, '_send', job.contact_id, '_')
+    await mark(supabase, job.id, 'sent', null); return 'sent'
+  }
   const d = deferReason(r.error)
   if (d) { await deferJob(supabase, job.id, now, d); return 'deferred' }
   await mark(supabase, job.id, 'failed', r.error || 'échec')
   return 'failed'
+}
+
+/**
+ * Enregistre un envoi initié pour l'entonnoir + les stats A/B.
+ * Une ligne par (automation, node, contact) — idempotent. Les colonnes
+ * opened/responded/ordered sont ensuite remplies par les webhooks.
+ */
+async function recordEngagement(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  userId: string | null,
+  automationId: string,
+  nodeId: string,
+  contactId: string,
+  variant: string
+) {
+  await supabase.from('ab_test_assignments').upsert({
+    user_id: userId ?? null,
+    automation_id: automationId,
+    node_id: nodeId,
+    contact_id: contactId,
+    variant_key: variant,
+  }, { onConflict: 'automation_id,node_id,contact_id', ignoreDuplicates: true })
 }
 
 /**
