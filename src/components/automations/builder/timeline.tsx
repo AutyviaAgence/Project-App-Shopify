@@ -1,13 +1,25 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Clock, GitBranch, MessageSquare, Plus, ShoppingBag, Trash2, FlaskConical } from 'lucide-react'
+import { Clock, GitBranch, MessageSquare, Plus, ShoppingBag, Trash2, FlaskConical, Users, CalendarClock } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  SelectGroup, SelectLabel, SelectSeparator,
+} from '@/components/ui/select'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
 import { ChevronDown } from 'lucide-react'
 import { TRIGGER_EVENTS } from '@/lib/automations/types'
+
+/** Groupes de déclencheurs (ordre d'affichage + repère visuel). Les noms
+ *  correspondent au champ `group` de TRIGGER_EVENTS. */
+const TRIGGER_GROUPS = [
+  { name: 'Commande', icon: ShoppingBag, color: 'text-blue-500' },
+  { name: 'Contact', icon: Users, color: 'text-emerald-500' },
+  { name: 'Conversation', icon: MessageSquare, color: 'text-violet-500' },
+  { name: 'Planifié', icon: CalendarClock, color: 'text-amber-500' },
+] as const
 import { CONDITION_FIELDS, COUNTRY_OPTIONS, LANGUAGE_OPTIONS } from './field-labels'
 import { chainFrom, getNode } from './timeline-model'
 import { TemplateBubble } from '@/components/template-bubble'
@@ -174,7 +186,33 @@ function TriggerBlock({ node, onPatch }: { node: WorkflowNode; onPatch: (id: str
       </div>
       <Select value={node.event} onValueChange={(v) => onPatch(node.id, { event: v as never })}>
         <SelectTrigger><SelectValue /></SelectTrigger>
-        <SelectContent>{TRIGGER_EVENTS.map((e) => <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>)}</SelectContent>
+        {/* max-h borné : sans lui Radix étire le menu sur toute la hauteur
+            disponible, le menu n'a donc rien à faire défiler et la molette
+            scrolle la page derrière. Groupes + icônes + descriptions : 15
+            déclencheurs à plat étaient illisibles. */}
+        <SelectContent className="max-h-[min(24rem,60vh)] w-[19rem]">
+          {TRIGGER_GROUPS.map((g, gi) => {
+            const items = TRIGGER_EVENTS.filter((e) => e.group === g.name)
+            if (items.length === 0) return null
+            const Icon = g.icon
+            return (
+              <SelectGroup key={g.name}>
+                {gi > 0 && <SelectSeparator />}
+                <SelectLabel className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground">
+                  <Icon className={cn('h-3.5 w-3.5', g.color)} /> {g.name}
+                </SelectLabel>
+                {items.map((e) => (
+                  <SelectItem key={e.value} value={e.value} className="items-start py-1.5">
+                    <div className="min-w-0">
+                      <p className="text-sm leading-tight">{e.label}</p>
+                      <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-muted-foreground">{e.description}</p>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectGroup>
+            )
+          })}
+        </SelectContent>
       </Select>
       <p className="mt-1.5 text-xs text-muted-foreground">{TRIGGER_EVENTS.find((e) => e.value === node.event)?.description}</p>
 
