@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, use, useRef } from 'react'
+import { useEffect, useState, use, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { toast } from 'sonner'
@@ -9,6 +9,10 @@ import { AgentTestChat } from '@/components/agent-test-chat'
 import { BlobLoaderScreen } from '@/components/blob-loader'
 import { Switch } from '@/components/ui/switch'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import {
@@ -17,6 +21,7 @@ import {
   Upload, Tag, Play,
   Sparkles, BookOpen, Smartphone, SlidersHorizontal, Settings2,
   Globe, Shield, Bot, Image as ImageIcon, ChevronRight, MessageSquare,
+  Eye,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { track } from '@/lib/posthog/events'
@@ -38,7 +43,18 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   const [links, setLinks]           = useState<WALink[]>([])
   const [docs, setDocs]             = useState<KnowledgeDocument[]>([])
   const [images, setImages]         = useState<KnowledgeImage[]>([])
+  // Tous les médias du compte (y compris ceux rattachés à d'autres agents),
+  // pour pouvoir les réutiliser depuis la bibliothèque.
+  const [allImages, setAllImages]   = useState<KnowledgeImage[]>([])
+  const [mediaLibraryOpen, setMediaLibraryOpen] = useState(false)
+  // URLs signées des vignettes, mises en cache par id de média.
+  const [mediaUrls, setMediaUrls]   = useState<Record<string, string>>({})
   const [allDocs, setAllDocs]       = useState<KnowledgeDocument[]>([])
+  // Visualisation d'un document texte (les PDF s'ouvrent dans un onglet).
+  const [viewingDoc, setViewingDoc] = useState<{ name: string; content: string } | null>(null)
+  // Suppression d'un document de la bibliothèque : confirmation obligatoire.
+  const [confirmDeleteDoc, setConfirmDeleteDoc] = useState<KnowledgeDocument | null>(null)
+  const [deletingDoc, setDeletingDoc] = useState<string | null>(null)
   const [uploadingDoc, setUploadingDoc] = useState(false)
   const uploadDocRef = useRef<HTMLInputElement>(null)
 
@@ -119,7 +135,10 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
         setSessions(sessionsJson.data || [])
         setLinks((linksJson.data || []).filter((l: WALink) => l.ai_agent_id === id))
         setAllDocs(docsJson.data || [])
-        setImages((imgsJson.data || []).filter((i: KnowledgeImage) => i.agent_id === id))
+        // On garde TOUS les médias du compte : ceux de cet agent, ceux partagés
+        // (agent_id null) et ceux d'autres agents — pour pouvoir les réutiliser.
+        setAllImages(imgsJson.data || [])
+        setImages((imgsJson.data || []).filter((i: KnowledgeImage) => i.agent_id === id || i.agent_id === null))
         const kbJson = await (await fetch(`/api/agents/${id}/knowledge`)).json()
         setDocs(kbJson.data || [])
       } finally { setLoading(false) }
@@ -184,6 +203,79 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   async function handleDetachDoc(docId: string) {
     await fetch(`/api/agents/${id}/knowledge/${docId}`, { method: 'DELETE' })
     setDocs(prev => prev.filter(d => d.id !== docId))
+  }
+
+  /** URL signée d'un média (mise en cache) — sert aux vignettes et à l'aperçu. */
+  const loadMediaUrl = useCallback(async (imgId: string): Promise<string | null> => {
+    if (mediaUrls[imgId]) return mediaUrls[imgId]
+    try {
+      const res = await fetch(`/api/knowledge-images/${imgId}`)
+      const json = await res.json()
+      if (!res.ok || !json.url) return null
+      setMediaUrls(prev => ({ ...prev, [imgId]: json.url }))
+      return json.url
+    } catch { return null }
+  }, [mediaUrls])
+
+  /** Ouvre le média dans un nouvel onglet (image, vidéo ou document). */
+  async function handleViewMedia(img: KnowledgeImage) {
+    const url = await loadMediaUrl(img.id)
+    if (url) window.open(url, '_blank', 'noopener,noreferrer')
+    else toast.error('Média illisible')
+  }
+
+  /** Rattache un média à CET agent, ou le partage avec tous (agent_id null).
+   *  Un média n'appartient qu'à un agent à la fois : « partager » est le seul
+   *  moyen de le rendre disponible à plusieurs. */
+  async function handleReuseMedia(img: KnowledgeImage, shareWithAll: boolean) {
+    try {
+      const res = await fetch('/api/knowledge-images', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: img.id, agent_id: shareWithAll ? null : id }),
+      })
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Erreur')
+      const nextAgentId = shareWithAll ? null : (id as string)
+      setAllImages(prev => prev.map(i => i.id === img.id ? { ...i, agent_id: nextAgentId } : i))
+      setImages(prev => {
+        const without = prev.filter(i => i.id !== img.id)
+        return [{ ...img, agent_id: nextAgentId }, ...without]
+      })
+      toast.success(shareWithAll ? 'Média partagé avec tous les agents' : 'Média rattaché à cet agent')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erreur')
+    }
+  }
+
+  /** Visualiser un document : PDF → nouvel onglet, texte → dialogue de lecture. */
+  async function handleViewDoc(doc: KnowledgeDocument) {
+    try {
+      const res = await fetch(`/api/knowledge/${doc.id}/download`)
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Document illisible')
+      if (json.type === 'pdf' && json.url) window.open(json.url, '_blank', 'noopener,noreferrer')
+      else setViewingDoc({ name: json.name || doc.name, content: json.content || '' })
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erreur')
+    }
+  }
+
+  /** Supprimer un document de la BIBLIOTHÈQUE : il disparaît de tous les agents
+   *  et son fichier est effacé. Irréversible → confirmation explicite. */
+  async function handleDeleteDoc(doc: KnowledgeDocument) {
+    setDeletingDoc(doc.id)
+    try {
+      const res = await fetch(`/api/knowledge/${doc.id}`, { method: 'DELETE' })
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Suppression impossible')
+      setAllDocs(prev => prev.filter(d => d.id !== doc.id))
+      setDocs(prev => prev.filter(d => d.id !== doc.id))
+      setConfirmDeleteDoc(null)
+      toast.success('Document supprimé')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erreur')
+    } finally {
+      setDeletingDoc(null)
+    }
   }
 
   // Upload d'un document sur place (puis attaché automatiquement à l'agent)
@@ -483,31 +575,43 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
             trailing={<button onClick={() => setAddMediaOpen(true)} className="flex items-center gap-1 text-[13px] text-blue-500 hover:text-blue-600 transition-colors"><Plus className="h-3.5 w-3.5" /> Ajouter</button>}
           >
             {images.length === 0 ? (
-              <button onClick={() => setAddMediaOpen(true)} className="w-full py-6 text-center text-sm text-muted-foreground hover:text-foreground transition-colors">
-                Aucun média · Ajouter une image, vidéo ou PDF →
-              </button>
-            ) : (
-              images.map((img, i) => {
-                const kind = img.media_kind || 'image'
-                const Icon = kind === 'video' ? Play : kind === 'document' ? FileText : Tag
-                const color = kind === 'video' ? 'text-purple-500' : kind === 'document' ? 'text-blue-500' : 'text-orange-500'
-                const tag = kind === 'video' ? 'VIDEO' : kind === 'document' ? 'DOC' : 'IMAGE'
-                return (
-                  <div key={img.id}>
-                    {i > 0 && <Divider />}
-                    <div className="group flex items-center gap-3 py-3">
-                      <Icon className={cn('h-4 w-4 shrink-0', color)} />
-                      <div className="min-w-0 flex-1">
-                        <code className="text-xs font-mono">[{tag}:{img.ref}]</code>
-                        <span className="block truncate text-[11px] text-muted-foreground">{img.filename}</span>
-                      </div>
-                      <button onClick={() => handleDeleteMedia(img.id)} className="opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive transition-colors" />
+              <div className="py-6 text-center">
+                <p className="text-sm text-muted-foreground">Aucun média pour cet agent.</p>
+                <div className="mt-2 flex items-center justify-center gap-3 text-sm">
+                  <button onClick={() => setAddMediaOpen(true)} className="text-blue-500 hover:text-blue-600 transition-colors">
+                    Ajouter un média
+                  </button>
+                  {allImages.length > 0 && (
+                    <>
+                      <span className="text-muted-foreground/50">·</span>
+                      <button onClick={() => setMediaLibraryOpen(true)} className="text-blue-500 hover:text-blue-600 transition-colors">
+                        Réutiliser depuis la bibliothèque ({allImages.length})
                       </button>
-                    </div>
-                  </div>
-                )
-              })
+                    </>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Grille de vignettes : on VOIT le média, au lieu de lire une balise. */}
+                <div className="grid grid-cols-2 gap-2 py-1 sm:grid-cols-3">
+                  {images.map((img) => (
+                    <MediaTile
+                      key={img.id}
+                      img={img}
+                      loadUrl={loadMediaUrl}
+                      onView={() => handleViewMedia(img)}
+                      onDelete={() => handleDeleteMedia(img.id)}
+                    />
+                  ))}
+                </div>
+                {allImages.length > images.length && (
+                  <button onClick={() => setMediaLibraryOpen(true)}
+                    className="mt-2 w-full rounded-xl border border-dashed py-2 text-xs text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground">
+                    Réutiliser un média d’un autre agent ({allImages.length - images.length})
+                  </button>
+                )}
+              </>
             )}
           </Group>
           </>)}
@@ -666,12 +770,25 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
               if (attachable.length === 0) {
                 return <p className="text-sm text-center text-muted-foreground py-4">Aucun document à attacher. Uploadez-en un ci-dessous.</p>
               }
+              // Une ligne = attacher (clic sur le nom) + voir + supprimer.
+              // Un <button> ne peut pas en contenir d'autres → conteneur <div>.
               return attachable.map(doc => (
-                <button key={doc.id} onClick={() => handleAttachDoc(doc.id)}
-                  className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-muted/50 transition-colors text-left">
-                  <FileText className="h-4 w-4 text-blue-500 shrink-0" />
-                  <span className="text-sm">{doc.name}</span>
-                </button>
+                <div key={doc.id}
+                  className="group flex items-center gap-1 rounded-xl pr-1 hover:bg-muted/50 transition-colors">
+                  <button onClick={() => handleAttachDoc(doc.id)}
+                    className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2.5 text-left">
+                    <FileText className="h-4 w-4 text-blue-500 shrink-0" />
+                    <span className="truncate text-sm">{doc.name}</span>
+                  </button>
+                  <button onClick={() => handleViewDoc(doc)} title="Visualiser"
+                    className="shrink-0 rounded-lg p-2 text-muted-foreground opacity-0 transition-all hover:bg-muted hover:text-foreground group-hover:opacity-100">
+                    <Eye className="h-4 w-4" />
+                  </button>
+                  <button onClick={() => setConfirmDeleteDoc(doc)} title="Supprimer de la bibliothèque"
+                    className="shrink-0 rounded-lg p-2 text-muted-foreground opacity-0 transition-all hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100">
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
               ))
             })()}
           </div>
@@ -691,6 +808,84 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
             {uploadingDoc ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
             Uploader un document
           </Button>
+        </DialogContent>
+      </Dialog>
+
+      {/* Lecture d'un document texte (les PDF s'ouvrent dans un onglet). */}
+      <Dialog open={!!viewingDoc} onOpenChange={(o) => !o && setViewingDoc(null)}>
+        <DialogContent className="sm:max-w-2xl rounded-2xl">
+          <DialogHeader>
+            <DialogTitle className="truncate">{viewingDoc?.name}</DialogTitle>
+            <DialogDescription>Contenu utilisé par l&apos;agent pour répondre.</DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[60vh] overflow-y-auto rounded-xl border bg-muted/30 p-4">
+            <pre className="whitespace-pre-wrap break-words font-sans text-sm text-foreground">
+              {viewingDoc?.content || 'Document vide.'}
+            </pre>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Suppression d'un document de la BIBLIOTHÈQUE : il quitte tous les agents. */}
+      <AlertDialog open={!!confirmDeleteDoc} onOpenChange={(o) => !o && setConfirmDeleteDoc(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer ce document ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong>{confirmDeleteDoc?.name}</strong> sera retiré de <strong>tous vos agents</strong> et
+              le fichier sera définitivement effacé. Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!deletingDoc}>Annuler</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={!!deletingDoc}
+              onClick={(e) => { e.preventDefault(); if (confirmDeleteDoc) handleDeleteDoc(confirmDeleteDoc) }}
+            >
+              {deletingDoc ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bibliothèque de médias : réutiliser un média déjà uploadé pour un autre
+          agent. Un média n'appartient qu'à un agent — d'où le choix « partager ». */}
+      <Dialog open={mediaLibraryOpen} onOpenChange={setMediaLibraryOpen}>
+        <DialogContent className="sm:max-w-2xl rounded-2xl">
+          <DialogHeader>
+            <DialogTitle>Bibliothèque de médias</DialogTitle>
+            <DialogDescription>
+              Réutilisez un média déjà envoyé par un autre agent. Un média appartient à un seul
+              agent — « Partager » le rend disponible pour tous.
+            </DialogDescription>
+          </DialogHeader>
+          {(() => {
+            const others = allImages.filter((i) => i.agent_id !== id && i.agent_id !== null)
+            if (others.length === 0) {
+              return <p className="py-6 text-center text-sm text-muted-foreground">Aucun média rattaché à un autre agent.</p>
+            }
+            return (
+              <div className="grid max-h-[55vh] grid-cols-2 gap-3 overflow-y-auto py-2 sm:grid-cols-3">
+                {others.map((img) => (
+                  <div key={img.id} className="space-y-1.5">
+                    <MediaTile img={img} loadUrl={loadMediaUrl} onView={() => handleViewMedia(img)} compact />
+                    <div className="flex gap-1">
+                      <Button size="sm" variant="outline" className="h-7 flex-1 text-[11px]"
+                        onClick={() => { handleReuseMedia(img, false); setMediaLibraryOpen(false) }}>
+                        Rattacher
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 flex-1 text-[11px]"
+                        onClick={() => { handleReuseMedia(img, true); setMediaLibraryOpen(false) }}>
+                        Partager
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
         </DialogContent>
       </Dialog>
 
@@ -813,6 +1008,61 @@ function SectionIcon({ icon: Icon, color = 'violet' }: { icon: React.ElementType
     <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-xl', ACCENT[color] || ACCENT.violet)}>
       <Icon className="h-[18px] w-[18px]" />
     </span>
+  )
+}
+
+/** Vignette d'un média : aperçu visuel (image), icône (vidéo/document), avec
+ *  la balise que l'agent utilisera et les actions voir / supprimer. */
+function MediaTile({ img, loadUrl, onView, onDelete, compact }: {
+  img: KnowledgeImage
+  loadUrl: (id: string) => Promise<string | null>
+  onView: () => void
+  onDelete?: () => void
+  compact?: boolean
+}) {
+  const [url, setUrl] = useState<string | null>(null)
+  const kind = img.media_kind || 'image'
+  const isImage = kind === 'image'
+
+  useEffect(() => {
+    if (!isImage) return
+    let alive = true
+    loadUrl(img.id).then((u) => { if (alive) setUrl(u) })
+    return () => { alive = false }
+  }, [img.id, isImage, loadUrl])
+
+  const Icon = kind === 'video' ? Play : kind === 'document' ? FileText : Tag
+  const color = kind === 'video' ? 'text-purple-500' : kind === 'document' ? 'text-blue-500' : 'text-orange-500'
+  const tag = kind === 'video' ? 'VIDEO' : kind === 'document' ? 'DOC' : 'IMAGE'
+
+  return (
+    <div className="group relative overflow-hidden rounded-xl border bg-muted/20 transition-colors hover:border-foreground/20">
+      <button onClick={onView} title="Ouvrir" className="block w-full">
+        <div className={cn('flex items-center justify-center overflow-hidden bg-muted/40', compact ? 'h-20' : 'h-24')}>
+          {isImage && url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={url} alt={img.filename} className="h-full w-full object-cover" />
+          ) : (
+            <Icon className={cn('h-7 w-7', color)} />
+          )}
+        </div>
+        <div className="px-2 py-1.5 text-left">
+          <code className="block truncate text-[10px] font-mono text-muted-foreground">[{tag}:{img.ref}]</code>
+          <span className="block truncate text-[10px] text-muted-foreground/70">{img.filename}</span>
+        </div>
+      </button>
+      {onDelete && (
+        <button onClick={onDelete} title="Retirer"
+          className="absolute right-1 top-1 rounded-lg bg-background/80 p-1 opacity-0 backdrop-blur transition-opacity hover:text-destructive group-hover:opacity-100">
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      )}
+      {img.agent_id === null && (
+        <span className="absolute left-1 top-1 rounded bg-background/80 px-1 py-0.5 text-[9px] font-medium text-muted-foreground backdrop-blur">
+          Tous
+        </span>
+      )}
+    </div>
   )
 }
 
