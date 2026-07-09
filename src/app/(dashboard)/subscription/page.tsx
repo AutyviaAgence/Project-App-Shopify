@@ -451,6 +451,19 @@ function SubscriptionContent() {
                 {buyingCredits ? 'Redirection…' : 'Recharger +500 conversations (45€)'}
               </Button>
             </div>
+            {/* Définition exacte, alignée sur countAiConversationsThisMonth() :
+                « conversations distinctes avec au moins un message sent_by=ai_agent ». */}
+            <p className="mt-2 text-sm text-muted-foreground">
+              Un <span className="font-medium text-foreground">crédit</span> = une{' '}
+              <span className="font-medium text-foreground">conversation IA</span> : une discussion
+              dans laquelle votre agent a répondu au moins une fois. Peu importe le nombre de
+              messages échangés ensuite — toute la conversation ne consomme qu’un seul crédit.
+            </p>
+            <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+              <li>• Ne consomment <span className="font-medium text-foreground">rien</span> : vos réponses manuelles, les automatisations et les modèles envoyés sans IA.</li>
+              <li>• Le compteur repart de zéro à chaque renouvellement mensuel.</li>
+              <li>• Les recharges achetées s’ajoutent au quota et <span className="font-medium text-foreground">ne périment pas</span>.</li>
+            </ul>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Barre de conversations IA du mois */}
