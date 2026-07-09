@@ -372,8 +372,15 @@ export default function AgentOnboardPage() {
 
       {/* Navigation */}
       <div className="flex items-center justify-between border-t pt-4">
-        <Button variant="ghost" size="sm" disabled={step === 0 || saving || advancing} onClick={() => setStep((s) => Math.max(0, s - 1))}>
-          <ArrowLeft className="mr-1 h-4 w-4" /> Retour
+        {/* À la 1ʳᵉ étape, « Retour » sort de l'assistant (sinon l'utilisateur est
+            piégé : le bouton était désactivé et aucune autre sortie n'existait). */}
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={saving || advancing}
+          onClick={() => (step === 0 ? router.push('/agents') : setStep((s) => Math.max(0, s - 1)))}
+        >
+          <ArrowLeft className="mr-1 h-4 w-4" /> {step === 0 ? 'Annuler' : 'Retour'}
         </Button>
         {isLast ? (
           <Button disabled={saving || regenerating || !cfg} onClick={activate}>
