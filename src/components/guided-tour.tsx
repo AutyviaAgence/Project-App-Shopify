@@ -67,15 +67,6 @@ const ALL_TOUR_STEPS: TourStep[] = [
     description: 'tour.create_agent_desc',
     position: 'left'
   },
-  // Ressources â€” BibliothÃ¨que
-  {
-    id: 'knowledge-page',
-    page: '/ressources',
-    target: '[data-tour="resources-header"]',
-    title: 'tour.knowledge_title',
-    description: 'tour.knowledge_desc',
-    position: 'bottom'
-  },
   // Conversations
   {
     id: 'conversations-page',
@@ -83,15 +74,6 @@ const ALL_TOUR_STEPS: TourStep[] = [
     target: '[data-tour="conversations-header"]',
     title: 'tour.conversations_title',
     description: 'tour.conversations_desc',
-    position: 'bottom'
-  },
-  // Ressources â€” Liens
-  {
-    id: 'links-page',
-    page: '/ressources',
-    target: '[data-tour="resources-header"]',
-    title: 'tour.links_title',
-    description: 'tour.links_desc',
     position: 'bottom'
   },
   // Campaigns â€” Scale uniquement

@@ -1,7 +1,5 @@
 'use client'
 
-import Link from 'next/link'
-import { BookOpen, ArrowRight } from 'lucide-react'
 import { useTranslation } from '@/i18n/context'
 import { WhatsAppConnect } from '@/components/whatsapp-connect'
 import { EmailConnect } from '@/components/email-connect'
@@ -46,18 +44,6 @@ function DashboardHome() {
         <ShopifyConnect />
       </div>
 
-      {/* Accès discret aux ressources/médias (docs + images/vidéos envoyables). */}
-      <Link
-        href="/ressources"
-        className="group relative z-10 flex items-center gap-3 rounded-xl border border-dashed border-border px-4 py-3 text-sm transition-colors hover:border-primary/40 hover:bg-muted/30"
-      >
-        <BookOpen className="h-4 w-4 shrink-0 text-muted-foreground" />
-        <div className="min-w-0 flex-1">
-          <span className="font-medium">Ressources & médias</span>
-          <span className="ml-2 text-muted-foreground">Documents, images et vidéos que vos agents peuvent envoyer.</span>
-        </div>
-        <ArrowRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-      </Link>
     </div>
   )
 }
