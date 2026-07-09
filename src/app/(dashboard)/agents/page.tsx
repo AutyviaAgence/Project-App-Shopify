@@ -497,10 +497,14 @@ export default function AgentsPage() {
           // dispo (topbar + titre au-dessus, flèches/points + bouton "Nouvel agent"
           // en dessous ≈ 320px réservés) pour que le bouton reste visible sans scroll.
           const idealSceneH = cardW >= 440 ? 500 : cardW >= 360 ? 440 : cardW >= 300 ? 400 : 360
-          // Plancher à 420px (et non 300) : en dessous, la carte centrale
-          // (image + nom + badges + boutons) dépassait la scène et venait
-          // recouvrir les points de pagination puis le bouton « Nouvel agent ».
-          const sceneH = Math.max(420, Math.min(idealSceneH, viewportH - 320))
+          // Espace réellement occupé SOUS/AU-DESSUS de la scène : topbar (~64) +
+          // titre (~90) + paddings (~48) + points (~26) + bouton « Nouvel agent »
+          // (~76). On le réserve pour que le bouton reste visible sans scroll.
+          const RESERVED = 304
+          // Plancher à 360 : en dessous la carte (image + nom + boutons) ne tient
+          // plus. Si le viewport est encore plus court, la page défile — c'est
+          // préférable à un bouton « Nouvel agent » coupé hors de l'écran.
+          const sceneH = Math.max(360, Math.min(idealSceneH, viewportH - RESERVED))
           // Translation laterale des cartes voisines, proportionnelle a la largeur de carte
           const stepFront = cardW * 0.9
           const stepBack = cardW * 0.8
@@ -568,7 +572,7 @@ export default function AgentsPage() {
                             le bras + enveloppe deborder a gauche de la carte */}
                         <div
                           className="relative flex items-end justify-center rounded-t-[34px] m-2 mb-0"
-                          style={{ height: sceneH >= 440 ? 256 : sceneH >= 400 ? 224 : 196, background: `radial-gradient(130% 110% at 50% 22%, ${typeColor}30 0%, ${typeColor}0c 48%, transparent 78%)` }}
+                          style={{ height: sceneH >= 440 ? 256 : sceneH >= 400 ? 224 : sceneH >= 370 ? 196 : 168, background: `radial-gradient(130% 110% at 50% 22%, ${typeColor}30 0%, ${typeColor}0c 48%, transparent 78%)` }}
                         >
                           {/* halo derriere la mascotte */}
                           <div className="pointer-events-none absolute left-1/2 top-1/2 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-25 blur-3xl" style={{ background: typeColor }} />
@@ -736,7 +740,7 @@ export default function AgentsPage() {
       )}
 
       {/* Bouton "Nouvel agent" — juste sous les cartes et les points */}
-      <div className="mt-6 flex shrink-0 flex-col items-center gap-2">
+      <div className="mt-4 flex shrink-0 flex-col items-center gap-2">
         <button
           data-tour="new-agent-btn"
           onClick={aiEnabled ? openCreateDialog : undefined}
