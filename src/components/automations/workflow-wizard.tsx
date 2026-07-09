@@ -13,7 +13,7 @@ import { TemplateBubble } from '@/components/template-bubble'
 import { useSubscription } from '@/hooks/use-subscription'
 import { UpgradeBadge } from '@/components/upgrade-badge'
 import { VARIABLE_BY_KEY } from '@/lib/templates/variables'
-import { USE_CASES } from '@/lib/templates/use-cases'
+import { USE_CASES, guessUseCase } from '@/lib/templates/use-cases'
 
 const DELAY_PRESETS: { label: string; minutes: number }[] = [
   { label: 'Immédiat', minutes: 0 },
@@ -374,6 +374,13 @@ const PICKER_CATS: { key: string; label: string }[] = [
   ...USE_CASES.map((u) => ({ key: u.key as string, label: u.label })),
 ]
 
+/** Catégorie d'un modèle. `use_case` est NULL sur ceux importés de Meta : on la
+ *  DÉDUIT alors du nom (comme la page Modèles), sinon aucune puce ne s'afficherait. */
+function catOfTemplate(t: WhatsAppTemplate): string {
+  return (t as { use_case?: string }).use_case
+    || guessUseCase(t.name, (t as { category?: string }).category)
+}
+
 /** Sélecteur VISUEL de template : catégories + bulles d'aperçu horizontales.
  *  Bulles assez grandes pour lire le message en entier. */
 function TemplateSelect({ templates, value, onChange }: {
@@ -387,11 +394,11 @@ function TemplateSelect({ templates, value, onChange }: {
   if (templates.length === 0) {
     return <p className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">Aucun modèle approuvé. Créez-en un dans « Modèles ».</p>
   }
-  const present = new Set(templates.map((t) => (t as { use_case?: string }).use_case || 'other'))
+  const present = new Set(templates.map(catOfTemplate))
   const cats = PICKER_CATS.filter((c) => c.key === 'all' || present.has(c.key))
   const q = query.trim().toLowerCase()
   const shown = templates
-    .filter((t) => cat === 'all' || (t as { use_case?: string }).use_case === cat)
+    .filter((t) => cat === 'all' || catOfTemplate(t) === cat)
     .filter((t) => {
       if (!q) return true
       const hay = [t.name, t.body_text, t.header_text, t.language]
@@ -426,7 +433,7 @@ function TemplateSelect({ templates, value, onChange }: {
           // filtré) : le nombre affiché ne bouge donc pas quand on change d'onglet.
           const count = c.key === 'all'
             ? templates.length
-            : templates.filter((t) => ((t as { use_case?: string }).use_case || 'other') === c.key).length
+            : templates.filter((t) => catOfTemplate(t) === c.key).length
           return (
             <button key={c.key} type="button" onClick={() => setCat(c.key)}
               className={cn('rounded-full px-2.5 py-1 text-[11px] transition-colors',

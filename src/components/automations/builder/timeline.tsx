@@ -99,7 +99,7 @@ import { CONDITION_FIELDS, COUNTRY_OPTIONS, LANGUAGE_OPTIONS } from './field-lab
 import { chainFrom, getNode } from './timeline-model'
 import { TemplateBubble } from '@/components/template-bubble'
 import { VARIABLE_BY_KEY } from '@/lib/templates/variables'
-import { USE_CASES } from '@/lib/templates/use-cases'
+import { USE_CASES, guessUseCase } from '@/lib/templates/use-cases'
 import type { WorkflowGraph, WorkflowNode } from '@/lib/automations/graph-types'
 import type { WhatsAppTemplate } from '@/types/database'
 
@@ -457,8 +457,13 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction }: {
               {/* Filtre par type de modèle (puces + compteurs). Libellés issus de
                   USE_CASES, la même source que la page Modèles : pas de doublon. */}
               {(() => {
+                // `use_case` est NULL sur les modèles importés de Meta : on le
+                // DÉDUIT du nom (comme la page Modèles), sinon aucune puce de
+                // catégorie ne s'afficherait jamais.
                 // Nom sans préfixe « use » : ESLint le prendrait pour un hook.
-                const catOf = (t: WhatsAppTemplate) => (t as { use_case?: string }).use_case || 'other'
+                const catOf = (t: WhatsAppTemplate) =>
+                  (t as { use_case?: string }).use_case
+                  || guessUseCase(t.name, (t as { category?: string }).category)
                 const countIn = (key: string) =>
                   key === 'all' ? templates.length : templates.filter((t) => catOf(t) === key).length
                 const cats = [
@@ -481,8 +486,12 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction }: {
 
               {(() => {
                 const q = pickerQuery.trim().toLowerCase()
+                // Même règle que les puces : use_case s'il existe, sinon déduit.
+                const catOfT = (t: WhatsAppTemplate) =>
+                  (t as { use_case?: string }).use_case
+                  || guessUseCase(t.name, (t as { category?: string }).category)
                 const shown = templates
-                  .filter((t) => pickerCat === 'all' || (t as { use_case?: string }).use_case === pickerCat)
+                  .filter((t) => pickerCat === 'all' || catOfT(t) === pickerCat)
                   .filter((t) => !q || [t.name, t.body_text, t.header_text, t.language]
                     .filter(Boolean).join(' ').toLowerCase().includes(q))
                 if (shown.length === 0) {
