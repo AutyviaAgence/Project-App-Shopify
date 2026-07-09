@@ -33,7 +33,9 @@ export type TriggerNode = {
   id: string; type: 'trigger'; event: TriggerEvent
   // Paramètres des triggers temporels :
   inactivityHours?: number   // no_customer_reply : délai sans réponse
-  scheduledAt?: string       // scheduled_date : date/heure ISO
+  scheduledAt?: string       // scheduled_date : instant absolu (ISO UTC)
+  scheduledTz?: string       // scheduled_date : fuseau de SAISIE/AFFICHAGE (ex. 'Europe/Paris').
+                             // N'influence pas l'exécution : scheduledAt est déjà absolu.
   buttonText?: string        // button_clicked : libellé du bouton qui déclenche
 }
 export type DelayNode = { id: string; type: 'delay'; minutes: number }

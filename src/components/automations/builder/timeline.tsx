@@ -12,27 +12,35 @@ import { Input } from '@/components/ui/input'
 import { ChevronDown } from 'lucide-react'
 import { TRIGGER_EVENTS } from '@/lib/automations/types'
 
-/** Fuseau horaire du navigateur (ex. « Europe/Paris »). Les dates sont
- *  STOCKÉES en UTC (ISO) et SAISIES/AFFICHÉES en heure locale. */
-const LOCAL_TZ = typeof Intl !== 'undefined'
+/** Fuseau détecté du navigateur, proposé par défaut. `scheduledAt` reste
+ *  TOUJOURS un instant absolu (ISO UTC) : le fuseau ne sert qu'à saisir et à
+ *  afficher. Changer de fuseau ne déplace donc jamais l'envoi par accident. */
+const BROWSER_TZ = typeof Intl !== 'undefined'
   ? Intl.DateTimeFormat().resolvedOptions().timeZone
   : 'UTC'
 
-/** ISO (UTC) → valeur d'un <input type="datetime-local"> en heure LOCALE.
- *  ⚠️ Ne jamais faire `iso.slice(0,16)` : on afficherait l'heure UTC dans un
- *  champ que le navigateur interprète comme locale — l'heure reculait du
- *  décalage horaire à chaque réouverture du workflow. */
-function isoToLocalInput(iso?: string): string {
-  if (!iso) return ''
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return ''
-  const p = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
+/** Fuseaux proposés (le fuseau du navigateur est ajouté s'il manque). */
+const TZ_OPTIONS = [
+  'Europe/Paris', 'Europe/London', 'Europe/Madrid', 'Europe/Berlin', 'Europe/Lisbon',
+  'America/New_York', 'America/Toronto', 'America/Los_Angeles', 'America/Sao_Paulo',
+  'Africa/Casablanca', 'Africa/Abidjan', 'Asia/Dubai', 'Asia/Kolkata', 'Asia/Tokyo',
+  'Australia/Sydney', 'UTC',
+]
+
+/** Décalage d'un fuseau à un instant donné, en minutes (DST compris). */
+function tzOffsetMinutes(tz: string, at: Date): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: tz, hour12: false,
+    year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
+  }).formatToParts(at)
+  const g = (k: string) => Number(parts.find((p) => p.type === k)?.value)
+  const asTz = Date.UTC(g('year'), g('month') - 1, g('day'), g('hour') % 24, g('minute'))
+  return (asTz - at.getTime()) / 60000
 }
 
-/** Décalage courant du navigateur, ex. « UTC+2 » ou « UTC-5:30 ». */
-function utcOffsetLabel(): string {
-  const min = -new Date().getTimezoneOffset() // getTimezoneOffset() est inversé
+/** Étiquette « UTC+2 », « UTC-5:30 »… pour un fuseau, maintenant. */
+function tzOffsetLabel(tz: string): string {
+  const min = tzOffsetMinutes(tz, new Date())
   const sign = min >= 0 ? '+' : '-'
   const abs = Math.abs(min)
   const h = Math.floor(abs / 60)
@@ -40,11 +48,39 @@ function utcOffsetLabel(): string {
   return `UTC${sign}${h}${m ? `:${String(m).padStart(2, '0')}` : ''}`
 }
 
-/** ISO (UTC) → texte lisible dans le fuseau du marchand. */
-function formatInLocal(iso: string): string {
+/** « 2026-07-09T17:00 » lu DANS `tz` → instant absolu (ISO UTC).
+ *  Deux passes : la 1re estime le décalage, la 2de le corrige au voisinage
+ *  d'un changement d'heure (DST). */
+function zonedInputToIso(local: string, tz: string): string | undefined {
+  if (!local) return undefined
+  const [date, time] = local.split('T')
+  const [Y, M, D] = date.split('-').map(Number)
+  const [h, m] = time.split(':').map(Number)
+  const wanted = Date.UTC(Y, M - 1, D, h, m)
+  let ts = wanted
+  // 1re passe : décalage estimé à l'instant approché. 2de passe : le corrige si
+  // l'approximation tombait de l'autre côté d'un changement d'heure (DST).
+  for (let i = 0; i < 2; i++) ts = wanted - tzOffsetMinutes(tz, new Date(ts)) * 60000
+  return new Date(ts).toISOString()
+}
+
+/** ISO (UTC) → valeur d'un <input type="datetime-local"> exprimée DANS `tz`.
+ *  ⚠️ Ne jamais faire `iso.slice(0,16)` : on afficherait l'heure UTC dans un
+ *  champ interprété comme locale — l'heure reculait à chaque réouverture. */
+function isoToZonedInput(iso: string | undefined, tz: string): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const shifted = new Date(d.getTime() + tzOffsetMinutes(tz, d) * 60000)
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${shifted.getUTCFullYear()}-${p(shifted.getUTCMonth() + 1)}-${p(shifted.getUTCDate())}T${p(shifted.getUTCHours())}:${p(shifted.getUTCMinutes())}`
+}
+
+/** ISO (UTC) → texte lisible dans le fuseau choisi. */
+function formatInTz(iso: string, tz: string): string {
   const d = new Date(iso)
   if (Number.isNaN(d.getTime())) return '—'
-  return d.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
+  return d.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short', timeZone: tz })
 }
 
 /** Groupes de déclencheurs (ordre d'affichage + repère visuel). Les noms
@@ -281,25 +317,43 @@ function TriggerBlock({ node, onPatch }: { node: WorkflowNode; onPatch: (id: str
           </Select>
         </div>
       )}
-      {node.event === 'scheduled_date' && (
+      {node.event === 'scheduled_date' && (() => {
+        // Fuseau de saisie : celui enregistré dans le nœud, sinon celui du
+        // navigateur. Le changer ne déplace PAS l'envoi (scheduledAt est absolu) :
+        // la même date s'affiche simplement dans l'autre fuseau.
+        const tz = node.scheduledTz || BROWSER_TZ
+        const options = TZ_OPTIONS.includes(tz) ? TZ_OPTIONS : [tz, ...TZ_OPTIONS]
+        return (
         <div className="mt-2">
-          {/* Le fuseau est affiché AU-DESSUS du champ : le calendrier natif du
-              navigateur s'ouvre par-dessous et masquerait une mention placée
-              sous l'input, au moment précis où l'on choisit l'heure. */}
-          <div className="mb-1 flex items-baseline justify-between gap-2">
-            <p className="text-xs text-muted-foreground">Date et heure d’envoi</p>
-            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
-              {LOCAL_TZ} ({utcOffsetLabel()})
-            </span>
-          </div>
+          {/* Le fuseau est AU-DESSUS du champ : le calendrier natif s'ouvre
+              par-dessous et masquerait une mention placée sous l'input, au
+              moment précis où l'on choisit l'heure. */}
+          <p className="mb-1 text-xs text-muted-foreground">Date et heure d’envoi</p>
           <Input type="datetime-local"
-            value={isoToLocalInput(node.scheduledAt)}
-            onChange={(e) => onPatch(node.id, { scheduledAt: e.target.value ? new Date(e.target.value).toISOString() : undefined } as never)} />
+            value={isoToZonedInput(node.scheduledAt, tz)}
+            onChange={(e) => onPatch(node.id, {
+              scheduledAt: zonedInputToIso(e.target.value, tz),
+              scheduledTz: tz,
+            } as never)} />
+          <div className="mt-1.5 flex items-center gap-1.5">
+            <span className="shrink-0 text-[11px] text-muted-foreground">Fuseau</span>
+            <Select value={tz} onValueChange={(v) => onPatch(node.id, { scheduledTz: v } as never)}>
+              <SelectTrigger className="h-7 flex-1 text-[11px]"><SelectValue /></SelectTrigger>
+              <SelectContent className="max-h-[min(18rem,50vh)]">
+                {options.map((z) => (
+                  <SelectItem key={z} value={z} textValue={z} className="text-xs">
+                    {z} <span className="text-muted-foreground">({tzOffsetLabel(z)})</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           {node.scheduledAt && (
-            <p className="mt-1 text-[11px] text-muted-foreground">Envoi le {formatInLocal(node.scheduledAt)}</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">Envoi le {formatInTz(node.scheduledAt, tz)}</p>
           )}
         </div>
-      )}
+        )
+      })()}
       {node.event === 'customer_birthday' && (
         <p className="mt-2 rounded-lg bg-muted/50 p-2 text-[11px] text-muted-foreground">
           Envoyé le jour de l’anniversaire (si la date est connue dans la fiche du client).
