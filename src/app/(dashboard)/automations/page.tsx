@@ -223,20 +223,21 @@ export default function AutomationsPage() {
 
   return (
     <div className="flex h-full flex-col">
-      {/* En-tête */}
-      <div className="flex items-center justify-between gap-2 border-b px-4 py-3 md:px-6">
-        <div>
-          <h1 className="flex items-center gap-2 text-lg font-semibold"><Workflow className="h-5 w-5" /> Automatisations</h1>
-          <p className="text-xs text-muted-foreground">Construisez un parcours : événement → délai → condition → message.</p>
+      {/* En-tête. Mobile : titre puis actions dessous — sur une seule ligne, le
+          bouton « Enregistrer » sortait de l'écran. */}
+      <div className="flex flex-col gap-2 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between md:px-6">
+        <div className="min-w-0">
+          <h1 className="flex items-center gap-2 text-lg font-semibold"><Workflow className="h-5 w-5 shrink-0" /> Automatisations</h1>
+          <p className="hidden text-xs text-muted-foreground sm:block">Construisez un parcours : événement → délai → condition → message.</p>
         </div>
         {current && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 sm:shrink-0">
             {current.id && (
               <button
                 onClick={() => toggleActive(current)} disabled={busyId === current.id}
                 title={current.is_active ? 'Cliquez pour désactiver' : 'Cliquez pour activer'}
                 className={cn(
-                  'flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium shadow-sm transition-all',
+                  'flex flex-1 items-center justify-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium shadow-sm transition-all sm:flex-none',
                   current.is_active
                     ? 'border-green-500 bg-green-500 text-white hover:bg-green-600'
                     : 'border-border bg-muted text-muted-foreground hover:bg-muted/70'
@@ -251,13 +252,37 @@ export default function AutomationsPage() {
                 {current.is_active ? 'Activé' : 'Désactivé'}
               </button>
             )}
-            <Button onClick={save} disabled={busyId === 'save'}>
+            <Button className="flex-1 sm:flex-none" onClick={save} disabled={busyId === 'save'}>
               {busyId === 'save' ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
               Enregistrer
             </Button>
           </div>
         )}
       </div>
+
+      {/* Sélecteur mobile : la sidebar est `hidden md:flex`, donc sans lui on ne
+          pouvait ni changer ni créer de workflow sur un petit écran. */}
+      {automations.length > 0 && (
+        <div className="flex items-center gap-2 border-b px-4 py-2 md:hidden">
+          <select
+            value={current?.id || ''}
+            onChange={(e) => {
+              const a = automations.find((x) => x.id === e.target.value)
+              if (a) selectAuto(a)
+            }}
+            className="h-9 min-w-0 flex-1 rounded-lg border border-input bg-background px-2 text-sm"
+          >
+            {!current?.id && <option value="">Nouveau workflow…</option>}
+            {automations.map((a) => (
+              <option key={a.id} value={a.id}>{a.is_active ? '● ' : '○ '}{a.name || 'Sans nom'}</option>
+            ))}
+          </select>
+          <button onClick={openNew} title="Nouveau workflow"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border bg-card text-muted-foreground transition-colors hover:border-primary hover:text-primary">
+            <Plus className="h-4 w-4" />
+          </button>
+        </div>
+      )}
 
       {/* 3 colonnes : sidebar | timeline | iPhone — tout sur la même page */}
       <div className={cn('grid min-h-0 flex-1 grid-cols-1', sidebarCollapsed ? 'md:grid-cols-[52px_1fr]' : 'md:grid-cols-[280px_1fr]')}>
