@@ -222,7 +222,9 @@ export default function AutomationsPage() {
   if (loading) return <BlobLoaderScreen />
 
   return (
-    <div className="flex h-full flex-col">
+    // `pb-16` en mobile : la barre d'onglets fixe du bas recouvrait sinon le bas
+    // du canvas (elle apparaissait comme un bandeau noir sous le workflow).
+    <div className="flex h-full flex-col pb-16 md:pb-0">
       {/* En-tête. Mobile : titre puis actions dessous — sur une seule ligne, le
           bouton « Enregistrer » sortait de l'écran. */}
       <div className="flex flex-col gap-2 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between md:px-6">

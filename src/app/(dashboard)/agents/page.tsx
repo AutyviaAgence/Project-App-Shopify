@@ -496,12 +496,20 @@ export default function AgentsPage() {
 
           // `pt` réduit : la mascotte déborde déjà au-dessus de sa zone, un grand
           // padding créait un vide inutile entre le titre et les cartes.
+          const imgH = sceneH >= 440 ? 256 : sceneH >= 400 ? 224 : sceneH >= 370 ? 196 : 168
+          // Les flèches se calaient sur `top-1/2` du CONTENEUR, donc trop bas : les
+          // cartes sont ancrées en `top-0`, et une carte latérale est plus courte
+          // que la centrale (pas de bouton « Configurer »). On vise son milieu :
+          // image + nom + statut ≈ imgH + 90, le tout à l'échelle 0.92.
+          const sideCardH = (imgH + 90) * 0.92
+          const arrowTop = 8 + sideCardH / 2
           return (
             <div className="relative flex w-full shrink-0 items-center justify-center pb-4 pt-2" style={{ perspective: '2000px' }}>
               {/* Flèche gauche */}
               {n > 1 && (
                 <button onClick={() => go(-1)} aria-label="Précédent"
-                  className="absolute left-0 top-1/2 z-30 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card text-muted-foreground backdrop-blur transition-all hover:scale-110 hover:bg-muted hover:text-foreground sm:h-12 sm:w-12">
+                  style={{ top: arrowTop }}
+                  className="absolute left-0 z-30 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card text-muted-foreground backdrop-blur transition-all hover:scale-110 hover:bg-muted hover:text-foreground sm:h-12 sm:w-12">
                   <ChevronLeft className="h-5 w-5" />
                 </button>
               )}
@@ -702,7 +710,8 @@ export default function AgentsPage() {
               {/* Flèche droite */}
               {n > 1 && (
                 <button onClick={() => go(1)} aria-label="Suivant"
-                  className="absolute right-0 top-1/2 z-30 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card text-muted-foreground backdrop-blur transition-all hover:scale-110 hover:bg-muted hover:text-foreground sm:h-12 sm:w-12">
+                  style={{ top: arrowTop }}
+                  className="absolute right-0 z-30 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card text-muted-foreground backdrop-blur transition-all hover:scale-110 hover:bg-muted hover:text-foreground sm:h-12 sm:w-12">
                   <ChevronRight className="h-5 w-5" />
                 </button>
               )}
