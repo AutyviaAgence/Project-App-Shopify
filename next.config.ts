@@ -73,7 +73,8 @@ const nextConfig: NextConfig = {
               "img-src 'self' data: blob: https://supabase.autyvia.fr https://jdeslkxwbtqkeifrlmnf.supabase.co https://challenges.cloudflare.com https://www.facebook.com https://cdn.shopify.com https://lh3.googleusercontent.com https://*.googleusercontent.com",
               "font-src 'self' https://challenges.cloudflare.com",
               "connect-src 'self' https://supabase.autyvia.fr wss://supabase.autyvia.fr https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://api.openai.com https://graph.facebook.com https://challenges.cloudflare.com https://connect.facebook.net https://www.facebook.com https://eu.i.posthog.com https://eu-assets.i.posthog.com",
-              "frame-src https://js.stripe.com https://hooks.stripe.com https://challenges.cloudflare.com",
+              // www.facebook.com : requis par l'Embedded Signup WhatsApp (popup + iframe du SDK JS).
+              "frame-src https://js.stripe.com https://hooks.stripe.com https://challenges.cloudflare.com https://www.facebook.com https://web.facebook.com https://staticxx.facebook.com",
               "worker-src 'self' blob:",
               "object-src 'none'",
               "base-uri 'self'",

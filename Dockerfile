@@ -16,7 +16,7 @@ COPY --from=deps /app/node_modules ./node_modules
 # Casse-cache : invalide TOUT ce qui suit (COPY du code source + build) à chaque
 # build. Évite qu'un cache Docker Dokploy serve un ancien bundle après un push.
 # Bump cette valeur (ou laisse Dokploy passer --build-arg CACHEBUST=$(date)).
-ARG CACHEBUST=2026-07-08-76
+ARG CACHEBUST=2026-07-08-77
 RUN echo "cache bust: $CACHEBUST"
 
 COPY . .
@@ -27,11 +27,16 @@ ARG NEXT_PUBLIC_SUPABASE_ANON_KEY
 ARG NEXT_PUBLIC_APP_URL
 ARG NEXT_PUBLIC_POSTHOG_KEY
 ARG NEXT_PUBLIC_POSTHOG_HOST
+# Embedded Signup WhatsApp : inlinés au build (sinon le bouton Meta ne s'affiche pas).
+ARG NEXT_PUBLIC_META_APP_ID
+ARG NEXT_PUBLIC_META_CONFIG_ID
 ENV NEXT_PUBLIC_SUPABASE_URL=$NEXT_PUBLIC_SUPABASE_URL
 ENV NEXT_PUBLIC_SUPABASE_ANON_KEY=$NEXT_PUBLIC_SUPABASE_ANON_KEY
 ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
 ENV NEXT_PUBLIC_POSTHOG_KEY=$NEXT_PUBLIC_POSTHOG_KEY
 ENV NEXT_PUBLIC_POSTHOG_HOST=$NEXT_PUBLIC_POSTHOG_HOST
+ENV NEXT_PUBLIC_META_APP_ID=$NEXT_PUBLIC_META_APP_ID
+ENV NEXT_PUBLIC_META_CONFIG_ID=$NEXT_PUBLIC_META_CONFIG_ID
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # Commit + date de build, écrits dans public/version.json (statique, servi tel

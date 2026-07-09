@@ -16,6 +16,7 @@ import { Loader2, Smartphone, Wifi, WifiOff, Plus, Trash2, Link2, Copy, UserCog 
 import { cn } from '@/lib/utils'
 import { track } from '@/lib/posthog/events'
 import { WhatsAppProfileDialog } from '@/components/whatsapp-profile-dialog'
+import { WhatsAppEmbeddedSignup, embeddedSignupAvailable } from '@/components/whatsapp-embedded-signup'
 
 type Session = {
   id: string
@@ -417,10 +418,27 @@ export function WhatsAppConnect() {
         </div>
       </div>
 
+      {/* Chemin principal : popup Meta (aucun identifiant à copier). */}
+      {embeddedSignupAvailable && !showForm && (
+        <div className="space-y-2">
+          <WhatsAppEmbeddedSignup onConnected={fetchSession} />
+          <p className="text-[11px] text-muted-foreground">
+            Vous serez redirigé vers Facebook pour choisir votre compte WhatsApp Business. Aucun identifiant à copier.
+          </p>
+        </div>
+      )}
+
+      {/* Repli : saisie manuelle des 3 identifiants Meta. */}
       {!showForm ? (
-        <Button onClick={() => setShowForm(true)}>
-          <Plus className="mr-1 h-4 w-4" /> Connecter WhatsApp
-        </Button>
+        embeddedSignupAvailable ? (
+          <button onClick={() => setShowForm(true)} className="text-xs text-muted-foreground underline hover:text-foreground">
+            Saisir les identifiants manuellement
+          </button>
+        ) : (
+          <Button onClick={() => setShowForm(true)}>
+            <Plus className="mr-1 h-4 w-4" /> Connecter WhatsApp
+          </Button>
+        )
       ) : (
         <div className="space-y-3 border-t pt-4">
           <div className="space-y-1.5">
