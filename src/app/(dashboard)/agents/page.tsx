@@ -494,13 +494,16 @@ export default function AgentsPage() {
           // dispo (topbar + titre au-dessus, flèches/points + bouton "Nouvel agent"
           // en dessous ≈ 320px réservés) pour que le bouton reste visible sans scroll.
           const idealSceneH = cardW >= 440 ? 500 : cardW >= 360 ? 440 : cardW >= 300 ? 400 : 360
-          const sceneH = Math.max(300, Math.min(idealSceneH, viewportH - 320))
+          // Plancher à 420px (et non 300) : en dessous, la carte centrale
+          // (image + nom + badges + boutons) dépassait la scène et venait
+          // recouvrir les points de pagination puis le bouton « Nouvel agent ».
+          const sceneH = Math.max(420, Math.min(idealSceneH, viewportH - 320))
           // Translation laterale des cartes voisines, proportionnelle a la largeur de carte
           const stepFront = cardW * 0.9
           const stepBack = cardW * 0.8
 
           return (
-            <div className="relative flex w-full items-center justify-center pb-10 pt-10" style={{ perspective: '2000px' }}>
+            <div className="relative flex w-full shrink-0 items-center justify-center pb-4 pt-8" style={{ perspective: '2000px' }}>
               {/* Flèche gauche */}
               {n > 1 && (
                 <button onClick={() => go(-1)} aria-label="Précédent"
@@ -708,18 +711,25 @@ export default function AgentsPage() {
                 </button>
               )}
 
-              {/* Indicateurs (points) — dans la zone de padding basse, sous les cartes */}
-              {n > 1 && (
-                <div className="absolute bottom-0 left-1/2 z-30 flex -translate-x-1/2 gap-1.5">
-                  {sorted.map((_, i) => (
-                    <button key={i} onClick={() => setCenterIndex(i)} aria-label={`Agent ${i + 1}`}
-                      className={cn('h-1.5 rounded-full transition-all', i === center ? 'w-5 bg-foreground/70' : 'w-1.5 bg-muted-foreground/30 hover:bg-muted-foreground/50')} />
-                  ))}
-                </div>
-              )}
             </div>
           )
         })()
+      )}
+
+      {/* Indicateurs (points) — HORS de la scène 3D : en `absolute bottom-0`
+          dedans, ils passaient sous la carte centrale (qui déborde en 3D) et
+          se retrouvaient tracés par-dessus le bouton « Configurer ». */}
+      {agents.length > 1 && (
+        <div className="mt-4 flex shrink-0 justify-center gap-1.5">
+          {agents.map((_, i) => {
+            const active = ((centerIndex % agents.length) + agents.length) % agents.length === i
+            return (
+              <button key={i} onClick={() => setCenterIndex(i)} aria-label={`Agent ${i + 1}`}
+                className={cn('h-1.5 rounded-full transition-all',
+                  active ? 'w-5 bg-foreground/70' : 'w-1.5 bg-muted-foreground/30 hover:bg-muted-foreground/50')} />
+            )
+          })}
+        </div>
       )}
 
       {/* Bouton "Nouvel agent" — juste sous les cartes et les points */}
