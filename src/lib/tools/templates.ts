@@ -50,7 +50,13 @@ export type ToolTemplate = {
 // Outils proposés aux agents. Gmail, Calendar et Distance Calculator ont été
 // retirés (hors scope SAV e-commerce) ; les types restent dans l'union pour ne
 // pas casser d'anciennes données. La connexion Google (login) est indépendante.
-export const TOOL_TEMPLATES: Partial<Record<Exclude<AgentToolType, 'custom'>, ToolTemplate>> = {
+//
+// ⚠️ Ne sont PROPOSÉS que les outils listés dans OFFERED_TOOLS (plus bas).
+// Shopify/WooCommerce/Stripe/Google Sheets restent définis ici — leur code
+// d'exécution existe et d'anciennes configurations continuent de fonctionner —
+// mais ils ne sont plus offerts à la création. Pour en réactiver un, il suffit
+// de l'ajouter à OFFERED_TOOLS.
+const ALL_TOOL_TEMPLATES: Partial<Record<Exclude<AgentToolType, 'custom'>, ToolTemplate>> = {
   shopify: {
     type: 'shopify',
     name: 'Shopify',
@@ -348,6 +354,19 @@ export const TOOL_TEMPLATES: Partial<Record<Exclude<AgentToolType, 'custom'>, To
 /**
  * Convert a ToolFunction to OpenAI function calling format
  */
+/** Catalogue COMPLET : sert à l'EXÉCUTION (executor.ts). Un agent ayant déjà
+ *  configuré Shopify/Stripe/… doit continuer de fonctionner, même si l'outil
+ *  n'est plus proposé à la création. */
+export const TOOL_TEMPLATES = ALL_TOOL_TEMPLATES
+
+/** Outils réellement PROPOSÉS à la création d'un agent. */
+const OFFERED_TOOLS = ['whatsapp_message', 'app_notification'] as const
+
+/** Catalogue affiché dans l'UI (GET /api/tools/templates). */
+export const OFFERED_TOOL_TEMPLATES: ToolTemplate[] = OFFERED_TOOLS
+  .map((k) => ALL_TOOL_TEMPLATES[k])
+  .filter((t): t is ToolTemplate => Boolean(t))
+
 export function toOpenAIFunction(fn: ToolFunction, toolName: string) {
   const properties: Record<string, unknown> = {}
   const required: string[] = []
