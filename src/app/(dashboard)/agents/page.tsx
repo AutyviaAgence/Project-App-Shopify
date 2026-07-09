@@ -30,8 +30,6 @@ import {
   ChevronRight,
   MessageSquare,
   Wrench,
-  Pin,
-  PinOff,
   Power,
   PowerOff,
   Copy,
@@ -284,22 +282,6 @@ export default function AgentsPage() {
     }
   }
 
-  async function handleTogglePin(agent: AIAgent) {
-    try {
-      const res = await fetch(`/api/agents/${agent.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ is_pinned: !agent.is_pinned }),
-      })
-      const json = await res.json()
-      if (res.ok && json.data) {
-        setAgents((prev) => prev.map((a) => (a.id === agent.id ? json.data : a)))
-      }
-    } catch {
-      toast.error(t('common.network_error'))
-    }
-  }
-
   // Définir / retirer l'agent référent (par défaut pour toutes les conversations).
   // Un seul référent par compte : on démarque les autres localement.
   async function handleToggleDefault(agent: AIAgent) {
@@ -483,7 +465,8 @@ export default function AgentsPage() {
         </div>
       ) : (
         (() => {
-          const sorted = [...agents].sort((a, b) => (b.is_pinned ? 1 : 0) - (a.is_pinned ? 1 : 0))
+          // L'agent référent (is_default) passe en tête — remplace l'épinglage.
+          const sorted = [...agents].sort((a, b) => (b.is_default ? 1 : 0) - (a.is_default ? 1 : 0))
           const n = sorted.length
           const center = ((centerIndex % n) + n) % n
           const go = (dir: number) => setCenterIndex(c => (((c + dir) % n) + n) % n)
@@ -619,12 +602,14 @@ export default function AgentsPage() {
                             className="absolute right-0 top-6 z-10 flex translate-x-1/4 flex-col items-center gap-0.5 rounded-full py-1 shadow-lg sm:top-7 sm:translate-x-1/3 sm:py-1.5"
                             style={{ background: '#3b82f6' }}
                           >
+                            {/* Étoile = agent RÉFÉRENT (is_default). L'épinglage
+                                (is_pinned), purement cosmétique, faisait doublon. */}
                             <button
-                              onClick={(e) => { e.stopPropagation(); handleTogglePin(agent) }}
-                              title={agent.is_pinned ? t('agents.unpin') : t('agents.pin')}
+                              onClick={(e) => { e.stopPropagation(); handleToggleDefault(agent) }}
+                              title={agent.is_default ? 'Retirer comme référent' : 'Définir comme référent'}
                               className="flex h-7 w-7 items-center justify-center rounded-full text-white/90 transition-all hover:scale-110 hover:text-white sm:h-9 sm:w-9"
                             >
-                              <Pin className={cn('h-3.5 w-3.5 sm:h-4 sm:w-4', agent.is_pinned && 'fill-current')} />
+                              <Star className={cn('h-3.5 w-3.5 sm:h-4 sm:w-4', agent.is_default && 'fill-current')} />
                             </button>
                             <span className="h-px w-3 bg-white/25 sm:w-4" />
                             <button
@@ -687,10 +672,6 @@ export default function AgentsPage() {
                                 <DropdownMenuItem onClick={() => handleToggleActive(agent)}>
                                   {agent.is_active ? <PowerOff className="mr-2 h-3.5 w-3.5" /> : <Power className="mr-2 h-3.5 w-3.5" />}
                                   {agent.is_active ? 'Désactiver' : 'Activer'}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleTogglePin(agent)}>
-                                  {agent.is_pinned ? <PinOff className="mr-2 h-3.5 w-3.5" /> : <Pin className="mr-2 h-3.5 w-3.5" />}
-                                  {agent.is_pinned ? t('agents.unpin') : t('agents.pin')}
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => openEditDialog(agent)}>
                                   <Pencil className="mr-2 h-3.5 w-3.5" />
