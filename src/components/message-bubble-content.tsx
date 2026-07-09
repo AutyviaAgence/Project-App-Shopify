@@ -185,12 +185,16 @@ export function MessageBubbleContent({ msg, isOutbound, channel }: { msg: Extend
               <Mic className="h-4 w-4 text-muted-foreground/50" />
             </div>
           ) : mediaUrl ? (
-            // `src` directement sur <audio> plutôt qu'un <source type=…> :
-            // WhatsApp renvoie « audio/ogg; codecs=opus », et un type déclaré
-            // que le navigateur juge non lisible fait échouer la source EN
-            // SILENCE (lecteur figé à 0:00 / 0:00). Sans type, le navigateur
-            // détecte le format d'après le contenu.
-            <audio controls src={mediaUrl} className="max-w-[280px] h-[42px]" preload="metadata" />
+            // `src` directement sur <audio> plutôt qu'un <source type=…> : un
+            // type déclaré que le navigateur juge non lisible fait échouer la
+            // source EN SILENCE. Sans type, il détecte le format par le contenu.
+            //
+            // `preload="auto"` (et non "metadata") : en OGG/Opus la durée n'est
+            // pas dans un en-tête, elle se déduit du dernier granule. Avec
+            // "metadata" le navigateur ne charge que le début (requête Range)
+            // et reste figé à 0:00 / 0:00. Ces fichiers pèsent quelques dizaines
+            // de Ko : les charger entièrement est sans conséquence.
+            <audio controls src={mediaUrl} className="max-w-[280px] h-[42px]" preload="auto" />
           ) : (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Mic className="h-4 w-4" />
