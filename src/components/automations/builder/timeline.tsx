@@ -30,6 +30,16 @@ function isoToLocalInput(iso?: string): string {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
+/** Décalage courant du navigateur, ex. « UTC+2 » ou « UTC-5:30 ». */
+function utcOffsetLabel(): string {
+  const min = -new Date().getTimezoneOffset() // getTimezoneOffset() est inversé
+  const sign = min >= 0 ? '+' : '-'
+  const abs = Math.abs(min)
+  const h = Math.floor(abs / 60)
+  const m = abs % 60
+  return `UTC${sign}${h}${m ? `:${String(m).padStart(2, '0')}` : ''}`
+}
+
 /** ISO (UTC) → texte lisible dans le fuseau du marchand. */
 function formatInLocal(iso: string): string {
   const d = new Date(iso)
@@ -273,14 +283,21 @@ function TriggerBlock({ node, onPatch }: { node: WorkflowNode; onPatch: (id: str
       )}
       {node.event === 'scheduled_date' && (
         <div className="mt-2">
-          <p className="mb-1 text-xs text-muted-foreground">Date et heure d’envoi</p>
+          {/* Le fuseau est affiché AU-DESSUS du champ : le calendrier natif du
+              navigateur s'ouvre par-dessous et masquerait une mention placée
+              sous l'input, au moment précis où l'on choisit l'heure. */}
+          <div className="mb-1 flex items-baseline justify-between gap-2">
+            <p className="text-xs text-muted-foreground">Date et heure d’envoi</p>
+            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium text-muted-foreground">
+              {LOCAL_TZ} ({utcOffsetLabel()})
+            </span>
+          </div>
           <Input type="datetime-local"
             value={isoToLocalInput(node.scheduledAt)}
             onChange={(e) => onPatch(node.id, { scheduledAt: e.target.value ? new Date(e.target.value).toISOString() : undefined } as never)} />
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            Heure locale — {LOCAL_TZ}
-            {node.scheduledAt && <> · envoi le {formatInLocal(node.scheduledAt)}</>}
-          </p>
+          {node.scheduledAt && (
+            <p className="mt-1 text-[11px] text-muted-foreground">Envoi le {formatInLocal(node.scheduledAt)}</p>
+          )}
         </div>
       )}
       {node.event === 'customer_birthday' && (
