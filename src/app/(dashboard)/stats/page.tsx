@@ -565,35 +565,41 @@ export default function StatsPage() {
               </CardHeader>
               <CardContent>
                 {(() => {
-                  if (!funnel || funnel.sent === 0) {
-                    return <p className="py-8 text-center text-sm text-muted-foreground">{t('stats.no_data')}</p>
-                  }
-                  const pct = (n: number) => (funnel.sent > 0 ? Math.round((n / funnel.sent) * 100) : 0)
+                  // L'entonnoir est TOUJOURS rendu, même sans envoi : sa géométrie
+                  // est fixe (les valeurs ne sont que du texte), et un entonnoir à
+                  // zéro informe mieux qu'un « pas de données » qui laisse un vide.
+                  const f = funnel ?? { sent: 0, opened: 0, responded: 0, ordered: 0 }
+                  const pct = (n: number) => (f.sent > 0 ? Math.round((n / f.sent) * 100) : 0)
                   return (
                     <>
                       <div className="mx-auto h-72 max-w-2xl">
                         <EngagementFunnel steps={[
-                          { label: 'Messages envoyés', value: funnel.sent },
-                          { label: 'Ouverts', value: funnel.opened },
-                          { label: 'Réponses', value: funnel.responded },
-                          { label: 'Ventes', value: funnel.ordered },
+                          { label: 'Messages envoyés', value: f.sent },
+                          { label: 'Ouverts', value: f.opened },
+                          { label: 'Réponses', value: f.responded },
+                          { label: 'Ventes', value: f.ordered },
                         ]} />
                       </div>
                       {/* Taux clés, rapportés aux messages envoyés */}
                       <div className="mx-auto mt-2 grid max-w-md grid-cols-3 gap-2 text-center">
                         <div className="rounded-lg border p-2">
                           <p className="text-xs text-muted-foreground">Ouverture</p>
-                          <p className="text-lg font-semibold">{pct(funnel.opened)} %</p>
+                          <p className="text-lg font-semibold">{pct(f.opened)} %</p>
                         </div>
                         <div className="rounded-lg border p-2">
                           <p className="text-xs text-muted-foreground">Réponse</p>
-                          <p className="text-lg font-semibold">{pct(funnel.responded)} %</p>
+                          <p className="text-lg font-semibold">{pct(f.responded)} %</p>
                         </div>
                         <div className="rounded-lg border p-2">
                           <p className="text-xs text-muted-foreground">Vente</p>
-                          <p className="text-lg font-semibold text-primary">{pct(funnel.ordered)} %</p>
+                          <p className="text-lg font-semibold text-primary">{pct(f.ordered)} %</p>
                         </div>
                       </div>
+                      {f.sent === 0 && (
+                        <p className="mt-3 text-center text-xs text-muted-foreground">
+                          Aucun message initié sur la période. Les chiffres apparaîtront dès votre première automatisation envoyée.
+                        </p>
+                      )}
                     </>
                   )
                 })()}

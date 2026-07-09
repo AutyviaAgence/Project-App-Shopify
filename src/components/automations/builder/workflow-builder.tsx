@@ -60,6 +60,13 @@ function PannableTimeline({ children }: { children: React.ReactNode }) {
   function endDrag() { drag.current = null; setGrabbing(false) }
 
   function onWheel(e: React.WheelEvent) {
+    // Les menus Radix (Select, Popover…) sont montés dans un PORTAIL, hors du
+    // canvas — mais React propage quand même l'évènement jusqu'ici. Sans ce
+    // garde, la molette déplaçait le canvas au lieu de faire défiler le menu
+    // ouvert (liste des déclencheurs, choix de modèle…).
+    const target = e.target as HTMLElement | null
+    if (target?.closest?.('[data-radix-popper-content-wrapper],[role="listbox"],[role="dialog"]')) return
+
     e.preventDefault()
     // Ctrl/⌘ + molette (ou pinch trackpad) = ZOOM. Sinon = déplacement (pan) :
     // molette verticale → haut/bas, Shift ou molette latérale → gauche/droite.

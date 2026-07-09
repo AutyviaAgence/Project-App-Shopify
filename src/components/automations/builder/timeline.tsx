@@ -12,6 +12,31 @@ import { Input } from '@/components/ui/input'
 import { ChevronDown } from 'lucide-react'
 import { TRIGGER_EVENTS } from '@/lib/automations/types'
 
+/** Fuseau horaire du navigateur (ex. « Europe/Paris »). Les dates sont
+ *  STOCKÉES en UTC (ISO) et SAISIES/AFFICHÉES en heure locale. */
+const LOCAL_TZ = typeof Intl !== 'undefined'
+  ? Intl.DateTimeFormat().resolvedOptions().timeZone
+  : 'UTC'
+
+/** ISO (UTC) → valeur d'un <input type="datetime-local"> en heure LOCALE.
+ *  ⚠️ Ne jamais faire `iso.slice(0,16)` : on afficherait l'heure UTC dans un
+ *  champ que le navigateur interprète comme locale — l'heure reculait du
+ *  décalage horaire à chaque réouverture du workflow. */
+function isoToLocalInput(iso?: string): string {
+  if (!iso) return ''
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ''
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
+}
+
+/** ISO (UTC) → texte lisible dans le fuseau du marchand. */
+function formatInLocal(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
+}
+
 /** Groupes de déclencheurs (ordre d'affichage + repère visuel). Les noms
  *  correspondent au champ `group` de TRIGGER_EVENTS. */
 const TRIGGER_GROUPS = [
@@ -250,8 +275,12 @@ function TriggerBlock({ node, onPatch }: { node: WorkflowNode; onPatch: (id: str
         <div className="mt-2">
           <p className="mb-1 text-xs text-muted-foreground">Date et heure d’envoi</p>
           <Input type="datetime-local"
-            value={node.scheduledAt ? node.scheduledAt.slice(0, 16) : ''}
+            value={isoToLocalInput(node.scheduledAt)}
             onChange={(e) => onPatch(node.id, { scheduledAt: e.target.value ? new Date(e.target.value).toISOString() : undefined } as never)} />
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Heure locale — {LOCAL_TZ}
+            {node.scheduledAt && <> · envoi le {formatInLocal(node.scheduledAt)}</>}
+          </p>
         </div>
       )}
       {node.event === 'customer_birthday' && (
