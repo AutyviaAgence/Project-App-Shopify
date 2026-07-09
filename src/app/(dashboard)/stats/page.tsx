@@ -36,6 +36,7 @@ import {
   Sparkles,
   Coins,
   Mail,
+  ShoppingBag,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { fr, enUS } from 'date-fns/locale'
@@ -543,7 +544,7 @@ export default function StatsPage() {
                 entonnoir à droite (il est haut, il prend la colonne large).
                 Sous lg, tout retombe en une seule colonne. */}
             <div className="grid gap-4 lg:grid-cols-[minmax(240px,1fr)_2fr] lg:items-start">
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
+            <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
               <KPICard
                 title={t('stats.total_contacts')}
                 value={stats.overview.totalContacts}
@@ -556,6 +557,16 @@ export default function StatsPage() {
                 trend={stats.overview.contactsTrend}
                 icon={UserPlus}
                 color="teal"
+              />
+              {/* Ventes = commandes attribuées à un message initié (même source
+                  que l'entonnoir ci-contre, donc toujours cohérent avec lui).
+                  Ce n'est PAS le total des ventes de la boutique. */}
+              <KPICard
+                title="Ventes attribuées"
+                value={funnel?.ordered ?? 0}
+                trend={null}
+                icon={ShoppingBag}
+                color="green"
               />
             </div>
 
