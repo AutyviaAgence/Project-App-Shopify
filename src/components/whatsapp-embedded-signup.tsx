@@ -95,9 +95,35 @@ export function WhatsAppEmbeddedSignup({
     setBusy(true)
     signupData.current = {}
 
+    // Échange serveur (asynchrone), séparé de la callback FB : le SDK Facebook
+    // REFUSE une callback `async` (« Expression is of type asyncfunction, not
+    // function ») — la callback ci-dessous doit donc rester synchrone.
+    const finish = async (code: string, waba_id: string, phone_number_id: string) => {
+      try {
+        const res = await fetch('/api/whatsapp/embedded-signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ code, waba_id, phone_number_id }),
+        })
+        const json = await res.json()
+        if (!res.ok) throw new Error(json.error || 'Connexion impossible')
+
+        const n = json.imported_templates ?? 0
+        toast.success(n > 0 ? `WhatsApp connecté ✓ — ${n} modèle(s) importé(s)` : 'WhatsApp connecté ✓')
+        if (json.webhooks_subscribed === false) {
+          toast.warning('Connecté, mais l’abonnement aux notifications a échoué. Les messages entrants peuvent ne pas arriver.')
+        }
+        onConnected?.()
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : 'Erreur')
+      } finally {
+        setBusy(false)
+      }
+    }
+
     window.FB.login(
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      async (response: any) => {
+      (response: any) => {
         const code = response?.authResponse?.code
         if (!code) {
           setBusy(false)
@@ -113,26 +139,7 @@ export function WhatsAppEmbeddedSignup({
           return
         }
 
-        try {
-          const res = await fetch('/api/whatsapp/embedded-signup', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ code, waba_id, phone_number_id }),
-          })
-          const json = await res.json()
-          if (!res.ok) throw new Error(json.error || 'Connexion impossible')
-
-          const n = json.imported_templates ?? 0
-          toast.success(n > 0 ? `WhatsApp connecté ✓ — ${n} modèle(s) importé(s)` : 'WhatsApp connecté ✓')
-          if (json.webhooks_subscribed === false) {
-            toast.warning('Connecté, mais l’abonnement aux notifications a échoué. Les messages entrants peuvent ne pas arriver.')
-          }
-          onConnected?.()
-        } catch (e) {
-          toast.error(e instanceof Error ? e.message : 'Erreur')
-        } finally {
-          setBusy(false)
-        }
+        void finish(code, waba_id, phone_number_id)
       },
       {
         config_id: CONFIG_ID,
