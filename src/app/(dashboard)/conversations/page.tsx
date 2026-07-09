@@ -821,10 +821,12 @@ function ConversationsPageContent() {
   // un portail (#topbar-slot) ; elle est désormais rendue EN PLACE, au-dessus de
   // la liste des conversations, là où l'utilisateur la cherche.
   const viewToggle = (
-    <div className="inline-flex rounded-lg border bg-background/90 p-0.5 shadow-sm">
+    // `w-full` + `flex-1` sur chaque bouton : la bascule occupe toute la largeur
+    // de la colonne, les deux vues se partagent l'espace à parts égales.
+    <div className="flex w-full rounded-lg border bg-background/90 p-0.5 shadow-sm">
       <button
         onClick={() => setViewMode('chat')}
-        className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors ${
+        className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors ${
           viewMode === 'chat' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
         }`}
         title="Vue messagerie"
@@ -834,7 +836,7 @@ function ConversationsPageContent() {
       </button>
       <button
         onClick={() => setViewMode('table')}
-        className={`inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors ${
+        className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors ${
           viewMode === 'table' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
         }`}
         title="Vue tableau"
@@ -848,7 +850,9 @@ function ConversationsPageContent() {
   if (viewMode === 'table') {
     return (
       <div className="relative flex h-full min-h-0 flex-col overflow-hidden pb-16 md:pb-0">
-        <div className="border-b px-4 py-2">{viewToggle}</div>
+        {/* En vue tableau la bascule n'est plus dans la colonne : on la borne,
+            sinon `w-full` l'étirerait sur toute la largeur de l'écran. */}
+        <div className="border-b px-4 py-2"><div className="max-w-xs">{viewToggle}</div></div>
         <div className="flex min-h-0 flex-1 overflow-hidden">
           <ContactsTableView sessions={sessions} />
         </div>
