@@ -17,7 +17,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import {
   ArrowLeft, Loader2, Plus, Trash2,
-  FileText, Link2, QrCode, Check,
+  FileText, Link2, Check,
   Upload, Tag, Play,
   Sparkles, BookOpen, Smartphone, SlidersHorizontal, Settings2,
   Globe, Shield, Bot, Image as ImageIcon, ChevronRight, MessageSquare,
@@ -88,7 +88,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   const [scheduleEnd, setScheduleEnd] = useState('18:00')
   const [scheduleDays, setScheduleDays] = useState<number[]>([1, 2, 3, 4, 5])
 
-  type TabKey = 'personality' | 'knowledge' | 'channels' | 'behavior' | 'advanced'
+  type TabKey = 'personality' | 'knowledge' | 'behavior' | 'advanced'
   const [activeTab, setActiveTab] = useState<TabKey>('personality')
 
   const [addDocOpen, setAddDocOpen] = useState(false)
@@ -421,7 +421,6 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
               {([
                 { key: 'personality', label: 'Personnalité', icon: Sparkles },
                 { key: 'knowledge', label: 'Savoir & médias', icon: BookOpen },
-                { key: 'channels', label: 'Canaux', icon: Smartphone },
                 { key: 'behavior', label: 'Comportement', icon: SlidersHorizontal },
                 { key: 'advanced', label: 'Avancé', icon: Settings2 },
               ] as const).map(t => {
@@ -485,53 +484,6 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
           </Group>
           )}
 
-          {/* ═══ CANAUX ═══ */}
-          {activeTab === 'channels' && (
-          <Group title="Canaux" subtitle="Numéros sur lesquels cet agent répond" icon={Smartphone} color="blue">
-            {sessions.length === 0 ? (
-              <button onClick={() => router.push('/dashboard')} className="w-full py-6 text-center text-sm text-muted-foreground hover:text-foreground transition-colors">
-                Aucune session · Connecter WhatsApp →
-              </button>
-            ) : (
-              sessions.map((s, i) => (
-                <div key={s.id}>
-                  {i > 0 && <Divider />}
-                  <div className="w-full flex items-center gap-3 py-3.5">
-                    <span className={cn('h-2.5 w-2.5 shrink-0 rounded-full', s.status === 'connected' ? 'bg-emerald-500' : 'bg-muted-foreground/30')} />
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium truncate">{s.display_name || s.instance_name}</p>
-                      <p className="text-xs text-muted-foreground truncate">{s.phone_number || '—'}</p>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-
-            {/* Liens QR */}
-            <Divider />
-            <RowField label="Liens WhatsApp" trailing={
-              <button onClick={() => setAddLinkOpen(true)} className="flex items-center gap-1 text-[13px] text-blue-500 hover:text-blue-600 transition-colors">
-                <Plus className="h-3.5 w-3.5" /> Créer
-              </button>
-            }>
-              {links.length > 0 && <span className="text-sm text-muted-foreground">{links.length}</span>}
-            </RowField>
-            {links.map((link, i) => (
-              <div key={link.id}>
-                {i > 0 && <Divider />}
-                <div className="flex items-center gap-3 py-3">
-                  <QrCode className="h-4 w-4 text-blue-500 shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm truncate">{link.name}</p>
-                    <p className="text-[11px] font-mono text-muted-foreground">/{link.slug}</p>
-                  </div>
-                  <span className="text-xs text-muted-foreground">{link.click_count ?? 0} clics</span>
-                </div>
-              </div>
-            ))}
-          </Group>
-          )}
-
           {/* ═══ SAVOIR & MÉDIAS ═══ */}
           {activeTab === 'knowledge' && (<>
           <Group title="Savoir" subtitle="Documents que l'agent peut utiliser" icon={BookOpen} color="blue"
@@ -560,9 +512,18 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                             : 'Traitement…'}
                         </span>
                       </div>
-                      <button onClick={() => handleDetachDoc(doc.id)} className="opacity-0 group-hover:opacity-100 transition-opacity">
-                        <Trash2 className="h-3.5 w-3.5 text-muted-foreground hover:text-destructive transition-colors" />
-                      </button>
+                      <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+                        <button onClick={() => handleViewDoc(doc)} title="Visualiser"
+                          className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+                          <Eye className="h-3.5 w-3.5" />
+                        </button>
+                        {/* Détache le document de CET agent — le fichier reste dans la
+                            bibliothèque (la suppression définitive est dans « Ajouter »). */}
+                        <button onClick={() => handleDetachDoc(doc.id)} title="Retirer de cet agent"
+                          className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive">
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -746,7 +707,6 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
               mediaCount={images.length}
               language={autoDetectLanguage ? 'Auto' : 'Français'}
               onTest={() => setTestOpen(true)}
-              onViewChannels={() => setActiveTab('channels')}
               onPermissions={() => setActiveTab('advanced')}
             />
           </div>
@@ -1203,7 +1163,7 @@ function PreviewAction({ icon: Icon, label, onClick }: { icon: React.ElementType
 
 function AgentPreviewCard({
   name, description, toneLabel, isActive, channelCount, docCount, mediaCount, language,
-  onTest, onViewChannels, onPermissions,
+  onTest, onPermissions,
 }: {
   name: string
   description: string
@@ -1214,7 +1174,6 @@ function AgentPreviewCard({
   mediaCount: number
   language: string
   onTest: () => void
-  onViewChannels: () => void
   onPermissions: () => void
 }) {
   return (
@@ -1253,7 +1212,6 @@ function AgentPreviewCard({
           <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">Actions</p>
           <div className="space-y-2">
             <PreviewAction icon={Play} label="Tester l'agent" onClick={onTest} />
-            <PreviewAction icon={Smartphone} label="Voir les canaux" onClick={onViewChannels} />
             <PreviewAction icon={Shield} label="Permissions" onClick={onPermissions} />
           </div>
         </div>
