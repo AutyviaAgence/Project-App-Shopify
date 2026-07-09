@@ -63,7 +63,11 @@ const nextConfig: NextConfig = {
           { key: 'X-XSS-Protection', value: '1; mode=block' },
           { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
-          { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=()' },
+          // `microphone=(self)` : requis pour l'enregistrement des messages
+          // vocaux depuis l'inbox (getUserMedia + MediaRecorder). `microphone=()`
+          // bloquait l'accès AVANT même que le navigateur ne demande la
+          // permission à l'utilisateur. Caméra et géoloc restent interdites.
+          { key: 'Permissions-Policy', value: 'camera=(), microphone=(self), geolocation=()' },
           {
             key: 'Content-Security-Policy',
             value: [
