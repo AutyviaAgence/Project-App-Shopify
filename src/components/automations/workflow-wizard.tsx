@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { Loader2, Sparkles, ChevronRight, ChevronLeft, Check } from 'lucide-react'
+import { Loader2, Sparkles, ChevronRight, ChevronLeft, Check, Search, X } from 'lucide-react'
 import { TRIGGER_EVENTS, type TriggerEvent } from '@/lib/automations/types'
 import { CONDITION_FIELDS } from '@/components/automations/builder/field-labels'
 import type { WorkflowGraph, WorkflowNode, WorkflowEdge, ConditionRule } from '@/lib/automations/graph-types'
@@ -381,15 +381,45 @@ function TemplateSelect({ templates, value, onChange }: {
   templates: WhatsAppTemplate[]; value: string | null; onChange: (id: string) => void; compact?: boolean
 }) {
   const [cat, setCat] = useState('all')
+  // Recherche libre : nom, contenu du message, langue. Indispensable dès qu'un
+  // même modèle existe en plusieurs langues (panier_abandonne fr + en…).
+  const [query, setQuery] = useState('')
   const labelsFor = (t: WhatsAppTemplate) => (t.variable_keys || []).map((k) => VARIABLE_BY_KEY[k]?.label || k)
   if (templates.length === 0) {
     return <p className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">Aucun modèle approuvé. Créez-en un dans « Modèles ».</p>
   }
   const present = new Set(templates.map((t) => (t as { use_case?: string }).use_case || 'other'))
   const cats = PICKER_CATS.filter((c) => c.key === 'all' || present.has(c.key))
-  const shown = templates.filter((t) => cat === 'all' || (t as { use_case?: string }).use_case === cat)
+  const q = query.trim().toLowerCase()
+  const shown = templates
+    .filter((t) => cat === 'all' || (t as { use_case?: string }).use_case === cat)
+    .filter((t) => {
+      if (!q) return true
+      const hay = [t.name, t.body_text, t.header_text, t.language]
+        .filter(Boolean).join(' ').toLowerCase()
+      return hay.includes(q)
+    })
   return (
     <div className="space-y-2">
+      {/* Recherche + compteur */}
+      <div className="flex items-center gap-2">
+        <div className="relative min-w-[180px] flex-1">
+          <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Rechercher un modèle (nom, texte, langue)…"
+            className="h-8 w-full rounded-lg border border-input bg-background pl-7 pr-7 text-xs outline-none focus:border-primary"
+          />
+          {query && (
+            <button type="button" onClick={() => setQuery('')} title="Effacer"
+              className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+        <span className="shrink-0 text-[11px] text-muted-foreground">{shown.length} modèle{shown.length > 1 ? 's' : ''}</span>
+      </div>
       {/* Catégories */}
       <div className="flex flex-wrap gap-1">
         {cats.map((c) => (
@@ -400,25 +430,36 @@ function TemplateSelect({ templates, value, onChange }: {
           </button>
         ))}
       </div>
-      {/* Bulles (grandes) en défilement horizontal */}
-      <div
-        className="flex gap-3 overflow-x-auto overscroll-contain pb-2 [scrollbar-width:thin]"
-        onWheel={(e) => { if (e.deltaY !== 0) { e.currentTarget.scrollLeft += e.deltaY; e.stopPropagation() } }}
-      >
-        {shown.map((t) => {
-          const sel = t.id === value
-          return (
-            <button key={t.id} type="button" onClick={() => onChange(t.id)}
-              className={cn('w-[240px] shrink-0 rounded-xl border p-2.5 text-left transition-colors',
-                sel ? 'border-primary/60 bg-primary/5 ring-1 ring-primary/30' : 'border-border hover:border-foreground/30 hover:bg-muted/40')}>
-              <p className="mb-1.5 truncate text-xs font-medium">{t.name}</p>
-              <div className="max-h-[360px] overflow-y-auto [scrollbar-width:thin]">
-                <TemplateBubble template={t} labels={labelsFor(t)} />
-              </div>
-            </button>
-          )
-        })}
-      </div>
+      {shown.length === 0 ? (
+        <p className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">
+          Aucun modèle ne correspond{q ? ` à « ${query.trim()} »` : ''}.
+        </p>
+      ) : (
+        /* Bulles (grandes) en défilement horizontal */
+        <div
+          className="flex gap-3 overflow-x-auto overscroll-contain pb-2 [scrollbar-width:thin]"
+          onWheel={(e) => { if (e.deltaY !== 0) { e.currentTarget.scrollLeft += e.deltaY; e.stopPropagation() } }}
+        >
+          {shown.map((t) => {
+            const sel = t.id === value
+            return (
+              <button key={t.id} type="button" onClick={() => onChange(t.id)}
+                className={cn('w-[240px] shrink-0 rounded-xl border p-2.5 text-left transition-colors',
+                  sel ? 'border-primary/60 bg-primary/5 ring-1 ring-primary/30' : 'border-border hover:border-foreground/30 hover:bg-muted/40')}>
+                <div className="mb-1.5 flex items-center gap-1.5">
+                  <p className="min-w-0 flex-1 truncate text-xs font-medium">{t.name}</p>
+                  {t.language && (
+                    <span className="shrink-0 rounded bg-muted px-1 py-0.5 text-[9px] uppercase text-muted-foreground">{t.language}</span>
+                  )}
+                </div>
+                <div className="max-h-[360px] overflow-y-auto [scrollbar-width:thin]">
+                  <TemplateBubble template={t} labels={labelsFor(t)} />
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
