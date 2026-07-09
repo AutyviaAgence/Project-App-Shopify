@@ -13,6 +13,7 @@ import { TemplateBubble } from '@/components/template-bubble'
 import { useSubscription } from '@/hooks/use-subscription'
 import { UpgradeBadge } from '@/components/upgrade-badge'
 import { VARIABLE_BY_KEY } from '@/lib/templates/variables'
+import { USE_CASES } from '@/lib/templates/use-cases'
 
 const DELAY_PRESETS: { label: string; minutes: number }[] = [
   { label: 'Immédiat', minutes: 0 },
@@ -366,13 +367,11 @@ function AiHelp({ value, onChange, busy, onGo, placeholder }: {
   )
 }
 
+// Types de modèles : libellés issus de USE_CASES, la même source que la page
+// Modèles et que le sélecteur du builder — plus de libellés dupliqués.
 const PICKER_CATS: { key: string; label: string }[] = [
   { key: 'all', label: 'Tous' },
-  { key: 'order_status', label: 'Commande' },
-  { key: 'cart', label: 'Panier' },
-  { key: 'marketing', label: 'Marketing' },
-  { key: 'support', label: 'SAV' },
-  { key: 'billing', label: 'Facturation' },
+  ...USE_CASES.map((u) => ({ key: u.key as string, label: u.label })),
 ]
 
 /** Sélecteur VISUEL de template : catégories + bulles d'aperçu horizontales.
@@ -422,13 +421,20 @@ function TemplateSelect({ templates, value, onChange }: {
       </div>
       {/* Catégories */}
       <div className="flex flex-wrap gap-1">
-        {cats.map((c) => (
-          <button key={c.key} type="button" onClick={() => setCat(c.key)}
-            className={cn('rounded-full px-2.5 py-1 text-[11px] transition-colors',
-              cat === c.key ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground')}>
-            {c.label}
-          </button>
-        ))}
+        {cats.map((c) => {
+          // Compteur par type, sur l'ensemble des modèles (pas le sous-ensemble
+          // filtré) : le nombre affiché ne bouge donc pas quand on change d'onglet.
+          const count = c.key === 'all'
+            ? templates.length
+            : templates.filter((t) => ((t as { use_case?: string }).use_case || 'other') === c.key).length
+          return (
+            <button key={c.key} type="button" onClick={() => setCat(c.key)}
+              className={cn('rounded-full px-2.5 py-1 text-[11px] transition-colors',
+                cat === c.key ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground')}>
+              {c.label} ({count})
+            </button>
+          )
+        })}
       </div>
       {shown.length === 0 ? (
         <p className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">

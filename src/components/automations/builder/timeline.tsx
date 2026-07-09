@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Clock, GitBranch, MessageSquare, Plus, ShoppingBag, Trash2, FlaskConical, Users, CalendarClock } from 'lucide-react'
+import { Clock, GitBranch, MessageSquare, Plus, ShoppingBag, Trash2, FlaskConical, Users, CalendarClock, Search, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -99,6 +99,7 @@ import { CONDITION_FIELDS, COUNTRY_OPTIONS, LANGUAGE_OPTIONS } from './field-lab
 import { chainFrom, getNode } from './timeline-model'
 import { TemplateBubble } from '@/components/template-bubble'
 import { VARIABLE_BY_KEY } from '@/lib/templates/variables'
+import { USE_CASES } from '@/lib/templates/use-cases'
 import type { WorkflowGraph, WorkflowNode } from '@/lib/automations/graph-types'
 import type { WhatsAppTemplate } from '@/types/database'
 
@@ -402,6 +403,9 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction }: {
 }) {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [pickerCat, setPickerCat] = useState<string>('all')
+  // Recherche libre : nom, texte du message, langue. Indispensable dès qu'un
+  // même modèle existe en plusieurs langues (panier_abandonne fr + en…).
+  const [pickerQuery, setPickerQuery] = useState('')
   if (node.type !== 'action') return null
   const selected = templates.find((t) => t.id === node.templateId) || null
   const badge = (t: WhatsAppTemplate) =>
@@ -433,42 +437,73 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction }: {
             >
               <p className="px-1 pb-2 pt-1 text-[11px] font-medium text-muted-foreground">Choisir un modèle</p>
 
-              {/* Filtre par catégorie (puces) */}
+              {/* Recherche (nom, texte, langue) */}
+              <div className="relative mb-2">
+                <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                <input
+                  value={pickerQuery}
+                  onChange={(e) => setPickerQuery(e.target.value)}
+                  placeholder="Rechercher un modèle (nom, texte, langue)…"
+                  className="h-8 w-full rounded-lg border border-input bg-background pl-7 pr-7 text-xs outline-none focus:border-primary"
+                />
+                {pickerQuery && (
+                  <button type="button" onClick={() => setPickerQuery('')} title="Effacer"
+                    className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground">
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+
+              {/* Filtre par type de modèle (puces + compteurs). Libellés issus de
+                  USE_CASES, la même source que la page Modèles : pas de doublon. */}
               {(() => {
-                const CATS: { key: string; label: string }[] = [
+                // Nom sans préfixe « use » : ESLint le prendrait pour un hook.
+                const catOf = (t: WhatsAppTemplate) => (t as { use_case?: string }).use_case || 'other'
+                const countIn = (key: string) =>
+                  key === 'all' ? templates.length : templates.filter((t) => catOf(t) === key).length
+                const cats = [
                   { key: 'all', label: 'Tous' },
-                  { key: 'order_status', label: 'Commande' },
-                  { key: 'cart', label: 'Panier' },
-                  { key: 'marketing', label: 'Marketing' },
-                  { key: 'support', label: 'SAV' },
-                  { key: 'billing', label: 'Facturation' },
+                  // On n'affiche que les catégories qui ont au moins un modèle.
+                  ...USE_CASES.filter((u) => countIn(u.key) > 0).map((u) => ({ key: u.key as string, label: u.label })),
                 ]
-                // On n'affiche que les catégories qui ont au moins un modèle.
-                const present = new Set(templates.map((t) => (t as { use_case?: string }).use_case || 'other'))
-                const cats = CATS.filter((c) => c.key === 'all' || present.has(c.key))
                 return (
                   <div className="mb-2 flex flex-wrap gap-1">
                     {cats.map((c) => (
                       <button key={c.key} onClick={() => setPickerCat(c.key)}
                         className={cn('rounded-full px-2.5 py-1 text-[11px] transition-colors',
                           pickerCat === c.key ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground')}>
-                        {c.label}
+                        {c.label} ({countIn(c.key)})
                       </button>
                     ))}
                   </div>
                 )
               })()}
 
-              {/* Bulles en défilement HORIZONTAL (le scroll reste dans la galerie). */}
-              <div
-                className="flex gap-2 overflow-x-auto overscroll-contain pb-1 [scrollbar-width:thin]"
-                onWheel={(e) => {
-                  // Convertit le scroll vertical de la molette en scroll horizontal.
-                  if (e.deltaY !== 0) { e.currentTarget.scrollLeft += e.deltaY; e.stopPropagation() }
-                }}
-              >
-                {templates
+              {(() => {
+                const q = pickerQuery.trim().toLowerCase()
+                const shown = templates
                   .filter((t) => pickerCat === 'all' || (t as { use_case?: string }).use_case === pickerCat)
+                  .filter((t) => !q || [t.name, t.body_text, t.header_text, t.language]
+                    .filter(Boolean).join(' ').toLowerCase().includes(q))
+                if (shown.length === 0) {
+                  return (
+                    <p className="rounded-lg border border-dashed p-3 text-center text-xs text-muted-foreground">
+                      Aucun modèle ne correspond{q ? ` à « ${pickerQuery.trim()} »` : ''}.
+                    </p>
+                  )
+                }
+                return (
+                <>
+                <p className="mb-1 px-1 text-[10px] text-muted-foreground">{shown.length} modèle{shown.length > 1 ? 's' : ''}</p>
+                {/* Bulles en défilement HORIZONTAL (le scroll reste dans la galerie). */}
+                <div
+                  className="flex gap-2 overflow-x-auto overscroll-contain pb-1 [scrollbar-width:thin]"
+                  onWheel={(e) => {
+                    // Convertit le scroll vertical de la molette en scroll horizontal.
+                    if (e.deltaY !== 0) { e.currentTarget.scrollLeft += e.deltaY; e.stopPropagation() }
+                  }}
+                >
+                {shown
                   .map((t) => {
                     const isSel = t.id === node.templateId
                     return (
@@ -480,8 +515,11 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction }: {
                           isSel ? 'border-primary/50 bg-primary/5 ring-1 ring-primary/30' : 'border-border hover:border-foreground/30 hover:bg-muted/40'
                         )}
                       >
-                        <div className="mb-1.5 flex items-center justify-between gap-2">
-                          <span className="truncate text-xs font-medium">{t.name}</span>
+                        <div className="mb-1.5 flex items-center justify-between gap-1.5">
+                          <span className="min-w-0 flex-1 truncate text-xs font-medium">{t.name}</span>
+                          {t.language && (
+                            <span className="shrink-0 rounded bg-muted px-1 py-0.5 text-[9px] uppercase text-muted-foreground">{t.language}</span>
+                          )}
                           <span className="shrink-0 text-[10px] text-muted-foreground">{badge(t)}</span>
                         </div>
                         {/* Aperçu grand : on voit le message en entier (scroll interne
@@ -492,7 +530,10 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction }: {
                       </button>
                     )
                   })}
-              </div>
+                </div>
+                </>
+                )
+              })()}
             </PopoverContent>
           </Popover>
 
