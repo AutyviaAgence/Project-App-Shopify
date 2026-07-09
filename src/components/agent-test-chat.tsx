@@ -9,7 +9,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Loader2, Send, Bot, User, Trash2, AlertCircle, Wrench, CheckCircle, XCircle, ArrowRightCircle, BookOpen, ImageIcon, Wand2, Sparkles, Check } from 'lucide-react'
+import { Loader2, Send, Bot, User, Trash2, AlertCircle, Wrench, CheckCircle, XCircle, ArrowRightCircle, BookOpen, ImageIcon, Wand2, Sparkles, Check, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/i18n/context'
 import { toast } from 'sonner'
@@ -35,15 +35,19 @@ type ChatEvent = {
   routeScenario?: string
 }
 
-type ImageRef = {
+/** Média renvoyé par l'agent : image, vidéo ou document (pas seulement image). */
+type MediaRef = {
   ref: string
   url: string
+  kind: 'image' | 'video' | 'document'
+  filename: string
+  mimeType?: string | null
 }
 
 type Message = {
   role: 'user' | 'assistant'
   content: string
-  images?: ImageRef[]
+  media?: MediaRef[]
   toolExecutions?: ToolExecution[]
   event?: ChatEvent
   rag?: RagInfo | null
@@ -120,11 +124,10 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
             rag: data.rag || null,
           }])
         } else if (data.response !== undefined) {
-          console.log('[test-chat] response:', data.response, 'images:', data.images)
           setMessages(prev => [...prev, {
             role: 'assistant',
             content: data.response,
-            images: data.images,
+            media: data.media,
             toolExecutions: data.toolExecutions,
             rag: data.rag || null,
           }])
@@ -228,7 +231,7 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
                   )}
                   <div className="max-w-[80%] space-y-1.5">
                     {/* RAG info — masqué si aucun résultat et que des images sont envoyées */}
-                    {msg.rag && (msg.rag.error || msg.rag.chunksUsed > 0 || !msg.images?.length) && (
+                    {msg.rag && (msg.rag.error || msg.rag.chunksUsed > 0 || !msg.media?.length) && (
                       <div className={cn(
                         "flex items-center gap-2 rounded-lg border border-dashed px-3 py-1.5 text-[11px]",
                         msg.rag.error
@@ -252,12 +255,12 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
                         )}
                       </div>
                     )}
-                    {/* Badge images IA */}
-                    {msg.images && msg.images.length > 0 && (
+                    {/* Badge médias envoyés — le libellé suit le type réel. */}
+                    {msg.media && msg.media.length > 0 && (
                       <div className="flex items-center gap-2 rounded-lg border border-dashed border-violet-500/30 bg-violet-500/5 px-3 py-1.5 text-[11px]">
                         <ImageIcon className="h-3 w-3 shrink-0 text-violet-500" />
                         <span className="text-violet-700 dark:text-violet-300">
-                          Image{msg.images.length > 1 ? 's' : ''} IA : {msg.images.map(i => i.ref).join(', ')}
+                          {msg.media.map(m => `${m.kind === 'video' ? 'Vidéo' : m.kind === 'document' ? 'Document' : 'Image'} : ${m.ref}`).join(' · ')}
                         </span>
                       </div>
                     )}
@@ -305,19 +308,52 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
                         <p className="whitespace-pre-wrap">{msg.content}</p>
                       </div>
                     )}
-                    {/* Images IA */}
-                    {msg.images && msg.images.length > 0 && (
+                    {/* Médias envoyés par l'agent : image, vidéo ou document.
+                        Chaque type a son rendu — tout afficher en <img> donnait
+                        des vignettes cassées pour les vidéos et les PDF. */}
+                    {msg.media && msg.media.length > 0 && (
                       <div className="space-y-2">
-                        {msg.images.map((img) => (
-                          <a key={img.ref} href={img.url} target="_blank" rel="noreferrer" className="block">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img
-                              src={img.url}
-                              alt={img.ref}
-                              className="max-w-[260px] rounded-xl border object-cover shadow-sm hover:opacity-90 transition-opacity"
-                            />
-                          </a>
-                        ))}
+                        {msg.media.map((m) => {
+                          if (m.kind === 'image') {
+                            return (
+                              <a key={m.ref} href={m.url} target="_blank" rel="noreferrer" className="block">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={m.url}
+                                  alt={m.filename || m.ref}
+                                  className="max-w-[260px] rounded-xl border object-cover shadow-sm hover:opacity-90 transition-opacity"
+                                />
+                              </a>
+                            )
+                          }
+                          if (m.kind === 'video') {
+                            return (
+                              <video
+                                key={m.ref}
+                                src={m.url}
+                                controls
+                                preload="metadata"
+                                className="max-w-[260px] rounded-xl border shadow-sm"
+                              />
+                            )
+                          }
+                          // Document : carte cliquable (un PDF ne s'affiche pas inline).
+                          return (
+                            <a
+                              key={m.ref}
+                              href={m.url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="flex max-w-[260px] items-center gap-2.5 rounded-xl border bg-muted/30 px-3 py-2.5 transition-colors hover:bg-muted/60"
+                            >
+                              <FileText className="h-5 w-5 shrink-0 text-blue-500" />
+                              <div className="min-w-0">
+                                <p className="truncate text-xs font-medium">{m.filename || m.ref}</p>
+                                <p className="text-[11px] text-muted-foreground">Ouvrir le document</p>
+                              </div>
+                            </a>
+                          )
+                        })}
                       </div>
                     )}
                   </div>

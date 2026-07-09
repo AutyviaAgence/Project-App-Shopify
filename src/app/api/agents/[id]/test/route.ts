@@ -8,12 +8,29 @@ import { retrieveContext } from '@/lib/knowledge/retriever'
 import { getAgentTools, buildOpenAITools, executeToolCall } from '@/lib/tools/executor'
 import { canUseAi } from '@/lib/plans/gate'
 
-async function resolveImageTags(text: string, userId: string): Promise<{ cleanText: string; images: { ref: string; url: string }[] }> {
-  const refs = [...text.matchAll(/\[IMAGE:([a-z0-9_-]+)\]/gi)].map(m => m[1])
-  const cleanText = text.replace(/\[IMAGE:[a-z0-9_-]+\]/gi, '').replace(/\n{3,}/g, '\n\n').trim()
-  console.log('[resolveImageTags] raw text:', text)
-  console.log('[resolveImageTags] extracted refs:', refs)
-  if (refs.length === 0) return { cleanText, images: [] }
+type TestMedia = {
+  ref: string
+  url: string
+  kind: 'image' | 'video' | 'document'
+  filename: string
+  mimeType: string | null
+}
+
+/**
+ * Résout les balises média d'une réponse d'agent en URL signées.
+ *
+ * ⚠️ Les TROIS types doivent être traités : `[IMAGE:ref]` n'est qu'un cas parmi
+ * `[VIDEO:ref]` et `[DOC:ref]`. Ne matcher qu'IMAGE laissait les deux autres
+ * balises DANS le texte et le testeur rendait tout en <img> — d'où les vidéos
+ * et PDF affichés en images cassées.
+ *
+ * Même expression que la production (process-ai-response.ts:652).
+ */
+async function resolveMediaTags(text: string, userId: string): Promise<{ cleanText: string; media: TestMedia[] }> {
+  const tagRegex = /\[(IMAGE|VIDEO|DOC):([a-z0-9_-]+)\]/gi
+  const refs = [...text.matchAll(tagRegex)].map(m => m[2])
+  const cleanText = text.replace(tagRegex, '').replace(/\n{3,}/g, '\n\n').trim()
+  if (refs.length === 0) return { cleanText, media: [] }
 
   const admin = createAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -21,32 +38,35 @@ async function resolveImageTags(text: string, userId: string): Promise<{ cleanTe
   )
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: imgRecords, error: dbErr } = await (admin as any)
+  const { data: records } = await (admin as any)
     .from('knowledge_images')
-    .select('ref, storage_path')
+    .select('ref, storage_path, media_kind, filename, mime_type')
     .eq('user_id', userId)
-    .in('ref', refs) as { data: { ref: string; storage_path: string }[] | null; error: unknown }
-  console.log('[resolveImageTags] userId:', userId, 'refs:', refs, 'imgRecords:', imgRecords, 'dbErr:', dbErr)
+    .in('ref', refs) as {
+      data: { ref: string; storage_path: string; media_kind: string | null; filename: string; mime_type: string | null }[] | null
+    }
 
-  // Debug: list all images for this user if nothing found
-  if (!imgRecords || imgRecords.length === 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: allImgs } = await (admin as any).from('knowledge_images').select('ref, user_id').limit(20)
-    console.log('[resolveImageTags] all images in DB:', allImgs)
-  }
-
-  const images: { ref: string; url: string }[] = []
-  for (const record of imgRecords || []) {
-    const { data: signed, error: signErr } = await admin.storage
+  const media: TestMedia[] = []
+  for (const record of records || []) {
+    const { data: signed } = await admin.storage
       .from('knowledge-images')
       .createSignedUrl(record.storage_path, 3600)
-    console.log('[resolveImageTags] signed URL for', record.ref, ':', signed?.signedUrl, 'signErr:', signErr)
-    if (signed?.signedUrl) {
-      images.push({ ref: record.ref, url: signed.signedUrl })
-    }
+    if (!signed?.signedUrl) continue
+    // Le type stocké fait foi (media_kind) ; à défaut, on déduit du MIME.
+    const kind: TestMedia['kind'] =
+      record.media_kind === 'video' || record.mime_type?.startsWith('video/') ? 'video'
+      : record.media_kind === 'document' || record.mime_type === 'application/pdf' ? 'document'
+      : 'image'
+    media.push({
+      ref: record.ref,
+      url: signed.signedUrl,
+      kind,
+      filename: record.filename,
+      mimeType: record.mime_type,
+    })
   }
 
-  return { cleanText, images }
+  return { cleanText, media }
 }
 
 export async function POST(
@@ -173,16 +193,37 @@ export async function POST(
     systemPrompt += `\n\n--- Base de connaissances (PRIORITAIRE) ---\nIMPORTANT : Avant d'appeler un outil, vérifie TOUJOURS si la réponse se trouve dans la base de connaissances ci-dessous. N'appelle un outil que si l'information n'est PAS disponible ici. Utilise ces informations en priorité pour répondre de manière précise.\n\n${knowledgeContext}\n--- Fin de la base de connaissances ---`
   }
 
-  // Injecter les images disponibles (toutes celles de l'utilisateur, filtrées par agent en JS)
+  // Médias envoyables (images, vidéos, documents) — mêmes règles qu'en production.
+  // Le prompt ne listait que des [IMAGE:…] : l'agent ignorait donc l'existence de
+  // ses vidéos et documents, et les annonçait avec une balise IMAGE.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: allUserImages } = await (supabase as any)
+  const { data: allUserMedia } = await (supabase as any)
     .from('knowledge_images')
-    .select('ref, filename, agent_id')
-    .eq('user_id', user.id) as { data: { ref: string; filename: string; agent_id: string | null }[] | null }
-  const agentImages = (allUserImages || []).filter(img => img.agent_id === null || img.agent_id === id)
-  if (agentImages.length > 0) {
-    const imgList = agentImages.map(i => `- [IMAGE:${i.ref}] → ${i.filename}`).join('\n')
-    systemPrompt += `\n\n--- Images disponibles (UTILISE-LES) ---\nQuand l'utilisateur demande une image ou que le contexte s'y prête, tu DOIS insérer la balise [IMAGE:ref] dans ta réponse. Le système enverra l'image automatiquement.\nImages disponibles :\n${imgList}\nRÈGLE : si l'utilisateur demande "l'image", "une image", ou un contenu visuel, insère IMMÉDIATEMENT la balise correspondante. Ne dis jamais que tu n'as pas d'image si une balise est listée ci-dessus.\nExemple : pour envoyer "menu-burger", écris [IMAGE:menu-burger] dans ta réponse.\n--- Fin des images ---`
+    .select('ref, filename, agent_id, media_kind')
+    .eq('user_id', user.id) as { data: { ref: string; filename: string; agent_id: string | null; media_kind: string | null }[] | null }
+  const agentMedia = (allUserMedia || []).filter(m => m.agent_id === null || m.agent_id === id)
+  if (agentMedia.length > 0) {
+    const byKind = (k: string) => agentMedia.filter(m => (m.media_kind || 'image') === k)
+    const lines: string[] = []
+    const images = byKind('image')
+    const videos = byKind('video')
+    const documents = byKind('document')
+    if (images.length) {
+      lines.push(`\n🖼️ ENVOYER UNE IMAGE — balise [IMAGE:ref]. Images disponibles :`)
+      lines.push(images.map(i => `  - [IMAGE:${i.ref}] → ${i.filename}`).join('\n'))
+    }
+    if (videos.length) {
+      lines.push(`\n🎬 ENVOYER UNE VIDÉO — balise [VIDEO:ref]. Vidéos disponibles :`)
+      lines.push(videos.map(v => `  - [VIDEO:${v.ref}] → ${v.filename}`).join('\n'))
+    }
+    if (documents.length) {
+      lines.push(`\n📄 ENVOYER UN DOCUMENT — balise [DOC:ref]. Documents disponibles :`)
+      lines.push(documents.map(d => `  - [DOC:${d.ref}] → ${d.filename}`).join('\n'))
+    }
+    systemPrompt += `\n\n--- Médias disponibles (UTILISE-LES) ---${lines.join('\n')}\n`
+      + `RÈGLE : quand le client demande un contenu correspondant, insère IMMÉDIATEMENT la balise exacte. `
+      + `N'utilise jamais [IMAGE:…] pour une vidéo ou un document. Ne dis jamais que tu n'as pas le média si sa balise est listée ci-dessus.\n`
+      + `--- Fin des médias ---`
   }
 
   // Charger les outils de l'agent
@@ -242,11 +283,11 @@ export async function POST(
     // Réponse texte finale (pas de tool calls)
     if (!result.toolCalls) {
       await recordTokenUsage(user.id, totalTokens)
-      const { cleanText, images } = await resolveImageTags(result.content || '', user.id)
+      const { cleanText, media } = await resolveMediaTags(result.content || '', user.id)
       return NextResponse.json({
         data: {
           response: cleanText,
-          images: images.length > 0 ? images : undefined,
+          media: media.length > 0 ? media : undefined,
           toolExecutions: toolExecutions.length > 0 ? toolExecutions : undefined,
           rag: ragInfo,
         }
