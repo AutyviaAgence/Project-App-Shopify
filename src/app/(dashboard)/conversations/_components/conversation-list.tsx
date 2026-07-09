@@ -44,6 +44,8 @@ interface ConversationListProps {
   conversations: ConversationWithJoins[]
   pendingActionConvIds?: Set<string>
   onNewConversation?: () => void
+  /** Bascule Messagerie/Tableau, rendue en tête de la colonne. */
+  viewToggle?: React.ReactNode
   selectedConvId: string | null
   totalPages: number
   totalConversations: number
@@ -75,6 +77,7 @@ export function ConversationList({
   conversations,
   pendingActionConvIds,
   onNewConversation,
+  viewToggle,
   selectedConvId,
   totalPages,
   totalConversations,
@@ -174,6 +177,9 @@ export function ConversationList({
     >
       {/* Search header */}
       <div data-tour="conversations-header" className="p-3 space-y-3">
+        {/* Bascule Messagerie / Tableau — au-dessus de la recherche, à l'endroit
+            où on la cherche (elle vivait auparavant dans la barre du haut). */}
+        {viewToggle}
         <div className="flex items-center gap-2">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />

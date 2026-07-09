@@ -1,7 +1,6 @@
 'use client'
 
 import { Suspense, useEffect, useState, useCallback, useRef } from 'react'
-import { createPortal } from 'react-dom'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
@@ -82,8 +81,6 @@ function ConversationsPageContent() {
   // Bascule d'affichage : messagerie (chat) ↔ tableau exportable des contacts.
   const [viewMode, setViewMode] = useState<'chat' | 'table'>('chat')
   // Cible du portail : l'emplacement réservé dans la barre du haut globale.
-  const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null)
-  useEffect(() => { setTopbarSlot(document.getElementById('topbar-slot')) }, [])
 
   // Lifecycle stages (= « étapes », l'ancien système de tags a été fusionné ici)
   const [lifecycleStages, setLifecycleStages] = useState<LifecycleStage[]>([])
@@ -820,9 +817,9 @@ function ConversationsPageContent() {
     return <BlobLoaderScreen />
   }
 
-  // Bouton de bascule chat ↔ tableau, rendu dans la barre du haut globale
-  // (emplacement #topbar-slot) via un portail : toujours visible en haut à
-  // droite, jamais recouvert par un panneau.
+  // Bascule messagerie ↔ tableau. Elle vivait dans la barre du haut globale via
+  // un portail (#topbar-slot) ; elle est désormais rendue EN PLACE, au-dessus de
+  // la liste des conversations, là où l'utilisateur la cherche.
   const viewToggle = (
     <div className="inline-flex rounded-lg border bg-background/90 p-0.5 shadow-sm">
       <button
@@ -833,7 +830,7 @@ function ConversationsPageContent() {
         title="Vue messagerie"
       >
         <MessageSquare className="h-4 w-4" />
-        <span className="hidden sm:inline">Messagerie</span>
+        <span>Messagerie</span>
       </button>
       <button
         onClick={() => setViewMode('table')}
@@ -843,26 +840,26 @@ function ConversationsPageContent() {
         title="Vue tableau"
       >
         <Table2 className="h-4 w-4" />
-        <span className="hidden sm:inline">Tableau</span>
+        <span>Tableau</span>
       </button>
     </div>
   )
 
-  const portaledToggle = topbarSlot ? createPortal(viewToggle, topbarSlot) : null
-
   if (viewMode === 'table') {
     return (
-      <div className="relative flex h-full min-h-0 overflow-hidden pb-16 md:pb-0">
-        {portaledToggle}
-        <ContactsTableView sessions={sessions} />
+      <div className="relative flex h-full min-h-0 flex-col overflow-hidden pb-16 md:pb-0">
+        <div className="border-b px-4 py-2">{viewToggle}</div>
+        <div className="flex min-h-0 flex-1 overflow-hidden">
+          <ContactsTableView sessions={sessions} />
+        </div>
       </div>
     )
   }
 
   return (
     <div className="relative flex h-full min-h-0 overflow-hidden pb-16 md:pb-0">
-      {portaledToggle}
       <ConversationList
+        viewToggle={viewToggle}
         conversations={conversations}
         pendingActionConvIds={pendingActionConvIds}
         onNewConversation={() => { setNewConvOpen(true); setNewConvPhone(''); setNewConvTemplate('') }}
