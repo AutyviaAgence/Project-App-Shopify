@@ -585,7 +585,10 @@ export default function AgentsPage() {
                                 src={mascotSrc(agent.mascot)}
                                 alt={agent.name}
                                 title={t('common.edit')}
-                                className="absolute -left-5 bottom-0 z-10 w-[112%] max-w-none cursor-pointer object-contain object-bottom drop-shadow-[0_12px_24px_rgba(0,0,0,0.45)] transition-transform duration-500 ease-out hover:-translate-y-1.5 hover:scale-[1.02]"
+                                /* h-full : sans hauteur bornée, l'image gardait son ratio à
+                                   partir de w-[112%] et dépassait EN HAUT du conteneur quand
+                                   la scène rétrécissait — elle recouvrait le titre de la page. */
+                                className="absolute -left-5 bottom-0 z-10 h-full w-[112%] max-w-none cursor-pointer object-contain object-bottom drop-shadow-[0_12px_24px_rgba(0,0,0,0.45)] transition-transform duration-500 ease-out hover:-translate-y-1.5 hover:scale-[1.02]"
                               />
                             </MascotPicker>
                           ) : (
@@ -593,7 +596,7 @@ export default function AgentsPage() {
                             <img
                               src={mascotSrc(agent.mascot)}
                               alt={agent.name}
-                              className="pointer-events-none absolute -left-5 bottom-0 w-[112%] max-w-none object-contain object-bottom drop-shadow-[0_12px_24px_rgba(0,0,0,0.45)]"
+                              className="pointer-events-none absolute -left-5 bottom-0 h-full w-[112%] max-w-none object-contain object-bottom drop-shadow-[0_12px_24px_rgba(0,0,0,0.45)]"
                             />
                           )}
                           {/* Badge type (pill, en haut a gauche) */}

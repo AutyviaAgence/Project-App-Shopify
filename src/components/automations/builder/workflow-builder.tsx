@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { Timeline } from './timeline'
 import { insertAfter, removeNode, patchNode as patchNodeGraph, addVariant, removeVariant } from './timeline-model'
@@ -45,6 +45,7 @@ function PannableTimeline({ children }: { children: React.ReactNode }) {
   const [offset, setOffset] = useState({ x: 0, y: 0 })
   const [zoom, setZoom] = useState(1)
   const drag = useRef<{ sx: number; sy: number; ox: number; oy: number } | null>(null)
+  const canvasRef = useRef<HTMLDivElement | null>(null)
   const [grabbing, setGrabbing] = useState(false)
 
   function onPointerDown(e: React.PointerEvent) {
@@ -59,35 +60,44 @@ function PannableTimeline({ children }: { children: React.ReactNode }) {
   }
   function endDrag() { drag.current = null; setGrabbing(false) }
 
-  function onWheel(e: React.WheelEvent) {
-    // Les menus Radix (Select, Popover…) sont montés dans un PORTAIL, hors du
-    // canvas — mais React propage quand même l'évènement jusqu'ici. Sans ce
-    // garde, la molette déplaçait le canvas au lieu de faire défiler le menu
-    // ouvert (liste des déclencheurs, choix de modèle…).
-    const target = e.target as HTMLElement | null
-    if (target?.closest?.('[data-radix-popper-content-wrapper],[role="listbox"],[role="dialog"]')) return
+  // Le listener `wheel` doit être attaché NATIVEMENT avec { passive: false } :
+  // React l'enregistre en mode passif, où `preventDefault()` est ignoré — Ctrl +
+  // molette zoomait alors la PAGE entière au lieu du canvas.
+  useEffect(() => {
+    const el = canvasRef.current
+    if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      // Les menus Radix (Select, Popover…) sont montés dans un portail hors du
+      // canvas, mais l'évènement remonte jusqu'ici : sans ce garde, la molette
+      // déplaçait le canvas au lieu de faire défiler le menu ouvert.
+      const target = e.target as HTMLElement | null
+      if (target?.closest?.('[data-radix-popper-content-wrapper],[role="listbox"],[role="dialog"]')) return
 
-    e.preventDefault()
-    // Ctrl/⌘ + molette (ou pinch trackpad) = ZOOM. Sinon = déplacement (pan) :
-    // molette verticale → haut/bas, Shift ou molette latérale → gauche/droite.
-    if (e.ctrlKey || e.metaKey) {
-      setZoom((z) => Math.min(2, Math.max(0.5, z - e.deltaY * 0.0015)))
-    } else {
-      setOffset((o) => ({
-        x: o.x - (e.shiftKey ? e.deltaY : e.deltaX),
-        y: o.y - (e.shiftKey ? 0 : e.deltaY),
-      }))
+      e.preventDefault()
+      // Ctrl/⌘ + molette (ou pinch trackpad) = ZOOM. Sinon = déplacement (pan) :
+      // molette verticale → haut/bas, Shift ou molette latérale → gauche/droite.
+      if (e.ctrlKey || e.metaKey) {
+        setZoom((z) => Math.min(2, Math.max(0.5, z - e.deltaY * 0.0015)))
+      } else {
+        setOffset((o) => ({
+          x: o.x - (e.shiftKey ? e.deltaY : e.deltaX),
+          y: o.y - (e.shiftKey ? 0 : e.deltaY),
+        }))
+      }
     }
-  }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [])
+
   function reset() { setOffset({ x: 0, y: 0 }); setZoom(1) }
 
   return (
     <div
+      ref={canvasRef}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={endDrag}
       onPointerLeave={endDrag}
-      onWheel={onWheel}
       className={cn('relative overflow-hidden rounded-2xl border bg-muted/10 select-none', grabbing ? 'cursor-grabbing' : 'cursor-grab')}
     >
       {/* Fond animé Particles, confiné au cadre du canvas (coins arrondis) */}
@@ -114,7 +124,10 @@ function PannableTimeline({ children }: { children: React.ReactNode }) {
       </div>
 
       {/* Contrôles zoom + recentrer */}
-      <div className="absolute bottom-3 right-3 z-10 flex items-center gap-1 rounded-full border bg-card px-1 py-1 shadow-sm">
+      <div
+        className="absolute bottom-3 right-3 z-10 flex items-center gap-1 rounded-full border bg-card px-1 py-1 shadow-sm"
+        title="Zoom : Ctrl + molette (ou pincer). Déplacer : cliquer-glisser le fond."
+      >
         <button onClick={() => setZoom((z) => Math.max(0.5, z - 0.15))} className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted" title="Dézoomer">
           <Minus className="h-4 w-4" />
         </button>
