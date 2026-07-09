@@ -19,6 +19,27 @@ export async function POST(req: NextRequest) {
     waba_access_token?: string
   }
 
+  // Saisie manuelle des identifiants Meta : réservée aux ADMINS.
+  // Les marchands passent par l'Embedded Signup (popup Facebook), qui ne leur
+  // fait jamais manipuler de token. L'équipe Xeyo, elle, en a besoin : Meta
+  // interdit l'Embedded Signup sur le portefeuille business qui possède l'app.
+  //
+  // On se base sur META_APP_ID (variable RUNTIME, déjà utilisée par l'échange
+  // du code) et NON sur NEXT_PUBLIC_META_CONFIG_ID : cette dernière n'est
+  // définie qu'au build (stage `builder` du Dockerfile) et serait vide ici,
+  // désactivant silencieusement ce garde. Si Meta n'est pas configuré du tout,
+  // on laisse le chemin ouvert — sinon plus personne ne pourrait connecter.
+  if (process.env.META_APP_ID && process.env.WABA_APP_SECRET) {
+    const { data: prof } = await supabase
+      .from('profiles').select('role').eq('id', user.id).maybeSingle() as { data: { role: string | null } | null }
+    if (prof?.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Connectez WhatsApp via le bouton « Connecter avec Facebook ».' },
+        { status: 403 }
+      )
+    }
+  }
+
   // Vérifier le quota de sessions selon le plan.
   // Exception onboarding : la 1ʳᵉ session WhatsApp est autorisée AVANT le choix
   // du plan (l'abonnement est la DERNIÈRE étape du grand onboarding).

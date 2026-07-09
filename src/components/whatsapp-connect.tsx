@@ -17,6 +17,7 @@ import { cn } from '@/lib/utils'
 import { track } from '@/lib/posthog/events'
 import { WhatsAppProfileDialog } from '@/components/whatsapp-profile-dialog'
 import { WhatsAppEmbeddedSignup, embeddedSignupAvailable } from '@/components/whatsapp-embedded-signup'
+import { useSubscription } from '@/hooks/use-subscription'
 
 type Session = {
   id: string
@@ -49,6 +50,13 @@ export function WhatsAppConnect() {
   const [loading, setLoading] = useState(true)
   const [health, setHealth] = useState<{ quality: string | null; tierLabel: string | null; used?: number; limit?: number | null; marketingPaused?: boolean; nameDeclined?: boolean } | null>(null)
   const [showForm, setShowForm] = useState(false)
+  // La saisie manuelle des 3 identifiants Meta n'est proposée qu'aux ADMINS :
+  // Meta interdit l'Embedded Signup sur le portefeuille business qui possède
+  // l'app, donc l'équipe Xeyo doit pouvoir relier son propre numéro à la main.
+  // Les marchands, eux, passent toujours par la popup Facebook.
+  const { subscription } = useSubscription()
+  const isAdmin = subscription?.role === 'admin'
+  const manualAllowed = !embeddedSignupAvailable || isAdmin
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
 
@@ -428,16 +436,18 @@ export function WhatsAppConnect() {
         </div>
       )}
 
-      {/* Repli : saisie manuelle des 3 identifiants Meta. */}
+      {/* Repli ADMIN uniquement : saisie manuelle des 3 identifiants Meta. */}
       {!showForm ? (
-        embeddedSignupAvailable ? (
-          <button onClick={() => setShowForm(true)} className="text-xs text-muted-foreground underline hover:text-foreground">
-            Saisir les identifiants manuellement
-          </button>
-        ) : (
-          <Button onClick={() => setShowForm(true)}>
-            <Plus className="mr-1 h-4 w-4" /> Connecter WhatsApp
-          </Button>
+        manualAllowed && (
+          embeddedSignupAvailable ? (
+            <button onClick={() => setShowForm(true)} className="text-xs text-muted-foreground underline hover:text-foreground">
+              Saisir les identifiants manuellement <span className="opacity-60">(admin)</span>
+            </button>
+          ) : (
+            <Button onClick={() => setShowForm(true)}>
+              <Plus className="mr-1 h-4 w-4" /> Connecter WhatsApp
+            </Button>
+          )
         )
       ) : (
         <div className="space-y-3 border-t pt-4">

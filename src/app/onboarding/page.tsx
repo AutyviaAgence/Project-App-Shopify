@@ -102,8 +102,6 @@ export default function OnboardingPage() {
   const [shopTaken, setShopTaken] = useState<string | null>(null)
 
   // Étape WhatsApp
-  // true = l'utilisateur a choisi la saisie manuelle plutôt que la popup Meta.
-  const [waManual, setWaManual] = useState(false)
   const [waPhoneId, setWaPhoneId] = useState('')
   const [waBizId, setWaBizId] = useState('')
   const [waToken, setWaToken] = useState('')
@@ -574,25 +572,21 @@ export default function OnboardingPage() {
                         Connectez votre compte WhatsApp Business via Meta. Sans WhatsApp, vos messages et automatisations seront prêts mais <span className="font-medium text-foreground">rien ne pourra partir</span>.
                       </p>
 
-                      {/* Chemin principal : popup Meta (aucun identifiant à copier). */}
-                      {embeddedSignupAvailable && !waManual && (
+                      {/* Popup Meta : seul chemin proposé aux marchands. (Les admins
+                          ne voient jamais l'onboarding — /api/onboarding/state leur
+                          renvoie completed:true — d'où l'absence de saisie manuelle ici.) */}
+                      {embeddedSignupAvailable ? (
                         <div className="space-y-2">
                           <WhatsAppEmbeddedSignup
                             className="h-11 w-full"
-                            onConnected={async () => { const s = await fetchState(); goTo('agent', 'WhatsApp connecté ✓'); void s }}
+                            onConnected={async () => { await fetchState(); goTo('agent', 'WhatsApp connecté ✓') }}
                           />
                           <p className="text-xs text-muted-foreground">
                             Vous choisirez votre numéro dans une fenêtre Facebook. Aucun identifiant à copier.
                           </p>
-                          <button onClick={() => setWaManual(true)}
-                            className="text-xs text-muted-foreground underline hover:text-foreground">
-                            Saisir les identifiants manuellement
-                          </button>
                         </div>
-                      )}
-
-                      {/* Repli : saisie manuelle des 3 identifiants Meta. */}
-                      {(!embeddedSignupAvailable || waManual) && (
+                      ) : (
+                        // Repli si la config Meta est absente : saisie des 3 identifiants.
                         <div className="space-y-2.5">
                           <input value={waPhoneId} onChange={(e) => setWaPhoneId(e.target.value)} placeholder="Phone Number ID"
                             className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm" />
@@ -600,12 +594,6 @@ export default function OnboardingPage() {
                             className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm" />
                           <input value={waToken} onChange={(e) => setWaToken(e.target.value)} placeholder="Access Token (Meta)" type="password"
                             className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm" />
-                          {embeddedSignupAvailable && (
-                            <button onClick={() => setWaManual(false)}
-                              className="text-xs text-muted-foreground underline hover:text-foreground">
-                              ← Revenir à la connexion via Facebook
-                            </button>
-                          )}
                         </div>
                       )}
                     </>
@@ -616,7 +604,7 @@ export default function OnboardingPage() {
                     </Button>
                     {state.whatsappConnected ? (
                       <Button onClick={() => goTo('agent', 'WhatsApp prêt ✓')}>Continuer <ArrowRight className="ml-1 h-4 w-4" /></Button>
-                    ) : (!embeddedSignupAvailable || waManual) ? (
+                    ) : !embeddedSignupAvailable ? (
                       // En mode popup Meta, c'est le bouton Facebook qui soumet.
                       <Button disabled={busy} onClick={connectWhatsApp}>
                         {busy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <MessageSquare className="mr-1 h-4 w-4" />}
