@@ -5,6 +5,7 @@ import { sendMessage, sendMediaMessage } from '@/lib/messaging/send'
 import { getConversationWindow } from '@/lib/whatsapp-cloud/window'
 import { encryptMessage, decryptMessage } from '@/lib/crypto/encryption'
 import { uploadMedia } from '@/lib/storage/media'
+import { isWhatsAppAudio, remuxWebmToOgg } from '@/lib/media/audio-remux'
 
 /**
  * Detect if a send error indicates the WhatsApp session is disconnected.
@@ -140,21 +141,26 @@ export async function POST(
       return NextResponse.json({ error: 'Fichier trop volumineux (max 50 MB)' }, { status: 400 })
     }
 
-    const mimeType = file.type || 'application/octet-stream'
+    let mimeType = file.type || 'application/octet-stream'
     const mediatype = getMediaType(mimeType)
+    const arrayBuffer = await file.arrayBuffer()
+    let buffer = Buffer.from(arrayBuffer)
 
     // WhatsApp n'accepte l'audio qu'en aac / mp4 / mpeg / amr / ogg(opus).
-    // Un audio/webm (Chrome) est refusé par Meta : sans ce garde, l'upload
-    // échouait avec une erreur Graph obscure côté serveur.
-    if (mediatype === 'audio' && !/^audio\/(aac|mp4|mpeg|amr|ogg)\b/.test(mimeType)) {
-      return NextResponse.json(
-        { error: `Format audio non supporté par WhatsApp (${mimeType}). Formats acceptés : AAC, MP4, MPEG, AMR, OGG/Opus.` },
-        { status: 400 }
-      )
+    // Chrome n'enregistre qu'en WebM/Opus : on remuxe vers OGG (même codec,
+    // simple changement de conteneur) plutôt que de refuser l'envoi.
+    if (mediatype === 'audio' && !isWhatsAppAudio(mimeType)) {
+      const remuxed = await remuxWebmToOgg(buffer)
+      if (!remuxed.ok) {
+        console.error('[send] remux audio échec:', remuxed.error)
+        return NextResponse.json(
+          { error: `Format audio non supporté par WhatsApp (${mimeType}) et conversion impossible.` },
+          { status: 400 }
+        )
+      }
+      buffer = remuxed.buffer
+      mimeType = remuxed.mimeType
     }
-
-    const arrayBuffer = await file.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
 
     // Envoyer via WhatsApp
     const sendResult = await sendMediaMessage(session, contact.phone_number, {

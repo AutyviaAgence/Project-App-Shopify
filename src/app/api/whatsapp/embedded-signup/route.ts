@@ -99,20 +99,10 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // 3. Abonner NOTRE app à la WABA : sans cela, Meta n'envoie aucun webhook
-  //    (messages entrants, statuts, qualité du numéro) pour ce compte.
-  const subRes = await fetch(`${GRAPH}/${waba_id}/subscribed_apps`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${accessToken}` },
-  })
-  if (!subRes.ok) {
-    const j = await subRes.json().catch(() => ({}))
-    // Non bloquant : la session est utilisable pour l'envoi ; on trace pour
-    // pouvoir réabonner ensuite (sinon : pas de messages entrants).
-    console.error('[embedded-signup] subscribed_apps échec:', JSON.stringify(j))
-  }
-
-  // 4. Enregistrement (token chiffré) + import des modèles + lien WA.
+  // 3. Enregistrement (token chiffré) + abonnement aux webhooks + import des
+  //    modèles + lien WA. L'abonnement `subscribed_apps` est fait dans
+  //    createWabaSession, partagé avec la saisie manuelle : sans lui, Meta
+  //    n'enverrait aucun message entrant pour ce compte.
   const result = await createWabaSession(supabase, user.id, {
     waba_phone_number_id: phone_number_id,
     waba_business_account_id: waba_id,
@@ -125,6 +115,6 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     data: result.session,
     imported_templates: result.importedTemplates,
-    webhooks_subscribed: subRes.ok,
+    webhooks_subscribed: result.webhooksSubscribed,
   })
 }

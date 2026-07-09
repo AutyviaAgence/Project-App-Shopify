@@ -23,7 +23,7 @@ export async function createWabaSession(
     waba_access_token: string
   }
 ): Promise<
-  | { ok: true; session: Record<string, unknown>; importedTemplates: number }
+  | { ok: true; session: Record<string, unknown>; importedTemplates: number; webhooksSubscribed: boolean }
   | { ok: false; error: string }
 > {
   const instanceName = `waba-${userId.slice(0, 8)}-${Date.now()}`
@@ -34,6 +34,25 @@ export async function createWabaSession(
     creds.waba_access_token
   )
   const displayPhone = phoneResult.ok ? phoneResult.data.display_phone_number : null
+
+  // Abonner NOTRE app à la WABA. SANS CET APPEL, Meta n'envoie AUCUN webhook
+  // pour ce compte : ni messages entrants, ni statuts, ni qualité du numéro.
+  // C'était fait uniquement par l'Embedded Signup ; les sessions créées par
+  // saisie manuelle ne recevaient donc jamais de message. Best effort : la
+  // session reste utilisable pour l'ENVOI même si l'abonnement échoue.
+  let webhooksSubscribed = false
+  try {
+    const sub = await fetch(
+      `https://graph.facebook.com/v22.0/${creds.waba_business_account_id}/subscribed_apps`,
+      { method: 'POST', headers: { Authorization: `Bearer ${creds.waba_access_token}` } }
+    )
+    webhooksSubscribed = sub.ok
+    if (!sub.ok) {
+      console.error('[waba] subscribed_apps échec:', JSON.stringify(await sub.json().catch(() => ({}))))
+    }
+  } catch (e) {
+    console.error('[waba] subscribed_apps erreur:', e)
+  }
 
   const { data: session, error: dbError } = await supabase
     .from('whatsapp_sessions')
@@ -102,5 +121,5 @@ export async function createWabaSession(
     console.error('[waba] Erreur création auto du lien WA:', e)
   }
 
-  return { ok: true, session, importedTemplates }
+  return { ok: true, session, importedTemplates, webhooksSubscribed }
 }
