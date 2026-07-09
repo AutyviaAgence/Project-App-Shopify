@@ -185,9 +185,12 @@ export function MessageBubbleContent({ msg, isOutbound, channel }: { msg: Extend
               <Mic className="h-4 w-4 text-muted-foreground/50" />
             </div>
           ) : mediaUrl ? (
-            <audio controls className="max-w-[280px] h-[42px]" preload="metadata">
-              <source src={mediaUrl} type={msg.media_mime_type || 'audio/ogg'} />
-            </audio>
+            // `src` directement sur <audio> plutôt qu'un <source type=…> :
+            // WhatsApp renvoie « audio/ogg; codecs=opus », et un type déclaré
+            // que le navigateur juge non lisible fait échouer la source EN
+            // SILENCE (lecteur figé à 0:00 / 0:00). Sans type, le navigateur
+            // détecte le format d'après le contenu.
+            <audio controls src={mediaUrl} className="max-w-[280px] h-[42px]" preload="metadata" />
           ) : (
             <div className="flex items-center gap-2 text-sm text-muted-foreground">
               <Mic className="h-4 w-4" />
@@ -207,9 +210,8 @@ export function MessageBubbleContent({ msg, isOutbound, channel }: { msg: Extend
               <Play className="h-6 w-6 text-muted-foreground/50" />
             </div>
           ) : mediaUrl ? (
-            <video controls className="max-w-[280px] rounded-lg" preload="metadata">
-              <source src={mediaUrl} type={msg.media_mime_type || 'video/mp4'} />
-            </video>
+            // Même raison que l'audio : pas de <source type=…> strict.
+            <video controls src={mediaUrl} className="max-w-[280px] rounded-lg" preload="metadata" />
           ) : (
             <p className="whitespace-pre-wrap break-words text-sm">{msg.content}</p>
           )

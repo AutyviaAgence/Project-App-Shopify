@@ -124,11 +124,17 @@ export function MessageInput({ onSendText, onSendMedia, sending, conversationId,
   async function startRecording() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: MediaRecorder.isTypeSupported('audio/webm;codecs=opus')
-          ? 'audio/webm;codecs=opus'
-          : 'audio/webm',
-      })
+      // WhatsApp REFUSE le conteneur WebM pour l'audio : il n'accepte que
+      // aac / mp4 / mpeg / amr / ogg (codec opus). On enregistre donc en OGG
+      // dès que le navigateur sait le faire ; le repli WebM est converti
+      // côté serveur avant l'envoi à Meta.
+      const preferred = [
+        'audio/ogg;codecs=opus',
+        'audio/ogg',
+        'audio/webm;codecs=opus',
+        'audio/webm',
+      ].find((t) => MediaRecorder.isTypeSupported(t))
+      const mediaRecorder = new MediaRecorder(stream, preferred ? { mimeType: preferred } : undefined)
       audioChunksRef.current = []
       mediaRecorderRef.current = mediaRecorder
 
@@ -138,8 +144,12 @@ export function MessageInput({ onSendText, onSendMedia, sending, conversationId,
 
       mediaRecorder.onstop = () => {
         stream.getTracks().forEach((t) => t.stop())
-        const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
-        const file = new File([blob], 'voice-message.webm', { type: 'audio/webm' })
+        // Type réellement produit par l'enregistreur (et non une valeur en dur,
+        // qui mentait sur le contenu quand le navigateur choisissait autre chose).
+        const mime = mediaRecorder.mimeType || preferred || 'audio/webm'
+        const isOgg = mime.startsWith('audio/ogg')
+        const blob = new Blob(audioChunksRef.current, { type: mime })
+        const file = new File([blob], isOgg ? 'voice-message.ogg' : 'voice-message.webm', { type: mime })
         handleSendMediaInternal(file)
       }
 

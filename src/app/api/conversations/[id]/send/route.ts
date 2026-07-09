@@ -142,6 +142,17 @@ export async function POST(
 
     const mimeType = file.type || 'application/octet-stream'
     const mediatype = getMediaType(mimeType)
+
+    // WhatsApp n'accepte l'audio qu'en aac / mp4 / mpeg / amr / ogg(opus).
+    // Un audio/webm (Chrome) est refusé par Meta : sans ce garde, l'upload
+    // échouait avec une erreur Graph obscure côté serveur.
+    if (mediatype === 'audio' && !/^audio\/(aac|mp4|mpeg|amr|ogg)\b/.test(mimeType)) {
+      return NextResponse.json(
+        { error: `Format audio non supporté par WhatsApp (${mimeType}). Formats acceptés : AAC, MP4, MPEG, AMR, OGG/Opus.` },
+        { status: 400 }
+      )
+    }
+
     const arrayBuffer = await file.arrayBuffer()
     const buffer = Buffer.from(arrayBuffer)
 
