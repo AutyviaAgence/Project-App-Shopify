@@ -102,9 +102,10 @@ export function UsageBar() {
     >
       <Zap className={cn('h-4 w-4 shrink-0', critical ? 'text-rose-500' : low ? 'text-amber-500' : 'text-emerald-500')} />
 
-      {/* Libellé chiffré : X / Y conversations IA */}
-      <span className="hidden shrink-0 whitespace-nowrap text-xs sm:inline">
-        <span className="text-muted-foreground">Crédits IA </span>
+      {/* Libellé chiffré. En mobile on masque le mot « Crédits IA » mais on garde
+          le compteur : la barre s'affichait sinon vide, sans aucun contexte. */}
+      <span className="shrink-0 whitespace-nowrap text-xs">
+        <span className="hidden text-muted-foreground sm:inline">Crédits IA </span>
         <span className={cn('tabular-nums font-semibold', textColor)}>{used.toLocaleString('fr-FR')}</span>
         <span className="text-muted-foreground"> / {total.toLocaleString('fr-FR')}</span>
       </span>

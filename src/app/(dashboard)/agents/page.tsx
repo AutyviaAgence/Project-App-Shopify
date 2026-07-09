@@ -716,12 +716,14 @@ export default function AgentsPage() {
           dedans, ils passaient sous la carte centrale (qui déborde en 3D) et
           se retrouvaient tracés par-dessus le bouton « Configurer ». */}
       {agents.length > 1 && (
-        <div className="mt-1 flex shrink-0 justify-center gap-1.5">
+        // `flex-wrap` + `shrink-0` : sans eux, le flex étirait les points en gros
+        // cercles dès que la largeur manquait (11 agents sur un écran mobile).
+        <div className="mt-1 flex shrink-0 flex-wrap justify-center gap-1.5 px-4">
           {agents.map((_, i) => {
             const active = ((centerIndex % agents.length) + agents.length) % agents.length === i
             return (
               <button key={i} onClick={() => setCenterIndex(i)} aria-label={`Agent ${i + 1}`}
-                className={cn('h-1.5 rounded-full transition-all',
+                className={cn('h-1.5 shrink-0 rounded-full transition-all',
                   active ? 'w-5 bg-foreground/70' : 'w-1.5 bg-muted-foreground/30 hover:bg-muted-foreground/50')} />
             )
           })}

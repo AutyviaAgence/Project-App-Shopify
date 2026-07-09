@@ -224,7 +224,9 @@ export function ShopifyConnect() {
           <span>{status.products_synced != null ? `${status.products_synced} produit${status.products_synced > 1 ? 's' : ''}` : 'Catalogue'}</span>
           <span className="flex items-center gap-1">Pages {status.has_pages ? <Check className="h-3 w-3 text-blue-600" /> : <X className="h-3 w-3 text-muted-foreground/50" />}</span>
           <span className="flex items-center gap-1">Politiques {status.has_policies ? <Check className="h-3 w-3 text-blue-600" /> : <X className="h-3 w-3 text-muted-foreground/50" />}</span>
-          <span className="ml-auto">Dernière synchro : {last}</span>
+          {/* `ml-auto` seulement à partir de sm : en mobile il poussait la date
+              hors de la carte au lieu de la laisser passer à la ligne. */}
+          <span className="sm:ml-auto">Dernière synchro : {last}</span>
           <button onClick={() => setDetailOpen(true)} className="basis-full text-left text-blue-500 hover:text-blue-600 transition-colors">
             Voir le détail récupéré →
           </button>
