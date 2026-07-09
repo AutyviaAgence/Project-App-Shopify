@@ -236,5 +236,36 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  // Duplication : recopier les DOCUMENTS de l'agent source. On ne copie que les
+  // lignes de liaison (agent_knowledge_documents) — les fichiers et leurs
+  // embeddings sont partagés, rien n'est ré-uploadé ni recalculé.
+  //
+  // Les médias (knowledge_images) ne sont PAS dupliqués : ils portent une
+  // contrainte d'unicité (user_id, ref) et le prompt les référence par `ref`.
+  // Pour partager un média entre agents, il doit avoir agent_id = null
+  // (« tous les agents ») — le dupliquer casserait le ref.
+  const copyFrom = (body as { copy_knowledge_from?: string }).copy_knowledge_from
+  if (copyFrom && agent) {
+    try {
+      // On vérifie que l'agent source appartient bien à l'utilisateur.
+      const { data: src } = await supabase
+        .from('ai_agents').select('id').eq('id', copyFrom).eq('user_id', user.id).maybeSingle()
+      if (src) {
+        const { data: links } = await supabase
+          .from('agent_knowledge_documents')
+          .select('document_id')
+          .eq('agent_id', copyFrom)
+        if (links?.length) {
+          await supabase.from('agent_knowledge_documents').insert(
+            links.map((l: { document_id: string }) => ({ agent_id: agent.id, document_id: l.document_id }))
+          )
+        }
+      }
+    } catch (e) {
+      // Non bloquant : l'agent est créé, seuls ses documents manquent.
+      console.error('[agents] copie des documents échouée:', e)
+    }
+  }
+
   return NextResponse.json({ data: agent })
 }

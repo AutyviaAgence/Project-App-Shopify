@@ -371,6 +371,9 @@ export default function AgentsPage() {
           schedule_end_time: agent.schedule_end_time,
           schedule_days: agent.schedule_days,
           auto_detect_language: agent.auto_detect_language,
+          // L'agent dupliqué hérite des documents de l'original (seuls les
+          // liens sont recopiés : aucun fichier n'est ré-uploadé).
+          copy_knowledge_from: agent.id,
         }),
       })
       const json = await res.json()
