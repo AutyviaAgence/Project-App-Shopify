@@ -498,9 +498,9 @@ export default function AgentsPage() {
           // en dessous ≈ 320px réservés) pour que le bouton reste visible sans scroll.
           const idealSceneH = cardW >= 440 ? 500 : cardW >= 360 ? 440 : cardW >= 300 ? 400 : 360
           // Espace réellement occupé SOUS/AU-DESSUS de la scène : topbar (~64) +
-          // titre (~90) + paddings (~48) + points (~26) + bouton « Nouvel agent »
+          // titre (~90) + paddings (~24) + points (~26) + bouton « Nouvel agent »
           // (~76). On le réserve pour que le bouton reste visible sans scroll.
-          const RESERVED = 304
+          const RESERVED = 280
           // Plancher à 360 : en dessous la carte (image + nom + boutons) ne tient
           // plus. Si le viewport est encore plus court, la page défile — c'est
           // préférable à un bouton « Nouvel agent » coupé hors de l'écran.
@@ -509,8 +509,10 @@ export default function AgentsPage() {
           const stepFront = cardW * 0.9
           const stepBack = cardW * 0.8
 
+          // `pt` réduit : la mascotte déborde déjà au-dessus de sa zone, un grand
+          // padding créait un vide inutile entre le titre et les cartes.
           return (
-            <div className="relative flex w-full shrink-0 items-center justify-center pb-4 pt-8" style={{ perspective: '2000px' }}>
+            <div className="relative flex w-full shrink-0 items-center justify-center pb-4 pt-2" style={{ perspective: '2000px' }}>
               {/* Flèche gauche */}
               {n > 1 && (
                 <button onClick={() => go(-1)} aria-label="Précédent"
@@ -585,10 +587,11 @@ export default function AgentsPage() {
                                 src={mascotSrc(agent.mascot)}
                                 alt={agent.name}
                                 title={t('common.edit')}
-                                /* h-full : sans hauteur bornée, l'image gardait son ratio à
-                                   partir de w-[112%] et dépassait EN HAUT du conteneur quand
-                                   la scène rétrécissait — elle recouvrait le titre de la page. */
-                                className="absolute -left-5 bottom-0 z-10 h-full w-[112%] max-w-none cursor-pointer object-contain object-bottom drop-shadow-[0_12px_24px_rgba(0,0,0,0.45)] transition-transform duration-500 ease-out hover:-translate-y-1.5 hover:scale-[1.02]"
+                                /* max-h-[128%] : la mascotte déborde volontairement un peu au-dessus
+                                   de sa zone (c'est le parti pris visuel), mais la hauteur doit
+                                   rester BORNÉE — sans plafond, `w-[112%] object-contain` la faisait
+                                   grandir sans limite et recouvrir le titre de la page. */
+                                className="absolute -left-5 bottom-0 z-10 max-h-[128%] w-[112%] max-w-none cursor-pointer object-contain object-bottom drop-shadow-[0_12px_24px_rgba(0,0,0,0.45)] transition-transform duration-500 ease-out hover:-translate-y-1.5 hover:scale-[1.02]"
                               />
                             </MascotPicker>
                           ) : (
@@ -596,7 +599,7 @@ export default function AgentsPage() {
                             <img
                               src={mascotSrc(agent.mascot)}
                               alt={agent.name}
-                              className="pointer-events-none absolute -left-5 bottom-0 h-full w-[112%] max-w-none object-contain object-bottom drop-shadow-[0_12px_24px_rgba(0,0,0,0.45)]"
+                              className="pointer-events-none absolute -left-5 bottom-0 max-h-[128%] w-[112%] max-w-none object-contain object-bottom drop-shadow-[0_12px_24px_rgba(0,0,0,0.45)]"
                             />
                           )}
                           {/* Badge type (pill, en haut a gauche) */}

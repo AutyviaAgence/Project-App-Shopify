@@ -27,15 +27,19 @@ const TZ_OPTIONS = [
   'Australia/Sydney', 'UTC',
 ]
 
-/** Décalage d'un fuseau à un instant donné, en minutes (DST compris). */
+/** Décalage d'un fuseau à un instant donné, en minutes ENTIÈRES (DST compris).
+ *  ⚠️ On tronque l'instant à la minute : Intl ne rend pas les secondes, donc
+ *  `Date.UTC(...)` les ignore alors que `at.getTime()` les contient — le
+ *  décalage sortait en flottant (« UTC+1:59.2455… » au lieu de « UTC+2 »). */
 function tzOffsetMinutes(tz: string, at: Date): number {
+  const base = new Date(Math.floor(at.getTime() / 60000) * 60000)
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: tz, hour12: false,
     year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit',
-  }).formatToParts(at)
+  }).formatToParts(base)
   const g = (k: string) => Number(parts.find((p) => p.type === k)?.value)
   const asTz = Date.UTC(g('year'), g('month') - 1, g('day'), g('hour') % 24, g('minute'))
-  return (asTz - at.getTime()) / 60000
+  return Math.round((asTz - base.getTime()) / 60000)
 }
 
 /** Étiquette « UTC+2 », « UTC-5:30 »… pour un fuseau, maintenant. */
@@ -338,7 +342,11 @@ function TriggerBlock({ node, onPatch }: { node: WorkflowNode; onPatch: (id: str
           <div className="mt-1.5 flex items-center gap-1.5">
             <span className="shrink-0 text-[11px] text-muted-foreground">Fuseau</span>
             <Select value={tz} onValueChange={(v) => onPatch(node.id, { scheduledTz: v } as never)}>
-              <SelectTrigger className="h-7 flex-1 text-[11px]"><SelectValue /></SelectTrigger>
+              {/* Libellé compact : sans enfant explicite, Radix recopierait tout
+                  le contenu de l'item (nom + décalage) dans le champ. */}
+              <SelectTrigger className="h-7 flex-1 text-[11px]">
+                <SelectValue>{tz} ({tzOffsetLabel(tz)})</SelectValue>
+              </SelectTrigger>
               <SelectContent className="max-h-[min(18rem,50vh)]">
                 {options.map((z) => (
                   <SelectItem key={z} value={z} textValue={z} className="text-xs">

@@ -539,7 +539,11 @@ export default function StatsPage() {
           {/* === Contacts === */}
           {/* ================================================================ */}
           <TabsContent value="contacts" className="space-y-6">
-            <div className="grid gap-4 sm:grid-cols-2">
+            {/* Première rangée en 2 colonnes : KPI contacts empilés à gauche,
+                entonnoir à droite (il est haut, il prend la colonne large).
+                Sous lg, tout retombe en une seule colonne. */}
+            <div className="grid gap-4 lg:grid-cols-[minmax(240px,1fr)_2fr] lg:items-start">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
               <KPICard
                 title={t('stats.total_contacts')}
                 value={stats.overview.totalContacts}
@@ -605,6 +609,7 @@ export default function StatsPage() {
                 })()}
               </CardContent>
             </Card>
+            </div>
 
             <Card>
               <CardHeader>
