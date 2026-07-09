@@ -69,6 +69,10 @@ export default function StatsPage() {
   const [stats, setStats] = useState<StatsResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [lifecycleFilter, setLifecycleFilter] = useState<string[]>([])
+  // Entonnoir d'engagement : ce que deviennent les messages INITIÉS
+  // (envoyés → ouverts → réponses → ventes). Même source que l'onglet
+  // Automatisations, pour que les deux vues ne se contredisent jamais.
+  const [funnel, setFunnel] = useState<{ sent: number; opened: number; responded: number; ordered: number } | null>(null)
 
   const dateFnsLocale = locale === 'fr' ? fr : enUS
   const numberLocale = locale === 'fr' ? 'fr-FR' : 'en-US'
@@ -142,6 +146,22 @@ export default function StatsPage() {
   useEffect(() => {
     fetchStats()
   }, [fetchStats])
+
+  // Entonnoir : envois initiés → ouverts → réponses → ventes (mêmes données
+  // que l'onglet Automatisations). Échec silencieux : l'entonnoir se masque.
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/automations/ab-summary?days=${period}`)
+        const json = await res.json()
+        if (!cancelled && res.ok && json.data?.funnel) setFunnel(json.data.funnel)
+      } catch {
+        if (!cancelled) setFunnel(null)
+      }
+    })()
+    return () => { cancelled = true }
+  }, [period])
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
@@ -535,24 +555,47 @@ export default function StatsPage() {
               />
             </div>
 
-            {/* Entonnoir d'engagement : contacts → conversations → reçus → répondus */}
+            {/* Entonnoir d'engagement : envoyés → ouverts → réponses → ventes */}
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">{t('stats.engagement_funnel')}</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Ce que deviennent vos messages initiés (les réponses SAV ne comptent pas).
+                </p>
               </CardHeader>
               <CardContent>
                 {(() => {
-                  const inbound = stats.charts.messagesOverTime.reduce((s, p) => s + p.inbound, 0)
-                  const outbound = stats.charts.messagesOverTime.reduce((s, p) => s + p.outbound, 0)
-                  const steps = [
-                    { label: t('stats.total_contacts'), value: stats.overview.totalContacts },
-                    { label: t('stats.conversations'), value: stats.overview.totalConversations },
-                    { label: t('stats.received'), value: inbound },
-                    { label: t('stats.replied'), value: outbound },
-                  ]
-                  return steps[0].value === 0 && steps[1].value === 0
-                    ? <p className="py-8 text-center text-sm text-muted-foreground">{t('stats.no_data')}</p>
-                    : <div className="mx-auto h-72 max-w-2xl"><EngagementFunnel steps={steps} /></div>
+                  if (!funnel || funnel.sent === 0) {
+                    return <p className="py-8 text-center text-sm text-muted-foreground">{t('stats.no_data')}</p>
+                  }
+                  const pct = (n: number) => (funnel.sent > 0 ? Math.round((n / funnel.sent) * 100) : 0)
+                  return (
+                    <>
+                      <div className="mx-auto h-72 max-w-2xl">
+                        <EngagementFunnel steps={[
+                          { label: 'Messages envoyés', value: funnel.sent },
+                          { label: 'Ouverts', value: funnel.opened },
+                          { label: 'Réponses', value: funnel.responded },
+                          { label: 'Ventes', value: funnel.ordered },
+                        ]} />
+                      </div>
+                      {/* Taux clés, rapportés aux messages envoyés */}
+                      <div className="mx-auto mt-2 grid max-w-md grid-cols-3 gap-2 text-center">
+                        <div className="rounded-lg border p-2">
+                          <p className="text-xs text-muted-foreground">Ouverture</p>
+                          <p className="text-lg font-semibold">{pct(funnel.opened)} %</p>
+                        </div>
+                        <div className="rounded-lg border p-2">
+                          <p className="text-xs text-muted-foreground">Réponse</p>
+                          <p className="text-lg font-semibold">{pct(funnel.responded)} %</p>
+                        </div>
+                        <div className="rounded-lg border p-2">
+                          <p className="text-xs text-muted-foreground">Vente</p>
+                          <p className="text-lg font-semibold text-primary">{pct(funnel.ordered)} %</p>
+                        </div>
+                      </div>
+                    </>
+                  )
                 })()}
               </CardContent>
             </Card>
