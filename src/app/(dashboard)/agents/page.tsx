@@ -407,7 +407,7 @@ export default function AgentsPage() {
         <div className="absolute inset-0 animated-grid-bg opacity-60" />
       </div>
 
-      <div className="relative z-10 mb-6">
+      <div className="relative z-10 mb-2">
         <div data-tour="agents-header">
           <h1 className="text-xl sm:text-2xl font-bold">{t('agents.title')}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
@@ -416,8 +416,10 @@ export default function AgentsPage() {
         </div>
       </div>
 
-      {/* Zone : carrousel centré, bouton Nouvel agent juste en dessous */}
-      <div className={cn('relative z-10 flex flex-1 flex-col py-6', agents.length === 0 ? 'items-center justify-center px-6' : 'items-center justify-start lg:justify-center')}>
+      {/* Zone : carrousel centré, bouton Nouvel agent juste en dessous.
+          `py-2` (et non py-6) : la zone est déjà en flex-1 + justify-center,
+          un padding généreux ne faisait qu'éloigner titre / cartes / bouton. */}
+      <div className={cn('relative z-10 flex flex-1 flex-col py-2', agents.length === 0 ? 'items-center justify-center px-6' : 'items-center justify-start lg:justify-center')}>
       {/* Carrés lumineux animés en arrière-fond (onboarding) — la grille de fond
           est désormais affichée en permanence au niveau de la page. */}
       {agents.length === 0 && (
@@ -498,9 +500,9 @@ export default function AgentsPage() {
           // en dessous ≈ 320px réservés) pour que le bouton reste visible sans scroll.
           const idealSceneH = cardW >= 440 ? 500 : cardW >= 360 ? 440 : cardW >= 300 ? 400 : 360
           // Espace réellement occupé SOUS/AU-DESSUS de la scène : topbar (~64) +
-          // titre (~90) + paddings (~24) + points (~26) + bouton « Nouvel agent »
-          // (~76). On le réserve pour que le bouton reste visible sans scroll.
-          const RESERVED = 280
+          // titre (~74) + paddings (~16) + points (~14) + bouton « Nouvel agent »
+          // (~72). On le réserve pour que le bouton reste visible sans scroll.
+          const RESERVED = 240
           // Plancher à 360 : en dessous la carte (image + nom + boutons) ne tient
           // plus. Si le viewport est encore plus court, la page défile — c'est
           // préférable à un bouton « Nouvel agent » coupé hors de l'écran.
@@ -733,7 +735,7 @@ export default function AgentsPage() {
           dedans, ils passaient sous la carte centrale (qui déborde en 3D) et
           se retrouvaient tracés par-dessus le bouton « Configurer ». */}
       {agents.length > 1 && (
-        <div className="mt-4 flex shrink-0 justify-center gap-1.5">
+        <div className="mt-1 flex shrink-0 justify-center gap-1.5">
           {agents.map((_, i) => {
             const active = ((centerIndex % agents.length) + agents.length) % agents.length === i
             return (
@@ -746,7 +748,7 @@ export default function AgentsPage() {
       )}
 
       {/* Bouton "Nouvel agent" — juste sous les cartes et les points */}
-      <div className="mt-4 flex shrink-0 flex-col items-center gap-2">
+      <div className="mt-3 flex shrink-0 flex-col items-center gap-2">
         <button
           data-tour="new-agent-btn"
           onClick={aiEnabled ? openCreateDialog : undefined}
