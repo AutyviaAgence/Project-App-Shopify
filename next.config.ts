@@ -75,6 +75,11 @@ const nextConfig: NextConfig = {
               "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://challenges.cloudflare.com https://connect.facebook.net https://eu-assets.i.posthog.com https://eu.i.posthog.com",
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https://supabase.autyvia.fr https://jdeslkxwbtqkeifrlmnf.supabase.co https://challenges.cloudflare.com https://www.facebook.com https://cdn.shopify.com https://lh3.googleusercontent.com https://*.googleusercontent.com",
+              // media-src : lecture des messages vocaux / vidéos servis par le
+              // Storage Supabase (URL signées). Sans cette directive, le
+              // navigateur retombe sur `default-src 'self'` et BLOQUE l'audio :
+              // le lecteur reste figé à 0:00 / 0:00 sans erreur visible.
+              "media-src 'self' data: blob: https://supabase.autyvia.fr https://jdeslkxwbtqkeifrlmnf.supabase.co",
               "font-src 'self' https://challenges.cloudflare.com",
               "connect-src 'self' https://supabase.autyvia.fr wss://supabase.autyvia.fr https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://api.openai.com https://graph.facebook.com https://challenges.cloudflare.com https://connect.facebook.net https://www.facebook.com https://eu.i.posthog.com https://eu-assets.i.posthog.com",
               // www.facebook.com : requis par l'Embedded Signup WhatsApp (popup + iframe du SDK JS).
