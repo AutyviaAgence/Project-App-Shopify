@@ -169,11 +169,16 @@ function Shell({ tone, icon, kind, onDelete, children }: {
   )
 }
 
+/** Un ton par TYPE de bloc : deux blocs de la timeline ne doivent jamais
+ *  partager la même couleur, sinon on ne les distingue plus d'un coup d'œil.
+ *  blue = Quand (déclencheur) · amber = Délai · green = Message
+ *  violet = Condition · pink = Test A/B */
 const TONE = {
   blue: { text: 'text-blue-600', tint: '#3B82F6' },
   amber: { text: 'text-amber-600', tint: '#F59E0B' },
   green: { text: 'text-green-600', tint: '#22C55E' },
   violet: { text: 'text-violet-600', tint: '#8B5CF6' },
+  pink: { text: 'text-pink-600', tint: '#EC4899' },
 }
 
 function TriggerBlock({ node, onPatch }: { node: WorkflowNode; onPatch: (id: string, p: Partial<WorkflowNode>) => void }) {
@@ -185,7 +190,14 @@ function TriggerBlock({ node, onPatch }: { node: WorkflowNode; onPatch: (id: str
         <span className={cn('text-sm font-medium', TONE.blue.text)}>Quand</span>
       </div>
       <Select value={node.event} onValueChange={(v) => onPatch(node.id, { event: v as never })}>
-        <SelectTrigger><SelectValue /></SelectTrigger>
+        {/* Le trigger n'affiche QUE le libellé : Radix recopie sinon tout le
+            contenu du SelectItem (libellé + description), et la description se
+            retrouvait affichée deux fois — dans le champ et juste en dessous. */}
+        <SelectTrigger>
+          <SelectValue>
+            {TRIGGER_EVENTS.find((e) => e.value === node.event)?.label ?? 'Choisir un déclencheur'}
+          </SelectValue>
+        </SelectTrigger>
         {/* max-h borné : sans lui Radix étire le menu sur toute la hauteur
             disponible, le menu n'a donc rien à faire défiler et la molette
             scrolle la page derrière. Groupes + icônes + descriptions : 15
@@ -202,7 +214,7 @@ function TriggerBlock({ node, onPatch }: { node: WorkflowNode; onPatch: (id: str
                   <Icon className={cn('h-3.5 w-3.5', g.color)} /> {g.name}
                 </SelectLabel>
                 {items.map((e) => (
-                  <SelectItem key={e.value} value={e.value} className="items-start py-1.5">
+                  <SelectItem key={e.value} value={e.value} textValue={e.label} className="items-start py-1.5">
                     <div className="min-w-0">
                       <p className="text-sm leading-tight">{e.label}</p>
                       <p className="mt-0.5 line-clamp-2 text-[11px] leading-snug text-muted-foreground">{e.description}</p>
@@ -535,7 +547,7 @@ function ABTestBlock({ node, onPatch, onDelete, onAddVariant, onRemoveVariant, a
     onPatch(node.id, { variants } as Partial<WorkflowNode>)
   }
   return (
-    <Shell tone={TONE.blue} icon={<FlaskConical className="h-4 w-4" />} kind="Test A/B" onDelete={onDelete}>
+    <Shell tone={TONE.pink} icon={<FlaskConical className="h-4 w-4" />} kind="Test A/B" onDelete={onDelete}>
       <p className="mb-2 text-xs text-muted-foreground">Répartit les contacts entre les variantes. Chaque variante a son propre message.</p>
       <div className="space-y-1.5">
         {node.variants.map((v, i) => (
