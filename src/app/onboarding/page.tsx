@@ -109,7 +109,8 @@ export default function OnboardingPage() {
   // Écran de bienvenue : affiché une seule fois, au tout premier passage.
   // Marqué en localStorage — un rechargement ou un retour ne le rejoue pas.
   const [showWelcome, setShowWelcome] = useState(false)
-  const [feedback, setFeedback] = useState<string | null>(null)
+  // Carte de validation entre deux étapes : message + étape suivante annoncée.
+  const [feedback, setFeedback] = useState<{ message: string; next?: string } | null>(null)
   const [advancing, setAdvancing] = useState(false)
   const [busy, setBusy] = useState(false)
   // Plan en cours de souscription (spinner sur la carte concernée).
@@ -268,20 +269,23 @@ export default function OnboardingPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, step])
 
+  // 2600 ms : le temps de LIRE la carte (chute + rebond + barre intégrée).
+  const FEEDBACK_MS = 2600
+
   function flash(msg: string) {
-    setFeedback(msg)
-    // 1700 ms : le temps que la célébration (coche dessinée + barre) se joue.
-    setTimeout(() => setFeedback(null), 1700)
+    setFeedback({ message: msg })
+    setTimeout(() => setFeedback(null), FEEDBACK_MS)
   }
 
   function goTo(next: Step, msg?: string) {
     if (msg) {
-      setFeedback(msg)
+      // La carte annonce aussi l'étape suivante (« Étape suivante : … »).
+      setFeedback({ message: msg, next: STEP_META[next].title })
       setAdvancing(true)
       setTimeout(() => {
         setStep(next); setFeedback(null); setAdvancing(false)
         fetch('/api/onboarding/complete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ step: next }) }).catch(() => {})
-      }, 1700)
+      }, FEEDBACK_MS)
     } else {
       setStep(next)
       fetch('/api/onboarding/complete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ step: next }) }).catch(() => {})
@@ -570,7 +574,7 @@ export default function OnboardingPage() {
 
         {/* Contenu de l'étape */}
         <div className="relative flex flex-1 flex-col">
-          <OnboardingFeedback message={feedback} />
+          <OnboardingFeedback feedback={feedback} />
 
           <div key={step} className={cn('flex flex-1 flex-col justify-center transition-opacity duration-200', advancing ? 'opacity-0' : 'animate-question-enter opacity-100')}>
             <h1 className="flex items-center gap-2.5 text-xl font-semibold sm:text-2xl md:text-3xl">

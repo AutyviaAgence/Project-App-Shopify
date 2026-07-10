@@ -201,7 +201,7 @@ export default function AgentOnboardPage() {
 
       {/* Question courante */}
       <div className="relative flex flex-1 flex-col">
-        <OnboardingFeedback message={feedback} />
+        <OnboardingFeedback feedback={feedback ? { message: feedback } : null} />
 
         <div key={step} className={cn('flex flex-1 flex-col justify-center transition-opacity duration-200', advancing ? 'opacity-0' : 'animate-question-enter opacity-100')}>
         <h1 className="text-xl font-semibold sm:text-2xl md:text-3xl">{QUESTIONS[step]}</h1>

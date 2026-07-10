@@ -1,22 +1,39 @@
 'use client'
 
 import { motion } from 'framer-motion'
+import { ArrowRight, Check } from 'lucide-react'
 
 /**
- * Célébration plein écran entre deux étapes de l'onboarding, dans le langage
- * cinématique de l'intro (fond nuit, halo, verre) :
- *  - voile sombre flouté qui masque le contenu derrière
- *  - coche SVG qui SE DESSINE (cercle puis trait, animation de tracé)
- *  - anneaux d'onde qui se propagent depuis la pastille
- *  - message en grand, révélé flou → net
- *  - fine barre de progression « on enchaîne » qui se remplit
+ * Validation d'étape de l'onboarding : une CARTE physique (verre épais) qui
+ * CHUTE dans l'écran avec du poids — spring à faible amortissement, rebond
+ * visible, légère rotation qui se stabilise — plutôt qu'un jeu de lumière.
+ * À l'impact : éclat de particules. La carte contient le message en grand,
+ * l'étape suivante annoncée, et sa barre de chargement intégrée.
  *
- * Pas d'emoji : le visuel porte la célébration, le texte reste sobre.
+ * La pause parente (goTo) dure ~2,6 s : le temps de LIRE.
  */
-export function OnboardingFeedback({ message }: { message: string | null }) {
-  if (!message) return null
+
+// Éclat de particules à l'impact de la carte (positions fixes, pas de random
+// pour éviter tout écart d'hydratation). x/y = destination, s = taille px.
+const BURST = [
+  { x: -150, y: -90, s: 9, c: 'bg-primary' },
+  { x: 140, y: -110, s: 7, c: 'bg-sky-400' },
+  { x: -190, y: 10, s: 6, c: 'bg-white/80' },
+  { x: 200, y: -20, s: 8, c: 'bg-primary' },
+  { x: -110, y: 90, s: 7, c: 'bg-sky-400' },
+  { x: 120, y: 100, s: 6, c: 'bg-white/70' },
+  { x: 30, y: -140, s: 6, c: 'bg-primary/80' },
+  { x: -40, y: 130, s: 8, c: 'bg-sky-300' },
+]
+
+export function OnboardingFeedback({
+  feedback,
+}: {
+  feedback: { message: string; next?: string } | null
+}) {
+  if (!feedback) return null
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-6">
       {/* Voile flouté */}
       <motion.div
         initial={{ opacity: 0 }}
@@ -25,84 +42,71 @@ export function OnboardingFeedback({ message }: { message: string | null }) {
         className="absolute inset-0 bg-[#060912]/85 backdrop-blur-xl"
       />
 
-      {/* Halo central */}
-      <motion.div
-        aria-hidden
-        initial={{ opacity: 0, scale: 0.6 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.6, ease: 'easeOut' }}
-        className="absolute h-[440px] w-[440px] rounded-full"
-        style={{ background: 'radial-gradient(circle, color-mix(in oklab, var(--primary) 20%, transparent) 0%, transparent 70%)' }}
-      />
-
-      {/* Anneaux d'onde */}
-      {[0, 1].map((i) => (
+      {/* Éclat de particules à l'impact (départ du centre, léger délai le
+          temps que la carte atterrisse). */}
+      {BURST.map((p, i) => (
         <motion.span
           key={i}
           aria-hidden
-          className="absolute rounded-full border border-primary/30"
-          initial={{ width: 112, height: 112, opacity: 0.7 }}
-          animate={{ width: 300 + i * 90, height: 300 + i * 90, opacity: 0 }}
-          transition={{ duration: 1.3, delay: 0.2 + i * 0.25, ease: 'easeOut' }}
+          className={`absolute rounded-full ${p.c}`}
+          style={{ width: p.s, height: p.s }}
+          initial={{ x: 0, y: 0, scale: 0, opacity: 1 }}
+          animate={{ x: p.x, y: p.y, scale: 1, opacity: 0 }}
+          transition={{ duration: 0.9, delay: 0.28, ease: [0.16, 1, 0.3, 1] }}
         />
       ))}
 
-      <div className="relative flex flex-col items-center gap-6 px-6">
-        {/* Pastille + coche dessinée */}
-        <motion.div
-          initial={{ scale: 0.5, opacity: 0 }}
-          animate={{ scale: 1, opacity: 1 }}
-          transition={{ type: 'spring', stiffness: 260, damping: 18 }}
-          className="flex h-28 w-28 items-center justify-center rounded-full bg-primary/10 shadow-[0_0_70px_-10px] shadow-primary/60 ring-1 ring-primary/40 backdrop-blur-sm"
-        >
-          <svg viewBox="0 0 52 52" className="h-14 w-14 text-primary">
-            {/* Cercle tracé depuis 12 h */}
-            <g transform="rotate(-90 26 26)">
-              <motion.circle
-                cx="26" cy="26" r="23" fill="none"
-                stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"
-                initial={{ pathLength: 0 }}
-                animate={{ pathLength: 1 }}
-                transition={{ duration: 0.55, ease: 'easeOut' }}
-              />
-            </g>
-            {/* Coche tracée après le cercle */}
-            <motion.path
-              d="M15 27 l7.5 7.5 L37 19"
-              fill="none" stroke="currentColor" strokeWidth="4"
-              strokeLinecap="round" strokeLinejoin="round"
-              initial={{ pathLength: 0 }}
-              animate={{ pathLength: 1 }}
-              transition={{ duration: 0.4, delay: 0.45, ease: 'easeOut' }}
-            />
-          </svg>
-        </motion.div>
-
-        {/* Message en grand, révélé flou → net */}
-        <motion.p
-          initial={{ opacity: 0, y: 16, filter: 'blur(8px)' }}
-          animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
-          transition={{ delay: 0.35, duration: 0.5, ease: 'easeOut' }}
-          className="max-w-lg text-center text-2xl font-bold tracking-tight text-white sm:text-3xl"
-        >
-          {message}
-        </motion.p>
-
-        {/* « On enchaîne » : fine barre qui se remplit pendant la pause. */}
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.5 }}
-          className="h-1 w-44 overflow-hidden rounded-full bg-white/10"
-        >
+      {/* LA CARTE : chute avec du poids, rebond, rotation qui se stabilise. */}
+      <motion.div
+        initial={{ y: -260, opacity: 0, rotate: -5, scale: 0.92 }}
+        animate={{ y: 0, opacity: 1, rotate: 0, scale: 1 }}
+        transition={{ type: 'spring', stiffness: 160, damping: 13, mass: 1.15 }}
+        className="relative w-full max-w-md overflow-hidden rounded-3xl border border-white/15 bg-[#0e1626]/95 shadow-[0_50px_100px_-20px_rgba(0,0,0,0.85),inset_0_1px_0_rgba(255,255,255,0.08)] backdrop-blur-2xl"
+      >
+        <div className="flex items-center gap-5 px-7 py-6">
+          {/* Badge : pastille pleine, pop avec le rebond de la carte. */}
           <motion.div
-            className="h-full rounded-full bg-gradient-to-r from-primary to-sky-400"
+            initial={{ scale: 0, rotate: -30 }}
+            animate={{ scale: 1, rotate: 0 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 15, delay: 0.18 }}
+            className="flex h-16 w-16 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-primary to-sky-500 shadow-[0_10px_30px_-6px] shadow-primary/50"
+          >
+            <Check className="h-8 w-8 text-white" strokeWidth={3.5} />
+          </motion.div>
+
+          <div className="min-w-0 text-left">
+            <motion.p
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25, duration: 0.4, ease: 'easeOut' }}
+              className="text-xl font-bold leading-snug tracking-tight text-white"
+            >
+              {feedback.message}
+            </motion.p>
+            {feedback.next && (
+              <motion.p
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.45, duration: 0.4, ease: 'easeOut' }}
+                className="mt-1.5 flex items-center gap-1.5 text-sm text-white/50"
+              >
+                <ArrowRight className="h-3.5 w-3.5 shrink-0 text-primary" />
+                Étape suivante : {feedback.next}
+              </motion.p>
+            )}
+          </div>
+        </div>
+
+        {/* Barre de chargement intégrée : se remplit pendant la pause. */}
+        <div className="h-1 w-full bg-white/10">
+          <motion.div
+            className="h-full bg-gradient-to-r from-primary to-sky-400"
             initial={{ width: '0%' }}
             animate={{ width: '100%' }}
-            transition={{ duration: 1, delay: 0.5, ease: 'easeInOut' }}
+            transition={{ duration: 2, delay: 0.45, ease: 'easeInOut' }}
           />
-        </motion.div>
-      </div>
+        </div>
+      </motion.div>
     </div>
   )
 }
