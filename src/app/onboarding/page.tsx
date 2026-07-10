@@ -648,6 +648,9 @@ export default function OnboardingPage() {
                 // plan : les cartes PricingGlass portent déjà leur propre verre.
                 step !== 'plan' &&
                   'rounded-3xl border border-white/10 bg-white/[0.03] p-5 shadow-2xl backdrop-blur-md sm:p-6',
+                // La mascotte de l'étape agent déborde sous la bulle : on lui
+                // réserve la place pour ne pas chevaucher le pied de page.
+                step === 'agent' && 'md:mb-32',
               )}
               initial={{ opacity: 0, x: 24, filter: 'blur(6px)' }}
               animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
@@ -788,11 +791,12 @@ export default function OnboardingPage() {
                       <MascotRunner />
                     </div>
                   ) : (
-                    <>
-                      {/* Étape volontairement MINIMALE : on essaie l'agent, c'est
-                          tout. Nom, ton, instructions, transferts : déjà déduits
-                          de la boutique, réglables plus tard dans le dashboard.
-                          L'essai est plafonné (coût tokens). */}
+                    /* Mise en scène BD : le panneau devient une BULLE DE
+                       DIALOGUE — queue dessinée en bas à droite pointant vers
+                       la mascotte (transparente, phone.png) qui « parle ».
+                       Étape volontairement minimale : on essaie l'agent
+                       (plafonné, coût tokens), le reste se règle plus tard. */
+                    <div className="relative space-y-4 md:pb-2">
                       <p className="text-sm text-muted-foreground">
                         <span className="font-medium text-foreground">{agentName || agentCfg.name}</span> a été configuré
                         automatiquement à partir de votre boutique. Essayez-le comme le ferait un client :
@@ -810,13 +814,45 @@ export default function OnboardingPage() {
                         <span className="font-medium text-foreground"> modifiables à tout moment</span> depuis votre dashboard (Agents IA).
                       </p>
 
-                      <div className="flex justify-end">
+                      {/* Le bouton laisse la place à la mascotte à droite. */}
+                      <div className="flex justify-end md:pr-44">
                         <Button disabled={busy} onClick={validateAgent}>
                           {busy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Check className="mr-1 h-4 w-4" />}
                           Valider mon agent
                         </Button>
                       </div>
-                    </>
+
+                      {/* Queue de bulle cartoon : émerge du panneau, pointe vers
+                          la mascotte (le fill reproduit le verre du panneau). */}
+                      <svg
+                        aria-hidden
+                        viewBox="0 0 90 70"
+                        className="pointer-events-none absolute -bottom-[4.6rem] right-40 hidden h-[72px] w-[92px] md:block"
+                      >
+                        <path
+                          d="M16 2 C 34 26, 60 34, 86 66 C 54 56, 24 36, 2 12 Z"
+                          fill="#131b29"
+                          stroke="rgba(255,255,255,0.12)"
+                          strokeWidth="1.5"
+                        />
+                      </svg>
+
+                      {/* La mascotte qui « dit » la bulle, en bas à droite,
+                          avec un léger flottement continu. */}
+                      <motion.img
+                        src="/mascots/phone.png"
+                        alt=""
+                        aria-hidden
+                        initial={{ opacity: 0, y: 26, scale: 0.9 }}
+                        animate={{ opacity: 1, y: [0, -6, 0], scale: 1 }}
+                        transition={{
+                          opacity: { duration: 0.45, delay: 0.2 },
+                          scale: { type: 'spring', stiffness: 220, damping: 18, delay: 0.2 },
+                          y: { duration: 3.6, repeat: Infinity, ease: 'easeInOut', delay: 0.8 },
+                        }}
+                        className="pointer-events-none absolute -bottom-[7.2rem] -right-4 hidden w-48 select-none drop-shadow-2xl md:block"
+                      />
+                    </div>
                   )}
                 </div>
               )}
