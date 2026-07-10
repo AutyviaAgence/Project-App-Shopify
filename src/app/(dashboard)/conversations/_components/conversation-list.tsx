@@ -411,13 +411,20 @@ export function ConversationList({
                         {getContactDisplay(conv)}
                       </span>
                       <div className="flex shrink-0 items-center gap-0.5">
+                        {/* Épingle. Sur desktop elle est révélée au survol ; en
+                            MOBILE il n'y a pas de survol, et `opacity-0` la laissait
+                            invisible mais occupant sa place — d'où un vide entre le
+                            nom et l'heure. En mobile elle reste donc discrètement
+                            visible (elle est le SEUL moyen d'épingler). */}
                         <span
                           role="button"
                           tabIndex={-1}
                           onClick={(e) => { e.stopPropagation(); onTogglePin(conv.id, conv.is_pinned) }}
                           className={cn(
                             'rounded p-0.5 transition-opacity',
-                            conv.is_pinned ? 'opacity-100 text-primary' : 'opacity-0 group-hover/conv:opacity-100 text-muted-foreground hover:bg-muted'
+                            conv.is_pinned
+                              ? 'opacity-100 text-primary'
+                              : 'text-muted-foreground/40 hover:bg-muted hover:text-muted-foreground sm:opacity-0 sm:group-hover/conv:opacity-100'
                           )}
                           title={conv.is_pinned ? t('conversations.unpin_conversation') : t('conversations.pin_conversation')}
                         >
