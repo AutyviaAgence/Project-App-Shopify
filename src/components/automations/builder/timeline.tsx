@@ -101,7 +101,7 @@ import { TemplateBubble } from '@/components/template-bubble'
 import { VARIABLE_BY_KEY } from '@/lib/templates/variables'
 import { USE_CASES, guessUseCase } from '@/lib/templates/use-cases'
 import type { WorkflowGraph, WorkflowNode } from '@/lib/automations/graph-types'
-import { buttonBranch } from '@/lib/automations/graph-types'
+import { buttonBranch, BUTTON_TIMEOUT_BRANCH } from '@/lib/automations/graph-types'
 import type { WhatsAppTemplate, TemplateButton } from '@/types/database'
 
 /** Libellés des boutons QUICK_REPLY d'un message : ces libellés servent de
@@ -239,6 +239,11 @@ function Branch(props: TimelineProps & { fromId: string; branch?: string }) {
                     <Branch {...props} fromId={id} branch={buttonBranch(text)} />
                   </BranchCol>
                 ))}
+                {/* Parcours CLASSIQUE : le contact qui ne clique aucun bouton
+                    (délai d attente écoulé) continue par cette sortie. */}
+                <BranchCol label="Sans réponse" color="#94A3B8">
+                  <Branch {...props} fromId={id} branch={BUTTON_TIMEOUT_BRANCH} />
+                </BranchCol>
               </div>
             </React.Fragment>
           )
