@@ -404,6 +404,25 @@
   animation: vscan 2.4s ease-in-out infinite;
 }
 
+/* Décor du loader mascotte : particules qui montent, ombre au sol qui respire. */
+@keyframes float-up {
+  0%   { transform: translateY(0) scale(0.6); opacity: 0; }
+  15%  { opacity: 0.9; }
+  85%  { opacity: 0.5; }
+  100% { transform: translateY(-140px) scale(1); opacity: 0; }
+}
+.animate-float-up {
+  animation: float-up 5s ease-in-out infinite;
+}
+
+@keyframes shadow-pulse {
+  0%, 100% { transform: scaleX(1);    opacity: 0.45; }
+  50%      { transform: scaleX(0.72); opacity: 0.25; }
+}
+.animate-shadow-pulse {
+  animation: shadow-pulse 1.6s ease-in-out infinite;
+}
+
 /* ===========================================
    MOBILE OPTIMIZATIONS
    =========================================== */
