@@ -129,6 +129,19 @@ function useShopList(endpoint: string): { title: string }[] {
 
 type InsertKind = 'delay' | 'condition' | 'action' | 'ab_test'
 
+/**
+ * Orientation du flux. `vertical` = timeline historique (transactionnel).
+ * `horizontal` = même système, tourné 90° pour les campagnes (façon Klaviyo) :
+ *  le flux principal (trigger → délai → message) court de GAUCHE à DROITE, et
+ *  les branches (Oui/Non, A/B, boutons) s'empilent verticalement.
+ * Passé par contexte pour ne pas threader le prop dans tous les blocs — seuls
+ * les 4 composants « structurels » (Timeline, Branch, Inserter, BranchCol) le
+ * consomment ; les blocs eux-mêmes sont identiques dans les deux sens.
+ */
+type Orientation = 'vertical' | 'horizontal'
+const OrientationContext = React.createContext<Orientation>('vertical')
+const useOrientation = () => React.useContext(OrientationContext)
+
 type TimelineProps = {
   graph: WorkflowGraph
   templates: WhatsAppTemplate[]
@@ -141,6 +154,8 @@ type TimelineProps = {
   automationId?: string | null
   /** Filtre les déclencheurs proposés (Campagnes vs Automatisations). */
   kind?: 'marketing' | 'transactional'
+  /** Sens du flux. `horizontal` pour les campagnes (canvas façon Klaviyo). */
+  orientation?: Orientation
 }
 
 /**
@@ -151,12 +166,19 @@ type TimelineProps = {
 export function Timeline(props: TimelineProps) {
   const trigger = props.graph.nodes.find((n) => n.type === 'trigger')
   if (!trigger) return null
+  const orientation = props.orientation ?? 'vertical'
+  const horizontal = orientation === 'horizontal'
 
   return (
-    <div className="flex flex-col items-center py-2">
-      <TriggerBlock node={trigger} onPatch={props.onPatch} kind={props.kind ?? 'transactional'} />
-      <Branch {...props} fromId={trigger.id} />
-    </div>
+    <OrientationContext.Provider value={orientation}>
+      <div className={cn(
+        'flex py-2',
+        horizontal ? 'flex-row items-start gap-0' : 'flex-col items-center',
+      )}>
+        <TriggerBlock node={trigger} onPatch={props.onPatch} kind={props.kind ?? 'transactional'} />
+        <Branch {...props} fromId={trigger.id} />
+      </div>
+    </OrientationContext.Provider>
   )
 }
 
@@ -166,8 +188,17 @@ const VARIANT_COLORS = ['#3B82F6', '#8B5CF6', '#F59E0B', '#EC4899']
 function Branch(props: TimelineProps & { fromId: string; branch?: string }) {
   const { graph, fromId, branch, templates, onPatch, onInsert, onDelete, onSelectAction } = props
   const chain = chainFrom(graph, fromId, branch)
+  const horizontal = useOrientation() === 'horizontal'
+  // Rangée qui porte les sous-branches (Oui/Non, A/B) : côte à côte en vertical
+  // (colonnes), empilées en horizontal (chaque branche repart vers la droite).
+  const branchesRow = horizontal
+    ? 'mt-0 ml-1 flex flex-col items-start gap-4'
+    : 'mt-1 flex w-full items-start justify-center gap-6'
+  const abBranchesRow = horizontal
+    ? 'mt-0 ml-1 flex flex-col items-start gap-4'
+    : 'mt-1 flex w-full items-start justify-center gap-4'
   return (
-    <>
+    <div className={cn('flex', horizontal ? 'flex-row items-center' : 'flex-col items-center')}>
       <Inserter onInsert={(kind) => onInsert(fromId, kind, branch)} />
       {chain.map((id, i) => {
         const node = getNode(graph, id)
@@ -190,7 +221,7 @@ function Branch(props: TimelineProps & { fromId: string; branch?: string }) {
         if (node.type === 'condition') return (
           <React.Fragment key={id}>
             <ConditionBlock node={node} onPatch={onPatch} onDelete={() => onDelete(id)} />
-            <div className="mt-1 flex w-full items-start justify-center gap-6">
+            <div className={branchesRow}>
               <BranchCol label="Oui" color="#22C55E">
                 <Branch {...props} fromId={id} branch="yes" />
               </BranchCol>
@@ -206,7 +237,7 @@ function Branch(props: TimelineProps & { fromId: string; branch?: string }) {
             <ABTestBlock node={node} onPatch={onPatch} onDelete={() => onDelete(id)}
               onAddVariant={props.onAddVariant} onRemoveVariant={props.onRemoveVariant}
               automationId={props.automationId} />
-            <div className="mt-1 flex w-full items-start justify-center gap-4">
+            <div className={abBranchesRow}>
               {node.variants.map((v, vi) => (
                 <BranchCol key={v.key} label={`${v.key} · ${v.weight}%`} color={VARIANT_COLORS[vi % 4]}>
                   <Branch {...props} fromId={id} branch={`variant:${v.key}`} />
@@ -217,7 +248,7 @@ function Branch(props: TimelineProps & { fromId: string; branch?: string }) {
         )
         return null
       })}
-    </>
+    </div>
   )
 }
 
@@ -637,13 +668,18 @@ function ConditionBlock({ node, onPatch, onDelete }: { node: WorkflowNode; onPat
 // ---- Connecteurs / inserts --------------------------------------------------
 
 function Connector() {
-  return <div className="h-4 w-px bg-border" />
+  const horizontal = useOrientation() === 'horizontal'
+  return <div className={cn('bg-border', horizontal ? 'h-px w-4' : 'h-4 w-px')} />
 }
 
 function BranchCol({ label, color, children }: { label: string; color: string; children: React.ReactNode }) {
+  const horizontal = useOrientation() === 'horizontal'
   return (
-    <div className="flex flex-col items-center">
-      <span className="mb-0.5 rounded-full px-2 py-0.5 text-[10px] font-semibold" style={{ background: `${color}1a`, color }}>{label}</span>
+    <div className={cn('flex', horizontal ? 'flex-row items-center gap-1' : 'flex-col items-center')}>
+      <span
+        className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', horizontal ? 'shrink-0' : 'mb-0.5')}
+        style={{ background: `${color}1a`, color }}
+      >{label}</span>
       {children}
     </div>
   )
@@ -651,17 +687,21 @@ function BranchCol({ label, color, children }: { label: string; color: string; c
 
 function Inserter({ onInsert }: { onInsert: (kind: InsertKind) => void }) {
   const [open, setOpen] = useState(false)
+  const horizontal = useOrientation() === 'horizontal'
   return (
-    <div className="relative flex flex-col items-center">
-      <div className="h-3 w-px bg-border" />
+    <div className={cn('relative flex items-center', horizontal ? 'flex-row' : 'flex-col')}>
+      <div className={cn('bg-border', horizontal ? 'h-px w-3' : 'h-3 w-px')} />
       <button onClick={() => setOpen((o) => !o)}
-        className="flex h-6 w-6 items-center justify-center rounded-full border bg-background text-muted-foreground shadow-sm transition-colors hover:border-primary hover:text-primary">
+        className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border bg-background text-muted-foreground shadow-sm transition-colors hover:border-primary hover:text-primary">
         <Plus className="h-3.5 w-3.5" />
       </button>
       {open && (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute top-7 z-20 flex gap-1 rounded-xl border bg-card p-1 shadow-lg">
+          <div className={cn(
+            'absolute z-20 flex gap-1 rounded-xl border bg-card p-1 shadow-lg',
+            horizontal ? 'left-1/2 top-8 -translate-x-1/2' : 'top-7',
+          )}>
             <MenuItem className="text-amber-600" icon={<Clock className="h-3.5 w-3.5" />} label="Délai" onClick={() => { onInsert('delay'); setOpen(false) }} />
             <MenuItem className="text-violet-600" icon={<GitBranch className="h-3.5 w-3.5" />} label="Condition" onClick={() => { onInsert('condition'); setOpen(false) }} />
             <MenuItem className="text-blue-600" icon={<FlaskConical className="h-3.5 w-3.5" />} label="Test A/B" onClick={() => { onInsert('ab_test'); setOpen(false) }} />
