@@ -6,7 +6,6 @@ import {
   applyNodeChanges,
   type Node, type Edge, type NodeChange, type Connection, type NodeProps,
 } from '@xyflow/react'
-import '@xyflow/react/dist/style.css'
 import { Plus, Trash2, Clock, GitBranch, MessageSquare, FlaskConical } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { WhatsAppTemplate } from '@/types/database'
