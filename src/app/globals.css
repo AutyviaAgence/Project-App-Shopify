@@ -1,8 +1,5 @@
 @import "tailwindcss";
 @import "tw-animate-css";
-/* React Flow (canvas des campagnes) : chargé GLOBALEMENT. Importé dans le
-   composant dynamic ssr:false, le CSS n'était pas appliqué → nœuds invisibles. */
-@import "@xyflow/react/dist/style.css";
 
 @custom-variant dark (&:is(.dark *));
 
