@@ -15,6 +15,8 @@ import { ChatArea } from './_components/chat-area'
 import { ShopifyContextPanel } from './_components/shopify-context-panel'
 import { ContactsTableView } from './_components/contacts-table-view'
 import { MessageSquare, Table2 } from 'lucide-react'
+import { USE_CASES, guessUseCase, type UseCaseKey } from '@/lib/templates/use-cases'
+import { cn } from '@/lib/utils'
 import { track } from '@/lib/posthog/events'
 import type { ConversationWithJoins, Team, Message, AIAgent, LifecycleStage } from './_components/types'
 import { BlobLoaderScreen } from '@/components/blob-loader'
@@ -70,7 +72,9 @@ function ConversationsPageContent() {
   const [sending, setSending] = useState(false)
   // Bascule template hors fenêtre 24h
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false)
-  const [approvedTemplates, setApprovedTemplates] = useState<{ id: string; name: string; language: string; body_text?: string }[]>([])
+  const [approvedTemplates, setApprovedTemplates] = useState<{ id: string; name: string; language: string; body_text?: string; use_case?: string | null; category?: string | null }[]>([])
+  // Filtre par catégorie e-commerce du sélecteur de modèles (façon onboarding).
+  const [tplFilter, setTplFilter] = useState<UseCaseKey | 'all'>('all')
   // Nouvelle conversation
   const [newConvOpen, setNewConvOpen] = useState(false)
   const [newConvPhone, setNewConvPhone] = useState('')
@@ -313,6 +317,7 @@ function ConversationsPageContent() {
   // Charger les modèles approuvés quand on ouvre la bascule template OU la nouvelle conversation
   useEffect(() => {
     if (!templateDialogOpen && !newConvOpen) return
+    if (templateDialogOpen) setTplFilter('all') // repart sur « Tous » à chaque ouverture
     fetch('/api/templates')
       .then((r) => r.json())
       .then((j) => {
@@ -1007,7 +1012,7 @@ function ConversationsPageContent() {
       </Dialog>
 
       <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle>Recontacter avec un modèle</DialogTitle>
             <DialogDescription>
@@ -1015,25 +1020,87 @@ function ConversationsPageContent() {
               choisissez un modèle approuvé par Meta pour le recontacter.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-2 max-h-80 overflow-y-auto">
-            {approvedTemplates.length === 0 ? (
-              <p className="text-sm text-muted-foreground py-4 text-center">
-                Aucun modèle approuvé. Créez-en un dans Modèles et faites-le approuver par Meta.
-              </p>
-            ) : (
-              approvedTemplates.map((tpl) => (
-                <button
-                  key={tpl.id}
-                  onClick={() => handleSendTemplate(tpl.id)}
-                  disabled={sending}
-                  className="w-full rounded-lg border p-3 text-left transition-colors hover:border-primary disabled:opacity-50"
-                >
-                  <div className="font-medium text-sm">{tpl.name} <span className="text-xs text-muted-foreground">({tpl.language})</span></div>
-                  {tpl.body_text && <div className="mt-1 text-xs text-muted-foreground line-clamp-2">{tpl.body_text}</div>}
-                </button>
-              ))
-            )}
-          </div>
+
+          {approvedTemplates.length === 0 ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              Aucun modèle approuvé. Créez-en un dans Modèles et faites-le approuver par Meta.
+            </p>
+          ) : (() => {
+            // Catégorie de chaque modèle (use_case, ou déduite du nom).
+            const catOf = (t: typeof approvedTemplates[number]): UseCaseKey =>
+              (t.use_case as UseCaseKey) || guessUseCase(t.name, t.category)
+            // Filtres visibles : « Tous » + les catégories réellement présentes.
+            const present = new Set(approvedTemplates.map(catOf))
+            const filters = USE_CASES.filter((u) => present.has(u.key))
+            const shown = tplFilter === 'all'
+              ? approvedTemplates
+              : approvedTemplates.filter((t) => catOf(t) === tplFilter)
+            return (
+              <div className="space-y-3">
+                {/* Puces de filtre (façon onboarding automatisations). */}
+                <div className="flex flex-wrap gap-1.5">
+                  <button
+                    onClick={() => setTplFilter('all')}
+                    className={cn(
+                      'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                      tplFilter === 'all' ? 'border-primary/60 bg-primary/15 text-primary' : 'border-border text-muted-foreground hover:text-foreground',
+                    )}
+                  >
+                    Tous ({approvedTemplates.length})
+                  </button>
+                  {filters.map((u) => {
+                    const n = approvedTemplates.filter((t) => catOf(t) === u.key).length
+                    return (
+                      <button
+                        key={u.key}
+                        onClick={() => setTplFilter(u.key)}
+                        className={cn(
+                          'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                          tplFilter === u.key ? 'border-primary/60 bg-primary/15 text-primary' : 'border-border text-muted-foreground hover:text-foreground',
+                        )}
+                      >
+                        {u.label} ({n})
+                      </button>
+                    )
+                  })}
+                </div>
+
+                {/* Carrousel horizontal : cartes-modèles en bulle WhatsApp. */}
+                {shown.length === 0 ? (
+                  <p className="py-6 text-center text-sm text-muted-foreground">Aucun modèle dans cette catégorie.</p>
+                ) : (
+                  <div className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:thin]">
+                    {shown.map((tpl) => (
+                      <button
+                        key={tpl.id}
+                        onClick={() => handleSendTemplate(tpl.id)}
+                        disabled={sending}
+                        className="group flex w-[230px] shrink-0 flex-col overflow-hidden rounded-2xl border text-left transition-all hover:border-primary hover:shadow-md disabled:opacity-50"
+                      >
+                        <div className="flex items-center justify-between gap-2 border-b bg-muted/30 px-3 py-2">
+                          <span className="truncate text-sm font-medium">{tpl.name}</span>
+                          <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] uppercase text-muted-foreground">{tpl.language}</span>
+                        </div>
+                        <div className="flex-1 p-3">
+                          {tpl.body_text && (
+                            <div className="rounded-lg rounded-tl-none bg-[#d9fdd3] px-2.5 py-2 text-[12px] leading-snug text-gray-900 shadow-sm">
+                              {tpl.body_text}
+                              <span className="ml-1 text-[9px] text-gray-500">12:00</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="border-t py-2 text-center text-xs font-medium text-primary transition-colors group-hover:bg-primary/5">
+                          Envoyer ce modèle
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <p className="text-center text-[11px] text-muted-foreground">Glissez horizontalement pour voir tous les modèles →</p>
+              </div>
+            )
+          })()}
+
           <div className="flex justify-end">
             <Button variant="outline" onClick={() => setTemplateDialogOpen(false)}>Annuler</Button>
           </div>
