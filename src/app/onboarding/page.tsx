@@ -193,7 +193,7 @@ export default function OnboardingPage() {
       const s = await fetchState()
       if (!s) return
       if (step === 'shopify' && s.shopifyLinked) setStep(s.storeSynced ? 'whatsapp' : 'sync')
-      if (step === 'sync' && s.storeSynced) { flash('Boutique analysée ✓'); setStep('whatsapp') }
+      if (step === 'sync' && s.storeSynced) { flash('Boutique analysée'); setStep('whatsapp') }
     }, 3500)
     return () => clearInterval(iv)
   }, [step, fetchState])
@@ -261,7 +261,7 @@ export default function OnboardingPage() {
       if (r === 'linked') {
         localStorage.removeItem('onb_pending_shop')
         const s = await fetchState()
-        goTo(s?.storeSynced ? 'whatsapp' : 'sync', 'Boutique liée ✓')
+        goTo(s?.storeSynced ? 'whatsapp' : 'sync', 'Boutique liée')
       }
       setBusy(false)
     })()
@@ -270,7 +270,8 @@ export default function OnboardingPage() {
 
   function flash(msg: string) {
     setFeedback(msg)
-    setTimeout(() => setFeedback(null), 1300)
+    // 1700 ms : le temps que la célébration (coche dessinée + barre) se joue.
+    setTimeout(() => setFeedback(null), 1700)
   }
 
   function goTo(next: Step, msg?: string) {
@@ -280,7 +281,7 @@ export default function OnboardingPage() {
       setTimeout(() => {
         setStep(next); setFeedback(null); setAdvancing(false)
         fetch('/api/onboarding/complete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ step: next }) }).catch(() => {})
-      }, 1300)
+      }, 1700)
     } else {
       setStep(next)
       fetch('/api/onboarding/complete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ step: next }) }).catch(() => {})
@@ -332,7 +333,7 @@ export default function OnboardingPage() {
       localStorage.removeItem('onb_pending_shop')
       const s = await fetchState()
       setBusy(false)
-      goTo(s?.storeSynced ? 'whatsapp' : 'sync', 'Boutique liée ✓')
+      goTo(s?.storeSynced ? 'whatsapp' : 'sync', 'Boutique liée')
       return
     }
     // Déjà liée à un autre compte, ou autre erreur : on s'arrête (pas d'OAuth).
@@ -359,7 +360,7 @@ export default function OnboardingPage() {
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Erreur')
       await fetchState()
-      goTo('agent', 'WhatsApp connecté ✓')
+      goTo('agent', 'WhatsApp connecté')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erreur')
     } finally {
@@ -388,7 +389,7 @@ export default function OnboardingPage() {
         : await fetch('/api/agents', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       if (!res.ok) throw new Error((await res.json()).error || 'Erreur')
       fetch('/api/profile', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ agent_onboarding_done: true }) }).catch(() => {})
-      goTo('templates', 'Agent référent activé 🤖')
+      goTo('templates', 'Agent référent activé')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erreur')
     } finally {
@@ -407,7 +408,7 @@ export default function OnboardingPage() {
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Erreur')
-      goTo('automations', `${json.data?.templatesCreated ?? selTemplates.size} modèles prêts (brouillons) ✓`)
+      goTo('automations', `${json.data?.templatesCreated ?? selTemplates.size} modèles prêts`)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erreur')
     } finally {
@@ -426,7 +427,7 @@ export default function OnboardingPage() {
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Erreur')
-      goTo('plan', `${json.data?.automationsCreated ?? automations.length} automatisations prêtes ⚡`)
+      goTo('plan', `${json.data?.automationsCreated ?? automations.length} automatisations prêtes`)
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erreur')
     } finally {
@@ -684,7 +685,7 @@ export default function OnboardingPage() {
                         <div className="space-y-2">
                           <WhatsAppEmbeddedSignup
                             className="h-11 w-full"
-                            onConnected={async () => { await fetchState(); goTo('agent', 'WhatsApp connecté ✓') }}
+                            onConnected={async () => { await fetchState(); goTo('agent', 'WhatsApp connecté') }}
                           />
                           <p className="text-xs text-muted-foreground">
                             Vous choisirez votre numéro dans une fenêtre Facebook. Aucun identifiant à copier.
@@ -708,7 +709,7 @@ export default function OnboardingPage() {
                       Passer pour l’instant
                     </Button>
                     {state.whatsappConnected ? (
-                      <Button onClick={() => goTo('agent', 'WhatsApp prêt ✓')}>Continuer <ArrowRight className="ml-1 h-4 w-4" /></Button>
+                      <Button onClick={() => goTo('agent', 'WhatsApp prêt')}>Continuer <ArrowRight className="ml-1 h-4 w-4" /></Button>
                     ) : !embeddedSignupAvailable ? (
                       // En mode popup Meta, c'est le bouton Facebook qui soumet.
                       <Button disabled={busy} onClick={connectWhatsApp}>
