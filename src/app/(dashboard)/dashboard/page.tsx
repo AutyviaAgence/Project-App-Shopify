@@ -18,8 +18,12 @@ function DashboardHome() {
 
   return (
     <div className="relative flex w-full flex-col gap-8 overflow-x-hidden p-4 pb-20 md:p-8 md:pt-12">
-      {/* Animation météores en fond (clippées au conteneur) */}
-      <Meteors number={20} className="opacity-60" />
+      {/* Animation météores en fond, dans une couche de CLIP dédiée : les
+          traînées voyagent loin sous le conteneur et faisaient grandir la
+          zone de scroll à chaque frame (barre de défilement qui saute). */}
+      <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+        <Meteors number={20} className="opacity-60" />
+      </div>
 
       {/* Accueil sobre */}
       <div data-tour="header" data-page-header className="relative z-10 space-y-1">
