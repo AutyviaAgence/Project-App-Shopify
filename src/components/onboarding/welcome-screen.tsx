@@ -1,32 +1,37 @@
 'use client'
 
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { ArrowRight, Bot, Flame, MoreVertical, Phone, ShoppingBag, Sparkles, Star, Video } from 'lucide-react'
+import {
+  ArrowLeft, ArrowRight, Bot, Camera, Contact, ExternalLink, Flame, MoreVertical,
+  Paperclip, ShoppingBag, Smile, Sparkles, Star,
+} from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import IPhoneMockup from '@/components/ui/iphone-mockup'
 
 /**
  * Écran de bienvenue CINÉMATIQUE, joué une seule fois à l'arrivée dans
- * l'onboarding. Une scène qui se DÉROULE seule (timeline `phase`), pensée pour
- * tenir sur UN écran sans scroll : le téléphone est mis à l'échelle de la
- * hauteur du viewport (responsive), le titre + bouton sont DANS le flux sous
- * le téléphone (placement v1), avec une hauteur réservée pour éviter tout saut.
+ * l'onboarding. Scène auto-déroulante (timeline `phase`), une page sans scroll.
  *
  *   0  fond bleu nuit qui s'allume
  *   1  « XEYO.IO » se révèle net, blanc clair, au centre
  *   2  il monte et devient fantôme ; le téléphone se révèle
- *   3  cartes flottantes latérales (entrée + flottement continu)
+ *   3  cartes flottantes ANCRÉES AU TÉLÉPHONE (entrée + flottement continu)
  *   4  la conversation WhatsApp se tape seule (« … » puis message)
- *   5  titre + bouton — SANS attendre la fin de la conversation, qui continue
- *      de vivre derrière (l'utilisateur peut cliquer tôt)
+ *   5  titre + bouton (tôt — la conversation continue derrière)
+ *
+ * Le WhatsApp est le MODE SOMBRE Android, répliqué depuis une vraie capture :
+ * en-tête #111b21 (retour, avatar mascotte, contact, ⋮), fond doodle sombre
+ * (/whatsapp-bg-dark.jpg), bulles entrantes #202c33 / sortantes #005c4b, texte
+ * #e9edef, heures #8696a0, boutons d'action verts #25d366 séparés par un filet
+ * (façon « Visit site »), saisie #1f2c34 + micro vert #00a884.
  *
  * `prefers-reduced-motion` : saut direct à l'état final, sans mouvement.
  */
 
 type Bubble =
   | { kind: 'them'; text: string }
-  | { kind: 'ai'; text: string }
+  | { kind: 'ai'; text: string; button?: string }
   | { kind: 'carousel' }
 
 const CHAT: Bubble[] = [
@@ -34,7 +39,7 @@ const CHAT: Bubble[] = [
   { kind: 'ai', text: 'Avec plaisir 😊 Voici 3 best-sellers du moment :' },
   { kind: 'carousel' },
   { kind: 'them', text: 'Le 2ᵉ est parfait, je le prends !' },
-  { kind: 'ai', text: 'Excellent choix 🙌 Je vous envoie le lien de paiement.' },
+  { kind: 'ai', text: 'Excellent choix 🙌 Voici votre lien de paiement sécurisé.', button: 'Payer maintenant' },
 ]
 
 const PRODUCTS = [
@@ -43,11 +48,14 @@ const PRODUCTS = [
   { name: 'Carnet cuir', price: '29 €', emoji: '📓' },
 ]
 
+// Cartes flottantes ANCRÉES AU TÉLÉPHONE : positionnées par rapport au bord du
+// mockup (right:100% = à sa gauche, left:100% = à sa droite), pas aux bords de
+// l'écran. `top` en % de la hauteur du téléphone.
 const FLOATERS = [
-  { side: 'left' as const, icon: ShoppingBag, title: 'Commande suivie', sub: 'Réponse en 2 s', color: 'text-sky-400', top: '26%' },
-  { side: 'right' as const, icon: Flame, title: '+38 % de ventes', sub: 'Paniers relancés', color: 'text-orange-400', top: '30%' },
-  { side: 'left' as const, icon: Bot, title: 'Agent IA actif', sub: '24 h/24', color: 'text-violet-400', top: '52%' },
-  { side: 'right' as const, icon: Star, title: '4,9 / 5', sub: 'Clients satisfaits', color: 'text-amber-400', top: '56%' },
+  { side: 'left' as const, icon: ShoppingBag, title: 'Commande suivie', sub: 'Réponse en 2 s', color: 'text-sky-400', top: '14%' },
+  { side: 'right' as const, icon: Flame, title: '+38 % de ventes', sub: 'Paniers relancés', color: 'text-orange-400', top: '24%' },
+  { side: 'left' as const, icon: Bot, title: 'Agent IA actif', sub: '24 h/24', color: 'text-violet-400', top: '56%' },
+  { side: 'right' as const, icon: Star, title: '4,9 / 5', sub: 'Clients satisfaits', color: 'text-amber-400', top: '66%' },
 ]
 
 const TYPING_MS = 750
@@ -65,9 +73,7 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
   const [msgs, setMsgs] = useState(reduced ? CHAT.length : 0)
   const [typing, setTyping] = useState<null | 'them' | 'ai'>(null)
 
-  // Scale RESPONSIVE, borné par la hauteur ET la largeur du viewport :
-  //  - hauteur : viewport moins le bloc titre réservé (~166px) et le souffle ;
-  //  - largeur : le téléphone (417px nominal) doit tenir avec 32px de marge.
+  // Scale RESPONSIVE, borné par la hauteur ET la largeur du viewport.
   const [scale, setScale] = useState(0.62)
   useEffect(() => {
     const compute = () => {
@@ -87,7 +93,6 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
       setTimeout(() => setPhase(2), 1900),
       setTimeout(() => setPhase(3), 2700),
       setTimeout(() => setPhase(4), 3200),
-      // Titre + bouton TÔT (pendant que la conversation continue) : cliquable vite.
       setTimeout(() => setPhase(5), 4600),
     ]
     return () => timers.forEach(clearTimeout)
@@ -136,8 +141,7 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
         }}
       />
 
-      {/* « XEYO.IO » : net et centré (phase 1) → monte + fantôme (phase ≥ 2),
-          transition longue et douce. */}
+      {/* « XEYO.IO » : net et centré (phase 1) → monte + fantôme (phase ≥ 2). */}
       <motion.h1
         aria-hidden
         initial={reduced ? false : { opacity: 0, scale: 1.12, filter: 'blur(18px)', y: '-50%' }}
@@ -154,40 +158,12 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
         XEYO.IO
       </motion.h1>
 
-      {/* Cartes flottantes latérales (phase 3) : entrée + flottement continu. */}
-      <div className="pointer-events-none absolute inset-0 hidden md:block">
-        {FLOATERS.map((f, i) => (
-          <motion.div
-            key={i}
-            initial={reduced ? false : { opacity: 0, x: f.side === 'left' ? -50 : 50 }}
-            animate={phase >= 3 ? { opacity: 1, x: 0, y: reduced ? 0 : [0, -9, 0] } : {}}
-            transition={{
-              opacity: { duration: 0.5, delay: 0.08 * i },
-              x: { type: 'spring', stiffness: 200, damping: 22, delay: 0.08 * i },
-              y: { duration: 4 + i * 0.4, repeat: Infinity, ease: 'easeInOut', delay: 0.3 * i },
-            }}
-            className="absolute flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 shadow-2xl backdrop-blur-md"
-            style={{ top: f.top, [f.side]: '7%' }}
-          >
-            <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 ${f.color}`}>
-              <f.icon className="h-4 w-4" />
-            </span>
-            <div className="text-left">
-              <p className="text-sm font-semibold text-white">{f.title}</p>
-              <p className="text-xs text-white/50">{f.sub}</p>
-            </div>
-          </motion.div>
-        ))}
-      </div>
-
-      {/* ── Composition centrale : téléphone + (dessous) titre + bouton.
-          Les hauteurs sont RÉSERVÉES dès le départ (placement v1, zéro saut,
-          zéro scroll) ; seuls l'opacité/le mouvement changent. ── */}
+      {/* ── Composition centrale : téléphone (+ cartes ancrées) + titre. ── */}
       <div className="relative z-10 flex flex-col items-center">
-        {/* Le mockup scale via transform (origin top center) : sa boîte de layout
-            reste 417×876. On réserve ses dimensions RÉELLES (scalées) pour que le
-            centrage et le titre en dessous soient exacts. */}
-        <div style={{ height: phoneH, width: phoneW }} className="flex items-start justify-center">
+        {/* Boîte aux dimensions RÉELLES du téléphone : le mockup scale via
+            transform (origin top center), on réserve donc largeur et hauteur.
+            C'est aussi l'ANCRE des cartes flottantes. */}
+        <div style={{ height: phoneH, width: phoneW }} className="relative flex items-start justify-center">
           <AnimatePresence>
             {showPhone && (
               <motion.div
@@ -199,9 +175,39 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* Cartes flottantes COLLÉES au téléphone (phase 3). */}
+          <div className="pointer-events-none absolute inset-0 hidden md:block">
+            {FLOATERS.map((f, i) => (
+              <motion.div
+                key={i}
+                initial={reduced ? false : { opacity: 0, x: f.side === 'left' ? -40 : 40 }}
+                animate={phase >= 3 ? { opacity: 1, x: 0, y: reduced ? 0 : [0, -9, 0] } : {}}
+                transition={{
+                  opacity: { duration: 0.5, delay: 0.08 * i },
+                  x: { type: 'spring', stiffness: 200, damping: 22, delay: 0.08 * i },
+                  y: { duration: 4 + i * 0.4, repeat: Infinity, ease: 'easeInOut', delay: 0.3 * i },
+                }}
+                className="absolute flex items-center gap-3 whitespace-nowrap rounded-2xl border border-white/10 bg-white/5 px-4 py-3 shadow-2xl backdrop-blur-md"
+                style={
+                  f.side === 'left'
+                    ? { top: f.top, right: '100%', marginRight: 28 }
+                    : { top: f.top, left: '100%', marginLeft: 28 }
+                }
+              >
+                <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 ${f.color}`}>
+                  <f.icon className="h-4 w-4" />
+                </span>
+                <div className="text-left">
+                  <p className="text-sm font-semibold text-white">{f.title}</p>
+                  <p className="text-xs text-white/50">{f.sub}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
         </div>
 
-        {/* Titre + bouton : hauteur réservée (min-h), apparition en phase 5. */}
+        {/* Titre + bouton : hauteur réservée, apparition en phase 5. */}
         <div className="mt-4 flex min-h-[150px] flex-col items-center justify-start">
           <AnimatePresence>
             {phase >= 5 && (
@@ -234,7 +240,7 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
   )
 }
 
-/** Téléphone WhatsApp fidèle : IPhoneMockup + vrai fond + chrome WhatsApp. */
+/** WhatsApp Android MODE SOMBRE, répliqué depuis une vraie capture. */
 function WhatsAppPhone({
   visibleCount,
   typing,
@@ -249,27 +255,26 @@ function WhatsAppPhone({
   const shown = CHAT.slice(0, visibleCount)
   return (
     <IPhoneMockup model="15-pro" color="#3a4a63" scale={scale} screenBg="#0b141a" glass>
-      <div className="flex h-full flex-col">
-        {/* En-tête WhatsApp : avatar, nom, « en ligne », icônes appel. */}
-        <div className="flex items-center gap-2.5 bg-[#008069] px-3 pb-2.5 pt-12 text-white">
-          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20">
-            <Bot className="h-5 w-5" />
+      <div className="flex h-full flex-col bg-[#0b141a]">
+        {/* En-tête sombre : ← retour, avatar mascotte, nom, contact, ⋮. */}
+        <div className="flex items-center gap-2 bg-[#111b21] px-2.5 pb-2.5 pt-12 text-white">
+          <ArrowLeft className="h-5 w-5 shrink-0 text-[#e9edef]" />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-full bg-sky-400">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/mascots/peeking.png" alt="" className="mt-2 h-9 w-9 object-contain" />
           </div>
           <div className="min-w-0 flex-1 text-left">
-            <p className="truncate text-[17px] font-semibold leading-tight">Xeyo · Assistant</p>
-            <p className="text-[12px] leading-tight text-white/80">en ligne</p>
+            <p className="truncate text-[17px] font-medium leading-tight text-[#e9edef]">Xeyo · Assistant</p>
+            <p className="text-[12px] leading-tight text-[#8696a0]">en ligne</p>
           </div>
-          <Video className="h-5 w-5 text-white/90" />
-          <Phone className="h-[18px] w-[18px] text-white/90" />
-          <MoreVertical className="h-5 w-5 text-white/90" />
+          <Contact className="h-[22px] w-[22px] shrink-0 text-[#aebac1]" />
+          <MoreVertical className="h-[22px] w-[22px] shrink-0 text-[#aebac1]" />
         </div>
 
-        {/* Conversation : bulles empilées depuis le BAS (comme la vraie app).
-            `max-w` généreux + marges latérales symétriques : les bulles gauche/
-            droite restent PROCHES du centre, pas collées aux bords opposés. */}
+        {/* Conversation : fond doodle SOMBRE, bulles empilées depuis le bas. */}
         <div
-          className="flex flex-1 flex-col justify-end gap-2 overflow-hidden px-4 py-3"
-          style={{ backgroundImage: 'url(/whatsapp-bg.webp)', backgroundSize: 'cover' }}
+          className="flex flex-1 flex-col justify-end gap-1.5 overflow-hidden px-3 py-3"
+          style={{ backgroundImage: 'url(/whatsapp-bg-dark.jpg)', backgroundSize: 'cover', backgroundPosition: 'center' }}
         >
           <AnimatePresence initial={false}>
             {shown.map((m, i) => (
@@ -278,40 +283,49 @@ function WhatsAppPhone({
                 initial={reduced ? false : { opacity: 0, y: 12, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ type: 'spring', stiffness: 360, damping: 26 }}
-                className={m.kind === 'ai' ? 'flex justify-end pl-8' : m.kind === 'them' ? 'flex justify-start pr-8' : ''}
+                className={m.kind === 'them' ? 'flex justify-end pl-8' : m.kind === 'ai' ? 'flex justify-start pr-8' : ''}
               >
                 {m.kind === 'carousel' ? (
                   <ProductCarousel />
                 ) : (
                   <div
-                    className={`relative rounded-lg px-3 py-2 text-left text-[15px] leading-snug shadow-sm ${
-                      m.kind === 'ai' ? 'rounded-tr-none bg-[#d9fdd3] text-gray-900' : 'rounded-tl-none bg-white text-gray-900'
+                    className={`overflow-hidden rounded-lg text-left shadow-md ${
+                      m.kind === 'them' ? 'rounded-tr-none bg-[#005c4b]' : 'rounded-tl-none bg-[#202c33]'
                     }`}
                   >
-                    {m.text}
-                    <span className="ml-1.5 inline-block align-bottom text-[11px] text-gray-400">
-                      12:0{i}
-                      {m.kind === 'ai' && <span className="ml-0.5 text-[#53bdeb]">✓✓</span>}
-                    </span>
+                    <div className="px-3 pb-1.5 pt-2 text-[15px] leading-snug text-[#e9edef]">
+                      {m.text}
+                      <span className="ml-2 inline-flex translate-y-[3px] items-center gap-0.5 whitespace-nowrap text-[11px] text-[#8696a0]">
+                        12:0{i}
+                        {m.kind === 'them' && <span className="text-[#53bdeb]">✓✓</span>}
+                      </span>
+                    </div>
+                    {/* Bouton d'action façon template WhatsApp : filet + texte vert. */}
+                    {m.kind === 'ai' && m.button && (
+                      <div className="flex items-center justify-center gap-1.5 border-t border-white/10 py-2 text-[14px] font-medium text-[#25d366]">
+                        <ExternalLink className="h-4 w-4" /> {m.button}
+                      </div>
+                    )}
                   </div>
                 )}
               </motion.div>
             ))}
 
-            {/* Bulle « … » de saisie (du bon côté selon qui écrit). */}
+            {/* Bulle « … » de saisie (du bon côté selon qui écrit).
+                Ici « them » = le CLIENT (à droite, vert) ; « ai » = la boutique. */}
             {typing && (
               <motion.div
                 key="typing"
                 initial={{ opacity: 0, y: 8, scale: 0.9 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.9 }}
-                className={typing === 'ai' ? 'flex justify-end' : 'flex justify-start'}
+                className={typing === 'them' ? 'flex justify-end' : 'flex justify-start'}
               >
-                <div className={`flex gap-1 rounded-lg px-3 py-2.5 shadow-sm ${typing === 'ai' ? 'rounded-tr-none bg-[#d9fdd3]' : 'rounded-tl-none bg-white'}`}>
+                <div className={`flex gap-1 rounded-lg px-3 py-2.5 shadow-md ${typing === 'them' ? 'rounded-tr-none bg-[#005c4b]' : 'rounded-tl-none bg-[#202c33]'}`}>
                   {[0, 1, 2].map((d) => (
                     <motion.span
                       key={d}
-                      className="h-2 w-2 rounded-full bg-gray-400"
+                      className="h-2 w-2 rounded-full bg-[#8696a0]"
                       animate={reduced ? undefined : { opacity: [0.3, 1, 0.3], y: [0, -2, 0] }}
                       transition={reduced ? undefined : { duration: 0.9, repeat: Infinity, delay: d * 0.15 }}
                     />
@@ -322,11 +336,16 @@ function WhatsAppPhone({
           </AnimatePresence>
         </div>
 
-        {/* Barre de saisie WhatsApp (décorative). */}
-        <div className="flex items-center gap-2 bg-[#0b141a] px-3 pb-3 pt-2">
-          <div className="flex h-9 flex-1 items-center rounded-full bg-white/10 px-4 text-[13px] text-white/35">Message</div>
-          <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[#008069] text-white">
-            <ArrowRight className="h-5 w-5" />
+        {/* Barre de saisie sombre : emoji, Message, trombone, caméra + micro vert. */}
+        <div className="flex items-center gap-2 bg-[#0b141a] px-2.5 pb-3 pt-1.5">
+          <div className="flex h-11 flex-1 items-center gap-2.5 rounded-full bg-[#1f2c34] px-3">
+            <Smile className="h-[22px] w-[22px] shrink-0 text-[#8696a0]" />
+            <span className="flex-1 text-left text-[15px] text-[#8696a0]">Message</span>
+            <Paperclip className="h-5 w-5 shrink-0 rotate-45 text-[#8696a0]" />
+            <Camera className="h-[22px] w-[22px] shrink-0 text-[#8696a0]" />
+          </div>
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#00a884] text-white">
+            <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2Z" /></svg>
           </div>
         </div>
       </div>
@@ -334,19 +353,19 @@ function WhatsAppPhone({
   )
 }
 
-/** Carrousel de produits (façon catalogue WhatsApp), scroll horizontal. */
+/** Carrousel de produits en mode sombre (cartes #1f2c34, prix et CTA verts). */
 function ProductCarousel() {
   return (
     <div className="-mx-1 flex w-full gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
       {PRODUCTS.map((p, i) => (
-        <div key={i} className="flex w-[112px] shrink-0 flex-col overflow-hidden rounded-xl bg-white shadow-md">
-          <div className="flex h-[76px] items-center justify-center bg-gradient-to-br from-slate-100 to-slate-200 text-3xl">
-            {p.emoji}
+        <div key={i} className="flex w-[112px] shrink-0 flex-col overflow-hidden rounded-lg bg-[#1f2c34] shadow-md">
+          <div className="flex h-[76px] items-center justify-center bg-[#2a3942] text-3xl">{p.emoji}</div>
+          <div className="px-2.5 pb-0 pt-2 text-left">
+            <p className="truncate text-[13px] font-medium text-[#e9edef]">{p.name}</p>
+            <p className="text-[14px] font-bold text-[#25d366]">{p.price}</p>
           </div>
-          <div className="px-2.5 py-2 text-left">
-            <p className="truncate text-[13px] font-semibold text-gray-900">{p.name}</p>
-            <p className="text-[14px] font-bold text-[#008069]">{p.price}</p>
-            <div className="mt-1.5 rounded-md bg-[#008069] py-1 text-center text-[12px] font-semibold text-white">Voir</div>
+          <div className="mt-1.5 flex items-center justify-center gap-1 border-t border-white/10 py-1.5 text-[12px] font-medium text-[#25d366]">
+            <ExternalLink className="h-3.5 w-3.5" /> Voir
           </div>
         </div>
       ))}
