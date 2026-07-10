@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import type { Profile, ConversationTag } from '@/types/database'
@@ -218,6 +218,29 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false)
   const [formFullName, setFormFullName] = useState('')
   const [formAvatarUrl, setFormAvatarUrl] = useState('')
+  // Upload d'avatar (remplace la saisie d'URL) : fichier → /api/profile/avatar.
+  const avatarFileRef = useRef<HTMLInputElement>(null)
+  const [avatarUploading, setAvatarUploading] = useState(false)
+
+  async function handleAvatarUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = '' // permet de re-sélectionner le même fichier
+    if (!file) return
+    setAvatarUploading(true)
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch('/api/profile/avatar', { method: 'POST', body: fd })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Upload impossible')
+      setFormAvatarUrl(json.data.url)
+      toast.success('Photo de profil mise à jour')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur')
+    } finally {
+      setAvatarUploading(false)
+    }
+  }
   const [formTimezone, setFormTimezone] = useState('Europe/Paris')
   const [formDataRetention, setFormDataRetention] = useState<number | null>(null)
   const [formLifecycleThreshold, setFormLifecycleThreshold] = useState<number | null>(null)
@@ -623,17 +646,32 @@ export default function SettingsPage() {
               />
             </div>
 
+            {/* Photo de profil : import de fichier (plus de saisie d'URL). */}
             <div className="space-y-2">
-              <Label htmlFor="profile-avatar">{t('settings.avatar_url')}</Label>
-              <Input
-                id="profile-avatar"
-                placeholder="https://example.com/avatar.png"
-                value={formAvatarUrl}
-                onChange={(e) => setFormAvatarUrl(e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                {t('settings.avatar_note')}
-              </p>
+              <Label>Photo de profil</Label>
+              <div className="flex items-center gap-3">
+                <Avatar className="h-12 w-12">
+                  <AvatarImage src={formAvatarUrl || undefined} alt="" />
+                  <AvatarFallback>{(formFullName || 'X').charAt(0).toUpperCase()}</AvatarFallback>
+                </Avatar>
+                <input
+                  ref={avatarFileRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  className="hidden"
+                  onChange={handleAvatarUpload}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={avatarUploading}
+                  onClick={() => avatarFileRef.current?.click()}
+                >
+                  {avatarUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Importer une image
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">PNG, JPG ou WebP, 2 Mo maximum. Appliquée immédiatement.</p>
             </div>
 
             <Button onClick={handleSaveProfile} disabled={saving}>
