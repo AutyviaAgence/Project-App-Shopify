@@ -45,6 +45,30 @@ export async function GET(req: NextRequest) {
     .order('scheduled_at', { ascending: true })
     .limit(500)
 
+  // Jobs PARQUÉS sur un message à boutons dont le timeout (72 h) est dépassé :
+  // le client n'a jamais cliqué → on les repasse en 'pending' pour que
+  // processJob suive la branche timeout (si définie) ou clôture le funnel.
+  const { data: expired } = await supabase
+    .from('automation_jobs')
+    .select('id, automation_id, current_node_id')
+    .eq('status', 'waiting')
+    .lte('scheduled_at', now.toISOString())
+    .limit(200)
+  for (const w of (expired || []) as { id: string; automation_id: string; current_node_id: string | null }[]) {
+    // On lit le graphe pour trouver la branche timeout de ce nœud d'action.
+    const { data: a } = await supabase.from('automations').select('graph').eq('id', w.automation_id).maybeSingle()
+    let next: string | null = null
+    if (a?.graph && w.current_node_id) {
+      const { timeoutTarget } = await import('@/lib/automations/graph-engine')
+      next = timeoutTarget(a.graph, w.current_node_id)
+    }
+    if (next) {
+      await supabase.from('automation_jobs').update({ status: 'pending', current_node_id: next, scheduled_at: now.toISOString() }).eq('id', w.id)
+    } else {
+      await mark(supabase, w.id, 'sent', 'funnel : pas de clic (timeout)')
+    }
+  }
+
   const counts = { sent: 0, skipped: 0, failed: 0, deferred: 0 }
   const allJobs = jobs || []
 
@@ -165,20 +189,33 @@ async function processJob(
       await supabase.from('automation_jobs').update({ current_node_id: step.nextNodeId, scheduled_at: when }).eq('id', job.id)
       return 'deferred'
     }
-    // send
+
+    // send OU send_wait_click : dans les deux cas on envoie le message.
     const r = await sendTemplateToContact({ templateId: step.templateId, contactId: job.contact_id, variables: eventData.variables || {} })
     if (!r.ok) {
       const d = deferReason(r.error)
       if (d) { await deferJob(supabase, job.id, now, d); return 'deferred' }
       await mark(supabase, job.id, 'failed', r.error || 'échec'); return 'failed'
     }
-    // Engagement : on enregistre CHAQUE envoi (pour l'entonnoir global +
-    // les résultats A/B). Variante réelle si nœud A/B, sinon '_'.
+    // Engagement : on enregistre CHAQUE envoi (entonnoir + A/B). Pour un message
+    // à boutons on garde le node id de l'action (pour tracer la branche cliquée).
     await recordEngagement(supabase, auto.user_id, auto.id,
-      step.abTest ? step.abTest.nodeId : '_send', job.contact_id,
+      step.abTest ? step.abTest.nodeId : (step.kind === 'send_wait_click' ? step.nodeId : '_send'), job.contact_id,
       step.abTest ? step.abTest.variant : '_')
+
+    if (step.kind === 'send_wait_click') {
+      // FUNNEL À BOUTONS : on PARQUE le job. Le webhook le réveillera au clic
+      // (resumeFromButton). Timeout anti-fuite : réveil dans 72 h → le cron
+      // suivra la branche timeout (si définie) ou clôturera.
+      const timeoutAt = new Date(now.getTime() + 72 * 3600_000).toISOString()
+      await supabase.from('automation_jobs').update({
+        status: 'waiting', current_node_id: step.nodeId, scheduled_at: timeoutAt,
+      }).eq('id', job.id)
+      return 'deferred'
+    }
+
+    // send simple : continuer au prochain tick, ou clore.
     if (step.nextNodeId) {
-      // Continuer le workflow immédiatement au prochain tick depuis le nœud suivant.
       await supabase.from('automation_jobs').update({ current_node_id: step.nextNodeId, scheduled_at: now.toISOString() }).eq('id', job.id)
     } else {
       await mark(supabase, job.id, 'sent', null)

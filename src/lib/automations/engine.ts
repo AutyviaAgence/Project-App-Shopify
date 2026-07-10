@@ -131,3 +131,60 @@ export function nextAllowedSend(
 }
 
 export type { Automation }
+
+/**
+ * FUNNEL À BOUTONS : un contact vient de cliquer un bouton. Si un job de
+ * campagne est PARQUÉ (status='waiting') sur un message à boutons pour ce
+ * contact, on le REPREND sur la branche correspondant au libellé cliqué :
+ * on résout le node cible (resumeFromButton), on repasse le job en 'pending'
+ * pointé dessus, le cron enchaîne au prochain tick.
+ *
+ * Sans job parqué ou sans branche correspondante : no-op (le clic peut encore
+ * démarrer une automation button_clicked indépendante, gérée à côté).
+ */
+export async function resumeParkedFunnel(contactId: string, clickedText: string): Promise<boolean> {
+  if (!contactId) return false
+  const supabase = admin()
+
+  // Job parqué le plus récent pour ce contact (un contact ne devrait en avoir
+  // qu'un à la fois sur un funnel, mais on prend le dernier par sécurité).
+  const { data: jobs } = await supabase
+    .from('automation_jobs')
+    .select('id, automation_id, current_node_id')
+    .eq('contact_id', contactId)
+    .eq('status', 'waiting')
+    .order('created_at', { ascending: false })
+    .limit(5)
+  if (!jobs || jobs.length === 0) return false
+
+  const { resumeFromButton } = await import('./graph-engine')
+
+  for (const job of jobs as { id: string; automation_id: string; current_node_id: string | null }[]) {
+    if (!job.current_node_id) continue
+    const { data: auto } = await supabase
+      .from('automations').select('graph, is_active').eq('id', job.automation_id).maybeSingle()
+    if (!auto?.is_active || !auto.graph) continue
+
+    const next = resumeFromButton(auto.graph, job.current_node_id, clickedText)
+    if (!next) continue // ce funnel n'a pas de branche pour ce bouton → on tente le suivant
+
+    // Trace la branche cliquée pour les stats (best-effort). `clicked_branch`
+    // peut manquer si la migration n'est pas encore passée → on retombe sur un
+    // update sans cette colonne.
+    const trace = { responded: true, responded_at: new Date().toISOString() }
+    const { error: tErr } = await supabase.from('ab_test_assignments')
+      .update({ ...trace, clicked_branch: `button:${clickedText}` })
+      .eq('automation_id', job.automation_id).eq('node_id', job.current_node_id).eq('contact_id', contactId)
+    if (tErr && (tErr.code === '42703' || /clicked_branch/.test(tErr.message || ''))) {
+      await supabase.from('ab_test_assignments').update(trace)
+        .eq('automation_id', job.automation_id).eq('node_id', job.current_node_id).eq('contact_id', contactId)
+    }
+
+    // Réveille le job sur la branche : le cron enchaîne immédiatement.
+    await supabase.from('automation_jobs').update({
+      status: 'pending', current_node_id: next, scheduled_at: new Date().toISOString(),
+    }).eq('id', job.id)
+    return true
+  }
+  return false
+}

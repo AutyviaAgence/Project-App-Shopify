@@ -13,6 +13,12 @@ import type { WorkflowGraph, WorkflowNode } from '@/lib/automations/graph-types'
 import type { WhatsAppTemplate } from '@/types/database'
 
 const Particles = dynamic(() => import('@/components/Particles'), { ssr: false })
+// Canvas React Flow chargé côté client uniquement (lib volumineuse, DOM-only)
+// et seulement pour l'onglet Campagnes → code-split, zéro impact ailleurs.
+const FlowCanvas = dynamic(() => import('./flow-canvas').then((m) => m.FlowCanvas), {
+  ssr: false,
+  loading: () => <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Chargement de l’éditeur…</div>,
+})
 
 /**
  * Regroupe les modèles par NOM : un modèle multilingue ne doit apparaître qu'UNE
@@ -229,6 +235,16 @@ export function WorkflowBuilder({
   // délai cumulé, et condition rencontrée (pour la bulle système du mockup).
   const previewActionNode = graph.nodes.find((n) => n.type === 'action' && n.templateId === previewId)
   const ctx = pathContext(graph, previewActionNode?.id)
+
+  // CAMPAGNES (marketing) : canvas HORIZONTAL React Flow (nœuds déplaçables,
+  // branches par bouton). Le transactionnel garde la timeline verticale.
+  if (kind === 'marketing') {
+    return (
+      <div className="h-full w-full">
+        <FlowCanvas graph={graph} templates={templates} onChange={onChange} automationId={automationId} />
+      </div>
+    )
+  }
 
   return (
     <div className="grid h-full grid-cols-1 gap-2 xl:grid-cols-[minmax(0,1fr)_270px] 2xl:grid-cols-[minmax(0,1fr)_400px]">

@@ -55,6 +55,23 @@ export function variantBranch(key: string): string {
   return `variant:${key}`
 }
 
+/** Branche d'une arête sortant d'un message À BOUTONS : `button:<libellé>`.
+ *  Le libellé = le `text` du bouton quick-reply, exactement ce que le webhook
+ *  capte au clic. Une branche spéciale `button:__timeout__` sert de sortie si
+ *  le client ne clique jamais (anti-fuite). */
+export function buttonBranch(text: string): string {
+  return `button:${text}`
+}
+/** Vrai si la branche est une sortie de bouton. */
+export function isButtonBranch(branch?: string): boolean {
+  return typeof branch === 'string' && branch.startsWith('button:')
+}
+export const BUTTON_TIMEOUT_BRANCH = 'button:__timeout__'
+/** Libellé porté par une branche `button:<x>` (undefined si ce n'en est pas une). */
+export function buttonBranchLabel(branch?: string): string | undefined {
+  return isButtonBranch(branch) ? branch!.slice('button:'.length) : undefined
+}
+
 // Position pour le canvas (React Flow). Optionnelle : le moteur ne s'en sert pas.
 export type NodePosition = { x: number; y: number }
 
@@ -118,6 +135,16 @@ export function validateGraph(graph: WorkflowGraph): string[] {
   }
   for (const n of graph.nodes) {
     if (n.type === 'action' && !n.templateId) errors.push(`L'action "${n.label || n.id}" n'a pas de modèle.`)
+    // Message à BOUTONS (fan-out) : si au moins une sortie est `button:`, TOUTES
+    // les sorties doivent l'être (sinon l'edge sans branche est un wildcard qui
+    // rendrait le branchement ambigu — cf. nextNodes).
+    if (n.type === 'action') {
+      const outs = graph.edges.filter((e) => e.from === n.id)
+      const hasButton = outs.some((e) => isButtonBranch(e.branch))
+      if (hasButton && outs.some((e) => !isButtonBranch(e.branch))) {
+        errors.push(`Le message à boutons "${n.label || n.id}" a une sortie non reliée à un bouton.`)
+      }
+    }
     if (n.type === 'condition') {
       const yes = graph.edges.some((e) => e.from === n.id && e.branch === 'yes')
       const no = graph.edges.some((e) => e.from === n.id && e.branch === 'no')

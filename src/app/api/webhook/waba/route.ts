@@ -596,6 +596,19 @@ export async function POST(req: NextRequest) {
               }
             }
 
+            // 3b-bis. FUNNEL À BOUTONS : si un job de campagne est PARQUÉ sur un
+            // message à boutons pour ce contact, le clic le REPREND sur la
+            // branche correspondante (priorité sur les automations button_clicked
+            // indépendantes ci-dessous).
+            if (clickedButtonTitle) {
+              try {
+                const { resumeParkedFunnel } = await import('@/lib/automations/engine')
+                await resumeParkedFunnel(contact.id, clickedButtonTitle)
+              } catch (err) {
+                console.error('[WABA Webhook] resumeParkedFunnel error:', err)
+              }
+            }
+
             // 3c. Clic sur un bouton → déclenche les automations "button_clicked"
             // (libellé du bouton = filtre). Non-bloquant.
             if (clickedButtonTitle && session.user_id) {
