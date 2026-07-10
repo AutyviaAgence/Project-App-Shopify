@@ -173,7 +173,7 @@ export function Timeline(props: TimelineProps) {
     <OrientationContext.Provider value={orientation}>
       <div className={cn(
         'flex py-2',
-        horizontal ? 'flex-row items-start gap-0' : 'flex-col items-center',
+        horizontal ? 'flex-row items-center gap-0' : 'flex-col items-center',
       )}>
         <TriggerBlock node={trigger} onPatch={props.onPatch} kind={props.kind ?? 'transactional'} />
         <Branch {...props} fromId={trigger.id} />
