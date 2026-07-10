@@ -20,7 +20,7 @@ import {
   FileText, Link2, Check,
   Upload, Tag, Play,
   Sparkles, BookOpen, Smartphone, SlidersHorizontal, Settings2,
-  Globe, Shield, Bot, Image as ImageIcon, ChevronRight, MessageSquare,
+  Globe, Shield, Image as ImageIcon, ChevronRight, MessageSquare,
   Eye,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -1182,8 +1182,10 @@ function AgentPreviewCard({
     <div className="overflow-hidden rounded-2xl border border-border/60 bg-card/40 shadow-sm">
       {/* Bandeau dégradé + avatar */}
       <div className="relative h-20 bg-gradient-to-br from-violet-500/40 via-blue-500/30 to-indigo-500/40">
-        <div className="absolute -bottom-6 left-5 flex h-14 w-14 items-center justify-center rounded-2xl border-4 border-card bg-gradient-to-br from-blue-500 to-indigo-500 shadow-md">
-          <Bot className="h-6 w-6 text-background" />
+        {/* Avatar : la mascotte (peeking) plutôt qu'une icône robot générique. */}
+        <div className="absolute -bottom-6 left-5 flex h-14 w-14 items-end justify-center overflow-hidden rounded-2xl border-4 border-card bg-gradient-to-br from-sky-400 to-indigo-500 shadow-md">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/mascots/peeking.png" alt="" className="h-11 w-11 translate-y-1 object-contain" />
         </div>
         <span className={cn(
           'absolute right-4 top-4 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold backdrop-blur',

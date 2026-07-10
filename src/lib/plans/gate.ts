@@ -26,7 +26,7 @@ export async function canUseAi(userId: string): Promise<AiGateResult> {
   const supabase = getAdminSupabase()
   const { data: profile } = await supabase
     .from('profiles')
-    .select('plan, role, subscription_status, trial_ends_at')
+    .select('plan, role')
     .eq('id', userId)
     .single()
 
@@ -36,12 +36,11 @@ export async function canUseAi(userId: string): Promise<AiGateResult> {
 
   if (profile.role === 'admin') return { allowed: true, reason: 'admin', plan }
 
-  // Trial actif → IA autorisée même sans plan payant.
-  if (profile.subscription_status === 'trialing') {
-    const trialOk = !profile.trial_ends_at || new Date(profile.trial_ends_at) > new Date()
-    if (trialOk) return { allowed: true, reason: 'trial', plan }
-  }
-
+  // DÉCISION PRODUIT : l'IA exige un plan avec aiEnabled, sans exception.
+  // L'ancien bypass « subscription_status = trialing » laissait passer TOUS
+  // les comptes Gratuit : le statut restait accroché à l'inscription et, avec
+  // trial_ends_at null, ne « expirait » jamais. Un vrai essai Stripe sur un
+  // plan payant est déjà couvert : le plan (starter/pro/scale) a aiEnabled.
   if (PLANS[plan].aiEnabled) return { allowed: true, reason: 'ok', plan }
   return { allowed: false, reason: 'free_plan', plan }
 }
