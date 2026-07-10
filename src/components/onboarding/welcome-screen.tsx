@@ -9,19 +9,19 @@ import IPhoneMockup from '@/components/ui/iphone-mockup'
 /**
  * Écran de bienvenue CINÉMATIQUE, joué une seule fois à l'arrivée dans
  * l'onboarding. Une scène qui se DÉROULE seule (timeline `phase`), pensée pour
- * tenir sur UN écran sans scroll (h-screen + overflow-hidden) :
+ * tenir sur UN écran sans scroll : le téléphone est mis à l'échelle de la
+ * hauteur du viewport (responsive), le titre + bouton sont DANS le flux sous
+ * le téléphone (placement v1), avec une hauteur réservée pour éviter tout saut.
  *
  *   0  fond bleu nuit qui s'allume
  *   1  « XEYO.IO » se révèle net, blanc clair, au centre
- *   2  il se déplace vers le haut et devient transparent (fantôme), le
- *      téléphone monte et se révèle en dessous
+ *   2  il monte et devient fantôme ; le téléphone se révèle
  *   3  cartes flottantes latérales (entrée + flottement continu)
- *   4  la conversation WhatsApp se tape seule : indicateur « … » puis message,
- *      jusqu'au carrousel produits
- *   5  titre de bienvenue + bouton « Configurer mon agent »
+ *   4  la conversation WhatsApp se tape seule (« … » puis message)
+ *   5  titre + bouton — SANS attendre la fin de la conversation, qui continue
+ *      de vivre derrière (l'utilisateur peut cliquer tôt)
  *
- * Téléphone = mockup maison `IPhoneMockup` + vrai fond WhatsApp.
- * `prefers-reduced-motion` : saut direct à l'état final (phase 5), sans mouvement.
+ * `prefers-reduced-motion` : saut direct à l'état final, sans mouvement.
  */
 
 type Bubble =
@@ -44,38 +44,56 @@ const PRODUCTS = [
 ]
 
 const FLOATERS = [
-  { side: 'left' as const, icon: ShoppingBag, title: 'Commande suivie', sub: 'Réponse en 2 s', color: 'text-sky-400', top: '30%' },
-  { side: 'right' as const, icon: Flame, title: '+38 % de ventes', sub: 'Paniers relancés', color: 'text-orange-400', top: '32%' },
-  { side: 'left' as const, icon: Bot, title: 'Agent IA actif', sub: '24 h/24', color: 'text-violet-400', top: '56%' },
-  { side: 'right' as const, icon: Star, title: '4,9 / 5', sub: 'Clients satisfaits', color: 'text-amber-400', top: '58%' },
+  { side: 'left' as const, icon: ShoppingBag, title: 'Commande suivie', sub: 'Réponse en 2 s', color: 'text-sky-400', top: '26%' },
+  { side: 'right' as const, icon: Flame, title: '+38 % de ventes', sub: 'Paniers relancés', color: 'text-orange-400', top: '30%' },
+  { side: 'left' as const, icon: Bot, title: 'Agent IA actif', sub: '24 h/24', color: 'text-violet-400', top: '52%' },
+  { side: 'right' as const, icon: Star, title: '4,9 / 5', sub: 'Clients satisfaits', color: 'text-amber-400', top: '56%' },
 ]
 
-// Chaque message est précédé d'un indicateur de saisie « … » (sauf le carrousel,
-// enchaîné juste après le message de l'IA). Rythme (ms) : durée du « … », puis le
-// message reste affiché avant le suivant.
-const TYPING_MS = 850
-const READ_MS = 950
+const TYPING_MS = 750
+const READ_MS = 850
+
+// Dimensions nominales du mockup 15-pro (écran + bezels), pour le calcul du scale.
+// ⚠️ IPhoneMockup scale via `transform` : sa BOÎTE DE LAYOUT reste 417×876 quelle
+// que soit l'échelle — il faut donc réserver soi-même les dimensions réelles.
+const PHONE_NOM_W = 417
+const PHONE_NOM_H = 876
 
 export function WelcomeScreen({ onStart }: { onStart: () => void }) {
   const reduced = useReducedMotion()
   const [phase, setPhase] = useState(reduced ? 5 : 0)
   const [msgs, setMsgs] = useState(reduced ? CHAT.length : 0)
-  // Indique si un interlocuteur « écrit » (bulle … avant le prochain message).
   const [typing, setTyping] = useState<null | 'them' | 'ai'>(null)
+
+  // Scale RESPONSIVE, borné par la hauteur ET la largeur du viewport :
+  //  - hauteur : viewport moins le bloc titre réservé (~166px) et le souffle ;
+  //  - largeur : le téléphone (417px nominal) doit tenir avec 32px de marge.
+  const [scale, setScale] = useState(0.62)
+  useEffect(() => {
+    const compute = () => {
+      const byH = (window.innerHeight - 230) / PHONE_NOM_H
+      const byW = (window.innerWidth - 32) / PHONE_NOM_W
+      setScale(Math.min(0.68, Math.max(0.42, Math.min(byH, byW))))
+    }
+    compute()
+    window.addEventListener('resize', compute)
+    return () => window.removeEventListener('resize', compute)
+  }, [])
 
   useEffect(() => {
     if (reduced) return
     const timers = [
       setTimeout(() => setPhase(1), 400),
-      setTimeout(() => setPhase(2), 2000),
-      setTimeout(() => setPhase(3), 2900),
-      setTimeout(() => setPhase(4), 3500),
+      setTimeout(() => setPhase(2), 1900),
+      setTimeout(() => setPhase(3), 2700),
+      setTimeout(() => setPhase(4), 3200),
+      // Titre + bouton TÔT (pendant que la conversation continue) : cliquable vite.
+      setTimeout(() => setPhase(5), 4600),
     ]
     return () => timers.forEach(clearTimeout)
   }, [reduced])
 
-  // Phase 4 : on enchaîne « … » (du bon côté) puis le message, un à un. Le
-  // carrousel n'a pas de « … » (il suit le message de l'IA). À la fin → phase 5.
+  // Phase 4 : « … » puis message, un à un ; le carrousel suit sans « … ».
   useEffect(() => {
     if (reduced || phase < 4) return
     const timers: ReturnType<typeof setTimeout>[] = []
@@ -92,40 +110,40 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
       timers.push(setTimeout(() => { setTyping(null); setMsgs(i + 1) }, t))
       t += READ_MS
     })
-    timers.push(setTimeout(() => setPhase(5), t + 300))
     return () => timers.forEach(clearTimeout)
   }, [phase, reduced])
 
   const showPhone = phase >= 2
+  const phoneH = Math.round(PHONE_NOM_H * scale)
+  const phoneW = Math.round(PHONE_NOM_W * scale)
 
   return (
-    <div className="relative flex h-screen w-full flex-col items-center justify-start overflow-hidden bg-[#0a0f1e] px-6">
+    <div className="relative flex h-screen w-full flex-col items-center justify-center overflow-hidden bg-[#0a0f1e] px-6 text-center">
       {/* Fond : dégradé bleu nuit + grille. */}
       <motion.div
         className="pointer-events-none absolute inset-0"
         initial={reduced ? false : { opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.8 }}
-        style={{ background: 'radial-gradient(60% 55% at 50% 40%, #16264d 0%, #0b1122 55%, #060912 100%)' }}
+        style={{ background: 'radial-gradient(60% 55% at 50% 42%, #16264d 0%, #0b1122 55%, #060912 100%)' }}
       />
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.05]"
         style={{
           backgroundImage: 'linear-gradient(#4d6bff 1px, transparent 1px), linear-gradient(90deg, #4d6bff 1px, transparent 1px)',
           backgroundSize: '48px 48px',
-          maskImage: 'radial-gradient(70% 60% at 50% 42%, black, transparent)',
+          maskImage: 'radial-gradient(70% 60% at 50% 45%, black, transparent)',
         }}
       />
 
-      {/* ── « XEYO.IO » : net et centré (phase 1) → monte + devient fantôme
-          (phase ≥ 2). Transition longue et douce (cubic-bezier) pour un
-          déplacement fluide, pas sec. ── */}
+      {/* « XEYO.IO » : net et centré (phase 1) → monte + fantôme (phase ≥ 2),
+          transition longue et douce. */}
       <motion.h1
         aria-hidden
         initial={reduced ? false : { opacity: 0, scale: 1.12, filter: 'blur(18px)', y: '-50%' }}
         animate={
           phase >= 2
-            ? { opacity: 0.08, scale: 1, filter: 'blur(0px)', y: '-205%' }
+            ? { opacity: 0.08, scale: 1, filter: 'blur(0px)', y: '-150%' }
             : phase >= 1
               ? { opacity: 0.96, scale: 1, filter: 'blur(0px)', y: '-50%' }
               : {}
@@ -136,7 +154,7 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
         XEYO.IO
       </motion.h1>
 
-      {/* ── Cartes flottantes latérales (phase 3) : entrée + flottement continu. ── */}
+      {/* Cartes flottantes latérales (phase 3) : entrée + flottement continu. */}
       <div className="pointer-events-none absolute inset-0 hidden md:block">
         {FLOATERS.map((f, i) => (
           <motion.div
@@ -149,7 +167,7 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
               y: { duration: 4 + i * 0.4, repeat: Infinity, ease: 'easeInOut', delay: 0.3 * i },
             }}
             className="absolute flex items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3 shadow-2xl backdrop-blur-md"
-            style={{ top: f.top, [f.side]: '6%' }}
+            style={{ top: f.top, [f.side]: '7%' }}
           >
             <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/10 ${f.color}`}>
               <f.icon className="h-4 w-4" />
@@ -162,57 +180,77 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
         ))}
       </div>
 
-      {/* ── Le téléphone (phase 2), positionné un peu bas et centré. ── */}
-      <AnimatePresence>
-        {showPhone && (
-          <motion.div
-            initial={reduced ? false : { opacity: 0, y: 130, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            transition={{ type: 'spring', stiffness: 110, damping: 20 }}
-            className="relative z-10 mt-[7vh]"
-          >
-            <WhatsAppPhone visibleCount={msgs} typing={typing} reduced={!!reduced} />
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* ── Composition centrale : téléphone + (dessous) titre + bouton.
+          Les hauteurs sont RÉSERVÉES dès le départ (placement v1, zéro saut,
+          zéro scroll) ; seuls l'opacité/le mouvement changent. ── */}
+      <div className="relative z-10 flex flex-col items-center">
+        {/* Le mockup scale via transform (origin top center) : sa boîte de layout
+            reste 417×876. On réserve ses dimensions RÉELLES (scalées) pour que le
+            centrage et le titre en dessous soient exacts. */}
+        <div style={{ height: phoneH, width: phoneW }} className="flex items-start justify-center">
+          <AnimatePresence>
+            {showPhone && (
+              <motion.div
+                initial={reduced ? false : { opacity: 0, y: 110, scale: 0.92 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                transition={{ type: 'spring', stiffness: 110, damping: 20 }}
+              >
+                <WhatsAppPhone visibleCount={msgs} typing={typing} scale={scale} reduced={!!reduced} />
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
 
-      {/* ── Titre + bouton (phase 5), en bas, superposé (pas de scroll). ── */}
-      <AnimatePresence>
-        {phase >= 5 && (
-          <motion.div
-            initial={reduced ? false : { opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ type: 'spring', stiffness: 220, damping: 24 }}
-            className="absolute inset-x-0 bottom-0 z-20 flex flex-col items-center bg-gradient-to-t from-[#0a0f1e] via-[#0a0f1e]/95 to-transparent px-6 pb-7 pt-10 text-center"
-          >
-            <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.2em] text-white/40">
-              <Sparkles className="h-3.5 w-3.5" /> Bienvenue sur Xeyo
-            </p>
-            <h2 className="mt-2 max-w-xl text-xl font-bold tracking-tight text-white sm:text-2xl">
-              Une IA qui répond, conseille et vend sur WhatsApp — à partir de votre boutique.
-            </h2>
-            <Button
-              size="lg"
-              onClick={onStart}
-              className="group mt-4 h-12 bg-white px-8 text-base text-black shadow-lg shadow-black/30 hover:bg-white/90"
-            >
-              Configurer mon agent
-              <ArrowRight className="ml-1.5 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
-            </Button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+        {/* Titre + bouton : hauteur réservée (min-h), apparition en phase 5. */}
+        <div className="mt-4 flex min-h-[150px] flex-col items-center justify-start">
+          <AnimatePresence>
+            {phase >= 5 && (
+              <motion.div
+                initial={reduced ? false : { opacity: 0, y: 18 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ type: 'spring', stiffness: 220, damping: 24 }}
+                className="flex flex-col items-center"
+              >
+                <p className="flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-[0.2em] text-white/40">
+                  <Sparkles className="h-3.5 w-3.5" /> Bienvenue sur Xeyo
+                </p>
+                <h2 className="mt-2 max-w-xl text-lg font-bold tracking-tight text-white sm:text-xl">
+                  Une IA qui répond, conseille et vend sur WhatsApp — à partir de votre boutique.
+                </h2>
+                <Button
+                  size="lg"
+                  onClick={onStart}
+                  className="group mt-4 h-11 bg-white px-8 text-base text-black shadow-lg shadow-black/30 hover:bg-white/90"
+                >
+                  Configurer mon agent
+                  <ArrowRight className="ml-1.5 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+                </Button>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
     </div>
   )
 }
 
 /** Téléphone WhatsApp fidèle : IPhoneMockup + vrai fond + chrome WhatsApp. */
-function WhatsAppPhone({ visibleCount, typing, reduced }: { visibleCount: number; typing: null | 'them' | 'ai'; reduced: boolean }) {
+function WhatsAppPhone({
+  visibleCount,
+  typing,
+  scale,
+  reduced,
+}: {
+  visibleCount: number
+  typing: null | 'them' | 'ai'
+  scale: number
+  reduced: boolean
+}) {
   const shown = CHAT.slice(0, visibleCount)
   return (
-    <IPhoneMockup model="15-pro" color="#3a4a63" scale={0.68} screenBg="#0b141a" glass>
+    <IPhoneMockup model="15-pro" color="#3a4a63" scale={scale} screenBg="#0b141a" glass>
       <div className="flex h-full flex-col">
-        {/* En-tête WhatsApp fidèle : avatar, nom, « en ligne », icônes appel. */}
+        {/* En-tête WhatsApp : avatar, nom, « en ligne », icônes appel. */}
         <div className="flex items-center gap-2.5 bg-[#008069] px-3 pb-2.5 pt-12 text-white">
           <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20">
             <Bot className="h-5 w-5" />
@@ -226,11 +264,11 @@ function WhatsAppPhone({ visibleCount, typing, reduced }: { visibleCount: number
           <MoreVertical className="h-5 w-5 text-white/90" />
         </div>
 
-        {/* Conversation sur le vrai fond WhatsApp. `justify-end` : les bulles
-            s'empilent depuis le BAS (comme la vraie app), le dernier message
-            reste toujours visible même si le fil dépasse. */}
+        {/* Conversation : bulles empilées depuis le BAS (comme la vraie app).
+            `max-w` généreux + marges latérales symétriques : les bulles gauche/
+            droite restent PROCHES du centre, pas collées aux bords opposés. */}
         <div
-          className="flex flex-1 flex-col justify-end gap-2 overflow-hidden px-3 py-3"
+          className="flex flex-1 flex-col justify-end gap-2 overflow-hidden px-4 py-3"
           style={{ backgroundImage: 'url(/whatsapp-bg.webp)', backgroundSize: 'cover' }}
         >
           <AnimatePresence initial={false}>
@@ -240,13 +278,13 @@ function WhatsAppPhone({ visibleCount, typing, reduced }: { visibleCount: number
                 initial={reduced ? false : { opacity: 0, y: 12, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ type: 'spring', stiffness: 360, damping: 26 }}
-                className={m.kind === 'ai' ? 'flex justify-end' : m.kind === 'them' ? 'flex justify-start' : ''}
+                className={m.kind === 'ai' ? 'flex justify-end pl-8' : m.kind === 'them' ? 'flex justify-start pr-8' : ''}
               >
                 {m.kind === 'carousel' ? (
                   <ProductCarousel />
                 ) : (
                   <div
-                    className={`relative max-w-[84%] rounded-lg px-3 py-2 text-left text-[15px] leading-snug shadow-sm ${
+                    className={`relative rounded-lg px-3 py-2 text-left text-[15px] leading-snug shadow-sm ${
                       m.kind === 'ai' ? 'rounded-tr-none bg-[#d9fdd3] text-gray-900' : 'rounded-tl-none bg-white text-gray-900'
                     }`}
                   >
