@@ -485,7 +485,7 @@ export default function OnboardingPage() {
 
   if (!state) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
+      <div className="dark flex min-h-screen items-center justify-center bg-[#0a0f1e]">
         <Loader2 className="h-6 w-6 animate-spin text-primary" />
       </div>
     )
@@ -495,7 +495,7 @@ export default function OnboardingPage() {
   // Fond sombre propre à la scène (elle porte son propre bg cinématique).
   if (showWelcome) {
     return (
-      <div className="min-h-screen bg-[#0a0f1e]">
+      <div className="dark min-h-screen bg-[#0a0f1e]">
         <WelcomeScreen
           onStart={() => {
             // Vue : on marque et on lève le flag « forcée » pour ne pas rejouer.
@@ -516,9 +516,33 @@ export default function OnboardingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    // Thème sombre FORCÉ (classe `dark`) : tout l'onboarding vit dans la même
+    // scène que l'écran de bienvenue — fond bleu nuit, halo, grille, verre.
+    <div className="dark relative min-h-screen overflow-x-hidden bg-[#0a0f1e] text-foreground">
+      {/* Couches cinématiques (identiques au WelcomeScreen). `fixed` : elles
+          couvrent le viewport même quand le contenu scrolle. */}
+      <div
+        className="pointer-events-none fixed inset-0"
+        style={{ background: 'radial-gradient(60% 55% at 50% 30%, #16264d 0%, #0b1122 55%, #060912 100%)' }}
+      />
+      <div
+        className="pointer-events-none fixed inset-0 opacity-[0.05]"
+        style={{
+          backgroundImage: 'linear-gradient(#4d6bff 1px, transparent 1px), linear-gradient(90deg, #4d6bff 1px, transparent 1px)',
+          backgroundSize: '48px 48px',
+          maskImage: 'radial-gradient(70% 60% at 50% 35%, black, transparent)',
+        }}
+      />
+      {/* Mot fantôme, très discret, en continuité avec l'intro. */}
+      <div
+        aria-hidden
+        className="pointer-events-none fixed left-1/2 top-6 -translate-x-1/2 select-none text-[11rem] font-black leading-none tracking-tighter text-white opacity-[0.025]"
+      >
+        XEYO.IO
+      </div>
+
       <div className={cn(
-        'mx-auto flex min-h-screen w-full flex-col gap-6 px-4 py-8 sm:px-6',
+        'relative z-10 mx-auto flex min-h-screen w-full flex-col gap-6 px-4 py-8 sm:px-6',
         // L'étape « plan » affiche 3 cartes larges : on élargit le conteneur.
         step === 'plan' ? 'max-w-3xl lg:max-w-6xl' : 'max-w-3xl lg:max-w-4xl',
       )}>
@@ -540,8 +564,14 @@ export default function OnboardingPage() {
               </button>
             </span>
           </div>
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-            <div className="h-full rounded-full bg-primary transition-all duration-500" style={{ width: `${((stepIndex + 1) / STEPS.length) * 100}%` }} />
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
+            {/* Progression animée par motion (spring) + dégradé lumineux. */}
+            <motion.div
+              className="h-full rounded-full bg-gradient-to-r from-primary via-sky-400 to-primary shadow-[0_0_12px_1px] shadow-primary/50"
+              initial={false}
+              animate={{ width: `${((stepIndex + 1) / STEPS.length) * 100}%` }}
+              transition={{ type: 'spring', stiffness: 120, damping: 22 }}
+            />
           </div>
         </div>
 
@@ -551,7 +581,16 @@ export default function OnboardingPage() {
 
           <div key={step} className={cn('flex flex-1 flex-col justify-center transition-opacity duration-200', advancing ? 'opacity-0' : 'animate-question-enter opacity-100')}>
             <h1 className="flex items-center gap-2.5 text-xl font-semibold sm:text-2xl md:text-3xl">
-              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary"><Icon className="h-5 w-5" /></span>
+              {/* Pastille d'icône : pop (spring) à chaque changement d'étape. */}
+              <motion.span
+                key={step}
+                initial={{ scale: 0.4, rotate: -12, opacity: 0 }}
+                animate={{ scale: 1, rotate: 0, opacity: 1 }}
+                transition={{ type: 'spring', stiffness: 320, damping: 18 }}
+                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/15 text-primary shadow-[0_0_20px_-4px] shadow-primary/40"
+              >
+                <Icon className="h-5 w-5" />
+              </motion.span>
               {STEP_META[step].title}
             </h1>
 
@@ -561,11 +600,17 @@ export default function OnboardingPage() {
             <AnimatePresence mode="wait">
             <motion.div
               key={step}
-              className="mt-6"
-              initial={{ opacity: 0, x: 24 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -24 }}
-              transition={{ duration: 0.22, ease: 'easeOut' }}
+              className={cn(
+                'mt-6',
+                // Panneau « verre » (même langage que l'intro). Pas sur l'étape
+                // plan : les cartes PricingGlass portent déjà leur propre verre.
+                step !== 'plan' &&
+                  'rounded-3xl border border-white/10 bg-white/[0.03] p-5 shadow-2xl backdrop-blur-md sm:p-6',
+              )}
+              initial={{ opacity: 0, x: 24, filter: 'blur(6px)' }}
+              animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
+              exit={{ opacity: 0, x: -24, filter: 'blur(6px)' }}
+              transition={{ duration: 0.26, ease: 'easeOut' }}
             >
               {/* ── 1. SHOPIFY (bloquant) ── */}
               {step === 'shopify' && (
@@ -771,7 +816,7 @@ export default function OnboardingPage() {
                         Un modèle par événement, rédigé au ton de <span className="font-medium text-foreground">{state.shopName}</span>. Décochez ce que vous ne voulez pas, cliquez pour relire/modifier. <span className="font-medium text-foreground">Rien n’est créé avant votre validation.</span>
                       </p>
                       {!state.whatsappConnected && (
-                        <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-600">
+                        <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-400">
                           WhatsApp n’est pas encore connecté : vos modèles seront enregistrés en <span className="font-medium">brouillon</span> et vous les soumettrez à Meta dès que votre numéro sera relié.
                         </p>
                       )}
