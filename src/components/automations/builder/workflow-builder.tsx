@@ -201,7 +201,7 @@ function pathContext(graph: WorkflowGraph, actionId?: string): { eventValue?: st
  * drag & drop : structure alignée automatiquement, impossible de se perdre.
  */
 export function WorkflowBuilder({
-  graph, templates, storeName, onChange, automationId, kind = 'transactional',
+  graph, templates, storeName, onChange, automationId, kind = 'transactional', onTemplatesChanged,
 }: {
   graph: WorkflowGraph
   templates: WhatsAppTemplate[]
@@ -210,6 +210,8 @@ export function WorkflowBuilder({
   automationId?: string | null
   /** Onglet d'appartenance : filtre les déclencheurs proposés. */
   kind?: 'marketing' | 'transactional'
+  /** Rechargé après édition d'un modèle (ajout de boutons → resoumission Meta). */
+  onTemplatesChanged?: () => void
 }) {
   // Dernier modèle choisi → alimente l'aperçu téléphone.
   const [previewTplId, setPreviewTplId] = useState<string | null>(null)
@@ -256,6 +258,7 @@ export function WorkflowBuilder({
             automationId={automationId}
             kind={kind}
             orientation={orientation}
+            onTemplatesChanged={onTemplatesChanged}
           />
         </div>
       </PannableTimeline>

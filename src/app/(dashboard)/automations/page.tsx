@@ -66,7 +66,11 @@ function AutomationsPageInner() {
       ])
       const autos: Automation[] = aRes.data || []
       setAutomations(autos)
-      setTemplates((tRes.data || []).filter((t: WhatsAppTemplate) => t.status === 'approved'))
+      // On garde `approved` ET `pending` : un modèle édité depuis le builder
+      // (ajout de boutons) repasse `pending` le temps de la revue Meta ; il doit
+      // rester visible dans le bloc (avec le badge « En revue ») sans disparaître.
+      // Le SÉLECTEUR (galerie) ne proposera que les `approved` — cf. ActionBlock.
+      setTemplates((tRes.data || []).filter((t: WhatsAppTemplate) => t.status === 'approved' || t.status === 'pending'))
       setFolders(fRes.data || [])
       // Ouvre la 1re automatisation de l'onglet courant (ou rien).
       setCurrent((c) => c || autos.find((a) => (a.kind === 'marketing' ? 'marketing' : 'transactional') === tab) || null)
@@ -170,7 +174,34 @@ function AutomationsPageInner() {
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Erreur') } finally { setBusyId(null) }
   }
 
+  // Modèles NON approuvés (en revue / refusés) utilisés par un graphe : on
+  // interdit l'activation tant qu'ils ne sont pas validés par Meta (sinon les
+  // envois échoueraient). Renvoie les noms fautifs (vide = tout est bon).
+  function unapprovedTemplatesOf(a: Automation): string[] {
+    const g = (a.id === current?.id ? graph : (a as { graph?: WorkflowGraph }).graph) || null
+    if (!g) return []
+    const ids = new Set(
+      g.nodes.filter((n) => n.type === 'action' && n.templateId).map((n) => (n as { templateId: string }).templateId)
+    )
+    const bad: string[] = []
+    ids.forEach((id) => {
+      const t = templates.find((x) => x.id === id)
+      // Modèle introuvable = probablement supprimé/non chargé → on ne bloque pas
+      // là-dessus (l'API le rejettera). On ne bloque que sur un statut connu ≠ approved.
+      if (t && t.status !== 'approved') bad.push(t.name)
+    })
+    return bad
+  }
+
   async function toggleActive(a: Automation) {
+    // Garde : activer un workflow qui envoie un modèle non approuvé échouerait.
+    if (!a.is_active) {
+      const bad = unapprovedTemplatesOf(a)
+      if (bad.length > 0) {
+        toast.error(`Impossible d'activer : le(s) modèle(s) ${bad.join(', ')} sont en attente d'approbation Meta.`)
+        return
+      }
+    }
     setBusyId(a.id)
     try {
       const res = await fetch(`/api/automations/${a.id}`, {
@@ -231,6 +262,17 @@ function AutomationsPageInner() {
     if (!nameDraft.trim()) { toast.error('Donnez un nom à l’automatisation'); return }
     const errors = validateGraph(graph)
     if (errors.length) { toast.error(errors[0]); return }
+    // Si le workflow est actif mais qu'un modèle utilisé n'est pas (ou plus)
+    // approuvé — typiquement après ajout de boutons → « en revue » —, on le
+    // désactive à l'enregistrement pour éviter des envois voués à l'échec.
+    let keepActive = current.is_active
+    if (keepActive) {
+      const bad = unapprovedTemplatesOf({ ...current, graph } as Automation)
+      if (bad.length > 0) {
+        keepActive = false
+        toast.warning(`Workflow désactivé : ${bad.join(', ')} en attente d'approbation Meta. Réactivez-le une fois approuvé.`)
+      }
+    }
     setBusyId('save')
     try {
       const isNew = !current.id
@@ -241,7 +283,7 @@ function AutomationsPageInner() {
         body: JSON.stringify({
           name: nameDraft.trim(),
           trigger_event: trig?.event || current.trigger_event,
-          graph, builder_mode: true, is_active: current.is_active,
+          graph, builder_mode: true, is_active: keepActive,
           // Nouvelle automatisation : elle appartient à l'onglet courant.
           ...(isNew ? { kind: current.kind || tab } : {}),
         }),
@@ -546,7 +588,7 @@ function AutomationsPageInner() {
               <Input value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} placeholder="Nom du workflow" className="h-8 max-w-xs border-0 bg-transparent px-0 text-sm font-medium focus-visible:ring-0" />
             </div>
             <div className="min-h-0 flex-1 p-4">
-              <WorkflowBuilder graph={graph} templates={templates} storeName={storeName} onChange={setGraph} automationId={current?.id ?? null} kind={current ? kindOf(current) : tab} />
+              <WorkflowBuilder graph={graph} templates={templates} storeName={storeName} onChange={setGraph} automationId={current?.id ?? null} kind={current ? kindOf(current) : tab} onTemplatesChanged={load} />
             </div>
           </div>
         ) : (

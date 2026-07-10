@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Clock, GitBranch, MessageSquare, Plus, ShoppingBag, Trash2, FlaskConical, Users, CalendarClock, Search, X } from 'lucide-react'
+import { Clock, GitBranch, MessageSquare, Plus, ShoppingBag, Trash2, FlaskConical, Users, CalendarClock, Search, X, Reply } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -167,6 +167,8 @@ type TimelineProps = {
   kind?: 'marketing' | 'transactional'
   /** Sens du flux. `horizontal` pour les campagnes (canvas façon Klaviyo). */
   orientation?: Orientation
+  /** Appelé après édition d'un modèle (ajout de boutons → resoumission Meta). */
+  onTemplatesChanged?: () => void
 }
 
 /**
@@ -199,7 +201,7 @@ const VARIANT_COLORS = ['#3B82F6', '#8B5CF6', '#F59E0B', '#EC4899']
 const BUTTON_COLORS = ['#25D366', '#0EA5E9', '#F59E0B', '#EC4899', '#8B5CF6']
 
 function Branch(props: TimelineProps & { fromId: string; branch?: string }) {
-  const { graph, fromId, branch, templates, onPatch, onInsert, onDelete, onSelectAction } = props
+  const { graph, fromId, branch, templates, onPatch, onInsert, onDelete, onSelectAction, onTemplatesChanged } = props
   const chain = chainFrom(graph, fromId, branch)
   const horizontal = useOrientation() === 'horizontal'
   // Rangée qui porte les sous-branches (Oui/Non, A/B) : côte à côte en vertical
@@ -232,7 +234,7 @@ function Branch(props: TimelineProps & { fromId: string; branch?: string }) {
           const buttons = quickReplyLabels(tpl)
           if (buttons.length > 0) return (
             <React.Fragment key={id}>
-              <ActionBlock node={node} templates={templates} onPatch={onPatch} onDelete={() => onDelete(id)} onSelectAction={onSelectAction} />
+              <ActionBlock node={node} templates={templates} onPatch={onPatch} onDelete={() => onDelete(id)} onSelectAction={onSelectAction} onTemplatesChanged={onTemplatesChanged} />
               <div className={branchesRow}>
                 {buttons.map((text, bi) => (
                   <BranchCol key={text} label={text} color={BUTTON_COLORS[bi % BUTTON_COLORS.length]}>
@@ -249,7 +251,7 @@ function Branch(props: TimelineProps & { fromId: string; branch?: string }) {
           )
           return (
             <React.Fragment key={id}>
-              <ActionBlock node={node} templates={templates} onPatch={onPatch} onDelete={() => onDelete(id)} onSelectAction={onSelectAction} />
+              <ActionBlock node={node} templates={templates} onPatch={onPatch} onDelete={() => onDelete(id)} onSelectAction={onSelectAction} onTemplatesChanged={onTemplatesChanged} />
               {i === chain.length - 1 && <Inserter onInsert={(kind) => onInsert(id, kind)} />}
             </React.Fragment>
           )
@@ -469,9 +471,127 @@ function DelayBlock({ node, onPatch, onDelete }: { node: WorkflowNode; onPatch: 
   )
 }
 
-function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction }: {
+/**
+ * Éditeur de boutons quick-reply DANS le bloc « Envoyer le modèle ».
+ * Évite les allers-retours Modèles ⇄ Automatisations : on ajoute/retire les
+ * boutons ici, puis « Enregistrer » édite le template (PATCH) et le RESOUMET à
+ * Meta (POST /submit). Le template repasse « en revue » le temps de l'approbation
+ * (badge affiché par ActionBlock). Réutilise les routes existantes — aucun
+ * nouveau moteur. Boutons quick-reply uniquement (le funnel Oui/Non).
+ */
+function TemplateButtonsEditor({ template, onSaved }: {
+  template: WhatsAppTemplate
+  onSaved?: () => void
+}) {
+  // On n'édite QUE les boutons quick-reply. Les éventuels boutons URL/PHONE/
+  // COPY_CODE du template sont conservés tels quels à la sauvegarde.
+  const initial = ((template.buttons ?? []) as TemplateButton[])
+    .filter((b) => b.type === 'QUICK_REPLY')
+    .map((b) => b.text)
+  const [labels, setLabels] = useState<string[]>(initial)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const otherButtons = ((template.buttons ?? []) as TemplateButton[]).filter((b) => b.type !== 'QUICK_REPLY')
+
+  const dirty = JSON.stringify(labels) !== JSON.stringify(initial)
+  // Meta plafonne à 3 boutons quick-reply, et pas de mélange QR + autres types.
+  const maxQr = otherButtons.length > 0 ? 0 : 3
+  const canAdd = labels.length < maxQr
+
+  const setAt = (i: number, v: string) => setLabels((l) => l.map((x, j) => (j === i ? v : x)))
+  const removeAt = (i: number) => setLabels((l) => l.filter((_, j) => j !== i))
+  const add = () => setLabels((l) => [...l, ''])
+
+  async function save() {
+    const clean = labels.map((s) => s.trim()).filter(Boolean)
+    if (clean.some((s) => s.length > 25)) { setError('Un bouton fait 25 caractères max.'); return }
+    if (new Set(clean.map((s) => s.toLowerCase())).size !== clean.length) { setError('Deux boutons ne peuvent pas avoir le même texte.'); return }
+    setSaving(true); setError(null)
+    try {
+      const nextButtons = [...otherButtons, ...clean.map((text): TemplateButton => ({ type: 'QUICK_REPLY', text }))]
+      // 1) PATCH le contenu du modèle (garde le meta_id, passe has_pending_changes).
+      const patch = await fetch(`/api/templates/${template.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ buttons: nextButtons }),
+      })
+      if (!patch.ok) { setError((await patch.json().catch(() => ({}))).error || 'Échec de l’enregistrement.'); return }
+      // 2) RESOUMET à Meta pour re-validation (le modèle repasse « en revue »).
+      const submit = await fetch(`/api/templates/${template.id}/submit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
+      if (!submit.ok) {
+        const j = await submit.json().catch(() => ({}))
+        setError(j.error || 'Modèle enregistré, mais la soumission à Meta a échoué.')
+        // Le PATCH a réussi : on rafraîchit quand même pour refléter l'état.
+        onSaved?.()
+        return
+      }
+      onSaved?.()
+    } catch {
+      setError('Erreur réseau.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="rounded-lg border border-dashed border-border/70 p-2">
+      <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground">
+        <Reply className="h-3 w-3" /> Boutons de réponse rapide
+      </div>
+      {otherButtons.length > 0 && (
+        <p className="mb-1.5 text-[10px] text-amber-600">
+          Ce modèle a déjà des boutons {otherButtons.map((b) => b.type).join(', ')} : impossible d’y ajouter des réponses rapides (règle Meta).
+        </p>
+      )}
+      <div className="space-y-1.5">
+        {labels.map((text, i) => (
+          <div key={i} className="flex items-center gap-1.5">
+            <Input
+              value={text}
+              maxLength={25}
+              onChange={(e) => setAt(i, e.target.value)}
+              placeholder={`Bouton ${i + 1} (ex. Oui)`}
+              className="h-8 text-xs"
+            />
+            <button type="button" onClick={() => removeAt(i)} title="Retirer ce bouton"
+              className="rounded-md p-1.5 text-muted-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive">
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ))}
+      </div>
+      {canAdd && (
+        <button type="button" onClick={add}
+          className="mt-1.5 flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-medium text-primary transition-colors hover:bg-primary/10">
+          <Plus className="h-3.5 w-3.5" /> Ajouter un bouton
+        </button>
+      )}
+      {error && <p className="mt-1.5 text-[10px] text-destructive">{error}</p>}
+      {dirty && (
+        <div className="mt-2 flex items-center gap-2">
+          <button type="button" onClick={save} disabled={saving}
+            className="flex items-center gap-1.5 rounded-lg bg-primary px-2.5 py-1.5 text-[11px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60">
+            {saving ? 'Envoi à Meta…' : 'Enregistrer les boutons'}
+          </button>
+          <button type="button" onClick={() => { setLabels(initial); setError(null) }} disabled={saving}
+            className="text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-60">
+            Annuler
+          </button>
+        </div>
+      )}
+      {dirty && (
+        <p className="mt-1.5 text-[10px] text-muted-foreground">
+          ⏳ Enregistrer renvoie le modèle en revue Meta (~quelques minutes). Il ne pourra être envoyé qu’une fois approuvé.
+        </p>
+      )}
+    </div>
+  )
+}
+
+function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction, onTemplatesChanged }: {
   node: WorkflowNode; templates: WhatsAppTemplate[]
   onPatch: (id: string, p: Partial<WorkflowNode>) => void; onDelete: () => void; onSelectAction: (t: string | null) => void
+  onTemplatesChanged?: () => void
 }) {
   const [pickerOpen, setPickerOpen] = useState(false)
   const [pickerCat, setPickerCat] = useState<string>('all')
@@ -563,6 +683,10 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction }: {
                   (t as { use_case?: string }).use_case
                   || guessUseCase(t.name, (t as { category?: string }).category)
                 const shown = templates
+                  // La galerie ne propose QUE les modèles approuvés (envoyables).
+                  // Les `pending` restés dans la liste servent juste à afficher le
+                  // badge « en revue » sur un bloc déjà configuré, pas à en choisir.
+                  .filter((t) => t.status === 'approved')
                   .filter((t) => pickerCat === 'all' || catOfT(t) === pickerCat)
                   .filter((t) => !q || [t.name, t.body_text, t.header_text, t.language]
                     .filter(Boolean).join(' ').toLowerCase().includes(q))
@@ -621,14 +745,40 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction }: {
           {/* Aperçu du modèle sélectionné directement dans le nœud. */}
           {selected && (
             <div>
-              <div className="mb-1 text-[10px] font-medium text-muted-foreground">{badge(selected)}</div>
+              <div className="mb-1 flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground">
+                {badge(selected)}
+                <TemplateStatusBadge template={selected} />
+              </div>
               <TemplateBubble template={selected} labels={labelsFor(selected)} />
             </div>
+          )}
+
+          {/* Éditeur de boutons quick-reply, directement dans le bloc : ajoute le
+              funnel Oui/Non sans quitter l'automatisation (resoumission Meta). */}
+          {selected && selected.template_type !== 'carousel' && (
+            <TemplateButtonsEditor key={selected.id} template={selected} onSaved={onTemplatesChanged} />
           )}
         </div>
       )}
     </Shell>
   )
+}
+
+/** Pastille de statut Meta d'un modèle : rien si approuvé et à jour, sinon un
+ *  repère « en revue » / « refusé » pour que le merchant sache qu'il n'est pas
+ *  (encore) envoyable. */
+function TemplateStatusBadge({ template }: { template: WhatsAppTemplate }) {
+  const t = template as WhatsAppTemplate & { has_pending_changes?: boolean; status?: string }
+  if (t.status === 'pending') {
+    return <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-amber-600">⏳ En revue</span>
+  }
+  if (t.status === 'rejected') {
+    return <span className="rounded-full bg-destructive/15 px-1.5 py-0.5 text-[9px] font-semibold text-destructive">Refusé</span>
+  }
+  if (t.has_pending_changes) {
+    return <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-amber-600">Modifs non soumises</span>
+  }
+  return null
 }
 
 function ConditionBlock({ node, onPatch, onDelete }: { node: WorkflowNode; onPatch: (id: string, p: Partial<WorkflowNode>) => void; onDelete: () => void }) {
