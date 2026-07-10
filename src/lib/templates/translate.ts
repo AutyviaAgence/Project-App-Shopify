@@ -188,3 +188,122 @@ export async function translateTemplateContent(args: {
 
   return result
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Déclinaison d'une LIGNE de modèle dans les autres langues (persistance
+// comprise). Extraite de /api/templates/translate pour être réutilisée par
+// l'onboarding (apply-pack) : les modèles gardés au swipe partent traduits.
+// ─────────────────────────────────────────────────────────────────────────────
+
+import { TEMPLATE_LANGUAGES } from '@/lib/i18n/contact-language'
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnyClient = any
+
+function countTplVariables(text: string): number {
+  const matches = text.match(/\{\{\s*\d+\s*\}\}/g)
+  if (!matches) return 0
+  const nums = matches.map((m) => parseInt(m.replace(/\D/g, ''), 10))
+  return nums.length ? Math.max(...nums) : 0
+}
+
+/**
+ * Traduit un modèle (par id) vers toutes les langues de TEMPLATE_LANGUAGES et
+ * upsert une ligne par langue cible (draft, is_auto_translated=true). Ne
+ * réécrit jamais une langue éditée à la main. `client` : client Supabase déjà
+ * scopé (session utilisateur ou admin) ; `userId` borne toutes les requêtes.
+ */
+export async function translateTemplateRow(
+  client: AnyClient,
+  userId: string,
+  sourceId: string
+): Promise<{ created: string[]; skipped: string[] }> {
+  const { data: src } = await client
+    .from('whatsapp_templates')
+    .select('*')
+    .eq('id', sourceId)
+    .eq('user_id', userId)
+    .maybeSingle()
+  if (!src) return { created: [], skipped: [] }
+
+  const sourceLang = src.language as string
+  const targets = TEMPLATE_LANGUAGES.filter((l) => l !== sourceLang)
+  if (targets.length === 0) return { created: [], skipped: [] }
+
+  await client
+    .from('whatsapp_templates')
+    .update({ source_language: sourceLang, is_auto_translated: false })
+    .eq('id', src.id)
+
+  const { data: siblings } = await client
+    .from('whatsapp_templates')
+    .select('id, language, is_auto_translated, body_text')
+    .eq('user_id', userId)
+    .eq('name', src.name)
+
+  const sourceContent: TranslatableContent = {
+    body_text: src.body_text,
+    header_text: src.header_text,
+    footer_text: src.footer_text,
+    buttons: src.buttons as TemplateButton[] | null,
+    carousel_cards: src.carousel_cards as TemplateCard[] | null,
+    lto_title: src.lto_title,
+  }
+
+  const created: string[] = []
+  const skipped: string[] = []
+
+  const translations = await Promise.all(
+    targets.map(async (lang) => ({
+      lang,
+      content: await translateTemplateContent({ source: sourceContent, sourceLang, targetLang: lang }),
+    }))
+  )
+
+  for (const { lang, content } of translations) {
+    const existing = (siblings || []).find((s: { language: string; is_auto_translated: boolean; body_text: string | null }) => s.language === lang)
+    if (existing && existing.is_auto_translated === false && (existing.body_text || '').trim()) {
+      skipped.push(lang)
+      continue
+    }
+
+    const row = {
+      user_id: userId,
+      session_id: src.session_id,
+      name: src.name,
+      language: lang,
+      category: src.category,
+      body_text: content.body_text,
+      header_text: content.header_text ?? null,
+      footer_text: content.footer_text ?? null,
+      header_type: src.header_type,
+      header_media_url: src.header_media_url,
+      buttons: content.buttons ?? null,
+      template_type: src.template_type,
+      carousel_cards: content.carousel_cards ?? null,
+      lto_title: content.lto_title ?? null,
+      lto_default_hours: src.lto_default_hours,
+      variables_count: countTplVariables(content.body_text),
+      sample_values: src.sample_values,
+      variable_keys: src.variable_keys,
+      status: 'draft' as const,
+      source_language: sourceLang,
+      is_auto_translated: true,
+      auto_translated_at: new Date().toISOString(),
+      // Une traduction repart de zéro côté Meta : pas d'héritage meta_id / approved_*.
+      meta_id: null,
+      has_pending_changes: false,
+    }
+
+    const { error } = await client
+      .from('whatsapp_templates')
+      .upsert(row, { onConflict: 'user_id,name,language' })
+    if (error) {
+      console.error('[translate] upsert échec', lang, error.message)
+      skipped.push(lang)
+    } else {
+      created.push(lang)
+    }
+  }
+
+  return { created, skipped }
+}

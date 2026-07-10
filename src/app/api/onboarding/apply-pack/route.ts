@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { after } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { defaultGraph } from '@/lib/automations/graph-types'
+import { translateTemplateRow } from '@/lib/templates/translate'
 import type { TriggerEvent } from '@/lib/automations/types'
 import type { OnboardingPack } from '@/lib/onboarding/pack-spec'
 
@@ -93,8 +96,32 @@ export async function POST(req: NextRequest) {
       }))
 
     if (toInsert.length > 0) {
-      const { error } = await supabase.from('whatsapp_templates').insert(toInsert)
+      const { data: inserted, error } = await supabase
+        .from('whatsapp_templates')
+        .insert(toInsert)
+        .select('id')
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+      // TRADUCTION AUTO (décision produit) : les modèles GARDÉS au swipe
+      // partent déclinés dans les autres langues (fr → en). En tâche
+      // post-réponse (`after`) pour ne pas bloquer la validation, via le
+      // client admin (la session utilisateur n'est pas garantie après la
+      // réponse) — translateTemplateRow borne tout par user_id.
+      const insertedIds = (inserted || []).map((r) => r.id)
+      if (insertedIds.length > 0) {
+        const userId = user.id
+        after(async () => {
+          const admin = createAdminClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!
+          )
+          const results = await Promise.allSettled(
+            insertedIds.map((id) => translateTemplateRow(admin, userId, id))
+          )
+          const failed = results.filter((r) => r.status === 'rejected').length
+          console.log(`[apply-pack] traductions : ${insertedIds.length - failed}/${insertedIds.length} ok`)
+        })
+      }
     }
     // On renvoie le nombre TOTAL de modèles validés PRÊTS (nouveaux + déjà
     // présents), pas seulement les nouvellement insérés — sinon un 2e passage
