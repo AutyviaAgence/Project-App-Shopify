@@ -365,9 +365,10 @@ export function ConversationList({
                   key={conv.id}
                   onClick={() => onSelectConversation(conv)}
                   className={cn(
-                    // Padding vertical réduit en mobile : la ligne (nom + message
-                    // + rangée de badges) prenait trop de hauteur sur petit écran.
-                    'group/conv mx-2 my-0.5 flex w-[calc(100%-1rem)] items-start gap-3 rounded-2xl px-3 py-1.5 text-left transition-all hover:bg-muted/60 sm:py-2.5',
+                    // Mobile : padding réduit et texte centré sur l'avatar (h-11),
+                    // le bloc ne fait plus que 2 lignes (nom + aperçu).
+                    // Desktop : ancrage en haut, la 3e ligne de métadonnées revient.
+                    'group/conv mx-2 my-0.5 flex w-[calc(100%-1rem)] items-center gap-3 rounded-2xl px-3 py-1.5 text-left transition-all hover:bg-muted/60 sm:items-start sm:py-2.5',
                     isSelected && 'bg-primary/10 ring-1 ring-primary/20'
                   )}
                 >
@@ -446,9 +447,11 @@ export function ConversationList({
 
                     {/* Meta + tags : toujours 1 seule ligne (overflow cache) pour
                         que toutes les conversations aient la meme hauteur.
-                        `mt-0.5` seulement à partir de sm : en mobile cette rangée
-                        ajoutait une 3e ligne bien détachée, d'où des cartes hautes. */}
-                    <div className="flex flex-nowrap items-center gap-x-1.5 overflow-hidden sm:mt-0.5 sm:gap-x-2">
+                        MASQUÉE en mobile : elle ajoutait une 3e ligne, alors que
+                        nom + aperçu tiennent exactement dans la hauteur de
+                        l'avatar (h-11). Le numéro et les tags restent visibles
+                        dans la conversation elle-même. */}
+                    <div className="hidden flex-nowrap items-center gap-x-1.5 overflow-hidden sm:mt-0.5 sm:flex sm:gap-x-2">
                       {/* Numero du contact (si different du nom affiche) */}
                       {conv.contact && (conv.contact.first_name || conv.contact.last_name || conv.contact.name) && (
                         <span
