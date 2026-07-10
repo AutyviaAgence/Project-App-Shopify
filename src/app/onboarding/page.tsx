@@ -516,6 +516,10 @@ export default function OnboardingPage() {
   // ── Rendu ────────────────────────────────────────────────────────────
   const stepIndex = STEPS.indexOf(step)
   const Icon = STEP_META[step].icon
+  // Intro de module en cours : on masque le titre d'étape et le panneau verre
+  // (l'animation joue en pleine scène, comme l'accueil).
+  const showingIntro =
+    (step === 'agent' || step === 'templates' || step === 'automations') && !seenIntros.has(step)
 
   if (!state) {
     return (
@@ -629,6 +633,7 @@ export default function OnboardingPage() {
           <OnboardingFeedback feedback={feedback} />
 
           <div key={step} className={cn('flex flex-1 flex-col justify-center transition-opacity duration-200', advancing ? 'opacity-0' : 'animate-question-enter opacity-100')}>
+            {!showingIntro && (
             <h1 className="flex items-center gap-2.5 text-xl font-semibold sm:text-2xl md:text-3xl">
               {/* Pastille d'icône : pop (spring) à chaque changement d'étape. */}
               <motion.span
@@ -642,6 +647,7 @@ export default function OnboardingPage() {
               </motion.span>
               {STEP_META[step].title}
             </h1>
+            )}
 
             {/* Transition entre étapes : la sortante glisse et s'efface avant que
                 l'entrante n'apparaisse (`mode="wait"`). La `key` est l'étape —
@@ -653,12 +659,14 @@ export default function OnboardingPage() {
                 'mt-6',
                 // Panneau « verre » (même langage que l'intro). Pas sur l'étape
                 // plan : les cartes PricingGlass portent déjà leur propre verre.
-                step !== 'plan' &&
+                // Pas de panneau verre pendant une INTRO de module : elle joue
+                // en pleine scène, comme l'accueil.
+                step !== 'plan' && !showingIntro &&
                   'rounded-3xl border border-white/10 bg-white/[0.03] p-5 shadow-2xl backdrop-blur-md sm:p-6',
                 // La mascotte (à droite du panneau) déborde ~140px dessous :
                 // juste assez de réserve pour que « Retour » reste sous sa
                 // ligne de sol, sans repousser le pied de page trop bas.
-                step === 'agent' && 'lg:mb-36',
+                step === 'agent' && !showingIntro && 'lg:mb-36',
               )}
               initial={{ opacity: 0, x: 24, filter: 'blur(6px)' }}
               animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
@@ -909,11 +917,27 @@ export default function OnboardingPage() {
                     </div>
                   ) : (
                     <>
-                      <p className="text-sm text-muted-foreground">
-                        Rédigés au ton de <span className="font-medium text-foreground">{state.shopName}</span>, groupés par thème.
-                        Glissez chaque carte : <span className="font-medium text-emerald-400">à droite pour garder</span>, <span className="font-medium text-red-400">à gauche pour écarter</span>.
-                        Chaque message reste modifiable sur la carte. <span className="font-medium text-foreground">Rien n’est créé avant votre validation.</span>
-                      </p>
+                      {/* Légende VISUELLE (un paragraphe ne se lit pas) :
+                          3 gestes en pastilles + la garantie en badge. */}
+                      <div className="space-y-2.5">
+                        <p className="text-center text-sm text-muted-foreground">
+                          Rédigés au ton de <span className="font-medium text-foreground">{state.shopName}</span>, groupés par thème.
+                        </p>
+                        <div className="flex flex-wrap items-center justify-center gap-2">
+                          <span className="flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-xs font-medium text-emerald-400">
+                            Glisser à droite <ArrowRight className="h-3.5 w-3.5" /> garder
+                          </span>
+                          <span className="flex items-center gap-1.5 rounded-full border border-red-400/30 bg-red-400/10 px-3 py-1.5 text-xs font-medium text-red-400">
+                            <ArrowLeft className="h-3.5 w-3.5" /> à gauche : écarter
+                          </span>
+                          <span className="flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70">
+                            ✏️ texte modifiable sur la carte
+                          </span>
+                        </div>
+                        <p className="text-center text-xs text-muted-foreground">
+                          🔒 Rien n’est créé avant votre validation.
+                        </p>
+                      </div>
                       {!state.whatsappConnected && (
                         <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-400">
                           WhatsApp n’est pas encore connecté : vos modèles seront enregistrés en <span className="font-medium">brouillon</span> et vous les soumettrez à Meta dès que votre numéro sera relié.
