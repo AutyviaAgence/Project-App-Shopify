@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import {
   Loader2, Sparkles, Check, ArrowLeft, ArrowRight, Store, MessageSquare,
   Bot, FileText, Workflow, CreditCard, ShieldCheck, PackageCheck, LogOut,
-  AlertTriangle,
+  AlertTriangle, Package, UserPlus, CalendarClock, ChevronDown,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { MascotRunner } from '@/components/mascot-runner'
@@ -16,6 +16,7 @@ import { OnboardingFeedback } from '@/components/onboarding-feedback'
 import { AgentTryChat } from '@/components/onboarding/agent-try-chat'
 import { WhatsAppEmbeddedSignup, embeddedSignupAvailable } from '@/components/whatsapp-embedded-signup'
 import { WelcomeScreen } from '@/components/onboarding/welcome-screen'
+import { TemplateSwiper, type SwipeGroup } from '@/components/onboarding/template-swiper'
 import { PricingGlass, type TierType } from '@/components/ui/pricing-glass'
 import { PLANS, PAID_PLANS } from '@/lib/plans'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -77,6 +78,35 @@ const STEP_META: Record<Step, { title: string; icon: React.ComponentType<{ class
   templates: { title: 'Vos modèles de messages', icon: FileText },
   automations: { title: 'Vos automatisations', icon: Workflow },
   plan: { title: 'Choisissez votre formule', icon: CreditCard },
+}
+
+// Fiche d'identité de chaque CATÉGORIE d'automatisations : ce que ça fait,
+// dit simplement + un exemple concret — la personne ne lira pas 15 lignes.
+const CATEGORY_META: Record<string, { title: string; icon: React.ComponentType<{ className?: string }>; pitch: string; example: string }> = {
+  Commande: {
+    title: 'Commandes',
+    icon: Package,
+    pitch: 'Informe vos clients à chaque étape : confirmation, paiement, expédition, livraison, remboursement.',
+    example: 'Ex. : commande expédiée → Marie reçoit son lien de suivi, automatiquement.',
+  },
+  Contact: {
+    title: 'Contacts',
+    icon: UserPlus,
+    pitch: 'Accueille chaque nouveau contact et transforme les visiteurs en abonnés WhatsApp.',
+    example: 'Ex. : nouvel inscrit → message de bienvenue immédiat.',
+  },
+  Conversation: {
+    title: 'Conversation',
+    icon: MessageSquare,
+    pitch: 'Réagit à ce qui se passe dans la discussion : clics sur un bouton, silences, messages lus.',
+    example: 'Ex. : pas de réponse depuis 24 h → relance polie.',
+  },
+  Planifié: {
+    title: 'Planification (marketing)',
+    icon: CalendarClock,
+    pitch: 'Envois programmés pour fidéliser : anniversaires, dates clés, campagnes.',
+    example: 'Ex. : anniversaire → vœux + code promo personnalisé.',
+  },
 }
 
 // Tiers de l'écran d'abonnement (dérivés de la SOURCE DE VÉRITÉ `PLANS`).
@@ -512,6 +542,20 @@ export default function OnboardingPage() {
     Planifié: ['scheduled_date', 'customer_birthday'],
   }
 
+  // Cartes du swiper de modèles : un GROUPE par carte (+ « Autres » pour les
+  // triggers hors mapping, pour ne jamais en perdre).
+  const groupedTriggers = new Set(Object.values(groups).flat())
+  const swipeGroups: SwipeGroup[] = pack
+    ? [
+        ...Object.entries(groups).map(([key, triggers]) => ({
+          key,
+          title: CATEGORY_META[key]?.title ?? key,
+          items: pack.filter((i) => triggers.includes(i.trigger)),
+        })),
+        { key: 'Autres', title: 'Autres', items: pack.filter((i) => !groupedTriggers.has(i.trigger)) },
+      ].filter((g) => g.items.length > 0)
+    : []
+
   return (
     // Thème sombre FORCÉ (classe `dark`) : tout l'onboarding vit dans la même
     // scène que l'écran de bienvenue — fond bleu nuit, halo, grille, verre.
@@ -796,55 +840,24 @@ export default function OnboardingPage() {
                   ) : (
                     <>
                       <p className="text-sm text-muted-foreground">
-                        Un modèle par événement, rédigé au ton de <span className="font-medium text-foreground">{state.shopName}</span>. Décochez ce que vous ne voulez pas, cliquez pour relire/modifier. <span className="font-medium text-foreground">Rien n’est créé avant votre validation.</span>
+                        Rédigés au ton de <span className="font-medium text-foreground">{state.shopName}</span>, groupés par thème.
+                        Glissez chaque carte : <span className="font-medium text-emerald-400">à droite pour garder</span>, <span className="font-medium text-red-400">à gauche pour écarter</span>.
+                        Chaque message reste modifiable sur la carte. <span className="font-medium text-foreground">Rien n’est créé avant votre validation.</span>
                       </p>
                       {!state.whatsappConnected && (
                         <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-400">
                           WhatsApp n’est pas encore connecté : vos modèles seront enregistrés en <span className="font-medium">brouillon</span> et vous les soumettrez à Meta dès que votre numéro sera relié.
                         </p>
                       )}
-                      <div className="max-h-[46vh] space-y-2 overflow-y-auto pr-1">
-                        {pack.map((item, idx) => {
-                          const on = selTemplates.has(item.trigger)
-                          const isOpen = expanded === item.trigger
-                          return (
-                            <div key={item.trigger} style={{ animationDelay: `${idx * 40}ms` }}
-                              className={cn('animate-question-enter rounded-xl border transition-colors', on ? 'border-primary/40' : 'border-border opacity-60')}>
-                              <div className="flex items-center gap-2.5 p-3">
-                                <input type="checkbox" checked={on} className="h-4 w-4 shrink-0 accent-primary"
-                                  onChange={() => setSelTemplates((prev) => { const s = new Set(prev); if (s.has(item.trigger)) s.delete(item.trigger); else s.add(item.trigger); return s })} />
-                                <button className="min-w-0 flex-1 text-left" onClick={() => setExpanded(isOpen ? null : item.trigger)}>
-                                  <p className="truncate text-sm font-medium">{item.label}</p>
-                                  <p className="truncate text-xs text-muted-foreground">{(editedBodies[item.trigger] ?? item.body_text).slice(0, 90)}…</p>
-                                </button>
-                                <span className={cn('shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase', item.category === 'UTILITY' ? 'bg-sky-500/10 text-sky-500' : 'bg-violet-500/10 text-violet-500')}>
-                                  {item.category === 'UTILITY' ? 'Transactionnel' : 'Marketing'}
-                                </span>
-                              </div>
-                              {isOpen && (
-                                <div className="border-t p-3">
-                                  <textarea
-                                    value={editedBodies[item.trigger] ?? item.body_text}
-                                    onChange={(e) => setEditedBodies((prev) => ({ ...prev, [item.trigger]: e.target.value }))}
-                                    rows={3}
-                                    className="w-full resize-y rounded-lg border border-input bg-background p-2.5 text-xs leading-relaxed"
-                                  />
-                                  <p className="mt-1 text-[11px] text-muted-foreground">
-                                    Variables : {item.variable_keys.map((k, i) => `{{${i + 1}}} = ${k}`).join(' · ')}
-                                  </p>
-                                </div>
-                              )}
-                            </div>
-                          )
-                        })}
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <p className="text-xs text-muted-foreground">{selTemplates.size} / {pack.length} sélectionnés</p>
-                        <Button disabled={busy || selTemplates.size === 0} onClick={validateTemplates}>
-                          {busy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Check className="mr-1 h-4 w-4" />}
-                          Valider ces modèles
-                        </Button>
-                      </div>
+                      <TemplateSwiper
+                        groups={swipeGroups}
+                        selected={selTemplates}
+                        editedBodies={editedBodies}
+                        onDecide={(trigger, keep) => setSelTemplates((prev) => { const s = new Set(prev); if (keep) s.add(trigger); else s.delete(trigger); return s })}
+                        onEditBody={(trigger, body) => setEditedBodies((prev) => ({ ...prev, [trigger]: body }))}
+                        onValidate={validateTemplates}
+                        busy={busy}
+                      />
                     </>
                   )}
                 </div>
@@ -860,36 +873,95 @@ export default function OnboardingPage() {
                   ) : (
                     <>
                       <p className="text-sm text-muted-foreground">
-                        Chaque automatisation envoie son modèle au bon moment. Elles seront créées <span className="font-medium text-foreground">désactivées</span> : vous les activez quand vous êtes prêt.
+                        Quatre familles d’automatisations, prêtes à l’emploi. Activez celles qui vous parlent — elles seront créées <span className="font-medium text-foreground">désactivées</span>, vous appuierez sur le bouton quand vous serez prêt.
                       </p>
-                      <div className="max-h-[46vh] space-y-4 overflow-y-auto pr-1">
-                        {Object.entries(groups).map(([group, triggers]) => (
-                          <div key={group}>
-                            <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{group}</p>
-                            <div className="space-y-2">
-                              {pack.filter((i) => triggers.includes(i.trigger)).map((item) => {
-                                const on = selAutomations.has(item.trigger)
-                                return (
-                                  <div key={item.trigger} className={cn('flex items-center gap-2.5 rounded-xl border p-3 transition-colors', on ? 'border-primary/40' : 'border-border opacity-60')}>
-                                    <input type="checkbox" checked={on} className="h-4 w-4 shrink-0 accent-primary"
-                                      onChange={() => setSelAutomations((prev) => { const s = new Set(prev); if (s.has(item.trigger)) s.delete(item.trigger); else s.add(item.trigger); return s })} />
-                                    <div className="min-w-0 flex-1">
-                                      <p className="truncate text-sm font-medium">{item.automation_name}</p>
-                                      <p className="truncate text-xs text-muted-foreground">{item.description}</p>
-                                    </div>
-                                    <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
-                                      délai
-                                      <input type="number" min={0} value={delays[item.trigger] ?? 0}
-                                        onChange={(e) => setDelays((prev) => ({ ...prev, [item.trigger]: Math.max(0, parseInt(e.target.value) || 0) }))}
-                                        className="h-8 w-16 rounded-md border border-input bg-background px-1.5 text-center text-xs" />
-                                      min
-                                    </span>
+                      {/* Une CARTE par catégorie : ce que ça fait + un exemple
+                          concret. L'interrupteur agit sur toute la famille ;
+                          « Personnaliser » ouvre le détail (choix fin + délais). */}
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {Object.entries(groups).map(([group, triggers]) => {
+                          const meta = CATEGORY_META[group]
+                          const items = pack.filter((i) => triggers.includes(i.trigger))
+                          if (items.length === 0) return null
+                          const onCount = items.filter((i) => selAutomations.has(i.trigger)).length
+                          const allOn = onCount === items.length
+                          const isOpen = expanded === group
+                          const CatIcon = meta?.icon ?? Workflow
+                          return (
+                            <motion.div
+                              key={group}
+                              layout
+                              className={cn(
+                                'flex flex-col self-start rounded-2xl border transition-colors',
+                                onCount > 0 ? 'border-primary/30 bg-white/[0.04]' : 'border-white/10 bg-white/[0.02] opacity-75',
+                                isOpen && 'sm:col-span-2',
+                              )}
+                            >
+                              <div className="flex items-start gap-3 p-4">
+                                <span className={cn('mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-xl', onCount > 0 ? 'bg-primary/15 text-primary' : 'bg-white/5 text-muted-foreground')}>
+                                  <CatIcon className="h-5 w-5" />
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <p className="text-sm font-semibold text-white">{meta?.title ?? group}</p>
+                                    <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] tabular-nums text-white/60">{onCount}/{items.length}</span>
                                   </div>
-                                )
-                              })}
-                            </div>
-                          </div>
-                        ))}
+                                  <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{meta?.pitch}</p>
+                                </div>
+                                {/* Interrupteur maître de la famille */}
+                                <button
+                                  role="switch"
+                                  aria-checked={allOn}
+                                  aria-label={`Activer ${meta?.title ?? group}`}
+                                  onClick={() => setSelAutomations((prev) => {
+                                    const s = new Set(prev)
+                                    items.forEach((i) => { if (allOn) s.delete(i.trigger); else s.add(i.trigger) })
+                                    return s
+                                  })}
+                                  className={cn('relative h-6 w-11 shrink-0 rounded-full transition-colors', allOn ? 'bg-primary' : onCount > 0 ? 'bg-primary/40' : 'bg-white/15')}
+                                >
+                                  <span className={cn('absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all', allOn || onCount > 0 ? 'left-[22px]' : 'left-0.5')} />
+                                </button>
+                              </div>
+                              {/* Exemple concret : la promesse en UNE situation. */}
+                              {meta?.example && (
+                                <p className="mx-4 mb-3 rounded-lg border border-white/10 bg-black/20 px-2.5 py-1.5 text-[11px] leading-relaxed text-white/60">
+                                  {meta.example}
+                                </p>
+                              )}
+                              <button
+                                onClick={() => setExpanded(isOpen ? null : group)}
+                                className="flex items-center justify-center gap-1 border-t border-white/10 py-2 text-xs font-medium text-muted-foreground transition-colors hover:text-white"
+                              >
+                                Personnaliser <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', isOpen && 'rotate-180')} />
+                              </button>
+                              {isOpen && (
+                                <div className="space-y-2 border-t border-white/10 p-3">
+                                  {items.map((item) => {
+                                    const on = selAutomations.has(item.trigger)
+                                    return (
+                                      <div key={item.trigger} className={cn('flex items-center gap-2.5 rounded-xl border p-2.5 transition-colors', on ? 'border-primary/30' : 'border-white/10 opacity-60')}>
+                                        <input type="checkbox" checked={on} className="h-4 w-4 shrink-0 accent-primary"
+                                          onChange={() => setSelAutomations((prev) => { const s = new Set(prev); if (s.has(item.trigger)) s.delete(item.trigger); else s.add(item.trigger); return s })} />
+                                        <div className="min-w-0 flex-1">
+                                          <p className="truncate text-[13px] font-medium">{item.automation_name}</p>
+                                          <p className="truncate text-xs text-muted-foreground">{item.description}</p>
+                                        </div>
+                                        <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
+                                          délai
+                                          <input type="number" min={0} value={delays[item.trigger] ?? 0}
+                                            onChange={(e) => setDelays((prev) => ({ ...prev, [item.trigger]: Math.max(0, parseInt(e.target.value) || 0) }))}
+                                            className="h-8 w-16 rounded-md border border-input bg-background px-1.5 text-center text-xs" />
+                                          min
+                                        </span>
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              )}
+                            </motion.div>
+                          )
+                        })}
                       </div>
                       <div className="flex items-center justify-between">
                         <p className="text-xs text-muted-foreground">{selAutomations.size} / {pack.length} sélectionnées</p>
