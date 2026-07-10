@@ -72,8 +72,9 @@ const FLOATERS = [
   { side: 'right' as const, icon: Star, title: '4,9 / 5', sub: 'Clients satisfaits', color: 'text-amber-400', top: '66%' },
 ]
 
-const TYPING_MS = 750
-const READ_MS = 900
+// Rythme des bulles : rapide (retour utilisateur — la conversation traînait).
+const TYPING_MS = 420
+const READ_MS = 520
 // Pause à la fin d'un scénario avant le fondu, puis délai avant le suivant.
 const SCENARIO_HOLD_MS = 2600
 const SCENARIO_FADE_MS = 550
