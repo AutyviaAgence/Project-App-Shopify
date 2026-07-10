@@ -10,6 +10,7 @@
 
 import type { TriggerEvent } from '@/lib/automations/types'
 import type { UseCaseKey } from '@/lib/templates/use-cases'
+import type { TemplateButton, TemplateCard } from '@/types/database'
 
 export type PackTriggerSpec = {
   trigger: TriggerEvent
@@ -27,6 +28,10 @@ export type PackTriggerSpec = {
   fallback_body: string
   /** indication de rédaction pour l'IA */
   intent: string
+  /** Boutons du modèle (déterministes, jamais rédigés par l'IA). Les URL
+   *  peuvent contenir le jeton `{store_url}`, remplacé à la génération par le
+   *  domaine réel de la boutique. */
+  buttons?: TemplateButton[]
 }
 
 export const PACK_SPECS: PackTriggerSpec[] = [
@@ -65,6 +70,10 @@ export const PACK_SPECS: PackTriggerSpec[] = [
     default_delay_minutes: 60,
     fallback_body: 'Bonjour {{1}}, votre commande {{2}} a été livrée. Tout s’est bien passé ? Répondez-nous si besoin !',
     intent: 'Confirmer la livraison, ouvrir la porte au SAV et à l’avis.',
+    buttons: [
+      { type: 'QUICK_REPLY', text: 'Tout est parfait 👍' },
+      { type: 'QUICK_REPLY', text: 'J’ai un souci' },
+    ],
   },
   {
     trigger: 'order_cancelled', templateName: 'onb_commande_annulee', label: 'Commande annulée',
@@ -110,6 +119,7 @@ export const PACK_SPECS: PackTriggerSpec[] = [
     default_delay_minutes: 0,
     fallback_body: 'Bienvenue {{1}} ! Vous êtes maintenant connecté(e) à {{2}} sur WhatsApp. Découvrez la boutique : {{3}}',
     intent: 'Souhaiter la bienvenue à un nouvel abonné WhatsApp, présenter la marque.',
+    buttons: [{ type: 'URL', text: 'Découvrir la boutique', url: '{store_url}' }],
   },
   {
     trigger: 'optin_popup', templateName: 'onb_bienvenue_popup', label: 'Bienvenue (popup site)',
@@ -119,6 +129,7 @@ export const PACK_SPECS: PackTriggerSpec[] = [
     default_delay_minutes: 0,
     fallback_body: 'Bonjour {{1}}, merci de nous avoir rejoints depuis {{2}} ! Besoin d’un conseil ? Répondez à ce message. La boutique : {{3}}',
     intent: 'Accueillir un visiteur qui a laissé son numéro via la popup du site.',
+    buttons: [{ type: 'URL', text: 'Découvrir la boutique', url: '{store_url}' }],
   },
   {
     trigger: 'button_clicked', templateName: 'onb_clic_bouton', label: 'Clic sur un bouton',
@@ -146,6 +157,7 @@ export const PACK_SPECS: PackTriggerSpec[] = [
     default_delay_minutes: 2880,
     fallback_body: 'Bonjour {{1}}, nous restons disponibles si vous avez besoin d’aide. Répondez à ce message quand vous voulez !',
     intent: 'Relance SAV bienveillante après silence prolongé.',
+    buttons: [{ type: 'QUICK_REPLY', text: 'Parler à un conseiller' }],
   },
   {
     trigger: 'scheduled_date', templateName: 'onb_campagne_planifiee', label: 'Campagne planifiée',
@@ -155,6 +167,7 @@ export const PACK_SPECS: PackTriggerSpec[] = [
     default_delay_minutes: 0,
     fallback_body: 'Bonjour {{1}}, du nouveau chez {{2}} ! Venez découvrir : {{3}}',
     intent: 'Base réutilisable pour une annonce/campagne datée (nouveautés, offre).',
+    buttons: [{ type: 'URL', text: 'Voir les nouveautés', url: '{store_url}' }],
   },
   {
     trigger: 'customer_birthday', templateName: 'onb_anniversaire', label: 'Anniversaire client',
@@ -164,6 +177,7 @@ export const PACK_SPECS: PackTriggerSpec[] = [
     default_delay_minutes: 0,
     fallback_body: 'Joyeux anniversaire {{1}} 🎂 Toute l’équipe {{2}} vous souhaite une superbe journée ! Un petit plaisir ? {{3}}',
     intent: 'Souhaiter l’anniversaire, ton chaleureux, invitation douce.',
+    buttons: [{ type: 'URL', text: 'Me faire plaisir', url: '{store_url}' }],
   },
 ]
 
@@ -182,6 +196,13 @@ export type PackItem = {
   delay_minutes: number
   automation_name: string
   description: string
+  /** Boutons du modèle (URL résolues avec le vrai domaine de la boutique). */
+  buttons: TemplateButton[] | null
+  /** 'carousel' quand la boutique a assez de produits avec image : le modèle
+   *  campagne devient un carrousel produits (cartes ci-dessous). */
+  template_type?: 'standard' | 'carousel'
+  /** Cartes du carrousel produits (image, nom · prix, bouton Voir). */
+  carousel_cards?: TemplateCard[] | null
 }
 
 export type OnboardingPack = {

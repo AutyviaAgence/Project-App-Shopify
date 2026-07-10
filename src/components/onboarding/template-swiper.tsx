@@ -1,7 +1,7 @@
 'use client'
 
 import { AnimatePresence, motion, useMotionValue, useTransform } from 'framer-motion'
-import { Check, Heart, Loader2, Pencil, RotateCcw, X } from 'lucide-react'
+import { Check, Copy, ExternalLink, Heart, Loader2, Pencil, Reply, RotateCcw, X } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -26,6 +26,11 @@ export type SwipeItem = {
   body_text: string
   sample_values: string[]
   variable_keys: string[]
+  /** Boutons du modèle (aperçu fidèle : rangées vertes façon WhatsApp). */
+  buttons?: { type: string; text: string; url?: string }[] | null
+  /** Carrousel produits : cartes affichées sous la bulle (images réelles). */
+  template_type?: 'standard' | 'carousel'
+  carousel_cards?: { header_media_url: string | null; body_text: string }[] | null
 }
 
 export type SwipeGroup = { key: string; title: string; pitch?: string; items: SwipeItem[] }
@@ -314,8 +319,9 @@ function SwipeCard({
             const body = editedBodies[it.trigger] ?? it.body_text
             return (
               <div key={it.trigger} className={cn('flex max-w-[88%] items-start gap-1.5 transition-opacity', off && !isEditing && 'opacity-35')}>
+                <div className="min-w-0 flex-1">
                 {/* Bulle WhatsApp sombre fidèle (entrante : #202c33). */}
-                <div className="min-w-0 flex-1 overflow-hidden rounded-lg rounded-tl-none bg-[#202c33] shadow-md">
+                <div className="overflow-hidden rounded-lg rounded-tl-none bg-[#202c33] shadow-md">
                   {isEditing ? (
                     <div className="p-2">
                       <textarea
@@ -336,18 +342,49 @@ function SwipeCard({
                       )}
                     </div>
                   ) : (
-                    <div className="px-2.5 pb-1.5 pt-2">
-                      {it.header_text && (
-                        <p className="mb-0.5 text-[13px] font-semibold text-[#e9edef]">
-                          {fillSamples(it.header_text, it.sample_values)}
+                    <>
+                      <div className="px-2.5 pb-1.5 pt-2">
+                        {it.header_text && (
+                          <p className="mb-0.5 text-[13px] font-semibold text-[#e9edef]">
+                            {fillSamples(it.header_text, it.sample_values)}
+                          </p>
+                        )}
+                        <p className="whitespace-pre-wrap text-[13px] leading-snug text-[#e9edef]">
+                          {fillSamples(body, it.sample_values)}
                         </p>
-                      )}
-                      <p className="whitespace-pre-wrap text-[13px] leading-snug text-[#e9edef]">
-                        {fillSamples(body, it.sample_values)}
-                      </p>
-                      <p className="mt-0.5 text-right text-[10px] text-[#8696a0]">01:42</p>
-                    </div>
+                        <p className="mt-0.5 text-right text-[10px] text-[#8696a0]">01:42</p>
+                      </div>
+                      {/* Boutons du modèle, façon WhatsApp : filet + rangée verte. */}
+                      {(it.buttons ?? []).map((b, i) => (
+                        <div key={i} className="flex items-center justify-center gap-1.5 border-t border-white/10 py-1.5 text-[12px] font-medium text-[#25d366]">
+                          {b.type === 'URL' ? <ExternalLink className="h-3.5 w-3.5" />
+                            : b.type === 'COPY_CODE' ? <Copy className="h-3.5 w-3.5" />
+                            : <Reply className="h-3.5 w-3.5" />}
+                          {b.text}
+                        </div>
+                      ))}
+                    </>
                   )}
+                </div>
+                {/* Carrousel produits sous la bulle (vraies images boutique). */}
+                {!isEditing && (it.carousel_cards?.length ?? 0) > 0 && (
+                  <div className="mt-1.5 flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                    {it.carousel_cards!.map((card, ci) => (
+                      <div key={ci} className="w-[104px] shrink-0 overflow-hidden rounded-lg bg-[#202c33] shadow-md">
+                        {card.header_media_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img src={card.header_media_url} alt="" className="h-[68px] w-full object-cover" />
+                        ) : (
+                          <div className="h-[68px] w-full bg-[#2a3942]" />
+                        )}
+                        <p className="truncate px-2 py-1 text-[11px] text-[#e9edef]">{card.body_text}</p>
+                        <div className="flex items-center justify-center gap-1 border-t border-white/10 py-1 text-[11px] font-medium text-[#25d366]">
+                          <ExternalLink className="h-3 w-3" /> Voir
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 </div>
                 {/* Pastille inclure/exclure + crayon, à côté de la bulle. */}
                 <div className="flex shrink-0 flex-col gap-1 pt-1">

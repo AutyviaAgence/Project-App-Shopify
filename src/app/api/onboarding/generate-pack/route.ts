@@ -49,8 +49,11 @@ export async function POST(req: NextRequest) {
   const storeContextPrompt = store.store_context ? buildStoreContextPrompt(store.store_context as any) : ''
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: products } = await (supabase as any)
-    .from('shopify_products').select('title').eq('user_id', user.id).order('position').limit(12)
-  const productList = (products || []).map((p: { title: string }) => p.title).join(' · ') || '(catalogue non disponible)'
+    .from('shopify_products')
+    .select('title, price, url, image_url')
+    .eq('user_id', user.id).order('position').limit(12)
+  type Prod = { title: string; price: string | null; url: string | null; image_url: string | null }
+  const productList = ((products || []) as Prod[]).map((p) => p.title).join(' · ') || '(catalogue non disponible)'
 
   const toneLine = body.tone === 'professional' ? 'professionnel et sobre'
     : body.tone === 'casual' ? 'décontracté et complice'
@@ -98,6 +101,9 @@ ${specLines}`
   }
 
   // Assemblage : IA si valide, sinon fallback de la spec (toujours envoyable).
+  // Les boutons viennent de la SPEC (jamais de l'IA) ; le jeton {store_url}
+  // est résolu ici avec le vrai domaine de la boutique.
+  const storeUrl = `https://${store.shop_domain}`
   const items: PackItem[] = PACK_SPECS.map((s) => {
     const g = generated[s.trigger]
     const body_text = g && isValidBody(g.body || '', s.variable_keys.length) ? g.body!.trim() : s.fallback_body
@@ -116,8 +122,37 @@ ${specLines}`
       delay_minutes: s.default_delay_minutes,
       automation_name: s.label,
       description: s.intent,
+      buttons: s.buttons
+        ? s.buttons.map((b) => (b.type === 'URL' ? { ...b, url: b.url.replaceAll('{store_url}', storeUrl) } : b))
+        : null,
     }
   })
+
+  // ── Carrousel produits : si la boutique a ≥ 3 produits AVEC image, le
+  // modèle « Campagne planifiée » devient un vrai carrousel WhatsApp (cartes
+  // image + nom · prix + bouton Voir). Les URL d'images Shopify sont acceptées
+  // par la soumission Meta (resolveHeaderHandle télécharge puis upload). ──
+  const carouselProducts = ((products || []) as Prod[])
+    .filter((p) => p.image_url && p.title)
+    .slice(0, 4)
+  if (carouselProducts.length >= 3) {
+    const campaign = items.find((i) => i.trigger === 'scheduled_date')
+    if (campaign) {
+      campaign.template_type = 'carousel'
+      campaign.carousel_cards = carouselProducts.map((p) => ({
+        header_type: 'image' as const,
+        header_media_url: p.image_url,
+        // Body de carte ≤ 160 caractères (règle Meta).
+        body_text: `${p.title}${p.price ? ` · ${p.price}` : ''}`.slice(0, 160),
+        buttons: [{ type: 'URL' as const, text: 'Voir', url: p.url || storeUrl }],
+      }))
+      // Règles Meta carrousel : pas de header ni footer sur la bulle principale.
+      campaign.header_text = null
+      campaign.footer_text = null
+      campaign.label = 'Campagne carrousel produits'
+      campaign.description = 'Campagne avec carrousel de vos produits (image, prix, bouton Voir).'
+    }
+  }
 
   const pack: OnboardingPack = { generated_at: new Date().toISOString(), language: 'fr', items }
 

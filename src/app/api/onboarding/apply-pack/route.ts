@@ -83,6 +83,12 @@ export async function POST(req: NextRequest) {
         variables_count: i.sample_values.length,
         sample_values: i.sample_values,
         variable_keys: i.variable_keys,
+        // Boutons de la spec (URL boutique résolue, quick replies SAV).
+        // `?? null` : packs générés AVANT cette fonctionnalité (cache profil).
+        buttons: i.buttons ?? null,
+        // Carrousel produits (modèle campagne quand la boutique a des images).
+        template_type: i.template_type ?? ('standard' as const),
+        carousel_cards: i.carousel_cards ?? null,
         status: 'draft' as const,
       }))
 

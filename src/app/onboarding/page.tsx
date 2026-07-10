@@ -59,6 +59,9 @@ type PackItem = {
   delay_minutes: number
   automation_name: string
   description: string
+  buttons?: { type: string; text: string; url?: string }[] | null
+  template_type?: 'standard' | 'carousel'
+  carousel_cards?: { header_media_url: string | null; body_text: string }[] | null
 }
 
 type AgentCfg = {
