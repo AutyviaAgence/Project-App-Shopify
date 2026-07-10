@@ -32,7 +32,7 @@ const COPY: Record<IntroModule, { title: string; lines: string; illuH: number }>
     title: 'C’est quoi, un agent IA ?',
     lines:
       'C’est votre conseiller de vente et SAV, disponible 24h/24 sur WhatsApp. Lorsqu’un client vous pose une question, il répond avec les infos de VOTRE boutique : produits, commandes, politiques.',
-    illuH: 460,
+    illuH: 500,
   },
   templates: {
     title: 'C’est quoi, un modèle de message ?',
@@ -86,7 +86,12 @@ export function ModuleIntro({ module, onStart }: { module: IntroModule; onStart:
             animate={{ opacity: 1, y: 0 }}
             transition={{ type: 'spring', stiffness: 190, damping: 22 }}
             style={{ minHeight: meta.illuH }}
-            className="flex w-full items-center justify-center"
+            className={
+              // Agent : le mockup remonte pour PRESQUE chevaucher le titre.
+              module === 'agent'
+                ? '-mt-12 flex w-full items-center justify-center'
+                : 'flex w-full items-center justify-center'
+            }
           >
             {module === 'agent' && <AgentScene reduced={!!reduced} />}
             {module === 'templates' && <TemplateScene reduced={!!reduced} />}
@@ -181,7 +186,7 @@ function AgentScene({ reduced }: { reduced: boolean }) {
   }, [scen, reduced])
 
   const shown = AGENT_SCENARIOS[scen].slice(0, msgs)
-  const SCALE = 0.5
+  const SCALE = 0.58
   return (
     <div
       style={{ height: PHONE_NOM_H * SCALE, width: PHONE_NOM_W * SCALE }}
@@ -216,12 +221,12 @@ function AgentScene({ reduced }: { reduced: boolean }) {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -14, transition: { duration: 0.35 } }}
                   transition={{ type: 'spring', stiffness: 320, damping: 24 }}
-                  className={`max-w-[85%] rounded-lg px-3 py-2 text-left text-[16px] leading-snug text-[#e9edef] shadow-md ${
+                  className={`max-w-[85%] rounded-lg px-3.5 py-2.5 text-left text-[20px] leading-snug text-[#e9edef] shadow-md ${
                     m.side === 'right' ? 'self-end rounded-tr-none bg-[#005c4b]' : 'self-start rounded-tl-none bg-[#202c33]'
                   }`}
                 >
                   {m.text}
-                  <span className="ml-1.5 whitespace-nowrap text-[11px] text-[#8696a0]">
+                  <span className="ml-1.5 whitespace-nowrap text-[13px] text-[#8696a0]">
                     01:4{i}{m.side === 'right' && <span className="ml-0.5 text-[#53bdeb]">✓✓</span>}
                   </span>
                 </motion.div>
@@ -268,11 +273,10 @@ function AgentScene({ reduced }: { reduced: boolean }) {
   )
 }
 
-// Les exemples de modèles : 3 classiques + 1 CARROUSEL produits.
+// Les exemples de modèles : 2 classiques + 1 CARROUSEL produits.
 const TEMPLATE_EXAMPLES = [
   { title: 'Commande expédiée 🚚', body: 'Bonjour Marie, votre commande #1024 est en route !', button: 'Suivre mon colis' },
   { title: 'Panier abandonné 🛒', body: 'Votre panier vous attend toujours, Marie 🙂', button: 'Finaliser ma commande' },
-  { title: 'Anniversaire 🎂', body: 'Joyeux anniversaire Marie ! Un petit cadeau : -10 %.', button: 'Me faire plaisir' },
 ]
 const CAROUSEL_EXAMPLE = {
   title: 'Carrousel produits 🛍️',
@@ -294,19 +298,19 @@ function TemplateScene({ reduced }: { reduced: boolean }) {
           initial={reduced ? false : { opacity: 0, x: 280, rotate: 4 }}
           animate={{ opacity: 1, x: 0, rotate: 0 }}
           transition={{ type: 'spring', stiffness: 160, damping: 22, delay: 0.15 + i * 0.2 }}
-          className="flex w-[185px] shrink-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0e1626] text-left shadow-[0_20px_45px_-12px_rgba(0,0,0,0.65)]"
+          className="flex w-[250px] shrink-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#0e1626] text-left shadow-[0_20px_45px_-12px_rgba(0,0,0,0.65)]"
         >
-          <div className="border-b border-white/10 px-3 py-2">
-            <p className="truncate text-[12px] font-semibold text-white">{t.title}</p>
+          <div className="border-b border-white/10 px-4 py-2.5">
+            <p className="truncate text-[14px] font-semibold text-white">{t.title}</p>
           </div>
-          <div className="flex-1 px-3 py-2.5">
-            <div className="rounded-lg rounded-tl-none bg-[#202c33] px-2.5 py-2 text-[11.5px] leading-snug text-[#e9edef] shadow-sm">
+          <div className="flex-1 px-4 py-3">
+            <div className="rounded-lg rounded-tl-none bg-[#202c33] px-3 py-2.5 text-[14px] leading-snug text-[#e9edef] shadow-sm">
               {t.body}
-              <span className="ml-1 text-[9px] text-[#8696a0]">01:42</span>
+              <span className="ml-1 text-[10px] text-[#8696a0]">01:42</span>
             </div>
           </div>
-          <div className="flex items-center justify-center gap-1 border-t border-white/10 py-1.5 text-[11px] font-medium text-[#25d366]">
-            <ExternalLink className="h-3 w-3" /> {t.button}
+          <div className="flex items-center justify-center gap-1.5 border-t border-white/10 py-2 text-[13px] font-medium text-[#25d366]">
+            <ExternalLink className="h-3.5 w-3.5" /> {t.button}
           </div>
         </motion.div>
       ))}
@@ -315,34 +319,34 @@ function TemplateScene({ reduced }: { reduced: boolean }) {
       <motion.div
         initial={reduced ? false : { opacity: 0, x: 280, rotate: 4 }}
         animate={{ opacity: 1, x: 0, rotate: 0 }}
-        transition={{ type: 'spring', stiffness: 160, damping: 22, delay: 0.75 }}
-        className="flex w-[220px] shrink-0 flex-col overflow-hidden rounded-2xl border border-primary/25 bg-[#0e1626] text-left shadow-[0_20px_45px_-12px_rgba(0,0,0,0.65)]"
+        transition={{ type: 'spring', stiffness: 160, damping: 22, delay: 0.55 }}
+        className="flex w-[290px] shrink-0 flex-col overflow-hidden rounded-2xl border border-primary/25 bg-[#0e1626] text-left shadow-[0_20px_45px_-12px_rgba(0,0,0,0.65)]"
       >
-        <div className="border-b border-white/10 px-3 py-2">
-          <p className="truncate text-[12px] font-semibold text-white">{CAROUSEL_EXAMPLE.title}</p>
+        <div className="border-b border-white/10 px-4 py-2.5">
+          <p className="truncate text-[14px] font-semibold text-white">{CAROUSEL_EXAMPLE.title}</p>
         </div>
-        <div className="flex-1 space-y-2 px-3 py-2.5">
-          <div className="w-fit rounded-lg rounded-tl-none bg-[#202c33] px-2.5 py-1.5 text-[11.5px] text-[#e9edef] shadow-sm">
+        <div className="flex-1 space-y-2.5 px-4 py-3">
+          <div className="w-fit rounded-lg rounded-tl-none bg-[#202c33] px-3 py-2 text-[14px] text-[#e9edef] shadow-sm">
             {CAROUSEL_EXAMPLE.body}
           </div>
-          <div className="flex gap-1.5">
+          <div className="flex gap-2">
             {CAROUSEL_EXAMPLE.products.map((p, i) => (
               <motion.div
                 key={i}
                 initial={reduced ? false : { opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 1.1 + i * 0.15, type: 'spring', stiffness: 260, damping: 20 }}
-                className="w-[58px] overflow-hidden rounded-lg bg-[#202c33]"
+                transition={{ delay: 0.9 + i * 0.15, type: 'spring', stiffness: 260, damping: 20 }}
+                className="w-[80px] overflow-hidden rounded-lg bg-[#202c33]"
               >
-                <div className="flex h-9 items-center justify-center bg-[#2a3942] text-lg">{p.emoji}</div>
-                <p className="truncate px-1 pt-0.5 text-[9px] text-[#e9edef]">{p.name}</p>
-                <p className="px-1 pb-1 text-[9.5px] font-bold text-[#25d366]">{p.price}</p>
+                <div className="flex h-12 items-center justify-center bg-[#2a3942] text-2xl">{p.emoji}</div>
+                <p className="truncate px-1.5 pt-1 text-[11px] text-[#e9edef]">{p.name}</p>
+                <p className="px-1.5 pb-1.5 text-[12px] font-bold text-[#25d366]">{p.price}</p>
               </motion.div>
             ))}
           </div>
         </div>
-        <div className="flex items-center justify-center gap-1 border-t border-white/10 py-1.5 text-[11px] font-medium text-[#25d366]">
-          <ExternalLink className="h-3 w-3" /> Voir
+        <div className="flex items-center justify-center gap-1.5 border-t border-white/10 py-2 text-[13px] font-medium text-[#25d366]">
+          <ExternalLink className="h-3.5 w-3.5" /> Voir
         </div>
       </motion.div>
     </div>

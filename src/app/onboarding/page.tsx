@@ -856,11 +856,10 @@ export default function OnboardingPage() {
                           mascotte, assise À DROITE du panneau. Cascade spring. */}
                       <div aria-hidden className="pointer-events-none absolute inset-0 hidden lg:block">
                         {[
-                          // Cascade du bord droit de la bulle vers la TÊTE de la
-                          // mascotte (au-dessus/à gauche d'elle, repère utilisateur).
-                          { size: 30, right: -20, bottom: 96, delay: 0.55 },
-                          { size: 18, right: -66, bottom: 62, delay: 0.42 },
-                          { size: 11, right: -106, bottom: 30, delay: 0.3 },
+                          // Deux ronds seulement, HORS du panneau (le 3e se
+                          // superposait au bord), en cascade vers la tête.
+                          { size: 24, right: -66, bottom: 62, delay: 0.45 },
+                          { size: 12, right: -106, bottom: 30, delay: 0.3 },
                         ].map((c, i) => (
                           <motion.span
                             key={i}
