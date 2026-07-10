@@ -15,6 +15,8 @@ import { MascotRunner } from '@/components/mascot-runner'
 import { OnboardingFeedback } from '@/components/onboarding-feedback'
 import { AgentTryChat } from '@/components/onboarding/agent-try-chat'
 import { WhatsAppEmbeddedSignup, embeddedSignupAvailable } from '@/components/whatsapp-embedded-signup'
+import { WelcomeScreen } from '@/components/onboarding/welcome-screen'
+import { AnimatePresence, motion } from 'framer-motion'
 
 /**
  * GRAND ONBOARDING BLOQUANT (« blow up ») :
@@ -92,6 +94,9 @@ export default function OnboardingPage() {
   const router = useRouter()
   const [state, setState] = useState<OnbState | null>(null)
   const [step, setStep] = useState<Step>('shopify')
+  // Écran de bienvenue : affiché une seule fois, au tout premier passage.
+  // Marqué en localStorage — un rechargement ou un retour ne le rejoue pas.
+  const [showWelcome, setShowWelcome] = useState(false)
   const [feedback, setFeedback] = useState<string | null>(null)
   const [advancing, setAdvancing] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -155,6 +160,11 @@ export default function OnboardingPage() {
       if (!s) return
       if (s.completed) { router.replace('/dashboard'); return }
       setStep(resolveStep(s))
+      // Bienvenue : uniquement au tout premier passage, avant toute action.
+      // Si la boutique est déjà liée, l'utilisateur revient — on ne rejoue pas.
+      if (!s.shopifyLinked && !localStorage.getItem('xeyo_welcome_seen')) {
+        setShowWelcome(true)
+      }
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -455,6 +465,20 @@ export default function OnboardingPage() {
     )
   }
 
+  // Écran de bienvenue : un seul passage, puis on entre dans les étapes.
+  if (showWelcome) {
+    return (
+      <div className="min-h-screen bg-background">
+        <WelcomeScreen
+          onStart={() => {
+            localStorage.setItem('xeyo_welcome_seen', '1')
+            setShowWelcome(false)
+          }}
+        />
+      </div>
+    )
+  }
+
   const groups: Record<string, string[]> = {
     Commande: ['order_created', 'order_paid', 'order_fulfilled', 'order_delivered', 'order_cancelled', 'refund_created', 'return_requested', 'checkout_abandoned'],
     Contact: ['contact_opted_in', 'optin_popup'],
@@ -498,7 +522,18 @@ export default function OnboardingPage() {
               {STEP_META[step].title}
             </h1>
 
-            <div className="mt-6">
+            {/* Transition entre étapes : la sortante glisse et s'efface avant que
+                l'entrante n'apparaisse (`mode="wait"`). La `key` est l'étape —
+                sans elle, AnimatePresence ne verrait aucun changement. */}
+            <AnimatePresence mode="wait">
+            <motion.div
+              key={step}
+              className="mt-6"
+              initial={{ opacity: 0, x: 24 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -24 }}
+              transition={{ duration: 0.22, ease: 'easeOut' }}
+            >
               {/* ── 1. SHOPIFY (bloquant) ── */}
               {step === 'shopify' && (
                 <div className="space-y-4">
@@ -830,7 +865,8 @@ export default function OnboardingPage() {
                   </div>
                 </div>
               )}
-            </div>
+            </motion.div>
+            </AnimatePresence>
           </div>
         </div>
 
