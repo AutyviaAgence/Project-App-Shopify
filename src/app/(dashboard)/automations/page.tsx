@@ -266,7 +266,7 @@ function AutomationsPageInner() {
               (sous-menu). Ici on rappelle juste l'onglet courant. */}
           <h1 className="flex items-center gap-2 text-lg font-semibold">
             {tab === 'marketing' ? <Megaphone className="h-5 w-5 shrink-0" /> : <Workflow className="h-5 w-5 shrink-0" />}
-            {tab === 'marketing' ? 'Campagnes' : 'Automatisations'}
+            {tab === 'marketing' ? 'Campagnes' : 'Transactionnel'}
           </h1>
           <p className="hidden text-xs text-muted-foreground sm:block">
             {tab === 'marketing'

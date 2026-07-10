@@ -53,7 +53,9 @@ const NAV_ITEMS_KEYS = [
     href: '/automations', labelKey: 'nav.automations', label: 'Automatisations', icon: Workflow,
     children: [
       { href: '/automations?tab=marketing', label: 'Campagnes', icon: Megaphone },
-      { href: '/automations?tab=transactional', label: 'Automatisations', icon: Workflow },
+      // « Transactionnel » et non « Automatisations » : sinon le libellé se
+      // répète avec l'entrée parente, c'est déroutant.
+      { href: '/automations?tab=transactional', label: 'Transactionnel', icon: Workflow },
     ],
   },
   { href: '/stats', labelKey: 'nav.stats', icon: BarChart3 },
