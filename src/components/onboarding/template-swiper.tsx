@@ -389,9 +389,18 @@ function SwipeCard({
       }}
       transition={{ type: 'spring', stiffness: 260, damping: 24 }}
     >
+      {/* Rappel permanent du geste, en haut de la carte. */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex justify-center bg-gradient-to-b from-black/75 via-black/40 to-transparent pb-7 pt-3">
+        <p className="text-[12.5px] font-semibold tracking-wide text-white/75">
+          <span className="text-red-400">← Refuser</span>
+          <span className="mx-2 font-normal text-white/40">Swipez</span>
+          <span className="text-emerald-400">Garder →</span>
+        </p>
+      </div>
+
       {/* ── Le VISUEL plein cadre : WhatsApp sombre authentique. ── */}
       <div
-        className="absolute inset-0 overflow-y-auto px-3 pb-28 pt-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="absolute inset-0 overflow-y-auto px-3 pb-28 pt-11 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
         style={{ backgroundImage: 'url(/whatsapp-bg-dark.jpg)', backgroundSize: 'cover', backgroundPosition: 'center', backgroundColor: '#0b141a' }}
       >
         <div className="flex flex-col gap-2">
