@@ -118,6 +118,10 @@ function AutomationsPageInner() {
   // Liste filtrée par l'onglet actif : c'est elle qui alimente la sidebar,
   // les dossiers, « tout activer », etc.
   const visibleAutomations = automations.filter((a) => kindOf(a) === tab)
+  // Vocabulaire selon l'onglet (campagne vs workflow) — un seul endroit.
+  const NOUN = tab === 'marketing'
+    ? { plural: 'Campagnes', newOne: 'Nouvelle campagne' }
+    : { plural: 'Workflows', newOne: 'Nouveau workflow' }
 
   // Suivre l'onglet piloté par la sidebar (?tab=) : bascule le state, referme
   // le builder, et lâche l'automatisation courante si elle n'est pas du bon kind.
@@ -316,12 +320,12 @@ function AutomationsPageInner() {
             }}
             className="h-9 min-w-0 flex-1 rounded-lg border border-input bg-background px-2 text-sm"
           >
-            {!current?.id && <option value="">Nouveau workflow…</option>}
+            {!current?.id && <option value="">{NOUN.newOne}…</option>}
             {visibleAutomations.map((a) => (
               <option key={a.id} value={a.id}>{a.is_active ? '● ' : '○ '}{a.name || 'Sans nom'}</option>
             ))}
           </select>
-          <button onClick={openNew} title="Nouveau workflow"
+          <button onClick={openNew} title={NOUN.newOne}
             className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border bg-card text-muted-foreground transition-colors hover:border-primary hover:text-primary">
             <Plus className="h-4 w-4" />
           </button>
@@ -333,11 +337,11 @@ function AutomationsPageInner() {
         {/* Sidebar repliée : juste + et flèche pour rouvrir */}
         {sidebarCollapsed ? (
           <aside className="hidden flex-col items-center gap-2 border-r bg-muted/20 p-2 md:flex">
-            <button onClick={() => setSidebarCollapsed(false)} title="Afficher les workflows"
+            <button onClick={() => setSidebarCollapsed(false)} title={`Afficher les ${NOUN.plural.toLowerCase()}`}
               className="flex h-7 w-7 items-center justify-center rounded-md border bg-card text-muted-foreground hover:text-primary">
               <ChevronRight className="h-4 w-4" />
             </button>
-            <button onClick={openNew} title="Nouveau workflow"
+            <button onClick={openNew} title={NOUN.newOne}
               className="flex h-7 w-7 items-center justify-center rounded-md border bg-card text-muted-foreground hover:border-primary hover:text-primary">
               <Plus className="h-4 w-4" />
             </button>
@@ -346,13 +350,13 @@ function AutomationsPageInner() {
         <aside className="hidden flex-col overflow-y-auto border-r bg-muted/20 p-2 md:flex">
           {/* En-tête sidebar : titre + flèche replier + bouton + */}
           <div className="mb-2 flex items-center justify-between px-2 py-1">
-            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Workflows</span>
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{NOUN.plural}</span>
             <div className="flex items-center gap-1">
               <button onClick={() => { setCreatingFolder(true); setNewFolderName('') }} title="Nouveau dossier"
                 className="flex h-6 w-6 items-center justify-center rounded-md border bg-card text-muted-foreground transition-colors hover:border-primary hover:text-primary">
                 <FolderPlus className="h-4 w-4" />
               </button>
-              <button onClick={openNew} title="Nouveau workflow"
+              <button onClick={openNew} title={NOUN.newOne}
                 className="flex h-6 w-6 items-center justify-center rounded-md border bg-card text-muted-foreground transition-colors hover:border-primary hover:text-primary">
                 <Plus className="h-4 w-4" />
               </button>
@@ -367,7 +371,7 @@ function AutomationsPageInner() {
             className={cn('mb-2 flex items-center gap-2 rounded-lg border border-dashed px-3 py-2 text-sm transition-colors hover:bg-muted',
               current && !current.id ? 'border-primary text-primary' : 'text-muted-foreground')}
           >
-            <Plus className="h-4 w-4" /> {tab === 'marketing' ? 'Nouvelle campagne' : 'Nouveau workflow'}
+            <Plus className="h-4 w-4" /> {NOUN.newOne}
           </button>
           {/* Bascule groupée : active tout si au moins un est OFF, sinon désactive tout. */}
           {visibleAutomations.length > 1 && (() => {
@@ -411,7 +415,7 @@ function AutomationsPageInner() {
           {current && !current.id && (
             <div className="mb-1 flex items-center gap-2 rounded-lg border border-dashed border-primary/50 bg-primary/5 px-3 py-2 text-sm text-primary">
               <span className="h-2 w-2 shrink-0 rounded-full bg-primary/40" />
-              <span className="flex-1 truncate italic">{nameDraft.trim() || 'Nouveau workflow'}</span>
+              <span className="flex-1 truncate italic">{nameDraft.trim() || NOUN.newOne}</span>
               <span className="text-[10px] uppercase tracking-wide text-primary/60">brouillon</span>
             </div>
           )}
