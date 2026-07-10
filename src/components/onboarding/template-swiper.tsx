@@ -401,9 +401,13 @@ function SwipeCard({
                     </>
                   )}
                 </div>
-                {/* Carrousel produits sous la bulle (vraies images boutique). */}
+                {/* Carrousel produits sous la bulle (vraies images boutique).
+                    ⚠️ pointer-events-none + overflow-hidden : une bande
+                    scrollable horizontale CAPTURAIT le geste et empêchait de
+                    swiper la carte — ici l'aperçu est décoratif, le glissement
+                    doit traverser. */}
                 {!isEditing && (it.carousel_cards?.length ?? 0) > 0 && (
-                  <div className="mt-1.5 flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+                  <div className="pointer-events-none mt-1.5 flex gap-1.5 overflow-hidden pb-1">
                     {it.carousel_cards!.map((card, ci) => (
                       <div key={ci} className="w-[104px] shrink-0 overflow-hidden rounded-lg bg-[#202c33] shadow-md">
                         {card.header_media_url ? (
