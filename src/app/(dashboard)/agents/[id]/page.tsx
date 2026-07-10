@@ -625,6 +625,15 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                 </span>
               </RowField>
               <Divider />
+              {/* Garde-fou déterministe : la colonne, l'API et l'application
+                  côté moteur existaient déjà, seul ce champ manquait. */}
+              <RowField label="Nombre maximum de messages" hint="L'agent se met en pause après N réponses dans une conversation (0 = illimité)">
+                <span className="flex items-center gap-2 text-sm">
+                  <MiniNum value={parseInt(maxMessages) || 0} onChange={v => setMaxMessages(v)} />
+                  <span className="text-muted-foreground text-xs">messages</span>
+                </span>
+              </RowField>
+              <Divider />
               <RowField label="Condition d'arrêt" hint="L'agent se met en pause si remplie" stacked>
                 <CleanTextarea value={stopCondition} onChange={setStopCondition} placeholder="Ex: si le client a confirmé son rendez-vous…" />
               </RowField>
