@@ -823,10 +823,15 @@ export default function OnboardingPage() {
                        Étape volontairement minimale : on essaie l'agent
                        (plafonné, coût tokens), le reste se règle plus tard. */
                     <div className="relative space-y-4 md:pb-2">
-                      <p className="text-sm text-muted-foreground">
-                        <span className="font-medium text-foreground">{agentName || agentCfg.name}</span> a été configuré
-                        automatiquement à partir de votre boutique. Essayez-le comme le ferait un client :
-                      </p>
+                      {/* En-tête clair et centré : QUI on teste, QUOI faire. */}
+                      <div className="space-y-1 text-center">
+                        <p className="text-lg font-semibold text-white">
+                          Essayez <span className="text-primary">{agentName || agentCfg.name}</span>
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          Il connaît déjà votre boutique. Posez-lui une question comme le ferait un client.
+                        </p>
+                      </div>
 
                       <AgentTryChat
                         agentId={agentId}
@@ -835,13 +840,12 @@ export default function OnboardingPage() {
                         maxQuestions={3}
                       />
 
-                      <p className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-muted-foreground">
-                        💡 Son nom, son ton, ses instructions et les situations de transfert à un humain seront
-                        <span className="font-medium text-foreground"> modifiables à tout moment</span> depuis votre dashboard (Agents IA).
-                      </p>
-
-                      <div className="flex justify-end">
-                        <Button disabled={busy} onClick={validateAgent}>
+                      {/* Pied : note compacte à gauche, action à droite. */}
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <p className="max-w-sm text-xs leading-relaxed text-muted-foreground">
+                          💡 Nom, ton, instructions et transferts à un humain : modifiables à tout moment (Agents IA).
+                        </p>
+                        <Button disabled={busy} onClick={validateAgent} className="shrink-0">
                           {busy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Check className="mr-1 h-4 w-4" />}
                           Valider mon agent
                         </Button>
@@ -852,9 +856,11 @@ export default function OnboardingPage() {
                           mascotte, assise À DROITE du panneau. Cascade spring. */}
                       <div aria-hidden className="pointer-events-none absolute inset-0 hidden lg:block">
                         {[
-                          { size: 30, right: -34, bottom: 4, delay: 0.55 },
-                          { size: 18, right: -72, bottom: -34, delay: 0.42 },
-                          { size: 11, right: -102, bottom: -66, delay: 0.3 },
+                          // Cascade du bord droit de la bulle vers la TÊTE de la
+                          // mascotte (au-dessus/à gauche d'elle, repère utilisateur).
+                          { size: 30, right: -20, bottom: 96, delay: 0.55 },
+                          { size: 18, right: -66, bottom: 62, delay: 0.42 },
+                          { size: 11, right: -106, bottom: 30, delay: 0.3 },
                         ].map((c, i) => (
                           <motion.span
                             key={i}
@@ -917,30 +923,16 @@ export default function OnboardingPage() {
                     </div>
                   ) : (
                     <>
-                      {/* Légende VISUELLE (un paragraphe ne se lit pas) :
-                          3 gestes en pastilles + la garantie en badge. */}
-                      <div className="space-y-2.5">
-                        <p className="text-center text-sm text-muted-foreground">
-                          Rédigés au ton de <span className="font-medium text-foreground">{state.shopName}</span>, groupés par thème.
-                        </p>
-                        <div className="flex flex-wrap items-center justify-center gap-2">
-                          <span className="flex items-center gap-1.5 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-3 py-1.5 text-xs font-medium text-emerald-400">
-                            Glisser à droite <ArrowRight className="h-3.5 w-3.5" /> garder
-                          </span>
-                          <span className="flex items-center gap-1.5 rounded-full border border-red-400/30 bg-red-400/10 px-3 py-1.5 text-xs font-medium text-red-400">
-                            <ArrowLeft className="h-3.5 w-3.5" /> à gauche : écarter
-                          </span>
-                          <span className="flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-white/70">
-                            ✏️ texte modifiable sur la carte
-                          </span>
-                        </div>
-                        <p className="text-center text-xs text-muted-foreground">
-                          🔒 Rien n’est créé avant votre validation.
-                        </p>
-                      </div>
+                      {/* En-tête MINIMAL : la carte fait sa propre démo de swipe,
+                          inutile d'expliquer. Une ligne de contexte + garantie. */}
+                      <p className="text-center text-sm text-muted-foreground">
+                        Rédigés au ton de <span className="font-medium text-foreground">{state.shopName}</span>
+                        <span className="mx-1.5 text-white/25">·</span>
+                        🔒 rien n’est créé avant votre validation
+                      </p>
                       {!state.whatsappConnected && (
-                        <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-400">
-                          WhatsApp n’est pas encore connecté : vos modèles seront enregistrés en <span className="font-medium">brouillon</span> et vous les soumettrez à Meta dès que votre numéro sera relié.
+                        <p className="mx-auto w-fit rounded-full border border-amber-500/25 bg-amber-500/10 px-3 py-1 text-center text-xs text-amber-400">
+                          📝 Enregistrés en brouillon, à soumettre à Meta une fois WhatsApp connecté
                         </p>
                       )}
                       <TemplateSwiper

@@ -43,6 +43,10 @@ export const PACK_SPECS: PackTriggerSpec[] = [
     default_delay_minutes: 0,
     fallback_body: 'Bonjour {{1}}, votre commande {{2}} ({{3}}) est bien enregistrée. Merci pour votre confiance !',
     intent: 'Confirmer la commande juste après l’achat, rassurer, remercier.',
+    // Premier message reçu par le client : ouvrir la porte au SAV tout de
+    // suite (l'URL de commande est dynamique par commande, impossible en
+    // bouton statique Meta, la réponse rapide est le choix pertinent).
+    buttons: [{ type: 'QUICK_REPLY', text: 'J’ai une question' }],
   },
   {
     trigger: 'order_paid', templateName: 'onb_commande_payee', label: 'Commande payée',
@@ -208,7 +212,7 @@ export type PackItem = {
 /** Version du FORMAT de pack. À incrémenter quand les items gagnent des
  *  champs (boutons, carrousel…) : les caches d'une version antérieure sont
  *  régénérés au lieu d'être resservis sans les nouveautés. */
-export const PACK_VERSION = 2
+export const PACK_VERSION = 3
 
 export type OnboardingPack = {
   version?: number

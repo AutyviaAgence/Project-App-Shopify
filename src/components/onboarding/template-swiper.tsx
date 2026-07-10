@@ -1,8 +1,8 @@
 'use client'
 
-import { AnimatePresence, motion, useMotionValue, useTransform } from 'framer-motion'
+import { AnimatePresence, animate, motion, useMotionValue, useTransform } from 'framer-motion'
 import { Check, Copy, ExternalLink, Heart, Loader2, Pencil, Reply, RotateCcw, X } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
@@ -76,6 +76,8 @@ export function TemplateSwiper({
   const [rowOff, setRowOff] = useState<Set<string>>(new Set())
   // Modèle en cours d'édition (drag désactivé pendant la frappe).
   const [editing, setEditing] = useState<string | null>(null)
+  // Démo de swipe jouée UNE fois sur la première carte (remplace toute légende).
+  const [demoDone, setDemoDone] = useState(false)
 
   const done = index >= groups.length
   const current = groups[index]
@@ -185,6 +187,8 @@ export function TemplateSwiper({
             key={current.key}
             group={current}
             dir={lastDir}
+            demo={index === 0 && !demoDone}
+            onDemoEnd={() => setDemoDone(true)}
             disabled={busy}
             editing={editing}
             setEditing={setEditing}
@@ -243,6 +247,8 @@ export function TemplateSwiper({
 function SwipeCard({
   group,
   dir,
+  demo,
+  onDemoEnd,
   disabled,
   editing,
   setEditing,
@@ -254,6 +260,9 @@ function SwipeCard({
 }: {
   group: SwipeGroup
   dir: number
+  /** Démo auto : la carte glisse seule à droite puis à gauche (tampons visibles). */
+  demo: boolean
+  onDemoEnd: () => void
   disabled: boolean
   editing: string | null
   setEditing: (t: string | null) => void
@@ -270,6 +279,28 @@ function SwipeCard({
 
   // Une modification vient d'être refusée car elle touchait une variable.
   const [varWarn, setVarWarn] = useState(false)
+
+  // DÉMO auto (remplace toute légende écrite) : la carte glisse vers la droite
+  // (tampon GARDER), revient, glisse à gauche (ÉCARTER), revient. Le doigt 👆
+  // suit le mouvement. Annulée dès que l'utilisateur touche la carte.
+  useEffect(() => {
+    if (!demo) return
+    let cancelled = false
+    ;(async () => {
+      await new Promise((r) => setTimeout(r, 700))
+      if (cancelled) return
+      await animate(x, 92, { duration: 0.55, ease: 'easeInOut' })
+      if (cancelled) return
+      await animate(x, 0, { duration: 0.4, ease: 'easeInOut' })
+      if (cancelled) return
+      await animate(x, -92, { duration: 0.55, ease: 'easeInOut' })
+      if (cancelled) return
+      await animate(x, 0, { duration: 0.45, ease: 'easeInOut' })
+      if (!cancelled) onDemoEnd()
+    })()
+    return () => { cancelled = true; x.stop() }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [demo])
 
   /** Édition GARDÉE : le texte est libre, mais chaque variable {{n}} du modèle
    *  d'origine doit rester présente à l'identique (même nombre d'occurrences).
@@ -300,6 +331,10 @@ function SwipeCard({
       drag={editing ? false : 'x'}
       dragConstraints={{ left: 0, right: 0 }}
       dragElastic={0.9}
+      onPointerDown={() => {
+        // L'utilisateur prend la main : on coupe la démo immédiatement.
+        if (demo) { x.stop(); x.set(0); onDemoEnd() }
+      }}
       onDragEnd={(_, info) => {
         if (disabled) return
         if (info.offset.x > SWIPE_THRESHOLD) onSwipe(true)
@@ -423,6 +458,20 @@ function SwipeCard({
         </p>
         {group.pitch && <p className="mt-1 line-clamp-2 text-[13px] leading-snug text-white/60">{group.pitch}</p>}
       </div>
+
+      {/* Le doigt 👆 de la démo : il suit le glissement de la carte. */}
+      {demo && (
+        <motion.div
+          aria-hidden
+          initial={{ opacity: 0, scale: 0.6 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ delay: 0.5 }}
+          className="pointer-events-none absolute bottom-24 left-1/2 z-30 -translate-x-1/2 select-none text-4xl drop-shadow-[0_4px_10px_rgba(0,0,0,0.6)]"
+        >
+          👆
+        </motion.div>
+      )}
 
       {/* Tampons GARDER / ÉCARTER révélés par le drag. */}
       <motion.span

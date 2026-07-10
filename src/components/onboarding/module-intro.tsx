@@ -1,7 +1,7 @@
 'use client'
 
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
-import { ArrowRight, Clock, ExternalLink, MessageSquare, Zap } from 'lucide-react'
+import { ArrowRight, Camera, Clock, ExternalLink, MessageSquare, Paperclip, Smile, Zap } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
 import IPhoneMockup from '@/components/ui/iphone-mockup'
@@ -71,7 +71,8 @@ export function ModuleIntro({ module, onStart }: { module: IntroModule; onStart:
         initial={reduced ? false : { opacity: 0, scale: 1.06, filter: 'blur(16px)' }}
         animate={{ opacity: 1, scale: phase >= 1 ? 1 : 1.35, filter: 'blur(0px)' }}
         transition={{ layout: { type: 'spring', stiffness: 170, damping: 24 }, duration: 1, ease: [0.22, 1, 0.36, 1] }}
-        className="bg-gradient-to-b from-white to-white/70 bg-clip-text px-4 text-3xl font-bold tracking-tight text-transparent sm:text-4xl md:text-5xl"
+        // leading + pb/-mb : sans ça, bg-clip-text coupe les jambages (le « g »).
+        className="-mb-2 bg-gradient-to-b from-white to-white/70 bg-clip-text px-4 pb-2 text-3xl font-bold leading-[1.2] tracking-tight text-transparent sm:text-4xl md:text-5xl"
       >
         {meta.title}
       </motion.h2>
@@ -131,21 +132,55 @@ export function ModuleIntro({ module, onStart }: { module: IntroModule; onStart:
 const PHONE_NOM_W = 417
 const PHONE_NOM_H = 876
 
-/** Agent : un GRAND iPhone WhatsApp où la conversation se joue toute seule. */
+// Les scénarios de l'intro agent : ils BOUCLENT (fondu entre deux).
+// side 'right' = le client (vert), 'left' = l'agent (gris).
+const AGENT_SCENARIOS: { side: 'left' | 'right'; text: string }[][] = [
+  [
+    { side: 'right', text: 'Vous avez ma taille en 42 ?' },
+    { side: 'left', text: 'Oui ! Il reste 3 paires en 42 🎿 Je vous envoie le lien ?' },
+    { side: 'right', text: 'Parfait, je prends !' },
+  ],
+  [
+    { side: 'right', text: 'Où en est ma commande #1024 ?' },
+    { side: 'left', text: 'Expédiée hier 🚚 Livraison prévue jeudi. Voici le suivi.' },
+    { side: 'right', text: 'Top, merci !' },
+  ],
+  [
+    { side: 'right', text: 'C’est quoi votre politique de retour ?' },
+    { side: 'left', text: '30 jours pour changer d’avis, retour gratuit 😊' },
+  ],
+]
+
+const AGENT_TYPING_MS = 800
+const AGENT_READ_MS = 1000
+const AGENT_HOLD_MS = 2200
+const AGENT_FADE_MS = 500
+
+/** Agent : un GRAND iPhone WhatsApp fidèle (barre d'envoi comprise) où la
+ *  conversation se joue, DÉFILE (layout) et CHANGE de scénario en boucle. */
 function AgentScene({ reduced }: { reduced: boolean }) {
-  // 0 = rien, 1 = question, 2 = « … », 3 = réponse, 4 = confirmation client
-  const [beat, setBeat] = useState(reduced ? 4 : 0)
+  const [scen, setScen] = useState(0)
+  const [msgs, setMsgs] = useState(reduced ? AGENT_SCENARIOS[0].length : 0)
+  const [typing, setTyping] = useState<null | 'left' | 'right'>(null)
+
   useEffect(() => {
     if (reduced) return
-    const timers = [
-      setTimeout(() => setBeat(1), 500),
-      setTimeout(() => setBeat(2), 1300),
-      setTimeout(() => setBeat(3), 2300),
-      setTimeout(() => setBeat(4), 3400),
-    ]
+    const chat = AGENT_SCENARIOS[scen]
+    const timers: ReturnType<typeof setTimeout>[] = []
+    let t = 400
+    chat.forEach((m, i) => {
+      timers.push(setTimeout(() => setTyping(m.side), t))
+      t += AGENT_TYPING_MS
+      timers.push(setTimeout(() => { setTyping(null); setMsgs(i + 1) }, t))
+      t += AGENT_READ_MS
+    })
+    // Fin : pause de lecture, fondu (exit), scénario suivant.
+    timers.push(setTimeout(() => setMsgs(0), t + AGENT_HOLD_MS))
+    timers.push(setTimeout(() => setScen((s) => (s + 1) % AGENT_SCENARIOS.length), t + AGENT_HOLD_MS + AGENT_FADE_MS))
     return () => timers.forEach(clearTimeout)
-  }, [reduced])
+  }, [scen, reduced])
 
+  const shown = AGENT_SCENARIOS[scen].slice(0, msgs)
   const SCALE = 0.5
   return (
     <div
@@ -154,6 +189,7 @@ function AgentScene({ reduced }: { reduced: boolean }) {
     >
       <IPhoneMockup model="15-pro" color="#3a4a63" scale={SCALE} screenBg="#0b141a" glass>
         <div className="flex h-full flex-col bg-[#0b141a]">
+          {/* En-tête WhatsApp */}
           <div className="flex items-center gap-2.5 bg-[#111b21] px-3 pb-3 pt-14">
             <div className="h-11 w-11 shrink-0 overflow-hidden rounded-full bg-sky-400">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -164,52 +200,71 @@ function AgentScene({ reduced }: { reduced: boolean }) {
               <p className="text-[13px] leading-tight text-[#8696a0]">en ligne</p>
             </div>
           </div>
+
+          {/* Fil : bulles ancrées en bas, DÉFILEMENT fluide (layout), fondu de
+              sortie au changement de scénario (clés préfixées). */}
           <div
-            className="flex flex-1 flex-col justify-end gap-2.5 px-3 py-4"
+            className="flex flex-1 flex-col justify-end gap-2.5 overflow-hidden px-3 py-4"
             style={{ backgroundImage: 'url(/whatsapp-bg-dark.jpg)', backgroundSize: 'cover' }}
           >
-            {beat >= 1 && <Bubble side="right" reduced={reduced}>Vous avez ma taille en 42 ?</Bubble>}
-            {beat === 2 && (
-              <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="flex gap-1.5 self-start rounded-lg rounded-tl-none bg-[#202c33] px-3.5 py-3 shadow-md"
-              >
-                {[0, 1, 2].map((d) => (
-                  <motion.span
-                    key={d}
-                    className="h-2.5 w-2.5 rounded-full bg-[#8696a0]"
-                    animate={reduced ? undefined : { opacity: [0.3, 1, 0.3] }}
-                    transition={{ duration: 0.8, repeat: Infinity, delay: d * 0.15 }}
-                  />
-                ))}
-              </motion.div>
-            )}
-            {beat >= 3 && <Bubble side="left" reduced={reduced}>Oui ! Il reste 3 paires en 42 🎿 Je vous envoie le lien ?</Bubble>}
-            {beat >= 4 && <Bubble side="right" reduced={reduced}>Parfait, je prends !</Bubble>}
+            <AnimatePresence initial={false} mode="popLayout">
+              {shown.map((m, i) => (
+                <motion.div
+                  key={`${scen}-${i}`}
+                  layout
+                  initial={reduced ? false : { opacity: 0, y: 14, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -14, transition: { duration: 0.35 } }}
+                  transition={{ type: 'spring', stiffness: 320, damping: 24 }}
+                  className={`max-w-[85%] rounded-lg px-3 py-2 text-left text-[16px] leading-snug text-[#e9edef] shadow-md ${
+                    m.side === 'right' ? 'self-end rounded-tr-none bg-[#005c4b]' : 'self-start rounded-tl-none bg-[#202c33]'
+                  }`}
+                >
+                  {m.text}
+                  <span className="ml-1.5 whitespace-nowrap text-[11px] text-[#8696a0]">
+                    01:4{i}{m.side === 'right' && <span className="ml-0.5 text-[#53bdeb]">✓✓</span>}
+                  </span>
+                </motion.div>
+              ))}
+              {typing && (
+                <motion.div
+                  key={`typing-${scen}`}
+                  layout
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.15 } }}
+                  className={`flex gap-1.5 rounded-lg px-3.5 py-3 shadow-md ${
+                    typing === 'right' ? 'self-end rounded-tr-none bg-[#005c4b]' : 'self-start rounded-tl-none bg-[#202c33]'
+                  }`}
+                >
+                  {[0, 1, 2].map((d) => (
+                    <motion.span
+                      key={d}
+                      className="h-2.5 w-2.5 rounded-full bg-[#8696a0]"
+                      animate={reduced ? undefined : { opacity: [0.3, 1, 0.3] }}
+                      transition={{ duration: 0.8, repeat: Infinity, delay: d * 0.15 }}
+                    />
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Barre d'envoi WhatsApp (décorative mais fidèle). */}
+          <div className="flex items-center gap-2 bg-[#0b141a] px-3 pb-4 pt-2">
+            <div className="flex h-12 flex-1 items-center gap-2.5 rounded-full bg-[#1f2c34] px-4">
+              <Smile className="h-6 w-6 shrink-0 text-[#8696a0]" />
+              <span className="flex-1 text-left text-[15px] text-[#8696a0]">Message</span>
+              <Paperclip className="h-5 w-5 shrink-0 rotate-45 text-[#8696a0]" />
+              <Camera className="h-6 w-6 shrink-0 text-[#8696a0]" />
+            </div>
+            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#00a884] text-white">
+              <svg viewBox="0 0 24 24" className="h-6 w-6 fill-current"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2Z" /></svg>
+            </div>
           </div>
         </div>
       </IPhoneMockup>
     </div>
-  )
-}
-
-/** Bulle WhatsApp sombre (droite = client vert, gauche = boutique grise). */
-function Bubble({ side, reduced, children }: { side: 'left' | 'right'; reduced: boolean; children: React.ReactNode }) {
-  return (
-    <motion.div
-      initial={reduced ? false : { opacity: 0, y: 12, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ type: 'spring', stiffness: 320, damping: 24 }}
-      className={`max-w-[85%] rounded-lg px-3 py-2 text-left text-[16px] leading-snug text-[#e9edef] shadow-md ${
-        side === 'right' ? 'self-end rounded-tr-none bg-[#005c4b]' : 'self-start rounded-tl-none bg-[#202c33]'
-      }`}
-    >
-      {children}
-      <span className="ml-1.5 whitespace-nowrap text-[11px] text-[#8696a0]">
-        01:42{side === 'right' && <span className="ml-0.5 text-[#53bdeb]">✓✓</span>}
-      </span>
-    </motion.div>
   )
 }
 
