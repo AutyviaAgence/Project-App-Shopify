@@ -16,15 +16,17 @@ import IPhoneMockup from '@/components/ui/iphone-mockup'
  *   0  fond bleu nuit qui s'allume
  *   1  « XEYO.IO » se révèle net, blanc clair, au centre
  *   2  il monte et devient fantôme ; le téléphone se révèle
- *   3  cartes flottantes ANCRÉES AU TÉLÉPHONE (entrée + flottement continu)
- *   4  la conversation WhatsApp se tape seule (« … » puis message)
+ *   3  cartes flottantes ancrées au téléphone (entrée + flottement continu)
+ *   4  la conversation WhatsApp se tape seule et BOUCLE sur plusieurs
+ *      scénarios (vente conseillée, suivi de commande, relance panier) :
+ *      « … » puis message, le fil DÉFILE (animation layout), puis fondu et
+ *      scénario suivant — l'écran vit tant qu'on n'a pas cliqué
  *   5  titre + bouton (tôt — la conversation continue derrière)
  *
- * Le WhatsApp est le MODE SOMBRE Android, répliqué depuis une vraie capture :
- * en-tête #111b21 (retour, avatar mascotte, contact, ⋮), fond doodle sombre
- * (/whatsapp-bg-dark.jpg), bulles entrantes #202c33 / sortantes #005c4b, texte
- * #e9edef, heures #8696a0, boutons d'action verts #25d366 séparés par un filet
- * (façon « Visit site »), saisie #1f2c34 + micro vert #00a884.
+ * WhatsApp = MODE SOMBRE Android répliqué d'une vraie capture : en-tête
+ * #111b21, fond doodle sombre, client à DROITE en #005c4b (✓✓ bleus), agent à
+ * GAUCHE en #202c33, boutons d'action verts #25d366, saisie #1f2c34 + micro
+ * #00a884.
  *
  * `prefers-reduced-motion` : saut direct à l'état final, sans mouvement.
  */
@@ -34,12 +36,26 @@ type Bubble =
   | { kind: 'ai'; text: string; button?: string }
   | { kind: 'carousel' }
 
-const CHAT: Bubble[] = [
-  { kind: 'them', text: 'Bonjour ! Une idée de cadeau à moins de 50 € ? 🎁' },
-  { kind: 'ai', text: 'Avec plaisir 😊 Voici 3 best-sellers du moment :' },
-  { kind: 'carousel' },
-  { kind: 'them', text: 'Le 2ᵉ est parfait, je le prends !' },
-  { kind: 'ai', text: 'Excellent choix 🙌 Voici votre lien de paiement sécurisé.', button: 'Payer maintenant' },
+// Les scénarios joués en boucle. Chacun montre une facette du produit.
+const SCENARIOS: Bubble[][] = [
+  [
+    { kind: 'them', text: 'Bonjour ! Une idée de cadeau à moins de 50 € ? 🎁' },
+    { kind: 'ai', text: 'Avec plaisir 😊 Voici 3 best-sellers du moment :' },
+    { kind: 'carousel' },
+    { kind: 'them', text: 'Le 2ᵉ est parfait, je le prends !' },
+    { kind: 'ai', text: 'Excellent choix 🙌 Voici votre lien de paiement sécurisé.', button: 'Payer maintenant' },
+  ],
+  [
+    { kind: 'them', text: 'Où en est ma commande #1024 ?' },
+    { kind: 'ai', text: 'Bonne nouvelle 🚚 Elle a été expédiée hier, livraison prévue jeudi.', button: 'Suivre mon colis' },
+    { kind: 'them', text: 'Parfait, merci pour la rapidité !' },
+    { kind: 'ai', text: 'Avec plaisir 😊 Je reste là si besoin.' },
+  ],
+  [
+    { kind: 'ai', text: 'Psst… votre Coffret Thé vous attend toujours dans le panier 🍵' },
+    { kind: 'ai', text: '-10 % pendant 24 h avec le code XEYO10 🎉', button: 'Finaliser ma commande' },
+    { kind: 'them', text: 'Ah super, j’y retourne tout de suite !' },
+  ],
 ]
 
 const PRODUCTS = [
@@ -48,9 +64,7 @@ const PRODUCTS = [
   { name: 'Carnet cuir', price: '29 €', emoji: '📓' },
 ]
 
-// Cartes flottantes ANCRÉES AU TÉLÉPHONE : positionnées par rapport au bord du
-// mockup (right:100% = à sa gauche, left:100% = à sa droite), pas aux bords de
-// l'écran. `top` en % de la hauteur du téléphone.
+// Cartes flottantes ANCRÉES AU TÉLÉPHONE (right/left:100% du mockup).
 const FLOATERS = [
   { side: 'left' as const, icon: ShoppingBag, title: 'Commande suivie', sub: 'Réponse en 2 s', color: 'text-sky-400', top: '14%' },
   { side: 'right' as const, icon: Flame, title: '+38 % de ventes', sub: 'Paniers relancés', color: 'text-orange-400', top: '24%' },
@@ -59,7 +73,10 @@ const FLOATERS = [
 ]
 
 const TYPING_MS = 750
-const READ_MS = 850
+const READ_MS = 900
+// Pause à la fin d'un scénario avant le fondu, puis délai avant le suivant.
+const SCENARIO_HOLD_MS = 2600
+const SCENARIO_FADE_MS = 550
 
 // Dimensions nominales du mockup 15-pro (écran + bezels), pour le calcul du scale.
 // ⚠️ IPhoneMockup scale via `transform` : sa BOÎTE DE LAYOUT reste 417×876 quelle
@@ -70,7 +87,9 @@ const PHONE_NOM_H = 876
 export function WelcomeScreen({ onStart }: { onStart: () => void }) {
   const reduced = useReducedMotion()
   const [phase, setPhase] = useState(reduced ? 5 : 0)
-  const [msgs, setMsgs] = useState(reduced ? CHAT.length : 0)
+  // Scénario courant + nombre de bulles visibles + « qui écrit ».
+  const [scen, setScen] = useState(0)
+  const [msgs, setMsgs] = useState(reduced ? SCENARIOS[0].length : 0)
   const [typing, setTyping] = useState<null | 'them' | 'ai'>(null)
 
   // Scale RESPONSIVE, borné par la hauteur ET la largeur du viewport.
@@ -98,12 +117,15 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
     return () => timers.forEach(clearTimeout)
   }, [reduced])
 
-  // Phase 4 : « … » puis message, un à un ; le carrousel suit sans « … ».
+  // Phase 4 : joue le scénario courant (« … » puis message, un à un ; le
+  // carrousel suit sans « … »), puis pause, fondu (msgs=0 → exit des bulles)
+  // et passe au scénario suivant — en boucle.
   useEffect(() => {
     if (reduced || phase < 4) return
+    const chat = SCENARIOS[scen]
     const timers: ReturnType<typeof setTimeout>[] = []
     let t = 0
-    CHAT.forEach((b, i) => {
+    chat.forEach((b, i) => {
       if (b.kind === 'carousel') {
         timers.push(setTimeout(() => setMsgs(i + 1), t))
         t += READ_MS
@@ -115,8 +137,11 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
       timers.push(setTimeout(() => { setTyping(null); setMsgs(i + 1) }, t))
       t += READ_MS
     })
+    // Fin du scénario : on laisse lire, on vide (exit animé), on enchaîne.
+    timers.push(setTimeout(() => setMsgs(0), t + SCENARIO_HOLD_MS))
+    timers.push(setTimeout(() => setScen((s) => (s + 1) % SCENARIOS.length), t + SCENARIO_HOLD_MS + SCENARIO_FADE_MS))
     return () => timers.forEach(clearTimeout)
-  }, [phase, reduced])
+  }, [phase, scen, reduced])
 
   const showPhone = phase >= 2
   const phoneH = Math.round(PHONE_NOM_H * scale)
@@ -160,10 +185,12 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
 
       {/* ── Composition centrale : téléphone (+ cartes ancrées) + titre. ── */}
       <div className="relative z-10 flex flex-col items-center">
-        {/* Boîte aux dimensions RÉELLES du téléphone : le mockup scale via
-            transform (origin top center), on réserve donc largeur et hauteur.
-            C'est aussi l'ANCRE des cartes flottantes. */}
-        <div style={{ height: phoneH, width: phoneW }} className="relative flex items-start justify-center">
+        {/* Boîte aux dimensions RÉELLES du téléphone (le mockup scale via
+            transform) ; sert aussi d'ANCRE aux cartes flottantes.
+            `pointer-events-none` : la boîte de layout du mockup (876px, non
+            scalée) DÉBORDE sous la zone réservée et recouvrait le bouton —
+            tout ici est décoratif, on ne capte aucun clic. */}
+        <div style={{ height: phoneH, width: phoneW }} className="pointer-events-none relative flex items-start justify-center">
           <AnimatePresence>
             {showPhone && (
               <motion.div
@@ -171,7 +198,13 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
                 animate={{ opacity: 1, y: 0, scale: 1 }}
                 transition={{ type: 'spring', stiffness: 110, damping: 20 }}
               >
-                <WhatsAppPhone visibleCount={msgs} typing={typing} scale={scale} reduced={!!reduced} />
+                <WhatsAppPhone
+                  bubbles={SCENARIOS[scen].slice(0, msgs)}
+                  scenKey={scen}
+                  typing={typing}
+                  scale={scale}
+                  reduced={!!reduced}
+                />
               </motion.div>
             )}
           </AnimatePresence>
@@ -207,8 +240,9 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
           </div>
         </div>
 
-        {/* Titre + bouton : hauteur réservée, apparition en phase 5. */}
-        <div className="mt-4 flex min-h-[150px] flex-col items-center justify-start">
+        {/* Titre + bouton : hauteur réservée, apparition en phase 5.
+            `relative z-20` : toujours AU-DESSUS du débord (invisible) du mockup. */}
+        <div className="relative z-20 mt-4 flex min-h-[150px] flex-col items-center justify-start">
           <AnimatePresence>
             {phase >= 5 && (
               <motion.div
@@ -242,17 +276,18 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
 
 /** WhatsApp Android MODE SOMBRE, répliqué depuis une vraie capture. */
 function WhatsAppPhone({
-  visibleCount,
+  bubbles,
+  scenKey,
   typing,
   scale,
   reduced,
 }: {
-  visibleCount: number
+  bubbles: Bubble[]
+  scenKey: number
   typing: null | 'them' | 'ai'
   scale: number
   reduced: boolean
 }) {
-  const shown = CHAT.slice(0, visibleCount)
   return (
     <IPhoneMockup model="15-pro" color="#3a4a63" scale={scale} screenBg="#0b141a" glass>
       <div className="flex h-full flex-col bg-[#0b141a]">
@@ -271,17 +306,22 @@ function WhatsAppPhone({
           <MoreVertical className="h-[22px] w-[22px] shrink-0 text-[#aebac1]" />
         </div>
 
-        {/* Conversation : fond doodle SOMBRE, bulles empilées depuis le bas. */}
+        {/* Conversation : fond doodle SOMBRE, bulles empilées depuis le bas.
+            `layout` : quand une bulle arrive, les précédentes GLISSENT vers le
+            haut (défilement fluide) au lieu de sauter. Clés préfixées par le
+            scénario pour que le changement de scénario déclenche les exits. */}
         <div
           className="flex flex-1 flex-col justify-end gap-1.5 overflow-hidden px-3 py-3"
           style={{ backgroundImage: 'url(/whatsapp-bg-dark.jpg)', backgroundSize: 'cover', backgroundPosition: 'center' }}
         >
-          <AnimatePresence initial={false}>
-            {shown.map((m, i) => (
+          <AnimatePresence initial={false} mode="popLayout">
+            {bubbles.map((m, i) => (
               <motion.div
-                key={i}
-                initial={reduced ? false : { opacity: 0, y: 12, scale: 0.95 }}
+                key={`${scenKey}-${i}`}
+                layout
+                initial={reduced ? false : { opacity: 0, y: 14, scale: 0.95 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -12, transition: { duration: 0.35 } }}
                 transition={{ type: 'spring', stiffness: 360, damping: 26 }}
                 className={m.kind === 'them' ? 'flex justify-end pl-8' : m.kind === 'ai' ? 'flex justify-start pr-8' : ''}
               >
@@ -311,14 +351,14 @@ function WhatsAppPhone({
               </motion.div>
             ))}
 
-            {/* Bulle « … » de saisie (du bon côté selon qui écrit).
-                Ici « them » = le CLIENT (à droite, vert) ; « ai » = la boutique. */}
+            {/* Bulle « … » de saisie. « them » = client (droite, vert). */}
             {typing && (
               <motion.div
-                key="typing"
+                key={`typing-${scenKey}`}
+                layout
                 initial={{ opacity: 0, y: 8, scale: 0.9 }}
                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
+                exit={{ opacity: 0, scale: 0.9, transition: { duration: 0.15 } }}
                 className={typing === 'them' ? 'flex justify-end' : 'flex justify-start'}
               >
                 <div className={`flex gap-1 rounded-lg px-3 py-2.5 shadow-md ${typing === 'them' ? 'rounded-tr-none bg-[#005c4b]' : 'rounded-tl-none bg-[#202c33]'}`}>
