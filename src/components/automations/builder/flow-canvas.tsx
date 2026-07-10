@@ -1,9 +1,9 @@
 'use client'
 
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   ReactFlow, Background, Controls, MiniMap,
-  applyNodeChanges,
+  applyNodeChanges, useReactFlow, ReactFlowProvider,
   type Node, type Edge, type NodeChange, type Connection, type NodeProps,
 } from '@xyflow/react'
 import { Plus, Trash2, Clock, GitBranch, MessageSquare, FlaskConical } from 'lucide-react'
@@ -48,15 +48,25 @@ function autoLayout(graph: WorkflowGraph): Record<string, { x: number; y: number
   return pos
 }
 
-export function FlowCanvas({
-  graph, templates, onChange,
-}: {
+type FlowCanvasProps = {
   graph: WorkflowGraph
   templates: WhatsAppTemplate[]
   onChange: (g: WorkflowGraph) => void
   automationId?: string | null
-}) {
+}
+
+/** Wrapper : le ReactFlowProvider est requis pour useReactFlow (fitView piloté). */
+export function FlowCanvas(props: FlowCanvasProps) {
+  return (
+    <ReactFlowProvider>
+      <FlowCanvasInner {...props} />
+    </ReactFlowProvider>
+  )
+}
+
+function FlowCanvasInner({ graph, templates, onChange }: FlowCanvasProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const rf = useReactFlow()
 
   const positions = useMemo(() => graph.positions && Object.keys(graph.positions).length
     ? graph.positions
@@ -125,6 +135,16 @@ export function FlowCanvas({
     setSelectedId(id)
   }, [graph, positions, onChange])
 
+  // fitView APRÈS montage : le prop `fitView` s'exécute avant que le canvas ait
+  // sa taille finale (les nœuds tombaient hors viewport → canvas « vide »). On
+  // recadre à l'init et à chaque changement du nombre de nœuds, avec un petit
+  // délai le temps que le layout se stabilise.
+  const nodeCount = graph.nodes.length
+  const doFit = useCallback(() => {
+    setTimeout(() => { try { rf.fitView({ padding: 0.3, duration: 200 }) } catch { /* pas prêt */ } }, 60)
+  }, [rf])
+  useEffect(() => { doFit() }, [nodeCount, doFit])
+
   const selectedNode = graph.nodes.find((n) => n.id === selectedId) || null
 
   const patchNode = useCallback((id: string, patch: Partial<WorkflowNode>) => {
@@ -162,7 +182,8 @@ export function FlowCanvas({
         onEdgesDelete={onEdgesDelete}
         onNodeClick={(_, n) => setSelectedId(n.id)}
         onPaneClick={() => setSelectedId(null)}
-        fitView
+        onInit={doFit}
+        minZoom={0.2}
         proOptions={{ hideAttribution: true }}
         defaultEdgeOptions={{ type: 'smoothstep' }}
         // absolute inset-0 : remplit le wrapper `relative min-h-[70vh]` de façon
