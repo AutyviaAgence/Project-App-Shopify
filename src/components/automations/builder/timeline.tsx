@@ -101,7 +101,18 @@ import { TemplateBubble } from '@/components/template-bubble'
 import { VARIABLE_BY_KEY } from '@/lib/templates/variables'
 import { USE_CASES, guessUseCase } from '@/lib/templates/use-cases'
 import type { WorkflowGraph, WorkflowNode } from '@/lib/automations/graph-types'
-import type { WhatsAppTemplate } from '@/types/database'
+import { buttonBranch } from '@/lib/automations/graph-types'
+import type { WhatsAppTemplate, TemplateButton } from '@/types/database'
+
+/** Libellés des boutons QUICK_REPLY d'un message : ces libellés servent de
+ *  points de départ de branche (`button:<texte>`). Le webhook capte exactement
+ *  ce `text` au clic → la branche matche le runtime. */
+function quickReplyLabels(t: WhatsAppTemplate | undefined | null): string[] {
+  if (!t) return []
+  return ((t.buttons ?? []) as TemplateButton[])
+    .filter((b) => b.type === 'QUICK_REPLY')
+    .map((b) => b.text)
+}
 
 const DELAY_PRESETS = [
   { v: 0, l: 'Immédiat' }, { v: 30, l: '30 min' }, { v: 60, l: '1 heure' },
@@ -184,6 +195,8 @@ export function Timeline(props: TimelineProps) {
 
 // Couleurs des colonnes de variantes A/B/C/D.
 const VARIANT_COLORS = ['#3B82F6', '#8B5CF6', '#F59E0B', '#EC4899']
+// Couleurs des sorties de boutons quick-reply (vert WhatsApp puis autres teintes).
+const BUTTON_COLORS = ['#25D366', '#0EA5E9', '#F59E0B', '#EC4899', '#8B5CF6']
 
 function Branch(props: TimelineProps & { fromId: string; branch?: string }) {
   const { graph, fromId, branch, templates, onPatch, onInsert, onDelete, onSelectAction } = props
@@ -211,12 +224,31 @@ function Branch(props: TimelineProps & { fromId: string; branch?: string }) {
           </React.Fragment>
         )
 
-        if (node.type === 'action') return (
-          <React.Fragment key={id}>
-            <ActionBlock node={node} templates={templates} onPatch={onPatch} onDelete={() => onDelete(id)} onSelectAction={onSelectAction} />
-            {i === chain.length - 1 && <Inserter onInsert={(kind) => onInsert(id, kind)} />}
-          </React.Fragment>
-        )
+        if (node.type === 'action') {
+          // Un message à boutons quick-reply se comporte comme une condition :
+          // chaque bouton ouvre SA propre branche (`button:<texte>`). L'utilisateur
+          // tire une suite différente derrière « Oui » et derrière « Non ».
+          const tpl = templates.find((t) => t.id === node.templateId)
+          const buttons = quickReplyLabels(tpl)
+          if (buttons.length > 0) return (
+            <React.Fragment key={id}>
+              <ActionBlock node={node} templates={templates} onPatch={onPatch} onDelete={() => onDelete(id)} onSelectAction={onSelectAction} />
+              <div className={branchesRow}>
+                {buttons.map((text, bi) => (
+                  <BranchCol key={text} label={text} color={BUTTON_COLORS[bi % BUTTON_COLORS.length]}>
+                    <Branch {...props} fromId={id} branch={buttonBranch(text)} />
+                  </BranchCol>
+                ))}
+              </div>
+            </React.Fragment>
+          )
+          return (
+            <React.Fragment key={id}>
+              <ActionBlock node={node} templates={templates} onPatch={onPatch} onDelete={() => onDelete(id)} onSelectAction={onSelectAction} />
+              {i === chain.length - 1 && <Inserter onInsert={(kind) => onInsert(id, kind)} />}
+            </React.Fragment>
+          )
+        }
 
         if (node.type === 'condition') return (
           <React.Fragment key={id}>

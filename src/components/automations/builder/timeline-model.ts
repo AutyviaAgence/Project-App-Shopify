@@ -1,5 +1,5 @@
 import type { WorkflowGraph, WorkflowNode, ConditionRule, NodePosition } from '@/lib/automations/graph-types'
-import { variantBranch } from '@/lib/automations/graph-types'
+import { variantBranch, isButtonBranch } from '@/lib/automations/graph-types'
 import type { TriggerEvent } from '@/lib/automations/types'
 
 export type InsertKind = 'delay' | 'condition' | 'action' | 'ab_test'
@@ -30,6 +30,10 @@ export function chainFrom(graph: WorkflowGraph, startId: string | undefined, bra
     const node = graph.nodes.find((n) => n.id === cur)
     // Une condition ou un test A/B arrêtent la chaîne (branches rendues à part).
     if (node?.type === 'condition' || node?.type === 'ab_test') break
+    // Un message à boutons quick-reply ouvre aussi ses propres branches
+    // (`button:<texte>`) rendues séparément → on arrête ici, sinon la suite
+    // apparaîtrait à la fois dans la chaîne ET sous un bouton.
+    if (graph.edges.some((e) => e.from === cur && isButtonBranch(e.branch))) break
     cur = graph.edges.find((e) => e.from === cur)?.to
   }
   return out
