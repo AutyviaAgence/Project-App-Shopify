@@ -425,6 +425,12 @@
   animation: shadow-pulse 1.6s ease-in-out infinite;
 }
 
+/* Balayage lumineux du titre de bienvenue (dégradé qui glisse). Le titre a
+   `bg-[length:200%_auto]` : on décale la position du fond d'un tour complet. */
+@keyframes welcome-shine {
+  to { background-position: 200% center; }
+}
+
 /* ===========================================
    MOBILE OPTIMIZATIONS
    =========================================== */
