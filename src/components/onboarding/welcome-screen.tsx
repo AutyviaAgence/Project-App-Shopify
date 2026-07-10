@@ -255,7 +255,7 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
                   <Sparkles className="h-3.5 w-3.5" /> Bienvenue sur Xeyo
                 </p>
                 <h2 className="mt-2 max-w-xl text-lg font-bold tracking-tight text-white sm:text-xl">
-                  Une IA qui répond, conseille et vend sur WhatsApp — à partir de votre boutique.
+                  Une IA qui répond, conseille et vend sur WhatsApp, à partir de votre boutique.
                 </h2>
                 <Button
                   size="lg"
