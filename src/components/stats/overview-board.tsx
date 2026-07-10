@@ -54,37 +54,6 @@ function Sparkline({ data }: { data: number[] }) {
   )
 }
 
-// ── Jauge circulaire (arc) ───────────────────────────────────────────────────
-function Gauge({ percent }: { percent: number }) {
-  const p = Math.max(0, Math.min(100, percent))
-  // Arc de 270° (style Framer), trait épais.
-  const radius = 120
-  const stroke = 28
-  const circ = 2 * Math.PI * radius
-  const arc = 0.75 // 270°
-  const dash = circ * arc
-  const filled = dash * (p / 100)
-  return (
-    <div className="relative flex aspect-square w-full max-w-[320px] items-center justify-center">
-      <svg viewBox="0 0 300 300" className="w-full -rotate-[225deg]">
-        <circle
-          cx="150" cy="150" r={radius} fill="none"
-          className="stroke-border" strokeWidth={stroke} strokeLinecap="round"
-          strokeDasharray={`${dash} ${circ}`}
-        />
-        <circle
-          cx="150" cy="150" r={radius} fill="none"
-          className="stroke-foreground" strokeWidth={stroke} strokeLinecap="round"
-          strokeDasharray={`${filled} ${circ}`}
-        />
-      </svg>
-      <div className="absolute text-center">
-        <span className="text-4xl font-bold text-foreground">+{p}%</span>
-      </div>
-    </div>
-  )
-}
-
 export function StatsOverviewBoard({
   stats,
   locale,
@@ -276,11 +245,6 @@ export function StatsOverviewBoard({
           </div>
         </FrameCard>
       </div>
-
-      {/* ── Rang 3 : jauge de réponse IA (pleine largeur) ── */}
-      <FrameCard gradient className="flex items-center justify-center py-8">
-        <Gauge percent={respRate} />
-      </FrameCard>
     </div>
   )
 }

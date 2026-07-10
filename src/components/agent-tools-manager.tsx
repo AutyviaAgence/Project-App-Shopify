@@ -191,6 +191,70 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
     finally { setWaContactsLoading(false) }
   }, [])
 
+  // Modèle de NOTIFICATION (API officielle) : hors fenêtre de 24 h, Meta refuse
+  // les messages libres — l'outil envoie donc via le template UTILITY
+  // « xeyo_notification » ({{1}} = le message), qu'on provisionne d'ici.
+  const [notifTplStatus, setNotifTplStatus] = useState<'loading' | 'absent' | 'draft' | 'pending' | 'approved' | 'rejected'>('loading')
+  const [notifTplId, setNotifTplId] = useState<string | null>(null)
+  const [notifTplBusy, setNotifTplBusy] = useState(false)
+
+  const fetchNotifTemplate = useCallback(async () => {
+    setNotifTplStatus('loading')
+    try {
+      const res = await fetch('/api/templates')
+      const json = await res.json()
+      const list = (json.data || []) as { id: string; name: string; status: string }[]
+      const tpl = list.find((tl) => tl.name === 'xeyo_notification')
+      if (!tpl) { setNotifTplId(null); setNotifTplStatus('absent'); return }
+      setNotifTplId(tpl.id)
+      setNotifTplStatus((['draft', 'pending', 'approved', 'rejected'].includes(tpl.status) ? tpl.status : 'draft') as 'draft')
+    } catch { setNotifTplStatus('absent') }
+  }, [])
+
+  /** Crée le modèle de notification (s'il n'existe pas) puis le soumet à Meta. */
+  async function provisionNotifTemplate() {
+    setNotifTplBusy(true)
+    try {
+      let id = notifTplId
+      if (!id) {
+        const res = await fetch('/api/templates', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: 'xeyo_notification',
+            language: 'fr',
+            category: 'UTILITY',
+            use_case: 'support',
+            body_text: '🔔 Notification de votre boutique : {{1}}',
+            variable_keys: ['notification_message'],
+            sample_values: ['Nouvelle commande #1024, préparation à lancer'],
+            session_id: formConfig.session_id || undefined,
+          }),
+        })
+        const json = await res.json()
+        if (!res.ok) throw new Error(json.error || 'Création du modèle impossible')
+        id = json.data?.id as string
+        setNotifTplId(id)
+        setNotifTplStatus('draft')
+      }
+      const sub = await fetch(`/api/templates/${id}/submit`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: formConfig.session_id || undefined }),
+      })
+      const sj = await sub.json().catch(() => ({}))
+      if (!sub.ok) {
+        toast.error(sj.error || 'Soumission à Meta échouée, modèle enregistré en brouillon')
+        setNotifTplStatus('draft')
+      } else {
+        toast.success('Modèle de notification soumis à Meta (approbation en général rapide)')
+        setNotifTplStatus('pending')
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erreur')
+    } finally {
+      setNotifTplBusy(false)
+    }
+  }
+
   const fetchTools = useCallback(async () => {
     try {
       const res = await fetch(`/api/agents/${agentId}/tools`)
@@ -262,7 +326,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
     setWaContacts([])
     setWaSelectedContacts(new Set())
     setWaContactSearch('')
-    if (template.type === 'whatsapp_message') fetchWaSessions()
+    if (template.type === 'whatsapp_message') { fetchWaSessions(); fetchNotifTemplate() }
     // Default to existing if matching credentials are available
     const mapping = getCredentialMapping(template.type, template.auth_type)
     const matchingCreds = credentials.filter(c =>
@@ -340,6 +404,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
     setWaContactSearch('')
     if (tool.tool_type === 'whatsapp_message') {
       fetchWaSessions()
+      fetchNotifTemplate()
       const sid = tool.config.session_id as string
       if (sid) {
         // Load contacts from session to display checkboxes
@@ -469,7 +534,8 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
             name: formName,
             description: formDescription,
             config: Object.keys(config).length > 0 ? config : undefined,
-            permissions: formPermissions,
+            // WhatsApp Message : l'outil ÉCRIT (send_whatsapp) — permissions forcées.
+            permissions: selectedTemplate.type === 'whatsapp_message' ? 'read_write' : formPermissions,
             rate_limit: parseInt(formRateLimit) || 60,
             credential_id: credentialId,
           }),
@@ -492,7 +558,8 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
             name: formName,
             description: formDescription,
             config,
-            permissions: formPermissions,
+            // WhatsApp Message : l'outil ÉCRIT (send_whatsapp) — permissions forcées.
+            permissions: selectedTemplate.type === 'whatsapp_message' ? 'read_write' : formPermissions,
             rate_limit: parseInt(formRateLimit) || 60,
             credential_id: credentialId,
           }),
@@ -918,6 +985,10 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
 
           {selectedTemplate && (
             <div className="space-y-4 mt-2 overflow-hidden">
+              {/* Champs génériques MASQUÉS pour WhatsApp Message : cet outil se
+                  résume à « quelle session, vers qui » — nom/description/
+                  permissions/limite partent avec des valeurs par défaut. */}
+              {selectedTemplate.type !== 'whatsapp_message' && (<>
               {/* Name & Description */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
@@ -949,6 +1020,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                   </SelectContent>
                 </Select>
               </div>
+              </>)}
 
               {/* OAuth redirect URI helper */}
               {isOAuthTool(selectedTemplate.type) && (
@@ -1210,20 +1282,42 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                       </div>
                     )}
 
-                    {/* Send delay */}
-                    <div className="space-y-1">
-                      <Label className="text-xs text-muted-foreground">Délai avant envoi (secondes)</Label>
-                      <Input
-                        type="number"
-                        min="0"
-                        max="300"
-                        placeholder="0"
-                        value={formConfig.send_delay || ''}
-                        onChange={e => setFormConfig(prev => ({ ...prev, send_delay: e.target.value }))}
-                      />
-                      <p className="text-[10px] text-muted-foreground">
-                        Temps d&apos;attente avant l&apos;envoi du message (0 = immédiat, max 300s)
+                    {/* Modèle de notification (API officielle) : hors fenêtre de
+                        24 h, Meta refuse les messages libres — l'envoi passe par
+                        le template UTILITY « xeyo_notification » approuvé. */}
+                    <div className="space-y-1.5 rounded-lg border p-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <Label className="text-xs font-medium">Modèle de notification</Label>
+                        {notifTplStatus === 'loading' ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+                        ) : (
+                          <Badge
+                            variant="secondary"
+                            className={
+                              notifTplStatus === 'approved' ? 'bg-emerald-500/15 text-emerald-500'
+                              : notifTplStatus === 'pending' ? 'bg-amber-500/15 text-amber-500'
+                              : notifTplStatus === 'rejected' ? 'bg-red-500/15 text-red-500'
+                              : 'bg-muted text-muted-foreground'
+                            }
+                          >
+                            {notifTplStatus === 'approved' ? 'Approuvé ✓'
+                              : notifTplStatus === 'pending' ? 'En attente Meta'
+                              : notifTplStatus === 'rejected' ? 'Rejeté'
+                              : notifTplStatus === 'draft' ? 'Brouillon'
+                              : 'À créer'}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-[10px] leading-relaxed text-muted-foreground">
+                        L&apos;API WhatsApp officielle n&apos;autorise les messages libres que si le destinataire a écrit
+                        dans les dernières 24 h. Avec ce modèle approuvé, vos notifications partent à tout moment.
                       </p>
+                      {notifTplStatus !== 'approved' && notifTplStatus !== 'pending' && notifTplStatus !== 'loading' && (
+                        <Button size="sm" variant="outline" disabled={notifTplBusy} onClick={provisionNotifTemplate}>
+                          {notifTplBusy && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                          {notifTplId ? 'Soumettre à Meta' : 'Créer et soumettre le modèle'}
+                        </Button>
+                      )}
                     </div>
                   </div>
                 )}

@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
       }
       callerUserId = user.id
     }
-    const { agent_id, session_id: explicitSessionId, contact_name, phone_number, message, send_delay } = body
+    const { agent_id, session_id: explicitSessionId, contact_name, contact_id, phone_number, message, send_delay } = body
 
     if (!agent_id || !message) {
       return NextResponse.json({ error: 'agent_id and message are required' }, { status: 400 })
@@ -113,15 +113,54 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid phone number' }, { status: 400 })
     }
 
-    // Send the message
+    // ── TEMPLATE D'ABORD (API officielle) ──────────────────────────────
+    // Hors fenêtre de 24 h, Meta REFUSE les messages libres : la notification
+    // fiable passe par le template UTILITY approuvé « xeyo_notification »
+    // ({{1}} = le message). S'il est approuvé et que l'outil a fourni le
+    // contact_id, on l'utilise ; sinon on retombe sur le texte libre (valable
+    // uniquement si le destinataire a écrit dans les dernières 24 h).
+    if (contact_id) {
+      const { data: notifTpl } = await supabase
+        .from('whatsapp_templates')
+        .select('id')
+        .eq('user_id', session.user_id)
+        .eq('name', 'xeyo_notification')
+        .eq('status', 'approved')
+        .limit(1)
+        .maybeSingle()
+      if (notifTpl) {
+        const { sendTemplateToContact } = await import('@/lib/automations/dispatch')
+        const r = await sendTemplateToContact({
+          templateId: notifTpl.id,
+          contactId: contact_id,
+          variables: { notification_message: message },
+          manual: true, // notification interne configurée par le marchand
+        })
+        if (r.ok) {
+          return NextResponse.json({
+            sent: true,
+            via: 'template',
+            to: cleanPhone,
+            contact: contact_name || null,
+            message_preview: message.slice(0, 100),
+          })
+        }
+        // Échec template (ex. variante non trouvée) → on tente le texte libre.
+      }
+    }
+
+    // Send the message (texte libre : fenêtre de 24 h uniquement)
     const result = await sendMessage(sessionCtx, cleanPhone, message)
 
     if (!result.ok) {
-      return NextResponse.json({ error: result.error }, { status: 500 })
+      return NextResponse.json({
+        error: `${result.error} (destinataire hors fenêtre de 24 h ? Approuvez le modèle « xeyo_notification » pour des notifications garanties)`,
+      }, { status: 500 })
     }
 
     return NextResponse.json({
       sent: true,
+      via: 'freeform',
       to: cleanPhone,
       contact: contact_name || null,
       message_preview: message.slice(0, 100),

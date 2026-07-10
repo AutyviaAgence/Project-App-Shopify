@@ -1125,7 +1125,7 @@ async function executeGoogleGmail(
 }
 
 // --- WhatsApp Message ---
-type WhatsAppContact = { name: string; phone: string }
+type WhatsAppContact = { name: string; phone: string; contact_id?: string }
 
 async function executeWhatsAppMessage(
   config: Record<string, unknown>,
@@ -1183,6 +1183,10 @@ async function executeWhatsAppMessage(
         agent_id: context.agentId,
         session_id: sessionId,
         contact_name: contact.name,
+        // contact_id : permet à la route d'envoyer via le TEMPLATE de
+        // notification approuvé (API officielle : hors fenêtre de 24 h, un
+        // message libre est refusé par Meta).
+        contact_id: contact.contact_id,
         phone_number: contact.phone,
         message,
         send_delay: sendDelay,
