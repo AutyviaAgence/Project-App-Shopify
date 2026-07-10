@@ -367,7 +367,7 @@ function AutomationsPageInner() {
             className={cn('mb-2 flex items-center gap-2 rounded-lg border border-dashed px-3 py-2 text-sm transition-colors hover:bg-muted',
               current && !current.id ? 'border-primary text-primary' : 'text-muted-foreground')}
           >
-            <Plus className="h-4 w-4" /> Nouveau workflow
+            <Plus className="h-4 w-4" /> {tab === 'marketing' ? 'Nouvelle campagne' : 'Nouveau workflow'}
           </button>
           {/* Bascule groupée : active tout si au moins un est OFF, sinon désactive tout. */}
           {visibleAutomations.length > 1 && (() => {
@@ -502,8 +502,8 @@ function AutomationsPageInner() {
         {showChoose ? (
           <div className="flex min-h-0 flex-col p-6">
             <div className="mb-6 flex items-center gap-2">
-              <button onClick={() => { setShowChoose(false); setCurrent(automations[0] || null) }} className="text-xs text-muted-foreground hover:text-foreground">← Retour</button>
-              <span className="text-sm font-semibold">Nouvelle automatisation</span>
+              <button onClick={() => { setShowChoose(false); setCurrent(visibleAutomations[0] || null) }} className="text-xs text-muted-foreground hover:text-foreground">← Retour</button>
+              <span className="text-sm font-semibold">{tab === 'marketing' ? 'Nouvelle campagne' : 'Nouvelle automatisation'}</span>
             </div>
             <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center">
               <h2 className="mb-1 text-xl font-semibold">Comment voulez-vous la créer ?</h2>
@@ -532,6 +532,7 @@ function AutomationsPageInner() {
               templates={templates}
               onComplete={onWizardComplete}
               onCancel={() => { setShowWizard(false); setShowChoose(true) }}
+              kind={tab}
             />
           </div>
         ) : current && graph ? (

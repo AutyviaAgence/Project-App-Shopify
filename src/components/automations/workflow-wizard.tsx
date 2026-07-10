@@ -5,7 +5,7 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Loader2, Sparkles, ChevronRight, ChevronLeft, Check, Search, X } from 'lucide-react'
-import { TRIGGER_EVENTS, type TriggerEvent } from '@/lib/automations/types'
+import { TRIGGER_EVENTS, triggersForKind, type TriggerEvent } from '@/lib/automations/types'
 import { CONDITION_FIELDS } from '@/components/automations/builder/field-labels'
 import type { WorkflowGraph, WorkflowNode, WorkflowEdge, ConditionRule } from '@/lib/automations/graph-types'
 import type { WhatsAppTemplate } from '@/types/database'
@@ -37,11 +37,18 @@ export function WorkflowWizard({
   templates,
   onComplete,
   onCancel,
+  kind = 'transactional',
 }: {
   templates: WhatsAppTemplate[]
   onComplete: (data: { name: string; graph: WorkflowGraph; trigger: TriggerEvent }) => void
   onCancel: () => void
+  /** Onglet : filtre les déclencheurs + adapte le vocabulaire (campagne vs auto). */
+  kind?: 'marketing' | 'transactional'
 }) {
+  const isMarketing = kind === 'marketing'
+  // Déclencheurs proposés selon l'onglet, regroupés par famille.
+  const allowedTriggers = triggersForKind(kind)
+  const triggerGroups = [...new Set(allowedTriggers.map((e) => e.group))]
   const { subscription } = useSubscription()
   // L'ASSISTANT IA du wizard est réservé aux plans payants ; la création
   // manuelle d'automatisation reste ouverte (plan Gratuit inclus).
@@ -69,8 +76,13 @@ export function WorkflowWizard({
         body: JSON.stringify({ kind: 'event', text: aiText }),
       })
       const json = await res.json()
-      if (json.event) { setEvent(json.event); toast.success('Événement suggéré') }
-      else toast.error('Aucun événement trouvé, choisissez manuellement.')
+      // L'IA peut proposer un trigger hors onglet : on ne l'accepte que s'il
+      // fait partie des déclencheurs autorisés ici (sinon non sélectionnable).
+      if (json.event && allowedTriggers.some((e) => e.value === json.event)) {
+        setEvent(json.event); toast.success('Événement suggéré')
+      } else if (json.event) {
+        toast.error(isMarketing ? 'Cet événement relève plutôt du transactionnel.' : 'Cet événement relève plutôt des campagnes.')
+      } else toast.error('Aucun événement trouvé, choisissez manuellement.')
     } catch { toast.error('Erreur') } finally { setAiBusy(false); setAiText('') }
   }
 
@@ -178,18 +190,20 @@ export function WorkflowWizard({
         <div className="space-y-3">
           {aiEnabled ? (
             <AiHelp value={aiText} onChange={setAiText} busy={aiBusy} onGo={suggestEvent}
-              placeholder="Ex : quand un client abandonne son panier…" />
+              placeholder={isMarketing ? 'Ex : envoyer une promo aux clients inactifs…' : 'Ex : quand un client abandonne son panier…'} />
           ) : (
             <div className="flex items-center justify-between gap-2 rounded-xl border border-dashed p-3 text-xs text-muted-foreground">
               <span className="flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5" /> L’assistant IA vous aide à décrire l’événement.</span>
               <UpgradeBadge />
             </div>
           )}
-          {['Commande', 'Contact', 'Conversation', 'Planifié'].map((group) => (
+          {/* Déclencheurs FILTRÉS par onglet (marketing : planifié/opt-in/clic
+              bouton/relances/panier ; transactionnel : statuts commande). */}
+          {triggerGroups.map((group) => (
             <div key={group} className="space-y-1.5">
               <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{group}</p>
               <div className="flex flex-wrap gap-1.5">
-                {TRIGGER_EVENTS.filter((e) => e.group === group).map((e) => (
+                {allowedTriggers.filter((e) => e.group === group).map((e) => (
                   <button key={e.value} onClick={() => setEvent(e.value)}
                     title={e.description}
                     className={cn('rounded-lg border px-3 py-1.5 text-sm transition-colors',
@@ -311,9 +325,9 @@ export function WorkflowWizard({
       {step === 4 && (
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Nom de l’automatisation</label>
+            <label className="text-sm font-medium">Nom {isMarketing ? 'de la campagne' : 'de l’automatisation'}</label>
             <input value={name} onChange={(e) => setName(e.target.value)}
-              placeholder={event ? defaultName(event) : 'Mon automatisation'}
+              placeholder={event ? defaultName(event) : (isMarketing ? 'Ma campagne' : 'Mon automatisation')}
               className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" />
           </div>
           <div className="rounded-lg border bg-muted/30 p-3 text-sm">
