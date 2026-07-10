@@ -633,9 +633,16 @@ export default function AgentsPage() {
                         <div className="px-6 pt-5 text-center">
                           <h3 className="truncate text-[19px] font-bold tracking-tight text-foreground">{agent.name}</h3>
                           {agent.is_default && (
-                            <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-medium text-amber-600">
-                              <Star className="h-3 w-3 fill-current" /> Agent référent
-                            </span>
+                            <>
+                              <span
+                                className="mt-1 inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-medium text-amber-600"
+                                title="L'agent référent est celui qui répond à TOUTES les conversations WhatsApp de la boutique."
+                              >
+                                <Star className="h-3 w-3 fill-current" /> Agent référent
+                              </span>
+                              {/* La promesse en clair : c'est LUI qui parle à tout le monde. */}
+                              <p className="mt-0.5 text-[11px] text-muted-foreground">Répond à tous vos clients</p>
+                            </>
                           )}
                           <div className="mt-1.5 flex items-center justify-center gap-1.5 text-[13px] text-muted-foreground">
                             <span className={cn('h-1.5 w-1.5 rounded-full', agent.is_active ? 'bg-emerald-500' : 'bg-muted-foreground/40')} />

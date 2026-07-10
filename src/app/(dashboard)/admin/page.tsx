@@ -25,8 +25,16 @@ import {
   CheckCircle2, XCircle, Clock, RefreshCw, ShieldCheck, CreditCard,
   TrendingUp, AlertCircle, ExternalLink, CheckCircle, Ban, Calendar,
   Wifi, WifiOff, Gift, Tag as TagIcon, Trash2, Link2, Store as StoreIcon,
-  ChevronLeft, ChevronRight
+  ChevronLeft, ChevronRight, MoreVertical, Coins, PauseCircle, PlayCircle,
+  ShieldOff,
 } from 'lucide-react'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { cn } from '@/lib/utils'
 import type { PlanId } from '@/lib/stripe/plans'
 import { BlobLoaderScreen } from '@/components/blob-loader'
@@ -176,6 +184,49 @@ export default function AdminPage() {
       setBillingLoading(false)
     }
   }, [])
+
+  // ── Actions admin par client (tokens / bannir / pause) ────────────────
+  const [tokensModal, setTokensModal] = useState<{ id: string; email: string; tokens_limit: number } | null>(null)
+  const [tokensLimitInput, setTokensLimitInput] = useState('')
+  const [tokensExtraInput, setTokensExtraInput] = useState('')
+  const [tokensResetUsed, setTokensResetUsed] = useState(false)
+  const [actionBusy, setActionBusy] = useState(false)
+
+  async function clientAction(userId: string, action: string, extra?: Record<string, unknown>) {
+    setActionBusy(true)
+    try {
+      const res = await fetch('/api/admin/client-actions', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, action, ...extra }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Action échouée')
+      toast.success(
+        action === 'ban' ? 'Compte banni (connexion refusée)'
+        : action === 'unban' ? 'Compte débanni'
+        : action === 'pause' ? 'Compte mis en pause'
+        : action === 'resume' ? 'Compte réactivé'
+        : 'Tokens mis à jour'
+      )
+      fetchClients()
+      return true
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erreur')
+      return false
+    } finally {
+      setActionBusy(false)
+    }
+  }
+
+  async function saveTokensModal() {
+    if (!tokensModal) return
+    const extra: Record<string, unknown> = {}
+    if (tokensLimitInput.trim() !== '') extra.tokens_limit = Math.max(0, parseInt(tokensLimitInput) || 0)
+    if (tokensExtraInput.trim() !== '') extra.tokens_extra = Math.max(0, parseInt(tokensExtraInput) || 0)
+    if (tokensResetUsed) extra.reset_used = true
+    const ok = await clientAction(tokensModal.id, 'set_tokens', extra)
+    if (ok) setTokensModal(null)
+  }
 
   useEffect(() => {
     if (!subLoading && subscription?.role !== 'admin') {
@@ -600,7 +651,6 @@ export default function AdminPage() {
               <th className="px-4 py-3 text-left font-semibold">Plan</th>
               <th className="px-4 py-3 text-left font-semibold">Tokens</th>
               <th className="px-4 py-3 text-left font-semibold">Rôle</th>
-              <th className="px-4 py-3 text-left font-semibold">Configurateur</th>
               <th className="px-4 py-3 text-left font-semibold">Actions</th>
             </tr>
           </thead>
@@ -610,7 +660,7 @@ export default function AdminPage() {
                 ? Math.round((client.tokens_used / client.tokens_limit) * 100)
                 : 0
               const isExpanded = expandedRows.has(client.id)
-              const hasConfig = !!client.onboarding_config
+
 
               return (
                 <>
@@ -726,48 +776,60 @@ export default function AdminPage() {
                       </Select>
                     </td>
 
-                    {/* Configurateur */}
+                    {/* Actions : menu (tokens / pause / bannir) + détail. */}
                     <td className="px-4 py-3">
-                      {hasConfig ? (
+                      <div className="flex items-center gap-1">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button size="sm" variant="ghost" className="h-7 w-7 p-0" disabled={actionBusy}>
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-52">
+                            <DropdownMenuItem
+                              onClick={() => {
+                                setTokensLimitInput(String(client.tokens_limit ?? 0))
+                                setTokensExtraInput('')
+                                setTokensResetUsed(false)
+                                setTokensModal({ id: client.id, email: client.email, tokens_limit: client.tokens_limit })
+                              }}
+                            >
+                              <Coins className="mr-2 h-4 w-4" /> Modifier les tokens
+                            </DropdownMenuItem>
+                            {client.subscription_status === 'past_due' ? (
+                              <DropdownMenuItem onClick={() => clientAction(client.id, 'resume')}>
+                                <PlayCircle className="mr-2 h-4 w-4 text-emerald-500" /> Réactiver le compte
+                              </DropdownMenuItem>
+                            ) : (
+                              <DropdownMenuItem onClick={() => clientAction(client.id, 'pause')}>
+                                <PauseCircle className="mr-2 h-4 w-4 text-amber-500" /> Mettre en pause
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className="text-red-500 focus:text-red-500" onClick={() => clientAction(client.id, 'ban')}>
+                              <Ban className="mr-2 h-4 w-4" /> Bannir le compte
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => clientAction(client.id, 'unban')}>
+                              <ShieldOff className="mr-2 h-4 w-4" /> Débannir
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                         <Button
                           size="sm"
-                          variant="outline"
-                          className="h-7 text-xs gap-1.5"
-                          onClick={() => {
-                            setAdminNotes(client.onboarding_config?.admin_notes || '')
-                            setConfigModal({ config: client.onboarding_config!, userId: client.id })
-                          }}
+                          variant="ghost"
+                          className="h-7 w-7 p-0"
+                          onClick={() => toggleRow(client.id)}
                         >
-                          {client.onboarding_config?.admin_validated_at
-                            ? <ShieldCheck className="h-3.5 w-3.5 text-green-500" />
-                            : <FileText className="h-3.5 w-3.5 text-amber-500" />}
-                          {client.onboarding_config?.admin_validated_at ? 'Validé' : 'À valider'}
+                          {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                         </Button>
-                      ) : (
-                        <span className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Clock className="h-3.5 w-3.5" />
-                          Non soumis
-                        </span>
-                      )}
-                    </td>
-
-                    {/* Expand */}
-                    <td className="px-4 py-3">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-7 w-7 p-0"
-                        onClick={() => toggleRow(client.id)}
-                      >
-                        {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                      </Button>
+                      </div>
                     </td>
                   </tr>
 
                   {/* Row étendue */}
                   {isExpanded && client.onboarding_config && (
                     <tr key={`${client.id}-expanded`} className="bg-muted/10">
-                      <td colSpan={8} className="px-6 py-4">
+                      <td colSpan={7} className="px-6 py-4">
                         <ConfigDetails config={client.onboarding_config} />
                       </td>
                     </tr>
@@ -784,7 +846,7 @@ export default function AdminPage() {
             })}
             {visibleClients.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={7} className="px-4 py-8 text-center text-muted-foreground">
                   Aucun client trouvé.
                 </td>
               </tr>
@@ -804,6 +866,39 @@ export default function AdminPage() {
           </button>
         </div>
       )}
+
+      {/* Modal tokens (action admin) */}
+      <Dialog open={!!tokensModal} onOpenChange={() => setTokensModal(null)}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Coins className="h-4 w-4" /> Modifier les tokens
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-xs text-muted-foreground">{tokensModal?.email}</p>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Limite mensuelle (tokens)</label>
+              <Input type="number" min={0} value={tokensLimitInput} onChange={(e) => setTokensLimitInput(e.target.value)} />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium">Tokens bonus (extra)</label>
+              <Input type="number" min={0} placeholder="Laisser vide pour ne pas changer" value={tokensExtraInput} onChange={(e) => setTokensExtraInput(e.target.value)} />
+            </div>
+            <label className="flex items-center gap-2 text-xs">
+              <input type="checkbox" className="h-4 w-4 accent-primary" checked={tokensResetUsed} onChange={(e) => setTokensResetUsed(e.target.checked)} />
+              Remettre la consommation du mois à zéro
+            </label>
+            <div className="flex justify-end gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setTokensModal(null)}>Annuler</Button>
+              <Button size="sm" disabled={actionBusy} onClick={saveTokensModal}>
+                {actionBusy && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                Enregistrer
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal configurateur */}
       <Dialog open={!!configModal} onOpenChange={() => { setConfigModal(null); setAdminNotes('') }}>
