@@ -452,8 +452,12 @@ export function ConversationList({
                         l'avatar (h-11). Le numéro et les tags restent visibles
                         dans la conversation elle-même. */}
                     <div className="hidden flex-nowrap items-center gap-x-1.5 overflow-hidden sm:mt-0.5 sm:flex sm:gap-x-2">
-                      {/* Numero du contact (si different du nom affiche) */}
-                      {conv.contact && (conv.contact.first_name || conv.contact.last_name || conv.contact.name) && (
+                      {/* Numéro du contact — seulement s'il n'est PAS déjà le titre.
+                          Tester la seule présence d'un `name` ne suffit pas : un
+                          contact sans nom réel se voit attribuer son numéro comme
+                          nom, et le numéro s'affichait alors deux fois. */}
+                      {conv.contact?.phone_number
+                        && getContactDisplay(conv).replace(/\D/g, '') !== conv.contact.phone_number.replace(/\D/g, '') && (
                         <span
                           role="button"
                           tabIndex={-1}
