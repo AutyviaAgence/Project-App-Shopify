@@ -648,9 +648,9 @@ export default function OnboardingPage() {
                 // plan : les cartes PricingGlass portent déjà leur propre verre.
                 step !== 'plan' &&
                   'rounded-3xl border border-white/10 bg-white/[0.03] p-5 shadow-2xl backdrop-blur-md sm:p-6',
-                // La mascotte de l'étape agent déborde sous la bulle : on lui
-                // réserve la place pour ne pas chevaucher le pied de page.
-                step === 'agent' && 'md:mb-32',
+                // La mascotte assise de l'étape agent déborde ~215px sous la
+                // bulle : on réserve la place pour ne rien chevaucher.
+                step === 'agent' && 'md:mb-56',
               )}
               initial={{ opacity: 0, x: 24, filter: 'blur(6px)' }}
               animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
@@ -822,25 +822,30 @@ export default function OnboardingPage() {
                         </Button>
                       </div>
 
-                      {/* Queue de bulle cartoon : émerge du panneau, pointe vers
-                          la mascotte (le fill reproduit le verre du panneau). */}
-                      <svg
-                        aria-hidden
-                        viewBox="0 0 90 70"
-                        className="pointer-events-none absolute -bottom-[4.6rem] right-40 hidden h-[72px] w-[92px] md:block"
-                      >
-                        <path
-                          d="M16 2 C 34 26, 60 34, 86 66 C 54 56, 24 36, 2 12 Z"
-                          fill="#131b29"
-                          stroke="rgba(255,255,255,0.12)"
-                          strokeWidth="1.5"
-                        />
-                      </svg>
+                      {/* Bulle de PENSÉE façon BD : pas de queue pointue, des
+                          petits ronds décroissants qui relient la mascotte à la
+                          grande bulle (le panneau). Ils apparaissent en cascade. */}
+                      <div aria-hidden className="pointer-events-none absolute inset-0 hidden md:block">
+                        {[
+                          { size: 34, right: 176, bottom: -30, delay: 0.55 },
+                          { size: 20, right: 136, bottom: -56, delay: 0.42 },
+                          { size: 12, right: 104, bottom: -76, delay: 0.3 },
+                        ].map((c, i) => (
+                          <motion.span
+                            key={i}
+                            initial={{ opacity: 0, scale: 0 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ type: 'spring', stiffness: 300, damping: 16, delay: c.delay }}
+                            className="absolute rounded-full border border-white/15 bg-[#131b29] shadow-lg"
+                            style={{ width: c.size, height: c.size, right: c.right, bottom: c.bottom }}
+                          />
+                        ))}
+                      </div>
 
-                      {/* La mascotte qui « dit » la bulle, en bas à droite,
-                          avec un léger flottement continu. */}
+                      {/* La mascotte assise (détourée IA) qui « pense » la bulle,
+                          en bas à droite, avec un léger flottement continu. */}
                       <motion.img
-                        src="/mascots/phone.png"
+                        src="/mascots/sitting-phone.png"
                         alt=""
                         aria-hidden
                         initial={{ opacity: 0, y: 26, scale: 0.9 }}
@@ -848,9 +853,21 @@ export default function OnboardingPage() {
                         transition={{
                           opacity: { duration: 0.45, delay: 0.2 },
                           scale: { type: 'spring', stiffness: 220, damping: 18, delay: 0.2 },
-                          y: { duration: 3.6, repeat: Infinity, ease: 'easeInOut', delay: 0.8 },
+                          y: { duration: 3.8, repeat: Infinity, ease: 'easeInOut', delay: 0.8 },
                         }}
-                        className="pointer-events-none absolute -bottom-[7.2rem] -right-4 hidden w-48 select-none drop-shadow-2xl md:block"
+                        className="pointer-events-none absolute -bottom-[13rem] -right-2 hidden w-40 select-none drop-shadow-2xl md:block"
+                      />
+                      {/* Ombre au sol sous ses fesses : elle « respire » en
+                          synchro avec le flottement (même durée/délai). */}
+                      <motion.span
+                        aria-hidden
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1, scaleX: [1, 0.82, 1] }}
+                        transition={{
+                          opacity: { duration: 0.45, delay: 0.35 },
+                          scaleX: { duration: 3.8, repeat: Infinity, ease: 'easeInOut', delay: 0.8 },
+                        }}
+                        className="pointer-events-none absolute -bottom-[13.4rem] right-3 hidden h-3 w-32 rounded-[100%] bg-black/50 blur-md md:block"
                       />
                     </div>
                   )}
