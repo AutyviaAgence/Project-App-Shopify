@@ -180,9 +180,13 @@ export default function OnboardingPage() {
       if (!s) return
       if (s.completed) { router.replace('/dashboard'); return }
       setStep(resolveStep(s))
-      // Bienvenue : uniquement au tout premier passage, avant toute action.
-      // Si la boutique est déjà liée, l'utilisateur revient — on ne rejoue pas.
-      if (!s.shopifyLinked && !localStorage.getItem('xeyo_welcome_seen')) {
+      // Bienvenue :
+      //  - FORCÉE juste après l'acceptation des CGU (flag `xeyo_show_welcome`
+      //    posé par /register/complete) — c'est le vrai « je viens de m'inscrire » ;
+      //  - sinon, au tout premier passage avant toute action (boutique pas encore
+      //    liée et animation jamais vue).
+      const forced = localStorage.getItem('xeyo_show_welcome') === '1'
+      if (forced || (!s.shopifyLinked && !localStorage.getItem('xeyo_welcome_seen'))) {
         setShowWelcome(true)
       }
     })()
@@ -494,7 +498,9 @@ export default function OnboardingPage() {
       <div className="min-h-screen bg-[#0a0f1e]">
         <WelcomeScreen
           onStart={() => {
+            // Vue : on marque et on lève le flag « forcée » pour ne pas rejouer.
             localStorage.setItem('xeyo_welcome_seen', '1')
+            localStorage.removeItem('xeyo_show_welcome')
             setShowWelcome(false)
           }}
         />

@@ -27,6 +27,14 @@ export default function RegisterCompletePage() {
     try {
       const res = await fetch('/api/account/accept-terms', { method: 'POST' })
       if (!res.ok) throw new Error('api error')
+      // Nouveau compte : on FORCE l'animation de bienvenue à l'arrivée sur
+      // l'onboarding (c'est le vrai « premier passage »). On efface l'ancien
+      // flag « déjà vue » au cas où l'utilisateur aurait déjà mis les pieds sur
+      // /onboarding avant d'accepter les CGU.
+      try {
+        localStorage.removeItem('xeyo_welcome_seen')
+        localStorage.setItem('xeyo_show_welcome', '1')
+      } catch { /* localStorage indisponible : l'onboarding retombera sur sa règle par défaut */ }
       // Nouveau compte → grand onboarding (la page renvoie vers /dashboard si déjà fait).
       router.push('/onboarding')
     } catch {
