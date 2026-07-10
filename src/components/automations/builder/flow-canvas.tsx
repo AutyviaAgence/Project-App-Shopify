@@ -142,7 +142,10 @@ export function FlowCanvas({
   }, [graph, onChange])
 
   return (
-    <div className="relative h-full w-full">
+    // h-full ne suffit pas si un ancêtre n'a pas de hauteur résolue → on force
+    // une hauteur minimale pour que React Flow ait une surface à peindre
+    // (sinon il rend 0px = canvas vide).
+    <div className="relative h-full min-h-[70vh] w-full">
       {/* Palette d'ajout (haut gauche). */}
       <div className="absolute left-3 top-3 z-10 flex gap-1.5 rounded-xl border border-white/10 bg-[#0e1626]/90 p-1.5 backdrop-blur">
         <PaletteBtn icon={MessageSquare} label="Message" onClick={() => addNode('action')} />
@@ -163,6 +166,7 @@ export function FlowCanvas({
         fitView
         proOptions={{ hideAttribution: true }}
         defaultEdgeOptions={{ type: 'smoothstep' }}
+        style={{ width: '100%', height: '100%' }}
         className="bg-[#0a0f1e]"
       >
         <Background color="#1e2a44" gap={20} />
