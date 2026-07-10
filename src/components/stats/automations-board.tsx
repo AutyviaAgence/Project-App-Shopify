@@ -81,7 +81,7 @@ export function AutomationsBoard({ days }: { days: number }) {
               {rows.filter((a) => a.hasAbTest).length}
             </span>
           </div>
-          <p className="mt-0.5 text-sm text-muted-foreground">Vos automatisations qui comparent plusieurs messages — et la variante gagnante.</p>
+          <p className="mt-0.5 text-sm text-muted-foreground">Vos automatisations qui comparent plusieurs messages, et la variante gagnante.</p>
           <div className="mt-4 space-y-3">
             {rows.filter((a) => a.hasAbTest).map((a) => (
               <AutoCard key={a.id} a={a} />

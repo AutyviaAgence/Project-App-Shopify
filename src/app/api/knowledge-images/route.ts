@@ -6,9 +6,9 @@ const BUCKET = 'knowledge-images'
 
 // Contraintes par type de média (aligné sur les limites WhatsApp Cloud API)
 const MEDIA_RULES = {
-  image: { maxSize: 5 * 1024 * 1024, mimes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'], label: 'image (jpeg, png, webp, gif — 5 Mo)' },
-  video: { maxSize: 16 * 1024 * 1024, mimes: ['video/mp4', 'video/3gpp'], label: 'vidéo (mp4, 3gp — 16 Mo)' },
-  document: { maxSize: 16 * 1024 * 1024, mimes: ['application/pdf'], label: 'document (pdf — 16 Mo)' },
+  image: { maxSize: 5 * 1024 * 1024, mimes: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'], label: 'image (jpeg, png, webp, gif, 5 Mo)' },
+  video: { maxSize: 16 * 1024 * 1024, mimes: ['video/mp4', 'video/3gpp'], label: 'vidéo (mp4, 3gp, 16 Mo)' },
+  document: { maxSize: 16 * 1024 * 1024, mimes: ['application/pdf'], label: 'document (pdf, 16 Mo)' },
 } as const
 type MediaKind = keyof typeof MEDIA_RULES
 const BUCKET_LIMIT = 16 * 1024 * 1024
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
   if (!file || !ref) return NextResponse.json({ error: 'Fichier et ref requis' }, { status: 400 })
   const rules = MEDIA_RULES[mediaKind]
   if (!rules) return NextResponse.json({ error: 'Type de média invalide' }, { status: 400 })
-  if (!(rules.mimes as readonly string[]).includes(file.type)) return NextResponse.json({ error: `Format non supporté pour ${mediaKind} — attendu : ${rules.label}` }, { status: 400 })
+  if (!(rules.mimes as readonly string[]).includes(file.type)) return NextResponse.json({ error: `Format non supporté pour ${mediaKind}, attendu : ${rules.label}` }, { status: 400 })
   if (file.size > rules.maxSize) return NextResponse.json({ error: `Fichier trop volumineux (max ${Math.round(rules.maxSize / 1024 / 1024)} Mo pour ${mediaKind})` }, { status: 400 })
   if (!/^[a-z0-9-_]+$/.test(ref)) return NextResponse.json({ error: 'La ref ne peut contenir que des lettres, chiffres, tirets et underscores' }, { status: 400 })
 

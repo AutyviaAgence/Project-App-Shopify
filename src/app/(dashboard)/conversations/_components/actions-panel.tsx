@@ -382,7 +382,7 @@ function RefundDialog({
                 <input
                   value={notifyLink}
                   onChange={(e) => setNotifyLink(e.target.value)}
-                  placeholder="Lien à joindre (optionnel) — ex : suivi, politique…"
+                  placeholder="Lien à joindre (optionnel), ex : suivi, politique…"
                   className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 />
                 <div className="rounded-md bg-muted/40 p-2 text-xs text-muted-foreground whitespace-pre-line">

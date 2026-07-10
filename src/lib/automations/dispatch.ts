@@ -218,7 +218,7 @@ export async function sendTemplateToContact(params: {
     // variables que ce qu'on envoie (le corps approuvé diffère de notre version
     // locale). Message explicite plutôt que "no_whatsapp" trompeur.
     if (code === '132000') {
-      return { ok: false, error: `params_mismatch (132000) — le modèle approuvé chez Meta n'a pas le même nombre de {{variables}} que la version locale. Resoumettez le modèle.` }
+      return { ok: false, error: `params_mismatch (132000), le modèle approuvé chez Meta n'a pas le même nombre de {{variables}} que la version locale. Resoumettez le modèle.` }
     }
     // On garde le code + le message Meta dans le résultat (diagnostic).
     return { ok: false, error: isNoWa ? `no_whatsapp (code ${code}: ${userMsg.slice(0, 90)})` : `send_failed: ${raw.slice(0, 160)}` }

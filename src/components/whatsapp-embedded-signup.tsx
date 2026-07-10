@@ -109,7 +109,7 @@ export function WhatsAppEmbeddedSignup({
         if (!res.ok) throw new Error(json.error || 'Connexion impossible')
 
         const n = json.imported_templates ?? 0
-        toast.success(n > 0 ? `WhatsApp connecté ✓ — ${n} modèle(s) importé(s)` : 'WhatsApp connecté ✓')
+        toast.success(n > 0 ? `WhatsApp connecté ✓, ${n} modèle(s) importé(s)` : 'WhatsApp connecté ✓')
         if (json.webhooks_subscribed === false) {
           toast.warning('Connecté, mais l’abonnement aux notifications a échoué. Les messages entrants peuvent ne pas arriver.')
         }

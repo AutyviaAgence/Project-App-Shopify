@@ -597,7 +597,7 @@ function ConversationsPageContent() {
         if (selectedConv?.id === convId) {
           setSelectedConv((prev) => prev ? { ...prev, lifecycle_stage_id: result.stageId } : prev)
         }
-        toast.success(`${result.stageName || t('conversations.unclassified')} — ${result.reason}`)
+        toast.success(`${result.stageName || t('conversations.unclassified')}, ${result.reason}`)
       } else {
         toast.error(json.error || t('conversations.analysis_error'))
       }
@@ -988,7 +988,7 @@ function ConversationsPageContent() {
                   onChange={(e) => setNewConvTemplate(e.target.value)}
                   className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
-                  <option value="">— Choisir un modèle —</option>
+                  <option value="">Choisir un modèle…</option>
                   {approvedTemplates.map((tpl) => (
                     <option key={tpl.id} value={tpl.id}>{tpl.name} ({tpl.language})</option>
                   ))}

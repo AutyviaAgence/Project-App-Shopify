@@ -402,7 +402,7 @@ export default function AgentsPage() {
           `py-2` (et non py-6) : la zone est déjà en flex-1 + justify-center,
           un padding généreux ne faisait qu'éloigner titre / cartes / bouton. */}
       <div className={cn('relative z-10 flex flex-1 flex-col py-2', agents.length === 0 ? 'items-center justify-center px-6' : 'items-center justify-start lg:justify-center')}>
-      {/* Carrés lumineux animés en arrière-fond (onboarding) — la grille de fond
+      {/* Carrés lumineux animés en arrière-fond (onboarding), la grille de fond
           est désormais affichée en permanence au niveau de la page. */}
       {agents.length === 0 && (
         <div className="pointer-events-none absolute inset-0 z-0 overflow-hidden">
@@ -563,7 +563,7 @@ export default function AgentsPage() {
                         )}
                         style={isCenter ? { '--tw-ring-color': `${typeColor}40` } as React.CSSProperties : {}}
                       >
-                        {/* Zone visuelle (mascotte) — overflow visible pour laisser
+                        {/* Zone visuelle (mascotte), overflow visible pour laisser
                             le bras + enveloppe deborder a gauche de la carte */}
                         <div
                           className="relative flex items-end justify-center rounded-t-[34px] m-2 mb-0"
@@ -582,7 +582,7 @@ export default function AgentsPage() {
                                 title={t('common.edit')}
                                 /* max-h-[128%] : la mascotte déborde volontairement un peu au-dessus
                                    de sa zone (c'est le parti pris visuel), mais la hauteur doit
-                                   rester BORNÉE — sans plafond, `w-[112%] object-contain` la faisait
+                                   rester BORNÉE, sans plafond, `w-[112%] object-contain` la faisait
                                    grandir sans limite et recouvrir le titre de la page. */
                                 className="absolute -left-5 bottom-0 z-10 max-h-[128%] w-[112%] max-w-none cursor-pointer object-contain object-bottom drop-shadow-[0_12px_24px_rgba(0,0,0,0.45)] transition-transform duration-500 ease-out hover:-translate-y-1.5 hover:scale-[1.02]"
                               />
@@ -604,7 +604,7 @@ export default function AgentsPage() {
                           </span>
                         </div>
 
-                        {/* Pilule flottante verte (épingler + activer) — carte centrale */}
+                        {/* Pilule flottante verte (épingler + activer), carte centrale */}
                         {isCenter && (
                           <div
                             className="absolute right-0 top-6 z-10 flex translate-x-1/4 flex-col items-center gap-0.5 rounded-full py-1 shadow-lg sm:top-7 sm:translate-x-1/3 sm:py-1.5"
@@ -630,7 +630,7 @@ export default function AgentsPage() {
                           </div>
                         )}
 
-                        {/* Infos — minimal : nom + statut */}
+                        {/* Infos, minimal : nom + statut */}
                         <div className="px-6 pt-5 text-center">
                           <h3 className="truncate text-[19px] font-bold tracking-tight text-foreground">{agent.name}</h3>
                           {agent.is_default && (
@@ -644,7 +644,7 @@ export default function AgentsPage() {
                           </div>
                         </div>
 
-                        {/* Actions — bouton plein large + menu, seulement sur la carte centrale */}
+                        {/* Actions, bouton plein large + menu, seulement sur la carte centrale */}
                         {isCenter && (
                           <div className="mt-5 flex items-center gap-2 px-5 sm:gap-2.5 sm:px-6">
                             <Link href={`/agents/${agent.id}`} className="flex-1" onClick={(e) => e.stopPropagation()}>
@@ -721,7 +721,7 @@ export default function AgentsPage() {
         })()
       )}
 
-      {/* Indicateurs (points) — HORS de la scène 3D : en `absolute bottom-0`
+      {/* Indicateurs (points), HORS de la scène 3D : en `absolute bottom-0`
           dedans, ils passaient sous la carte centrale (qui déborde en 3D) et
           se retrouvaient tracés par-dessus le bouton « Configurer ». */}
       {agents.length > 1 && (
@@ -739,7 +739,7 @@ export default function AgentsPage() {
         </div>
       )}
 
-      {/* Bouton "Nouvel agent" — juste sous les cartes et les points */}
+      {/* Bouton "Nouvel agent", juste sous les cartes et les points */}
       <div className="mt-3 flex shrink-0 flex-col items-center gap-2">
         <button
           data-tour="new-agent-btn"
@@ -757,7 +757,7 @@ export default function AgentsPage() {
           </span>
           {t('agents.new_agent')}
         </button>
-        {!aiEnabled && <UpgradeBadge label="Agent IA — plan payant" />}
+        {!aiEnabled && <UpgradeBadge label="Agent IA, plan payant" />}
       </div>
       </div>
 
@@ -841,7 +841,7 @@ export default function AgentsPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Wrench className="h-4 w-4" />
-              {t('tools.title')} — {toolsAgent?.name}
+              {t('tools.title')}, {toolsAgent?.name}
             </DialogTitle>
             <DialogDescription>{t('tools.dialog_desc')}</DialogDescription>
           </DialogHeader>

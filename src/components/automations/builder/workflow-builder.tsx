@@ -248,7 +248,7 @@ export function WorkflowBuilder({
         </div>
       </PannableTimeline>
 
-      {/* iPhone d'aperçu (tout à droite) — affiché à partir de xl seulement
+      {/* iPhone d'aperçu (tout à droite), affiché à partir de xl seulement
           (sur écran moyen/petit, on laisse toute la place au workflow). */}
       <div className="hidden min-h-0 px-1 xl:flex xl:items-center xl:justify-center 2xl:px-4">
         {previewTpl ? (

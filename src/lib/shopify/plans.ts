@@ -141,7 +141,7 @@ async function alertFairUseOnce(userId: string, used: number, cap: number): Prom
       user_id: userId,
       alert_type: 'fair_use_reached',
       title: 'Volume élevé ce mois-ci',
-      message: `Vous avez dépassé ${cap} conversations IA ce mois-ci (${used}). Votre service continue normalement — contactez-nous pour un accompagnement adapté à votre volume.`,
+      message: `Vous avez dépassé ${cap} conversations IA ce mois-ci (${used}). Votre service continue normalement, contactez-nous pour un accompagnement adapté à votre volume.`,
       metadata: { used, cap },
     })
   } catch (err) {

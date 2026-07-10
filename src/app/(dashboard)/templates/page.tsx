@@ -42,7 +42,7 @@ const STATUS_STYLE: Record<string, { label: string; cls: string }> = {
   approved: { label: 'Approuvé', cls: 'bg-green-500/15 text-green-500' },
   rejected: { label: 'Refusé', cls: 'bg-red-500/15 text-red-500' },
   // Template approuvé chez Meta, mais avec des modifications locales non soumises.
-  modified: { label: 'Modifié — à resoumettre', cls: 'bg-orange-500/15 text-orange-600' },
+  modified: { label: 'Modifié, à resoumettre', cls: 'bg-orange-500/15 text-orange-600' },
 }
 
 /**
@@ -443,7 +443,7 @@ export default function TemplatesPage() {
       setLtoTitle(''); setLtoHours(24); setCarouselCards([])
     }
     setMode('edit')
-    toast.success('Modèle pré-rempli — personnalisez puis enregistrez')
+    toast.success('Modèle pré-rempli, personnalisez puis enregistrez')
   }
 
   function openEdit(t: WhatsAppTemplate) {
@@ -635,9 +635,9 @@ export default function TemplatesPage() {
       // Reste en mode édition sur le modèle (re)sauvegardé pour un flux maître-détail fluide.
       if (saved?.id) { setEditing(saved); setSelectedId(saved.id) }
       if (wasSubmitted && nowModified) {
-        toast.success('Modèle modifié — « à resoumettre ». La version approuvée reste active ; resoumettez à Meta pour activer vos changements.', { duration: 6000 })
+        toast.success('Modèle modifié, « à resoumettre ». La version approuvée reste active ; resoumettez à Meta pour activer vos changements.', { duration: 6000 })
       } else if (wasSubmitted && nowDraft) {
-        toast.success('Modèle modifié — repassé en brouillon. Resoumettez-le à Meta pour activer les changements.', { duration: 6000 })
+        toast.success('Modèle modifié, repassé en brouillon. Resoumettez-le à Meta pour activer les changements.', { duration: 6000 })
       } else {
         toast.success((editing ? 'Modèle modifié' : 'Modèle créé') + translateMsg, translateMsg ? { duration: 5000 } : undefined)
       }
@@ -1069,7 +1069,7 @@ export default function TemplatesPage() {
                     <div className="flex-1 text-xs text-amber-600 dark:text-amber-400">
                       {editing.meta_id ? (
                         <>La version <strong>approuvée</strong> reste active chez Meta et continue d&apos;être envoyée.
-                        Vos changements passeront en <strong>« Modifié — à resoumettre »</strong> : <strong>resoumettez à Meta</strong> pour les activer.</>
+                        Vos changements passeront en <strong>« Modifié, à resoumettre »</strong> : <strong>resoumettez à Meta</strong> pour les activer.</>
                       ) : (
                         <>Ce modèle est <strong>{(STATUS_STYLE[editing.status] || STATUS_STYLE.draft).label.toLowerCase()}</strong> chez Meta.
                         Si vous enregistrez, il repassera en <strong>brouillon</strong> et devra être <strong>resoumis à Meta</strong>.</>
@@ -1096,7 +1096,7 @@ export default function TemplatesPage() {
                   <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>{LANGUAGES.map(l => (
                     <SelectItem key={l.value} value={l.value}>
-                      {l.label}{existingLangs.includes(l.value) ? '' : ' — à traduire'}
+                      {l.label}{existingLangs.includes(l.value) ? '' : ', à traduire'}
                     </SelectItem>
                   ))}</SelectContent>
                 </Select>
@@ -1104,7 +1104,7 @@ export default function TemplatesPage() {
                   <p className="text-[11px] text-muted-foreground">Langue source (les autres en sont traduites).</p>
                 )}
                 {editing?.is_auto_translated && (
-                  <p className="text-[11px] text-amber-600">Traduit automatiquement — modifiez librement.</p>
+                  <p className="text-[11px] text-amber-600">Traduit automatiquement, modifiez librement.</p>
                 )}
               </div>
               <div className="space-y-1.5">
@@ -1174,7 +1174,7 @@ export default function TemplatesPage() {
                 <div className="space-y-1.5">
                   <Label>Titre de l&apos;offre</Label>
                   <Input value={ltoTitle} onChange={(e) => setLtoTitle(e.target.value)} placeholder="-10% pendant 2h" maxLength={16} />
-                  <p className="text-[11px] text-muted-foreground">{ltoTitle.length}/16 — affiché au-dessus du compte à rebours.</p>
+                  <p className="text-[11px] text-muted-foreground">{ltoTitle.length}/16, affiché au-dessus du compte à rebours.</p>
                 </div>
                 <div className="space-y-1.5">
                   <Label>Durée du compte à rebours</Label>
@@ -1355,7 +1355,7 @@ export default function TemplatesPage() {
               />
             )}
 
-            {/* Boutons — standard et offre limitée (pas le carrousel, qui a ses
+            {/* Boutons, standard et offre limitée (pas le carrousel, qui a ses
                 boutons par carte) */}
             {templateType !== 'carousel' && (
             <div className="space-y-2">
@@ -1489,7 +1489,7 @@ export default function TemplatesPage() {
                       <div className="flex items-start gap-2">
                         <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10"><Sparkles className="h-3.5 w-3.5 text-primary" /></span>
                         <div className="rounded-2xl rounded-tl-sm bg-muted px-3 py-2 text-sm">
-                          Bonjour ! Décrivez-moi le message que vous voulez créer — par exemple « relancer un panier abandonné » ou « prévenir que la commande est expédiée ».
+                          Bonjour ! Décrivez-moi le message que vous voulez créer, par exemple « relancer un panier abandonné » ou « prévenir que la commande est expédiée ».
                         </div>
                       </div>
                     )}
@@ -1624,7 +1624,7 @@ export default function TemplatesPage() {
                   <>
                     Le modèle <strong>{confirmDelete.name}</strong> sera définitivement supprimé
                     {langs.length > 1 ? <> dans <strong>toutes ses langues</strong> ({langs.map((l) => l.toUpperCase()).join(', ')})</> : null}
-                    {confirmDelete.meta_id ? <> — y compris chez <strong>Meta</strong></> : null}.
+                    {confirmDelete.meta_id ? <>, y compris chez <strong>Meta</strong></> : null}.
                     {' '}Cette action est <strong>irréversible</strong>.
                   </>
                 )

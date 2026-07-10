@@ -27,9 +27,9 @@ export async function GET() {
     builtAt: build.builtAt || 'unknown',
     // Marqueur des fonctionnalités récentes (présentes = cette version les a).
     features: {
-      refundLineItemsFix: true,   // fix remboursement total (articles) — 012bc2b
-      refundMethodForm: true,     // formulaire motif/montant/méthode — 21347f0
-      clickableTags: true,        // étapes cliquables dans la liste — 38f4278
+      refundLineItemsFix: true,   // fix remboursement total (articles), 012bc2b
+      refundMethodForm: true,     // formulaire motif/montant/méthode, 21347f0
+      clickableTags: true,        // étapes cliquables dans la liste, 38f4278
     },
   })
 }

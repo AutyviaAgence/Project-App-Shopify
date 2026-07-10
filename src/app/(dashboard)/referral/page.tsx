@@ -89,7 +89,7 @@ export default function ReferralPage() {
           Votre lien de parrainage
         </h2>
         <p className="text-sm text-slate-500 mb-4">
-          Partagez ce lien — votre filleul et vous recevrez chacun 500 000 tokens dès son premier paiement réel.
+          Partagez ce lien, votre filleul et vous recevrez chacun 500 000 tokens dès son premier paiement réel.
         </p>
         <div className="flex gap-2">
           <div className="flex-1 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-700 px-4 py-2.5 text-sm font-mono text-slate-700 dark:text-slate-300 truncate">
@@ -113,7 +113,7 @@ export default function ReferralPage() {
             { step: '1', text: 'Partagez votre lien à un contact' },
             { step: '2', text: 'Il s\'inscrit via votre lien et choisit un plan ou un audit' },
             { step: '3', text: 'Dès son premier paiement réel encaissé par Stripe, vous recevez chacun 500 000 tokens' },
-            { step: '4', text: 'Il n\'y a pas de limite — parrainez autant de personnes que vous voulez' },
+            { step: '4', text: 'Il n\'y a pas de limite, parrainez autant de personnes que vous voulez' },
           ].map(({ step, text }) => (
             <div key={step} className="flex items-start gap-3">
               <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-bold flex items-center justify-center">

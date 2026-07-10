@@ -195,7 +195,7 @@ export function WhatsAppConnect() {
       const n = json.imported_templates || 0
       track('whatsapp_connected', { imported_templates: n })
       toast.success(n > 0
-        ? `WhatsApp connecté — ${n} modèle${n > 1 ? 's' : ''} importé${n > 1 ? 's' : ''} depuis votre compte.`
+        ? `WhatsApp connecté, ${n} modèle${n > 1 ? 's' : ''} importé${n > 1 ? 's' : ''} depuis votre compte.`
         : 'WhatsApp connecté')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erreur')
@@ -266,9 +266,9 @@ export function WhatsAppConnect() {
                     }
                       title={
                         'La note de qualité vient de Meta : elle mesure la satisfaction de vos destinataires (blocages et signalements « spam » sur vos messages).\n\n' +
-                        '🟢 Bonne : peu ou pas de plaintes — vous pouvez envoyer normalement.\n' +
-                        '🟡 Moyenne : plaintes en hausse — réduisez le marketing et vérifiez que vos contacts ont bien consenti, sous peine de restriction.\n' +
-                        '🔴 Critique : trop de plaintes — Meta va restreindre votre numéro. Xeyo suspend automatiquement le marketing pour le protéger.\n\n' +
+                        '🟢 Bonne : peu ou pas de plaintes, vous pouvez envoyer normalement.\n' +
+                        '🟡 Moyenne : plaintes en hausse, réduisez le marketing et vérifiez que vos contacts ont bien consenti, sous peine de restriction.\n' +
+                        '🔴 Critique : trop de plaintes, Meta va restreindre votre numéro. Xeyo suspend automatiquement le marketing pour le protéger.\n\n' +
                         'Les réponses SAV n’affectent pas cette note.'
                       }>
                       <span className="h-1.5 w-1.5 rounded-full bg-current" />
@@ -312,7 +312,7 @@ export function WhatsAppConnect() {
             <WifiOff className="mt-0.5 h-3.5 w-3.5 shrink-0" />
             <span>
               <span className="font-medium">Envois marketing suspendus.</span> Meta a classé votre numéro en qualité critique.
-              Xeyo a mis en pause les campagnes et relances pour protéger votre numéro — le SAV et les messages transactionnels
+              Xeyo a mis en pause les campagnes et relances pour protéger votre numéro, le SAV et les messages transactionnels
               continuent. Réactivation automatique dès le retour au vert.
             </span>
           </div>

@@ -127,7 +127,7 @@ export function TemplateSwiper({
           </p>
           {dropped > 0 && (
             <p className="mt-0.5 text-sm text-muted-foreground">
-              {dropped} écarté{dropped > 1 ? 's' : ''} — récupérables plus tard depuis le dashboard
+              {dropped} écarté{dropped > 1 ? 's' : ''}, récupérables plus tard depuis le dashboard
             </p>
           )}
         </div>
@@ -333,7 +333,7 @@ function SwipeCard({
                       />
                       {varWarn ? (
                         <p className="mt-1 text-[10px] font-medium text-red-400">
-                          Les variables {'{{x}}'} sont verrouillées — modifiez le texte autour, pas dedans.
+                          Les variables {'{{x}}'} sont verrouillées, modifiez le texte autour, pas dedans.
                         </p>
                       ) : (
                         <p className="mt-1 text-[10px] text-[#8696a0]">

@@ -142,7 +142,7 @@ export const wabaClient = {
   },
 
   /** Santé du numéro : qualité (GREEN/YELLOW/RED) + palier d'envoi (TIER_250…).
-      Sert au badge santé du dashboard — anticiper les restrictions Meta. */
+      Sert au badge santé du dashboard, anticiper les restrictions Meta. */
   getPhoneNumberHealth(phoneNumberId: string, accessToken: string) {
     return request<{
       id: string

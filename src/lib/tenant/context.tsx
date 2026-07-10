@@ -38,7 +38,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
   // Update page title and favicon dynamically
   useEffect(() => {
-    document.title = `${tenant.appName} — WhatsApp Support & Chat`
+    document.title = `${tenant.appName}, WhatsApp Support & Chat`
 
     // Update favicon
     const faviconUrl = tenant.faviconUrl || '/logo-xeyo.svg'

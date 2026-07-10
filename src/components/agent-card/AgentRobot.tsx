@@ -26,7 +26,7 @@ export function AgentRobot({ color = '#7DC2A5', size = 120 }: { color?: string; 
       <circle cx="40" cy="39" r="3" fill="white" opacity="0.6" />
       <circle cx="72" cy="39" r="3" fill="white" opacity="0.6" />
 
-      {/* Bouche — sourire */}
+      {/* Bouche, sourire */}
       <path
         d="M40 58 Q60 70 80 58"
         stroke={color}

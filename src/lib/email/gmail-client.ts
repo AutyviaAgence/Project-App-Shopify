@@ -26,7 +26,7 @@ type IncomingGmailMessage = {
 /** Get a valid access token, refreshing if expired */
 async function getValidAccessToken(session: GmailSession): Promise<string> {
   if (!session.oauth_access_token_encrypted || !session.oauth_refresh_token_encrypted) {
-    throw new Error('Session Gmail non connectée — tokens OAuth manquants')
+    throw new Error('Session Gmail non connectée, tokens OAuth manquants')
   }
 
   const accessToken = decryptMessage(session.oauth_access_token_encrypted)

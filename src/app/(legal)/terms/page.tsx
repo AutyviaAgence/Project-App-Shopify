@@ -3,6 +3,6 @@
 export { default } from '../cgu/page'
 
 export const metadata = {
-  title: 'Conditions de Service — Xeyo',
+  title: 'Conditions de Service, Xeyo',
   description: "Conditions générales d'utilisation des services Xeyo.",
 }

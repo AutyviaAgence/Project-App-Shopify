@@ -116,7 +116,7 @@ async function fetchAllProducts(
       if (p.productType) lines.push(`Type : ${p.productType}`)
       if (p.vendor) lines.push(`Marque : ${p.vendor}`)
       if (p.description) lines.push(p.description.replace(/<[^>]+>/g, ' ').trim())
-      const variants = p.variants.edges.map((v: VariantEdge) => `${v.node.title} — ${v.node.price}${v.node.availableForSale ? '' : ' (rupture)'}`)
+      const variants = p.variants.edges.map((v: VariantEdge) => `${v.node.title}, ${v.node.price}${v.node.availableForSale ? '' : ' (rupture)'}`)
       if (variants.length) lines.push(`Variantes : ${variants.join(' · ')}`)
       lines.push('')
 
@@ -438,7 +438,7 @@ export async function syncShopToKnowledge(
     const { text, count, products: structured } = await fetchAllProducts(shop, token)
     products = count
     if (text.trim().length > 20) {
-      const r = await upsertDoc({ userId: store.user_id, agentId: null, existingDocId: store.catalog_doc_id, name: `Catalogue — ${shopName}`, content: text, previousHash: hashes.catalog || null })
+      const r = await upsertDoc({ userId: store.user_id, agentId: null, existingDocId: store.catalog_doc_id, name: `Catalogue · ${shopName}`, content: text, previousHash: hashes.catalog || null })
       if (r.docId) { updates.catalog_doc_id = r.docId; newHashes.catalog = r.hash; documents++; if (r.processed) processed++ }
     }
     // Produits structurés (pour carrousels/liens des templates IA) — TOUJOURS,
@@ -459,11 +459,11 @@ export async function syncShopToKnowledge(
     policiesPresent = policiesText.trim().length > 20
 
     if (pagesPresent) {
-      const r = await upsertDoc({ userId: store.user_id, agentId: null, existingDocId: store.pages_doc_id, name: `Pages — ${shopName}`, content: pagesText, previousHash: hashes.pages || null })
+      const r = await upsertDoc({ userId: store.user_id, agentId: null, existingDocId: store.pages_doc_id, name: `Pages · ${shopName}`, content: pagesText, previousHash: hashes.pages || null })
       if (r.docId) { updates.pages_doc_id = r.docId; newHashes.pages = r.hash; documents++; if (r.processed) processed++ }
     }
     if (policiesPresent) {
-      const r = await upsertDoc({ userId: store.user_id, agentId: null, existingDocId: store.policies_doc_id, name: `Politiques — ${shopName}`, content: policiesText, previousHash: hashes.policies || null })
+      const r = await upsertDoc({ userId: store.user_id, agentId: null, existingDocId: store.policies_doc_id, name: `Politiques · ${shopName}`, content: policiesText, previousHash: hashes.policies || null })
       if (r.docId) { updates.policies_doc_id = r.docId; newHashes.policies = r.hash; documents++; if (r.processed) processed++ }
     }
     // Contexte boutique (nom + devise + liens) → injecté aux agents.
@@ -551,9 +551,9 @@ export async function autoConfigureAgentFromShop(storeId: string): Promise<AutoC
   const policiesPresent = policies.trim().length > 20
 
   for (const [key, idCol, name, content] of [
-    ['catalog', 'catalog_doc_id', `Catalogue — ${shopName}`, products],
-    ['pages', 'pages_doc_id', `Pages — ${shopName}`, pages],
-    ['policies', 'policies_doc_id', `Politiques — ${shopName}`, policies],
+    ['catalog', 'catalog_doc_id', `Catalogue · ${shopName}`, products],
+    ['pages', 'pages_doc_id', `Pages · ${shopName}`, pages],
+    ['policies', 'policies_doc_id', `Politiques · ${shopName}`, policies],
   ] as const) {
     if (content.trim().length > 20) {
       // Docs boutique GLOBAUX (non liés à un agent) : le RAG les inclut pour tous.

@@ -1,7 +1,7 @@
 import { LegalPageLayout } from '@/components/legal-page-layout'
 
 export const metadata = {
-  title: 'Suppression des données — Xeyo',
+  title: 'Suppression des données, Xeyo',
   description: 'Comment demander la suppression de vos données personnelles auprès de Xeyo.',
 }
 

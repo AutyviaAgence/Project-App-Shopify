@@ -225,15 +225,15 @@ export async function POST(
     const videos = byKind('video')
     const documents = byKind('document')
     if (images.length) {
-      lines.push(`\n🖼️ ENVOYER UNE IMAGE — balise [IMAGE:ref]. Images disponibles :`)
+      lines.push(`\n🖼️ ENVOYER UNE IMAGE, balise [IMAGE:ref]. Images disponibles :`)
       lines.push(images.map(i => `  - [IMAGE:${i.ref}] → ${i.filename}`).join('\n'))
     }
     if (videos.length) {
-      lines.push(`\n🎬 ENVOYER UNE VIDÉO — balise [VIDEO:ref]. Vidéos disponibles :`)
+      lines.push(`\n🎬 ENVOYER UNE VIDÉO, balise [VIDEO:ref]. Vidéos disponibles :`)
       lines.push(videos.map(v => `  - [VIDEO:${v.ref}] → ${v.filename}`).join('\n'))
     }
     if (documents.length) {
-      lines.push(`\n📄 ENVOYER UN DOCUMENT — balise [DOC:ref]. Documents disponibles :`)
+      lines.push(`\n📄 ENVOYER UN DOCUMENT, balise [DOC:ref]. Documents disponibles :`)
       lines.push(documents.map(d => `  - [DOC:${d.ref}] → ${d.filename}`).join('\n'))
     }
     systemPrompt += `\n\n--- Médias disponibles (UTILISE-LES) ---${lines.join('\n')}\n`
@@ -262,7 +262,7 @@ export async function POST(
   // Ajouter instruction outils au system prompt
   if (openaiTools.length > 0) {
     const toolNames = openaiTools.map(t => t.function.name).join(', ')
-    systemPrompt += `\n\n--- Outils disponibles ---\nTu disposes des outils suivants que tu DOIS utiliser quand la demande correspond : ${toolNames}.\nQuand l'utilisateur demande des informations ou actions liées à ces outils, utilise TOUJOURS l'outil approprié via un function call. Ne dis JAMAIS que tu ne peux pas accéder à ces données — appelle l'outil.\n--- Fin des outils ---`
+    systemPrompt += `\n\n--- Outils disponibles ---\nTu disposes des outils suivants que tu DOIS utiliser quand la demande correspond : ${toolNames}.\nQuand l'utilisateur demande des informations ou actions liées à ces outils, utilise TOUJOURS l'outil approprié via un function call. Ne dis JAMAIS que tu ne peux pas accéder à ces données, appelle l'outil.\n--- Fin des outils ---`
   }
 
   // Boucle de tool calling (max 5 rounds)

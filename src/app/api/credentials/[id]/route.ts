@@ -154,7 +154,7 @@ export async function DELETE(
   }
 
   if (!deleted || deleted.length === 0) {
-    return NextResponse.json({ error: 'Suppression échouée — aucune ligne affectée' }, { status: 500 })
+    return NextResponse.json({ error: 'Suppression échouée, aucune ligne affectée' }, { status: 500 })
   }
 
   return NextResponse.json({ ok: true })

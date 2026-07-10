@@ -68,7 +68,7 @@ Sois naturel, concis et bienveillant. Pose une seule question à la fois. Ne pro
 
   // Créer la base de connaissances exemple si pas encore fait
   if (!documentId) {
-    const exampleContent = `# Xeyo — Plateforme d'automatisation WhatsApp avec IA
+    const exampleContent = `# Xeyo, Plateforme d'automatisation WhatsApp avec IA
 
 ## Qu'est-ce qu'Xeyo ?
 Xeyo est une plateforme qui permet aux entreprises d'automatiser leurs conversations WhatsApp grâce à l'intelligence artificielle. Elle combine un inbox partagé, des agents IA configurables, et des outils d'analyse pour optimiser la relation client.

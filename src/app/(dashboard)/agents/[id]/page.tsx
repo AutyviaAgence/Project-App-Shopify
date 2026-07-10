@@ -517,7 +517,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                           className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
                           <Eye className="h-3.5 w-3.5" />
                         </button>
-                        {/* Détache le document de CET agent — le fichier reste dans la
+                        {/* Détache le document de CET agent, le fichier reste dans la
                             bibliothèque (la suppression définitive est dans « Ajouter »). */}
                         <button onClick={() => handleDetachDoc(doc.id)} title="Retirer de cet agent"
                           className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive">
@@ -725,7 +725,9 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
             {(() => {
               // Docs boutique (Catalogue/Pages/Politiques) = globaux, déjà inclus
               // automatiquement dans le RAG → on ne les propose pas à l'attache.
-              const isStoreDoc = (n: string) => /^(Catalogue|Pages|Politiques)\s*—/.test(n)
+              // Deux séparateurs acceptés : « · » (noms actuels) et « — »
+              // (documents créés avant le renommage, toujours en base).
+              const isStoreDoc = (n: string) => /^(Catalogue|Pages|Politiques)\s*[·—]/.test(n)
               const attachable = allDocs.filter(d => !docs.find(dd => dd.id === d.id) && !isStoreDoc(d.name))
               if (attachable.length === 0) {
                 return <p className="text-sm text-center text-muted-foreground py-4">Aucun document à attacher. Uploadez-en un ci-dessous.</p>
@@ -811,14 +813,14 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
       </AlertDialog>
 
       {/* Bibliothèque de médias : réutiliser un média déjà uploadé pour un autre
-          agent. Un média n'appartient qu'à un agent — d'où le choix « partager ». */}
+          agent. Un média n'appartient qu'à un agent, d'où le choix « partager ». */}
       <Dialog open={mediaLibraryOpen} onOpenChange={setMediaLibraryOpen}>
         <DialogContent className="sm:max-w-2xl rounded-2xl">
           <DialogHeader>
             <DialogTitle>Bibliothèque de médias</DialogTitle>
             <DialogDescription>
               Réutilisez un média déjà envoyé par un autre agent. Un média appartient à un seul
-              agent — « Partager » le rend disponible pour tous.
+              agent, « Partager » le rend disponible pour tous.
             </DialogDescription>
           </DialogHeader>
           {(() => {
@@ -899,9 +901,9 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                 className="mt-1.5 w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-muted file:px-3 file:py-1.5 file:text-sm"
               />
               <p className="mt-1 text-[11px] text-muted-foreground">
-                {mediaKind === 'image' ? 'jpeg, png, webp, gif — max 5 Mo'
-                  : mediaKind === 'video' ? 'mp4, 3gp — max 16 Mo'
-                  : 'pdf — max 16 Mo'}
+                {mediaKind === 'image' ? 'jpeg, png, webp, gif, max 5 Mo'
+                  : mediaKind === 'video' ? 'mp4, 3gp, max 16 Mo'
+                  : 'pdf, max 16 Mo'}
               </p>
             </div>
             <Button className="w-full rounded-xl" disabled={uploadingMedia || !mediaFile || !mediaRef.trim()} onClick={handleUploadMedia}>

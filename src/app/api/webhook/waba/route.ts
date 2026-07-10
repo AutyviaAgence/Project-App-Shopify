@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
 async function validateWebhookSignature(req: NextRequest): Promise<{ valid: boolean; body: string }> {
   const appSecret = process.env.WABA_APP_SECRET
   if (!appSecret) {
-    console.error('[WABA Webhook] WABA_APP_SECRET is not configured — rejecting request (fail-closed)')
+    console.error('[WABA Webhook] WABA_APP_SECRET is not configured, rejecting request (fail-closed)')
     return { valid: false, body: '' }
   }
 

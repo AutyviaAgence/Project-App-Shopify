@@ -207,14 +207,14 @@ export default function AgentOnboardPage() {
         <h1 className="text-xl font-semibold sm:text-2xl md:text-3xl">{QUESTIONS[step]}</h1>
 
         <div className="mt-5">
-          {/* Q1 — Nom */}
+          {/* Q1, Nom */}
           {step === 0 && (
             <input value={name} onChange={(e) => setName(e.target.value)} autoFocus
               placeholder="Ex : Assistant de la boutique"
               className="h-12 w-full rounded-lg border border-input bg-background px-4 text-base" />
           )}
 
-          {/* Q2 — Objectifs */}
+          {/* Q2, Objectifs */}
           {step === 1 && (
             <>
               <p className="mb-3 text-sm text-muted-foreground">Sélectionnez tout ce qui s’applique.</p>
@@ -241,10 +241,10 @@ export default function AgentOnboardPage() {
             </>
           )}
 
-          {/* Q3 — Ton */}
+          {/* Q3, Ton */}
           {step === 2 && (
             <>
-              <p className="mb-3 text-sm text-muted-foreground">Déduit de votre boutique — ajustez si besoin.</p>
+              <p className="mb-3 text-sm text-muted-foreground">Déduit de votre boutique, ajustez si besoin.</p>
               <div className="flex flex-col gap-2">
                 {TONES.map((t) => (
                   <button key={t.key} onClick={() => setTone(t.key)}
@@ -258,7 +258,7 @@ export default function AgentOnboardPage() {
             </>
           )}
 
-          {/* Q4 — Langues */}
+          {/* Q4, Langues */}
           {step === 3 && (
             <>
               <p className="mb-3 text-sm text-muted-foreground">Sélectionnez toutes les langues de vos clients.</p>
@@ -274,7 +274,7 @@ export default function AgentOnboardPage() {
             </>
           )}
 
-          {/* Q5 — Délai */}
+          {/* Q5, Délai */}
           {step === 4 && (
             <>
               <p className="mb-4 text-sm text-muted-foreground">Un léger délai rend l’échange plus naturel (effet « humain »).</p>
@@ -292,7 +292,7 @@ export default function AgentOnboardPage() {
             </>
           )}
 
-          {/* Q6 — Transfert humain */}
+          {/* Q6, Transfert humain */}
           {step === 5 && (
             <div className="space-y-3">
               <label className="flex cursor-pointer items-center gap-2.5 rounded-xl border p-4 text-sm font-medium">
@@ -320,7 +320,7 @@ export default function AgentOnboardPage() {
             </div>
           )}
 
-          {/* Q7 — Instructions */}
+          {/* Q7, Instructions */}
           {step === 6 && (
             <div className="flex h-full flex-col">
               <div className="mb-2 flex items-center justify-between">
@@ -348,7 +348,7 @@ export default function AgentOnboardPage() {
             </div>
           )}
 
-          {/* Q8 — Récap */}
+          {/* Q8, Récap */}
           {step === 7 && (
             <dl className="divide-y rounded-xl border">
               {[

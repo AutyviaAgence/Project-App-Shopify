@@ -134,7 +134,7 @@ export function LegalPageLayout({
       <div className="container mx-auto px-4 py-8 lg:py-10">
         <div className="grid gap-6 lg:grid-cols-[240px_1fr_200px] lg:gap-8 xl:grid-cols-[260px_1fr_220px]">
 
-          {/* Sidebar gauche — navigation */}
+          {/* Sidebar gauche, navigation */}
           <aside className="lg:sticky lg:top-20 lg:h-fit space-y-4">
             <nav className="rounded-xl border bg-white dark:bg-slate-900 overflow-hidden shadow-sm">
               <div className="px-4 py-3 border-b bg-slate-50 dark:bg-slate-800/50">
@@ -235,12 +235,12 @@ export function LegalPageLayout({
 
             {/* Footer */}
             <div className="mt-6 flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-white dark:bg-slate-900 px-5 py-3 text-xs text-slate-400 shadow-sm">
-              <p>© {new Date().getFullYear()} Xeyo — TOURAILLE-TRAN Julian</p>
+              <p>© {new Date().getFullYear()} Xeyo, TOURAILLE-TRAN Julian</p>
               <p>SIRET : 992 684 829 00011</p>
             </div>
           </main>
 
-          {/* Sidebar droite — table des matières */}
+          {/* Sidebar droite, table des matières */}
           {toc.length > 0 && (
             <aside className="hidden lg:block lg:sticky lg:top-20 lg:h-fit">
               <div className="rounded-xl border bg-white dark:bg-slate-900 overflow-hidden shadow-sm">

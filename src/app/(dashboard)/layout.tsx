@@ -212,7 +212,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         />
       )}
 
-      {/* Sidebar — carte flottante (style Framer). Repliée : 81px (icônes).
+      {/* Sidebar, carte flottante (style Framer). Repliée : 81px (icônes).
           Élargie (épinglée ou survolée) : 240px avec libellés. Mobile : drawer. */}
       <aside
         onMouseEnter={() => setHovered(true)}
@@ -309,7 +309,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
       </aside>
 
-      {/* Main content — panneau. Collé à la sidebar quand elle est épinglée
+      {/* Main content, panneau. Collé à la sidebar quand elle est épinglée
           (l'onglet actif s'y raccorde via la languette), sinon flottant. */}
       <div className={cn(
         'relative flex flex-1 flex-col overflow-hidden bg-background md:my-2 md:mr-2 md:shadow-2xl',

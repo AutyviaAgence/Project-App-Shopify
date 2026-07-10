@@ -155,7 +155,7 @@ export function PhonePreview({
             </div>
           </div>
 
-          {/* Conversation (fond WhatsApp) — les bulles se remplissent par le bas */}
+          {/* Conversation (fond WhatsApp), les bulles se remplissent par le bas */}
           <div
             className="relative flex flex-1 flex-col justify-center gap-2.5 px-3 py-4"
             style={{ backgroundImage: 'url(/whatsapp-bg.webp)', backgroundSize: 'cover' }}
@@ -170,7 +170,7 @@ export function PhonePreview({
                 >
                   <p className="flex items-center justify-center gap-1.5 text-[15px] font-medium text-amber-800">
                     <ShoppingBag className="h-3.5 w-3.5" />
-                    {customerName} — {eventLabel.toLowerCase()}
+                    {customerName}, {eventLabel.toLowerCase()}
                   </p>
                   {conditionsText && (
                     <p className="mt-0.5 text-[13px] text-amber-700/80">✓ {conditionsText}</p>

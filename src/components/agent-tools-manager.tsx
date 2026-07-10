@@ -1024,7 +1024,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                             <div className="flex items-center justify-between">
                               <p className="text-[10px] text-muted-foreground">
                                 {cred.client_id ? `Client ID: ${cred.client_id.slice(0, 20)}...` : cred.name}
-                                {' — '}{cred.is_connected ? t('tools.connected') : t('tools.not_connected')}
+                                {', '}{cred.is_connected ? t('tools.connected') : t('tools.not_connected')}
                               </p>
                               <Button
                                 size="sm"
@@ -1113,7 +1113,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
               </div>
               )}
 
-                {/* WhatsApp Message — session selector + contact picker + delay */}
+                {/* WhatsApp Message, session selector + contact picker + delay */}
                 {selectedTemplate.type === 'whatsapp_message' && (
                   <div className="space-y-4">
                     {/* Session selector */}
@@ -1228,7 +1228,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                   </div>
                 )}
 
-              {/* Distance Calculator — vehicles list */}
+              {/* Distance Calculator, vehicles list */}
               {selectedTemplate.type === 'distance_calculator' && (
                 <div className="space-y-3 border-t pt-3">
                   <div className="flex items-center justify-between">

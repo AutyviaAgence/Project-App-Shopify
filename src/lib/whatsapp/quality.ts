@@ -72,7 +72,7 @@ export async function applyQualityUpdate(
     // ROUGE : marketing coupé (nouveau passage seulement)
     if (quality === 'RED' && prevQuality !== 'RED') {
       await alertOncePerDay(admin, userId, 'whatsapp_quality',
-        'Qualité WhatsApp CRITIQUE — marketing suspendu',
+        'Qualité WhatsApp CRITIQUE, marketing suspendu',
         'Meta a classé votre numéro en qualité ROUGE. Xeyo a automatiquement suspendu les envois marketing (paniers abandonnés, campagnes) pour protéger votre numéro. Le SAV et les messages transactionnels continuent. Réactivation automatique dès le retour au vert.',
         { quality, tier })
     } else if (quality === 'YELLOW' && prevQuality !== 'YELLOW') {

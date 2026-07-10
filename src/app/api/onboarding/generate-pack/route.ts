@@ -61,12 +61,12 @@ export async function POST(req: NextRequest) {
 
   const specLines = PACK_SPECS.map((s) => {
     const vars = s.variable_keys.map((k, i) => `{{${i + 1}}}=${k}`).join(', ')
-    return `- id "${s.trigger}" — ${s.label}. Intention : ${s.intent} Variables imposées : ${vars}.`
+    return `- id "${s.trigger}", ${s.label}. Intention : ${s.intent} Variables imposées : ${vars}.`
   }).join('\n')
 
   const SYSTEM = `Tu rédiges des messages WhatsApp e-commerce pour la boutique « ${shopName} ». Ton : ${toneLine}. Langue : français.
-Pour CHAQUE id listé, écris un message court (2 à 4 phrases max, ≤ 550 caractères) qui utilise LES variables imposées sous leur forme numérotée {{1}}, {{2}}… (toutes, dans un ordre naturel — n'invente JAMAIS d'autre variable ni de {{n}} non listé). Mentionne la marque quand c'est naturel. Pas de MAJUSCULES criardes, pas de spam, emojis sobres autorisés (0 à 2).
-Réponds UNIQUEMENT en JSON : { "items": [ { "id": "<trigger>", "header": "titre court (≤ 40 car.) ou null", "body": "le message avec {{n}}" } ] } — un item par id, tous les ids.`
+Pour CHAQUE id listé, écris un message court (2 à 4 phrases max, ≤ 550 caractères) qui utilise LES variables imposées sous leur forme numérotée {{1}}, {{2}}… (toutes, dans un ordre naturel, n'invente JAMAIS d'autre variable ni de {{n}} non listé). Mentionne la marque quand c'est naturel. Pas de MAJUSCULES criardes, pas de spam, emojis sobres autorisés (0 à 2).
+Réponds UNIQUEMENT en JSON : { "items": [ { "id": "<trigger>", "header": "titre court (≤ 40 car.) ou null", "body": "le message avec {{n}}" } ] }, un item par id, tous les ids.`
 
   const USER = `BOUTIQUE : ${shopName}${store.country ? ` (${store.country})` : ''}
 ${storeContextPrompt}

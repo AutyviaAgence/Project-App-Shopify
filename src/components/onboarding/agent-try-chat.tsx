@@ -72,7 +72,7 @@ export function AgentTryChat({
       <div ref={scrollRef} className="max-h-64 space-y-2 overflow-y-auto p-3">
         {messages.length === 0 && (
           <p className="py-2 text-center text-xs text-muted-foreground">
-            Posez une question comme le ferait un client — l’agent répond avec les infos de votre boutique.
+            Posez une question comme le ferait un client, l’agent répond avec les infos de votre boutique.
           </p>
         )}
         {messages.map((m, i) => (
@@ -104,7 +104,7 @@ export function AgentTryChat({
         </div>
       )}
 
-      {/* Saisie — remplacée par une note quand la limite d'essai est atteinte. */}
+      {/* Saisie, remplacée par une note quand la limite d'essai est atteinte. */}
       {limitReached ? (
         <p className="border-t bg-muted/30 px-3 py-2.5 text-center text-xs text-muted-foreground">
           Limite d’essai atteinte ✓ Vous pourrez continuer à discuter avec votre agent après la configuration.

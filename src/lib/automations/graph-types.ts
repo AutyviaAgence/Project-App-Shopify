@@ -146,19 +146,19 @@ export function validateGraph(graph: WorkflowGraph): string[] {
 export const GRAPH_JSON_SCHEMA_DOC = `
 Un workflow est un objet JSON { "nodes": [...], "edges": [...] }.
 
-NŒUDS (nodes) — chaque nœud a un "id" unique (string) et un "type" :
-- trigger   : { id, type:"trigger", event } — déclencheur Shopify. event ∈
+NŒUDS (nodes), chaque nœud a un "id" unique (string) et un "type" :
+- trigger   : { id, type:"trigger", event }, déclencheur Shopify. event ∈
               order_created | order_paid | order_fulfilled | order_delivered |
               order_cancelled | refund_created | checkout_abandoned. UN SEUL
               trigger par workflow.
-- delay     : { id, type:"delay", minutes } — attente (minutes, 0 = immédiat).
+- delay     : { id, type:"delay", minutes }, attente (minutes, 0 = immédiat).
 - condition : { id, type:"condition", rule:{ field, op, value }, label? }
               field ∈ order_total | is_first_order | product_contains |
               collection_contains | country | language
               op ∈ > >= < <= == != contains
-- action    : { id, type:"action", templateId, label? } — envoie un modèle WhatsApp.
+- action    : { id, type:"action", templateId, label? }, envoie un modèle WhatsApp.
 
-ARÊTES (edges) — relient les nœuds : { from, to, branch? }
+ARÊTES (edges), relient les nœuds : { from, to, branch? }
 - "branch" vaut "yes" ou "no" UNIQUEMENT pour les arêtes sortant d'une condition.
 - les autres nœuds ont une seule arête sortante (sans branch).
 

@@ -356,7 +356,7 @@ export default function OnboardingPage() {
     const raw = shopInput.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '')
     const shop = raw.endsWith('.myshopify.com') ? raw : `${raw}.myshopify.com`
     if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(shop)) {
-      toast.error('Domaine invalide — format attendu : maboutique.myshopify.com')
+      toast.error('Domaine invalide, format attendu : maboutique.myshopify.com')
       return
     }
     setShopTaken(null)
@@ -704,7 +704,7 @@ export default function OnboardingPage() {
                   <div className="space-y-2.5 rounded-xl border p-5">
                     {[
                       { label: 'Boutique liée', done: true },
-                      { label: `Catalogue produits${state.syncSummary?.products ? ` — ${state.syncSummary.products} produits` : ''}`, done: Boolean(state.syncSummary?.products) },
+                      { label: `Catalogue produits${state.syncSummary?.products ? `, ${state.syncSummary.products} produits` : ''}`, done: Boolean(state.syncSummary?.products) },
                       { label: 'Pages du site', done: Boolean(state.syncSummary?.pages) },
                       { label: 'Politiques (retours, remboursements…)', done: Boolean(state.syncSummary?.policies) },
                     ].map((row) => (
@@ -734,8 +734,8 @@ export default function OnboardingPage() {
                       </p>
 
                       {/* Popup Meta : seul chemin proposé aux marchands. (Les admins
-                          ne voient jamais l'onboarding — /api/onboarding/state leur
-                          renvoie completed:true — d'où l'absence de saisie manuelle ici.) */}
+                          ne voient jamais l'onboarding, /api/onboarding/state leur
+                          renvoie completed:true, d'où l'absence de saisie manuelle ici.) */}
                       {embeddedSignupAvailable ? (
                         <div className="space-y-2">
                           <WhatsAppEmbeddedSignup
@@ -795,7 +795,7 @@ export default function OnboardingPage() {
                     </div>
                   ) : (
                     /* Mise en scène BD : le panneau devient une BULLE DE
-                       DIALOGUE — queue dessinée en bas à droite pointant vers
+                       DIALOGUE, queue dessinée en bas à droite pointant vers
                        la mascotte (transparente, phone.png) qui « parle ».
                        Étape volontairement minimale : on essaie l'agent
                        (plafonné, coût tokens), le reste se règle plus tard. */
@@ -930,7 +930,7 @@ export default function OnboardingPage() {
                   ) : (
                     <>
                       <p className="text-sm text-muted-foreground">
-                        Quatre familles d’automatisations, prêtes à l’emploi. Activez celles qui vous parlent — elles seront créées <span className="font-medium text-foreground">désactivées</span>, vous appuierez sur le bouton quand vous serez prêt.
+                        Quatre familles d’automatisations, prêtes à l’emploi. Activez celles qui vous parlent, elles seront créées <span className="font-medium text-foreground">désactivées</span>, vous appuierez sur le bouton quand vous serez prêt.
                       </p>
                       {/* Une CARTE par catégorie : ce que ça fait + un exemple
                           concret. L'interrupteur agit sur toute la famille ;
@@ -1037,7 +1037,7 @@ export default function OnboardingPage() {
                 <div className="space-y-6">
                   {/* Cartes « verre » (les 3 plans payants). Le toggle annuel est
                       masqué tant qu'il n'existe pas de vrai tarif annuel côté
-                      Stripe/Shopify — inutile d'afficher un prix qu'on ne facture pas. */}
+                      Stripe/Shopify, inutile d'afficher un prix qu'on ne facture pas. */}
                   <PricingGlass
                     title="Choisissez votre formule"
                     description="Vous pourrez changer de plan à tout moment. Le plan Gratuit reste disponible ci-dessous."

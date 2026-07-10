@@ -268,7 +268,7 @@ function TriggerBlock({ node, onPatch }: { node: WorkflowNode; onPatch: (id: str
       <Select value={node.event} onValueChange={(v) => onPatch(node.id, { event: v as never })}>
         {/* Le trigger n'affiche QUE le libellé : Radix recopie sinon tout le
             contenu du SelectItem (libellé + description), et la description se
-            retrouvait affichée deux fois — dans le champ et juste en dessous. */}
+            retrouvait affichée deux fois, dans le champ et juste en dessous. */}
         <SelectTrigger>
           <SelectValue>
             {TRIGGER_EVENTS.find((e) => e.value === node.event)?.label ?? 'Choisir un déclencheur'}

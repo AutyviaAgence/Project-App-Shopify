@@ -57,7 +57,7 @@ async function handleDisconnectedSession(
     })
   }
 
-  console.warn(`[Send] Session ${session.instance_name} detected as disconnected — status updated`)
+  console.warn(`[Send] Session ${session.instance_name} detected as disconnected, status updated`)
   return true
 }
 
@@ -318,7 +318,7 @@ export async function POST(
   if (!windowState.isOpen) {
     return NextResponse.json(
       {
-        error: 'Hors de la fenêtre de 24h : ce client n\'a pas écrit depuis plus de 24h. WhatsApp n\'autorise plus le texte libre — utilisez un modèle (template) approuvé pour le recontacter.',
+        error: 'Hors de la fenêtre de 24h : ce client n\'a pas écrit depuis plus de 24h. WhatsApp n\'autorise plus le texte libre, utilisez un modèle (template) approuvé pour le recontacter.',
         window_closed: true,
       },
       { status: 409 }

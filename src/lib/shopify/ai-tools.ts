@@ -46,7 +46,7 @@ export const SHOPIFY_ACTION_TOOLS = [
         type: 'object',
         properties: {
           order_name: { type: 'string', description: "Numéro de commande, ex: #1024" },
-          reason: { type: 'string', description: 'Raison du remboursement (recommandé — sera visible sur Shopify)' },
+          reason: { type: 'string', description: 'Raison du remboursement (recommandé, sera visible sur Shopify)' },
           refund_type: {
             type: 'string',
             enum: ['full', 'partial_amount', 'partial_items'],
@@ -176,7 +176,7 @@ export async function handleLinkCustomer(
   if (!email.includes('@')) return "Cet email ne semble pas valide. Peux-tu redemander poliment au client l'email utilisé pour sa commande ?"
 
   const store = await getUserStore(ctx.userId)
-  if (!store) return "Aucune boutique connectée — impossible de relier le compte pour l'instant."
+  if (!store) return "Aucune boutique connectée, impossible de relier le compte pour l'instant."
 
   const customer = await findCustomerByEmail(store.shop, store.token, email)
   if (!customer) {
@@ -280,7 +280,7 @@ export async function handleTrackOrder(
     return `Commande ${o.name}${date ? ` (du ${date})` : ''} : ${st}.${track}`
   })
 
-  return `Voici les informations de suivi (transmets-les clairement au client, donne le lien de suivi tel quel s'il existe, n'invente jamais de date de livraison précise — pour la position exacte, invite le client à cliquer le lien de suivi) :\n${lines.join('\n')}`
+  return `Voici les informations de suivi (transmets-les clairement au client, donne le lien de suivi tel quel s'il existe, n'invente jamais de date de livraison précise, pour la position exacte, invite le client à cliquer le lien de suivi) :\n${lines.join('\n')}`
 }
 
 const ACTION_FN_NAMES = new Set(SHOPIFY_ACTION_TOOLS.map((t) => t.function.name))
@@ -453,7 +453,7 @@ async function verifyRefundIdentity(
     const wanted = orderName.replace(/^#?/, '#').toLowerCase()
     const found = orders.data.some((o) => o.name.toLowerCase() === wanted)
     if (!found) {
-      return { ok: false, message: `La commande ${orderName} ne figure pas parmi les commandes de ce client. Demande-lui de reconfirmer le numéro exact de sa commande — ne rembourse pas une commande qui n'est pas la sienne.` }
+      return { ok: false, message: `La commande ${orderName} ne figure pas parmi les commandes de ce client. Demande-lui de reconfirmer le numéro exact de sa commande, ne rembourse pas une commande qui n'est pas la sienne.` }
     }
   }
   return { ok: true }
@@ -473,7 +473,7 @@ export async function handleActionTool(
 
   if (call.functionName === 'request_cancel_order') {
     actionType = 'cancel_order'
-    summary = `Annulation de la commande ${args.order_name}${args.reason ? ` — ${args.reason}` : ''}`
+    summary = `Annulation de la commande ${args.order_name}${args.reason ? `, ${args.reason}` : ''}`
   } else if (call.functionName === 'request_refund') {
     actionType = 'refund_order'
 
@@ -490,12 +490,12 @@ export async function handleActionTool(
       args.amount_estimated = est.amount
       args.currency = est.currency
     }
-    const amountLabel = est ? ` — ${est.amount.toFixed(2)} ${est.currency}` : ''
+    const amountLabel = est ? `, ${est.amount.toFixed(2)} ${est.currency}` : ''
     summary = `Remboursement ${args.order_name}${amountLabel}${args.reason ? ` (${args.reason})` : ''}`
   } else if (call.functionName === 'request_discount') {
     actionType = 'create_discount'
     const val = args.percentage != null ? `${args.percentage}%` : args.amount != null ? `${args.amount}` : 'à définir'
-    summary = `Code de réduction (${val})${args.reason ? ` — ${args.reason}` : ''}`
+    summary = `Code de réduction (${val})${args.reason ? `, ${args.reason}` : ''}`
   } else {
     return 'Action inconnue.'
   }

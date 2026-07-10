@@ -57,7 +57,7 @@ const PLANS = [
     id: 'free' as PlanId,
     name: 'Gratuit',
     price: 0,
-    limitDesc: 'Sans IA — gestion manuelle + onboarding',
+    limitDesc: 'Sans IA, gestion manuelle + onboarding',
     icon: Cpu,
     color: 'text-slate-400',
     borderColor: 'border-border/60',
@@ -417,7 +417,7 @@ function SubscriptionContent() {
                     <p className="text-xs text-orange-600 dark:text-orange-400">jusqu&apos;à fin de période</p>
                   )}
                   {isFree && (
-                    <p className="text-xs text-muted-foreground/70">Sans IA — passez à un plan payant pour l&apos;activer</p>
+                    <p className="text-xs text-muted-foreground/70">Sans IA, passez à un plan payant pour l&apos;activer</p>
                   )}
                   {!isActive && !isFree && (
                     <p className="text-xs text-red-500/70">Réabonnez-vous pour accéder</p>
@@ -431,7 +431,7 @@ function SubscriptionContent() {
       )}
 
 
-      {/* Crédits IA (conversations) — visible pour onboarding, active et skipped */}
+      {/* Crédits IA (conversations), visible pour onboarding, active et skipped */}
       {subscription && (!!currentPlan) && aiCredits && aiCredits.limit !== null && (
         <Card className="mb-8">
           <CardHeader>
@@ -457,7 +457,7 @@ function SubscriptionContent() {
               Un <span className="font-medium text-foreground">crédit</span> = une{' '}
               <span className="font-medium text-foreground">conversation IA</span> : une discussion
               dans laquelle votre agent a répondu au moins une fois. Peu importe le nombre de
-              messages échangés ensuite — toute la conversation ne consomme qu’un seul crédit.
+              messages échangés ensuite, toute la conversation ne consomme qu’un seul crédit.
             </p>
             <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
               <li>• Ne consomment <span className="font-medium text-foreground">rien</span> : vos réponses manuelles, les automatisations et les modèles envoyés sans IA.</li>
@@ -515,7 +515,7 @@ function SubscriptionContent() {
                 'bg-amber-500/10 text-amber-700 border border-amber-500/20',
               )}>
                 {aiCredits.percentage >= 100
-                  ? "Crédits IA épuisés — l'IA est en pause. Rechargez pour continuer à répondre automatiquement."
+                  ? "Crédits IA épuisés, l'IA est en pause. Rechargez pour continuer à répondre automatiquement."
                   : "Vous avez consommé plus de 80% de vos crédits IA. Pensez à recharger bientôt."}
               </div>
             )}
@@ -527,7 +527,7 @@ function SubscriptionContent() {
       {isActive && (!!currentPlan) && (
         <Card className="mb-8">
           <CardContent className="pt-6 space-y-4">
-            {/* Portail Stripe — uniquement si un customer Stripe existe */}
+            {/* Portail Stripe, uniquement si un customer Stripe existe */}
             {subscription?.stripeCustomerId ? (
               <>
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -566,7 +566,7 @@ function SubscriptionContent() {
               </div>
             )}
 
-            {/* Résiliation — uniquement si un abonnement Stripe existe */}
+            {/* Résiliation, uniquement si un abonnement Stripe existe */}
             {subscription?.stripeCustomerId && (
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
@@ -754,7 +754,7 @@ function SubscriptionContent() {
               <p className="text-sm text-muted-foreground">{planDetails.limitDesc}</p>
               {!isActive && !isCancelled && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  14 jours d&apos;essai gratuit — vous ne serez prélevé qu&apos;à l&apos;issue de la période d&apos;essai.
+                  14 jours d&apos;essai gratuit, vous ne serez prélevé qu&apos;à l&apos;issue de la période d&apos;essai.
                 </p>
               )}
               {isActive && !isCancelled && subscription?.stripeSubscriptionId && (

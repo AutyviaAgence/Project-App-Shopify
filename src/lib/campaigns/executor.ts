@@ -81,7 +81,7 @@ async function executeCampaign(supabase: any, campaign: Campaign): Promise<void>
   // Plan free → campagne mise en pause avec raison explicite.
   const gate = await canUseAi(campaign.user_id)
   if (!gate.allowed) {
-    console.log(`[Campaign ${campaignId}] Plan ${gate.plan} sans campagnes (${gate.reason}) — mise en pause`)
+    console.log(`[Campaign ${campaignId}] Plan ${gate.plan} sans campagnes (${gate.reason}), mise en pause`)
     await supabase
       .from('campaigns')
       .update({

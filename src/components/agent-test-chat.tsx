@@ -230,7 +230,7 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
                     </div>
                   )}
                   <div className="max-w-[80%] space-y-1.5">
-                    {/* RAG info — masqué si aucun résultat et que des images sont envoyées */}
+                    {/* RAG info, masqué si aucun résultat et que des images sont envoyées */}
                     {msg.rag && (msg.rag.error || msg.rag.chunksUsed > 0 || !msg.media?.length) && (
                       <div className={cn(
                         "flex items-center gap-2 rounded-lg border border-dashed px-3 py-1.5 text-[11px]",
@@ -255,7 +255,7 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
                         )}
                       </div>
                     )}
-                    {/* Badge médias envoyés — le libellé suit le type réel. */}
+                    {/* Badge médias envoyés, le libellé suit le type réel. */}
                     {msg.media && msg.media.length > 0 && (
                       <div className="flex items-center gap-2 rounded-lg border border-dashed border-violet-500/30 bg-violet-500/5 px-3 py-1.5 text-[11px]">
                         <ImageIcon className="h-3 w-3 shrink-0 text-violet-500" />
@@ -309,7 +309,7 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
                       </div>
                     )}
                     {/* Médias envoyés par l'agent : image, vidéo ou document.
-                        Chaque type a son rendu — tout afficher en <img> donnait
+                        Chaque type a son rendu, tout afficher en <img> donnait
                         des vignettes cassées pour les vidéos et les PDF. */}
                     {msg.media && msg.media.length > 0 && (
                       <div className="space-y-2">

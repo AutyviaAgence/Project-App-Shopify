@@ -30,7 +30,7 @@ export function encryptMessage(plaintext: string): string {
     // FAIL-CLOSED en production : ne JAMAIS stocker un secret (token Shopify/WABA)
     // en clair par erreur de config. En dev, on tolère l'absence de clé.
     if (process.env.NODE_ENV === 'production') {
-      throw new Error('MESSAGE_ENCRYPTION_KEY manquante ou invalide (64 hex requis) — chiffrement impossible.')
+      throw new Error('MESSAGE_ENCRYPTION_KEY manquante ou invalide (64 hex requis), chiffrement impossible.')
     }
     return plaintext
   }

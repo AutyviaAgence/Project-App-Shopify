@@ -93,7 +93,7 @@ export async function processAIResponse(params: {
       // invité à upgrader (alerte in-app).
       const quota = await checkConversationQuota(userId)
       if (!quota.allowed) {
-        console.log(`[AI] Quota conversations atteint (${quota.used}/${quota.limit}, plan ${quota.plan}) — IA stoppée pour user:`, userId)
+        console.log(`[AI] Quota conversations atteint (${quota.used}/${quota.limit}, plan ${quota.plan}), IA stoppée pour user:`, userId)
         await supabase.from('user_alerts').insert({
           user_id: userId,
           alert_type: 'quota_reached',
@@ -386,7 +386,7 @@ Exemples :
     }
 
     systemPrompt += `\n\n--- Date et heure actuelles ---\nNous sommes le ${dateStr}, il est ${timeStr} (fuseau horaire : Europe/Paris).\nUtilise TOUJOURS cette date comme référence. "Demain" = le jour suivant cette date. Pour les dates et heures dans les outils, utilise le format ISO 8601 avec timezone, par exemple : 2026-03-06T15:00:00+01:00.`
-    systemPrompt += `\n\n--- Contexte de la conversation ---\nNuméro WhatsApp du client : ${params.contactPhoneNumber}\nATTENTION : Ce numéro est "${params.contactPhoneNumber}". Quand tu dois inclure le numéro WhatsApp dans un message ou une notification, écris EXACTEMENT "${params.contactPhoneNumber}" — jamais de crochets, jamais de placeholder.`
+    systemPrompt += `\n\n--- Contexte de la conversation ---\nNuméro WhatsApp du client : ${params.contactPhoneNumber}\nATTENTION : Ce numéro est "${params.contactPhoneNumber}". Quand tu dois inclure le numéro WhatsApp dans un message ou une notification, écris EXACTEMENT "${params.contactPhoneNumber}", jamais de crochets, jamais de placeholder.`
 
     // Identité du contact : email connu + s'il est relié à un client Shopify.
     // Sert à l'agent pour savoir s'il doit demander l'email (SAV) ou non.
@@ -434,29 +434,29 @@ Exemples :
       skillLines.push(`Le client vient de t'écrire : tu peux enrichir ta réponse SANS modèle pré-approuvé, en insérant ces balises. Le système les exécute et les retire du texte.`)
 
       if (images.length > 0) {
-        skillLines.push(`\n🖼️ ENVOYER UNE IMAGE — balise [IMAGE:ref]. Images disponibles :`)
+        skillLines.push(`\n🖼️ ENVOYER UNE IMAGE, balise [IMAGE:ref]. Images disponibles :`)
         skillLines.push(images.map(i => `  - [IMAGE:${i.ref}] → ${i.filename}`).join('\n'))
       }
       if (videos.length > 0) {
-        skillLines.push(`\n🎬 ENVOYER UNE VIDÉO — balise [VIDEO:ref]. Vidéos disponibles :`)
+        skillLines.push(`\n🎬 ENVOYER UNE VIDÉO, balise [VIDEO:ref]. Vidéos disponibles :`)
         skillLines.push(videos.map(v => `  - [VIDEO:${v.ref}] → ${v.filename}`).join('\n'))
       }
       if (docs.length > 0) {
-        skillLines.push(`\n📄 ENVOYER UN DOCUMENT — balise [DOC:ref]. Documents disponibles :`)
+        skillLines.push(`\n📄 ENVOYER UN DOCUMENT, balise [DOC:ref]. Documents disponibles :`)
         skillLines.push(docs.map(d => `  - [DOC:${d.ref}] → ${d.filename}`).join('\n'))
       }
 
       // Boutons et liens : toujours disponibles (pas besoin de bibliothèque)
-      skillLines.push(`\n🔘 PROPOSER DES BOUTONS — balise [BTN:Choix 1|Choix 2|Choix 3] (1 à 3 boutons, chaque libellé ≤ 20 caractères).
-TU DOIS impérativement ajouter cette balise CHAQUE FOIS que tu proposes au client plusieurs options, choix, ou actions possibles — au lieu de les lister en texte. C'est OBLIGATOIRE, pas optionnel.
+      skillLines.push(`\n🔘 PROPOSER DES BOUTONS, balise [BTN:Choix 1|Choix 2|Choix 3] (1 à 3 boutons, chaque libellé ≤ 20 caractères).
+TU DOIS impérativement ajouter cette balise CHAQUE FOIS que tu proposes au client plusieurs options, choix, ou actions possibles, au lieu de les lister en texte. C'est OBLIGATOIRE, pas optionnel.
 Exemples de déclenchement (insère TOUJOURS [BTN:...] dans ces cas) :
   - Le client dit "suivre ma commande ou parler à un conseiller" → réponds avec [BTN:Suivre ma commande|Parler à un conseiller]
   - Tu proposes plusieurs rubriques (livraison, retours, paiement) → [BTN:Livraison|Retours|Paiement]
   - Tu demandes au client de choisir (oui/non, telle ou telle option) → mets les choix en boutons.
 La balise se place À LA FIN de ton message. Le texte que tu écris au-dessus accompagne les boutons. Quand le client clique, tu reçois le libellé comme s'il l'avait tapé.
 NE liste JAMAIS des options en texte (genre "1. ... 2. ...") si tu peux les mettre en boutons.`)
-      skillLines.push(`\n🔗 PARTAGER UN LIEN — balise [LINK:Libellé|https://url]. Le lien apparaît dans le message.`)
-      skillLines.push(`\n🛍️ PRÉSENTER DES PRODUITS (CARROUSEL) — balise [CAROUSEL:handle1,handle2,...] (2 à 5 produits). Le système envoie pour chaque produit sa photo + son nom, prix et lien. Utilise UNIQUEMENT des "handle" de produits qui figurent dans le catalogue/la base de connaissances ci-dessus (jamais inventé). Insère cette balise quand tu recommandes ou compares plusieurs produits, au lieu de les décrire en texte.`)
+      skillLines.push(`\n🔗 PARTAGER UN LIEN, balise [LINK:Libellé|https://url]. Le lien apparaît dans le message.`)
+      skillLines.push(`\n🛍️ PRÉSENTER DES PRODUITS (CARROUSEL), balise [CAROUSEL:handle1,handle2,...] (2 à 5 produits). Le système envoie pour chaque produit sa photo + son nom, prix et lien. Utilise UNIQUEMENT des "handle" de produits qui figurent dans le catalogue/la base de connaissances ci-dessus (jamais inventé). Insère cette balise quand tu recommandes ou compares plusieurs produits, au lieu de les décrire en texte.`)
 
       skillLines.push(`\nRÈGLES : n'utilise QUE des refs/handles listés ci-dessus (n'invente jamais un ref/handle). Insère la balise dès que le contexte s'y prête, et ne dis jamais que tu ne peux pas envoyer un média/bouton/carrousel si la balise est disponible.`)
       skillLines.push(`--- Fin des compétences ---`)
@@ -510,7 +510,7 @@ NE liste JAMAIS des options en texte (genre "1. ... 2. ...") si tu peux les mett
     if (openaiTools.length > 0) {
       console.log('[AI] Outils chargés:', openaiTools.length, 'fonctions')
       const toolNames = openaiTools.map(t => t.function.name).join(', ')
-      systemPrompt += `\n\n--- Outils disponibles ---\nTu disposes des outils suivants que tu DOIS utiliser quand la demande correspond : ${toolNames}.\nQuand l'utilisateur demande des informations ou actions liées à ces outils, utilise TOUJOURS l'outil approprié via un function call. Ne dis JAMAIS que tu ne peux pas accéder à ces données — appelle l'outil.\n--- Fin des outils ---`
+      systemPrompt += `\n\n--- Outils disponibles ---\nTu disposes des outils suivants que tu DOIS utiliser quand la demande correspond : ${toolNames}.\nQuand l'utilisateur demande des informations ou actions liées à ces outils, utilise TOUJOURS l'outil approprié via un function call. Ne dis JAMAIS que tu ne peux pas accéder à ces données, appelle l'outil.\n--- Fin des outils ---`
     }
 
     // 5. Appeler OpenAI (avec boucle tool calling si outils disponibles)
@@ -796,7 +796,7 @@ NE liste JAMAIS des options en texte (genre "1. ... 2. ...") si tu peux les mett
       const byHandle = new Map((prodRows || []).map(p => [p.handle, p]))
       const ordered = carouselHandles.map(h => byHandle.get(h)).filter((p): p is NonNullable<typeof p> => !!p && !!p.image_url)
       for (const p of ordered) {
-        const priceStr = p.price ? ` — ${p.price}` : ''
+        const priceStr = p.price ? `, ${p.price}` : ''
         const caption = `${p.title}${priceStr}${p.url ? `\n${p.url}` : ''}`
         const r = await sendImageLink(sessionCtx, params.contactPhoneNumber, p.image_url!, caption)
         if (!r.ok) { console.warn('[AI] Carrousel image échec:', p.handle, r.error); continue }

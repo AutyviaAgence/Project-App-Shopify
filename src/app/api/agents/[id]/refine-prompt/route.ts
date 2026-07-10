@@ -20,7 +20,7 @@ On te donne :
 Ta mission : produire une VERSION RÉVISÉE du prompt système qui intègre le retour de l'utilisateur.
 
 Règles :
-1. Conserve l'essence, le rôle et l'identité de l'agent — n'invente pas d'informations factuelles (noms, prix, horaires) qui ne sont pas déjà présentes.
+1. Conserve l'essence, le rôle et l'identité de l'agent, n'invente pas d'informations factuelles (noms, prix, horaires) qui ne sont pas déjà présentes.
 2. Applique précisément le retour : si l'utilisateur n'aime pas un comportement, ajoute/modifie les instructions pour le corriger.
 3. Garde un prompt structuré, clair et concis (markdown avec sections si pertinent).
 4. Ne supprime pas les garde-fous existants sauf demande explicite.

@@ -667,7 +667,7 @@ export default function AdminPage() {
                               <SelectValue />
                             </SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="none">— Aucun —</SelectItem>
+                              <SelectItem value="none">Aucun</SelectItem>
                               <SelectItem value="starter">Starter</SelectItem>
                               <SelectItem value="pro">Pro</SelectItem>
                               <SelectItem value="scale">Scale</SelectItem>

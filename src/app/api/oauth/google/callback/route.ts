@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
     if (stateWrapper.d && stateWrapper.s) {
       const hmacSecret = process.env.SUPABASE_SERVICE_ROLE_KEY
       if (!hmacSecret) {
-        console.error('[OAuth] SUPABASE_SERVICE_ROLE_KEY not configured — cannot verify state')
+        console.error('[OAuth] SUPABASE_SERVICE_ROLE_KEY not configured, cannot verify state')
         return NextResponse.json({ error: 'Server misconfigured' }, { status: 500 })
       }
       const expectedSig = createHmac('sha256', hmacSecret).update(stateWrapper.d).digest('hex').slice(0, 16)

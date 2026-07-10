@@ -83,7 +83,7 @@ export default function LegalPage() {
       <div className="not-prose rounded-lg bg-slate-50 p-4 dark:bg-slate-800">
         <p className="font-semibold text-slate-900 dark:text-white">TOURAILLE-TRAN Julian</p>
         <p className="text-sm text-slate-600 dark:text-slate-400">Nom commercial : Autyvia</p>
-        <p className="text-sm text-slate-600 dark:text-slate-400">Micro-entreprise — Profession libérale (BNC)</p>
+        <p className="text-sm text-slate-600 dark:text-slate-400">Micro-entreprise, Profession libérale (BNC)</p>
         <div className="mt-3 grid gap-1 text-sm text-slate-600 dark:text-slate-400">
           <p><strong>SIRET :</strong> 992 684 829 00011</p>
           <p><strong>SIREN :</strong> 992 684 829</p>

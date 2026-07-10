@@ -188,7 +188,7 @@ export default function StatsPage() {
             </SelectContent>
           </Select>
 
-          {/* Filtre canal — masqué quand l'email est désactivé (tout est WhatsApp) */}
+          {/* Filtre canal, masqué quand l'email est désactivé (tout est WhatsApp) */}
           {EMAIL_UI_ENABLED && (
           <Select value={channelFilter} onValueChange={(v) => setChannelFilter(v as 'all' | 'whatsapp' | 'email')}>
             <SelectTrigger className="w-[150px] h-9">

@@ -98,14 +98,14 @@ export async function generateTemplates(input: GenerateInput): Promise<Generated
   const wantedKeys = input.variableKeys.filter((k) => !!VARIABLE_BY_KEY[k])
   const varList = wantedKeys.length > 0
     ? wantedKeys.map((k, i) => `  {{${i + 1}}} = ${VARIABLE_BY_KEY[k].label} (ex : ${VARIABLE_BY_KEY[k].sample})`).join('\n')
-    : '  (aucune variable demandée — n\'insère pas de {{n}})'
+    : '  (aucune variable demandée, n\'insère pas de {{n}})'
 
   // Produits réels disponibles (pour liens & carrousels). On n'en passe qu'un
   // échantillon avec URL publique (sinon inutilisable comme lien/carte).
   const usableProducts = (input.products || []).filter((p) => p.url && httpUrl.test(p.url)).slice(0, 8)
   const productsBlock = usableProducts.length > 0
     ? 'PRODUITS RÉELS DE LA BOUTIQUE (utilise UNIQUEMENT ceux-ci pour les liens/cartes, avec leur url et image exactes) :\n' +
-      usableProducts.map((p, i) => `  ${i + 1}. ${p.title}${p.price ? ` — ${p.price}` : ''}\n     url: ${p.url}\n     image: ${p.image_url || '(aucune)'}`).join('\n')
+      usableProducts.map((p, i) => `  ${i + 1}. ${p.title}${p.price ? `, ${p.price}` : ''}\n     url: ${p.url}\n     image: ${p.image_url || '(aucune)'}`).join('\n')
     : 'Aucun produit réel disponible → NE PROPOSE PAS de carrousel produits ; privilégie texte, boutons (lien boutique), ou offre limitée.'
 
   const prompt = `Tu es un expert en marketing WhatsApp e-commerce et en règles Meta.
@@ -127,7 +127,7 @@ FORMATS POSSIBLES (choisis par proposition) :
 - "limited_time_offer" : promo avec compte à rebours. EXIGE 2 boutons : un COPY_CODE (code promo) ET un URL (lien). Fournis aussi lto_title (≤16 caractères) et lto_hours.
 - "carousel" : 2 à 5 cartes produits. CHAQUE carte doit avoir une image_url ET une url de produit RÉEL ci-dessus. À n'utiliser QUE si des produits réels sont fournis.
 
-RÈGLES STRICTES (Meta) — respecte-les SINON la proposition est rejetée :
+RÈGLES STRICTES (Meta), respecte-les SINON la proposition est rejetée :
 - body_text : ne commence ni ne finit JAMAIS par une variable {{n}} ; il faut de VRAIS MOTS avant la 1re et après la dernière variable (pas seulement de la ponctuation). Termine par une phrase de conclusion sans variable.
 - N'utilise QUE les variables listées, avec leur numéro exact. Numérotation contiguë depuis {{1}}.
 - body_text ≤ 1024 caractères, 2 à 4 phrases.

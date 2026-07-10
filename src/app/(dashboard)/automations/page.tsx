@@ -134,7 +134,7 @@ export default function AutomationsPage() {
       await load()
       setShowWizard(false)
       if (json.data) setCurrent(json.data as Automation)
-      toast.success('Automatisation créée — ajustez-la ici.')
+      toast.success('Automatisation créée, ajustez-la ici.')
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Erreur') } finally { setBusyId(null) }
   }
 
@@ -225,7 +225,7 @@ export default function AutomationsPage() {
     // `pb-16` en mobile : la barre d'onglets fixe du bas recouvrait sinon le bas
     // du canvas (elle apparaissait comme un bandeau noir sous le workflow).
     <div className="flex h-full flex-col pb-16 md:pb-0">
-      {/* En-tête. Mobile : titre puis actions dessous — sur une seule ligne, le
+      {/* En-tête. Mobile : titre puis actions dessous, sur une seule ligne, le
           bouton « Enregistrer » sortait de l'écran. */}
       <div className="flex flex-col gap-2 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between md:px-6">
         <div className="min-w-0">
@@ -286,7 +286,7 @@ export default function AutomationsPage() {
         </div>
       )}
 
-      {/* 3 colonnes : sidebar | timeline | iPhone — tout sur la même page */}
+      {/* 3 colonnes : sidebar | timeline | iPhone, tout sur la même page */}
       <div className={cn('grid min-h-0 flex-1 grid-cols-1', sidebarCollapsed ? 'md:grid-cols-[52px_1fr]' : 'md:grid-cols-[280px_1fr]')}>
         {/* Sidebar repliée : juste + et flèche pour rouvrir */}
         {sidebarCollapsed ? (

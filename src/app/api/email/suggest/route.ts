@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
   }
 
   systemPrompt += `\n\nTu rédiges un brouillon de réponse email au nom de "${senderName}".
-Génère uniquement le corps de la réponse, sans salutation générique ni signature — l'utilisateur les ajoutera lui-même.
+Génère uniquement le corps de la réponse, sans salutation générique ni signature, l'utilisateur les ajoutera lui-même.
 Sois concis, professionnel et adapte-toi au ton du dernier message reçu.`
 
   try {

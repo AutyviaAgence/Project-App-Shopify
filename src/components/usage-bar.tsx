@@ -97,7 +97,7 @@ export function UsageBar() {
   return (
     <Link
       href="/subscription"
-      title={`${used} / ${total} conversations IA utilisées ce mois-ci — plan ${planName}`}
+      title={`${used} / ${total} conversations IA utilisées ce mois-ci, plan ${planName}`}
       className="group flex w-full items-center gap-3 rounded-full border border-border/60 bg-muted/30 px-4 py-1.5 transition-colors hover:border-primary/40"
     >
       <Zap className={cn('h-4 w-4 shrink-0', critical ? 'text-rose-500' : low ? 'text-amber-500' : 'text-emerald-500')} />

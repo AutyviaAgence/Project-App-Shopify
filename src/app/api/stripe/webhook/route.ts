@@ -507,7 +507,7 @@ export async function POST(req: NextRequest) {
               },
             })
 
-            console.log('[Stripe Webhook] Payment failed — access suspended for user:', userId)
+            console.log('[Stripe Webhook] Payment failed, access suspended for user:', userId)
           }
         }
         break

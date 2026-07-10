@@ -170,7 +170,7 @@ export function ShopifyConnect() {
       if (!res.ok) throw new Error(json.error || 'Erreur')
       await fetchStatus()
       const n = json.data?.processed ?? 0
-      toast.success(n > 0 ? 'Boutique resynchronisée — informations mises à jour.' : 'Déjà à jour, rien à resynchroniser.')
+      toast.success(n > 0 ? 'Boutique resynchronisée, informations mises à jour.' : 'Déjà à jour, rien à resynchroniser.')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erreur')
     } finally {

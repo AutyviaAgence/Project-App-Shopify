@@ -150,7 +150,7 @@ export async function POST(req: NextRequest) {
       },
       custom_text: {
         submit: {
-          message: `Plan ${planNames[plan]} — ${PLAN_PRICES_EUR[plan]}€/mois. Vous acceptez les CGV d'${tenant.appName}.`,
+          message: `Plan ${planNames[plan]}, ${PLAN_PRICES_EUR[plan]}€/mois. Vous acceptez les CGV d'${tenant.appName}.`,
         },
       },
       ...(stripePromoCodeId

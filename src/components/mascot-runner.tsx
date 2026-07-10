@@ -54,7 +54,7 @@ export function MascotRunner({ height = 220 }: { frames?: string[]; height?: num
     >
       {/* UNE SEULE source de lumière : un halo radial centré sur la mascotte.
           Le « sol » précédent (linear-gradient + ligne d'horizon) dessinait un
-          rectangle aux arêtes verticales franches — même masqué, la coupure
+          rectangle aux arêtes verticales franches, même masqué, la coupure
           restait visible. L'ombre portée suffit à poser la mascotte au sol.
           Ellipse large et très douce : la couleur s'éteint bien avant les bords. */}
       <div

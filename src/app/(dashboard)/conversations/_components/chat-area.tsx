@@ -579,11 +579,11 @@ export function ChatArea({
             )}
           </div>
 
-          {/* Actions Shopify à valider — juste au-dessus de la saisie pour
+          {/* Actions Shopify à valider, juste au-dessus de la saisie pour
               que l'utilisateur les voie en premier (le fil s'ouvre en bas). */}
           {selectedConv?.id && <ActionsPanel conversationId={selectedConv.id} onChange={onActionsChange} />}
 
-          {/* Zone d'envoi — email ou WhatsApp */}
+          {/* Zone d'envoi, email ou WhatsApp */}
           {isEmail ? (
             <div className="border-t bg-background p-3 space-y-2">
               {/* From / To / Subject */}
@@ -716,7 +716,7 @@ export function ChatArea({
             /* Hors fenêtre 24h : texte libre interdit par WhatsApp → modèle */
             <div className="flex flex-col items-center gap-2 border-t bg-amber-500/5 px-4 py-4 text-center">
               <p className="text-sm text-muted-foreground">
-                Ce client n’a pas écrit depuis plus de <b>24h</b>. WhatsApp n’autorise plus le message libre — utilisez un modèle approuvé pour le recontacter.
+                Ce client n’a pas écrit depuis plus de <b>24h</b>. WhatsApp n’autorise plus le message libre, utilisez un modèle approuvé pour le recontacter.
               </p>
               <Button onClick={() => onSendTemplate?.()} disabled={sending} className="gap-1.5">
                 <FileText className="h-4 w-4" /> Envoyer un modèle

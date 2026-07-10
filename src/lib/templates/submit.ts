@@ -169,7 +169,7 @@ export async function submitTemplateRow(
     const ltoTitle = (template.lto_title || '').trim()
     if (!ltoTitle) return { ok: false, status: 422, error: 'L’offre à durée limitée doit avoir un titre (ex : « -10% pendant 2h »).' }
     // Meta limite le titre de l'offre à 16 caractères.
-    if (ltoTitle.length > 16) return { ok: false, status: 422, error: `Le titre de l'offre est trop long (${ltoTitle.length} car). Meta limite à 16 caractères — ex : « -10% pendant 2h ».` }
+    if (ltoTitle.length > 16) return { ok: false, status: 422, error: `Le titre de l'offre est trop long (${ltoTitle.length} car). Meta limite à 16 caractères, ex : « -10% pendant 2h ».` }
     if (template.category !== 'MARKETING') return { ok: false, status: 422, error: 'Une offre à durée limitée doit être en catégorie Marketing (règle Meta).' }
     const hasCode = Array.isArray(template.buttons) && template.buttons.some((b: { type?: string }) => b.type === 'COPY_CODE')
     const hasUrl = Array.isArray(template.buttons) && template.buttons.some((b: { type?: string }) => b.type === 'URL')
@@ -179,7 +179,7 @@ export async function submitTemplateRow(
       return { ok: false, status: 422, error: 'Une offre à durée limitée doit avoir un bouton « Copier le code » (code promo).' }
     }
     if (!hasUrl) {
-      return { ok: false, status: 422, error: 'Une offre à durée limitée doit aussi avoir un bouton lien (Visiter le site) — exigé par Meta.' }
+      return { ok: false, status: 422, error: 'Une offre à durée limitée doit aussi avoir un bouton lien (Visiter le site), exigé par Meta.' }
     }
     components.push({ type: 'LIMITED_TIME_OFFER', limited_time_offer: { text: ltoTitle, has_expiration: true } })
   }
@@ -232,7 +232,7 @@ export async function submitTemplateRow(
       const h = await resolveHeaderHandle(card.header_media_url)
       if (!h.ok) {
         console.error(`[submit] carte ${ci + 1} handle échec:`, h.error)
-        return { ok: false, status: 502, error: `Carte ${ci + 1} : échec de l'envoi du média à Meta — ${h.error.slice(0, 160)}` }
+        return { ok: false, status: 502, error: `Carte ${ci + 1} : échec de l'envoi du média à Meta, ${h.error.slice(0, 160)}` }
       }
       cardComponents.push({ type: 'HEADER', format: fmt, example: { header_handle: [h.handle] } })
 
@@ -331,7 +331,7 @@ export async function submitTemplateRow(
       return { ok: false, status: 401, token_expired: true, error: 'Votre connexion WhatsApp a expiré. Reconnectez votre numéro (Tableau de bord → Connexion WhatsApp) avec un nouveau token Meta, puis réessayez.' }
     }
     if (/24\s*h|24 heures|once.*24|24.*hour|once in a 24/i.test(result.error) || /24\s*h|24 heures/i.test(metaUserMsg)) {
-      return { ok: false, status: 429, error: 'Meta n’autorise qu’une modification par 24 h sur un modèle déjà approuvé. Vous l’avez modifié récemment — réessayez dans 24 h. (La version approuvée reste active en attendant.)' }
+      return { ok: false, status: 429, error: 'Meta n’autorise qu’une modification par 24 h sur un modèle déjà approuvé. Vous l’avez modifié récemment, réessayez dans 24 h. (La version approuvée reste active en attendant.)' }
     }
     if (isDup(result.error)) {
       return { ok: false, status: 409, error: 'Ce modèle est déjà en attente d’approbation chez Meta (une modification est en cours de revue). Attendez qu’il soit approuvé ou refusé avant de le re-soumettre. Astuce : cliquez sur « Synchroniser » pour rafraîchir son statut.' }

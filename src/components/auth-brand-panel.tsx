@@ -40,7 +40,7 @@ export function AuthBrandPanel() {
         </div>
 
         <div className="relative text-xs text-white/50">
-          © {tenant.appName} — {t('auth.brand_rights')}
+          © {tenant.appName}, {t('auth.brand_rights')}
         </div>
       </div>
     </div>

@@ -177,7 +177,7 @@ export function ConversationList({
     >
       {/* Search header */}
       <div data-tour="conversations-header" className="p-3 space-y-3">
-        {/* Bascule Messagerie / Tableau — au-dessus de la recherche, à l'endroit
+        {/* Bascule Messagerie / Tableau, au-dessus de la recherche, à l'endroit
             où on la cherche (elle vivait auparavant dans la barre du haut). */}
         {viewToggle}
         <div className="flex items-center gap-2">
@@ -419,7 +419,7 @@ export function ConversationList({
                         {/* Épingle APRÈS l'horodatage, tout à droite. Sur desktop
                             elle n'apparaît qu'au survol ; en MOBILE il n'y a pas de
                             survol, et `opacity-0` la laissait invisible tout en
-                            occupant sa place — d'où un vide entre le nom et l'heure.
+                            occupant sa place, d'où un vide entre le nom et l'heure.
                             Elle y reste donc discrètement visible : c'est le SEUL
                             moyen d'épingler une conversation. */}
                         <span
@@ -460,7 +460,7 @@ export function ConversationList({
                         l'avatar (h-11). Le numéro et les tags restent visibles
                         dans la conversation elle-même. */}
                     <div className="hidden flex-nowrap items-center gap-x-1.5 overflow-hidden sm:mt-0.5 sm:flex sm:gap-x-2">
-                      {/* Numéro du contact — seulement s'il n'est PAS déjà le titre.
+                      {/* Numéro du contact, seulement s'il n'est PAS déjà le titre.
                           Tester la seule présence d'un `name` ne suffit pas : un
                           contact sans nom réel se voit attribuer son numéro comme
                           nom, et le numéro s'affichait alors deux fois. */}
@@ -503,7 +503,7 @@ export function ConversationList({
                           {locale === 'fr' ? 'IA' : 'AI'}
                         </Badge>
                       )}
-                      {/* Étapes de la conversation (multi) — 2 badges visibles + « +N ».
+                      {/* Étapes de la conversation (multi), 2 badges visibles + « +N ».
                           CLIQUABLES : ouvrir le sélecteur qui montre TOUTES les étapes
                           (les cochées = celles de la conversation) + ajout/retrait.
                           Triées par position (l'ordre du gestionnaire d'étapes). */}
