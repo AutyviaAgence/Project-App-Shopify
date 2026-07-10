@@ -410,31 +410,32 @@ export function ConversationList({
                       )}>
                         {getContactDisplay(conv)}
                       </span>
-                      <div className="flex shrink-0 items-center gap-0.5">
-                        {/* Épingle. Sur desktop elle est révélée au survol ; en
-                            MOBILE il n'y a pas de survol, et `opacity-0` la laissait
-                            invisible mais occupant sa place — d'où un vide entre le
-                            nom et l'heure. En mobile elle reste donc discrètement
-                            visible (elle est le SEUL moyen d'épingler). */}
+                      <div className="flex shrink-0 items-center gap-1">
+                        {conv.last_message_at && (
+                          <span className="text-[10px] text-muted-foreground tabular-nums">
+                            {formatDistanceToNow(new Date(conv.last_message_at), { addSuffix: false, locale: locale === 'fr' ? fr : enUS })}
+                          </span>
+                        )}
+                        {/* Épingle APRÈS l'horodatage, tout à droite. Sur desktop
+                            elle n'apparaît qu'au survol ; en MOBILE il n'y a pas de
+                            survol, et `opacity-0` la laissait invisible tout en
+                            occupant sa place — d'où un vide entre le nom et l'heure.
+                            Elle y reste donc discrètement visible : c'est le SEUL
+                            moyen d'épingler une conversation. */}
                         <span
                           role="button"
                           tabIndex={-1}
                           onClick={(e) => { e.stopPropagation(); onTogglePin(conv.id, conv.is_pinned) }}
                           className={cn(
-                            'rounded p-0.5 transition-opacity',
+                            'inline-flex shrink-0 items-center justify-center rounded p-0.5 transition-opacity',
                             conv.is_pinned
                               ? 'opacity-100 text-primary'
                               : 'text-muted-foreground/40 hover:bg-muted hover:text-muted-foreground sm:opacity-0 sm:group-hover/conv:opacity-100'
                           )}
                           title={conv.is_pinned ? t('conversations.unpin_conversation') : t('conversations.pin_conversation')}
                         >
-                          <Pin className={cn('h-2.5 w-2.5', conv.is_pinned && 'fill-current')} />
+                          <Pin className={cn('h-3.5 w-3.5', conv.is_pinned && 'fill-current')} />
                         </span>
-                        {conv.last_message_at && (
-                          <span className="text-[10px] text-muted-foreground tabular-nums">
-                            {formatDistanceToNow(new Date(conv.last_message_at), { addSuffix: false, locale: locale === 'fr' ? fr : enUS })}
-                          </span>
-                        )}
                       </div>
                     </div>
 
