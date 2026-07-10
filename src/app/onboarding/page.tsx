@@ -488,9 +488,10 @@ export default function OnboardingPage() {
   }
 
   // Écran de bienvenue : un seul passage, puis on entre dans les étapes.
+  // Fond sombre propre à la scène (elle porte son propre bg cinématique).
   if (showWelcome) {
     return (
-      <div className="min-h-screen bg-background">
+      <div className="min-h-screen bg-[#0a0f1e]">
         <WelcomeScreen
           onStart={() => {
             localStorage.setItem('xeyo_welcome_seen', '1')
