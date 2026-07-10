@@ -44,8 +44,11 @@ export function MascotRunner({ height = 220 }: { frames?: string[]; height?: num
   if (failed) return <ScanFallback height={height} />
 
   return (
+    // Pas de cadre ni d'`overflow-hidden` : le loader se fond dans la page. Le
+    // bloc arrondi dessinait une carte dont on voyait les arêtes en bas, et le
+    // recadrage tranchait le halo comme les particules.
     <div
-      className="relative w-full overflow-hidden rounded-2xl"
+      className="relative w-full"
       style={{ height }}
       aria-hidden="true"
     >
@@ -56,20 +59,22 @@ export function MascotRunner({ height = 220 }: { frames?: string[]; height?: num
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            'radial-gradient(60% 55% at 50% 45%, color-mix(in oklab, var(--primary) 22%, transparent) 0%, transparent 70%)',
+            'radial-gradient(55% 50% at 50% 45%, color-mix(in oklab, var(--primary) 18%, transparent) 0%, transparent 72%)',
         }}
       />
 
-      {/* Sol : dégradé bas + fine ligne d'horizon, pour poser la mascotte. */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3">
-        <div
-          className="absolute inset-0"
-          style={{
-            background: 'linear-gradient(to top, color-mix(in oklab, var(--primary) 10%, transparent), transparent)',
-          }}
-        />
-        <div className="absolute inset-x-6 top-0 h-px bg-gradient-to-r from-transparent via-primary/25 to-transparent" />
-      </div>
+      {/* Sol. Un `linear-gradient` sur toute la largeur créait un rectangle aux
+          arêtes franches : le dégradé s'arrêtait net sur les côtés. On l'estompe
+          horizontalement avec un mask, et la ligne d'horizon reste très discrète. */}
+      <div
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5"
+        style={{
+          background: 'linear-gradient(to top, color-mix(in oklab, var(--primary) 7%, transparent), transparent 85%)',
+          maskImage: 'radial-gradient(75% 100% at 50% 100%, black 30%, transparent 100%)',
+          WebkitMaskImage: 'radial-gradient(75% 100% at 50% 100%, black 30%, transparent 100%)',
+        }}
+      />
+      <div className="pointer-events-none absolute inset-x-1/4 bottom-2/5 h-px bg-gradient-to-r from-transparent via-primary/15 to-transparent" />
 
       {/* Particules ascendantes (coupées si l'utilisateur limite les animations). */}
       {!reduced && (
