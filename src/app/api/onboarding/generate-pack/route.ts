@@ -3,7 +3,7 @@ import OpenAI from 'openai'
 import { createClient } from '@/lib/supabase/server'
 import { logAiUsage } from '@/lib/openai/usage-log'
 import { buildStoreContextPrompt } from '@/lib/shopify/sync'
-import { PACK_SPECS, isValidBody, type OnboardingPack, type PackItem } from '@/lib/onboarding/pack-spec'
+import { PACK_SPECS, PACK_VERSION, isValidBody, type OnboardingPack, type PackItem } from '@/lib/onboarding/pack-spec'
 
 /**
  * POST /api/onboarding/generate-pack
@@ -31,7 +31,9 @@ export async function POST(req: NextRequest) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: profile } = await (supabase as any)
     .from('profiles').select('onboarding_pack').eq('id', user.id).maybeSingle()
-  if (profile?.onboarding_pack && !body.refresh) {
+  // Un cache d'une VERSION antérieure (généré avant les boutons/le carrousel)
+  // est ignoré et régénéré, sinon les nouveautés n'apparaîtraient jamais.
+  if (profile?.onboarding_pack && profile.onboarding_pack.version === PACK_VERSION && !body.refresh) {
     return NextResponse.json({ data: profile.onboarding_pack, cached: true })
   }
 
@@ -154,7 +156,7 @@ ${specLines}`
     }
   }
 
-  const pack: OnboardingPack = { generated_at: new Date().toISOString(), language: 'fr', items }
+  const pack: OnboardingPack = { version: PACK_VERSION, generated_at: new Date().toISOString(), language: 'fr', items }
 
   // Cache serveur (reprise sans re-génération).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

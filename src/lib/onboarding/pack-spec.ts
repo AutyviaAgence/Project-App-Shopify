@@ -205,7 +205,13 @@ export type PackItem = {
   carousel_cards?: TemplateCard[] | null
 }
 
+/** Version du FORMAT de pack. À incrémenter quand les items gagnent des
+ *  champs (boutons, carrousel…) : les caches d'une version antérieure sont
+ *  régénérés au lieu d'être resservis sans les nouveautés. */
+export const PACK_VERSION = 2
+
 export type OnboardingPack = {
+  version?: number
   generated_at: string
   language: string
   items: PackItem[]
