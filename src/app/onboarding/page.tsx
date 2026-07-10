@@ -16,6 +16,8 @@ import { OnboardingFeedback } from '@/components/onboarding-feedback'
 import { AgentTryChat } from '@/components/onboarding/agent-try-chat'
 import { WhatsAppEmbeddedSignup, embeddedSignupAvailable } from '@/components/whatsapp-embedded-signup'
 import { WelcomeScreen } from '@/components/onboarding/welcome-screen'
+import { PricingGlass, type TierType } from '@/components/ui/pricing-glass'
+import { PLANS, PAID_PLANS } from '@/lib/plans'
 import { AnimatePresence, motion } from 'framer-motion'
 
 /**
@@ -77,12 +79,28 @@ const STEP_META: Record<Step, { title: string; icon: React.ComponentType<{ class
   plan: { title: 'Choisissez votre formule', icon: CreditCard },
 }
 
-const PLAN_CARDS = [
-  { id: 'free', name: 'Gratuit', price: 0, desc: 'Boîte de réception + réponses manuelles. Sans IA.' },
-  { id: 'starter', name: 'Starter', price: 49, desc: '550 conversations IA / mois, agent + automatisations.' },
-  { id: 'pro', name: 'Growth', price: 149, desc: '1 800 conversations IA / mois, actions Shopify, multi-agents.' },
-  { id: 'scale', name: 'Scale', price: 349, desc: '4 500 conversations IA / mois, support prioritaire.' },
-]
+// Tiers de l'écran d'abonnement (dérivés de la SOURCE DE VÉRITÉ `PLANS`).
+// Le composant PricingGlass est sur 3 colonnes : on y met les 3 plans payants,
+// le plan Gratuit restant proposé en lien discret sous les cartes.
+// Tarif annuel = -20 % du mensuel (arrondi), cohérent avec le badge du toggle.
+const PLAN_DESC: Record<string, string> = {
+  starter: 'Pour démarrer avec un agent IA autonome sur WhatsApp.',
+  pro: 'Pour les boutiques qui veulent automatiser leur SAV et leurs ventes.',
+  scale: 'Pour un volume élevé, avec le meilleur modèle et un support prioritaire.',
+}
+const PRICING_TIERS: TierType[] = PAID_PLANS.map((id) => {
+  const p = PLANS[id]
+  return {
+    id: p.id,
+    name: p.name,
+    priceMonthly: String(p.priceEur),
+    priceAnnual: String(Math.round(p.priceEur * 0.8)), // -20 % (toggle masqué tant que non facturé)
+    description: PLAN_DESC[p.id] ?? '',
+    isPopular: p.id === 'pro',
+    features: p.features,
+    cta: 'Choisir ce plan',
+  }
+})
 
 const TONES = [
   { key: 'professional', label: 'Professionnel' },
@@ -100,6 +118,8 @@ export default function OnboardingPage() {
   const [feedback, setFeedback] = useState<string | null>(null)
   const [advancing, setAdvancing] = useState(false)
   const [busy, setBusy] = useState(false)
+  // Plan en cours de souscription (spinner sur la carte concernée).
+  const [planLoading, setPlanLoading] = useState<string | null>(null)
 
   // Étape Shopify
   const [shopInput, setShopInput] = useState('')
@@ -418,8 +438,9 @@ export default function OnboardingPage() {
     }
   }
 
-  async function choosePlan(planId: string) {
+  async function choosePlan(planId: string, billing: 'monthly' | 'annual' = 'monthly') {
     setBusy(true)
+    setPlanLoading(planId)
     try {
       if (planId === 'free') {
         await fetch('/api/onboarding/complete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ done: true }) })
@@ -430,7 +451,7 @@ export default function OnboardingPage() {
       if (state?.billingSource === 'shopify' && state.shopDomain) {
         const res = await fetch('/api/shopify/billing/subscribe', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ shop: state.shopDomain, plan: planId }),
+          body: JSON.stringify({ shop: state.shopDomain, plan: planId, billing }),
         })
         const json = await res.json()
         if (!res.ok || !json.confirmationUrl) throw new Error(json.error || 'Erreur de facturation Shopify')
@@ -441,7 +462,7 @@ export default function OnboardingPage() {
       }
       const res = await fetch('/api/stripe/create-checkout', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: planId }),
+        body: JSON.stringify({ plan: planId, billing }),
       })
       const json = await res.json()
       if (!res.ok || !json.url) throw new Error(json.error || 'Erreur de paiement')
@@ -450,6 +471,7 @@ export default function OnboardingPage() {
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erreur')
       setBusy(false)
+      setPlanLoading(null)
     }
   }
 
@@ -488,7 +510,11 @@ export default function OnboardingPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="mx-auto flex min-h-screen w-full max-w-3xl flex-col gap-6 px-4 py-8 sm:px-6 lg:max-w-4xl">
+      <div className={cn(
+        'mx-auto flex min-h-screen w-full flex-col gap-6 px-4 py-8 sm:px-6',
+        // L'étape « plan » affiche 3 cartes larges : on élargit le conteneur.
+        step === 'plan' ? 'max-w-3xl lg:max-w-6xl' : 'max-w-3xl lg:max-w-4xl',
+      )}>
         {/* En-tête + progression */}
         <div>
           <div className="mb-2 flex items-center justify-between text-xs text-muted-foreground">
@@ -844,24 +870,33 @@ export default function OnboardingPage() {
 
               {/* ── 7. ABONNEMENT (Gratuit autorisé) ── */}
               {step === 'plan' && (
-                <div className="space-y-4">
-                  <p className="text-sm text-muted-foreground">Dernière étape ! Choisissez la formule qui correspond à votre volume — vous pourrez changer à tout moment.</p>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    {PLAN_CARDS.map((p) => (
-                      <button key={p.id} disabled={busy} onClick={() => choosePlan(p.id)}
-                        className={cn('group flex flex-col rounded-2xl border p-4 text-left transition-all hover:border-primary hover:shadow-md hover:shadow-primary/10',
-                          p.id === 'pro' && 'border-primary/50 bg-primary/5')}>
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold">{p.name}</span>
-                          {p.id === 'pro' && <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold uppercase text-primary">Populaire</span>}
-                        </div>
-                        <p className="mt-1 text-2xl font-bold">{p.price} €<span className="text-sm font-normal text-muted-foreground">/mois</span></p>
-                        <p className="mt-1.5 text-xs text-muted-foreground">{p.desc}</p>
-                        <span className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-primary">
-                          {p.id === 'free' ? 'Commencer gratuitement' : 'Choisir'} <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-                        </span>
-                      </button>
-                    ))}
+                <div className="space-y-6">
+                  {/* Cartes « verre » (les 3 plans payants). Le toggle annuel est
+                      masqué tant qu'il n'existe pas de vrai tarif annuel côté
+                      Stripe/Shopify — inutile d'afficher un prix qu'on ne facture pas. */}
+                  <PricingGlass
+                    title="Choisissez votre formule"
+                    description="Vous pourrez changer de plan à tout moment. Le plan Gratuit reste disponible ci-dessous."
+                    tiers={PRICING_TIERS}
+                    showBillingToggle={false}
+                    onSelect={(id) => choosePlan(id)}
+                    loadingTierId={planLoading}
+                  />
+
+                  {/* Plan Gratuit : proposé en retrait, pour ne pas casser la grille à 3. */}
+                  <div className="flex flex-col items-center gap-2 pt-2 text-center">
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => choosePlan('free')}
+                      className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline disabled:opacity-60"
+                    >
+                      {planLoading === 'free' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                      Continuer avec le plan Gratuit (sans IA)
+                    </button>
+                    <p className="max-w-md text-xs text-muted-foreground">
+                      Boîte de réception WhatsApp et réponses manuelles. Vous pourrez passer à un plan avec IA à tout moment.
+                    </p>
                   </div>
                 </div>
               )}
