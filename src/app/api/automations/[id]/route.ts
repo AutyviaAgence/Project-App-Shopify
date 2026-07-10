@@ -10,9 +10,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 
   const body = await req.json().catch(() => ({}))
   const updates: Record<string, unknown> = {}
-  for (const k of ['name', 'trigger_event', 'trigger_button_text', 'template_id', 'delay_minutes', 'quiet_start', 'quiet_end', 'timezone', 'conditions', 'is_active', 'graph', 'builder_mode', 'folder_id'] as const) {
+  for (const k of ['name', 'trigger_event', 'trigger_button_text', 'template_id', 'delay_minutes', 'quiet_start', 'quiet_end', 'timezone', 'conditions', 'is_active', 'graph', 'builder_mode', 'folder_id', 'kind'] as const) {
     if (body[k] !== undefined) updates[k] = body[k]
   }
+  if (updates.kind !== undefined && updates.kind !== 'marketing' && updates.kind !== 'transactional') delete updates.kind
   if (updates.delay_minutes !== undefined) updates.delay_minutes = Math.max(0, parseInt(String(updates.delay_minutes), 10) || 0)
   // Si on sauve un graphe, on synchronise trigger_event depuis le nœud trigger
   // (l'enqueue filtre les automatisations par trigger_event).
@@ -28,14 +29,16 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   updates.updated_at = new Date().toISOString()
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any)
-    .from('automations')
-    .update(updates)
-    .eq('id', id)
-    .eq('user_id', user.id)
-    .select()
-    .single()
+  const upd = (u: Record<string, unknown>) => (supabase as any)
+    .from('automations').update(u).eq('id', id).eq('user_id', user.id).select().single()
 
+  let { data, error } = await upd(updates)
+  // RÉSILIENCE migration : colonne kind pas encore là → on rejoue sans elle.
+  if (error && updates.kind !== undefined && (error.code === '42703' || /kind/.test(error.message || ''))) {
+    const { kind: _drop, ...rest } = updates
+    void _drop
+    ;({ data, error } = await upd(rest))
+  }
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ data })
 }

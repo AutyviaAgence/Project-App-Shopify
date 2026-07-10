@@ -5,13 +5,15 @@ import { toast } from 'sonner'
 import { track } from '@/lib/posthog/events'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Plus, Loader2, Trash2, Workflow, GitBranch, ChevronLeft, ChevronRight, Folder, FolderPlus, GripVertical, Sparkles } from 'lucide-react'
+import { Plus, Loader2, Trash2, Workflow, GitBranch, ChevronLeft, ChevronRight, Folder, FolderPlus, GripVertical, Sparkles, Megaphone } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BlobLoaderScreen } from '@/components/blob-loader'
 import type { WhatsAppTemplate } from '@/types/database'
 import { WorkflowBuilder } from '@/components/automations/builder/workflow-builder'
 import { WorkflowWizard } from '@/components/automations/workflow-wizard'
 import { defaultGraph, validateGraph, triggerNode, type WorkflowGraph } from '@/lib/automations/graph-types'
+
+type AutomationKind = 'transactional' | 'marketing'
 
 type Automation = {
   id: string
@@ -23,11 +25,14 @@ type Automation = {
   graph?: WorkflowGraph | null
   builder_mode?: boolean
   folder_id?: string | null
+  kind?: AutomationKind
 }
 
 type Folder = { id: string; name: string; color: string | null; position: number }
 
 export default function AutomationsPage() {
+  // Onglet actif : Campagnes (marketing) ou Automatisations (transactionnel).
+  const [tab, setTab] = useState<AutomationKind>('transactional')
   const [automations, setAutomations] = useState<Automation[]>([])
   const [templates, setTemplates] = useState<WhatsAppTemplate[]>([])
   const [folders, setFolders] = useState<Folder[]>([])
@@ -60,11 +65,14 @@ export default function AutomationsPage() {
       setAutomations(autos)
       setTemplates((tRes.data || []).filter((t: WhatsAppTemplate) => t.status === 'approved'))
       setFolders(fRes.data || [])
-      // Ouvre la 1re automatisation par défaut (ou rien).
-      setCurrent((c) => c || autos[0] || null)
+      // Ouvre la 1re automatisation de l'onglet courant (ou rien).
+      setCurrent((c) => c || autos.find((a) => (a.kind === 'marketing' ? 'marketing' : 'transactional') === tab) || null)
     } finally {
       setLoading(false)
     }
+    // `tab` volontairement hors deps : on ne veut charger qu'au montage (avec
+    // l'onglet initial). Le changement d'onglet gère l'ouverture via switchTab.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Créer un dossier depuis la saisie inline (nom déjà tapé dans la sidebar).
@@ -101,6 +109,22 @@ export default function AutomationsPage() {
 
   useEffect(() => { load() }, [load])
 
+  // Kind effectif d'une automatisation (les anciennes lignes sans kind, ou les
+  // brouillons non encore sauvés, sont transactionnelles par défaut).
+  const kindOf = (a: Automation): AutomationKind => a.kind === 'marketing' ? 'marketing' : 'transactional'
+  // Liste filtrée par l'onglet actif : c'est elle qui alimente la sidebar,
+  // les dossiers, « tout activer », etc.
+  const visibleAutomations = automations.filter((a) => kindOf(a) === tab)
+
+  // Changer d'onglet : on referme le builder et on ouvre la 1re automatisation
+  // de l'onglet cible (ou l'écran vide).
+  function switchTab(next: AutomationKind) {
+    if (next === tab) return
+    setTab(next)
+    setShowChoose(false); setShowWizard(false)
+    setCurrent(automations.find((a) => kindOf(a) === next) || null)
+  }
+
   // Quand l'automatisation courante change, (re)charge son graphe + nom.
   useEffect(() => {
     if (!current) { setGraph(null); setNameDraft(''); return }
@@ -115,7 +139,9 @@ export default function AutomationsPage() {
   function startGuided() { setShowChoose(false); setShowWizard(true); setCurrent(null) }
   function startManual() {
     setShowChoose(false); setShowWizard(false)
-    setCurrent({ id: '', name: '', trigger_event: 'order_fulfilled', template_id: null, delay_minutes: 0, is_active: true })
+    // Trigger de départ selon l'onglet : marketing → campagne planifiée.
+    const trig = tab === 'marketing' ? 'scheduled_date' : 'order_fulfilled'
+    setCurrent({ id: '', name: '', trigger_event: trig, template_id: null, delay_minutes: 0, is_active: true, kind: tab })
   }
   function selectAuto(a: Automation) { setShowChoose(false); setShowWizard(false); setCurrent(a) }
 
@@ -126,11 +152,11 @@ export default function AutomationsPage() {
     try {
       const res = await fetch('/api/automations', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: data.name, trigger_event: data.trigger, graph: data.graph, builder_mode: true, is_active: true }),
+        body: JSON.stringify({ name: data.name, trigger_event: data.trigger, graph: data.graph, builder_mode: true, is_active: true, kind: tab }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Erreur')
-      track('automation_created', { trigger: data.trigger, via: 'wizard' })
+      track('automation_created', { trigger: data.trigger, via: 'wizard', kind: tab })
       await load()
       setShowWizard(false)
       if (json.data) setCurrent(json.data as Automation)
@@ -154,15 +180,18 @@ export default function AutomationsPage() {
   // Active (ou désactive) TOUS les workflows d'un coup. Si au moins un est
   // inactif → on active tout ; sinon on désactive tout. Optimiste, en parallèle.
   async function toggleAll() {
-    if (automations.length === 0) return
-    const target = automations.some((a) => !a.is_active) // true = on active tout
+    // N'agit que sur l'onglet actif (les campagnes et le transactionnel se
+    // gèrent séparément).
+    const scope = visibleAutomations
+    if (scope.length === 0) return
+    const target = scope.some((a) => !a.is_active) // true = on active tout
+    const scopeIds = new Set(scope.map((a) => a.id))
     setBusyId('bulk')
-    // Optimiste tout de suite (retour visuel immédiat sur les pastilles).
-    setAutomations((prev) => prev.map((a) => ({ ...a, is_active: target })))
-    if (current) setCurrent((c) => (c ? { ...c, is_active: target } : c))
+    setAutomations((prev) => prev.map((a) => scopeIds.has(a.id) ? { ...a, is_active: target } : a))
+    if (current && scopeIds.has(current.id)) setCurrent((c) => (c ? { ...c, is_active: target } : c))
     try {
       const results = await Promise.allSettled(
-        automations.map((a) =>
+        scope.map((a) =>
           fetch(`/api/automations/${a.id}`, {
             method: 'PATCH', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ is_active: target }),
@@ -172,7 +201,7 @@ export default function AutomationsPage() {
       const failed = results.filter((r) => r.status === 'rejected').length
       if (failed > 0) { toast.error(`${failed} workflow(s) non ${target ? 'activé' : 'désactivé'}(s)`); load() }
       else {
-        if (target) track('automation_activated', { bulk: true, count: automations.length })
+        if (target) track('automation_activated', { bulk: true, count: scope.length, kind: tab })
         toast.success(target ? 'Tous les workflows activés' : 'Tous les workflows désactivés')
       }
     } finally { setBusyId(null) }
@@ -207,6 +236,8 @@ export default function AutomationsPage() {
           name: nameDraft.trim(),
           trigger_event: trig?.event || current.trigger_event,
           graph, builder_mode: true, is_active: current.is_active,
+          // Nouvelle automatisation : elle appartient à l'onglet courant.
+          ...(isNew ? { kind: current.kind || tab } : {}),
         }),
       })
       const json = await res.json()
@@ -229,8 +260,30 @@ export default function AutomationsPage() {
           bouton « Enregistrer » sortait de l'écran. */}
       <div className="flex flex-col gap-2 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between md:px-6">
         <div className="min-w-0">
-          <h1 className="flex items-center gap-2 text-lg font-semibold"><Workflow className="h-5 w-5 shrink-0" /> Automatisations</h1>
-          <p className="hidden text-xs text-muted-foreground sm:block">Construisez un parcours : événement → délai → condition → message.</p>
+          {/* Onglets : Campagnes (marketing) / Automatisations (transactionnel). */}
+          <div className="flex items-center gap-1 rounded-lg bg-muted/50 p-1">
+            {([
+              { k: 'marketing' as const, label: 'Campagnes', icon: Megaphone, hint: 'Marketing : funnels, promos, A/B' },
+              { k: 'transactional' as const, label: 'Automatisations', icon: Workflow, hint: 'Statuts commande, panier, SAV' },
+            ]).map(({ k, label, icon: Icon }) => (
+              <button
+                key={k}
+                onClick={() => switchTab(k)}
+                className={cn(
+                  'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                  tab === k ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <Icon className="h-4 w-4 shrink-0" />
+                {label}
+              </button>
+            ))}
+          </div>
+          <p className="mt-1 hidden text-xs text-muted-foreground sm:block">
+            {tab === 'marketing'
+              ? 'Campagnes marketing : parcours à boutons, promotions, A/B test.'
+              : 'Automatisations transactionnelles : événement → délai → condition → message.'}
+          </p>
         </div>
         {current && (
           <div className="flex items-center gap-2 sm:shrink-0">
@@ -264,18 +317,18 @@ export default function AutomationsPage() {
 
       {/* Sélecteur mobile : la sidebar est `hidden md:flex`, donc sans lui on ne
           pouvait ni changer ni créer de workflow sur un petit écran. */}
-      {automations.length > 0 && (
+      {visibleAutomations.length > 0 && (
         <div className="flex items-center gap-2 border-b px-4 py-2 md:hidden">
           <select
             value={current?.id || ''}
             onChange={(e) => {
-              const a = automations.find((x) => x.id === e.target.value)
+              const a = visibleAutomations.find((x) => x.id === e.target.value)
               if (a) selectAuto(a)
             }}
             className="h-9 min-w-0 flex-1 rounded-lg border border-input bg-background px-2 text-sm"
           >
             {!current?.id && <option value="">Nouveau workflow…</option>}
-            {automations.map((a) => (
+            {visibleAutomations.map((a) => (
               <option key={a.id} value={a.id}>{a.is_active ? '● ' : '○ '}{a.name || 'Sans nom'}</option>
             ))}
           </select>
@@ -328,8 +381,8 @@ export default function AutomationsPage() {
             <Plus className="h-4 w-4" /> Nouveau workflow
           </button>
           {/* Bascule groupée : active tout si au moins un est OFF, sinon désactive tout. */}
-          {automations.length > 1 && (() => {
-            const willActivate = automations.some((a) => !a.is_active)
+          {visibleAutomations.length > 1 && (() => {
+            const willActivate = visibleAutomations.some((a) => !a.is_active)
             return (
               <button
                 onClick={toggleAll}
@@ -406,13 +459,13 @@ export default function AutomationsPage() {
               },
             })
 
-            const unfiled = automations.filter((a) => !a.folder_id)
+            const unfiled = visibleAutomations.filter((a) => !a.folder_id)
 
             return (
               <>
                 {/* Dossiers */}
                 {folders.map((f) => {
-                  const items = automations.filter((a) => a.folder_id === f.id)
+                  const items = visibleAutomations.filter((a) => a.folder_id === f.id)
                   const hot = dragOverFolder === f.id
                   return (
                     <div key={f.id} {...dropProps(f.id)}
@@ -445,8 +498,10 @@ export default function AutomationsPage() {
                   {unfiled.map(renderRow)}
                 </div>
 
-                {automations.length === 0 && !(current && !current.id) && (
-                  <p className="px-3 py-6 text-center text-xs text-muted-foreground">Aucun workflow. Créez le premier.</p>
+                {visibleAutomations.length === 0 && !(current && !current.id) && (
+                  <p className="px-3 py-6 text-center text-xs text-muted-foreground">
+                    {tab === 'marketing' ? 'Aucune campagne. Créez la première.' : 'Aucun workflow. Créez le premier.'}
+                  </p>
                 )}
               </>
             )
@@ -497,7 +552,7 @@ export default function AutomationsPage() {
               <Input value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} placeholder="Nom du workflow" className="h-8 max-w-xs border-0 bg-transparent px-0 text-sm font-medium focus-visible:ring-0" />
             </div>
             <div className="min-h-0 flex-1 p-4">
-              <WorkflowBuilder graph={graph} templates={templates} storeName={storeName} onChange={setGraph} automationId={current?.id ?? null} />
+              <WorkflowBuilder graph={graph} templates={templates} storeName={storeName} onChange={setGraph} automationId={current?.id ?? null} kind={current ? kindOf(current) : tab} />
             </div>
           </div>
         ) : (

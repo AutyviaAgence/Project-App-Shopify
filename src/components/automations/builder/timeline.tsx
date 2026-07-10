@@ -10,7 +10,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
 import { ChevronDown } from 'lucide-react'
-import { TRIGGER_EVENTS } from '@/lib/automations/types'
+import { TRIGGER_EVENTS, triggersForKind } from '@/lib/automations/types'
 
 /** Fuseau détecté du navigateur, proposé par défaut. `scheduledAt` reste
  *  TOUJOURS un instant absolu (ISO UTC) : le fuseau ne sert qu'à saisir et à
@@ -139,6 +139,8 @@ type TimelineProps = {
   onAddVariant?: (nodeId: string) => void
   onRemoveVariant?: (nodeId: string, key: string) => void
   automationId?: string | null
+  /** Filtre les déclencheurs proposés (Campagnes vs Automatisations). */
+  kind?: 'marketing' | 'transactional'
 }
 
 /**
@@ -152,7 +154,7 @@ export function Timeline(props: TimelineProps) {
 
   return (
     <div className="flex flex-col items-center py-2">
-      <TriggerBlock node={trigger} onPatch={props.onPatch} />
+      <TriggerBlock node={trigger} onPatch={props.onPatch} kind={props.kind ?? 'transactional'} />
       <Branch {...props} fromId={trigger.id} />
     </div>
   )
@@ -257,8 +259,10 @@ const TONE = {
   pink: { text: 'text-pink-600', tint: '#EC4899' },
 }
 
-function TriggerBlock({ node, onPatch }: { node: WorkflowNode; onPatch: (id: string, p: Partial<WorkflowNode>) => void }) {
+function TriggerBlock({ node, onPatch, kind }: { node: WorkflowNode; onPatch: (id: string, p: Partial<WorkflowNode>) => void; kind: 'marketing' | 'transactional' }) {
   if (node.type !== 'trigger') return null
+  // Déclencheurs autorisés dans cet onglet.
+  const allowed = new Set(triggersForKind(kind).map((e) => e.value))
   return (
     <div data-block className="liquid-glass relative w-72 rounded-2xl p-3" style={{ ['--lg-tint' as string]: TONE.blue.tint }}>
       <div className="mb-2 flex items-center gap-1.5">
@@ -280,7 +284,7 @@ function TriggerBlock({ node, onPatch }: { node: WorkflowNode; onPatch: (id: str
             déclencheurs à plat étaient illisibles. */}
         <SelectContent className="max-h-[min(24rem,60vh)] w-[19rem]">
           {TRIGGER_GROUPS.map((g, gi) => {
-            const items = TRIGGER_EVENTS.filter((e) => e.group === g.name)
+            const items = TRIGGER_EVENTS.filter((e) => e.group === g.name && allowed.has(e.value))
             if (items.length === 0) return null
             const Icon = g.icon
             return (

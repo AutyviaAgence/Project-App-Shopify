@@ -43,6 +43,28 @@ export const TRIGGER_EVENTS: { value: TriggerEvent; label: string; description: 
   { value: 'customer_birthday', label: 'Anniversaire client', description: 'Le jour de l’anniversaire du client (si connu).', group: 'Planifié' },
 ]
 
+/** Quels déclencheurs proposer dans l'onglet Campagnes (marketing) vs
+ *  Automatisations (transactionnel). Les statuts de commande sont
+ *  transactionnels ; le reste (planifié, opt-in/bienvenue, clic de bouton,
+ *  relances) sert au marketing. `checkout_abandoned` apparaît dans les DEUX
+ *  (relance = marketing, mais déclencheur de commande). */
+const MARKETING_TRIGGERS = new Set<TriggerEvent>([
+  'scheduled_date', 'customer_birthday',
+  'contact_opted_in', 'optin_popup',
+  'button_clicked', 'message_read', 'no_customer_reply',
+  'checkout_abandoned',
+])
+const TRANSACTIONAL_TRIGGERS = new Set<TriggerEvent>([
+  'order_created', 'order_paid', 'order_fulfilled', 'order_delivered',
+  'order_cancelled', 'refund_created', 'return_requested', 'checkout_abandoned',
+])
+
+/** Déclencheurs à proposer pour un onglet donné. */
+export function triggersForKind(kind: 'marketing' | 'transactional') {
+  const set = kind === 'marketing' ? MARKETING_TRIGGERS : TRANSACTIONAL_TRIGGERS
+  return TRIGGER_EVENTS.filter((e) => set.has(e.value))
+}
+
 /** Conditions métier évaluées avant l'envoi. */
 export type AutomationConditions = {
   /** Montant total minimum (devise de la boutique). */
