@@ -2,7 +2,6 @@
 
 import { Handle, Position, type NodeProps } from '@xyflow/react'
 import { Zap, Clock, GitBranch, MessageSquare, FlaskConical, Reply } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import type { WhatsAppTemplate, TemplateButton } from '@/types/database'
 import { TRIGGER_EVENTS } from '@/lib/automations/types'
 import { CONDITION_FIELDS } from './field-labels'
@@ -11,26 +10,36 @@ import { buttonBranch, variantBranch, type WorkflowNode } from '@/lib/automation
 /**
  * Nœuds custom du canvas horizontal React Flow (campagnes marketing).
  *
- * Chaque nœud porte :
- *  - un handle CIBLE (target) à gauche — sauf le trigger,
- *  - un ou plusieurs handles SOURCE (source) à droite. L'`id` du handle = la
- *    BRANCHE de l'arête (`yes`/`no`, `variant:X`, `button:<libellé>`), c'est ce
- *    qui permet à onConnect de recréer la bonne WorkflowEdge.
+ * Chaque nœud porte un handle CIBLE à gauche (sauf le trigger) et un ou
+ * plusieurs handles SOURCE à droite. L'`id` du handle = la BRANCHE de l'arête
+ * (`yes`/`no`, `variant:X`, `button:<libellé>`) → onConnect recrée la bonne
+ * WorkflowEdge.
  *
- * Les données passées à React Flow (node.data) : { node: WorkflowNode,
- * templates, onPatch, onOpen }. On garde le modèle métier intact ; le canvas ne
- * fait que le rendre et remonter les positions/edges.
+ * ⚠️ Gardes défensives : `data.node` peut arriver undefined au premier rendu ;
+ * on ne fait JAMAIS `node.type` sans garde (une exception ferait rendre du vide).
+ * Dimensions en style inline (pas seulement Tailwind) pour garantir une taille.
  */
 
 export type FlowNodeData = {
   node: WorkflowNode
   templates: WhatsAppTemplate[]
-  selected?: boolean
 }
 
-const HANDLE = '!h-3 !w-3 !border-2 !border-background'
+const HANDLE_STYLE: React.CSSProperties = { width: 12, height: 12, border: '2px solid #0a0f1e' }
+const CARD: React.CSSProperties = {
+  width: 240, borderRadius: 16, background: '#0e1626', color: '#e5edf7',
+  border: '1px solid rgba(255,255,255,0.12)', boxShadow: '0 10px 30px -10px rgba(0,0,0,0.6)',
+}
 
-/** Récupère les libellés des boutons quick-reply d'un template. */
+function getNode(data: unknown): WorkflowNode | null {
+  const d = data as FlowNodeData | undefined
+  return d && d.node ? d.node : null
+}
+function getTemplates(data: unknown): WhatsAppTemplate[] {
+  const d = data as FlowNodeData | undefined
+  return d?.templates || []
+}
+
 export function quickReplyLabels(t: WhatsAppTemplate | undefined): string[] {
   if (!t) return []
   return ((t.buttons ?? []) as TemplateButton[])
@@ -38,79 +47,57 @@ export function quickReplyLabels(t: WhatsAppTemplate | undefined): string[] {
     .map((b) => b.text)
 }
 
-function Shell({
-  children, tone, icon: Icon, title, hasTarget = true,
-}: {
-  children?: React.ReactNode
-  tone: string
-  icon: React.ComponentType<{ className?: string }>
-  title: string
-  hasTarget?: boolean
-}) {
+function Header({ icon: Icon, title, color }: { icon: React.ComponentType<{ size?: number }>; title: string; color: string }) {
   return (
-    <div className={cn('relative w-64 rounded-2xl border bg-[#0e1626] shadow-lg', tone)}>
-      {hasTarget && <Handle type="target" position={Position.Left} className={cn(HANDLE, '!bg-white/60')} />}
-      <div className="flex items-center gap-1.5 border-b border-white/10 px-3 py-2">
-        <Icon className="h-4 w-4" />
-        <span className="text-sm font-semibold">{title}</span>
-      </div>
-      <div className="px-3 py-2.5 text-[13px] text-white/80">{children}</div>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', borderBottom: '1px solid rgba(255,255,255,0.1)', color }}>
+      <Icon size={16} /> <span style={{ fontSize: 14, fontWeight: 600 }}>{title}</span>
     </div>
   )
 }
 
 export function TriggerFlowNode({ data }: NodeProps) {
-  const { node } = data as unknown as FlowNodeData
-  if (node.type !== 'trigger') return null
+  const node = getNode(data)
+  if (!node || node.type !== 'trigger') return null
   const label = TRIGGER_EVENTS.find((e) => e.value === node.event)?.label ?? 'Déclencheur'
   return (
-    <div className="relative w-64 rounded-2xl border border-sky-400/40 bg-[#0e1626] shadow-lg">
-      <div className="flex items-center gap-1.5 border-b border-white/10 px-3 py-2 text-sky-300">
-        <Zap className="h-4 w-4" />
-        <span className="text-sm font-semibold">Quand</span>
-      </div>
-      <div className="px-3 py-2.5 text-[13px] text-white/85">{label}</div>
-      <Handle type="source" position={Position.Right} className={cn(HANDLE, '!bg-sky-400')} />
+    <div style={{ ...CARD, borderColor: 'rgba(56,189,248,0.4)' }}>
+      <Header icon={Zap} title="Quand" color="#7dd3fc" />
+      <div style={{ padding: '10px 12px', fontSize: 13 }}>{label}</div>
+      <Handle type="source" position={Position.Right} style={{ ...HANDLE_STYLE, background: '#38bdf8' }} />
     </div>
   )
 }
 
 export function DelayFlowNode({ data }: NodeProps) {
-  const { node } = data as unknown as FlowNodeData
-  if (node.type !== 'delay') return null
+  const node = getNode(data)
+  if (!node || node.type !== 'delay') return null
   const m = node.minutes || 0
   const human = m >= 1440 ? `${Math.round(m / 1440)} j` : m >= 60 ? `${Math.round(m / 60)} h` : `${m} min`
   return (
-    <Shell tone="border-amber-400/40" icon={Clock} title="Attendre">
-      <p className="text-amber-300">{m === 0 ? 'Immédiat' : human}</p>
-      <Handle type="source" position={Position.Right} className={cn(HANDLE, '!bg-amber-400')} />
-    </Shell>
+    <div style={{ ...CARD, borderColor: 'rgba(251,191,36,0.4)' }}>
+      <Handle type="target" position={Position.Left} style={{ ...HANDLE_STYLE, background: 'rgba(255,255,255,0.6)' }} />
+      <Header icon={Clock} title="Attendre" color="#fcd34d" />
+      <div style={{ padding: '10px 12px', fontSize: 13, color: '#fcd34d' }}>{m === 0 ? 'Immédiat' : human}</div>
+      <Handle type="source" position={Position.Right} style={{ ...HANDLE_STYLE, background: '#fbbf24' }} />
+    </div>
   )
 }
 
 export function ConditionFlowNode({ data }: NodeProps) {
-  const { node } = data as unknown as FlowNodeData
-  if (node.type !== 'condition') return null
+  const node = getNode(data)
+  if (!node || node.type !== 'condition') return null
   const f = CONDITION_FIELDS.find((x) => x.value === node.rule.field)
   return (
-    <div className="relative w-64 rounded-2xl border border-violet-400/40 bg-[#0e1626] shadow-lg">
-      <Handle type="target" position={Position.Left} className={cn(HANDLE, '!bg-white/60')} />
-      <div className="flex items-center gap-1.5 border-b border-white/10 px-3 py-2 text-violet-300">
-        <GitBranch className="h-4 w-4" />
-        <span className="text-sm font-semibold">Condition</span>
-      </div>
-      <div className="px-3 py-2.5 text-[13px] text-white/85">
-        {f?.label} {node.rule.op} {String(node.rule.value)}
-      </div>
-      {/* Deux sorties : Oui (haut) / Non (bas). */}
-      <div className="flex flex-col gap-1 border-t border-white/10 px-3 py-1.5 text-[11px]">
-        <div className="relative flex items-center justify-end gap-1 text-emerald-400">
-          Oui
-          <Handle id="yes" type="source" position={Position.Right} style={{ top: 'auto', bottom: 26 }} className={cn(HANDLE, '!bg-emerald-400 !relative !transform-none')} />
+    <div style={{ ...CARD, borderColor: 'rgba(167,139,250,0.4)' }}>
+      <Handle type="target" position={Position.Left} style={{ ...HANDLE_STYLE, background: 'rgba(255,255,255,0.6)' }} />
+      <Header icon={GitBranch} title="Condition" color="#c4b5fd" />
+      <div style={{ padding: '10px 12px', fontSize: 13 }}>{f?.label} {node.rule.op} {String(node.rule.value)}</div>
+      <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', padding: '6px 12px' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, fontSize: 11, color: '#34d399', position: 'relative', height: 22 }}>
+          Oui <Handle id="yes" type="source" position={Position.Right} style={{ ...HANDLE_STYLE, background: '#34d399', position: 'relative', transform: 'none', top: 'auto' }} />
         </div>
-        <div className="relative flex items-center justify-end gap-1 text-red-400">
-          Non
-          <Handle id="no" type="source" position={Position.Right} style={{ top: 'auto', bottom: 6 }} className={cn(HANDLE, '!bg-red-400 !relative !transform-none')} />
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, fontSize: 11, color: '#f87171', position: 'relative', height: 22 }}>
+          Non <Handle id="no" type="source" position={Position.Right} style={{ ...HANDLE_STYLE, background: '#f87171', position: 'relative', transform: 'none', top: 'auto' }} />
         </div>
       </div>
     </div>
@@ -118,20 +105,17 @@ export function ConditionFlowNode({ data }: NodeProps) {
 }
 
 export function ABTestFlowNode({ data }: NodeProps) {
-  const { node } = data as unknown as FlowNodeData
-  if (node.type !== 'ab_test') return null
+  const node = getNode(data)
+  if (!node || node.type !== 'ab_test') return null
   return (
-    <div className="relative w-64 rounded-2xl border border-fuchsia-400/40 bg-[#0e1626] shadow-lg">
-      <Handle type="target" position={Position.Left} className={cn(HANDLE, '!bg-white/60')} />
-      <div className="flex items-center gap-1.5 border-b border-white/10 px-3 py-2 text-fuchsia-300">
-        <FlaskConical className="h-4 w-4" />
-        <span className="text-sm font-semibold">Test A/B</span>
-      </div>
-      <div className="space-y-1 px-3 py-2">
+    <div style={{ ...CARD, borderColor: 'rgba(232,121,249,0.4)' }}>
+      <Handle type="target" position={Position.Left} style={{ ...HANDLE_STYLE, background: 'rgba(255,255,255,0.6)' }} />
+      <Header icon={FlaskConical} title="Test A/B" color="#f0abfc" />
+      <div style={{ padding: '6px 12px' }}>
         {(node.variants || []).map((v) => (
-          <div key={v.key} className="relative flex items-center justify-between text-[12px] text-white/80">
+          <div key={v.key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, height: 22, position: 'relative' }}>
             <span>Variante {v.key} · {v.weight}%</span>
-            <Handle id={variantBranch(v.key)} type="source" position={Position.Right} className={cn(HANDLE, '!bg-fuchsia-400 !relative !transform-none')} />
+            <Handle id={variantBranch(v.key)} type="source" position={Position.Right} style={{ ...HANDLE_STYLE, background: '#e879f9', position: 'relative', transform: 'none', top: 'auto' }} />
           </div>
         ))}
       </div>
@@ -140,46 +124,42 @@ export function ABTestFlowNode({ data }: NodeProps) {
 }
 
 export function ActionFlowNode({ data }: NodeProps) {
-  const { node, templates } = data as unknown as FlowNodeData
-  if (node.type !== 'action') return null
-  const tpl = templates.find((t) => t.id === node.templateId)
+  const node = getNode(data)
+  if (!node || node.type !== 'action') return null
+  const tpl = getTemplates(data).find((t) => t.id === node.templateId)
   const labels = quickReplyLabels(tpl)
-  const hasButtons = labels.length > 0
+  const body = (tpl?.body_text || '').slice(0, 130)
   return (
-    <div className="relative w-72 rounded-2xl border border-emerald-400/40 bg-[#0e1626] shadow-lg">
-      <Handle type="target" position={Position.Left} className={cn(HANDLE, '!bg-white/60')} />
-      <div className="flex items-center gap-1.5 border-b border-white/10 bg-[#075E54]/40 px-3 py-2 text-emerald-200">
-        <MessageSquare className="h-4 w-4" />
-        <span className="text-sm font-semibold">Message</span>
+    <div style={{ ...CARD, width: 280, borderColor: 'rgba(52,211,153,0.4)' }}>
+      <Handle type="target" position={Position.Left} style={{ ...HANDLE_STYLE, background: 'rgba(255,255,255,0.6)' }} />
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '8px 12px', background: 'rgba(7,94,84,0.35)', borderBottom: '1px solid rgba(255,255,255,0.1)', color: '#a7f3d0' }}>
+        <MessageSquare size={16} /> <span style={{ fontSize: 14, fontWeight: 600 }}>Message</span>
       </div>
-      <div className="px-3 py-2.5">
+      <div style={{ padding: '10px 12px' }}>
         {tpl ? (
-          <div className="rounded-lg rounded-tl-none bg-[#202c33] px-2.5 py-2 text-[12px] leading-snug text-[#e9edef] shadow-sm">
-            {(tpl.body_text || '').slice(0, 140)}{(tpl.body_text || '').length > 140 ? '…' : ''}
+          <div style={{ background: '#202c33', borderRadius: 8, borderTopLeftRadius: 0, padding: '8px 10px', fontSize: 12, lineHeight: 1.4, color: '#e9edef' }}>
+            {body}{(tpl.body_text || '').length > 130 ? '…' : ''}
           </div>
         ) : (
-          <p className="text-[12px] italic text-white/40">Aucun modèle sélectionné</p>
+          <p style={{ fontSize: 12, fontStyle: 'italic', color: 'rgba(255,255,255,0.4)' }}>Aucun modèle sélectionné</p>
         )}
       </div>
-      {/* Une sortie PAR BOUTON quick-reply → chaque bouton branche le funnel.
-          Sans bouton : une sortie unique (message simple). */}
-      {hasButtons ? (
-        <div className="space-y-1 border-t border-white/10 px-3 py-2">
+      {labels.length > 0 ? (
+        <div style={{ padding: '6px 12px', borderTop: '1px solid rgba(255,255,255,0.1)' }}>
           {labels.map((text) => (
-            <div key={text} className="relative flex items-center justify-between gap-2 rounded-md bg-[#25d366]/10 px-2 py-1 text-[11px] font-medium text-[#25d366]">
-              <span className="flex items-center gap-1 truncate"><Reply className="h-3 w-3" /> {text}</span>
-              <Handle id={buttonBranch(text)} type="source" position={Position.Right} className={cn(HANDLE, '!bg-[#25d366] !relative !transform-none')} />
+            <div key={text} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, background: 'rgba(37,211,102,0.1)', borderRadius: 6, padding: '4px 8px', margin: '4px 0', fontSize: 11, fontWeight: 500, color: '#25d366', position: 'relative' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: 4, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}><Reply size={12} /> {text}</span>
+              <Handle id={buttonBranch(text)} type="source" position={Position.Right} style={{ ...HANDLE_STYLE, background: '#25d366', position: 'relative', transform: 'none', top: 'auto' }} />
             </div>
           ))}
         </div>
       ) : (
-        <Handle type="source" position={Position.Right} className={cn(HANDLE, '!bg-emerald-400')} />
+        <Handle type="source" position={Position.Right} style={{ ...HANDLE_STYLE, background: '#34d399' }} />
       )}
     </div>
   )
 }
 
-/** Table nodeType → composant, passée à <ReactFlow nodeTypes={...} />. */
 export const flowNodeTypes = {
   trigger: TriggerFlowNode,
   delay: DelayFlowNode,

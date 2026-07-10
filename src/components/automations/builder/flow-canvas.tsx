@@ -68,9 +68,11 @@ function FlowCanvasInner({ graph, templates, onChange }: FlowCanvasProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const rf = useReactFlow()
 
-  const positions = useMemo(() => graph.positions && Object.keys(graph.positions).length
-    ? graph.positions
-    : autoLayout(graph), [graph])
+  // Les positions par défaut (défaut vertical de defaultGraph) ne conviennent
+  // pas au canvas horizontal, et beaucoup de graphes n'en ont pas → on
+  // (re)calcule TOUJOURS un layout horizontal propre à l'ouverture, sans écraser
+  // le graphe en base (positions = état d'affichage uniquement, persisté au drag).
+  const positions = useMemo(() => autoLayout(graph), [graph])
 
   // graph → React Flow nodes
   const rfNodes: Node[] = useMemo(() => graph.nodes.map((n) => ({
