@@ -19,6 +19,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   AlertTriangle,
   CreditCard,
   Workflow,
@@ -82,6 +83,9 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [pinned, setPinned] = useState(true)   // sidebar épinglée ouverte par défaut (desktop)
   const [hovered, setHovered] = useState(false)  // survol → élargissement temporaire
+  // Menus accordéon dépliés manuellement (par href). Cliquer sur un item à
+  // sous-menu le DÉPLIE sans naviguer ; il reste ouvert jusqu'à re-clic.
+  const [openMenus, setOpenMenus] = useState<Set<string>>(new Set())
   const [profile, setProfile] = useState<{ full_name?: string | null; avatar_url?: string | null } | null>(null)
   // Sur desktop, la sidebar est « large » si épinglée ou survolée.
   const expanded = pinned || hovered
@@ -222,35 +226,75 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     // ET la sidebar élargie. `tab` courant lu dans l'URL pour surligner.
     const children = (item as { children?: { href: string; label: string; icon: typeof item.icon }[] }).children
     const currentTab = searchParams.get('tab')
+    // Un menu à sous-entrées est déplié s'il a été ouvert manuellement OU si sa
+    // route est active (on arrive dessus par lien direct → sous-menu visible).
+    const menuOpen = !!children && (openMenus.has(item.href) || isActive)
+    const toggleMenu = () => setOpenMenus((prev) => {
+      const next = new Set(prev)
+      if (next.has(item.href)) next.delete(item.href)
+      else next.add(item.href)
+      return next
+    })
+
+    // Contenu commun (icône + libellé), qu'on soit un Link ou un bouton toggle.
+    const inner = (
+      <>
+        <item.icon className="h-[22px] w-[22px] shrink-0" />
+        <span className={cn(expanded ? 'md:inline' : 'md:hidden')}>{item.label}</span>
+        {locked && <Lock className={cn('ml-auto h-3.5 w-3.5 shrink-0 text-white/40', expanded ? 'md:inline' : 'md:hidden')} />}
+        {children && !locked && (
+          <ChevronDown className={cn(
+            'ml-auto h-4 w-4 shrink-0 text-white/40 transition-transform',
+            expanded ? 'md:inline' : 'md:hidden',
+            menuOpen && 'rotate-180',
+          )} />
+        )}
+      </>
+    )
+    const rowClass = cn(
+      'group relative flex w-full items-center gap-3 text-[15px] font-medium transition-all duration-200',
+      'rounded-xl px-3 py-3',
+      expanded
+        ? 'md:w-full md:justify-start md:px-3 md:py-2.5'
+        : 'md:h-12 md:w-12 md:justify-center md:gap-0 md:px-0 md:py-0',
+      isActive
+        ? 'rounded-xl bg-white/10 text-white ring-1 ring-white/15'
+        : 'rounded-xl text-white/55 hover:bg-white/[0.06] hover:text-white',
+      locked && 'opacity-45'
+    )
     return (
       <>
-        <Link
-          href={item.href}
-          title={!expanded ? item.label : locked ? 'Connectez votre boutique pour y accéder' : undefined}
-          className={cn(
-            'group relative flex items-center gap-3 text-[15px] font-medium transition-all duration-200',
-            'rounded-xl px-3 py-3',
-            expanded
-              ? 'md:w-full md:justify-start md:px-3 md:py-2.5'
-              : 'md:h-12 md:w-12 md:justify-center md:gap-0 md:px-0 md:py-0',
-            isActive
-              ? 'rounded-xl bg-white/10 text-white ring-1 ring-white/15'
-              : 'rounded-xl text-white/55 hover:bg-white/[0.06] hover:text-white',
-            locked && 'opacity-45'
-          )}
-        >
-          <item.icon className="h-[22px] w-[22px] shrink-0" />
-          <span className={cn(expanded ? 'md:inline' : 'md:hidden')}>{item.label}</span>
-          {locked && <Lock className={cn('ml-auto h-3.5 w-3.5 shrink-0 text-white/40', expanded ? 'md:inline' : 'md:hidden')} />}
-        </Link>
+        {children ? (
+          // Item à sous-menu : le clic DÉPLIE/replie, il ne navigue pas. Quand la
+          // sidebar est repliée (icônes seules), on ne peut pas montrer le
+          // sous-menu → le clic navigue vers la route parente comme avant.
+          <button
+            type="button"
+            title={!expanded ? item.label : undefined}
+            onClick={() => { if (expanded) toggleMenu(); else router.push(item.href) }}
+            className={rowClass}
+          >
+            {inner}
+          </button>
+        ) : (
+          <Link
+            href={item.href}
+            title={!expanded ? item.label : locked ? 'Connectez votre boutique pour y accéder' : undefined}
+            className={rowClass}
+          >
+            {inner}
+          </Link>
+        )}
 
-        {/* Sous-menu déployé : uniquement sidebar élargie + route parente active. */}
-        {children && isActive && expanded && (
+        {/* Sous-menu déployé : sidebar élargie + menu ouvert (manuel ou actif). */}
+        {children && menuOpen && expanded && (
           <div className="ml-4 mt-0.5 flex flex-col gap-0.5 border-l border-white/10 pl-3">
             {children.map((c) => {
-              // Actif = même route ET le tab correspond (défaut transactional).
+              // Actif = on est SUR la route parente ET le tab correspond (défaut
+              // transactional). Sur une autre page, aucun sous-onglet surligné
+              // (sinon « Transactionnel » paraîtrait sélectionné à tort).
               const cTab = new URLSearchParams(c.href.split('?')[1] || '').get('tab')
-              const childActive = (currentTab || 'transactional') === cTab
+              const childActive = isActive && (currentTab || 'transactional') === cTab
               return (
                 <Link
                   key={c.href}
