@@ -550,6 +550,7 @@ export default function OnboardingPage() {
         ...Object.entries(groups).map(([key, triggers]) => ({
           key,
           title: CATEGORY_META[key]?.title ?? key,
+          pitch: CATEGORY_META[key]?.pitch,
           items: pack.filter((i) => triggers.includes(i.trigger)),
         })),
         { key: 'Autres', title: 'Autres', items: pack.filter((i) => !groupedTriggers.has(i.trigger)) },
