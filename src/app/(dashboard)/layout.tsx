@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, Suspense } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { usePathname, useRouter } from 'next/navigation'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 import {
@@ -25,6 +25,7 @@ import {
   ShieldCheck,
   Store,
   Lock,
+  Megaphone,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { DashboardTopBar } from '@/components/dashboard-topbar'
@@ -46,7 +47,15 @@ const NAV_ITEMS_KEYS = [
   { href: '/conversations', labelKey: 'nav.conversations', icon: MessageSquare },
   { href: '/agents', labelKey: 'nav.agents', icon: Bot },
   { href: '/templates', labelKey: 'nav.templates', icon: FileText },
-  { href: '/automations', labelKey: 'nav.automations', label: 'Automatisations', icon: Workflow },
+  // Groupe accordéon : ouvre 2 sous-entrées dans la sidebar (pas des onglets
+  // en haut de page). Le href du parent sert d'ancre de route active.
+  {
+    href: '/automations', labelKey: 'nav.automations', label: 'Automatisations', icon: Workflow,
+    children: [
+      { href: '/automations?tab=marketing', label: 'Campagnes', icon: Megaphone },
+      { href: '/automations?tab=transactional', label: 'Automatisations', icon: Workflow },
+    ],
+  },
   { href: '/stats', labelKey: 'nav.stats', icon: BarChart3 },
 ]
 
@@ -64,9 +73,10 @@ const ALLOWED_WITHOUT_SUBSCRIPTION = ['/subscription', '/settings', '/admin', '/
 // Le dashboard reste accessible : c'est là qu'on reconnecte la boutique.
 const STORE_REQUIRED_PATHS = ['/conversations', '/agents', '/templates', '/automations', '/stats', '/campaigns', '/lifecycle']
 
-export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [pinned, setPinned] = useState(true)   // sidebar épinglée ouverte par défaut (desktop)
   const [hovered, setHovered] = useState(false)  // survol → élargissement temporaire
@@ -206,26 +216,56 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     // Verrouillé tant qu'aucune boutique n'est connectée (le clic reste
     // possible : la page affiche l'écran « Reconnecter ma boutique »).
     const locked = storeLinked === false && STORE_REQUIRED_PATHS.includes(item.href)
+    // Sous-entrées (accordéon) : déployées quand la route parente est active
+    // ET la sidebar élargie. `tab` courant lu dans l'URL pour surligner.
+    const children = (item as { children?: { href: string; label: string; icon: typeof item.icon }[] }).children
+    const currentTab = searchParams.get('tab')
     return (
-      <Link
-        href={item.href}
-        title={!expanded ? item.label : locked ? 'Connectez votre boutique pour y accéder' : undefined}
-        className={cn(
-          'group relative flex items-center gap-3 text-[15px] font-medium transition-all duration-200',
-          'rounded-xl px-3 py-3',
-          expanded
-            ? 'md:w-full md:justify-start md:px-3 md:py-2.5'
-            : 'md:h-12 md:w-12 md:justify-center md:gap-0 md:px-0 md:py-0',
-          isActive
-            ? 'rounded-xl bg-white/10 text-white ring-1 ring-white/15'
-            : 'rounded-xl text-white/55 hover:bg-white/[0.06] hover:text-white',
-          locked && 'opacity-45'
+      <>
+        <Link
+          href={item.href}
+          title={!expanded ? item.label : locked ? 'Connectez votre boutique pour y accéder' : undefined}
+          className={cn(
+            'group relative flex items-center gap-3 text-[15px] font-medium transition-all duration-200',
+            'rounded-xl px-3 py-3',
+            expanded
+              ? 'md:w-full md:justify-start md:px-3 md:py-2.5'
+              : 'md:h-12 md:w-12 md:justify-center md:gap-0 md:px-0 md:py-0',
+            isActive
+              ? 'rounded-xl bg-white/10 text-white ring-1 ring-white/15'
+              : 'rounded-xl text-white/55 hover:bg-white/[0.06] hover:text-white',
+            locked && 'opacity-45'
+          )}
+        >
+          <item.icon className="h-[22px] w-[22px] shrink-0" />
+          <span className={cn(expanded ? 'md:inline' : 'md:hidden')}>{item.label}</span>
+          {locked && <Lock className={cn('ml-auto h-3.5 w-3.5 shrink-0 text-white/40', expanded ? 'md:inline' : 'md:hidden')} />}
+        </Link>
+
+        {/* Sous-menu déployé : uniquement sidebar élargie + route parente active. */}
+        {children && isActive && expanded && (
+          <div className="ml-4 mt-0.5 flex flex-col gap-0.5 border-l border-white/10 pl-3">
+            {children.map((c) => {
+              // Actif = même route ET le tab correspond (défaut transactional).
+              const cTab = new URLSearchParams(c.href.split('?')[1] || '').get('tab')
+              const childActive = (currentTab || 'transactional') === cTab
+              return (
+                <Link
+                  key={c.href}
+                  href={c.href}
+                  className={cn(
+                    'flex items-center gap-2.5 rounded-lg px-3 py-2 text-[14px] font-medium transition-colors',
+                    childActive ? 'bg-white/10 text-white' : 'text-white/50 hover:bg-white/[0.06] hover:text-white',
+                  )}
+                >
+                  <c.icon className="h-4 w-4 shrink-0" />
+                  {c.label}
+                </Link>
+              )
+            })}
+          </div>
         )}
-      >
-        <item.icon className="h-[22px] w-[22px] shrink-0" />
-        <span className={cn(expanded ? 'md:inline' : 'md:hidden')}>{item.label}</span>
-        {locked && <Lock className={cn('ml-auto h-3.5 w-3.5 shrink-0 text-white/40', expanded ? 'md:inline' : 'md:hidden')} />}
-      </Link>
+      </>
     )
   }
 
@@ -464,5 +504,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <div className="h-16 md:hidden" />
     </div>
     </TourProvider>
+  )
+}
+
+// `useSearchParams` (sous-menu accordéon) exige un Suspense boundary en Next 16.
+export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={<BlobLoaderScreen />}>
+      <DashboardLayoutInner>{children}</DashboardLayoutInner>
+    </Suspense>
   )
 }

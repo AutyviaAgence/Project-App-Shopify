@@ -1,6 +1,7 @@
 'use client'
 
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useEffect, useState, useCallback, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { track } from '@/lib/posthog/events'
 import { Button } from '@/components/ui/button'
@@ -30,9 +31,11 @@ type Automation = {
 
 type Folder = { id: string; name: string; color: string | null; position: number }
 
-export default function AutomationsPage() {
-  // Onglet actif : Campagnes (marketing) ou Automatisations (transactionnel).
-  const [tab, setTab] = useState<AutomationKind>('transactional')
+function AutomationsPageInner() {
+  // Onglet actif, piloté par la sidebar via ?tab= (marketing | transactional).
+  const searchParams = useSearchParams()
+  const urlTab: AutomationKind = searchParams.get('tab') === 'marketing' ? 'marketing' : 'transactional'
+  const [tab, setTab] = useState<AutomationKind>(urlTab)
   const [automations, setAutomations] = useState<Automation[]>([])
   const [templates, setTemplates] = useState<WhatsAppTemplate[]>([])
   const [folders, setFolders] = useState<Folder[]>([])
@@ -70,8 +73,8 @@ export default function AutomationsPage() {
     } finally {
       setLoading(false)
     }
-    // `tab` volontairement hors deps : on ne veut charger qu'au montage (avec
-    // l'onglet initial). Le changement d'onglet gère l'ouverture via switchTab.
+    // `tab` lu au montage seulement (ouverture initiale) ; le suivi d'URL gère
+    // le reste. On ne recharge pas la liste à chaque changement d'onglet.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -116,14 +119,13 @@ export default function AutomationsPage() {
   // les dossiers, « tout activer », etc.
   const visibleAutomations = automations.filter((a) => kindOf(a) === tab)
 
-  // Changer d'onglet : on referme le builder et on ouvre la 1re automatisation
-  // de l'onglet cible (ou l'écran vide).
-  function switchTab(next: AutomationKind) {
-    if (next === tab) return
-    setTab(next)
+  // Suivre l'onglet piloté par la sidebar (?tab=) : bascule le state, referme
+  // le builder, et lâche l'automatisation courante si elle n'est pas du bon kind.
+  useEffect(() => {
+    setTab(urlTab)
     setShowChoose(false); setShowWizard(false)
-    setCurrent(automations.find((a) => kindOf(a) === next) || null)
-  }
+    setCurrent((c) => (c && kindOf(c) === urlTab) ? c : null)
+  }, [urlTab])
 
   // Quand l'automatisation courante change, (re)charge son graphe + nom.
   useEffect(() => {
@@ -260,26 +262,13 @@ export default function AutomationsPage() {
           bouton « Enregistrer » sortait de l'écran. */}
       <div className="flex flex-col gap-2 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between md:px-6">
         <div className="min-w-0">
-          {/* Onglets : Campagnes (marketing) / Automatisations (transactionnel). */}
-          <div className="flex items-center gap-1 rounded-lg bg-muted/50 p-1">
-            {([
-              { k: 'marketing' as const, label: 'Campagnes', icon: Megaphone, hint: 'Marketing : funnels, promos, A/B' },
-              { k: 'transactional' as const, label: 'Automatisations', icon: Workflow, hint: 'Statuts commande, panier, SAV' },
-            ]).map(({ k, label, icon: Icon }) => (
-              <button
-                key={k}
-                onClick={() => switchTab(k)}
-                className={cn(
-                  'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-                  tab === k ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
-                )}
-              >
-                <Icon className="h-4 w-4 shrink-0" />
-                {label}
-              </button>
-            ))}
-          </div>
-          <p className="mt-1 hidden text-xs text-muted-foreground sm:block">
+          {/* Le choix Campagnes/Automatisations se fait dans la SIDEBAR
+              (sous-menu). Ici on rappelle juste l'onglet courant. */}
+          <h1 className="flex items-center gap-2 text-lg font-semibold">
+            {tab === 'marketing' ? <Megaphone className="h-5 w-5 shrink-0" /> : <Workflow className="h-5 w-5 shrink-0" />}
+            {tab === 'marketing' ? 'Campagnes' : 'Automatisations'}
+          </h1>
+          <p className="hidden text-xs text-muted-foreground sm:block">
             {tab === 'marketing'
               ? 'Campagnes marketing : parcours à boutons, promotions, A/B test.'
               : 'Automatisations transactionnelles : événement → délai → condition → message.'}
@@ -564,5 +553,14 @@ export default function AutomationsPage() {
         )}
       </div>
     </div>
+  )
+}
+
+// `useSearchParams` (onglet piloté par la sidebar) exige un Suspense en Next 16.
+export default function AutomationsPage() {
+  return (
+    <Suspense fallback={<BlobLoaderScreen />}>
+      <AutomationsPageInner />
+    </Suspense>
   )
 }
