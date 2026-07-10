@@ -23,6 +23,8 @@ import {
   CreditCard,
   Workflow,
   ShieldCheck,
+  Store,
+  Lock,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { DashboardTopBar } from '@/components/dashboard-topbar'
@@ -56,6 +58,11 @@ const BOTTOM_NAV_KEYS = [
 
 // Pages accessibles même sans abonnement actif
 const ALLOWED_WITHOUT_SUBSCRIPTION = ['/subscription', '/settings', '/admin', '/help']
+
+// Pages BLOQUÉES tant qu'aucune boutique Shopify n'est connectée : toutes les
+// données de l'app en découlent (conversations, agents, modèles, stats…).
+// Le dashboard reste accessible : c'est là qu'on reconnecte la boutique.
+const STORE_REQUIRED_PATHS = ['/conversations', '/agents', '/templates', '/automations', '/stats', '/campaigns', '/lifecycle']
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
@@ -116,6 +123,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     refetchSubscription()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname])
+
+  // Boutique Shopify active ? Sans elle, les pages de données sont bloquées.
+  // FAIL-OPEN : champ absent (admin, failOpen) ou erreur réseau → on ne bloque pas.
+  const [storeLinked, setStoreLinked] = useState<boolean | null>(null)
+  useEffect(() => {
+    let active = true
+    fetch('/api/onboarding/state')
+      .then((r) => r.json())
+      .then((j) => { if (active) setStoreLinked(typeof j?.shopifyLinked === 'boolean' ? j.shopifyLinked : true) })
+      .catch(() => { if (active) setStoreLinked(true) })
+    return () => { active = false }
+  }, [pathname])
+
+  const isStoreGated =
+    storeLinked === false &&
+    STORE_REQUIRED_PATHS.some((p) => pathname === p || pathname.startsWith(p + '/'))
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -180,10 +203,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   // fond du panneau (--background) et se raccorde via des coins inversés.
   const NavLink = ({ item }: { item: typeof NAV_ITEMS[0] }) => {
     const isActive = pathname === item.href || pathname.startsWith(item.href + '/')
+    // Verrouillé tant qu'aucune boutique n'est connectée (le clic reste
+    // possible : la page affiche l'écran « Reconnecter ma boutique »).
+    const locked = storeLinked === false && STORE_REQUIRED_PATHS.includes(item.href)
     return (
       <Link
         href={item.href}
-        title={!expanded ? item.label : undefined}
+        title={!expanded ? item.label : locked ? 'Connectez votre boutique pour y accéder' : undefined}
         className={cn(
           'group relative flex items-center gap-3 text-[15px] font-medium transition-all duration-200',
           'rounded-xl px-3 py-3',
@@ -192,11 +218,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             : 'md:h-12 md:w-12 md:justify-center md:gap-0 md:px-0 md:py-0',
           isActive
             ? 'rounded-xl bg-white/10 text-white ring-1 ring-white/15'
-            : 'rounded-xl text-white/55 hover:bg-white/[0.06] hover:text-white'
+            : 'rounded-xl text-white/55 hover:bg-white/[0.06] hover:text-white',
+          locked && 'opacity-45'
         )}
       >
         <item.icon className="h-[22px] w-[22px] shrink-0" />
         <span className={cn(expanded ? 'md:inline' : 'md:hidden')}>{item.label}</span>
+        {locked && <Lock className={cn('ml-auto h-3.5 w-3.5 shrink-0 text-white/40', expanded ? 'md:inline' : 'md:hidden')} />}
       </Link>
     )
   }
@@ -347,6 +375,30 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 >
                   <CreditCard className="h-5 w-5" />
                   Voir les plans
+                </Link>
+              </div>
+            </div>
+          ) : isStoreGated ? (
+            /* Aucune boutique Shopify connectée : les données de l'app en
+               découlent toutes → on bloque cette section avec un CTA clair. */
+            <div className="flex h-full items-center justify-center p-6">
+              <div className="max-w-md space-y-6 text-center">
+                <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-primary/15 ring-1 ring-primary/30">
+                  <Store className="h-8 w-8 text-primary" />
+                </div>
+                <div className="space-y-2">
+                  <h2 className="text-2xl font-bold text-foreground">Connectez votre boutique Shopify</h2>
+                  <p className="text-muted-foreground">
+                    {tenant.appName} fonctionne à partir de votre boutique : sans elle, les conversations,
+                    agents, modèles, automatisations et statistiques sont en pause.
+                  </p>
+                </div>
+                <Link
+                  href="/dashboard"
+                  className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
+                >
+                  <Store className="h-5 w-5" />
+                  Reconnecter ma boutique
                 </Link>
               </div>
             </div>

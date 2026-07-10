@@ -23,7 +23,6 @@ import {
   Trash2,
   Pencil,
   Loader2,
-  Brain,
   Sparkles,
   ArrowRight,
   ChevronLeft,
@@ -421,11 +420,11 @@ export default function AgentsPage() {
           <div className="pointer-events-none absolute left-1/2 top-0 -z-10 h-72 w-72 -translate-x-1/2 rounded-full bg-primary/20 blur-3xl agent-onboarding-glow" />
 
           <div className="flex flex-col items-center text-center">
-            {/* Icône cerveau animée */}
-            <div className="relative mb-5 flex h-20 w-20 items-center justify-center">
-              <span className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary/30 to-accent/20 agent-onboarding-pulse" />
-              <span className="absolute inset-0 rounded-2xl bg-gradient-to-br from-primary to-accent opacity-90" />
-              <Brain className="relative h-9 w-9 text-white" />
+            {/* La mascotte assise au téléphone (détourée), halo qui pulse dessous. */}
+            <div className="relative mb-5 flex h-32 w-32 items-center justify-center">
+              <span className="absolute inset-2 rounded-full bg-gradient-to-br from-primary/30 to-accent/20 blur-xl agent-onboarding-pulse" />
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/mascots/sitting-phone.png" alt="" className="relative h-32 w-auto select-none drop-shadow-2xl" />
             </div>
             <h2 className="text-2xl font-bold tracking-tight">Créons ton premier agent IA</h2>
             <p className="mt-1.5 max-w-sm text-sm text-muted-foreground">
