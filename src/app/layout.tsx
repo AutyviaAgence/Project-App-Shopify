@@ -1,10 +1,11 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
-// CSS du canvas React Flow (campagnes). Importé ici et non via @import Tailwind
-// ni dans le composant dynamic ssr:false, où il n'était pas appliqué → le canvas
-// rendait des nœuds invisibles et des contrôles sans style.
-import '@xyflow/react/dist/style.css'
+// CSS du canvas React Flow (campagnes). Copie LOCALE (src/styles/reactflow.css) :
+// l'import depuis node_modules (@import Tailwind, composant dynamic, ou layout)
+// ne s'appliquait pas → nœuds invisibles + contrôles sans style. Un fichier local
+// contourne tout problème de résolution.
+import '../styles/reactflow.css'
 import { Toaster } from 'sonner'
 import { ThemeProvider } from 'next-themes'
 import { LanguageProvider } from '@/i18n/context'

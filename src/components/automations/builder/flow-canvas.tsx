@@ -165,8 +165,9 @@ export function FlowCanvas({
         fitView
         proOptions={{ hideAttribution: true }}
         defaultEdgeOptions={{ type: 'smoothstep' }}
-        style={{ width: '100%', height: '100%' }}
-        className="bg-[#0a0f1e]"
+        // absolute inset-0 : remplit le wrapper `relative min-h-[70vh]` de façon
+        // GARANTIE (height:100% dans un parent sans hauteur flex ne résout pas).
+        className="!absolute inset-0 bg-[#0a0f1e]"
       >
         <Background color="#1e2a44" gap={20} />
         <Controls className="!bg-[#0e1626] !border-white/10" />
