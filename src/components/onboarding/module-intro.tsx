@@ -72,7 +72,8 @@ export function ModuleIntro({ module, onStart }: { module: IntroModule; onStart:
         animate={{ opacity: 1, scale: phase >= 1 ? 1 : 1.35, filter: 'blur(0px)' }}
         transition={{ layout: { type: 'spring', stiffness: 170, damping: 24 }, duration: 1, ease: [0.22, 1, 0.36, 1] }}
         // leading + pb/-mb : sans ça, bg-clip-text coupe les jambages (le « g »).
-        className="-mb-2 bg-gradient-to-b from-white to-white/70 bg-clip-text px-4 pb-2 text-3xl font-bold leading-[1.2] tracking-tight text-transparent sm:text-4xl md:text-5xl"
+        // -mt-8 : le titre siège un peu plus haut dans la scène.
+        className="-mb-2 -mt-8 bg-gradient-to-b from-white to-white/70 bg-clip-text px-4 pb-2 text-4xl font-bold leading-[1.2] tracking-tight text-transparent sm:text-5xl md:text-6xl"
       >
         {meta.title}
       </motion.h2>
