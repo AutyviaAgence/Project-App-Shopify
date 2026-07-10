@@ -116,6 +116,21 @@ function AutomationsPageInner() {
 
   useEffect(() => { load() }, [load])
 
+  // Re-synchronise les modèles au retour sur l'onglet : un modèle édité dans la
+  // page Modèles (statut, boutons) est reflété dans le builder sans recharger.
+  // On ne rafraîchit QUE `templates` (pas le graphe en cours d'édition).
+  useEffect(() => {
+    const onVisible = async () => {
+      if (document.visibilityState !== 'visible') return
+      try {
+        const tRes = await fetch('/api/templates').then((r) => r.json())
+        setTemplates((tRes.data || []).filter((t: WhatsAppTemplate) => t.status === 'approved' || t.status === 'pending'))
+      } catch { /* silencieux */ }
+    }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [])
+
   // Kind effectif d'une automatisation (les anciennes lignes sans kind, ou les
   // brouillons non encore sauvés, sont transactionnelles par défaut).
   const kindOf = (a: Automation): AutomationKind => a.kind === 'marketing' ? 'marketing' : 'transactional'

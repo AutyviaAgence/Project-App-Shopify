@@ -489,6 +489,7 @@ function TemplateButtonsEditor({ template, onSaved }: {
     .filter((b) => b.type === 'QUICK_REPLY')
     .map((b) => b.text)
   const [labels, setLabels] = useState<string[]>(initial)
+  const [open, setOpen] = useState(false)   // replié par défaut : l'aperçu montre déjà les boutons
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const otherButtons = ((template.buttons ?? []) as TemplateButton[]).filter((b) => b.type !== 'QUICK_REPLY')
@@ -533,11 +534,21 @@ function TemplateButtonsEditor({ template, onSaved }: {
     }
   }
 
+  const count = labels.filter((s) => s.trim()).length
   return (
     <div className="rounded-lg border border-dashed border-border/70 p-2">
-      <div className="mb-1.5 flex items-center gap-1.5 text-[10px] font-medium text-muted-foreground">
-        <Reply className="h-3 w-3" /> Boutons de réponse rapide
-      </div>
+      {/* En-tête repliable : l'aperçu au-dessus montre déjà les boutons, on ne
+          déplie l'éditeur que pour les modifier (évite l'impression de doublon). */}
+      <button type="button" onClick={() => setOpen((o) => !o)}
+        className="flex w-full items-center gap-1.5 text-[10px] font-medium text-muted-foreground transition-colors hover:text-foreground">
+        <Reply className="h-3 w-3" />
+        <span>Boutons de réponse rapide{count > 0 ? ` (${count})` : ''}</span>
+        {dirty && <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-amber-600">non enregistré</span>}
+        <ChevronDown className={cn('ml-auto h-3.5 w-3.5 transition-transform', open && 'rotate-180')} />
+      </button>
+
+      {!open ? null : (
+      <div className="mt-2">
       {otherButtons.length > 0 && (
         <p className="mb-1.5 text-[10px] text-amber-600">
           Ce modèle a déjà des boutons {otherButtons.map((b) => b.type).join(', ')} : impossible d’y ajouter des réponses rapides (règle Meta).
@@ -583,6 +594,8 @@ function TemplateButtonsEditor({ template, onSaved }: {
         <p className="mt-1.5 text-[10px] text-muted-foreground">
           ⏳ Enregistrer renvoie le modèle en revue Meta (~quelques minutes). Il ne pourra être envoyé qu’une fois approuvé.
         </p>
+      )}
+      </div>
       )}
     </div>
   )

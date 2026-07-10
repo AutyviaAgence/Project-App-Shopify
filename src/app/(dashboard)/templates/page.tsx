@@ -318,6 +318,15 @@ export default function TemplatesPage() {
     })
   }, [fetchTemplates, fetchLibrary])
 
+  // Re-synchronise quand l'onglet redevient visible : un modèle édité ailleurs
+  // (ex. ajout de boutons depuis le builder d'automatisation) est reflété ici
+  // sans rechargement manuel. Même source DB → une seule vérité, on refetch.
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchTemplates() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => document.removeEventListener('visibilitychange', onVisible)
+  }, [fetchTemplates])
+
   async function handleSeedDefaults() {
     setSeeding(true)
     try {
