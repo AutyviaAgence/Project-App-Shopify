@@ -16,19 +16,25 @@ export function AgentTryChat({
   agentId,
   systemPrompt,
   suggestions = [],
+  maxQuestions,
 }: {
   agentId: string | null
   systemPrompt: string
   suggestions?: string[]
+  /** Plafond de questions d'essai (limite les coûts tokens). Absent = illimité. */
+  maxQuestions?: number
 }) {
   const [messages, setMessages] = useState<Msg[]>([])
   const [input, setInput] = useState('')
   const [sending, setSending] = useState(false)
   const scrollRef = useRef<HTMLDivElement>(null)
 
+  const questionsUsed = messages.filter((m) => m.role === 'user').length
+  const limitReached = maxQuestions != null && questionsUsed >= maxQuestions
+
   async function send(text: string) {
     const msg = text.trim()
-    if (!msg || sending || !agentId) return
+    if (!msg || sending || !agentId || limitReached) return
     const history = messages
     setMessages((m) => [...m, { role: 'user', content: msg }])
     setInput('')
@@ -55,6 +61,11 @@ export function AgentTryChat({
     <div className="overflow-hidden rounded-xl border">
       <div className="flex items-center gap-2 border-b bg-muted/40 px-3 py-2 text-xs font-medium text-muted-foreground">
         <Sparkles className="h-3.5 w-3.5 text-primary" /> Testez votre agent
+        {maxQuestions != null && (
+          <span className="ml-auto tabular-nums text-muted-foreground/70">
+            {questionsUsed}/{maxQuestions} questions
+          </span>
+        )}
       </div>
 
       {/* Fil */}
@@ -82,7 +93,7 @@ export function AgentTryChat({
       </div>
 
       {/* Suggestions pré-générées */}
-      {remainingSuggestions.length > 0 && (
+      {!limitReached && remainingSuggestions.length > 0 && (
         <div className="flex flex-wrap gap-1.5 border-t px-3 py-2">
           {remainingSuggestions.map((s) => (
             <button key={s} disabled={sending} onClick={() => send(s)}
@@ -93,21 +104,27 @@ export function AgentTryChat({
         </div>
       )}
 
-      {/* Saisie */}
-      <div className="flex items-center gap-2 border-t p-2">
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') send(input) }}
-          placeholder="Écrivez un message…"
-          disabled={sending}
-          className="h-9 flex-1 rounded-lg border border-input bg-background px-3 text-sm"
-        />
-        <button onClick={() => send(input)} disabled={sending || !input.trim()}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground disabled:opacity-50">
-          <Send className="h-4 w-4" />
-        </button>
-      </div>
+      {/* Saisie — remplacée par une note quand la limite d'essai est atteinte. */}
+      {limitReached ? (
+        <p className="border-t bg-muted/30 px-3 py-2.5 text-center text-xs text-muted-foreground">
+          Limite d’essai atteinte ✓ Vous pourrez continuer à discuter avec votre agent après la configuration.
+        </p>
+      ) : (
+        <div className="flex items-center gap-2 border-t p-2">
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') send(input) }}
+            placeholder="Écrivez un message…"
+            disabled={sending}
+            className="h-9 flex-1 rounded-lg border border-input bg-background px-3 text-sm"
+          />
+          <button onClick={() => send(input)} disabled={sending || !input.trim()}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground disabled:opacity-50">
+            <Send className="h-4 w-4" />
+          </button>
+        </div>
+      )}
     </div>
   )
 }

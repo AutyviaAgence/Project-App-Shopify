@@ -102,12 +102,6 @@ const PRICING_TIERS: TierType[] = PAID_PLANS.map((id) => {
   }
 })
 
-const TONES = [
-  { key: 'professional', label: 'Professionnel' },
-  { key: 'friendly', label: 'Chaleureux' },
-  { key: 'casual', label: 'Décontracté' },
-]
-
 export default function OnboardingPage() {
   const router = useRouter()
   const [state, setState] = useState<OnbState | null>(null)
@@ -135,7 +129,6 @@ export default function OnboardingPage() {
   const [agentId, setAgentId] = useState<string | null>(null)
   const [agentCfg, setAgentCfg] = useState<AgentCfg | null>(null)
   const [agentName, setAgentName] = useState('')
-  const [agentTone, setAgentTone] = useState('friendly')
   const [agentPrompt, setAgentPrompt] = useState('')
   const [agentSituations, setAgentSituations] = useState('')
   const [agentLoading, setAgentLoading] = useState(false)
@@ -237,7 +230,6 @@ export default function OnboardingPage() {
       if (c) {
         setAgentCfg(c)
         setAgentName(c.name)
-        setAgentTone(c.tone)
         setAgentPrompt(c.system_prompt || '')
         setAgentSituations(c.escalation_situations || '')
       } else if (gen?.error) {
@@ -747,41 +739,27 @@ export default function OnboardingPage() {
                     </div>
                   ) : (
                     <>
-                      <p className="text-sm text-muted-foreground">Déduit de votre boutique — vérifiez, ajustez, validez. Ce sera votre <span className="font-medium text-foreground">agent référent</span>.</p>
-                      <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Nom</label>
-                        <input value={agentName} onChange={(e) => setAgentName(e.target.value)}
-                          className="h-11 w-full rounded-lg border border-input bg-background px-3 text-sm" />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Ton</label>
-                        <div className="flex flex-wrap gap-1.5">
-                          {TONES.map((t) => (
-                            <button key={t.key} onClick={() => setAgentTone(t.key)}
-                              className={cn('rounded-full px-3 py-1.5 text-sm transition-colors',
-                                agentTone === t.key ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground')}>
-                              {t.label}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                      {/* Test en direct de l'agent (avec le prompt en cours) */}
+                      {/* Étape volontairement MINIMALE : on essaie l'agent, c'est
+                          tout. Nom, ton, instructions, transferts : déjà déduits
+                          de la boutique, réglables plus tard dans le dashboard.
+                          L'essai est plafonné (coût tokens). */}
+                      <p className="text-sm text-muted-foreground">
+                        <span className="font-medium text-foreground">{agentName || agentCfg.name}</span> a été configuré
+                        automatiquement à partir de votre boutique. Essayez-le comme le ferait un client :
+                      </p>
+
                       <AgentTryChat
                         agentId={agentId}
                         systemPrompt={agentPrompt || agentCfg.system_prompt}
                         suggestions={agentCfg.sample_questions || []}
+                        maxQuestions={3}
                       />
 
-                      <div className="space-y-1.5">
-                        <label className="text-sm font-medium">Situations de transfert à un humain <span className="text-xs text-muted-foreground">(détection IA)</span></label>
-                        <textarea value={agentSituations} onChange={(e) => setAgentSituations(e.target.value)} rows={3}
-                          className="w-full resize-y rounded-lg border border-input bg-background p-2.5 text-xs leading-relaxed" />
-                      </div>
-                      <details className="rounded-lg border p-3 text-sm">
-                        <summary className="cursor-pointer font-medium text-muted-foreground">Instructions générales (modifiables)</summary>
-                        <textarea value={agentPrompt} onChange={(e) => setAgentPrompt(e.target.value)} rows={10}
-                          className="mt-2 w-full resize-y rounded-lg border border-input bg-background p-2.5 font-mono text-xs leading-relaxed" />
-                      </details>
+                      <p className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs text-muted-foreground">
+                        💡 Son nom, son ton, ses instructions et les situations de transfert à un humain seront
+                        <span className="font-medium text-foreground"> modifiables à tout moment</span> depuis votre dashboard (Agents IA).
+                      </p>
+
                       <div className="flex justify-end">
                         <Button disabled={busy} onClick={validateAgent}>
                           {busy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Check className="mr-1 h-4 w-4" />}
