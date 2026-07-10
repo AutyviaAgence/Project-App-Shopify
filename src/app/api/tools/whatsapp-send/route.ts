@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
       }
       callerUserId = user.id
     }
-    const { agent_id, session_id: explicitSessionId, contact_name, contact_id, phone_number, message, send_delay } = body
+    const { agent_id, session_id: explicitSessionId, contact_name, contact_id, phone_number, message, send_delay, notification_type } = body
 
     if (!agent_id || !message) {
       return NextResponse.json({ error: 'agent_id and message are required' }, { status: 400 })
@@ -120,14 +120,27 @@ export async function POST(req: NextRequest) {
     // contact_id, on l'utilise ; sinon on retombe sur le texte libre (valable
     // uniquement si le destinataire a écrit dans les dernières 24 h).
     if (contact_id) {
-      const { data: notifTpl } = await supabase
-        .from('whatsapp_templates')
-        .select('id')
-        .eq('user_id', session.user_id)
-        .eq('name', 'xeyo_notification')
-        .eq('status', 'approved')
-        .limit(1)
-        .maybeSingle()
+      // Le TYPE choisi par l'agent (generic/commande/sav) mappe vers son
+      // template dédié ; repli sur le générique si le type n'est pas approuvé.
+      const NAME_BY_TYPE: Record<string, string> = {
+        generic: 'xeyo_notification',
+        commande: 'xeyo_notif_commande',
+        sav: 'xeyo_notif_sav',
+      }
+      const wantedName = NAME_BY_TYPE[String(notification_type)] || 'xeyo_notification'
+      const candidates = wantedName === 'xeyo_notification' ? [wantedName] : [wantedName, 'xeyo_notification']
+      let notifTpl: { id: string } | null = null
+      for (const name of candidates) {
+        const { data } = await supabase
+          .from('whatsapp_templates')
+          .select('id')
+          .eq('user_id', session.user_id)
+          .eq('name', name)
+          .eq('status', 'approved')
+          .limit(1)
+          .maybeSingle()
+        if (data) { notifTpl = data; break }
+      }
       if (notifTpl) {
         const { sendTemplateToContact } = await import('@/lib/automations/dispatch')
         const r = await sendTemplateToContact({

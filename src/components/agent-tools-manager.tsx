@@ -191,67 +191,107 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
     finally { setWaContactsLoading(false) }
   }, [])
 
-  // Modèle de NOTIFICATION (API officielle) : hors fenêtre de 24 h, Meta refuse
-  // les messages libres — l'outil envoie donc via le template UTILITY
-  // « xeyo_notification » ({{1}} = le message), qu'on provisionne d'ici.
-  const [notifTplStatus, setNotifTplStatus] = useState<'loading' | 'absent' | 'draft' | 'pending' | 'approved' | 'rejected'>('loading')
-  const [notifTplId, setNotifTplId] = useState<string | null>(null)
-  const [notifTplBusy, setNotifTplBusy] = useState(false)
+  // TYPES DE NOTIFICATIONS (API officielle) : hors fenêtre de 24 h, Meta refuse
+  // les messages libres — chaque type = un template UTILITY dédié, VISIBLE en
+  // bulle, ÉDITABLE ici, soumis à Meta en un clic.
+  // ⚠️ Meta refuse un corps qui COMMENCE ou FINIT par une variable : chaque
+  // preset encadre {{1}} de texte.
+  const NOTIF_PRESETS = [
+    {
+      key: 'generic', name: 'xeyo_notification', label: 'Notification générique', emoji: '🔔',
+      body: '🔔 Notification de votre boutique : {{1}}. Envoyé automatiquement par votre assistant.',
+      sample: 'Stock faible sur Bougie Ambre (3 restantes)',
+    },
+    {
+      key: 'commande', name: 'xeyo_notif_commande', label: 'Nouvelle commande', emoji: '🛒',
+      body: '🛒 Nouvelle commande sur votre boutique : {{1}}. Bonne préparation !',
+      sample: '#1024 de Marie, 49,90 €',
+    },
+    {
+      key: 'sav', name: 'xeyo_notif_sav', label: 'Escalade SAV', emoji: '🆘',
+      body: '🆘 Un client souhaite parler à un humain : {{1}}. Reprenez la conversation depuis votre dashboard.',
+      sample: 'Marie, litige sur la commande #1024',
+    },
+  ] as const
+
+  type NotifRow = { id: string; status: string; body_text: string }
+  const [notifTpls, setNotifTpls] = useState<Record<string, NotifRow>>({})
+  const [notifBusyKey, setNotifBusyKey] = useState<string | null>(null)
+  const [notifEditKey, setNotifEditKey] = useState<string | null>(null)
+  const [notifEditBody, setNotifEditBody] = useState('')
+  const [notifVarWarn, setNotifVarWarn] = useState<string | null>(null)
 
   const fetchNotifTemplate = useCallback(async () => {
-    setNotifTplStatus('loading')
     try {
       const res = await fetch('/api/templates')
       const json = await res.json()
-      const list = (json.data || []) as { id: string; name: string; status: string }[]
-      const tpl = list.find((tl) => tl.name === 'xeyo_notification')
-      if (!tpl) { setNotifTplId(null); setNotifTplStatus('absent'); return }
-      setNotifTplId(tpl.id)
-      setNotifTplStatus((['draft', 'pending', 'approved', 'rejected'].includes(tpl.status) ? tpl.status : 'draft') as 'draft')
-    } catch { setNotifTplStatus('absent') }
+      const list = (json.data || []) as { id: string; name: string; status: string; body_text: string }[]
+      const map: Record<string, NotifRow> = {}
+      for (const tl of list) {
+        if (tl.name.startsWith('xeyo_notif')) map[tl.name] = { id: tl.id, status: tl.status, body_text: tl.body_text }
+      }
+      setNotifTpls(map)
+    } catch { /* silent */ }
   }, [])
 
-  /** Crée le modèle de notification (s'il n'existe pas) puis le soumet à Meta. */
-  async function provisionNotifTemplate() {
-    setNotifTplBusy(true)
+  /** Le corps doit contenir {{1}} exactement une fois, ni au début ni à la fin. */
+  function validateNotifBody(body: string): string | null {
+    const count = (body.match(/\{\{1\}\}/g) || []).length
+    if (count === 0) return 'Le message doit contenir {{1}} (le contenu de la notification).'
+    if (count > 1) return 'Une seule variable {{1}} est autorisée.'
+    if (/^\s*\{\{1\}\}/.test(body)) return 'Meta refuse un message qui commence par la variable : ajoutez du texte avant {{1}}.'
+    if (/\{\{1\}\}\s*$/.test(body)) return 'Meta refuse un message qui finit par la variable : ajoutez du texte après {{1}}.'
+    if (body.trim().length < 15) return 'Message trop court.'
+    return null
+  }
+
+  /** Crée (si absent) ou met à jour le corps, puis soumet à Meta. */
+  async function provisionNotif(preset: (typeof NOTIF_PRESETS)[number], newBody?: string) {
+    const bodyText = newBody ?? notifTpls[preset.name]?.body_text ?? preset.body
+    const invalid = validateNotifBody(bodyText)
+    if (invalid) { setNotifVarWarn(invalid); return }
+    setNotifBusyKey(preset.key)
     try {
-      let id = notifTplId
+      let id = notifTpls[preset.name]?.id
       if (!id) {
         const res = await fetch('/api/templates', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            name: 'xeyo_notification',
+            name: preset.name,
             language: 'fr',
             category: 'UTILITY',
             use_case: 'support',
-            body_text: '🔔 Notification de votre boutique : {{1}}',
+            body_text: bodyText,
             variable_keys: ['notification_message'],
-            sample_values: ['Nouvelle commande #1024, préparation à lancer'],
+            sample_values: [preset.sample],
             session_id: formConfig.session_id || undefined,
           }),
         })
         const json = await res.json()
         if (!res.ok) throw new Error(json.error || 'Création du modèle impossible')
         id = json.data?.id as string
-        setNotifTplId(id)
-        setNotifTplStatus('draft')
+      } else if (newBody !== undefined && newBody !== notifTpls[preset.name]?.body_text) {
+        const res = await fetch(`/api/templates/${id}`, {
+          method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ body_text: bodyText }),
+        })
+        const json = await res.json()
+        if (!res.ok) throw new Error(json.error || 'Modification impossible')
       }
       const sub = await fetch(`/api/templates/${id}/submit`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ session_id: formConfig.session_id || undefined }),
       })
       const sj = await sub.json().catch(() => ({}))
-      if (!sub.ok) {
-        toast.error(sj.error || 'Soumission à Meta échouée, modèle enregistré en brouillon')
-        setNotifTplStatus('draft')
-      } else {
-        toast.success('Modèle de notification soumis à Meta (approbation en général rapide)')
-        setNotifTplStatus('pending')
-      }
+      if (!sub.ok) toast.error(sj.error || 'Soumission échouée, modèle enregistré en brouillon')
+      else toast.success(`« ${preset.label} » soumis à Meta`)
+      setNotifEditKey(null)
+      setNotifVarWarn(null)
+      fetchNotifTemplate()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erreur')
     } finally {
-      setNotifTplBusy(false)
+      setNotifBusyKey(null)
     }
   }
 
@@ -1282,42 +1322,96 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
                       </div>
                     )}
 
-                    {/* Modèle de notification (API officielle) : hors fenêtre de
-                        24 h, Meta refuse les messages libres — l'envoi passe par
-                        le template UTILITY « xeyo_notification » approuvé. */}
-                    <div className="space-y-1.5 rounded-lg border p-3">
-                      <div className="flex items-center justify-between gap-2">
-                        <Label className="text-xs font-medium">Modèle de notification</Label>
-                        {notifTplStatus === 'loading' ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
-                        ) : (
-                          <Badge
-                            variant="secondary"
-                            className={
-                              notifTplStatus === 'approved' ? 'bg-emerald-500/15 text-emerald-500'
-                              : notifTplStatus === 'pending' ? 'bg-amber-500/15 text-amber-500'
-                              : notifTplStatus === 'rejected' ? 'bg-red-500/15 text-red-500'
-                              : 'bg-muted text-muted-foreground'
-                            }
-                          >
-                            {notifTplStatus === 'approved' ? 'Approuvé ✓'
-                              : notifTplStatus === 'pending' ? 'En attente Meta'
-                              : notifTplStatus === 'rejected' ? 'Rejeté'
-                              : notifTplStatus === 'draft' ? 'Brouillon'
-                              : 'À créer'}
-                          </Badge>
-                        )}
-                      </div>
+                    {/* TYPES de notifications : un template UTILITY par type,
+                        aperçu en bulle WhatsApp, éditable, soumis en un clic.
+                        (API officielle : hors fenêtre de 24 h, seuls les
+                        templates approuvés partent.) */}
+                    <div className="space-y-2 rounded-lg border p-3">
+                      <Label className="text-xs font-medium">Types de notifications</Label>
                       <p className="text-[10px] leading-relaxed text-muted-foreground">
-                        L&apos;API WhatsApp officielle n&apos;autorise les messages libres que si le destinataire a écrit
-                        dans les dernières 24 h. Avec ce modèle approuvé, vos notifications partent à tout moment.
+                        L&apos;API officielle n&apos;autorise les messages libres que si le destinataire a écrit dans les
+                        dernières 24 h. Chaque type ci-dessous est un modèle approuvé par Meta : vos notifications
+                        partent à tout moment, l&apos;agent choisit le bon type. <span className="font-mono">{'{{1}}'}</span> = le contenu.
                       </p>
-                      {notifTplStatus !== 'approved' && notifTplStatus !== 'pending' && notifTplStatus !== 'loading' && (
-                        <Button size="sm" variant="outline" disabled={notifTplBusy} onClick={provisionNotifTemplate}>
-                          {notifTplBusy && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
-                          {notifTplId ? 'Soumettre à Meta' : 'Créer et soumettre le modèle'}
-                        </Button>
-                      )}
+                      {NOTIF_PRESETS.map((p) => {
+                        const row = notifTpls[p.name]
+                        const status = row?.status
+                        const isEditing = notifEditKey === p.key
+                        const busy = notifBusyKey === p.key
+                        return (
+                          <div key={p.key} className="space-y-2 rounded-lg border bg-muted/20 p-2.5">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className="text-xs font-medium">{p.emoji} {p.label}</p>
+                              <Badge
+                                variant="secondary"
+                                className={
+                                  status === 'approved' ? 'bg-emerald-500/15 text-emerald-500'
+                                  : status === 'pending' ? 'bg-amber-500/15 text-amber-500'
+                                  : status === 'rejected' ? 'bg-red-500/15 text-red-500'
+                                  : row ? 'bg-muted text-muted-foreground'
+                                  : 'bg-muted text-muted-foreground'
+                                }
+                              >
+                                {status === 'approved' ? 'Approuvé ✓'
+                                  : status === 'pending' ? 'En attente Meta'
+                                  : status === 'rejected' ? 'Rejeté'
+                                  : row ? 'Brouillon'
+                                  : 'À créer'}
+                              </Badge>
+                            </div>
+
+                            {isEditing ? (
+                              <>
+                                <Textarea
+                                  value={notifEditBody}
+                                  onChange={(e) => { setNotifEditBody(e.target.value); setNotifVarWarn(null) }}
+                                  rows={3}
+                                  className="text-xs"
+                                />
+                                {notifVarWarn && <p className="text-[10px] font-medium text-red-500">{notifVarWarn}</p>}
+                                <div className="flex justify-end gap-2">
+                                  <Button size="sm" variant="ghost" onClick={() => { setNotifEditKey(null); setNotifVarWarn(null) }}>
+                                    Annuler
+                                  </Button>
+                                  <Button size="sm" disabled={busy} onClick={() => provisionNotif(p, notifEditBody)}>
+                                    {busy && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                                    Enregistrer et soumettre
+                                  </Button>
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                {/* Aperçu en bulle WhatsApp (variable en surbrillance). */}
+                                <div className="w-fit max-w-full rounded-lg rounded-tl-none bg-[#202c33] px-3 py-2 text-left text-[12px] leading-snug text-[#e9edef] shadow-sm">
+                                  {(row?.body_text ?? p.body).split('{{1}}').map((chunk, i, arr) => (
+                                    <span key={i}>
+                                      {chunk}
+                                      {i < arr.length - 1 && (
+                                        <span className="rounded bg-sky-500/25 px-1 font-mono text-[10px] text-sky-300">message</span>
+                                      )}
+                                    </span>
+                                  ))}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  {(!row || status === 'draft' || status === 'rejected') && (
+                                    <Button size="sm" variant="outline" disabled={busy} onClick={() => provisionNotif(p)}>
+                                      {busy && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+                                      {row ? 'Soumettre à Meta' : 'Créer et soumettre'}
+                                    </Button>
+                                  )}
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() => { setNotifEditKey(p.key); setNotifEditBody(row?.body_text ?? p.body); setNotifVarWarn(null) }}
+                                  >
+                                    ✏️ Modifier
+                                  </Button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
                 )}

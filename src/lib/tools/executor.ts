@@ -1189,6 +1189,7 @@ async function executeWhatsAppMessage(
         contact_id: contact.contact_id,
         phone_number: contact.phone,
         message,
+        notification_type: (args.notification_type as string) || 'generic',
         send_delay: sendDelay,
       }),
     })

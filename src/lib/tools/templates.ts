@@ -307,10 +307,11 @@ const ALL_TOOL_TEMPLATES: Partial<Record<Exclude<AgentToolType, 'custom'>, ToolT
     functions: [
       {
         name: 'send_whatsapp',
-        description: 'Send a WhatsApp message to a pre-configured contact. Always confirm the message and recipient with the user before sending.',
+        description: 'Send a WhatsApp notification to a pre-configured contact (manager, support, warehouse). Delivered via an approved template, so it works at any time.',
         parameters: [
           { name: 'contact_name', type: 'string', description: 'Name of the contact to send to (e.g. "Responsable", "Support"). Must match a configured contact.', required: true },
-          { name: 'message', type: 'string', description: 'The message text to send', required: true },
+          { name: 'message', type: 'string', description: 'The notification content (short, factual)', required: true },
+          { name: 'notification_type', type: 'string', description: 'Type of notification: "commande" (new order), "sav" (customer asks for a human / support escalation), or "generic" (anything else). Default: generic.', required: false },
         ],
         permission: 'write',
       },
