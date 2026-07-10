@@ -74,31 +74,14 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
       {!reduced && <Meteors number={16} />}
 
       <div className="relative z-10 flex w-full max-w-xl flex-col items-center">
-        {/* Mascotte animée (WebP détouré, boucle native). */}
-        <motion.div
-          initial={reduced ? false : { opacity: 0, scale: 0.6, y: -10 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          transition={{ type: 'spring', stiffness: 200, damping: 18 }}
-        >
-          <motion.div
-            animate={reduced ? undefined : { y: [0, -7, 0] }}
-            transition={reduced ? undefined : { duration: 3.4, repeat: Infinity, ease: 'easeInOut', delay: 0.6 }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={reduced ? '/mascot/loader-static.webp' : '/mascot/loader.webp'}
-              alt=""
-              className="h-40 w-auto drop-shadow-2xl"
-            />
-          </motion.div>
-        </motion.div>
+        {/* (Mascotte d'intro retirée — une autre animation viendra ici plus tard.) */}
 
         {/* Phase 0 — headline en dégradé qui se révèle peu à peu. */}
         <motion.h1
           initial={reduced ? false : { opacity: 0, y: 14, filter: 'blur(8px)' }}
           animate={{ opacity: 1, y: 0, filter: 'blur(0px)' }}
           transition={{ duration: 1, ease: 'easeOut' }}
-          className="mt-5 bg-gradient-to-r from-primary via-fuchsia-500 to-primary bg-[length:200%_auto] bg-clip-text text-3xl font-bold tracking-tight text-transparent sm:text-4xl"
+          className="bg-gradient-to-r from-primary via-fuchsia-500 to-primary bg-[length:200%_auto] bg-clip-text text-3xl font-bold tracking-tight text-transparent sm:text-4xl"
           style={reduced ? undefined : { animation: 'welcome-shine 5s linear infinite' }}
         >
           Bienvenue sur Xeyo.io !
