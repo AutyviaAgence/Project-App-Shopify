@@ -17,6 +17,7 @@ import { AgentTryChat } from '@/components/onboarding/agent-try-chat'
 import { WhatsAppEmbeddedSignup, embeddedSignupAvailable } from '@/components/whatsapp-embedded-signup'
 import { WelcomeScreen } from '@/components/onboarding/welcome-screen'
 import { TemplateSwiper, type SwipeGroup } from '@/components/onboarding/template-swiper'
+import { ModuleIntro, type IntroModule } from '@/components/onboarding/module-intro'
 import { PricingGlass, type TierType } from '@/components/ui/pricing-glass'
 import { PLANS, PAID_PLANS } from '@/lib/plans'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -148,6 +149,9 @@ export default function OnboardingPage() {
   const [busy, setBusy] = useState(false)
   // Plan en cours de souscription (spinner sur la carte concernée).
   const [planLoading, setPlanLoading] = useState<string | null>(null)
+  // Intros animées « c'est quoi ce module ? » : vues une fois par étape
+  // (état de session — revenir en arrière ne les rejoue pas).
+  const [seenIntros, setSeenIntros] = useState<Set<IntroModule>>(new Set())
 
   // Étape Shopify
   const [shopInput, setShopInput] = useState('')
@@ -778,7 +782,17 @@ export default function OnboardingPage() {
               )}
 
               {/* ── 4. AGENT RÉFÉRENT (validation) ── */}
-              {step === 'agent' && (
+              {/* Intro animée « c'est quoi ce module ? » avant chacune des 3
+                  étapes clés, vue une fois. Les générations en arrière-plan
+                  continuent pendant ce temps (le temps d'attente est masqué). */}
+              {(step === 'agent' || step === 'templates' || step === 'automations') && !seenIntros.has(step) && (
+                <ModuleIntro
+                  module={step}
+                  onStart={() => setSeenIntros((prev) => new Set(prev).add(step as IntroModule))}
+                />
+              )}
+
+              {step === 'agent' && seenIntros.has('agent') && (
                 <div className="space-y-4">
                   {agentLoading || !agentCfg ? (
                     <div className="space-y-3">
@@ -877,7 +891,7 @@ export default function OnboardingPage() {
               )}
 
               {/* ── 5. MODÈLES (validation) ── */}
-              {step === 'templates' && (
+              {step === 'templates' && seenIntros.has('templates') && (
                 <div className="space-y-4">
                   {packLoading || !pack ? (
                     <div className="space-y-3">
@@ -920,7 +934,7 @@ export default function OnboardingPage() {
               )}
 
               {/* ── 6. AUTOMATISATIONS (validation) ── */}
-              {step === 'automations' && (
+              {step === 'automations' && seenIntros.has('automations') && (
                 <div className="space-y-4">
                   {!pack ? (
                     <div className="flex items-center gap-2 rounded-xl border p-6 text-sm text-muted-foreground">

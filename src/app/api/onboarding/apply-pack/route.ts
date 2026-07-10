@@ -153,8 +153,11 @@ export async function POST(req: NextRequest) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await (supabase as any).from('automations').insert(rows)
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-      automationsCreated = rows.length
     }
+    // Nombre TOTAL prêt (déjà présentes + nouvellement créées), comme pour les
+    // modèles : au 2e passage (idempotent), « 0 créées » était trompeur alors
+    // que tout était bien en place.
+    automationsCreated = body.automations.filter((a) => byTrigger.get(a.trigger)).length
   }
 
   return NextResponse.json({ data: { templatesCreated, automationsCreated } })
