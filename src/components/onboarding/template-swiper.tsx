@@ -78,6 +78,9 @@ export function TemplateSwiper({
   const [editing, setEditing] = useState<string | null>(null)
   // Démo de swipe jouée UNE fois sur la première carte (remplace toute légende).
   const [demoDone, setDemoDone] = useState(false)
+  // Temps de la démo en cours : pilote la LÉGENDE synchronisée et le pulse
+  // des pastilles ✓/✏️ (3e temps).
+  const [demoPhase, setDemoPhase] = useState<null | 'right' | 'left' | 'pills'>(null)
 
   const done = index >= groups.length
   const current = groups[index]
@@ -172,6 +175,31 @@ export function TemplateSwiper({
         ))}
       </div>
 
+      {/* Légende SYNCHRONISÉE avec la démo (hauteur réservée, zéro saut). */}
+      <div className="flex h-8 items-center justify-center">
+        <AnimatePresence mode="wait">
+          {demoPhase && (
+            <motion.p
+              key={demoPhase}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.25 }}
+              className={cn(
+                'rounded-full border px-3.5 py-1.5 text-xs font-semibold',
+                demoPhase === 'right' && 'border-emerald-400/40 bg-emerald-400/10 text-emerald-400',
+                demoPhase === 'left' && 'border-red-400/40 bg-red-400/10 text-red-400',
+                demoPhase === 'pills' && 'border-primary/40 bg-primary/10 text-primary',
+              )}
+            >
+              {demoPhase === 'right' && '❤️ Glissez à droite : GARDER ces modèles'}
+              {demoPhase === 'left' && '✗ À gauche : écarter ce groupe'}
+              {demoPhase === 'pills' && 'Les cases ✓ affinent modèle par modèle · ✏️ modifie le texte'}
+            </motion.p>
+          )}
+        </AnimatePresence>
+      </div>
+
       {/* Pile de cartes, format portrait comme Tinder. */}
       <div className="relative h-[480px] w-full max-w-sm select-none">
         {groups.slice(index + 1, index + 3).map((g, i) => (
@@ -188,7 +216,8 @@ export function TemplateSwiper({
             group={current}
             dir={lastDir}
             demo={index === 0 && !demoDone}
-            onDemoEnd={() => setDemoDone(true)}
+            onDemoEnd={() => { setDemoDone(true); setDemoPhase(null) }}
+            onDemoPhase={setDemoPhase}
             disabled={busy}
             editing={editing}
             setEditing={setEditing}
@@ -249,6 +278,7 @@ function SwipeCard({
   dir,
   demo,
   onDemoEnd,
+  onDemoPhase,
   disabled,
   editing,
   setEditing,
@@ -263,6 +293,8 @@ function SwipeCard({
   /** Démo auto : la carte glisse seule à droite puis à gauche (tampons visibles). */
   demo: boolean
   onDemoEnd: () => void
+  /** Remonte le temps courant de la démo (légende synchronisée + pulse pastilles). */
+  onDemoPhase: (p: null | 'right' | 'left' | 'pills') => void
   disabled: boolean
   editing: string | null
   setEditing: (t: string | null) => void
@@ -280,22 +312,37 @@ function SwipeCard({
   // Une modification vient d'être refusée car elle touchait une variable.
   const [varWarn, setVarWarn] = useState(false)
 
-  // DÉMO auto (remplace toute légende écrite) : la carte glisse vers la droite
-  // (tampon GARDER), revient, glisse à gauche (ÉCARTER), revient. Le doigt 👆
-  // suit le mouvement. Annulée dès que l'utilisateur touche la carte.
+  // 3e temps de la démo : les pastilles ✓/✏️ du premier modèle pulsent.
+  const [pillsDemo, setPillsDemo] = useState(false)
+
+  // DÉMO auto en 3 temps, LÉGENDÉE (remplace toute explication écrite) :
+  //  1. glisse à droite (tampon GARDER) + légende « garder ces modèles »
+  //  2. glisse à gauche (ÉCARTER) + légende
+  //  3. les pastilles ✓/✏️ pulsent + légende « affiner / modifier »
+  // Annulée dès que l'utilisateur touche la carte.
   useEffect(() => {
     if (!demo) return
     let cancelled = false
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
     ;(async () => {
-      await new Promise((r) => setTimeout(r, 700))
+      await sleep(700)
       if (cancelled) return
+      onDemoPhase('right')
       await animate(x, 92, { duration: 0.55, ease: 'easeInOut' })
       if (cancelled) return
+      await sleep(500)
       await animate(x, 0, { duration: 0.4, ease: 'easeInOut' })
       if (cancelled) return
+      onDemoPhase('left')
       await animate(x, -92, { duration: 0.55, ease: 'easeInOut' })
       if (cancelled) return
+      await sleep(500)
       await animate(x, 0, { duration: 0.45, ease: 'easeInOut' })
+      if (cancelled) return
+      onDemoPhase('pills')
+      setPillsDemo(true)
+      await sleep(2400)
+      setPillsDemo(false)
       if (!cancelled) onDemoEnd()
     })()
     return () => { cancelled = true; x.stop() }
@@ -333,7 +380,7 @@ function SwipeCard({
       dragElastic={0.9}
       onPointerDown={() => {
         // L'utilisateur prend la main : on coupe la démo immédiatement.
-        if (demo) { x.stop(); x.set(0); onDemoEnd() }
+        if (demo) { x.stop(); x.set(0); setPillsDemo(false); onDemoEnd() }
       }}
       onDragEnd={(_, info) => {
         if (disabled) return
@@ -348,10 +395,12 @@ function SwipeCard({
         style={{ backgroundImage: 'url(/whatsapp-bg-dark.jpg)', backgroundSize: 'cover', backgroundPosition: 'center', backgroundColor: '#0b141a' }}
       >
         <div className="flex flex-col gap-2">
-          {group.items.map((it) => {
+          {group.items.map((it, idx) => {
             const isEditing = editing === it.trigger
             const off = rowOff.has(it.trigger)
             const body = editedBodies[it.trigger] ?? it.body_text
+            // 3e temps de la démo : les pastilles du PREMIER modèle pulsent.
+            const pulse = pillsDemo && idx === 0
             return (
               <div key={it.trigger} className={cn('flex max-w-[88%] items-start gap-1.5 transition-opacity', off && !isEditing && 'opacity-35')}>
                 <div className="min-w-0 flex-1">
@@ -433,6 +482,7 @@ function SwipeCard({
                     className={cn(
                       'flex h-6 w-6 items-center justify-center rounded-full border transition-colors',
                       off ? 'border-white/25 bg-black/40 text-white/30' : 'border-primary/60 bg-primary/25 text-primary',
+                      pulse && 'animate-pulse ring-2 ring-primary',
                     )}
                   >
                     <Check className="h-3.5 w-3.5" strokeWidth={3} />
@@ -443,6 +493,7 @@ function SwipeCard({
                     className={cn(
                       'flex h-6 w-6 items-center justify-center rounded-full border transition-colors',
                       isEditing ? 'border-primary/60 bg-primary/25 text-primary' : 'border-white/20 bg-black/40 text-white/50 hover:text-white',
+                      pulse && 'animate-pulse ring-2 ring-primary',
                     )}
                   >
                     <Pencil className="h-3 w-3" />
