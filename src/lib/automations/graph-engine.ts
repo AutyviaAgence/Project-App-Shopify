@@ -10,13 +10,58 @@ function normBtn(s: string): string {
 }
 
 /**
+ * Résout le texte réellement cliqué (potentiellement dans une LANGUE TRADUITE)
+ * vers le libellé SOURCE de la branche (celui saisi dans le builder, en FR).
+ *
+ * Problème : la branche est `button:Oui`, mais un contact anglais reçoit le
+ * bouton traduit « Yes » et le webhook renvoie « Yes » → aucune correspondance
+ * directe. Les boutons gardent le MÊME ORDRE dans toutes les langues (la
+ * traduction préserve la position). On cherche donc, parmi toutes les variantes
+ * linguistiques du template, l'INDEX du bouton dont le libellé == texte cliqué,
+ * puis on renvoie le libellé source du même index.
+ *
+ * @param variantButtons  Libellés quick-reply par langue : [[ 'Oui','Non' ], [ 'Yes','No' ], …]
+ *                        La 1re entrée DOIT être la langue source (ordre de référence).
+ */
+export function resolveClickedToSourceLabel(clickedText: string, variantButtons: string[][]): string | null {
+  const target = normBtn(clickedText)
+  const source = variantButtons[0]
+  if (!source || source.length === 0) return null
+  // 1) Le clic matche-t-il directement un libellé source ? (contact FR)
+  const directIdx = source.findIndex((b) => normBtn(b) === target)
+  if (directIdx >= 0) return source[directIdx]
+  // 2) Sinon, dans quelle variante/à quel index ce libellé apparaît-il ?
+  for (const variant of variantButtons) {
+    const idx = variant.findIndex((b) => normBtn(b) === target)
+    if (idx >= 0 && idx < source.length) return source[idx]
+  }
+  return null
+}
+
+/**
  * Un message à boutons a été envoyé, le contact vient de cliquer : renvoie le
  * node de reprise (le `to` de la branche `button:<libellé cliqué>`).
+ *
+ * `variantButtons` (optionnel) permet de résoudre un clic dans une langue
+ * traduite vers le libellé source de la branche (cf. resolveClickedToSourceLabel).
+ * Sans lui, on compare directement le texte cliqué (fonctionne pour la langue
+ * source uniquement — comportement historique).
+ *
  * Fallback sur la branche timeout si le libellé ne matche aucun bouton.
  * Retourne null si aucune branche ne correspond (funnel terminé).
  */
-export function resumeFromButton(graph: WorkflowGraph, actionNodeId: string, clickedText: string): string | null {
-  const target = normBtn(clickedText)
+export function resumeFromButton(
+  graph: WorkflowGraph,
+  actionNodeId: string,
+  clickedText: string,
+  variantButtons?: string[][],
+): string | null {
+  // Si on connaît les boutons multilingues, on ramène d'abord le clic au
+  // libellé source ; sinon on compare tel quel.
+  const resolved = variantButtons && variantButtons.length > 0
+    ? (resolveClickedToSourceLabel(clickedText, variantButtons) ?? clickedText)
+    : clickedText
+  const target = normBtn(resolved)
   const outs = graph.edges.filter((e) => e.from === actionNodeId && isButtonBranch(e.branch))
   const match = outs.find((e) => normBtn(buttonBranchLabel(e.branch) || '') === target && e.branch !== BUTTON_TIMEOUT_BRANCH)
   if (match) return match.to

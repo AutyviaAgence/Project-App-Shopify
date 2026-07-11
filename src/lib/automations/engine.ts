@@ -132,6 +132,53 @@ export function nextAllowedSend(
 
 export type { Automation }
 
+/** Libellés QUICK_REPLY d'un jeu de boutons (dans l'ordre). */
+function quickReplyLabels(buttons: unknown): string[] {
+  if (!Array.isArray(buttons)) return []
+  return buttons
+    .filter((b): b is { type: string; text: string } =>
+      !!b && typeof b === 'object' && (b as { type?: string }).type === 'QUICK_REPLY')
+    .map((b) => b.text)
+}
+
+/**
+ * Charge les libellés de boutons quick-reply de TOUTES les langues du template
+ * porté par le nœud action `nodeId`, LANGUE SOURCE EN PREMIER. Sert à résoudre
+ * un clic reçu dans une langue traduite vers le libellé source de la branche.
+ * Retourne `[]` si le nœud n'a pas de template ou pas de boutons.
+ */
+async function loadNodeButtonVariants(
+  supabase: ReturnType<typeof admin>,
+  graph: { nodes?: { id: string; type: string; templateId?: string | null }[] },
+  nodeId: string,
+): Promise<string[][]> {
+  const node = (graph.nodes || []).find((n) => n.id === nodeId)
+  if (!node || node.type !== 'action' || !node.templateId) return []
+  // Template du nœud → son groupe (même `name`), avec la langue source.
+  const { data: tpl } = await supabase
+    .from('whatsapp_templates')
+    .select('name, user_id, language, source_language, buttons')
+    .eq('id', node.templateId)
+    .maybeSingle()
+  if (!tpl?.name) return []
+  const { data: variants } = await supabase
+    .from('whatsapp_templates')
+    .select('language, source_language, buttons')
+    .eq('user_id', tpl.user_id)
+    .eq('name', tpl.name)
+  const rows = (variants && variants.length > 0 ? variants : [tpl]) as {
+    language: string; source_language?: string | null; buttons: unknown
+  }[]
+  // La langue SOURCE (celle où les branches ont été saisies) doit venir en 1re
+  // position : c'est l'ordre de référence pour mapper les index de boutons.
+  // `source_language` est renseigné sur chaque variante et pointe la langue
+  // d'origine ; à défaut, on prend la langue du template du nœud.
+  const sourceLang = tpl.source_language || tpl.language
+  const isSource = (r: { language: string }) => r.language === sourceLang
+  rows.sort((a, b) => (isSource(b) ? 1 : 0) - (isSource(a) ? 1 : 0))
+  return rows.map((r) => quickReplyLabels(r.buttons)).filter((arr) => arr.length > 0)
+}
+
 /**
  * FUNNEL À BOUTONS : un contact vient de cliquer un bouton. Si un job de
  * campagne est PARQUÉ (status='waiting') sur un message à boutons pour ce
@@ -165,15 +212,25 @@ export async function resumeParkedFunnel(contactId: string, clickedText: string)
       .from('automations').select('graph, is_active').eq('id', job.automation_id).maybeSingle()
     if (!auto?.is_active || !auto.graph) continue
 
-    const next = resumeFromButton(auto.graph, job.current_node_id, clickedText)
+    // Boutons multilingues : le contact a pu recevoir une variante TRADUITE, donc
+    // le libellé cliqué (« Yes ») ne matche pas la branche source (« Oui »). On
+    // charge les libellés quick-reply de TOUTES les langues du template de ce
+    // nœud (langue source en 1re) pour ramener le clic au libellé source.
+    const variantButtons = await loadNodeButtonVariants(supabase, auto.graph, job.current_node_id)
+
+    const next = resumeFromButton(auto.graph, job.current_node_id, clickedText, variantButtons)
     if (!next) continue // ce funnel n'a pas de branche pour ce bouton → on tente le suivant
 
-    // Trace la branche cliquée pour les stats (best-effort). `clicked_branch`
-    // peut manquer si la migration n'est pas encore passée → on retombe sur un
-    // update sans cette colonne.
+    // Trace la branche cliquée pour les stats (best-effort). On enregistre le
+    // libellé SOURCE (résolu depuis la langue traduite) pour que les stats d'un
+    // même bouton s'agrègent quelle que soit la langue du contact.
+    const { resolveClickedToSourceLabel } = await import('./graph-engine')
+    const sourceLabel = (variantButtons.length > 0
+      ? resolveClickedToSourceLabel(clickedText, variantButtons)
+      : null) || clickedText
     const trace = { responded: true, responded_at: new Date().toISOString() }
     const { error: tErr } = await supabase.from('ab_test_assignments')
-      .update({ ...trace, clicked_branch: `button:${clickedText}` })
+      .update({ ...trace, clicked_branch: `button:${sourceLabel}` })
       .eq('automation_id', job.automation_id).eq('node_id', job.current_node_id).eq('contact_id', contactId)
     if (tErr && (tErr.code === '42703' || /clicked_branch/.test(tErr.message || ''))) {
       await supabase.from('ab_test_assignments').update(trace)
