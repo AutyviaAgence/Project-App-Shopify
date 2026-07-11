@@ -108,7 +108,7 @@ export function MessageBubbleContent({ msg, isOutbound, channel }: { msg: Extend
         )}
         {isHtml ? (
           <iframe
-            srcDoc={`<style>* { box-sizing: border-box; } html, body { margin: 0; padding: 8px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; line-height: 1.5; color: #111; background: #fff; } img { max-width: 100%; height: auto; display: block; } a { color: #7DC2A5; } p { margin: 0 0 8px 0; } table { max-width: 100%; border-collapse: collapse; } td, th { padding: 4px 8px; } .ReadMsgBody, .ExternalClass { width: 100%; }</style>${content}`}
+            srcDoc={`<style>* { box-sizing: border-box; } html, body { margin: 0; padding: 8px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; line-height: 1.5; color: #111; background: #fff; } img { max-width: 100%; height: auto; display: block; } a { color: #3B82F6; } p { margin: 0 0 8px 0; } table { max-width: 100%; border-collapse: collapse; } td, th { padding: 4px 8px; } .ReadMsgBody, .ExternalClass { width: 100%; }</style>${content}`}
             sandbox="allow-same-origin allow-popups"
             className="rounded border-0 bg-white"
             style={{ width: '100%', minWidth: 280, minHeight: 80, maxHeight: 500, display: 'block', overflow: 'auto' }}

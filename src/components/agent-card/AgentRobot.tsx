@@ -2,7 +2,7 @@
 
 // Illustration robot SVG simple et sympathique
 // La couleur s'adapte via la prop `color`
-export function AgentRobot({ color = '#7DC2A5', size = 120 }: { color?: string; size?: number }) {
+export function AgentRobot({ color = '#3B82F6', size = 120 }: { color?: string; size?: number }) {
   return (
     <svg
       width={size}
@@ -60,7 +60,7 @@ export const AGENT_COLORS: Record<string, string> = {
   booking: '#06b6d4',
   leads: '#8b5cf6',
   sales: '#f97316',
-  default: '#7DC2A5',
+  default: '#3B82F6',
 }
 
 export function getAgentColor(description: string | null, primaryColor?: string): string {

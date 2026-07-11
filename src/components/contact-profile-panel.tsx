@@ -254,7 +254,7 @@ export function ContactProfilePanel({
         ) : contact ? (
           <div className="flex flex-col h-full">
             {/* Header compact */}
-            <div className="px-3 py-3" style={{ background: 'linear-gradient(to bottom right, var(--primary, #7DC2A5), var(--accent, #40E9BE))' }}>
+            <div className="px-3 py-3" style={{ background: 'linear-gradient(to bottom right, var(--primary, #3B82F6), var(--accent, #3B82F6))' }}>
               <div className="flex items-center gap-3">
                 <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 backdrop-blur-sm text-white text-sm font-semibold border border-white/30 shrink-0">
                   {getInitials()}
@@ -412,7 +412,7 @@ export function ContactProfilePanel({
               <div className="rounded-lg border bg-muted/30 p-3">
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center gap-1.5">
-                    <Sparkles className="h-3.5 w-3.5 text-[#7DC2A5]" />
+                    <Sparkles className="h-3.5 w-3.5 text-[#3B82F6]" />
                     <span className="text-xs font-semibold">Résumé IA</span>
                   </div>
                   <Button

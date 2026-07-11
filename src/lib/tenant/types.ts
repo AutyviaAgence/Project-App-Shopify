@@ -35,8 +35,10 @@ export const DEFAULT_TENANT: TenantConfig = {
   appName: 'Xeyo',
   logoUrl: '/xeyo-logo.png',
   faviconUrl: null,
-  primaryColor: '#40E9BE',
-  accentColor: '#40E9BE',
+  // Bleu Xeyo (aligné sur theme_config du tenant en base) — évite un flash de
+  // couleur verte héritée d'Autyvia au chargement, avant l application du thème.
+  primaryColor: '#3B82F6',
+  accentColor: '#3B82F6',
   // Palette « Xeyo dark » (style Framer) : sidebar quasi-noire. On laisse
   // bgColor/textColor à null pour que globals.css (.dark) reste la source de
   // vérité des fonds/bordures (sinon adjustColor éclaircirait les cartes).

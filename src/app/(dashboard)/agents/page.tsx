@@ -70,7 +70,7 @@ const mascotSrc = (key: string | null | undefined) =>
   MASCOTS.find((m) => m.key === key)?.src ?? MASCOTS[0].src
 
 const MASCOT_BGS: Record<string, string> = {
-  green: '#7DC2A5',
+  green: '#3B82F6',
   blue: '#3b82f6',
   violet: '#8b5cf6',
   coral: '#F0998A',

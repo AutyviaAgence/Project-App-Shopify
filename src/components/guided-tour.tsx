@@ -357,7 +357,7 @@ function TourOverlay() {
 
       {/* Highlight border */}
       <div
-        className="absolute border-2 border-[#7DC2A5] rounded-lg pointer-events-none animate-pulse"
+        className="absolute border-2 border-[#3B82F6] rounded-lg pointer-events-none animate-pulse"
         style={{
           top: targetRect.top - highlightPadding,
           left: targetRect.left - highlightPadding,
@@ -373,7 +373,7 @@ function TourOverlay() {
         style={tooltipStyle}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-[#7DC2A5] to-[#40E9BE]">
+        <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-[#3B82F6] to-[#3B82F6]">
           <div className="flex items-center gap-2 text-white">
             <Sparkles className="h-4 w-4" />
             <span className="text-sm font-medium">
@@ -404,9 +404,9 @@ function TourOverlay() {
               className={cn(
                 'h-1.5 rounded-full transition-all',
                 i === currentStep
-                  ? 'w-4 bg-[#7DC2A5]'
+                  ? 'w-4 bg-[#3B82F6]'
                   : i < currentStep
-                    ? 'w-1.5 bg-[#7DC2A5]/50'
+                    ? 'w-1.5 bg-[#3B82F6]/50'
                     : 'w-1.5 bg-gray-200 dark:bg-gray-700'
               )}
             />
@@ -429,7 +429,7 @@ function TourOverlay() {
           <Button
             size="sm"
             onClick={nextStep}
-            className="gap-1 bg-[#7DC2A5] hover:bg-[#6BB294] text-white"
+            className="gap-1 bg-[#3B82F6] hover:bg-[#6BB294] text-white"
           >
             {isLastStep ? t('common.finish') : t('common.next')}
             {!isLastStep && <ChevronRight className="h-4 w-4" />}

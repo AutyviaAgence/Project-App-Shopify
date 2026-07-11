@@ -986,7 +986,7 @@ export function AgentToolsManager({ agentId, agentName }: { agentId: string; age
               <button
                 key={template.type}
                 onClick={() => selectTemplate(template)}
-                className="p-4 rounded-lg border text-left transition-colors hover:border-[#7DC2A5] hover:bg-[#7DC2A5]/5"
+                className="p-4 rounded-lg border text-left transition-colors hover:border-[#3B82F6] hover:bg-[#3B82F6]/5"
               >
                 <div className={`mb-2 ${TOOL_COLORS[template.type] || 'text-muted-foreground'}`}>
                   {TOOL_ICONS[template.icon] || <Plug className="h-5 w-5" />}

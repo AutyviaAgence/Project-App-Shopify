@@ -377,8 +377,8 @@ export function ConversationList({
                     <div
                       className="flex h-11 w-11 items-center justify-center rounded-full text-[15px] font-semibold text-white shadow-sm"
                       style={isSelected
-                        ? { background: 'var(--primary, #7DC2A5)' }
-                        : { background: 'linear-gradient(to bottom right, var(--primary, #7DC2A5), var(--accent, #40E9BE))' }
+                        ? { background: 'var(--primary, #3B82F6)' }
+                        : { background: 'linear-gradient(to bottom right, var(--primary, #3B82F6), var(--accent, #3B82F6))' }
                       }
                     >
                       {getContactInitials(conv)}
