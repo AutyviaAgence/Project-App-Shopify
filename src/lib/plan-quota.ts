@@ -11,14 +11,15 @@ function getAdminClient() {
   )
 }
 
-type QuotaResource = 'sessions' | 'agents' | 'docs' | 'links' | 'teams'
+// 'teams' retiré : le système d'équipes a été supprimé (refonte V2), la table
+// teams/team_members n'existe plus en base.
+type QuotaResource = 'sessions' | 'agents' | 'docs' | 'links'
 
 const RESOURCE_TABLE: Record<QuotaResource, string> = {
   sessions: 'whatsapp_sessions',
   agents: 'ai_agents',
   docs: 'knowledge_documents',
   links: 'wa_links',
-  teams: 'team_members',
 }
 
 const ACTIVE_STATUSES = new Set(['active', 'trialing'])
@@ -55,14 +56,7 @@ export async function checkPlanQuota(
 
   let current = 0
 
-  if (resource === 'teams') {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { count } = await (supabase as any)
-      .from('teams')
-      .select('id', { count: 'exact', head: true })
-      .eq('owner_id', userId)
-    current = count ?? 0
-  } else if (resource === 'sessions') {
+  if (resource === 'sessions') {
     // Sessions = WhatsApp + Email combinés
     const adminSupabase = getAdminClient()
     const [waResult, emailResult] = await Promise.all([
