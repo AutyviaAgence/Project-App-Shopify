@@ -493,6 +493,9 @@ function TemplateButtonsEditor({ template, onSaved }: {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const otherButtons = ((template.buttons ?? []) as TemplateButton[]).filter((b) => b.type !== 'QUICK_REPLY')
+  // UTILITY : susceptible d'être requalifié MARKETING par Meta si on y ajoute
+  // des boutons quick-reply → on prévient l'utilisateur (cf. avertissement).
+  const isUtility = ((template as { category?: string }).category || '').toUpperCase() === 'UTILITY'
 
   const dirty = JSON.stringify(labels) !== JSON.stringify(initial)
   // Meta plafonne à 3 boutons quick-reply, et pas de mélange QR + autres types.
@@ -552,6 +555,14 @@ function TemplateButtonsEditor({ template, onSaved }: {
       {otherButtons.length > 0 && (
         <p className="mb-1.5 text-[10px] text-amber-600">
           Ce modèle a déjà des boutons {otherButtons.map((b) => b.type).join(', ')} : impossible d’y ajouter des réponses rapides (règle Meta).
+        </p>
+      )}
+      {/* Reclassement : ajouter des réponses rapides à un modèle UTILITY peut
+          pousser Meta à le requalifier en MARKETING (tarif + règles d'envoi
+          différents). On prévient avant, seulement si on ajoute vraiment des boutons. */}
+      {isUtility && dirty && labels.some((l) => l.trim()) && (
+        <p className="mb-1.5 rounded-md bg-amber-500/10 px-2 py-1.5 text-[10px] text-amber-600">
+          ⚠️ Ajouter des boutons peut faire reclasser ce modèle <b>Utilitaire → Marketing</b> par Meta (tarif et règles d’envoi différents).
         </p>
       )}
       <div className="space-y-1.5">
