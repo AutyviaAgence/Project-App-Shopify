@@ -609,11 +609,10 @@ export async function POST(req: NextRequest) {
             // message à boutons pour ce contact, le clic le REPREND sur la
             // branche correspondante (priorité sur les automations button_clicked
             // indépendantes ci-dessous).
-            let funnelResumed = false
             if (clickedButtonTitle) {
               try {
                 const { resumeParkedFunnel } = await import('@/lib/automations/engine')
-                funnelResumed = await resumeParkedFunnel(contact.id, clickedButtonTitle)
+                await resumeParkedFunnel(contact.id, clickedButtonTitle)
               } catch (err) {
                 console.error('[WABA Webhook] resumeParkedFunnel error:', err)
               }
@@ -621,11 +620,10 @@ export async function POST(req: NextRequest) {
 
             // 3c. Clic sur un bouton → déclenche les automations "button_clicked"
             // (libellé du bouton = filtre). Non-bloquant.
-            let buttonAutomationEnqueued = false
             if (clickedButtonTitle && session.user_id) {
               try {
                 const { enqueueAutomations } = await import('@/lib/automations/engine')
-                const enq = await enqueueAutomations({
+                await enqueueAutomations({
                   userId: session.user_id,
                   event: 'button_clicked',
                   ctx: {
@@ -640,19 +638,18 @@ export async function POST(req: NextRequest) {
                     dedupKey: waMessageId || undefined,
                   },
                 })
-                // enqueueAutomations renvoie { queued: number } : > 0 = au moins
-                // une automation button_clicked a matché ce clic.
-                buttonAutomationEnqueued = (enq?.queued ?? 0) > 0
               } catch (err) {
                 console.error('[WABA Webhook] button_clicked enqueue error:', err)
               }
             }
 
-            // Un clic de bouton qui a DÉCLENCHÉ une action (reprise de funnel ou
-            // automation button_clicked) ne doit PAS aussi faire répondre l'IA :
-            // c'est une réponse structurée traitée par le workflow, pas une
-            // question conversationnelle. Sinon l'agent répondait « Oui »/« Non ».
-            const handledByWorkflow = !!clickedButtonTitle && (funnelResumed || buttonAutomationEnqueued)
+            // Un CLIC DE BOUTON (quick-reply) ne doit JAMAIS faire répondre l'IA :
+            // c'est une réponse structurée (« Oui »/« Non »…), pas une question
+            // conversationnelle. Qu'il reprenne un funnel, déclenche une automation
+            // button_clicked, ou rien du tout (funnel déjà terminé, pas d'auto
+            // configurée) — l'agent ne réagit pas au libellé du bouton. Le texte
+            // libre tapé par le contact, lui, déclenche toujours l'IA normalement.
+            const isButtonClick = !!clickedButtonTitle
 
             // 4. Auto-réponse IA
             const { data: convFresh } = await supabase
@@ -661,7 +658,7 @@ export async function POST(req: NextRequest) {
               .eq('id', conversation.id)
               .single()
 
-            if (convFresh?.is_ai_active && convFresh?.ai_agent_id && !handledByWorkflow) {
+            if (convFresh?.is_ai_active && convFresh?.ai_agent_id && !isButtonClick) {
               // Backpressure : borne le nombre de réponses IA simultanées par
               // process. Sous le seuil → réponse inline (rapide). Au-dessus (burst)
               // → on enfile dans ai_jobs (drainé par le cron run-ai-jobs), et le
