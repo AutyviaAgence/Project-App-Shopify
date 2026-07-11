@@ -169,8 +169,12 @@ export const wabaClient = {
         status: string        // APPROVED | PENDING | REJECTED | ...
         category: string      // MARKETING | UTILITY | AUTHENTICATION
         components: unknown[]
+        // Motif de refus quand status = REJECTED (ex. INVALID_FORMAT,
+        // PROMOTIONAL, ...). On le demande explicitement (Meta ne le renvoie pas
+        // dans le jeu de champs par défaut) → sinon « Refusé » sans raison.
+        rejected_reason?: string
       }[]
-    }>(`${GRAPH_API_BASE}/${businessAccountId}/message_templates?limit=200`, accessToken, {
+    }>(`${GRAPH_API_BASE}/${businessAccountId}/message_templates?limit=200&fields=id,name,language,status,category,components,rejected_reason`, accessToken, {
       method: 'GET',
     })
   },

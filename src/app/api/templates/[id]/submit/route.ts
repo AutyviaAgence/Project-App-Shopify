@@ -25,6 +25,7 @@ export async function POST(
   if (!r.ok) {
     const payload: Record<string, unknown> = { error: r.error }
     if (r.token_expired) payload.token_expired = true
+    if (r.retryAt) payload.retryAt = r.retryAt
     return NextResponse.json(payload, { status: r.status })
   }
   return NextResponse.json({ data: r.data })

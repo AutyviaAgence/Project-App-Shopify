@@ -14,7 +14,7 @@ import { VARIABLE_BY_KEY } from '@/lib/templates/variables'
  */
 export type SubmitResult =
   | { ok: true; status: number; data: unknown }
-  | { ok: false; status: number; error: string; token_expired?: boolean }
+  | { ok: false; status: number; error: string; token_expired?: boolean; retryAt?: string }
 
 /** Nombre de variables {{n}} référencées dans un texte. */
 function countVars(text: string): number {
@@ -331,7 +331,21 @@ export async function submitTemplateRow(
       return { ok: false, status: 401, token_expired: true, error: 'Votre connexion WhatsApp a expiré. Reconnectez votre numéro (Tableau de bord → Connexion WhatsApp) avec un nouveau token Meta, puis réessayez.' }
     }
     if (/24\s*h|24 heures|once.*24|24.*hour|once in a 24/i.test(result.error) || /24\s*h|24 heures/i.test(metaUserMsg)) {
-      return { ok: false, status: 429, error: 'Meta n’autorise qu’une modification par 24 h sur un modèle déjà approuvé. Vous l’avez modifié récemment, réessayez dans 24 h. (La version approuvée reste active en attendant.)' }
+      // Estimation de l'heure de réessai : dernière modification + 24 h. `retryAt`
+      // est renvoyé (ISO) pour que l'UI affiche un compte à rebours ; le message
+      // inclut aussi une formulation lisible.
+      const editedAt = template.updated_at ? new Date(template.updated_at) : null
+      const retryAt = editedAt ? new Date(editedAt.getTime() + 24 * 3600_000) : null
+      const when = retryAt
+        ? retryAt.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
+        : null
+      return {
+        ok: false, status: 429,
+        retryAt: retryAt?.toISOString(),
+        error: when
+          ? `Meta n’autorise qu’une modification par 24 h sur un modèle déjà approuvé. Réessayez après le ${when}. (La version approuvée reste active en attendant.)`
+          : 'Meta n’autorise qu’une modification par 24 h sur un modèle déjà approuvé. Réessayez dans 24 h. (La version approuvée reste active en attendant.)',
+      }
     }
     if (isDup(result.error)) {
       return { ok: false, status: 409, error: 'Ce modèle est déjà en attente d’approbation chez Meta (une modification est en cours de revue). Attendez qu’il soit approuvé ou refusé avant de le re-soumettre. Astuce : cliquez sur « Synchroniser » pour rafraîchir son statut.' }

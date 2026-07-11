@@ -25,15 +25,17 @@ export async function POST() {
     return NextResponse.json({ data: { synced: 0 } })
   }
 
-  // Construire une map (name|language) → statut + catégorie Meta
-  const metaStatus = new Map<string, { status: string; meta_id: string; category: string }>()
+  // Construire une map (name|language) → statut + catégorie + motif de refus Meta
+  const metaStatus = new Map<string, { status: string; meta_id: string; category: string; rejectedReason?: string }>()
   for (const s of sessions) {
     if (!s.waba_business_account_id || !s.waba_access_token) continue
     const token = decryptMessage(s.waba_access_token)
     const res = await wabaClient.listTemplates(s.waba_business_account_id, token)
     if (res.ok) {
       for (const t of res.data.data) {
-        metaStatus.set(`${t.name}|${t.language}`, { status: t.status, meta_id: t.id, category: t.category })
+        metaStatus.set(`${t.name}|${t.language}`, {
+          status: t.status, meta_id: t.id, category: t.category, rejectedReason: t.rejected_reason,
+        })
       }
     }
   }
@@ -63,6 +65,9 @@ export async function POST() {
           updated_at: new Date().toISOString(),
         }
         if (categoryChanged) patch.category = meta.category
+        // Refusé : on capture le motif renvoyé par Meta (sinon « Refusé » sans
+        // explication). Approuvé/en attente : on efface tout ancien motif.
+        patch.rejection_reason = newStatus === 'rejected' ? (meta.rejectedReason || null) : null
         // Quand un template devient approuvé, on fige son contenu comme
         // "dernière version validée" (pour pouvoir y revenir après édition).
         if (newStatus === 'approved') {
