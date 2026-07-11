@@ -2,6 +2,7 @@ import { getAdminSupabase } from '@/lib/supabase/admin-singleton'
 import { withSessionDelay } from '@/lib/messaging/session-queue'
 import { decryptMessage } from '@/lib/crypto/encryption'
 import { canUseAi } from '@/lib/plans/gate'
+import { isRateLimitError } from '@/lib/whatsapp-cloud/send-errors'
 
 /**
  * Exécuteur de campagnes de relance WhatsApp
@@ -130,6 +131,15 @@ async function executeCampaign(supabase: any, campaign: Campaign): Promise<void>
   }
 
 
+  // Récupération après crash : un destinataire resté en 'sending' vient d'un
+  // exécuteur interrompu (le lock in-memory est perdu au redémarrage serveur).
+  // On le remet en file plutôt que de le laisser bloqué à jamais.
+  await supabase
+    .from('campaign_recipients')
+    .update({ status: 'pending' })
+    .eq('campaign_id', campaignId)
+    .eq('status', 'sending')
+
   // Récupérer les destinataires en attente
   const { data: recipients } = await supabase
     .from('campaign_recipients')
@@ -198,7 +208,7 @@ async function executeCampaign(supabase: any, campaign: Campaign): Promise<void>
     // Récupérer session et contact
     const { data: session } = await supabase
       .from('whatsapp_sessions')
-      .select('id, instance_name, status, integration_type, waba_phone_number_id, waba_access_token, ai_message_delay')
+      .select('id, instance_name, status, integration_type, waba_phone_number_id, waba_access_token, ai_message_delay, marketing_paused')
       .eq('id', recipient.session_id)
       .single()
 
@@ -208,6 +218,27 @@ async function executeCampaign(supabase: any, campaign: Campaign): Promise<void>
         .update({ status: 'skipped', error_message: 'Session non connectée' })
         .eq('id', recipient.id)
       continue
+    }
+
+    // Qualité RED : Meta a mis le numéro en pause marketing. Envoyer un template
+    // (marketing) dans cet état dégrade encore la qualité → on pause la campagne
+    // tout de suite (les destinataires restent pending, reprise après remontée
+    // de qualité). Les campagnes texte simple ne sont pas concernées.
+    if (template && (session as { marketing_paused?: boolean }).marketing_paused) {
+      await supabase
+        .from('campaign_recipients')
+        .update({ status: 'pending', error_message: null })
+        .eq('id', recipient.id)
+      await supabase
+        .from('campaigns')
+        .update({
+          status: 'paused',
+          paused_at: new Date().toISOString(),
+          pause_reason: 'Qualité du numéro trop basse (marketing en pause chez Meta). Reprenez quand la qualité remonte.',
+        })
+        .eq('id', campaignId)
+      console.warn(`[Campaign ${campaignId}] Number marketing-paused (RED quality), pausing campaign`)
+      break
     }
 
     const { data: contact } = await supabase
@@ -295,6 +326,25 @@ async function executeCampaign(supabase: any, campaign: Campaign): Promise<void>
           .update(updateData)
           .eq('id', recipient.conversation_id)
       }
+    } else if (isRateLimitError(result.error || '')) {
+      // Limite d'envoi Meta atteinte : ce N'EST PAS un échec du destinataire. On
+      // le REMET en file (pending) et on met la campagne en pause avec report —
+      // la fenêtre glissante de Meta libèrera de la place. Sinon on brûlait tous
+      // les destinataires restants en « échec » définitif.
+      await supabase
+        .from('campaign_recipients')
+        .update({ status: 'pending', error_message: null })
+        .eq('id', recipient.id)
+      await supabase
+        .from('campaigns')
+        .update({
+          status: 'paused',
+          paused_at: new Date().toISOString(),
+          pause_reason: 'Limite d\'envoi Meta atteinte. Reprenez la campagne dans ~1 h (la fenêtre de 24 h de Meta libèrera de la place).',
+        })
+        .eq('id', campaignId)
+      console.warn(`[Campaign ${campaignId}] Rate limited by Meta, pausing (recipient requeued): ${result.error}`)
+      break
     } else {
       await supabase
         .from('campaign_recipients')
