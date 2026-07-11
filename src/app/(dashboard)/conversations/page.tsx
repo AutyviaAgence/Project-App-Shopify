@@ -6,6 +6,8 @@ import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { ContactProfilePanel } from '@/components/contact-profile-panel'
 import { LifecycleStagesDialog } from '@/components/lifecycle-stages-dialog'
+import { TemplateBubble } from '@/components/template-bubble'
+import type { WhatsAppTemplate } from '@/types/database'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { useTranslation } from '@/i18n/context'
@@ -72,7 +74,14 @@ function ConversationsPageContent() {
   const [sending, setSending] = useState(false)
   // Bascule template hors fenêtre 24h
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false)
-  const [approvedTemplates, setApprovedTemplates] = useState<{ id: string; name: string; language: string; body_text?: string; use_case?: string | null; category?: string | null }[]>([])
+  const [approvedTemplates, setApprovedTemplates] = useState<{
+    id: string; name: string; language: string; body_text?: string
+    use_case?: string | null; category?: string | null
+    // Champs nécessaires à TemplateBubble (aperçu fidèle : en-tête, boutons, carrousel…)
+    header_text?: string | null; footer_text?: string | null
+    template_type?: string | null; buttons?: unknown; carousel_cards?: unknown
+    lto_title?: string | null; lto_default_hours?: number | null
+  }[]>([])
   // Filtre par catégorie e-commerce du sélecteur de modèles (façon onboarding).
   const [tplFilter, setTplFilter] = useState<UseCaseKey | 'all'>('all')
   // Nouvelle conversation
@@ -1071,7 +1080,14 @@ function ConversationsPageContent() {
                 {shown.length === 0 ? (
                   <p className="py-6 text-center text-sm text-muted-foreground">Aucun modèle dans cette catégorie.</p>
                 ) : (
-                  <div className="flex w-full min-w-0 gap-3 overflow-x-auto pb-2 [scrollbar-width:thin]">
+                  <div
+                    className="flex w-full min-w-0 gap-3 overflow-x-auto overscroll-contain pb-2 [scrollbar-width:thin]"
+                    onWheel={(e) => {
+                      // Molette verticale → défilement HORIZONTAL du carrousel
+                      // (plus intuitif que de chercher la barre de scroll).
+                      if (e.deltaY !== 0) { e.currentTarget.scrollLeft += e.deltaY; e.preventDefault() }
+                    }}
+                  >
                     {shown.map((tpl) => (
                       <button
                         key={tpl.id}
@@ -1084,12 +1100,19 @@ function ConversationsPageContent() {
                           <span className="shrink-0 rounded-full bg-muted px-1.5 py-0.5 text-[10px] uppercase text-muted-foreground">{tpl.language}</span>
                         </div>
                         <div className="flex-1 p-3">
-                          {tpl.body_text && (
-                            <div className="rounded-lg rounded-tl-none bg-[#d9fdd3] px-2.5 py-2 text-[12px] leading-snug text-gray-900 shadow-sm">
-                              {tpl.body_text}
-                              <span className="ml-1 text-[9px] text-gray-500">12:00</span>
-                            </div>
-                          )}
+                          {/* Bulle WhatsApp partagée (blanche), cohérente avec le
+                              builder d automatisations — gère formatage, variables
+                              et boutons du modèle. */}
+                          <TemplateBubble template={{
+                            body_text: tpl.body_text || '',
+                            header_text: tpl.header_text ?? null,
+                            footer_text: tpl.footer_text ?? null,
+                            template_type: (tpl.template_type ?? null) as WhatsAppTemplate['template_type'],
+                            buttons: (tpl.buttons ?? null) as WhatsAppTemplate['buttons'],
+                            carousel_cards: (tpl.carousel_cards ?? null) as WhatsAppTemplate['carousel_cards'],
+                            lto_title: tpl.lto_title ?? null,
+                            lto_default_hours: tpl.lto_default_hours ?? null,
+                          }} />
                         </div>
                         <div className="border-t py-2 text-center text-xs font-medium text-primary transition-colors group-hover:bg-primary/5">
                           Envoyer ce modèle
