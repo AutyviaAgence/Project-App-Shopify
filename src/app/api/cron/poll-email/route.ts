@@ -76,12 +76,16 @@ async function runPollEmail() {
         if (existingContact) {
           contactId = existingContact.id
         } else {
+          // Contact EMAIL : identifié par (email, email_session_id). On ne met
+          // JAMAIS l'adresse dans phone_number (colonne réservée aux vrais numéros
+          // WhatsApp) — sinon la table se pollue d'emails traités comme des numéros.
+          // phone_number est nullable (migration 20260711) → null pour un email-only.
           const { data: newContact, error: contactError } = await adminSupabase
             .from('contacts')
             .insert({
               session_id: null,
               email_session_id: session.id,
-              phone_number: email.from,
+              phone_number: null,
               email: email.from,
               name: email.fromName,
               first_name: email.fromName?.split(' ')[0] ?? null,

@@ -432,23 +432,32 @@ export async function POST(req: NextRequest) {
               : ''
             const STOP_WORDS = ['stop', 'stopp', 'desabonner', 'desabonnement', 'unsubscribe', 'arreter', 'arret']
             const isStop = STOP_WORDS.includes(normalized)
-            const c = contact as typeof contact & { opt_in_status?: string }
+            const c = contact as typeof contact & { opt_in_status?: string; preferred_channel?: string }
 
             if (isStop) {
               await supabase
                 .from('contacts')
                 .update({ opt_in_status: 'opted_out', opt_out_at: new Date().toISOString() })
                 .eq('id', contact.id)
-            } else if (c.opt_in_status !== 'subscribed' && c.opt_in_status !== 'opted_out') {
-              // Opt-in implicite : le contact a initié/poursuivi le contact
-              await supabase
-                .from('contacts')
-                .update({
-                  opt_in_status: 'subscribed',
-                  opt_in_source: 'inbound_message',
-                  opt_in_at: new Date().toISOString(),
-                })
-                .eq('id', contact.id)
+            } else if (c.opt_in_status !== 'opted_out') {
+              // Message ENTRANT (hors STOP) = opt-in implicite ET preuve que le
+              // canal WhatsApp est actif. On construit l'update de façon
+              // idempotente :
+              //  - opt_in_* seulement si le contact n'était pas déjà abonné ;
+              //  - preferred_channel='whatsapp' dès qu'il vaut 'none'/vide (répare
+              //    les contacts créés sans canal, sinon exclus de TOUS les envois).
+              const patch: Record<string, unknown> = {}
+              if (c.opt_in_status !== 'subscribed') {
+                patch.opt_in_status = 'subscribed'
+                patch.opt_in_source = 'inbound_message'
+                patch.opt_in_at = new Date().toISOString()
+              }
+              if (c.preferred_channel === 'none' || !c.preferred_channel) {
+                patch.preferred_channel = 'whatsapp'
+              }
+              if (Object.keys(patch).length > 0) {
+                await supabase.from('contacts').update(patch).eq('id', contact.id)
+              }
             }
 
             // 1.6 Langue du contact : si on ne la connaît pas encore (Shopify ne
