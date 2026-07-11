@@ -1036,7 +1036,9 @@ function ConversationsPageContent() {
               ? approvedTemplates
               : approvedTemplates.filter((t) => catOf(t) === tplFilter)
             return (
-              <div className="space-y-3">
+              // min-w-0 : sans lui, le carrousel flex interne pousse la largeur
+              // du dialog et déborde de l'écran au lieu de défiler.
+              <div className="w-full min-w-0 space-y-3">
                 {/* Puces de filtre (façon onboarding automatisations). */}
                 <div className="flex flex-wrap gap-1.5">
                   <button
@@ -1069,7 +1071,7 @@ function ConversationsPageContent() {
                 {shown.length === 0 ? (
                   <p className="py-6 text-center text-sm text-muted-foreground">Aucun modèle dans cette catégorie.</p>
                 ) : (
-                  <div className="flex gap-3 overflow-x-auto pb-2 [scrollbar-width:thin]">
+                  <div className="flex w-full min-w-0 gap-3 overflow-x-auto pb-2 [scrollbar-width:thin]">
                     {shown.map((tpl) => (
                       <button
                         key={tpl.id}
