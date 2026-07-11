@@ -2,6 +2,34 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getAdminSupabase } from '@/lib/supabase/admin-singleton'
 import { evaluateConditions, nextAllowedSend } from '@/lib/automations/engine'
 import { sendTemplateToContact } from '@/lib/automations/dispatch'
+import { tierHeadroom } from '@/lib/whatsapp/sending-limits'
+
+/**
+ * Marge de palier d'envoi mise en cache le temps d'UN tick de cron (TTL court) :
+ * on ne recompte pas les contacts uniques 24h à chaque job du même utilisateur.
+ */
+const tierCache = new Map<string, { exceeded: boolean; at: number }>()
+const TIER_CACHE_MS = 30_000
+/** Fenêtre du plafond de fréquence marketing par contact (1 msg marketing / j). */
+const MARKETING_CONTACT_CAP_HOURS = 20
+async function tierExceededFor(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any, userId: string,
+): Promise<boolean> {
+  const hit = tierCache.get(userId)
+  if (hit && Date.now() - hit.at < TIER_CACHE_MS) return hit.exceeded
+  // Palier de la session connectée de l'utilisateur.
+  const { data: sess } = await supabase
+    .from('whatsapp_sessions')
+    .select('messaging_limit_tier')
+    .eq('user_id', userId)
+    .eq('status', 'connected')
+    .limit(1)
+    .maybeSingle()
+  const head = await tierHeadroom(supabase, userId, sess?.messaging_limit_tier ?? null)
+  tierCache.set(userId, { exceeded: head.exceeded, at: Date.now() })
+  return head.exceeded
+}
 
 /**
  * Cron — dépile la file automation_jobs.
@@ -132,7 +160,7 @@ async function processJob(
 ): Promise<Outcome> {
   const { data: auto } = await supabase
     .from('automations')
-    .select('id, user_id, template_id, conditions, quiet_start, quiet_end, timezone, trigger_event, is_active, builder_mode, graph')
+    .select('id, user_id, template_id, conditions, quiet_start, quiet_end, timezone, trigger_event, is_active, builder_mode, graph, kind')
     .eq('id', job.automation_id)
     .maybeSingle()
 
@@ -188,6 +216,27 @@ async function processJob(
       const when = new Date(now.getTime() + step.minutes * 60_000).toISOString()
       await supabase.from('automation_jobs').update({ current_node_id: step.nextNodeId, scheduled_at: when }).eq('id', job.id)
       return 'deferred'
+    }
+
+    // GARDE-FOU PALIER : si l'utilisateur a déjà atteint son plafond de contacts
+    // uniques sur 24h (palier Meta), on DIFFÈRE l'envoi plutôt que de le tenter
+    // (dépasser dégrade la qualité → réduit le palier). Report +60 min : la
+    // fenêtre glissante libèrera de la place. best-effort, jamais bloquant.
+    if (await tierExceededFor(supabase, auto.user_id)) {
+      await deferJob(supabase, job.id, now, 60)
+      return 'deferred'
+    }
+
+    // FRÉQUENCE PAR CONTACT (marketing uniquement) : ne pas sur-solliciter le
+    // même contact avec plusieurs messages MARKETING dans la même journée
+    // (blocages/signalements → chute de qualité). Le transactionnel (SAV,
+    // statuts de commande) n'est PAS concerné : il doit toujours partir.
+    if (auto.kind === 'marketing') {
+      const { contactMessagedWithin } = await import('@/lib/whatsapp/sending-limits')
+      if (await contactMessagedWithin(supabase, auto.user_id, job.contact_id, MARKETING_CONTACT_CAP_HOURS)) {
+        await mark(supabase, job.id, 'skipped', 'fréquence marketing : contact déjà sollicité aujourd’hui')
+        return 'skipped'
+      }
     }
 
     // send OU send_wait_click : dans les deux cas on envoie le message.
