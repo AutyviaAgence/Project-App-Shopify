@@ -6,7 +6,7 @@ import { Check, Play, Clock, ShoppingBag, Reply, RotateCcw, FlaskConical, Plus, 
 import IPhoneMockup from '@/components/ui/iphone-mockup'
 import { cn } from '@/lib/utils'
 import type { WorkflowGraph } from '@/lib/automations/graph-types'
-import { startSim, clickButton, typeText, type SimTemplate, type SimState, type SimItem } from './phone-sim'
+import { startSim, clickButton, typeText, buildTour, type SimTemplate, type SimState, type SimItem } from './phone-sim'
 
 /**
  * Aperçu téléphone WhatsApp du builder d'automatisation.
@@ -18,6 +18,24 @@ import { startSim, clickButton, typeText, type SimTemplate, type SimState, type 
  *    messages à boutons sont cliquables ; on peut taper un message. Boutons
  *    « Tester » / « Reset » sous le mockup.
  */
+
+/** Image d'aperçu : URL http directe OU chemin storage (résolu en URL signée
+ *  via /api/templates/media/preview, comme la bulle de template). */
+function SimImage({ src, className }: { src: string; className?: string }) {
+  const [url, setUrl] = useState<string | null>(/^https?:\/\//i.test(src) ? src : null)
+  useEffect(() => {
+    if (/^https?:\/\//i.test(src)) { setUrl(src); return }
+    let cancelled = false
+    fetch(`/api/templates/media/preview?path=${encodeURIComponent(src)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (!cancelled && j?.data?.signed_url) setUrl(j.data.signed_url) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [src])
+  if (!url) return <div className={cn('flex items-center justify-center bg-slate-100 text-slate-300', className)}>🖼️</div>
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={url} alt="" className={className} />
+}
 
 function renderFormat(text: string): React.ReactNode {
   if (!text) return null
@@ -77,22 +95,48 @@ export function PhonePreview({
   const [mode, setMode] = useState<'auto' | 'test'>('auto')
   const canTest = !!graph && !!templates && templates.length > 0
 
-  // ---- Mode AUTO : scénario animé en boucle ---------------------------------
-  const [step, setStep] = useState(0)
+  // ---- Mode AUTO : démo animée qui parcourt TOUT le graphe en boucle --------
+  // Si on a le graphe + les modèles, on construit la « tournée » complète (toutes
+  // les routes/boutons/carrousels) et on révèle les items un par un. Sinon
+  // (aperçu d'un modèle isolé), on retombe sur le scénario simple event→message.
   const [playKey, setPlayKey] = useState(0)
+  const tour: SimItem[] = React.useMemo(() => {
+    if (!graph || !templates || templates.length === 0) return []
+    try { return buildTour(graph, templates) } catch { return [] }
+  }, [graph, templates])
+  const hasTour = tour.length > 1
+
+  // Nombre d'items révélés (mode tournée) OU step 0..3 (mode simple).
+  const [revealed, setRevealed] = useState(0)
+  const [step, setStep] = useState(0)
   useEffect(() => {
     if (mode !== 'auto') return
     const timers: ReturnType<typeof setTimeout>[] = []
-    function runOnce() {
-      setStep(0)
-      timers.push(setTimeout(() => setStep(1), 1000))
-      timers.push(setTimeout(() => setStep(2), immediate ? 1700 : 2600))
-      timers.push(setTimeout(() => setStep(3), immediate ? 3000 : 3900))
-      timers.push(setTimeout(runOnce, immediate ? 5200 : 6200))
+
+    if (hasTour) {
+      // Révèle les items un par un ; un `delay` marque une pause plus longue.
+      const runTour = () => {
+        setRevealed(0)
+        let t = 400
+        tour.forEach((item, i) => {
+          timers.push(setTimeout(() => setRevealed(i + 1), t))
+          t += item.kind === 'delay' ? 1300 : item.kind === 'reply' ? 700 : 1100
+        })
+        timers.push(setTimeout(runTour, t + 2200)) // pause puis reboucle
+      }
+      runTour()
+    } else {
+      const runOnce = () => {
+        setStep(0)
+        timers.push(setTimeout(() => setStep(1), 1000))
+        timers.push(setTimeout(() => setStep(2), immediate ? 1700 : 2600))
+        timers.push(setTimeout(() => setStep(3), immediate ? 3000 : 3900))
+        timers.push(setTimeout(runOnce, immediate ? 5200 : 6200))
+      }
+      runOnce()
     }
-    runOnce()
     return () => timers.forEach(clearTimeout)
-  }, [playKey, resolved, delayLabel, immediate, mode])
+  }, [playKey, resolved, delayLabel, immediate, mode, hasTour, tour])
 
   // ---- Mode TEST : simulation interactive -----------------------------------
   const [sim, setSim] = useState<SimState | null>(null)
@@ -115,11 +159,13 @@ export function PhonePreview({
     setDraft('')
     if (graph && templates && sim) setSim(typeText(graph, templates, sim, text))
   }
-  // Scroll auto vers le bas quand la conversation grandit.
+  // Scroll auto vers le bas quand la conversation grandit (test OU démo tournée).
   const convRef = useRef<HTMLDivElement>(null)
   useEffect(() => {
-    if (mode === 'test' && convRef.current) convRef.current.scrollTop = convRef.current.scrollHeight
-  }, [sim, mode])
+    if (convRef.current && (mode === 'test' || (mode === 'auto' && hasTour))) {
+      convRef.current.scrollTop = convRef.current.scrollHeight
+    }
+  }, [sim, mode, revealed, hasTour])
 
   // ---- Fit responsive du mockup ---------------------------------------------
   const NOM_W = 417, NOM_H = 876
@@ -178,13 +224,26 @@ export function PhonePreview({
             ref={convRef}
             className={cn(
               'relative flex flex-1 flex-col gap-2.5 overflow-y-auto px-3 py-4 [scrollbar-width:thin]',
-              mode === 'auto' && 'justify-center',
+              // Centré uniquement pour l'aperçu simple (1 message). La tournée et le
+              // mode test défilent depuis le haut.
+              mode === 'auto' && !hasTour && 'justify-center',
             )}
             style={{ backgroundImage: 'url(/whatsapp-bg.webp)', backgroundSize: 'cover' }}
           >
-            {mode === 'test' && sim
-              ? <SimConversation sim={sim} onClickButton={onClickSimButton} />
-              : (
+            {mode === 'test' && sim ? (
+              <SimConversation sim={sim} onClickButton={onClickSimButton} />
+            ) : mode === 'auto' && hasTour ? (
+              // DÉMO : parcours complet du graphe, items révélés progressivement.
+              <AnimatePresence initial={false}>
+                {tour.slice(0, revealed).map((item, i) => (
+                  <motion.div key={`tour-${playKey}-${i}`}
+                    initial={{ opacity: 0, y: 10, scale: 0.97 }} animate={{ opacity: 1, y: 0, scale: 1 }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 24 }}>
+                    <SimBubble item={item} last={false} onClickButton={() => {}} waiting={false} />
+                  </motion.div>
+                ))}
+              </AnimatePresence>
+            ) : (
               <AnimatePresence>
                 {step >= 0 && (
                   <motion.div key={`evt-${playKey}`}
@@ -330,6 +389,28 @@ function SimBubble({ item, last, onClickButton, waiting }: { item: SimItem; last
   // message
   return (
     <div className="mr-auto max-w-[88%] overflow-hidden rounded-xl rounded-tl-sm bg-white shadow-sm">
+      {/* Média d'en-tête (image / vidéo / document) */}
+      {item.mediaType === 'image' && (item.mediaUrl
+        // eslint-disable-next-line @next/next/no-img-element
+        ? <SimImage src={item.mediaUrl} className="h-28 w-full object-cover" />
+        : <div className="h-28 w-full bg-slate-200" />)}
+      {item.mediaType === 'video' && <div className="flex h-28 w-full items-center justify-center bg-slate-800 text-white/70">▶</div>}
+      {item.mediaType === 'document' && <div className="bg-slate-100 px-3 py-2 text-[13px] text-slate-500">📄 Document.pdf</div>}
+
+      {/* Carrousel : cartes horizontales (image + court texte) */}
+      {item.cards && item.cards.length > 0 && (
+        <div className="flex gap-2 overflow-x-auto p-2 [scrollbar-width:thin]">
+          {item.cards.map((c, i) => (
+            <div key={i} className="w-[120px] shrink-0 overflow-hidden rounded-lg border border-black/10">
+              {c.image
+                ? <SimImage src={c.image} className="h-[72px] w-full object-cover" />
+                : <div className="flex h-[72px] w-full items-center justify-center bg-slate-100 text-slate-300">🖼️</div>}
+              <p className="truncate px-1.5 py-1 text-[12px] font-medium text-gray-700">{c.body || `Carte ${i + 1}`}</p>
+            </div>
+          ))}
+        </div>
+      )}
+
       <div className="px-3 py-2">
         {item.header && <p className="mb-0.5 text-[19px] font-semibold text-gray-900">{item.header}</p>}
         <p className="whitespace-pre-wrap break-words text-[18px] leading-snug text-gray-800">{renderFormat(item.body)}</p>

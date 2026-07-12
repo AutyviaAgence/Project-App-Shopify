@@ -18,16 +18,26 @@ import {
 import type { WhatsAppTemplate, TemplateButton } from '@/types/database'
 
 export type SimTemplate = Pick<WhatsAppTemplate,
-  'id' | 'name' | 'header_text' | 'header_type' | 'body_text' | 'footer_text' | 'buttons'> & {
+  'id' | 'name' | 'header_text' | 'header_type' | 'body_text' | 'footer_text' | 'buttons'
+  | 'template_type' | 'header_media_url' | 'carousel_cards'> & {
   variable_keys?: string[] | null
   sample_values?: string[] | null
 }
+
+/** Aperçu d'une carte de carrousel (image + court texte). */
+export type SimCard = { image?: string | null; body: string }
 
 /** Un élément affiché dans la conversation simulée. */
 export type SimItem =
   | { kind: 'system'; text: string; sub?: string }
   | { kind: 'delay'; label: string; immediate: boolean }
-  | { kind: 'message'; header?: string; body: string; footer?: string; buttons: string[]; templateName: string }
+  | {
+      kind: 'message'; header?: string; body: string; footer?: string; buttons: string[]; templateName: string
+      // Média du template (aperçu) : image/vidéo/doc d'en-tête, ou cartes de carrousel.
+      mediaType?: 'none' | 'text' | 'image' | 'video' | 'document'
+      mediaUrl?: string | null
+      cards?: SimCard[]
+    }
   | { kind: 'reply'; text: string }          // réponse du "client" (clic bouton ou texte)
   | { kind: 'end'; text: string }
 
@@ -90,6 +100,39 @@ function samplesOf(t: SimTemplate | undefined): string[] {
   return ['Marie', 'Ma Boutique', 'https://exemple.com']
 }
 
+/** Construit l'item d'affichage `message` d'un nœud action : corps résolu, média
+ *  (image/vidéo/doc ou carrousel) et boutons (template ou branches du graphe). */
+function buildMessageItem(graph: WorkflowGraph, nodeId: string, t: SimTemplate | undefined): Extract<SimItem, { kind: 'message' }> {
+  const tplButtons = quickLabels(t)
+  const branchButtons = buttonBranchLabelsOf(graph, nodeId)
+  const buttons = tplButtons.length > 0 ? tplButtons : branchButtons
+  const samples = samplesOf(t)
+
+  // Carrousel : une carte par produit (image + court texte résolu).
+  const isCarousel = t?.template_type === 'carousel'
+  const cards: SimCard[] | undefined = isCarousel && Array.isArray(t?.carousel_cards)
+    ? (t!.carousel_cards as { header_media_url?: string | null; body_text?: string | null }[])
+        .map((c) => ({ image: c.header_media_url || null, body: resolveBody(c.body_text || '', samples) }))
+    : undefined
+
+  // En-tête média (image/vidéo/doc) d'un template standard.
+  const mediaType = (t?.header_type as 'none' | 'text' | 'image' | 'video' | 'document' | undefined) || 'none'
+  const mediaUrl = (mediaType === 'image' || mediaType === 'video' || mediaType === 'document')
+    ? (t?.header_media_url || null) : null
+
+  return {
+    kind: 'message',
+    header: mediaType === 'text' ? (t?.header_text || undefined) : undefined,
+    body: resolveBody(t?.body_text || '', samples),
+    footer: t?.footer_text || undefined,
+    buttons,
+    templateName: t?.name || 'Message',
+    mediaType,
+    mediaUrl,
+    cards,
+  }
+}
+
 /**
  * Avance dans le graphe à partir de `fromNodeId` (ou du trigger si null), en
  * accumulant des items d'affichage, JUSQU'À :
@@ -139,24 +182,11 @@ export function advance(
     }
     if (node.type === 'action') {
       const t = tplOf(node.templateId, templates)
-      // Boutons proposés = ceux du template SI présents, sinon on les DÉDUIT des
-      // branches `button:` sortantes du nœud (source de vérité du parcours). Sans
-      // ce fallback, un nœud dont le template n'a pas remonté ses QUICK_REPLY
-      // n'attendait pas le clic et le parcours « sautait » les routes.
-      const tplButtons = quickLabels(t)
-      const branchButtons = buttonBranchLabelsOf(graph, node.id)
-      const buttons = tplButtons.length > 0 ? tplButtons : branchButtons
-      items.push({
-        kind: 'message',
-        header: t?.header_type === 'text' ? (t?.header_text || undefined) : undefined,
-        body: resolveBody(t?.body_text || '', samplesOf(t)),
-        footer: t?.footer_text || undefined,
-        buttons,
-        templateName: t?.name || 'Message',
-      })
+      const msg = buildMessageItem(graph, node.id, t)
+      items.push(msg)
       // Message à boutons (template OU branches) → on s'arrête et on attend un clic.
-      if (buttons.length > 0) {
-        return { items, waitingNodeId: node.id, waitingButtons: buttons, done: false }
+      if (msg.buttons.length > 0) {
+        return { items, waitingNodeId: node.id, waitingButtons: msg.buttons, done: false }
       }
       // Sinon on continue tout droit (1re sortie, branche indifférente).
       cur = nextNodes(graph, node.id)[0]
@@ -212,6 +242,92 @@ export function typeText(
 /** Démarre une nouvelle simulation depuis le trigger. */
 export function startSim(graph: WorkflowGraph, templates: SimTemplate[]): SimState {
   return advance(graph, templates, null, [])
+}
+
+/**
+ * MODE AUTO (démo animée) : construit UNE séquence linéaire qui parcourt TOUT le
+ * graphe — toutes les routes/boutons l'une après l'autre — pour la faire défiler
+ * en boucle sans interaction. À chaque message à boutons, on montre le message,
+ * puis pour CHAQUE branche on injecte la réponse cliquée et on continue dans
+ * cette branche, avant de passer à la branche suivante.
+ *
+ * Anti-boucle : un nœud action déjà visité n'est pas re-déroulé (évite les
+ * cycles) ; garde globale sur le nombre d'items.
+ */
+export function buildTour(graph: WorkflowGraph, templates: SimTemplate[]): SimItem[] {
+  const items: SimItem[] = []
+  const trig = triggerNode(graph)
+  if (trig) items.push({ kind: 'system', text: 'Déclencheur : ' + humanTrigger(trig) })
+  const start = trig ? nextNodes(graph, trig.id)[0] : undefined
+
+  const visitedActions = new Set<string>()
+  let budget = 60 // garde globale (nb d'items max)
+
+  const walk = (fromId: string | undefined, depth: number) => {
+    let cur = fromId
+    let guard = 0
+    while (cur && guard++ < 50 && budget > 0) {
+      const node = findNode(graph, cur)
+      if (!node) break
+
+      if (node.type === 'delay') {
+        const min = node.minutes || 0
+        items.push({ kind: 'delay', label: delayLabel(min), immediate: min <= 0 }); budget--
+        cur = nextNodes(graph, node.id)[0]; continue
+      }
+      if (node.type === 'condition') {
+        // Démo : on montre les DEUX branches (oui puis non) si elles existent.
+        const yes = nextNodes(graph, node.id, 'yes')[0]
+        const no = nextNodes(graph, node.id, 'no')[0]
+        items.push({ kind: 'system', text: 'Condition', sub: yes && no ? 'branches oui / non' : 'branche évaluée' }); budget--
+        if (yes) walk(yes, depth + 1)
+        if (no) walk(no, depth + 1)
+        return
+      }
+      if (node.type === 'ab_test') {
+        // Démo : dérouler CHAQUE variante l'une après l'autre.
+        const variants = node.variants || []
+        items.push({ kind: 'system', text: 'Test A/B', sub: `${variants.length} variantes` }); budget--
+        for (const v of variants) {
+          const target = nextNodes(graph, node.id, `variant:${v.key}`)[0]
+          if (target) { items.push({ kind: 'system', text: `Variante ${v.key}`, sub: `${v.weight ?? ''}%` }); budget--; walk(target, depth + 1) }
+        }
+        return
+      }
+      if (node.type === 'action') {
+        if (visitedActions.has(node.id)) return // anti-cycle
+        visitedActions.add(node.id)
+        const t = tplOf(node.templateId, templates)
+        const msg = buildMessageItem(graph, node.id, t)
+        items.push(msg); budget--
+
+        if (msg.buttons.length > 0) {
+          // Pour chaque bouton : montrer la réponse cliquée + dérouler sa branche.
+          const outs = graph.edges.filter((e) => e.from === node.id && isButtonBranch(e.branch) && e.branch !== BUTTON_TIMEOUT_BRANCH)
+          const norm = (s: string) => s.trim().toLowerCase()
+          for (const label of msg.buttons) {
+            if (budget <= 0) break
+            items.push({ kind: 'reply', text: label }); budget--
+            const edge = outs.find((e) => norm(buttonBranchLabel(e.branch) || '') === norm(label))
+            if (edge?.to) walk(edge.to, depth + 1)
+          }
+          // Branche « sans réponse » (timeout) si définie.
+          const timeout = graph.edges.find((e) => e.from === node.id && e.branch === BUTTON_TIMEOUT_BRANCH)
+          if (timeout?.to && budget > 0) {
+            items.push({ kind: 'system', text: 'Sans réponse', sub: 'aucun clic' }); budget--
+            walk(timeout.to, depth + 1)
+          }
+          return
+        }
+        cur = nextNodes(graph, node.id)[0]; continue
+      }
+      cur = nextNodes(graph, node.id)[0]
+    }
+  }
+
+  walk(start, 0)
+  items.push({ kind: 'end', text: 'Fin de la démo' })
+  return items
 }
 
 // ---- libellés triggers (aperçu) --------------------------------------------
