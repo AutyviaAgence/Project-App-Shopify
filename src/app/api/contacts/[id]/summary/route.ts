@@ -38,12 +38,12 @@ export async function POST(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  // Récupérer le contact (WhatsApp ou email)
+  // Récupérer le contact WhatsApp
   const { data: contact } = await adminSupabase
     .from('contacts')
-    .select('id, session_id, email_session_id')
+    .select('id, session_id')
     .eq('id', id)
-    .maybeSingle() as { data: { id: string; session_id: string | null; email_session_id: string | null } | null }
+    .maybeSingle() as { data: { id: string; session_id: string | null } | null }
 
   if (!contact) {
     return NextResponse.json({ error: 'Contact introuvable' }, { status: 404 })
@@ -51,24 +51,7 @@ export async function POST(
 
   let conversationId: string
 
-  if (contact.email_session_id) {
-    const { data: emailSession } = await adminSupabase
-      .from('email_sessions')
-      .select('id')
-      .eq('id', contact.email_session_id)
-      .eq('user_id', user.id)
-      .maybeSingle()
-    if (!emailSession) return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
-
-    const { data: conv } = await adminSupabase
-      .from('conversations')
-      .select('id')
-      .eq('contact_id', id)
-      .eq('email_session_id', contact.email_session_id)
-      .maybeSingle()
-    if (!conv) return NextResponse.json({ error: 'Conversation introuvable' }, { status: 404 })
-    conversationId = conv.id
-  } else {
+  {
     // Contact WhatsApp — vérification de propriété
     const { data: session } = await supabase
       .from('whatsapp_sessions')

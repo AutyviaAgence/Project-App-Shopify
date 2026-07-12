@@ -383,66 +383,6 @@ function ConversationsPageContent() {
     }
   }, [selectedConv, t])
 
-  const handleSendEmail = useCallback(async (content: string, subject: string, attachments?: File[]) => {
-    if (!selectedConv || sending) return
-    setSending(true)
-    const optimistic: Message = {
-      id: `temp-${Date.now()}`,
-      conversation_id: selectedConv.id,
-      session_id: '',
-      direction: 'outbound',
-      content,
-      message_type: 'text',
-      media_url: null,
-      media_mime_type: null,
-      transcription: subject ? `Objet: ${subject}` : null,
-      wa_message_id: null,
-      channel_message_id: null,
-      sent_by: 'user',
-      ai_agent_id: null,
-      status: 'pending',
-      reaction_emoji: null,
-      ai_processed: false,
-      read_at: null,
-      created_at: new Date().toISOString(),
-    }
-    setMessages((prev) => [...prev, optimistic])
-    try {
-      let res: Response
-      if (attachments?.length) {
-        const formData = new FormData()
-        formData.append('conversation_id', selectedConv.id)
-        formData.append('content', content)
-        if (subject) formData.append('subject', subject)
-        attachments.forEach((f) => formData.append('attachments', f))
-        res = await fetch('/api/email/send', { method: 'POST', body: formData })
-      } else {
-        res = await fetch('/api/email/send', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ conversation_id: selectedConv.id, content, subject }),
-        })
-      }
-      const json = await res.json()
-      if (!res.ok) {
-        toast.error(json.error || t('conversations.send_error'))
-        setMessages((prev) => prev.filter((m) => m.id !== optimistic.id))
-        return
-      }
-      // Recharger tous les messages pour inclure les bulles document des PJ
-      if (attachments?.length) {
-        await loadMessages(selectedConv.id)
-      } else if (json.data?.id) {
-        setMessages((prev) => prev.map((m) => (m.id === optimistic.id ? { ...json.data, content } : m)))
-      }
-    } catch {
-      toast.error(t('common.network_error'))
-      setMessages((prev) => prev.filter((m) => m.id !== optimistic.id))
-    } finally {
-      setSending(false)
-    }
-  }, [selectedConv, sending, t, loadMessages])
-
   const handleSendMedia = useCallback(async (file: File, caption?: string) => {
     if (!selectedConv || sending) return
     setSending(true)
@@ -924,7 +864,6 @@ function ConversationsPageContent() {
         onOpenProfile={() => setProfileOpen(true)}
         onSendText={handleSendText}
         onSendMedia={handleSendMedia}
-        onSendEmail={handleSendEmail}
         onAssignAgent={handleAssignAgent}
         onToggleAI={handleToggleAI}
         onChangeLifecycleStage={handleChangeLifecycleStage}

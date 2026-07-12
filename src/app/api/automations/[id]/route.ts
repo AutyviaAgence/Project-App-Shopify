@@ -18,13 +18,24 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   // Si on sauve un graphe, on synchronise trigger_event depuis le nœud trigger
   // (l'enqueue filtre les automatisations par trigger_event).
   if (updates.graph && typeof updates.graph === 'object') {
-    const g = updates.graph as { nodes?: { type: string; event?: string; buttonText?: string }[] }
+    const g = updates.graph as { nodes?: { type: string; event?: string; buttonText?: string; scheduledAt?: string }[] }
     const trig = g.nodes?.find((n) => n.type === 'trigger')
     if (trig?.event) updates.trigger_event = trig.event
     // button_clicked : remonter le libellé du bouton au niveau colonne (l'enqueue
     // filtre dessus). Vidé si le trigger n'est plus un clic de bouton.
     updates.trigger_button_text = trig?.event === 'button_clicked' ? (trig.buttonText?.trim() || null) : null
     updates.builder_mode = true
+    // RÉ-ARMEMENT « date précise » : scheduled_date est un envoi UNIQUE, verrouillé
+    // par triggered_once_at une fois parti. Si l'utilisateur repositionne la date
+    // dans le FUTUR, on efface ce verrou pour que le cron le rejoue à la nouvelle
+    // heure (sinon changer la date ne faisait rien). On ne ré-arme QUE si la date
+    // est future (repositionner dans le passé n'a pas de sens).
+    if (trig?.event === 'scheduled_date' && trig.scheduledAt) {
+      const when = new Date(trig.scheduledAt)
+      if (!Number.isNaN(when.getTime()) && when.getTime() > Date.now()) {
+        updates.triggered_once_at = null
+      }
+    }
   }
   updates.updated_at = new Date().toISOString()
 

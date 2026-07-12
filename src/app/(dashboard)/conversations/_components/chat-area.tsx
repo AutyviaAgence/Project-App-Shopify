@@ -15,8 +15,6 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { MessageBubbleContent } from '@/components/message-bubble-content'
 import { MessageInput } from './message-input'
-import { Textarea } from '@/components/ui/textarea'
-import { Input } from '@/components/ui/input'
 import {
   MessageSquare,
   Loader2,
@@ -31,14 +29,6 @@ import {
   Wrench,
   CheckCircle,
   XCircle,
-  Send,
-  Mail,
-  SpellCheck,
-  Smile,
-  Briefcase,
-  ALargeSmall,
-  Paperclip,
-  X,
   FileText,
 } from 'lucide-react'
 import { getSessionDisplayName, getContactDisplayName } from '@/lib/format-phone'
@@ -63,7 +53,6 @@ interface ChatAreaProps {
   onOpenProfile: () => void
   onSendText: (content: string) => Promise<void>
   onSendMedia: (file: File, caption?: string) => Promise<void>
-  onSendEmail: (content: string, subject: string, attachments?: File[]) => Promise<void>
   onAssignAgent: (convId: string, agentId: string | null) => void
   onToggleAI: (convId: string, isActive: boolean) => void
   onChangeLifecycleStage: (convId: string, stageId: string | null) => void
@@ -88,7 +77,6 @@ export function ChatArea({
   onOpenProfile,
   onSendText,
   onSendMedia,
-  onSendEmail,
   onAssignAgent,
   onToggleAI,
   onAnalyzeConversation,
@@ -101,98 +89,13 @@ export function ChatArea({
   // Fenêtre de service 24h : ouverte si le dernier message ENTRANT date de
   // moins de 24h. Hors fenêtre, WhatsApp interdit le texte libre → on bascule
   // l'entrée sur un bouton "Envoyer un modèle".
-  const isWhatsApp = selectedConv?.channel !== 'email'
   const windowOpen = (() => {
-    if (!isWhatsApp) return true // email : pas de fenêtre 24h
     const lastInbound = [...messages].reverse().find((m) => m.direction === 'inbound')
     if (!lastInbound?.created_at) return false
     return Date.now() - new Date(lastInbound.created_at).getTime() < 24 * 60 * 60 * 1000
   })()
   const [copiedMessageId, setCopiedMessageId] = useState<string | null>(null)
   const prevMessageCountRef = useRef(0)
-  const [emailSubject, setEmailSubject] = useState('')
-  const [emailBody, setEmailBody] = useState('')
-  const [emailAttachments, setEmailAttachments] = useState<File[]>([])
-  const attachmentInputRef = useRef<HTMLInputElement>(null)
-  const [improving, setImproving] = useState<string | null>(null)
-  const [suggesting, setSuggesting] = useState(false)
-
-  const isEmail = selectedConv?.channel === 'email'
-
-  // Pré-remplir le sujet avec le dernier sujet reçu (format "Re: [sujet]")
-  useEffect(() => {
-    if (!isEmail || !messages.length) return
-    const lastSubject = [...messages]
-      .reverse()
-      .map((m) => {
-        const t = (m as typeof m & { transcription?: string | null }).transcription
-        return t?.startsWith('Objet: ') ? t.slice(7) : null
-      })
-      .find(Boolean)
-    if (lastSubject) {
-      const prefix = lastSubject.startsWith('Re:') ? '' : 'Re: '
-      setEmailSubject(prefix + lastSubject)
-    }
-  }, [selectedConv?.id, isEmail]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  const handleSendEmail = async () => {
-    if (!emailBody.trim() || sending) return
-    await onSendEmail(emailBody.trim(), emailSubject.trim() || 'Re:', emailAttachments)
-    setEmailBody('')
-    setEmailSubject('')
-    setEmailAttachments([])
-  }
-
-  const IMPROVE_ACTIONS = [
-    { key: 'grammar', label: 'Corriger la grammaire', icon: SpellCheck },
-    { key: 'friendly', label: 'Plus sympa', icon: Smile },
-    { key: 'professional', label: 'Plus professionnel', icon: Briefcase },
-    { key: 'expand', label: 'Étendre le message', icon: ALargeSmall },
-  ] as const
-
-  async function handleSuggest() {
-    if (!selectedConv || suggesting) return
-    setSuggesting(true)
-    try {
-      const res = await fetch('/api/email/suggest', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ conversation_id: selectedConv.id }),
-      })
-      const json = await res.json()
-      if (res.ok && json.text) {
-        setEmailBody(json.text)
-      } else {
-        toast.error(json.error || 'Erreur génération brouillon')
-      }
-    } catch {
-      toast.error('Erreur réseau')
-    } finally {
-      setSuggesting(false)
-    }
-  }
-
-  async function handleImprove(action: 'grammar' | 'friendly' | 'professional' | 'expand') {
-    if (!emailBody.trim() || improving) return
-    setImproving(action)
-    try {
-      const res = await fetch('/api/email/improve', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: emailBody.trim(), action }),
-      })
-      const json = await res.json()
-      if (res.ok && json.text) {
-        setEmailBody(json.text)
-      } else {
-        toast.error(json.error || 'Erreur lors de l\'amélioration')
-      }
-    } catch {
-      toast.error('Erreur réseau')
-    } finally {
-      setImproving(null)
-    }
-  }
 
   // Reset counter when conversation changes
   useEffect(() => {
@@ -485,7 +388,7 @@ export function ChatArea({
                             )}
                           </div>
                         ))}
-                        <MessageBubbleContent msg={msg} isOutbound={isOutbound} channel={selectedConv.channel} />
+                        <MessageBubbleContent msg={msg} isOutbound={isOutbound} />
                         <p
                           className={cn(
                             'mt-1.5 text-[10px]',
@@ -583,128 +486,8 @@ export function ChatArea({
               que l'utilisateur les voie en premier (le fil s'ouvre en bas). */}
           {selectedConv?.id && <ActionsPanel conversationId={selectedConv.id} onChange={onActionsChange} />}
 
-          {/* Zone d'envoi, email ou WhatsApp */}
-          {isEmail ? (
-            <div className="border-t bg-background p-3 space-y-2">
-              {/* From / To / Subject */}
-              <div className="space-y-1.5 text-sm">
-                <div className="flex items-center gap-2">
-                  <span className="w-16 text-xs text-muted-foreground shrink-0">De</span>
-                  <span className="text-xs truncate text-foreground/70">
-                    {selectedConv?.session?.instance_name ?? '—'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-16 text-xs text-muted-foreground shrink-0">À</span>
-                  <span className="text-xs truncate text-foreground/70">
-                    {selectedConv?.contact?.email ?? selectedConv?.contact?.phone_number ?? '—'}
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-16 text-xs text-muted-foreground shrink-0">Objet</span>
-                  <Input
-                    value={emailSubject}
-                    onChange={(e) => setEmailSubject(e.target.value)}
-                    placeholder="Re: ..."
-                    className="h-7 text-xs border-0 border-b rounded-none px-0 focus-visible:ring-0 bg-transparent"
-                  />
-                </div>
-              </div>
-              {/* Corps du message */}
-              <Textarea
-                value={emailBody}
-                onChange={(e) => setEmailBody(e.target.value)}
-                placeholder="Votre réponse..."
-                className="min-h-[100px] resize-none text-sm border-0 focus-visible:ring-0 bg-muted/30 rounded-lg px-3 py-2"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) handleSendEmail()
-                }}
-              />
-              {/* Pièces jointes */}
-              <input
-                ref={attachmentInputRef}
-                type="file"
-                multiple
-                className="hidden"
-                onChange={(e) => {
-                  const files = Array.from(e.target.files ?? [])
-                  setEmailAttachments((prev) => [...prev, ...files])
-                  e.target.value = ''
-                }}
-              />
-              {emailAttachments.length > 0 && (
-                <div className="flex flex-wrap gap-1.5">
-                  {emailAttachments.map((file, i) => (
-                    <div key={i} className="flex items-center gap-1 rounded-full border bg-muted px-2.5 py-1 text-[11px]">
-                      <Paperclip className="h-3 w-3 text-muted-foreground" />
-                      <span className="max-w-[120px] truncate">{file.name}</span>
-                      <button
-                        onClick={() => setEmailAttachments((prev) => prev.filter((_, idx) => idx !== i))}
-                        className="ml-0.5 text-muted-foreground hover:text-foreground"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-              {/* Boutons amélioration IA */}
-              {emailBody.trim() && (
-                <div className="flex flex-wrap gap-1.5">
-                  {IMPROVE_ACTIONS.map(({ key, label, icon: Icon }) => (
-                    <button
-                      key={key}
-                      onClick={() => handleImprove(key)}
-                      disabled={!!improving}
-                      className="flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50"
-                    >
-                      {improving === key ? (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      ) : (
-                        <Icon className="h-3 w-3" />
-                      )}
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              )}
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  {(selectedConv?.ai_agent_id || (selectedConv?.session as { email_agent_id?: string | null } | undefined)?.email_agent_id) ? (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={handleSuggest}
-                      disabled={suggesting}
-                      title="Générer un brouillon avec l'IA"
-                      className="gap-1.5"
-                    >
-                      {suggesting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                      Brouillon IA
-                    </Button>
-                  ) : null}
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => attachmentInputRef.current?.click()}
-                    title="Joindre un fichier"
-                    className="gap-1.5 px-2"
-                  >
-                    <Paperclip className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-                <Button
-                  size="sm"
-                  onClick={handleSendEmail}
-                  disabled={!emailBody.trim() || sending}
-                  className="gap-1.5"
-                >
-                  {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
-                  Envoyer
-                </Button>
-              </div>
-            </div>
-          ) : windowOpen ? (
+          {/* Zone d'envoi WhatsApp */}
+          {windowOpen ? (
             <MessageInput
               onSendText={onSendText}
               onSendMedia={onSendMedia}

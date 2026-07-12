@@ -14,15 +14,12 @@ export async function GET() {
 
   const [
     { data: waSessions },
-    { data: emailSessions },
     { data: agents },
     { data: knowledgeDocs },
     { data: agentTools },
     { data: links },
   ] = await Promise.all([
     supabase.from('whatsapp_sessions').select('id').eq('user_id', userId).eq('status', 'connected').limit(1),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (supabase as any).from('email_sessions').select('id').eq('user_id', userId).eq('status', 'connected').limit(1),
     supabase.from('ai_agents').select('id').eq('user_id', userId).limit(1),
     supabase.from('knowledge_documents').select('id').eq('user_id', userId).limit(1),
     supabase.from('agent_tools').select('id').eq('user_id', userId).limit(1),
@@ -30,18 +27,15 @@ export async function GET() {
   ])
 
   const whatsapp_connected = (waSessions?.length ?? 0) > 0
-  const email_connected = (emailSessions?.length ?? 0) > 0
   const agent_created = (agents?.length ?? 0) > 0
   const knowledge_created = (knowledgeDocs?.length ?? 0) > 0
   const tool_created = (agentTools?.length ?? 0) > 0
   const link_with_agent = (links?.length ?? 0) > 0
 
-  // Étapes obligatoires (email est bonus)
   const all_done = whatsapp_connected && agent_created && knowledge_created && tool_created && link_with_agent
 
   return NextResponse.json({
     whatsapp_connected,
-    email_connected,
     agent_created,
     knowledge_created,
     tool_created,

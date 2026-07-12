@@ -3,8 +3,9 @@ import type { Message, AIAgent, ConversationTag, LifecycleStage } from '@/types/
 export type ConversationWithJoins = {
   id: string
   session_id: string | null
-  email_session_id?: string | null
-  channel?: 'whatsapp' | 'email'
+  // `channel` reste dans le type (colonne DB conservée, inerte) mais vaut
+  // toujours 'whatsapp' depuis le retrait de l'intégration email.
+  channel?: 'whatsapp'
   contact_id: string
   ai_agent_id: string | null
   last_message_at: string | null

@@ -5,24 +5,14 @@ async function checkConvAccess(
   supabase: Awaited<ReturnType<typeof createClient>>,
   convId: string,
   userId: string
-): Promise<{ conv: { id: string; session_id: string | null; email_session_id: string | null; lifecycle_stage_id: string | null; channel: string } | null; authorized: boolean }> {
+): Promise<{ conv: { id: string; session_id: string | null; lifecycle_stage_id: string | null } | null; authorized: boolean }> {
   const { data: conv } = await supabase
     .from('conversations')
-    .select('id, session_id, email_session_id, lifecycle_stage_id, channel')
+    .select('id, session_id, lifecycle_stage_id')
     .eq('id', convId)
     .single()
 
   if (!conv) return { conv: null, authorized: false }
-
-  if (conv.channel === 'email' || conv.email_session_id) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: emailSession } = await (supabase as any)
-      .from('email_sessions')
-      .select('user_id')
-      .eq('id', conv.email_session_id)
-      .single()
-    return { conv, authorized: emailSession?.user_id === userId }
-  }
 
   const { data: session } = await supabase
     .from('whatsapp_sessions')

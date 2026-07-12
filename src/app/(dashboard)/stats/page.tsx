@@ -35,13 +35,11 @@ import {
   Filter,
   Sparkles,
   Coins,
-  Mail,
   ShoppingBag,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { fr, enUS } from 'date-fns/locale'
 import { getSessionDisplayName, formatPhoneNumber } from '@/lib/format-phone'
-import { EMAIL_UI_ENABLED } from '@/lib/features'
 import { useTranslation } from '@/i18n/context'
 import { BlobLoaderScreen } from '@/components/blob-loader'
 import { NumberTicker } from '@/components/ui/number-ticker'
@@ -51,7 +49,6 @@ type SessionOption = {
   instance_name: string
   phone_number?: string | null
   display_name?: string | null
-  channel: 'whatsapp' | 'email'
 }
 
 function formatSeconds(s: number): string {
@@ -64,7 +61,6 @@ function formatSeconds(s: number): string {
 export default function StatsPage() {
   const { t, locale } = useTranslation()
   const [period, setPeriod] = useState('30')
-  const [channelFilter, setChannelFilter] = useState<'all' | 'whatsapp' | 'email'>('all')
   const [sessionFilter, setSessionFilter] = useState('all')
   const [sessions, setSessions] = useState<SessionOption[]>([])
   const [stats, setStats] = useState<StatsResponse | null>(null)
@@ -78,21 +74,15 @@ export default function StatsPage() {
   const dateFnsLocale = locale === 'fr' ? fr : enUS
   const numberLocale = locale === 'fr' ? 'fr-FR' : 'en-US'
 
-  // Filtrer les sessions affichées selon le canal sélectionné
-  const filteredSessions = channelFilter === 'all'
-    ? sessions
-    : sessions.filter((s) => s.channel === channelFilter)
+  // Toutes les sessions sont WhatsApp (le canal email a été retiré).
+  const filteredSessions = sessions
 
-  // Charger la liste des sessions (WhatsApp + Email)
+  // Charger la liste des sessions WhatsApp
   useEffect(() => {
     async function loadSessions() {
       try {
-        const [wRes, eRes] = await Promise.all([
-          fetch('/api/sessions'),
-          fetch('/api/email-sessions').catch(() => null),
-        ])
+        const wRes = await fetch('/api/sessions')
         const wJson = wRes.ok ? await wRes.json() : { data: [] }
-        const eJson = eRes?.ok ? await eRes.json() : { data: [] }
 
         const whatsappSessions: SessionOption[] = (wJson.data || []).map(
           (s: { id: string; instance_name: string; phone_number?: string | null; display_name?: string | null }) => ({
@@ -100,19 +90,9 @@ export default function StatsPage() {
             instance_name: s.instance_name,
             phone_number: s.phone_number,
             display_name: s.display_name,
-            channel: 'whatsapp' as const,
           })
         )
-        const emailSessions: SessionOption[] = (eJson.data || []).map(
-          (s: { id: string; email_address?: string | null; name?: string | null; display_name?: string | null }) => ({
-            id: s.id,
-            instance_name: s.email_address || s.name || s.display_name || 'Email',
-            phone_number: s.email_address,
-            display_name: s.display_name || s.name,
-            channel: 'email' as const,
-          })
-        )
-        setSessions([...whatsappSessions, ...emailSessions])
+        setSessions(whatsappSessions)
       } catch {
         // silently fail
       }
@@ -120,10 +100,6 @@ export default function StatsPage() {
     loadSessions()
   }, [])
 
-  // Réinitialiser le filtre session quand on change de canal
-  useEffect(() => {
-    setSessionFilter('all')
-  }, [channelFilter])
 
   const fetchStats = useCallback(async () => {
     setLoading(true)
@@ -188,30 +164,6 @@ export default function StatsPage() {
             </SelectContent>
           </Select>
 
-          {/* Filtre canal, masqué quand l'email est désactivé (tout est WhatsApp) */}
-          {EMAIL_UI_ENABLED && (
-          <Select value={channelFilter} onValueChange={(v) => setChannelFilter(v as 'all' | 'whatsapp' | 'email')}>
-            <SelectTrigger className="w-[150px] h-9">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Tous les canaux</SelectItem>
-              <SelectItem value="whatsapp">
-                <span className="flex items-center gap-2">
-                  <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 fill-[#25D366]"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                  WhatsApp
-                </span>
-              </SelectItem>
-              <SelectItem value="email">
-                <span className="flex items-center gap-2">
-                  <Mail className="h-3.5 w-3.5 text-blue-500" />
-                  Email
-                </span>
-              </SelectItem>
-            </SelectContent>
-          </Select>
-          )}
-
           {/* Filtre session */}
           <Select value={sessionFilter} onValueChange={setSessionFilter}>
             <SelectTrigger className="w-[200px] h-9">
@@ -222,10 +174,7 @@ export default function StatsPage() {
               {filteredSessions.map((s) => (
                 <SelectItem key={s.id} value={s.id}>
                   <span className="flex items-center gap-2">
-                    {s.channel === 'email'
-                      ? <Mail className="h-3 w-3 text-blue-500 shrink-0" />
-                      : <svg viewBox="0 0 24 24" className="h-3 w-3 fill-[#25D366] shrink-0"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
-                    }
+                    <svg viewBox="0 0 24 24" className="h-3 w-3 fill-[#25D366] shrink-0"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
                     {getSessionDisplayName({ display_name: s.display_name || null, phone_number: s.phone_number || null, instance_name: s.instance_name })}
                   </span>
                 </SelectItem>

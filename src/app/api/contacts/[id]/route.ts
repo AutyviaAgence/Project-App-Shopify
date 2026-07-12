@@ -21,14 +21,7 @@ export async function GET(
     .eq('user_id', user.id)
   const sessionIds = sessions?.map(s => s.id) || []
 
-  // Récupérer les sessions email accessibles
-  const { data: emailSessions } = await supabase
-    .from('email_sessions')
-    .select('id')
-    .eq('user_id', user.id)
-  const emailSessionIds = emailSessions?.map(s => s.id) || []
-
-  // Chercher d'abord dans les contacts WhatsApp, puis email
+  // Chercher dans les contacts WhatsApp
   let contact = null
   if (sessionIds.length > 0) {
     const { data } = await supabase
@@ -36,16 +29,6 @@ export async function GET(
       .select('*')
       .eq('id', id)
       .in('session_id', sessionIds)
-      .maybeSingle()
-    contact = data
-  }
-  if (!contact && emailSessionIds.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data } = await (supabase as any)
-      .from('contacts')
-      .select('*')
-      .eq('id', id)
-      .in('email_session_id', emailSessionIds)
       .maybeSingle()
     contact = data
   }
@@ -91,15 +74,6 @@ export async function PATCH(
   if (sessionIds.length > 0) {
     const { data } = await supabase.from('contacts').select('id, session_id').eq('id', id).in('session_id', sessionIds).maybeSingle()
     patchContact = data
-  }
-  if (!patchContact) {
-    const { data: emailSess } = await supabase.from('email_sessions').select('id').eq('user_id', user.id)
-    const emailSessIds = emailSess?.map(s => s.id) || []
-    if (emailSessIds.length > 0) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (supabase as any).from('contacts').select('id, session_id').eq('id', id).in('email_session_id', emailSessIds).maybeSingle()
-      patchContact = data
-    }
   }
 
   if (!patchContact) {
@@ -156,15 +130,6 @@ export async function DELETE(
   if (sessionIds.length > 0) {
     const { data } = await supabase.from('contacts').select('id, session_id, phone_number').eq('id', id).in('session_id', sessionIds).maybeSingle()
     deleteContact = data
-  }
-  if (!deleteContact) {
-    const { data: emailSess } = await supabase.from('email_sessions').select('id').eq('user_id', user.id)
-    const emailSessIds = emailSess?.map(s => s.id) || []
-    if (emailSessIds.length > 0) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data } = await (supabase as any).from('contacts').select('id, session_id, phone_number').eq('id', id).in('email_session_id', emailSessIds).maybeSingle()
-      deleteContact = data
-    }
   }
 
   if (!deleteContact) {

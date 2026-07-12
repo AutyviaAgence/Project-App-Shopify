@@ -23,7 +23,7 @@ export async function PATCH(
   // Vérifier que la conversation existe
   const { data: conversation } = await supabase
     .from('conversations')
-    .select('id, session_id, email_session_id, channel')
+    .select('id, session_id')
     .eq('id', id)
     .single()
 
@@ -31,34 +31,20 @@ export async function PATCH(
     return NextResponse.json({ error: 'Conversation introuvable' }, { status: 404 })
   }
 
-  // Pour les conversations email, vérifier ownership via email_sessions
-  if (conversation.channel === 'email' || conversation.email_session_id) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: emailSession } = await (supabase as any)
-      .from('email_sessions')
-      .select('id, user_id')
-      .eq('id', conversation.email_session_id)
-      .single()
+  // Récupérer la session WhatsApp
+  const { data: session } = await supabase
+    .from('whatsapp_sessions')
+    .select('id, user_id')
+    .eq('id', conversation.session_id)
+    .single()
 
-    if (!emailSession || emailSession.user_id !== user.id) {
-      return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
-    }
-  } else {
-    // Récupérer la session WhatsApp
-    const { data: session } = await supabase
-      .from('whatsapp_sessions')
-      .select('id, user_id')
-      .eq('id', conversation.session_id)
-      .single()
+  if (!session) {
+    return NextResponse.json({ error: 'Session introuvable' }, { status: 404 })
+  }
 
-    if (!session) {
-      return NextResponse.json({ error: 'Session introuvable' }, { status: 404 })
-    }
-
-    // Vérifier l'accès (propriétaire uniquement)
-    if (session.user_id !== user.id) {
-      return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
-    }
+  // Vérifier l'accès (propriétaire uniquement)
+  if (session.user_id !== user.id) {
+    return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 
   // Si on assigne un agent, vérifier qu'il appartient à l'utilisateur

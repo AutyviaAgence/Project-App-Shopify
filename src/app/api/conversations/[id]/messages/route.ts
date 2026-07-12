@@ -32,31 +32,18 @@ export async function GET(
     return NextResponse.json({ error: 'Conversation introuvable' }, { status: 404 })
   }
 
-  // Pour les conversations email, vérifier l'accès via email_sessions
-  if (conversation.channel === 'email') {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: emailSession } = await (supabase as any)
-      .from('email_sessions')
-      .select('id, user_id')
-      .eq('id', conversation.email_session_id)
-      .single()
-    if (!emailSession || emailSession.user_id !== user.id) {
-      return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
-    }
-  } else {
-    // Vérifier l'ownership de la session WhatsApp (système d'équipes retiré)
-    const { data: session } = await supabase
-      .from('whatsapp_sessions')
-      .select('id, user_id')
-      .eq('id', conversation.session_id)
-      .single()
+  // Vérifier l'ownership de la session WhatsApp (système d'équipes retiré)
+  const { data: session } = await supabase
+    .from('whatsapp_sessions')
+    .select('id, user_id')
+    .eq('id', conversation.session_id)
+    .single()
 
-    if (!session) {
-      return NextResponse.json({ error: 'Session introuvable' }, { status: 404 })
-    }
-    if (session.user_id !== user.id) {
-      return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
-    }
+  if (!session) {
+    return NextResponse.json({ error: 'Session introuvable' }, { status: 404 })
+  }
+  if (session.user_id !== user.id) {
+    return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 
   // Récupérer les messages (paginés, les plus récents en dernier)

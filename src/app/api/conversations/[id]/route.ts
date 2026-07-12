@@ -80,38 +80,27 @@ export async function PATCH(
   // Vérifier que la conversation existe et que l'utilisateur y a accès
   const { data: conversation } = await supabase
     .from('conversations')
-    .select('id, session_id, email_session_id, channel')
+    .select('id, session_id')
     .eq('id', id)
-    .single() as { data: { id: string; session_id: string | null; email_session_id: string | null; channel: string | null } | null }
+    .single() as { data: { id: string; session_id: string | null } | null }
 
   if (!conversation) {
     return NextResponse.json({ error: 'Conversation introuvable' }, { status: 404 })
   }
 
-  if (conversation.channel === 'email' || !conversation.session_id) {
-    // Vérification accès email via email_sessions
-    if (conversation.email_session_id) {
-      const { data: emailSession } = await supabase
-        .from('email_sessions')
-        .select('user_id')
-        .eq('id', conversation.email_session_id)
-        .eq('user_id', user.id)
-        .maybeSingle()
-      if (!emailSession) return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
-    } else {
-      return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
-    }
-  } else {
-    const { data: session } = await supabase
-      .from('whatsapp_sessions')
-      .select('user_id')
-      .eq('id', conversation.session_id)
-      .eq('user_id', user.id)
-      .maybeSingle()
+  if (!conversation.session_id) {
+    return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+  }
 
-    if (!session) {
-      return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
-    }
+  const { data: session } = await supabase
+    .from('whatsapp_sessions')
+    .select('user_id')
+    .eq('id', conversation.session_id)
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (!session) {
+    return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
   }
 
   const { data: updated, error } = await supabase

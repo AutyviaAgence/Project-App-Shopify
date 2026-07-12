@@ -2,9 +2,7 @@
 
 import { useTranslation } from '@/i18n/context'
 import { WhatsAppConnect } from '@/components/whatsapp-connect'
-import { EmailConnect } from '@/components/email-connect'
 import { ShopifyConnect } from '@/components/shopify-connect'
-import { EMAIL_UI_ENABLED } from '@/lib/features'
 import { cn } from '@/lib/utils'
 import { useTenant } from '@/lib/tenant/context'
 import { Meteors } from '@/components/ui/meteors'
@@ -40,11 +38,9 @@ function DashboardHome() {
         </p>
       </div>
 
-      {/* Connexions : WhatsApp, (Email), Boutique Shopify.
-          La grille s'adapte au nombre de cartes (2 sans email, 3 avec). */}
-      <div className={cn('relative z-10 grid gap-4', EMAIL_UI_ENABLED ? 'md:grid-cols-2 lg:grid-cols-3' : 'md:grid-cols-2')}>
+      {/* Connexions : WhatsApp + Boutique Shopify. */}
+      <div className="relative z-10 grid gap-4 md:grid-cols-2">
         <WhatsAppConnect />
-        {EMAIL_UI_ENABLED && <EmailConnect />}
         <ShopifyConnect />
       </div>
 

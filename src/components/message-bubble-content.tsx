@@ -9,7 +9,7 @@ type ExtendedMessage = Message & {
   agent_name?: string
 }
 
-export function MessageBubbleContent({ msg, isOutbound, channel }: { msg: ExtendedMessage; isOutbound: boolean; channel?: string }) {
+export function MessageBubbleContent({ msg, isOutbound }: { msg: ExtendedMessage; isOutbound: boolean }) {
   const [mediaUrl, setMediaUrl] = useState<string | null>(null)
   const [mediaLoading, setMediaLoading] = useState(false)
   const [mediaError, setMediaError] = useState(false)
@@ -83,68 +83,9 @@ export function MessageBubbleContent({ msg, isOutbound, channel }: { msg: Extend
   // Messages texte ou types sans média
   if (msg.message_type === 'text' || !isMediaType) {
     const content = msg.content || ''
-    const isEmail = channel === 'email'
-    const isEmailInbound = isEmail && !isOutbound
-    const isHtml = isEmailInbound && /(<html|<!doctype|<body|<div|<p|<table|<br)/i.test(content)
-
-    // Extraire sujet et pièces jointes depuis transcription (format "Objet: ...\nPJ: ...")
-    const transcriptionLines = (msg.transcription || '').split('\n')
-    const emailSubject = transcriptionLines.find(l => l.startsWith('Objet: '))?.slice(7) ?? null
-    const emailPJ = transcriptionLines.find(l => l.startsWith('PJ: '))?.slice(4) ?? null
-
-    const emailMeta = isEmail && (emailSubject || emailPJ)
-    const emailPJFiles = emailPJ ? emailPJ.split(',').map(f => f.trim()).filter(Boolean) : []
-
     return (
       <div className="space-y-1.5">
-        {emailMeta && (
-          <div className={`space-y-0.5 border-b pb-1.5 mb-1 ${isOutbound ? 'border-white/20' : 'border-border'}`}>
-            {emailSubject && (
-              <p className={`text-xs font-semibold ${isOutbound ? 'text-white/80' : 'text-foreground/70'}`}>
-                {emailSubject}
-              </p>
-            )}
-          </div>
-        )}
-        {isHtml ? (
-          <iframe
-            srcDoc={`<style>* { box-sizing: border-box; } html, body { margin: 0; padding: 8px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; line-height: 1.5; color: #111; background: #fff; } img { max-width: 100%; height: auto; display: block; } a { color: #3B82F6; } p { margin: 0 0 8px 0; } table { max-width: 100%; border-collapse: collapse; } td, th { padding: 4px 8px; } .ReadMsgBody, .ExternalClass { width: 100%; }</style>${content}`}
-            sandbox="allow-same-origin allow-popups"
-            className="rounded border-0 bg-white"
-            style={{ width: '100%', minWidth: 280, minHeight: 80, maxHeight: 500, display: 'block', overflow: 'auto' }}
-            scrolling="auto"
-            onLoad={(e) => {
-              const iframe = e.currentTarget
-              const doc = iframe.contentDocument
-              if (doc?.body) {
-                const h = doc.body.scrollHeight
-                // Si contenu tient en moins de 500px, on adapte exactement. Sinon on garde 500px avec scroll.
-                iframe.style.height = Math.min(h + 16, 500) + 'px'
-              }
-            }}
-          />
-        ) : (
-          <p className="whitespace-pre-wrap break-words text-sm">{content}</p>
-        )}
-
-        {/* Pièces jointes email */}
-        {emailPJFiles.length > 0 && (
-          <div className="flex flex-col gap-1 mt-1">
-            {emailPJFiles.map((filename, i) => (
-              <div
-                key={i}
-                className={`flex items-center gap-2 rounded-lg px-2.5 py-1.5 max-w-[260px] ${
-                  isOutbound ? 'bg-white/10' : 'bg-muted/40'
-                }`}
-              >
-                <FileText className={`h-4 w-4 shrink-0 ${isOutbound ? 'text-white/70' : 'text-muted-foreground'}`} />
-                <span className={`text-[11px] truncate ${isOutbound ? 'text-white/80' : 'text-foreground/80'}`}>
-                  {filename}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
+        <p className="whitespace-pre-wrap break-words text-sm">{content}</p>
       </div>
     )
   }

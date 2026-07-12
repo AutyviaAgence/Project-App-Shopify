@@ -1,15 +1,7 @@
 import { PLAN_LIMITS, resolvePlan } from '@/lib/stripe/plans'
 import type { PlanId } from '@/lib/stripe/plans'
-import { createClient as createSupabaseClient } from '@supabase/supabase-js'
 
 type SupabaseClient = Awaited<ReturnType<typeof import('@/lib/supabase/server').createClient>>
-
-function getAdminClient() {
-  return createSupabaseClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-  )
-}
 
 // 'teams' retiré : le système d'équipes a été supprimé (refonte V2), la table
 // teams/team_members n'existe plus en base.
@@ -56,15 +48,8 @@ export async function checkPlanQuota(
 
   let current = 0
 
-  if (resource === 'sessions') {
-    // Sessions = WhatsApp + Email combinés
-    const adminSupabase = getAdminClient()
-    const [waResult, emailResult] = await Promise.all([
-      supabase.from('whatsapp_sessions').select('id', { count: 'exact', head: true }).eq('user_id', userId),
-      adminSupabase.from('email_sessions').select('id', { count: 'exact', head: true }).eq('user_id', userId),
-    ])
-    current = (waResult.count ?? 0) + (emailResult.count ?? 0)
-  } else {
+  {
+    // Sessions = uniquement WhatsApp (l'intégration email a été retirée).
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { count } = await (supabase as any)
       .from(RESOURCE_TABLE[resource])
