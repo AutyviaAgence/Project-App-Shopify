@@ -143,6 +143,11 @@ export async function getSignedMediaUrl(
   storagePath: string,
   expiresIn: number = 3600
 ): Promise<string | null> {
+  // URL EXTERNE déjà publique (image produit Shopify cdn.shopify.com…) : rien à
+  // signer, on la renvoie telle quelle. Sans ça, on tentait de signer un chemin
+  // storage inexistant → null → image cassée (placeholder gris dans l'inbox).
+  if (/^https?:\/\//i.test(storagePath)) return storagePath
+
   const supabase = getAdminClient()
   // Support du préfixe "knowledge-images:" pour les images IA
   let bucket = BUCKET
