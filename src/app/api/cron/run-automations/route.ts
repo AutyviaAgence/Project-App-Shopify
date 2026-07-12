@@ -14,13 +14,46 @@ export const maxDuration = 60
  */
 const tierCache = new Map<string, { exceeded: boolean; at: number }>()
 const TIER_CACHE_MS = 30_000
-/** Fenêtre du plafond de fréquence marketing par contact (anti-spam : au plus 1
- *  message marketing par contact dans cette fenêtre). Configurable via la variable
- *  d'env MARKETING_CONTACT_CAP_HOURS (0 = désactivé, utile pour tester). Défaut 20h. */
-const MARKETING_CONTACT_CAP_HOURS = (() => {
+
+/** Fallback si la config plateforme n'est pas lisible : variable d'env, puis 20h. */
+const MARKETING_CAP_ENV_FALLBACK = (() => {
   const v = Number(process.env.MARKETING_CONTACT_CAP_HOURS)
   return Number.isFinite(v) && v >= 0 ? v : 20
 })()
+
+/**
+ * Plafond de fréquence marketing par contact (anti-spam : au plus 1 message
+ * marketing par contact dans cette fenêtre, en HEURES ; 0 = désactivé).
+ *
+ * Réglage ADMIN désormais : lu depuis platform_settings (modifiable dans /admin
+ * sans redéploiement). C'est la WABA de Xeyo qui porte le risque qualité Meta,
+ * donc c'est l'admin qui fixe ce plafond — pas chaque marchand.
+ *
+ * Mis en cache le temps d'un tick de cron (TTL court) pour ne pas requêter la
+ * config à chaque job. Fallback env/défaut si la table est illisible (fail-safe).
+ */
+let marketingCapCache: { hours: number; at: number } | null = null
+const MARKETING_CAP_CACHE_MS = 30_000
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function marketingContactCapHours(supabase: any): Promise<number> {
+  if (marketingCapCache && Date.now() - marketingCapCache.at < MARKETING_CAP_CACHE_MS) {
+    return marketingCapCache.hours
+  }
+  let hours = MARKETING_CAP_ENV_FALLBACK
+  try {
+    const { data } = await supabase
+      .from('platform_settings')
+      .select('marketing_contact_cap_hours')
+      .eq('id', 1)
+      .maybeSingle()
+    const v = data?.marketing_contact_cap_hours
+    if (typeof v === 'number' && Number.isFinite(v) && v >= 0) hours = v
+  } catch {
+    // fail-safe : on garde le fallback env/défaut.
+  }
+  marketingCapCache = { hours, at: Date.now() }
+  return hours
+}
 async function tierExceededFor(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any, userId: string,
@@ -241,8 +274,9 @@ async function processJob(
     // (blocages/signalements → chute de qualité). Le transactionnel (SAV,
     // statuts de commande) n'est PAS concerné : il doit toujours partir.
     if (auto.kind === 'marketing') {
+      const capHours = await marketingContactCapHours(supabase)
       const { contactMessagedWithin } = await import('@/lib/whatsapp/sending-limits')
-      if (await contactMessagedWithin(supabase, auto.user_id, job.contact_id, MARKETING_CONTACT_CAP_HOURS)) {
+      if (await contactMessagedWithin(supabase, auto.user_id, job.contact_id, capHours)) {
         await mark(supabase, job.id, 'skipped', 'fréquence marketing : contact déjà sollicité aujourd’hui')
         return 'skipped'
       }

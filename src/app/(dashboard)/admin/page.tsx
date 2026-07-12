@@ -158,7 +158,7 @@ export default function AdminPage() {
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
   const [validating, setValidating] = useState(false)
   const [adminNotes, setAdminNotes] = useState('')
-  const [activeTab, setActiveTab] = useState<'clients' | 'billing' | 'sessions' | 'affiliate' | 'promo' | 'install'>('clients')
+  const [activeTab, setActiveTab] = useState<'clients' | 'billing' | 'sessions' | 'affiliate' | 'promo' | 'install' | 'settings'>('clients')
   const [sessions, setSessions] = useState<SessionRow[]>([])
   const [sessionsLoading, setSessionsLoading] = useState(false)
   const [billing, setBilling] = useState<{ subscriptions: BillingSubscription[]; invoices: BillingInvoice[] } | null>(null)
@@ -514,7 +514,21 @@ export default function AdminPage() {
           <StoreIcon className="h-4 w-4" />
           Lien install
         </button>
+        <button
+          onClick={() => setActiveTab('settings')}
+          className={cn(
+            'flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors',
+            activeTab === 'settings'
+              ? 'border-primary text-primary'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          )}
+        >
+          <ShieldCheck className="h-4 w-4" />
+          Réglages
+        </button>
       </div>
+
+      {activeTab === 'settings' && <PlatformSettingsTab />}
 
       {activeTab === 'install' && <InstallLinkGenerator />}
 
@@ -1757,6 +1771,112 @@ function PromoTab() {
               )}
             </tbody>
           </table>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Réglages GLOBAUX de la plateforme (sécurité Xeyo, pas préférences marchand).
+ * Pour l'instant : plafond anti-spam de fréquence marketing par contact.
+ */
+function PlatformSettingsTab() {
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [capHours, setCapHours] = useState<string>('20')
+  const [updatedAt, setUpdatedAt] = useState<string | null>(null)
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const res = await fetch('/api/admin/platform-settings')
+      const json = await res.json()
+      if (res.ok) {
+        setCapHours(String(json.data?.marketing_contact_cap_hours ?? 20))
+        setUpdatedAt(json.data?.updated_at ?? null)
+      } else {
+        toast.error(json.error || 'Chargement impossible')
+      }
+    } catch {
+      toast.error('Chargement impossible')
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { load() }, [load])
+
+  const save = async () => {
+    const n = Number(capHours)
+    if (!Number.isFinite(n) || n < 0 || n > 720) {
+      toast.error('Valeur invalide : un entier entre 0 et 720 heures')
+      return
+    }
+    setSaving(true)
+    try {
+      const res = await fetch('/api/admin/platform-settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ marketing_contact_cap_hours: Math.floor(n) }),
+      })
+      const json = await res.json()
+      if (res.ok) {
+        toast.success('Réglage enregistré')
+        setUpdatedAt(json.data?.updated_at ?? new Date().toISOString())
+      } else {
+        toast.error(json.error || 'Enregistrement impossible')
+      }
+    } catch {
+      toast.error('Enregistrement impossible')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  if (loading) return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+
+  const n = Number(capHours)
+  const disabled = Number.isFinite(n) && n === 0
+
+  return (
+    <div className="space-y-8 max-w-2xl">
+      <div className="rounded-xl border p-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="h-5 w-5 text-primary" />
+          <h2 className="text-lg font-semibold">Fréquence marketing par contact</h2>
+        </div>
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          Plafond anti-spam appliqué à <strong>toutes</strong> les campagnes marketing :
+          un même contact ne reçoit pas plus d&apos;un message marketing dans la fenêtre
+          définie. Le transactionnel (statuts de commande, SAV) n&apos;est jamais concerné.
+          Ce plafond protège la qualité de la WABA Xeyo côté Meta — c&apos;est un réglage
+          plateforme, il s&apos;applique à tous les comptes.
+        </p>
+
+        <div className="flex items-end gap-3">
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Fenêtre (heures)</label>
+            <input
+              type="number"
+              min={0}
+              max={720}
+              value={capHours}
+              onChange={e => setCapHours(e.target.value)}
+              className="w-40 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+          </div>
+          <Button onClick={save} disabled={saving} size="sm">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Enregistrer'}
+          </Button>
+        </div>
+
+        <div className="text-xs text-muted-foreground space-y-1">
+          <p><strong>20</strong> = 1 message marketing max par contact et par jour (recommandé).</p>
+          <p><strong>0</strong> = plafond désactivé {disabled && <Badge variant="secondary" className="ml-1">actuellement désactivé</Badge>}.</p>
+          {updatedAt && (
+            <p className="pt-1">Dernière modification : {new Date(updatedAt).toLocaleString('fr-FR')}</p>
+          )}
         </div>
       </div>
     </div>
