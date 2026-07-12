@@ -40,7 +40,14 @@ export type TriggerNode = {
 }
 export type DelayNode = { id: string; type: 'delay'; minutes: number }
 export type ConditionNode = { id: string; type: 'condition'; rule: ConditionRule; label?: string }
-export type ActionNode = { id: string; type: 'action'; templateId: string | null; label?: string }
+export type ActionNode = {
+  id: string; type: 'action'; templateId: string | null; label?: string
+  /** Message à boutons : autorise le contact à suivre PLUSIEURS réponses (il
+   *  clique Oui, reçoit la branche Oui, puis peut cliquer Non et recevoir aussi
+   *  la branche Non). Chaque bouton ne se déclenche qu'UNE fois. `false` ou
+   *  absent = une seule route (le 1er clic ferme le funnel). Défaut UI = true. */
+  allowMultiple?: boolean
+}
 
 /** Test A/B : répartit les contacts entre 2 à 4 variantes selon des poids (%).
  *  Chaque variante a une branche `variant:<key>` menant à sa propre suite. */

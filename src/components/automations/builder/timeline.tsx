@@ -782,9 +782,50 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction, onTem
           {selected && selected.template_type !== 'carousel' && (
             <TemplateButtonsEditor key={selected.id} template={selected} onSaved={onTemplatesChanged} />
           )}
+
+          {/* Réglage MULTI-ROUTE : visible seulement si le modèle a des boutons
+              quick-reply. Permet au contact de suivre plusieurs réponses. */}
+          {quickReplyLabels(selected).length > 0 && (
+            <MultiRouteToggle
+              // allowMultiple par défaut à TRUE (meilleure UX) si non défini.
+              value={(node as { allowMultiple?: boolean }).allowMultiple !== false}
+              onChange={(v) => onPatch(node.id, { allowMultiple: v } as never)}
+            />
+          )}
         </div>
       )}
     </Shell>
+  )
+}
+
+/** Interrupteur « le client peut suivre plusieurs réponses » sur un message à
+ *  boutons. ON = chaque bouton mène à sa branche (chacun une fois). OFF = une
+ *  seule route (le 1er clic ferme le funnel). */
+function MultiRouteToggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!value)}
+      className="flex w-full items-center gap-2 rounded-lg border border-dashed border-border/70 px-2.5 py-2 text-left transition-colors hover:border-foreground/30"
+    >
+      <span className={cn(
+        'relative h-4 w-7 shrink-0 rounded-full transition-colors',
+        value ? 'bg-primary' : 'bg-muted-foreground/30',
+      )}>
+        <span className={cn(
+          'absolute top-0.5 h-3 w-3 rounded-full bg-white transition-all',
+          value ? 'left-3.5' : 'left-0.5',
+        )} />
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[11px] font-medium">Plusieurs réponses possibles</span>
+        <span className="block text-[10px] leading-tight text-muted-foreground">
+          {value
+            ? 'Le client peut cliquer plusieurs boutons et recevoir chaque suite (une fois chacun).'
+            : 'Le client ne suit qu’une seule réponse (le 1er clic termine le parcours).'}
+        </span>
+      </span>
+    </button>
   )
 }
 

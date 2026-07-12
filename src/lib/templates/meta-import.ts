@@ -31,6 +31,7 @@ type MetaTemplate = {
   status: string // APPROVED | PENDING | REJECTED | ...
   category: string
   components?: MetaComponent[]
+  rejected_reason?: string
 }
 
 /** Statut Meta (majuscules) → statut local. */
@@ -160,6 +161,33 @@ function buildRow(t: MetaTemplate): Record<string, unknown> {
     updated_at: new Date().toISOString(),
   }
   return row
+}
+
+/**
+ * Extrait le contenu d'un modèle Meta (statut, catégorie, corps, boutons, en-tête,
+ * carrousel…) sous une forme prête à comparer/écrire en base. Utilisé par le
+ * bouton « Synchroniser » pour rapatrier les modifications faites côté Meta
+ * (ex. ajout d'un bouton) SANS écraser les `variable_keys` locales.
+ */
+export function metaTemplateContent(t: {
+  id: string; name: string; language: string; status: string; category: string
+  components?: unknown[]; rejected_reason?: string
+}) {
+  const row = buildRow(t as unknown as MetaTemplate)
+  return {
+    status: mapStatus(t.status),
+    meta_id: t.id,
+    category: (t.category || 'UTILITY').toUpperCase(),
+    rejectedReason: t.rejected_reason,
+    body_text: row.body_text as string,
+    buttons: row.buttons as TemplateButton[] | null,
+    header_type: row.header_type as 'none' | 'text' | 'image' | 'video' | 'document',
+    header_text: row.header_text as string | null,
+    footer_text: row.footer_text as string | null,
+    template_type: row.template_type as string,
+    carousel_cards: row.carousel_cards as TemplateCard[] | null,
+    variables_count: row.variables_count as number,
+  }
 }
 
 /**

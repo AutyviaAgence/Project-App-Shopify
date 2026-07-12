@@ -197,7 +197,7 @@ export async function resumeParkedFunnel(contactId: string, clickedText: string)
   // qu'un à la fois sur un funnel, mais on prend le dernier par sécurité).
   const { data: jobs } = await supabase
     .from('automation_jobs')
-    .select('id, automation_id, current_node_id')
+    .select('id, automation_id, contact_id, current_node_id, event_data')
     .eq('contact_id', contactId)
     .eq('status', 'waiting')
     .order('created_at', { ascending: false })
@@ -205,8 +205,10 @@ export async function resumeParkedFunnel(contactId: string, clickedText: string)
   if (!jobs || jobs.length === 0) return false
 
   const { resumeFromButton } = await import('./graph-engine')
+  const { findNode } = await import('./graph-types')
 
-  for (const job of jobs as { id: string; automation_id: string; current_node_id: string | null }[]) {
+  type ParkedJob = { id: string; automation_id: string; contact_id: string | null; current_node_id: string | null; event_data: Record<string, unknown> | null }
+  for (const job of jobs as ParkedJob[]) {
     if (!job.current_node_id) continue
     const { data: auto } = await supabase
       .from('automations').select('graph, is_active').eq('id', job.automation_id).maybeSingle()
@@ -221,13 +223,21 @@ export async function resumeParkedFunnel(contactId: string, clickedText: string)
     const next = resumeFromButton(auto.graph, job.current_node_id, clickedText, variantButtons)
     if (!next) continue // ce funnel n'a pas de branche pour ce bouton → on tente le suivant
 
-    // Trace la branche cliquée pour les stats (best-effort). On enregistre le
-    // libellé SOURCE (résolu depuis la langue traduite) pour que les stats d'un
-    // même bouton s'agrègent quelle que soit la langue du contact.
+    // Libellé SOURCE (résolu depuis la langue traduite) pour tracer/dédupliquer.
     const { resolveClickedToSourceLabel } = await import('./graph-engine')
     const sourceLabel = (variantButtons.length > 0
       ? resolveClickedToSourceLabel(clickedText, variantButtons)
       : null) || clickedText
+
+    // MODE MULTI-ROUTE : si le message autorise plusieurs réponses, le contact
+    // peut cliquer plusieurs boutons et recevoir chaque branche. Chaque bouton
+    // ne se déclenche qu'UNE fois (dédup via la liste des boutons déjà cliqués,
+    // stockée sur le job parqué). Le job parqué RESTE en waiting pour accepter
+    // d'autres boutons ; on crée un NOUVEAU job pour exécuter la branche.
+    const actionNode = findNode(auto.graph, job.current_node_id)
+    const allowMultiple = actionNode?.type === 'action' && actionNode.allowMultiple === true
+
+    // Trace stats (best-effort, résilient si colonne absente).
     const trace = { responded: true, responded_at: new Date().toISOString() }
     const { error: tErr } = await supabase.from('ab_test_assignments')
       .update({ ...trace, clicked_branch: `button:${sourceLabel}` })
@@ -237,7 +247,32 @@ export async function resumeParkedFunnel(contactId: string, clickedText: string)
         .eq('automation_id', job.automation_id).eq('node_id', job.current_node_id).eq('contact_id', contactId)
     }
 
-    // Réveille le job sur la branche : le cron enchaîne immédiatement.
+    if (allowMultiple) {
+      // Dédup : ce bouton a-t-il déjà été cliqué sur ce funnel ?
+      const ed = (job.event_data || {}) as { clicked_branches?: string[]; variables?: Record<string, string> }
+      const clicked = Array.isArray(ed.clicked_branches) ? ed.clicked_branches : []
+      const norm = sourceLabel.trim().toLowerCase()
+      if (clicked.includes(norm)) return true // déjà suivi → on ignore (pas de doublon)
+      // Nouveau job pour exécuter la branche, sans toucher au job parqué.
+      await supabase.from('automation_jobs').insert({
+        automation_id: job.automation_id,
+        contact_id: job.contact_id,
+        current_node_id: next,
+        status: 'pending',
+        scheduled_at: new Date().toISOString(),
+        event_data: { variables: ed.variables || {} },
+        dedup_key: `branch:${job.id}:${norm}`,
+      })
+      // Mémorise le bouton cliqué sur le job PARQUÉ (qui reste waiting).
+      await supabase.from('automation_jobs')
+        .update({ event_data: { ...ed, clicked_branches: [...clicked, norm] } })
+        .eq('id', job.id)
+      return true
+    }
+
+    // MODE UNE SEULE ROUTE (défaut historique) : le 1er clic ferme le funnel.
+    // On réveille le job parqué sur la branche ; les clics suivants ne trouvent
+    // plus de job waiting → ignorés.
     await supabase.from('automation_jobs').update({
       status: 'pending', current_node_id: next, scheduled_at: new Date().toISOString(),
     }).eq('id', job.id)
