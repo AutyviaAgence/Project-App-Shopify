@@ -238,26 +238,28 @@ export function PhonePreview({
             )}
           </div>
 
-          {/* Barre de saisie WhatsApp (bas) — réaliste. Active en mode test. */}
-          <div className="flex items-center gap-1.5 bg-[#0b141a] px-2 py-2">
-            <Plus className="h-5 w-5 shrink-0 text-white/50" />
-            <Smile className="h-5 w-5 shrink-0 text-white/50" />
-            <div className="flex flex-1 items-center rounded-full bg-white/10 px-3 py-1.5">
+          {/* Barre de saisie WhatsApp (bas) — réaliste. Active en mode test.
+              Tailles agrandies pour rester lisibles après mise à l'échelle du
+              mockup (cohérent avec le reste : header/messages en grand). */}
+          <div className="flex items-center gap-2 bg-[#0b141a] px-2.5 py-3">
+            <Plus className="h-7 w-7 shrink-0 text-white/50" />
+            <Smile className="h-7 w-7 shrink-0 text-white/50" />
+            <div className="flex flex-1 items-center rounded-full bg-white/10 px-4 py-2.5">
               <input
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') onSendDraft() }}
                 disabled={mode !== 'test'}
                 placeholder={mode === 'test' ? 'Répondez au test…' : 'Entrez un message'}
-                className="w-full bg-transparent text-[14px] text-white placeholder:text-white/40 outline-none disabled:cursor-default"
+                className="w-full bg-transparent text-[18px] text-white placeholder:text-white/40 outline-none disabled:cursor-default"
               />
             </div>
             <button
               onClick={onSendDraft}
               disabled={mode !== 'test' || !draft.trim()}
-              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#25D366] text-white disabled:opacity-50"
+              className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#25D366] text-white disabled:opacity-50"
             >
-              <Mic className="h-4 w-4" />
+              <Mic className="h-5 w-5" />
             </button>
           </div>
         </div>
@@ -302,37 +304,37 @@ function SimConversation({ sim, onClickButton }: { sim: SimState; onClickButton:
 function SimBubble({ item, last, onClickButton, waiting }: { item: SimItem; last: boolean; onClickButton: (label: string) => void; waiting: boolean }) {
   if (item.kind === 'system') {
     return (
-      <div className="mx-auto max-w-[92%] rounded-lg bg-[#fdf4c9] px-3 py-1.5 text-center shadow-sm">
-        <p className="flex items-center justify-center gap-1.5 text-[13px] font-medium text-amber-800"><ShoppingBag className="h-3 w-3" /> {item.text}</p>
-        {item.sub && <p className="mt-0.5 text-[11px] text-amber-700/80">{item.sub}</p>}
+      <div className="mx-auto max-w-[92%] rounded-lg bg-[#fdf4c9] px-3 py-2 text-center shadow-sm">
+        <p className="flex items-center justify-center gap-1.5 text-[16px] font-medium text-amber-800"><ShoppingBag className="h-4 w-4" /> {item.text}</p>
+        {item.sub && <p className="mt-0.5 text-[13px] text-amber-700/80">{item.sub}</p>}
       </div>
     )
   }
   if (item.kind === 'delay') {
     return (
-      <div className="mx-auto flex items-center gap-1.5 rounded-full bg-black/10 px-3 py-1 text-[12px] text-gray-700 backdrop-blur-sm">
-        <Clock className="h-3 w-3" /> {item.immediate ? 'Envoi immédiat' : `Attend ${item.label}`}
+      <div className="mx-auto flex items-center gap-1.5 rounded-full bg-black/10 px-3 py-1.5 text-[15px] text-gray-700 backdrop-blur-sm">
+        <Clock className="h-4 w-4" /> {item.immediate ? 'Envoi immédiat' : `Attend ${item.label}`}
       </div>
     )
   }
   if (item.kind === 'reply') {
     return (
-      <div className="ml-auto max-w-[80%] rounded-xl rounded-tr-sm bg-[#005c4b] px-2.5 py-1.5 text-[14px] text-white shadow-sm">
+      <div className="ml-auto max-w-[80%] rounded-xl rounded-tr-sm bg-[#005c4b] px-3 py-2 text-[18px] text-white shadow-sm">
         {item.text}
       </div>
     )
   }
   if (item.kind === 'end') {
-    return <div className="mx-auto text-[11px] italic text-white/50">— {item.text} —</div>
+    return <div className="mx-auto text-[13px] italic text-white/50">— {item.text} —</div>
   }
   // message
   return (
     <div className="mr-auto max-w-[88%] overflow-hidden rounded-xl rounded-tl-sm bg-white shadow-sm">
-      <div className="px-2.5 py-1.5">
-        {item.header && <p className="mb-0.5 text-[14px] font-semibold text-gray-900">{item.header}</p>}
-        <p className="whitespace-pre-wrap break-words text-[13.5px] leading-snug text-gray-800">{renderFormat(item.body)}</p>
-        {item.footer && <p className="mt-1 text-[11px] text-gray-400">{item.footer}</p>}
-        <div className="mt-0.5 text-right text-[10px] text-gray-400">12:00</div>
+      <div className="px-3 py-2">
+        {item.header && <p className="mb-0.5 text-[19px] font-semibold text-gray-900">{item.header}</p>}
+        <p className="whitespace-pre-wrap break-words text-[18px] leading-snug text-gray-800">{renderFormat(item.body)}</p>
+        {item.footer && <p className="mt-1 text-[14px] text-gray-400">{item.footer}</p>}
+        <div className="mt-0.5 text-right text-[12px] text-gray-400">12:00</div>
       </div>
       {item.buttons.length > 0 && (
         <div className="border-t border-black/5">
@@ -342,12 +344,12 @@ function SimBubble({ item, last, onClickButton, waiting }: { item: SimItem; last
               onClick={() => last && waiting && onClickButton(b)}
               disabled={!(last && waiting)}
               className={cn(
-                'flex w-full items-center justify-center gap-1.5 py-1.5 text-[13px] font-medium text-[#00a5f4] transition-colors',
+                'flex w-full items-center justify-center gap-1.5 py-2.5 text-[17px] font-medium text-[#00a5f4] transition-colors',
                 i > 0 && 'border-t border-black/5',
                 last && waiting ? 'hover:bg-black/[0.03] cursor-pointer' : 'opacity-60 cursor-default',
               )}
             >
-              <Reply className="h-3.5 w-3.5" /> {b}
+              <Reply className="h-4 w-4" /> {b}
             </button>
           ))}
         </div>

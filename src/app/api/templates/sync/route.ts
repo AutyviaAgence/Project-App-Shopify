@@ -84,8 +84,20 @@ export async function POST() {
       patch.header_text = meta.header_text
       patch.footer_text = meta.footer_text
       patch.template_type = meta.template_type
-      patch.carousel_cards = meta.carousel_cards
       patch.variables_count = meta.variables_count
+      // CARROUSEL : Meta ne renvoie PAS les URLs d'images (juste des handles) →
+      // parseCards met header_media_url:null. On PRÉSERVE donc les URLs locales
+      // par index (sinon la synchro effaçait les images des carrousels, cassant
+      // l'envoi « carte sans image »). Le body/boutons des cartes viennent de Meta.
+      const metaCards = Array.isArray(meta.carousel_cards) ? meta.carousel_cards : null
+      const localCards = Array.isArray(tpl.carousel_cards) ? tpl.carousel_cards as { header_media_url?: string | null; header_type?: string }[] : []
+      patch.carousel_cards = metaCards
+        ? metaCards.map((c, i) => ({
+            ...c,
+            header_media_url: (c as { header_media_url?: string | null }).header_media_url || localCards[i]?.header_media_url || null,
+            header_type: (c as { header_type?: string }).header_type || localCards[i]?.header_type || 'image',
+          }))
+        : meta.carousel_cards
     }
     // Refusé : on capture le motif Meta ; sinon on l'efface.
     patch.rejection_reason = newStatus === 'rejected' ? (meta.rejectedReason || null) : null
