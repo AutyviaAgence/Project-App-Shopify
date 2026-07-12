@@ -101,6 +101,8 @@ export type EventContext = {
   collections?: string[]       // collections des produits
   country?: string             // code ISO du pays (ex: FR)
   language?: string            // langue du client (ex: fr)
+  stageIds?: string[]          // étapes/tags actuellement portés par le contact
+                               // (condition has_stage). Chargé JIT par le cron.
   // button_clicked : texte du bouton cliqué (Meta ne renvoie pas de payload
   // custom pour les quick-reply → on matche sur le libellé).
   buttonTitle?: string

@@ -18,13 +18,16 @@ export type ConditionField =
   | 'collection_contains'// la commande contient une collection (texte)
   | 'country'            // pays du client (code ISO, ex: FR)
   | 'language'           // langue du client (ex: fr)
+  | 'has_stage'          // le contact porte une étape/tag donné (id d'étape)
 
-export type ConditionOp = '>' | '>=' | '<' | '<=' | '==' | '!=' | 'contains'
+export type ConditionOp = '>' | '>=' | '<' | '<=' | '==' | '!=' | 'contains' | 'has_any' | 'has_none'
 
 export type ConditionRule = {
   field: ConditionField
   op: ConditionOp
-  value: string | number | boolean
+  // has_stage : value = un ou plusieurs id d'étapes (tags). Les autres champs
+  // utilisent un scalaire.
+  value: string | number | boolean | string[]
 }
 
 // ---- Nœuds ---------------------------------------------------------------

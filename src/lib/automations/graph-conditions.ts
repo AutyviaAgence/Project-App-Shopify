@@ -28,6 +28,17 @@ export function evaluateCondition(rule: ConditionRule, ctx: EventContext): boole
     case 'language':
       return compareString(ctx.language, op, String(value))
 
+    case 'has_stage': {
+      // value = un ou plusieurs id d'étapes (tags). L'opérateur dit s'il faut
+      // qu'AU MOINS UN soit présent (has_any, défaut) ou AUCUN (has_none).
+      const wanted = Array.isArray(value)
+        ? value.map(String)
+        : (value != null ? [String(value)] : [])
+      const owned = new Set(ctx.stageIds || [])
+      const hasAny = wanted.some((id) => owned.has(id))
+      return op === 'has_none' ? !hasAny : hasAny
+    }
+
     default:
       return false
   }

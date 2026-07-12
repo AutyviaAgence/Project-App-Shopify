@@ -14,10 +14,13 @@ export const CONDITION_FIELDS: {
   valueType: 'number' | 'boolean' | 'text'
   ops: ConditionOp[]
   placeholder?: string
-  source?: 'country' | 'language' | 'product' | 'collection'
+  source?: 'country' | 'language' | 'product' | 'collection' | 'stage'
+  /** Sélection multiple de valeurs (ex. plusieurs tags à la fois). */
+  multi?: boolean
 }[] = [
   { value: 'order_total', label: 'Montant de la commande (€)', valueType: 'number', ops: ['>', '>=', '<', '<=', '==', '!='], placeholder: '50' },
   { value: 'is_first_order', label: 'Première commande', valueType: 'boolean', ops: ['==', '!='] },
+  { value: 'has_stage', label: 'Étape / Tag du contact', valueType: 'text', ops: ['has_any', 'has_none'], source: 'stage', multi: true },
   { value: 'product_contains', label: 'Produit contient', valueType: 'text', ops: ['contains', '!='], source: 'product' },
   { value: 'collection_contains', label: 'Collection contient', valueType: 'text', ops: ['contains', '!='], source: 'collection' },
   { value: 'country', label: 'Pays du client', valueType: 'text', ops: ['==', '!='], source: 'country' },
@@ -45,4 +48,5 @@ export const LANGUAGE_OPTIONS: { value: string; label: string }[] = [
 export const OP_LABEL: Record<ConditionOp, string> = {
   '>': 'supérieur à', '>=': 'supérieur ou égal', '<': 'inférieur à', '<=': 'inférieur ou égal',
   '==': 'égal à', '!=': 'différent de', 'contains': 'contient',
+  'has_any': 'a le tag', 'has_none': "n'a pas le tag",
 }

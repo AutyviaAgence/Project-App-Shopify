@@ -240,6 +240,30 @@ async function processJob(
   // ---- Mode BUILDER (graphe de nœuds) ----
   if (auto.builder_mode && auto.graph) {
     const { stepWorkflow } = await import('@/lib/automations/graph-engine')
+    // Condition « Étape/Tag » (has_stage) : elle a besoin des étapes ACTUELLES
+    // du contact. On ne charge la conversation_lifecycle_stages QUE si le graphe
+    // porte au moins une condition has_stage (sinon coût inutile à chaque job).
+    let stageIds: string[] | undefined
+    const usesStageCondition = Array.isArray(auto.graph.nodes)
+      && auto.graph.nodes.some((n: { type?: string; rule?: { field?: string } }) =>
+        n.type === 'condition' && n.rule?.field === 'has_stage')
+    if (usesStageCondition && job.contact_id) {
+      // Étapes portées par la (les) conversation(s) de ce contact. On agrège au
+      // niveau contact : le tag vit sur la conversation, mais la condition
+      // raisonne « ce contact a-t-il tel tag ? ».
+      const { data: convs } = await supabase
+        .from('conversations').select('id').eq('contact_id', job.contact_id)
+      const convIds = (convs || []).map((c: { id: string }) => c.id)
+      if (convIds.length > 0) {
+        const { data: cls } = await supabase
+          .from('conversation_lifecycle_stages')
+          .select('stage_id')
+          .in('conversation_id', convIds)
+        stageIds = [...new Set<string>((cls || []).map((r: { stage_id: string }) => r.stage_id))]
+      } else {
+        stageIds = []
+      }
+    }
     const ctx = {
       contactId: job.contact_id,
       total: eventData.total ?? undefined,
@@ -248,6 +272,7 @@ async function processJob(
       collections: eventData.collections,
       country: eventData.country,
       language: eventData.language,
+      stageIds,
       variables: eventData.variables || {},
     }
     // current_node_id null = on vient de finir un delay sur ce nœud → on le saute.

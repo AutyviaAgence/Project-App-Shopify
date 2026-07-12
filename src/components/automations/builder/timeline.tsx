@@ -95,7 +95,7 @@ const TRIGGER_GROUPS = [
   { name: 'Conversation', icon: MessageSquare, color: 'text-violet-500' },
   { name: 'Planifié', icon: CalendarClock, color: 'text-amber-500' },
 ] as const
-import { CONDITION_FIELDS, COUNTRY_OPTIONS, LANGUAGE_OPTIONS } from './field-labels'
+import { CONDITION_FIELDS, COUNTRY_OPTIONS, LANGUAGE_OPTIONS, OP_LABEL } from './field-labels'
 import { chainFrom, getNode } from './timeline-model'
 import { TemplateBubble } from '@/components/template-bubble'
 import { VARIABLE_BY_KEY } from '@/lib/templates/variables'
@@ -135,6 +135,28 @@ function useShopList(endpoint: string): { title: string }[] {
     }
     listPromise[endpoint].then((p) => setItems(p))
   }, [endpoint])
+  return items
+}
+
+/** Étapes/tags du cycle de vie de l'utilisateur (pour la condition has_stage). */
+const stagesCache: { list?: { id: string; name: string; color: string }[] } = {}
+let stagesPromise: Promise<{ id: string; name: string; color: string }[]> | null = null
+function useLifecycleStageList(): { id: string; name: string; color: string }[] {
+  const [items, setItems] = useState<{ id: string; name: string; color: string }[]>(stagesCache.list || [])
+  useEffect(() => {
+    if (stagesCache.list) return
+    if (!stagesPromise) {
+      stagesPromise = fetch('/api/lifecycle/stages')
+        .then((r) => (r.ok ? r.json() : { data: [] }))
+        .then((j) => {
+          const list = (Array.isArray(j.data) ? j.data : []).map((s: { id: string; name: string; color?: string }) => ({ id: s.id, name: s.name, color: s.color || '#6366f1' }))
+          stagesCache.list = list
+          return list
+        })
+        .catch(() => { stagesCache.list = []; return [] })
+    }
+    stagesPromise.then((p) => setItems(p))
+  }, [])
   return items
 }
 
@@ -849,14 +871,49 @@ function TemplateStatusBadge({ template }: { template: WhatsAppTemplate }) {
 function ConditionBlock({ node, onPatch, onDelete }: { node: WorkflowNode; onPatch: (id: string, p: Partial<WorkflowNode>) => void; onDelete: () => void }) {
   const products = useShopList('/api/shopify/products')
   const collections = useShopList('/api/shopify/collections')
+  const lifecycleStages = useLifecycleStageList()
   if (node.type !== 'condition') return null
   const rule = node.rule
   const nodeId = node.id
   const field = CONDITION_FIELDS.find((f) => f.value === rule.field) || CONDITION_FIELDS[0]
-  const setValue = (value: string | number | boolean) => onPatch(nodeId, { rule: { ...rule, value } } as never)
+  const setValue = (value: string | number | boolean | string[]) => onPatch(nodeId, { rule: { ...rule, value } } as never)
 
   // Choix de l'éditeur de VALEUR selon la source du champ.
   function valueEditor() {
+    if (field.source === 'stage') {
+      // Multi-sélection de tags : on stocke un tableau d'id d'étapes. Chaque tag
+      // se toggle. La condition (has_any / has_none) est portée par l'opérateur.
+      const selected = Array.isArray(rule.value) ? rule.value.map(String) : (rule.value ? [String(rule.value)] : [])
+      const toggle = (id: string) => {
+        const next = selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]
+        setValue(next)
+      }
+      if (lifecycleStages.length === 0) {
+        return <span className="flex-1 text-[11px] text-muted-foreground">Aucune étape définie. Créez-en dans « Gérer les étapes ».</span>
+      }
+      return (
+        <div className="flex flex-1 flex-wrap gap-1">
+          {lifecycleStages.map((s) => {
+            const on = selected.includes(s.id)
+            return (
+              <button
+                key={s.id}
+                type="button"
+                onClick={() => toggle(s.id)}
+                className={cn(
+                  'flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition-colors',
+                  on ? 'border-transparent text-white' : 'border-border text-muted-foreground hover:text-foreground'
+                )}
+                style={on ? { backgroundColor: s.color } : undefined}
+              >
+                <span className="h-2 w-2 rounded-full" style={{ backgroundColor: on ? '#fff' : s.color }} />
+                {s.name}
+              </button>
+            )
+          })}
+        </div>
+      )
+    }
     if (field.valueType === 'boolean') {
       return (
         <Select value={String(rule.value)} onValueChange={(v) => setValue(v === 'true')}>
@@ -900,15 +957,16 @@ function ConditionBlock({ node, onPatch, onDelete }: { node: WorkflowNode; onPat
       <div className="space-y-2">
         <Select value={rule.field} onValueChange={(v) => {
           const f = CONDITION_FIELDS.find((x) => x.value === v)!
-          onPatch(nodeId, { rule: { field: v as never, op: f.ops[0], value: f.valueType === 'boolean' ? true : '' } } as never)
+          const defaultValue = f.multi ? [] : f.valueType === 'boolean' ? true : ''
+          onPatch(nodeId, { rule: { field: v as never, op: f.ops[0], value: defaultValue } } as never)
         }}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>{CONDITION_FIELDS.map((f) => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}</SelectContent>
         </Select>
-        <div className="flex gap-2">
+        <div className={cn('flex gap-2', field.source === 'stage' && 'flex-col')}>
           <Select value={rule.op} onValueChange={(v) => onPatch(nodeId, { rule: { ...rule, op: v as never } } as never)}>
-            <SelectTrigger className="w-24"><SelectValue /></SelectTrigger>
-            <SelectContent>{field.ops.map((op) => <SelectItem key={op} value={op}>{op}</SelectItem>)}</SelectContent>
+            <SelectTrigger className={field.source === 'stage' ? 'w-full' : 'w-24'}><SelectValue /></SelectTrigger>
+            <SelectContent>{field.ops.map((op) => <SelectItem key={op} value={op}>{OP_LABEL[op] || op}</SelectItem>)}</SelectContent>
           </Select>
           {valueEditor()}
         </div>

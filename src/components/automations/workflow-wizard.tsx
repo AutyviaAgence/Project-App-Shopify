@@ -242,7 +242,9 @@ export function WorkflowWizard({
                 <select value={rule.field}
                   onChange={(e) => { const f = CONDITION_FIELDS.find((x) => x.value === e.target.value)!; setRule({ field: f.value, op: f.ops[0], value: f.valueType === 'boolean' ? true : '' }) }}
                   className="h-9 rounded-md border border-input bg-background px-2 text-sm">
-                  {CONDITION_FIELDS.map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
+                  {/* has_stage nécessite une multi-sélection de tags → réservé au
+                      builder complet, pas à ce mini-éditeur texte. */}
+                  {CONDITION_FIELDS.filter((f) => !f.multi).map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
                 </select>
                 <select value={rule.op} onChange={(e) => setRule({ ...rule, op: e.target.value as ConditionRule['op'] })}
                   className="h-9 rounded-md border border-input bg-background px-2 text-sm">
