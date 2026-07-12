@@ -69,6 +69,20 @@ function tplOf(templateId: string | null | undefined, templates: SimTemplate[]):
   return templateId ? templates.find((t) => t.id === templateId) : undefined
 }
 
+/** Libellés des boutons DÉFINIS PAR LES BRANCHES sortantes d'un nœud (edges
+ *  `button:<label>`), dans l'ordre des edges, hors branche timeout. Sert de
+ *  source de vérité quand le template n'a pas remonté ses QUICK_REPLY. */
+function buttonBranchLabelsOf(graph: WorkflowGraph, nodeId: string): string[] {
+  const seen = new Set<string>()
+  const labels: string[] = []
+  for (const e of graph.edges) {
+    if (e.from !== nodeId || !isButtonBranch(e.branch) || e.branch === BUTTON_TIMEOUT_BRANCH) continue
+    const label = buttonBranchLabel(e.branch)
+    if (label && !seen.has(label)) { seen.add(label); labels.push(label) }
+  }
+  return labels
+}
+
 function samplesOf(t: SimTemplate | undefined): string[] {
   if (!t) return []
   if (Array.isArray(t.sample_values) && t.sample_values.length) return t.sample_values as string[]
@@ -125,7 +139,13 @@ export function advance(
     }
     if (node.type === 'action') {
       const t = tplOf(node.templateId, templates)
-      const buttons = quickLabels(t)
+      // Boutons proposés = ceux du template SI présents, sinon on les DÉDUIT des
+      // branches `button:` sortantes du nœud (source de vérité du parcours). Sans
+      // ce fallback, un nœud dont le template n'a pas remonté ses QUICK_REPLY
+      // n'attendait pas le clic et le parcours « sautait » les routes.
+      const tplButtons = quickLabels(t)
+      const branchButtons = buttonBranchLabelsOf(graph, node.id)
+      const buttons = tplButtons.length > 0 ? tplButtons : branchButtons
       items.push({
         kind: 'message',
         header: t?.header_type === 'text' ? (t?.header_text || undefined) : undefined,
@@ -134,11 +154,11 @@ export function advance(
         buttons,
         templateName: t?.name || 'Message',
       })
-      // Message à boutons → on s'arrête et on attend un clic.
+      // Message à boutons (template OU branches) → on s'arrête et on attend un clic.
       if (buttons.length > 0) {
         return { items, waitingNodeId: node.id, waitingButtons: buttons, done: false }
       }
-      // Sinon on continue tout droit.
+      // Sinon on continue tout droit (1re sortie, branche indifférente).
       cur = nextNodes(graph, node.id)[0]
       continue
     }
