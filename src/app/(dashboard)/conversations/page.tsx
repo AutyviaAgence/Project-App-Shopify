@@ -1022,9 +1022,13 @@ function ConversationsPageContent() {
                   <div
                     className="flex w-full min-w-0 gap-3 overflow-x-auto overscroll-contain pb-2 [scrollbar-width:thin]"
                     onWheel={(e) => {
-                      // Molette verticale → défilement HORIZONTAL du carrousel
-                      // (plus intuitif que de chercher la barre de scroll).
-                      if (e.deltaY !== 0) { e.currentTarget.scrollLeft += e.deltaY; e.preventDefault() }
+                      // Molette verticale → défilement HORIZONTAL du carrousel.
+                      // Pas de preventDefault (listener React passif → warning) :
+                      // on ne fait défiler horizontalement que si ce conteneur a
+                      // effectivement un débordement à parcourir.
+                      if (e.deltaY !== 0 && e.currentTarget.scrollWidth > e.currentTarget.clientWidth) {
+                        e.currentTarget.scrollLeft += e.deltaY
+                      }
                     }}
                   >
                     {shown.map((tpl) => (
