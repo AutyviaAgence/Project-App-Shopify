@@ -524,7 +524,7 @@ export default function AdminPage() {
           )}
         >
           <ShieldCheck className="h-4 w-4" />
-          Réglages
+          Paramètres généraux
         </button>
       </div>
 
