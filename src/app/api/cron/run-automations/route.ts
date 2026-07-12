@@ -14,8 +14,13 @@ export const maxDuration = 60
  */
 const tierCache = new Map<string, { exceeded: boolean; at: number }>()
 const TIER_CACHE_MS = 30_000
-/** Fenêtre du plafond de fréquence marketing par contact (1 msg marketing / j). */
-const MARKETING_CONTACT_CAP_HOURS = 20
+/** Fenêtre du plafond de fréquence marketing par contact (anti-spam : au plus 1
+ *  message marketing par contact dans cette fenêtre). Configurable via la variable
+ *  d'env MARKETING_CONTACT_CAP_HOURS (0 = désactivé, utile pour tester). Défaut 20h. */
+const MARKETING_CONTACT_CAP_HOURS = (() => {
+  const v = Number(process.env.MARKETING_CONTACT_CAP_HOURS)
+  return Number.isFinite(v) && v >= 0 ? v : 20
+})()
 async function tierExceededFor(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any, userId: string,
