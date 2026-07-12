@@ -3,6 +3,11 @@ import { createClient } from '@/lib/supabase/server'
 import { wabaClient } from '@/lib/whatsapp-cloud/client'
 import { decryptMessage } from '@/lib/crypto/encryption'
 import { metaTemplateContent } from '@/lib/templates/meta-import'
+import { persistExternalImage } from '@/lib/storage/media'
+
+// La synchro télécharge et stocke les images des templates approuvés (handles
+// Meta temporaires → storage permanent). Plusieurs images → on laisse 60 s.
+export const maxDuration = 60
 
 /**
  * POST /api/templates/sync
@@ -65,7 +70,15 @@ export async function POST() {
     const headerChanged = (meta.header_text || null) !== (tpl.header_text || null)
       || (meta.header_type || 'none') !== (tpl.header_type || 'none')
     const footerChanged = (meta.footer_text || null) !== (tpl.footer_text || null)
-    const contentChanged = buttonsChanged || bodyChanged || headerChanged || footerChanged
+    // IMAGES MANQUANTES : une carte de carrousel (ou le header) a perdu son image
+    // en local alors que Meta en a une (handle) → il faut re-synchroniser pour la
+    // récupérer, même si rien d'autre n'a changé.
+    const localCardsChk = Array.isArray(tpl.carousel_cards) ? tpl.carousel_cards as { header_media_url?: string | null }[] : []
+    const metaCardsChk = Array.isArray(meta.carousel_cards) ? meta.carousel_cards as { header_media_url?: string | null }[] : []
+    const imagesMissing =
+      metaCardsChk.some((c, i) => c.header_media_url && !localCardsChk[i]?.header_media_url) ||
+      (!!(meta as { header_media_url?: string | null }).header_media_url && !tpl.header_media_url)
+    const contentChanged = buttonsChanged || bodyChanged || headerChanged || footerChanged || imagesMissing
 
     if (newStatus === tpl.status && !categoryChanged && !metaIdChanged && !contentChanged) continue
 
@@ -95,19 +108,41 @@ export async function POST() {
       const localCards = Array.isArray(tpl.carousel_cards) ? tpl.carousel_cards as Card[] : []
       const apprCards = Array.isArray((tpl as { approved_carousel_cards?: unknown }).approved_carousel_cards)
         ? (tpl as { approved_carousel_cards: Card[] }).approved_carousel_cards : []
-      const keepUrl = (i: number, metaUrl?: string | null) =>
-        metaUrl || localCards[i]?.header_media_url || apprCards[i]?.header_media_url || null
-      patch.carousel_cards = metaCards
-        ? metaCards.map((c, i) => ({
+      if (metaCards) {
+        patch.carousel_cards = await Promise.all(metaCards.map(async (c, i) => {
+          // On garde en priorité une image locale/approuvée déjà PERMANENTE
+          // (chemin storage). Sinon, si Meta renvoie une URL scontent (handle
+          // TEMPORAIRE), on la télécharge et la stocke définitivement dans le
+          // storage → l'image ne dépend plus d'une URL Meta qui expire.
+          const localUrl = localCards[i]?.header_media_url || apprCards[i]?.header_media_url || null
+          const isLocalPermanent = localUrl && !/scontent\.whatsapp\.net/.test(localUrl)
+          let url = isLocalPermanent ? localUrl : (c.header_media_url || localUrl)
+          if (url && /scontent\.whatsapp\.net/.test(url)) {
+            const persisted = await persistExternalImage(url, user.id, `${tpl.name}-${tpl.language}-${i}`)
+            if (persisted) url = persisted
+          }
+          return {
             ...c,
-            header_media_url: keepUrl(i, c.header_media_url),
+            header_media_url: url,
             header_type: c.header_type || localCards[i]?.header_type || apprCards[i]?.header_type || 'image',
-          }))
-        : meta.carousel_cards
+          }
+        }))
+      } else {
+        patch.carousel_cards = meta.carousel_cards
+      }
     }
-    // Header média d'un template STANDARD : Meta ne le renvoie pas → la synchro
-    // ne doit pas l'effacer. Le patch ne touche déjà pas header_media_url, donc
-    // l'URL locale est conservée telle quelle (rien à faire ici).
+    // Header média d'un template STANDARD (image/vidéo/doc) : si Meta renvoie un
+    // handle temporaire et qu'on n'a pas déjà une image permanente locale, on la
+    // persiste. Sinon on garde l'existant (jamais d'écrasement par null).
+    {
+      const metaHdr = (meta as { header_media_url?: string | null }).header_media_url
+      const localHdr = tpl.header_media_url as string | null
+      const localPermanent = localHdr && !/scontent\.whatsapp\.net/.test(localHdr)
+      if (!localPermanent && metaHdr && /scontent\.whatsapp\.net/.test(metaHdr)) {
+        const persisted = await persistExternalImage(metaHdr, user.id, `${tpl.name}-${tpl.language}-hdr`)
+        if (persisted) patch.header_media_url = persisted
+      }
+    }
     // Refusé : on capture le motif Meta ; sinon on l'efface.
     patch.rejection_reason = newStatus === 'rejected' ? (meta.rejectedReason || null) : null
     // Approuvé → fige la version validée (pour le bouton restaurer). On fige les

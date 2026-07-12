@@ -192,6 +192,7 @@ export function metaTemplateContent(t: {
     buttons: row.buttons as TemplateButton[] | null,
     header_type: row.header_type as 'none' | 'text' | 'image' | 'video' | 'document',
     header_text: row.header_text as string | null,
+    header_media_url: row.header_media_url as string | null,
     footer_text: row.footer_text as string | null,
     template_type: row.template_type as string,
     carousel_cards: row.carousel_cards as TemplateCard[] | null,

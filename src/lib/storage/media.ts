@@ -86,6 +86,33 @@ export async function uploadMedia(params: {
 }
 
 /**
+ * Télécharge une image depuis une URL EXTERNE (ex. header_handle Meta
+ * scontent.whatsapp.net, qui EXPIRE au bout de quelques jours) et la stocke de
+ * façon PERMANENTE dans le storage. Renvoie le chemin storage à mettre dans
+ * header_media_url. Utilisé par la synchro pour rapatrier les images des
+ * templates approuvés sans dépendre d'une URL temporaire.
+ */
+export async function persistExternalImage(
+  url: string,
+  userId: string,
+  key: string,
+): Promise<string | null> {
+  try {
+    const res = await fetch(url)
+    if (!res.ok) return null
+    const buffer = Buffer.from(await res.arrayBuffer())
+    const mime = res.headers.get('content-type') || 'image/jpeg'
+    const ext = getExtensionFromMime(mime)
+    // Chemin stable et unique : dossier de l'utilisateur + clé (nom+langue+index).
+    const path = `template-headers/${userId}/synced-${key}.${ext}`
+    const up = await uploadMedia({ sessionId: '', messageId: '', buffer, mimeType: mime, storagePath: path })
+    return up.ok ? up.storagePath : null
+  } catch {
+    return null
+  }
+}
+
+/**
  * Formats autorisés pour les en-têtes de templates WhatsApp (limites Meta).
  * Meta n'accepte que JPG/PNG (image), MP4 (vidéo), PDF (document).
  */
