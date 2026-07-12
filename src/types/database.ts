@@ -126,6 +126,12 @@ export type AIAgent = {
   response_delay_min: number
   response_delay_max: number
   max_messages_per_conversation: number | null
+  /** À l'atteinte du plafond : 'continue' (soft cap) ou 'pause_ask' (pause l'IA
+   *  et envoie resume_template_id à boutons ; le bouton resume_button_label la
+   *  réactive). */
+  max_messages_action: 'continue' | 'pause_ask'
+  resume_template_id: string | null
+  resume_button_label: string | null
   inactivity_timeout_minutes: number | null
   is_active: boolean
   schedule_enabled: boolean

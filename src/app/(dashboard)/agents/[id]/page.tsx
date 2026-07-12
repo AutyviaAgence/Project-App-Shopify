@@ -76,6 +76,11 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
   const [delayMin, setDelayMin]     = useState(0)
   const [delayMax, setDelayMax]     = useState(0)
   const [maxMessages, setMaxMessages] = useState('')
+  // À l'atteinte du plafond : envoyer une notif à boutons + mettre l'IA en pause.
+  const [askOnMax, setAskOnMax] = useState(false)
+  const [resumeTemplateId, setResumeTemplateId] = useState<string | null>(null)
+  const [resumeButtonLabel, setResumeButtonLabel] = useState('')
+  const [btnTemplates, setBtnTemplates] = useState<{ id: string; name: string; language: string; buttons: { type: string; text: string }[] }[]>([])
   const [inactivityTimeout, setInactivityTimeout] = useState('')
   const [stopCondition, setStopCondition] = useState('')
   const [escalationEnabled, setEscalationEnabled] = useState(false)
@@ -118,6 +123,9 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
         setAutoDetectLanguage(a.auto_detect_language)
         setDelayMin(a.response_delay_min ?? 0); setDelayMax(a.response_delay_max ?? 0)
         setMaxMessages(a.max_messages_per_conversation?.toString() || '')
+        setAskOnMax((a as { max_messages_action?: string }).max_messages_action === 'pause_ask')
+        setResumeTemplateId((a as { resume_template_id?: string | null }).resume_template_id || null)
+        setResumeButtonLabel((a as { resume_button_label?: string | null }).resume_button_label || '')
         setInactivityTimeout(a.inactivity_timeout_minutes?.toString() || '')
         setStopCondition(a.stop_condition || '')
         setEscalationEnabled(a.escalation_enabled)
@@ -141,6 +149,16 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
         setImages((imgsJson.data || []).filter((i: KnowledgeImage) => i.agent_id === id || i.agent_id === null))
         const kbJson = await (await fetch(`/api/agents/${id}/knowledge`)).json()
         setDocs(kbJson.data || [])
+        // Modèles approuvés AVEC boutons quick-reply (pour la notif « continuer ? »).
+        try {
+          const tj = await (await fetch('/api/templates')).json()
+          const withBtn = (tj.data || [])
+            .filter((t: { status: string; buttons?: { type: string }[] }) =>
+              t.status === 'approved' && Array.isArray(t.buttons) && t.buttons.some((b) => b.type === 'QUICK_REPLY'))
+            .map((t: { id: string; name: string; language: string; buttons: { type: string; text: string }[] }) =>
+              ({ id: t.id, name: t.name, language: t.language, buttons: t.buttons.filter((b) => b.type === 'QUICK_REPLY') }))
+          setBtnTemplates(withBtn)
+        } catch { /* pas bloquant */ }
       } finally { setLoading(false) }
     }
     load()
@@ -157,6 +175,9 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
           model, temperature, auto_detect_language: autoDetectLanguage,
           response_delay_min: delayMin, response_delay_max: delayMax,
           max_messages_per_conversation: maxMessages ? parseInt(maxMessages) : null,
+          max_messages_action: askOnMax ? 'pause_ask' : 'continue',
+          resume_template_id: askOnMax ? resumeTemplateId : null,
+          resume_button_label: askOnMax ? (resumeButtonLabel.trim() || null) : null,
           inactivity_timeout_minutes: inactivityTimeout ? parseInt(inactivityTimeout) : null,
           stop_condition: stopCondition.trim() || null,
           escalation_enabled: escalationEnabled, escalation_mode: escalationMode,
@@ -633,6 +654,72 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
                   <span className="text-muted-foreground text-xs">messages</span>
                 </span>
               </RowField>
+
+              {/* À la limite : proposer au client de continuer (notif à boutons). */}
+              {(parseInt(maxMessages) || 0) > 0 && (
+                <>
+                  <Divider />
+                  <RowField label="Demander avant de couper" hint="À la limite, envoyer un message à boutons « Voulez-vous continuer avec l'assistant ? ». L'IA se met en pause ; le client la réactive en cliquant le bon bouton.">
+                    <Switch checked={askOnMax} onCheckedChange={setAskOnMax} />
+                  </RowField>
+                  {askOnMax && (
+                    <div className="space-y-3 py-3">
+                      <div>
+                        <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Message à boutons à envoyer</label>
+                        {btnTemplates.length === 0 ? (
+                          <p className="rounded-lg border border-dashed p-3 text-center text-xs text-muted-foreground">
+                            Aucun modèle approuvé avec des boutons. Créez-en un dans Modèles (avec des boutons « Oui / Non »).
+                          </p>
+                        ) : (
+                          <select
+                            value={resumeTemplateId || ''}
+                            onChange={(e) => {
+                              const id = e.target.value || null
+                              setResumeTemplateId(id)
+                              // Pré-remplit le libellé de reprise avec le 1er bouton du modèle.
+                              const t = btnTemplates.find((x) => x.id === id)
+                              if (t?.buttons[0]?.text) setResumeButtonLabel(t.buttons[0].text)
+                            }}
+                            className="w-full rounded-xl bg-muted/40 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-foreground/20"
+                          >
+                            <option value="">— Choisir un modèle —</option>
+                            {btnTemplates.map((t) => (
+                              <option key={t.id} value={t.id}>
+                                {t.name} [{t.language}] · {t.buttons.map((b) => b.text).join(' / ')}
+                              </option>
+                            ))}
+                          </select>
+                        )}
+                      </div>
+                      {resumeTemplateId && (
+                        <div>
+                          <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Bouton qui RÉACTIVE l'assistant</label>
+                          <div className="flex flex-wrap gap-1.5">
+                            {(btnTemplates.find((t) => t.id === resumeTemplateId)?.buttons || []).map((b) => (
+                              <button
+                                key={b.text}
+                                type="button"
+                                onClick={() => setResumeButtonLabel(b.text)}
+                                className={cn(
+                                  'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                                  resumeButtonLabel.trim().toLowerCase() === b.text.trim().toLowerCase()
+                                    ? 'border-primary/60 bg-primary/15 text-primary'
+                                    : 'border-border text-muted-foreground hover:text-foreground',
+                                )}
+                              >
+                                {b.text}
+                              </button>
+                            ))}
+                          </div>
+                          <p className="mt-1.5 text-[11px] text-muted-foreground">
+                            Ce bouton réactive l'IA. Les autres (ex. « Non ») la laissent en pause.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
               <Divider />
               <RowField label="Condition d'arrêt" hint="L'agent se met en pause si remplie" stacked>
                 <CleanTextarea value={stopCondition} onChange={setStopCondition} placeholder="Ex: si le client a confirmé son rendez-vous…" />

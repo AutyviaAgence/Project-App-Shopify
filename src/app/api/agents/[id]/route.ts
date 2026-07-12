@@ -61,7 +61,8 @@ export async function PATCH(
     response_delay_min, response_delay_max, max_messages_per_conversation, inactivity_timeout_minutes,
     schedule_enabled, schedule_timezone, schedule_start_time, schedule_end_time, schedule_days,
     auto_detect_language, escalation_enabled, escalation_mode, escalation_keywords, escalation_situations, escalation_message, booking_url,
-    stop_condition, mascot, mascot_bg
+    stop_condition, mascot, mascot_bg,
+    max_messages_action, resume_template_id, resume_button_label,
   } = body as {
     name?: string
     description?: string
@@ -91,6 +92,9 @@ export async function PATCH(
     stop_condition?: string | null
     mascot?: string | null
     mascot_bg?: string | null
+    max_messages_action?: string | null
+    resume_template_id?: string | null
+    resume_button_label?: string | null
   }
 
   const updateData: Record<string, unknown> = {}
@@ -121,6 +125,14 @@ export async function PATCH(
       ? Math.max(1, Math.min(10000, Math.floor(max_messages_per_conversation)))
       : null
   }
+  // À l'atteinte du plafond : 'continue' (soft cap) ou 'pause_ask' (pause + notif
+  // à boutons). resume_template_id = modèle envoyé, resume_button_label = bouton
+  // qui réactive l'IA.
+  if (max_messages_action !== undefined) {
+    updateData.max_messages_action = max_messages_action === 'pause_ask' ? 'pause_ask' : 'continue'
+  }
+  if (resume_template_id !== undefined) updateData.resume_template_id = resume_template_id || null
+  if (resume_button_label !== undefined) updateData.resume_button_label = resume_button_label?.trim() || null
   if (inactivity_timeout_minutes !== undefined) {
     updateData.inactivity_timeout_minutes = inactivity_timeout_minutes != null
       ? Math.max(1, Math.min(10080, Math.floor(inactivity_timeout_minutes)))

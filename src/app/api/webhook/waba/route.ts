@@ -651,6 +651,35 @@ export async function POST(req: NextRequest) {
             // libre tapé par le contact, lui, déclenche toujours l'IA normalement.
             const isButtonClick = !!clickedButtonTitle
 
+            // 3d. REPRISE IA sur clic : si l'IA a été mise en pause à l'atteinte du
+            // plafond de messages (agent en mode « pause_ask ») et que le contact
+            // clique le bouton de reprise (resume_button_label, ex. « Oui »), on
+            // RÉACTIVE l'IA. Tout autre bouton la laisse coupée (« Non » = stop).
+            if (isButtonClick) {
+              const { data: convAi } = await supabase
+                .from('conversations')
+                .select('is_ai_active, ai_agent_id')
+                .eq('id', conversation.id)
+                .single()
+              if (convAi && !convAi.is_ai_active && convAi.ai_agent_id) {
+                const { data: ag } = await supabase
+                  .from('ai_agents')
+                  .select('max_messages_action, resume_button_label')
+                  .eq('id', convAi.ai_agent_id)
+                  .maybeSingle()
+                const a = ag as { max_messages_action?: string; resume_button_label?: string | null } | null
+                if (a?.max_messages_action === 'pause_ask' && a.resume_button_label) {
+                  const clicked = (clickedButtonTitle || '').trim().toLowerCase()
+                  if (clicked === a.resume_button_label.trim().toLowerCase()) {
+                    await supabase.from('conversations')
+                      .update({ is_ai_active: true })
+                      .eq('id', conversation.id)
+                    console.log('[WABA Webhook] IA réactivée par le bouton de reprise')
+                  }
+                }
+              }
+            }
+
             // 4. Auto-réponse IA
             const { data: convFresh } = await supabase
               .from('conversations')

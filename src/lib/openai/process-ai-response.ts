@@ -284,7 +284,36 @@ Exemples :
         .eq('sent_by', 'ai_agent')
 
       if ((aiMsgCount ?? 0) >= aiCap) {
-        // Alerte unique : on ne re-notifie pas à chaque message au-delà du seuil.
+        const agentX = agent as typeof agent & {
+          max_messages_action?: string; resume_template_id?: string | null
+        }
+        // MODE « pause_ask » : à la limite, on MET L'IA EN PAUSE et on envoie au
+        // client un message à boutons (« Voulez-vous continuer avec l'assistant ?
+        // Oui/Non »). Le clic « Oui » réactive l'IA (géré par le webhook) ; « Non »
+        // la laisse coupée. Une seule fois (l'IA étant coupée, on n'y revient pas).
+        if (agentX.max_messages_action === 'pause_ask' && agentX.resume_template_id) {
+          // Coupe l'IA sur cette conversation.
+          await supabase.from('conversations')
+            .update({ is_ai_active: false })
+            .eq('id', params.conversationId)
+          // Envoie le modèle à boutons au client.
+          try {
+            const { sendTemplateToContact } = await import('@/lib/automations/dispatch')
+            const { data: conv } = await supabase
+              .from('conversations').select('contact_id').eq('id', params.conversationId).maybeSingle()
+            if (conv?.contact_id) {
+              await sendTemplateToContact({
+                templateId: agentX.resume_template_id, contactId: conv.contact_id,
+                variables: {}, manual: true,
+              })
+            }
+          } catch (e) {
+            console.error('[AI cap] envoi modèle de reprise échoué:', e)
+          }
+          return // l'IA ne répond PAS ce tour-ci : elle est en pause, on attend le clic.
+        }
+
+        // MODE « continue » (défaut, soft cap) : on notifie juste le marchand.
         const { data: session2 } = await supabase
           .from('whatsapp_sessions').select('user_id').eq('id', params.sessionId).single()
         if (session2?.user_id) {
