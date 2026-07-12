@@ -143,6 +143,28 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     }
   } catch { /* colonnes Phase 2 pas encore déployées → pas de section livraison */ }
 
+  // --- 1c. Revenu attribué (Phase 3) ---------------------------------------
+  // CA généré par cette automatisation : commandes attribuées (last-touch borné)
+  // dans la période. Tolérant si la table n'existe pas encore.
+  let revenue: { orders: number; amount: number; currency: string | null } | null = null
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: conv, error: cErr } = await (supabase as any)
+      .from('attributed_conversions')
+      .select('amount, currency')
+      .eq('automation_id', id)
+      .gte('attributed_at', since)
+      .limit(50000)
+    if (!cErr && Array.isArray(conv)) {
+      const amount = conv.reduce((s: number, r: { amount: number | string }) => s + Number(r.amount || 0), 0)
+      revenue = {
+        orders: conv.length,
+        amount: Math.round(amount * 100) / 100,
+        currency: (conv[0]?.currency as string) || null,
+      }
+    }
+  } catch { /* table Phase 3 pas encore déployée */ }
+
   // --- 2. Exécution (automation_jobs) --------------------------------------
   // Récap par statut sur la période. status ∈ pending/sent/skipped/failed/waiting.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -179,6 +201,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       days,
       funnel,
       delivery: deliveryFunnel,
+      revenue,
       abTest: { hasAbTest: variants.length > 1, variants, winner },
       buttonClicks: { total: totalClicks, branches: buttonClicks },
       jobs: { byStatus: jobStatus, topSkipReasons },

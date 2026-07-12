@@ -18,6 +18,7 @@ type Perf = {
   days: number
   funnel: { sent: number; opened: number; openRate: number; responded: number; responseRate: number; ordered: number; orderRate: number }
   delivery: { sent: number; delivered: number; deliveredRate: number; read: number; readRate: number; failed: number; failedRate: number } | null
+  revenue: { orders: number; amount: number; currency: string | null } | null
   abTest: { hasAbTest: boolean; variants: { key: string; sent: number; openRate: number; responseRate: number; orderRate: number }[]; winner: string | null }
   buttonClicks: { total: number; branches: { label: string; count: number; rate: number }[] }
   jobs: { byStatus: Record<string, number>; topSkipReasons: { reason: string; count: number }[] }
@@ -95,6 +96,24 @@ export function PerformancePanel({ automationId, name, onClose }: { automationId
             </div>
           ) : (
             <div className="space-y-6">
+              {/* CA GÉNÉRÉ (le chiffre roi) — mis en avant en tête. */}
+              {perf.revenue && perf.revenue.orders > 0 && (
+                <div className="rounded-xl border border-green-500/30 bg-gradient-to-br from-green-500/10 to-emerald-500/5 p-4">
+                  <div className="flex items-center gap-1.5 text-xs font-medium text-green-700 dark:text-green-400">
+                    <ShoppingBag className="h-4 w-4" /> CA généré (attribué)
+                  </div>
+                  <div className="mt-1 flex items-baseline gap-2">
+                    <span className="text-3xl font-bold tabular-nums text-green-700 dark:text-green-400">
+                      {perf.revenue.amount.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                    </span>
+                    <span className="text-lg font-semibold text-green-700/70 dark:text-green-400/70">{perf.revenue.currency || '€'}</span>
+                  </div>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {perf.revenue.orders} commande{perf.revenue.orders > 1 ? 's' : ''} attribuée{perf.revenue.orders > 1 ? 's' : ''} sur {perf.days} j
+                  </p>
+                </div>
+              )}
+
               {/* FUNNEL */}
               <section>
                 <h3 className="mb-2 text-sm font-semibold">Funnel</h3>

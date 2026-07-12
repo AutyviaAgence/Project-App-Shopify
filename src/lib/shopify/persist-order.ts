@@ -103,6 +103,21 @@ export async function persistShopifyOrder(
         },
         { onConflict: 'store_id,shopify_order_id' }
       )
+
+    // ATTRIBUTION CA (Phase 3) : rattache la commande au dernier message
+    // WhatsApp d'automatisation/campagne envoyé à ce contact dans la fenêtre
+    // d'attribution → « X € générés » + ROAS par campagne. Best-effort.
+    if (contactId) {
+      const { attributeOrder } = await import('@/lib/analytics/attribution')
+      await attributeOrder({
+        userId,
+        contactId,
+        shopifyOrderId,
+        amount: isNaN(total) ? 0 : total,
+        currency: order.currency || null,
+        orderedAt,
+      })
+    }
   } catch (err) {
     console.error('[persist-order] échec persistance commande:', err)
   }
