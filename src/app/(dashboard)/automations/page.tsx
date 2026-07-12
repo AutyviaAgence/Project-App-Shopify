@@ -1,17 +1,19 @@
 'use client'
 
 import React, { useEffect, useState, useCallback, Suspense } from 'react'
+import { AnimatePresence } from 'framer-motion'
 import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { track } from '@/lib/posthog/events'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Plus, Loader2, Trash2, Workflow, GitBranch, ChevronLeft, ChevronRight, Folder, FolderPlus, GripVertical, Sparkles, Megaphone } from 'lucide-react'
+import { Plus, Loader2, Trash2, Workflow, GitBranch, ChevronLeft, ChevronRight, Folder, FolderPlus, GripVertical, Sparkles, Megaphone, BarChart3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BlobLoaderScreen } from '@/components/blob-loader'
 import type { WhatsAppTemplate } from '@/types/database'
 import { WorkflowBuilder } from '@/components/automations/builder/workflow-builder'
 import { WorkflowWizard } from '@/components/automations/workflow-wizard'
+import { PerformancePanel } from '@/components/automations/performance-panel'
 import { defaultGraph, validateGraph, triggerNode, type WorkflowGraph } from '@/lib/automations/graph-types'
 
 type AutomationKind = 'transactional' | 'marketing'
@@ -56,6 +58,8 @@ function AutomationsPageInner() {
   const [current, setCurrent] = useState<Automation | null>(null)
   const [graph, setGraph] = useState<WorkflowGraph | null>(null)
   const [nameDraft, setNameDraft] = useState('')
+  // Panneau « Performance » ouvert (slide-over droit) pour l'automatisation courante.
+  const [showPerf, setShowPerf] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -357,6 +361,16 @@ function AutomationsPageInner() {
                 {current.is_active ? 'Activé' : 'Désactivé'}
               </button>
             )}
+            {current.id && (
+              <button
+                onClick={() => setShowPerf(true)}
+                title="Voir les performances"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-muted sm:flex-none"
+              >
+                <BarChart3 className="h-4 w-4" />
+                <span className="hidden sm:inline">Performance</span>
+              </button>
+            )}
             <Button className="flex-1 sm:flex-none" onClick={save} disabled={busyId === 'save'}>
               {busyId === 'save' ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
               Enregistrer
@@ -614,6 +628,13 @@ function AutomationsPageInner() {
           </div>
         )}
       </div>
+
+      {/* Panneau Performance (slide-over) */}
+      <AnimatePresence>
+        {showPerf && current?.id && (
+          <PerformancePanel automationId={current.id} name={current.name} onClose={() => setShowPerf(false)} />
+        )}
+      </AnimatePresence>
     </div>
   )
 }
