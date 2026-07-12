@@ -1,8 +1,28 @@
 'use client'
 
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { ExternalLink, Phone, Copy, Clock, Image as ImageIcon } from 'lucide-react'
 import type { WhatsAppTemplate, TemplateButton, TemplateCard } from '@/types/database'
+
+/** Image d'une carte de carrousel. Gère une URL http directe (Shopify) OU un
+ *  chemin storage Supabase (résolu en URL signée via /api/templates/media/preview). */
+function CardImage({ url }: { url: string | null | undefined }) {
+  const [src, setSrc] = useState<string | null>(url && /^https?:\/\//i.test(url) ? url : null)
+  useEffect(() => {
+    if (!url) { setSrc(null); return }
+    if (/^https?:\/\//i.test(url)) { setSrc(url); return }
+    // Chemin storage → URL signée.
+    let cancelled = false
+    fetch(`/api/templates/media/preview?path=${encodeURIComponent(url)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (!cancelled && j?.data?.signed_url) setSrc(j.data.signed_url) })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [url])
+  if (!src) return <div className="flex h-[62px] items-center justify-center bg-slate-100 text-slate-300"><ImageIcon className="h-5 w-5" /></div>
+  // eslint-disable-next-line @next/next/no-img-element
+  return <img src={src} alt="" className="h-[62px] w-full object-cover" />
+}
 
 /**
  * Rend le formatage WhatsApp (*gras*, _italique_, ~barré~) et remplace les
@@ -87,10 +107,7 @@ export function TemplateBubble({ template, labels, className }: {
         <div className="flex gap-2 overflow-x-auto border-t border-slate-100 p-2">
           {cards.map((c, i) => (
             <div key={i} className="w-[100px] shrink-0 overflow-hidden rounded-lg border">
-              {c.header_media_url && httpUrl.test(c.header_media_url)
-                // eslint-disable-next-line @next/next/no-img-element
-                ? <img src={c.header_media_url} alt="" className="h-[62px] w-full object-cover" />
-                : <div className="flex h-[62px] items-center justify-center bg-slate-100 text-slate-300"><ImageIcon className="h-5 w-5" /></div>}
+              <CardImage url={c.header_media_url} />
               <p className="truncate px-1.5 py-1 text-[11px] font-medium text-gray-700">{c.body_text || `Carte ${i + 1}`}</p>
             </div>
           ))}

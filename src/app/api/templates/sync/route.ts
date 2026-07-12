@@ -66,7 +66,11 @@ export async function POST() {
     // qu'on a en local, on rapatrie (Meta = vérité). C'est ce qui manquait :
     // un bouton ajouté chez Meta n'apparaissait jamais dans l'app.
     const buttonsChanged = JSON.stringify(meta.buttons ?? null) !== JSON.stringify(tpl.buttons ?? null)
-    const bodyChanged = (meta.body_text || '') !== (tpl.body_text || '')
+    // Normalise avant comparaison : Meta renvoie parfois le corps avec des espaces
+    // en fin de ligne ou un \r\n vs \n → sinon bodyChanged serait TOUJOURS vrai et
+    // la synchro re-mettrait à jour chaque template à chaque appel.
+    const norm = (s?: string | null) => (s || '').replace(/\r\n/g, '\n').replace(/[ \t]+$/gm, '').trim()
+    const bodyChanged = norm(meta.body_text) !== norm(tpl.body_text)
     const headerChanged = (meta.header_text || null) !== (tpl.header_text || null)
       || (meta.header_type || 'none') !== (tpl.header_type || 'none')
     const footerChanged = (meta.footer_text || null) !== (tpl.footer_text || null)
