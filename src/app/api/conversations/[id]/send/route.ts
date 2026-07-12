@@ -7,6 +7,11 @@ import { encryptMessage, decryptMessage } from '@/lib/crypto/encryption'
 import { uploadMedia } from '@/lib/storage/media'
 import { isWhatsAppAudio, remuxWebmToOgg } from '@/lib/media/audio-remux'
 
+// Envoi d'un carrousel = télécharger N images Shopify puis les uploader à Meta,
+// ce qui peut prendre plusieurs secondes. On laisse la fonction tourner jusqu'à
+// 60 s pour éviter le 502 (Bad Gateway) du proxy sur les carrousels.
+export const maxDuration = 60
+
 /**
  * Detect if a send error indicates the WhatsApp session is disconnected.
  * If so, update session status to 'disconnected' and create a user alert.

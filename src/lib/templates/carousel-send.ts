@@ -58,11 +58,18 @@ export async function buildCarouselComponent(
 ): Promise<{ type: 'carousel'; cards: unknown[] } | null> {
   if (!Array.isArray(cards) || cards.length === 0) return null
 
-  const outCards: { card_index: number; components: unknown[] }[] = []
-
-  for (let idx = 0; idx < cards.length; idx++) {
-    const card = cards[idx]
+  // Les cartes sont traitées EN PARALLÈLE (chacune télécharge son image Shopify
+  // puis l'uploade à Meta) : pour 3-4 cartes, ça divise d'autant le temps total
+  // et évite le timeout/502 des envois séquentiels.
+  const outCards = await Promise.all(cards.map(async (card, idx) => {
     const components: unknown[] = []
+
+    // Règle Meta : CHAQUE carte de carrousel DOIT avoir un média d'en-tête.
+    // Sans image, Meta rejette tout le carrousel avec une erreur obscure → on
+    // lève un message clair (ce modèle a été créé sans image dans ses cartes).
+    if (!card.header_media_url) {
+      throw new Error(`carte ${idx + 1} sans image : un carrousel exige une image par carte (règle Meta). Ajoutez une image à chaque carte du modèle.`)
+    }
 
     // 1) HEADER média — requis pour chaque carte qui en a un.
     if (card.header_media_url) {
@@ -95,8 +102,8 @@ export async function buildCarouselComponent(
       })
     }
 
-    outCards.push({ card_index: idx, components })
-  }
+    return { card_index: idx, components }
+  }))
 
   return { type: 'carousel', cards: outCards }
 }

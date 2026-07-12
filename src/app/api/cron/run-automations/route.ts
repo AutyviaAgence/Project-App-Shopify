@@ -4,6 +4,10 @@ import { evaluateConditions, nextAllowedSend } from '@/lib/automations/engine'
 import { sendTemplateToContact } from '@/lib/automations/dispatch'
 import { tierHeadroom } from '@/lib/whatsapp/sending-limits'
 
+// Le cron peut envoyer des carrousels (download images Shopify + upload Meta) :
+// on laisse jusqu'à 60 s pour éviter une coupure en plein lot.
+export const maxDuration = 60
+
 /**
  * Marge de palier d'envoi mise en cache le temps d'UN tick de cron (TTL court) :
  * on ne recompte pas les contacts uniques 24h à chaque job du même utilisateur.
