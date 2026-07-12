@@ -84,9 +84,14 @@ function parseCards(cards: { components?: MetaComponent[] }[] | undefined): Temp
       if (type === 'URL') cardButtons.push({ type: 'URL', text: b.text || '', url: b.url || '' })
       else if (type === 'QUICK_REPLY') cardButtons.push({ type: 'QUICK_REPLY', text: b.text || '' })
     }
+    // Meta RENVOIE l'image d'exemple approuvée via header.example.header_handle
+    // (une URL scontent.whatsapp.net). On la récupère → l'image d'un carrousel
+    // approuvé n'est plus perdue à la synchro (elle est re-téléchargée à l'envoi,
+    // downloadMediaFromStorage gère les URLs http externes).
+    const handle = header?.example?.header_handle?.[0] || null
     out.push({
       header_type: (header?.format?.toLowerCase() === 'video' ? 'video' : 'image'),
-      header_media_url: null, // Meta ne renvoie pas l'URL du média d'exemple → à re-uploader si édité
+      header_media_url: handle,
       body_text: body?.text || '',
       buttons: cardButtons,
       body_variable_keys: [],
@@ -136,7 +141,11 @@ function buildRow(t: MetaTemplate): Record<string, unknown> {
     body_text: bodyText,
     header_type,
     header_text,
-    header_media_url: null, // média non re-téléchargé depuis Meta (re-upload si édité)
+    // Header média (image/vidéo/doc) : on récupère le handle d'exemple approuvé
+    // par Meta (header.example.header_handle) au lieu de le perdre.
+    header_media_url: (!carousel && header && ['IMAGE', 'VIDEO', 'DOCUMENT'].includes((header.format || '').toUpperCase()))
+      ? (header.example?.header_handle?.[0] || null)
+      : null,
     footer_text: carousel ? null : (footer?.text || null),
     buttons: carousel ? null : parseButtons(buttons?.buttons),
     template_type,
