@@ -143,11 +143,34 @@ export async function sendTemplateToContact(params: {
     if (def?.variable_keys?.length) keys = def.variable_keys
   }
   const varsCount = typeof tpl.variables_count === 'number' ? tpl.variables_count : keys.length
-  const resolved = resolveVariables(keys, params.variables)
+  // Dernier recours : le template a des variables ({{1}}, {{2}}…) mais AUCUNE clé
+  // de mapping (créé/importé sans variable_keys). Sans ça, chaque variable
+  // tomberait sur le fallback « — » (ce qu'on voyait : « Bonjour —, chez — »).
+  // On déduit des clés par défaut sensées, par position : la 1re = prénom client,
+  // la 2e = nom de la boutique (le cas de très loin le plus fréquent), le reste
+  // laissé vide (fallback). Les valeurs viennent du contexte (params.variables)
+  // ou de fallbacks lisibles.
+  if (keys.length < varsCount) {
+    const GUESSED = ['customer_first_name', 'store_name']
+    const filled = [...keys]
+    for (let i = filled.length; i < varsCount; i++) filled.push(GUESSED[i] ?? '')
+    keys = filled
+  }
+  // Injecte le nom réel de la boutique si un template l'attend (store_name) et
+  // qu'il n'est pas déjà fourni par le trigger — sinon on afficherait « notre
+  // boutique » alors qu'on connaît le vrai nom (Shopify).
+  const vars: Record<string, string> = { ...params.variables }
+  if (keys.some((k) => /store_name|shop_name/.test(k)) && !vars.store_name) {
+    const { data: store } = await supabase
+      .from('shopify_stores').select('shop_name').eq('user_id', tpl.user_id).limit(1).maybeSingle()
+    if (store?.shop_name) vars.store_name = store.shop_name
+  }
+  const resolved = resolveVariables(keys, vars)
   // Valeur de secours par variable VIDE : Meta refuse les paramètres vides
   // (#131008). Ex : prénom inconnu (client opt-in popup sans nom) → « bonjour ».
   const fallbackFor = (key: string | undefined): string => {
     if (!key) return '—'
+    if (/store_name|shop_name|boutique/.test(key)) return 'notre boutique'
     if (/first_name|full_name|last_name|name/.test(key)) return 'cher client'
     if (/url|link/.test(key)) return ''  // une URL vide casserait un bouton → géré ailleurs
     return '—'

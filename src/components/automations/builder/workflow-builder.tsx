@@ -77,7 +77,7 @@ function PannableTimeline({ children }: { children: React.ReactNode }) {
       // Ctrl/⌘ + molette (ou pinch trackpad) = ZOOM. Sinon = déplacement (pan) :
       // molette verticale → haut/bas, Shift ou molette latérale → gauche/droite.
       if (e.ctrlKey || e.metaKey) {
-        setZoom((z) => Math.min(2, Math.max(0.5, z - e.deltaY * 0.0015)))
+        setZoom((z) => Math.min(2, Math.max(0.15, z - e.deltaY * 0.0015)))
       } else {
         setOffset((o) => ({
           x: o.x - (e.shiftKey ? e.deltaY : e.deltaX),
@@ -128,7 +128,7 @@ function PannableTimeline({ children }: { children: React.ReactNode }) {
         className="absolute bottom-3 right-3 z-10 flex items-center gap-1 rounded-full border bg-card px-1 py-1 shadow-sm"
         title="Zoom : Ctrl + molette (ou pincer). Déplacer : cliquer-glisser le fond."
       >
-        <button onClick={() => setZoom((z) => Math.max(0.5, z - 0.15))} className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted" title="Dézoomer">
+        <button onClick={() => setZoom((z) => Math.max(0.15, z - 0.15))} className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted" title="Dézoomer">
           <Minus className="h-4 w-4" />
         </button>
         <span className="w-10 text-center text-xs tabular-nums text-muted-foreground">{Math.round(zoom * 100)}%</span>
