@@ -246,6 +246,29 @@ function ConversationsPageContent() {
     }
   }, [])
 
+  // Refetch SILENCIEUX du fil (filet de sécurité realtime) : pas de spinner, et
+  // on ne met à jour le state QUE si un nouveau message est réellement apparu →
+  // aucun clignotement ni saut de scroll quand rien n'a changé.
+  const refreshMessagesSilently = useCallback(async (convId: string) => {
+    try {
+      const res = await fetch(`/api/conversations/${convId}/messages`)
+      const json = await res.json()
+      if (!res.ok || !json.data) return
+      setMessages((prev) => {
+        const next = json.data as Message[]
+        // Même nombre de messages ET même dernier id → rien de neuf, on garde la
+        // référence existante (pas de re-render).
+        if (prev.length === next.length && prev[prev.length - 1]?.id === next[next.length - 1]?.id) {
+          return prev
+        }
+        return next
+      })
+    } catch { /* filet de sécurité : on ignore les erreurs réseau ponctuelles */ }
+  }, [])
+
+  const refreshMessagesSilentlyRef = useRef(refreshMessagesSilently)
+  useEffect(() => { refreshMessagesSilentlyRef.current = refreshMessagesSilently }, [refreshMessagesSilently])
+
   const loadOlderMessages = useCallback(async () => {
     if (!selectedConv || loadingOlder || !hasMoreMessages || messages.length === 0) return
     setLoadingOlder(true)
@@ -551,6 +574,11 @@ function ConversationsPageContent() {
         if (selectedConv?.id === convId) {
           setSelectedConv((prev) => prev ? { ...prev, lifecycle_stage_id: result.stageId } : prev)
         }
+        // L'IA peut poser JUSQU'À 3 étapes (multi) : re-synchroniser les badges
+        // multi-tags de la carte, sinon ils n'apparaissent qu'après un reload.
+        // (result.stageId ne porte que la 1re étape ; la source de vérité des
+        // badges est conversationStages, alimenté par le batch lifecycle.)
+        await fetchAllConversationStages([convId])
         toast.success(`${result.stageName || t('conversations.unclassified')}, ${result.reason}`)
       } else {
         toast.error(json.error || t('conversations.analysis_error'))
@@ -560,7 +588,7 @@ function ConversationsPageContent() {
     } finally {
       setAnalyzingConvId(null)
     }
-  }, [analyzingConvId, selectedConv?.id, t])
+  }, [analyzingConvId, selectedConv?.id, fetchAllConversationStages, t])
 
   // Ajoute/retire une ÉTAPE sur une conversation (multi, plafonné à 3).
   // Optimiste + rollback ; persiste la liste complète via PUT lifecycle.
@@ -757,6 +785,26 @@ function ConversationsPageContent() {
       supabase.removeChannel(channel)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // FILET DE SÉCURITÉ temps réel : le canal Supabase Realtime peut manquer un
+  // INSERT (reconnexion silencieuse, message inséré côté serveur/service-role par
+  // une automatisation…). Tant qu'une conversation est OUVERTE, on refetch son fil
+  // périodiquement + au retour de focus sur l'onglet, pour que tout message
+  // finisse par apparaître sans reset manuel de la page.
+  useEffect(() => {
+    const convId = selectedConv?.id
+    if (!convId) return
+    const refresh = () => { refreshMessagesSilentlyRef.current(convId) }
+    const interval = setInterval(refresh, 12_000)
+    const onFocus = () => { if (document.visibilityState === 'visible') refresh() }
+    document.addEventListener('visibilitychange', onFocus)
+    window.addEventListener('focus', onFocus)
+    return () => {
+      clearInterval(interval)
+      document.removeEventListener('visibilitychange', onFocus)
+      window.removeEventListener('focus', onFocus)
+    }
+  }, [selectedConv?.id])
 
   // Debounce search
   useEffect(() => {
