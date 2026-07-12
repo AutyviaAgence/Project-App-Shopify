@@ -165,6 +165,23 @@ export async function getSignedMediaUrl(
 export async function downloadMediaFromStorage(
   storagePath: string
 ): Promise<{ ok: true; buffer: Buffer; mimeType: string } | { ok: false; error: string }> {
+  // URL EXTERNE (Shopify CDN, etc.) : télécharger directement en HTTP, PAS via le
+  // storage Supabase (sinon le SDK préfixe le domaine → « .../media/https://... »
+  // invalide, d'où l'erreur « header introuvable » sur les carrousels d'images
+  // produit Shopify).
+  if (/^https?:\/\//i.test(storagePath)) {
+    try {
+      const res = await fetch(storagePath)
+      if (!res.ok) return { ok: false, error: `HTTP ${res.status} sur ${storagePath}` }
+      const buffer = Buffer.from(await res.arrayBuffer())
+      const mimeType = res.headers.get('content-type') || 'application/octet-stream'
+      return { ok: true, buffer, mimeType }
+    } catch (e) {
+      return { ok: false, error: e instanceof Error ? e.message : 'download HTTP échoué' }
+    }
+  }
+
+  // Chemin RELATIF : fichier du bucket storage Supabase.
   const supabase = getAdminClient()
   const { data, error } = await supabase.storage
     .from(BUCKET)
