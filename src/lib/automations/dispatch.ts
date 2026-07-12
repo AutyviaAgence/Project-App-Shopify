@@ -283,6 +283,16 @@ export async function sendTemplateToContact(params: {
       })
       const aperçu = preview.length > 50 ? preview.slice(0, 50) + '…' : preview
       preview = `🏷️ ${aperçu}`
+    } else {
+      // Message STANDARD à boutons quick-reply : on stocke les libellés pour que
+      // l'inbox les affiche sous la bulle (sinon on ne voyait que le texte).
+      const qr = Array.isArray(tpl.buttons)
+        ? (tpl.buttons as { type?: string; text?: string }[]).filter((b) => b.type === 'QUICK_REPLY').map((b) => b.text || '')
+        : []
+      if (qr.length > 0) {
+        messageType = 'interactive'
+        transcription = JSON.stringify({ kind: 'buttons', body: bodyText, buttons: qr })
+      }
     }
 
     const { data: conv } = await supabase

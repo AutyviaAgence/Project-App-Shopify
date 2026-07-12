@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Loader2, FileText, Download, Eye, EyeOff, Image as ImageIcon, Mic, Play, Paperclip, Copy, ExternalLink, Clock } from 'lucide-react'
+import { Loader2, FileText, Download, Eye, EyeOff, Image as ImageIcon, Mic, Play, Paperclip, Copy, ExternalLink, Clock, Reply } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Message } from '@/types/database'
 
@@ -344,12 +344,38 @@ function CarouselMessage({ msg, isOutbound }: { msg: ExtendedMessage; isOutbound
 function InteractiveMessage({ msg, isOutbound }: { msg: ExtendedMessage; isOutbound: boolean }) {
   let parsed: {
     kind?: string; body?: string; lto_title?: string; lto_hours?: number
-    buttons?: { type: string; text: string; url?: string; code?: string }[]
+    buttons?: ({ type: string; text: string; url?: string; code?: string } | string)[]
   } = {}
   try { parsed = JSON.parse(msg.transcription || '{}') } catch { /* ignore */ }
 
   const body = parsed.body || msg.content || ''
   const buttons = Array.isArray(parsed.buttons) ? parsed.buttons : []
+
+  // Message à boutons QUICK_REPLY (Oui/Non…) : boutons stockés comme libellés.
+  // On les rend façon WhatsApp : chaque bouton sur sa ligne, séparé par un trait.
+  if (parsed.kind === 'buttons') {
+    const labels = buttons.map((b) => typeof b === 'string' ? b : b.text).filter(Boolean)
+    return (
+      <div className="space-y-1.5">
+        {body && <p className="whitespace-pre-wrap break-words text-sm">{body}</p>}
+        {labels.length > 0 && (
+          <div className="-mx-2.5 mt-1 border-t" style={{ borderColor: isOutbound ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.08)' }}>
+            {labels.map((text, i) => (
+              <div
+                key={i}
+                className={`flex items-center justify-center gap-1.5 py-1.5 text-[13px] font-medium ${
+                  isOutbound ? 'text-white/90' : 'text-blue-600'
+                } ${i > 0 ? 'border-t' : ''}`}
+                style={i > 0 ? { borderColor: isOutbound ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.08)' } : undefined}
+              >
+                <Reply className="h-3.5 w-3.5 opacity-70" /> {text}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   // Offre à durée limitée
   if (parsed.kind === 'lto') {
@@ -367,15 +393,18 @@ function InteractiveMessage({ msg, isOutbound }: { msg: ExtendedMessage; isOutbo
         )}
         {buttons.length > 0 && (
           <div className="flex flex-col gap-1 border-t pt-1.5" style={{ borderColor: isOutbound ? 'rgba(255,255,255,0.2)' : undefined }}>
-            {buttons.map((b, i) => (
-              <div key={i} className={`flex items-center justify-center gap-1.5 py-1 text-[13px] font-medium ${
-                isOutbound ? 'text-white' : 'text-blue-600'
-              }`}>
-                {b.type === 'COPY_CODE' ? <Copy className="h-3.5 w-3.5" /> : <ExternalLink className="h-3.5 w-3.5" />}
-                {b.text || (b.type === 'COPY_CODE' ? 'Copier le code' : 'Visiter le site')}
-                {b.type === 'COPY_CODE' && b.code && <span className="opacity-70">({b.code})</span>}
-              </div>
-            ))}
+            {buttons.map((raw, i) => {
+              const b = typeof raw === 'string' ? { type: 'QUICK_REPLY', text: raw, code: '' } : raw
+              return (
+                <div key={i} className={`flex items-center justify-center gap-1.5 py-1 text-[13px] font-medium ${
+                  isOutbound ? 'text-white' : 'text-blue-600'
+                }`}>
+                  {b.type === 'COPY_CODE' ? <Copy className="h-3.5 w-3.5" /> : <ExternalLink className="h-3.5 w-3.5" />}
+                  {b.text || (b.type === 'COPY_CODE' ? 'Copier le code' : 'Visiter le site')}
+                  {b.type === 'COPY_CODE' && b.code && <span className="opacity-70">({b.code})</span>}
+                </div>
+              )
+            })}
           </div>
         )}
       </div>
@@ -390,7 +419,7 @@ function InteractiveMessage({ msg, isOutbound }: { msg: ExtendedMessage; isOutbo
         <div className="flex flex-col gap-1 border-t pt-1.5" style={{ borderColor: isOutbound ? 'rgba(255,255,255,0.2)' : undefined }}>
           {buttons.map((b, i) => (
             <div key={i} className={`text-center text-[13px] font-medium ${isOutbound ? 'text-white' : 'text-blue-600'}`}>
-              {b.text}
+              {typeof b === 'string' ? b : b.text}
             </div>
           ))}
         </div>
