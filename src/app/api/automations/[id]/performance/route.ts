@@ -109,6 +109,40 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     .map(([label, count]) => ({ label, count, rate: rate(count, totalClicks) }))
     .sort((a, b) => b.count - a.count)
 
+  // --- 1b. Livraison réelle (messages rattachés à l'automatisation) ---------
+  // Phase 2 : les messages sortants portent désormais wa_message_id + automation_id,
+  // et le webhook horodate sent/delivered/read via les accusés Meta. On en tire le
+  // vrai funnel de livraison. Tolérant si les colonnes n'existent pas encore.
+  let delivery: { sent: number; delivered: number; read: number; failed: number } | null = null
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: msgs, error: mErr } = await (supabase as any)
+      .from('messages')
+      .select('status, delivered_at, read_at')
+      .eq('automation_id', id)
+      .eq('direction', 'outbound')
+      .gte('created_at', since)
+      .limit(50000)
+    if (!mErr && Array.isArray(msgs)) {
+      const d = { sent: msgs.length, delivered: 0, read: 0, failed: 0 }
+      for (const m of msgs as { status: string; delivered_at: string | null; read_at: string | null }[]) {
+        if (m.delivered_at || m.status === 'delivered' || m.status === 'read') d.delivered++
+        if (m.read_at || m.status === 'read') d.read++
+        if (m.status === 'failed') d.failed++
+      }
+      // On n'expose la livraison que s'il y a des messages tracés (sinon la
+      // colonne automation_id n'est pas encore alimentée → on masque la section).
+      if (msgs.length > 0) {
+        delivery = {
+          sent: d.sent,
+          delivered: d.delivered,
+          read: d.read,
+          failed: d.failed,
+        }
+      }
+    }
+  } catch { /* colonnes Phase 2 pas encore déployées → pas de section livraison */ }
+
   // --- 2. Exécution (automation_jobs) --------------------------------------
   // Récap par statut sur la période. status ∈ pending/sent/skipped/failed/waiting.
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -131,11 +165,20 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     .sort((a, b) => b.count - a.count)
     .slice(0, 5)
 
+  // Funnel de livraison exact (Phase 2), avec taux. null tant que non alimenté.
+  const deliveryFunnel = delivery ? {
+    sent: delivery.sent,
+    delivered: delivery.delivered, deliveredRate: rate(delivery.delivered, delivery.sent),
+    read: delivery.read, readRate: rate(delivery.read, delivery.sent),
+    failed: delivery.failed, failedRate: rate(delivery.failed, delivery.sent),
+  } : null
+
   return NextResponse.json({
     data: {
       name: auto.name,
       days,
       funnel,
+      delivery: deliveryFunnel,
       abTest: { hasAbTest: variants.length > 1, variants, winner },
       buttonClicks: { total: totalClicks, branches: buttonClicks },
       jobs: { byStatus: jobStatus, topSkipReasons },

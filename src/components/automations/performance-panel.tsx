@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Loader2, Send, Eye, MessageCircle, ShoppingBag, Trophy, Info, MousePointerClick } from 'lucide-react'
+import { X, Loader2, Send, Eye, MessageCircle, ShoppingBag, Trophy, Info, MousePointerClick, CheckCheck, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /**
@@ -17,6 +17,7 @@ type Perf = {
   name: string
   days: number
   funnel: { sent: number; opened: number; openRate: number; responded: number; responseRate: number; ordered: number; orderRate: number }
+  delivery: { sent: number; delivered: number; deliveredRate: number; read: number; readRate: number; failed: number; failedRate: number } | null
   abTest: { hasAbTest: boolean; variants: { key: string; sent: number; openRate: number; responseRate: number; orderRate: number }[]; winner: string | null }
   buttonClicks: { total: number; branches: { label: string; count: number; rate: number }[] }
   jobs: { byStatus: Record<string, number>; topSkipReasons: { reason: string; count: number }[] }
@@ -105,9 +106,25 @@ export function PerformancePanel({ automationId, name, onClose }: { automationId
                 </div>
                 <p className="mt-1.5 flex items-start gap-1 text-[11px] text-muted-foreground">
                   <Info className="mt-0.5 h-3 w-3 shrink-0" />
-                  Ouvertures, réponses et ventes sont attribuées par contact (approximation). Précision exacte à venir.
+                  Ouvertures, réponses et ventes sont attribuées par contact (approximation).
+                  {perf.delivery ? ' La livraison ci-dessous est exacte (accusés Meta).' : ' Précision exacte à venir.'}
                 </p>
               </section>
+
+              {/* LIVRAISON EXACTE (Phase 2 — accusés Meta rattachés au message) */}
+              {perf.delivery && (
+                <section>
+                  <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold">
+                    <CheckCheck className="h-4 w-4 text-sky-500" /> Livraison
+                  </h3>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Metric icon={<Send className="h-4 w-4" />} label="Envoyés" value={perf.delivery.sent} tone="slate" />
+                    <Metric icon={<CheckCheck className="h-4 w-4" />} label="Livrés" value={perf.delivery.delivered} sub={`${perf.delivery.deliveredRate}%`} tone="sky" />
+                    <Metric icon={<Eye className="h-4 w-4" />} label="Lus" value={perf.delivery.read} sub={`${perf.delivery.readRate}%`} tone="violet" />
+                    <Metric icon={<AlertTriangle className="h-4 w-4" />} label="Échecs" value={perf.delivery.failed} sub={`${perf.delivery.failedRate}%`} tone="rose" />
+                  </div>
+                </section>
+              )}
 
               {/* CLICS PAR BOUTON */}
               {perf.buttonClicks.total > 0 && (

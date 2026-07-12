@@ -308,7 +308,7 @@ async function processJob(
     }
 
     // send OU send_wait_click : dans les deux cas on envoie le message.
-    const r = await sendTemplateToContact({ templateId: step.templateId, contactId: job.contact_id, variables: eventData.variables || {} })
+    const r = await sendTemplateToContact({ templateId: step.templateId, contactId: job.contact_id, variables: eventData.variables || {}, automationId: auto.id })
     if (!r.ok) {
       const d = deferReason(r.error)
       if (d) { await deferJob(supabase, job.id, now, d); return 'deferred' }
@@ -349,6 +349,7 @@ async function processJob(
     templateId: auto.template_id,
     contactId: job.contact_id,
     variables: eventData.variables || {},
+    automationId: auto.id,
   })
   if (r.ok) {
     await recordEngagement(supabase, auto.user_id, auto.id, '_send', job.contact_id, '_')

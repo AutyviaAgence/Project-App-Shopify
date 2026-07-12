@@ -117,6 +117,7 @@ export async function POST(req: NextRequest) {
             status: string
             timestamp: string
             recipient_id: string
+            errors?: Array<{ code?: number; title?: string; message?: string }>
           }>
           // Champs de surveillance qualité (structure différente de `messages`).
           display_phone_number?: string
@@ -180,6 +181,7 @@ export async function POST(req: NextRequest) {
             const waStatus = status.status === 'delivered' ? 'delivered'
               : status.status === 'read' ? 'read'
               : status.status === 'sent' ? 'sent'
+              : status.status === 'failed' ? 'failed'
               : null
 
             if (!waStatus) continue
@@ -248,9 +250,20 @@ export async function POST(req: NextRequest) {
                 }
               }
             } else {
+              // sent / delivered / failed → on met à jour le message sortant et on
+              // horodate l'étape correspondante (funnel de livraison réel).
+              const patch: Record<string, unknown> = { status: waStatus }
+              if (waStatus === 'sent') patch.sent_at = statusTs
+              if (waStatus === 'delivered') patch.delivered_at = statusTs
+              if (waStatus === 'failed') {
+                const err = status.errors?.[0]
+                patch.error_message = err
+                  ? `${err.code ?? ''} ${err.title || err.message || ''}`.trim()
+                  : 'échec de livraison'
+              }
               await supabase
                 .from('messages')
-                .update({ status: waStatus })
+                .update(patch)
                 .eq('wa_message_id', status.id)
             }
           }

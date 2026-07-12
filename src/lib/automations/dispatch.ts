@@ -78,6 +78,9 @@ export async function sendTemplateToContact(params: {
    * (variantes linguistiques, carrousel, LTO, COPY_CODE, trace inbox) est conservé.
    */
   manual?: boolean
+  /** Automatisation à l'origine de l'envoi → tracé sur le message pour agréger
+   *  le funnel de livraison par automatisation (perf). Absent en envoi manuel. */
+  automationId?: string | null
 }): Promise<{ ok: boolean; error?: string }> {
   const supabase = admin()
 
@@ -223,6 +226,11 @@ export async function sendTemplateToContact(params: {
   const res = await wabaClient.sendTemplateWithParams(
     session.waba_phone_number_id, token, contact.phone_number, tpl.name, tpl.language, components
   )
+  // id du message Meta (wamid) : indispensable pour rattacher ensuite les accusés
+  // de réception (livré/lu/échec) au bon message → funnel de livraison réel.
+  const waMessageId = res.ok
+    ? ((res.data as { messages?: { id?: string }[] } | undefined)?.messages?.[0]?.id || null)
+    : null
   if (!res.ok) {
     const raw = String(res.error || '')
     const code = raw.match(/"code"\s*:\s*(\d+)/)?.[1]
@@ -308,6 +316,10 @@ export async function sendTemplateToContact(params: {
         conversation_id: conv.id, session_id: contact.session_id, direction: 'outbound',
         content: encryptMessage(bodyText),
         message_type: messageType, transcription, sent_by: 'user', status: 'sent',
+        // wamid Meta → permet de rattacher les accusés livré/lu/échec à ce message.
+        wa_message_id: waMessageId,
+        // Rattachement perf (funnel de livraison par automatisation).
+        automation_id: params.automationId ?? null,
       })
     }
   } catch (e) {

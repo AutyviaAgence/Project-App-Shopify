@@ -1,6 +1,6 @@
 import { getAdminSupabase } from '@/lib/supabase/admin-singleton'
 import { withSessionDelay } from '@/lib/messaging/session-queue'
-import { decryptMessage } from '@/lib/crypto/encryption'
+import { decryptMessage, encryptMessage } from '@/lib/crypto/encryption'
 import { canUseAi } from '@/lib/plans/gate'
 import { isRateLimitError } from '@/lib/whatsapp-cloud/send-errors'
 
@@ -325,6 +325,22 @@ async function executeCampaign(supabase: any, campaign: Campaign): Promise<void>
           .from('conversations')
           .update(updateData)
           .eq('id', recipient.conversation_id)
+
+        // Tracer le message sortant AVEC son wamid + campaign_id : permet de
+        // rattacher les accusés livré/lu de Meta et d'agréger le funnel de
+        // livraison par campagne (Phase 2 perf). Sans wamid, aucun receipt
+        // n'était corrélable → delivered/read structurellement à 0.
+        await supabase.from('messages').insert({
+          conversation_id: recipient.conversation_id,
+          session_id: session.id,
+          direction: 'outbound',
+          content: encryptMessage(message || `[Modèle : ${template?.name || ''}]`),
+          message_type: 'text',
+          sent_by: 'user',
+          status: 'sent',
+          wa_message_id: result.waMessageId ?? null,
+          campaign_id: campaignId,
+        })
       }
     } else if (isRateLimitError(result.error || '')) {
       // Limite d'envoi Meta atteinte : ce N'EST PAS un échec du destinataire. On
@@ -395,7 +411,7 @@ async function sendWhatsAppMessage(
   session: { waba_phone_number_id?: string | null; waba_access_token?: string | null },
   phoneNumber: string,
   message: string
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; waMessageId?: string | null }> {
   try {
     // WABA : utiliser l'API Meta Graph directement
     const token = session.waba_access_token ? decryptMessage(session.waba_access_token) : null
@@ -419,7 +435,10 @@ async function sendWhatsAppMessage(
       const error = await response.text()
       return { success: false, error }
     }
-    return { success: true }
+    // wamid : indispensable pour rattacher ensuite les accusés livré/lu.
+    const data = await response.json().catch(() => null)
+    const waMessageId = data?.messages?.[0]?.id ?? null
+    return { success: true, waMessageId }
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : 'Erreur inconnue' }
   }
@@ -432,7 +451,7 @@ async function sendCampaignTemplate(
   templateName: string,
   languageCode: string,
   params: string[]
-): Promise<{ success: boolean; error?: string }> {
+): Promise<{ success: boolean; error?: string; waMessageId?: string | null }> {
   try {
     const token = session.waba_access_token ? decryptMessage(session.waba_access_token) : null
     if (!session.waba_phone_number_id || !token) {
@@ -459,7 +478,9 @@ async function sendCampaignTemplate(
       const error = await response.text()
       return { success: false, error }
     }
-    return { success: true }
+    const data = await response.json().catch(() => null)
+    const waMessageId = data?.messages?.[0]?.id ?? null
+    return { success: true, waMessageId }
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : 'Erreur inconnue' }
   }
