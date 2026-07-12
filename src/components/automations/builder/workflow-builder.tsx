@@ -279,6 +279,8 @@ export function WorkflowBuilder({
             mediaType={previewTpl.header_type}
             scale={0.82}
             mascot
+            graph={graph}
+            templates={templates}
           />
         ) : (
           // Aperçu iPhone vide : le cadre du téléphone reste visible, avec un
