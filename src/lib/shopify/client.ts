@@ -160,26 +160,102 @@ export async function shopifyGraphQL<T = unknown>(
  * (ex: refunds/create, qui ne contient que order_id + lignes remboursées).
  * Le format REST (snake_case) est compatible avec le type ShopifyOrder.
  */
+/**
+ * Champs de commande demandés en GraphQL. Doit couvrir tout ce que consomment
+ * `persistShopifyOrder` et `buildOrderContext` (type ShopifyOrder, snake_case).
+ */
+const ORDER_GQL_FIELDS = `
+  id
+  name
+  createdAt
+  cancelledAt
+  currencyCode
+  customerLocale
+  displayFinancialStatus
+  displayFulfillmentStatus
+  statusPageUrl
+  phone
+  email
+  totalPriceSet { shopMoney { amount currencyCode } }
+  customAttributes { key value }
+  customer {
+    id firstName lastName email phone locale numberOfOrders
+    defaultAddress { phone countryCodeV2 }
+  }
+  shippingAddress { phone countryCodeV2 }
+  billingAddress { phone countryCodeV2 }
+  lineItems(first: 100) { nodes { title quantity product { id } } }
+  fulfillments(first: 10) { trackingInfo { number url } }
+`
+
+/** Convertit une commande GraphQL vers le format REST (snake_case) attendu en aval. */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function gqlOrderToRest(o: any): Record<string, unknown> {
+  const numericId = String(o?.id || '').split('/').pop() || ''
+  const total = o?.totalPriceSet?.shopMoney?.amount ?? null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const addr = (a: any) => (a ? { phone: a.phone ?? null, country_code: a.countryCodeV2 ?? null } : null)
+  return {
+    id: numericId ? Number(numericId) : undefined,
+    name: o?.name ?? null,
+    order_number: o?.name ? Number(String(o.name).replace(/\D/g, '')) : undefined,
+    created_at: o?.createdAt ?? null,
+    cancelled_at: o?.cancelledAt ?? null,
+    currency: o?.currencyCode ?? null,
+    customer_locale: o?.customerLocale ?? null,
+    financial_status: o?.displayFinancialStatus ? String(o.displayFinancialStatus).toLowerCase() : null,
+    fulfillment_status: o?.displayFulfillmentStatus ? String(o.displayFulfillmentStatus).toLowerCase() : null,
+    order_status_url: o?.statusPageUrl ?? null,
+    total_price: total != null ? String(total) : null,
+    phone: o?.phone ?? null,
+    email: o?.email ?? null,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    note_attributes: (o?.customAttributes || []).map((a: any) => ({ name: a.key, value: a.value })),
+    customer: o?.customer
+      ? {
+          phone: o.customer.phone ?? null,
+          email: o.customer.email ?? null,
+          first_name: o.customer.firstName ?? null,
+          last_name: o.customer.lastName ?? null,
+          locale: o.customer.locale ?? null,
+          orders_count: o.customer.numberOfOrders != null ? Number(o.customer.numberOfOrders) : undefined,
+          default_address: addr(o.customer.defaultAddress),
+        }
+      : undefined,
+    shipping_address: addr(o?.shippingAddress),
+    billing_address: addr(o?.billingAddress),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    line_items: (o?.lineItems?.nodes || []).map((li: any) => ({
+      title: li?.title ?? null,
+      name: li?.title ?? null,
+      product_id: li?.product?.id ? String(li.product.id).split('/').pop() : null,
+    })),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    fulfillments: (o?.fulfillments || []).map((f: any) => ({
+      tracking_number: f?.trackingInfo?.[0]?.number ?? null,
+      tracking_url: f?.trackingInfo?.[0]?.url ?? null,
+    })),
+  }
+}
+
 export async function fetchOrderById(
   shop: string,
   accessToken: string,
   orderId: string | number
 ): Promise<{ ok: true; order: Record<string, unknown> } | { ok: false; error: string }> {
-  try {
-    const res = await fetch(
-      `https://${shop}/admin/api/${API_VERSION}/orders/${orderId}.json`,
-      { headers: { 'X-Shopify-Access-Token': accessToken } }
-    )
-    if (!res.ok) {
-      const text = await res.text()
-      return { ok: false, error: `HTTP ${res.status}: ${text}` }
-    }
-    const json = await res.json()
-    if (!json.order) return { ok: false, error: 'order absent de la réponse' }
-    return { ok: true, order: json.order as Record<string, unknown> }
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Erreur réseau' }
-  }
+  // GraphQL uniquement : Shopify EXIGE l'Admin API GraphQL pour les nouvelles apps
+  // (App Store requirement 2.2.4, avril 2025) — l'API REST vaut un rejet.
+  const gid = String(orderId).startsWith('gid://') ? String(orderId) : `gid://shopify/Order/${orderId}`
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const res = await shopifyGraphQL<{ order: any }>(
+    shop,
+    accessToken,
+    `query($id: ID!) { order(id: $id) { ${ORDER_GQL_FIELDS} } }`,
+    { id: gid }
+  )
+  if (!res.ok) return { ok: false, error: res.error }
+  if (!res.data?.order) return { ok: false, error: 'order absent de la réponse' }
+  return { ok: true, order: gqlOrderToRest(res.data.order) }
 }
 
 /**
@@ -196,31 +272,35 @@ export async function listAllOrders(
   accessToken: string,
   max = 2000
 ): Promise<{ ok: true; orders: Record<string, unknown>[] } | { ok: false; error: string }> {
+  // GraphQL + pagination par curseur (requirement 2.2.4 : REST interdit).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  type OrdersPage = { orders: { nodes: any[]; pageInfo: { hasNextPage: boolean; endCursor: string | null } } }
   const orders: Record<string, unknown>[] = []
-  // status=any inclut les commandes annulées/archivées ; 250 = max Shopify.
-  let url: string | null =
-    `https://${shop}/admin/api/${API_VERSION}/orders.json?status=any&limit=250`
-  try {
-    while (url && orders.length < max) {
-      const res: Response = await fetch(url, {
-        headers: { 'X-Shopify-Access-Token': accessToken },
-      })
-      if (!res.ok) {
-        const text = await res.text()
-        return { ok: false, error: `HTTP ${res.status}: ${text}` }
-      }
-      const json = await res.json()
-      if (Array.isArray(json.orders)) orders.push(...json.orders)
-
-      // Pagination cursor : header Link `<...page_info=...>; rel="next"`.
-      const link = res.headers.get('link') || res.headers.get('Link') || ''
-      const match = link.match(/<([^>]+)>;\s*rel="next"/)
-      url = match ? match[1] : null
-    }
-    return { ok: true, orders: orders.slice(0, max) }
-  } catch (err) {
-    return { ok: false, error: err instanceof Error ? err.message : 'Erreur réseau' }
+  let cursor: string | null = null
+  let guard = 0
+  while (orders.length < max && guard++ < 50) {
+    const take = Math.min(100, max - orders.length) // 100 = plafond GraphQL / page
+    const res: { ok: true; data: OrdersPage } | { ok: false; error: string } =
+      await shopifyGraphQL<OrdersPage>(
+        shop,
+        accessToken,
+        `query($n: Int!, $after: String) {
+           orders(first: $n, after: $after, sortKey: CREATED_AT, reverse: true, query: "status:any") {
+             nodes { ${ORDER_GQL_FIELDS} }
+             pageInfo { hasNextPage endCursor }
+           }
+         }`,
+        { n: take, after: cursor }
+      )
+    if (!res.ok) return { ok: false, error: res.error }
+    const page: OrdersPage['orders'] | undefined = res.data?.orders
+    if (!page) break
+    orders.push(...(page.nodes || []).map(gqlOrderToRest))
+    if (!page.pageInfo?.hasNextPage) break
+    cursor = page.pageInfo.endCursor
+    if (!cursor) break
   }
+  return { ok: true, orders: orders.slice(0, max) }
 }
 
 /** Récupère les infos de base de la boutique (nom, devise, pays, email). */
