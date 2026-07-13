@@ -19,8 +19,8 @@ type Perf = {
   funnel: { sent: number; opened: number; openRate: number; responded: number; responseRate: number; ordered: number; orderRate: number }
   delivery: { sent: number; delivered: number; deliveredRate: number; read: number; readRate: number; failed: number; failedRate: number } | null
   revenue: { orders: number; amount: number; currency: string | null } | null
-  abTest: { hasAbTest: boolean; variants: { key: string; sent: number; openRate: number; responseRate: number; orderRate: number }[]; winner: string | null }
-  buttonClicks: { total: number; branches: { label: string; count: number; rate: number }[] }
+  abTest: { hasAbTest: boolean; variants: { key: string; sent: number; opened: number; responded: number; ordered: number; openRate: number; responseRate: number; orderRate: number }[]; winner: string | null }
+  buttonClicks: { total: number; branches: { label: string; count: number; rate: number; responded: number; ordered: number; orderRate: number }[] }
   jobs: { byStatus: Record<string, number>; topSkipReasons: { reason: string; count: number }[] }
 }
 
@@ -149,17 +149,22 @@ export function PerformancePanel({ automationId, name, onClose }: { automationId
               {perf.buttonClicks.total > 0 && (
                 <section>
                   <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold">
-                    <MousePointerClick className="h-4 w-4" /> Clics par bouton
+                    <MousePointerClick className="h-4 w-4" /> Réponses par branche
                   </h3>
-                  <div className="space-y-2">
+                  <div className="space-y-2.5">
                     {perf.buttonClicks.branches.map((b) => (
-                      <div key={b.label}>
-                        <div className="mb-0.5 flex items-center justify-between text-xs">
-                          <span className="font-medium">{b.label}</span>
-                          <span className="text-muted-foreground">{b.count} ({b.rate}%)</span>
+                      <div key={b.label} className="rounded-lg border p-2.5">
+                        <div className="mb-1 flex items-center justify-between text-sm">
+                          <span className="font-semibold">{b.label}</span>
+                          <span className="text-xs text-muted-foreground">{b.count} clic{b.count > 1 ? 's' : ''} ({b.rate}%)</span>
                         </div>
-                        <div className="h-2 overflow-hidden rounded-full bg-muted">
+                        <div className="mb-1.5 h-2 overflow-hidden rounded-full bg-muted">
                           <div className="h-full rounded-full bg-primary" style={{ width: `${b.rate}%` }} />
+                        </div>
+                        <div className="grid grid-cols-3 gap-1.5 text-center">
+                          <MiniStat label="Clics" value={String(b.count)} />
+                          <MiniStat label="Répondu" value={String(b.responded)} />
+                          <MiniStat label="Ventes" value={String(b.ordered)} />
                         </div>
                       </div>
                     ))}
@@ -176,17 +181,17 @@ export function PerformancePanel({ automationId, name, onClose }: { automationId
                       const isWinner = perf.abTest.winner === v.key
                       return (
                         <div key={v.key} className={cn('rounded-lg border p-2.5', isWinner && 'border-green-500/50 bg-green-500/5')}>
-                          <div className="mb-1 flex items-center justify-between">
+                          <div className="mb-1.5 flex items-center justify-between">
                             <span className="flex items-center gap-1.5 text-sm font-semibold">
                               Variante {v.key}
                               {isWinner && <span className="flex items-center gap-0.5 rounded-full bg-green-500/15 px-1.5 py-0.5 text-[10px] font-medium text-green-600"><Trophy className="h-3 w-3" /> Gagnant</span>}
                             </span>
-                            <span className="text-xs text-muted-foreground">{v.sent} envois</span>
+                            <span className="text-xs font-medium text-muted-foreground">{v.sent} envoyés</span>
                           </div>
                           <div className="grid grid-cols-3 gap-1.5 text-center">
-                            <MiniStat label="Ouv." value={`${v.openRate}%`} />
-                            <MiniStat label="Rép." value={`${v.responseRate}%`} />
-                            <MiniStat label="Vente" value={`${v.orderRate}%`} />
+                            <MiniStat label="Ouverts" value={String(v.opened)} sub={`${v.openRate}%`} />
+                            <MiniStat label="Répondu" value={String(v.responded)} sub={`${v.responseRate}%`} />
+                            <MiniStat label="Ventes" value={String(v.ordered)} sub={`${v.orderRate}%`} />
                           </div>
                         </div>
                       )
@@ -251,11 +256,14 @@ function Metric({ icon, label, value, sub, tone = 'slate', approx, compact }: {
   )
 }
 
-function MiniStat({ label, value }: { label: string; value: string }) {
+function MiniStat({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="rounded bg-muted/50 py-1">
       <div className="text-[10px] text-muted-foreground">{label}</div>
-      <div className="text-sm font-semibold tabular-nums">{value}</div>
+      <div className="flex items-baseline justify-center gap-1">
+        <span className="text-sm font-semibold tabular-nums">{value}</span>
+        {sub && <span className="text-[10px] text-muted-foreground">{sub}</span>}
+      </div>
     </div>
   )
 }

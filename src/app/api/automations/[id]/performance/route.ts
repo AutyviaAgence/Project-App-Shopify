@@ -89,7 +89,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     v.sent++; if (isOpened(r)) v.opened++; if (r.responded) v.responded++; if (r.ordered) v.ordered++
   }
   const variants = Array.from(vMap.entries()).map(([key, v]) => ({
-    key, sent: v.sent,
+    key,
+    // Chiffres BRUTS (combien) + taux, pour chaque variante.
+    sent: v.sent, opened: v.opened, responded: v.responded, ordered: v.ordered,
     openRate: rate(v.opened, v.sent), responseRate: rate(v.responded, v.sent), orderRate: rate(v.ordered, v.sent),
   })).sort((a, b) => a.key.localeCompare(b.key))
   // Gagnant : meilleur taux de vente puis de réponse (≥5 envois pour être fiable).
@@ -100,17 +102,24 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     winner = scored[0].key
   }
 
-  // Clics par bouton (branche) : clicked_branch = 'button:<libellé>'.
-  const clickMap = new Map<string, number>()
+  // Par BRANCHE de bouton : combien ont cliqué CETTE branche, et parmi eux
+  // combien ont ensuite répondu / commandé. clicked_branch = 'button:<libellé>'.
+  const branchMap = new Map<string, { count: number; responded: number; ordered: number }>()
   let totalClicks = 0
   for (const r of rows) {
     if (!r.clicked_branch) continue
     const label = r.clicked_branch.startsWith('button:') ? r.clicked_branch.slice('button:'.length) : r.clicked_branch
-    clickMap.set(label, (clickMap.get(label) || 0) + 1)
+    if (!branchMap.has(label)) branchMap.set(label, { count: 0, responded: 0, ordered: 0 })
+    const b = branchMap.get(label)!
+    b.count++; if (r.responded) b.responded++; if (r.ordered) b.ordered++
     totalClicks++
   }
-  const buttonClicks = Array.from(clickMap.entries())
-    .map(([label, count]) => ({ label, count, rate: rate(count, totalClicks) }))
+  const buttonClicks = Array.from(branchMap.entries())
+    .map(([label, b]) => ({
+      label, count: b.count, rate: rate(b.count, totalClicks),
+      responded: b.responded, ordered: b.ordered,
+      orderRate: rate(b.ordered, b.count),
+    }))
     .sort((a, b) => b.count - a.count)
 
   // --- 1b. Livraison réelle (messages rattachés à l'automatisation) ---------
