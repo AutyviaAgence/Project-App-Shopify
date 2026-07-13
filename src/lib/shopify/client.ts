@@ -20,11 +20,30 @@ function shopifySearchValue(v: string): string {
   return `"${cleaned}"`
 }
 
+/**
+ * Scopes demandés à l'OAuth. ⚠️ DOIT rester STRICTEMENT aligné sur
+ * `shopify.app.xeyo-whatsapp-support-chat.toml` ([access_scopes].scopes) : si le
+ * code demande moins que le toml, les appels correspondants échouent en 403 en
+ * prod (c'était le cas de write_discounts → création de codes promo cassée).
+ * Détail : write_orders (refundCreate/orderCancel) · write_discounts
+ * (discountCodeBasicCreate) · read_fulfillments (webhook livraison).
+ */
+const DEFAULT_SCOPES = [
+  'read_customers',
+  'write_discounts',
+  'read_orders',
+  'write_orders',
+  'read_products',
+  'read_content',
+  'read_legal_policies',
+  'read_returns',
+  'read_fulfillments',
+].join(',')
+
 export function getShopifyConfig() {
   const apiKey = process.env.SHOPIFY_API_KEY
   const apiSecret = process.env.SHOPIFY_API_SECRET
-  // write_orders : refundCreate/orderCancel · read_fulfillments : webhook livraison (FULFILLMENT_EVENTS_CREATE)
-  const scopes = process.env.SHOPIFY_SCOPES || 'read_products,read_content,read_orders,write_orders,read_customers,read_returns,read_legal_policies,read_fulfillments'
+  const scopes = process.env.SHOPIFY_SCOPES || DEFAULT_SCOPES
   const appUrl = process.env.SHOPIFY_APP_URL || process.env.NEXT_PUBLIC_APP_URL || 'https://app.xeyo.io'
   return { apiKey, apiSecret, scopes, appUrl }
 }

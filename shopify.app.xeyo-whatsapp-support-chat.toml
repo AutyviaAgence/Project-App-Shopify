@@ -5,9 +5,19 @@ name = "Xeyo - WhatsApp Support & Chat"
 application_url = "https://app.xeyo.io/shopify"
 embedded = true
 
+# NB — Politique de confidentialité & URL de support : ces champs NE SONT PAS des
+# clés du toml (la CLI les rejette). Ils se renseignent dans le Partner Dashboard,
+# section « App listing » :
+#   · Privacy policy : https://app.xeyo.io/privacy
+#   · Support / contact : (à renseigner)
+
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-scopes = "read_customers,read_discounts,write_discounts,read_orders,write_orders,read_products,read_content,read_legal_policies,read_returns,read_fulfillments"
+# ⚠️ Shopify rejette les scopes NON UTILISÉS. `read_discounts` a été retiré : le code
+# ne lit jamais les remises, il en CRÉE (discountCodeBasicCreate) → write_discounts suffit.
+# Cette liste doit rester alignée sur SHOPIFY_SCOPES (src/lib/shopify/client.ts),
+# sinon les scopes demandés à l'OAuth diffèrent de ceux déclarés → 403 en prod.
+scopes = "read_customers,write_discounts,read_orders,write_orders,read_products,read_content,read_legal_policies,read_returns,read_fulfillments"
 optional_scopes = [ ]
 use_legacy_install_flow = false
 
@@ -21,3 +31,23 @@ prefix = "apps"
 
 [webhooks]
 api_version = "2026-04"
+
+# ── Webhooks de conformité RGPD — OBLIGATOIRES ────────────────────────────────
+# Shopify REFUSE la soumission d'une app si ces 3 endpoints ne sont pas déclarés.
+# Les routes existent et vérifient le HMAC ; il manquait leur déclaration ici.
+[[webhooks.subscriptions]]
+topics = [ "customers/data_request" ]
+uri = "/api/shopify/webhooks/customers-data-request"
+
+[[webhooks.subscriptions]]
+topics = [ "customers/redact" ]
+uri = "/api/shopify/webhooks/customers-redact"
+
+[[webhooks.subscriptions]]
+topics = [ "shop/redact" ]
+uri = "/api/shopify/webhooks/shop-redact"
+
+# ── Désinstallation : purge du token et désactivation de la boutique ──────────
+[[webhooks.subscriptions]]
+topics = [ "app/uninstalled" ]
+uri = "/api/shopify/webhooks/app-uninstalled"
