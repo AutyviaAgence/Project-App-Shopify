@@ -3,15 +3,39 @@ import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { isValidShopDomain } from '@/lib/shopify/client'
 
 /**
- * GET /api/shopify/status?shop=xxx.myshopify.com
- * État de l'intégration pour une boutique : installée, liée à un compte,
- * agent créé, nombre de documents de connaissance.
- * Public (lecture par la page embedded) — ne renvoie aucune donnée sensible.
+ * GET /api/shopify/status
+ * État de l'intégration d'une boutique (installée, agent, WhatsApp, modèles…).
+ *
+ * ⚠️ SÉCURITÉ : cette route était PUBLIQUE et prenait le `?shop=` de l'URL — elle
+ * divulguait donc l'état d'un compte (plan, nom de l'agent, WhatsApp connecté…) à
+ * quiconque connaissait un domaine de boutique. Elle exige désormais un SESSION
+ * TOKEN Shopify (App Bridge) et dérive la boutique du token, jamais de l'URL.
+ * Le cookie Supabase reste accepté (dashboard web) via getAuthedUser.
  */
 export async function GET(req: NextRequest) {
-  const shop = req.nextUrl.searchParams.get('shop')
-  if (!shop || !isValidShopDomain(shop)) {
-    return NextResponse.json({ error: 'Paramètre shop invalide' }, { status: 400 })
+  const { sessionFromRequest } = await import('@/lib/shopify/session-token')
+  const session = sessionFromRequest(req)
+
+  let shop: string | null = session?.shop ?? null
+  if (!shop) {
+    // Hors embedded (dashboard web) : on autorise via le cookie, et on ne sert que
+    // la boutique DE L'UTILISATEUR — pas un domaine arbitraire.
+    const { createClient } = await import('@/lib/supabase/server')
+    const supa = await createClient()
+    const { data: { user } } = await supa.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+    const adminEarly = createAdminSupabase(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+    const { data: own } = await adminEarly
+      .from('shopify_stores').select('shop_domain')
+      .eq('user_id', user.id).eq('is_active', true).maybeSingle()
+    shop = own?.shop_domain ?? null
+    if (!shop) return NextResponse.json({ data: { installed: false } })
+  }
+  if (!isValidShopDomain(shop)) {
+    return NextResponse.json({ error: 'Boutique invalide' }, { status: 400 })
   }
 
   const admin = createAdminSupabase(

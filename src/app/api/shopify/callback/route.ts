@@ -94,46 +94,29 @@ export async function GET(req: NextRequest) {
   // (navigation top-level sur le même domaine). Si l'utilisateur est connecté,
   // on lie la boutique ICI — sans rebond fragile par /shopify — et on le
   // renvoie dans l'onboarding (ou le dashboard si onboarding déjà terminé).
+  // INSCRIPTION AUTOMATIQUE VIA SHOPIFY : installer l'app VAUT inscription. On ne
+  // dépend plus du cookie Supabase (absent dans l'iframe et pour tout nouveau
+  // marchand) : resolveXeyoUser crée le compte à partir de l'email de la boutique,
+  // ou rattache un compte Xeyo existant portant le même email. Le marchand ne
+  // saisit jamais d'identifiants.
   try {
-    const { createClient: createSessionClient } = await import('@/lib/supabase/server')
-    const session = await createSessionClient()
-    const { data: { user } } = await session.auth.getUser()
-    if (user && storeRow && (!storeRow.user_id || storeRow.user_id === user.id)) {
-      if (storeRow.user_id !== user.id) {
-        // ⚠️ CONFORMITÉ SHOPIFY : une boutique installée via l'App Store DOIT être
-        // facturée par la Billing API de Shopify (App Store requirement §1.2 :
-        // « Apps that use off-platform billing cannot be distributed through the
-        // Shopify App store »). On posait `direct` (= Stripe) → 100 % des
-        // marchands partaient sur Stripe → motif de rejet / suspension.
-        await supabase
-          .from('shopify_stores')
-          .update({ user_id: user.id, billing_source: 'shopify' })
-          .eq('id', storeRow.id)
-      }
-      // Agent + sync catalogue/pages/politiques (best effort, comme /connect).
-      try {
-        const { autoConfigureAgentFromShop } = await import('@/lib/shopify/sync')
-        await autoConfigureAgentFromShop(storeRow.id)
-      } catch (e) {
-        console.error('[Shopify callback] auto-config échec (non bloquant):', e)
-      }
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: prof } = await (supabase as any)
-        .from('profiles').select('onboarding_completed_at').eq('id', user.id).maybeSingle()
-      const dest = prof?.onboarding_completed_at ? '/dashboard' : '/onboarding'
-      const res = NextResponse.redirect(`${appUrl}${dest}`)
+    const { resolveXeyoUser } = await import('@/lib/shopify/resolve-user')
+    const resolved = await resolveXeyoUser(shop)
+    if (resolved) {
+      // Si un utilisateur est déjà connecté sur ce navigateur ET que c'est un AUTRE
+      // compte que celui de la boutique, on ne l'écrase pas : la boutique reste liée
+      // à son compte (resolveXeyoUser ne relie que si user_id était NULL).
+      const res = NextResponse.redirect(`${appUrl}/shopify?shop=${encodeURIComponent(shop)}`)
       res.cookies.delete('shopify_oauth_state')
       return res
     }
   } catch (e) {
-    console.error('[Shopify callback] lien direct échec, fallback /shopify:', e)
+    console.error('[Shopify callback] provisioning du compte échoué:', e)
   }
 
-  // 8. Fallback (pas de session : install App Store sans compte, iframe…) :
-  // parcours historique /shopify?autolink=1 (création de compte puis lien).
-  // `sbdbg` = nb de cookies Supabase reçus par le callback (diagnostic session).
-  const sbCount = req.cookies.getAll().filter((c) => c.name.startsWith('sb-')).length
-  const res = NextResponse.redirect(`${appUrl}/shopify?shop=${encodeURIComponent(shop)}&autolink=1&sbdbg=${sbCount}`)
+  // Fallback : boutique introuvable / pas d'email exploitable → page embedded, qui
+  // affichera l'erreur (plus de parcours « autolink » hors admin).
+  const res = NextResponse.redirect(`${appUrl}/shopify?shop=${encodeURIComponent(shop)}`)
   res.cookies.delete('shopify_oauth_state')
   return res
 }
