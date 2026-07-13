@@ -14,6 +14,7 @@ import { Eye, EyeOff } from 'lucide-react'
 import { useTranslation } from '@/i18n/context'
 import { useTenant } from '@/lib/tenant/context'
 import { AuthBrandPanel } from '@/components/auth-brand-panel'
+import { ShopifyAuthButton } from '@/components/shopify-auth-button'
 import { AuthLegalFooter } from '@/components/auth-legal-footer'
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '0x4AAAAAACxrGN3L2YWh3XHJ'
@@ -182,14 +183,7 @@ function LoginForm() {
             {googleLoading ? t('auth.signing_in') : t('auth.google_login')}
           </Button>
 
-          {/*
-            TODO (après validation App Store) : rétablir ici un bouton
-            « Continuer avec Shopify » pointant vers SHOPIFY_APP_STORE_URL.
-            Retiré pour l'instant : tant que l'app n'est pas publiée, la fiche
-            App Store n'existe pas et le lien tomberait en 404.
-            ⚠️ Ne JAMAIS le remplacer par un champ « votre boutique » : demander
-            un domaine .myshopify.com est un motif de rejet (exigence 2.3.1).
-          */}
+          <ShopifyAuthButton label="Continuer avec Shopify" />
 
           <div className="flex justify-between text-sm w-full">
             <Link href="/forgot-password" className="text-muted-foreground hover:underline">

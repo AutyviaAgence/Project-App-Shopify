@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
+import { ShopifyAuthButton } from '@/components/shopify-auth-button'
 import { toast } from 'sonner'
 import { Eye, EyeOff } from 'lucide-react'
 import Script from 'next/script'
@@ -320,6 +321,13 @@ function RegisterForm() {
             </svg>
             {googleLoading ? t('auth.signing_in') : t('auth.google_signup')}
           </Button>
+
+          {/* Même garde CGU que Google : pas de compte créé sans consentement. */}
+          <ShopifyAuthButton
+            label="Continuer avec Shopify"
+            disabled={!acceptedTerms}
+            disabledReason={t('auth.accept_required')}
+          />
 
           <Link href="/login" className="text-sm text-muted-foreground hover:underline">
             {t('auth.already_account')}
