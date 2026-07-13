@@ -299,7 +299,8 @@ function Branch(props: TimelineProps & { fromId: string; branch?: string }) {
           <React.Fragment key={id}>
             <ABTestBlock node={node} onPatch={onPatch} onDelete={() => onDelete(id)}
               onAddVariant={props.onAddVariant} onRemoveVariant={props.onRemoveVariant}
-              automationId={props.automationId} />
+              automationId={props.automationId}
+              abNumber={graph.nodes.filter((n) => n.type === 'ab_test').findIndex((n) => n.id === id) + 1} />
             <div className={abBranchesRow}>
               {node.variants.map((v, vi) => (
                 <BranchCol key={v.key} label={`${v.key} · ${v.weight}%`} color={VARIANT_COLORS[vi % 4]}>
@@ -1028,13 +1029,15 @@ function Inserter({ onInsert }: { onInsert: (kind: InsertKind) => void }) {
 // ---- Bloc Test A/B ----------------------------------------------------------
 type ABVariantResult = { key: string; sent: number; responseRate: number; orderRate: number }
 
-function ABTestBlock({ node, onPatch, onDelete, onAddVariant, onRemoveVariant, automationId }: {
+function ABTestBlock({ node, onPatch, onDelete, onAddVariant, onRemoveVariant, automationId, abNumber }: {
   node: WorkflowNode
   onPatch: (id: string, p: Partial<WorkflowNode>) => void
   onDelete: () => void
   onAddVariant?: (nodeId: string) => void
   onRemoveVariant?: (nodeId: string, key: string) => void
   automationId?: string | null
+  /** Rang du test A/B dans le workflow (1, 2…) pour le distinguer des autres. */
+  abNumber?: number
 }) {
   const [results, setResults] = useState<{ variants: ABVariantResult[]; winner: string | null } | null>(null)
   const [showResults, setShowResults] = useState(false)
@@ -1061,7 +1064,7 @@ function ABTestBlock({ node, onPatch, onDelete, onAddVariant, onRemoveVariant, a
     onPatch(node.id, { variants } as Partial<WorkflowNode>)
   }
   return (
-    <Shell tone={TONE.pink} icon={<FlaskConical className="h-4 w-4" />} kind="Test A/B" onDelete={onDelete}>
+    <Shell tone={TONE.pink} icon={<FlaskConical className="h-4 w-4" />} kind={abNumber && abNumber > 0 ? `Test A/B ${abNumber}` : 'Test A/B'} onDelete={onDelete}>
       <p className="mb-2 text-xs text-muted-foreground">Répartit les contacts entre les variantes. Chaque variante a son propre message.</p>
       <div className="space-y-1.5">
         {node.variants.map((v, i) => (
