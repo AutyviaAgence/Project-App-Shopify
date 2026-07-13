@@ -72,7 +72,10 @@ type AgentCfg = {
   sample_questions?: string[]
 }
 
-const STEPS = ['shopify', 'sync', 'widget', 'whatsapp', 'agent', 'templates', 'automations', 'plan'] as const
+// L'activation des blocs de thème vient APRÈS la connexion WhatsApp : les blocs
+// (bulle, popup) ne s'affichent sur la boutique QUE si un numéro est connecté
+// (cf. /api/shopify/proxy/widget). Les proposer avant serait trompeur.
+const STEPS = ['shopify', 'sync', 'whatsapp', 'widget', 'agent', 'templates', 'automations', 'plan'] as const
 type Step = typeof STEPS[number]
 
 const STEP_META: Record<Step, { title: string; icon: React.ComponentType<{ className?: string }> }> = {
@@ -202,11 +205,9 @@ export default function OnboardingPage() {
     if (!s.storeSynced) return 'sync'
     const saved = s.step as Step | null
     if (saved && (STEPS as readonly string[]).includes(saved) && saved !== 'shopify' && saved !== 'sync') return saved
-    // Aucune étape sauvegardée : on démarre par l'activation des extensions dans
-    // le thème (juste après la synchro). Elle n'est PAS vérifiable côté serveur
-    // (Shopify n'expose pas l'état des blocs de thème) → on s'appuie sur `step`,
-    // écrit quand l'utilisateur passe à la suite.
-    if (!s.whatsappConnected) return 'widget'
+    // WhatsApp d'abord : sans numéro connecté, les blocs de thème (bulle, popup)
+    // ne s'affichent pas sur la boutique → l'étape widget vient ensuite.
+    if (!s.whatsappConnected) return 'whatsapp'
     if (!s.agentDone) return 'agent'
     return 'templates'
   }
@@ -407,7 +408,7 @@ export default function OnboardingPage() {
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Erreur')
       await fetchState()
-      goTo('agent', 'WhatsApp connecté')
+      goTo('widget', 'WhatsApp connecté')
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erreur')
     } finally {
@@ -759,6 +760,26 @@ export default function OnboardingPage() {
                     Sans ça, <span className="font-medium text-foreground">aucun visiteur ne pourra vous laisser son numéro</span>.
                   </p>
 
+                  {/* Sans numéro WhatsApp connecté, la bulle et la popup NE
+                      S'AFFICHENT PAS sur la boutique (le proxy renvoie enabled:false).
+                      On le dit clairement, sinon le marchand active les blocs et
+                      ne voit rien apparaître — sans comprendre pourquoi. */}
+                  {!state.whatsappConnected && (
+                    <div className="flex items-start gap-2.5 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3.5">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+                      <div className="min-w-0 text-xs leading-relaxed">
+                        <p className="font-medium text-amber-200">WhatsApp n’est pas encore connecté</p>
+                        <p className="mt-0.5 text-muted-foreground">
+                          Vous pouvez activer les blocs maintenant, mais <span className="font-medium text-foreground">ils resteront invisibles sur votre boutique</span> tant qu’aucun numéro WhatsApp n’est connecté (il n’y aurait personne à contacter).
+                        </p>
+                        <Button variant="outline" size="sm" className="mt-2" disabled={busy}
+                          onClick={() => goTo('whatsapp')}>
+                          Connecter WhatsApp d’abord
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
                   <div className="space-y-2.5">
                     {[
                       {
@@ -817,7 +838,7 @@ export default function OnboardingPage() {
                       <ExternalLink className="mr-1.5 h-4 w-4" /> Ouvrir l’éditeur de thème
                     </Button>
                     <Button variant="outline" className="flex-1" disabled={busy}
-                      onClick={() => goTo('whatsapp', 'Étape suivante')}>
+                      onClick={() => goTo('agent', 'Étape suivante')}>
                       C’est activé, continuer <ArrowRight className="ml-1.5 h-4 w-4" />
                     </Button>
                   </div>
@@ -847,7 +868,7 @@ export default function OnboardingPage() {
                         <div className="space-y-2">
                           <WhatsAppEmbeddedSignup
                             className="h-11 w-full"
-                            onConnected={async () => { await fetchState(); goTo('agent', 'WhatsApp connecté') }}
+                            onConnected={async () => { await fetchState(); goTo('widget', 'WhatsApp connecté') }}
                           />
                           <p className="text-xs text-muted-foreground">
                             Vous choisirez votre numéro dans une fenêtre Facebook. Aucun identifiant à copier.
@@ -867,11 +888,11 @@ export default function OnboardingPage() {
                     </>
                   )}
                   <div className="flex items-center justify-between pt-1">
-                    <Button variant="ghost" size="sm" disabled={busy} onClick={() => goTo('agent')}>
+                    <Button variant="ghost" size="sm" disabled={busy} onClick={() => goTo('widget')}>
                       Passer pour l’instant
                     </Button>
                     {state.whatsappConnected ? (
-                      <Button onClick={() => goTo('agent', 'WhatsApp prêt')}>Continuer <ArrowRight className="ml-1 h-4 w-4" /></Button>
+                      <Button onClick={() => goTo('widget', 'WhatsApp prêt')}>Continuer <ArrowRight className="ml-1 h-4 w-4" /></Button>
                     ) : !embeddedSignupAvailable ? (
                       // En mode popup Meta, c'est le bouton Facebook qui soumet.
                       <Button disabled={busy} onClick={connectWhatsApp}>

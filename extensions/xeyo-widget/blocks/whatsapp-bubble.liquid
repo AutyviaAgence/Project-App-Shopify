@@ -137,11 +137,32 @@
     var shop = el.getAttribute('data-shop');
     var attr = function (k) { return el.getAttribute(k) || ''; };
 
+    // Dans l'ÉDITEUR de thème uniquement (Shopify.designMode), on explique
+    // pourquoi la bulle n'apparaît pas. Sans ça, le marchand active le bloc, ne
+    // voit rien, et ne comprend pas que c'est WhatsApp qui manque. Jamais montré
+    // aux vrais visiteurs de la boutique.
+    function editorNotice(text) {
+      if (!window.Shopify || !window.Shopify.designMode) return;
+      var n = document.createElement('div');
+      n.setAttribute('style',
+        'position:fixed;z-index:2147483000;bottom:20px;right:20px;max-width:290px;'
+        + 'background:#1f2937;color:#fff;border:1px solid #f59e0b;border-radius:12px;'
+        + 'padding:12px 14px;font:13px/1.45 -apple-system,Segoe UI,Roboto,sans-serif;'
+        + 'box-shadow:0 8px 24px rgba(0,0,0,.35)');
+      n.innerHTML = '<strong style="display:block;margin-bottom:4px;color:#fbbf24">'
+        + 'Bulle Xeyo inactive</strong>' + text
+        + '<div style="margin-top:6px;font-size:11px;opacity:.7">Visible uniquement dans l\'éditeur.</div>';
+      document.body.appendChild(n);
+    }
+
     fetch(proxy + '?shop=' + encodeURIComponent(shop))
       .then(function (r) { return r.json(); })
       .then(function (cfg) {
-        // N'affiche le widget que si WhatsApp est connecté côté Xeyo
-        if (!cfg || !cfg.enabled || !cfg.phone) return;
+        // N'affiche le widget que si WhatsApp est connecté côté Xeyo.
+        if (!cfg || !cfg.enabled || !cfg.phone) {
+          editorNotice('Connectez votre numéro WhatsApp dans Xeyo pour que la bulle s’affiche sur votre boutique.');
+          return;
+        }
         var phone = String(cfg.phone || '').replace(/[^0-9]/g, '');
 
         // Construit une URL WhatsApp directe avec un message donné.
