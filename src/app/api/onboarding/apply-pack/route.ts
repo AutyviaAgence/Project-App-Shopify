@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { after } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-import { defaultGraph } from '@/lib/automations/graph-types'
+import { buildOnboardingGraph } from '@/lib/automations/graph-types'
 import { translateTemplateRow } from '@/lib/templates/translate'
 import type { TriggerEvent } from '@/lib/automations/types'
 import { kindForTrigger } from '@/lib/automations/types'
@@ -172,7 +172,9 @@ export async function POST(req: NextRequest) {
           conditions: {},
           is_active: false, // double sécurité : le marchand active lui-même
           folder_id: null,
-          graph: defaultGraph(x.item!.trigger as TriggerEvent, templateId),
+          // Graphe adapté : intègre le DÉLAI dans le parcours (sinon delay_minutes
+          // était ignoré en mode builder). Message prêt pour d'éventuels boutons.
+          graph: buildOnboardingGraph(x.item!.trigger as TriggerEvent, templateId, { delayMinutes: delay }),
           builder_mode: true,
           // Range l'automatisation dans le BON onglet (Campagnes vs Transactionnel)
           // selon le trigger. Sans ça, tout tombait en transactionnel par défaut.

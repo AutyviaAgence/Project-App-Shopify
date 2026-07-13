@@ -123,6 +123,48 @@ export function defaultGraph(event: TriggerEvent = 'order_fulfilled', templateId
   }
 }
 
+/**
+ * Graphe d'onboarding « intelligent » : construit un parcours ADAPTÉ au template
+ * et au trigger, au lieu du simple trigger→message.
+ *  - `delayMinutes` > 0 → insère un nœud `delay` (ex. panier abandonné à +N min).
+ *  - le template a des boutons quick-reply → le marchand pourra brancher chaque
+ *    bouton dans le builder ; à la création on n'ajoute PAS de branches vides
+ *    (elles seraient obligatoires à remplir pour activer → frustrant). Le message
+ *    reste un envoi simple, prêt à recevoir des branches quand le marchand veut.
+ * Ainsi l'automatisation créée est déjà utilisable (envoi + délai) et reflète le
+ * template, sans imposer de compléter des branches pour l'activer.
+ */
+export function buildOnboardingGraph(
+  event: TriggerEvent,
+  templateId: string | null,
+  opts?: { delayMinutes?: number },
+): WorkflowGraph {
+  const delay = Math.max(0, Math.floor(opts?.delayMinutes || 0))
+  const nodes: WorkflowNode[] = [{ id: 'trigger', type: 'trigger', event }]
+  const edges: WorkflowGraph['edges'] = []
+  const positions: Record<string, { x: number; y: number }> = { trigger: { x: 160, y: 30 } }
+  let y = 30
+  let prev = 'trigger'
+
+  // Délai avant l'envoi (si le pack en prévoit un, ex. panier abandonné à +N min).
+  if (delay > 0) {
+    y += 160
+    nodes.push({ id: 'delay_1', type: 'delay', minutes: delay })
+    edges.push({ from: prev, to: 'delay_1' })
+    positions['delay_1'] = { x: 160, y }
+    prev = 'delay_1'
+  }
+
+  // Message principal. allowMultiple=true : si le marchand ajoute ensuite des
+  // boutons, le funnel multi-route fonctionne d'emblée.
+  y += 160
+  nodes.push({ id: 'action_1', type: 'action', templateId, allowMultiple: true })
+  edges.push({ from: prev, to: 'action_1' })
+  positions['action_1'] = { x: 160, y }
+
+  return { nodes, edges, positions }
+}
+
 export function triggerNode(graph: WorkflowGraph): TriggerNode | undefined {
   return graph.nodes.find((n): n is TriggerNode => n.type === 'trigger')
 }
