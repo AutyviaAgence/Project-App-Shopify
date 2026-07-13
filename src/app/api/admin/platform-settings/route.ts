@@ -37,7 +37,7 @@ export async function GET() {
   const admin = adminDb()
   const { data, error } = await admin
     .from('platform_settings')
-    .select('marketing_contact_cap_hours, updated_at')
+    .select('marketing_contact_cap_hours, message_retention_days, log_retention_days, updated_at')
     .eq('id', 1)
     .maybeSingle()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -46,6 +46,10 @@ export async function GET() {
     data: {
       // Défaut historique si la ligne n'existe pas encore.
       marketing_contact_cap_hours: data?.marketing_contact_cap_hours ?? 20,
+      // 0 = rétention illimitée (purge désactivée). C'est le défaut de repli :
+      // aucune donnée ne doit être effacée sans une décision explicite.
+      message_retention_days: data?.message_retention_days ?? 0,
+      log_retention_days: data?.log_retention_days ?? 0,
       updated_at: data?.updated_at ?? null,
     },
   })
@@ -72,6 +76,20 @@ export async function PATCH(req: NextRequest) {
     update.marketing_contact_cap_hours = Math.floor(n)
   }
 
+  // Rétention (RGPD art. 5.1.e). 0 = illimitée. Plafond 10 ans : au-delà, c'est
+  // une faute de frappe, pas une politique de conservation.
+  for (const key of ['message_retention_days', 'log_retention_days'] as const) {
+    if (!(key in body)) continue
+    const n = Number(body[key])
+    if (!Number.isFinite(n) || n < 0 || n > 3650) {
+      return NextResponse.json(
+        { error: `${key} doit être un entier entre 0 et 3650 (jours ; 0 = illimité)` },
+        { status: 400 },
+      )
+    }
+    update[key] = Math.floor(n)
+  }
+
   if (Object.keys(update).length === 0) {
     return NextResponse.json({ error: 'Aucune valeur à mettre à jour' }, { status: 400 })
   }
@@ -83,7 +101,7 @@ export async function PATCH(req: NextRequest) {
   const { data, error } = await admin
     .from('platform_settings')
     .upsert({ id: 1, ...update }, { onConflict: 'id' })
-    .select('marketing_contact_cap_hours, updated_at')
+    .select('marketing_contact_cap_hours, message_retention_days, log_retention_days, updated_at')
     .single()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 

@@ -231,7 +231,63 @@ read_orders, read_products, read_returns, write_discounts, write_orders
 
 ---
 
-## 7. Dette connue (non bloquante pour la review)
+## 7. Protected Customer Data — ce qui a été déclaré
+
+Formulaire du Partner Dashboard (obligatoire dès `read_customers` / `read_orders`).
+Shopify **vérifie que l'usage déclaré correspond au comportement réel de l'app** :
+sur-déclarer nuit autant que sous-déclarer.
+
+**Motifs d'usage** : Service client · Fonctionnalité de l'app · Analyses de données ·
+Personnalisation · **Marketing ou publicité** (obligatoire : la relance de panier
+abandonné est l'exemple que Shopify donne lui-même, et c'est notre fonction phare).
+Pas « Gestion de la boutique » (on n'imprime pas d'étiquettes, on ne suit pas de stock).
+
+**Champs demandés** :
+
+| Champ | Motifs déclarés | Pourquoi |
+|---|---|---|
+| **Téléphone** | tous | C'est l'identifiant WhatsApp : sans lui, l'app ne fait rien. |
+| **Nom** | Service client, Personnalisation, Marketing | Personnalisation des templates + affichage dans l'inbox. |
+| **E-mail** | Service client, Fonctionnalité | Jointure client Shopify ↔ contact WhatsApp, et clé des webhooks RGPD. |
+| **Adresse** | **non demandé** | On ne lit que `phone` et `countryCodeV2` des adresses — jamais la rue ni la ville. Demander un champ inutilisé est sanctionné. |
+
+**Protection des données** — réponses honnêtes, y compris les manques :
+
+| Question | Réponse | Justification |
+|---|---|---|
+| Chiffrement au repos et en transit | Oui | AES-256-GCM sur les messages, TLS partout. |
+| Durées de rétention configurées | **Oui** *(depuis juill. 2026)* | Voir §8. Avant ça : Non. |
+| Politique de réponse aux incidents | Oui | [`SECURITY_INCIDENT_POLICY.md`](SECURITY_INCIDENT_POLICY.md). |
+| Décision automatisée à effet juridique | Sans objet | L'IA répond à des questions ; aucune décision au sens de l'art. 22. |
+| Chiffrement des sauvegardes | **Non** | Lacune assumée → backlog. |
+| Journal d'audit des accès | **Non** | Lacune assumée → backlog. |
+
+---
+
+## 8. Rétention des données (RGPD art. 5.1.e)
+
+À ne pas confondre avec le **droit à l'effacement** (art. 17, couvert par
+`customers/redact`, sur demande) : la rétention impose de **ne pas conserver**
+les données au-delà du nécessaire, **automatiquement**.
+
+- Réglage : `/admin` → Paramètres généraux → **Conservation des données**
+  (`platform_settings.message_retention_days` / `log_retention_days`).
+- Purge : `GET /api/cron/run-retention` (Bearer `CRON_SECRET`), par lots de 1000.
+- Défauts : **730 j** pour les messages, **90 j** pour les `webhook_logs`.
+  `0` = illimité (purge désactivée) — c'est le repli, pour qu'aucun déploiement
+  n'efface de données sans décision explicite.
+
+> ⚠️ **Les contacts ne sont jamais purgés.** Supprimer un contact opt-in
+> détruirait son consentement WhatsApp et le sortirait des automatisations : ce
+> serait une régression fonctionnelle déguisée en conformité. On purge
+> l'historique des échanges, pas la relation commerciale.
+
+**À faire** : brancher le cron sur l'ordonnanceur (comme `run-automations`),
+sinon la purge ne tourne jamais et le « Oui » déclaré à Shopify devient faux.
+
+---
+
+## 9. Dette connue (non bloquante pour la review)
 
 Par ordre de ce que je corrigerais en premier :
 
@@ -241,9 +297,12 @@ Par ordre de ce que je corrigerais en premier :
    donc sans contrôle et révèle le numéro WhatsApp du marchand. Le correctif est de
    rendre la signature obligatoire — à valider contre le rendu storefront réel, car
    c'est ce chemin qui sert la bulle.
-2. **`APP_SUBSCRIPTIONS_UPDATE` non abonné.** Un changement de plan (ou une
+2. **Chiffrement des backups** — déclaré « Non » à Shopify. Les dumps partent en
+   clair hors du VPS.
+3. **Journal d'audit des accès** aux données personnelles — déclaré « Non ».
+4. **`APP_SUBSCRIPTIONS_UPDATE` non abonné.** Un changement de plan (ou une
    annulation) initié côté Shopify n'est pas répercuté dans notre base.
-3. **PostHog** absent de l'onboarding et des nouvelles pages d'automatisations
+5. **PostHog** absent de l'onboarding et des nouvelles pages d'automatisations
    (explicitement reporté).
 
 ---

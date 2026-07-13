@@ -1778,13 +1778,16 @@ function PromoTab() {
 }
 
 /**
- * Réglages GLOBAUX de la plateforme (sécurité Xeyo, pas préférences marchand).
- * Pour l'instant : plafond anti-spam de fréquence marketing par contact.
+ * Réglages GLOBAUX de la plateforme (sécurité Xeyo, pas préférences marchand) :
+ *  · plafond anti-spam de fréquence marketing par contact ;
+ *  · durées de rétention des données personnelles (RGPD art. 5.1.e).
  */
 function PlatformSettingsTab() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [capHours, setCapHours] = useState<string>('20')
+  const [msgDays, setMsgDays] = useState<string>('0')
+  const [logDays, setLogDays] = useState<string>('0')
   const [updatedAt, setUpdatedAt] = useState<string | null>(null)
 
   const load = useCallback(async () => {
@@ -1794,6 +1797,8 @@ function PlatformSettingsTab() {
       const json = await res.json()
       if (res.ok) {
         setCapHours(String(json.data?.marketing_contact_cap_hours ?? 20))
+        setMsgDays(String(json.data?.message_retention_days ?? 0))
+        setLogDays(String(json.data?.log_retention_days ?? 0))
         setUpdatedAt(json.data?.updated_at ?? null)
       } else {
         toast.error(json.error || 'Chargement impossible')
@@ -1807,18 +1812,15 @@ function PlatformSettingsTab() {
 
   useEffect(() => { load() }, [load])
 
-  const save = async () => {
-    const n = Number(capHours)
-    if (!Number.isFinite(n) || n < 0 || n > 720) {
-      toast.error('Valeur invalide : un entier entre 0 et 720 heures')
-      return
-    }
+  // `patch` sert les deux blocs : chacun n'envoie que ses propres champs, la
+  // route ne met à jour que ce qu'elle reçoit.
+  const patch = async (body: Record<string, number>) => {
     setSaving(true)
     try {
       const res = await fetch('/api/admin/platform-settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ marketing_contact_cap_hours: Math.floor(n) }),
+        body: JSON.stringify(body),
       })
       const json = await res.json()
       if (res.ok) {
@@ -1834,10 +1836,33 @@ function PlatformSettingsTab() {
     }
   }
 
+  const saveCap = () => {
+    const n = Number(capHours)
+    if (!Number.isFinite(n) || n < 0 || n > 720) {
+      toast.error('Valeur invalide : un entier entre 0 et 720 heures')
+      return
+    }
+    patch({ marketing_contact_cap_hours: Math.floor(n) })
+  }
+
+  const saveRetention = () => {
+    const m = Number(msgDays)
+    const l = Number(logDays)
+    for (const v of [m, l]) {
+      if (!Number.isFinite(v) || v < 0 || v > 3650) {
+        toast.error('Valeur invalide : un entier entre 0 et 3650 jours')
+        return
+      }
+    }
+    patch({ message_retention_days: Math.floor(m), log_retention_days: Math.floor(l) })
+  }
+
   if (loading) return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
 
   const n = Number(capHours)
   const disabled = Number.isFinite(n) && n === 0
+  const msgOff = Number(msgDays) === 0
+  const logOff = Number(logDays) === 0
 
   return (
     <div className="space-y-8 max-w-2xl">
@@ -1866,7 +1891,7 @@ function PlatformSettingsTab() {
               className="w-40 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
           </div>
-          <Button onClick={save} disabled={saving} size="sm">
+          <Button onClick={saveCap} disabled={saving} size="sm">
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Enregistrer'}
           </Button>
         </div>
@@ -1874,6 +1899,63 @@ function PlatformSettingsTab() {
         <div className="text-xs text-muted-foreground space-y-1">
           <p><strong>20</strong> = 1 message marketing max par contact et par jour (recommandé).</p>
           <p><strong>0</strong> = plafond désactivé {disabled && <Badge variant="secondary" className="ml-1">actuellement désactivé</Badge>}.</p>
+        </div>
+      </div>
+
+      <div className="rounded-xl border p-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <ShieldCheck className="h-5 w-5 text-primary" />
+          <h2 className="text-lg font-semibold">Conservation des données</h2>
+        </div>
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          Le RGPD interdit de garder des données personnelles plus longtemps que
+          nécessaire (art. 5.1.e). Une purge automatique supprime chaque nuit les
+          données plus anciennes que les durées ci-dessous. C&apos;est distinct du
+          droit à l&apos;effacement, déjà assuré à la demande.
+          <br />
+          <strong>Les contacts ne sont jamais supprimés</strong> par cette purge : effacer
+          un contact abonné détruirait son consentement WhatsApp. Seul l&apos;historique
+          des échanges est concerné.
+        </p>
+
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Messages (jours)</label>
+            <input
+              type="number"
+              min={0}
+              max={3650}
+              value={msgDays}
+              onChange={e => setMsgDays(e.target.value)}
+              className="w-40 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-sm font-medium">Logs techniques (jours)</label>
+            <input
+              type="number"
+              min={0}
+              max={3650}
+              value={logDays}
+              onChange={e => setLogDays(e.target.value)}
+              className="w-40 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+          </div>
+          <Button onClick={saveRetention} disabled={saving} size="sm">
+            {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Enregistrer'}
+          </Button>
+        </div>
+
+        <div className="text-xs text-muted-foreground space-y-1">
+          <p><strong>730</strong> jours (24 mois) pour les messages, <strong>90</strong> pour les logs : recommandé.</p>
+          <p>
+            <strong>0</strong> = conservation illimitée, purge désactivée
+            {(msgOff || logOff) && <Badge variant="secondary" className="ml-1">purge partiellement désactivée</Badge>}.
+          </p>
+          <p className="pt-1 text-amber-600 dark:text-amber-500">
+            ⚠️ La suppression est définitive et irréversible. Baisser une durée purgera
+            dès la prochaine exécution tout ce qui dépasse le nouveau seuil.
+          </p>
           {updatedAt && (
             <p className="pt-1">Dernière modification : {new Date(updatedAt).toLocaleString('fr-FR')}</p>
           )}
