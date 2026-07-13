@@ -168,9 +168,10 @@ function AutomationsPageInner() {
     // On demande d'abord : création guidée (wizard) ou manuelle (builder) ?
     setShowChoose(true); setShowWizard(false); setCurrent(null)
   }
-  function startGuided() { setShowChoose(false); setShowChat(false); setShowWizard(true); setCurrent(null) }
   /** Assistant IA conversationnel : construit un funnel complet (plusieurs
-   *  messages, délais, conditions, A/B) à partir de quelques questions. */
+   *  messages, délais, conditions, A/B) à partir de quelques questions. Voie
+   *  unique de création assistée — l'ancien wizard « guidé » (formulaire figé,
+   *  1 message) a été retiré de l'écran de choix. */
   function startChat() { setShowChoose(false); setShowWizard(false); setShowChat(true); setCurrent(null) }
   function startManual() {
     setShowChoose(false); setShowWizard(false); setShowChat(false)
@@ -193,7 +194,11 @@ function AutomationsPageInner() {
       if (!res.ok) throw new Error(json.error || 'Erreur')
       track('automation_created', { trigger: data.trigger, via: 'wizard', kind: tab })
       await load()
+      // Sortir de TOUS les écrans de création (wizard OU assistant IA) et ouvrir
+      // l'automatisation dans le builder — sinon on restait bloqué sur le chat.
       setShowWizard(false)
+      setShowChat(false)
+      setShowChoose(false)
       if (json.data) setCurrent(json.data as Automation)
       toast.success('Automatisation créée, ajustez-la ici.')
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Erreur') } finally { setBusyId(null) }
@@ -589,23 +594,18 @@ function AutomationsPageInner() {
             <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center">
               <h2 className="mb-1 text-xl font-semibold">Comment voulez-vous la créer ?</h2>
               <p className="mb-6 text-sm text-muted-foreground">Choisissez votre méthode de création.</p>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 {/* ASSISTANT IA : construit un vrai funnel (plusieurs messages,
                     délais, conditions, A/B) en discutant, façon assistant des
-                    Modèles. C'est la voie la plus puissante pour une campagne. */}
+                    Modèles. Voie principale — l'ancienne « création guidée »
+                    (formulaire figé, 1 message) a été retirée : elle faisait
+                    doublon et produisait des parcours trop pauvres. */}
                 <button onClick={startChat}
                   className="group flex flex-col rounded-2xl border p-6 text-left transition-all hover:border-primary hover:bg-primary/5 hover:shadow-lg">
                   <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10"><Sparkles className="h-6 w-6 text-primary" /></div>
                   <p className="text-base font-semibold">Assistant IA</p>
                   <p className="mt-1 text-sm text-muted-foreground">Discutez avec l’IA : elle construit un parcours complet (plusieurs messages, délais, conditions, test A/B).</p>
                   <span className="mt-3 inline-flex w-fit items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">Recommandé</span>
-                </button>
-                <button onClick={startGuided}
-                  className="group flex flex-col rounded-2xl border p-6 text-left transition-all hover:border-primary hover:bg-primary/5 hover:shadow-lg">
-                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-muted"><Workflow className="h-6 w-6 text-sky-500" /></div>
-                  <p className="text-base font-semibold">Création guidée</p>
-                  <p className="mt-1 text-sm text-muted-foreground">Formulaire étape par étape : un message, un délai, une condition.</p>
-                  <span className="mt-3 inline-flex w-fit items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">Simple</span>
                 </button>
                 <button onClick={startManual}
                   className="group flex flex-col rounded-2xl border p-6 text-left transition-all hover:border-primary hover:bg-primary/5 hover:shadow-lg">

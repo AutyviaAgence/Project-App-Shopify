@@ -138,26 +138,34 @@ export function WorkflowChat({ kind, onComplete, onCancel }: {
           </div>
         )}
 
-        {/* Modèles manquants → bouton pour aller les créer */}
+        {/* Modèles manquants → conseils pour convertir + bouton de création */}
         {(missing.length > 0 || (ready?.missingTemplates?.length ?? 0) > 0) && (
           <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3">
-            <p className="mb-2 flex items-center gap-1.5 text-sm font-medium text-amber-700 dark:text-amber-400">
-              <AlertTriangle className="h-4 w-4" /> Modèle(s) à créer
+            <p className="mb-1 flex items-center gap-1.5 text-sm font-medium text-amber-700 dark:text-amber-400">
+              <AlertTriangle className="h-4 w-4" /> Message(s) à créer
+            </p>
+            <p className="mb-2 text-xs text-muted-foreground">
+              Ce parcours a besoin de message(s) que vous n’avez pas encore. Voici ce qu’il faut créer,
+              avec des conseils pour <span className="font-medium text-foreground">convertir</span> :
             </p>
             <div className="space-y-2">
               {(missing.length > 0 ? missing : ready!.missingTemplates).map((m, i) => (
                 <div key={i} className="rounded-lg border bg-background p-2.5">
                   <p className="text-sm font-medium">{m.purpose}</p>
-                  {m.suggestion && <p className="mt-0.5 text-xs text-muted-foreground">{m.suggestion}</p>}
+                  {m.suggestion && (
+                    <p className="mt-1 rounded-md bg-muted/50 p-2 text-xs leading-relaxed text-muted-foreground">
+                      💡 {m.suggestion}
+                    </p>
+                  )}
                   <Button size="sm" variant="outline" className="mt-2"
                     onClick={() => router.push('/templates')}>
-                    <FileText className="mr-1 h-3.5 w-3.5" /> Créer ce modèle
+                    <FileText className="mr-1 h-3.5 w-3.5" /> Créer ce message
                   </Button>
                 </div>
               ))}
             </div>
             <p className="mt-2 text-[11px] text-muted-foreground">
-              Créez le modèle, faites-le approuver par Meta, puis revenez ici.
+              Créez-le dans Modèles, faites-le approuver par Meta, puis rattachez-le au parcours.
             </p>
           </div>
         )}
@@ -177,10 +185,11 @@ export function WorkflowChat({ kind, onComplete, onCancel }: {
               {ready.graph.nodes.filter((n) => n.type === 'ab_test').length} test(s) A/B
             </p>
           </div>
-          {ready.hallucinated > 0 && (
+          {(ready.missingTemplates?.length ?? 0) > 0 && (
             <p className="flex items-start gap-1 text-[11px] text-amber-600">
               <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
-              {ready.hallucinated} message(s) sans modèle : choisissez-les dans l’éditeur après création.
+              Le parcours sera créé mais {ready.missingTemplates.length} message(s) restent à écrire
+              (voir les conseils ci-dessus). Rattachez-les dans l’éditeur avant d’activer.
             </p>
           )}
           <div className="flex gap-2">

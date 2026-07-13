@@ -61,19 +61,34 @@ export async function POST(req: NextRequest) {
     return `- id:"${t.id}" · ${t.name} [${t.category || 'UTILITY'}]${qr.length ? ` · boutons: ${qr.join(', ')}` : ''} · « ${body} »`
   }).join('\n') || '(aucun modèle approuvé pour le moment)'
 
-  const allowedTriggers = triggersForKind(kind).map((e) => `${e.value} (${e.label})`).join(', ')
+  // Catalogue des déclencheurs : le LIBELLÉ humain est ce que l'IA doit montrer
+  // au marchand ; le code technique ne sert QU'À remplir le champ "event" du
+  // graphe (jamais affiché). Sans cette distinction, l'IA proposait des options
+  // illisibles du type « contact_opted_in ».
+  const triggerList = triggersForKind(kind)
+    .map((e) => `- « ${e.label} » → event:"${e.value}" (${e.description})`)
+    .join('\n')
   const kindLabel = kind === 'marketing' ? 'CAMPAGNE MARKETING' : 'AUTOMATISATION TRANSACTIONNELLE'
 
   const system = `Tu es un expert en funnels WhatsApp pour l'e-commerce. Tu aides un marchand à construire une ${kindLabel} complète.
 
+Tu parles à un COMMERÇANT, pas à un développeur.
+RÈGLE ABSOLUE : dans "question" et "options", n'écris JAMAIS de code technique
+(pas de "contact_opted_in", "scheduled_date", "order_paid"…). Utilise UNIQUEMENT
+des formulations humaines, en français courant. Les codes techniques ne servent
+QUE dans le champ "event" du graphe JSON, jamais à l'écran.
+  ✅ bon  : options: ["Quand un client abandonne son panier", "Quand quelqu'un s'abonne", "À une date précise"]
+  ❌ interdit : options: ["checkout_abandoned", "contact_opted_in", "scheduled_date"]
+
 Tu poses des questions COURTES, UNE À LA FOIS (2 à 4 max), pour comprendre :
  - l'objectif du parcours (relancer un panier, accueillir un abonné, réactiver un inactif, promouvoir…),
- - le déclencheur,
+ - le déclencheur (formulé en clair, cf. liste ci-dessous),
  - le rythme (combien de messages, quel espacement),
  - s'il veut tester deux versions d'un message (A/B).
 Dès que tu as assez d'infos, tu passes en mode "ready".
 
-DÉCLENCHEURS AUTORISÉS pour ce type : ${allowedTriggers}
+DÉCLENCHEURS AUTORISÉS (montre le LIBELLÉ, mets le code dans event) :
+${triggerList}
 
 MODÈLES APPROUVÉS DISPONIBLES (n'utilise QUE ces id dans templateId) :
 ${tplCatalog}
@@ -83,8 +98,14 @@ ${GRAPH_JSON_SCHEMA_DOC}
 CONSIGNES IMPORTANTES :
 - Un bon funnel ${kind === 'marketing' ? 'de vente enchaîne PLUSIEURS messages espacés par des délais, souvent avec une condition (« a-t-il commandé ? ») et parfois un test A/B' : 'transactionnel est court et informatif (1 à 2 messages)'}.
 - N'INVENTE JAMAIS un templateId : utilise uniquement les id listés ci-dessus.
-- S'il MANQUE un message pour réaliser le funnel (ex. pas de modèle de relance promo), NE l'invente pas :
-  liste-le dans "missingTemplates" avec une description claire de ce que le marchand doit créer.
+- S'il MANQUE un message pour réaliser le funnel (ex. pas de modèle de relance promo), NE l'invente pas.
+  Mets alors templateId:null sur ce nœud ET décris-le dans "missingTemplates" :
+    { "purpose": "à quoi sert ce message dans le parcours (1 phrase claire)",
+      "suggestion": "CONSEILS CONCRETS POUR CONVERTIR : angle à adopter, incitation
+                     (code promo, livraison offerte, urgence), boutons de réponse
+                     rapide utiles, et un exemple de formulation courte." }
+  Sois précis et actionnable : le marchand doit pouvoir créer le message directement
+  à partir de ta suggestion.
 - Si aucun modèle approuvé ne permet de démarrer, renvoie mode "need_templates".
 
 Réponds UNIQUEMENT en JSON :
@@ -143,12 +164,24 @@ La première fois (aucune réponse), pose une question d'ouverture simple.`
     })
   }
 
-  // Question suivante.
+  // Question suivante. Filet de sécurité : si l'IA renvoie malgré tout un code
+  // technique en option (« contact_opted_in »), on le traduit par son libellé
+  // humain ; à défaut on l'écarte (jamais de jargon affiché au marchand).
   if (decision.mode !== 'ready' || !decision.graph) {
+    const labelByEvent = new Map(TRIGGER_EVENTS.map((e) => [e.value as string, e.label]))
+    const humanOptions = (Array.isArray(decision.options) ? decision.options : [])
+      .map((o) => {
+        const s = String(o || '').trim()
+        if (labelByEvent.has(s)) return labelByEvent.get(s)!         // code connu → libellé
+        if (/^[a-z][a-z0-9]*(_[a-z0-9]+)+$/.test(s)) return null     // snake_case inconnu → jeter
+        return s
+      })
+      .filter((o): o is string => !!o)
+      .slice(0, 4)
     return NextResponse.json({
       mode: 'ask',
       question: decision.question || 'Quel parcours souhaitez-vous créer ?',
-      options: Array.isArray(decision.options) ? decision.options.slice(0, 4) : undefined,
+      options: humanOptions.length > 0 ? humanOptions : undefined,
     })
   }
 
@@ -181,6 +214,20 @@ La première fois (aucune réponse), pose une question d'ouverture simple.`
   const usedTemplates = nodes
     .filter((n) => n.type === 'action' && n.templateId)
     .map((n) => (n as { templateId: string }).templateId)
+
+  // Nœuds SANS modèle (l'IA n'en avait pas de valable, ou son id était halluciné).
+  // Chacun doit être expliqué au marchand avec des conseils pour convertir : on
+  // complète `missing` si l'IA n'a pas décrit assez de messages à créer.
+  const emptyActions = nodes.filter((n) => n.type === 'action' && !n.templateId).length
+  while (missing.length < emptyActions && missing.length < 4) {
+    missing.push({
+      purpose: `Message ${missing.length + 1} du parcours (à créer)`,
+      suggestion:
+        'Allez droit au but : rappelez le contexte (panier, commande, offre), donnez UNE raison d’agir maintenant '
+        + '(code promo, livraison offerte, stock limité) et terminez par un bouton de réponse rapide '
+        + '(ex. « Finaliser ma commande », « J’ai une question »). Un message court convertit mieux qu’un long.',
+    })
+  }
 
   return NextResponse.json({
     mode: 'ready',
