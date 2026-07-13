@@ -282,8 +282,14 @@ les données au-delà du nécessaire, **automatiquement**.
 > serait une régression fonctionnelle déguisée en conformité. On purge
 > l'historique des échanges, pas la relation commerciale.
 
-**À faire** : brancher le cron sur l'ordonnanceur (comme `run-automations`),
-sinon la purge ne tourne jamais et le « Oui » déclaré à Shopify devient faux.
+**Verrou 24 h.** La route est branchée sur l'ordonnanceur qui tourne **chaque
+minute** (le même que les autres jobs). Elle se verrouille donc elle-même via
+`retention_last_run_at` : un seul passage effectif par jour, les 1439 autres
+appels ressortent immédiatement sans toucher à la base. Sans ce garde, on
+scannerait `messages` et `webhook_logs` 1440 fois par jour pour rien.
+
+Un échec **ne réarme pas** le verrou : le tick suivant (1 min) réessaie, plutôt
+que d'attendre 24 h en laissant l'erreur passer inaperçue.
 
 ---
 

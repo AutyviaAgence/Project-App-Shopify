@@ -76,7 +76,7 @@ export async function GET(req: NextRequest) {
 
   const { data: settings, error } = await admin
     .from('platform_settings')
-    .select('message_retention_days, log_retention_days')
+    .select('message_retention_days, log_retention_days, retention_last_run_at')
     .eq('id', 1)
     .maybeSingle()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -85,6 +85,26 @@ export async function GET(req: NextRequest) {
   const logDays = settings?.log_retention_days ?? 0
 
   const now = Date.now()
+
+  // Verrou 24 h. Cette route est branchée sur l'ordonnanceur qui tourne CHAQUE
+  // MINUTE : sans ce garde, on scannerait `messages` et `webhook_logs` — les deux
+  // plus grosses tables — 1440 fois par jour pour n'effacer, au régime de croisière,
+  // que quelques lignes. Une purge par jour suffit ; les 1439 autres appels
+  // ressortent ici sans toucher à la base.
+  const lastRun = settings?.retention_last_run_at
+    ? new Date(settings.retention_last_run_at as string).getTime()
+    : 0
+  const sinceLastRun = now - lastRun
+  if (sinceLastRun < 86_400_000) {
+    return NextResponse.json({
+      data: {
+        skipped: 'déjà purgé il y a moins de 24 h',
+        lastRunAt: settings?.retention_last_run_at ?? null,
+        nextRunIn: `${Math.ceil((86_400_000 - sinceLastRun) / 3_600_000)} h`,
+      },
+    })
+  }
+
   const cutoff = (days: number) => new Date(now - days * 86_400_000).toISOString()
 
   const report: Record<string, unknown> = { ranAt: new Date(now).toISOString() }
@@ -107,12 +127,20 @@ export async function GET(req: NextRequest) {
     }
   } catch (e) {
     // Une purge qui échoue à mi-parcours a déjà supprimé des lots : on remonte
-    // l'erreur avec ce qui a été fait, plutôt qu'un 500 muet.
+    // l'erreur avec ce qui a été fait, plutôt qu'un 500 muet. On NE marque PAS
+    // le passage comme réussi : le prochain tick (dans 1 min) réessaiera, au lieu
+    // d'attendre 24 h en laissant l'échec passer inaperçu.
     return NextResponse.json(
       { error: e instanceof Error ? e.message : 'Purge échouée', report },
       { status: 500 }
     )
   }
+
+  // Réarme le verrou 24 h. Sans ce marquage, la purge repartirait à chaque minute.
+  await admin
+    .from('platform_settings')
+    .update({ retention_last_run_at: new Date(now).toISOString() })
+    .eq('id', 1)
 
   return NextResponse.json({ data: report })
 }

@@ -14,12 +14,18 @@ alter table public.platform_settings
   -- Durée de conservation des logs techniques (webhook_logs), en JOURS. Ces logs
   -- contiennent des payloads Meta/Shopify avec des numéros de téléphone : ils
   -- méritent une rétention plus COURTE que les conversations métier.
-  add column if not exists log_retention_days integer;
+  add column if not exists log_retention_days integer,
+  -- Horodatage de la dernière purge réussie. Sert de VERROU 24 h : la route est
+  -- branchée sur l'ordonnanceur qui tourne chaque minute, mais la purge ne doit
+  -- s'exécuter qu'une fois par jour (elle scanne les deux plus grosses tables).
+  add column if not exists retention_last_run_at timestamptz;
 
 comment on column public.platform_settings.message_retention_days is
   'Conservation des messages en jours. 0/NULL = illimitée (purge désactivée).';
 comment on column public.platform_settings.log_retention_days is
   'Conservation des webhook_logs en jours. 0/NULL = illimitée (purge désactivée).';
+comment on column public.platform_settings.retention_last_run_at is
+  'Dernière purge réussie. Verrou 24 h : le cron tourne chaque minute, la purge une fois par jour.';
 
 -- Défauts posés à l'activation : 24 mois pour les conversations (assez pour le SAV
 -- et l'historique client), 90 jours pour les logs techniques (assez pour déboguer).
