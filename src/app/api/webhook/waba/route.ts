@@ -192,11 +192,9 @@ export async function POST(req: NextRequest) {
               : new Date().toISOString()
 
             if (waStatus === 'read') {
-              // Pour l'accusé de lecture : on ne l'enregistre (et ne déclenche
-              // l'automation `message_read`) QU'UNE FOIS. read_at IS NULL sert
-              // de garde : le 2e « read » que Meta pourrait renvoyer n'écrit rien
-              // et ne re-déclenche pas. On récupère la ligne pour connaître le
-              // contact à notifier.
+              // Marque le message comme lu (si on le retrouve par wamid). Peut ne
+              // rien matcher pour un message envoyé avant que le wamid soit stocké
+              // — ce N'EST PAS bloquant pour le suivi d'ouverture ci-dessous.
               const { data: updatedRows } = await supabase
                 .from('messages')
                 .update({ status: 'read', read_at: statusTs })
@@ -204,49 +202,57 @@ export async function POST(req: NextRequest) {
                 .is('read_at', null)
                 .select('id, conversation_id')
 
-              const row = updatedRows?.[0]
-              if (row?.conversation_id && session.user_id) {
-                // conversation → contact (les messages n'ont pas de contact_id)
+              // Retrouver le CONTACT — INDÉPENDAMMENT du message : Meta fournit
+              // recipient_id (le numéro du destinataire). Ainsi le taux d'ouverture
+              // remonte même quand le message n'est pas (ou plus) rattachable par
+              // wamid. Fallback : via la conversation du message si trouvé.
+              let contactId: string | null = null
+              const recipient = (status.recipient_id || '').replace(/\D/g, '')
+              if (recipient && session.id) {
+                const { data: byPhone } = await supabase
+                  .from('contacts')
+                  .select('id')
+                  .eq('session_id', session.id)
+                  .eq('phone_number', recipient)
+                  .maybeSingle()
+                contactId = byPhone?.id ?? null
+              }
+              if (!contactId && updatedRows?.[0]?.conversation_id) {
                 const { data: conv } = await supabase
-                  .from('conversations')
-                  .select('contact_id')
-                  .eq('id', row.conversation_id)
-                  .single()
+                  .from('conversations').select('contact_id').eq('id', updatedRows[0].conversation_id).single()
+                contactId = conv?.contact_id ?? null
+              }
 
-                if (conv?.contact_id) {
-                  // Test A/B : le contact a LU notre message → marque ses
-                  // assignations comme "opened" (taux d'ouverture de l'entonnoir).
-                  supabase
-                    .from('ab_test_assignments')
-                    .update({ opened: true, opened_at: statusTs })
-                    .eq('contact_id', conv.contact_id)
-                    .eq('opened', false)
-                    .then(undefined, () => {})
+              if (contactId && session.user_id) {
+                // Le contact a LU → marque ses assignations « opened » (taux
+                // d'ouverture de l'entonnoir). Découplé du match du message.
+                supabase
+                  .from('ab_test_assignments')
+                  .update({ opened: true, opened_at: statusTs })
+                  .eq('contact_id', contactId)
+                  .eq('opened', false)
+                  .then(undefined, () => {})
 
-                  const { data: readContact } = await supabase
-                    .from('contacts')
-                    .select('name')
-                    .eq('id', conv.contact_id)
-                    .single()
+                const { data: readContact } = await supabase
+                  .from('contacts').select('name').eq('id', contactId).single()
 
-                  try {
-                    const { enqueueAutomations } = await import('@/lib/automations/engine')
-                    await enqueueAutomations({
-                      userId: session.user_id,
-                      event: 'message_read',
-                      ctx: {
-                        contactId: conv.contact_id,
-                        variables: {
-                          customer_first_name: (readContact?.name || '').split(' ')[0] || '',
-                          customer_full_name: readContact?.name || '',
-                        },
-                        // idempotence : un message lu ne déclenche qu'une fois
-                        dedupKey: `read:${status.id}`,
+                try {
+                  const { enqueueAutomations } = await import('@/lib/automations/engine')
+                  await enqueueAutomations({
+                    userId: session.user_id,
+                    event: 'message_read',
+                    ctx: {
+                      contactId,
+                      variables: {
+                        customer_first_name: (readContact?.name || '').split(' ')[0] || '',
+                        customer_full_name: readContact?.name || '',
                       },
-                    })
-                  } catch (err) {
-                    console.error('[WABA Webhook] message_read enqueue error:', err)
-                  }
+                      // idempotence : un message lu ne déclenche qu'une fois
+                      dedupKey: `read:${status.id}`,
+                    },
+                  })
+                } catch (err) {
+                  console.error('[WABA Webhook] message_read enqueue error:', err)
                 }
               }
             } else {
@@ -507,10 +513,17 @@ export async function POST(req: NextRequest) {
 
             if (!conversation) continue
 
-            // Test A/B : le contact a répondu → marque ses assignations comme "responded".
+            // Test A/B : le contact a répondu → marque ses assignations comme
+            // "responded" ET "opened" : répondre implique avoir lu (l'accusé
+            // « read » de Meta n'arrive pas toujours, ex. aperçu sans ouverture
+            // complète, ou message envoyé avant le suivi wamid). Sans ça, on
+            // pouvait avoir 100% de réponses mais 0% d'ouverture — incohérent.
             supabase
               .from('ab_test_assignments')
-              .update({ responded: true, responded_at: new Date().toISOString() })
+              .update({
+                responded: true, responded_at: new Date().toISOString(),
+                opened: true, opened_at: new Date().toISOString(),
+              })
               .eq('contact_id', contact.id)
               .eq('responded', false)
               .then(undefined, () => {})

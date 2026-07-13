@@ -67,8 +67,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const rows = (abData || []) as AbRow[]
 
   // Funnel global.
+  // Cohérence : répondre / cliquer / commander IMPLIQUE avoir ouvert. L'accusé
+  // « read » de Meta n'arrive pas toujours (aperçu, message d'avant le suivi
+  // wamid…) → sans ça on pouvait afficher 100% de réponses et 0% d'ouverture.
+  const isOpened = (r: AbRow) => r.opened || r.responded || r.ordered || !!r.clicked_branch
   const g = { sent: rows.length, opened: 0, responded: 0, ordered: 0 }
-  for (const r of rows) { if (r.opened) g.opened++; if (r.responded) g.responded++; if (r.ordered) g.ordered++ }
+  for (const r of rows) { if (isOpened(r)) g.opened++; if (r.responded) g.responded++; if (r.ordered) g.ordered++ }
   const funnel = {
     sent: g.sent,
     opened: g.opened, openRate: rate(g.opened, g.sent),
@@ -82,7 +86,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     if (r.variant_key === '_' || r.variant_key === '_send') continue
     if (!vMap.has(r.variant_key)) vMap.set(r.variant_key, { sent: 0, opened: 0, responded: 0, ordered: 0 })
     const v = vMap.get(r.variant_key)!
-    v.sent++; if (r.opened) v.opened++; if (r.responded) v.responded++; if (r.ordered) v.ordered++
+    v.sent++; if (isOpened(r)) v.opened++; if (r.responded) v.responded++; if (r.ordered) v.ordered++
   }
   const variants = Array.from(vMap.entries()).map(([key, v]) => ({
     key, sent: v.sent,
