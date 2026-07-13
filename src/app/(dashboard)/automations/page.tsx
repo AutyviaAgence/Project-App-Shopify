@@ -13,6 +13,7 @@ import { BlobLoaderScreen } from '@/components/blob-loader'
 import type { WhatsAppTemplate } from '@/types/database'
 import { WorkflowBuilder } from '@/components/automations/builder/workflow-builder'
 import { WorkflowWizard } from '@/components/automations/workflow-wizard'
+import { WorkflowChat } from '@/components/automations/workflow-chat'
 import { PerformancePanel } from '@/components/automations/performance-panel'
 import { defaultGraph, validateGraph, triggerNode, type WorkflowGraph } from '@/lib/automations/graph-types'
 
@@ -46,6 +47,8 @@ function AutomationsPageInner() {
   const [busyId, setBusyId] = useState<string | null>(null)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [showWizard, setShowWizard] = useState(false)
+  // Assistant IA conversationnel (funnel complet) — 3e voie de création.
+  const [showChat, setShowChat] = useState(false)
   // Écran de choix « Guidé (wizard) ou Manuel (builder) » avant la création.
   const [showChoose, setShowChoose] = useState(false)
   // Saisie inline du nom de dossier (au lieu d'un window.prompt).
@@ -165,14 +168,17 @@ function AutomationsPageInner() {
     // On demande d'abord : création guidée (wizard) ou manuelle (builder) ?
     setShowChoose(true); setShowWizard(false); setCurrent(null)
   }
-  function startGuided() { setShowChoose(false); setShowWizard(true); setCurrent(null) }
+  function startGuided() { setShowChoose(false); setShowChat(false); setShowWizard(true); setCurrent(null) }
+  /** Assistant IA conversationnel : construit un funnel complet (plusieurs
+   *  messages, délais, conditions, A/B) à partir de quelques questions. */
+  function startChat() { setShowChoose(false); setShowWizard(false); setShowChat(true); setCurrent(null) }
   function startManual() {
-    setShowChoose(false); setShowWizard(false)
+    setShowChoose(false); setShowWizard(false); setShowChat(false)
     // Trigger de départ selon l'onglet : marketing → campagne planifiée.
     const trig = tab === 'marketing' ? 'scheduled_date' : 'order_fulfilled'
     setCurrent({ id: '', name: '', trigger_event: trig, template_id: null, delay_minutes: 0, is_active: true, kind: tab })
   }
-  function selectAuto(a: Automation) { setShowChoose(false); setShowWizard(false); setCurrent(a) }
+  function selectAuto(a: Automation) { setShowChoose(false); setShowWizard(false); setShowChat(false); setCurrent(a) }
 
   // Le wizard a fini : on crée l'automatisation AVEC son graphe, puis on l'ouvre
   // dans le builder pour affiner.
@@ -583,13 +589,23 @@ function AutomationsPageInner() {
             <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center">
               <h2 className="mb-1 text-xl font-semibold">Comment voulez-vous la créer ?</h2>
               <p className="mb-6 text-sm text-muted-foreground">Choisissez votre méthode de création.</p>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <button onClick={startGuided}
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                {/* ASSISTANT IA : construit un vrai funnel (plusieurs messages,
+                    délais, conditions, A/B) en discutant, façon assistant des
+                    Modèles. C'est la voie la plus puissante pour une campagne. */}
+                <button onClick={startChat}
                   className="group flex flex-col rounded-2xl border p-6 text-left transition-all hover:border-primary hover:bg-primary/5 hover:shadow-lg">
                   <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10"><Sparkles className="h-6 w-6 text-primary" /></div>
-                  <p className="text-base font-semibold">Création guidée</p>
-                  <p className="mt-1 text-sm text-muted-foreground">L’assistant vous pose des questions étape par étape et construit le workflow pour vous.</p>
+                  <p className="text-base font-semibold">Assistant IA</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Discutez avec l’IA : elle construit un parcours complet (plusieurs messages, délais, conditions, test A/B).</p>
                   <span className="mt-3 inline-flex w-fit items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary">Recommandé</span>
+                </button>
+                <button onClick={startGuided}
+                  className="group flex flex-col rounded-2xl border p-6 text-left transition-all hover:border-primary hover:bg-primary/5 hover:shadow-lg">
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-muted"><Workflow className="h-6 w-6 text-sky-500" /></div>
+                  <p className="text-base font-semibold">Création guidée</p>
+                  <p className="mt-1 text-sm text-muted-foreground">Formulaire étape par étape : un message, un délai, une condition.</p>
+                  <span className="mt-3 inline-flex w-fit items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[11px] font-medium text-muted-foreground">Simple</span>
                 </button>
                 <button onClick={startManual}
                   className="group flex flex-col rounded-2xl border p-6 text-left transition-all hover:border-primary hover:bg-primary/5 hover:shadow-lg">
@@ -600,6 +616,14 @@ function AutomationsPageInner() {
                 </button>
               </div>
             </div>
+          </div>
+        ) : showChat ? (
+          <div className="min-h-0 overflow-hidden">
+            <WorkflowChat
+              kind={tab}
+              onComplete={onWizardComplete}
+              onCancel={() => { setShowChat(false); setShowChoose(true) }}
+            />
           </div>
         ) : showWizard ? (
           <div className="min-h-0 overflow-y-auto">

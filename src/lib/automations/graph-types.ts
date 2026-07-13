@@ -226,21 +226,45 @@ export const GRAPH_JSON_SCHEMA_DOC = `
 Un workflow est un objet JSON { "nodes": [...], "edges": [...] }.
 
 NŒUDS (nodes), chaque nœud a un "id" unique (string) et un "type" :
-- trigger   : { id, type:"trigger", event }, déclencheur Shopify. event ∈
-              order_created | order_paid | order_fulfilled | order_delivered |
-              order_cancelled | refund_created | checkout_abandoned. UN SEUL
-              trigger par workflow.
+- trigger   : { id, type:"trigger", event }, UN SEUL par workflow. event ∈
+              TRANSACTIONNEL : order_created | order_paid | order_fulfilled |
+              order_delivered | order_cancelled | refund_created | return_requested
+              MARKETING/CAMPAGNE : checkout_abandoned (panier abandonné) |
+              contact_opted_in (nouvel abonné) | optin_popup | customer_birthday |
+              scheduled_date (campagne planifiée) | no_customer_reply (relance) |
+              message_read | button_clicked
+              Paramètres optionnels selon l'event :
+                scheduled_date     → "scheduledAt" (ISO UTC), "scheduledTz"
+                no_customer_reply  → "inactivityHours" (nombre)
 - delay     : { id, type:"delay", minutes }, attente (minutes, 0 = immédiat).
+              Ex. 1440 = 1 jour, 4320 = 3 jours.
 - condition : { id, type:"condition", rule:{ field, op, value }, label? }
               field ∈ order_total | is_first_order | product_contains |
-              collection_contains | country | language
-              op ∈ > >= < <= == != contains
-- action    : { id, type:"action", templateId, label? }, envoie un modèle WhatsApp.
+              collection_contains | country | language | has_stage
+              op ∈ > >= < <= == != contains has_any has_none
+- ab_test   : { id, type:"ab_test", variants:[{key,weight},…], label? }
+              Test A/B : 2 à 4 variantes (key = "A","B","C","D"), la somme des
+              "weight" DOIT faire exactement 100. Chaque variante mène à sa
+              propre suite via une arête branch:"variant:A" etc.
+- action    : { id, type:"action", templateId, label?, allowMultiple? }
+              Envoie un modèle WhatsApp. templateId = id d'un modèle APPROUVÉ.
 
-ARÊTES (edges), relient les nœuds : { from, to, branch? }
-- "branch" vaut "yes" ou "no" UNIQUEMENT pour les arêtes sortant d'une condition.
-- les autres nœuds ont une seule arête sortante (sans branch).
+ARÊTES (edges) : { from, to, branch? }
+- condition → 2 arêtes : branch:"yes" et branch:"no".
+- ab_test   → 1 arête par variante : branch:"variant:A", "variant:B"…
+- action à BOUTONS (le modèle a des boutons de réponse rapide) → 1 arête par
+  bouton : branch:"button:<libellé exact du bouton>", PLUS une arête
+  branch:"button:__timeout__" = la SUITE PAR DÉFAUT (continuité du parcours,
+  envoyée immédiatement, que le contact clique ou non).
+- les autres nœuds : une seule arête sortante, sans "branch".
 
-Règles : exactement 1 trigger ; chaque action doit avoir un templateId ;
-une condition doit avoir au moins une branche (yes/no).
+RÈGLES : exactement 1 trigger ; chaque action a un templateId ; une condition a
+ses 2 branches ; un ab_test a ≥2 variantes dont les poids somment à 100 et chaque
+variante a une suite.
+
+FUNNEL DE VENTE (campagne) — enchaîne PLUSIEURS messages, ex :
+trigger(checkout_abandoned) → delay(60) → action(rappel panier)
+  → delay(1440) → condition(a commandé ?) --no--> ab_test(A 50 / B 50)
+      → variant:A → action(promo -10%)
+      → variant:B → action(livraison offerte)
 `
