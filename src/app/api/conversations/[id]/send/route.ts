@@ -279,12 +279,20 @@ export async function POST(
       })
 
       if (!tplRes.ok) {
-        // Modèle introuvable / non approuvé → 400 ; sinon échec d'envoi → 502.
-        const notFound = tplRes.error === 'template_introuvable' || tplRes.error === 'template_non_approuve'
-        return NextResponse.json(
-          { error: tplRes.error || 'Échec de l\'envoi du modèle' },
-          { status: notFound ? 400 : 502 }
-        )
+        const err = tplRes.error || 'Échec de l\'envoi du modèle'
+        // La plupart des échecs d'envoi de modèle sont des erreurs de CONTENU/
+        // configuration (format de variable, modèle non approuvé, pas d'opt-in…),
+        // pas des pannes serveur → 400 avec un message clair, jamais un 502 opaque
+        // (qui s'affichait « Bad Gateway » sans explication). On réserve 502 aux
+        // vrais problèmes réseau/infra en aval.
+        const infra = /timeout|network|ECONNRESET|fetch failed|Bad Gateway|503|504/i.test(err)
+        // Rend le message d'erreur lisible pour l'UI (déjà actionnable côté dispatch).
+        const friendly = err === 'template_introuvable' ? 'Modèle introuvable.'
+          : err === 'template_non_approuve' ? 'Ce modèle n\'est pas encore approuvé par Meta.'
+          : err === 'rate_limited' ? 'Limite d\'envoi Meta atteinte. Réessayez dans quelques minutes.'
+          : err === 'opted_out' ? 'Ce contact s\'est désabonné.'
+          : err
+        return NextResponse.json({ error: friendly }, { status: infra ? 502 : 400 })
       }
 
       // sendTemplateToContact a déjà tracé le message en inbox. On le récupère pour
