@@ -7,7 +7,13 @@ import crypto from 'crypto'
  * code contre un access_token, et les appels Admin API (catalogue, etc.).
  */
 
-const API_VERSION = '2026-04'
+/**
+ * Version de l'Admin API pour les appels SORTANTS (GraphQL).
+ * À garder alignée sur `api_version` dans shopify.app.xeyo-app-store.toml, qui
+ * régit lui le format des webhooks ENTRANTS — ce sont deux réglages distincts,
+ * et un écart entre les deux dérive en silence.
+ */
+const API_VERSION = '2026-07'
 
 /**
  * Échappe une valeur utilisateur avant de l'injecter dans une recherche Shopify

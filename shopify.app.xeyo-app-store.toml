@@ -1,0 +1,57 @@
+# Config de l'app PUBLIQUE (distribution Shopify App Store).
+#
+# ⚠️ NE PAS CONFONDRE avec shopify.app.xeyo-whatsapp-support-chat.toml, qui est
+# l'ANCIENNE app, verrouillée en « distribution personnalisée » (choix
+# irréversible côté Shopify : impossible de la publier sur l'App Store, même par
+# le support). Elle n'est gardée que pour référence/rollback.
+# C'est CE fichier qui fait foi désormais :
+#     shopify app deploy --config xeyo-app-store
+#
+# Voir docs/SHOPIFY_COMPLIANCE.md.
+
+client_id = "f9d37d1f9ab1427165874c33eb7c4926"
+name = "Xeyo - WhatsApp Support & Chat"
+application_url = "https://app.xeyo.io/shopify"
+embedded = true
+
+[webhooks]
+api_version = "2026-07"
+
+  # Désinstallation : purge du token et désactivation de la boutique.
+  [[webhooks.subscriptions]]
+  uri = "/api/shopify/webhooks/app-uninstalled"
+  topics = [ "app/uninstalled" ]
+
+  # ── Webhooks de conformité RGPD — OBLIGATOIRES pour l'App Store ────────────
+  # Syntaxe canonique : `compliance_topics` (et NON `topics`, qui fait répondre le
+  # serveur « The following topic is invalid », ni une section
+  # [webhooks.privacy_compliance]). ⚠️ `shopify app config validate` NE détecte
+  # PAS l'erreur — seul le `deploy` la rejette.
+  [[webhooks.subscriptions]]
+  uri = "https://app.xeyo.io/api/shopify/webhooks/customers-data-request"
+  compliance_topics = [ "customers/data_request" ]
+
+  [[webhooks.subscriptions]]
+  uri = "https://app.xeyo.io/api/shopify/webhooks/customers-redact"
+  compliance_topics = [ "customers/redact" ]
+
+  [[webhooks.subscriptions]]
+  uri = "https://app.xeyo.io/api/shopify/webhooks/shop-redact"
+  compliance_topics = [ "shop/redact" ]
+
+[access_scopes]
+# ⚠️ Le .toml fait foi, PAS la variable d'env SHOPIFY_SCOPES. Après tout ajout de
+# scope : `deploy` + RÉINSTALLATION de l'app sur la boutique + reregister-webhooks,
+# sinon les appels concernés tombent en 403.
+# `read_discounts` est volontairement absent : on ne fait que CRÉER des remises.
+scopes = "read_content,read_customers,read_fulfillments,read_legal_policies,read_orders,read_products,read_returns,write_discounts,write_orders"
+optional_scopes = [ ]
+use_legacy_install_flow = false
+
+[auth]
+redirect_urls = [ "https://app.xeyo.io/api/shopify/callback" ]
+
+[app_proxy]
+url = "https://app.xeyo.io/api/shopify/proxy"
+subpath = "xeyo"
+prefix = "apps"

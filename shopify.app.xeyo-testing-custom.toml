@@ -1,7 +1,17 @@
-# Learn more about configuring your app at https://shopify.dev/docs/apps/tools/cli/configuration
+# ⚠️ ANCIENNE app — « Xeyo - Testing app custom » (dev/test uniquement).
+#
+# Verrouillée en « distribution personnalisée » : ce choix est IRRÉVERSIBLE côté
+# Shopify (même le support ne peut pas la basculer en publique). Elle ne pourra
+# donc JAMAIS être installée par un marchand extérieur, ni utiliser la Billing API.
+#
+# ➜ L'app qui sera distribuée est dans shopify.app.xeyo-app-store.toml.
+#    Ne déploie ce fichier-ci que pour tester sur la boutique de dev :
+#        shopify app deploy --config xeyo-testing-custom
+#
+# Voir docs/SHOPIFY_COMPLIANCE.md.
 
 client_id = "7510fef84b3b8bd4440344e9f6b626d4"
-name = "Xeyo - WhatsApp Support & Chat"
+name = "Xeyo - Testing app custom"
 application_url = "https://app.xeyo.io/shopify"
 embedded = true
 

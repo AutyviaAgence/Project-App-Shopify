@@ -7,25 +7,64 @@
 > Dernière vérification contre le code : **13 juillet 2026** (commit `e9617dd`).
 > État : **conforme, en attente de déploiement VPS + 2 champs Partner Dashboard.**
 
-App : **Xeyo — WhatsApp Support & Chat**
-Client ID : `7510fef84b3b8bd4440344e9f6b626d4`
-Config : `shopify.app.xeyo-whatsapp-support-chat.toml`
 Référentiel officiel : <https://shopify.dev/docs/apps/launch/shopify-app-store/app-store-requirements>
+
+---
+
+## ⚠️ Il y a DEUX apps Shopify — ne pas les confondre
+
+| App | Client ID | Config | Distribution | Usage |
+|---|---|---|---|---|
+| **Xeyo - WhatsApp Support & Chat** | `f9d37d1f9ab1427165874c33eb7c4926` | `shopify.app.xeyo-app-store.toml` | **Shopify App Store** (publique) | 🎯 **Celle qui sera distribuée aux marchands.** |
+| Xeyo - Testing app custom | `7510fef84b3b8bd4440344e9f6b626d4` | `shopify.app.xeyo-testing-custom.toml` | Distribution personnalisée | Dev/test sur `xeyo-dev.myshopify.com` uniquement. |
+
+**Pourquoi deux ?** La première app avait été créée en **« distribution
+personnalisée »**. Ce choix est **irréversible** : Shopify ne permet aucune
+conversion vers une app publique, *même par le support* (« This isn't possible.
+You need to create a new app and select public distribution. »). Or la custom
+distribution ne peut être installée que sur **une seule boutique** (ou les
+boutiques d'une même organisation Plus) et **ne peut pas utiliser la Billing
+API** — donc impossible de vendre à des marchands extérieurs. D'où la création
+d'une seconde app, publique, dès le départ.
+
+> 🪤 **Le piège à connaître** : `shopify app config link` **écrase le `.toml`
+> existant** (scopes vidés, `application_url` remis à `example.com`, webhooks et
+> App Proxy supprimés). Commite toujours avant de lier une app.
+
+Toute la suite de ce document décrit **l'app publique** (`xeyo-app-store`).
+Commandes : ajouter `--config xeyo-app-store`.
 
 ---
 
 ## 0. Ce qui reste à faire avant de soumettre
 
-Trois choses, dans cet ordre. Rien d'autre ne bloque.
+Le code est déployé en prod et conforme (vérifié : les routes répondent `401`, pas
+`404`). Ce qui reste tient à la **bascule vers la nouvelle app publique**, puis à
+la fiche App Store.
 
-| # | Action | Qui | Pourquoi c'est bloquant |
-|---|--------|-----|-------------------------|
-| 1 | **Déployer le VPS** (tout le code est sur `master`) | toi | Les routes de conformité (session token, `embedded/overview`, `billing/cancel`) et les webhooks RGPD **n'existent pas encore en prod**. Shopify teste des URLs live. |
-| 2 | **Partner Dashboard** → URL de politique de confidentialité | toi | Obligatoire. **Impossible à mettre dans le `.toml`** : la CLI rejette `privacy_policy_url` (« Unsupported section »). |
-| 3 | **Partner Dashboard** → contact support (email/URL) | toi | Obligatoire, même raison. |
+### Bascule vers l'app publique
 
-Après ça : soumission. Les webhooks RGPD sont **déjà enregistrés côté Shopify**
-(vérifié par `shopify app config pull`) — il n'y a rien à saisir à la main pour eux.
+| # | Action | Détail |
+|---|--------|--------|
+| 1 | `shopify app deploy --config xeyo-app-store` | Publie scopes, webhooks RGPD, App Proxy sur la nouvelle app. |
+| 2 | **Variables d'env du VPS** | `SHOPIFY_API_KEY` → `f9d37d1f9ab1427165874c33eb7c4926` **et le nouveau `SHOPIFY_API_SECRET`**. ⚠️ Le secret est propre à chaque app : sans lui, **toutes** les vérifications HMAC échouent (session tokens, webhooks, App Proxy). |
+| 3 | Redéployer le VPS | Pour que les nouvelles variables soient prises en compte. |
+| 4 | Réinstaller l'app sur la boutique de test | L'ancienne installation pointe sur l'ancien `client_id`. |
+
+### Fiche App Store (Partner Dashboard, à la main)
+
+Ces deux champs **ne peuvent pas vivre dans le `.toml`** — la CLI rejette
+`privacy_policy_url` (« Unsupported section ») :
+
+- **URL de politique de confidentialité** → `https://app.xeyo.io/privacy` (en ligne, vérifiée).
+- **Contact support** (email/URL).
+
+Ils n'apparaissent qu'**après** avoir choisi la distribution « Shopify App Store »
+sur l'app : sans ce choix, il n'y a pas de fiche à remplir. Ils ne sont ni sur
+l'écran « Création de version », ni dans « Paramètres » du dev dashboard.
+
+> L'inscription App Store coûte **19 $ une fois** (pas par app) et ouvre les
+> « applications publiques illimitées ».
 
 ---
 
