@@ -18,8 +18,13 @@ embedded = true
 api_version = "2026-07"
 
   # Désinstallation : purge du token et désactivation de la boutique.
+  # ⚠️ URL ABSOLUE obligatoire. Une URI relative ("/api/...") est concaténée par
+  # Shopify à `application_url` — qui vaut ici `https://app.xeyo.io/shopify` — et
+  # produit `https://app.xeyo.io/shopify/api/shopify/webhooks/app-uninstalled`,
+  # une route qui n'existe pas : le webhook part en 404, le token n'est jamais
+  # purgé et la boutique reste active en base après désinstallation.
   [[webhooks.subscriptions]]
-  uri = "/api/shopify/webhooks/app-uninstalled"
+  uri = "https://app.xeyo.io/api/shopify/webhooks/app-uninstalled"
   topics = [ "app/uninstalled" ]
 
   # ── Webhooks de conformité RGPD — OBLIGATOIRES pour l'App Store ────────────
