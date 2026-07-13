@@ -220,15 +220,29 @@ vérifié qu'il y en a.** Sur un fichier sain, cette commande peut le **vider**
 (0 octet) — et un script vide s'exécute sans rien dire, ce qui ressemble à un
 succès. Toujours `wc -c` avant de relancer.
 
-### ⚠️ Faiblesse restante : le backup est LOCAL
+### État actuel : script prêt, PAS encore planifié — assumé
 
-`RCLONE_REMOTE` n'est pas configuré. Les dumps sont donc **sur le même disque que
-la base** : un crash disque ou un VPS détruit emporte les deux d'un coup. Un
-backup local ne protège que des erreurs humaines (un `DROP TABLE` malheureux), pas
-d'une panne matérielle — c'est le risque n°1 du self-hosting.
+Le script fonctionne et a été vérifié en prod, mais **aucune tâche planifiée ne le
+lance** : les seuls dumps existants ont été créés à la main. Décision assumée tant
+qu'il n'y a **pas d'utilisateurs réels** — il n'y a rien à perdre.
 
-À combler : un stockage distant (Backblaze B2, quelques euros/an à ce volume), puis
-renseigner `RCLONE_REMOTE` dans le script.
+Le VPS est par ailleurs couvert par la **sauvegarde automatique OVH**, qui protège
+du crash disque. Elle ne remplace pas ce script pour autant :
+
+| Risque | Snapshot OVH | `pg_dump` chiffré |
+|---|---|---|
+| Panne matérielle / VPS détruit | ✅ | ❌ (dumps sur le même disque) |
+| Erreur logique (migration ratée, `DELETE` sans `WHERE`) | ⚠️ restauration de la machine ENTIÈRE à la date du snapshot | ✅ restauration sélective, table par table |
+| Chiffré par nous | ❌ (en clair chez OVH) | ✅ AES-256 |
+
+> 🔴 **À FAIRE AVANT LES PREMIERS MARCHANDS** — dès qu'il y a des données de
+> clients réels, le calcul change :
+> 1. Créer la tâche Dokploy : `bash /home/ubuntu/backup-db.sh`, cron `0 4 * * *`.
+> 2. Configurer `RCLONE_REMOTE` (Backblaze B2, quelques €/an) — sinon les dumps
+>    restent sur le même disque que la base.
+>
+> Sans le point 1, la réponse « Oui » donnée à Shopify sur la stratégie de
+> prévention contre la perte de données ne serait plus honnête.
 
 ---
 
@@ -268,7 +282,9 @@ Reste :
 - [ ] **Recopier la passphrase hors du VPS** (§5). Tant que ce n'est pas fait, les
       backups chiffrés sont **inutilisables** si le serveur meurt — c'est-à-dire
       le seul cas où on en a besoin.
-- [ ] **Configurer `RCLONE_REMOTE`** (§5) — les dumps sont sur le même disque que
-      la base : un crash disque emporte les deux.
+- [ ] **AVANT LES PREMIERS MARCHANDS** (§5) : planifier le backup (tâche Dokploy,
+      `0 4 * * *`) + configurer `RCLONE_REMOTE`. Reporté sciemment : sans
+      utilisateurs, il n'y a rien à perdre. Le VPS est couvert par la sauvegarde
+      automatique OVH (crash disque), qui ne protège pas des erreurs logiques.
 - [ ] **Régénérer `CRON_SECRET`** — il a circulé en clair.
 - [ ] Redéployer le VPS pour activer le journal d'audit (§4) côté application.
