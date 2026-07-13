@@ -9,6 +9,7 @@ import {
   Loader2, Sparkles, Check, ArrowLeft, ArrowRight, Store, MessageSquare,
   Bot, FileText, Workflow, CreditCard, ShieldCheck, PackageCheck, LogOut,
   AlertTriangle, Package, UserPlus, CalendarClock, ChevronDown,
+  ToggleRight, ExternalLink, MessageCircle, PartyPopper,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import { MascotRunner } from '@/components/mascot-runner'
@@ -71,12 +72,13 @@ type AgentCfg = {
   sample_questions?: string[]
 }
 
-const STEPS = ['shopify', 'sync', 'whatsapp', 'agent', 'templates', 'automations', 'plan'] as const
+const STEPS = ['shopify', 'sync', 'widget', 'whatsapp', 'agent', 'templates', 'automations', 'plan'] as const
 type Step = typeof STEPS[number]
 
 const STEP_META: Record<Step, { title: string; icon: React.ComponentType<{ className?: string }> }> = {
   shopify: { title: 'Connectez votre boutique Shopify', icon: Store },
   sync: { title: 'Analyse de votre boutique…', icon: PackageCheck },
+  widget: { title: 'Activez Xeyo sur votre boutique', icon: ToggleRight },
   whatsapp: { title: 'Connectez votre WhatsApp Business', icon: MessageSquare },
   agent: { title: 'Votre agent IA référent', icon: Bot },
   templates: { title: 'Vos modèles de messages', icon: FileText },
@@ -200,7 +202,11 @@ export default function OnboardingPage() {
     if (!s.storeSynced) return 'sync'
     const saved = s.step as Step | null
     if (saved && (STEPS as readonly string[]).includes(saved) && saved !== 'shopify' && saved !== 'sync') return saved
-    if (!s.whatsappConnected) return 'whatsapp'
+    // Aucune étape sauvegardée : on démarre par l'activation des extensions dans
+    // le thème (juste après la synchro). Elle n'est PAS vérifiable côté serveur
+    // (Shopify n'expose pas l'état des blocs de thème) → on s'appuie sur `step`,
+    // écrit quand l'utilisateur passe à la suite.
+    if (!s.whatsappConnected) return 'widget'
     if (!s.agentDone) return 'agent'
     return 'templates'
   }
@@ -742,7 +748,86 @@ export default function OnboardingPage() {
                 </div>
               )}
 
-              {/* ── 3. WHATSAPP (recommandé, passable) ── */}
+              {/* ── 3. WIDGET : activer les extensions dans le thème Shopify ──
+                  Sans ces blocs actifs, AUCUN contact n'est collecté (pas de
+                  bulle, pas de popup, pas d'opt-in page Merci) → toute la suite
+                  de l'app tourne à vide. On guide donc explicitement. */}
+              {step === 'widget' && (
+                <div className="space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Xeyo est installé sur votre boutique, mais il faut encore <span className="font-medium text-foreground">activer les blocs</span> dans votre thème.
+                    Sans ça, <span className="font-medium text-foreground">aucun visiteur ne pourra vous laisser son numéro</span>.
+                  </p>
+
+                  <div className="space-y-2.5">
+                    {[
+                      {
+                        icon: MessageCircle,
+                        title: 'Bulle WhatsApp',
+                        where: 'Page d’accueil (et tout le site)',
+                        why: 'Le bouton flottant qui permet à vos visiteurs de vous écrire en un clic.',
+                      },
+                      {
+                        icon: UserPlus,
+                        title: 'Popup opt-in',
+                        where: 'Page d’accueil',
+                        why: 'Propose au visiteur de laisser son numéro WhatsApp — c’est ce qui remplit votre liste de contacts.',
+                      },
+                      {
+                        icon: PartyPopper,
+                        title: 'Opt-in page Remerciements',
+                        where: 'Page de remerciement (après achat)',
+                        why: 'Récupère le numéro juste après la commande, au moment où le client est le plus engagé.',
+                      },
+                    ].map((b) => (
+                      <div key={b.title} className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3.5">
+                        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                          <b.icon className="h-4.5 w-4.5" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-white">{b.title}</p>
+                          <p className="text-[11px] font-medium text-primary/80">{b.where}</p>
+                          <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{b.why}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Marche à suivre + accès direct à l'éditeur de thème. */}
+                  <div className="rounded-xl border border-white/10 bg-black/20 p-3.5">
+                    <p className="mb-2 text-xs font-semibold text-white">Comment faire (2 minutes)</p>
+                    <ol className="space-y-1.5 text-xs leading-relaxed text-muted-foreground">
+                      <li><span className="font-medium text-foreground">1.</span> Ouvrez l’éditeur de thème (bouton ci-dessous).</li>
+                      <li><span className="font-medium text-foreground">2.</span> Dans le panneau de gauche, ouvrez <span className="font-medium text-foreground">Applications</span> et activez <span className="font-medium text-foreground">Bulle WhatsApp Xeyo</span> puis <span className="font-medium text-foreground">Xeyo — Popup opt-in</span>.</li>
+                      <li><span className="font-medium text-foreground">3.</span> En haut, changez la page pour <span className="font-medium text-foreground">Remerciements</span> et ajoutez le bloc <span className="font-medium text-foreground">Xeyo — Opt-in WhatsApp</span>.</li>
+                      <li><span className="font-medium text-foreground">4.</span> Cliquez sur <span className="font-medium text-foreground">Enregistrer</span> dans Shopify.</li>
+                    </ol>
+                  </div>
+
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Button
+                      className="flex-1"
+                      disabled={!state.shopDomain}
+                      onClick={() => {
+                        if (!state.shopDomain) return
+                        // Éditeur de thème, onglet Applications (contexte des blocs d'app).
+                        window.open(`https://${state.shopDomain}/admin/themes/current/editor?context=apps`, '_blank', 'noopener')
+                      }}
+                    >
+                      <ExternalLink className="mr-1.5 h-4 w-4" /> Ouvrir l’éditeur de thème
+                    </Button>
+                    <Button variant="outline" className="flex-1" disabled={busy}
+                      onClick={() => goTo('whatsapp', 'Étape suivante')}>
+                      C’est activé, continuer <ArrowRight className="ml-1.5 h-4 w-4" />
+                    </Button>
+                  </div>
+                  <p className="text-center text-[11px] text-muted-foreground">
+                    Vous pourrez le faire plus tard, mais la collecte de contacts ne démarrera pas avant.
+                  </p>
+                </div>
+              )}
+
+              {/* ── 4. WHATSAPP (recommandé, passable) ── */}
               {step === 'whatsapp' && (
                 <div className="space-y-4">
                   {state.whatsappConnected ? (
