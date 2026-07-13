@@ -155,24 +155,38 @@
       document.body.appendChild(n);
     }
 
+    var inEditor = !!(window.Shopify && window.Shopify.designMode);
+
     fetch(proxy + '?shop=' + encodeURIComponent(shop))
       .then(function (r) { return r.json(); })
       .then(function (cfg) {
-        // N'affiche le widget que si WhatsApp est connecté côté Xeyo.
-        if (!cfg || !cfg.enabled || !cfg.phone) {
-          editorNotice('Connectez votre numéro WhatsApp dans Xeyo pour que la bulle s’affiche sur votre boutique.');
-          return;
+        cfg = cfg || {};
+        var ready = !!(cfg.enabled && cfg.phone);
+
+        // Sur la BOUTIQUE : rien tant que WhatsApp n'est pas connecté (il n'y aurait
+        // personne à contacter).
+        // Dans l'ÉDITEUR DE THÈME : on affiche quand même la bulle en APERÇU (non
+        // cliquable) — le marchand doit pouvoir la positionner et la styler avant
+        // d'avoir connecté WhatsApp, et Shopify exige (requirement 5.1.2) que le
+        // widget s'affiche correctement dans l'éditeur.
+        if (!ready) {
+          if (!inEditor) return;
+          editorNotice('Aperçu : connectez votre numéro WhatsApp dans Xeyo pour l’activer sur votre boutique.');
         }
+        var previewOnly = !ready; // dans l'éditeur, sans WhatsApp
         var phone = String(cfg.phone || '').replace(/[^0-9]/g, '');
 
         // Construit une URL WhatsApp directe avec un message donné.
+        // En APERÇU (éditeur sans WhatsApp connecté), aucun lien réel : la bulle
+        // s'affiche pour le style/positionnement mais n'ouvre rien.
         function waUrl(message) {
+          if (previewOnly) return '#';
           return 'https://api.whatsapp.com/send/?phone=' + phone
             + '&text=' + encodeURIComponent(message || '')
             + '&type=phone_number&app_absent=0';
         }
         // URL « par défaut » (1 lien) : redirection Xeyo si dispo, sinon directe.
-        var defaultHref = cfg.url ? cfg.url : waUrl(cfg.message || '');
+        var defaultHref = previewOnly ? '#' : (cfg.url ? cfg.url : waUrl(cfg.message || ''));
 
         // SVG logo WhatsApp.
         var waSvg = '<svg viewBox="0 0 32 32" width="30" height="30" fill="#fff" aria-hidden="true"><path d="M16.004 0h-.008C7.174 0 0 7.176 0 16c0 3.5 1.128 6.744 3.05 9.38L1.05 31.3l6.13-1.96A15.9 15.9 0 0 0 16.004 32C24.826 32 32 24.824 32 16S24.826 0 16.004 0zm9.31 22.6c-.386 1.09-1.92 1.994-3.142 2.258-.836.178-1.928.32-5.604-1.204-4.7-1.948-7.726-6.724-7.962-7.034-.226-.31-1.9-2.53-1.9-4.826s1.166-3.42 1.58-3.888c.34-.386.9-.562 1.436-.562.174 0 .33.008.472.016.414.018.622.042.896.696.34.82 1.17 2.84 1.27 3.046.102.206.17.448.034.758-.128.31-.24.45-.448.696-.206.246-.4.434-.604.696-.188.226-.4.47-.16.876.24.396 1.07 1.762 2.296 2.854 1.582 1.41 2.88 1.85 3.336 2.04.34.142.74.108 1.006-.16.34-.34.756-.902 1.18-1.456.302-.396.682-.446 1.082-.296.408.142 2.578 1.214 3.022 1.436.444.222.74.33.85.516.108.188.108 1.072-.278 2.162z"/></svg>';
@@ -215,6 +229,15 @@
 
         el.innerHTML = html;
         el.style.display = 'flex';
+
+        // APERÇU (éditeur, WhatsApp non connecté) : la bulle est visible pour être
+        // positionnée/stylée, mais aucun clic ne doit naviguer.
+        if (previewOnly) {
+          el.addEventListener('click', function (e) {
+            var a = e.target && e.target.closest ? e.target.closest('a') : null;
+            if (a && a.getAttribute('href') === '#') e.preventDefault();
+          });
+        }
 
         // Logique du panneau de choix.
         if (useChoices) {
