@@ -163,29 +163,72 @@ vaut pas de backup qu'un backup en clair — et **vérifie que le fichier produi
 déchiffre** (en-tête `PGDMP`) : un backup qu'on ne sait pas restaurer est un faux
 filet de sécurité.
 
-**Installation sur le VPS** :
+**Installé et vérifié en production le 13 juillet 2026** :
 
-```bash
-openssl rand -base64 48 > /home/ubuntu/.backup-passphrase
-chmod 600 /home/ubuntu/.backup-passphrase
+```
+[…] dump chiffré OK (2.0M)
+[…] vérification OK (déchiffrable, en-tête pg_dump valide)
 ```
 
-> 🔑 **Recopie cette passphrase dans ton gestionnaire de mots de passe.**
-> Elle n'existe nulle part ailleurs. La perdre rend **tous** les backups
-> définitivement irrécupérables — et un VPS détruit emporte la passphrase avec lui,
-> ce qui est précisément le scénario contre lequel les backups existent.
+### Installation sur le VPS
 
-**Restaurer** :
+```bash
+# 1. Générer la passphrase (sur le VPS)
+openssl rand -base64 48 > /home/ubuntu/.backup-passphrase
+chmod 600 /home/ubuntu/.backup-passphrase
+cat /home/ubuntu/.backup-passphrase      # ← à recopier hors du VPS, cf. encadré
+
+# 2. Déployer le script (depuis le PC)
+scp scripts/backup/backup-db.sh ubuntu@92.222.178.93:/home/ubuntu/backup-db.sh
+
+# 3. Vérifier qu'il est bien arrivé AVANT de le lancer
+wc -c /home/ubuntu/backup-db.sh          # doit être ≠ 0
+chmod +x /home/ubuntu/backup-db.sh
+bash /home/ubuntu/backup-db.sh
+```
+
+> 🔑 **Recopie la passphrase dans ton gestionnaire de mots de passe** (Chrome :
+> `chrome://password-manager/passwords` → Ajouter). Elle n'existe **que** sur le
+> VPS. La perdre rend **tous** les backups définitivement irrécupérables — et un
+> VPS détruit l'emporte avec lui, ce qui est précisément le scénario contre lequel
+> les backups existent. Un backup chiffré sans sa clé n'est pas un backup.
+
+### Restaurer
 
 ```bash
 openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 \
   -pass file:/home/ubuntu/.backup-passphrase \
-  -in xeyo_AAAAMMJJ_HHMMSS.dump.enc | \
-  docker exec -i <conteneur-db> pg_restore -U supabase_admin -d postgres --clean
+  -in xeyo_AAAAMMJJ_HHMMSS.dump.enc \
+  -out /tmp/restore.dump
+docker exec -i <conteneur-db> pg_restore -U supabase_admin -d postgres --clean < /tmp/restore.dump
+rm -f /tmp/restore.dump
 ```
 
 Le script purge aussi les anciens dumps **en clair** laissés par sa version
 précédente : les laisser traîner annulerait tout le bénéfice du chiffrement.
+
+### Deux pièges rencontrés au déploiement
+
+**`openssl … | head -c 5` produit un faux négatif.** `head` ferme le pipe dès le
+5ᵉ octet, `openssl` prend un `SIGPIPE` et meurt ; avec `set -o pipefail`, tout le
+pipeline est déclaré en échec **alors que le déchiffrement était parfait**. Le
+script criait « le backup ne se déchiffre pas » sur un backup valide. On déchiffre
+donc vers un fichier temporaire, puis on lit l'en-tête dessus.
+
+**Ne jamais lancer `sed -i` sur un script « pour retirer les CRLF » sans avoir
+vérifié qu'il y en a.** Sur un fichier sain, cette commande peut le **vider**
+(0 octet) — et un script vide s'exécute sans rien dire, ce qui ressemble à un
+succès. Toujours `wc -c` avant de relancer.
+
+### ⚠️ Faiblesse restante : le backup est LOCAL
+
+`RCLONE_REMOTE` n'est pas configuré. Les dumps sont donc **sur le même disque que
+la base** : un crash disque ou un VPS détruit emporte les deux d'un coup. Un
+backup local ne protège que des erreurs humaines (un `DROP TABLE` malheureux), pas
+d'une panne matérielle — c'est le risque n°1 du self-hosting.
+
+À combler : un stockage distant (Backblaze B2, quelques euros/an à ce volume), puis
+renseigner `RCLONE_REMOTE` dans le script.
 
 ---
 
@@ -217,10 +260,15 @@ Les quatre lignes en gras étaient « Non » avant le 13 juillet 2026.
 
 ## 7. Ce qu'il reste à faire
 
-- [ ] **Poser la passphrase sur le VPS** (§5) — sans elle, le script de backup
-      s'arrête : **il n'y a plus aucune sauvegarde** tant que ce n'est pas fait.
-- [ ] Configurer `RCLONE_REMOTE` — un backup sur le même disque que la base ne
-      protège pas d'un crash disque.
-- [ ] Régénérer `CRON_SECRET` (il a circulé en clair).
-- [ ] Purger les anciens dumps **en clair** déjà présents sur le VPS
-      (le script le fait à sa prochaine exécution).
+**Fait le 13 juillet 2026** : passphrase générée, script de backup chiffré déployé
+et vérifié en prod, journal d'audit en base, purge de rétention active.
+
+Reste :
+
+- [ ] **Recopier la passphrase hors du VPS** (§5). Tant que ce n'est pas fait, les
+      backups chiffrés sont **inutilisables** si le serveur meurt — c'est-à-dire
+      le seul cas où on en a besoin.
+- [ ] **Configurer `RCLONE_REMOTE`** (§5) — les dumps sont sur le même disque que
+      la base : un crash disque emporte les deux.
+- [ ] **Régénérer `CRON_SECRET`** — il a circulé en clair.
+- [ ] Redéployer le VPS pour activer le journal d'audit (§4) côté application.
