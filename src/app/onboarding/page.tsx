@@ -548,11 +548,19 @@ export default function OnboardingPage() {
   }
 
   const groups: Record<string, string[]> = {
-    Commande: ['order_created', 'order_paid', 'order_fulfilled', 'order_delivered', 'order_cancelled', 'refund_created', 'return_requested', 'checkout_abandoned'],
+    Commande: ['order_created', 'order_paid', 'order_fulfilled', 'order_delivered', 'order_cancelled', 'refund_created', 'return_requested'],
     Contact: ['contact_opted_in', 'optin_popup'],
     Conversation: ['button_clicked', 'message_read', 'no_customer_reply'],
-    Planifié: ['scheduled_date', 'customer_birthday'],
+    Planifié: ['scheduled_date', 'customer_birthday', 'checkout_abandoned'],
   }
+  // Les 4 familles rangées sous les 2 onglets réels de l'app : Transactionnel
+  // (statuts de commande) vs Campagnes marketing (le reste). Le panier abandonné
+  // (relance) est une campagne → dans « Planifié ». Aligne l'onboarding sur la
+  // séparation Campagnes/Transactionnel et sur kindForTrigger.
+  const FAMILIES: { key: 'transactional' | 'marketing'; title: string; pitch: string; cats: string[] }[] = [
+    { key: 'transactional', title: 'Transactionnel', pitch: 'Messages automatiques liés aux commandes (confirmation, expédition, SAV). Envoyés quoi qu’il arrive.', cats: ['Commande'] },
+    { key: 'marketing', title: 'Campagnes marketing', pitch: 'Bienvenue, relances, anniversaires, planifié… Pour engager et fidéliser (soumis aux règles anti-spam).', cats: ['Contact', 'Conversation', 'Planifié'] },
+  ]
 
   // Cartes du swiper de modèles : un GROUPE par carte (+ « Autres » pour les
   // triggers hors mapping, pour ne jamais en perdre).
@@ -959,13 +967,24 @@ export default function OnboardingPage() {
                   ) : (
                     <>
                       <p className="text-sm text-muted-foreground">
-                        Quatre familles d’automatisations, prêtes à l’emploi. Activez celles qui vous parlent, elles seront créées <span className="font-medium text-foreground">désactivées</span>, vous appuierez sur le bouton quand vous serez prêt.
+                        Vos automatisations, rangées comme dans l’app : le <span className="font-medium text-foreground">Transactionnel</span> (lié aux commandes) et les <span className="font-medium text-foreground">Campagnes marketing</span>. Activez celles qui vous parlent — créées <span className="font-medium text-foreground">désactivées</span>, vous les lancerez quand vous serez prêt.
                       </p>
-                      {/* Une CARTE par catégorie : ce que ça fait + un exemple
-                          concret. L'interrupteur agit sur toute la famille ;
-                          « Personnaliser » ouvre le détail (choix fin + délais). */}
-                      <div className="grid gap-3 sm:grid-cols-2">
-                        {Object.entries(groups).map(([group, triggers]) => {
+                      {/* Regroupées sous les 2 onglets réels (Transactionnel /
+                          Campagnes). Une CARTE par catégorie ; l'interrupteur agit
+                          sur toute la famille ; « Personnaliser » ouvre le détail. */}
+                      {FAMILIES.map((fam) => {
+                        const famCats = fam.cats.filter((cat) => pack.some((i) => (groups[cat] || []).includes(i.trigger)))
+                        if (famCats.length === 0) return null
+                        return (
+                        <div key={fam.key} className="space-y-2">
+                          <div className="flex items-center gap-2 pt-1">
+                            <span className={cn('h-2 w-2 rounded-full', fam.key === 'marketing' ? 'bg-fuchsia-400' : 'bg-sky-400')} />
+                            <h4 className="text-sm font-semibold text-white">{fam.title}</h4>
+                          </div>
+                          <p className="text-[11px] leading-relaxed text-muted-foreground">{fam.pitch}</p>
+                          <div className="grid gap-3 sm:grid-cols-2">
+                        {famCats.map((group) => {
+                          const triggers = groups[group]
                           const meta = CATEGORY_META[group]
                           const items = pack.filter((i) => triggers.includes(i.trigger))
                           if (items.length === 0) return null
@@ -1048,7 +1067,10 @@ export default function OnboardingPage() {
                             </motion.div>
                           )
                         })}
-                      </div>
+                          </div>
+                        </div>
+                        )
+                      })}
                       <div className="flex items-center justify-between">
                         <p className="text-xs text-muted-foreground">{selAutomations.size} / {pack.length} sélectionnées</p>
                         <Button disabled={busy} onClick={validateAutomations}>

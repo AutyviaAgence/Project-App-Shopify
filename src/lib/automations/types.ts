@@ -65,6 +65,19 @@ export function triggersForKind(kind: 'marketing' | 'transactional') {
   return TRIGGER_EVENTS.filter((e) => set.has(e.value))
 }
 
+/**
+ * Onglet d'appartenance NATUREL d'un trigger (pour ranger une automatisation
+ * créée automatiquement — ex. onboarding). Les statuts de commande sont
+ * transactionnels ; tout le reste (opt-in/bienvenue, planifié, anniversaire,
+ * relances, clic de bouton, panier abandonné) est une campagne marketing.
+ * `checkout_abandoned` est dans les deux sets → on tranche MARKETING (relance).
+ */
+export function kindForTrigger(trigger: TriggerEvent): 'marketing' | 'transactional' {
+  // Un trigger purement transactionnel (statut de commande, hors panier abandonné).
+  if (TRANSACTIONAL_TRIGGERS.has(trigger) && trigger !== 'checkout_abandoned') return 'transactional'
+  return 'marketing'
+}
+
 /** Conditions métier évaluées avant l'envoi. */
 export type AutomationConditions = {
   /** Montant total minimum (devise de la boutique). */

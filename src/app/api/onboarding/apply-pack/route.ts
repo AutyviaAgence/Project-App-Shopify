@@ -5,6 +5,7 @@ import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { defaultGraph } from '@/lib/automations/graph-types'
 import { translateTemplateRow } from '@/lib/templates/translate'
 import type { TriggerEvent } from '@/lib/automations/types'
+import { kindForTrigger } from '@/lib/automations/types'
 import type { OnboardingPack } from '@/lib/onboarding/pack-spec'
 
 /**
@@ -173,12 +174,23 @@ export async function POST(req: NextRequest) {
           folder_id: null,
           graph: defaultGraph(x.item!.trigger as TriggerEvent, templateId),
           builder_mode: true,
+          // Range l'automatisation dans le BON onglet (Campagnes vs Transactionnel)
+          // selon le trigger. Sans ça, tout tombait en transactionnel par défaut.
+          kind: kindForTrigger(x.item!.trigger as TriggerEvent),
         }
       })
 
     if (rows.length > 0) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any).from('automations').insert(rows)
+      let { error } = await (supabase as any).from('automations').insert(rows)
+      // Résilience : si la colonne `kind` n'est pas encore déployée (42703), on
+      // rejoue sans elle (les automatisations tomberont en transactionnel par
+      // défaut, comportement historique — le déploiement de la colonne corrige).
+      if (error && (error.code === '42703' || /kind/.test(error.message || ''))) {
+        const rowsNoKind = rows.map(({ kind: _kind, ...rest }) => rest)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        ;({ error } = await (supabase as any).from('automations').insert(rowsNoKind))
+      }
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     }
     // Nombre TOTAL prêt (déjà présentes + nouvellement créées), comme pour les
