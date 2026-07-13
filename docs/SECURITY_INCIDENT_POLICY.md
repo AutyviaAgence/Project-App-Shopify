@@ -130,9 +130,11 @@ accéder à des données réelles au-delà de ce qui prouve la faille.
 | Isolation par tenant (`user_id` explicite ; pas de RLS en embedded) | ✅ |
 | Rétention limitée + purge automatique (art. 5.1.e) | ✅ |
 | Backups quotidiens hors VPS | ✅ |
-| **Chiffrement des backups** | ❌ **à faire** |
-| **Journal d'audit des accès aux données personnelles** | ❌ **à faire** |
+| Chiffrement des backups (AES-256 + PBKDF2) | ✅ |
+| Journal d'audit des accès aux données personnelles | ✅ |
 
-Les deux lignes rouges sont des lacunes assumées et déclarées comme telles à
-Shopify. Elles sont au backlog ; ce tableau doit être mis à jour quand elles
-tombent.
+Détail de ces mesures : [`RGPD.md`](RGPD.md).
+
+⚠️ Le chiffrement des backups exige une **passphrase posée sur le VPS**
+(`/home/ubuntu/.backup-passphrase`) : sans elle, le script s'arrête et il n'y a
+plus aucune sauvegarde. Voir [`RGPD.md §5`](RGPD.md).

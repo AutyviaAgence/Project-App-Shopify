@@ -259,8 +259,8 @@ Pas « Gestion de la boutique » (on n'imprime pas d'étiquettes, on ne suit pas
 | Durées de rétention configurées | **Oui** *(depuis juill. 2026)* | Voir §8. Avant ça : Non. |
 | Politique de réponse aux incidents | Oui | [`SECURITY_INCIDENT_POLICY.md`](SECURITY_INCIDENT_POLICY.md). |
 | Décision automatisée à effet juridique | Sans objet | L'IA répond à des questions ; aucune décision au sens de l'art. 22. |
-| Chiffrement des sauvegardes | **Non** | Lacune assumée → backlog. |
-| Journal d'audit des accès | **Non** | Lacune assumée → backlog. |
+| Chiffrement des sauvegardes | **Oui** | AES-256 + PBKDF2 — voir [`RGPD.md §5`](RGPD.md). |
+| Journal d'audit des accès | **Oui** | Table `data_access_log` — voir [`RGPD.md §4`](RGPD.md). |
 
 ---
 
@@ -303,13 +303,15 @@ Par ordre de ce que je corrigerais en premier :
    donc sans contrôle et révèle le numéro WhatsApp du marchand. Le correctif est de
    rendre la signature obligatoire — à valider contre le rendu storefront réel, car
    c'est ce chemin qui sert la bulle.
-2. **Chiffrement des backups** — déclaré « Non » à Shopify. Les dumps partent en
-   clair hors du VPS.
-3. **Journal d'audit des accès** aux données personnelles — déclaré « Non ».
-4. **`APP_SUBSCRIPTIONS_UPDATE` non abonné.** Un changement de plan (ou une
+2. **`APP_SUBSCRIPTIONS_UPDATE` non abonné.** Un changement de plan (ou une
    annulation) initié côté Shopify n'est pas répercuté dans notre base.
-5. **PostHog** absent de l'onboarding et des nouvelles pages d'automatisations
+3. **PostHog** absent de l'onboarding et des nouvelles pages d'automatisations
    (explicitement reporté).
+
+> Le chiffrement des backups et le journal d'audit, longtemps en dette, sont
+> **faits** — voir [`RGPD.md`](RGPD.md). ⚠️ Le premier exige une **passphrase posée
+> sur le VPS**, sans quoi le script de backup s'arrête et il n'y a plus aucune
+> sauvegarde.
 
 ---
 

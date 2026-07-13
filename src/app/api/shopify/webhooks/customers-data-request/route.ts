@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { verifyWebhookHmac } from '@/lib/shopify/client'
+import { logDataAccess } from '@/lib/audit/log'
 
 /**
  * Webhook RGPD obligatoire — customers/data_request
@@ -75,13 +76,24 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Journalisé pour le marchand (Shopify : les données sont fournies AU MARCHAND,
-    // qui les transmet à l'acheteur — pas de réponse directe à Shopify).
-    console.log('[Shopify GDPR] data_request — données détenues:', JSON.stringify({
-      shop: shopDomain,
-      contacts: contacts || [],
-      messages_count: messageCount,
-    }))
+    // ⚠️ Ne PAS écrire les contacts en console : les logs Docker conserveraient
+    // téléphones et emails en clair, indéfiniment et hors de tout contrôle RGPD —
+    // exactement ce que cette demande d'accès est censée protéger.
+    // On journalise le fait qu'un accès a eu lieu, et son volume. Le détail reste
+    // en base, accessible au marchand qui doit le transmettre à l'acheteur.
+    void logDataAccess({
+      action: 'export',
+      resource: 'contacts',
+      recordCount: contacts?.length ?? 0,
+      actorRole: 'system',
+      targetUserId: store?.user_id ?? null,
+      metadata: {
+        source: 'shopify:customers/data_request',
+        shopDomain,
+        messagesCount: messageCount,
+      },
+      req,
+    })
   } catch (e) {
     // Ne jamais échouer : Shopify exige un 200 (sinon retry en boucle).
     console.error('[Shopify GDPR] data_request échec de collecte:', e)

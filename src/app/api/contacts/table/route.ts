@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { logDataAccess } from '@/lib/audit/log'
 
 /**
  * GET /api/contacts/table
@@ -253,7 +254,25 @@ export async function GET(req: NextRequest) {
   // Tri par défaut : activité récente d'abord.
   rows.sort((a, b) => (b.last_activity_at || '').localeCompare(a.last_activity_at || ''))
 
-  if (format === 'csv') return csvResponse(rows)
+  if (format === 'csv') {
+    // Journal d'audit RGPD. Un export CSV sort les téléphones et emails des clients
+    // du marchand HORS de la plateforme : c'est l'accès à volume par excellence, le
+    // premier qu'on veut pouvoir retracer après un incident.
+    // Seul l'export est journalisé, pas la lecture à l'écran : tracer chaque
+    // affichage produirait des millions de lignes sans valeur d'audit.
+    // Non-awaité : on n'ajoute pas de latence au téléchargement.
+    void logDataAccess({
+      action: 'export',
+      resource: 'contacts',
+      recordCount: rows.length,
+      actorId: user.id,
+      actorEmail: user.email ?? null,
+      actorRole: 'user',
+      metadata: { format: 'csv' },
+      req,
+    })
+    return csvResponse(rows)
+  }
   return NextResponse.json({ data: rows })
 }
 

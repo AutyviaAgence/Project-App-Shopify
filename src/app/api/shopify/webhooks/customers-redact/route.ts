@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { verifyWebhookHmac } from '@/lib/shopify/client'
+import { logDataAccess } from '@/lib/audit/log'
 
 /**
  * Webhook RGPD obligatoire — customers/redact
@@ -62,21 +63,44 @@ export async function POST(req: NextRequest) {
 
   // Suppression scopée : uniquement les contacts appartenant aux sessions de ce
   // marchand (cascade conversations/messages via les FK).
+  // `.select('id')` sur un delete renvoie les lignes supprimées : c'est ainsi
+  // qu'on sait COMBIEN de personnes ont été effacées — le chiffre qu'exige un
+  // journal d'audit (et qu'on ne pouvait pas donner jusqu'ici).
+  let deleted = 0
+
   if (phone) {
-    await supabase
+    const { data } = await supabase
       .from('contacts')
       .delete()
       .in('session_id', sessionIds)
       .eq('phone_number', phone)
+      .select('id')
+    deleted += data?.length ?? 0
   }
   if (email) {
     // `email` ou `notify_email` peuvent porter l'adresse de l'acheteur.
-    await supabase
+    const { data } = await supabase
       .from('contacts')
       .delete()
       .in('session_id', sessionIds)
       .or(`email.ilike.${email},notify_email.ilike.${email}`)
+      .select('id')
+    deleted += data?.length ?? 0
   }
+
+  // Journal d'audit RGPD. Non-awaité : on ne retarde pas l'accusé de réception
+  // à Shopify (qui exige une réponse rapide) pour écrire une ligne de log.
+  // Aucune donnée personnelle dans `metadata` — ni le téléphone ni l'email, qu'on
+  // vient précisément d'effacer.
+  void logDataAccess({
+    action: 'erasure',
+    resource: 'contacts',
+    recordCount: deleted,
+    actorRole: 'system',
+    targetUserId: store.user_id,
+    metadata: { source: 'shopify:customers/redact', shopDomain, by: phone ? 'phone' : 'email' },
+    req,
+  })
 
   return NextResponse.json({ received: true })
 }
