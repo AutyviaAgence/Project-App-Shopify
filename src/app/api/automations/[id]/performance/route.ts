@@ -36,11 +36,27 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const days = Math.min(365, Math.max(1, parseInt(req.nextUrl.searchParams.get('days') || '30', 10)))
   const since = new Date(Date.now() - days * 86400 * 1000).toISOString()
 
-  // Vérifie que l'automatisation appartient à l'utilisateur.
+  // Vérifie que l'automatisation appartient à l'utilisateur (+ graphe pour nommer
+  // les nœuds A/B et leurs variantes).
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: auto } = await (supabase as any)
-    .from('automations').select('id, name').eq('id', id).eq('user_id', user.id).maybeSingle()
+    .from('automations').select('id, name, graph').eq('id', id).eq('user_id', user.id).maybeSingle()
   if (!auto) return NextResponse.json({ error: 'Automatisation introuvable' }, { status: 404 })
+
+  // Étiquettes des nœuds A/B (label du nœud + libellé de chaque variante) pour un
+  // affichage lisible quand il y a PLUSIEURS tests A/B dans le même workflow.
+  const abNodeLabel = new Map<string, string>()
+  const variantLabel = new Map<string, string>() // `${nodeId}:${key}` → libellé
+  {
+    const nodes = Array.isArray(auto.graph?.nodes) ? auto.graph.nodes : []
+    let abIndex = 0
+    for (const n of nodes as { id: string; type?: string; label?: string; variants?: { key: string; label?: string }[] }[]) {
+      if (n.type !== 'ab_test') continue
+      abIndex++
+      abNodeLabel.set(n.id, n.label || `Test A/B ${abIndex}`)
+      for (const v of n.variants || []) variantLabel.set(`${n.id}:${v.key}`, v.label || `Variante ${v.key}`)
+    }
+  }
 
   const rate = (num: number, den: number) => (den > 0 ? Math.round((num / den) * 100) : 0)
 
@@ -80,27 +96,47 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     ordered: g.ordered, orderRate: rate(g.ordered, g.sent),
   }
 
-  // Variantes A/B (variant_key ≠ '_' et ≠ '_send').
-  const vMap = new Map<string, { sent: number; opened: number; responded: number; ordered: number }>()
+  // Tests A/B regroupés PAR NŒUD (node_id) : un workflow peut contenir PLUSIEURS
+  // tests A/B → chacun a ses propres variantes et son propre gagnant. On ne
+  // mélange plus les « A »/« B » de tests différents.
+  type VStat = { sent: number; opened: number; responded: number; ordered: number }
+  const abByNode = new Map<string, Map<string, VStat>>()
   for (const r of rows) {
     if (r.variant_key === '_' || r.variant_key === '_send') continue
-    if (!vMap.has(r.variant_key)) vMap.set(r.variant_key, { sent: 0, opened: 0, responded: 0, ordered: 0 })
-    const v = vMap.get(r.variant_key)!
+    if (!abByNode.has(r.node_id)) abByNode.set(r.node_id, new Map())
+    const vm = abByNode.get(r.node_id)!
+    if (!vm.has(r.variant_key)) vm.set(r.variant_key, { sent: 0, opened: 0, responded: 0, ordered: 0 })
+    const v = vm.get(r.variant_key)!
     v.sent++; if (isOpened(r)) v.opened++; if (r.responded) v.responded++; if (r.ordered) v.ordered++
   }
-  const variants = Array.from(vMap.entries()).map(([key, v]) => ({
-    key,
-    // Chiffres BRUTS (combien) + taux, pour chaque variante.
-    sent: v.sent, opened: v.opened, responded: v.responded, ordered: v.ordered,
-    openRate: rate(v.opened, v.sent), responseRate: rate(v.responded, v.sent), orderRate: rate(v.ordered, v.sent),
-  })).sort((a, b) => a.key.localeCompare(b.key))
-  // Gagnant : meilleur taux de vente puis de réponse (≥5 envois pour être fiable).
-  let winner: string | null = null
-  const scored = variants.filter((v) => v.sent >= 5)
-  if (scored.length > 1) {
+
+  const buildVariants = (vm: Map<string, VStat>, nodeId: string) =>
+    Array.from(vm.entries()).map(([key, v]) => ({
+      key,
+      label: variantLabel.get(`${nodeId}:${key}`) || `Variante ${key}`,
+      sent: v.sent, opened: v.opened, responded: v.responded, ordered: v.ordered,
+      openRate: rate(v.opened, v.sent), responseRate: rate(v.responded, v.sent), orderRate: rate(v.ordered, v.sent),
+    })).sort((a, b) => a.key.localeCompare(b.key))
+
+  const pickWinner = (vs: { key: string; sent: number; orderRate: number; responseRate: number }[]) => {
+    const scored = vs.filter((v) => v.sent >= 5)
+    if (scored.length < 2) return null
     scored.sort((x, y) => (y.orderRate - x.orderRate) || (y.responseRate - x.responseRate))
-    winner = scored[0].key
+    return scored[0].key
   }
+
+  // Un bloc par test A/B (nœud), trié par volume d'envois décroissant.
+  const abTests = Array.from(abByNode.entries()).map(([nodeId, vm]) => {
+    const vs = buildVariants(vm, nodeId)
+    return {
+      nodeId,
+      name: abNodeLabel.get(nodeId) || 'Test A/B',
+      variants: vs,
+      winner: pickWinner(vs),
+      totalSent: vs.reduce((s, v) => s + v.sent, 0),
+    }
+  }).filter((t) => t.variants.length > 0)
+    .sort((a, b) => b.totalSent - a.totalSent)
 
   // Par BRANCHE de bouton : combien ont cliqué CETTE branche, et parmi eux
   // combien ont ensuite répondu / commandé. clicked_branch = 'button:<libellé>'.
@@ -215,7 +251,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       funnel,
       delivery: deliveryFunnel,
       revenue,
-      abTest: { hasAbTest: variants.length > 1, variants, winner },
+      abTests,
       buttonClicks: { total: totalClicks, branches: buttonClicks },
       jobs: { byStatus: jobStatus, topSkipReasons },
     },

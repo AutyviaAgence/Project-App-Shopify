@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Loader2, Send, Eye, MessageCircle, ShoppingBag, Trophy, Info, MousePointerClick, CheckCheck, AlertTriangle } from 'lucide-react'
+import { X, Loader2, Send, Eye, MessageCircle, ShoppingBag, Trophy, Info, MousePointerClick, CheckCheck, AlertTriangle, FlaskConical } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 /**
@@ -19,7 +19,12 @@ type Perf = {
   funnel: { sent: number; opened: number; openRate: number; responded: number; responseRate: number; ordered: number; orderRate: number }
   delivery: { sent: number; delivered: number; deliveredRate: number; read: number; readRate: number; failed: number; failedRate: number } | null
   revenue: { orders: number; amount: number; currency: string | null } | null
-  abTest: { hasAbTest: boolean; variants: { key: string; sent: number; opened: number; responded: number; ordered: number; openRate: number; responseRate: number; orderRate: number }[]; winner: string | null }
+  abTests: {
+    nodeId: string
+    name: string
+    winner: string | null
+    variants: { key: string; label: string; sent: number; opened: number; responded: number; ordered: number; openRate: number; responseRate: number; orderRate: number }[]
+  }[]
   buttonClicks: { total: number; branches: { label: string; count: number; rate: number; responded: number; ordered: number; orderRate: number }[] }
   jobs: { byStatus: Record<string, number>; topSkipReasons: { reason: string; count: number }[] }
 }
@@ -172,21 +177,23 @@ export function PerformancePanel({ automationId, name, onClose }: { automationId
                 </section>
               )}
 
-              {/* A/B TEST */}
-              {perf.abTest.hasAbTest && (
-                <section>
-                  <h3 className="mb-2 text-sm font-semibold">Test A/B</h3>
+              {/* TESTS A/B — un bloc par test (plusieurs possibles dans un workflow) */}
+              {perf.abTests.map((test) => (
+                <section key={test.nodeId}>
+                  <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold">
+                    <FlaskConical className="h-4 w-4 text-fuchsia-500" /> {test.name}
+                  </h3>
                   <div className="space-y-2">
-                    {perf.abTest.variants.map((v) => {
-                      const isWinner = perf.abTest.winner === v.key
+                    {test.variants.map((v) => {
+                      const isWinner = test.winner === v.key
                       return (
                         <div key={v.key} className={cn('rounded-lg border p-2.5', isWinner && 'border-green-500/50 bg-green-500/5')}>
-                          <div className="mb-1.5 flex items-center justify-between">
-                            <span className="flex items-center gap-1.5 text-sm font-semibold">
-                              Variante {v.key}
-                              {isWinner && <span className="flex items-center gap-0.5 rounded-full bg-green-500/15 px-1.5 py-0.5 text-[10px] font-medium text-green-600"><Trophy className="h-3 w-3" /> Gagnant</span>}
+                          <div className="mb-1.5 flex items-center justify-between gap-2">
+                            <span className="flex min-w-0 items-center gap-1.5 text-sm font-semibold">
+                              <span className="truncate">{v.label}</span>
+                              {isWinner && <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-green-500/15 px-1.5 py-0.5 text-[10px] font-medium text-green-600"><Trophy className="h-3 w-3" /> Gagnant</span>}
                             </span>
-                            <span className="text-xs font-medium text-muted-foreground">{v.sent} envoyés</span>
+                            <span className="shrink-0 text-xs font-medium text-muted-foreground">{v.sent} envoyés</span>
                           </div>
                           <div className="grid grid-cols-3 gap-1.5 text-center">
                             <MiniStat label="Ouverts" value={String(v.opened)} sub={`${v.openRate}%`} />
@@ -196,9 +203,12 @@ export function PerformancePanel({ automationId, name, onClose }: { automationId
                         </div>
                       )
                     })}
+                    {test.winner == null && test.variants.some((v) => v.sent < 5) && (
+                      <p className="text-[11px] text-muted-foreground">Gagnant déterminé dès 5 envois par variante.</p>
+                    )}
                   </div>
                 </section>
-              )}
+              ))}
 
               {/* JOBS */}
               <section>
