@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { isValidShopDomain } from '@/lib/shopify/client'
+import { getUserPlan } from '@/lib/shopify/plans'
 
 /**
  * GET /api/shopify/status
@@ -57,19 +58,23 @@ export async function GET(req: NextRequest) {
   let documents = 0
   let whatsappConnected = false
   let approvedTemplates = 0
-  // Plan effectif : on privilégie le plan du COMPTE lié (profiles.plan), qui
-  // reflète les comptes admin / plans offerts sans facturation Stripe. On
-  // retombe sur le plan de la boutique puis "free".
-  let effectivePlan = store.plan || 'free'
+
+  // Plan effectif : DÉLÉGUÉ à getUserPlan(), seule source de vérité.
+  //
+  // Cette route recalculait le plan à la main et écrasait avec `profiles.plan` —
+  // sans jamais regarder `subscription_status`. Un marchand qui refusait la charge
+  // Shopify (statut 'pending') se voyait donc renvoyer un plan payant. getUserPlan
+  // arbitre shopify_stores vs profiles ET exige un abonnement `active`.
+  let effectivePlan: string = 'free'
   if (store.user_id) {
+    effectivePlan = (await getUserPlan(store.user_id)).id
+    // Un admin garde l'accès complet (comptes internes, démos).
     const { data: profile } = await admin
       .from('profiles')
-      .select('plan, role')
+      .select('role')
       .eq('id', store.user_id)
       .maybeSingle()
-    if (profile?.plan) effectivePlan = profile.plan
-    // Un admin a toujours l'accès complet (plan le plus élevé).
-    if (profile?.role === 'admin') effectivePlan = profile.plan || 'scale'
+    if (profile?.role === 'admin') effectivePlan = 'scale'
   }
   if (store.user_id) {
     const { data: agents } = await admin

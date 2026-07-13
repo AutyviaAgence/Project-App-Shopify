@@ -5,6 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { SHOPIFY_APP_STORE_URL } from '@/lib/shopify/app-store'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -181,6 +182,30 @@ function LoginForm() {
             </svg>
             {googleLoading ? t('auth.signing_in') : t('auth.google_login')}
           </Button>
+
+          {/*
+            « Continuer avec Shopify ».
+            Shopify n'est PAS un fournisseur OAuth tiers : on ne peut pas s'y
+            connecter comme avec Google. Le seul chemin conforme (exigence App
+            Store 2.3.1 : l'installation doit partir d'une surface Shopify) est
+            d'envoyer le marchand sur la fiche App Store. Il installe, Shopify
+            nous le renvoie par OAuth, et `resolveXeyoUser()` crée ou rattache
+            son compte Xeyo automatiquement — sans mot de passe à choisir.
+            ⚠️ Ne JAMAIS remplacer ceci par un champ « votre boutique ».
+          */}
+          <a
+            href={SHOPIFY_APP_STORE_URL}
+            className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-md border bg-background px-4 text-sm font-medium transition-colors hover:bg-accent"
+          >
+            <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
+              <path
+                d="M15.34 3.5c-.1-.01-.2.02-.29.08-.04.03-.5.35-1.02.72-.53-1.53-1.47-2.93-3.12-2.93h-.15C10.3.72 9.7.4 9.16.4 5.03.4 3.06 5.56 2.44 8.19c-1.6.5-2.74.85-2.89.9-.9.28-.92.31-1.04 1.15L-3 22.7l13.1 2.45L21.9 22.6S15.47 3.66 15.34 3.5zM12.6 4.9l-1.7.53v-.36c0-1.07-.15-1.94-.39-2.63 1 .12 1.66 1.25 2.09 2.46zM9.5 2.63c.27.68.44 1.65.44 2.97v.19l-3.5 1.09C7.11 4.7 8.3 3.36 9.5 2.63zM8.4 1.5c.22 0 .43.07.62.21-1.58.75-3.28 2.63-4 6.38l-2.77.86C2.93 6.32 4.6 1.5 8.4 1.5z"
+                fill="#95BF47"
+              />
+            </svg>
+            Continuer avec Shopify
+          </a>
+
           <div className="flex justify-between text-sm w-full">
             <Link href="/forgot-password" className="text-muted-foreground hover:underline">
               {t('auth.forgot_password')}

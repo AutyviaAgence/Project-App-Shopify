@@ -32,7 +32,17 @@ export async function canUseAi(userId: string): Promise<AiGateResult> {
 
   if (!profile) return { allowed: false, reason: 'no_profile', plan: 'free' }
 
-  const plan = resolvePlan(profile.plan)
+  // ⚠️ NE PAS lire `profiles.plan` pour un marchand Shopify.
+  //
+  // Pour un compte facturé par Shopify, la source de vérité est `shopify_stores`
+  // (plan + subscription_status) — le callback billing n'écrit JAMAIS dans
+  // `profiles`. Lire `profiles.plan` ici donnait deux bugs symétriques :
+  //   · un marchand qui paie restait bloqué sur l'IA (profiles.plan = 'free') ;
+  //   · un marchand qui REFUSE la charge gardait le plan payant.
+  // `getUserPlan()` arbitre les deux tables et n'ouvre les droits que si
+  // l'abonnement Shopify est réellement `active`. C'est la seule porte d'entrée.
+  const { getUserPlan } = await import('@/lib/shopify/plans')
+  const plan = resolvePlan((await getUserPlan(userId)).id)
 
   if (profile.role === 'admin') return { allowed: true, reason: 'admin', plan }
 

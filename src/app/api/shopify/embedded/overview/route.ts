@@ -48,7 +48,11 @@ export async function GET(req: NextRequest) {
   if (sessionIds.length === 0) {
     return NextResponse.json({
       data: {
-        plan: store?.plan || 'free',
+        // Le plan n'est « payant » que si l'abonnement Shopify est réellement actif.
+      // Sinon (charge refusée → 'pending', désinstallation → null, annulation), on
+      // affiche `free` : le sélecteur de plan proposera de souscrire, au lieu de
+      // laisser croire à un abonnement qui n'a jamais été payé.
+      plan: store?.subscription_status === 'active' ? (store.plan || 'free') : 'free',
         subscriptionStatus: store?.subscription_status || null,
         shopDomain: store?.shop_domain || null,
         contactsCount: 0,
@@ -100,7 +104,11 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     data: {
-      plan: store?.plan || 'free',
+      // Le plan n'est « payant » que si l'abonnement Shopify est réellement actif.
+      // Sinon (charge refusée → 'pending', désinstallation → null, annulation), on
+      // affiche `free` : le sélecteur de plan proposera de souscrire, au lieu de
+      // laisser croire à un abonnement qui n'a jamais été payé.
+      plan: store?.subscription_status === 'active' ? (store.plan || 'free') : 'free',
       subscriptionStatus: store?.subscription_status || null,
       shopDomain: store?.shop_domain || null,
       contactsCount: contactsCount ?? 0,
