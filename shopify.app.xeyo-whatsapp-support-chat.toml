@@ -5,19 +5,37 @@ name = "Xeyo - WhatsApp Support & Chat"
 application_url = "https://app.xeyo.io/shopify"
 embedded = true
 
-# NB — Politique de confidentialité & URL de support : ces champs NE SONT PAS des
-# clés du toml (la CLI les rejette). Ils se renseignent dans le Partner Dashboard,
-# section « App listing » :
-#   · Privacy policy : https://app.xeyo.io/privacy
-#   · Support / contact : (à renseigner)
+[webhooks]
+api_version = "2026-04"
+
+  # Désinstallation : purge du token et désactivation de la boutique.
+  [[webhooks.subscriptions]]
+  uri = "/api/shopify/webhooks/app-uninstalled"
+  topics = [ "app/uninstalled" ]
+
+  # ── Webhooks de conformité RGPD — OBLIGATOIRES ─────────────────────────────
+  # Shopify refuse la soumission sans eux. Syntaxe canonique : `compliance_topics`
+  # (et NON `topics`, qui renvoie « The following topic is invalid », ni une section
+  # [webhooks.privacy_compliance]). Les routes existent et vérifient le HMAC.
+  # Confirmé enregistré côté Shopify via `shopify app config pull`.
+  [[webhooks.subscriptions]]
+  uri = "https://app.xeyo.io/api/shopify/webhooks/customers-data-request"
+  compliance_topics = [ "customers/data_request" ]
+
+  [[webhooks.subscriptions]]
+  uri = "https://app.xeyo.io/api/shopify/webhooks/customers-redact"
+  compliance_topics = [ "customers/redact" ]
+
+  [[webhooks.subscriptions]]
+  uri = "https://app.xeyo.io/api/shopify/webhooks/shop-redact"
+  compliance_topics = [ "shop/redact" ]
 
 [access_scopes]
 # Learn more at https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes
-# ⚠️ Shopify rejette les scopes NON UTILISÉS. `read_discounts` a été retiré : le code
-# ne lit jamais les remises, il en CRÉE (discountCodeBasicCreate) → write_discounts suffit.
-# Cette liste doit rester alignée sur SHOPIFY_SCOPES (src/lib/shopify/client.ts),
-# sinon les scopes demandés à l'OAuth diffèrent de ceux déclarés → 403 en prod.
-scopes = "read_customers,write_discounts,read_orders,write_orders,read_products,read_content,read_legal_policies,read_returns,read_fulfillments"
+# ⚠️ Doit rester aligné sur SHOPIFY_SCOPES (src/lib/shopify/client.ts) : si le code
+# demande moins que le toml, les appels correspondants échouent en 403 en prod.
+# `read_discounts` a été retiré (jamais utilisé : on CRÉE des remises, d'où write_).
+scopes = "read_content,read_customers,read_fulfillments,read_legal_policies,read_orders,read_products,read_returns,write_discounts,write_orders"
 optional_scopes = [ ]
 use_legacy_install_flow = false
 
@@ -28,21 +46,3 @@ redirect_urls = [ "https://app.xeyo.io/api/shopify/callback" ]
 url = "https://app.xeyo.io/api/shopify/proxy"
 subpath = "xeyo"
 prefix = "apps"
-
-[webhooks]
-api_version = "2026-04"
-
-# ── Webhooks de conformité RGPD — OBLIGATOIRES ────────────────────────────────
-# Shopify REFUSE la soumission d'une app sans ces 3 endpoints. Ils ont leur PROPRE
-# section (`privacy_compliance`) : les déclarer en [[webhooks.subscriptions]] est
-# rejeté (« The following topic is invalid: customers/redact »), car ce ne sont pas
-# des topics de webhook classiques.
-[webhooks.privacy_compliance]
-customer_data_request_url = "https://app.xeyo.io/api/shopify/webhooks/customers-data-request"
-customer_deletion_url = "https://app.xeyo.io/api/shopify/webhooks/customers-redact"
-shop_deletion_url = "https://app.xeyo.io/api/shopify/webhooks/shop-redact"
-
-# ── Désinstallation : purge du token et désactivation de la boutique ──────────
-[[webhooks.subscriptions]]
-topics = [ "app/uninstalled" ]
-uri = "/api/shopify/webhooks/app-uninstalled"
