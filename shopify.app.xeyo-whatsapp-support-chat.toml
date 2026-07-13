@@ -33,19 +33,14 @@ prefix = "apps"
 api_version = "2026-04"
 
 # ── Webhooks de conformité RGPD — OBLIGATOIRES ────────────────────────────────
-# Shopify REFUSE la soumission d'une app si ces 3 endpoints ne sont pas déclarés.
-# Les routes existent et vérifient le HMAC ; il manquait leur déclaration ici.
-[[webhooks.subscriptions]]
-topics = [ "customers/data_request" ]
-uri = "/api/shopify/webhooks/customers-data-request"
-
-[[webhooks.subscriptions]]
-topics = [ "customers/redact" ]
-uri = "/api/shopify/webhooks/customers-redact"
-
-[[webhooks.subscriptions]]
-topics = [ "shop/redact" ]
-uri = "/api/shopify/webhooks/shop-redact"
+# Shopify REFUSE la soumission d'une app sans ces 3 endpoints. Ils ont leur PROPRE
+# section (`privacy_compliance`) : les déclarer en [[webhooks.subscriptions]] est
+# rejeté (« The following topic is invalid: customers/redact »), car ce ne sont pas
+# des topics de webhook classiques.
+[webhooks.privacy_compliance]
+customer_data_request_url = "https://app.xeyo.io/api/shopify/webhooks/customers-data-request"
+customer_deletion_url = "https://app.xeyo.io/api/shopify/webhooks/customers-redact"
+shop_deletion_url = "https://app.xeyo.io/api/shopify/webhooks/shop-redact"
 
 # ── Désinstallation : purge du token et désactivation de la boutique ──────────
 [[webhooks.subscriptions]]
