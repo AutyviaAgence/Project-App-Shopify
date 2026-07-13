@@ -1,5 +1,13 @@
 # Xeyo — Guide de review / publication de l'app Shopify
 
+> ⚠️ **Ce document n'est plus la source de vérité.** Voir
+> [`SHOPIFY_COMPLIANCE.md`](SHOPIFY_COMPLIANCE.md), qui fait autorité sur la
+> conformité (facturation, webhooks RGPD, GraphQL, scopes, auth embedded).
+> En cas de contradiction, c'est l'autre qui a raison — notamment sur les
+> **scopes ci-dessous, qui sont périmés** (`read_discounts` a été retiré).
+> Ce fichier reste utile pour les liens Dashboard et la procédure Protected
+> Customer Data.
+
 Ce document récapitule **tout ce qu'il faut faire** pour passer la review Shopify
 et publier l'app (App Store ou distribution personnalisée), ainsi que les
 réglages de données client protégées (Protected Customer Data).
