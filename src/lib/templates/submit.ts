@@ -76,6 +76,19 @@ export async function submitTemplateRow(
     return { ok: false, status: 422, error: 'Le message ne peut pas commencer ni finir par une variable ({{1}}, {{2}}…). Ajoutez du texte avant/après la variable.' }
   }
 
+  // Variable COLLÉE à une lettre/chiffre (ex. « {{1}}f » ou « f{{1}} ») : Meta
+  // APPROUVE ce format mais le REFUSE à l'envoi (erreur 132012 « parameter format
+  // does not match »). Piège classique : le modèle est validé puis inenvoyable.
+  // On exige un séparateur (espace/ponctuation) entre le texte et la variable.
+  const gluedAfter = /\{\{\s*\d+\s*\}\}[\p{L}\p{N}]/u.test(trimmedBody)   // {{1}}f
+  const gluedBefore = /[\p{L}\p{N}]\{\{\s*\d+\s*\}\}/u.test(trimmedBody)  // f{{1}}
+  if (gluedAfter || gluedBefore) {
+    return {
+      ok: false, status: 422,
+      error: 'Une variable ({{1}}, {{2}}…) est collée à du texte (ex. « {{1}}mot »). Meta l’accepte à la validation mais refuse l’envoi. Ajoutez un espace avant et après chaque variable (ex. « Bonjour {{1}}, … »).',
+    }
+  }
+
   // Session WABA (celle du template, l'override, ou la première dispo).
   const sessionId = sessionIdOverride || template.session_id
   let sessionQuery = supabase

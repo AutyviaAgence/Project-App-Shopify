@@ -251,6 +251,12 @@ export async function sendTemplateToContact(params: {
     if (code === '132000') {
       return { ok: false, error: `params_mismatch (132000), le modèle approuvé chez Meta n'a pas le même nombre de {{variables}} que la version locale. Resoumettez le modèle.` }
     }
+    // 132012 = format de paramètre incompatible. Cause fréquente : une variable
+    // collée à du texte dans le corps (« {{1}}mot »), approuvée par Meta mais
+    // refusée à l'envoi. Message actionnable plutôt que "no_whatsapp" trompeur.
+    if (code === '132012') {
+      return { ok: false, error: `format_incompatible (132012) : le modèle « ${tpl.name} » a un format de variable que Meta refuse à l'envoi (souvent une variable collée à du texte, ex. « {{1}}mot »). Ré-éditez le modèle en mettant un espace autour de chaque variable, puis resoumettez-le.` }
+    }
     // On garde le code + le message Meta dans le résultat (diagnostic).
     return { ok: false, error: isNoWa ? `no_whatsapp (code ${code}: ${userMsg.slice(0, 90)})` : `send_failed: ${raw.slice(0, 160)}` }
   }
