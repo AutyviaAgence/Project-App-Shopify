@@ -533,13 +533,24 @@ export async function POST(req: NextRequest) {
             // active l'IA dessus). Permet à l'IA de répondre automatiquement sur
             // toute nouvelle conversation sans assignation manuelle.
             if (!conversation.ai_agent_id && session.user_id) {
-              const { data: defaultAgent } = await supabase
-                .from('ai_agents')
-                .select('id')
-                .eq('user_id', session.user_id)
-                .eq('is_default', true)
-                .eq('is_active', true)
-                .maybeSingle()
+              // Agent référent = celui marqué is_default. FALLBACK : si aucun
+              // n'est marqué default (compte sans agent par défaut), on prend le
+              // 1er agent actif → l'IA répond quand même et la conversation est
+              // attribuée (sinon ai_agent_id restait null → stats agent à 0).
+              // limit(1) au lieu de maybeSingle : robuste même si plusieurs default.
+              let defaultAgent: { id: string } | null = null
+              const { data: def } = await supabase
+                .from('ai_agents').select('id')
+                .eq('user_id', session.user_id).eq('is_default', true).eq('is_active', true)
+                .order('created_at', { ascending: true }).limit(1)
+              defaultAgent = def?.[0] ?? null
+              if (!defaultAgent) {
+                const { data: any1 } = await supabase
+                  .from('ai_agents').select('id')
+                  .eq('user_id', session.user_id).eq('is_active', true)
+                  .order('created_at', { ascending: true }).limit(1)
+                defaultAgent = any1?.[0] ?? null
+              }
               if (defaultAgent?.id) {
                 await supabase
                   .from('conversations')

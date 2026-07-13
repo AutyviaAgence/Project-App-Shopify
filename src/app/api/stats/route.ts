@@ -276,12 +276,19 @@ export async function GET(req: NextRequest) {
   }
 
   const agentStats: StatsAgent[] = agents.map((agent) => {
-    const agentMessages = messages.filter((m) => m.ai_agent_id === agent.id)
-    const agentConvos = new Set(
-      conversations
-        .filter((c) => c.ai_agent_id === agent.id)
-        .map((c) => c.id)
+    // Messages gérés = ceux tagués `ai_agent_id`, PLUS (fallback) les messages
+    // sortants IA d'une conversation assignée à cet agent mais dont le message
+    // n'a pas été tagué (robustesse : attribution message manquante ponctuelle).
+    const agentMessages = messages.filter((m) =>
+      m.ai_agent_id === agent.id
+      || (!m.ai_agent_id && m.direction === 'outbound' && (m.sent_by === 'ai_agent' || m.sent_by === 'ai')
+          && convoToAgent.get(m.conversation_id) === agent.id)
     )
+    // Conversations gérées = celles assignées à l'agent OU celles où il a au moins
+    // un message tagué (couvre les convs non ré-assignées mais réellement traitées).
+    const agentConvos = new Set<string>()
+    for (const c of conversations) if (c.ai_agent_id === agent.id) agentConvos.add(c.id)
+    for (const m of agentMessages) if (m.conversation_id) agentConvos.add(m.conversation_id)
 
     // Taux de réponse par agent
     const agentInbound = inboundMessages.filter(
