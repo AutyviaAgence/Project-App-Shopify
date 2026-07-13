@@ -272,11 +272,10 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
     t.consent(storeName)
   )
 
-  const branding = root.createComponent(
-    Text,
-    { size: 'small', appearance: 'subdued' },
-    'Powered by Xeyo.io'
-  )
+  // ⚠️ PAS de « Powered by Xeyo.io » ici. Exigence App Store 5.6.3 : « Don't use
+  // checkout extensions to promote your app, promote related apps, or request
+  // reviews. » Le checkout appartient au marchand ; toute auto-promotion de l'app
+  // sur cette surface est un motif de rejet.
 
   // Pays (sélecteur) + numéro côte à côte.
   const phoneRow = root.createComponent(InlineStack, { spacing: 'tight', blockAlignment: 'end' }, [
@@ -288,7 +287,6 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
     phoneRow,
     consent,
     root.createComponent(InlineStack, {}, [submitButton]),
-    branding,
   ])
 
   const checkbox = root.createComponent(

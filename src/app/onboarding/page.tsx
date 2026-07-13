@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { SHOPIFY_APP_STORE_URL } from '@/lib/shopify/app-store'
 import { Button } from '@/components/ui/button'
 import {
   Loader2, Sparkles, Check, ArrowLeft, ArrowRight, Store, MessageSquare,
@@ -157,11 +158,6 @@ export default function OnboardingPage() {
   // Intros animées « c'est quoi ce module ? » : vues une fois par étape
   // (état de session — revenir en arrière ne les rejoue pas).
   const [seenIntros, setSeenIntros] = useState<Set<IntroModule>>(new Set())
-
-  // Étape Shopify
-  const [shopInput, setShopInput] = useState('')
-  // Boutique déjà rattachée à un AUTRE compte (409) : domaine concerné → bannière.
-  const [shopTaken, setShopTaken] = useState<string | null>(null)
 
   // Étape WhatsApp
   const [waPhoneId, setWaPhoneId] = useState('')
@@ -346,12 +342,10 @@ export default function OnboardingPage() {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ shop }),
       })
-      if (res.ok || res.status === 207) { setShopTaken(null); return 'linked' }
+      if (res.ok || res.status === 207) return 'linked'
       if (res.status === 404) return 'not_installed'
-      // 409 : la boutique appartient déjà à un autre compte → bannière persistante
-      // (pas un simple toast qui disparaît), et on ne retente pas d'installer.
+      // 409 : la boutique appartient déjà à un autre compte → on ne retente pas d'installer.
       if (res.status === 409) {
-        setShopTaken(shop)
         localStorage.removeItem('onb_pending_shop')
         return 'taken'
       }
@@ -361,32 +355,6 @@ export default function OnboardingPage() {
     } catch {
       return 'error'
     }
-  }
-
-  async function startShopifyInstall() {
-    const raw = shopInput.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '')
-    const shop = raw.endsWith('.myshopify.com') ? raw : `${raw}.myshopify.com`
-    if (!/^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(shop)) {
-      toast.error('Domaine invalide, format attendu : maboutique.myshopify.com')
-      return
-    }
-    setShopTaken(null)
-    // Mémorise la boutique en cours : au retour d'OAuth (quel que soit le
-    // chemin), l'onboarding retentera le lien depuis sa propre session.
-    localStorage.setItem('onb_pending_shop', shop)
-    setBusy(true)
-    // App déjà installée ? Lien immédiat, sans repasser par OAuth.
-    const direct = await tryDirectConnect(shop)
-    if (direct === 'linked') {
-      localStorage.removeItem('onb_pending_shop')
-      const s = await fetchState()
-      setBusy(false)
-      goTo(s?.storeSynced ? 'whatsapp' : 'sync', 'Boutique liée')
-      return
-    }
-    // Déjà liée à un autre compte, ou autre erreur : on s'arrête (pas d'OAuth).
-    if (direct === 'taken' || direct === 'error') { setBusy(false); return }
-    window.location.href = `/api/shopify/install?shop=${encodeURIComponent(shop)}`
   }
 
   async function connectWhatsApp() {
@@ -700,33 +668,29 @@ export default function OnboardingPage() {
                     Xeyo se configure à partir de votre boutique (catalogue, politiques, pages).
                     <span className="font-medium text-foreground"> Cette étape est indispensable.</span>
                   </p>
-                  <div className="flex flex-col gap-2 sm:flex-row">
-                    <input value={shopInput} onChange={(e) => { setShopInput(e.target.value); if (shopTaken) setShopTaken(null) }}
-                      onKeyDown={(e) => { if (e.key === 'Enter' && !busy) startShopifyInstall() }}
-                      placeholder="maboutique.myshopify.com" disabled={busy}
-                      className="h-12 flex-1 rounded-lg border border-input bg-background px-4 text-base" />
-                    <Button size="lg" className="h-12" disabled={busy} onClick={startShopifyInstall}>
-                      {busy ? <><Loader2 className="mr-1 h-4 w-4 animate-spin" /> Connexion…</> : <>Connecter Shopify <ArrowRight className="ml-1 h-4 w-4" /></>}
-                    </Button>
-                  </div>
-                  {/* Boutique déjà rattachée à un autre compte Xeyo (sécurité) */}
-                  {shopTaken && (
-                    <div className="flex items-start gap-2.5 rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm">
-                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />
-                      <div className="space-y-1">
-                        <p className="font-medium text-red-600 dark:text-red-400">Cette boutique est déjà connectée à un autre compte</p>
-                        <p className="text-xs text-muted-foreground">
-                          <span className="font-medium text-foreground">{shopTaken}</span> est rattachée à un autre compte Xeyo.
-                          Une boutique ne peut être liée qu&apos;à un seul compte. Connectez-vous avec le compte propriétaire,
-                          ou demandez-lui de la déconnecter (Réglages → Boutique Shopify) avant de la relier ici.
-                        </p>
-                      </div>
-                    </div>
-                  )}
+                  {/*
+                    ⚠️ Exigence App Store 2.3.1 : PAS de champ où le marchand tape son
+                    domaine `.myshopify.com`. L'installation doit partir d'une surface
+                    Shopify — le marchand clique « Installer » sur la fiche App Store,
+                    autorise, et revient ici via le callback OAuth (qui crée/rattache
+                    son compte). Ne JAMAIS réintroduire de saisie de domaine ici.
+                  */}
+                  <a
+                    href={SHOPIFY_APP_STORE_URL}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary px-6 text-base font-medium text-primary-foreground transition-opacity hover:opacity-90 sm:w-auto"
+                  >
+                    <Store className="h-4 w-4" />
+                    Installer Xeyo depuis Shopify
+                    <ArrowRight className="h-4 w-4" />
+                  </a>
                   <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <ShieldCheck className="h-3.5 w-3.5" /> Vous serez redirigé vers Shopify pour autoriser l’application, puis ramené ici automatiquement.
+                    <ShieldCheck className="h-3.5 w-3.5" /> Shopify vous demandera d’autoriser l’application, puis vous ramènera ici automatiquement.
                   </p>
-                  <p className="text-xs text-muted-foreground">Déjà installée depuis l’App Store ? Cette page se mettra à jour toute seule dès que la boutique est liée.</p>
+                  <p className="text-xs text-muted-foreground">
+                    Cette page se met à jour toute seule dès que la boutique est liée — laissez-la ouverte.
+                  </p>
                 </div>
               )}
 

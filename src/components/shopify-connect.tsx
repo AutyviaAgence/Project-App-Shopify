@@ -3,23 +3,14 @@
 import { useEffect, useState, useCallback } from 'react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { SHOPIFY_APP_STORE_URL } from '@/lib/shopify/app-store'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Loader2, Store, RefreshCw, Check, X, Trash2, Info, ExternalLink, AlertTriangle } from 'lucide-react'
 import { track } from '@/lib/posthog/events'
-
-/** Normalise une saisie en domaine xxx.myshopify.com (accepte URL, nom seul, etc.). */
-function normalizeShopDomain(raw: string): string | null {
-  let s = raw.trim().toLowerCase()
-  if (!s) return null
-  s = s.replace(/^https?:\/\//, '').replace(/\/.*$/, '') // retire protocole + chemin
-  if (!s.includes('.')) s = `${s}.myshopify.com`         // "maboutique" → "maboutique.myshopify.com"
-  return /^[a-z0-9][a-z0-9-]*\.myshopify\.com$/.test(s) ? s : null
-}
 
 type StoreStatus = {
   connected: boolean
@@ -45,7 +36,6 @@ export function ShopifyConnect() {
   const [status, setStatus] = useState<StoreStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [resyncing, setResyncing] = useState(false)
-  const [shopInput, setShopInput] = useState('')
   const [confirmDisconnect, setConfirmDisconnect] = useState(false)
   const [disconnecting, setDisconnecting] = useState(false)
   const [detailOpen, setDetailOpen] = useState(false)
@@ -91,33 +81,6 @@ export function ShopifyConnect() {
     }
   }
 
-  const [connectingStore, setConnectingStore] = useState(false)
-
-  async function startInstall() {
-    const domain = normalizeShopDomain(shopInput)
-    if (!domain) {
-      toast.error('Entrez un domaine valide, ex : maboutique.myshopify.com')
-      return
-    }
-    setShopTaken(null)
-    // Mémorise la boutique : au retour d'OAuth (quel que soit le chemin), le
-    // dashboard retentera le lien depuis sa propre session.
-    localStorage.setItem('onb_pending_shop', domain)
-    setConnectingStore(true)
-    // App déjà installée ? Lien immédiat, sans OAuth.
-    const direct = await tryDirectConnect(domain)
-    if (direct === 'linked') {
-      localStorage.removeItem('onb_pending_shop')
-      setConnectingStore(false)
-      await fetchStatus()
-      toast.success('Boutique connectée ✓')
-      return
-    }
-    // Déjà liée à un autre compte, ou autre erreur : on s'arrête (pas d'OAuth).
-    if (direct === 'taken' || direct === 'error') { setConnectingStore(false); return }
-    window.location.href = `/api/shopify/install?shop=${encodeURIComponent(domain)}`
-  }
-
   const fetchStatus = useCallback(async () => {
     try {
       const res = await fetch('/api/shopify/store-status')
@@ -137,7 +100,6 @@ export function ShopifyConnect() {
     const pending = typeof window !== 'undefined' ? localStorage.getItem('onb_pending_shop') : null
     if (!pending) return
     ;(async () => {
-      setConnectingStore(true)
       const r = await tryDirectConnect(pending)
       if (r === 'linked') {
         localStorage.removeItem('onb_pending_shop')
@@ -146,7 +108,6 @@ export function ShopifyConnect() {
       } else if (r === 'not_installed') {
         localStorage.removeItem('onb_pending_shop') // install jamais aboutie : on ne boucle pas
       }
-      setConnectingStore(false)
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, status?.connected])
@@ -331,23 +292,23 @@ export function ShopifyConnect() {
           </div>
         </div>
       )}
-      {/* Saisie du domaine → lance l'OAuth Shopify, puis liaison auto au compte. */}
-      <div className="flex gap-2">
-        <Input
-          value={shopInput}
-          onChange={(e) => { setShopInput(e.target.value); if (shopTaken) setShopTaken(null) }}
-          onKeyDown={(e) => { if (e.key === 'Enter' && !connectingStore) startInstall() }}
-          placeholder="maboutique.myshopify.com"
-          className="h-9"
-          disabled={connectingStore}
-        />
-        <Button onClick={startInstall} className="shrink-0" disabled={connectingStore}>
-          {connectingStore ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Store className="mr-1 h-4 w-4" />}
-          {connectingStore ? 'Connexion…' : 'Connecter'}
-        </Button>
-      </div>
+      {/*
+        ⚠️ Exigence App Store 2.3.1 : PAS de champ de saisie du domaine
+        `.myshopify.com`. L'installation part de la fiche App Store ; Shopify
+        identifie la boutique et nous la renvoie via OAuth. Ne jamais
+        réintroduire de saisie manuelle ici — c'est un motif de rejet.
+      */}
+      <a
+        href={SHOPIFY_APP_STORE_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+      >
+        <Store className="h-4 w-4" />
+        Installer depuis le Shopify App Store
+      </a>
       <p className="text-[11px] text-muted-foreground">
-        Entrez l&apos;adresse de votre boutique (xxx.myshopify.com). Vous serez redirigé vers Shopify pour autoriser l&apos;accès.
+        Shopify vous demandera d’autoriser l’accès, puis vous ramènera ici. Cette page se mettra à jour automatiquement.
       </p>
     </div>
   )

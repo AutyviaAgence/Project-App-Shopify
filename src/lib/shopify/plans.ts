@@ -92,12 +92,23 @@ export async function getUserPlan(userId: string): Promise<PlanDef> {
   // Boutique Shopify liée ?
   const { data: store } = await supabase
     .from('shopify_stores')
-    .select('plan, billing_source')
+    .select('plan, billing_source, subscription_status')
     .eq('user_id', userId)
     .eq('is_active', true)
     .maybeSingle()
 
   if (store?.billing_source === 'shopify') {
+    // ⚠️ Le plan ne compte QUE si l'abonnement est réellement actif chez Shopify.
+    //
+    // `subscribe` écrit `plan = <payant>` + `subscription_status = 'pending'` AVANT
+    // que le marchand ne confirme la charge. S'il la refuse (ou abandonne l'écran
+    // Shopify), la ligne reste telle quelle. Sans ce filtre, on lui accordait le
+    // plan payant sans jamais être payé — et pareil après une désinstallation, où
+    // `subscription_status` repasse à NULL mais `plan` garde sa valeur.
+    //
+    // Seul 'active' ouvre les droits ; tout le reste (pending, null, cancelled)
+    // retombe sur le plan gratuit.
+    if (store.subscription_status !== 'active') return GRID.free
     return GRID[resolvePlan(store.plan)]
   }
 

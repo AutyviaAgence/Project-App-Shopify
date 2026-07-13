@@ -325,46 +325,15 @@ function RefundDialog({
           </div>
 
           {/* Méthode */}
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium">Méthode de remboursement</label>
-            <div className="grid grid-cols-3 gap-2">
-              {([
-                ['original', 'Moyen initial'],
-                ['store_credit', 'Crédit magasin'],
-                ['both', 'Les deux'],
-              ] as ['original' | 'store_credit' | 'both', string][]).map(([v, label]) => (
-                <button
-                  key={v}
-                  type="button"
-                  onClick={() => setMethod(v)}
-                  className={cn(
-                    'rounded-md border px-2 py-2 text-xs font-medium transition-colors',
-                    method === v ? 'border-primary bg-primary/10 text-primary' : 'hover:bg-muted'
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            {method === 'both' && (
-              <div className="mt-1 space-y-1">
-                <label className="text-xs text-muted-foreground">Dont en crédit magasin (le reste sur le moyen initial)</label>
-                <input
-                  type="number" step="0.01" min="0"
-                  value={storeCredit}
-                  onChange={(e) => setStoreCredit(e.target.value)}
-                  placeholder={`ex : ${(amountNum / 2 || 0).toFixed(2)}`}
-                  className="flex h-9 w-full rounded-md border border-input bg-background px-3 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                />
-                {!scValid && storeCredit !== '' && (
-                  <p className="text-xs text-rose-500">La part en crédit doit être &gt; 0 et ≤ {amount || '—'}.</p>
-                )}
-              </div>
-            )}
-            {method === 'store_credit' && (
-              <p className="text-xs text-muted-foreground">Le client sera crédité d’un avoir utilisable sur la boutique (nécessite le crédit magasin activé sur Shopify).</p>
-            )}
-          </div>
+          {/*
+            Le choix de la méthode (crédit magasin / mixte) a été retiré : l'exigence
+            App Store 1.1.15 impose que tout remboursement retourne sur le moyen de
+            paiement d'origine. Le serveur force `original` de toute façon — laisser
+            le choix ici ne ferait que mentir au marchand.
+          */}
+          <p className="rounded-md border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+            Le remboursement est effectué sur le <strong className="text-foreground">moyen de paiement d’origine</strong> du client.
+          </p>
 
           {/* Prévenir le client */}
           <div className="space-y-2 rounded-lg border p-3">

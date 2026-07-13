@@ -273,6 +273,20 @@ export async function fetchOrderById(
  * orders/create), directement consommables par persistShopifyOrder.
  * `max` borne le nombre total récupéré (garde-fou anti-boucle).
  */
+/**
+ * Fenêtre d'historique des commandes, en jours.
+ *
+ * ⚠️ Le scope `read_orders` ne donne accès qu'aux **60 derniers jours**. Lire
+ * au-delà exige `read_all_orders`, un scope privilégié qui doit être justifié et
+ * approuvé par Shopify (exigence 3.2.1).
+ *
+ * On borne donc explicitement la requête. Sans cette borne, l'API tronquerait
+ * silencieusement les résultats : on croirait avoir tout l'historique alors qu'il
+ * manquerait tout ce qui dépasse 60 jours — un bug invisible, bien pire qu'une
+ * limite assumée.
+ */
+const ORDERS_WINDOW_DAYS = 60
+
 export async function listAllOrders(
   shop: string,
   accessToken: string,
@@ -284,19 +298,25 @@ export async function listAllOrders(
   const orders: Record<string, unknown>[] = []
   let cursor: string | null = null
   let guard = 0
+
+  const since = new Date(Date.now() - ORDERS_WINDOW_DAYS * 86_400_000)
+    .toISOString()
+    .slice(0, 10)
+  const filter = `status:any created_at:>=${since}`
+
   while (orders.length < max && guard++ < 50) {
     const take = Math.min(100, max - orders.length) // 100 = plafond GraphQL / page
     const res: { ok: true; data: OrdersPage } | { ok: false; error: string } =
       await shopifyGraphQL<OrdersPage>(
         shop,
         accessToken,
-        `query($n: Int!, $after: String) {
-           orders(first: $n, after: $after, sortKey: CREATED_AT, reverse: true, query: "status:any") {
+        `query($n: Int!, $after: String, $q: String!) {
+           orders(first: $n, after: $after, sortKey: CREATED_AT, reverse: true, query: $q) {
              nodes { ${ORDER_GQL_FIELDS} }
              pageInfo { hasNextPage endCursor }
            }
          }`,
-        { n: take, after: cursor }
+        { n: take, after: cursor, q: filter }
       )
     if (!res.ok) return { ok: false, error: res.error }
     const page: OrdersPage['orders'] | undefined = res.data?.orders
@@ -769,45 +789,42 @@ export async function refundOrder(
   if (suggested.transactions.length === 0) return { ok: false, error: 'Aucune transaction remboursable sur cette commande' }
   if (suggested.amount <= 0) return { ok: false, error: 'Cette commande n’a rien à rembourser (déjà remboursée ou montant nul).' }
 
-  const method: RefundMethod = opts?.method || 'original'
+  // ⚠️ Exigence App Store 1.1.15 : « Your app must not offer methods for processing
+  // refunds outside of the original payment processor. » Un remboursement 100 % en
+  // avoir (store credit) ne rend rien à l'acheteur sur son moyen de paiement : c'est
+  // exactement ce que la règle proscrit, et c'est un motif de rejet.
+  //
+  // On force donc le remboursement sur le moyen d'origine. `store_credit` et `both`
+  // restent dans le type (des appels historiques peuvent les passer) mais sont
+  // neutralisés ici — le garde est côté SERVEUR, pas seulement dans l'UI, car c'est
+  // le seul endroit qui compte.
+  const requested: RefundMethod = opts?.method || 'original'
+  if (requested !== 'original') {
+    console.warn(`[refundOrder] méthode « ${requested} » ignorée → remboursement sur le moyen d'origine (App Store 1.1.15)`)
+  }
+  const method: RefundMethod = 'original'
   const currency = suggested.currency
 
   // Montant total effectivement remboursé (plafonné au suggéré).
   const isPartialByAmount = opts?.amount != null && opts.amount > 0 && opts.amount < suggested.amount
   const effectiveAmount = isPartialByAmount ? opts!.amount! : suggested.amount
 
-  // Répartition entre avoir (store credit) et moyen d'origine (transactions).
-  let storeCreditPart = 0
-  let originalPart = effectiveAmount
-  if (method === 'store_credit') {
-    storeCreditPart = effectiveAmount
-    originalPart = 0
-  } else if (method === 'both') {
-    // La part avoir ne peut pas dépasser le total remboursé.
-    storeCreditPart = Math.min(Math.max(0, opts?.storeCreditAmount ?? 0), effectiveAmount)
-    originalPart = Math.round((effectiveAmount - storeCreditPart) * 100) / 100
+  // Tout part sur le moyen de paiement d'origine (cf. garde 1.1.15 ci-dessus).
+  const originalPart = effectiveAmount
+
+  let transactions = suggested.transactions.map((t) => ({
+    orderId, gateway: t.gateway, kind: 'REFUND', parentId: t.parentTransaction.id, amount: t.amount,
+  }))
+  // Remboursement partiel : on plafonne la 1re transaction au montant demandé.
+  if (originalPart < suggested.amount) {
+    transactions = [{ ...transactions[0], amount: originalPart.toFixed(2) }]
   }
 
-  // Transactions (part sur le moyen d'origine). Vide si tout en avoir.
-  let transactions: { orderId: string; gateway: string; kind: string; parentId: string; amount: string }[] = []
-  if (originalPart > 0) {
-    transactions = suggested.transactions.map((t) => ({
-      orderId, gateway: t.gateway, kind: 'REFUND', parentId: t.parentTransaction.id, amount: t.amount,
-    }))
-    // Si on ne rembourse qu'une partie sur l'original, plafonner la 1re transaction.
-    if (originalPart < suggested.amount) {
-      transactions = [{ ...transactions[0], amount: originalPart.toFixed(2) }]
-    }
-  }
+  // Plus de `refundMethods` : on ne rembourse qu'en `transactions`, sur le moyen
+  // d'origine (App Store 1.1.15). `storeCreditRefund` est délibérément abandonné.
 
-  // refundMethods : la part en avoir (store credit). Nécessite que la boutique
-  // ait le store credit activé (sinon Shopify renvoie une userError explicite).
-  const refundMethods = storeCreditPart > 0
-    ? [{ storeCreditRefund: { amount: { amount: storeCreditPart.toFixed(2), currencyCode: currency } } }]
-    : undefined
-
-  // Un remboursement par montant pur (ou tout en avoir) ne rattache pas d'article.
-  const attachLineItems = !isPartialByAmount && method !== 'store_credit'
+  // Un remboursement par montant pur ne rattache pas d'article.
+  const attachLineItems = !isPartialByAmount
 
   // Depuis l'API 2026-04, refundCreate EXIGE la directive @idempotent(key: ...)
   // (clé unique) pour éviter les doubles remboursements. On génère une UUID.
@@ -827,7 +844,6 @@ export async function refundOrder(
           ? refundLineItems?.map((li) => ({ lineItemId: li.lineItemId, quantity: li.quantity, restockType: 'NO_RESTOCK' }))
           : undefined,
         transactions: transactions.length > 0 ? transactions : undefined,
-        refundMethods,
       },
     }
   )

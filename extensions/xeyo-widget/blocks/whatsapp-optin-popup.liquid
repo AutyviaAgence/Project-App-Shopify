@@ -31,7 +31,14 @@
     <button type="button" class="xeyo-pop-submit">{{ block.settings.button }}</button>
     <p class="xeyo-pop-consent">{{ block.settings.consent }}</p>
     <p class="xeyo-pop-msg" aria-live="polite"></p>
-    <a class="xeyo-pop-branding" href="https://xeyo.io" target="_blank" rel="noopener noreferrer">Powered by Xeyo.io</a>
+    {%- comment -%}
+      Branding désactivable par le marchand (comme sur la bulle). Un lien sortant
+      non configurable sur la vitrine du marchand est mal vu à la review : c'est
+      son storefront, il doit pouvoir le retirer.
+    {%- endcomment -%}
+    {%- if block.settings.show_branding -%}
+      <a class="xeyo-pop-branding" href="https://xeyo.io" target="_blank" rel="noopener noreferrer">Powered by Xeyo.io</a>
+    {%- endif -%}
   </div>
 </div>
 
@@ -407,7 +414,13 @@
       "default": "cart"
     },
     { "type": "text", "id": "custom_paths", "label": "Pages précises (si « pages précises »)", "info": "Chemins d'URL séparés par des virgules. Ex : /cart, /products, /collections/promo", "default": "/cart" },
-    { "type": "color", "id": "accent_color", "label": "Couleur", "default": "#25D366" }
+    { "type": "color", "id": "accent_color", "label": "Couleur", "default": "#25D366" },
+    {
+      "type": "checkbox",
+      "id": "show_branding",
+      "label": "Afficher \"Powered by Xeyo.io\"",
+      "default": true
+    }
   ]
 }
 {% endschema %}
