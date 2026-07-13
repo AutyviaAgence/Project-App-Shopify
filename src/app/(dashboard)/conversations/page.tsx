@@ -79,6 +79,7 @@ function ConversationsPageContent() {
     use_case?: string | null; category?: string | null
     // Champs nécessaires à TemplateBubble (aperçu fidèle : en-tête, boutons, carrousel…)
     header_text?: string | null; footer_text?: string | null
+    header_type?: string | null; header_media_url?: string | null
     template_type?: string | null; buttons?: unknown; carousel_cards?: unknown
     lto_title?: string | null; lto_default_hours?: number | null
   }[]>([])
@@ -1098,6 +1099,8 @@ function ConversationsPageContent() {
                             body_text: tpl.body_text || '',
                             header_text: tpl.header_text ?? null,
                             footer_text: tpl.footer_text ?? null,
+                            header_type: (tpl.header_type ?? null) as WhatsAppTemplate['header_type'],
+                            header_media_url: tpl.header_media_url ?? null,
                             template_type: (tpl.template_type ?? null) as WhatsAppTemplate['template_type'],
                             buttons: (tpl.buttons ?? null) as WhatsAppTemplate['buttons'],
                             carousel_cards: (tpl.carousel_cards ?? null) as WhatsAppTemplate['carousel_cards'],

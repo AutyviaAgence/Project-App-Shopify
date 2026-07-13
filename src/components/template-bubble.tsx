@@ -6,7 +6,7 @@ import type { WhatsAppTemplate, TemplateButton, TemplateCard } from '@/types/dat
 
 /** Image d'une carte de carrousel. Gère une URL http directe (Shopify) OU un
  *  chemin storage Supabase (résolu en URL signée via /api/templates/media/preview). */
-function CardImage({ url }: { url: string | null | undefined }) {
+function CardImage({ url, tall }: { url: string | null | undefined; tall?: boolean }) {
   const [src, setSrc] = useState<string | null>(url && /^https?:\/\//i.test(url) ? url : null)
   useEffect(() => {
     if (!url) { setSrc(null); return }
@@ -19,9 +19,10 @@ function CardImage({ url }: { url: string | null | undefined }) {
       .catch(() => {})
     return () => { cancelled = true }
   }, [url])
-  if (!src) return <div className="flex h-[62px] items-center justify-center bg-slate-100 text-slate-300"><ImageIcon className="h-5 w-5" /></div>
+  const h = tall ? 'h-32' : 'h-[62px]'
+  if (!src) return <div className={`flex ${h} items-center justify-center bg-slate-100 text-slate-300`}><ImageIcon className="h-5 w-5" /></div>
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={src} alt="" className="h-[62px] w-full object-cover" />
+  return <img src={src} alt="" className={`${h} w-full object-cover`} />
 }
 
 /**
@@ -73,7 +74,7 @@ function ButtonRow({ b }: { b: TemplateButton }) {
 export function TemplateBubble({ template, labels, className }: {
   template: Pick<WhatsAppTemplate,
     'body_text' | 'header_text' | 'footer_text' | 'template_type' | 'buttons'
-    | 'carousel_cards' | 'lto_title' | 'lto_default_hours'>
+    | 'carousel_cards' | 'lto_title' | 'lto_default_hours' | 'header_type' | 'header_media_url'>
   labels?: string[]
   className?: string
 }) {
@@ -81,9 +82,21 @@ export function TemplateBubble({ template, labels, className }: {
   const cards = (Array.isArray(template.carousel_cards) ? template.carousel_cards : []) as TemplateCard[]
   const isCarousel = template.template_type === 'carousel'
   const isLto = template.template_type === 'limited_time_offer'
+  // En-tête MÉDIA d'un template standard (image / vidéo / document).
+  const headerType = template.header_type as string | null | undefined
+  const headerMedia = template.header_media_url as string | null | undefined
+  const hasMediaHeader = !isCarousel && (headerType === 'image' || headerType === 'video' || headerType === 'document')
 
   return (
     <div className={`overflow-hidden rounded-2xl rounded-tr-sm bg-white shadow-sm ring-1 ring-black/5 ${className || ''}`}>
+      {/* En-tête média (image/vidéo/doc) — comme dans WhatsApp, au-dessus du texte. */}
+      {hasMediaHeader && (
+        headerType === 'image'
+          ? (headerMedia ? <CardImage url={headerMedia} tall /> : <div className="flex h-32 w-full items-center justify-center bg-slate-100 text-slate-300"><ImageIcon className="h-6 w-6" /></div>)
+          : headerType === 'video'
+            ? <div className="flex h-32 w-full items-center justify-center bg-slate-800 text-white/70">▶</div>
+            : <div className="bg-slate-100 px-3 py-2 text-[12px] text-slate-500">📄 Document</div>
+      )}
       <div className="px-3 py-2">
         {template.header_text && (
           <p className="mb-0.5 text-[14px] font-semibold text-gray-900">{template.header_text}</p>

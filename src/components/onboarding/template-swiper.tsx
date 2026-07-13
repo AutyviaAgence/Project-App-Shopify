@@ -31,6 +31,9 @@ export type SwipeItem = {
   /** Carrousel produits : cartes affichées sous la bulle (images réelles). */
   template_type?: 'standard' | 'carousel'
   carousel_cards?: { header_media_url: string | null; body_text: string }[] | null
+  /** En-tête média d'un template standard (image / vidéo / document). */
+  header_type?: 'none' | 'text' | 'image' | 'video' | 'document' | null
+  header_media_url?: string | null
 }
 
 export type SwipeGroup = { key: string; title: string; pitch?: string; items: SwipeItem[] }
@@ -436,6 +439,11 @@ function SwipeCard({
                     </div>
                   ) : (
                     <>
+                      {/* En-tête média (image) d'un template standard, en haut de la bulle. */}
+                      {it.header_type === 'image' && it.header_media_url && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={it.header_media_url} alt="" className="h-28 w-full rounded-t-lg object-cover" />
+                      )}
                       <div className="px-2.5 pb-1.5 pt-2">
                         {it.header_text && (
                           <p className="mb-0.5 text-[13px] font-semibold text-[#e9edef]">
