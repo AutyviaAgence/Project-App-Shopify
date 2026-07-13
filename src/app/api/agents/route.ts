@@ -146,6 +146,9 @@ export async function POST(req: Request) {
     escalation_message?: string
     booking_url?: string
     stop_condition?: string
+    /** true = appel depuis l'étape « agent référent » de l'onboarding → upsert
+     *  idempotent (met à jour l'agent existant au lieu d'en créer un doublon). */
+    onboarding?: boolean
   }
 
   // Vérifier le quota d'agents selon le plan.
@@ -207,28 +210,56 @@ export async function POST(req: Request) {
   // Type d'agent retiré : tous les agents sont uniformes ('conversation')
   const finalAgentType = 'conversation'
 
+  // PRÉVENTION DES DOUBLONS D'ONBOARDING : pendant l'onboarding (pas encore
+  // terminé), l'étape « agent référent » peut être rejouée (retour, refresh,
+  // agentId client perdu) → chaque POST créait un nouvel agent. Si le user est
+  // en cours d'onboarding et a DÉJÀ un agent, on MET À JOUR le plus récent au
+  // lieu d'en créer un nouveau (idempotent côté serveur, indépendant du client).
+  const agentFields: Record<string, unknown> = {
+    name: name.trim(),
+    description: description?.trim() || null,
+    system_prompt: system_prompt.trim(),
+    objective: objective?.trim() || null,
+    model: finalModel,
+    temperature: finalTemp,
+    response_delay_min: finalDelayMin,
+    response_delay_max: finalDelayMax,
+    is_active: is_active !== undefined ? is_active : true,
+    max_messages_per_conversation: finalMaxMessages,
+    inactivity_timeout_minutes: finalInactivityTimeout,
+    escalation_enabled: escalation_enabled ?? false,
+    escalation_keywords: finalEscalationKeywords,
+    escalation_message: escalation_message?.trim() || null,
+    booking_url: booking_url?.trim() || null,
+    agent_type: finalAgentType,
+    stop_condition: stop_condition?.trim() || null,
+  }
+  // On n'applique l'upsert QUE si l'appel se déclare « onboarding » (flag envoyé
+  // par l'étape agent référent) ET que l'onboarding n'est pas terminé. Ainsi la
+  // création volontaire d'un 2e agent (multi-agents) n'est jamais bloquée.
+  if (body.onboarding === true) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: prof } = await (supabase as any)
+      .from('profiles').select('onboarding_completed_at').eq('id', user.id).maybeSingle()
+    if (!prof?.onboarding_completed_at) {
+      const { data: existing } = await supabase
+        .from('ai_agents').select('id').eq('user_id', user.id)
+        .order('created_at', { ascending: false }).limit(1).maybeSingle()
+      if (existing?.id) {
+        const { data: updated, error: upErr } = await supabase
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .from('ai_agents').update(agentFields as any).eq('id', existing.id).eq('user_id', user.id)
+          .select().single()
+        if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 })
+        return NextResponse.json({ data: updated })
+      }
+    }
+  }
+
   const { data: agent, error } = await supabase
     .from('ai_agents')
-    .insert({
-      user_id: user.id,
-      name: name.trim(),
-      description: description?.trim() || null,
-      system_prompt: system_prompt.trim(),
-      objective: objective?.trim() || null,
-      model: finalModel,
-      temperature: finalTemp,
-      response_delay_min: finalDelayMin,
-      response_delay_max: finalDelayMax,
-      is_active: is_active !== undefined ? is_active : true,
-      max_messages_per_conversation: finalMaxMessages,
-      inactivity_timeout_minutes: finalInactivityTimeout,
-      escalation_enabled: escalation_enabled ?? false,
-      escalation_keywords: finalEscalationKeywords,
-      escalation_message: escalation_message?.trim() || null,
-      booking_url: booking_url?.trim() || null,
-      agent_type: finalAgentType,
-      stop_condition: stop_condition?.trim() || null,
-    })
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    .insert({ user_id: user.id, ...agentFields } as any)
     .select()
     .single()
 

@@ -424,6 +424,7 @@ export default function OnboardingPage() {
         escalation_situations: agentSituations.trim() || null,
         is_active: true,
         is_default: true, // agent RÉFÉRENT
+        onboarding: true, // upsert idempotent côté serveur (anti-doublon)
       }
       const res = agentId
         ? await fetch(`/api/agents/${agentId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
