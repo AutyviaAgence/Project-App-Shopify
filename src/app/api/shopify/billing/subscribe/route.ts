@@ -14,16 +14,21 @@ import { PLANS, PAID_PLANS, type PlanId } from '@/lib/shopify/plans'
  * OBLIGATOIREMENT via la Billing API (jamais en direct).
  */
 export async function POST(req: NextRequest) {
-  // SÉCURITÉ : action de facturation → utilisateur authentifié + propriétaire
-  // de la boutique. Sinon un anonyme pouvait manipuler la facturation d'un
-  // marchand en connaissant juste son domaine.
-  const rls = await createClient()
-  const { data: { user }, error: authError } = await rls.auth.getUser()
-  if (authError || !user) {
+  // SÉCURITÉ : action de facturation → utilisateur authentifié + propriétaire de la
+  // boutique. Auth UNIFIÉE : session token Shopify (admin embedded) OU cookie
+  // (dashboard web). Avant, la route exigeait un cookie → elle répondait 401 depuis
+  // l'iframe : le marchand ne pouvait PAS s'abonner depuis l'admin Shopify
+  // (requirements 1.1.1 et 1.2.3).
+  const { getAuthedUser } = await import('@/lib/shopify/embedded-auth')
+  const authed = await getAuthedUser(req)
+  if (!authed) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  const { shop, plan } = (await req.json().catch(() => ({}))) as { shop?: string; plan?: PlanId }
+  const body = (await req.json().catch(() => ({}))) as { shop?: string; plan?: PlanId }
+  // En embedded, la boutique vient du SESSION TOKEN (source sûre), pas du corps.
+  const shop = authed.shop || body.shop
+  const plan = body.plan
 
   if (!shop || !isValidShopDomain(shop)) {
     return NextResponse.json({ error: 'Paramètre shop invalide' }, { status: 400 })
@@ -37,12 +42,13 @@ export async function POST(req: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  // La boutique doit appartenir à l'utilisateur connecté.
+  // La boutique doit appartenir à l'utilisateur (filtre explicite : en embedded il
+  // n'y a pas de RLS, c'est le code qui garantit l'isolation).
   const { data: store } = await admin
     .from('shopify_stores')
     .select('id, access_token')
     .eq('shop_domain', shop)
-    .eq('user_id', user.id)
+    .eq('user_id', authed.userId)
     .eq('is_active', true)
     .maybeSingle()
 

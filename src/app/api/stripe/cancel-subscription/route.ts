@@ -11,6 +11,19 @@ export async function POST() {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
+  // CONFORMITE SHOPIFY : un marchand facturé par Shopify ne doit JAMAIS accéder
+  // à Stripe (App Store requirement 1.2.1 - billing hors plateforme interdit). Il
+  // gère son abonnement via la Billing API / son admin Shopify.
+  {
+    const { isShopifyBilled } = await import('@/lib/shopify/plans')
+    if (await isShopifyBilled(user.id)) {
+      return NextResponse.json({
+        error: 'Votre abonnement est géré par Shopify. Gérez-le depuis votre admin Shopify.',
+        shopify_billing: true,
+      }, { status: 403 })
+    }
+  }
+
   const { data: profile } = await supabase
     .from('profiles')
     .select('stripe_subscription_id')

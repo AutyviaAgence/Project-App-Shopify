@@ -271,7 +271,13 @@ function SubscriptionContent() {
   const handleCancel = async () => {
     setIsCancelling(true)
     try {
-      const res = await fetch('/api/stripe/cancel-subscription', { method: 'POST' })
+      // Marchand Shopify → annulation via la Billing API (Stripe lui est interdit).
+      // App Store requirement 1.2.3 : le marchand doit pouvoir annuler/changer de
+      // plan SANS contacter le support.
+      const endpoint = shopifyBilled
+        ? '/api/shopify/billing/cancel'
+        : '/api/stripe/cancel-subscription'
+      const res = await fetch(endpoint, { method: 'POST' })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       toast.success(t('subscription.cancel_success'))
@@ -573,8 +579,11 @@ function SubscriptionContent() {
       {isActive && (!!currentPlan) && (
         <Card className="mb-8">
           <CardContent className="pt-6 space-y-4">
-            {/* Portail Stripe, uniquement si un customer Stripe existe */}
-            {subscription?.stripeCustomerId ? (
+            {/* Portail Stripe : jamais pour un marchand facturé par Shopify (App
+                Store requirement 1.2.1). Un compte Xeyo pré-existant rattaché à une
+                boutique peut avoir un stripe_customer_id résiduel → le test sur
+                stripeCustomerId seul ne suffit PAS. */}
+            {!shopifyBilled && subscription?.stripeCustomerId ? (
               <>
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <div>
@@ -612,8 +621,12 @@ function SubscriptionContent() {
               </div>
             )}
 
-            {/* Résiliation, uniquement si un abonnement Stripe existe */}
-            {subscription?.stripeCustomerId && (
+            {/* Résiliation. ⚠️ Elle était conditionnée à `stripeCustomerId` → un
+                marchand Shopify (sans customer Stripe) ne pouvait JAMAIS annuler,
+                ce qui viole le requirement 1.2.3 (« changement de plan sans
+                contacter le support »). On l'affiche donc aussi pour eux : le
+                handler route alors vers /api/shopify/billing/cancel. */}
+            {(shopifyBilled || subscription?.stripeCustomerId) && (
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Zone de danger</p>

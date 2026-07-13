@@ -348,8 +348,11 @@ async function executeTemplateTool(
   switch (toolType) {
     case 'google_calendar':
       return executeGoogleCalendar(tool, config, functionName, args, credentialId)
-    case 'shopify':
-      return executeShopify(config, functionName, args)
+    // ⚠️ L'outil IA 'shopify' LEGACY (config manuelle shop_url + token, appels REST
+    // Admin 2024-01) a été RETIRÉ : l'App Store exige l'API GraphQL (requirement
+    // 2.2.4) et le REST vaut un rejet. Il n'était plus proposé à la création
+    // (OFFERED_TOOLS) et aucun agent ne l'utilisait. L'intégration Shopify native
+    // (lib/shopify/*, 100 % GraphQL) le remplace entièrement.
     case 'woocommerce':
       return executeWooCommerce(config, functionName, args)
     case 'stripe':
@@ -550,119 +553,6 @@ async function executeGoogleCalendar(
       { method: 'DELETE', headers: { Authorization: `Bearer ${accessToken}` } }
     )
     return JSON.stringify({ cancelled: true, eventId: args.event_id })
-  }
-
-  throw new Error(`Unknown function: ${functionName}`)
-}
-
-// --- Shopify ---
-async function executeShopify(
-  config: Record<string, unknown>,
-  functionName: string,
-  args: Record<string, unknown>
-): Promise<string> {
-  const shopUrl = (config.shop_url as string).replace(/^https?:\/\//, '').replace(/\/$/, '')
-  const shopFullUrl = `https://${shopUrl}`
-  if (!isValidExternalUrl(shopFullUrl)) {
-    return JSON.stringify({ success: false, error: 'Invalid or blocked URL' })
-  }
-  const token = config.access_token as string
-  const baseUrl = `https://${shopUrl}/admin/api/2024-01`
-  const headers = { 'X-Shopify-Access-Token': token, 'Content-Type': 'application/json' }
-
-  if (functionName === 'search_product') {
-    const limit = Math.min((args.limit as number) || 5, 20)
-    const res = await fetchWithTimeout(`${baseUrl}/products.json?title=${encodeURIComponent(args.query as string)}&limit=${limit}`, { headers })
-    const data = await res.json()
-    const products = (data.products || []).map((p: any) => ({
-      id: String(p.id),
-      title: p.title,
-      description: p.body_html?.replace(/<[^>]*>/g, '').slice(0, 150) || '',
-      price: p.variants?.[0]?.price,
-      compare_at_price: p.variants?.[0]?.compare_at_price || null,
-      available: p.variants?.[0]?.inventory_quantity > 0,
-      inventory: p.variants?.[0]?.inventory_quantity,
-      image_url: p.image?.src || p.images?.[0]?.src || null,
-      variants_count: p.variants?.length || 0,
-      vendor: p.vendor || null,
-      product_type: p.product_type || null,
-    }))
-    return JSON.stringify({ products, total: products.length })
-  }
-
-  if (functionName === 'get_product_details') {
-    const res = await fetchWithTimeout(`${baseUrl}/products/${args.product_id}.json`, { headers })
-    const data = await res.json()
-    const p = data.product
-    if (!p) return JSON.stringify({ error: 'Product not found' })
-    return JSON.stringify({
-      id: String(p.id),
-      title: p.title,
-      description: p.body_html?.replace(/<[^>]*>/g, '').slice(0, 500) || '',
-      vendor: p.vendor,
-      product_type: p.product_type,
-      tags: p.tags,
-      images: (p.images || []).slice(0, 5).map((img: any) => img.src),
-      variants: (p.variants || []).map((v: any) => ({
-        id: String(v.id),
-        title: v.title,
-        price: v.price,
-        compare_at_price: v.compare_at_price,
-        sku: v.sku,
-        available: v.inventory_quantity > 0,
-        inventory: v.inventory_quantity,
-        option1: v.option1,
-        option2: v.option2,
-        option3: v.option3,
-      })),
-    })
-  }
-
-  if (functionName === 'check_stock') {
-    const res = await fetchWithTimeout(`${baseUrl}/products/${args.product_id}.json`, { headers })
-    const data = await res.json()
-    if (!data.product) return JSON.stringify({ error: 'Product not found' })
-    const variants = (data.product.variants || []).map((v: any) => ({
-      title: v.title, price: v.price, sku: v.sku,
-      available: v.inventory_quantity > 0, quantity: v.inventory_quantity,
-    }))
-    const totalStock = variants.reduce((sum: number, v: any) => sum + (v.quantity || 0), 0)
-    return JSON.stringify({ product: data.product.title, total_stock: totalStock, in_stock: totalStock > 0, variants })
-  }
-
-  if (functionName === 'get_order_status') {
-    const orderNum = (args.order_number as string).replace('#', '')
-    const res = await fetchWithTimeout(`${baseUrl}/orders.json?name=${orderNum}&status=any&limit=1`, { headers })
-    const data = await res.json()
-    const order = data.orders?.[0]
-    if (!order) return JSON.stringify({ found: false, order_number: orderNum })
-    return JSON.stringify({
-      found: true,
-      order_number: order.name,
-      status: order.financial_status,
-      fulfillment: order.fulfillment_status || 'unfulfilled',
-      total: order.total_price,
-      currency: order.currency,
-      created_at: order.created_at,
-      line_items: (order.line_items || []).slice(0, 10).map((li: any) => ({
-        title: li.title, quantity: li.quantity, price: li.price,
-      })),
-      tracking: order.fulfillments?.[0] ? {
-        company: order.fulfillments[0].tracking_company,
-        number: order.fulfillments[0].tracking_number,
-        url: order.fulfillments[0].tracking_url,
-      } : null,
-    })
-  }
-
-  if (functionName === 'list_collections') {
-    const limit = Math.min((args.limit as number) || 10, 50)
-    const res = await fetchWithTimeout(`${baseUrl}/custom_collections.json?limit=${limit}`, { headers })
-    const data = await res.json()
-    const collections = (data.custom_collections || []).map((c: any) => ({
-      id: String(c.id), title: c.title, products_count: c.products_count || null,
-    }))
-    return JSON.stringify({ collections, total: collections.length })
   }
 
   throw new Error(`Unknown function: ${functionName}`)
