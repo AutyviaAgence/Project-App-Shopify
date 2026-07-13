@@ -118,25 +118,17 @@ export async function GET(req: NextRequest) {
   // Jobs PARQUÉS sur un message à boutons dont le timeout (72 h) est dépassé :
   // le client n'a jamais cliqué → on les repasse en 'pending' pour que
   // processJob suive la branche timeout (si définie) ou clôture le funnel.
+  // Jobs PARQUÉS arrivés à échéance de leur fenêtre de clic (30 j). La branche
+  // « Par défaut » a DÉJÀ été exécutée à l'envoi (elle est la continuité normale),
+  // donc ici on ne fait que CLÔTURER le parking — aucun message supplémentaire.
   const { data: expired } = await supabase
     .from('automation_jobs')
-    .select('id, automation_id, current_node_id')
+    .select('id')
     .eq('status', 'waiting')
     .lte('scheduled_at', now.toISOString())
     .limit(200)
-  for (const w of (expired || []) as { id: string; automation_id: string; current_node_id: string | null }[]) {
-    // On lit le graphe pour trouver la branche timeout de ce nœud d'action.
-    const { data: a } = await supabase.from('automations').select('graph').eq('id', w.automation_id).maybeSingle()
-    let next: string | null = null
-    if (a?.graph && w.current_node_id) {
-      const { timeoutTarget } = await import('@/lib/automations/graph-engine')
-      next = timeoutTarget(a.graph, w.current_node_id)
-    }
-    if (next) {
-      await supabase.from('automation_jobs').update({ status: 'pending', current_node_id: next, scheduled_at: now.toISOString() }).eq('id', w.id)
-    } else {
-      await mark(supabase, w.id, 'sent', 'funnel : pas de clic (timeout)')
-    }
+  for (const w of (expired || []) as { id: string }[]) {
+    await mark(supabase, w.id, 'sent', 'funnel : fenêtre de clic close')
   }
 
   const counts = { sent: 0, skipped: 0, failed: 0, deferred: 0 }
@@ -321,12 +313,31 @@ async function processJob(
       step.abTest ? step.abTest.variant : '_')
 
     if (step.kind === 'send_wait_click') {
-      // FUNNEL À BOUTONS : on PARQUE le job. Le webhook le réveillera au clic
-      // (resumeFromButton). Timeout anti-fuite : réveil dans 72 h → le cron
-      // suivra la branche timeout (si définie) ou clôturera.
-      const timeoutAt = new Date(now.getTime() + 72 * 3600_000).toISOString()
+      // MESSAGE À BOUTONS. La branche « Par défaut » (edge button:__timeout__) est
+      // la CONTINUITÉ NORMALE du parcours : elle part IMMÉDIATEMENT (ex. envoyer
+      // le message suivant / carrousel), sans attendre de clic. En parallèle, on
+      // PARQUE le job pour que les boutons (Oui/Non…) restent cliquables et
+      // déclenchent leurs branches via le webhook (resumeFromButton).
+      const { timeoutTarget } = await import('@/lib/automations/graph-engine')
+      const defaultNext = timeoutTarget(auto.graph, step.nodeId)
+      if (defaultNext) {
+        // Nouveau job pour exécuter la suite par défaut tout de suite.
+        await supabase.from('automation_jobs').insert({
+          automation_id: auto.id, contact_id: job.contact_id, current_node_id: defaultNext,
+          status: 'pending', scheduled_at: now.toISOString(),
+          event_data: { variables: eventData.variables || {} },
+          dedup_key: `default:${job.id}`,
+        })
+      }
+      // Le job d'origine reste PARQUÉ pour capter les clics de boutons. Fenêtre
+      // longue (30 j) : au-delà, la purge le clôturera (les boutons WhatsApp ne
+      // fonctionnent plus après 24 h de toute façon, mais on garde de la marge).
+      const parkUntil = new Date(now.getTime() + 30 * 24 * 3600_000).toISOString()
+      // Marque la branche par défaut comme déjà suivie (dédup côté clics).
+      const ed0 = (eventData || {}) as { variables?: Record<string, string> }
       await supabase.from('automation_jobs').update({
-        status: 'waiting', current_node_id: step.nodeId, scheduled_at: timeoutAt,
+        status: 'waiting', current_node_id: step.nodeId, scheduled_at: parkUntil,
+        event_data: { ...eventData, variables: ed0.variables || {}, clicked_branches: ['__default__'] },
       }).eq('id', job.id)
       return 'deferred'
     }

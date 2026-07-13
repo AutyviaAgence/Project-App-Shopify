@@ -302,7 +302,12 @@ export function buildTour(graph: WorkflowGraph, templates: SimTemplate[]): SimIt
         items.push(msg); budget--
 
         if (msg.buttons.length > 0) {
-          // Pour chaque bouton : montrer la réponse cliquée + dérouler sa branche.
+          // Suite PAR DÉFAUT (branche button:__timeout__) = continuité normale :
+          // elle part IMMÉDIATEMENT après le message à boutons.
+          const dflt = graph.edges.find((e) => e.from === node.id && e.branch === BUTTON_TIMEOUT_BRANCH)
+          if (dflt?.to && budget > 0) walk(dflt.to, depth + 1)
+
+          // PUIS, en plus, chaque bouton cliqué déroule sa branche (démo).
           const outs = graph.edges.filter((e) => e.from === node.id && isButtonBranch(e.branch) && e.branch !== BUTTON_TIMEOUT_BRANCH)
           const norm = (s: string) => s.trim().toLowerCase()
           for (const label of msg.buttons) {
@@ -310,12 +315,6 @@ export function buildTour(graph: WorkflowGraph, templates: SimTemplate[]): SimIt
             items.push({ kind: 'reply', text: label }); budget--
             const edge = outs.find((e) => norm(buttonBranchLabel(e.branch) || '') === norm(label))
             if (edge?.to) walk(edge.to, depth + 1)
-          }
-          // Branche « sans réponse » (timeout) si définie.
-          const timeout = graph.edges.find((e) => e.from === node.id && e.branch === BUTTON_TIMEOUT_BRANCH)
-          if (timeout?.to && budget > 0) {
-            items.push({ kind: 'system', text: 'Sans réponse', sub: 'aucun clic' }); budget--
-            walk(timeout.to, depth + 1)
           }
           return
         }

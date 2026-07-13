@@ -263,9 +263,11 @@ function Branch(props: TimelineProps & { fromId: string; branch?: string }) {
                     <Branch {...props} fromId={id} branch={buttonBranch(text)} />
                   </BranchCol>
                 ))}
-                {/* Parcours CLASSIQUE : le contact qui ne clique aucun bouton
-                    (délai d attente écoulé) continue par cette sortie. */}
-                <BranchCol label="Sans réponse" color="#94A3B8">
+                {/* Suite PAR DÉFAUT : la continuité normale du parcours. Elle part
+                    IMMÉDIATEMENT après le message à boutons (ex. message suivant /
+                    carrousel), que le contact clique ou non. Les boutons ci-dessus
+                    déclenchent leurs branches EN PLUS si on clique. */}
+                <BranchCol label="Par défaut" color="#94A3B8">
                   <Branch {...props} fromId={id} branch={BUTTON_TIMEOUT_BRANCH} />
                 </BranchCol>
               </div>

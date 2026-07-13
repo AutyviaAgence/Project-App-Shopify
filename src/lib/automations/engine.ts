@@ -234,8 +234,12 @@ export async function resumeParkedFunnel(contactId: string, clickedText: string)
     // ne se déclenche qu'UNE fois (dédup via la liste des boutons déjà cliqués,
     // stockée sur le job parqué). Le job parqué RESTE en waiting pour accepter
     // d'autres boutons ; on crée un NOUVEAU job pour exécuter la branche.
+    // allowMultiple : défaut TRUE si NON défini (cohérent avec l'UI, timeline.tsx
+    // affiche le toggle activé quand allowMultiple !== false). Le moteur exigeait
+    // `=== true`, donc un nœud à `undefined` était traité comme mono-route alors
+    // que l'UI le montrait activé → les autres branches ne s'activaient jamais.
     const actionNode = findNode(auto.graph, job.current_node_id)
-    const allowMultiple = actionNode?.type === 'action' && actionNode.allowMultiple === true
+    const allowMultiple = actionNode?.type === 'action' && actionNode.allowMultiple !== false
 
     // Trace stats (best-effort, résilient si colonne absente).
     const trace = { responded: true, responded_at: new Date().toISOString() }
