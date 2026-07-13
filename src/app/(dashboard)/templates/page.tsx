@@ -89,6 +89,21 @@ function renderWhatsAppFormat(text: string, labels?: string[]): React.ReactNode 
   })
 }
 
+/**
+ * Détecte une variable {{n}} COLLÉE à une lettre/chiffre (ex. « {{1}}mot » ou
+ * « mot{{1}} »). Meta APPROUVE ce format mais le REFUSE à l'envoi (erreur 132012)
+ * → on prévient l'utilisateur en direct dans l'éditeur. Renvoie le 1er extrait
+ * fautif (pour le message) ou null si tout va bien.
+ */
+function findGluedVariable(text: string): string | null {
+  const t = text || ''
+  const after = t.match(/\{\{\s*\d+\s*\}\}[\p{L}\p{N}]/u)   // {{1}}f
+  if (after) return after[0]
+  const before = t.match(/[\p{L}\p{N}]\{\{\s*\d+\s*\}\}/u)  // f{{1}}
+  if (before) return before[0]
+  return null
+}
+
 export default function TemplatesPage() {
   const { subscription } = useSubscription()
   // La création de modèles (manuelle ou IA) est réservée aux plans payants.
@@ -540,9 +555,14 @@ export default function TemplatesPage() {
   // Meta refuse une variable au bord, même suivie/précédée seulement de ponctuation.
   const bodyStartsWithVar = /^[\s\p{P}]*\{\{\s*\d+\s*\}\}/u.test(trimmedBody)
   const bodyEndsWithVar = /\{\{\s*\d+\s*\}\}[\s\p{P}]*$/u.test(trimmedBody)
+  // Variable collée à du texte (« {{1}}mot ») : Meta l'accepte à la validation mais
+  // la refuse à l'envoi (132012). On bloque dès l'édition.
+  const gluedVar = findGluedVariable(bodyText)
   const bodyEdgeError = (bodyStartsWithVar || bodyEndsWithVar)
     ? `Le message ne peut pas ${bodyStartsWithVar && bodyEndsWithVar ? 'commencer ni finir' : bodyStartsWithVar ? 'commencer' : 'finir'} par une variable. Ajoutez du texte ${bodyStartsWithVar && bodyEndsWithVar ? 'avant et après' : bodyStartsWithVar ? 'avant' : 'après'}.`
-    : null
+    : gluedVar
+      ? `Une variable est collée à du texte (« ${gluedVar} »). Meta refuse l'envoi : ajoutez un espace avant et après la variable.`
+      : null
 
   // Recharge les valeurs d'origine du template (annule les modifications en cours)
   function revertChanges() {
