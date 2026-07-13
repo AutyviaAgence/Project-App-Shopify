@@ -42,10 +42,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Cette boutique est déjà liée à un autre compte' }, { status: 409 })
   }
 
-  // Associer + définir billing_source = direct (le user a un compte Xeyo direct)
+  // Associer la boutique au compte. ⚠️ CONFORMITÉ : une boutique Shopify est
+  // TOUJOURS facturée via la Billing API de Shopify (App Store requirement §1.2 :
+  // le billing hors plateforme interdit les apps de l'App Store). On posait
+  // `direct` (= Stripe) → motif de rejet / suspension d'app.
   await admin
     .from('shopify_stores')
-    .update({ user_id: user.id, billing_source: 'direct', updated_at: new Date().toISOString() })
+    .update({ user_id: user.id, billing_source: 'shopify', updated_at: new Date().toISOString() })
     .eq('id', store.id)
 
   // Re-slugger les liens du user au nom de la boutique (si slug encore aléatoire).

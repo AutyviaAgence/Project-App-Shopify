@@ -16,6 +16,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
+  // ⚠️ CONFORMITÉ SHOPIFY : un marchand dont la boutique est facturée par Shopify
+  // NE DOIT JAMAIS passer par Stripe (App Store requirement §1.2 — le billing hors
+  // plateforme est interdit et vaut rejet/suspension). Il s'abonne via la Billing
+  // API (/api/shopify/billing/subscribe).
+  {
+    const { isShopifyBilled } = await import('@/lib/shopify/plans')
+    if (await isShopifyBilled(user.id)) {
+      return NextResponse.json({
+        error: 'Votre boutique Shopify est facturée par Shopify. Choisissez votre plan depuis l’app Shopify.',
+        shopify_billing: true,
+      }, { status: 403 })
+    }
+  }
+
   const body = await req.json().catch(() => ({}))
   // Seuls les plans payants sont achetables (free ne passe pas par un checkout).
   const plan: PaidPlanId = VALID_PLANS.includes(body.plan) ? body.plan : 'scale'

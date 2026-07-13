@@ -75,6 +75,9 @@ export async function GET(req: NextRequest) {
         is_active: true,
         installed_at: new Date().toISOString(),
         uninstalled_at: null,
+        // Installation via l'App Store ⇒ facturation Shopify OBLIGATOIRE
+        // (Billing API). Jamais Stripe : ce serait un motif de rejet/suspension.
+        billing_source: 'shopify',
       },
       { onConflict: 'shop_domain' }
     )
@@ -97,9 +100,14 @@ export async function GET(req: NextRequest) {
     const { data: { user } } = await session.auth.getUser()
     if (user && storeRow && (!storeRow.user_id || storeRow.user_id === user.id)) {
       if (storeRow.user_id !== user.id) {
+        // ⚠️ CONFORMITÉ SHOPIFY : une boutique installée via l'App Store DOIT être
+        // facturée par la Billing API de Shopify (App Store requirement §1.2 :
+        // « Apps that use off-platform billing cannot be distributed through the
+        // Shopify App store »). On posait `direct` (= Stripe) → 100 % des
+        // marchands partaient sur Stripe → motif de rejet / suspension.
         await supabase
           .from('shopify_stores')
-          .update({ user_id: user.id, billing_source: 'direct' })
+          .update({ user_id: user.id, billing_source: 'shopify' })
           .eq('id', storeRow.id)
       }
       // Agent + sync catalogue/pages/politiques (best effort, comme /connect).

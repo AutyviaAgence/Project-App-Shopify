@@ -497,13 +497,17 @@ export default function OnboardingPage() {
       if (state?.billingSource === 'shopify' && state.shopDomain) {
         const res = await fetch('/api/shopify/billing/subscribe', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ shop: state.shopDomain, plan: planId, billing }),
+          body: JSON.stringify({ shop: state.shopDomain, plan: planId }),
         })
         const json = await res.json()
-        if (!res.ok || !json.confirmationUrl) throw new Error(json.error || 'Erreur de facturation Shopify')
+        // La route renvoie { data: { confirmationUrl } } — on lisait json.confirmationUrl
+        // (non imbriqué) → le flux Shopify jetait systématiquement « Erreur de
+        // facturation Shopify », même quand l'abonnement était bien créé.
+        const confirmationUrl = json?.data?.confirmationUrl
+        if (!res.ok || !confirmationUrl) throw new Error(json.error || 'Erreur de facturation Shopify')
         // Marque terminé AVANT la redirection : au retour, plus de gate.
         await fetch('/api/onboarding/complete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ done: true }) })
-        window.location.href = json.confirmationUrl
+        window.location.href = confirmationUrl
         return
       }
       const res = await fetch('/api/stripe/create-checkout', {

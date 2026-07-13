@@ -55,6 +55,33 @@ export async function countAiConversationsThisMonth(userId: string): Promise<num
 }
 
 /**
+ * Vrai si l'utilisateur est un marchand facturé PAR SHOPIFY (boutique active avec
+ * billing_source='shopify').
+ *
+ * ⚠️ CONFORMITÉ SHOPIFY — App Store requirement §1.2/§1.2.1 : une app publiée sur
+ * l'App Store doit facturer via une solution Shopify ; le billing hors plateforme
+ * (Stripe) est interdit et vaut rejet/suspension. On s'en sert pour BLOQUER tous
+ * les chemins de paiement Stripe pour ces marchands.
+ */
+export async function isShopifyBilled(userId: string): Promise<boolean> {
+  return (await getShopifyBilling(userId)).billed
+}
+
+/** Facturation Shopify + domaine de la boutique (pour rediriger vers la Billing API). */
+export async function getShopifyBilling(userId: string): Promise<{ billed: boolean; shopDomain: string | null }> {
+  const { data: store } = await admin()
+    .from('shopify_stores')
+    .select('billing_source, shop_domain')
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .maybeSingle()
+  return {
+    billed: store?.billing_source === 'shopify',
+    shopDomain: store?.shop_domain ?? null,
+  }
+}
+
+/**
  * Détermine le plan effectif d'un utilisateur (grille unifiée).
  * Source de vérité : billing_source. Si shopify → plan de shopify_stores
  * ('growth' legacy → 'pro') ; sinon → profiles.plan. Défaut : free (IA OFF).

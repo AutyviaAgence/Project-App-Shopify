@@ -15,6 +15,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
+  // ⚠️ CONFORMITÉ SHOPIFY : pas de changement de plan via Stripe pour un marchand
+  // facturé par Shopify (le billing hors plateforme est interdit sur l'App Store).
+  {
+    const { isShopifyBilled } = await import('@/lib/shopify/plans')
+    if (await isShopifyBilled(user.id)) {
+      return NextResponse.json({
+        error: 'Votre abonnement est géré par Shopify. Changez de plan depuis l’app Shopify.',
+        shopify_billing: true,
+      }, { status: 403 })
+    }
+  }
+
   const body = await req.json().catch(() => ({}))
   const newPlan: PaidPlanId | null = VALID_PLANS.includes(body.plan) ? body.plan : null
   if (!newPlan) {

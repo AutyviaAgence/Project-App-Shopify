@@ -15,6 +15,18 @@ export async function POST() {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
+  // ⚠️ CONFORMITÉ SHOPIFY : achats ponctuels via Stripe interdits pour un marchand
+  // facturé par Shopify (cf. buy-ai-credits). Ils montent de plan à la place.
+  {
+    const { isShopifyBilled } = await import('@/lib/shopify/plans')
+    if (await isShopifyBilled(user.id)) {
+      return NextResponse.json({
+        error: 'Les achats ponctuels ne sont pas disponibles sur Shopify. Passez au plan supérieur depuis l’app Shopify.',
+        shopify_billing: true,
+      }, { status: 403 })
+    }
+  }
+
   const { data: profile } = await supabase
     .from('profiles')
     .select('stripe_customer_id, email, full_name')

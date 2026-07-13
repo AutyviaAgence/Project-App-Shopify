@@ -28,6 +28,11 @@ type SubscriptionInfo = {
   configurateurSubmitted: boolean
   /** L'IA (agent, génération, assistant) est-elle disponible ? (payant/trial) */
   aiEnabled: boolean
+  /** Marchand facturé PAR SHOPIFY (Billing API) → aucun CTA Stripe ne doit être
+   *  proposé (billing hors plateforme interdit sur l'App Store). */
+  shopifyBilled: boolean
+  /** Domaine de la boutique Shopify liée (pour la Billing API). */
+  shopDomain: string | null
 }
 
 export function useSubscription() {
@@ -94,6 +99,8 @@ export function useSubscription() {
           onboardingPlan: (data.data.onboarding_plan || null) as PlanId | null,
           configurateurSubmitted: data.data.configurateur_submitted === true,
           aiEnabled: data.data.aiEnabled === true,
+          shopifyBilled: data.data.shopifyBilled === true,
+          shopDomain: data.data.shopDomain ?? null,
         })
       }
     } catch (error) {

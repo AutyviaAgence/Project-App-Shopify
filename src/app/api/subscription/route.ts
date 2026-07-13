@@ -39,12 +39,20 @@ export async function GET() {
     (!p.trial_ends_at || new Date(p.trial_ends_at) > new Date())
   const aiEnabled = p.role === 'admin' || trialing || PLANS[plan].aiEnabled
 
+  // Marchand facturé par Shopify ? Le front s'en sert pour MASQUER tous les CTA
+  // Stripe (checkout, packs de crédits) : sur l'App Store, le billing hors
+  // plateforme est interdit — ces marchands passent par la Billing API.
+  const { getShopifyBilling } = await import('@/lib/shopify/plans')
+  const { billed: shopifyBilled, shopDomain } = await getShopifyBilling(user.id)
+
   return NextResponse.json({
     data: {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       ...(profile as any),
       configurateur_submitted: !!onboardingConfig?.submitted_at,
       aiEnabled,
+      shopifyBilled,
+      shopDomain,
     }
   })
 }

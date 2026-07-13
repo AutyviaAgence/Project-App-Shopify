@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Sparkles, Zap, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useSubscription } from '@/hooks/use-subscription'
 
 /**
  * Barre de CRÉDITS IA (topbar globale). Affiche clairement les conversations IA
@@ -34,6 +35,9 @@ const PLAN_LABEL: Record<string, string> = {
 export function UsageBar() {
   const [usage, setUsage] = useState<Usage | null>(null)
   const [buying, setBuying] = useState(false)
+  // Marchand facturé par Shopify → aucun achat Stripe (conformité App Store).
+  const { subscription } = useSubscription()
+  const shopifyBilled = subscription?.shopifyBilled === true
 
   // Achat d'un pack de crédits IA (recharge). Redirige vers Stripe Checkout.
   const rechargeCredits = async () => {
@@ -118,8 +122,11 @@ export function UsageBar() {
         />
       </div>
 
-      {/* Bouton recharger quand il reste peu de crédits */}
-      {low ? (
+      {/* Bouton recharger quand il reste peu de crédits.
+          ⚠️ CONFORMITÉ SHOPIFY : pas de pack Stripe pour un marchand facturé par
+          Shopify (billing hors plateforme interdit) → on l'invite à monter de plan,
+          ce qui passe par la Billing API. */}
+      {low && !shopifyBilled ? (
         <button
           type="button"
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); rechargeCredits() }}
@@ -128,6 +135,10 @@ export function UsageBar() {
         >
           <Plus className="h-3 w-3" /> {buying ? '…' : 'Recharger'}
         </button>
+      ) : low && shopifyBilled ? (
+        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[11px] font-medium text-primary-foreground">
+          <Plus className="h-3 w-3" /> Changer de plan
+        </span>
       ) : (
         <span className="hidden shrink-0 text-[11px] text-muted-foreground md:inline">{planName}</span>
       )}

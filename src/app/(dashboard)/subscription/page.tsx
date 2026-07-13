@@ -43,6 +43,7 @@ import {
   Rocket,
   Crown,
   ArrowRight,
+  ShoppingBag,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useTranslation } from '@/i18n/context'
@@ -141,6 +142,10 @@ function SubscriptionContent() {
   const tenant = useTenant()
   const searchParams = useSearchParams()
   const { subscription, loading, refetch } = useSubscription()
+  // ⚠️ CONFORMITÉ SHOPIFY : marchand facturé par Shopify → tous les chemins Stripe
+  // (checkout, changement de plan, packs, portail) sont masqués/redirigés.
+  const shopifyBilled = subscription?.shopifyBilled === true
+  const shopDomain = subscription?.shopDomain ?? null
   const [isProcessing, setIsProcessing] = useState(false)
   const [isCancelling, setIsCancelling] = useState(false)
   const [selectedPlan, setSelectedPlan] = useState<PlanId | null>(null)
@@ -201,6 +206,23 @@ function SubscriptionContent() {
     if (!selectedPlan || !cgvAccepted) return
     setIsProcessing(true)
     try {
+      // ⚠️ CONFORMITÉ SHOPIFY : un marchand facturé par Shopify s'abonne via la
+      // BILLING API (App Store requirement §1.2 — le billing hors plateforme est
+      // interdit). Stripe est bloqué côté serveur ; ici on l'envoie sur le bon
+      // chemin (page de confirmation Shopify).
+      if (shopifyBilled) {
+        const res = await fetch('/api/shopify/billing/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ shop: shopDomain, plan: selectedPlan }),
+        })
+        const json = await res.json()
+        const confirmationUrl = json?.data?.confirmationUrl
+        if (!res.ok || !confirmationUrl) throw new Error(json.error || 'Erreur de facturation Shopify')
+        window.location.href = confirmationUrl
+        return
+      }
+
       // Si abonnement actif → changement de plan immédiat (prorata)
       if (isActive && !isCancelled && subscription?.stripeSubscriptionId) {
         const res = await fetch('/api/stripe/change-plan', {
@@ -293,6 +315,25 @@ function SubscriptionContent() {
           {t('subscription.description', { appName: tenant.appName })}
         </p>
       </div>
+
+      {/* Marchand Shopify : la facturation passe par Shopify (Billing API), pas
+          par Stripe — on l'explique pour éviter la confusion (aucun moyen de
+          paiement à saisir ici, la facture arrive avec celle de Shopify). */}
+      {shopifyBilled && (
+        <Card className="mb-6 border-primary/30 bg-primary/5">
+          <CardContent className="flex items-start gap-3 pt-6">
+            <ShoppingBag className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
+            <div className="text-sm">
+              <p className="font-medium">Facturation gérée par Shopify</p>
+              <p className="mt-0.5 text-muted-foreground">
+                Votre abonnement Xeyo est facturé <span className="font-medium text-foreground">avec votre facture Shopify</span>
+                {shopDomain ? ` (${shopDomain})` : ''}. Vous approuvez le changement de plan directement dans Shopify —
+                aucun moyen de paiement à saisir ici.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Statut abonnement */}
       {subscription && (
@@ -440,16 +481,21 @@ function SubscriptionContent() {
                 <Zap className="h-5 w-5 text-amber-500" />
                 <span className="font-semibold">Crédits IA (conversations)</span>
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 text-xs"
-                onClick={rechargeAiCredits}
-                disabled={buyingCredits}
-              >
-                <Zap className="mr-1 h-3 w-3" />
-                {buyingCredits ? 'Redirection…' : 'Recharger +500 conversations (45€)'}
-              </Button>
+              {/* ⚠️ CONFORMITÉ SHOPIFY : pas de pack Stripe pour un marchand facturé
+                  par Shopify (achats hors plateforme interdits sur l'App Store).
+                  Il augmente son quota en montant de plan (Billing API). */}
+              {!shopifyBilled && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={rechargeAiCredits}
+                  disabled={buyingCredits}
+                >
+                  <Zap className="mr-1 h-3 w-3" />
+                  {buyingCredits ? 'Redirection…' : 'Recharger +500 conversations (45€)'}
+                </Button>
+              )}
             </div>
             {/* Définition exacte, alignée sur countAiConversationsThisMonth() :
                 « conversations distinctes avec au moins un message sent_by=ai_agent ». */}

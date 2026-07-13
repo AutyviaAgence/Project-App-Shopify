@@ -15,6 +15,20 @@ export async function POST() {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
+  // ⚠️ CONFORMITÉ SHOPIFY : les achats ponctuels via Stripe sont INTERDITS pour un
+  // marchand facturé par Shopify (App Store requirement §1.2 : « all app charges »
+  // doivent passer par Shopify). Ces marchands montent de plan (Billing API) au
+  // lieu d'acheter des packs.
+  {
+    const { isShopifyBilled } = await import('@/lib/shopify/plans')
+    if (await isShopifyBilled(user.id)) {
+      return NextResponse.json({
+        error: 'Les packs de crédits ne sont pas disponibles sur Shopify. Passez au plan supérieur depuis l’app Shopify pour augmenter votre quota.',
+        shopify_billing: true,
+      }, { status: 403 })
+    }
+  }
+
   const { data: profile } = await supabase
     .from('profiles')
     .select('stripe_customer_id, email, full_name')
