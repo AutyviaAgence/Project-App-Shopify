@@ -197,7 +197,7 @@ export async function resumeParkedFunnel(contactId: string, clickedText: string)
   // qu'un à la fois sur un funnel, mais on prend le dernier par sécurité).
   const { data: jobs } = await supabase
     .from('automation_jobs')
-    .select('id, automation_id, contact_id, current_node_id, event_data')
+    .select('id, automation_id, user_id, contact_id, current_node_id, event_data')
     .eq('contact_id', contactId)
     .eq('status', 'waiting')
     .order('created_at', { ascending: false })
@@ -207,7 +207,7 @@ export async function resumeParkedFunnel(contactId: string, clickedText: string)
   const { resumeFromButton } = await import('./graph-engine')
   const { findNode } = await import('./graph-types')
 
-  type ParkedJob = { id: string; automation_id: string; contact_id: string | null; current_node_id: string | null; event_data: Record<string, unknown> | null }
+  type ParkedJob = { id: string; automation_id: string; user_id: string; contact_id: string | null; current_node_id: string | null; event_data: Record<string, unknown> | null }
   for (const job of jobs as ParkedJob[]) {
     if (!job.current_node_id) continue
     const { data: auto } = await supabase
@@ -258,8 +258,11 @@ export async function resumeParkedFunnel(contactId: string, clickedText: string)
       const norm = sourceLabel.trim().toLowerCase()
       if (clicked.includes(norm)) return true // déjà suivi → on ignore (pas de doublon)
       // Nouveau job pour exécuter la branche, sans toucher au job parqué.
-      await supabase.from('automation_jobs').insert({
+      // user_id est NOT NULL → l'omettre faisait échouer l'insert en silence
+      // (la branche du bouton cliqué ne s'exécutait jamais).
+      const { error: brErr } = await supabase.from('automation_jobs').insert({
         automation_id: job.automation_id,
+        user_id: job.user_id,
         contact_id: job.contact_id,
         current_node_id: next,
         status: 'pending',
@@ -267,6 +270,7 @@ export async function resumeParkedFunnel(contactId: string, clickedText: string)
         event_data: { variables: ed.variables || {} },
         dedup_key: `branch:${job.id}:${norm}`,
       })
+      if (brErr) console.error('[funnel] insert job branche cliquée échoué:', brErr.message)
       // Mémorise le bouton cliqué sur le job PARQUÉ (qui reste waiting).
       await supabase.from('automation_jobs')
         .update({ event_data: { ...ed, clicked_branches: [...clicked, norm] } })

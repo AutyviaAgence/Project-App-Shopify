@@ -322,12 +322,15 @@ async function processJob(
       const defaultNext = timeoutTarget(auto.graph, step.nodeId)
       if (defaultNext) {
         // Nouveau job pour exécuter la suite par défaut tout de suite.
-        await supabase.from('automation_jobs').insert({
-          automation_id: auto.id, contact_id: job.contact_id, current_node_id: defaultNext,
+        // user_id est NOT NULL sur automation_jobs → l'omettre faisait échouer
+        // l'insert en silence (la branche par défaut ne partait jamais).
+        const { error: defErr } = await supabase.from('automation_jobs').insert({
+          automation_id: auto.id, user_id: auto.user_id, contact_id: job.contact_id, current_node_id: defaultNext,
           status: 'pending', scheduled_at: now.toISOString(),
           event_data: { variables: eventData.variables || {} },
           dedup_key: `default:${job.id}`,
         })
+        if (defErr) console.error('[cron] insert job branche par défaut échoué:', defErr.message)
       }
       // Le job d'origine reste PARQUÉ pour capter les clics de boutons. Fenêtre
       // longue (30 j) : au-delà, la purge le clôturera (les boutons WhatsApp ne
