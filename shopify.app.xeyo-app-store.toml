@@ -49,7 +49,12 @@ api_version = "2026-07"
 # scope : `deploy` + RÉINSTALLATION de l'app sur la boutique + reregister-webhooks,
 # sinon les appels concernés tombent en 403.
 # `read_discounts` est volontairement absent : on ne fait que CRÉER des remises.
-scopes = "read_content,read_customers,read_fulfillments,read_legal_policies,read_orders,read_products,read_returns,write_discounts,write_orders"
+# `read_all_orders` : scope PRIVILÉGIÉ, approuvé par Shopify le 13 juill. 2026
+# (Partner Dashboard → Demandes d'accès à l'API → « auto granted scope »).
+# Sans lui, `read_orders` plafonne l'Admin API aux 60 derniers jours et l'API
+# tronque SILENCIEUSEMENT au-delà. Il est indispensable au SAV (répondre sur une
+# commande ancienne) et à l'attribution du CA sur des cycles d'achat longs.
+scopes = "read_all_orders,read_content,read_customers,read_fulfillments,read_legal_policies,read_orders,read_products,read_returns,write_discounts,write_orders"
 optional_scopes = [ ]
 use_legacy_install_flow = false
 

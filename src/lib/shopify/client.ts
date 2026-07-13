@@ -28,13 +28,17 @@ function shopifySearchValue(v: string): string {
 
 /**
  * Scopes demandés à l'OAuth. ⚠️ DOIT rester STRICTEMENT aligné sur
- * `shopify.app.xeyo-whatsapp-support-chat.toml` ([access_scopes].scopes) : si le
- * code demande moins que le toml, les appels correspondants échouent en 403 en
- * prod (c'était le cas de write_discounts → création de codes promo cassée).
+ * `shopify.app.xeyo-app-store.toml` ([access_scopes].scopes) : si le code demande
+ * moins que le toml, les appels correspondants échouent en 403 en prod (c'était le
+ * cas de write_discounts → création de codes promo cassée).
+ *
  * Détail : write_orders (refundCreate/orderCancel) · write_discounts
- * (discountCodeBasicCreate) · read_fulfillments (webhook livraison).
+ * (discountCodeBasicCreate) · read_fulfillments (webhook livraison) ·
+ * read_all_orders (scope PRIVILÉGIÉ, approuvé par Shopify : sans lui, l'Admin API
+ * plafonne aux 60 derniers jours et tronque SILENCIEUSEMENT au-delà).
  */
 const DEFAULT_SCOPES = [
+  'read_all_orders',
   'read_customers',
   'write_discounts',
   'read_orders',
@@ -274,19 +278,16 @@ export async function fetchOrderById(
  * `max` borne le nombre total récupéré (garde-fou anti-boucle).
  */
 /**
- * Fenêtre d'historique des commandes, en jours.
+ * Historique COMPLET des commandes (pas de borne temporelle).
  *
- * ⚠️ Le scope `read_orders` ne donne accès qu'aux **60 derniers jours**. Lire
- * au-delà exige `read_all_orders`, un scope privilégié qui doit être justifié et
- * approuvé par Shopify (exigence 3.2.1).
+ * ⚠️ Exige le scope `read_all_orders` — un scope privilégié, approuvé par Shopify
+ * le 13 juillet 2026. Avec `read_orders` seul, l'Admin API plafonne aux 60 derniers
+ * jours et **tronque silencieusement** au-delà : on croirait avoir tout l'historique
+ * alors qu'il en manquerait la moitié.
  *
- * On borne donc explicitement la requête. Sans cette borne, l'API tronquerait
- * silencieusement les résultats : on croirait avoir tout l'historique alors qu'il
- * manquerait tout ce qui dépasse 60 jours — un bug invisible, bien pire qu'une
- * limite assumée.
+ * Si ce scope venait à être révoqué, il faudrait RÉTABLIR une borne explicite
+ * (`query: "created_at:>=..."`) plutôt que de laisser l'API mentir.
  */
-const ORDERS_WINDOW_DAYS = 60
-
 export async function listAllOrders(
   shop: string,
   accessToken: string,
@@ -299,24 +300,19 @@ export async function listAllOrders(
   let cursor: string | null = null
   let guard = 0
 
-  const since = new Date(Date.now() - ORDERS_WINDOW_DAYS * 86_400_000)
-    .toISOString()
-    .slice(0, 10)
-  const filter = `status:any created_at:>=${since}`
-
   while (orders.length < max && guard++ < 50) {
     const take = Math.min(100, max - orders.length) // 100 = plafond GraphQL / page
     const res: { ok: true; data: OrdersPage } | { ok: false; error: string } =
       await shopifyGraphQL<OrdersPage>(
         shop,
         accessToken,
-        `query($n: Int!, $after: String, $q: String!) {
-           orders(first: $n, after: $after, sortKey: CREATED_AT, reverse: true, query: $q) {
+        `query($n: Int!, $after: String) {
+           orders(first: $n, after: $after, sortKey: CREATED_AT, reverse: true, query: "status:any") {
              nodes { ${ORDER_GQL_FIELDS} }
              pageInfo { hasNextPage endCursor }
            }
          }`,
-        { n: take, after: cursor, q: filter }
+        { n: take, after: cursor }
       )
     if (!res.ok) return { ok: false, error: res.error }
     const page: OrdersPage['orders'] | undefined = res.data?.orders
