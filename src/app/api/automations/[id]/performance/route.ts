@@ -175,8 +175,11 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     if (!mErr && Array.isArray(msgs)) {
       const d = { sent: msgs.length, delivered: 0, read: 0, failed: 0 }
       for (const m of msgs as { status: string; delivered_at: string | null; read_at: string | null }[]) {
-        if (m.delivered_at || m.status === 'delivered' || m.status === 'read') d.delivered++
-        if (m.read_at || m.status === 'read') d.read++
+        const isRead = !!m.read_at || m.status === 'read'
+        // COHÉRENCE : lu ⇒ forcément livré (Meta n'envoie pas toujours l'accusé
+        // « delivered » avant « read »). Sinon on pouvait afficher lus > livrés.
+        if (m.delivered_at || m.status === 'delivered' || isRead) d.delivered++
+        if (isRead) d.read++
         if (m.status === 'failed') d.failed++
       }
       // On n'expose la livraison que s'il y a des messages tracés (sinon la
@@ -244,10 +247,34 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     failed: delivery.failed, failedRate: rate(delivery.failed, delivery.sent),
   } : null
 
+  // FUNNEL UNIFIÉ (une seule échelle, lisible) : on part des CONTACTS touchés
+  // (parcours = ab_test_assignments, échelle stable) et on y greffe les taux de
+  // livraison réels de Meta. Évite les 3 « Envoyés » contradictoires (3 / 11 / 9).
+  //   Envoyés = contacts touchés (funnel.sent)
+  //   Livrés/Lus = proportion des messages livrés/lus, appliquée aux contacts
+  //   Répondu/Ventes = par contact (déjà cohérent)
+  // On borne chaque étape ≤ précédente pour un entonnoir toujours décroissant.
+  const base = funnel.sent
+  const deliveredRatio = delivery && delivery.sent > 0 ? delivery.delivered / delivery.sent : 1
+  const readRatio = delivery && delivery.sent > 0 ? delivery.read / delivery.sent : (funnel.opened / Math.max(1, base))
+  const unifiedSent = base
+  const unifiedDelivered = delivery ? Math.min(base, Math.round(base * deliveredRatio)) : base
+  const unifiedRead = Math.min(unifiedDelivered, delivery ? Math.round(base * readRatio) : funnel.opened)
+  const unified = {
+    sent: unifiedSent,
+    delivered: unifiedDelivered, deliveredRate: rate(unifiedDelivered, unifiedSent),
+    read: unifiedRead, readRate: rate(unifiedRead, unifiedSent),
+    responded: Math.min(unifiedRead, funnel.responded), responseRate: rate(Math.min(unifiedRead, funnel.responded), unifiedSent),
+    ordered: funnel.ordered, orderRate: rate(funnel.ordered, unifiedSent),
+    failed: delivery?.failed ?? 0,
+    hasDelivery: !!delivery,
+  }
+
   return NextResponse.json({
     data: {
       name: auto.name,
       days,
+      unified,
       funnel,
       delivery: deliveryFunnel,
       revenue,

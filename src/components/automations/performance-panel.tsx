@@ -16,6 +16,7 @@ import { cn } from '@/lib/utils'
 type Perf = {
   name: string
   days: number
+  unified: { sent: number; delivered: number; deliveredRate: number; read: number; readRate: number; responded: number; responseRate: number; ordered: number; orderRate: number; failed: number; hasDelivery: boolean }
   funnel: { sent: number; opened: number; openRate: number; responded: number; responseRate: number; ordered: number; orderRate: number }
   delivery: { sent: number; delivered: number; deliveredRate: number; read: number; readRate: number; failed: number; failedRate: number } | null
   revenue: { orders: number; amount: number; currency: string | null } | null
@@ -119,57 +120,51 @@ export function PerformancePanel({ automationId, name, onClose }: { automationId
                 </div>
               )}
 
-              {/* FUNNEL */}
+              {/* FUNNEL UNIFIÉ — un seul entonnoir clair, à l'échelle des contacts. */}
               <section>
-                <h3 className="mb-2 text-sm font-semibold">Funnel</h3>
-                <div className="grid grid-cols-2 gap-2">
-                  <Metric icon={<Send className="h-4 w-4" />} label="Envoyés" value={perf.funnel.sent} tone="slate" />
-                  <Metric icon={<Eye className="h-4 w-4" />} label="Ouverts" value={perf.funnel.opened} sub={`${perf.funnel.openRate}%`} tone="sky" approx />
-                  <Metric icon={<MessageCircle className="h-4 w-4" />} label="Répondu" value={perf.funnel.responded} sub={`${perf.funnel.responseRate}%`} tone="violet" approx />
-                  <Metric icon={<ShoppingBag className="h-4 w-4" />} label="Ventes" value={perf.funnel.ordered} sub={`${perf.funnel.orderRate}%`} tone="green" approx />
+                <h3 className="mb-2 text-sm font-semibold">Parcours des contacts</h3>
+                <div className="space-y-1.5">
+                  <FunnelRow label="Envoyés" value={perf.unified.sent} pct={100} icon={<Send className="h-4 w-4" />} tone="#64748b" />
+                  {perf.unified.hasDelivery && (
+                    <FunnelRow label="Livrés" value={perf.unified.delivered} pct={perf.unified.deliveredRate} icon={<CheckCheck className="h-4 w-4" />} tone="#0ea5e9" />
+                  )}
+                  <FunnelRow label="Lus" value={perf.unified.read} pct={perf.unified.readRate} icon={<Eye className="h-4 w-4" />} tone="#8b5cf6" />
+                  <FunnelRow label="Ont répondu" value={perf.unified.responded} pct={perf.unified.responseRate} icon={<MessageCircle className="h-4 w-4" />} tone="#a855f7" />
+                  <FunnelRow label="Ventes" value={perf.unified.ordered} pct={perf.unified.orderRate} icon={<ShoppingBag className="h-4 w-4" />} tone="#22c55e" />
                 </div>
+                {perf.unified.failed > 0 && (
+                  <p className="mt-1.5 flex items-center gap-1 text-[12px] text-rose-600">
+                    <AlertTriangle className="h-3.5 w-3.5" /> {perf.unified.failed} échec{perf.unified.failed > 1 ? 's' : ''} de livraison
+                  </p>
+                )}
                 <p className="mt-1.5 flex items-start gap-1 text-[11px] text-muted-foreground">
                   <Info className="mt-0.5 h-3 w-3 shrink-0" />
-                  Ouvertures, réponses et ventes sont attribuées par contact (approximation).
-                  {perf.delivery ? ' La livraison ci-dessous est exacte (accusés Meta).' : ' Précision exacte à venir.'}
+                  {perf.unified.hasDelivery
+                    ? 'Livrés / lus : accusés Meta réels. Réponses et ventes : attribuées par contact.'
+                    : 'Ouvertures, réponses et ventes attribuées par contact (approximation).'}
                 </p>
               </section>
-
-              {/* LIVRAISON EXACTE (Phase 2 — accusés Meta rattachés au message) */}
-              {perf.delivery && (
-                <section>
-                  <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold">
-                    <CheckCheck className="h-4 w-4 text-sky-500" /> Livraison
-                  </h3>
-                  <div className="grid grid-cols-2 gap-2">
-                    <Metric icon={<Send className="h-4 w-4" />} label="Envoyés" value={perf.delivery.sent} tone="slate" />
-                    <Metric icon={<CheckCheck className="h-4 w-4" />} label="Livrés" value={perf.delivery.delivered} sub={`${perf.delivery.deliveredRate}%`} tone="sky" />
-                    <Metric icon={<Eye className="h-4 w-4" />} label="Lus" value={perf.delivery.read} sub={`${perf.delivery.readRate}%`} tone="violet" />
-                    <Metric icon={<AlertTriangle className="h-4 w-4" />} label="Échecs" value={perf.delivery.failed} sub={`${perf.delivery.failedRate}%`} tone="rose" />
-                  </div>
-                </section>
-              )}
 
               {/* CLICS PAR BOUTON */}
               {perf.buttonClicks.total > 0 && (
                 <section>
                   <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold">
-                    <MousePointerClick className="h-4 w-4" /> Réponses par branche
+                    <MousePointerClick className="h-4 w-4" /> Détail par réponse (bouton)
                   </h3>
                   <div className="space-y-2.5">
                     {perf.buttonClicks.branches.map((b) => (
                       <div key={b.label} className="rounded-lg border p-2.5">
                         <div className="mb-1 flex items-center justify-between text-sm">
-                          <span className="font-semibold">{b.label}</span>
-                          <span className="text-xs text-muted-foreground">{b.count} clic{b.count > 1 ? 's' : ''} ({b.rate}%)</span>
+                          <span className="font-semibold">« {b.label} »</span>
+                          <span className="text-xs text-muted-foreground">{b.count} clic{b.count > 1 ? 's' : ''} · {b.rate}% des clics</span>
                         </div>
                         <div className="mb-1.5 h-2 overflow-hidden rounded-full bg-muted">
                           <div className="h-full rounded-full bg-primary" style={{ width: `${b.rate}%` }} />
                         </div>
                         <div className="grid grid-cols-3 gap-1.5 text-center">
                           <MiniStat label="Clics" value={String(b.count)} />
-                          <MiniStat label="Répondu" value={String(b.responded)} />
-                          <MiniStat label="Ventes" value={String(b.ordered)} />
+                          <MiniStat label="Répondu" value={String(b.responded)} sub={`${b.count ? Math.round(b.responded / b.count * 100) : 0}%`} />
+                          <MiniStat label="Ventes" value={String(b.ordered)} sub={`${b.orderRate}%`} />
                         </div>
                       </div>
                     ))}
@@ -261,6 +256,26 @@ function Metric({ icon, label, value, sub, tone = 'slate', approx, compact }: {
       <div className={cn('mt-1 flex items-baseline gap-1.5', compact && 'justify-center')}>
         <span className="text-xl font-bold tabular-nums">{value.toLocaleString('fr-FR')}</span>
         {sub && <span className="text-sm font-medium text-muted-foreground">{sub}</span>}
+      </div>
+    </div>
+  )
+}
+
+/** Une étape d'entonnoir : icône + libellé, valeur, barre proportionnelle + %. */
+function FunnelRow({ label, value, pct, icon, tone }: { label: string; value: number; pct: number; icon: React.ReactNode; tone: string }) {
+  return (
+    <div className="rounded-lg border px-3 py-2">
+      <div className="mb-1 flex items-center justify-between">
+        <span className="flex items-center gap-1.5 text-sm font-medium">
+          <span style={{ color: tone }}>{icon}</span>{label}
+        </span>
+        <span className="text-sm">
+          <span className="font-bold tabular-nums">{value.toLocaleString('fr-FR')}</span>
+          <span className="ml-1.5 text-xs text-muted-foreground tabular-nums">{pct}%</span>
+        </span>
+      </div>
+      <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+        <div className="h-full rounded-full" style={{ width: `${Math.min(100, pct)}%`, backgroundColor: tone }} />
       </div>
     </div>
   )
