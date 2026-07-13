@@ -69,16 +69,25 @@ if [ "$(stat -c%s "$FILE")" -lt 100000 ]; then
 fi
 
 # Vérifie que le fichier est réellement DÉCHIFFRABLE et que c'est bien un dump
-# Postgres (en-tête « PGDMP »). Un backup chiffré qu'on ne sait pas restaurer
-# est un faux filet de sécurité : autant s'en apercevoir maintenant.
+# Postgres (en-tête « PGDMP »). Un backup chiffré qu'on ne sait pas restaurer est
+# un faux filet de sécurité : autant s'en apercevoir maintenant.
+#
+# ⚠️ Ne PAS écrire `openssl ... | head -c 5` : head ferme le pipe dès le 5e octet,
+# openssl prend un SIGPIPE et meurt — avec `set -o pipefail`, tout le pipeline est
+# déclaré en échec alors que le déchiffrement était parfait (faux négatif).
+# On déchiffre donc vers un fichier temporaire, et on lit l'en-tête dessus.
+TMP_CHECK="$(mktemp)"
+trap 'rm -f "$TMP_CHECK"' EXIT
+
 if openssl enc -d -aes-256-cbc -pbkdf2 -iter 100000 \
-     -pass file:"$PASSPHRASE_FILE" -in "$FILE" 2>/dev/null \
-     | head -c 5 | grep -q 'PGDMP'; then
+     -pass file:"$PASSPHRASE_FILE" -in "$FILE" -out "$TMP_CHECK" 2>/dev/null \
+   && [ "$(head -c 5 "$TMP_CHECK")" = "PGDMP" ]; then
   echo "[$(date -Is)] vérification OK (déchiffrable, en-tête pg_dump valide)"
 else
   echo "[$(date -Is)] ❌ ALERTE : le backup ne se déchiffre pas — NE PAS s'y fier !"
   exit 1
 fi
+rm -f "$TMP_CHECK"
 
 # ── Rotation locale ──────────────────────────────────────────────────
 find "$BACKUP_DIR" -name 'xeyo_*.dump.enc' -mtime +"$RETENTION_DAYS" -delete
