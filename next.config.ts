@@ -72,7 +72,15 @@ const nextConfig: NextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.stripe.com https://challenges.cloudflare.com https://connect.facebook.net https://eu-assets.i.posthog.com https://eu.i.posthog.com",
+              // ⚠️ cdn.shopify.com est INDISPENSABLE : c'est de là qu'App Bridge est
+              // chargé (`app-bridge.js`, écrit en dur dans le root layout). Sans
+              // cette autorisation, le navigateur BLOQUE le script :
+              //   « Loading the script 'https://cdn.shopify.com/…/app-bridge.js'
+              //     violates the following Content Security Policy directive »
+              // → window.shopify n'existe jamais → aucune requête embedded ne porte
+              // de session token → l'app affiche « Installation requise ». Le même
+              // symptôme que le bug de l'`async`, pour une cause différente.
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.shopify.com https://js.stripe.com https://challenges.cloudflare.com https://connect.facebook.net https://eu-assets.i.posthog.com https://eu.i.posthog.com",
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https://supabase.autyvia.fr https://jdeslkxwbtqkeifrlmnf.supabase.co https://challenges.cloudflare.com https://www.facebook.com https://cdn.shopify.com https://lh3.googleusercontent.com https://*.googleusercontent.com",
               // media-src : lecture des messages vocaux / vidéos servis par le
