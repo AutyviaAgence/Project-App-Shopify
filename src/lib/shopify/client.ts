@@ -599,6 +599,12 @@ export async function registerWebhooks(shop: string, accessToken: string): Promi
     // Désinstallation : marque la boutique inactive (sinon elle reste
     // « Connectée » pour toujours avec un token révoqué).
     { topic: 'APP_UNINSTALLED', path: '/api/shopify/webhooks/app-uninstalled' },
+    // ⚠️ FUITE DE REVENUS sans ce webhook : un marchand qui annule son
+    // abonnement DEPUIS L'ADMIN SHOPIFY (Paramètres → Facturation) ne passe
+    // jamais par Xeyo. On ne l'apprenait donc jamais : il gardait son plan
+    // payant, et toutes ses fonctionnalités, sans plus rien payer. Même trou
+    // pour les impayés (FROZEN).
+    { topic: 'APP_SUBSCRIPTIONS_UPDATE', path: '/api/shopify/webhooks/app-subscriptions' },
   ]
 
   const errors: string[] = []
@@ -1092,11 +1098,64 @@ export async function refundOrder(
  * Crée un abonnement à l'app (AppSubscription) via la Billing API Shopify.
  * Retourne l'URL de confirmation vers laquelle rediriger le marchand.
  */
+/**
+ * Comment un nouvel abonnement remplace celui en cours.
+ *
+ * ⚠️ On ne MODIFIE jamais un abonnement Shopify : on en crée un nouveau, et
+ * Shopify annule l'ancien. C'est la mécanique officielle du changement de plan.
+ * (`appSubscriptionLineItemUpdate` ne touche QUE le plafond d'usage — piège
+ * classique quand on lit son nom.)
+ *
+ *  · APPLY_IMMEDIATELY          → montée en gamme : le marchand paie tout de
+ *                                 suite, Shopify lui crédite au prorata ce qu'il
+ *                                 avait déjà payé.
+ *  · APPLY_ON_NEXT_BILLING_CYCLE → descente en gamme : il garde ce qu'il a payé
+ *                                 jusqu'au bout de sa période.
+ */
+export type ReplacementBehavior = 'STANDARD' | 'APPLY_IMMEDIATELY' | 'APPLY_ON_NEXT_BILLING_CYCLE'
+
+export type SubscriptionDiscount = {
+  /** Pourcentage de remise, exprimé en 0→100 côté Xeyo (50 = -50 %). */
+  percentage?: number
+  /** Remise en montant fixe, dans la devise de l'abonnement. */
+  amount?: number
+  /** Nombre de cycles de facturation concernés. Absent = remise permanente. */
+  durationLimitInIntervals?: number
+}
+
 export async function createAppSubscription(
   shop: string,
   accessToken: string,
-  opts: { name: string; price: number; currencyCode?: string; returnUrl: string; test?: boolean }
+  opts: {
+    name: string
+    price: number
+    currencyCode?: string
+    returnUrl: string
+    test?: boolean
+    /** Jours d'essai offerts (récompense de parrainage, code promo). */
+    trialDays?: number
+    /** Remise (code promo). Cumulable avec `trialDays`. */
+    discount?: SubscriptionDiscount
+    /** Obligatoire pour un changement de plan (sinon Shopify empile les abonnements). */
+    replacementBehavior?: ReplacementBehavior
+    /** Facturation annuelle. L'interface la propose déjà. */
+    annual?: boolean
+  }
 ) {
+  // ⚠️ Shopify attend un Float 0→1, pas un pourcentage 0→100.
+  // Une remise de 50 % s'écrit `0.5`. Envoyer `50` créerait une remise de
+  // 5 000 % — Shopify refuserait, ou pire, facturerait 0.
+  const discountInput = opts.discount
+    ? {
+        value: opts.discount.percentage != null
+          ? { percentage: opts.discount.percentage / 100 }
+          : { amount: opts.discount.amount },
+        ...(opts.discount.durationLimitInIntervals != null
+          ? { durationLimitInIntervals: opts.discount.durationLimitInIntervals }
+          : {}),
+      }
+    : undefined
+
   return shopifyGraphQL<{
     appSubscriptionCreate: {
       confirmationUrl: string | null
@@ -1106,8 +1165,15 @@ export async function createAppSubscription(
   }>(
     shop,
     accessToken,
-    `mutation AppSubscriptionCreate($name: String!, $returnUrl: URL!, $test: Boolean, $lineItems: [AppSubscriptionLineItemInput!]!) {
-       appSubscriptionCreate(name: $name, returnUrl: $returnUrl, test: $test, lineItems: $lineItems) {
+    `mutation AppSubscriptionCreate(
+       $name: String!, $returnUrl: URL!, $test: Boolean,
+       $lineItems: [AppSubscriptionLineItemInput!]!,
+       $trialDays: Int, $replacementBehavior: AppSubscriptionReplacementBehavior
+     ) {
+       appSubscriptionCreate(
+         name: $name, returnUrl: $returnUrl, test: $test, lineItems: $lineItems,
+         trialDays: $trialDays, replacementBehavior: $replacementBehavior
+       ) {
          confirmationUrl
          appSubscription { id }
          userErrors { message }
@@ -1117,12 +1183,18 @@ export async function createAppSubscription(
       name: opts.name,
       returnUrl: opts.returnUrl,
       test: opts.test ?? false,
+      trialDays: opts.trialDays ?? 0,
+      replacementBehavior: opts.replacementBehavior ?? 'STANDARD',
       lineItems: [
         {
           plan: {
             appRecurringPricingDetails: {
               price: { amount: opts.price, currencyCode: opts.currencyCode || 'EUR' },
-              interval: 'EVERY_30_DAYS',
+              // L'intervalle était codé en dur en mensuel, alors que l'interface
+              // propose l'annuel : un marchand qui choisissait « annuel » était
+              // facturé au mois.
+              interval: opts.annual ? 'ANNUAL' : 'EVERY_30_DAYS',
+              ...(discountInput ? { discount: discountInput } : {}),
             },
           },
         },
@@ -1131,7 +1203,94 @@ export async function createAppSubscription(
   )
 }
 
-/** Annule un abonnement app (downgrade vers free). */
+/**
+ * ACHAT PONCTUEL (packs de tokens, de conversations IA).
+ *
+ * ⚠️ `appPurchaseOneTimeCreate` n'a AUCUN champ de métadonnées : impossible d'y
+ * attacher « ce marchand achète le pack tokens ». Ce que le marchand a acheté
+ * doit donc être mémorisé chez nous (`shopify_one_time_purchases`) et relu au
+ * retour via un identifiant interne opaque — jamais via l'URL, qui est
+ * manipulable.
+ */
+export async function createAppPurchaseOneTime(
+  shop: string,
+  accessToken: string,
+  opts: { name: string; price: number; currencyCode?: string; returnUrl: string; test?: boolean }
+) {
+  return shopifyGraphQL<{
+    appPurchaseOneTimeCreate: {
+      confirmationUrl: string | null
+      appPurchaseOneTime: { id: string } | null
+      userErrors: { message: string }[]
+    }
+  }>(
+    shop,
+    accessToken,
+    `mutation AppPurchaseOneTimeCreate($name: String!, $price: MoneyInput!, $returnUrl: URL!, $test: Boolean) {
+       appPurchaseOneTimeCreate(name: $name, price: $price, returnUrl: $returnUrl, test: $test) {
+         confirmationUrl
+         appPurchaseOneTime { id }
+         userErrors { message }
+       }
+     }`,
+    {
+      name: opts.name,
+      price: { amount: opts.price, currencyCode: opts.currencyCode || 'EUR' },
+      returnUrl: opts.returnUrl,
+      test: opts.test ?? false,
+    }
+  )
+}
+
+/**
+ * Statut d'un achat ponctuel.
+ *
+ * ⚠️ INDISPENSABLE : on ne crédite JAMAIS sur la foi d'un paramètre d'URL. Sans
+ * cette vérification, un `?charge_id=…` forgé donnerait des tokens gratuits.
+ */
+export async function getAppPurchaseOneTimeStatus(
+  shop: string,
+  accessToken: string,
+  purchaseId: string
+): Promise<{ status: string; name: string } | null> {
+  const res = await shopifyGraphQL<{ node: { status: string; name: string } | null }>(
+    shop,
+    accessToken,
+    `query($id: ID!) { node(id: $id) { ... on AppPurchaseOneTime { status name } } }`,
+    { id: purchaseId }
+  )
+  if (!res.ok || !res.data.node) return null
+  return res.data.node
+}
+
+/**
+ * Les abonnements RÉELLEMENT actifs chez Shopify — la source de vérité.
+ *
+ * Sert à réconcilier : notre base peut dériver (webhook manqué, callback
+ * abandonné). Shopify, lui, sait toujours qui paie quoi.
+ */
+export async function listActiveSubscriptions(
+  shop: string,
+  accessToken: string
+): Promise<{ id: string; name: string; status: string; currentPeriodEnd: string | null }[]> {
+  const res = await shopifyGraphQL<{
+    currentAppInstallation: {
+      activeSubscriptions: { id: string; name: string; status: string; currentPeriodEnd: string | null }[]
+    }
+  }>(
+    shop,
+    accessToken,
+    `query {
+       currentAppInstallation {
+         activeSubscriptions { id name status currentPeriodEnd }
+       }
+     }`
+  )
+  if (!res.ok) return []
+  return res.data.currentAppInstallation?.activeSubscriptions || []
+}
+
+/** Annule un abonnement app (retour au plan gratuit). */
 export async function cancelAppSubscription(shop: string, accessToken: string, subscriptionId: string) {
   return shopifyGraphQL<{ appSubscriptionCancel: { userErrors: { message: string }[] } }>(
     shop,

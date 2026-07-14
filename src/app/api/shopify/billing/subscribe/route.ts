@@ -25,10 +25,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  const body = (await req.json().catch(() => ({}))) as { shop?: string; plan?: PlanId }
+  const body = (await req.json().catch(() => ({}))) as {
+    shop?: string
+    plan?: PlanId
+    promo_code?: string
+  }
   // En embedded, la boutique vient du SESSION TOKEN (source sûre), pas du corps.
   const shop = authed.shop || body.shop
   const plan = body.plan
+  const promoCode = (body.promo_code || '').trim()
 
   if (!shop || !isValidShopDomain(shop)) {
     return NextResponse.json({ error: 'Paramètre shop invalide' }, { status: 400 })
@@ -68,17 +73,48 @@ export async function POST(req: NextRequest) {
   }
   const planDef = PLANS[plan]
   const { appUrl } = getShopifyConfig()
-  const returnUrl = `${appUrl}/api/shopify/billing/callback?shop=${encodeURIComponent(shop)}&plan=${plan}`
 
-  // test:true tant que l'app n'est pas publiée (pas de vraie facturation en dev)
-  const isProd = process.env.NODE_ENV === 'production' && process.env.SHOPIFY_BILLING_TEST !== 'true'
+  // ── Code promo (optionnel) ────────────────────────────────────────────────
+  // La table `promo_codes` existait mais n'était JAMAIS lue : cette route
+  // attendait un code que personne ne lui envoyait. Elle le reçoit enfin.
+  const { resolvePromoCode, isTestBilling } = await import('@/lib/shopify/billing')
+  let promoId: string | null = null
+  let discount: { percentage?: number; amount?: number; durationLimitInIntervals?: number } | undefined
+  let trialDays = 0
+
+  if (promoCode) {
+    const resolved = await resolvePromoCode(promoCode, authed.userId, plan)
+    if (!resolved.ok) {
+      return NextResponse.json({ error: resolved.error }, { status: 400 })
+    }
+    promoId = resolved.promo.id
+    if (resolved.promo.percentage != null || resolved.promo.amountCents != null) {
+      discount = {
+        percentage: resolved.promo.percentage,
+        amount: resolved.promo.amountCents != null ? resolved.promo.amountCents / 100 : undefined,
+        durationLimitInIntervals: resolved.promo.durationMonths,
+      }
+    }
+    trialDays = resolved.promo.trialDays ?? 0
+  }
+
+  // Le code promo voyage jusqu'au callback : c'est lui qui enregistrera son
+  // utilisation, une fois le paiement CONFIRMÉ par Shopify (jamais avant).
+  const returnUrl =
+    `${appUrl}/api/shopify/billing/callback?shop=${encodeURIComponent(shop)}&plan=${plan}` +
+    (promoId ? `&promo=${promoId}` : '')
 
   const result = await createAppSubscription(shop, token, {
     name: `Xeyo ${planDef.name}`,
     price: planDef.priceEur,
     currencyCode: 'EUR',
     returnUrl,
-    test: !isProd,
+    test: isTestBilling(),
+    trialDays: trialDays || undefined,
+    discount,
+    // Le marchand a peut-être déjà un abonnement (réabonnement après annulation) :
+    // sans ceci, Shopify en empilerait un second et le facturerait deux fois.
+    replacementBehavior: 'APPLY_IMMEDIATELY',
   })
 
   if (!result.ok) {
@@ -89,11 +125,21 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: sub.userErrors[0]?.message || 'Erreur Billing Shopify' }, { status: 502 })
   }
 
-  // Marquer pending en attendant la confirmation
+  // ⚠️ `pending_plan`, PAS `plan`.
+  //
+  // Cette route écrivait `plan = <le plan payant visé>` avec
+  // `subscription_status = 'pending'`. Or le contrôle de quota retombe en GRATUIT
+  // dès que le statut n'est pas `active`. Conséquence, constatée en production
+  // (plan='pro', status='pending') : un marchand qui lance un abonnement — ou un
+  // changement de plan — et n'approuve pas immédiatement se retrouve bridé en
+  // gratuit, alors qu'il a peut-être déjà un abonnement payant en cours.
+  //
+  // Le plan visé attend donc ici, et `plan` ne change qu'au callback, une fois le
+  // paiement confirmé par Shopify.
   await admin
     .from('shopify_stores')
     .update({
-      plan,
+      pending_plan: plan,
       subscription_status: 'pending',
       shopify_charge_id: sub.appSubscription?.id ?? null,
       billing_source: 'shopify',

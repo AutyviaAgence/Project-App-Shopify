@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
   // Récupérer l'abonnement en attente (créé par /subscribe) + le token.
   const { data: store } = await admin
     .from('shopify_stores')
-    .select('id, access_token, shopify_charge_id')
+    .select('id, user_id, access_token, shopify_charge_id, pending_plan')
     .eq('shop_domain', shop)
     .eq('is_active', true)
     .maybeSingle()
@@ -58,19 +58,65 @@ export async function GET(req: NextRequest) {
     )
   }
 
-  const periodEnd = new Date()
-  periodEnd.setDate(periodEnd.getDate() + 30)
+  // La VRAIE date de fin de période, demandée à Shopify.
+  //
+  // Elle était calculée en `+30 jours` en dur. C'est faux dès qu'il y a une
+  // période d'essai (code promo, récompense de parrainage) : le marchand serait
+  // considéré comme expiré alors que son abonnement court toujours.
+  const { listActiveSubscriptions } = await import('@/lib/shopify/client')
+  const active = await listActiveSubscriptions(shop, token)
+  const current = active.find((s) => s.id === store.shopify_charge_id)
+
+  const periodEnd = current?.currentPeriodEnd
+    ? new Date(current.currentPeriodEnd)
+    : (() => {
+        const d = new Date()
+        d.setDate(d.getDate() + 30)
+        return d
+      })()
+
+  // Le plan à activer est celui qui ATTENDAIT l'approbation. On retombe sur le
+  // paramètre d'URL uniquement pour les abonnements créés avant ce correctif.
+  const activatedPlan = store.pending_plan || plan
 
   await admin
     .from('shopify_stores')
     .update({
-      plan,
+      plan: activatedPlan,
+      pending_plan: null,
       subscription_status: 'active',
       billing_source: 'shopify',
       current_period_end: periodEnd.toISOString(),
       updated_at: new Date().toISOString(),
     })
     .eq('id', store.id)
+
+  // ── Code promo : on ne l'enregistre qu'ICI ────────────────────────────────
+  // Le paiement vient d'être CONFIRMÉ par Shopify. Enregistrer l'utilisation
+  // plus tôt permettrait de « brûler » un code sans jamais payer.
+  const promoId = req.nextUrl.searchParams.get('promo')
+  if (promoId && store.user_id) {
+    try {
+      const { redeemPromoCode } = await import('@/lib/shopify/billing')
+      await redeemPromoCode(promoId, store.user_id, store.shopify_charge_id)
+    } catch (e) {
+      // Ne doit jamais empêcher l'activation d'un plan déjà payé.
+      console.error('[billing/callback] enregistrement du code promo échoué (non bloquant):', e)
+    }
+  }
+
+  // ── Parrainage / affiliation ──────────────────────────────────────────────
+  // C'est LE point de déclenchement unique des récompenses : le premier paiement
+  // confirmé. Idempotent (contrainte d'unicité en base) : un callback rejoué ne
+  // verse pas deux fois.
+  if (store.user_id) {
+    try {
+      const { settleAttribution } = await import('@/lib/growth/engine')
+      await settleAttribution(store.user_id, shop)
+    } catch (e) {
+      console.error('[billing/callback] attribution échouée (non bloquant):', e)
+    }
+  }
 
   const { appUrl } = getShopifyConfig()
   return NextResponse.redirect(`${appUrl}/shopify?shop=${encodeURIComponent(shop)}&subscribed=1`)
