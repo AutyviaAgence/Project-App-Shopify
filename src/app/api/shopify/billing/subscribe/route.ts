@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { isValidShopDomain, createAppSubscription, getShopifyConfig } from '@/lib/shopify/client'
-import { decryptMessage } from '@/lib/crypto/encryption'
+import { getValidAccessToken } from '@/lib/shopify/token'
 import { PLANS, PAID_PLANS, type PlanId } from '@/lib/shopify/plans'
 
 /**
@@ -56,7 +56,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Boutique introuvable' }, { status: 404 })
   }
 
-  const token = decryptMessage(store.access_token)
+  // Les jetons Shopify EXPIRENT : lire `access_token` en base donnerait tôt ou
+  // tard un jeton périmé et un 403 silencieux — le marchand ne pourrait pas
+  // s'abonner sans comprendre pourquoi. Erreur explicite si la reconnexion s'impose.
+  const token = await getValidAccessToken(shop)
+  if (!token) {
+    return NextResponse.json(
+      { error: 'Jeton Shopify invalide — rouvrez l\'application depuis l\'admin Shopify pour la reconnecter, puis réessayez.' },
+      { status: 502 }
+    )
+  }
   const planDef = PLANS[plan]
   const { appUrl } = getShopifyConfig()
   const returnUrl = `${appUrl}/api/shopify/billing/callback?shop=${encodeURIComponent(shop)}&plan=${plan}`

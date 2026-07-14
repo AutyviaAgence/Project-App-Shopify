@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
-import { decryptMessage } from '@/lib/crypto/encryption'
+import { getValidAccessToken } from '@/lib/shopify/token'
 import { findCustomerByEmail, findCustomerByPhone } from '@/lib/shopify/client'
 import { checkRateLimit } from '@/lib/rate-limit'
 
@@ -105,13 +105,20 @@ export async function POST(req: NextRequest) {
 
   // Cas 3 (opt-in) : relier le contact à son client Shopify si possible, par
   // email d'abord (le plus fiable), sinon par téléphone. Best-effort, non bloquant.
+  // Les jetons Shopify EXPIRENT : lire `access_token` en base donnerait tôt ou
+  // tard un jeton périmé et un 403 silencieux. getValidAccessToken le rafraîchit ;
+  // si null (reconnexion nécessaire), on saute juste la liaison (best-effort).
   let shopifyCustomerId: string | null = null
   if (store.access_token) {
     try {
-      const token = decryptMessage(store.access_token)
-      const cust = (email ? await findCustomerByEmail(shop, token, email) : null)
-        || await findCustomerByPhone(shop, token, phone)
-      shopifyCustomerId = cust?.id ?? null
+      const token = await getValidAccessToken(shop)
+      if (token) {
+        const cust = (email ? await findCustomerByEmail(shop, token, email) : null)
+          || await findCustomerByPhone(shop, token, phone)
+        shopifyCustomerId = cust?.id ?? null
+      } else {
+        console.warn('[optin] jeton Shopify invalide pour', shop, '→ liaison client Shopify ignorée')
+      }
     } catch { /* non bloquant */ }
   }
 

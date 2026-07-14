@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { decryptMessage } from '@/lib/crypto/encryption'
+import { getValidAccessToken } from '@/lib/shopify/token'
 import { findOrdersByCustomer, findOrdersByCustomerId } from '@/lib/shopify/client'
 
 /**
@@ -27,6 +27,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ data: { connected: false, orders: [] } })
   }
 
+  // Les jetons Shopify EXPIRENT : lire `access_token` en base donnerait tôt ou
+  // tard un jeton périmé et un 403 silencieux. getValidAccessToken le rafraîchit.
+  const token = await getValidAccessToken(store.shop_domain)
+  if (!token) {
+    return NextResponse.json(
+      { error: 'Jeton Shopify invalide — rouvrez l\'application depuis l\'admin Shopify pour la reconnecter' },
+      { status: 502 }
+    )
+  }
+
   // Contact (téléphone) + email + lien client Shopify éventuel
   const { data: contact } = await supabase
     .from('contacts')
@@ -38,7 +48,7 @@ export async function GET(req: NextRequest) {
   // Si le contact est RELIÉ à un client Shopify → recherche fiable par
   // customer_id (pas de faux positifs). C'est le chemin privilégié.
   if (contact.shopify_customer_id) {
-    const byId = await findOrdersByCustomerId(store.shop_domain, decryptMessage(store.access_token), contact.shopify_customer_id)
+    const byId = await findOrdersByCustomerId(store.shop_domain, token, contact.shopify_customer_id)
     if (byId.ok) {
       return NextResponse.json({ data: { connected: true, orders: byId.data, shopDomain: store.shop_domain, linked: true } })
     }
@@ -65,7 +75,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ data: { connected: true, orders: [], shopDomain: store.shop_domain } })
   }
 
-  const result = await findOrdersByCustomer(store.shop_domain, decryptMessage(store.access_token), {
+  const result = await findOrdersByCustomer(store.shop_domain, token, {
     email,
     phone,
   })

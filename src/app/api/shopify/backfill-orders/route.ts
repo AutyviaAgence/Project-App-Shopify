@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { decryptMessage } from '@/lib/crypto/encryption'
+import { getValidAccessToken } from '@/lib/shopify/token'
 import { listAllOrders } from '@/lib/shopify/client'
 import { persistShopifyOrder } from '@/lib/shopify/persist-order'
 import type { ShopifyOrder } from '@/lib/automations/shopify-context'
@@ -33,7 +33,15 @@ export async function POST() {
     return NextResponse.json({ error: 'Aucune boutique Shopify connectée.' }, { status: 400 })
   }
 
-  const token = decryptMessage(store.access_token)
+  // Les jetons Shopify EXPIRENT : lire `access_token` en base donnerait tôt ou
+  // tard un jeton périmé et un 403 silencieux. getValidAccessToken le rafraîchit.
+  const token = await getValidAccessToken(store.shop_domain)
+  if (!token) {
+    return NextResponse.json(
+      { error: 'Jeton Shopify invalide — rouvrez l\'application depuis l\'admin Shopify pour la reconnecter' },
+      { status: 502 }
+    )
+  }
   const result = await listAllOrders(store.shop_domain, token)
   if (!result.ok) {
     return NextResponse.json({ error: `Récupération Shopify échouée : ${result.error}` }, { status: 502 })

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { registerWebhooks } from '@/lib/shopify/client'
-import { decryptMessage } from '@/lib/crypto/encryption'
+import { getValidAccessToken } from '@/lib/shopify/token'
 
 /**
  * POST /api/shopify/resync-webhooks
@@ -32,7 +32,15 @@ export async function POST() {
     return NextResponse.json({ error: 'Aucune boutique Shopify liée.' }, { status: 404 })
   }
 
-  const token = decryptMessage(store.access_token)
+  // Les jetons Shopify EXPIRENT : lire `access_token` en base donnerait tôt ou
+  // tard un jeton périmé et un 403 silencieux. getValidAccessToken le rafraîchit.
+  const token = await getValidAccessToken(store.shop_domain)
+  if (!token) {
+    return NextResponse.json(
+      { error: 'Jeton Shopify invalide — rouvrez l\'application depuis l\'admin Shopify pour la reconnecter' },
+      { status: 502 }
+    )
+  }
   const result = await registerWebhooks(store.shop_domain, token)
 
   // Note : registerWebhooks renvoie des "errors" qui incluent les doublons

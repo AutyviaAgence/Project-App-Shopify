@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { verifyWebhookHmac, fetchOrderById } from '@/lib/shopify/client'
-import { decryptMessage } from '@/lib/crypto/encryption'
+import { getValidAccessToken } from '@/lib/shopify/token'
 import { enqueueAutomations } from '@/lib/automations/engine'
 import { buildOrderContext, type ShopifyOrder } from '@/lib/automations/shopify-context'
 
@@ -48,7 +48,15 @@ export async function POST(req: NextRequest) {
     .maybeSingle()
   if (!store?.user_id || !store.access_token) return NextResponse.json({ received: true })
 
-  const token = decryptMessage(store.access_token)
+  // Les jetons Shopify EXPIRENT : lire `access_token` en base donnerait tôt ou
+  // tard un jeton périmé et un 403 silencieux. getValidAccessToken le rafraîchit ;
+  // si null, on log et on renvoie 200 (Shopify retenterait en boucle sur un non-200).
+  const token = await getValidAccessToken(store.shop_domain)
+  if (!token) {
+    console.error('[webhook fulfillment-events] jeton Shopify invalide pour', store.shop_domain,
+      '→ rouvrir l’app depuis l’admin Shopify pour la reconnecter')
+    return NextResponse.json({ received: true, error: 'jeton Shopify invalide' })
+  }
   const orderRes = await fetchOrderById(store.shop_domain, token, event.order_id)
   if (!orderRes.ok) return NextResponse.json({ received: true, error: 'order introuvable' })
 

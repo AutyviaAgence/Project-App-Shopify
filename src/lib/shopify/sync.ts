@@ -2,7 +2,7 @@ import 'server-only'
 import crypto from 'crypto'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { shopifyGraphQL } from './client'
-import { decryptMessage } from '@/lib/crypto/encryption'
+import { getValidAccessToken } from './token'
 import { processDocument } from '@/lib/knowledge/processor'
 
 /**
@@ -416,7 +416,13 @@ export async function syncShopToKnowledge(
   }
 
   const shop = store.shop_domain
-  const token = decryptMessage(store.access_token)
+  // Les jetons Shopify EXPIRENT : lire `access_token` en base donnerait tôt ou
+  // tard un jeton périmé et un 403 SILENCIEUX (sync vide, sans erreur visible).
+  // getValidAccessToken le rafraîchit, ou renvoie null s'il faut reconnecter l'app.
+  const token = await getValidAccessToken(shop)
+  if (!token) {
+    return { ok: false, error: 'Jeton Shopify invalide — rouvrez l\'application depuis l\'admin Shopify pour la reconnecter' }
+  }
   const shopName = store.shop_name || shop
   const hashes = (store.content_hashes || {}) as { catalog?: string; pages?: string; policies?: string }
 
@@ -503,7 +509,10 @@ export async function autoConfigureAgentFromShop(storeId: string): Promise<AutoC
   }
 
   const shop = store.shop_domain
-  const token = decryptMessage(store.access_token)
+  const token = await getValidAccessToken(shop)
+  if (!token) {
+    return { ok: false, error: 'Jeton Shopify invalide — rouvrez l\'application depuis l\'admin Shopify pour la reconnecter' }
+  }
   const shopName = store.shop_name || shop
 
   // 1. Créer l'agent

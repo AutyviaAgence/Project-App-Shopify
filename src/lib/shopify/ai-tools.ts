@@ -1,7 +1,7 @@
 import 'server-only'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { createPendingAction, type ActionType } from './actions'
-import { decryptMessage } from '@/lib/crypto/encryption'
+import { getValidAccessToken } from './token'
 import { findOrderIdByName, getRefundableOrder, getSuggestedRefund, findCustomerByEmail, findOrdersByCustomerId, type RefundLineItem } from './client'
 
 /**
@@ -333,7 +333,14 @@ export async function userHasShopifyStore(userId: string): Promise<boolean> {
   return !!data
 }
 
-/** Récupère la boutique active + token déchiffré d'un utilisateur. */
+/**
+ * Récupère la boutique active + un access token VALIDE d'un utilisateur.
+ *
+ * Les jetons Shopify EXPIRENT : lire `access_token` en base donnerait tôt ou tard
+ * un jeton périmé et un 403 silencieux. getValidAccessToken le rafraîchit ; s'il
+ * renvoie null (reconnexion nécessaire), on renvoie null et les appelants
+ * dégradent proprement (message « boutique indisponible » à l'agent).
+ */
 async function getUserStore(userId: string): Promise<{ shop: string; token: string } | null> {
   const supabase = createAdminSupabase(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -346,7 +353,13 @@ async function getUserStore(userId: string): Promise<{ shop: string; token: stri
     .eq('is_active', true)
     .maybeSingle()
   if (!store?.shop_domain || !store.access_token) return null
-  return { shop: store.shop_domain, token: decryptMessage(store.access_token) }
+  const token = await getValidAccessToken(store.shop_domain)
+  if (!token) {
+    console.error('[shopify/ai-tools] jeton Shopify invalide pour', store.shop_domain,
+      '→ rouvrir l’app depuis l’admin Shopify pour la reconnecter')
+    return null
+  }
+  return { shop: store.shop_domain, token }
 }
 
 /**

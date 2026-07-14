@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { cancelAppSubscription } from '@/lib/shopify/client'
-import { decryptMessage } from '@/lib/crypto/encryption'
+import { getValidAccessToken } from '@/lib/shopify/token'
 import { getAuthedUser } from '@/lib/shopify/embedded-auth'
 
 /**
@@ -44,7 +44,16 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ data: { cancelled: true, already: true } })
   }
 
-  const token = decryptMessage(store.access_token)
+  // Les jetons Shopify EXPIRENT : lire `access_token` en base donnerait tôt ou
+  // tard un jeton périmé et un 403 silencieux — l'annulation échouerait sans que
+  // le marchand le sache (il continuerait d'être facturé). Erreur explicite si null.
+  const token = await getValidAccessToken(store.shop_domain)
+  if (!token) {
+    return NextResponse.json(
+      { error: 'Jeton Shopify invalide — rouvrez l\'application depuis l\'admin Shopify pour la reconnecter, puis réessayez.' },
+      { status: 502 }
+    )
+  }
   const res = await cancelAppSubscription(store.shop_domain, token, store.shopify_charge_id)
   if (!res.ok) {
     return NextResponse.json({ error: res.error }, { status: 502 })

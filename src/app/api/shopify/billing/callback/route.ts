@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { isValidShopDomain, getShopifyConfig, getAppSubscriptionStatus } from '@/lib/shopify/client'
-import { decryptMessage } from '@/lib/crypto/encryption'
+import { getValidAccessToken } from '@/lib/shopify/token'
 import { PLANS, type PlanId } from '@/lib/shopify/plans'
 
 /**
@@ -39,7 +39,17 @@ export async function GET(req: NextRequest) {
   }
 
   // VÉRIFICATION auprès de Shopify : l'abonnement doit être ACTIVE.
-  const token = decryptMessage(store.access_token)
+  // Les jetons Shopify EXPIRENT : lire `access_token` en base donnerait tôt ou
+  // tard un jeton périmé et un 403 silencieux — ici le plan payé ne serait JAMAIS
+  // activé. getValidAccessToken le rafraîchit ; si null, on remonte une erreur
+  // explicite au marchand plutôt que d'échouer en silence.
+  const token = await getValidAccessToken(shop)
+  if (!token) {
+    return NextResponse.json(
+      { error: 'Jeton Shopify invalide — rouvrez l\'application depuis l\'admin Shopify pour la reconnecter, puis réessayez.' },
+      { status: 502 }
+    )
+  }
   const sub = await getAppSubscriptionStatus(shop, token, store.shopify_charge_id)
   if (!sub || sub.status !== 'ACTIVE') {
     return NextResponse.json(

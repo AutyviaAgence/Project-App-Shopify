@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { decryptMessage } from '@/lib/crypto/encryption'
+import { getValidAccessToken } from '@/lib/shopify/token'
 import { findOrderIdByName, getRefundableOrder } from '@/lib/shopify/client'
 
 /**
@@ -35,7 +35,15 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'Boutique non connectée' }, { status: 400 })
   }
 
-  const token = decryptMessage(store.access_token)
+  // Les jetons Shopify EXPIRENT : lire `access_token` en base donnerait tôt ou
+  // tard un jeton périmé et un 403 silencieux. getValidAccessToken le rafraîchit.
+  const token = await getValidAccessToken(store.shop_domain)
+  if (!token) {
+    return NextResponse.json(
+      { error: 'Jeton Shopify invalide — rouvrez l\'application depuis l\'admin Shopify pour la reconnecter' },
+      { status: 502 }
+    )
+  }
   const orderName = String((action.payload as Record<string, unknown>).order_name || '')
   const orderId = await findOrderIdByName(store.shop_domain, token, orderName)
   if (!orderId) return NextResponse.json({ error: 'Commande introuvable' }, { status: 404 })

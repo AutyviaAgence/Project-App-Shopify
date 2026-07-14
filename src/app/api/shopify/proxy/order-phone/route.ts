@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { shopifyGraphQL } from '@/lib/shopify/client'
-import { decryptMessage } from '@/lib/crypto/encryption'
+import { getValidAccessToken } from '@/lib/shopify/token'
 import { verifyAppProxySignature } from '@/lib/shopify/proxy-auth'
 
 // L'extension checkout (origine extensions.shopifycdn.com) appelle cette route
@@ -62,7 +62,18 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ phone: null }, { headers: { ...CORS, 'Cache-Control': 'no-store' } })
   }
 
-  const token = decryptMessage(store.access_token)
+  // Les jetons Shopify EXPIRENT : lire `access_token` en base donnerait tôt ou
+  // tard un jeton périmé et un 403 silencieux. getValidAccessToken le rafraîchit ;
+  // si null (reconnexion nécessaire), on renvoie phone:null comme les autres cas
+  // « introuvable » (la page Merci se contente alors de ne pas pré-remplir).
+  const token = await getValidAccessToken(store.shop_domain)
+  if (!token) {
+    console.error('[order-phone] jeton Shopify invalide pour', shop, '→ rouvrir l’app depuis l’admin Shopify')
+    return NextResponse.json(
+      { phone: null, error: 'jeton Shopify invalide' },
+      { status: 502, headers: { ...CORS, 'Cache-Control': 'no-store' } }
+    )
+  }
 
   type OrderNode = {
     phone: string | null

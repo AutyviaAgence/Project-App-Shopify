@@ -1,6 +1,6 @@
 import 'server-only'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
-import { decryptMessage } from '@/lib/crypto/encryption'
+import { getValidAccessToken } from './token'
 import {
   findOrderIdByName,
   cancelOrder,
@@ -100,7 +100,13 @@ export async function executeAction(actionId: string): Promise<{ ok: boolean; er
   }
 
   const shop = store.shop_domain
-  const token = decryptMessage(store.access_token)
+  // Les jetons Shopify EXPIRENT : lire `access_token` en base donnerait tôt ou
+  // tard un jeton périmé et un 403 silencieux. getValidAccessToken rafraîchit.
+  const token = await getValidAccessToken(shop)
+  if (!token) {
+    await markFailed(actionId, 'Jeton Shopify invalide — rouvrez l\'application depuis l\'admin Shopify pour la reconnecter')
+    return { ok: false, error: 'Jeton Shopify invalide — rouvrez l\'application depuis l\'admin Shopify pour la reconnecter' }
+  }
   const payload = action.payload as Record<string, unknown>
 
   try {
