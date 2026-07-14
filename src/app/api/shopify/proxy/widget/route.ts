@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import crypto from 'crypto'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
+import { verifyAppProxySignature } from '@/lib/shopify/proxy-auth'
 
 /**
  * App Proxy — config publique du widget WhatsApp pour une boutique.
@@ -18,21 +18,16 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const shop = searchParams.get('shop')
 
-  // Vérification de la signature App Proxy (Shopify) — comparaison timing-safe.
-  const secret = process.env.SHOPIFY_API_SECRET
-  if (secret) {
-    const signature = searchParams.get('signature') || ''
-    if (signature) {
-      const params: Record<string, string> = {}
-      searchParams.forEach((value, key) => { if (key !== 'signature') params[key] = value })
-      const sorted = Object.keys(params).sort().map((k) => `${k}=${params[k]}`).join('')
-      const computed = crypto.createHmac('sha256', secret).update(sorted).digest('hex')
-      const a = Buffer.from(computed, 'utf8')
-      const b = Buffer.from(signature, 'utf8')
-      if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) {
-        return NextResponse.json({ enabled: false, error: 'invalid signature' }, { status: 401 })
-      }
-    }
+  // ⚠️ FAIL-CLOSED. La vérification était CONDITIONNELLE (`if (signature)`) : une
+  // requête SANS signature traversait le contrôle sans rien vérifier. Un simple
+  //     GET /api/shopify/proxy/widget?shop=nimportequi.myshopify.com
+  // suffisait donc à récupérer le NUMÉRO WHATSAPP de n'importe quel marchand
+  // installé — énumérable en boucle. Fuite de donnée personnelle.
+  //
+  // La bulle passe TOUJOURS par l'App Proxy (/apps/xeyo/widget), et Shopify signe
+  // systématiquement ces requêtes : exiger la signature ne casse rien.
+  if (!verifyAppProxySignature(searchParams)) {
+    return NextResponse.json({ enabled: false, error: 'invalid signature' }, { status: 401 })
   }
 
   if (!shop) {

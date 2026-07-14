@@ -22,8 +22,9 @@ type Action = {
 type RefundOptions = {
   reason?: string
   amount?: number
-  method?: 'original' | 'store_credit' | 'both'
-  storeCreditAmount?: number
+  // ⚠️ Pas de `method` : le remboursement part TOUJOURS sur le moyen de paiement
+  // d'origine (exigence App Store 1.1.15). Le serveur le force de toute façon —
+  // exposer un choix ici ne ferait que mentir au marchand et à l'acheteur.
   // Message de confirmation à envoyer au client (optionnel).
   notify?: { message: string }
 }
@@ -204,8 +205,9 @@ function RefundDialog({
   const [reasonChoice, setReasonChoice] = useState(REFUND_REASONS[0])
   const [reasonCustom, setReasonCustom] = useState('')
   const [amount, setAmount] = useState<string>(estimated != null ? String(estimated) : '')
-  const [method, setMethod] = useState<'original' | 'store_credit' | 'both'>('original')
-  const [storeCredit, setStoreCredit] = useState<string>('')
+  // ⚠️ Plus de choix de méthode : le serveur force le remboursement sur le moyen
+  // de paiement d'ORIGINE (App Store 1.1.15). Laisser un état ici ne servirait
+  // qu'à mentir au marchand et au client.
   // Prévenir le client : case + lien optionnel.
   const [notifyClient, setNotifyClient] = useState(true)
   const [notifyLink, setNotifyLink] = useState('')
@@ -230,17 +232,17 @@ function RefundDialog({
   const maxRefundable = details?.refundableAmount ?? estimated
 
   const amountNum = Number(amount)
-  const scNum = Number(storeCredit)
   const amountValid = amount !== '' && !isNaN(amountNum) && amountNum > 0 && (maxRefundable == null || amountNum <= maxRefundable + 0.001)
-  const scValid = method !== 'both' || (storeCredit !== '' && !isNaN(scNum) && scNum > 0 && scNum <= amountNum)
   const reason = reasonChoice === 'Autre' ? reasonCustom.trim() : reasonChoice
-  const canConfirm = amountValid && scValid && reason.length > 0 && !busy
+  const canConfirm = amountValid && reason.length > 0 && !busy
 
   // Message de confirmation envoyé au client (aperçu + envoi si case cochée).
   const orderLabel = String(action.payload.order_name || '').replace(/^#?/, '#')
-  const methodFr = method === 'store_credit' ? 'en crédit magasin' : method === 'both' ? 'en partie en crédit magasin' : 'sur votre moyen de paiement'
+  // Le remboursement part TOUJOURS sur le moyen d'origine : le message doit dire
+  // la vérité. Il annonçait auparavant « en crédit magasin » alors que le serveur
+  // remboursait la carte — une promesse fausse faite à l'acheteur.
   const notifyMessage = [
-    `Bonjour, votre remboursement de ${amountValid ? money(amountNum, currency) : '—'} pour la commande ${orderLabel} a bien été effectué ${methodFr}.`,
+    `Bonjour, votre remboursement de ${amountValid ? money(amountNum, currency) : '—'} pour la commande ${orderLabel} a bien été effectué sur votre moyen de paiement.`,
     notifyLink.trim() ? `\nDétails : ${notifyLink.trim()}` : '',
     `\nMerci pour votre confiance !`,
   ].join('')
@@ -368,8 +370,8 @@ function RefundDialog({
               onClick={() => onConfirm({
                 reason,
                 amount: amountNum,
-                method,
-                storeCreditAmount: method === 'both' ? scNum : undefined,
+                // Pas de `method` : le serveur rembourse toujours sur le moyen
+                // d'origine (App Store 1.1.15). L'envoyer serait un leurre.
                 notify: notifyClient ? { message: notifyMessage } : undefined,
               })}
             >
