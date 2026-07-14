@@ -61,8 +61,15 @@ type Overview = {
 type LinkState = {
   installed: boolean
   linked: boolean
-  shopEmail: string | null
   shopName: string | null
+  /** L'email de la PERSONNE connectée à l'admin Shopify (pas celui de la boutique). */
+  staffEmail: string | null
+  staffName: string | null
+  /** Shopify a vérifié son email et ce n'est pas un collaborateur → création possible. */
+  canCreate: boolean
+  /** Un compte Xeyo porte déjà cet email → « c'est bien moi » plutôt que « créer ». */
+  hasAccount: boolean
+  isCollaborator: boolean
 }
 
 /**
@@ -196,15 +203,55 @@ export default function ShopifyEmbeddedClient() {
    * Après succès on recharge : `status` et `overview` répondent de nouveau, l'app
    * repasse en affichage normal.
    */
-  const relink = async () => {
+  /**
+   * PORTE 1 — « Continuer en tant que <moi> » (sans friction).
+   *
+   * Shopify a vérifié l'identité de la personne connectée à l'admin
+   * (`associated_user.email_verified`). On rattache — ou on crée — SON compte, et la
+   * boutique lui revient. Aucun mot de passe à saisir.
+   */
+  const createAccount = async () => {
     setLinking(true)
     setError(null)
     try {
-      const res = await authenticatedFetch('/api/shopify/embedded/link-account', { method: 'POST' })
+      const res = await authenticatedFetch('/api/shopify/embedded/link-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create' }),
+      })
       const json = await res.json()
       if (!res.ok || !json?.data?.linked) throw new Error(json?.error || 'Liaison impossible')
       setUnlinked(false)
       await load()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur')
+    } finally {
+      setLinking(false)
+    }
+  }
+
+  /**
+   * PORTE 2 — « J'ai déjà un compte Xeyo » (le cas qui bloquait tout).
+   *
+   * On ne devine PAS lequel : on renvoie le marchand sur app.xeyo.io avec un jeton de
+   * liaison signé. Il s'y connecte au compte de SON choix (Gmail perso, Google, ou
+   * celui qui gère déjà ses autres boutiques) et c'est CE compte qui prend la boutique.
+   *
+   * ⚠️ Nouvel onglet, jamais une navigation de l'iframe : toutes les pages hors
+   * /shopify envoient `X-Frame-Options: DENY` → l'iframe afficherait une page blanche.
+   */
+  const linkExisting = async () => {
+    setLinking(true)
+    setError(null)
+    try {
+      const res = await authenticatedFetch('/api/shopify/embedded/link-account', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'link' }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json?.data?.linkUrl) throw new Error(json?.error || 'Liaison impossible')
+      window.open(json.data.linkUrl, '_blank', 'noopener,noreferrer')
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur')
     } finally {
@@ -323,23 +370,18 @@ export default function ShopifyEmbeddedClient() {
               </div>
             </div>
 
+            {/* ── LES DEUX PORTES ──────────────────────────────────────────────
+                Exigence Shopify (Built for Shopify 3.1.3) : offrir à la fois une
+                inscription SANS FRICTION et la connexion d'un compte EXISTANT.
+
+                C'est aussi la sortie du cercle vicieux : on n'IMPOSE plus le compte
+                de `shop_email`. Le marchand choisit. */}
             <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
               <h3 className="text-base font-semibold text-gray-900">Reliez votre compte</h3>
               <p className="mt-2 text-sm text-gray-500">
                 Cette boutique n’est reliée à aucun compte Xeyo. Reliez-la pour accéder à vos contacts,
                 votre agent IA et vos conversations.
               </p>
-
-              {linkState.shopEmail && (
-                <div className="mt-4 rounded-lg bg-gray-50 px-3 py-2">
-                  <p className="text-sm text-gray-500">
-                    Compte : <span className="font-medium text-gray-900">{linkState.shopEmail}</span>
-                  </p>
-                  <p className="mt-0.5 text-[11px] text-gray-500">
-                    Il sera créé automatiquement s’il n’existe pas encore.
-                  </p>
-                </div>
-              )}
 
               {error && (
                 <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -348,41 +390,55 @@ export default function ShopifyEmbeddedClient() {
               )}
 
               <div className="mt-5 space-y-2">
+                {/* PORTE 1 — sans friction. Shopify nous a VÉRIFIÉ son identité :
+                    aucun mot de passe, aucun formulaire. Un clic et il entre. */}
+                {linkState.canCreate && linkState.staffEmail && (
+                  <button
+                    type="button"
+                    onClick={createAccount}
+                    disabled={linking}
+                    className="w-full rounded-xl bg-gray-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:opacity-60"
+                  >
+                    {linking
+                      ? 'Liaison…'
+                      : linkState.hasAccount
+                        ? `Continuer en tant que ${linkState.staffEmail}`
+                        : `Créer mon compte (${linkState.staffEmail})`}
+                  </button>
+                )}
+
+                {/* PORTE 2 — le cas qui bloquait TOUT jusqu'ici.
+                    Le marchand inscrit avec un autre email (Gmail perso, Google, ou le
+                    compte qui gère déjà ses autres boutiques) va enfin pouvoir relier
+                    SA boutique à SON compte : on l'envoie choisir sur app.xeyo.io avec
+                    un jeton signé, au lieu de lui réimposer celui de la boutique. */}
                 <button
                   type="button"
-                  onClick={relink}
+                  onClick={linkExisting}
                   disabled={linking}
-                  className="w-full rounded-xl bg-gray-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:opacity-60"
+                  className={
+                    linkState.canCreate
+                      ? 'w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-60'
+                      : 'w-full rounded-xl bg-gray-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:opacity-60'
+                  }
                 >
-                  {linking ? 'Liaison…' : 'Relier ma boutique'}
-                </button>
-
-                {/*
-                  Le bouton ci-dessus relie TOUJOURS le compte dont l'email correspond
-                  à la boutique — c'est le garde qui empêche un staff Shopify de
-                  rattacher la boutique au compte Xeyo d'un tiers.
-
-                  Pour utiliser un AUTRE compte, le marchand doit donc prouver qu'il le
-                  possède : il se connecte sur app.xeyo.io, et relie la boutique depuis
-                  son dashboard (la boutique orpheline y est proposée). C'est le seul
-                  chemin sûr.
-
-                  On l'envoie sur /login (et non /dashboard) : il doit pouvoir CHOISIR
-                  son compte, éventuellement en se déconnectant du précédent.
-                */}
-                <button
-                  type="button"
-                  onClick={() => openInTop('/api/auth/switch-account?redirect=/dashboard')}
-                  className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
-                >
-                  Utiliser un autre compte Xeyo →
+                  J’ai déjà un compte Xeyo →
                 </button>
               </div>
 
-              <p className="mt-3 text-center text-[11px] leading-relaxed text-gray-400">
-                Connectez-vous au compte souhaité sur app.xeyo.io, puis reliez cette boutique
-                depuis votre tableau de bord.
-              </p>
+              {/* Un collaborateur (agence, freelance) n'est pas le marchand : la
+                  boutique ne doit pas atterrir sur son compte perso. */}
+              {linkState.isCollaborator ? (
+                <p className="mt-3 text-center text-[11px] leading-relaxed text-gray-400">
+                  Vous êtes collaborateur sur cette boutique. Reliez votre propre compte Xeyo,
+                  ou demandez au propriétaire de créer le compte.
+                </p>
+              ) : (
+                <p className="mt-3 text-center text-[11px] leading-relaxed text-gray-400">
+                  « J’ai déjà un compte » ouvre app.xeyo.io : connectez-vous au compte de votre
+                  choix, la boutique y sera rattachée.
+                </p>
+              )}
             </div>
           </div>
         ) : !status?.installed ? (

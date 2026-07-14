@@ -197,6 +197,95 @@ export async function exchangeSessionToken(
   }
 }
 
+/** L'humain connecté à l'admin Shopify — PAS la boutique. */
+export type ShopifyStaffUser = {
+  email: string
+  /** Shopify a-t-il vérifié cet email ? Ne JAMAIS s'en servir comme identité si `false`. */
+  emailVerified: boolean
+  firstName: string | null
+  lastName: string | null
+  /** Propriétaire de la boutique (par opposition à un membre du staff). */
+  accountOwner: boolean
+  /** Collaborateur externe (agence, freelance) — n'est PAS le marchand. */
+  collaborator: boolean
+}
+
+/**
+ * QUI est devant l'écran ? — la brique qui manquait à tout le système de liaison.
+ *
+ * ⚠️ CE QU'ON FAISAIT DE FAUX.
+ *
+ * On identifiait le marchand par `shop.email` — l'email du PROPRIÉTAIRE DE LA
+ * BOUTIQUE. C'est une propriété de la boutique, pas de la personne. Un marchand
+ * inscrit sur Xeyo avec son Gmail perso n'était donc jamais reconnu : on créait un
+ * SECOND compte au nom de `shop.email`, et son vrai compte restait orphelin à jamais.
+ *
+ * Or Shopify sait parfaitement qui est connecté à l'admin. Il suffit de demander un
+ * jeton ONLINE (au lieu d'offline) : la réponse porte alors un objet `associated_user`
+ * avec l'email de l'humain — et un `email_verified` qui dit si Shopify l'a vérifié.
+ *
+ * On ne garde PAS ce jeton online : il expire avec la session du marchand et casserait
+ * les crons. On l'échange uniquement pour lire l'identité, puis on le jette. L'offline
+ * token (exchangeSessionToken) reste la source des appels API.
+ *
+ * `null` si Shopify ne renvoie pas d'utilisateur (ex. contexte sans staff connecté) :
+ * l'appelant doit alors demander au marchand, jamais deviner.
+ */
+export async function fetchStaffUser(
+  shop: string,
+  sessionToken: string
+): Promise<ShopifyStaffUser | null> {
+  const { apiKey, apiSecret } = getShopifyConfig()
+  if (!apiKey || !apiSecret) return null
+
+  try {
+    const res = await fetch(`https://${shop}/admin/oauth/access_token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        client_id: apiKey,
+        client_secret: apiSecret,
+        grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
+        subject_token: sessionToken,
+        subject_token_type: 'urn:ietf:params:oauth:token-type:id_token',
+        // ONLINE : c'est ce qui déclenche `associated_user` dans la réponse.
+        requested_token_type: 'urn:shopify:params:oauth:token-type:online-access-token',
+        expiring: '1',
+      }),
+    })
+    if (!res.ok) {
+      console.error('[shopify/staff-user] échange online refusé:', res.status)
+      return null
+    }
+
+    const data = (await res.json()) as {
+      associated_user?: {
+        email?: string
+        email_verified?: boolean
+        first_name?: string
+        last_name?: string
+        account_owner?: boolean
+        collaborator?: boolean
+      }
+    }
+    const u = data.associated_user
+    const email = (u?.email || '').trim().toLowerCase()
+    if (!email) return null
+
+    return {
+      email,
+      emailVerified: u?.email_verified === true,
+      firstName: u?.first_name || null,
+      lastName: u?.last_name || null,
+      accountOwner: u?.account_owner === true,
+      collaborator: u?.collaborator === true,
+    }
+  } catch (err) {
+    console.error('[shopify/staff-user] erreur réseau:', err)
+    return null
+  }
+}
+
 /** Normalise la réponse OAuth de Shopify en jeu de jetons exploitable. */
 function toTokens(data: {
   access_token: string

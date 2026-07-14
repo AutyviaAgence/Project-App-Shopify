@@ -42,11 +42,26 @@ export async function GET() {
     .maybeSingle()
   if (own) return NextResponse.json({ data: { stores: [] } })
 
+  // ⚠️ NE PROPOSER QUE LES BOUTIQUES DE CET UTILISATEUR — ne jamais retirer ce filtre.
+  //
+  // Cette route renvoyait TOUTES les boutiques orphelines du système, sans aucun
+  // filtre. Combinée à /api/shopify/connect (qui n'exigeait alors aucune preuve de
+  // propriété), elle permettait à n'importe quel compte de s'approprier la boutique
+  // d'un AUTRE marchand — et d'accéder à ses contacts, ses conversations et son
+  // numéro WhatsApp. Vol de données entre marchands.
+  //
+  // Une boutique n'est proposée que si Shopify nous a donné pour elle un
+  // `shop_email` égal à celui du compte. Pour relier une boutique dont l'email
+  // diffère, il faut passer par l'admin Shopify (link token) : seule preuve valable
+  // qu'on en est bien administrateur.
+  if (!user.email) return NextResponse.json({ data: { stores: [] } })
+
   const { data: orphans } = await admin
     .from('shopify_stores')
     .select('shop_domain, shop_name')
     .is('user_id', null)
     .eq('is_active', true)
+    .ilike('shop_email', user.email)
     .limit(5)
 
   return NextResponse.json({ data: { stores: orphans || [] } })

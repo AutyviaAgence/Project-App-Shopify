@@ -691,6 +691,27 @@ export default function OnboardingPage() {
                   <p className="text-xs text-muted-foreground">
                     Cette page se met à jour toute seule dès que la boutique est liée — laissez-la ouverte.
                   </p>
+
+                  {/*
+                    ⚠️ LA SORTIE DU CERCLE VICIEUX — ne pas retirer.
+
+                    Le marchand qui arrive ici a TRÈS SOUVENT déjà installé l'app (il
+                    vient justement de l'admin Shopify, où on lui a dit de créer un
+                    compte). Pour lui, « Installer » ne fait rien : l'app EST installée.
+                    Il attendait donc un polling qui ne basculait jamais, enfermé sur
+                    cette page à vie — c'était le blocage le plus dur du système.
+
+                    La liaison se fait depuis l'app embedded (bouton « J'ai déjà un
+                    compte Xeyo »), qui le renvoie ici avec un jeton signé. On le lui
+                    dit explicitement, sinon il ne peut pas le deviner.
+                  */}
+                  <div className="rounded-lg border bg-muted/40 px-4 py-3">
+                    <p className="text-xs text-muted-foreground">
+                      <span className="font-medium text-foreground">Boutique déjà installée ?</span>{' '}
+                      Ouvrez Xeyo depuis votre admin Shopify (Applications → Xeyo) et cliquez sur
+                      « J’ai déjà un compte Xeyo » : la boutique sera rattachée à ce compte.
+                    </p>
+                  </div>
                 </div>
               )}
 

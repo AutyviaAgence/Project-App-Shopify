@@ -46,7 +46,16 @@ export async function getAuthedUser(req: NextRequest): Promise<AuthedUser | null
     if (resolved) {
       return { userId: resolved.userId, shop: session.shop, embedded: true }
     }
-    // Token valide mais provisionnement impossible → pas d'identité.
+
+    // Boutique installée mais AUCUN compte Xeyo ne l'a encore réclamée.
+    //
+    // Ce n'est pas une erreur : c'est l'état normal d'une nouvelle installation (ou
+    // d'une boutique volontairement déliée). On ne devine PAS le compte — c'était
+    // précisément le bug : on provisionnait un compte depuis `shop_email`, ce qui
+    // créait un doublon et enfermait le marchand.
+    //
+    // Les routes de données répondent donc 401, et le client affiche l'écran de
+    // liaison (/api/shopify/embedded/link-account, qui n'exige aucun compte).
     return null
   }
 

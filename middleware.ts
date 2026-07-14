@@ -1,7 +1,15 @@
 import { type NextRequest, NextResponse } from 'next/server'
 import { updateSession } from '@/lib/supabase/middleware'
 
-const PUBLIC_ROUTES = ['/login', '/register', '/forgot-password', '/update-password', '/shopify', '/cgu', '/cgv', '/privacy', '/legal', '/terms', '/data-deletion', '/auth/callback']
+// ⚠️ `/link` DOIT rester public — c'est la sortie du cercle vicieux.
+//
+// C'est la page où le marchand, venu de l'admin Shopify avec un jeton de liaison,
+// rattache la boutique au compte de SON choix. Si elle était protégée :
+//   · non connecté → le middleware le renverrait sur /login en PERDANT le jeton ;
+//   · onboarding non terminé → le gate ci-dessous le renverrait sur /onboarding,
+//     lequel réclame justement une boutique liée. Il ne pourrait jamais la lier.
+// La page gère elle-même l'authentification (elle propose connexion ou inscription).
+const PUBLIC_ROUTES = ['/login', '/register', '/forgot-password', '/update-password', '/shopify', '/link', '/cgu', '/cgv', '/privacy', '/legal', '/terms', '/data-deletion', '/auth/callback']
 const AUTH_ROUTES = ['/login', '/register', '/forgot-password']
 
 // Bump pour invalider tous les cookies tenant en cache (ex: changement de

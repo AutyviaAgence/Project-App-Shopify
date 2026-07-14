@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { isValidShopDomain } from '@/lib/shopify/client'
 import { autoConfigureAgentFromShop } from '@/lib/shopify/sync'
+import { verifyLinkToken } from '@/lib/shopify/link-token'
 
 /**
  * POST /api/shopify/connect  { shop }
@@ -16,7 +17,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
   }
 
-  const { shop } = (await req.json().catch(() => ({}))) as { shop?: string }
+  const { shop, linkToken } = (await req.json().catch(() => ({}))) as { shop?: string; linkToken?: string }
   if (!shop || !isValidShopDomain(shop)) {
     return NextResponse.json({ error: 'Paramètre shop invalide' }, { status: 400 })
   }
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest) {
   // La boutique doit exister (installée via OAuth) et être active
   const { data: store } = await admin
     .from('shopify_stores')
-    .select('id, user_id, is_active, shop_name')
+    .select('id, user_id, is_active, shop_name, shop_email')
     .eq('shop_domain', shop)
     .single()
 
@@ -40,6 +41,38 @@ export async function POST(req: NextRequest) {
   // Si déjà associée à un autre utilisateur, refuser
   if (store.user_id && store.user_id !== user.id) {
     return NextResponse.json({ error: 'Cette boutique est déjà liée à un autre compte' }, { status: 409 })
+  }
+
+  // ⚠️ PREUVE DE PROPRIÉTÉ — OBLIGATOIRE, NE JAMAIS RETIRER.
+  //
+  // Cette route n'exigeait AUCUNE preuve : n'importe quel compte Xeyo connecté
+  // pouvait réclamer n'importe quelle boutique ORPHELINE (`user_id IS NULL`) — et
+  // toute boutique l'est entre son installation et sa liaison. Un attaquant qui
+  // listait /api/shopify/orphan-stores (qui les renvoyait TOUTES, sans filtre)
+  // pouvait donc s'approprier la boutique d'un autre marchand, et lire ses
+  // contacts, ses conversations et son numéro WhatsApp. Vol de données entre
+  // marchands.
+  //
+  // Deux preuves acceptées, et rien d'autre :
+  //   · un LINK TOKEN signé, délivré uniquement dans l'admin Shopify de CETTE
+  //     boutique (donc à quelqu'un qui en est déjà administrateur) ;
+  //   · à défaut, l'email du compte == `shop_email` (l'email que Shopify nous a
+  //     donné pour cette boutique).
+  const linkedShop = verifyLinkToken(linkToken)
+  const emailMatches =
+    !!store.shop_email &&
+    !!user.email &&
+    store.shop_email.trim().toLowerCase() === user.email.trim().toLowerCase()
+
+  if (linkedShop !== shop && !emailMatches) {
+    return NextResponse.json(
+      {
+        error:
+          'Impossible de vérifier que cette boutique vous appartient. ' +
+          'Ouvrez Xeyo depuis l’admin Shopify de la boutique pour la relier.',
+      },
+      { status: 403 }
+    )
   }
 
   // Associer la boutique au compte. ⚠️ CONFORMITÉ : une boutique Shopify est
