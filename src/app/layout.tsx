@@ -42,6 +42,14 @@ export default function RootLayout({
 
           Ce script est chargé sur TOUTES les pages : hors admin Shopify il est
           simplement inerte (~20 ko, mis en cache par le CDN).
+
+          ⚠️ Il logue alors « App Bridge Next: missing required configuration
+          fields: shop » dans la console. C'est BRUYANT MAIS INOFFENSIF : hors de
+          l'iframe Shopify, App Bridge n'a rien à faire et rien ne dépend de lui.
+          NE PAS « corriger » en le déplaçant dans un layout imbriqué (/shopify) :
+          il ne serait plus le premier <script> du <head> et s'aborterait — c'est
+          précisément le bug qui faisait afficher « Installation requise » pendant
+          des heures. Le silence de la console ne vaut pas ce risque.
         */}
         {/* eslint-disable-next-line @next/next/no-sync-scripts */}
         <script

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 
 /**
  * POST /api/shopify/disconnect
@@ -49,11 +50,25 @@ export async function POST() {
   // install recréerait la ligne aussitôt et la déconnexion serait sans effet).
   // On efface aussi les doc-ids : ils pointent vers des documents qu'on vient de
   // supprimer, et une nouvelle liaison doit repartir d'une synchro propre.
-  const { error } = await supabase
+  //
+  // ⚠️ ÉCRITURE EN SERVICE ROLE, et c'est nécessaire. La RLS de `shopify_stores`
+  // n'autorise à modifier que SES propres lignes (`user_id = auth.uid()`) — or on
+  // met justement `user_id` à NULL, ce qui produit une ligne qui n'appartient plus
+  // à personne. Postgres refusait donc l'UPDATE :
+  //   « new row violates row-level security policy for table shopify_stores »
+  // (Le DELETE d'avant passait, lui, d'où le bug qui n'apparaissait qu'ici.)
+  //
+  // La preuve de propriété est faite AU-DESSUS : le SELECT filtre sur
+  // `user_id = user.id`. On ne délie donc que la boutique de l'appelant.
+  const admin = createAdminSupabase(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+  const { error } = await admin
     .from('shopify_stores')
     .update({
       user_id: null,
-      // ⚠️ Marque la déliaison comme VOLONTAIRE. Sans ça, store-status ré-adopterait
+      // Marque la déliaison comme VOLONTAIRE. Sans ça, store-status ré-adopterait
       // la boutique au chargement suivant (son shop_email correspond à l'email du
       // compte) et la déconnexion serait annulée dans la seconde.
       unlinked_at: new Date().toISOString(),
@@ -63,7 +78,7 @@ export async function POST() {
       updated_at: new Date().toISOString(),
     })
     .eq('id', store.id)
-    .eq('user_id', user.id) // ← on ne délie que SA boutique, jamais celle d'un autre
+    .eq('user_id', user.id) // ← ceinture et bretelles : jamais la boutique d'un autre
 
   if (error) {
     console.error('[shopify/disconnect] échec :', error.message)
