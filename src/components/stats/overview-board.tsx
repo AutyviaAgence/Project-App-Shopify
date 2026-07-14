@@ -119,10 +119,20 @@ export function StatsOverviewBoard({
   }, [sales])
   const countryCount = sales?.countries?.length ?? 0
 
+  // Évolution des messages sur toute la période (pour la 3e rangée).
+  const messagesSeries = useMemo(
+    () => stats.charts.messagesOverTime.map((p) => ({
+      date: p.date,
+      value: p.inbound + p.outbound,
+    })),
+    [stats.charts.messagesOverTime]
+  )
+
   return (
-    <div className="space-y-3">
+    // `space-y-5` (au lieu de 3) : la page respire. Elle était tassée en haut.
+    <div className="space-y-5">
       {/* ── Rang 1 : 4 mini-cartes ── */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <FrameCard>
           <p className="text-sm text-muted-foreground">Messages total</p>
           <p className="mt-1 text-3xl font-bold text-foreground"><NumberTicker value={o.totalMessages} /></p>
@@ -151,7 +161,7 @@ export function StatsOverviewBoard({
       </div>
 
       {/* ── Rang 2 : 3 big cards ── */}
-      <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
         {/* Messages cette semaine */}
         <FrameCard gradient>
           <div className="flex items-start justify-between">
@@ -244,6 +254,75 @@ export function StatsOverviewBoard({
             </div>
           </div>
         </FrameCard>
+      </div>
+
+      {/* ── Rang 3 : évolution des messages sur la période ──
+          Le bas de page était VIDE. Cette courbe le remplit avec une vraie donnée :
+          l'activité jour par jour, qui montre les pics et les creux. */}
+      <FrameCard gradient>
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-base font-semibold text-foreground">Activité des messages</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">Reçus et envoyés, jour par jour.</p>
+          </div>
+          <span className="text-sm font-semibold text-foreground">{nf(o.totalMessages)}</span>
+        </div>
+        <MessageChart data={messagesSeries} locale={locale} />
+      </FrameCard>
+    </div>
+  )
+}
+
+/**
+ * Courbe d'activité (barres empilées reçus/envoyés) sur toute la période.
+ *
+ * Un graphique honnête : chaque barre est un jour réel. Aucune donnée inventée —
+ * si le marchand n'a rien envoyé, la barre est vide.
+ */
+function MessageChart({
+  data,
+  locale,
+}: {
+  data: { date: string; value: number }[]
+  locale: string
+}) {
+  if (data.length === 0) {
+    return (
+      <div className="mt-6 flex h-40 items-center justify-center text-sm text-muted-foreground">
+        Aucun message sur la période.
+      </div>
+    )
+  }
+
+  const max = Math.max(1, ...data.map((d) => d.value))
+  // On n'affiche pas plus de ~30 barres : au-delà, elles deviennent illisibles.
+  const shown = data.length > 30 ? data.slice(-30) : data
+
+  const fmt = (iso: string) => {
+    const d = new Date(iso)
+    return d.toLocaleDateString(locale === 'fr' ? 'fr-FR' : 'en-US', { day: 'numeric', month: 'short' })
+  }
+
+  return (
+    <div className="mt-6">
+      <div className="flex h-40 items-end gap-[3px]">
+        {shown.map((d, i) => (
+          <div
+            key={i}
+            className="group/bar relative flex-1 rounded-t-[2px] bg-foreground/80 transition-colors hover:bg-primary"
+            style={{ height: `${Math.max(3, (d.value / max) * 100)}%` }}
+          >
+            {/* Infobulle au survol : la date et le nombre exact. */}
+            <span className="pointer-events-none absolute -top-8 left-1/2 z-10 -translate-x-1/2 whitespace-nowrap rounded bg-foreground px-2 py-1 text-[10px] font-medium text-background opacity-0 transition-opacity group-hover/bar:opacity-100">
+              {fmt(d.date)} : {d.value}
+            </span>
+          </div>
+        ))}
+      </div>
+      {/* Repères de dates aux extrémités (pas sous chaque barre : illisible). */}
+      <div className="mt-2 flex justify-between text-[11px] text-muted-foreground">
+        <span>{fmt(shown[0].date)}</span>
+        <span>{fmt(shown[shown.length - 1].date)}</span>
       </div>
     </div>
   )

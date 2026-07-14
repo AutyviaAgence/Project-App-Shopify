@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
-import { Loader2, Eye, MessageSquare, ShoppingBag, Trophy } from 'lucide-react'
-import { EngagementFunnel } from '@/components/stats/engagement-funnel'
+import { Loader2, MessageSquare, ShoppingBag, Trophy } from 'lucide-react'
 
 type Variant = { key: string; sent: number; openRate: number; responseRate: number; orderRate: number }
 type AutoRow = {
@@ -51,24 +50,48 @@ export function AutomationsBoard({ days }: { days: number }) {
 
   return (
     <div className="space-y-6">
-      {/* ── Entonnoir d'engagement (visuel 3D) ── */}
+      {/* ── Vue d'ensemble ──
+          ⚠️ L'ENTONNOIR A ÉTÉ RETIRÉ, ET L'ÉTAGE « OUVERTS » AVEC.
+          Un entonnoir suppose que chaque étage rétrécit. Or « ouverts » affichait
+          systématiquement 100 % : sur WhatsApp, une « ouverture » n'est qu'une coche
+          bleue (accusé de lecture), que la plupart des clients désactivent. La donnée
+          n'est donc PAS fiable — l'afficher comme un fait trompait le marchand
+          (3 envoyés → 3 ouverts → 3 réponses = 100 % partout, sur ta capture).
+          On ne garde que le mesurable : envoyé, répondu, converti en vente. */}
       <div className="rounded-2xl border border-border bg-card p-5">
-        <h3 className="text-lg font-semibold">Entonnoir d’engagement</h3>
-        <p className="mt-0.5 text-sm text-muted-foreground">Ce que deviennent vos messages initiés (les réponses SAV ne comptent pas).</p>
-        <div className="mx-auto h-[300px] w-full max-w-2xl">
-          <EngagementFunnel steps={[
-            { label: 'Messages envoyés', value: funnel.sent },
-            { label: 'Ouverts', value: funnel.opened },
-            { label: 'Réponses', value: funnel.responded },
-            { label: 'Ventes', value: funnel.ordered },
-          ]} />
+        <h3 className="text-lg font-semibold">Vue d’ensemble</h3>
+        <p className="mt-0.5 text-sm text-muted-foreground">
+          Vos messages d’automatisation sur la période (les réponses SAV ne comptent pas).
+        </p>
+
+        <div className="mt-4 grid gap-3 sm:grid-cols-3">
+          <BigStat icon={MessageSquare} label="Messages envoyés" value={funnel.sent} />
+          <BigStat
+            icon={MessageSquare}
+            label="Réponses reçues"
+            value={funnel.responded}
+            sub={`${funnel.responseRate}% de réponse`}
+          />
+          <BigStat
+            icon={ShoppingBag}
+            label="Ventes générées"
+            value={funnel.ordered}
+            sub={`${funnel.orderRate}% de conversion`}
+            accent
+          />
         </div>
-        {/* Taux clés sous l'entonnoir */}
-        <div className="mx-auto mt-2 grid max-w-md grid-cols-3 gap-2">
-          <Metric icon={Eye} label="Ouverture" value={funnel.openRate} />
-          <Metric icon={MessageSquare} label="Réponse" value={funnel.responseRate} />
-          <Metric icon={ShoppingBag} label="Vente" value={funnel.orderRate} accent />
-        </div>
+
+        {/* Le taux de conversion est LE chiffre qui compte : combien de messages ont
+            mené à un achat. C'est ce que le marchand veut vraiment savoir. */}
+        {funnel.sent > 0 && (
+          <p className="mt-3 text-xs text-muted-foreground">
+            {funnel.ordered > 0
+              ? `Sur ${funnel.sent} message${funnel.sent > 1 ? 's' : ''}, ${funnel.ordered} ${
+                  funnel.ordered > 1 ? 'ont' : 'a'
+                } abouti à une vente.`
+              : `Aucune vente attribuée pour l’instant. Les ventes apparaissent quand un client commande après avoir reçu un message.`}
+          </p>
+        )}
       </div>
 
       {/* ── Tests A/B en cours (mis en avant) ── */}
@@ -121,9 +144,10 @@ function AutoCard({ a }: { a: AutoRow }) {
                 <span className="text-xs text-muted-foreground">{a.sent} envoi{a.sent > 1 ? 's' : ''}</span>
               </div>
 
-              {/* 3 taux clés */}
-              <div className="mt-3 grid grid-cols-3 gap-2">
-                <Metric icon={Eye} label="Ouverture" value={a.openRate} />
+              {/* Taux fiables uniquement. « Ouverture » a été retirée ici comme dans
+                  la vue d'ensemble : sur WhatsApp, elle n'est qu'une coche bleue, que
+                  la plupart des clients désactivent — elle affichait donc 100 %. */}
+              <div className="mt-3 grid grid-cols-2 gap-2">
                 <Metric icon={MessageSquare} label="Réponse" value={a.responseRate} />
                 <Metric icon={ShoppingBag} label="Vente" value={a.orderRate} accent />
               </div>
@@ -136,7 +160,6 @@ function AutoCard({ a }: { a: AutoRow }) {
                       <tr className="text-left text-[11px] uppercase text-muted-foreground">
                         <th className="pb-1 font-medium">Variante</th>
                         <th className="pb-1 text-right font-medium">Envois</th>
-                        <th className="pb-1 text-right font-medium">Ouv.</th>
                         <th className="pb-1 text-right font-medium">Rép.</th>
                         <th className="pb-1 text-right font-medium">Vente</th>
                       </tr>
@@ -151,7 +174,6 @@ function AutoCard({ a }: { a: AutoRow }) {
                             </span>
                           </td>
                           <td className="py-1.5 text-right tabular-nums">{v.sent}</td>
-                          <td className="py-1.5 text-right tabular-nums">{v.openRate}%</td>
                           <td className="py-1.5 text-right tabular-nums">{v.responseRate}%</td>
                           <td className="py-1.5 text-right font-medium tabular-nums">{v.orderRate}%</td>
                         </tr>
@@ -169,11 +191,37 @@ function AutoCard({ a }: { a: AutoRow }) {
   )
 }
 
+/** Un taux (%), utilisé dans les cartes par automatisation. */
 function Metric({ icon: Icon, label, value, accent }: { icon: React.ComponentType<{ className?: string }>; label: string; value: number; accent?: boolean }) {
   return (
     <div className={cn('rounded-lg border p-2.5 text-center', accent && 'border-emerald-500/30 bg-emerald-500/5')}>
       <div className="flex items-center justify-center gap-1 text-[11px] text-muted-foreground"><Icon className="h-3 w-3" /> {label}</div>
       <div className={cn('mt-0.5 text-lg font-bold tabular-nums', accent && 'text-emerald-600')}>{value}%</div>
+    </div>
+  )
+}
+
+/** Un chiffre BRUT (pas un %), pour la vue d'ensemble : envoyés, réponses, ventes. */
+function BigStat({
+  icon: Icon,
+  label,
+  value,
+  sub,
+  accent,
+}: {
+  icon: React.ComponentType<{ className?: string }>
+  label: string
+  value: number
+  sub?: string
+  accent?: boolean
+}) {
+  return (
+    <div className={cn('rounded-xl border p-4', accent && 'border-emerald-500/30 bg-emerald-500/5')}>
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        <Icon className="h-3.5 w-3.5" /> {label}
+      </div>
+      <div className={cn('mt-1 text-2xl font-bold tabular-nums', accent && 'text-emerald-600')}>{value}</div>
+      {sub && <div className="mt-0.5 text-[11px] text-muted-foreground">{sub}</div>}
     </div>
   )
 }
