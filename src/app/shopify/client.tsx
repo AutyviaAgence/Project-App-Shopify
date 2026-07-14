@@ -82,7 +82,11 @@ type LinkState = {
  */
 const PLAN_CURRENCY = '€'
 
+// ⚠️ Le plan gratuit MANQUAIT. Un marchand en Free ne voyait donc aucune carte
+// marquée « plan actuel » : il ne savait pas où il en était, et l'écran ressemblait
+// à une grille de tarifs sans aucun rapport avec sa situation.
 const PLANS = [
+  { id: 'free', name: 'Gratuit', price: 0, desc: 'Boîte de réception, réponses manuelles' },
   { id: 'starter', name: 'Starter', price: 49, desc: '550 conversations IA / mois' },
   { id: 'pro', name: 'Growth', price: 149, desc: '1 800 conversations IA / mois' },
   { id: 'scale', name: 'Scale', price: 349, desc: '4 500 conversations IA / mois' },
@@ -110,6 +114,22 @@ export default function ShopifyEmbeddedClient() {
       //
       // ⚠️ `link-account` est le SEUL appel qui aboutit quand la boutique est déliée
       // (les deux autres exigent un compte Xeyo → 401, c'est normal et attendu).
+      // ⚠️ RÉSYNCHRONISER AVANT DE LIRE.
+      //
+      // L'activation d'un plan repose sur le callback de facturation — qui peut ne
+      // JAMAIS être appelé (onglet fermé, redirection bloquée, réseau coupé). Le
+      // marchand a alors payé, Shopify le facture, mais notre base reste sur
+      // `pending` : le contrôle de quota le fait retomber en GRATUIT à chaque
+      // rafraîchissement. Il paie et n'a rien.
+      //
+      // On demande donc la vérité à Shopify AVANT d'afficher quoi que ce soit.
+      // Best-effort : un échec ne doit jamais empêcher l'app de s'ouvrir.
+      await authenticatedFetch('/api/shopify/billing/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shop }),
+      }).catch(() => null)
+
       const [s, o, l] = await Promise.all([
         authenticatedFetch(`/api/shopify/status?shop=${encodeURIComponent(shop)}`).then((r) => r.json()).catch(() => null),
         authenticatedFetch('/api/shopify/embedded/overview').then((r) => r.json()).catch(() => null),
@@ -143,6 +163,32 @@ export default function ShopifyEmbeddedClient() {
     }
   }, [load])
 
+  /**
+   * Sort de l'iframe pour afficher un écran Shopify (approbation de facturation).
+   *
+   * ⚠️ Pourquoi on ne peut PAS utiliser `window.open` ici.
+   *
+   * Un `window.open` déclenché depuis une iframe, après un `await`, est bloqué par
+   * le navigateur : il n'est plus rattaché au clic de l'utilisateur. C'est ce qui
+   * produisait « Autorisez les pop-ups pour approuver l'abonnement » — le marchand
+   * ne pouvait tout simplement PAS s'abonner.
+   *
+   * L'écran d'approbation de Shopify refuse par ailleurs de s'afficher dans une
+   * iframe. Il DOIT donc être chargé au niveau supérieur. Ce n'est pas un
+   * « échappement » interdit : c'est le mécanisme prévu pour la facturation.
+   */
+  const redirectTop = (url: string) => {
+    try {
+      if (window.top) {
+        window.top.location.href = url
+        return
+      }
+    } catch {
+      // `window.top` est inaccessible (origines croisées) : on retombe plus bas.
+    }
+    window.location.href = url
+  }
+
   /** Abonnement via la Billing API — le marchand approuve DANS Shopify. */
   const subscribe = async (plan: string) => {
     setBusyPlan(plan)
@@ -156,13 +202,18 @@ export default function ShopifyEmbeddedClient() {
       const json = await res.json()
       const url = json?.data?.confirmationUrl
       if (!res.ok || !url) throw new Error(json.error || 'Erreur de facturation')
-      // La page d'approbation Shopify n'est PAS embeddable : elle doit s'ouvrir
-      // hors de l'iframe. On la charge dans un nouvel onglet plutôt que de faire
-      // `window.top.location = …` — échapper à l'iframe est un motif de rejet
-      // (exigence 2.2.2, « expérience embarquée cohérente »).
-      const tab = window.open(url, '_blank', 'noopener')
-      if (!tab) throw new Error('Autorisez les pop-ups pour approuver l’abonnement.')
-      setBusyPlan(null)
+
+      // ⚠️ `window.open` DEPUIS UNE IFRAME EST BLOQUÉ PAR LE NAVIGATEUR.
+      //
+      // C'est ce qui produisait « Autorisez les pop-ups pour approuver
+      // l'abonnement » : le marchand ne pouvait tout simplement PAS s'abonner. Une
+      // app dont on ne peut pas acheter l'abonnement est un rejet certain.
+      //
+      // L'écran d'approbation de Shopify refuse d'ailleurs de s'afficher dans une
+      // iframe (`X-Frame-Options`). Il DOIT donc s'ouvrir au niveau supérieur — ce
+      // n'est pas un « échappement » interdit, c'est le mécanisme prévu : App Bridge
+      // expose `window.top.location` précisément pour la facturation.
+      redirectTop(url)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur')
       setBusyPlan(null)
@@ -574,7 +625,7 @@ export default function ShopifyEmbeddedClient() {
                 </span>
               </div>
 
-              <div className="mt-4 grid gap-2 sm:grid-cols-3">
+              <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                 {PLANS.map((p) => {
                   const active = currentPlan === p.id
                   // `disabled` UNIQUEMENT sur le plan courant ou celui en cours de
@@ -591,7 +642,10 @@ export default function ShopifyEmbeddedClient() {
                       key={p.id}
                       type="button"
                       disabled={active || busy}
-                      onClick={() => subscribe(p.id)}
+                      // Le plan gratuit ne se « souscrit » pas : y revenir, c'est
+                      // ANNULER son abonnement. Sans ça, on créerait un abonnement
+                      // Shopify à 0 €, ce qui n'a aucun sens.
+                      onClick={() => (p.id === 'free' ? cancel() : subscribe(p.id))}
                       className={`group rounded-xl border p-3 text-left transition ${
                         active
                           ? 'border-gray-900 bg-gray-900 text-white'
@@ -611,7 +665,15 @@ export default function ShopifyEmbeddedClient() {
                             : 'bg-gray-900 text-white group-hover:bg-gray-700'
                         }`}
                       >
-                        {busy ? 'Ouverture…' : active ? 'Plan actuel' : isPaid ? 'Changer' : 'Choisir'}
+                        {busy
+                          ? 'Ouverture…'
+                          : active
+                            ? 'Plan actuel'
+                            : p.id === 'free'
+                              ? 'Annuler mon abonnement'
+                              : isPaid
+                                ? 'Changer'
+                                : 'Choisir'}
                       </span>
                     </button>
                   )
@@ -625,16 +687,10 @@ export default function ShopifyEmbeddedClient() {
                 le montant s’ajoute à votre facture Shopify.
               </p>
 
-              {isPaid && (
-                <button
-                  type="button"
-                  onClick={cancel}
-                  disabled={busyPlan !== null}
-                  className="mt-2 text-xs font-medium text-gray-500 hover:text-red-600 hover:underline disabled:opacity-50"
-                >
-                  {busyPlan === 'cancel' ? 'Annulation…' : 'Annuler mon abonnement (retour au plan gratuit)'}
-                </button>
-              )}
+              {/* Le lien « Annuler » qui vivait ici faisait doublon avec la carte
+                  « Gratuit » : y revenir EST l'annulation. Un seul chemin, plus
+                  lisible — et l'exigence App Store 1.2.3 (changer de plan sans
+                  contacter le support) reste satisfaite. */}
             </div>
 
             {/* ── CONFIGURATION restante ── */}

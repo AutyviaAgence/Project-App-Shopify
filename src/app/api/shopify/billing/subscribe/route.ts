@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
   // n'y a pas de RLS, c'est le code qui garantit l'isolation).
   const { data: store } = await admin
     .from('shopify_stores')
-    .select('id, access_token')
+    .select('id, access_token, plan, subscription_status')
     .eq('shop_domain', shop)
     .eq('user_id', authed.userId)
     .eq('is_active', true)
@@ -73,6 +73,13 @@ export async function POST(req: NextRequest) {
   }
   const planDef = PLANS[plan]
   const { appUrl } = getShopifyConfig()
+
+  // Passe-t-il à un plan MOINS cher, alors qu'il a un abonnement en cours ?
+  // (S'il n'a pas d'abonnement actif, il n'a rien payé : rien à préserver.)
+  const currentPlan = (store.plan || 'free') as PlanId
+  const currentPrice = PLANS[currentPlan]?.priceEur ?? 0
+  const isDowngrade =
+    store.subscription_status === 'active' && planDef.priceEur < currentPrice
 
   // ── Code promo (optionnel) ────────────────────────────────────────────────
   // La table `promo_codes` existait mais n'était JAMAIS lue : cette route
@@ -112,9 +119,19 @@ export async function POST(req: NextRequest) {
     test: isTestBilling(),
     trialDays: trialDays || undefined,
     discount,
-    // Le marchand a peut-être déjà un abonnement (réabonnement après annulation) :
-    // sans ceci, Shopify en empilerait un second et le facturerait deux fois.
-    replacementBehavior: 'APPLY_IMMEDIATELY',
+    // ⚠️ MONTÉE = TOUT DE SUITE. BAISSE = AU PROCHAIN CYCLE.
+    //
+    // Tout était appliqué immédiatement. Conséquence : un marchand qui passait de
+    // Scale à Starter perdait sur-le-champ ce qu'il avait DÉJÀ PAYÉ — il avait réglé
+    // un mois complet au tarif supérieur et se retrouvait aussitôt bridé.
+    //
+    //  · Montée en gamme → `APPLY_IMMEDIATELY` : il veut son accès maintenant, et
+    //    Shopify lui crédite au prorata ce qu'il a déjà versé.
+    //  · Baisse de gamme → `APPLY_ON_NEXT_BILLING_CYCLE` : il garde son plan actuel
+    //    jusqu'au bout de la période qu'il a payée, puis bascule.
+    //
+    // Un réabonnement après annulation est traité comme une montée (il n'a plus rien).
+    replacementBehavior: isDowngrade ? 'APPLY_ON_NEXT_BILLING_CYCLE' : 'APPLY_IMMEDIATELY',
   })
 
   if (!result.ok) {
@@ -136,16 +153,29 @@ export async function POST(req: NextRequest) {
   //
   // Le plan visé attend donc ici, et `plan` ne change qu'au callback, une fois le
   // paiement confirmé par Shopify.
+  //
+  // ⚠️ SUR UNE BAISSE DE PLAN, ON NE TOUCHE PAS AU STATUT.
+  //
+  // Le marchand garde son plan actuel jusqu'à la fin de la période qu'il a payée.
+  // Passer le statut à `pending` le ferait retomber en GRATUIT sur-le-champ — il
+  // perdrait immédiatement l'accès qu'il a déjà réglé, alors qu'il a simplement
+  // demandé à payer moins cher le mois prochain.
   await admin
     .from('shopify_stores')
     .update({
       pending_plan: plan,
-      subscription_status: 'pending',
+      ...(isDowngrade ? {} : { subscription_status: 'pending' }),
       shopify_charge_id: sub.appSubscription?.id ?? null,
       billing_source: 'shopify',
       updated_at: new Date().toISOString(),
     })
     .eq('id', store.id)
 
-  return NextResponse.json({ data: { confirmationUrl: sub.confirmationUrl } })
+  return NextResponse.json({
+    data: {
+      confirmationUrl: sub.confirmationUrl,
+      /** Le front s'en sert pour dire « à partir du prochain renouvellement ». */
+      effectiveAt: isDowngrade ? 'next_cycle' : 'immediate',
+    },
+  })
 }

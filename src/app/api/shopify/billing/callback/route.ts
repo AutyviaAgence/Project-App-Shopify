@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
   // Récupérer l'abonnement en attente (créé par /subscribe) + le token.
   const { data: store } = await admin
     .from('shopify_stores')
-    .select('id, user_id, access_token, shopify_charge_id, pending_plan')
+    .select('id, user_id, access_token, shopify_charge_id, pending_plan, plan, subscription_status')
     .eq('shop_domain', shop)
     .eq('is_active', true)
     .maybeSingle()
@@ -79,11 +79,24 @@ export async function GET(req: NextRequest) {
   // paramètre d'URL uniquement pour les abonnements créés avant ce correctif.
   const activatedPlan = store.pending_plan || plan
 
+  // ⚠️ BAISSE DE PLAN : elle ne prend effet qu'au PROCHAIN CYCLE.
+  //
+  // Shopify a bien approuvé le nouvel abonnement, mais avec
+  // `APPLY_ON_NEXT_BILLING_CYCLE` : l'ancien continue de courir jusqu'à la fin de
+  // la période déjà payée. Activer le plan inférieur maintenant briderait le
+  // marchand alors qu'il a réglé le tarif supérieur pour tout le mois.
+  //
+  // On garde donc son plan actuel, et `pending_plan` mémorise le plan visé — c'est
+  // le webhook d'abonnement qui basculera le jour venu.
+  const currentPrice = PLANS[(store.plan || 'free') as PlanId]?.priceEur ?? 0
+  const newPrice = PLANS[activatedPlan as PlanId]?.priceEur ?? 0
+  const isDeferredDowngrade = store.subscription_status === 'active' && newPrice < currentPrice
+
   await admin
     .from('shopify_stores')
     .update({
-      plan: activatedPlan,
-      pending_plan: null,
+      plan: isDeferredDowngrade ? store.plan : activatedPlan,
+      pending_plan: isDeferredDowngrade ? activatedPlan : null,
       subscription_status: 'active',
       billing_source: 'shopify',
       current_period_end: periodEnd.toISOString(),
