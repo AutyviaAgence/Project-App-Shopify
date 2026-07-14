@@ -81,15 +81,45 @@ export function ShopifyConnect() {
     }
   }
 
+  // Boutiques installées mais rattachées à aucun compte (cf. orphan-stores).
+  const [orphans, setOrphans] = useState<{ shop_domain: string; shop_name: string | null }[]>([])
+  const [linking, setLinking] = useState(false)
+
   const fetchStatus = useCallback(async () => {
     try {
       const res = await fetch('/api/shopify/store-status')
       const json = await res.json()
       if (res.ok && json.data) setStatus(json.data)
+
+      // Pas de boutique liée ? Peut-être une orpheline à proposer.
+      if (!json.data?.connected) {
+        const o = await fetch('/api/shopify/orphan-stores').then((r) => r.json()).catch(() => null)
+        setOrphans(o?.data?.stores || [])
+      } else {
+        setOrphans([])
+      }
     } finally {
       setLoading(false)
     }
   }, [])
+
+  /** Relie une boutique orpheline au compte connecté (connect refuse un 409 si prise). */
+  async function linkOrphan(shop: string) {
+    setLinking(true)
+    try {
+      const r = await tryDirectConnect(shop)
+      if (r === 'linked') {
+        await fetchStatus()
+        toast.success('Boutique reliée ✓')
+      } else if (r === 'taken') {
+        toast.error('Cette boutique est déjà liée à un autre compte.')
+      } else if (r === 'not_installed') {
+        toast.error('Boutique introuvable — réinstallez l’application.')
+      }
+    } finally {
+      setLinking(false)
+    }
+  }
 
   useEffect(() => { fetchStatus() }, [fetchStatus])
 
@@ -292,6 +322,30 @@ export function ShopifyConnect() {
           </div>
         </div>
       )}
+      {/*
+        Boutique DÉJÀ INSTALLÉE mais rattachée à aucun compte (user_id NULL).
+
+        Le managed install la provisionne (token exchange), mais on ne peut pas
+        deviner à quel compte Xeyo elle appartient : `shop.email` est une donnée
+        client protégée que Shopify ne renvoie qu'après approbation *Protected
+        Customer Data*. L'attribuer automatiquement reviendrait à laisser le premier
+        venu s'approprier la boutique d'un autre marchand — on la PROPOSE donc, et
+        c'est le marchand connecté qui la relie explicitement.
+      */}
+      {orphans.length > 0 && (
+        <div className="space-y-2 rounded-lg border border-primary/40 bg-primary/5 p-3">
+          <p className="text-sm font-medium">Boutique installée, en attente de liaison</p>
+          {orphans.map((o) => (
+            <div key={o.shop_domain} className="flex items-center justify-between gap-2">
+              <span className="truncate text-sm text-muted-foreground">{o.shop_name || o.shop_domain}</span>
+              <Button size="sm" disabled={linking} onClick={() => linkOrphan(o.shop_domain)}>
+                {linking ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Relier à mon compte'}
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/*
         ⚠️ Exigence App Store 2.3.1 : PAS de champ de saisie du domaine
         `.myshopify.com`. L'installation part de la fiche App Store ; Shopify

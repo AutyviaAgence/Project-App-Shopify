@@ -27,17 +27,22 @@ export async function GET() {
   // marchand voyait alors « Connectez votre boutique » alors qu'elle était bien
   // installée, et l'app embedded affichait 0 contact / 0 agent.
   //
-  // ⚠️ SÉCURITÉ — DEUX conditions cumulatives, ne JAMAIS en retirer une :
-  //   1. la boutique n'appartient à PERSONNE (`user_id is null`) ;
-  //   2. son `shop_email` est CELUI DE L'UTILISATEUR.
+  // ── Adoption d'une boutique ORPHELINE (user_id NULL) ────────────────────────
   //
-  // Sans la condition (2), le premier compte à charger son dashboard adopterait
-  // la boutique d'un AUTRE marchand — vol de boutique inter-comptes. La preuve de
-  // propriété, c'est l'email que Shopify nous a donné pour cette boutique.
+  // ⚠️ SÉCURITÉ : on n'adopte QUE si le `shop_email` de la boutique est CELUI DE
+  // L'UTILISATEUR. Sans cette preuve de propriété, le premier compte à charger son
+  // dashboard s'approprierait la boutique d'un AUTRE marchand — vol inter-comptes.
   //
-  // Une boutique SANS shop_email n'est donc jamais adoptée ici : elle resterait
-  // orpheline plutôt que d'être attribuée au premier venu. Le marchand la relie
-  // alors explicitement via /api/shopify/connect (même règle : 409 si déjà prise).
+  // ⚠️ LIMITE CONNUE : `shop.email` est une **donnée client protégée**. Shopify ne
+  // la renvoie qu'aux apps ayant l'approbation *Protected Customer Data* — tant
+  // qu'elle est en attente, `shop_email` reste VIDE et cette adoption ne peut pas
+  // se déclencher. La boutique reste alors orpheline, et le marchand doit la relier
+  // explicitement (bouton « Relier ma boutique » → /api/shopify/connect, qui
+  // applique la même règle : 409 si elle appartient déjà à quelqu'un).
+  //
+  // NE PAS « corriger » en retirant le filtre sur l'email : ce serait ouvrir le vol
+  // de boutique. La vraie levée du blocage, c'est l'approbation Protected Customer
+  // Data à la soumission App Store.
   if (!store && user.email) {
     const { data: orphan } = await supabase
       .from('shopify_stores')
