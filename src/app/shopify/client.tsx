@@ -52,6 +52,20 @@ type Overview = {
 }
 
 /**
+ * État de la liaison boutique ↔ compte Xeyo.
+ *
+ * Servi par `/api/shopify/embedded/link-account`, la SEULE route embedded qui
+ * n'exige pas un compte Xeyo (session token suffisant) — donc la seule qui répond
+ * encore quand la boutique est déliée (`user_id = NULL`).
+ */
+type LinkState = {
+  installed: boolean
+  linked: boolean
+  shopEmail: string | null
+  shopName: string | null
+}
+
+/**
  * ⚠️ Doit correspondre EXACTEMENT à ce que la Billing API prélève
  * (`createAppSubscription` → `currencyCode`, actuellement 'EUR').
  *
@@ -72,10 +86,12 @@ export default function ShopifyEmbeddedClient() {
   const shop = searchParams.get('shop') || ''
   const [status, setStatus] = useState<Status | null>(null)
   const [overview, setOverview] = useState<Overview | null>(null)
+  const [linkState, setLinkState] = useState<LinkState | null>(null)
   const [loading, setLoading] = useState(true)
   const [busyPlan, setBusyPlan] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [unlinking, setUnlinking] = useState(false)
+  const [linking, setLinking] = useState(false)
   const [opening, setOpening] = useState(false)
   const [unlinked, setUnlinked] = useState(false)
 
@@ -84,12 +100,17 @@ export default function ShopifyEmbeddedClient() {
     try {
       // Le session token (App Bridge) identifie la boutique ET le compte Xeyo :
       // le serveur ne fait plus confiance au `?shop=` de l'URL.
-      const [s, o] = await Promise.all([
+      //
+      // ⚠️ `link-account` est le SEUL appel qui aboutit quand la boutique est déliée
+      // (les deux autres exigent un compte Xeyo → 401, c'est normal et attendu).
+      const [s, o, l] = await Promise.all([
         authenticatedFetch(`/api/shopify/status?shop=${encodeURIComponent(shop)}`).then((r) => r.json()).catch(() => null),
         authenticatedFetch('/api/shopify/embedded/overview').then((r) => r.json()).catch(() => null),
+        authenticatedFetch('/api/shopify/embedded/link-account').then((r) => r.json()).catch(() => null),
       ])
       setStatus(s?.data ?? null)
       setOverview(o?.data ?? null)
+      setLinkState((l?.data as LinkState | undefined) ?? null)
     } finally {
       setLoading(false)
     }
@@ -165,6 +186,29 @@ export default function ShopifyEmbeddedClient() {
   }
 
   /**
+   * (Re)lie la boutique à un compte Xeyo — sortie de secours de la déliaison.
+   *
+   * Le serveur rattache le compte Xeyo portant l'email de la boutique (ou le crée).
+   * Après succès on recharge : `status` et `overview` répondent de nouveau, l'app
+   * repasse en affichage normal.
+   */
+  const relink = async () => {
+    setLinking(true)
+    setError(null)
+    try {
+      const res = await authenticatedFetch('/api/shopify/embedded/link-account', { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok || !json?.data?.linked) throw new Error(json?.error || 'Liaison impossible')
+      setUnlinked(false)
+      await load()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur')
+    } finally {
+      setLinking(false)
+    }
+  }
+
+  /**
    * Ouvre app.xeyo.io en CONNECTANT le marchand (onboarding ou dashboard).
    *
    * Sans ça, il arriverait sur la page de connexion : son compte Xeyo a été créé
@@ -225,6 +269,52 @@ export default function ShopifyEmbeddedClient() {
         {loading ? (
           <div className="rounded-2xl bg-white p-8 text-center text-sm text-gray-500 shadow-sm ring-1 ring-gray-200">
             Chargement…
+          </div>
+        ) : linkState && linkState.installed && !linkState.linked ? (
+          /* ── BOUTIQUE DÉLIÉE (user_id = NULL) ──
+             Sans cette branche : `/api/shopify/status` et `/api/shopify/embedded/overview`
+             répondent 401 (plus de compte Xeyo à résoudre), `status` vaut null et le
+             marchand tombe sur « Installation requise » — voire une page blanche — sans
+             aucun moyen de s'en sortir depuis l'admin Shopify. On lui offre donc ici la
+             seule action qui fonctionne encore sans compte : relier la boutique.
+             ⚠️ DOIT rester AVANT `!status?.installed` : l'app EST installée, elle n'est
+             simplement plus reliée à un compte. */
+          <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
+            <h2 className="text-base font-semibold text-gray-900">Reliez votre compte Xeyo</h2>
+            <p className="mt-2 text-sm text-gray-500">
+              Cette boutique n’est reliée à aucun compte Xeyo. Reliez-la pour retrouver vos contacts,
+              votre agent IA et vos conversations.
+            </p>
+            {linkState.shopEmail && (
+              <p className="mt-1 text-sm text-gray-500">
+                Le compte <span className="font-medium text-gray-900">{linkState.shopEmail}</span> sera
+                utilisé (ou créé s’il n’existe pas encore).
+              </p>
+            )}
+
+            {error && (
+              <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {error}
+              </div>
+            )}
+
+            <div className="mt-4 flex flex-col items-start gap-2">
+              <button
+                type="button"
+                onClick={relink}
+                disabled={linking}
+                className="rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:opacity-60"
+              >
+                {linking ? 'Liaison…' : 'Relier ma boutique'}
+              </button>
+              <button
+                type="button"
+                onClick={() => openInTop('/dashboard')}
+                className="text-xs font-medium text-gray-500 hover:text-gray-900 hover:underline"
+              >
+                Ouvrir Xeyo
+              </button>
+            </div>
           </div>
         ) : !status?.installed ? (
           <div className="rounded-2xl bg-white p-8 text-center shadow-sm ring-1 ring-gray-200">
