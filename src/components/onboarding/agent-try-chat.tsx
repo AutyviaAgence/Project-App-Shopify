@@ -59,7 +59,7 @@ export function AgentTryChat({
 
   return (
     <div className="overflow-hidden rounded-xl border">
-      <div className="flex items-center gap-2 border-b bg-muted/40 px-3 py-2 text-xs font-medium text-muted-foreground">
+      <div className="flex items-center gap-2 border-b bg-muted/40 px-4 py-2.5 text-xs font-medium text-muted-foreground">
         <Sparkles className="h-3.5 w-3.5 text-primary" /> Testez votre agent
         {maxQuestions != null && (
           <span className="ml-auto tabular-nums text-muted-foreground/70">
@@ -68,16 +68,17 @@ export function AgentTryChat({
         )}
       </div>
 
-      {/* Fil */}
-      <div ref={scrollRef} className="max-h-64 space-y-2 overflow-y-auto p-3">
+      {/* Fil. `min-h` : la zone garde sa hauteur même vide — sans ça, le panneau
+          grandit d'un coup à la première réponse et fait sauter la page. */}
+      <div ref={scrollRef} className="max-h-72 min-h-[92px] space-y-2.5 overflow-y-auto p-4">
         {messages.length === 0 && (
-          <p className="py-2 text-center text-xs text-muted-foreground">
+          <p className="mx-auto max-w-sm py-4 text-center text-xs leading-relaxed text-muted-foreground">
             Posez une question comme le ferait un client, l’agent répond avec les infos de votre boutique.
           </p>
         )}
         {messages.map((m, i) => (
           <div key={i} className={cn('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}>
-            <div className={cn('max-w-[80%] whitespace-pre-wrap rounded-2xl px-3 py-2 text-sm',
+            <div className={cn('max-w-[80%] whitespace-pre-wrap rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed',
               m.role === 'user' ? 'rounded-br-sm bg-primary text-primary-foreground' : 'rounded-bl-sm bg-muted')}>
               {m.content}
             </div>
@@ -85,7 +86,7 @@ export function AgentTryChat({
         ))}
         {sending && (
           <div className="flex justify-start">
-            <div className="rounded-2xl rounded-bl-sm bg-muted px-3 py-2">
+            <div className="rounded-2xl rounded-bl-sm bg-muted px-3.5 py-2.5">
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
             </div>
           </div>
@@ -94,10 +95,10 @@ export function AgentTryChat({
 
       {/* Suggestions pré-générées */}
       {!limitReached && remainingSuggestions.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 border-t px-3 py-2">
+        <div className="flex flex-wrap gap-2 border-t px-4 py-3">
           {remainingSuggestions.map((s) => (
             <button key={s} disabled={sending} onClick={() => send(s)}
-              className="rounded-full border border-primary/30 bg-primary/5 px-2.5 py-1 text-xs text-primary transition-colors hover:bg-primary/10 disabled:opacity-50">
+              className="rounded-full border border-primary/30 bg-primary/5 px-3 py-1.5 text-xs text-primary transition-colors hover:bg-primary/10 disabled:opacity-50">
               {s}
             </button>
           ))}
@@ -110,17 +111,17 @@ export function AgentTryChat({
           Limite d’essai atteinte ✓ Vous pourrez continuer à discuter avec votre agent après la configuration.
         </p>
       ) : (
-        <div className="flex items-center gap-2 border-t p-2">
+        <div className="flex items-center gap-2 border-t p-3">
           <input
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') send(input) }}
             placeholder="Écrivez un message…"
             disabled={sending}
-            className="h-9 flex-1 rounded-lg border border-input bg-background px-3 text-sm"
+            className="h-10 flex-1 rounded-lg border border-input bg-background px-3.5 text-sm"
           />
           <button onClick={() => send(input)} disabled={sending || !input.trim()}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground disabled:opacity-50">
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50">
             <Send className="h-4 w-4" />
           </button>
         </div>

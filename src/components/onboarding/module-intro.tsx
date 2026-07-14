@@ -71,9 +71,11 @@ export function ModuleIntro({ module, onStart }: { module: IntroModule; onStart:
         initial={reduced ? false : { opacity: 0, scale: 1.06, filter: 'blur(16px)' }}
         animate={{ opacity: 1, scale: phase >= 1 ? 1 : 1.35, filter: 'blur(0px)' }}
         transition={{ layout: { type: 'spring', stiffness: 170, damping: 24 }, duration: 1, ease: [0.22, 1, 0.36, 1] }}
-        // leading + pb/-mb : sans ça, bg-clip-text coupe les jambages (le « g »).
-        // -mt-8 : le titre siège un peu plus haut dans la scène.
-        className="-mb-2 -mt-8 bg-gradient-to-b from-white to-white/70 bg-clip-text px-4 pb-2 text-4xl font-bold leading-[1.2] tracking-tight text-transparent sm:text-5xl md:text-6xl"
+        // leading + pb : sans ça, bg-clip-text coupe les jambages (le « g »).
+        // ⚠️ Pas de marge négative en bas : elle tirait le titre DANS le mockup, qui
+        // lui-même remontait par-dessus (-mt-12). Le téléphone passait au-dessus du
+        // texte et le coupait en deux.
+        className="-mt-8 bg-gradient-to-b from-white to-white/70 bg-clip-text px-4 pb-2 text-4xl font-bold leading-[1.2] tracking-tight text-transparent sm:text-5xl md:text-6xl"
       >
         {meta.title}
       </motion.h2>
@@ -87,12 +89,10 @@ export function ModuleIntro({ module, onStart }: { module: IntroModule; onStart:
             animate={{ opacity: 1, y: 0 }}
             transition={{ type: 'spring', stiffness: 190, damping: 22 }}
             style={{ minHeight: meta.illuH }}
-            className={
-              // Agent : le mockup remonte pour PRESQUE chevaucher le titre.
-              module === 'agent'
-                ? '-mt-12 flex w-full items-center justify-center'
-                : 'flex w-full items-center justify-center'
-            }
+            // ⚠️ Aucune marge négative : le mockup remontait (-mt-12) par-dessus le
+            // titre, et le téléphone lui passait DEVANT — le texte était coupé en deux.
+            // L'illustration reste sous le titre ; le `gap` du parent les sépare.
+            className="flex w-full items-center justify-center"
           >
             {module === 'agent' && <AgentScene reduced={!!reduced} />}
             {module === 'templates' && <TemplateScene reduced={!!reduced} />}

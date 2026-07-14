@@ -892,13 +892,14 @@ export default function OnboardingPage() {
                        la mascotte (transparente, phone.png) qui « parle ».
                        Étape volontairement minimale : on essaie l'agent
                        (plafonné, coût tokens), le reste se règle plus tard. */
-                    <div className="relative space-y-4 md:pb-2">
-                      {/* En-tête clair et centré : QUI on teste, QUOI faire. */}
-                      <div className="space-y-1 text-center">
-                        <p className="text-lg font-semibold text-white">
+                    <div className="relative space-y-7 py-2 md:pb-4">
+                      {/* En-tête : QUI on teste, QUOI faire. Aéré — c'est la première
+                          rencontre du marchand avec son agent, elle doit respirer. */}
+                      <div className="space-y-2 text-center">
+                        <p className="text-xl font-semibold leading-snug text-white sm:text-2xl">
                           Essayez <span className="text-primary">{agentName || agentCfg.name}</span>
                         </p>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="mx-auto max-w-md text-sm leading-relaxed text-muted-foreground">
                           Il connaît déjà votre boutique. Posez-lui une question comme le ferait un client.
                         </p>
                       </div>
@@ -910,13 +911,14 @@ export default function OnboardingPage() {
                         maxQuestions={3}
                       />
 
-                      {/* Pied : note compacte à gauche, action à droite. */}
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      {/* Pied : la note ne doit pas concurrencer l'action. Séparée par
+                          un filet, elle passe au second plan. */}
+                      <div className="flex flex-col gap-4 border-t border-white/[0.06] pt-5 sm:flex-row sm:items-center sm:justify-between">
                         <p className="max-w-sm text-xs leading-relaxed text-muted-foreground">
-                          💡 Nom, ton, instructions et transferts à un humain : modifiables à tout moment (Agents IA).
+                          Nom, ton, instructions et transferts à un humain : modifiables à tout moment depuis <span className="text-foreground/80">Agents IA</span>.
                         </p>
-                        <Button disabled={busy} onClick={validateAgent} className="shrink-0">
-                          {busy ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Check className="mr-1 h-4 w-4" />}
+                        <Button size="lg" disabled={busy} onClick={validateAgent} className="shrink-0">
+                          {busy ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Check className="mr-1.5 h-4 w-4" />}
                           Valider mon agent
                         </Button>
                       </div>
