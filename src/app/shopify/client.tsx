@@ -344,10 +344,18 @@ export default function ShopifyEmbeddedClient() {
       })
       const json = await res.json()
       if (!res.ok || !json?.data?.linkUrl) throw new Error(json?.error || 'Liaison impossible')
-      window.open(json.data.linkUrl, '_blank', 'noopener,noreferrer')
+
+      // ⚠️ `window.open` depuis une iframe est BLOQUÉ par le navigateur — ce bouton
+      // ne fonctionnait donc pas. Or c'est LE chemin qui permet au marchand de relier
+      // sa boutique au compte de son choix : sans lui, il retombe dans le cercle
+      // vicieux (l'app lui impose le compte de `shop.email`).
+      //
+      // On sort au niveau supérieur : app.xeyo.io renvoie `X-Frame-Options: DENY`,
+      // la page ne peut de toute façon pas s'afficher dans l'iframe.
+      redirectTop(json.data.linkUrl)
     } catch (e) {
+      // Pas de `finally` : en cas de succès on quitte la page, l'état n'a plus de sens.
       setError(e instanceof Error ? e.message : 'Erreur')
-    } finally {
       setLinking(false)
     }
   }
@@ -360,40 +368,44 @@ export default function ShopifyEmbeddedClient() {
    * mot de passe — et l'iframe ne lui pose aucun cookie de session. On demande donc
    * au serveur un lien de connexion à usage unique.
    *
-   * ⚠️ L'onglet est ouvert AVANT l'await : un window.open déclenché après une
-   * réponse réseau n'est plus rattaché au clic et se fait bloquer comme pop-up.
-   * On l'ouvre vide, puis on y injecte l'URL.
+   * ⚠️ On ouvrait un onglet AVANT l'await, pour esquiver le blocage des pop-ups.
+   * Ça ne suffisait pas : le navigateur bloque de toute façon l'ouverture d'onglets
+   * depuis une iframe. On sort donc au niveau supérieur (`redirectTop`), ce qui ne
+   * peut pas être bloqué.
    */
   const openXeyo = async () => {
     setOpening(true)
     setError(null)
-    const tab = window.open('', '_blank', 'noopener')
     try {
       const res = await authenticatedFetch('/api/shopify/embedded/login-link', { method: 'POST' })
       const json = await res.json()
       if (!res.ok || !json?.data?.url) throw new Error(json.error || 'Ouverture impossible')
-      // ⚠️ NE JAMAIS faire `window.location.href = …` ici : on est dans l'iframe
-      // Shopify, et app.xeyo.io envoie `X-Frame-Options: DENY` sur toutes ses pages
-      // sauf /shopify. Le navigateur refuse alors d'afficher la page — l'app devient
-      // une PAGE BLANCHE, et le marchand est bloqué.
-      if (tab) tab.location.href = json.data.url
-      else throw new Error('Autorisez les pop-ups pour ouvrir Xeyo dans un nouvel onglet.')
+
+      // ⚠️ On ouvrait un onglet AVANT l'await pour esquiver le blocage des pop-ups.
+      // Ça ne suffit pas : le navigateur bloque tout de même l'ouverture d'onglets
+      // depuis une iframe — d'où « Autorisez les pop-ups pour ouvrir Xeyo ».
+      //
+      // On sort donc de l'iframe au NIVEAU SUPÉRIEUR. Une navigation du haut ne peut
+      // pas être bloquée, contrairement à un onglet.
+      //
+      // ⚠️ NE JAMAIS faire `window.location.href = …` : ça naviguerait l'IFRAME, et
+      // app.xeyo.io renvoie `X-Frame-Options: DENY` sur toutes ses pages sauf
+      // /shopify → page blanche, marchand bloqué.
+      redirectTop(json.data.url)
     } catch (e) {
-      tab?.close()
       setError(e instanceof Error ? e.message : 'Erreur')
-    } finally {
       setOpening(false)
     }
   }
 
-  /** Pages Xeyo non embeddables (builder, conversations complètes…) : nouvel onglet. */
+  /** Pages Xeyo non embeddables (builder, conversations complètes…). */
   const openInTop = (path: string) => {
     const url = `${APP_BASE}${path}`
-    // Dans l'iframe Shopify : TOUJOURS un nouvel onglet. Naviguer l'iframe vers
-    // app.xeyo.io la ferait tomber sur `X-Frame-Options: DENY` → page blanche.
+    // Ces pages renvoient `X-Frame-Options: DENY` : elles ne peuvent pas s'afficher
+    // dans l'iframe. On sort donc au niveau supérieur — un `window.open` depuis une
+    // iframe se fait bloquer, et le marchand ne pouvait tout simplement pas y accéder.
     if (typeof window !== 'undefined' && window.top && window.top !== window.self) {
-      const opened = window.open(url, '_blank', 'noopener')
-      if (!opened) setError('Autorisez les pop-ups pour ouvrir Xeyo dans un nouvel onglet.')
+      redirectTop(url)
     } else {
       window.location.href = url // hors iframe : navigation normale
     }
@@ -415,6 +427,24 @@ export default function ShopifyEmbeddedClient() {
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/xeyo-logo.png" alt="Xeyo" className="h-8 w-8 object-contain" />
           <h1 className="text-lg font-semibold text-gray-800">Xeyo, WhatsApp Support &amp; Chat</h1>
+
+          {/* ⚠️ Le seul accès au dashboard n'existait QUE pendant l'onboarding.
+              Une fois configuré, le marchand n'avait plus AUCUN moyen d'ouvrir Xeyo
+              depuis l'app Shopify — or l'essentiel s'y passe (conversations, agent,
+              campagnes). L'app embedded n'en montre qu'un aperçu.
+
+              Le lien de connexion est à usage unique : il entre directement, sans
+              avoir à retrouver un mot de passe qu'il n'a peut-être jamais choisi. */}
+          {!loading && linkState?.linked && (
+            <button
+              type="button"
+              onClick={openXeyo}
+              disabled={opening}
+              className="ml-auto shrink-0 rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-gray-800 disabled:opacity-60"
+            >
+              {opening ? 'Ouverture…' : 'Ouvrir l’application →'}
+            </button>
+          )}
         </div>
 
         {loading ? (
