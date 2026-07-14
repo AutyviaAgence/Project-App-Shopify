@@ -1216,7 +1216,11 @@ function AffiliateTab() {
   const [codes, setCodes] = useState<any[]>([])
   const [conversions, setConversions] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [form, setForm] = useState({ label: '', code: '', commission_percent: '30' })
+  // ⚠️ `contact_email` est ce qui RATTACHE le code à un compte Xeyo. Sans lui, le
+  // partenaire reste orphelin et ne voit jamais ses commissions — c'était
+  // exactement le bug de l'ancienne version (la colonne `user_id` était NOT NULL
+  // mais n'était jamais renseignée).
+  const [form, setForm] = useState({ label: '', code: '', commission_percent: '30', contact_email: '' })
   const [creating, setCreating] = useState(false)
   const [paying, setPaying] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
@@ -1247,7 +1251,7 @@ function AffiliateTab() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       toast.success('Code affilié créé')
-      setForm({ label: '', code: '', commission_percent: '30' })
+      setForm({ label: '', code: '', commission_percent: '30', contact_email: '' })
       fetchAll()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur')
@@ -1306,7 +1310,7 @@ function AffiliateTab() {
     <div className="space-y-8">
       <div className="rounded-xl border p-6">
         <h2 className="text-lg font-semibold mb-4 flex items-center gap-2"><Gift className="h-5 w-5 text-primary" />Créer un code affilié</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <input
             type="text"
             placeholder="Nom / label (ex: Jean Dupont)"
@@ -1320,6 +1324,16 @@ function AffiliateTab() {
             value={form.code}
             onChange={e => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))}
             className="border rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/30"
+          />
+          {/* ⚠️ C'est cet email qui RATTACHE le code au compte Xeyo du partenaire.
+              Sans lui, il ne verra jamais ses commissions — l'ancienne version ne le
+              demandait pas, et le partenaire restait orphelin à vie. */}
+          <input
+            type="email"
+            placeholder="Email du partenaire (facultatif)"
+            value={form.contact_email}
+            onChange={e => setForm(f => ({ ...f, contact_email: e.target.value }))}
+            className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
           <div className="flex gap-2">
             <input
@@ -1405,26 +1419,36 @@ function AffiliateTab() {
             <thead className="border-b bg-muted/30">
               <tr>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Affilié</th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Client converti</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Programme</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Code</th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Montant</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Payé par le client</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Commission</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y">
+              {/* Les commissions viennent désormais de `growth_rewards` : le
+                  bénéficiaire est le PARTENAIRE, et le code qui l'a générée vient de
+                  l'attribution. On n'affiche plus l'identité du client converti — un
+                  partenaire n'a pas à connaître les clients de la plateforme. */}
               {pending.map((conv: any) => (
                 <tr key={conv.id} className="hover:bg-muted/20">
                   <td className="px-4 py-3">
-                    <p className="font-medium">{conv.affiliate_codes?.label || conv.affiliate_codes?.code}</p>
+                    <p className="font-medium">
+                      {conv.beneficiary?.full_name || conv.beneficiary?.email || '—'}
+                    </p>
+                    {conv.beneficiary?.email && conv.beneficiary?.full_name && (
+                      <p className="text-xs text-muted-foreground">{conv.beneficiary.email}</p>
+                    )}
                   </td>
                   <td className="px-4 py-3">
-                    <p className="font-medium">{conv.converted_profile?.full_name || conv.converted_profile?.email}</p>
-                    <p className="text-xs text-muted-foreground">{conv.converted_profile?.email}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {conv.attribution?.code?.label || '—'}
+                    </p>
                   </td>
-                  <td className="px-4 py-3 font-mono">{conv.affiliate_codes?.code}</td>
-                  <td className="px-4 py-3">{((conv.amount_paid_cents || 0) / 100).toFixed(2)} €</td>
-                  <td className="px-4 py-3 font-semibold text-primary">{((conv.commission_cents || 0) / 100).toFixed(2)} €</td>
+                  <td className="px-4 py-3 font-mono">{conv.attribution?.code?.code || '—'}</td>
+                  <td className="px-4 py-3">{((conv.base_amount_cents || 0) / 100).toFixed(2)} €</td>
+                  <td className="px-4 py-3 font-semibold text-primary">{((conv.amount_cents || 0) / 100).toFixed(2)} €</td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
                       <Button size="sm" variant="outline" disabled={!!paying} onClick={() => handleMarkPaid(conv.id, 'transfer')}>
