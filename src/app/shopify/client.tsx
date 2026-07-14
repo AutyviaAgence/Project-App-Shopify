@@ -131,9 +131,13 @@ export default function ShopifyEmbeddedClient() {
       const json = await res.json()
       const url = json?.data?.confirmationUrl
       if (!res.ok || !url) throw new Error(json.error || 'Erreur de facturation')
-      // Page de confirmation Shopify : navigation top-level (elle n'est pas embeddable).
-      if (window.top) window.top.location.href = url
-      else window.location.href = url
+      // La page d'approbation Shopify n'est PAS embeddable : elle doit s'ouvrir
+      // hors de l'iframe. On la charge dans un nouvel onglet plutôt que de faire
+      // `window.top.location = …` — échapper à l'iframe est un motif de rejet
+      // (exigence 2.2.2, « expérience embarquée cohérente »).
+      const tab = window.open(url, '_blank', 'noopener')
+      if (!tab) throw new Error('Autorisez les pop-ups pour approuver l’abonnement.')
+      setBusyPlan(null)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Erreur')
       setBusyPlan(null)
@@ -286,41 +290,99 @@ export default function ShopifyEmbeddedClient() {
              seule action qui fonctionne encore sans compte : relier la boutique.
              ⚠️ DOIT rester AVANT `!status?.installed` : l'app EST installée, elle n'est
              simplement plus reliée à un compte. */
-          <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
-            <h2 className="text-base font-semibold text-gray-900">Reliez votre compte Xeyo</h2>
-            <p className="mt-2 text-sm text-gray-500">
-              Cette boutique n’est reliée à aucun compte Xeyo. Reliez-la pour retrouver vos contacts,
-              votre agent IA et vos conversations.
-            </p>
-            {linkState.shopEmail && (
+          <div className="mx-auto flex min-h-[70vh] w-full max-w-lg flex-col justify-center space-y-5">
+            {/* En-tête d'accueil : c'est très souvent le PREMIER écran vu après
+                l'installation depuis l'App Store. */}
+            <div className="text-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/xeyo-logo.png" alt="Xeyo" className="mx-auto h-12 w-12 object-contain" />
+              <h2 className="mt-4 text-2xl font-semibold text-gray-900">Bienvenue sur Xeyo</h2>
               <p className="mt-1 text-sm text-gray-500">
-                Le compte <span className="font-medium text-gray-900">{linkState.shopEmail}</span> sera
-                utilisé (ou créé s’il n’existe pas encore).
+                Votre agent IA WhatsApp pour le support et les ventes.
               </p>
-            )}
+            </div>
 
-            {error && (
-              <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {error}
+            <div className="grid gap-3 sm:grid-cols-3">
+              <div className="rounded-xl bg-gray-50 p-3 ring-1 ring-gray-100">
+                <p className="text-xs font-semibold text-gray-900">Réponses automatiques</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-gray-500">
+                  Un agent IA répond à vos clients 24h/24, avec vos vraies données produits.
+                </p>
               </div>
-            )}
+              <div className="rounded-xl bg-gray-50 p-3 ring-1 ring-gray-100">
+                <p className="text-xs font-semibold text-gray-900">Paniers abandonnés</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-gray-500">
+                  Relancez sur WhatsApp, là où les messages sont vraiment lus.
+                </p>
+              </div>
+              <div className="rounded-xl bg-gray-50 p-3 ring-1 ring-gray-100">
+                <p className="text-xs font-semibold text-gray-900">Suivi de commande</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-gray-500">
+                  Confirmation, expédition, livraison : tout est envoyé automatiquement.
+                </p>
+              </div>
+            </div>
 
-            <div className="mt-4 flex flex-col items-start gap-2">
-              <button
-                type="button"
-                onClick={relink}
-                disabled={linking}
-                className="rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:opacity-60"
-              >
-                {linking ? 'Liaison…' : 'Relier ma boutique'}
-              </button>
-              <button
-                type="button"
-                onClick={() => openInTop('/dashboard')}
-                className="text-xs font-medium text-gray-500 hover:text-gray-900 hover:underline"
-              >
-                Ouvrir Xeyo
-              </button>
+            <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
+              <h3 className="text-base font-semibold text-gray-900">Reliez votre compte</h3>
+              <p className="mt-2 text-sm text-gray-500">
+                Cette boutique n’est reliée à aucun compte Xeyo. Reliez-la pour accéder à vos contacts,
+                votre agent IA et vos conversations.
+              </p>
+
+              {linkState.shopEmail && (
+                <div className="mt-4 rounded-lg bg-gray-50 px-3 py-2">
+                  <p className="text-sm text-gray-500">
+                    Compte : <span className="font-medium text-gray-900">{linkState.shopEmail}</span>
+                  </p>
+                  <p className="mt-0.5 text-[11px] text-gray-500">
+                    Il sera créé automatiquement s’il n’existe pas encore.
+                  </p>
+                </div>
+              )}
+
+              {error && (
+                <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {error}
+                </div>
+              )}
+
+              <div className="mt-5 space-y-2">
+                <button
+                  type="button"
+                  onClick={relink}
+                  disabled={linking}
+                  className="w-full rounded-xl bg-gray-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:opacity-60"
+                >
+                  {linking ? 'Liaison…' : 'Relier ma boutique'}
+                </button>
+
+                {/*
+                  Le bouton ci-dessus relie TOUJOURS le compte dont l'email correspond
+                  à la boutique — c'est le garde qui empêche un staff Shopify de
+                  rattacher la boutique au compte Xeyo d'un tiers.
+
+                  Pour utiliser un AUTRE compte, le marchand doit donc prouver qu'il le
+                  possède : il se connecte sur app.xeyo.io, et relie la boutique depuis
+                  son dashboard (la boutique orpheline y est proposée). C'est le seul
+                  chemin sûr.
+
+                  On l'envoie sur /login (et non /dashboard) : il doit pouvoir CHOISIR
+                  son compte, éventuellement en se déconnectant du précédent.
+                */}
+                <button
+                  type="button"
+                  onClick={() => openInTop('/login?redirect=/dashboard')}
+                  className="w-full rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50"
+                >
+                  Utiliser un autre compte Xeyo →
+                </button>
+              </div>
+
+              <p className="mt-3 text-center text-[11px] leading-relaxed text-gray-400">
+                Connectez-vous au compte souhaité sur app.xeyo.io, puis reliez cette boutique
+                depuis votre tableau de bord.
+              </p>
             </div>
           </div>
         ) : !status?.installed ? (
