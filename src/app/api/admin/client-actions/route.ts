@@ -66,6 +66,7 @@ export async function POST(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: target } = await (admin as any)
       .from('profiles').select('plan').eq('id', user_id).maybeSingle()
+
     const update: Record<string, unknown> =
       action === 'pause'
         ? { subscription_status: 'past_due', tokens_limit: 0 }
@@ -73,9 +74,25 @@ export async function POST(req: NextRequest) {
             subscription_status: 'active',
             tokens_limit: PLAN_TOKEN_LIMITS[resolvePlan(target?.plan)] ?? 0,
           }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { error } = await (admin as any).from('profiles').update(update).eq('id', user_id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    // ⚠️ Il faut aussi écrire dans `shopify_stores` : c'est CETTE table que lisent
+    // le contrôle de quota et la page d'abonnement depuis la bascule sur la Billing
+    // API. Sans ça, suspendre un client ne suspendait rien — il gardait son accès —
+    // et les deux sources se contredisaient à l'écran.
+    //
+    // ⚠️ Cela ne touche PAS l'abonnement chez Shopify : le marchand continue d'être
+    // facturé. Pour arrêter la facturation, il faut annuler l'abonnement Shopify
+    // (/api/shopify/billing/cancel).
+    await admin
+      .from('shopify_stores')
+      .update({ subscription_status: action === 'pause' ? 'past_due' : 'active' })
+      .eq('user_id', user_id)
+      .eq('is_active', true)
+
     return NextResponse.json({ data: { ok: true, paused: action === 'pause' } })
   }
 

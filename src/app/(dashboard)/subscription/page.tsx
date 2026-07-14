@@ -354,7 +354,11 @@ function SubscriptionContent() {
           'mb-8 border-2',
           subscription.status === 'active' && 'border-green-500/30',
           subscription.status === 'trialing' && 'border-amber-500/30',
+          // Abonnement lancé mais jamais approuvé chez Shopify.
+          subscription.status === 'pending' && 'border-amber-500/30',
           subscription.status === 'canceled' && 'border-orange-500/30',
+          // Impayé : Shopify a gelé l'abonnement.
+          subscription.status === 'frozen' && 'border-red-500/30',
           subscription.status === 'past_due' && 'border-red-500/30',
         )}>
           <CardContent className="pt-6 pb-6">
@@ -387,17 +391,32 @@ function SubscriptionContent() {
                     </p>
                   </div>
                 </div>
+                {/* ⚠️ Le badge ne gérait que 4 statuts (active, trialing, canceled,
+                    past_due). Les statuts Shopify `pending` (abonnement lancé mais
+                    jamais approuvé) et `frozen` (impayé) n'en faisaient pas partie :
+                    le badge s'affichait alors VIDE — d'où la pastille bleue muette,
+                    sans le moindre libellé, en haut à droite de la carte. */}
                 <Badge className={cn(
-                  'text-sm px-3 py-1 self-start sm:self-auto',
+                  'self-start px-3 py-1 text-sm sm:self-auto',
                   subscription.status === 'active' && 'bg-green-500 hover:bg-green-600',
                   subscription.status === 'trialing' && 'bg-amber-500 hover:bg-amber-600',
+                  subscription.status === 'pending' && 'bg-amber-500 hover:bg-amber-600',
                   subscription.status === 'canceled' && 'bg-orange-500 hover:bg-orange-600',
+                  subscription.status === 'frozen' && 'bg-red-500 hover:bg-red-600',
                   subscription.status === 'past_due' && 'bg-red-500 hover:bg-red-600',
+                  !['active', 'trialing', 'pending', 'canceled', 'frozen', 'past_due'].includes(
+                    subscription.status || ''
+                  ) && 'bg-muted text-muted-foreground hover:bg-muted',
                 )}>
                   {subscription.status === 'active' && 'Actif'}
-                  {subscription.status === 'trialing' && 'Période d\'essai'}
+                  {subscription.status === 'trialing' && 'Période d’essai'}
+                  {subscription.status === 'pending' && 'En attente d’approbation'}
                   {subscription.status === 'canceled' && 'Annulé'}
+                  {subscription.status === 'frozen' && 'Impayé'}
                   {subscription.status === 'past_due' && 'Expiré'}
+                  {!['active', 'trialing', 'pending', 'canceled', 'frozen', 'past_due'].includes(
+                    subscription.status || ''
+                  ) && 'Aucun abonnement'}
                 </Badge>
               </div>
 

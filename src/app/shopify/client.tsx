@@ -582,33 +582,55 @@ export default function ShopifyEmbeddedClient() {
                   // grisait TOUTES les cartes (opacity-60), rendant les prix illisibles.
                   const busy = busyPlan === p.id
                   return (
+                    /* ⚠️ Ces cartes ÉTAIENT déjà cliquables — mais rien ne le disait.
+                       Aucun appel à l'action, aucun bouton : le marchand voyait une
+                       simple grille de tarifs et pensait ne pas pouvoir s'abonner
+                       depuis l'app. Or l'App Store EXIGE qu'il puisse changer de plan
+                       sans contacter le support (§1.2.3). On rend l'action explicite. */
                     <button
                       key={p.id}
                       type="button"
                       disabled={active || busy}
                       onClick={() => subscribe(p.id)}
-                      className={`rounded-xl border p-3 text-left transition ${
+                      className={`group rounded-xl border p-3 text-left transition ${
                         active
                           ? 'border-gray-900 bg-gray-900 text-white'
-                          : 'border-gray-200 bg-white hover:border-gray-900 hover:shadow-sm'
+                          : 'border-gray-200 bg-white hover:border-gray-900 hover:shadow-md'
                       }`}
                     >
                       <p className={`text-sm font-semibold ${active ? 'text-white' : 'text-gray-900'}`}>{p.name}</p>
                       <p className={`text-xs ${active ? 'text-white/70' : 'text-gray-600'}`}>{p.desc}</p>
                       <p className={`mt-1 text-sm font-bold ${active ? 'text-white' : 'text-gray-900'}`}>
-                        {busy ? '…' : active ? 'Actuel' : `${p.price} ${PLAN_CURRENCY}/mois`}
+                        {p.price} {PLAN_CURRENCY}/mois
                       </p>
+
+                      <span
+                        className={`mt-2.5 flex items-center justify-center rounded-lg px-2 py-1.5 text-xs font-semibold transition ${
+                          active
+                            ? 'bg-white/15 text-white/80'
+                            : 'bg-gray-900 text-white group-hover:bg-gray-700'
+                        }`}
+                      >
+                        {busy ? 'Ouverture…' : active ? 'Plan actuel' : isPaid ? 'Changer' : 'Choisir'}
+                      </span>
                     </button>
                   )
                 })}
               </div>
+
+              {/* Shopify EXIGE l'approbation du marchand pour toute modification
+                  d'abonnement — on le prévient, sinon la redirection le surprend. */}
+              <p className="mt-3 text-[11px] text-gray-400">
+                Shopify vous demandera de confirmer. Aucun moyen de paiement à saisir :
+                le montant s’ajoute à votre facture Shopify.
+              </p>
 
               {isPaid && (
                 <button
                   type="button"
                   onClick={cancel}
                   disabled={busyPlan !== null}
-                  className="mt-3 text-xs font-medium text-gray-500 hover:text-red-600 hover:underline disabled:opacity-50"
+                  className="mt-2 text-xs font-medium text-gray-500 hover:text-red-600 hover:underline disabled:opacity-50"
                 >
                   {busyPlan === 'cancel' ? 'Annulation…' : 'Annuler mon abonnement (retour au plan gratuit)'}
                 </button>

@@ -1,4 +1,18 @@
-export type SubscriptionStatus = 'trialing' | 'active' | 'past_due' | 'canceled' | 'none'
+/**
+ * ⚠️ `pending` et `frozen` viennent de Shopify et manquaient à ce type :
+ *   · `pending` — le marchand a lancé un abonnement mais ne l'a jamais approuvé.
+ *   · `frozen`  — impayé, Shopify a gelé l'abonnement.
+ * Sans eux, le badge de statut s'affichait VIDE dans ces deux cas (une pastille
+ * muette, sans le moindre libellé).
+ */
+export type SubscriptionStatus =
+  | 'trialing'
+  | 'active'
+  | 'pending'
+  | 'past_due'
+  | 'canceled'
+  | 'frozen'
+  | 'none'
 export type AuditStatus = 'none' | 'acompte_paid' | 'solde_paid' | 'refunded'
 
 export type Tenant = {

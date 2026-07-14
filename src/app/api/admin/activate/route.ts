@@ -41,7 +41,21 @@ export async function POST(req: NextRequest) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  // plan === null → réinitialiser sans abonnement actif
+  // ⚠️ IL FAUT ÉCRIRE DANS LES DEUX TABLES.
+  //
+  // Cette route n'écrivait que dans `profiles`. Or, depuis la bascule sur la
+  // Billing API, le contrôle de quota ET la page d'abonnement lisent
+  // `shopify_stores` : une activation manuelle n'avait donc AUCUN effet réel — le
+  // marchand restait bridé en gratuit, alors que l'admin le croyait activé.
+  //
+  // Pire, les deux sources divergeaient à l'écran : `profiles` disait « Scale /
+  // actif », `shopify_stores` disait « Pro / en attente », et la page affichait un
+  // mélange incohérent des deux.
+  //
+  // ⚠️ Une activation manuelle NE FACTURE PAS le marchand : c'est un accès offert
+  // (`billing_source` reste tel quel, aucun abonnement Shopify n'est créé). Pour
+  // qu'il paie réellement, il doit souscrire lui-même — Shopify exige son
+  // approbation, aucune API ne permet de la contourner.
   if (plan === null) {
     const { error: updateError } = await adminSupabase
       .from('profiles')
@@ -51,6 +65,12 @@ export async function POST(req: NextRequest) {
     if (updateError) {
       return NextResponse.json({ error: updateError.message }, { status: 500 })
     }
+
+    await adminSupabase
+      .from('shopify_stores')
+      .update({ plan: 'free', subscription_status: 'none', pending_plan: null })
+      .eq('user_id', user_id)
+      .eq('is_active', true)
 
     return NextResponse.json({ success: true, plan: null })
   }
@@ -74,6 +94,18 @@ export async function POST(req: NextRequest) {
   if (updateError) {
     return NextResponse.json({ error: updateError.message }, { status: 500 })
   }
+
+  // La source que lisent réellement le contrôle de quota et la page d'abonnement.
+  await adminSupabase
+    .from('shopify_stores')
+    .update({
+      plan,
+      subscription_status: 'active',
+      pending_plan: null,
+      current_period_end: nextMonth.toISOString(),
+    })
+    .eq('user_id', user_id)
+    .eq('is_active', true)
 
   // Récupérer le nom de l'app depuis le tenant de l'utilisateur
   let appName = 'Xeyo'
