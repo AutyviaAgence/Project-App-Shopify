@@ -61,6 +61,31 @@
     position: absolute; top: 4px; right: 8px; background: none; border: none;
     font-size: 18px; line-height: 1; color: #999; cursor: pointer;
   }
+  /* Note d'aperçu (éditeur uniquement, WhatsApp non connecté).
+     Se place AU-DESSUS de la bulle, dans le flux du widget → elle suit la position
+     choisie (gauche/droite) et ne recouvre jamais la bulle. */
+  .xeyo-wa-notice {
+    display: flex; gap: 10px; align-items: flex-start;
+    max-width: 268px; background: #fff; color: #1f2937;
+    border: 1px solid #e5e7eb; border-left: 3px solid #f59e0b;
+    border-radius: 12px; padding: 11px 13px;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+    animation: xeyo-wa-pop .3s ease;
+  }
+  /* En aperçu, la BULLE est estompée (elle n'ouvre rien) — mais pas la note,
+     qui doit rester parfaitement lisible. */
+  .xeyo-wa-preview .xeyo-wa-button { opacity: .55; cursor: default; }
+  .xeyo-wa-preview .xeyo-wa-button:hover { transform: scale(var(--xeyo-wa-scale, 1)); box-shadow: 0 6px 20px rgba(0,0,0,0.18); }
+  .xeyo-wa-notice-dot {
+    width: 8px; height: 8px; border-radius: 50%; background: #f59e0b;
+    flex: 0 0 auto; margin-top: 5px;
+  }
+  .xeyo-wa-notice strong { display: block; font-size: 13px; font-weight: 600; color: #111827; }
+  .xeyo-wa-notice p { margin: 3px 0 0; font-size: 12px; line-height: 1.45; color: #6b7280; }
+  .xeyo-wa-notice-foot {
+    display: block; margin-top: 6px; font-size: 10px; color: #9ca3af;
+    text-transform: uppercase; letter-spacing: .4px;
+  }
   .xeyo-wa-branding { font-size: 10px; color: #9aa3ad; text-decoration: none; letter-spacing: .2px; }
   .xeyo-wa-branding:hover { color: #6b7280; }
   /* Panneau de choix (style conversation WhatsApp) */
@@ -138,21 +163,22 @@
     var attr = function (k) { return el.getAttribute(k) || ''; };
 
     // Dans l'ÉDITEUR de thème uniquement (Shopify.designMode), on explique
-    // pourquoi la bulle n'apparaît pas. Sans ça, le marchand active le bloc, ne
-    // voit rien, et ne comprend pas que c'est WhatsApp qui manque. Jamais montré
-    // aux vrais visiteurs de la boutique.
-    function editorNotice(text) {
-      if (!window.Shopify || !window.Shopify.designMode) return;
-      var n = document.createElement('div');
-      n.setAttribute('style',
-        'position:fixed;z-index:2147483000;bottom:20px;right:20px;max-width:290px;'
-        + 'background:#1f2937;color:#fff;border:1px solid #f59e0b;border-radius:12px;'
-        + 'padding:12px 14px;font:13px/1.45 -apple-system,Segoe UI,Roboto,sans-serif;'
-        + 'box-shadow:0 8px 24px rgba(0,0,0,.35)');
-      n.innerHTML = '<strong style="display:block;margin-bottom:4px;color:#fbbf24">'
-        + 'Bulle Xeyo inactive</strong>' + text
-        + '<div style="margin-top:6px;font-size:11px;opacity:.7">Visible uniquement dans l\'éditeur.</div>';
-      document.body.appendChild(n);
+    // pourquoi la bulle n'est pas active. Sans ça, le marchand active le bloc, ne
+    // comprend pas que c'est WhatsApp qui manque. Jamais montré aux visiteurs.
+    //
+    // ⚠️ Cette note est INSÉRÉE DANS LE WIDGET (au-dessus de la bulle), pas en
+    // `position:fixed` dans le coin : elle se superposait à la bulle elle-même —
+    // les deux visaient bottom/right 20px — et ignorait la position choisie par le
+    // marchand (elle restait à droite même avec la bulle à gauche).
+    function noticeHtml(text) {
+      return '<div class="xeyo-wa-notice">'
+        + '<span class="xeyo-wa-notice-dot"></span>'
+        + '<div>'
+        +   '<strong>Bulle inactive</strong>'
+        +   '<p>' + text + '</p>'
+        +   '<span class="xeyo-wa-notice-foot">Aperçu éditeur — invisible pour vos clients</span>'
+        + '</div>'
+        + '</div>';
     }
 
     var inEditor = !!(window.Shopify && window.Shopify.designMode);
@@ -169,10 +195,7 @@
         // cliquable) — le marchand doit pouvoir la positionner et la styler avant
         // d'avoir connecté WhatsApp, et Shopify exige (requirement 5.1.2) que le
         // widget s'affiche correctement dans l'éditeur.
-        if (!ready) {
-          if (!inEditor) return;
-          editorNotice('Aperçu : connectez votre numéro WhatsApp dans Xeyo pour l’activer sur votre boutique.');
-        }
+        if (!ready && !inEditor) return;
         var previewOnly = !ready; // dans l'éditeur, sans WhatsApp
         var phone = String(cfg.phone || '').replace(/[^0-9]/g, '');
 
@@ -206,8 +229,17 @@
         }
 
         var html = '';
+
+        // Éditeur + WhatsApp non connecté : la note remplace le message d'accueil,
+        // au-dessus de la bulle. Elle suit donc la position du widget (gauche/droite)
+        // et ne peut plus le recouvrir.
+        if (previewOnly) {
+          html += noticeHtml('Connectez votre numéro WhatsApp dans Xeyo pour activer la bulle sur votre boutique.');
+        }
+
         // Greeting (petite bulle au-dessus) — uniquement en mode 1 lien.
-        if (!useChoices && attr('data-greeting') === 'true') {
+        // Masqué en aperçu : la note occupe déjà cette place.
+        if (!previewOnly && !useChoices && attr('data-greeting') === 'true') {
           html += '<div class="xeyo-wa-greeting" id="xeyo-wa-greeting">'
             + '<button class="xeyo-wa-greeting-close" aria-label="Fermer" onclick="document.getElementById(\'xeyo-wa-greeting\').style.display=\'none\'">&times;</button>'
             + '<p class="xeyo-wa-greeting-text">' + attr('data-greeting-text') + '</p>'
@@ -229,6 +261,9 @@
 
         el.innerHTML = html;
         el.style.display = 'flex';
+        // Aperçu : bulle légèrement estompée — elle ne fonctionne pas encore, il ne
+        // faut pas la confondre avec une bulle réellement active.
+        if (previewOnly) el.classList.add('xeyo-wa-preview');
 
         // APERÇU (éditeur, WhatsApp non connecté) : la bulle est visible pour être
         // positionnée/stylée, mais aucun clic ne doit naviguer.
