@@ -44,7 +44,7 @@ export async function resolveXeyoUser(shop: string): Promise<ResolvedUser | null
 
   const { data: store } = await supabase
     .from('shopify_stores')
-    .select('id, user_id, shop_email, shop_name, shop_domain')
+    .select('id, user_id, shop_email, shop_name, shop_domain, unlinked_at')
     .eq('shop_domain', shop)
     .eq('is_active', true)
     .maybeSingle()
@@ -52,6 +52,23 @@ export async function resolveXeyoUser(shop: string): Promise<ResolvedUser | null
 
   // 1) Boutique déjà liée à un compte.
   if (store.user_id) return { userId: store.user_id, created: false }
+
+  // 1bis) DÉLIAISON VOLONTAIRE : ne PAS recréer le lien tout seul.
+  //
+  // Sans ce garde, il suffisait de rouvrir l'app dans l'admin Shopify pour que la
+  // boutique se relie automatiquement au compte portant son `shop_email` — la
+  // déconnexion était donc annulée à chaque rafraîchissement, et le marchand ne
+  // pouvait JAMAIS changer de compte Xeyo (« Utiliser un autre compte » le ramenait
+  // sur l'ancien, déjà reliphé entre-temps).
+  //
+  // Une boutique volontairement déliée reste orpheline jusqu'à une liaison
+  // EXPLICITE : bouton « Relier ma boutique » (embedded/link-account) ou « Relier à
+  // mon compte » depuis le dashboard (/api/shopify/connect). Les deux effacent
+  // `unlinked_at`.
+  if (store.unlinked_at) {
+    console.log('[shopify/resolve-user] boutique volontairement déliée :', shop, '→ pas de liaison auto')
+    return null
+  }
 
   const email = (store.shop_email || '').trim().toLowerCase()
   if (!email) {
