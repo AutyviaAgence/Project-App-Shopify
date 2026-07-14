@@ -482,7 +482,7 @@ export default function NewCampaignPage() {
         </Card>
 
         {/* Filtres */}
-        <Card>
+        <Card data-tour="campaign-targeting">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-lg">
               <Filter className="h-5 w-5" />

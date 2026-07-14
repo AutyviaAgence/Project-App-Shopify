@@ -818,12 +818,12 @@ export default function TemplatesPage() {
             Synchroniser
           </Button>
           {aiEnabled ? (
-            <Button size="sm" onClick={openChoose}>
+            <Button data-tour="template-new-btn" size="sm" onClick={openChoose}>
               <Plus className="mr-1 h-4 w-4" />Nouveau modèle
             </Button>
           ) : (
             <div className="flex items-center gap-1.5">
-              <Button size="sm" disabled className="cursor-not-allowed opacity-60">
+              <Button data-tour="template-new-btn" size="sm" disabled className="cursor-not-allowed opacity-60">
                 <Plus className="mr-1 h-4 w-4" />Nouveau modèle
               </Button>
               <UpgradeBadge />
@@ -1066,7 +1066,7 @@ export default function TemplatesPage() {
                     )}
                     {(selectedTemplate?.status === 'draft' || selectedTemplate?.status === 'rejected' ||
                       (selectedTemplate?.status === 'approved' && selectedTemplate?.has_pending_changes)) && (
-                      <Button size="sm" variant="outline" disabled={busyId === selectedTemplate.id} onClick={() => handleSubmit(selectedTemplate)}>
+                      <Button data-tour="template-submit-btn" size="sm" variant="outline" disabled={busyId === selectedTemplate.id} onClick={() => handleSubmit(selectedTemplate)}>
                         {busyId === selectedTemplate.id ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Send className="mr-1 h-4 w-4" />}
                         {selectedTemplate.status === 'draft' ? 'Soumettre' : 'Resoumettre'}
                       </Button>
@@ -1322,7 +1322,7 @@ export default function TemplatesPage() {
                   {/* Menu déroulant de variables nommées (groupées) */}
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <button type="button" className="flex h-7 items-center gap-1 rounded px-2 text-xs hover:bg-muted"><Braces className="h-3.5 w-3.5" /> Variable</button>
+                      <button data-tour="template-variables" type="button" className="flex h-7 items-center gap-1 rounded px-2 text-xs hover:bg-muted"><Braces className="h-3.5 w-3.5" /> Variable</button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="max-h-80 overflow-y-auto">
                       {VARIABLE_GROUPS.map((group, gi) => (
@@ -1387,7 +1387,7 @@ export default function TemplatesPage() {
             {/* Boutons, standard et offre limitée (pas le carrousel, qui a ses
                 boutons par carte) */}
             {templateType !== 'carousel' && (
-            <div className="space-y-2">
+            <div className="space-y-2" data-tour="template-buttons">
               <Label>Boutons (optionnel)</Label>
               {buttons.map((b, i) => (
                 <div key={i} className="flex items-center gap-2 rounded-lg border p-2">

@@ -604,6 +604,7 @@ export default function SettingsPage() {
             {TABS.map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
+                data-tour={id === 'macros' ? 'settings-macros' : undefined}
                 onClick={() => setTab(id)}
                 className={`flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-left transition-colors ${
                   tab === id
@@ -1032,7 +1033,7 @@ export default function SettingsPage() {
             <p className="text-sm text-muted-foreground mb-4">
               {t('settings.data_info')}
             </p>
-            <Button onClick={handleExportData} disabled={exporting} variant="outline">
+            <Button data-tour="settings-export" onClick={handleExportData} disabled={exporting} variant="outline">
               {exporting ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
@@ -1093,7 +1094,7 @@ export default function SettingsPage() {
         </Card>
 
         {/* Rétention des données */}
-        <Card>
+        <Card data-tour="settings-retention">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Clock className="h-5 w-5" />

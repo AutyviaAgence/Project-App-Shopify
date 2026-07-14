@@ -481,7 +481,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
             </RowField>
             <Divider />
             <RowField label="Ton" trailing={<span className="text-sm text-muted-foreground">{toneLabel}</span>} stacked>
-              <div className="grid grid-cols-3 gap-2 mt-1">
+              <div className="grid grid-cols-3 gap-2 mt-1" data-tour="agent-tone">
                 {([
                   { id: 'professional', label: 'Pro', emoji: '👔' },
                   { id: 'friendly',     label: 'Chaleureux', emoji: '😊' },
@@ -507,6 +507,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
 
           {/* ═══ SAVOIR & MÉDIAS ═══ */}
           {activeTab === 'knowledge' && (<>
+          <div data-tour="agent-knowledge">
           <Group title="Savoir" subtitle="Documents que l'agent peut utiliser" icon={BookOpen} color="blue"
             trailing={<button onClick={() => setAddDocOpen(true)} className="flex items-center gap-1 text-[13px] text-blue-500 hover:text-blue-600 transition-colors"><Plus className="h-3.5 w-3.5" /> Ajouter</button>}
           >
@@ -551,6 +552,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
               </>
             )}
           </Group>
+          </div>
 
           {/* ═══ MÉDIAS ═══ (médias que l'agent peut envoyer en SAV : image/vidéo/document) */}
           <Group title="Médias" subtitle="Image, vidéo ou document que l'agent peut envoyer (fenêtre SAV 24h)" icon={ImageIcon} color="orange"
@@ -602,7 +604,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
           {activeTab === 'behavior' && (<>
           <Group title="Comportement" subtitle="Transfert humain et prise de rendez-vous" icon={SlidersHorizontal} color="blue">
             <RowField label="Transfert vers un humain" hint="Si le client le demande">
-              <Switch checked={escalationEnabled} onCheckedChange={setEscalationEnabled} />
+              <Switch data-tour="agent-escalation" checked={escalationEnabled} onCheckedChange={setEscalationEnabled} />
             </RowField>
             {escalationEnabled && (
               <>
@@ -782,7 +784,7 @@ export default function AgentDetailPage({ params }: { params: Promise<{ id: stri
             </RowField>
             <Divider />
             <RowField label="Prompt système" stacked>
-              <textarea value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)}
+              <textarea data-tour="agent-prompt" value={systemPrompt} onChange={e => setSystemPrompt(e.target.value)}
                 className="w-full min-h-[120px] rounded-xl bg-muted/40 px-3.5 py-3 text-xs font-mono resize-y focus:outline-none focus:ring-1 focus:ring-foreground/20 transition-all mt-1" />
             </RowField>
           </Group>

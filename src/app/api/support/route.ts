@@ -1,105 +1,108 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import OpenAI from 'openai'
-import { HELP_TOPICS, searchTopic } from '@/lib/support/knowledge'
+import { knowledgeForPrompt, VALID_PAGES, VALID_TARGETS, HELP_TOPICS } from '@/lib/support/knowledge'
 
 /**
- * POST /api/support  { question }
+ * POST /api/support  { question, history? }
  *
  * L'assistant d'aide. Il répond ET montre : quand c'est pertinent, il indique la
  * page où aller et l'élément à surligner — le marchand voit le bouton, il ne le
  * cherche pas.
  *
- * ── LA RECHERCHE D'ABORD, L'IA ENSUITE ──────────────────────────────────────
+ * ── C'EST L'IA QUI QUALIFIE, PAS DES MOTS-CLÉS ──────────────────────────────
  *
- * La plupart des questions de support sont les mêmes. Y répondre par une recherche
- * de mots-clés est instantané, gratuit, et la réponse est toujours exacte. L'IA
- * n'est appelée QUE si rien ne correspond.
+ * La première version cherchait par mots-clés. « Je peux contacter un humain ? »
+ * matchait sur « contact » et répondait… sur la collecte de numéros clients. Le
+ * mot était identique, le sens à l'opposé. Aucun réglage de mots-clés ne répare
+ * une confusion de SENS.
  *
- * ⚠️ Ces appels IA sont facturés à NOUS, pas au marchand : sans ce filtre, chaque
- * « comment connecter WhatsApp ? » nous coûterait des tokens.
+ * L'IA lit donc toute la base de connaissances et choisit ce qui répond vraiment.
+ * Le coût est négligeable — 0,03 centime par question : le filtre par mots-clés
+ * n'économisait rien et cassait la qualité.
  *
- * ── QUAND L'AGENT NE SAIT PAS ───────────────────────────────────────────────
+ * ── ELLE NE PEUT PAS INVENTER ───────────────────────────────────────────────
  *
- * Il le dit et propose de basculer sur WhatsApp. Un agent qui invente une réponse
- * est pire qu'un agent qui avoue son ignorance : le marchand suit une fausse piste,
- * perd du temps, et finit par écrire quand même.
+ * Sa réponse est vérifiée : la page et l'élément doivent EXISTER réellement. Un
+ * modèle peut halluciner une destination malgré la consigne — on ne fait pas
+ * naviguer un marchand vers du vide.
  */
 
-/** Le numéro vers lequel basculer. Modifiable sans redéployer le code. */
+/** Le numéro du support. En variable d'env pour être modifiable sans redéployer. */
 const SUPPORT_WHATSAPP = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || '33636006808'
+
+type Turn = { role: 'user' | 'assistant'; content: string }
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user }, error } = await supabase.auth.getUser()
   if (error || !user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
-  const { question } = (await req.json().catch(() => ({}))) as { question?: string }
-  const q = (question || '').trim()
+  const body = (await req.json().catch(() => ({}))) as { question?: string; history?: Turn[] }
+  const q = (body.question || '').trim()
   if (!q) return NextResponse.json({ error: 'Question vide' }, { status: 400 })
 
-  // ── 1. La FAQ, d'abord ────────────────────────────────────────────────────
-  const topic = searchTopic(q)
-  if (topic) {
-    return NextResponse.json({
-      data: {
-        answer: topic.answer,
-        page: topic.page ?? null,
-        target: topic.target ?? null,
-        source: 'faq' as const,
-        escalate: false,
-      },
-    })
-  }
-
-  // ── 2. L'IA, en secours ───────────────────────────────────────────────────
+  // Sans clé IA, on ne bricole pas une réponse approximative : on passe la main.
   if (!process.env.OPENAI_API_KEY) {
-    return NextResponse.json({
-      data: {
-        answer: 'Je n’ai pas la réponse à cette question. Voulez-vous en parler à notre équipe ?',
-        page: null,
-        target: null,
-        source: 'fallback' as const,
-        escalate: true,
-        whatsapp: SUPPORT_WHATSAPP,
-      },
-    })
+    return escalated('Je ne peux pas répondre pour le moment. Voulez-vous en parler à notre équipe ?')
   }
 
-  // ⚠️ On donne à l'IA la carte EXACTE des endroits qu'elle peut pointer.
-  // Sans cette contrainte, elle inventerait des pages et des éléments qui
-  // n'existent pas — et le surlignage échouerait en silence.
-  const destinations = HELP_TOPICS.filter((t) => t.page)
-    .map((t) => `- ${t.id} → page "${t.page}"${t.target ? `, élément "${t.target}"` : ''} : ${t.question}`)
-    .join('\n')
+  const SYSTEM = `Tu es l'assistant d'aide de Xeyo — un outil qui branche WhatsApp sur une boutique Shopify : un agent IA répond aux clients, relance les paniers abandonnés et envoie des campagnes.
 
-  const SYSTEM = `Tu es l'assistant d'aide de Xeyo, un SaaS qui connecte WhatsApp à une boutique Shopify (agent IA de SAV, relances de panier, campagnes).
+Tu parles à un MARCHAND qui utilise Xeyo, jamais à ses clients.
 
-Tu réponds en FRANÇAIS, en 2 ou 3 phrases maximum. Pas de liste, pas de markdown : du texte simple.
+# CE QUE TU SAIS FAIRE
 
-Quand la réponse se trouve à un endroit précis de l'application, indique-le : le marchand sera amené sur la page et l'élément sera surligné. Voici les SEULES destinations valides :
+Voici tout ce que tu connais de l'application. Chaque sujet indique où aller et quel élément surligner :
 
-${destinations}
+${knowledgeForPrompt()}
 
-⚠️ N'invente JAMAIS une page ou un élément qui n'est pas dans cette liste : le surlignage échouerait.
+# COMMENT RÉPONDRE
 
-⚠️ Si tu ne sais pas, dis-le franchement et mets "escalate": true. Ne devine pas. Une fausse réponse envoie le marchand sur une fausse piste et lui fait perdre du temps — il finira par nous écrire de toute façon, en plus agacé.
+1. Comprends d'abord ce que le marchand veut VRAIMENT. Ne te fie pas aux mots isolés.
+   Exemple : « je peux contacter un humain ? » veut dire « je veux parler à quelqu'un
+   de votre équipe » — surtout PAS « comment collecter les contacts de mes clients ».
+
+2. Si un sujet ci-dessus répond à sa question, sers-t'en. Reprends la réponse, en
+   l'adaptant à sa formulation. Renvoie la page et l'élément associés.
+
+3. Si sa question est proche de plusieurs sujets, choisis le plus PRÉCIS.
+   « Où sont les automatisations ? » et « comment en créer une ? » sont deux questions
+   différentes : la seconde attend le bouton de création, pas la page.
+
+4. Si AUCUN sujet ne répond, ou s'il demande à parler à un humain, ou s'il signale un
+   bug : mets "escalate": true. N'invente JAMAIS de réponse. Une fausse piste lui fait
+   perdre du temps, et il finira par nous écrire de toute façon — en plus agacé.
+
+5. Réponds en 2 ou 3 phrases. Du texte simple : pas de liste, pas de markdown, pas de
+   gras. Sois concret : nomme les boutons tels qu'ils s'affichent à l'écran.
+
+⚠️ N'invente JAMAIS une page ou un élément qui n'est pas dans la liste ci-dessus.
+
+# FORMAT
 
 Réponds UNIQUEMENT en JSON :
-{"answer": "ta réponse", "page": "/dashboard" ou null, "target": "whatsapp-connect" ou null, "escalate": false}`
+{"answer": "…", "page": "/dashboard" ou null, "target": "whatsapp-connect" ou null, "escalate": false}`
 
   try {
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, maxRetries: 2, timeout: 20_000 })
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY, maxRetries: 2, timeout: 25_000 })
+
+    // On garde le fil : « et pour les créer ? » n'a de sens qu'avec ce qui précède.
+    const history = (body.history || []).slice(-6).map((t) => ({
+      role: t.role === 'user' ? ('user' as const) : ('assistant' as const),
+      content: t.content,
+    }))
 
     const res = await openai.chat.completions.create({
-      model: 'gpt-4o-mini', // suffisant pour du support, et bien moins cher
+      model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: SYSTEM },
+        ...history,
         { role: 'user', content: q },
       ],
       response_format: { type: 'json_object' },
-      temperature: 0.3,
-      max_tokens: 300,
+      temperature: 0.2,
+      max_tokens: 350,
     })
 
     const raw = res.choices[0]?.message?.content
@@ -112,39 +115,51 @@ Réponds UNIQUEMENT en JSON :
       escalate?: boolean
     }
 
-    // ⚠️ On vérifie que la destination existe RÉELLEMENT. Un modèle peut inventer
-    // une page malgré la consigne ; on ne fait pas naviguer le marchand vers du vide.
-    const validPages = new Set(HELP_TOPICS.map((t) => t.page).filter(Boolean))
-    const validTargets = new Set(HELP_TOPICS.map((t) => t.target).filter(Boolean))
+    if (parsed.escalate === true) {
+      return escalated(parsed.answer || 'Je n’ai pas la réponse à cette question. Voulez-vous en parler à notre équipe ?')
+    }
 
-    const page = parsed.page && validPages.has(parsed.page) ? parsed.page : null
-    const target = parsed.target && validTargets.has(parsed.target) ? parsed.target : null
+    // ⚠️ On VÉRIFIE que la destination existe. Le modèle peut inventer une page
+    // malgré la consigne — on ne fait pas naviguer le marchand vers du vide.
+    const page = parsed.page && VALID_PAGES.has(parsed.page) ? parsed.page : null
+    const target = parsed.target && VALID_TARGETS.has(parsed.target) ? parsed.target : null
 
-    const escalate = parsed.escalate === true
+    // Un élément sans sa page ne peut pas être surligné : on ne saurait pas où aller.
+    const finalTarget = page ? target : null
+
+    // La note du sujet (le piège à connaître) : elle vient de NOTRE base, pas du
+    // modèle — c'est le genre de détail qu'une IA reformule mal.
+    const topic = finalTarget
+      ? HELP_TOPICS.find((t) => t.target === finalTarget && t.page === page)
+      : page
+        ? HELP_TOPICS.find((t) => t.page === page && !t.target)
+        : null
 
     return NextResponse.json({
       data: {
         answer: parsed.answer || 'Je n’ai pas la réponse à cette question.',
+        note: topic?.note ?? null,
         page,
-        // Un élément sans sa page ne sert à rien : on ne peut pas le surligner.
-        target: page ? target : null,
-        source: 'ai' as const,
-        escalate,
-        ...(escalate ? { whatsapp: SUPPORT_WHATSAPP } : {}),
+        target: finalTarget,
+        escalate: false,
       },
     })
   } catch (e) {
     console.error('[support] échec IA:', e)
-    // Une panne de l'IA ne doit pas laisser le marchand sans recours.
-    return NextResponse.json({
-      data: {
-        answer: 'Je n’arrive pas à répondre pour le moment. Voulez-vous en parler à notre équipe ?',
-        page: null,
-        target: null,
-        source: 'fallback' as const,
-        escalate: true,
-        whatsapp: SUPPORT_WHATSAPP,
-      },
-    })
+    return escalated('Je n’arrive pas à répondre pour le moment. Voulez-vous en parler à notre équipe ?')
   }
+}
+
+/** L'agent ne sait pas — on le dit, et on propose l'humain. */
+function escalated(answer: string) {
+  return NextResponse.json({
+    data: {
+      answer,
+      note: null,
+      page: null,
+      target: null,
+      escalate: true,
+      whatsapp: SUPPORT_WHATSAPP,
+    },
+  })
 }

@@ -620,6 +620,7 @@ export default function AgentsPage() {
                             </button>
                             <span className="h-px w-3 bg-white/25 sm:w-4" />
                             <button
+                              data-tour="agent-activate"
                               onClick={(e) => { e.stopPropagation(); handleToggleActive(agent) }}
                               title={agent.is_active ? 'Désactiver' : 'Activer'}
                               className="flex h-7 w-7 items-center justify-center rounded-full text-white/90 transition-all hover:scale-110 hover:text-white sm:h-9 sm:w-9"
@@ -666,6 +667,7 @@ export default function AgentsPage() {
                               <MessageSquare className="h-4 w-4 sm:h-[18px] sm:w-[18px]" />
                             </button>
                             <button
+                              data-tour="agent-tools-btn"
                               onClick={(e) => { e.stopPropagation(); setToolsAgent(agent); setToolsOpen(true) }}
                               title={t('tools.title')}
                               className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:bg-muted/70 hover:text-foreground sm:h-12 sm:w-12"

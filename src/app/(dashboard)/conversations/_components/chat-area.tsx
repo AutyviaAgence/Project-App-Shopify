@@ -241,6 +241,7 @@ export function ChatArea({
               </Select>
               {selectedConv.ai_agent_id && (
                 <Switch
+                  data-tour="conversation-ai-toggle"
                   checked={selectedConv.is_ai_active}
                   onCheckedChange={(checked) =>
                     onToggleAI(selectedConv.id, checked)

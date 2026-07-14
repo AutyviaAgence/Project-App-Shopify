@@ -506,7 +506,7 @@ function SubscriptionContent() {
 
       {/* Crédits IA (conversations), visible pour onboarding, active et skipped */}
       {subscription && (!!currentPlan) && aiCredits && aiCredits.limit !== null && (
-        <Card className="mb-8">
+        <Card className="mb-8" data-tour="ai-credits">
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -690,7 +690,7 @@ function SubscriptionContent() {
                 </div>
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <Button variant="outline" className="shrink-0 border-destructive/40 text-destructive hover:bg-destructive/5 hover:border-destructive">
+                    <Button data-tour="cancel-subscription" variant="outline" className="shrink-0 border-destructive/40 text-destructive hover:bg-destructive/5 hover:border-destructive">
                       <Ban className="mr-2 h-4 w-4" />
                       {t('subscription.cancel_subscription')}
                     </Button>

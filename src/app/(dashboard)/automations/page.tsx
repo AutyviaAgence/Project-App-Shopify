@@ -438,7 +438,9 @@ function AutomationsPageInner() {
                 className="flex h-6 w-6 items-center justify-center rounded-md border bg-card text-muted-foreground transition-colors hover:border-primary hover:text-primary">
                 <FolderPlus className="h-4 w-4" />
               </button>
-              <button onClick={openNew} title={NOUN.newOne}
+              {/* Ancre de l'assistant d'aide : « comment créer une automatisation ? »
+                  amène ici et surligne ce bouton. */}
+              <button data-tour="automation-new-btn" onClick={openNew} title={NOUN.newOne}
                 className="flex h-6 w-6 items-center justify-center rounded-md border bg-card text-muted-foreground transition-colors hover:border-primary hover:text-primary">
                 <Plus className="h-4 w-4" />
               </button>

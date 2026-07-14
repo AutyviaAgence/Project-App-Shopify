@@ -23,6 +23,8 @@ import { MessageCircleQuestion, X, Send, Loader2, ArrowRight } from 'lucide-reac
 type Msg = {
   role: 'user' | 'assistant'
   content: string
+  /** Le piège à connaître sur ce sujet. Vient de notre base, pas du modèle. */
+  note?: string | null
   page?: string | null
   target?: string | null
   escalate?: boolean
@@ -69,7 +71,12 @@ export function SupportBubble() {
   const showMe = async (page: string | null | undefined, target: string | null | undefined) => {
     if (!page) return
 
-    const samePage = pathname === page
+    // ⚠️ `pathname` ne contient PAS la query. Une destination comme
+    // `/automations?tab=marketing` doit être comparée sur sa partie chemin, sinon
+    // on croirait toujours devoir naviguer — et on rechargerait la page pour rien.
+    const [path] = page.split('?')
+    const samePage = pathname === path && !page.includes('?')
+
     if (!samePage) {
       router.push(page)
       // On referme : la bulle masquerait justement l'élément qu'on veut montrer.
@@ -79,7 +86,7 @@ export function SupportBubble() {
     if (!target) return
 
     // Laisse à la page le temps de se monter (plus long si on vient de naviguer).
-    await new Promise((r) => setTimeout(r, samePage ? 100 : 700))
+    await new Promise((r) => setTimeout(r, samePage ? 100 : 800))
 
     const el = document.querySelector<HTMLElement>(`[data-tour="${target}"]`)
     if (!el) return
@@ -101,7 +108,12 @@ export function SupportBubble() {
       const res = await fetch('/api/support', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question }),
+        // Le fil de la conversation : « et pour en créer une ? » n'a de sens
+        // qu'avec ce qui précède.
+        body: JSON.stringify({
+          question,
+          history: messages.map((m) => ({ role: m.role, content: m.content })),
+        }),
       })
       const json = await res.json()
       const d = json?.data
@@ -111,6 +123,7 @@ export function SupportBubble() {
         {
           role: 'assistant',
           content: d?.answer || 'Je n’ai pas la réponse à cette question.',
+          note: d?.note,
           page: d?.page,
           target: d?.target,
           escalate: d?.escalate,
@@ -216,6 +229,17 @@ export function SupportBubble() {
                       <div className="rounded-2xl rounded-bl-sm bg-muted px-3 py-2 text-sm leading-relaxed">
                         {m.content}
                       </div>
+
+                      {/* Le piège à connaître. Il vient de NOTRE base, pas du modèle :
+                          c'est le genre de détail qu'une IA reformule mal, alors que
+                          c'est précisément ce qui évite au marchand de se tromper. */}
+                      {m.note && (
+                        <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 px-3 py-2">
+                          <p className="text-xs leading-relaxed text-amber-700 dark:text-amber-400">
+                            {m.note}
+                          </p>
+                        </div>
+                      )}
 
                       {/* L'action qui distingue cet assistant : il MONTRE. */}
                       {m.page && (
