@@ -30,9 +30,26 @@ export async function authenticatedFetch(input: string, init: RequestInit = {}):
         const headers = new Headers(init.headers)
         headers.set('Authorization', `Bearer ${token}`)
         return fetch(input, { ...init, headers })
-      } catch {
-        // App Bridge indisponible → on tente quand même (cookies).
+      } catch (e) {
+        // ⚠️ NE PAS avaler cette erreur en silence.
+        //
+        // Ce `catch` muet nous a coûté des heures : quand `idToken()` échoue, la
+        // requête repart SANS en-tête Authorization, le serveur répond 401 et ne
+        // logue rien (un appel sans token est un cas normal côté web). Dans
+        // l'iframe, l'app affichait « Installation requise » sans qu'aucune trace
+        // n'existe, ni côté client ni côté serveur.
+        console.error(
+          '[authenticatedFetch] shopify.idToken() a échoué — la requête part SANS session token, ' +
+          'l’app embedded ne pourra pas s’authentifier :', e
+        )
       }
+    } else if (window.top !== window.self) {
+      // On est dans une iframe mais App Bridge n'expose pas idToken : le script
+      // CDN ne s'est pas initialisé (data-api-key vide/erroné, script bloqué…).
+      console.error(
+        '[authenticatedFetch] App Bridge absent dans l’iframe (window.shopify.idToken introuvable). ' +
+        'Vérifier que app-bridge.js est chargé avec un data-api-key valide.'
+      )
     }
   }
   return fetch(input, init)
