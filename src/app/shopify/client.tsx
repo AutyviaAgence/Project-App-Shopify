@@ -105,6 +105,11 @@ export default function ShopifyEmbeddedClient() {
   const [loading, setLoading] = useState(true)
   const [busyPlan, setBusyPlan] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // ⚠️ Le code promo était accepté par le serveur (la remise Shopify est bien
+  // appliquée), mais AUCUNE interface ne permettait de le saisir. L'admin pouvait
+  // créer des codes que personne ne pouvait utiliser.
+  const [promoCode, setPromoCode] = useState('')
+  const [showPromo, setShowPromo] = useState(false)
   const [unlinking, setUnlinking] = useState(false)
   const [linking, setLinking] = useState(false)
   const [opening, setOpening] = useState(false)
@@ -201,7 +206,9 @@ export default function ShopifyEmbeddedClient() {
       const res = await authenticatedFetch('/api/shopify/billing/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shop, plan }),
+        // Le code promo était accepté par le serveur, mais rien ne l'envoyait :
+        // aucun champ n'existait pour le saisir.
+        body: JSON.stringify({ shop, plan, ...(promoCode.trim() ? { promo_code: promoCode.trim() } : {}) }),
       })
       const json = await res.json()
       const url = json?.data?.confirmationUrl
@@ -764,6 +771,41 @@ export default function ShopifyEmbeddedClient() {
                   )
                 })}
               </div>
+
+              {/* ⚠️ LE CODE PROMO N'AVAIT AUCUN CHAMP DE SAISIE.
+                  Le serveur l'acceptait, la remise Shopify était bien appliquée — mais
+                  rien, nulle part, ne permettait au marchand de l'entrer. L'admin
+                  pouvait créer des codes que personne ne pouvait utiliser.
+
+                  Replié par défaut : un champ « code promo » toujours visible pousse
+                  le marchand à en chercher un, et à hésiter s'il n'en a pas. */}
+              {!isPaid && (
+                <div className="mt-3">
+                  {showPromo ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={promoCode}
+                        onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                        placeholder="Code promo"
+                        autoFocus
+                        className="w-40 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs uppercase tracking-wide focus:border-gray-900 focus:outline-none"
+                      />
+                      <span className="text-[11px] text-gray-400">
+                        La remise s’affichera sur l’écran Shopify avant validation.
+                      </span>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setShowPromo(true)}
+                      className="text-xs font-medium text-gray-500 underline hover:text-gray-900"
+                    >
+                      J’ai un code promo
+                    </button>
+                  )}
+                </div>
+              )}
 
               {/* Shopify EXIGE l'approbation du marchand pour toute modification
                   d'abonnement — on le prévient, sinon la redirection le surprend. */}
