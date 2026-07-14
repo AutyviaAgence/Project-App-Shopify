@@ -7,6 +7,29 @@ import { cn } from '@/lib/utils'
 type Msg = { role: 'user' | 'assistant'; content: string }
 
 /**
+ * Consigne ajoutée au prompt PENDANT CE TEST UNIQUEMENT (jamais en production).
+ *
+ * ⚠️ Le problème qu'elle résout : ici, l'agent n'a AUCUN accès aux commandes — ce test
+ * tourne pendant l'inscription, il n'existe ni commande, ni client, ni numéro de suivi.
+ * Interrogé sur « ma commande #1234 », il répondait pourtant « je vais consulter notre
+ * système, un instant… » et ne vérifiait rien. Il BLUFFAIT — et c'était la première
+ * impression que le marchand avait de son agent.
+ *
+ * On lui demande donc de le dire franchement, et d'enchaîner sur ce qu'il SAIT vraiment
+ * faire (catalogue, politiques). En production, l'outil de suivi de commande est
+ * réellement branché : cette règle n'y est jamais envoyée.
+ */
+const PREVIEW_RULE = `
+RÈGLE DE CET APERÇU (ne s'applique QUE dans ce test de configuration) :
+Tu n'as ici AUCUN accès aux commandes, aux colis, au suivi ni aux comptes clients : ce
+test tourne pendant l'inscription du marchand, aucune donnée réelle n'existe encore.
+Si on t'interroge là-dessus, NE PRÉTENDS JAMAIS aller vérifier, ne dis pas « un instant »
+et n'invente aucun statut. Dis en une phrase que le suivi de commande sera actif une
+fois la boutique connectée, puis propose ce que tu peux vraiment faire maintenant
+(renseigner sur les produits, les délais, les retours). Reste bref.
+`.trim()
+
+/**
  * Mini-chat de test de l'agent, pour l'onboarding. Le marchand essaie son
  * agent en direct (avec le prompt EN COURS d'édition, pas encore sauvegardé)
  * via /api/agents/[id]/test (system_prompt_override). Questions suggérées
@@ -42,7 +65,8 @@ export function AgentTryChat({
     try {
       const res = await fetch(`/api/agents/${agentId}/test`, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: msg, history, system_prompt_override: systemPrompt }),
+        // ⚠️ Consigne propre à CE test, jamais en production (voir PREVIEW_RULE).
+        body: JSON.stringify({ message: msg, history, system_prompt_override: `${systemPrompt}\n\n${PREVIEW_RULE}` }),
       })
       const json = await res.json()
       const reply = json?.data?.response || json?.error || 'Désolé, une erreur est survenue.'

@@ -21,6 +21,42 @@ const OBJECTIVE_LABELS: Record<string, string> = {
   loyalty: 'Fidélisation (suivi après-achat, demande d’avis, offres, réengagement)',
 }
 
+/**
+ * Questions de test proposées au marchand pendant l'onboarding.
+ *
+ * ⚠️ POURQUOI CE FILTRE.
+ *
+ * Le modèle proposait des questions du type « Où en est ma commande #1234 ? ». Or ce
+ * test tourne PENDANT L'INSCRIPTION : il n'existe ni commande, ni client, ni numéro de
+ * suivi. L'agent répondait donc « je vais consulter notre système, un instant… » —
+ * puis ne vérifiait rien. Il BLUFFAIT, et c'était la toute première impression que le
+ * marchand avait de son agent.
+ *
+ * On ne garde donc que les questions portant sur ce que l'agent peut RÉELLEMENT
+ * traiter ici : le catalogue et les politiques de la boutique, qu'il connaît déjà.
+ *
+ * Le prompt l'interdit déjà, mais un modèle peut désobéir : ce filtre est le garde-fou
+ * qui, lui, ne se trompe pas. Il rattrape aussi les agents créés AVANT ce correctif.
+ */
+const ORDER_TALK =
+  /\b(commande|colis|livraison\s+de\s+ma|suivi\s+de|tracking|num[ée]ro\s+de\s+commande|order|#\s*\d{3,})\b/i
+
+function sanitizeSampleQuestions(raw: unknown): string[] {
+  const list = (Array.isArray(raw) ? raw : [])
+    .filter((q: unknown): q is string => typeof q === 'string' && q.trim().length > 0)
+    .map((q) => q.trim())
+    .filter((q) => !ORDER_TALK.test(q))
+    .slice(0, 2)
+
+  // Le filtre a pu tout vider (modèle têtu). On ne laisse jamais le marchand devant un
+  // champ vide : ces deux questions marchent sur n'importe quelle boutique, et l'agent
+  // sait y répondre — il a le catalogue et les politiques.
+  if (list.length === 0) {
+    return ['Quels sont vos délais de livraison ?', 'Je peux retourner un article ?']
+  }
+  return list
+}
+
 export async function POST(req: Request) {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -69,7 +105,7 @@ export async function POST(req: Request) {
   "languages": ["fr", ...] (langues probables des clients d'après la boutique/le pays),
   "system_prompt": "prompt système COMPLET (voir structure)",
   "escalation_situations": "texte (4 à 8 lignes) décrivant les SITUATIONS où l'agent doit transférer à un conseiller humain, DÉDUITES des politiques de la boutique (retours, remboursements, délais, livraison, litiges) + bonnes pratiques e-commerce",
-  "sample_questions": ["2 questions COURTES qu'un VRAI client de CETTE boutique poserait sur WhatsApp (basées sur le catalogue/le secteur réel), pour tester l'agent. Ex : « Vous avez ça en taille M ? », « Où en est ma commande #1024 ? ». Formulées comme un client, à la 1re personne."]
+  "sample_questions": ["2 questions COURTES qu'un VRAI client de CETTE boutique poserait sur WhatsApp, à la 1re personne, pour tester l'agent. ⚠️ IMPÉRATIF : elles doivent porter UNIQUEMENT sur ce que l'agent peut RÉELLEMENT répondre ici et maintenant — le CATALOGUE (produits, prix, matières, tailles, stock, conseil) et les POLITIQUES de la boutique (livraison, délais, retours, remboursement, garantie, paiement). INTERDIT : toute question sur une COMMANDE, un COLIS, un SUIVI, un NUMÉRO DE COMMANDE, un compte ou une donnée personnelle. Ce test tourne pendant l'inscription du marchand : aucune commande, aucun client n'existe encore. L'agent répondrait « je vais vérifier… » et ne vérifierait rien — il bluffe, et c'est la 1re impression que le marchand a de lui. Ex. VALIDES : « Vous avez ce modèle en taille M ? », « Quels sont vos délais de livraison ? », « Je peux le retourner s'il ne me va pas ? ». Ex. INTERDITS : « Où en est ma commande #1024 ? », « Mon colis est arrivé ? »."]
 }
 
 Le system_prompt (texte brut, titres en MAJUSCULES, ≥500 mots, français) couvre :
@@ -134,9 +170,7 @@ Question hors du périmètre de l'agent (juridique, demande sur-mesure, gros vol
         escalation_situations: (typeof cfg.escalation_situations === 'string' && cfg.escalation_situations.trim())
           ? cfg.escalation_situations.trim()
           : DEFAULT_SITUATIONS,
-        sample_questions: (Array.isArray(cfg.sample_questions) ? cfg.sample_questions : [])
-          .filter((q: unknown): q is string => typeof q === 'string' && q.trim().length > 0)
-          .slice(0, 2),
+        sample_questions: sanitizeSampleQuestions(cfg.sample_questions),
         objectives,
       },
     })
