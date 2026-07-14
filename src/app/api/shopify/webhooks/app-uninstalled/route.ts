@@ -44,7 +44,14 @@ export async function POST(req: NextRequest) {
       // réinstallation.
       refresh_token: null,
       token_expires_at: null,
-      subscription_status: null,
+      // ⚠️ `subscription_status` est NOT NULL : y écrire `null` faisait ÉCHOUER
+      // tout l'UPDATE (« violates not-null constraint »), et la boutique restait
+      // active à jamais. `'none'` est la valeur prévue pour « aucun abonnement ».
+      subscription_status: 'none',
+      // Le plan aussi : sans ça, un marchand qui réinstalle retrouverait son plan
+      // payant sans nouvelle charge (Shopify a pourtant annulé l'abonnement).
+      plan: 'free',
+      shopify_charge_id: null,
       uninstalled_at: new Date().toISOString(),
     })
     .eq('shop_domain', shopDomain)
