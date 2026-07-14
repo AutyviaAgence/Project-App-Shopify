@@ -48,6 +48,7 @@ export async function GET() {
       .from('shopify_stores')
       .select('id, shop_name, shop_domain, last_synced_at, last_sync_summary, store_context')
       .is('user_id', null)
+      .is('unlinked_at', null) // ← déliée VOLONTAIREMENT : ne pas la ré-adopter
       .eq('is_active', true)
       .ilike('shop_email', user.email)
       .maybeSingle()
@@ -55,7 +56,7 @@ export async function GET() {
     if (orphan) {
       const { error: linkErr } = await supabase
         .from('shopify_stores')
-        .update({ user_id: user.id, billing_source: 'shopify', updated_at: new Date().toISOString() })
+        .update({ user_id: user.id, billing_source: 'shopify', unlinked_at: null, updated_at: new Date().toISOString() })
         .eq('id', orphan.id)
         .is('user_id', null) // re-vérifié à l'écriture : pas de course entre deux comptes.
       if (!linkErr) {

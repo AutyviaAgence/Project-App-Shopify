@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await admin
     .from('shopify_stores')
-    .update({ user_id: null, updated_at: new Date().toISOString() })
+    .update({ user_id: null, unlinked_at: new Date().toISOString(), updated_at: new Date().toISOString() })
     .eq('shop_domain', session.shop) // ← la boutique DU TOKEN, jamais une autre
     .eq('is_active', true)
     .select('id')

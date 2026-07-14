@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
   // `direct` (= Stripe) → motif de rejet / suspension d'app.
   await admin
     .from('shopify_stores')
-    .update({ user_id: user.id, billing_source: 'shopify', updated_at: new Date().toISOString() })
+    .update({ user_id: user.id, billing_source: 'shopify', unlinked_at: null, updated_at: new Date().toISOString() })
     .eq('id', store.id)
 
   // Re-slugger les liens du user au nom de la boutique (si slug encore aléatoire).
