@@ -733,7 +733,9 @@ function SubscriptionContent() {
           ? 'Changer de plan'
           : 'Plans disponibles'}
       </h2>
-      <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
+      {/* Ancre pour l'assistant d'aide : « comment changer de plan ? » l'amène ici
+          et surligne la grille des plans. */}
+      <div data-tour="plans-grid" className="grid md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
         {PLANS.map((plan) => {
           const Icon = plan.icon
           const isCurrent = plan.id === 'free'

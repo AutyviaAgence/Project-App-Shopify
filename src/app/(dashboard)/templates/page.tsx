@@ -802,7 +802,7 @@ export default function TemplatesPage() {
     <div className="flex h-full flex-col p-4 md:p-6 gap-4">
       <div className="flex items-center justify-between gap-2">
         <div>
-          <h1 className="text-xl font-semibold">Modèles de messages</h1>
+          <h1 data-tour="templates-header" className="text-xl font-semibold">Modèles de messages</h1>
           <p className="text-sm text-muted-foreground">
             Messages pré-approuvés par Meta, requis pour relancer un client hors fenêtre de 24h.
           </p>

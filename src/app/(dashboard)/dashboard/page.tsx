@@ -122,10 +122,16 @@ function DashboardHome() {
         </p>
       </div>
 
-      {/* Connexions — inchangées. */}
+      {/* Connexions. Les ancres `data-tour` permettent à l'assistant d'aide de
+          POINTER ces cartes : quand un marchand demande « où je connecte
+          WhatsApp ? », l'assistant l'amène ici et surligne la bonne carte. */}
       <div className="relative z-10 grid gap-4 md:grid-cols-2">
-        <WhatsAppConnect />
-        <ShopifyConnect />
+        <div data-tour="whatsapp-connect">
+          <WhatsAppConnect />
+        </div>
+        <div data-tour="shopify-connect">
+          <ShopifyConnect />
+        </div>
       </div>
 
       {/* ── Activité récente + Santé de l'agent ───────────────────────────── */}

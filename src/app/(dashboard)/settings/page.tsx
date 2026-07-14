@@ -167,7 +167,8 @@ function ReferralSection() {
   const months = data?.referral?.rewardMonths ?? 1
 
   return (
-    <Card>
+    /* Ancre pour l'assistant d'aide : « comment parrainer ? » amène ici. */
+    <Card data-tour="referral">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Gift className="h-5 w-5" />

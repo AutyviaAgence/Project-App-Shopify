@@ -42,6 +42,7 @@ import { SubscriptionBanner } from '@/components/subscription-banner'
 import { useSubscription } from '@/hooks/use-subscription'
 import { useTranslation } from '@/i18n/context'
 import { useTenant } from '@/lib/tenant/context'
+import { SupportBubble } from '@/components/support-bubble'
 
 const NAV_ITEMS_KEYS = [
   { href: '/dashboard', labelKey: 'nav.dashboard', icon: LayoutDashboard },
@@ -550,6 +551,10 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
 
       {/* Spacer for mobile bottom nav */}
       <div className="h-16 md:hidden" />
+
+      {/* Assistant d'aide : il répond ET montre où aller (il surligne l'élément
+          sur la page). S'il ne sait pas, il propose de basculer sur WhatsApp. */}
+      <SupportBubble />
     </div>
     </TourProvider>
   )
