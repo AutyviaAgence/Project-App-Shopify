@@ -61,6 +61,18 @@ use_legacy_install_flow = false
 [auth]
 redirect_urls = [ "https://app.xeyo.io/api/shopify/callback" ]
 
+# ⚠️ PIÈGE : `subpath` et `prefix` sont FIGÉS AU MOMENT DE L'INSTALLATION.
+# Shopify : « Changes to the subpath and prefix in your app will only apply to NEW
+# app installations. […] You can also uninstall and reinstall the app to
+# reinitialize the proxied path. »
+#
+# Autrement dit : modifier ces valeurs puis faire `shopify app deploy` NE SUFFIT
+# PAS. Sur une boutique déjà installée, Shopify continue d'ignorer le proxy et
+# renvoie 404 sur /apps/xeyo/* — alors que le backend répond parfaitement en direct.
+# Symptôme vécu : la bulle WhatsApp ne s'affichait jamais (son fetch tombait en 404).
+#
+# ➜ Après toute modification ici : DÉSINSTALLER puis RÉINSTALLER l'app sur chaque
+#   boutique de test. Il n'y a pas d'autre moyen.
 [app_proxy]
 url = "https://app.xeyo.io/api/shopify/proxy"
 subpath = "xeyo"

@@ -293,6 +293,39 @@ que d'attendre 24 h en laissant l'erreur passer inaperçue.
 
 ---
 
+## 9. Pièges Shopify vécus (à ne pas repayer)
+
+**L'App Proxy est FIGÉ à l'installation.** `subpath` et `prefix` ne s'appliquent
+qu'aux **nouvelles installations** : modifier le `.toml` puis `shopify app deploy`
+**ne suffit pas**. Sur une boutique déjà installée, Shopify continue de renvoyer
+**404** sur `/apps/xeyo/*` — alors que le backend répond parfaitement en direct.
+➜ **Désinstaller et réinstaller l'app** sur chaque boutique. Il n'y a pas d'autre moyen.
+*(Symptôme vécu : la bulle WhatsApp ne s'affichait jamais, son fetch tombait en 404.)*
+
+**App Bridge s'aborte s'il n'est pas le PREMIER `<script>` du `<head>`**, ou s'il
+porte `async`/`defer`. `<Script strategy="beforeInteractive">` de next/script ajoute
+`async` → App Bridge refusait de démarrer, `window.shopify` n'existait jamais, aucune
+requête ne portait de session token, et l'app affichait « Installation requise ».
+➜ Le tag est écrit **en dur dans le root layout**. Ne pas le déplacer.
+
+**Les jetons non-expirants sont REFUSÉS** (403) depuis déc. 2025. Le token exchange
+doit passer `expiring: "1"`, et les jetons se rafraîchissent via `refresh_token`.
+➜ Tout accès à l'Admin API passe par `getValidAccessToken()` — lire `access_token`
+en base donne tôt ou tard un **403 silencieux** (crons, webhooks, relances compris).
+
+**Le managed install n'appelle JAMAIS le callback OAuth.** La boutique doit être
+provisionnée par **token exchange** à la première ouverture embedded
+(`ensure-store.ts`), sinon elle n'existe nulle part et l'app affiche
+« Installation requise » indéfiniment.
+
+**`shopify app config link` ÉCRASE le `.toml`** (scopes vidés, `application_url`
+remis à `example.com`, webhooks et App Proxy supprimés). Commiter avant de lier.
+
+**`read_shop` n'existe pas.** Les infos de boutique (`shop { name email }`) ne
+demandent aucun scope.
+
+---
+
 ## 9. Dette connue (non bloquante pour la review)
 
 Par ordre de ce que je corrigerais en premier :
