@@ -47,6 +47,16 @@ type Overview = {
   conversations: Conversation[]
 }
 
+/**
+ * ⚠️ Doit correspondre EXACTEMENT à ce que la Billing API prélève
+ * (`createAppSubscription` → `currencyCode`, actuellement 'EUR').
+ *
+ * Un écart entre le prix AFFICHÉ et le prix PRÉLEVÉ est un motif de rejet à la
+ * review : le marchand doit savoir ce qu'il paie. Si la devise change côté
+ * facturation, elle doit changer ici aussi.
+ */
+const PLAN_CURRENCY = '€'
+
 const PLANS = [
   { id: 'starter', name: 'Starter', price: 49, desc: '550 conversations IA / mois' },
   { id: 'pro', name: 'Growth', price: 149, desc: '1 800 conversations IA / mois' },
@@ -246,22 +256,26 @@ export default function ShopifyEmbeddedClient() {
               <div className="mt-4 grid gap-2 sm:grid-cols-3">
                 {PLANS.map((p) => {
                   const active = currentPlan === p.id
+                  // `disabled` UNIQUEMENT sur le plan courant ou celui en cours de
+                  // souscription. Le désactiver dès qu'un autre bouton travaille
+                  // grisait TOUTES les cartes (opacity-60), rendant les prix illisibles.
+                  const busy = busyPlan === p.id
                   return (
                     <button
                       key={p.id}
                       type="button"
-                      disabled={active || busyPlan !== null}
+                      disabled={active || busy}
                       onClick={() => subscribe(p.id)}
-                      className={`rounded-xl border p-3 text-left transition disabled:opacity-60 ${
+                      className={`rounded-xl border p-3 text-left transition ${
                         active
                           ? 'border-gray-900 bg-gray-900 text-white'
-                          : 'border-gray-200 hover:border-gray-400'
+                          : 'border-gray-200 bg-white hover:border-gray-900 hover:shadow-sm'
                       }`}
                     >
-                      <p className="text-sm font-semibold">{p.name}</p>
-                      <p className={`text-xs ${active ? 'text-white/70' : 'text-gray-500'}`}>{p.desc}</p>
-                      <p className="mt-1 text-sm font-bold">
-                        {busyPlan === p.id ? '…' : active ? 'Actuel' : `${p.price} €/mois`}
+                      <p className={`text-sm font-semibold ${active ? 'text-white' : 'text-gray-900'}`}>{p.name}</p>
+                      <p className={`text-xs ${active ? 'text-white/70' : 'text-gray-600'}`}>{p.desc}</p>
+                      <p className={`mt-1 text-sm font-bold ${active ? 'text-white' : 'text-gray-900'}`}>
+                        {busy ? '…' : active ? 'Actuel' : `${p.price} ${PLAN_CURRENCY}/mois`}
                       </p>
                     </button>
                   )
