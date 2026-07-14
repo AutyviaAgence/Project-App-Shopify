@@ -98,10 +98,18 @@
   /* Note d'aperçu — éditeur de thème uniquement (jamais sur la vitrine).
      Rappelle que la popup ne s'affiche pas ainsi pour les vrais clients. */
   #xeyo-optin-popup .xeyo-pop-preview-note {
-    margin: 14px -22px -18px !important; padding: 9px 22px !important;
+    margin: 14px -22px -18px !important; padding: 10px 22px 11px !important;
     background: #fffbeb !important; border-top: 1px solid #fde68a !important;
     border-radius: 0 0 16px 16px !important;
-    font-size: 11px !important; line-height: 1.45 !important; color: #92400e !important;
+    font-size: 11px !important; line-height: 1.5 !important; color: #92400e !important;
+    text-align: left !important;
+  }
+  #xeyo-optin-popup .xeyo-pop-preview-note strong { font-weight: 700 !important; color: #78350f !important; }
+  /* La règle réelle (mode + délai) : détachée, c'est LA réponse à « pourquoi elle
+     s'affiche tout de suite ? ». */
+  #xeyo-optin-popup .xeyo-pop-preview-rule {
+    display: block !important; margin-top: 5px !important; padding-top: 5px !important;
+    border-top: 1px dashed #fcd34d !important; color: #a16207 !important;
   }
 </style>
 
@@ -166,9 +174,26 @@
     if (window.Shopify && window.Shopify.designMode) {
       root.classList.add('xeyo-open', 'xeyo-preview');
 
-      var note = document.createElement('p');
+      // On affiche SON délai réel : sans ça, le marchand voit la popup surgir tout de
+      // suite et croit que son réglage est ignoré (ou cassé). C'est justement le
+      // paramètre qu'il ne peut pas vérifier dans l'éditeur.
+      // Lu depuis l'attribut : `displayMode` est déclaré PLUS BAS (avec les
+      // déclencheurs). Le `var` serait hoisté à `undefined` ici → la note annoncerait
+      // silencieusement le mauvais mode.
+      var mode = root.getAttribute('data-display-mode') || 'cart';
+      var modeLabel = mode === 'all'
+        ? 'sur toutes les pages'
+        : (mode === 'custom' ? 'sur les pages que vous avez indiquées' : 'quand leur panier n’est pas vide');
+
+      var note = document.createElement('div');
       note.className = 'xeyo-pop-preview-note';
-      note.textContent = 'Aperçu éditeur — vos clients la verront sur un signal d’achat (panier, sortie de page).';
+      note.innerHTML =
+        '<strong>Aperçu éditeur</strong> — elle s’ouvre ici tout de suite pour que vous puissiez la régler. '
+        + 'C’est normal : vos clients ne la verront pas comme ça.'
+        + '<span class="xeyo-pop-preview-rule">Pour eux : ' + modeLabel
+        + ', au plus tôt après <strong>' + delay + ' s</strong>'
+        + (exitIntent ? ', ou dès qu’ils s’apprêtent à quitter la page' : '')
+        + '. Ce délai se règle ci-contre.</span>';
       card.appendChild(note);
 
       // Aucun envoi, aucune fermeture définitive : c'est une maquette vivante. On
