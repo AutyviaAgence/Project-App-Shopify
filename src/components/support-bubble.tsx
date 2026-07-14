@@ -38,6 +38,21 @@ const SUGGESTIONS = [
   'Mon agent ne répond pas',
 ]
 
+/**
+ * Au-delà, on bascule vers l'humain.
+ *
+ * Si l'assistant n'a pas résolu le problème en cinq questions, il ne le résoudra
+ * pas : le marchand tourne en rond. Mieux vaut le mettre en relation tout de suite
+ * que de le laisser s'épuiser — il finira par écrire de toute façon, en plus agacé.
+ *
+ * ⚠️ La limite est aussi appliquée CÔTÉ SERVEUR : ce compteur seul serait
+ * contournable.
+ */
+const MAX_QUESTIONS = 5
+
+/** Le numéro du support. Doit rester aligné avec celui du serveur. */
+const SUPPORT_WHATSAPP = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || '33636006808'
+
 export function SupportBubble() {
   const router = useRouter()
   const pathname = usePathname()
@@ -145,14 +160,31 @@ export function SupportBubble() {
     }
   }
 
+  /**
+   * Bascule vers l'humain, avec TOUT l'échange en contexte.
+   *
+   * On n'envoyait que la dernière question : l'équipe repartait de zéro, et le
+   * marchand devait tout réexpliquer — exactement ce qui l'agace quand un support
+   * le transfère.
+   */
   const openWhatsApp = (number: string) => {
+    const asked = messages.filter((m) => m.role === 'user')
+
+    const recap = asked.length
+      ? asked.map((m, i) => `${i + 1}. ${m.content}`).join('\n')
+      : '(aucune question posée)'
+
     const text = encodeURIComponent(
-      `Bonjour, j'ai besoin d'aide sur Xeyo.\n\nMa question : ${
-        [...messages].reverse().find((m) => m.role === 'user')?.content || ''
-      }`
+      `Bonjour, j'ai besoin d'aide sur Xeyo.\n\n` +
+        `J'ai posé ${asked.length > 1 ? 'ces questions' : 'cette question'} à l'assistant :\n${recap}\n\n` +
+        `Mais je n'ai pas trouvé de solution.`
     )
     window.open(`https://wa.me/${number}?text=${text}`, '_blank', 'noopener,noreferrer')
   }
+
+  /** Le marchand a-t-il épuisé ses questions ? */
+  const asked = messages.filter((m) => m.role === 'user').length
+  const limitReached = asked >= MAX_QUESTIONS
 
   return (
     <>
@@ -279,25 +311,55 @@ export function SupportBubble() {
             )}
           </div>
 
-          <div className="flex items-center gap-2 border-t p-3">
-            <input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') ask(input) }}
-              placeholder="Votre question…"
-              disabled={sending}
-              className="h-9 flex-1 rounded-lg border border-input bg-background px-3 text-sm"
-            />
-            <button
-              type="button"
-              onClick={() => ask(input)}
-              disabled={sending || !input.trim()}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
-              aria-label="Envoyer"
-            >
-              <Send className="h-4 w-4" />
-            </button>
-          </div>
+          {/* ⚠️ La saisie DISPARAÎT une fois la limite atteinte. Sans ça, le marchand
+              taperait dans le vide : le serveur refuserait sa question de toute façon.
+              On lui donne le seul chemin qui reste — et le seul qui aboutira. */}
+          {limitReached ? (
+            <div className="space-y-2 border-t bg-muted/30 p-3">
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                Je n’ai pas réussi à vous aider. Notre équipe prend le relais — elle
+                aura tout le contexte de vos questions.
+              </p>
+              <button
+                type="button"
+                onClick={() => openWhatsApp(SUPPORT_WHATSAPP)}
+                className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-[#25D366] px-3 py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90"
+              >
+                Parler à un humain sur WhatsApp
+              </button>
+            </div>
+          ) : (
+            <div className="border-t p-3">
+              <div className="flex items-center gap-2">
+                <input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === 'Enter') ask(input) }}
+                  placeholder="Votre question…"
+                  disabled={sending}
+                  className="h-9 flex-1 rounded-lg border border-input bg-background px-3 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => ask(input)}
+                  disabled={sending || !input.trim()}
+                  className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-50"
+                  aria-label="Envoyer"
+                >
+                  <Send className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Le compteur n'apparaît qu'à l'approche de la limite : l'afficher
+                  d'emblée donnerait l'impression d'être rationné. */}
+              {asked >= MAX_QUESTIONS - 2 && (
+                <p className="mt-1.5 text-[11px] text-muted-foreground">
+                  {MAX_QUESTIONS - asked} question{MAX_QUESTIONS - asked > 1 ? 's' : ''} restante
+                  {MAX_QUESTIONS - asked > 1 ? 's' : ''}, puis notre équipe prend le relais.
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
 

@@ -31,6 +31,14 @@ import { knowledgeForPrompt, VALID_PAGES, VALID_TARGETS, HELP_TOPICS } from '@/l
 /** Le numéro du support. En variable d'env pour être modifiable sans redéployer. */
 const SUPPORT_WHATSAPP = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || '33636006808'
 
+/**
+ * Au-delà, on bascule vers l'humain.
+ *
+ * Cinq questions sans solution, c'est un problème que l'assistant ne sait pas
+ * traiter. Insister ne ferait qu'ajouter de la frustration — et du coût IA.
+ */
+export const MAX_QUESTIONS = 5
+
 type Turn = { role: 'user' | 'assistant'; content: string }
 
 export async function POST(req: NextRequest) {
@@ -41,6 +49,21 @@ export async function POST(req: NextRequest) {
   const body = (await req.json().catch(() => ({}))) as { question?: string; history?: Turn[] }
   const q = (body.question || '').trim()
   if (!q) return NextResponse.json({ error: 'Question vide' }, { status: 400 })
+
+  // ⚠️ AU-DELÀ DE 5 QUESTIONS, ON PASSE LA MAIN.
+  //
+  // Si l'assistant n'a pas résolu le problème en cinq échanges, il ne le résoudra
+  // pas : le marchand tourne en rond, et chaque tour supplémentaire ne fait
+  // qu'ajouter de la frustration (et du coût IA, à notre charge).
+  //
+  // La limite est posée CÔTÉ SERVEUR : le compteur du client est contournable, il
+  // suffirait de vider l'historique envoyé.
+  const asked = (body.history || []).filter((t) => t.role === 'user').length
+  if (asked >= MAX_QUESTIONS) {
+    return escalated(
+      'Je ne suis pas parvenu à vous aider. Le mieux est d’en parler directement à notre équipe — elle a tout le contexte de votre boutique.'
+    )
+  }
 
   // Sans clé IA, on ne bricole pas une réponse approximative : on passe la main.
   if (!process.env.OPENAI_API_KEY) {
