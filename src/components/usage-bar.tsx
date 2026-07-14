@@ -37,15 +37,30 @@ export function UsageBar() {
   const [buying, setBuying] = useState(false)
   // Marchand facturé par Shopify → aucun achat Stripe (conformité App Store).
   const { subscription } = useSubscription()
-  const shopifyBilled = subscription?.shopifyBilled === true
 
-  // Achat d'un pack de crédits IA (recharge). Redirige vers Stripe Checkout.
+  /**
+   * Achat d'un pack de crédits IA.
+   *
+   * ⚠️ Passait par Stripe — qui REFUSE les marchands Shopify (403, conformité
+   * App Store : facturer un marchand Shopify hors Billing API vaut rejet). Or
+   * l'onboarding impose une boutique Shopify : ce bouton renvoyait donc une
+   * erreur à TOUS les marchands. Ils voyaient une offre qu'ils ne pouvaient pas
+   * acheter.
+   *
+   * Passe désormais par la Billing API (`appPurchaseOneTimeCreate`) : Shopify
+   * renvoie une URL d'approbation, comme pour un abonnement.
+   */
   const rechargeCredits = async () => {
     setBuying(true)
     try {
-      const res = await fetch('/api/stripe/buy-ai-credits', { method: 'POST' })
+      const res = await fetch('/api/shopify/billing/purchase', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pack: 'ai_credits' }),
+      })
       const json = await res.json()
-      if (json.url) window.location.href = json.url
+      const url = json?.data?.confirmationUrl
+      if (url) window.location.href = url
       else setBuying(false)
     } catch {
       setBuying(false)
@@ -122,11 +137,13 @@ export function UsageBar() {
         />
       </div>
 
-      {/* Bouton recharger quand il reste peu de crédits.
-          ⚠️ CONFORMITÉ SHOPIFY : pas de pack Stripe pour un marchand facturé par
-          Shopify (billing hors plateforme interdit) → on l'invite à monter de plan,
-          ce qui passe par la Billing API. */}
-      {low && !shopifyBilled ? (
+      {/* Bouton « Recharger », quand il reste peu de crédits.
+          Il était MASQUÉ pour les marchands Shopify (on leur proposait « Changer
+          de plan » à la place), parce que l'achat passait par Stripe — interdit
+          hors Billing API. Comme l'onboarding impose Shopify, plus AUCUN marchand
+          ne pouvait donc acheter de crédits. L'achat passe désormais par la
+          Billing API : le bouton redevient universel. */}
+      {low ? (
         <button
           type="button"
           onClick={(e) => { e.preventDefault(); e.stopPropagation(); rechargeCredits() }}
@@ -135,10 +152,6 @@ export function UsageBar() {
         >
           <Plus className="h-3 w-3" /> {buying ? '…' : 'Recharger'}
         </button>
-      ) : low && shopifyBilled ? (
-        <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-primary px-2 py-0.5 text-[11px] font-medium text-primary-foreground">
-          <Plus className="h-3 w-3" /> Changer de plan
-        </span>
       ) : (
         <span className="hidden shrink-0 text-[11px] text-muted-foreground md:inline">{planName}</span>
       )}

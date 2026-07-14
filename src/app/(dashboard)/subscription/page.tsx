@@ -161,13 +161,19 @@ function SubscriptionContent() {
       .catch(() => {})
   }, [])
 
+  // Passait par Stripe, qui refuse les marchands Shopify (403) — c'est-à-dire
+  // tous, puisque l'onboarding impose une boutique. Désormais sur la Billing API.
   const rechargeAiCredits = async () => {
     setBuyingCredits(true)
     try {
-      const res = await fetch('/api/stripe/buy-ai-credits', { method: 'POST' })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
-      window.location.href = data.url
+      const res = await fetch('/api/shopify/billing/purchase', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pack: 'ai_credits' }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json?.data?.confirmationUrl) throw new Error(json.error)
+      window.location.href = json.data.confirmationUrl
     } catch {
       toast.error('Impossible de lancer l’achat de crédits.')
       setBuyingCredits(false)
