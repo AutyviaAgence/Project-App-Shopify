@@ -78,20 +78,39 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // For new Google OAuth users: resolve referral_code cookie → referred_by
-      const referralCookie = request.cookies.get('referral_code')?.value
-      if (referralCookie && !profile?.referred_by) {
-        const { data: referrer } = await admin
-          .from('profiles')
-          .select('id')
-          .eq('referral_code', referralCookie.toUpperCase())
-          .single() as { data: { id: string } | null }
+      // ── PARRAINAGE / AFFILIATION (inscription via Google) ──────────────────
+      //
+      // L'inscription par email passe par le trigger `handle_new_user`, qui lit
+      // le code dans les métadonnées du compte. Google, lui, ne passe pas par ce
+      // chemin : l'attribution doit être posée ici.
+      //
+      // ⚠️ Ce bloc cherchait le parrain dans `profiles.referral_code` — l'ancien
+      // modèle. Il ne trouvait donc JAMAIS un code d'AFFILIÉ (qui vit dans une
+      // autre table) : un partenaire perdait toute commission sur un filleul
+      // inscrit via Google.
+      const growthCookie = request.cookies.get('growth_code')?.value
+      if (growthCookie) {
+        try {
+          const { data: code } = await admin
+            .from('growth_codes')
+            .select('id, owner_user_id, is_active')
+            .ilike('code', growthCookie.trim())
+            .maybeSingle() as { data: { id: string; owner_user_id: string | null; is_active: boolean } | null }
 
-        if (referrer) {
-          await admin
-            .from('profiles')
-            .update({ referred_by: referrer.id })
-            .eq('id', session.user.id)
+          // Anti auto-parrainage : on ne se parraine pas soi-même.
+          const isSelf = code?.owner_user_id === session.user.id
+
+          if (code?.is_active && !isSelf) {
+            // `referee_id` est UNIQUE : un marchand n'est attribué qu'une fois, à
+            // vie. Un doublon est donc normal (il s'était déjà inscrit) et ne doit
+            // pas faire échouer la connexion.
+            await admin
+              .from('growth_attributions')
+              .insert({ code_id: code.id, referee_id: session.user.id })
+          }
+        } catch (e) {
+          // Une attribution ratée ne doit JAMAIS bloquer une connexion.
+          console.error('[auth/callback] attribution échouée (non bloquant):', e)
         }
       }
     }

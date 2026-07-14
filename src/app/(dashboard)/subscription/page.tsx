@@ -245,17 +245,18 @@ function SubscriptionContent() {
         return
       }
 
-      // Lire le code affilié depuis le cookie si présent
-      const affiliateCode = document.cookie
-        .split('; ')
-        .find(r => r.startsWith('affiliate_code='))
-        ?.split('=')[1] || undefined
-
-      // Sinon → nouveau checkout Stripe
+      // ⚠️ Le cookie `affiliate_code` était lu ICI — et c'est précisément ce qui
+      // cassait l'affiliation : RIEN ne le posait jamais (le lien de partage
+      // posait `referral_code`). La commission ne pouvait donc jamais être
+      // attribuée.
+      //
+      // Le front n'a plus rien à porter : l'attribution est posée à
+      // l'INSCRIPTION (trigger `handle_new_user`), et la récompense est versée au
+      // premier paiement confirmé (`settleAttribution`, dans le callback Shopify).
       const res = await fetch('/api/stripe/create-checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: selectedPlan, ...(affiliateCode ? { affiliate_code: affiliateCode } : {}) }),
+        body: JSON.stringify({ plan: selectedPlan }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || t('subscription.payment_error'))

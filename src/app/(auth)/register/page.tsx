@@ -59,9 +59,11 @@ function RegisterForm() {
     }
   }
 
+  // Le code peut aussi arriver par `?ref=` (lien direct, sans passer par /r/<code>).
+  // Même cookie que la route /r/<code> : `growth_code`. Il n'y en a plus qu'un.
   useEffect(() => {
     if (refParam) {
-      document.cookie = `affiliate_code=${refParam.toUpperCase()}; max-age=${60 * 60 * 24 * 30}; path=/; samesite=lax`
+      document.cookie = `growth_code=${refParam.toUpperCase()}; max-age=${60 * 60 * 24 * 30}; path=/; samesite=lax`
     }
   }, [refParam])
 
@@ -132,9 +134,14 @@ function RegisterForm() {
       : planParam
         ? `${window.location.origin}/subscription?plan=${planParam}`
         : `${window.location.origin}/login`
-    const referralCode = document.cookie
+    // ⚠️ UN SEUL cookie, `growth_code`, pour le parrainage COMME pour l'affiliation.
+    //
+    // Il y en avait deux : `/r/<code>` posait `referral_code`, tandis que la page
+    // d'abonnement lisait `affiliate_code` — que rien ne posait. La chaîne
+    // d'affiliation était donc rompue : aucune commission n'a jamais été versée.
+    const growthCode = document.cookie
       .split('; ')
-      .find(r => r.startsWith('referral_code='))
+      .find(r => r.startsWith('growth_code='))
       ?.split('=')[1]
 
     const { error } = await supabase.auth.signUp({
@@ -148,7 +155,10 @@ function RegisterForm() {
           // l'utilisateur pourra le corriger dans les paramètres.
           full_name: email.split('@')[0],
           signup_domain: window.location.hostname,
-          ...(referralCode ? { referred_by_code: referralCode } : {}),
+          // Lu par le trigger `handle_new_user`, qui pose l'attribution en base.
+          // C'est là que le lien filleul → porteur est enregistré, à l'inscription
+          // — et non plus au paiement, qui ne fait que déclencher la récompense.
+          ...(growthCode ? { growth_code: growthCode } : {}),
         },
         emailRedirectTo: afterLogin,
         captchaToken: captchaToken || undefined,
