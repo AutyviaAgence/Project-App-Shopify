@@ -54,7 +54,11 @@ api_version = "2026-07"
 # Sans lui, `read_orders` plafonne l'Admin API aux 60 derniers jours et l'API
 # tronque SILENCIEUSEMENT au-delà. Il est indispensable au SAV (répondre sur une
 # commande ancienne) et à l'attribution du CA sur des cycles d'achat longs.
-scopes = "read_all_orders,read_content,read_customers,read_fulfillments,read_legal_policies,read_orders,read_products,read_returns,write_discounts,write_orders"
+# `read_shop` : requis par fetchShopInfo (`shop { name email currencyCode }`).
+# Sans lui, l'appel echoue -> shop_email vide -> resolveXeyoUser() REFUSE de creer
+# le compte (il ne devine pas une identite) -> la boutique reste orpheline
+# (user_id NULL) et l'app embedded affiche 0 contact / 0 agent.
+scopes = "read_all_orders,read_content,read_customers,read_fulfillments,read_legal_policies,read_orders,read_products,read_returns,read_shop,write_discounts,write_orders"
 optional_scopes = [ ]
 use_legacy_install_flow = false
 
