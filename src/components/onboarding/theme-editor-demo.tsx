@@ -2,9 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react'
 import {
-  MessageCircle, PartyPopper, Search, UserPlus, MousePointer2, Check,
-  Layers, Paintbrush, Blocks, Monitor, Smartphone, Undo2, Redo2, Plus,
-  ShoppingBag, ChevronDown,
+  MessageCircle, PartyPopper, Search, MousePointer2, Check,
+  PanelLeft, Layers, Settings, Blocks, Home, Store, Plus, ChevronDown, X,
 } from 'lucide-react'
 
 /**
@@ -13,16 +12,20 @@ import {
  * L'étape décrivait la manipulation en 4 phrases. Le marchand devait imaginer un écran
  * qu'il n'avait jamais vu — et se tromper d'onglet ou de bloc. On la lui MONTRE.
  *
- * Le parti pris qui rend la démo utile : on reconstitue l'éditeur ENTIER, panneau à
- * gauche ET APERÇU DE LA BOUTIQUE à droite. Quand le curseur bascule un interrupteur,
- * la bulle WhatsApp apparaît vraiment dans l'aperçu. Le marchand ne voit pas seulement
- * OÙ cliquer : il voit CE QUE ÇA FAIT. C'est ce lien de cause à effet qui manquait.
+ * Ce qui rend la démo utile : on reconstitue l'éditeur ENTIER, panneau à gauche ET
+ * APERÇU DE LA BOUTIQUE à droite. Quand le curseur bascule un interrupteur, la bulle
+ * WhatsApp apparaît vraiment dans l'aperçu, la popup surgit. Le marchand ne voit pas
+ * seulement OÙ cliquer : il voit CE QUE ÇA FAIT.
  *
- * C'est du DOM, pas une capture d'écran : net à toutes les tailles, et rien à
- * re-shooter le jour où Shopify repeint son interface.
+ * Fidèle au vrai éditeur : panneau CLAIR (pas sombre), rail d'icônes en haut à gauche,
+ * popup ancrée en bas à droite de la vitrine.
  *
- * ⚠️ `prefers-reduced-motion` : état FINAL figé, sans mouvement. Les animations
- * d'interface déclenchent des troubles vestibulaires chez certaines personnes.
+ * ⚠️ HAUTEUR FIXE (`h-[210px]` sur la scène). Les contenus des deux pages n'ont pas la
+ * même longueur : sans hauteur fixe, le bloc se dilatait à chaque temps de l'animation
+ * et faisait sauter toute la page de l'onboarding sous les yeux du marchand.
+ *
+ * ⚠️ `prefers-reduced-motion` : état FINAL figé. Les animations d'interface déclenchent
+ * des troubles vestibulaires chez certaines personnes.
  */
 
 type Beat = {
@@ -73,8 +76,8 @@ export function ThemeEditorDemo() {
     return at !== -1 && i >= at
   }
 
-  // Le curseur rejoint sa cible, PUIS clique (onde + enfoncement). Sans ce décalage,
-  // l'interrupteur s'allumerait avant que le curseur l'ait atteint.
+  // Le curseur rejoint sa cible, PUIS clique. Sans ce décalage, l'interrupteur
+  // basculerait avant que le curseur l'ait atteint.
   useEffect(() => {
     if (reduced) { setCursor(null); return }
     const move = () => {
@@ -99,77 +102,78 @@ export function ThemeEditorDemo() {
   }, [i, beat.target, reduced])
 
   return (
-    <div className="overflow-hidden rounded-xl border border-white/10 bg-[#0b0e14] shadow-xl shadow-black/30">
-      {/* ═══ BARRE SUPÉRIEURE ════════════════════════════════════════════════ */}
-      <div className="flex items-center gap-2 border-b border-white/[0.07] bg-[#12161f] px-2.5 py-1.5">
-        <div className="flex items-center gap-1">
-          <Undo2 className="h-3 w-3 text-white/20" />
-          <Redo2 className="h-3 w-3 text-white/20" />
-        </div>
-        <div className="ml-1 flex items-center gap-1.5">
-          <span className="text-[10px] font-medium text-white/70">Dawn</span>
-          <span className="rounded bg-emerald-500/15 px-1 py-px text-[9px] font-medium text-emerald-400">Actif</span>
-        </div>
-        <div className="ml-auto flex items-center gap-1.5">
-          <Monitor className="h-3 w-3 text-white/45" />
-          <Smartphone className="h-3 w-3 text-white/20" />
-          <span
-            data-t="save"
-            className={[
-              'ml-1 rounded-md px-2 py-1 text-[10px] font-semibold transition-all duration-300',
-              done('bubble')
-                ? 'bg-primary text-primary-foreground shadow-sm shadow-primary/30'
-                : 'bg-white/[0.06] text-white/25',
-              done('save') && !reduced ? 'ring-2 ring-primary/50' : '',
-            ].join(' ')}
-          >
-            Enregistrer
+    <div className="overflow-hidden rounded-xl border border-white/10 bg-[#f6f6f7] shadow-xl shadow-black/30">
+      {/* ═══ BARRE SUPÉRIEURE (claire, comme le vrai éditeur) ═══════════════ */}
+      <div className="flex items-center gap-1.5 border-b border-black/[0.08] bg-white px-2 py-1.5">
+        <PanelLeft className="h-3 w-3 text-neutral-400" />
+        <div className="mx-auto flex items-center gap-2">
+          <span className="flex items-center gap-1">
+            <Layers className="h-2.5 w-2.5 text-neutral-400" />
+            <span className="text-[9px] font-medium text-neutral-600">test-data</span>
+            <span className="rounded bg-emerald-100 px-1 py-px text-[8px] font-semibold text-emerald-700">Actif</span>
           </span>
-        </div>
-      </div>
-
-      <div ref={wrapRef} className="relative flex">
-        {/* ═══ RAIL D'ICÔNES ═════════════════════════════════════════════════ */}
-        <div className="flex shrink-0 flex-col items-center gap-2 border-r border-white/[0.07] bg-[#12161f] px-1.5 py-2">
-          <Layers className="h-3.5 w-3.5 text-white/20" />
-          <Paintbrush className="h-3.5 w-3.5 text-white/20" />
-          {/* L'onglet « Applications » — celui où il faut être. */}
-          <span className="rounded-md bg-primary/15 p-1 ring-1 ring-primary/40">
-            <Blocks className="h-3.5 w-3.5 text-primary" />
-          </span>
-        </div>
-
-        {/* ═══ PANNEAU DE GAUCHE ═════════════════════════════════════════════ */}
-        <div className="w-[46%] shrink-0 border-r border-white/[0.07] bg-[#0f131b]">
-          {/* Sélecteur de page — il CHANGE au 3e temps. C'est l'étape la plus ratée :
-              le bloc de remerciement n'existe QUE sur cette page. */}
-          <div
-            data-t="pagesel"
-            className={[
-              'flex items-center gap-1 border-b border-white/[0.07] px-2 py-1.5 transition-colors duration-300',
-              beat.target === 'pagesel' && !reduced ? 'bg-primary/[0.08]' : '',
-            ].join(' ')}
-          >
-            <span className="truncate text-[10px] font-medium text-white/85">
+          <span className="flex items-center gap-1">
+            <Home className="h-2.5 w-2.5 text-neutral-400" />
+            <span className="text-[9px] text-neutral-500">
               {beat.page === 'accueil' ? 'Page d’accueil' : 'Remerciements'}
             </span>
-            <ChevronDown className="ml-auto h-3 w-3 shrink-0 text-white/30" />
+          </span>
+        </div>
+        <span
+          data-t="save"
+          className={[
+            'rounded-md px-2 py-1 text-[9px] font-semibold transition-all duration-300',
+            done('bubble')
+              ? 'bg-neutral-900 text-white'
+              : 'bg-neutral-100 text-neutral-400',
+            done('save') && !reduced ? 'ring-2 ring-primary/50' : '',
+          ].join(' ')}
+        >
+          Enregistrer
+        </span>
+      </div>
+
+      {/* La scène : HAUTEUR FIXE. Les deux pages n'ont pas le même contenu — sans ça,
+          le bloc se dilate à chaque temps et fait sauter la page de l'onboarding. */}
+      <div ref={wrapRef} className="relative flex h-[210px]">
+        {/* ═══ PANNEAU DE GAUCHE (clair) ═════════════════════════════════════ */}
+        <div className="flex w-[42%] shrink-0 flex-col border-r border-black/[0.08] bg-white">
+          {/* Rail d'icônes — l'onglet « Applications » est celui où il faut être. */}
+          <div className="flex items-center gap-1.5 border-b border-black/[0.06] px-2 py-1.5">
+            <Layers className="h-3 w-3 text-neutral-300" />
+            <Settings className="h-3 w-3 text-neutral-300" />
+            <span className="rounded bg-primary/10 p-0.5 ring-1 ring-primary/30">
+              <Blocks className="h-3 w-3 text-primary" />
+            </span>
           </div>
 
-          <div className="p-2">
-            <p className="mb-1.5 text-[9px] font-semibold uppercase tracking-wider text-white/30">
+          <div className="min-h-0 flex-1 p-2">
+            <p className="mb-1.5 text-[9px] font-semibold text-neutral-700">
               {beat.page === 'accueil' ? 'Intégrations d’applications' : 'Applications'}
             </p>
 
-            <div className="mb-1.5 flex items-center gap-1 rounded-md border border-white/[0.07] bg-black/40 px-1.5 py-1">
-              <Search className="h-2.5 w-2.5 text-white/25" />
-              <span className="text-[9px] text-white/25">Rechercher…</span>
+            <div
+              data-t="pagesel"
+              className={[
+                'mb-1.5 flex items-center gap-1 rounded-md border px-1.5 py-1 transition-colors duration-300',
+                beat.target === 'pagesel' && !reduced
+                  ? 'border-primary/40 bg-primary/[0.06]'
+                  : 'border-black/[0.08] bg-white',
+              ].join(' ')}
+            >
+              <Search className="h-2.5 w-2.5 text-neutral-300" />
+              <span className="truncate text-[8px] text-neutral-400">Rechercher…</span>
+              <ChevronDown className="ml-auto h-2.5 w-2.5 shrink-0 text-neutral-300" />
             </div>
 
             {beat.page === 'accueil' ? (
               <div className="space-y-1">
-                <Row t="bubble" icon={MessageCircle} name="Bulle WhatsApp Xeyo" on={done('bubble')} />
-                <Row t="popup" icon={UserPlus} name="Xeyo — Popup opt-in" on={done('popup')} />
+                <Row t="bubble" name="Bulle WhatsApp Xeyo" sub="Xeyo — WhatsApp Support…" on={done('bubble')} />
+                <Row t="popup" name="Xeyo — Popup opt-in" sub="Xeyo — WhatsApp Support…" on={done('popup')} />
+                {/* Les apps concurrentes du marchand : c'est ce qu'il voit vraiment,
+                    et ça l'aide à repérer LESQUELLES activer parmi les autres. */}
+                <Row t="other1" name="Kanal Widget" sub="KANAL — WhatsApp Mark…" on={false} dim />
+                <Row t="other2" name="WhatsApp Widget" sub="Dondy: WhatsApp" on={false} dim />
               </div>
             ) : (
               /* Page Remerciements : PAS un interrupteur — un bloc à AJOUTER. Le geste
@@ -177,69 +181,85 @@ export function ThemeEditorDemo() {
               <div
                 data-t="thanks"
                 className={[
-                  'flex items-center gap-1.5 rounded-lg border p-1.5 transition-all duration-500',
+                  'flex items-center gap-1.5 rounded-md border p-1.5 transition-all duration-500',
                   done('thanks')
-                    ? 'border-primary/40 bg-primary/[0.08]'
-                    : 'border-dashed border-white/15 bg-white/[0.02]',
+                    ? 'border-primary/40 bg-primary/[0.06]'
+                    : 'border-dashed border-neutral-300 bg-neutral-50',
                 ].join(' ')}
               >
-                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/15 text-primary">
+                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/10 text-primary">
                   <PartyPopper className="h-2.5 w-2.5" />
                 </span>
-                <p className="min-w-0 flex-1 truncate text-[9px] font-medium text-white">Opt-in WhatsApp</p>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[9px] font-semibold text-neutral-800">Xeyo — Opt-in WhatsApp</p>
+                  <p className="truncate text-[8px] text-neutral-400">Remerciements</p>
+                </div>
                 {done('thanks')
                   ? <Check className="h-3 w-3 shrink-0 text-primary" />
-                  : <Plus className="h-3 w-3 shrink-0 text-white/30" />}
+                  : <Plus className="h-3 w-3 shrink-0 text-neutral-400" />}
               </div>
             )}
           </div>
         </div>
 
         {/* ═══ APERÇU DE LA BOUTIQUE ═════════════════════════════════════════
-            Le cœur de la démo : le marchand voit CE QUE ÇA FAIT. La bulle et la
-            popup apparaissent ici, en direct, quand il bascule les interrupteurs. */}
+            Le cœur de la démo : le marchand voit CE QUE ÇA FAIT. */}
         <div className="relative min-w-0 flex-1 overflow-hidden bg-white">
-          {/* En-tête de la vitrine */}
-          <div className="flex items-center gap-1.5 border-b border-black/[0.06] px-2 py-1.5">
-            <span className="h-1.5 w-1.5 rounded-full bg-neutral-800" />
-            <span className="text-[8px] font-semibold text-neutral-800">Ma boutique</span>
-            <ShoppingBag className="ml-auto h-2.5 w-2.5 text-neutral-400" />
+          {/* Barre de navigation de la vitrine (sombre, comme sur sa boutique). */}
+          <div className="flex items-center gap-2 bg-neutral-900 px-2 py-1.5">
+            <span className="text-[7px] font-medium text-white/70">Home</span>
+            <span className="text-[7px] text-white/35">Catalog</span>
+            <span className="ml-auto text-[7px] font-semibold text-white">Xeyo</span>
+            <Store className="h-2.5 w-2.5 text-white/50" />
           </div>
 
           {beat.page === 'accueil' ? (
-            <div className="relative h-[104px] p-2">
-              {/* Héros + grille produits, en gris : ce n'est pas le sujet, ça doit
-                  rester en arrière-plan. */}
-              <div className="mb-1.5 h-8 rounded bg-gradient-to-br from-neutral-200 to-neutral-100" />
-              <div className="grid grid-cols-3 gap-1">
+            <div className="relative h-full">
+              {/* Héros — en gris : ce n'est pas le sujet, ça reste en arrière-plan. */}
+              <div className="h-[86px] bg-gradient-to-br from-slate-300 to-slate-200 p-2.5">
+                <div className="w-3/4 rounded bg-white/90 p-1.5 shadow-sm">
+                  <div className="h-2 w-4/5 rounded-sm bg-neutral-800" />
+                  <div className="mt-1 h-1 w-full rounded-full bg-neutral-300" />
+                  <div className="mt-1.5 h-2.5 w-10 rounded-sm bg-neutral-900" />
+                </div>
+              </div>
+              {/* Produits */}
+              <div className="grid grid-cols-3 gap-1.5 p-2">
                 {[0, 1, 2].map((n) => (
                   <div key={n} className="space-y-1">
-                    <div className="h-6 rounded bg-neutral-100" />
-                    <div className="h-1 w-3/4 rounded-full bg-neutral-100" />
+                    <div className="h-7 rounded bg-neutral-100" />
+                    <div className="h-1 w-2/3 rounded-full bg-neutral-100" />
                   </div>
                 ))}
               </div>
 
-              {/* LA POPUP — apparaît quand l'interrupteur bascule. */}
+              {/* LA POPUP — en bas à droite, comme dans le vrai éditeur. */}
               <div
                 className={[
-                  'absolute inset-x-3 top-4 rounded-md border border-black/10 bg-white p-1.5 shadow-lg transition-all duration-500',
-                  done('popup') ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-1 opacity-0',
+                  'absolute bottom-2 right-2 w-[62%] rounded-lg border border-black/10 bg-white p-2 shadow-xl transition-all duration-500',
+                  done('popup') ? 'translate-y-0 opacity-100' : 'pointer-events-none translate-y-2 opacity-0',
                 ].join(' ')}
               >
-                <p className="text-[7px] font-bold leading-tight text-neutral-800">
-                  Suivez votre commande sur WhatsApp
+                <X className="absolute right-1.5 top-1.5 h-2 w-2 text-neutral-300" />
+                <p className="pr-3 text-[7px] font-bold leading-tight text-neutral-800">
+                  📦 Suivez votre commande sur WhatsApp
+                </p>
+                <p className="mt-0.5 text-[6px] leading-tight text-neutral-500">
+                  Recevez le suivi et nos offres exclusives.
                 </p>
                 <div className="mt-1 flex gap-1">
-                  <span className="h-2.5 flex-1 rounded-sm bg-neutral-100" />
-                  <span className="h-2.5 w-8 rounded-sm bg-[#25D366]" />
+                  <span className="h-3 w-6 rounded-sm border border-neutral-200 bg-white" />
+                  <span className="h-3 flex-1 rounded-sm border border-neutral-200 bg-white" />
+                </div>
+                <div className="mt-1 flex h-3.5 items-center justify-center rounded-sm bg-[#25D366]">
+                  <span className="text-[6px] font-bold text-white">Recevoir sur WhatsApp</span>
                 </div>
               </div>
 
-              {/* LA BULLE — apparaît quand l'interrupteur bascule. */}
+              {/* LA BULLE — le bouton flottant. */}
               <span
                 className={[
-                  'absolute bottom-2 right-2 flex h-6 w-6 items-center justify-center rounded-full bg-[#25D366] shadow-lg transition-all duration-500',
+                  'absolute bottom-2 left-2 flex h-6 w-6 items-center justify-center rounded-full bg-[#25D366] shadow-lg transition-all duration-500',
                   done('bubble') ? 'scale-100 opacity-100' : 'scale-0 opacity-0',
                 ].join(' ')}
               >
@@ -247,29 +267,33 @@ export function ThemeEditorDemo() {
               </span>
             </div>
           ) : (
-            /* Page Remerciements : la confirmation de commande + la case d'opt-in. */
-            <div className="h-[104px] space-y-1.5 p-2">
-              <div className="flex items-center gap-1">
-                <span className="flex h-3 w-3 items-center justify-center rounded-full bg-emerald-500">
-                  <Check className="h-2 w-2 text-white" />
+            /* Page Remerciements : confirmation de commande + case d'opt-in. */
+            <div className="space-y-2 p-2.5">
+              <div className="flex items-center gap-1.5">
+                <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500">
+                  <Check className="h-2.5 w-2.5 text-white" />
                 </span>
-                <p className="text-[8px] font-semibold text-neutral-800">Merci pour votre commande</p>
+                <p className="text-[9px] font-semibold text-neutral-800">Merci pour votre commande</p>
               </div>
-              <div className="h-1 w-2/3 rounded-full bg-neutral-100" />
-              <div className="h-1 w-1/2 rounded-full bg-neutral-100" />
+              <div className="space-y-1 rounded-md border border-neutral-100 p-1.5">
+                <div className="h-1 w-2/3 rounded-full bg-neutral-100" />
+                <div className="h-1 w-1/2 rounded-full bg-neutral-100" />
+                <div className="h-1 w-3/5 rounded-full bg-neutral-100" />
+              </div>
 
-              {/* LE BLOC D'OPT-IN — apparaît quand il est ajouté. */}
+              {/* LE BLOC D'OPT-IN — se pose sur la page quand il est ajouté. */}
               <div
                 className={[
-                  'flex items-start gap-1 rounded-md border p-1.5 transition-all duration-500',
+                  'flex items-start gap-1.5 rounded-md border p-2 transition-all duration-500',
                   done('thanks')
-                    ? 'translate-y-0 border-[#25D366]/40 bg-[#25D366]/[0.07] opacity-100'
-                    : 'pointer-events-none translate-y-1 border-transparent opacity-0',
+                    ? 'translate-y-0 border-[#25D366]/40 bg-[#25D366]/[0.06] opacity-100'
+                    : 'pointer-events-none translate-y-2 border-transparent opacity-0',
                 ].join(' ')}
               >
-                <span className="mt-px h-2 w-2 shrink-0 rounded-sm border border-neutral-300 bg-white" />
-                <p className="text-[7px] leading-tight text-neutral-700">
-                  Recevoir le suivi de ma commande sur <span className="font-semibold">WhatsApp</span>
+                <span className="mt-px h-2.5 w-2.5 shrink-0 rounded-sm border border-neutral-300 bg-white" />
+                <p className="text-[7px] leading-snug text-neutral-700">
+                  Recevoir le suivi de ma commande et les offres exclusives sur{' '}
+                  <span className="font-semibold">WhatsApp</span>
                 </p>
               </div>
             </div>
@@ -301,25 +325,25 @@ export function ThemeEditorDemo() {
       </div>
 
       {/* ═══ LÉGENDE ═══════════════════════════════════════════════════════ */}
-      <div className="flex items-center gap-2 border-t border-white/[0.07] bg-[#12161f] px-2.5 py-1.5">
+      <div className="flex items-center gap-2 border-t border-black/[0.08] bg-white px-2.5 py-1.5">
         <span className="flex gap-1">
           {BEATS.map((_, n) => (
             <span
               key={n}
               className={[
                 'h-1 rounded-full transition-all duration-500',
-                n === i && !reduced ? 'w-3.5 bg-primary' : 'w-1 bg-white/15',
+                n === i && !reduced ? 'w-3.5 bg-primary' : 'w-1 bg-neutral-200',
               ].join(' ')}
             />
           ))}
         </span>
-        <p className="min-w-0 truncate text-[10px] text-muted-foreground">
+        <p className="min-w-0 truncate text-[10px] font-medium text-neutral-600">
           {reduced
             ? 'Activez les deux blocs, ajoutez l’opt-in sur la page Remerciements, puis enregistrez.'
             : beat.caption}
         </p>
         {!reduced && (
-          <span className="ml-auto shrink-0 rounded bg-white/[0.06] px-1.5 py-0.5 text-[9px] font-medium text-white/40">
+          <span className="ml-auto hidden shrink-0 rounded bg-neutral-100 px-1.5 py-0.5 text-[9px] font-medium text-neutral-500 sm:block">
             {beat.step}
           </span>
         )}
@@ -330,31 +354,42 @@ export function ThemeEditorDemo() {
 
 /** Une ligne d'app avec son interrupteur — le geste central de la manipulation. */
 function Row({
-  t, icon: Icon, name, on,
+  t, name, sub, on, dim,
 }: {
   t: string
-  icon: typeof MessageCircle
   name: string
+  sub: string
   on: boolean
+  /** App concurrente : présente pour le réalisme, mais jamais activée. */
+  dim?: boolean
 }) {
   return (
     <div
       className={[
-        'flex items-center gap-1.5 rounded-lg border p-1.5 transition-colors duration-500',
-        on ? 'border-primary/25 bg-primary/[0.06]' : 'border-white/[0.07] bg-white/[0.02]',
+        'flex items-center gap-1.5 rounded-md border p-1.5 transition-colors duration-500',
+        on ? 'border-primary/30 bg-primary/[0.05]' : 'border-black/[0.07] bg-white',
+        dim ? 'opacity-45' : '',
       ].join(' ')}
     >
-      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded bg-primary/15 text-primary">
-        <Icon className="h-2.5 w-2.5" />
+      <span
+        className={[
+          'flex h-5 w-5 shrink-0 items-center justify-center rounded text-[7px] font-bold',
+          dim ? 'bg-neutral-100 text-neutral-400' : 'bg-neutral-900 text-white',
+        ].join(' ')}
+      >
+        {dim ? '•' : 'e'}
       </span>
-      <p className="min-w-0 flex-1 truncate text-[9px] font-medium text-white">{name}</p>
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-[9px] font-semibold text-neutral-800">{name}</p>
+        <p className="truncate text-[8px] text-neutral-400">{sub}</p>
+      </div>
 
       {/* L'interrupteur Shopify : le pouce glisse, le rail s'allume. C'est LE geste. */}
       <span
         data-t={t}
         className={[
           'relative h-3 w-5 shrink-0 rounded-full transition-colors duration-500',
-          on ? 'bg-primary' : 'bg-white/15',
+          on ? 'bg-neutral-900' : 'bg-neutral-200',
         ].join(' ')}
       >
         <span
