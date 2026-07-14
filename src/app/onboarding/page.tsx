@@ -770,57 +770,15 @@ export default function OnboardingPage() {
                     </div>
                   )}
 
-                  <div className="space-y-2.5">
-                    {[
-                      {
-                        icon: MessageCircle,
-                        title: 'Bulle WhatsApp',
-                        where: 'Page d’accueil (et tout le site)',
-                        why: 'Le bouton flottant qui permet à vos visiteurs de vous écrire en un clic.',
-                      },
-                      {
-                        icon: UserPlus,
-                        title: 'Popup opt-in',
-                        where: 'Page d’accueil',
-                        why: 'Propose au visiteur de laisser son numéro WhatsApp — c’est ce qui remplit votre liste de contacts.',
-                      },
-                      {
-                        icon: PartyPopper,
-                        title: 'Opt-in page Remerciements',
-                        where: 'Page de remerciement (après achat)',
-                        why: 'Récupère le numéro juste après la commande, au moment où le client est le plus engagé.',
-                      },
-                    ].map((b) => (
-                      <div key={b.title} className="flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-3.5">
-                        <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                          <b.icon className="h-4.5 w-4.5" />
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-semibold text-white">{b.title}</p>
-                          <p className="text-[11px] font-medium text-primary/80">{b.where}</p>
-                          <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">{b.why}</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+                  {/* LA DÉMO PORTE L'ÉTAPE. On montre le geste au lieu de le décrire :
+                      le marchand n'a jamais vu l'éditeur de thème, et l'étape
+                      « Remerciements » (un bloc à AJOUTER, sur une AUTRE page — pas un
+                      interrupteur) est celle qu'on rate le plus.
 
-                  {/* Marche à suivre. La DÉMO ANIMÉE d'abord : le marchand n'a jamais
-                      vu l'éditeur de thème, un texte le laissait deviner l'écran (et
-                      se tromper d'onglet — l'étape « Remerciements » est celle qu'on
-                      rate le plus). On lui rejoue les gestes. Le texte reste dessous
-                      pour ceux qui préfèrent lire, et pour l'accessibilité. */}
-                  <div className="rounded-xl border border-white/10 bg-black/20 p-3.5">
-                    <p className="mb-2.5 text-xs font-semibold text-white">Comment faire (2 minutes)</p>
-
-                    <ThemeEditorDemo />
-
-                    <ol className="mt-3 space-y-1.5 text-xs leading-relaxed text-muted-foreground">
-                      <li><span className="font-medium text-foreground">1.</span> Ouvrez l’éditeur de thème (bouton ci-dessous).</li>
-                      <li><span className="font-medium text-foreground">2.</span> Dans le panneau de gauche, ouvrez <span className="font-medium text-foreground">Applications</span> et activez <span className="font-medium text-foreground">Bulle WhatsApp Xeyo</span> puis <span className="font-medium text-foreground">Xeyo — Popup opt-in</span>.</li>
-                      <li><span className="font-medium text-foreground">3.</span> En haut, changez la page pour <span className="font-medium text-foreground">Remerciements</span> et ajoutez le bloc <span className="font-medium text-foreground">Xeyo — Opt-in WhatsApp</span>.</li>
-                      <li><span className="font-medium text-foreground">4.</span> Cliquez sur <span className="font-medium text-foreground">Enregistrer</span> dans Shopify.</li>
-                    </ol>
-                  </div>
+                      Les 3 cartes descriptives qui étaient ici ont sauté : elles
+                      remplissaient tout le haut de l'écran, repoussaient la démo hors
+                      de vue, et redisaient ce que la démo montre. */}
+                  <ThemeEditorDemo />
 
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <Button
