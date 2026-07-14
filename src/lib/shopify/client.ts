@@ -148,10 +148,19 @@ export async function exchangeCodeForToken(
  *
  * Doc : https://shopify.dev/docs/apps/auth/get-access-tokens/token-exchange
  */
+export type ShopifyTokens = {
+  accessToken: string
+  scope: string
+  /** Jeton de rafraîchissement (90 j). Absent sur les anciens jetons. */
+  refreshToken: string | null
+  /** Expiration de l'access token (ISO). Null si non communiquée. */
+  expiresAt: string | null
+}
+
 export async function exchangeSessionToken(
   shop: string,
   sessionToken: string
-): Promise<{ ok: true; accessToken: string; scope: string } | { ok: false; error: string }> {
+): Promise<{ ok: true; tokens: ShopifyTokens } | { ok: false; error: string }> {
   const { apiKey, apiSecret } = getShopifyConfig()
   if (!apiKey || !apiSecret) return { ok: false, error: 'Config Shopify manquante' }
 
@@ -165,11 +174,16 @@ export async function exchangeSessionToken(
         grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
         subject_token: sessionToken,
         subject_token_type: 'urn:ietf:params:oauth:token-type:id_token',
-        // `offline` : jeton permanent, utilisable par les crons et les webhooks
-        // quand le marchand n'est pas devant son écran (c'est notre cas : envois
-        // programmés, relances de panier). Un jeton `online` expirerait avec la
-        // session du marchand et casserait toutes les automatisations.
+        // `offline` : utilisable par les crons et les webhooks quand le marchand
+        // n'est pas devant son écran (envois programmés, relances de panier). Un
+        // jeton `online` expirerait avec sa session et casserait les automatisations.
         requested_token_type: 'urn:shopify:params:oauth:token-type:offline-access-token',
+        // ⚠️ OBLIGATOIRE depuis déc. 2025. Sans `expiring`, Shopify délivre un jeton
+        // NON-EXPIRANT qu'il REFUSE ensuite sur l'Admin API :
+        //   403 « Non-expiring access tokens are no longer accepted ».
+        // Tous les appels Admin échouaient donc en 403 — y compris `{ shop { name } }` —
+        // laissant la boutique sans nom, sans email, et donc ORPHELINE.
+        expiring: '1',
       }),
     })
     if (!res.ok) {
@@ -177,7 +191,58 @@ export async function exchangeSessionToken(
       return { ok: false, error: `HTTP ${res.status}: ${text}` }
     }
     const data = await res.json()
-    return { ok: true, accessToken: data.access_token, scope: data.scope || '' }
+    return { ok: true, tokens: toTokens(data) }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Erreur réseau' }
+  }
+}
+
+/** Normalise la réponse OAuth de Shopify en jeu de jetons exploitable. */
+function toTokens(data: {
+  access_token: string
+  scope?: string
+  refresh_token?: string
+  expires_in?: number
+}): ShopifyTokens {
+  return {
+    accessToken: data.access_token,
+    scope: data.scope || '',
+    refreshToken: data.refresh_token ?? null,
+    expiresAt: typeof data.expires_in === 'number'
+      ? new Date(Date.now() + data.expires_in * 1000).toISOString()
+      : null,
+  }
+}
+
+/**
+ * Renouvelle un access token expiré à partir du refresh token (90 j).
+ *
+ * Shopify renvoie un NOUVEAU refresh token à chaque rafraîchissement : il faut
+ * donc réécrire les deux, sinon le suivant échouera.
+ */
+export async function refreshAccessToken(
+  shop: string,
+  refreshToken: string
+): Promise<{ ok: true; tokens: ShopifyTokens } | { ok: false; error: string }> {
+  const { apiKey, apiSecret } = getShopifyConfig()
+  if (!apiKey || !apiSecret) return { ok: false, error: 'Config Shopify manquante' }
+
+  try {
+    const res = await fetch(`https://${shop}/admin/oauth/access_token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        client_id: apiKey,
+        client_secret: apiSecret,
+        grant_type: 'refresh_token',
+        refresh_token: refreshToken,
+      }),
+    })
+    if (!res.ok) {
+      const text = await res.text()
+      return { ok: false, error: `HTTP ${res.status}: ${text}` }
+    }
+    return { ok: true, tokens: toTokens(await res.json()) }
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : 'Erreur réseau' }
   }

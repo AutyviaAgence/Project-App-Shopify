@@ -63,30 +63,33 @@ export async function ensureStoreProvisioned(
     .maybeSingle()
   if (existing?.access_token && existing.shop_email) return true
 
-  // Managed install : la boutique n'existe pas encore. On l'obtient en échangeant
-  // le session token que Shopify vient de nous donner.
+  // Managed install : la boutique n'existe pas (ou son jeton est inexploitable).
+  // On obtient un jeu de jetons EXPIRANTS en échangeant le session token.
   const exchanged = await exchangeSessionToken(shop, sessionToken)
   if (!exchanged.ok) {
     console.error('[ensure-store] token exchange échoué pour', shop, ':', exchanged.error)
     return false
   }
+  const { accessToken, scope, refreshToken, expiresAt } = exchanged.tokens
 
-  const shopInfo = await fetchShopInfo(shop, exchanged.accessToken)
+  const shopInfo = await fetchShopInfo(shop, accessToken)
   const info = shopInfo.ok ? shopInfo.data.shop : null
   if (!shopInfo.ok) {
     // ⚠️ Ne PAS avaler cet échec : sans `shop_email`, `resolveXeyoUser()` refuse
     // de créer le compte, la boutique reste ORPHELINE (user_id NULL) et l'app
     // embedded affiche 0 contact / 0 agent — sans que rien ne dise pourquoi.
     console.error('[ensure-store] fetchShopInfo a échoué pour', shop, ':', shopInfo.error)
-  } else if (!info?.email) {
+  } else if (!info?.email && !info?.contactEmail) {
     console.error('[ensure-store] shop.email absent pour', shop, '→ le compte ne pourra pas être créé')
   }
 
   const { error } = await supabase.from('shopify_stores').upsert(
     {
       shop_domain: shop,
-      access_token: encryptMessage(exchanged.accessToken),
-      scopes: exchanged.scope,
+      access_token: encryptMessage(accessToken),
+      refresh_token: refreshToken ? encryptMessage(refreshToken) : null,
+      token_expires_at: expiresAt,
+      scopes: scope,
       shop_name: info?.name ?? null,
       // `email` (propriétaire) d'abord, `contactEmail` (public) en repli : sans
       // email, resolveXeyoUser() ne crée pas le compte et la boutique reste orpheline.
@@ -109,7 +112,7 @@ export async function ensureStoreProvisioned(
 
   // Webhooks métier (commandes, expéditions…) — best effort : une boutique sans
   // webhooks reste utilisable, on ne bloque pas l'accès pour autant.
-  const wh = await registerWebhooks(shop, exchanged.accessToken)
+  const wh = await registerWebhooks(shop, accessToken)
   if (!wh.ok) console.error('[ensure-store] webhooks partiels pour', shop, ':', wh.errors)
 
   console.log('[ensure-store] boutique provisionnée par token exchange :', shop)
