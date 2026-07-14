@@ -9,6 +9,26 @@ export async function GET(request: NextRequest) {
   const code = requestUrl.searchParams.get('code')
   const redirect = requestUrl.searchParams.get('redirect')
 
+  // Lien de connexion à usage unique (magic link), utilisé pour ouvrir Xeyo depuis
+  // l'app embedded Shopify : le marchand n'a jamais choisi de mot de passe (son
+  // compte a été créé automatiquement à l'installation), et l'iframe ne lui pose
+  // aucun cookie. Sans ce cas, il atterrirait sur la page de connexion.
+  //
+  // Selon la config Supabase, le lien revient soit en `?code=` (PKCE), soit en
+  // `?token_hash=&type=` — on traite les DEUX plutôt que de parier sur l'un.
+  const tokenHash = requestUrl.searchParams.get('token_hash')
+  const otpType = requestUrl.searchParams.get('type')
+  if (tokenHash && otpType) {
+    const supabase = await createClient()
+    const { error } = await supabase.auth.verifyOtp({
+      type: otpType as 'magiclink' | 'email' | 'recovery' | 'invite',
+      token_hash: tokenHash,
+    })
+    if (error) console.error('[auth/callback] verifyOtp échoué :', error.message)
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || requestUrl.origin
+    return NextResponse.redirect(`${appUrl}${redirect || '/dashboard'}`)
+  }
+
   let isNewOAuthUser = false
 
   if (code) {

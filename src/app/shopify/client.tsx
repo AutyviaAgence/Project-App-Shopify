@@ -76,6 +76,7 @@ export default function ShopifyEmbeddedClient() {
   const [busyPlan, setBusyPlan] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [unlinking, setUnlinking] = useState(false)
+  const [opening, setOpening] = useState(false)
   const [unlinked, setUnlinked] = useState(false)
 
   const load = useCallback(async () => {
@@ -163,6 +164,36 @@ export default function ShopifyEmbeddedClient() {
     }
   }
 
+  /**
+   * Ouvre app.xeyo.io en CONNECTANT le marchand (onboarding ou dashboard).
+   *
+   * Sans ça, il arriverait sur la page de connexion : son compte Xeyo a été créé
+   * automatiquement à l'installation (resolveXeyoUser), il n'a donc jamais choisi de
+   * mot de passe — et l'iframe ne lui pose aucun cookie de session. On demande donc
+   * au serveur un lien de connexion à usage unique.
+   *
+   * ⚠️ L'onglet est ouvert AVANT l'await : un window.open déclenché après une
+   * réponse réseau n'est plus rattaché au clic et se fait bloquer comme pop-up.
+   * On l'ouvre vide, puis on y injecte l'URL.
+   */
+  const openXeyo = async () => {
+    setOpening(true)
+    setError(null)
+    const tab = window.open('', '_blank', 'noopener')
+    try {
+      const res = await authenticatedFetch('/api/shopify/embedded/login-link', { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok || !json?.data?.url) throw new Error(json.error || 'Ouverture impossible')
+      if (tab) tab.location.href = json.data.url
+      else window.location.href = json.data.url // pop-up bloquée : navigation directe
+    } catch (e) {
+      tab?.close()
+      setError(e instanceof Error ? e.message : 'Erreur')
+    } finally {
+      setOpening(false)
+    }
+  }
+
   /** Pages Xeyo non embeddables (builder, conversations complètes…) : nouvel onglet. */
   const openInTop = (path: string) => {
     const url = `${APP_BASE}${path}`
@@ -221,10 +252,11 @@ export default function ShopifyEmbeddedClient() {
                 </p>
                 <button
                   type="button"
-                  onClick={() => openInTop('/onboarding')}
-                  className="mt-4 rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800"
+                  onClick={openXeyo}
+                  disabled={opening}
+                  className="mt-4 rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:opacity-60"
                 >
-                  Continuer la configuration →
+                  {opening ? 'Ouverture…' : 'Continuer la configuration →'}
                 </button>
               </div>
             )}
