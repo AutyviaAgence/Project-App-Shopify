@@ -47,6 +47,8 @@ type Overview = {
   contactsCount: number
   optedInCount: number
   conversations: Conversation[]
+  /** `profiles.onboarding_completed_at` renseigné côté Xeyo. */
+  onboardingDone?: boolean
 }
 
 /**
@@ -204,6 +206,27 @@ export default function ShopifyEmbeddedClient() {
           <>
             {error && (
               <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+            )}
+
+            {/* ── ONBOARDING À TERMINER ──
+                L'onboarding (WhatsApp, agent IA, modèles) se fait sur app.xeyo.io, hors de
+                l'iframe : sans ce rappel, le marchand fraîchement installé reste devant un
+                tableau vide (0 contact, 0 conversation) sans savoir quoi faire. */}
+            {overview?.onboardingDone === false && (
+              <div className="rounded-2xl bg-blue-50 p-6 ring-1 ring-blue-200">
+                <h2 className="text-base font-semibold text-gray-900">Terminez votre configuration</h2>
+                <p className="mt-1 text-sm text-gray-600">
+                  Connectez WhatsApp, configurez votre agent IA et validez vos modèles de messages
+                  pour activer Xeyo sur votre boutique.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => openInTop('/onboarding')}
+                  className="mt-4 rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800"
+                >
+                  Continuer la configuration →
+                </button>
+              </div>
             )}
 
             {/* ── DONNÉES CLIENTS collectées (requirement 5.1.5) ── */}

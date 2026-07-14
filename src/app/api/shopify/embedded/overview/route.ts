@@ -54,15 +54,21 @@ export async function GET(req: NextRequest) {
   // elle est reliée (et de pouvoir la délier).
   const { data: owner } = await admin
     .from('profiles')
-    .select('email')
+    .select('email, onboarding_completed_at')
     .eq('id', authed.userId)
     .maybeSingle()
   const linkedAccountEmail = owner?.email ?? null
+  // L'onboarding (WhatsApp, agent IA, modèles) se fait sur app.xeyo.io. Tant qu'il
+  // n'est pas terminé, l'app embedded doit y renvoyer EXPLICITEMENT : sinon le
+  // marchand qui vient d'installer reste devant un tableau vide, sans savoir que
+  // la configuration se poursuit ailleurs.
+  const onboardingDone = !!owner?.onboarding_completed_at
 
   if (sessionIds.length === 0) {
     return NextResponse.json({
       data: {
         linkedAccountEmail,
+        onboardingDone,
         // Le plan n'est « payant » que si l'abonnement Shopify est réellement actif.
         // Sinon (charge refusée → 'pending', désinstallation → null, annulation), on
         // affiche `free` : le sélecteur de plan proposera de souscrire, au lieu de
@@ -120,6 +126,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     data: {
       linkedAccountEmail,
+      onboardingDone,
       // Le plan n'est « payant » que si l'abonnement Shopify est réellement actif.
       // Sinon (charge refusée → 'pending', désinstallation → null, annulation), on
       // affiche `free` : le sélecteur de plan proposera de souscrire, au lieu de
