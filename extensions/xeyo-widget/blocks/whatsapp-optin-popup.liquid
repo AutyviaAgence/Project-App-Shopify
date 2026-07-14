@@ -95,6 +95,14 @@
   #xeyo-optin-popup .xeyo-pop-msg.ok { color: #15803d !important; }
   #xeyo-optin-popup .xeyo-pop-msg.err { color: #b91c1c !important; }
   #xeyo-optin-popup .xeyo-pop-branding { display: inline-block !important; margin-top: 10px !important; font-size: 10px !important; color: #9aa3ad !important; text-decoration: none !important; }
+  /* Note d'aperçu — éditeur de thème uniquement (jamais sur la vitrine).
+     Rappelle que la popup ne s'affiche pas ainsi pour les vrais clients. */
+  #xeyo-optin-popup .xeyo-pop-preview-note {
+    margin: 14px -22px -18px !important; padding: 9px 22px !important;
+    background: #fffbeb !important; border-top: 1px solid #fde68a !important;
+    border-radius: 0 0 16px 16px !important;
+    font-size: 11px !important; line-height: 1.45 !important; color: #92400e !important;
+  }
 </style>
 
 <script>
@@ -144,6 +152,45 @@
     }
     function markHandled() {
       try { localStorage.setItem(STORE_KEY, '1'); } catch (e) {}
+    }
+
+    // ── APERÇU DANS L'ÉDITEUR DE THÈME ────────────────────────────────────────
+    //
+    // Sur la boutique, la popup n'apparaît que sur un signal réel : panier non vide,
+    // délai écoulé, scroll ou intention de sortie. Aucune de ces conditions n'est
+    // réunie dans l'éditeur → le marchand ne voyait JAMAIS ce qu'il configurait. Il
+    // réglait son titre, sa couleur et son bouton à l'aveugle.
+    //
+    // Dans l'éditeur, on l'affiche donc tout de suite, telle qu'elle sera. Rien de
+    // tout ceci ne s'exécute sur la vitrine : `Shopify.designMode` n'y existe pas.
+    if (window.Shopify && window.Shopify.designMode) {
+      root.classList.add('xeyo-open', 'xeyo-preview');
+
+      var note = document.createElement('p');
+      note.className = 'xeyo-pop-preview-note';
+      note.textContent = 'Aperçu éditeur — vos clients la verront sur un signal d’achat (panier, sortie de page).';
+      card.appendChild(note);
+
+      // Aucun envoi, aucune fermeture définitive : c'est une maquette vivante. On
+      // laisse juste le marchand la refermer pour voir sa page derrière.
+      submit.addEventListener('click', function (e) {
+        e.preventDefault(); e.stopImmediatePropagation();
+        msg.className = 'xeyo-pop-msg ok';
+        msg.textContent = 'Aperçu : rien n’est envoyé depuis l’éditeur.';
+      }, true);
+
+      function closePreview(e) { e.preventDefault(); root.classList.remove('xeyo-open'); }
+      closeBtn.addEventListener('click', closePreview, true);
+      root.addEventListener('click', function (e) { if (e.target === root) closePreview(e); }, true);
+
+      // Refermée, elle doit pouvoir revenir : Shopify émet `shopify:block:select`
+      // quand le marchand clique sur le bloc dans le panneau de gauche. C'est
+      // exactement le moment où il veut la revoir.
+      document.addEventListener('shopify:block:select', function () {
+        root.classList.add('xeyo-open');
+      });
+
+      return; // ne pas armer les déclencheurs ni la relance panier dans l'éditeur
     }
 
     if (alreadyHandled()) return;
