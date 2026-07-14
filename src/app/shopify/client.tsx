@@ -228,8 +228,12 @@ export default function ShopifyEmbeddedClient() {
       const res = await authenticatedFetch('/api/shopify/embedded/login-link', { method: 'POST' })
       const json = await res.json()
       if (!res.ok || !json?.data?.url) throw new Error(json.error || 'Ouverture impossible')
+      // ⚠️ NE JAMAIS faire `window.location.href = …` ici : on est dans l'iframe
+      // Shopify, et app.xeyo.io envoie `X-Frame-Options: DENY` sur toutes ses pages
+      // sauf /shopify. Le navigateur refuse alors d'afficher la page — l'app devient
+      // une PAGE BLANCHE, et le marchand est bloqué.
       if (tab) tab.location.href = json.data.url
-      else window.location.href = json.data.url // pop-up bloquée : navigation directe
+      else throw new Error('Autorisez les pop-ups pour ouvrir Xeyo dans un nouvel onglet.')
     } catch (e) {
       tab?.close()
       setError(e instanceof Error ? e.message : 'Erreur')
@@ -241,10 +245,13 @@ export default function ShopifyEmbeddedClient() {
   /** Pages Xeyo non embeddables (builder, conversations complètes…) : nouvel onglet. */
   const openInTop = (path: string) => {
     const url = `${APP_BASE}${path}`
+    // Dans l'iframe Shopify : TOUJOURS un nouvel onglet. Naviguer l'iframe vers
+    // app.xeyo.io la ferait tomber sur `X-Frame-Options: DENY` → page blanche.
     if (typeof window !== 'undefined' && window.top && window.top !== window.self) {
-      window.open(url, '_blank', 'noopener')
+      const opened = window.open(url, '_blank', 'noopener')
+      if (!opened) setError('Autorisez les pop-ups pour ouvrir Xeyo dans un nouvel onglet.')
     } else {
-      window.location.href = url
+      window.location.href = url // hors iframe : navigation normale
     }
   }
 
