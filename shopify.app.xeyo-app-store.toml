@@ -54,6 +54,17 @@ api_version = "2026-07"
 # Sans lui, `read_orders` plafonne l'Admin API aux 60 derniers jours et l'API
 # tronque SILENCIEUSEMENT au-delà. Il est indispensable au SAV (répondre sur une
 # commande ancienne) et à l'attribution du CA sur des cycles d'achat longs.
+# ⚠️ NE PAS ajouter `write_checkout_extensions_apis` ici.
+#
+# On a failli le faire : nos 2 extensions checkout déclarent `api_access = true`,
+# ce qui ressemble à un besoin de scope. C'est faux. `api_access` donne accès à la
+# STOREFRONT API, et « Shopify handles the authentication for all API calls from an
+# extension » — aucun scope à déclarer. Quant à `applyAttributeChange`, il fait
+# partie de l'API standard des extensions checkout, sans scope non plus.
+#
+# `write_checkout_extensions_apis` est un scope PRIVILÉGIÉ, demandé via le Partner
+# Dashboard (Access requests). L'écrire à la main dans ce fichier fait échouer le
+# `deploy` avec « These scopes are invalid ».
 scopes = "read_all_orders,read_content,read_customers,read_fulfillments,read_legal_policies,read_orders,read_products,read_returns,write_discounts,write_orders"
 optional_scopes = [ ]
 use_legacy_install_flow = false

@@ -356,7 +356,9 @@ async function executeTemplateTool(
     case 'woocommerce':
       return executeWooCommerce(config, functionName, args)
     case 'stripe':
-      return executeStripe(config, functionName, args)
+      // `context` requis : il porte le userId qui permet de savoir si le marchand est
+      // facturé via Shopify → interdiction des liens de paiement hors checkout (1.1.2).
+      return executeStripe(config, functionName, args, context)
     case 'google_sheets':
       return executeGoogleSheets(tool, config, functionName, args, credentialId)
     case 'google_gmail':
@@ -680,11 +682,37 @@ async function executeWooCommerce(
 async function executeStripe(
   config: Record<string, unknown>,
   functionName: string,
-  args: Record<string, unknown>
+  args: Record<string, unknown>,
+  context?: { userId: string; agentId: string; conversationId?: string }
 ): Promise<string> {
   const apiKey = config.api_key as string
   const defaultCurrency = (config.currency as string) || 'eur'
   const headers = { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/x-www-form-urlencoded' }
+
+  // ⚠️ CONFORMITÉ SHOPIFY — ne jamais retirer.
+  //
+  // App Store 1.1.2 « Use Shopify checkout » : un paiement d'ACHETEUR ne peut pas
+  // sortir du checkout Shopify. « Apps that bypass checkout or payment processing
+  // […] are prohibited. »
+  //
+  // `create_payment_link` fabrique un lien de paiement Stripe. Rien n'empêchait un
+  // marchand Shopify d'activer ce connecteur : son agent IA pouvait alors envoyer à
+  // un client un lien de paiement HORS Shopify — contournement direct du checkout,
+  // et motif de rejet / suspension de l'app.
+  //
+  // Les outils de LECTURE (statut d'un paiement, solde, recherche) restent permis :
+  // ils ne créent aucun paiement. Seule la création est bloquée.
+  if (functionName === 'create_payment_link' && context?.userId) {
+    const { isShopifyBilled } = await import('@/lib/shopify/plans')
+    if (await isShopifyBilled(context.userId)) {
+      return JSON.stringify({
+        error:
+          'Les liens de paiement externes sont désactivés sur les boutiques Shopify : ' +
+          'toute commande doit passer par le checkout Shopify. Proposez au client de ' +
+          'finaliser son panier sur la boutique.',
+      })
+    }
+  }
 
   if (functionName === 'get_payment_status') {
     const res = await fetchWithTimeout(`https://api.stripe.com/v1/payment_intents/${args.payment_intent_id}`, { headers })
