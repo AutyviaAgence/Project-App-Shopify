@@ -39,6 +39,8 @@ type Conversation = {
 }
 
 type Overview = {
+  /** Email du compte Xeyo propriétaire de la boutique (identité = boutique, pas personne). */
+  linkedAccountEmail?: string | null
   plan: string
   subscriptionStatus: string | null
   shopDomain: string | null
@@ -71,6 +73,8 @@ export default function ShopifyEmbeddedClient() {
   const [loading, setLoading] = useState(true)
   const [busyPlan, setBusyPlan] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [unlinking, setUnlinking] = useState(false)
+  const [unlinked, setUnlinked] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -125,6 +129,35 @@ export default function ShopifyEmbeddedClient() {
       setError(e instanceof Error ? e.message : 'Erreur')
     } finally {
       setBusyPlan(null)
+    }
+  }
+
+  /**
+   * Délie la boutique de son compte Xeyo actuel.
+   *
+   * En embedded, l'identité vient du session token → de la BOUTIQUE, jamais de la
+   * personne : tout le staff Shopify voit les données du compte Xeyo propriétaire.
+   * Sans cette action, un marchand ouvrant l'app avec un autre compte resterait
+   * bloqué sur les données du premier compte lié, sans aucun moyen d'en changer.
+   */
+  const unlink = async () => {
+    if (!window.confirm(
+      'Délier cette boutique de son compte Xeyo ?\n\n' +
+      'Vos contacts et conversations restent attachés au compte actuel. ' +
+      'Vous pourrez ensuite relier la boutique au compte de votre choix.'
+    )) return
+    setUnlinking(true)
+    setError(null)
+    try {
+      const res = await authenticatedFetch('/api/shopify/embedded/unlink', { method: 'POST' })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Erreur')
+      setUnlinked(true)
+      await load()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Erreur')
+    } finally {
+      setUnlinking(false)
     }
   }
 
@@ -311,6 +344,39 @@ export default function ShopifyEmbeddedClient() {
                   <span className="text-gray-300">→</span>
                 </button>
               ))}
+            </div>
+
+            {/* ── COMPTE XEYO RELIÉ (action rare, volontairement discrète) ── */}
+            <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
+              <h2 className="text-sm font-semibold text-gray-900">Compte Xeyo relié</h2>
+              {unlinked ? (
+                <p className="mt-2 text-xs leading-relaxed text-gray-600">
+                  Cette boutique n’est plus reliée à aucun compte Xeyo. Connectez-vous sur{' '}
+                  <span className="font-medium text-gray-900">app.xeyo.io</span> avec le compte souhaité,
+                  puis cliquez sur « Relier à mon compte » depuis le tableau de bord.
+                </p>
+              ) : (
+                <>
+                  <p className="mt-2 text-xs leading-relaxed text-gray-600">
+                    Boutique reliée au compte Xeyo{' '}
+                    <span className="font-medium text-gray-900">
+                      {overview?.linkedAccountEmail || '—'}
+                    </span>
+                    .
+                  </p>
+                  <p className="mt-0.5 text-xs text-gray-500">
+                    Tous les membres de votre équipe Shopify voient les mêmes données.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={unlink}
+                    disabled={unlinking}
+                    className="mt-3 text-xs font-medium text-gray-500 hover:text-red-600 hover:underline disabled:opacity-50"
+                  >
+                    {unlinking ? 'Déliaison…' : 'Délier ma boutique'}
+                  </button>
+                </>
+              )}
             </div>
           </>
         )}

@@ -45,14 +45,29 @@ export async function GET(req: NextRequest) {
     .eq('is_active', true)
     .maybeSingle()
 
+  // Email du compte Xeyo auquel la boutique est reliée. En embedded, l'identité
+  // vient de la BOUTIQUE (session token), jamais de la personne : tout le staff
+  // Shopify voit les données de ce compte. L'afficher évite l'effet « je vois les
+  // données de quelqu'un d'autre sans comprendre pourquoi ».
+  // ⚠️ Lu AVANT le retour anticipé ci-dessous : une boutique sans session WhatsApp
+  // est justement le cas où le marchand a le plus besoin de savoir à quel compte
+  // elle est reliée (et de pouvoir la délier).
+  const { data: owner } = await admin
+    .from('profiles')
+    .select('email')
+    .eq('id', authed.userId)
+    .maybeSingle()
+  const linkedAccountEmail = owner?.email ?? null
+
   if (sessionIds.length === 0) {
     return NextResponse.json({
       data: {
+        linkedAccountEmail,
         // Le plan n'est « payant » que si l'abonnement Shopify est réellement actif.
-      // Sinon (charge refusée → 'pending', désinstallation → null, annulation), on
-      // affiche `free` : le sélecteur de plan proposera de souscrire, au lieu de
-      // laisser croire à un abonnement qui n'a jamais été payé.
-      plan: store?.subscription_status === 'active' ? (store.plan || 'free') : 'free',
+        // Sinon (charge refusée → 'pending', désinstallation → null, annulation), on
+        // affiche `free` : le sélecteur de plan proposera de souscrire, au lieu de
+        // laisser croire à un abonnement qui n'a jamais été payé.
+        plan: store?.subscription_status === 'active' ? (store.plan || 'free') : 'free',
         subscriptionStatus: store?.subscription_status || null,
         shopDomain: store?.shop_domain || null,
         contactsCount: 0,
@@ -104,6 +119,7 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     data: {
+      linkedAccountEmail,
       // Le plan n'est « payant » que si l'abonnement Shopify est réellement actif.
       // Sinon (charge refusée → 'pending', désinstallation → null, annulation), on
       // affiche `free` : le sélecteur de plan proposera de souscrire, au lieu de
