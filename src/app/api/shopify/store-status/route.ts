@@ -34,6 +34,10 @@ export async function GET() {
   // Sans la condition (2), le premier compte à charger son dashboard adopterait
   // la boutique d'un AUTRE marchand — vol de boutique inter-comptes. La preuve de
   // propriété, c'est l'email que Shopify nous a donné pour cette boutique.
+  //
+  // Une boutique SANS shop_email n'est donc jamais adoptée ici : elle resterait
+  // orpheline plutôt que d'être attribuée au premier venu. Le marchand la relie
+  // alors explicitement via /api/shopify/connect (même règle : 409 si déjà prise).
   if (!store && user.email) {
     const { data: orphan } = await supabase
       .from('shopify_stores')

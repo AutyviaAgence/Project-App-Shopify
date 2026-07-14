@@ -67,6 +67,14 @@ export async function ensureStoreProvisioned(
 
   const shopInfo = await fetchShopInfo(shop, exchanged.accessToken)
   const info = shopInfo.ok ? shopInfo.data.shop : null
+  if (!shopInfo.ok) {
+    // ⚠️ Ne PAS avaler cet échec : sans `shop_email`, `resolveXeyoUser()` refuse
+    // de créer le compte, la boutique reste ORPHELINE (user_id NULL) et l'app
+    // embedded affiche 0 contact / 0 agent — sans que rien ne dise pourquoi.
+    console.error('[ensure-store] fetchShopInfo a échoué pour', shop, ':', shopInfo.error)
+  } else if (!info?.email) {
+    console.error('[ensure-store] shop.email absent pour', shop, '→ le compte ne pourra pas être créé')
+  }
 
   const { error } = await supabase.from('shopify_stores').upsert(
     {

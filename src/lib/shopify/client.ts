@@ -48,11 +48,6 @@ const DEFAULT_SCOPES = [
   'read_legal_policies',
   'read_returns',
   'read_fulfillments',
-  // read_shop : requis par fetchShopInfo (`shop { name email currencyCode }`).
-  // Sans lui, l'appel échoue → shop_email vide → resolveXeyoUser() refuse de créer
-  // le compte → la boutique reste ORPHELINE (user_id NULL) et l'app embedded
-  // affiche 0 contact, 0 agent, et des cartes de plan grisées.
-  'read_shop',
 ].join(',')
 
 export function getShopifyConfig() {
