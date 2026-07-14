@@ -34,13 +34,34 @@ export async function POST(req: NextRequest) {
   // MÊME propriétaire fonctionne toujours (le garde autorise user_id === user.id).
   // Le seul chemin légitime pour libérer une boutique est /api/shopify/disconnect,
   // initié par le propriétaire lui-même.
-  const { error } = await admin
+  const { data, error } = await admin
     .from('shopify_stores')
-    .update({ is_active: false, access_token: '', subscription_status: null })
+    .update({
+      is_active: false,
+      access_token: '',
+      // Les jetons sont révoqués côté Shopify : les garder ne servirait qu'à
+      // produire des 403. On les purge pour forcer un token exchange propre à la
+      // réinstallation.
+      refresh_token: null,
+      token_expires_at: null,
+      subscription_status: null,
+      uninstalled_at: new Date().toISOString(),
+    })
     .eq('shop_domain', shopDomain)
+    .select('id')
 
-  if (error) console.error('[webhook app-uninstalled] update échec:', error.message)
-  else console.log('[webhook app-uninstalled] boutique désactivée:', shopDomain)
+  // ⚠️ Un UPDATE qui ne touche AUCUNE ligne ne renvoie PAS d'erreur. Sans ce
+  // contrôle, on loguait « boutique désactivée » alors que rien n'avait changé —
+  // un faux succès qui masquait le vrai problème (webhook reçu pour une boutique
+  // inconnue, ou domaine qui ne correspond pas).
+  if (error) {
+    console.error('[webhook app-uninstalled] update échec:', error.message)
+  } else if (!data || data.length === 0) {
+    console.warn('[webhook app-uninstalled] AUCUNE ligne mise à jour pour', shopDomain,
+      '— la boutique est-elle bien enregistrée sous ce domaine ?')
+  } else {
+    console.log('[webhook app-uninstalled] boutique désactivée:', shopDomain)
+  }
 
   return NextResponse.json({ received: true })
 }
