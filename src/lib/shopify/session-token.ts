@@ -38,12 +38,21 @@ function b64urlDecode(input: string): Buffer {
  * Ne jette jamais : un token absent/expiré/forgé renvoie simplement null.
  */
 export function verifySessionToken(token: string | null | undefined): ShopifySession | null {
-  if (!token) return null
+  // Les `reject()` tracent la CAUSE du rejet. Sans eux, un token refusé était
+  // indiscernable d'un token absent : sept `return null` muets, et des heures à
+  // chercher pourquoi l'app embedded répondait 401.
+  // ⚠️ Ne JAMAIS logger le token ni le secret — seulement le motif.
+  const reject = (why: string) => {
+    console.warn('[session-token] rejeté :', why)
+    return null
+  }
+
+  if (!token) return null // cas normal (appel web sans Bearer) : pas de bruit.
   const { apiKey, apiSecret } = getShopifyConfig()
-  if (!apiKey || !apiSecret) return null
+  if (!apiKey || !apiSecret) return reject('SHOPIFY_API_KEY ou SHOPIFY_API_SECRET absent de l’environnement')
 
   const parts = token.split('.')
-  if (parts.length !== 3) return null
+  if (parts.length !== 3) return reject('format JWT invalide (≠ 3 segments)')
   const [headerB64, payloadB64, signatureB64] = parts
 
   // 1. Signature HS256 sur "header.payload" — comparaison timing-safe.
@@ -55,9 +64,13 @@ export function verifySessionToken(token: string | null | undefined): ShopifySes
   try {
     given = b64urlDecode(signatureB64)
   } catch {
-    return null
+    return reject('signature illisible (base64url)')
   }
-  if (expected.length !== given.length || !crypto.timingSafeEqual(expected, given)) return null
+  if (expected.length !== given.length || !crypto.timingSafeEqual(expected, given)) {
+    // Le cas le plus probable : SHOPIFY_API_SECRET ne correspond pas à l'app qui
+    // a émis le token (secret d'une AUTRE app Shopify).
+    return reject('signature invalide → le SHOPIFY_API_SECRET ne correspond pas à l’app émettrice')
+  }
 
   // 2. Payload.
   let payload: {
@@ -66,21 +79,27 @@ export function verifySessionToken(token: string | null | undefined): ShopifySes
   try {
     payload = JSON.parse(b64urlDecode(payloadB64).toString('utf8'))
   } catch {
-    return null
+    return reject('payload illisible')
   }
 
   // 3. Destinataire : le token doit être émis POUR NOTRE app.
-  if (payload.aud !== apiKey) return null
+  if (payload.aud !== apiKey) {
+    return reject(`aud ≠ SHOPIFY_API_KEY (token émis pour ${payload.aud ?? '?'}, on attend ${apiKey})`)
+  }
 
   // 4. Fenêtre de validité (tolérance 10 s d'horloge).
   const now = Math.floor(Date.now() / 1000)
-  if (typeof payload.exp === 'number' && now > payload.exp + 10) return null
-  if (typeof payload.nbf === 'number' && now < payload.nbf - 10) return null
+  if (typeof payload.exp === 'number' && now > payload.exp + 10) {
+    return reject(`token expiré (exp ${payload.exp}, maintenant ${now}) — horloge du serveur décalée ?`)
+  }
+  if (typeof payload.nbf === 'number' && now < payload.nbf - 10) {
+    return reject(`token pas encore valide (nbf ${payload.nbf}, maintenant ${now})`)
+  }
 
   // 5. Boutique : `dest` = https://xxx.myshopify.com
   const dest = payload.dest || payload.iss || ''
   const shop = dest.replace(/^https?:\/\//, '').split('/')[0]
-  if (!shop || !isValidShopDomain(shop)) return null
+  if (!shop || !isValidShopDomain(shop)) return reject(`domaine boutique invalide : « ${shop} »`)
 
   return { shop, shopifyUserId: payload.sub ?? null }
 }
