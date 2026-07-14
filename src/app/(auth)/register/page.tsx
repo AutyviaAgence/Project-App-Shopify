@@ -3,13 +3,12 @@
 import { useState, useRef, useEffect, Suspense } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
-import { Checkbox } from '@/components/ui/checkbox'
 import { ShopifyAuthButton } from '@/components/shopify-auth-button'
 import { toast } from 'sonner'
 import { Eye, EyeOff } from 'lucide-react'
@@ -21,19 +20,22 @@ import { AuthLegalFooter } from '@/components/auth-legal-footer'
 
 const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || '0x4AAAAAACxrGN3L2YWh3XHJ'
 
+// Widget Cloudflare Turnstile, injecté sur `window` par le script distant.
+type TurnstileApi = {
+  render: (el: HTMLElement, opts: Record<string, unknown>) => string
+  reset: (widgetId: string) => void
+}
+const turnstileApi = () => (window as unknown as { turnstile?: TurnstileApi }).turnstile
+
 function RegisterForm() {
   const { t } = useTranslation()
   const tenant = useTenant()
-  const router = useRouter()
   const searchParams = useSearchParams()
-  const redirect = searchParams.get('redirect')
   const planParam = searchParams.get('plan')
   const refParam = searchParams.get('ref')
-  const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
-  const [acceptedTerms, setAcceptedTerms] = useState(false)
   const [loading, setLoading] = useState(false)
   const [googleLoading, setGoogleLoading] = useState(false)
   const [emailSent, setEmailSent] = useState(false)
@@ -46,8 +48,9 @@ function RegisterForm() {
 
   function resetCaptcha() {
     setCaptchaToken(null)
-    if (widgetIdRef.current && (window as any).turnstile) {
-      ;(window as any).turnstile.reset(widgetIdRef.current)
+    const api = turnstileApi()
+    if (widgetIdRef.current && api) {
+      api.reset(widgetIdRef.current)
     }
   }
 
@@ -61,8 +64,9 @@ function RegisterForm() {
     if (!TURNSTILE_SITE_KEY) return
 
     function renderWidget() {
-      if (turnstileRef.current && (window as any).turnstile && turnstileRef.current.children.length === 0) {
-        widgetIdRef.current = (window as any).turnstile.render(turnstileRef.current, {
+      const api = turnstileApi()
+      if (turnstileRef.current && api && turnstileRef.current.children.length === 0) {
+        widgetIdRef.current = api.render(turnstileRef.current, {
           sitekey: TURNSTILE_SITE_KEY,
           callback: (token: string) => { setCaptchaToken(token); setCaptchaReady(true) },
           'expired-callback': () => setCaptchaToken(null),
@@ -91,9 +95,10 @@ function RegisterForm() {
   // Re-render turnstile when ref is available (after emailSent toggle)
   useEffect(() => {
     if (!TURNSTILE_SITE_KEY) return
-    if (!emailSent && turnstileRef.current && (window as any).turnstile) {
+    const api = turnstileApi()
+    if (!emailSent && turnstileRef.current && api) {
       if (turnstileRef.current.children.length === 0) {
-        widgetIdRef.current = (window as any).turnstile.render(turnstileRef.current, {
+        widgetIdRef.current = api.render(turnstileRef.current, {
           sitekey: TURNSTILE_SITE_KEY,
           callback: (token: string) => { setCaptchaToken(token); setCaptchaReady(true) },
           'expired-callback': () => setCaptchaToken(null),
@@ -106,11 +111,6 @@ function RegisterForm() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-
-    if (!acceptedTerms) {
-      toast.error(t('auth.accept_required'))
-      return
-    }
 
     if (captchaReady && !captchaToken) {
       toast.error('Veuillez compléter la vérification de sécurité.')
@@ -133,7 +133,11 @@ function RegisterForm() {
       password,
       options: {
         data: {
-          full_name: fullName,
+          // Le champ « Nom complet » a été retiré du formulaire (allègement de
+          // l'inscription). On garde `full_name` : le trigger de création de
+          // profil et /api/profile le lisent. Fallback = partie locale de l'email,
+          // l'utilisateur pourra le corriger dans les paramètres.
+          full_name: email.split('@')[0],
           signup_domain: window.location.hostname,
           ...(referralCode ? { referred_by_code: referralCode } : {}),
         },
@@ -201,18 +205,6 @@ function RegisterForm() {
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="fullName">{t('auth.full_name')}</Label>
-            <Input
-              id="fullName"
-              type="text"
-              placeholder={t('auth.name_placeholder')}
-              value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
-              required
-              disabled={loading}
-            />
-          </div>
-          <div className="space-y-2">
             <Label htmlFor="email">{t('auth.email')}</Label>
             <Input
               id="email"
@@ -248,35 +240,16 @@ function RegisterForm() {
               </button>
             </div>
           </div>
-
-          {/* GDPR checkbox */}
-          <div className="flex items-start space-x-2">
-            <Checkbox
-              id="terms"
-              checked={acceptedTerms}
-              onCheckedChange={(checked) => setAcceptedTerms(checked === true)}
-              disabled={loading}
-            />
-            <label
-              htmlFor="terms"
-              className="text-sm text-muted-foreground leading-tight cursor-pointer"
-            >
-              {t('auth.accept_terms')}{' '}
-              <Link href="/cgu" className="text-primary hover:underline" target="_blank">
-                {t('auth.terms_link')}
-              </Link>{' '}
-              &amp;{' '}
-              <Link href="/privacy" className="text-primary hover:underline" target="_blank">
-                {t('auth.privacy_link')}
-              </Link>
-            </label>
-          </div>
+          {/* Acceptation CGU + politique de confidentialité + traitement IA des
+              messages : DÉPLACÉE vers le premier écran de l'onboarding
+              (components/onboarding/welcome-screen.tsx) pour alléger ce
+              formulaire. Le consentement reste obligatoire avant tout usage. */}
         </CardContent>
         <CardFooter className="flex flex-col gap-4 pt-2">
           {/* Cloudflare Turnstile CAPTCHA */}
           <div ref={turnstileRef} className="flex justify-center" />
 
-          <Button type="submit" className="w-full mt-2" disabled={loading || !acceptedTerms || !captchaOk || googleLoading}>
+          <Button type="submit" className="w-full mt-2" disabled={loading || !captchaOk || googleLoading}>
             {loading ? t('auth.signing_up') : t('auth.sign_up')}
           </Button>
 
@@ -294,10 +267,6 @@ function RegisterForm() {
             variant="outline"
             className="w-full"
             onClick={async () => {
-              if (!acceptedTerms) {
-                toast.error(t('auth.accept_required'))
-                return
-              }
               setGoogleLoading(true)
               const supabase = createClient()
               const { error } = await supabase.auth.signInWithOAuth({
@@ -311,7 +280,7 @@ function RegisterForm() {
                 setGoogleLoading(false)
               }
             }}
-            disabled={loading || googleLoading || !acceptedTerms}
+            disabled={loading || googleLoading}
           >
             <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
@@ -322,12 +291,7 @@ function RegisterForm() {
             {googleLoading ? t('auth.signing_in') : t('auth.google_signup')}
           </Button>
 
-          {/* Même garde CGU que Google : pas de compte créé sans consentement. */}
-          <ShopifyAuthButton
-            label="Continuer avec Shopify"
-            disabled={!acceptedTerms}
-            disabledReason={t('auth.accept_required')}
-          />
+          <ShopifyAuthButton label="Continuer avec Shopify" />
 
           <Link href="/login" className="text-sm text-muted-foreground hover:underline">
             {t('auth.already_account')}

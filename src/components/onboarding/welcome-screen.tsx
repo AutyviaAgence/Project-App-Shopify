@@ -5,8 +5,10 @@ import {
   ArrowLeft, ArrowRight, Bot, Camera, Contact, ExternalLink, Flame, MoreVertical,
   Paperclip, ShoppingBag, Smile, Sparkles, Star,
 } from 'lucide-react'
+import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { Button } from '@/components/ui/button'
+import { Checkbox } from '@/components/ui/checkbox'
 import IPhoneMockup from '@/components/ui/iphone-mockup'
 
 /**
@@ -88,6 +90,13 @@ const PHONE_NOM_H = 876
 export function WelcomeScreen({ onStart }: { onStart: () => void }) {
   const reduced = useReducedMotion()
   const [phase, setPhase] = useState(reduced ? 5 : 0)
+  // Acceptation CGU + politique de confidentialité + traitement IA des messages.
+  // Elle vivait sur la page d'inscription : on l'a déplacée ICI pour alléger le
+  // formulaire de création de compte (email + mot de passe seulement). Le
+  // consentement reste OBLIGATOIRE — c'est la base légale RGPD et l'opposabilité
+  // des CGU — il est simplement recueilli au premier écran du produit, avant
+  // toute configuration de l'agent.
+  const [accepted, setAccepted] = useState(false)
   // Scénario courant + nombre de bulles visibles + « qui écrit ».
   const [scen, setScen] = useState(0)
   const [msgs, setMsgs] = useState(reduced ? SCENARIOS[0].length : 0)
@@ -243,7 +252,7 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
 
         {/* Titre + bouton : hauteur réservée, apparition en phase 5.
             `relative z-20` : toujours AU-DESSUS du débord (invisible) du mockup. */}
-        <div className="relative z-20 mt-4 flex min-h-[150px] flex-col items-center justify-start">
+        <div className="relative z-20 mt-4 flex min-h-[220px] flex-col items-center justify-start">
           <AnimatePresence>
             {phase >= 5 && (
               <motion.div
@@ -258,10 +267,47 @@ export function WelcomeScreen({ onStart }: { onStart: () => void }) {
                 <h2 className="mt-2 max-w-xl text-lg font-bold tracking-tight text-white sm:text-xl">
                   Une IA qui répond, conseille et vend sur WhatsApp, à partir de votre boutique.
                 </h2>
+
+                {/* Consentement légal : sobre, lisible, mais pas envahissant. */}
+                <div className="mt-4 flex max-w-lg items-start gap-2.5 text-left">
+                  <Checkbox
+                    id="onboarding-terms"
+                    checked={accepted}
+                    onCheckedChange={(checked) => setAccepted(checked === true)}
+                    className="mt-0.5 border-white/30 bg-white/5 data-[state=checked]:border-white data-[state=checked]:bg-white data-[state=checked]:text-black"
+                  />
+                  <label
+                    htmlFor="onboarding-terms"
+                    className="cursor-pointer text-[12px] leading-snug text-white/50"
+                  >
+                    J&apos;accepte les Conditions Générales d&apos;Utilisation et la Politique de
+                    Confidentialité. Je comprends que mes messages WhatsApp seront traités par une
+                    intelligence artificielle pour générer des réponses automatiques.{' '}
+                    <Link href="/cgu" target="_blank" className="text-white/80 underline underline-offset-2 hover:text-white">
+                      Conditions Générales d&apos;Utilisation
+                    </Link>{' '}
+                    &amp;{' '}
+                    <Link href="/privacy" target="_blank" className="text-white/80 underline underline-offset-2 hover:text-white">
+                      Politique de Confidentialité
+                    </Link>
+                  </label>
+                </div>
+
                 <Button
                   size="lg"
-                  onClick={onStart}
-                  className="group mt-4 h-11 bg-white px-8 text-base text-black shadow-lg shadow-black/30 hover:bg-white/90"
+                  onClick={() => {
+                    // ⚠️ PERSISTER l'acceptation, pas seulement débloquer le bouton.
+                    // Une case cochée qui ne laisse aucune trace en base ne vaut rien
+                    // en cas de contrôle RGPD — ni face à la question Shopify « avez-vous
+                    // conclu des accords de confidentialité avec vos marchands ? ».
+                    // Non-awaité : l'onboarding ne doit pas attendre le réseau. Un échec
+                    // est loggué mais ne bloque pas le marchand (il a bien consenti).
+                    fetch('/api/account/accept-terms', { method: 'POST' })
+                      .catch((e) => console.error('[welcome] acceptation des CGU non enregistrée:', e))
+                    onStart()
+                  }}
+                  disabled={!accepted}
+                  className="group mt-4 h-11 bg-white px-8 text-base text-black shadow-lg shadow-black/30 hover:bg-white/90 disabled:opacity-40"
                 >
                   Configurer mon agent
                   <ArrowRight className="ml-1.5 h-4 w-4 transition-transform group-hover:translate-x-0.5" />
