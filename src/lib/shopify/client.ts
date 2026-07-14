@@ -373,11 +373,49 @@ export async function listAllOrders(
 }
 
 /** Récupère les infos de base de la boutique (nom, devise, pays, email). */
+/**
+ * Infos de base de la boutique (nom, email du marchand, devise, pays).
+ *
+ * ⚠️ `Shop.email` n'est PAS une donnée client protégée et n'exige AUCUN scope
+ * (`read_shop` n'existe même pas — Shopify le rejette). Il est typé `String!`,
+ * donc il ne peut pas revenir vide sur une requête réussie : si l'email manque,
+ * c'est que la REQUÊTE a échoué.
+ *
+ * C'était le cas : on demandait `billingAddress`, un champ **déprécié** sur `Shop`.
+ * Toute la requête tombait, `shop_name`/`shop_email`/`currency`/`country`
+ * restaient NULL, `resolveXeyoUser()` refusait de créer le compte, et la boutique
+ * restait ORPHELINE — sans que rien ne l'explique.
+ *
+ * `contactEmail` (email public de contact) sert de repli à `email` (email du
+ * propriétaire) : sémantiquement différents, mais mieux vaut l'un que rien.
+ */
+type ShopInfo = {
+  shop: {
+    name: string
+    email: string | null
+    contactEmail: string | null
+    currencyCode: string
+    billingAddress?: { country: string | null } | null
+  }
+}
+
 export async function fetchShopInfo(shop: string, accessToken: string) {
-  return shopifyGraphQL<{ shop: { name: string; email: string; currencyCode: string; billingAddress: { country: string | null } } }>(
+  // 1re tentative, avec le pays (via `billingAddress`, déprécié).
+  const full = await shopifyGraphQL<ShopInfo>(
     shop,
     accessToken,
-    `{ shop { name email currencyCode billingAddress { country } } }`
+    `{ shop { name email contactEmail currencyCode billingAddress { country } } }`
+  )
+  if (full.ok) return full
+
+  // Repli SANS `billingAddress` : ce champ est déprécié et sera retiré. Le pays
+  // est accessoire — l'email, lui, conditionne la création du compte marchand.
+  // Mieux vaut perdre le pays que de laisser une boutique orpheline.
+  console.warn('[fetchShopInfo] requête complète échouée, repli sans billingAddress :', full.error)
+  return shopifyGraphQL<ShopInfo>(
+    shop,
+    accessToken,
+    `{ shop { name email contactEmail currencyCode } }`
   )
 }
 

@@ -47,15 +47,21 @@ export async function ensureStoreProvisioned(
 ): Promise<boolean> {
   const supabase = admin()
 
-  // Déjà provisionnée ? Rien à faire — c'est le cas de la quasi-totalité des
-  // requêtes, donc on sort avant tout appel réseau.
+  // Déjà provisionnée ET complète ? Rien à faire — c'est le cas de la quasi-totalité
+  // des requêtes, donc on sort avant tout appel réseau.
+  //
+  // ⚠️ On exige aussi `shop_email` : une boutique provisionnée mais SANS email est
+  // inexploitable (resolveXeyoUser ne peut pas créer le compte → boutique orpheline
+  // → 0 contact, 0 agent). Sans cette condition, une boutique tombée dans cet état
+  // y restait pour toujours : le token existait, donc on sortait immédiatement et
+  // on ne retentait jamais de récupérer ses infos.
   const { data: existing } = await supabase
     .from('shopify_stores')
-    .select('id, access_token')
+    .select('id, access_token, shop_email')
     .eq('shop_domain', shop)
     .eq('is_active', true)
     .maybeSingle()
-  if (existing?.access_token) return true
+  if (existing?.access_token && existing.shop_email) return true
 
   // Managed install : la boutique n'existe pas encore. On l'obtient en échangeant
   // le session token que Shopify vient de nous donner.
@@ -82,7 +88,9 @@ export async function ensureStoreProvisioned(
       access_token: encryptMessage(exchanged.accessToken),
       scopes: exchanged.scope,
       shop_name: info?.name ?? null,
-      shop_email: info?.email ?? null,
+      // `email` (propriétaire) d'abord, `contactEmail` (public) en repli : sans
+      // email, resolveXeyoUser() ne crée pas le compte et la boutique reste orpheline.
+      shop_email: info?.email || info?.contactEmail || null,
       currency: info?.currencyCode ?? null,
       country: info?.billingAddress?.country ?? null,
       is_active: true,
