@@ -1,7 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-import { getStripe } from '@/lib/stripe/client'
+
+/**
+ * Codes promo Xeyo (remise sur l'abonnement du marchand).
+ *
+ * ⚠️ CE QUI A CHANGÉ.
+ *
+ * Cette route créait des coupons STRIPE. Or Xeyo est facturé via la Billing API
+ * de Shopify : un coupon Stripe n'a strictement aucun effet sur un abonnement
+ * Shopify. Les codes créés ici étaient donc inutilisables — et de toute façon la
+ * table n'était jamais lue au moment de l'abonnement.
+ *
+ * Un code promo est maintenant une simple ligne en base, traduite à
+ * l'abonnement en `discount` natif de la Billing API (remise en % ou en montant
+ * fixe, sur N cycles) et/ou en `trialDays`. Les deux sont cumulables : on peut
+ * offrir 30 jours gratuits PUIS 3 mois à -50 %.
+ */
 
 function getAdmin() {
   return createAdminClient(
@@ -11,22 +26,28 @@ function getAdmin() {
   )
 }
 
-export async function GET() {
+/** Le rôle admin est vérifié CÔTÉ SERVEUR : la page cliente ne garde rien. */
+async function requireAdmin() {
   const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  const { data: { user }, error } = await supabase.auth.getUser()
+  if (error || !user) return { ok: false as const, status: 401, error: 'Non authentifié' }
 
-  const adminSupabase = getAdmin()
-
-  const { data: profile } = await adminSupabase
+  const admin = getAdmin()
+  const { data: profile } = await admin
     .from('profiles')
     .select('role')
     .eq('id', user.id)
     .single() as { data: { role: string | null } | null }
 
-  if (profile?.role !== 'admin') return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+  if (profile?.role !== 'admin') return { ok: false as const, status: 403, error: 'Accès refusé' }
+  return { ok: true as const, admin }
+}
 
-  const { data } = await (adminSupabase as any)
+export async function GET() {
+  const auth = await requireAdmin()
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
+
+  const { data } = await auth.admin
     .from('promo_codes')
     .select('*')
     .order('created_at', { ascending: false })
@@ -35,66 +56,92 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-  if (authError || !user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-
-  const adminSupabase = getAdmin()
-
-  const { data: profile } = await adminSupabase
-    .from('profiles')
-    .select('role')
-    .eq('id', user.id)
-    .single() as { data: { role: string | null } | null }
-
-  if (profile?.role !== 'admin') return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+  const auth = await requireAdmin()
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
   const body = await req.json()
-  const { code, discount_percent, max_redemptions, applies_to } = body
+  const {
+    code,
+    discount_percent,
+    discount_amount_cents,
+    duration_months,
+    trial_days,
+    max_redemptions,
+    valid_until,
+    plans,
+  } = body
 
-  if (!code || !discount_percent) {
-    return NextResponse.json({ error: 'Code et remise requis' }, { status: 400 })
+  const normalized = String(code || '').trim().toUpperCase()
+  if (!normalized) {
+    return NextResponse.json({ error: 'Code requis' }, { status: 400 })
   }
 
-  try {
-    const stripe = getStripe()
+  // Un code doit offrir QUELQUE CHOSE : une remise ou des jours d'essai. Sinon il
+  // s'appliquerait sans rien changer, et le marchand croirait à un bug.
+  const hasPercent = discount_percent != null && Number(discount_percent) > 0
+  const hasAmount = discount_amount_cents != null && Number(discount_amount_cents) > 0
+  const hasTrial = trial_days != null && Number(trial_days) > 0
 
-    const coupon = await stripe.coupons.create({
-      percent_off: Number(discount_percent),
-      duration: 'once',
-      name: `Promo ${code}`,
+  if (!hasPercent && !hasAmount && !hasTrial) {
+    return NextResponse.json(
+      { error: 'Indiquez au moins une remise (% ou montant) ou des jours d’essai.' },
+      { status: 400 }
+    )
+  }
+  if (hasPercent && Number(discount_percent) > 100) {
+    return NextResponse.json({ error: 'La remise ne peut pas dépasser 100 %.' }, { status: 400 })
+  }
+
+  const { data, error } = await auth.admin
+    .from('promo_codes')
+    .insert({
+      code: normalized,
+      discount_percent: hasPercent ? Number(discount_percent) : null,
+      discount_amount_cents: hasAmount ? Number(discount_amount_cents) : null,
+      // Nombre de cycles de facturation concernés. NULL = remise permanente.
+      duration_months: duration_months ? Number(duration_months) : null,
+      trial_days: hasTrial ? Number(trial_days) : null,
+      max_redemptions: max_redemptions ? Number(max_redemptions) : null,
+      valid_until: valid_until || null,
+      // Restreindre à certains plans. NULL = tous.
+      plans: Array.isArray(plans) && plans.length ? plans : null,
+      is_active: true,
     })
+    .select()
+    .single()
 
-    const promoCodeParams: any = {
-      promotion: { type: 'coupon', coupon: coupon.id },
-      code: code.toUpperCase(),
-      ...(max_redemptions ? { max_redemptions: Number(max_redemptions) } : {}),
+  if (error) {
+    // 23505 = le code existe déjà (l'unicité est insensible à la casse).
+    if (error.code === '23505') {
+      return NextResponse.json({ error: 'Ce code existe déjà.' }, { status: 409 })
     }
-    const stripePromoCode = await stripe.promotionCodes.create(promoCodeParams)
-
-    const { data, error } = await (adminSupabase as any)
-      .from('promo_codes')
-      .insert({
-        code: code.toUpperCase(),
-        stripe_coupon_id: coupon.id,
-        stripe_promo_code_id: stripePromoCode.id,
-        discount_percent: Number(discount_percent),
-        max_redemptions: max_redemptions ? Number(max_redemptions) : null,
-        applies_to: applies_to || 'both',
-        is_active: true,
-      })
-      .select()
-      .single()
-
-    if (error) {
-      await stripe.promotionCodes.update(stripePromoCode.id, { active: false }).catch(() => {})
-      await stripe.coupons.del(coupon.id).catch(() => {})
-      return NextResponse.json({ error: error.message }, { status: 400 })
-    }
-
-    return NextResponse.json(data)
-  } catch (err: any) {
-    console.error('[PromoCode] Error:', err?.message, err?.raw || '')
-    return NextResponse.json({ error: err?.message || 'Erreur Stripe' }, { status: 500 })
+    console.error('[admin/promo-codes] création échouée:', error.message)
+    return NextResponse.json({ error: 'Création impossible' }, { status: 500 })
   }
+
+  return NextResponse.json(data)
+}
+
+/**
+ * PATCH — activer / désactiver un code.
+ *
+ * ⚠️ La suppression était un DELETE définitif, alors que l'interface affichait
+ * « Code promo désactivé » et une colonne « Statut : Actif / Inactif » qui ne
+ * pouvait JAMAIS valoir « Inactif » (aucune route ne l'écrivait). Désactiver
+ * préserve l'historique des utilisations.
+ */
+export async function PATCH(req: NextRequest) {
+  const auth = await requireAdmin()
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
+
+  const { id, is_active } = await req.json()
+  if (!id) return NextResponse.json({ error: 'Identifiant requis' }, { status: 400 })
+
+  const { error } = await auth.admin
+    .from('promo_codes')
+    .update({ is_active: !!is_active })
+    .eq('id', id)
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ ok: true })
 }

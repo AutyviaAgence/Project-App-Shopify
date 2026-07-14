@@ -73,35 +73,44 @@ type ClientRow = {
 
 const PLAN_LABELS: Record<string, string> = { starter: 'Starter', pro: 'Pro', scale: 'Scale' }
 
-type BillingSubscription = {
-  user_id: string
-  email: string
-  full_name: string | null
-  plan: string | null
-  db_status: string | null
-  stripe_status: string
-  stripe_subscription_id: string
-  current_period_start: string | null
-  current_period_end: string | null
-  cancel_at_period_end: boolean
-  amount: number | null
-  currency: string
-}
-
-type BillingInvoice = {
-  id: string
-  user_id: string | null
-  email: string
-  full_name: string | null
-  plan: string | null
-  amount: number
-  currency: string
-  status: string | null
-  created: string
-  period_start: string | null
-  period_end: string | null
-  invoice_url: string | null
-  description: string | null
+/**
+ * Facturation admin — d'après `shopify_stores`, la source de vérité.
+ *
+ * ⚠️ Remplace `BillingSubscription` / `BillingInvoice`, qui décrivaient des
+ * données STRIPE. Un marchand Shopify n'a pas de client Stripe : la vue de
+ * facturation ne montrait donc aucun des vrais clients.
+ */
+type AdminBilling = {
+  subscriptions: Array<{
+    id: string
+    userId: string | null
+    email: string | null
+    fullName: string | null
+    shopDomain: string
+    shopName: string | null
+    plan: string
+    /** Plan visé, en attente d'approbation du marchand chez Shopify. */
+    pendingPlan: string | null
+    status: string | null
+    priceEur: number
+    currentPeriodEnd: string | null
+    chargeId: string | null
+    createdAt: string
+  }>
+  purchases: Array<{
+    id: string
+    shop_domain: string
+    pack: string
+    status: string
+    price_cents: number | null
+    created_at: string
+  }>
+  totals: {
+    mrrCents: number
+    activeCount: number
+    pendingCount: number
+    frozenCount: number
+  }
 }
 
 type SessionRow = {
@@ -161,7 +170,8 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<'clients' | 'billing' | 'sessions' | 'affiliate' | 'promo' | 'install' | 'settings'>('clients')
   const [sessions, setSessions] = useState<SessionRow[]>([])
   const [sessionsLoading, setSessionsLoading] = useState(false)
-  const [billing, setBilling] = useState<{ subscriptions: BillingSubscription[]; invoices: BillingInvoice[] } | null>(null)
+  // `BillingTab` charge désormais ses propres données (il lit `shopify_stores`,
+  // et non plus Stripe). Cet état n'a plus lieu d'être.
   const [billingLoading, setBillingLoading] = useState(false)
 
   const fetchClients = useCallback(async () => {
@@ -173,17 +183,8 @@ export default function AdminPage() {
     setLoading(false)
   }, [])
 
-  const fetchBilling = useCallback(async () => {
-    setBillingLoading(true)
-    try {
-      const res = await fetch('/api/admin/billing')
-      if (!res.ok) return
-      const data = await res.json()
-      setBilling(data.data)
-    } finally {
-      setBillingLoading(false)
-    }
-  }, [])
+  // Le chargement de la facturation vit maintenant dans `BillingTab` : il lit
+  // `shopify_stores` (la source de vérité) et non plus Stripe.
 
   // ── Actions admin par client (tokens / bannir / pause) ────────────────
   const [tokensModal, setTokensModal] = useState<{ id: string; email: string; tokens_limit: number } | null>(null)
@@ -238,11 +239,6 @@ export default function AdminPage() {
     if (subscription?.role === 'admin') fetchClients()
   }, [subscription, fetchClients])
 
-  useEffect(() => {
-    if (subscription?.role === 'admin' && activeTab === 'billing' && !billing) {
-      fetchBilling()
-    }
-  }, [activeTab, subscription, billing, fetchBilling])
 
   const handleActivate = async (userId: string, currentClientPlan?: string | null) => {
     const selectedPlan = selectedPlans[userId] ?? currentClientPlan ?? 'none'
@@ -434,7 +430,9 @@ export default function AdminPage() {
             <p className="text-sm text-muted-foreground">{clients.length} clients</p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={activeTab === 'billing' ? fetchBilling : fetchClients}>
+        {/* L'onglet facturation a son propre bouton d'actualisation (il charge
+            ses données lui-même). */}
+        <Button variant="outline" size="sm" onClick={fetchClients}>
           <RefreshCw className="h-4 w-4 mr-2" />
           Actualiser
         </Button>
@@ -533,7 +531,7 @@ export default function AdminPage() {
       {activeTab === 'install' && <InstallLinkGenerator />}
 
       {activeTab === 'billing' && (
-        <BillingTab billing={billing} loading={billingLoading} onRefresh={fetchBilling} />
+        <BillingTab loading={billingLoading} />
       )}
 
       {activeTab === 'sessions' && (
@@ -987,342 +985,166 @@ export default function AdminPage() {
 
 // ─── Billing Tab ──────────────────────────────────────────────────────────────
 
-function BillingTab({
-  billing,
-  loading,
-  onRefresh,
-}: {
-  billing: { subscriptions: BillingSubscription[]; invoices: BillingInvoice[] } | null
-  loading: boolean
-  onRefresh: () => void
-}) {
-  const fmt = (iso: string | null) =>
-    iso ? new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
-  const fmtAmount = (amount: number | null, currency: string) =>
-    amount !== null ? `${(amount / 100).toFixed(2)} ${currency.toUpperCase()}` : '—'
+/**
+ * Facturation — vue admin.
+ *
+ * ⚠️ L'ANCIENNE VERSION NE MONTRAIT AUCUN CLIENT RÉEL.
+ *
+ * Elle ne listait que les comptes ayant un client Stripe, puis interrogeait
+ * Stripe. Or un marchand Shopify n'a pas de client Stripe — et l'onboarding
+ * impose une boutique Shopify. Tous les vrais clients étaient donc INVISIBLES
+ * dans cette vue.
+ *
+ * Elle lit désormais `shopify_stores`, la source de vérité, tenue à jour par le
+ * callback de facturation et le webhook d'abonnement.
+ */
+function BillingTab({ loading }: { loading: boolean }) {
+  const [data, setData] = useState<AdminBilling | null>(null)
+  const [busy, setBusy] = useState(true)
 
-  if (loading) return (
-    <div className="flex items-center justify-center py-16">
-      <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-    </div>
-  )
-
-  if (!billing) return (
-    <div className="flex flex-col items-center justify-center py-16 gap-3 text-muted-foreground">
-      <AlertCircle className="h-8 w-8" />
-      <p>Impossible de charger les données Stripe.</p>
-      <button onClick={onRefresh} className="text-sm text-primary underline">Réessayer</button>
-    </div>
-  )
-
-  const now = new Date()
-
-  // Abonnements avec prochain prélèvement
-  const activeSubscriptions = billing.subscriptions.filter(s => s.stripe_status === 'active' || s.stripe_status === 'trialing')
-  const cancelledSubscriptions = billing.subscriptions.filter(s => s.stripe_status === 'canceled' || s.cancel_at_period_end)
-  const totalMonthly = activeSubscriptions.reduce((acc, s) => acc + (s.amount ?? 0), 0)
-
-  return (
-    <BillingContent
-      billing={billing}
-      now={now}
-      activeSubscriptions={activeSubscriptions}
-      cancelledSubscriptions={cancelledSubscriptions}
-      totalMonthly={totalMonthly}
-      fmt={fmt}
-      fmtAmount={fmtAmount}
-    />
-  )
-}
-
-// ─── Billing content (vue par mois, onglets, pagination) ─────────────────────
-const BILLING_PAGE_SIZE = 30
-
-function BillingContent({
-  billing, now, activeSubscriptions, cancelledSubscriptions, totalMonthly, fmt, fmtAmount,
-}: {
-  billing: { subscriptions: BillingSubscription[]; invoices: BillingInvoice[] }
-  now: Date
-  activeSubscriptions: BillingSubscription[]
-  cancelledSubscriptions: BillingSubscription[]
-  totalMonthly: number
-  fmt: (iso: string | null) => string
-  fmtAmount: (amount: number | null, currency: string) => string
-}) {
-  // Vue affichée séparément : renouvellements OU historique.
-  const [view, setView] = useState<'renewals' | 'history'>('renewals')
-  // Décalage de mois : 0 = mois courant, -1 = mois précédent, etc.
-  const [monthOffset, setMonthOffset] = useState(0)
-  // Pagination : on n'affiche que N lignes, « Afficher plus » ajoute une page.
-  const [visibleCount, setVisibleCount] = useState(BILLING_PAGE_SIZE)
-
-  // Reset de la pagination dès qu'on change de vue ou de mois.
-  useEffect(() => { setVisibleCount(BILLING_PAGE_SIZE) }, [view, monthOffset])
-
-  // Bornes [début, fin[ du mois sélectionné.
-  const { monthStart, monthEnd, monthLabel } = useMemo(() => {
-    const start = new Date(now.getFullYear(), now.getMonth() + monthOffset, 1)
-    const end = new Date(now.getFullYear(), now.getMonth() + monthOffset + 1, 1)
-    return {
-      monthStart: start,
-      monthEnd: end,
-      monthLabel: start.toLocaleDateString('fr-FR', { month: 'long', year: 'numeric' }),
-    }
-  }, [now, monthOffset])
-
-  const inMonth = (iso: string | null) => {
-    if (!iso) return false
-    const t = new Date(iso).getTime()
-    return t >= monthStart.getTime() && t < monthEnd.getTime()
+  const load = () => {
+    setBusy(true)
+    fetch('/api/admin/billing')
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => setData(j?.data ?? null))
+      .catch(() => setData(null))
+      .finally(() => setBusy(false))
   }
 
-  // Renouvellements du mois : prochain prélèvement dans le mois sélectionné.
-  const renewalsOfMonth = useMemo(() =>
-    activeSubscriptions
-      .filter(s => inMonth(s.current_period_end))
-      .sort((a, b) => new Date(a.current_period_end ?? '').getTime() - new Date(b.current_period_end ?? '').getTime()),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [activeSubscriptions, monthStart, monthEnd])
+  useEffect(() => { load() }, [])
 
-  // Paiements du mois (les plus récents d'abord).
-  const invoicesOfMonth = useMemo(() =>
-    billing.invoices
-      .filter(inv => inMonth(inv.created))
-      .sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime()),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [billing.invoices, monthStart, monthEnd])
+  if (loading || busy) {
+    return (
+      <div className="flex justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
 
-  const rows = view === 'renewals' ? renewalsOfMonth : invoicesOfMonth
-  const visibleRows = rows.slice(0, visibleCount)
-  const hasMore = rows.length > visibleCount
-  // On ne va pas dans le futur : le mois courant (offset 0) est la borne droite.
-  const canGoNext = monthOffset < 0
+  if (!data) {
+    return <p className="py-12 text-center text-sm text-muted-foreground">Aucune donnée de facturation.</p>
+  }
+
+  const eur = (cents: number) => (cents / 100).toFixed(2).replace('.', ',') + ' €'
 
   return (
-    <div className="space-y-8">
-
-      {/* KPIs billing */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-        <div className="rounded-xl border p-4 text-center">
-          <p className="text-2xl font-bold text-green-500">{activeSubscriptions.length}</p>
-          <p className="text-xs text-muted-foreground mt-1">Abonnements actifs</p>
+    <div className="space-y-6">
+      {/* « En attente » = le marchand a lancé un abonnement mais ne l'a jamais
+          approuvé chez Shopify. « Gelé » = impayé, Shopify a suspendu. */}
+      <div className="grid gap-3 sm:grid-cols-4">
+        <div className="rounded-xl border bg-card p-4">
+          <p className="text-xs text-muted-foreground">Revenu mensuel</p>
+          <p className="mt-1 text-2xl font-semibold text-primary">{eur(data.totals.mrrCents)}</p>
         </div>
-        <div className="rounded-xl border p-4 text-center">
-          <p className="text-2xl font-bold text-primary">{(totalMonthly / 100).toFixed(0)} €</p>
-          <p className="text-xs text-muted-foreground mt-1">MRR estimé</p>
+        <div className="rounded-xl border bg-card p-4">
+          <p className="text-xs text-muted-foreground">Abonnements actifs</p>
+          <p className="mt-1 text-2xl font-semibold">{data.totals.activeCount}</p>
         </div>
-        <div className="rounded-xl border p-4 text-center">
-          <p className="text-2xl font-bold text-orange-500">{cancelledSubscriptions.length}</p>
-          <p className="text-xs text-muted-foreground mt-1">Annulés / en cours</p>
+        <div className="rounded-xl border bg-card p-4">
+          <p className="text-xs text-muted-foreground">En attente d’approbation</p>
+          <p className="mt-1 text-2xl font-semibold">{data.totals.pendingCount}</p>
         </div>
-        <div className="rounded-xl border p-4 text-center">
-          <p className="text-2xl font-bold text-blue-500">{billing.invoices.filter(i => i.status === 'paid').length}</p>
-          <p className="text-xs text-muted-foreground mt-1">Factures payées</p>
-        </div>
-      </div>
-
-      {/* Onglets (séparés) + navigation par mois */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="inline-flex rounded-lg border p-1">
-          <button
-            onClick={() => setView('renewals')}
-            className={cn('flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-              view === 'renewals' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}
-          >
-            <Calendar className="h-4 w-4" /> Prochains renouvellements
-          </button>
-          <button
-            onClick={() => setView('history')}
-            className={cn('flex items-center gap-2 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
-              view === 'history' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground')}
-          >
-            <TrendingUp className="h-4 w-4" /> Historique des paiements
-          </button>
-        </div>
-        {/* Navigation mois précédent / suivant */}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setMonthOffset(o => o - 1)}
-            className="flex h-8 w-8 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:text-foreground"
-            title="Mois précédent"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <span className="min-w-[9rem] text-center text-sm font-medium capitalize">{monthLabel}</span>
-          <button
-            onClick={() => setMonthOffset(o => Math.min(0, o + 1))}
-            disabled={!canGoNext}
-            className="flex h-8 w-8 items-center justify-center rounded-md border text-muted-foreground transition-colors hover:text-foreground disabled:opacity-40"
-            title="Mois suivant"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
+        <div className="rounded-xl border bg-card p-4">
+          <p className="text-xs text-muted-foreground">Impayés (gelés)</p>
+          <p className="mt-1 text-2xl font-semibold">{data.totals.frozenCount}</p>
         </div>
       </div>
 
-      {/* Prochains renouvellements (du mois sélectionné) */}
-      {view === 'renewals' && (
-        <div>
-          <div className="rounded-xl border overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="border-b bg-muted/30">
-                <tr>
-                  <th className="px-4 py-3 text-left font-semibold">Client</th>
-                  <th className="px-4 py-3 text-left font-semibold">Plan</th>
-                  <th className="px-4 py-3 text-left font-semibold">Montant</th>
-                  <th className="px-4 py-3 text-left font-semibold">Prochain prélèvement</th>
-                  <th className="px-4 py-3 text-left font-semibold">Statut Stripe</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {(visibleRows as BillingSubscription[]).map(s => {
-                  const daysLeft = s.current_period_end
-                    ? Math.ceil((new Date(s.current_period_end).getTime() - now.getTime()) / 86400000)
-                    : null
-                  return (
-                    <tr key={s.stripe_subscription_id} className="hover:bg-muted/20">
-                      <td className="px-4 py-3">
-                        <p className="font-medium">{s.full_name || s.email}</p>
-                        <p className="text-xs text-muted-foreground">{s.email}</p>
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="capitalize font-medium">{s.plan ?? '—'}</span>
-                      </td>
-                      <td className="px-4 py-3 font-semibold text-green-600">
-                        {fmtAmount(s.amount, s.currency)}
-                      </td>
-                      <td className="px-4 py-3">
-                        <p>{fmt(s.current_period_end)}</p>
-                        {daysLeft !== null && (
-                          <p className={cn('text-xs', daysLeft <= 3 ? 'text-orange-500 font-medium' : 'text-muted-foreground')}>
-                            dans {daysLeft}j
-                          </p>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        {s.cancel_at_period_end ? (
-                          <span className="inline-flex items-center gap-1 text-xs text-orange-600 font-medium">
-                            <Ban className="h-3 w-3" /> Annulation fin de période
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-xs text-green-600 font-medium">
-                            <CheckCircle className="h-3 w-3" /> Actif
-                          </span>
-                        )}
-                      </td>
-                    </tr>
-                  )
-                })}
-                {renewalsOfMonth.length === 0 && (
-                  <tr><td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">Aucun renouvellement en {monthLabel}.</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+      <div className="overflow-hidden rounded-xl border">
+        <div className="flex items-center justify-between border-b bg-muted/30 px-4 py-3">
+          <p className="text-sm font-medium">Abonnements ({data.subscriptions.length})</p>
+          <Button variant="outline" size="sm" onClick={load}>
+            <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Actualiser
+          </Button>
         </div>
-      )}
-
-      {/* Historique des paiements (du mois sélectionné) */}
-      {view === 'history' && (
-        <div>
-          <div className="rounded-xl border overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="border-b bg-muted/30">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="border-b bg-muted/10 text-xs text-muted-foreground">
+              <tr>
+                <th className="px-4 py-2 text-left font-medium">Client</th>
+                <th className="px-4 py-2 text-left font-medium">Boutique</th>
+                <th className="px-4 py-2 text-left font-medium">Plan</th>
+                <th className="px-4 py-2 text-left font-medium">Statut</th>
+                <th className="px-4 py-2 text-left font-medium">Renouvellement</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {data.subscriptions.map(s => (
+                <tr key={s.id} className="hover:bg-muted/20">
+                  <td className="px-4 py-3">
+                    <p className="font-medium">{s.fullName || s.email || '—'}</p>
+                    {s.fullName && s.email && (
+                      <p className="text-xs text-muted-foreground">{s.email}</p>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 font-mono text-xs">{s.shopDomain}</td>
+                  <td className="px-4 py-3">
+                    <span className="font-medium capitalize">{s.plan}</span>
+                    {s.pendingPlan && (
+                      <span className="ml-1.5 text-xs text-amber-600">→ {s.pendingPlan} ?</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3"><SubStatusBadge status={s.status} /></td>
+                  <td className="px-4 py-3 text-xs text-muted-foreground">
+                    {s.currentPeriodEnd
+                      ? new Date(s.currentPeriodEnd).toLocaleDateString('fr-FR')
+                      : '—'}
+                  </td>
+                </tr>
+              ))}
+              {data.subscriptions.length === 0 && (
                 <tr>
-                  <th className="px-4 py-3 text-left font-semibold">Date</th>
-                  <th className="px-4 py-3 text-left font-semibold">Client</th>
-                  <th className="px-4 py-3 text-left font-semibold">Plan</th>
-                  <th className="px-4 py-3 text-left font-semibold">Montant</th>
-                  <th className="px-4 py-3 text-left font-semibold">Statut</th>
-                  <th className="px-4 py-3 text-left font-semibold">Facture</th>
+                  <td colSpan={5} className="px-4 py-8 text-center text-sm text-muted-foreground">
+                    Aucune boutique active.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Achats ponctuels. Ils ne passaient pas du tout par Shopify avant : le
+          bouton « Acheter des tokens » renvoyait un 403 à tous les marchands. */}
+      {data.purchases.length > 0 && (
+        <div className="overflow-hidden rounded-xl border">
+          <p className="border-b bg-muted/30 px-4 py-3 text-sm font-medium">
+            Achats ponctuels ({data.purchases.length})
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="border-b bg-muted/10 text-xs text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-2 text-left font-medium">Boutique</th>
+                  <th className="px-4 py-2 text-left font-medium">Pack</th>
+                  <th className="px-4 py-2 text-left font-medium">Montant</th>
+                  <th className="px-4 py-2 text-left font-medium">Statut</th>
+                  <th className="px-4 py-2 text-left font-medium">Date</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {(visibleRows as BillingInvoice[]).map(inv => (
-                  <tr key={inv.id} className="hover:bg-muted/20">
-                    <td className="px-4 py-3 text-muted-foreground">{fmt(inv.created)}</td>
+                {data.purchases.map(p => (
+                  <tr key={p.id} className="hover:bg-muted/20">
+                    <td className="px-4 py-3 font-mono text-xs">{p.shop_domain}</td>
                     <td className="px-4 py-3">
-                      <p className="font-medium">{inv.full_name || inv.email}</p>
-                      <p className="text-xs text-muted-foreground">{inv.email}</p>
+                      {p.pack === 'tokens' ? 'Tokens' : 'Conversations IA'}
                     </td>
-                    <td className="px-4 py-3 capitalize">{inv.plan ?? '—'}</td>
-                    <td className="px-4 py-3 font-semibold">{fmtAmount(inv.amount, inv.currency)}</td>
+                    <td className="px-4 py-3">{p.price_cents ? eur(p.price_cents) : '—'}</td>
                     <td className="px-4 py-3">
-                      {inv.status === 'paid' && <span className="inline-flex items-center gap-1 text-xs text-green-600 font-medium"><CheckCircle className="h-3 w-3" /> Payé</span>}
-                      {inv.status === 'open' && <span className="inline-flex items-center gap-1 text-xs text-amber-600 font-medium"><Clock className="h-3 w-3" /> En attente</span>}
-                      {inv.status === 'void' && <span className="text-xs text-muted-foreground">Annulé</span>}
-                      {inv.status === 'uncollectible' && <span className="inline-flex items-center gap-1 text-xs text-red-600 font-medium"><XCircle className="h-3 w-3" /> Impayé</span>}
+                      <Badge variant={p.status === 'credited' ? 'default' : 'secondary'}>
+                        {p.status === 'credited' ? 'Crédité' : p.status === 'declined' ? 'Refusé' : 'En attente'}
+                      </Badge>
                     </td>
-                    <td className="px-4 py-3">
-                      {inv.invoice_url && (
-                        <a href={inv.invoice_url} target="_blank" rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-xs text-primary hover:underline">
-                          <ExternalLink className="h-3 w-3" /> Voir
-                        </a>
-                      )}
+                    <td className="px-4 py-3 text-xs text-muted-foreground">
+                      {new Date(p.created_at).toLocaleDateString('fr-FR')}
                     </td>
                   </tr>
                 ))}
-                {invoicesOfMonth.length === 0 && (
-                  <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">Aucun paiement en {monthLabel}.</td></tr>
-                )}
               </tbody>
             </table>
           </div>
         </div>
       )}
-
-      {/* Pagination : « Afficher plus » (pas de scroll infini) */}
-      {hasMore && (
-        <div className="flex justify-center">
-          <button
-            onClick={() => setVisibleCount(c => c + BILLING_PAGE_SIZE)}
-            className="rounded-lg border px-4 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            Afficher plus ({rows.length - visibleCount} restant{rows.length - visibleCount > 1 ? 's' : ''})
-          </button>
-        </div>
-      )}
-
-      {/* Abonnements annulés */}
-      {billing.subscriptions.filter(s => s.stripe_status === 'canceled' && !s.cancel_at_period_end).length > 0 && (
-        <div>
-          <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-            <XCircle className="h-5 w-5 text-red-500" />
-            Abonnements résiliés
-          </h2>
-          <div className="rounded-xl border overflow-hidden">
-            <table className="w-full text-sm">
-              <thead className="border-b bg-muted/30">
-                <tr>
-                  <th className="px-4 py-3 text-left font-semibold">Client</th>
-                  <th className="px-4 py-3 text-left font-semibold">Plan</th>
-                  <th className="px-4 py-3 text-left font-semibold">Fin de période</th>
-                  <th className="px-4 py-3 text-left font-semibold">Statut DB</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {billing.subscriptions
-                  .filter(s => s.stripe_status === 'canceled' && !s.cancel_at_period_end)
-                  .map(s => (
-                    <tr key={s.stripe_subscription_id} className="hover:bg-muted/20 opacity-75">
-                      <td className="px-4 py-3">
-                        <p className="font-medium">{s.full_name || s.email}</p>
-                        <p className="text-xs text-muted-foreground">{s.email}</p>
-                      </td>
-                      <td className="px-4 py-3 capitalize">{s.plan ?? '—'}</td>
-                      <td className="px-4 py-3">{fmt(s.current_period_end)}</td>
-                      <td className="px-4 py-3">
-                        <span className="text-xs text-red-500 font-medium">{s.db_status ?? 'cancelled'}</span>
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
-
     </div>
   )
 }

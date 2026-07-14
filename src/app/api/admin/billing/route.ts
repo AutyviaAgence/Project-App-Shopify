@@ -1,85 +1,107 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-import Stripe from 'stripe'
+import { PLANS, type PlanId } from '@/lib/plans'
 
 export const dynamic = 'force-dynamic'
 
+/**
+ * Vue admin de la facturation.
+ *
+ * ⚠️ CE QUI ÉTAIT CASSÉ.
+ *
+ * Cette route ne listait que les comptes ayant un `stripe_customer_id`
+ * (`.not('stripe_customer_id', 'is', null)`), puis interrogeait Stripe. Or un
+ * marchand Shopify n'a PAS de client Stripe : il était donc totalement INVISIBLE
+ * dans la vue de facturation. Comme l'onboarding impose une boutique Shopify,
+ * l'admin ne voyait en pratique aucun de ses vrais clients.
+ *
+ * La source de vérité est `shopify_stores` : c'est le callback de facturation et
+ * le webhook d'abonnement qui la tiennent à jour.
+ */
 export async function GET() {
-  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!)
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
 
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single() as { data: { role: string | null } | null }
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single() as { data: { role: string | null } | null }
+
   if (profile?.role !== 'admin') return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
 
-  const admin = createAdminClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
-
-  // Récupérer tous les profils avec stripe_customer_id
-  const { data: profiles } = await admin
-    .from('profiles')
-    .select('id, email, full_name, stripe_customer_id, stripe_subscription_id, subscription_status, plan')
-    .not('stripe_customer_id', 'is', null)
-
-  if (!profiles || profiles.length === 0) return NextResponse.json({ data: { subscriptions: [], invoices: [] } })
-
-  // Récupérer les abonnements Stripe actifs/annulés
-  const subscriptionResults = await Promise.allSettled(
-    profiles
-      .filter(p => p.stripe_subscription_id)
-      .map(async p => {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const sub = await stripe.subscriptions.retrieve(p.stripe_subscription_id) as any
-        return {
-          user_id: p.id,
-          email: p.email,
-          full_name: p.full_name,
-          plan: p.plan,
-          db_status: p.subscription_status,
-          stripe_status: sub.status,
-          stripe_subscription_id: p.stripe_subscription_id,
-          current_period_start: sub.current_period_start ? new Date(sub.current_period_start * 1000).toISOString() : null,
-          current_period_end: sub.current_period_end ? new Date(sub.current_period_end * 1000).toISOString() : null,
-          cancel_at_period_end: sub.cancel_at_period_end,
-          amount: sub.items.data[0]?.price?.unit_amount ?? null,
-          currency: sub.items.data[0]?.price?.currency ?? 'eur',
-        }
-      })
+  const admin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  const subscriptions = subscriptionResults
-    .filter((r): r is PromiseFulfilledResult<typeof r extends PromiseFulfilledResult<infer T> ? T : never> => r.status === 'fulfilled')
-    .map(r => r.value)
+  // Les boutiques et leur facturation réelle.
+  const { data: stores } = await admin
+    .from('shopify_stores')
+    .select('id, user_id, shop_domain, shop_name, plan, pending_plan, subscription_status, current_period_end, shopify_charge_id, created_at')
+    .eq('is_active', true)
+    .order('created_at', { ascending: false })
 
-  // Récupérer les dernières factures (100 max) pour tous les customers
-  const customerIds = profiles.map(p => p.stripe_customer_id).filter(Boolean) as string[]
+  const rows = stores || []
+  const userIds = rows.map((s) => s.user_id).filter(Boolean) as string[]
 
-  // Stripe ne permet pas de filtrer par liste de customers en une requête — on récupère les 100 dernières globalement
-  const invoicesResult = await stripe.invoices.list({ limit: 100, expand: ['data.customer'] })
+  const { data: owners } = userIds.length
+    ? await admin.from('profiles').select('id, email, full_name').in('id', userIds)
+    : { data: [] }
 
-  const invoices = invoicesResult.data
-    .filter(inv => customerIds.includes(typeof inv.customer === 'string' ? inv.customer : (inv.customer as Stripe.Customer)?.id))
-    .map(inv => {
-      const customerId = typeof inv.customer === 'string' ? inv.customer : (inv.customer as Stripe.Customer)?.id
-      const profileMatch = profiles.find(p => p.stripe_customer_id === customerId)
-      return {
-        id: inv.id,
-        user_id: profileMatch?.id ?? null,
-        email: profileMatch?.email ?? (inv.customer_email ?? ''),
-        full_name: profileMatch?.full_name ?? null,
-        plan: profileMatch?.plan ?? null,
-        amount: inv.amount_paid,
-        currency: inv.currency,
-        status: inv.status,
-        created: new Date(inv.created * 1000).toISOString(),
-        period_start: inv.period_start ? new Date(inv.period_start * 1000).toISOString() : null,
-        period_end: inv.period_end ? new Date(inv.period_end * 1000).toISOString() : null,
-        invoice_url: inv.hosted_invoice_url ?? null,
-        description: inv.description ?? (inv.lines.data[0]?.description ?? null),
-      }
-    })
-    .sort((a, b) => new Date(b.created).getTime() - new Date(a.created).getTime())
+  const ownerById = new Map((owners || []).map((o) => [o.id, o]))
 
-  return NextResponse.json({ data: { subscriptions, invoices } })
+  const subscriptions = rows.map((s) => {
+    const owner = s.user_id ? ownerById.get(s.user_id) : null
+    const planId = (s.plan || 'free') as PlanId
+    const priceEur = PLANS[planId]?.priceEur ?? 0
+
+    return {
+      id: s.id,
+      userId: s.user_id,
+      email: owner?.email ?? null,
+      fullName: owner?.full_name ?? null,
+      shopDomain: s.shop_domain,
+      shopName: s.shop_name,
+      plan: planId,
+      /** Plan en attente d'approbation Shopify (le marchand n'a pas encore validé). */
+      pendingPlan: s.pending_plan,
+      status: s.subscription_status,
+      priceEur,
+      currentPeriodEnd: s.current_period_end,
+      chargeId: s.shopify_charge_id,
+      createdAt: s.created_at,
+      /** Facturé via Shopify — c'est le cas de tous les marchands désormais. */
+      source: 'shopify' as const,
+    }
+  })
+
+  // Les achats ponctuels (packs de tokens et de conversations IA).
+  const { data: purchases } = await admin
+    .from('shopify_one_time_purchases')
+    .select('id, user_id, shop_domain, pack, status, price_cents, amount_credited, credited_at, created_at')
+    .order('created_at', { ascending: false })
+    .limit(100)
+
+  const mrrCents = subscriptions
+    .filter((s) => s.status === 'active')
+    .reduce((sum, s) => sum + Math.round(s.priceEur * 100), 0)
+
+  return NextResponse.json({
+    data: {
+      subscriptions,
+      purchases: purchases || [],
+      totals: {
+        /** Revenu mensuel récurrent, en centimes. */
+        mrrCents,
+        activeCount: subscriptions.filter((s) => s.status === 'active').length,
+        /** Abonnements créés mais jamais approuvés par le marchand. */
+        pendingCount: subscriptions.filter((s) => s.status === 'pending').length,
+        /** Impayés : Shopify a gelé l'abonnement. */
+        frozenCount: subscriptions.filter((s) => s.status === 'frozen').length,
+      },
+    },
+  })
 }
