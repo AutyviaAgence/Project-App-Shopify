@@ -20,6 +20,7 @@ import { WhatsAppEmbeddedSignup, embeddedSignupAvailable } from '@/components/wh
 import { WelcomeScreen } from '@/components/onboarding/welcome-screen'
 import { TemplateSwiper, type SwipeGroup } from '@/components/onboarding/template-swiper'
 import { ModuleIntro, type IntroModule } from '@/components/onboarding/module-intro'
+import { ThemeEditorDemo } from '@/components/onboarding/theme-editor-demo'
 import { PricingGlass, type TierType } from '@/components/ui/pricing-glass'
 import { PLANS, PAID_PLANS } from '@/lib/plans'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -803,10 +804,17 @@ export default function OnboardingPage() {
                     ))}
                   </div>
 
-                  {/* Marche à suivre + accès direct à l'éditeur de thème. */}
+                  {/* Marche à suivre. La DÉMO ANIMÉE d'abord : le marchand n'a jamais
+                      vu l'éditeur de thème, un texte le laissait deviner l'écran (et
+                      se tromper d'onglet — l'étape « Remerciements » est celle qu'on
+                      rate le plus). On lui rejoue les gestes. Le texte reste dessous
+                      pour ceux qui préfèrent lire, et pour l'accessibilité. */}
                   <div className="rounded-xl border border-white/10 bg-black/20 p-3.5">
-                    <p className="mb-2 text-xs font-semibold text-white">Comment faire (2 minutes)</p>
-                    <ol className="space-y-1.5 text-xs leading-relaxed text-muted-foreground">
+                    <p className="mb-2.5 text-xs font-semibold text-white">Comment faire (2 minutes)</p>
+
+                    <ThemeEditorDemo />
+
+                    <ol className="mt-3 space-y-1.5 text-xs leading-relaxed text-muted-foreground">
                       <li><span className="font-medium text-foreground">1.</span> Ouvrez l’éditeur de thème (bouton ci-dessous).</li>
                       <li><span className="font-medium text-foreground">2.</span> Dans le panneau de gauche, ouvrez <span className="font-medium text-foreground">Applications</span> et activez <span className="font-medium text-foreground">Bulle WhatsApp Xeyo</span> puis <span className="font-medium text-foreground">Xeyo — Popup opt-in</span>.</li>
                       <li><span className="font-medium text-foreground">3.</span> En haut, changez la page pour <span className="font-medium text-foreground">Remerciements</span> et ajoutez le bloc <span className="font-medium text-foreground">Xeyo — Opt-in WhatsApp</span>.</li>
