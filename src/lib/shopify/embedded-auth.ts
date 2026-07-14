@@ -32,11 +32,21 @@ export async function getAuthedUser(req: NextRequest): Promise<AuthedUser | null
   // 1) Embedded : session token Shopify.
   const session = sessionFromRequest(req)
   if (session) {
+    // ⚠️ MANAGED INSTALL : Shopify installe l'app SANS appeler notre callback
+    // OAuth — il ouvre directement l'iframe avec un session token. La ligne
+    // `shopify_stores` n'est donc jamais créée, et `resolveXeyoUser` renvoyait
+    // `null` → « Installation requise » à l'infini.
+    // On provisionne donc la boutique ici, par token exchange, à la 1re visite.
+    // Sort immédiatement si elle existe déjà (cas de la quasi-totalité des appels).
+    const rawToken = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '')
+    const { ensureStoreProvisioned } = await import('./ensure-store')
+    await ensureStoreProvisioned(session.shop, rawToken)
+
     const resolved = await resolveXeyoUser(session.shop)
     if (resolved) {
       return { userId: resolved.userId, shop: session.shop, embedded: true }
     }
-    // Token valide mais boutique inconnue/non installée → pas d'identité.
+    // Token valide mais provisionnement impossible → pas d'identité.
     return null
   }
 

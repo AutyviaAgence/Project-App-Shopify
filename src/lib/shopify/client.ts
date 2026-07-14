@@ -136,6 +136,53 @@ export async function exchangeCodeForToken(
   }
 }
 
+/**
+ * TOKEN EXCHANGE — échange un session token contre un access token Admin API.
+ *
+ * ⚠️ Indispensable avec le **managed install** (`use_legacy_install_flow = false`).
+ * Dans ce mode, Shopify installe l'app SANS JAMAIS appeler notre callback OAuth :
+ * il ouvre directement l'app embedded avec un session token. Le callback
+ * `/api/shopify/callback` — et donc la création de la ligne `shopify_stores` —
+ * n'est jamais déclenché. Sans token exchange, la boutique n'existe nulle part et
+ * l'app affiche « Installation requise » indéfiniment.
+ *
+ * Doc : https://shopify.dev/docs/apps/auth/get-access-tokens/token-exchange
+ */
+export async function exchangeSessionToken(
+  shop: string,
+  sessionToken: string
+): Promise<{ ok: true; accessToken: string; scope: string } | { ok: false; error: string }> {
+  const { apiKey, apiSecret } = getShopifyConfig()
+  if (!apiKey || !apiSecret) return { ok: false, error: 'Config Shopify manquante' }
+
+  try {
+    const res = await fetch(`https://${shop}/admin/oauth/access_token`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        client_id: apiKey,
+        client_secret: apiSecret,
+        grant_type: 'urn:ietf:params:oauth:grant-type:token-exchange',
+        subject_token: sessionToken,
+        subject_token_type: 'urn:ietf:params:oauth:token-type:id_token',
+        // `offline` : jeton permanent, utilisable par les crons et les webhooks
+        // quand le marchand n'est pas devant son écran (c'est notre cas : envois
+        // programmés, relances de panier). Un jeton `online` expirerait avec la
+        // session du marchand et casserait toutes les automatisations.
+        requested_token_type: 'urn:shopify:params:oauth:token-type:offline-access-token',
+      }),
+    })
+    if (!res.ok) {
+      const text = await res.text()
+      return { ok: false, error: `HTTP ${res.status}: ${text}` }
+    }
+    const data = await res.json()
+    return { ok: true, accessToken: data.access_token, scope: data.scope || '' }
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : 'Erreur réseau' }
+  }
+}
+
 /** Appel générique à l'Admin API GraphQL de Shopify. */
 export async function shopifyGraphQL<T = unknown>(
   shop: string,

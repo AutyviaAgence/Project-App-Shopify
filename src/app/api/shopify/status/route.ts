@@ -39,6 +39,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Boutique invalide' }, { status: 400 })
   }
 
+  // ⚠️ MANAGED INSTALL : Shopify installe l'app sans jamais appeler notre callback
+  // OAuth — la ligne `shopify_stores` n'existe donc pas, et cette route renvoyait
+  // `installed: false` à l'infini (« Installation requise » dans l'admin Shopify).
+  // C'est CETTE route que la page embedded interroge en premier : on provisionne
+  // donc ici, par token exchange. No-op si la boutique existe déjà.
+  if (session) {
+    const rawToken = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '')
+    const { ensureStoreProvisioned } = await import('@/lib/shopify/ensure-store')
+    await ensureStoreProvisioned(shop, rawToken)
+  }
+
   const admin = createAdminSupabase(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
