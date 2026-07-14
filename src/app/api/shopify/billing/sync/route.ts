@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
 
   const { data: store } = await admin
     .from('shopify_stores')
-    .select('id, plan, pending_plan, subscription_status, shopify_charge_id')
+    .select('id, plan, pending_plan, subscription_status, shopify_charge_id, current_period_end')
     .eq('shop_domain', shop)
     .eq('user_id', authed.userId)
     .eq('is_active', true)
@@ -58,8 +58,22 @@ export async function POST(req: NextRequest) {
 
   // ── Aucun abonnement actif chez Shopify ──────────────────────────────────
   if (!live) {
-    // La base croyait le marchand abonné : il ne l'est pas (ou plus).
-    if (store.subscription_status === 'active' || store.plan !== 'free') {
+    // ⚠️ ANNULÉ, MAIS LA PÉRIODE PAYÉE COURT ENCORE.
+    //
+    // Shopify a bien coupé le renouvellement, mais le marchand a réglé son mois : il
+    // garde son plan jusqu'à l'échéance (Shopify ne rembourse pas au prorata). On ne
+    // le dégrade donc PAS tout de suite — sinon il perdrait ce qu'il a payé.
+    const stillPaidFor =
+      store.subscription_status === 'canceled' &&
+      store.current_period_end &&
+      new Date(store.current_period_end) > new Date()
+
+    if (stillPaidFor) {
+      return NextResponse.json({ data: { synced: false, plan: store.plan } })
+    }
+
+    // La période est écoulée (ou il n'a jamais payé) : retour au gratuit.
+    if (store.subscription_status !== 'none' || store.plan !== 'free') {
       await admin
         .from('shopify_stores')
         .update({

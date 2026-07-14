@@ -63,12 +63,26 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: errs[0]?.message || 'Annulation refusée par Shopify' }, { status: 502 })
   }
 
-  // Retour au plan gratuit côté Xeyo.
+  // ⚠️ L'ACCÈS RESTE OUVERT JUSQU'À LA FIN DE LA PÉRIODE PAYÉE.
+  //
+  // On basculait le marchand en `plan: 'free'` SUR-LE-CHAMP. Il perdait donc
+  // instantanément l'accès qu'il venait de régler — il avait payé un mois complet et
+  // se retrouvait bridé le jour même. Shopify ne rembourse pas au prorata : c'était
+  // une double peine.
+  //
+  // On garde donc son plan et on le marque `canceled` : le renouvellement est bien
+  // coupé chez Shopify, mais il profite de ce qu'il a payé jusqu'au bout.
+  // `pending_plan: 'free'` mémorise la bascule, que le webhook d'abonnement appliquera
+  // le jour de l'échéance.
+  //
+  // ⚠️ `getUserPlan` doit donc accepter le statut `canceled` comme un accès valide
+  // tant que `current_period_end` n'est pas dépassé — sinon ce correctif ne sert à
+  // rien.
   await admin
     .from('shopify_stores')
     .update({
-      plan: 'free',
       subscription_status: 'canceled',
+      pending_plan: 'free',
       shopify_charge_id: null,
       updated_at: new Date().toISOString(),
     })

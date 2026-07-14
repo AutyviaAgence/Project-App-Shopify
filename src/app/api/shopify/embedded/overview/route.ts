@@ -21,6 +21,40 @@ import { decryptMessage } from '@/lib/crypto/encryption'
  * Auth : session token Shopify (embedded) OU cookie (web). ⚠️ En embedded il n'y a
  * pas de RLS → tous les filtres `user_id` sont explicites ici.
  */
+/**
+ * Le plan RÉELLEMENT en vigueur.
+ *
+ * ⚠️ On affichait `free` dès que le statut n'était pas `active` — y compris quand
+ * l'abonnement était ANNULÉ. Or un marchand qui annule garde son plan jusqu'à la fin
+ * de la période qu'il a payée (Shopify ne rembourse pas au prorata). L'app lui
+ * montrait donc « Gratuit » alors qu'il avait encore Scale : il croyait avoir perdu
+ * son argent.
+ *
+ * Doit rester cohérent avec `getUserPlan` (src/lib/shopify/plans.ts), qui décide des
+ * droits réels.
+ */
+function effectivePlan(store: {
+  plan?: string | null
+  subscription_status?: string | null
+  current_period_end?: string | null
+} | null): string {
+  if (!store) return 'free'
+
+  if (store.subscription_status === 'active') return store.plan || 'free'
+
+  // Annulé, mais la période payée court toujours.
+  if (
+    store.subscription_status === 'canceled' &&
+    store.current_period_end &&
+    new Date(store.current_period_end) > new Date()
+  ) {
+    return store.plan || 'free'
+  }
+
+  // `pending` (charge jamais approuvée), `frozen` (impayé), `null` (désinstallé).
+  return 'free'
+}
+
 export async function GET(req: NextRequest) {
   const authed = await getAuthedUser(req)
   if (!authed) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
@@ -40,7 +74,7 @@ export async function GET(req: NextRequest) {
   // Plan (source de vérité : la boutique, facturée par Shopify).
   const { data: store } = await admin
     .from('shopify_stores')
-    .select('plan, subscription_status, shop_domain')
+    .select('plan, subscription_status, shop_domain, current_period_end, pending_plan')
     .eq('user_id', authed.userId)
     .eq('is_active', true)
     .maybeSingle()
@@ -73,9 +107,11 @@ export async function GET(req: NextRequest) {
         // Sinon (charge refusée → 'pending', désinstallation → null, annulation), on
         // affiche `free` : le sélecteur de plan proposera de souscrire, au lieu de
         // laisser croire à un abonnement qui n'a jamais été payé.
-        plan: store?.subscription_status === 'active' ? (store.plan || 'free') : 'free',
+        plan: effectivePlan(store),
         subscriptionStatus: store?.subscription_status || null,
         shopDomain: store?.shop_domain || null,
+        periodEnd: store?.current_period_end || null,
+        pendingPlan: store?.pending_plan || null,
         contactsCount: 0,
         optedInCount: 0,
         conversations: [],
@@ -131,9 +167,11 @@ export async function GET(req: NextRequest) {
       // Sinon (charge refusée → 'pending', désinstallation → null, annulation), on
       // affiche `free` : le sélecteur de plan proposera de souscrire, au lieu de
       // laisser croire à un abonnement qui n'a jamais été payé.
-      plan: store?.subscription_status === 'active' ? (store.plan || 'free') : 'free',
+      plan: effectivePlan(store),
       subscriptionStatus: store?.subscription_status || null,
       shopDomain: store?.shop_domain || null,
+      periodEnd: store?.current_period_end || null,
+      pendingPlan: store?.pending_plan || null,
       contactsCount: contactsCount ?? 0,
       optedInCount: optedInCount ?? 0,
       conversations,

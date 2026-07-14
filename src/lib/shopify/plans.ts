@@ -92,24 +92,37 @@ export async function getUserPlan(userId: string): Promise<PlanDef> {
   // Boutique Shopify liée ?
   const { data: store } = await supabase
     .from('shopify_stores')
-    .select('plan, billing_source, subscription_status')
+    .select('plan, billing_source, subscription_status, current_period_end')
     .eq('user_id', userId)
     .eq('is_active', true)
     .maybeSingle()
 
   if (store?.billing_source === 'shopify') {
-    // ⚠️ Le plan ne compte QUE si l'abonnement est réellement actif chez Shopify.
+    // Abonnement en cours : le plan s'applique.
+    if (store.subscription_status === 'active') {
+      return GRID[resolvePlan(store.plan)]
+    }
+
+    // ⚠️ ANNULÉ ≠ COUPÉ IMMÉDIATEMENT.
     //
-    // `subscribe` écrit `plan = <payant>` + `subscription_status = 'pending'` AVANT
-    // que le marchand ne confirme la charge. S'il la refuse (ou abandonne l'écran
-    // Shopify), la ligne reste telle quelle. Sans ce filtre, on lui accordait le
-    // plan payant sans jamais être payé — et pareil après une désinstallation, où
-    // `subscription_status` repasse à NULL mais `plan` garde sa valeur.
+    // Un abonnement annulé retombait aussitôt en gratuit. Le marchand perdait donc
+    // l'accès qu'il venait de PAYER : Shopify ne rembourse pas au prorata, il avait
+    // réglé son mois et se retrouvait bridé le jour même. Double peine.
     //
-    // Seul 'active' ouvre les droits ; tout le reste (pending, null, cancelled)
-    // retombe sur le plan gratuit.
-    if (store.subscription_status !== 'active') return GRID.free
-    return GRID[resolvePlan(store.plan)]
+    // Le renouvellement est bien coupé chez Shopify ; il profite simplement de ce
+    // qu'il a payé jusqu'à l'échéance. Passé cette date, retour au gratuit.
+    if (store.subscription_status === 'canceled' && store.current_period_end) {
+      if (new Date(store.current_period_end) > new Date()) {
+        return GRID[resolvePlan(store.plan)]
+      }
+    }
+
+    // Tout le reste retombe sur le gratuit :
+    //  · `pending` — le marchand n'a pas (encore) approuvé la charge. Sans ce filtre,
+    //    on lui accorderait un plan payant jamais réglé.
+    //  · `frozen`  — impayé, Shopify a gelé l'abonnement.
+    //  · `null`    — après une désinstallation, où `plan` garde pourtant sa valeur.
+    return GRID.free
   }
 
   // Sinon plan direct (profiles.plan) — défaut free

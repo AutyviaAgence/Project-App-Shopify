@@ -44,6 +44,10 @@ type Overview = {
   plan: string
   subscriptionStatus: string | null
   shopDomain: string | null
+  /** Fin de la période payée. Le marchand garde son plan jusque-là, même après annulation. */
+  periodEnd?: string | null
+  /** Plan qui prendra effet au prochain renouvellement (baisse de plan, annulation). */
+  pendingPlan?: string | null
   contactsCount: number
   optedInCount: number
   conversations: Conversation[]
@@ -220,8 +224,28 @@ export default function ShopifyEmbeddedClient() {
     }
   }
 
-  /** Annulation (retour au plan gratuit) — requirement 1.2.3. */
+  /**
+   * Annulation — le marchand garde son accès jusqu'à la fin de la période payée.
+   *
+   * ⚠️ On coupait l'accès SUR-LE-CHAMP : le marchand perdait le mois qu'il venait de
+   * régler (Shopify ne rembourse pas au prorata). Désormais le renouvellement est
+   * coupé, mais il profite de ce qu'il a payé jusqu'à l'échéance.
+   *
+   * On le lui DIT avant : sans ça, il croit avoir perdu son argent — ou, à l'inverse,
+   * s'étonne d'avoir encore accès après avoir annulé.
+   */
   const cancel = async () => {
+    const until = overview?.periodEnd
+      ? new Date(overview.periodEnd).toLocaleDateString('fr-FR')
+      : null
+
+    const ok = window.confirm(
+      until
+        ? `Annuler votre abonnement ?\n\nVous conservez votre plan actuel jusqu'au ${until}, puis vous repasserez au plan gratuit. Aucun remboursement au prorata.`
+        : 'Annuler votre abonnement ?\n\nVous conservez votre plan jusqu\'à la fin de la période déjà payée, puis vous repasserez au plan gratuit.'
+    )
+    if (!ok) return
+
     setBusyPlan('cancel')
     setError(null)
     try {
@@ -624,6 +648,37 @@ export default function ShopifyEmbeddedClient() {
                   Plan {currentPlan}
                 </span>
               </div>
+
+              {/* Un changement est PROGRAMMÉ (baisse de plan ou annulation) : le
+                  marchand garde son plan actuel jusqu'à l'échéance. Sans ce bandeau, il
+                  croit que son action n'a pas été prise en compte — ou, à l'inverse,
+                  s'étonne d'avoir encore accès après avoir annulé. */}
+              {overview?.pendingPlan && overview.pendingPlan !== currentPlan && (
+                <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5">
+                  <p className="text-xs text-amber-900">
+                    {overview.pendingPlan === 'free' ? (
+                      <>
+                        <span className="font-semibold">Abonnement annulé.</span> Vous gardez le plan{' '}
+                        <span className="capitalize">{currentPlan}</span>
+                        {overview.periodEnd
+                          ? ` jusqu'au ${new Date(overview.periodEnd).toLocaleDateString('fr-FR')}`
+                          : ' jusqu’à la fin de la période payée'}
+                        , puis vous repasserez au plan gratuit.
+                      </>
+                    ) : (
+                      <>
+                        <span className="font-semibold">Changement programmé.</span> Vous gardez le plan{' '}
+                        <span className="capitalize">{currentPlan}</span>
+                        {overview.periodEnd
+                          ? ` jusqu'au ${new Date(overview.periodEnd).toLocaleDateString('fr-FR')}`
+                          : ' jusqu’à la fin de la période payée'}
+                        , puis vous passerez au plan{' '}
+                        <span className="capitalize">{overview.pendingPlan}</span>.
+                      </>
+                    )}
+                  </p>
+                </div>
+              )}
 
               <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                 {PLANS.map((p) => {
