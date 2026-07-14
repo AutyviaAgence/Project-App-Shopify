@@ -130,18 +130,41 @@ const TIMEZONES = [
 ]
 
 /**
- * Renvoi vers la page de parrainage.
+ * Parrainage — section des paramètres.
  *
- * ⚠️ Cette section DUPLIQUAIT la page /referral (même API, même contenu) — et
- * c'était la seule des deux réellement visible, la page étant orpheline. Elle
- * affichait par ailleurs un solde de tokens qui n'existe plus, un lien pointant
- * sur l'ancien domaine, et les EMAILS des filleuls (fuite de données).
+ * ⚠️ L'ancienne version lisait `/api/referral` : un lien pointant sur l'ancien
+ * domaine, un solde de tokens qui n'existe plus, et les EMAILS des filleuls (une
+ * fuite de données — savoir COMBIEN de marchands on a amenés suffit, les
+ * identifier n'a pas lieu d'être).
  *
- * La page /referral est désormais dans la navigation : une seule source, un seul
- * endroit à maintenir.
+ * Branchée sur le nouveau moteur : le lien fonctionne, et la récompense est un
+ * mois d'abonnement offert, déduit automatiquement de la prochaine facture
+ * Shopify.
  */
 function ReferralSection() {
   const { t } = useTranslation()
+  const [data, setData] = useState<{
+    referral: { code: string; link: string; rewardMonths: number } | null
+    stats: { signups: number; converted: number }
+    totals: { freeMonths: number; aiCredits: number }
+  } | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  useEffect(() => {
+    fetch('/api/growth')
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => setData(j?.data ?? null))
+      .catch(() => {})
+  }, [])
+
+  const copyLink = () => {
+    if (!data?.referral?.link) return
+    navigator.clipboard.writeText(data.referral.link)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const months = data?.referral?.rewardMonths ?? 1
 
   return (
     <Card>
@@ -150,12 +173,56 @@ function ReferralSection() {
           <Gift className="h-5 w-5" />
           {t('settings.referral')}
         </CardTitle>
-        <CardDescription>{t('settings.referral_desc')}</CardDescription>
+        <CardDescription>
+          Invitez un marchand : dès qu’il s’abonne, vous recevez {months} mois offert
+          {months > 1 ? 's' : ''}, déduit de votre prochaine facture Shopify.
+        </CardDescription>
       </CardHeader>
-      <CardContent>
-        <Button variant="outline" onClick={() => (window.location.href = '/referral')}>
-          <Gift className="mr-2 h-4 w-4" /> Voir mon parrainage
-        </Button>
+      <CardContent className="space-y-4">
+        {data?.referral ? (
+          <>
+            <div className="space-y-2">
+              <Label>{t('settings.referral_link')}</Label>
+              <div className="flex gap-2">
+                <Input value={data.referral.link} readOnly className="font-mono text-xs" />
+                <Button variant="outline" size="icon" onClick={copyLink}>
+                  {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                </Button>
+              </div>
+            </div>
+
+            {/* « Inscrits » et « clients » sont distincts : c'est l'ABONNEMENT qui
+                déclenche la récompense, pas l'inscription. Sans cette distinction,
+                un marchand avec 3 inscrits et 1 seul mois offert croit à un bug. */}
+            <div className="flex gap-8 text-sm">
+              <div>
+                <p className="text-muted-foreground">Inscrits</p>
+                <p className="text-xl font-bold">{data.stats.signups}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Devenus clients</p>
+                <p className="text-xl font-bold">{data.stats.converted}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Mois offerts</p>
+                <p className="text-xl font-bold text-primary">{data.totals.freeMonths}</p>
+              </div>
+            </div>
+
+            {/* Repli : sans jeton Partner API, la récompense prend la forme de
+                crédits IA. Le marchand doit savoir ce qu'il a réellement reçu. */}
+            {data.totals.aiCredits > 0 && (
+              <p className="text-sm text-muted-foreground">
+                <span className="font-medium text-foreground">{data.totals.aiCredits} conversations IA</span>{' '}
+                vous ont été créditées grâce au parrainage.
+              </p>
+            )}
+          </>
+        ) : (
+          <div className="flex justify-center py-6">
+            <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          </div>
+        )}
       </CardContent>
     </Card>
   )

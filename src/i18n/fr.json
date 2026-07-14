@@ -1203,7 +1203,7 @@
     "already_active": "Abonnement actif",
     "subscribe_now": "S'abonner maintenant",
     "redirecting": "Redirection...",
-    "stripe_note": "Paiement sécurisé par Stripe. Vous pouvez annuler à tout moment.",
+    "stripe_note": "Facturation gérée par Shopify. Vous pouvez annuler à tout moment.",
     "payment_success": "Paiement réussi ! Votre abonnement est maintenant actif.",
     "payment_cancelled": "Paiement annulé.",
     "tokens_added": "Tokens ajoutés avec succès !",

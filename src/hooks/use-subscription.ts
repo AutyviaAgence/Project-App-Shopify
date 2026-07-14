@@ -47,7 +47,13 @@ export function useSubscription() {
       const data = await res.json()
       if (data.data) {
         const trialEndsAt = data.data.trial_ends_at ? new Date(data.data.trial_ends_at) : null
-        const subscriptionEndsAt = data.data.subscription_ends_at ? new Date(data.data.subscription_ends_at) : null
+        // ⚠️ La vraie date de renouvellement vient de Shopify (`current_period_end`).
+        //
+        // On lisait `subscription_ends_at` — une colonne héritée de Stripe, jamais
+        // mise à jour pour un marchand Shopify. D'où le « prochain renouvellement :
+        // 1er janvier 2100 », avec 26 834 jours restants.
+        const rawEnd = data.data.current_period_end || data.data.subscription_ends_at
+        const subscriptionEndsAt = rawEnd ? new Date(rawEnd) : null
         const now = new Date()
 
         // Calculer les jours restants

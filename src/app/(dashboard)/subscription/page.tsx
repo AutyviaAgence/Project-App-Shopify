@@ -590,7 +590,40 @@ function SubscriptionContent() {
                 Store requirement 1.2.1). Un compte Xeyo pré-existant rattaché à une
                 boutique peut avoir un stripe_customer_id résiduel → le test sur
                 stripeCustomerId seul ne suffit PAS. */}
-            {!shopifyBilled && subscription?.stripeCustomerId ? (
+            {/* ⚠️ « Gérer mon abonnement » était CASSÉ : il ouvrait le portail
+                Stripe, qui refuse les marchands Shopify — c'est-à-dire tous. Et
+                comme il ne s'affichait que si l'on avait un client Stripe, on
+                tombait sur le `sinon` : un bandeau « Abonnement mensuel requis »
+                affiché AU-DESSUS d'un abonnement Scale actif. Incompréhensible.
+
+                Chez Shopify, les factures et le moyen de paiement se gèrent dans
+                l'admin Shopify. On y renvoie, au lieu d'un portail inaccessible. */}
+            {shopifyBilled ? (
+              <>
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <p className="text-sm font-medium">Factures et moyen de paiement</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Votre abonnement Xeyo est facturé avec votre facture Shopify. Vos factures et
+                      votre moyen de paiement se gèrent dans votre admin Shopify.
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="shrink-0"
+                    onClick={() => {
+                      const domain = subscription?.shopDomain
+                      if (!domain) return
+                      window.open(`https://${domain}/admin/settings/billing`, '_blank', 'noopener')
+                    }}
+                  >
+                    <CreditCard className="mr-2 h-4 w-4" />
+                    Ouvrir Shopify
+                  </Button>
+                </div>
+                <div className="border-t" />
+              </>
+            ) : subscription?.stripeCustomerId ? (
               <>
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                   <div>
@@ -619,14 +652,7 @@ function SubscriptionContent() {
                 </div>
                 <div className="border-t" />
               </>
-            ) : (
-              <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-4 py-3">
-                <p className="text-sm font-medium text-amber-700 dark:text-amber-400">Abonnement mensuel requis</p>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Votre accès a été activé manuellement. Pour continuer après la période en cours, souscrivez à un abonnement mensuel ci-dessous.
-                </p>
-              </div>
-            )}
+            ) : null}
 
             {/* Résiliation. ⚠️ Elle était conditionnée à `stripeCustomerId` → un
                 marchand Shopify (sans customer Stripe) ne pouvait JAMAIS annuler,

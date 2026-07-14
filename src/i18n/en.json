@@ -1203,7 +1203,7 @@
     "already_active": "Subscription active",
     "subscribe_now": "Subscribe now",
     "redirecting": "Redirecting...",
-    "stripe_note": "Secure payment via Stripe. You can cancel anytime.",
+    "stripe_note": "Billed through Shopify. Cancel anytime.",
     "payment_success": "Payment successful! Your subscription is now active.",
     "payment_cancelled": "Payment cancelled.",
     "tokens_added": "Tokens added successfully!",
