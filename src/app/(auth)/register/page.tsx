@@ -33,6 +33,11 @@ function RegisterForm() {
   const searchParams = useSearchParams()
   const planParam = searchParams.get('plan')
   const refParam = searchParams.get('ref')
+  // ⚠️ Où renvoyer APRÈS l'inscription. `/register` ignorait ce paramètre (contrairement
+  // à `/login`) : le marchand venu de Shopify pour relier sa boutique (/link?token=…)
+  // atterrissait sur /dashboard, LE JETON PERDU. La boutique n'était donc jamais reliée,
+  // et il devait retourner dans l'admin Shopify pour tout recommencer.
+  const redirectParam = searchParams.get('redirect')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -120,9 +125,13 @@ function RegisterForm() {
     setLoading(true)
 
     const supabase = createClient()
-    const afterLogin = planParam
-      ? `${window.location.origin}/subscription?plan=${planParam}`
-      : `${window.location.origin}/login`
+    // `redirect` d'abord : c'est lui qui ramène le marchand sur /link?token=… pour
+    // relier sa boutique. Sans ça, le jeton est perdu et la liaison n'a jamais lieu.
+    const afterLogin = redirectParam
+      ? `${window.location.origin}${redirectParam}`
+      : planParam
+        ? `${window.location.origin}/subscription?plan=${planParam}`
+        : `${window.location.origin}/login`
     const referralCode = document.cookie
       .split('; ')
       .find(r => r.startsWith('referral_code='))
@@ -272,7 +281,9 @@ function RegisterForm() {
               const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
-                  redirectTo: `${window.location.origin}/auth/callback`,
+                  // Le callback OAuth honore `?redirect=` → le marchand revient sur
+                  // /link?token=… et sa boutique est reliée à SON compte Google.
+                  redirectTo: `${window.location.origin}/auth/callback${redirectParam ? `?redirect=${encodeURIComponent(redirectParam)}` : ''}`,
                 },
               })
               if (error) {

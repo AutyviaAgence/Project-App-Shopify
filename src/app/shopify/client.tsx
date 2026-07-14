@@ -125,6 +125,24 @@ export default function ShopifyEmbeddedClient() {
 
   useEffect(() => { load() }, [load])
 
+  /**
+   * Recharger quand le marchand REVIENT sur cet onglet.
+   *
+   * La liaison du compte se fait sur app.xeyo.io, dans un AUTRE onglet (« J'ai déjà un
+   * compte Xeyo »). Sans ceci, il revient ici et retrouve l'écran « Reliez votre
+   * compte » — alors que sa boutique est déjà reliée. Il croit que ça a échoué et
+   * recommence en boucle.
+   */
+  useEffect(() => {
+    const onVisible = () => { if (document.visibilityState === 'visible') load() }
+    document.addEventListener('visibilitychange', onVisible)
+    window.addEventListener('focus', onVisible)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('focus', onVisible)
+    }
+  }, [load])
+
   /** Abonnement via la Billing API — le marchand approuve DANS Shopify. */
   const subscribe = async (plan: string) => {
     setBusyPlan(plan)

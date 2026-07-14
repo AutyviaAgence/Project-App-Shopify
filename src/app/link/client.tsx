@@ -19,6 +19,15 @@ export default function LinkClient() {
   const [shopName, setShopName] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  // Le marchand revient-il D'UNE AUTHENTIFICATION qu'il a lancée depuis cette page ?
+  // Si oui, il a déjà consenti (il s'est connecté DANS LE BUT de relier) : lui
+  // redemander de confirmer serait un clic pour rien. On relie directement.
+  //
+  // Le consentement explicite reste exigé dans l'autre cas — quand il arrive ici
+  // DÉJÀ connecté, sans avoir rien demandé : c'est la protection contre le
+  // link-fixation (un lien piégé ne doit jamais lier une boutique en silence).
+  const returning = params.get('auth') === '1'
+
   // Suis-je connecté ? Si non, je dois d'abord choisir un compte — SANS perdre le
   // jeton : on le repasse en `redirect`, que /login et le callback Google honorent.
   useEffect(() => {
@@ -29,18 +38,29 @@ export default function LinkClient() {
     }
     const supabase = createClient()
     supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
-        setEmail(data.user.email ?? null)
-        setPhase('confirm')
-      } else {
+      if (!data.user) {
         setPhase('anonymous')
+        return
       }
+      setEmail(data.user.email ?? null)
+      // Retour d'authentification : il s'est connecté POUR relier → on relie, point.
+      // Sinon : on demande son accord explicite avant de toucher à quoi que ce soit.
+      if (returning) void claim()
+      else setPhase('confirm')
     })
-  }, [token])
+    // `claim` est stable (défini au rendu, ne dépend que de `token`) — l'ajouter aux
+    // deps relancerait l'effet à chaque rendu et relierait en boucle.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token, returning])
 
-  /** Emmène vers /login (ou /register) en conservant le jeton. */
+  /**
+   * Emmène vers /login (ou /register) en conservant le jeton.
+   *
+   * `auth=1` marque le retour : au revenir, on relie sans redemander confirmation —
+   * le marchand vient précisément de s'authentifier POUR ça.
+   */
   function goAuth(path: '/login' | '/register') {
-    const back = `/link?token=${encodeURIComponent(token)}`
+    const back = `/link?token=${encodeURIComponent(token)}&auth=1`
     router.push(`${path}?redirect=${encodeURIComponent(back)}`)
   }
 
@@ -61,8 +81,8 @@ export default function LinkClient() {
       }
       setShopName(json.data?.shopName ?? null)
       setPhase('done')
-      // La boutique est liée → l'onboarding se débloque (il attendait exactement ça).
-      setTimeout(() => router.push('/dashboard'), 1600)
+      // Pas de redirection automatique : le marchand vient de l'admin Shopify et veut
+      // y retourner. On le laisse choisir (le dashboard reste à un clic).
     } catch {
       setError('Erreur réseau. Réessayez.')
       setPhase('error')
@@ -142,10 +162,20 @@ export default function LinkClient() {
           )}
 
           {phase === 'done' && (
-            <p className="text-center text-sm text-muted-foreground">
-              {shopName ? <strong>{shopName}</strong> : 'Votre boutique'} est reliée à{' '}
-              <strong>{email}</strong>. Redirection…
-            </p>
+            <>
+              <p className="text-center text-sm text-muted-foreground">
+                {shopName ? <strong>{shopName}</strong> : 'Votre boutique'} est reliée à{' '}
+                <strong>{email}</strong>.
+              </p>
+              {/* Le marchand est venu de l'admin Shopify : c'est là qu'il veut
+                  retourner. On le lui dit — l'onglet Shopify est resté ouvert. */}
+              <p className="text-center text-xs text-muted-foreground">
+                Vous pouvez retourner sur l’onglet Shopify : tout y est prêt.
+              </p>
+              <Button variant="outline" className="w-full" onClick={() => router.push('/dashboard')}>
+                Ouvrir mon tableau de bord
+              </Button>
+            </>
           )}
 
           {phase === 'error' && (
