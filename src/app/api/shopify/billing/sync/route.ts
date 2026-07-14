@@ -105,6 +105,24 @@ export async function POST(req: NextRequest) {
   // dégrader un marchand qui paie.
   const plan = matched || (store.pending_plan as PlanId) || (store.plan as PlanId)
 
+  // ⚠️ NE PAS PRÉCIPITER UNE BAISSE PROGRAMMÉE.
+  //
+  // Sur `APPLY_ON_NEXT_BILLING_CYCLE`, deux abonnements coexistent brièvement chez
+  // Shopify : l'ancien (qui court jusqu'à l'échéance) et le nouveau (qui prendra le
+  // relais). Si cette resynchro tombait sur le nouveau, elle appliquerait la baisse
+  // sur-le-champ — exactement ce que le différé cherche à éviter.
+  //
+  // Tant que la période payée court et qu'une baisse est programmée, on ne touche à
+  // rien : c'est le webhook d'abonnement qui basculera le jour venu.
+  const currentPrice = PLANS[(store.plan || 'free') as PlanId]?.priceEur ?? 0
+  const newPrice = PLANS[plan]?.priceEur ?? 0
+  const periodStillRunning =
+    !!store.current_period_end && new Date(store.current_period_end) > new Date()
+
+  if (store.pending_plan && periodStillRunning && newPrice < currentPrice) {
+    return NextResponse.json({ data: { synced: false, plan: store.plan } })
+  }
+
   const alreadyCorrect =
     store.subscription_status === 'active' &&
     store.plan === plan &&

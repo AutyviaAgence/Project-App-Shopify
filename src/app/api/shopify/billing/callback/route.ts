@@ -81,16 +81,22 @@ export async function GET(req: NextRequest) {
 
   // ⚠️ BAISSE DE PLAN : elle ne prend effet qu'au PROCHAIN CYCLE.
   //
-  // Shopify a bien approuvé le nouvel abonnement, mais avec
-  // `APPLY_ON_NEXT_BILLING_CYCLE` : l'ancien continue de courir jusqu'à la fin de
-  // la période déjà payée. Activer le plan inférieur maintenant briderait le
+  // Shopify a approuvé le nouvel abonnement avec `APPLY_ON_NEXT_BILLING_CYCLE` :
+  // l'ancien continue de courir jusqu'à la fin de la période déjà payée (son écran
+  // l'annonce d'ailleurs — « remplace votre abonnement une fois le cycle de
+  // facturation terminé »). Appliquer le plan inférieur maintenant briderait le
   // marchand alors qu'il a réglé le tarif supérieur pour tout le mois.
   //
-  // On garde donc son plan actuel, et `pending_plan` mémorise le plan visé — c'est
-  // le webhook d'abonnement qui basculera le jour venu.
-  const currentPrice = PLANS[(store.plan || 'free') as PlanId]?.priceEur ?? 0
-  const newPrice = PLANS[activatedPlan as PlanId]?.priceEur ?? 0
-  const isDeferredDowngrade = store.subscription_status === 'active' && newPrice < currentPrice
+  // ⚠️ La décision vient de `subscribe`, elle n'est PAS recalculée ici.
+  //
+  // On la recalculait en comparant les prix à partir de l'état de la boutique — mais
+  // `subscribe` a déjà modifié cet état avant la redirection. Le callback comparait
+  // donc le nouveau plan à lui-même, ne voyait aucune baisse, et l'appliquait
+  // IMMÉDIATEMENT. C'est ce qu'on observait : Scale → Growth appliqué sur-le-champ.
+  //
+  // Ce paramètre est manipulable, mais le risque est nul : le forcer ne peut que
+  // RETARDER un changement, jamais accorder un plan supérieur sans le payer.
+  const isDeferredDowngrade = req.nextUrl.searchParams.get('deferred') === '1'
 
   await admin
     .from('shopify_stores')

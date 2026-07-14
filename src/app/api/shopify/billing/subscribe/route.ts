@@ -107,9 +107,19 @@ export async function POST(req: NextRequest) {
 
   // Le code promo voyage jusqu'au callback : c'est lui qui enregistrera son
   // utilisation, une fois le paiement CONFIRMÉ par Shopify (jamais avant).
+  // ⚠️ `deferred=1` transmet LA DÉCISION, au lieu de la laisser recalculer au retour.
+  //
+  // Le callback comparait les prix à partir de l'état de la boutique au moment du
+  // retour — mais cet état a déjà été modifié ici. Il comparait donc le nouveau plan
+  // à lui-même, ne voyait aucune baisse, et l'appliquait IMMÉDIATEMENT : le marchand
+  // passait de Scale à Growth sur-le-champ, alors que Shopify affichait pourtant
+  // « remplace votre abonnement une fois le cycle de facturation terminé ».
+  //
+  // La décision est prise ici, une fois, et elle voyage avec le retour.
   const returnUrl =
     `${appUrl}/api/shopify/billing/callback?shop=${encodeURIComponent(shop)}&plan=${plan}` +
-    (promoId ? `&promo=${promoId}` : '')
+    (promoId ? `&promo=${promoId}` : '') +
+    (isDowngrade ? '&deferred=1' : '')
 
   const result = await createAppSubscription(shop, token, {
     name: `Xeyo ${planDef.name}`,
