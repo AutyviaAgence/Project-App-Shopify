@@ -54,13 +54,41 @@ export async function POST(req: NextRequest) {
       { status: 502 }
     )
   }
-  const res = await cancelAppSubscription(store.shop_domain, token, store.shopify_charge_id)
-  if (!res.ok) {
-    return NextResponse.json({ error: res.error }, { status: 502 })
+  // ⚠️ ANNULER **TOUS** LES ABONNEMENTS, PAS SEULEMENT CELUI QU'ON SUIT.
+  //
+  // Un changement de plan différé laisse DEUX abonnements actifs chez Shopify :
+  // l'ancien (qui court jusqu'à l'échéance) et le nouveau (qui prendra le relais).
+  //
+  // On n'annulait que `shopify_charge_id` — et ce champ pointe sur le NOUVEAU. Donc
+  // un marchand en Scale, ayant programmé un passage à Pro, puis annulant, voyait le
+  // Pro supprimé… et le Scale continuer de le facturer 349 €/mois. L'inverse exact de
+  // ce qu'il demandait.
+  //
+  // Le seul remède fiable : demander à Shopify la liste réelle de ses abonnements
+  // actifs, et tous les annuler. Après ça, plus rien ne facture.
+  const { listActiveSubscriptions } = await import('@/lib/shopify/client')
+  const active = await listActiveSubscriptions(store.shop_domain, token)
+
+  // Filet : si l'appel échoue, on annule au moins celui qu'on connaît.
+  const toCancel = active.length > 0
+    ? active.map((s) => s.id)
+    : [store.shopify_charge_id]
+
+  const failures: string[] = []
+  for (const id of toCancel) {
+    const res = await cancelAppSubscription(store.shop_domain, token, id)
+    if (!res.ok) {
+      failures.push(res.error)
+      continue
+    }
+    const errs = res.data?.appSubscriptionCancel?.userErrors ?? []
+    if (errs.length > 0) failures.push(errs[0]?.message || 'Annulation refusée')
   }
-  const errs = res.data?.appSubscriptionCancel?.userErrors ?? []
-  if (errs.length > 0) {
-    return NextResponse.json({ error: errs[0]?.message || 'Annulation refusée par Shopify' }, { status: 502 })
+
+  // ⚠️ Ne PAS marquer la boutique comme annulée si un abonnement subsiste : le
+  // marchand croirait ne plus payer alors que Shopify le facture toujours.
+  if (failures.length > 0 && failures.length === toCancel.length) {
+    return NextResponse.json({ error: failures[0] }, { status: 502 })
   }
 
   // ⚠️ L'ACCÈS RESTE OUVERT JUSQU'À LA FIN DE LA PÉRIODE PAYÉE.
