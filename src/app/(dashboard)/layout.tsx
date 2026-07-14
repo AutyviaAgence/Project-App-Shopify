@@ -27,6 +27,7 @@ import {
   Store,
   Lock,
   Megaphone,
+  Gift,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { DashboardTopBar } from '@/components/dashboard-topbar'
@@ -63,6 +64,10 @@ const NAV_ITEMS_KEYS = [
 ]
 
 const BOTTOM_NAV_KEYS = [
+  // ⚠️ La page de parrainage était ORPHELINE : aucun lien n'y menait dans toute
+  // l'application. Elle n'était atteignable qu'en tapant l'URL à la main — donc
+  // par personne. Un programme de parrainage invisible ne fait rien gagner.
+  { href: '/referral', labelKey: 'nav.referral', label: 'Parrainage', icon: Gift },
   { href: '/help', labelKey: 'nav.help', label: 'Aide', icon: HelpCircle },
   { href: '/logs', labelKey: 'nav.logs', icon: ScrollText },
   { href: '/settings', labelKey: 'nav.settings', icon: Settings },

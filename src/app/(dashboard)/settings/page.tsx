@@ -129,21 +129,19 @@ const TIMEZONES = [
   { value: 'Pacific/Auckland', label: 'Auckland (UTC+12/+13)', region: 'Océanie' },
 ]
 
+/**
+ * Renvoi vers la page de parrainage.
+ *
+ * ⚠️ Cette section DUPLIQUAIT la page /referral (même API, même contenu) — et
+ * c'était la seule des deux réellement visible, la page étant orpheline. Elle
+ * affichait par ailleurs un solde de tokens qui n'existe plus, un lien pointant
+ * sur l'ancien domaine, et les EMAILS des filleuls (fuite de données).
+ *
+ * La page /referral est désormais dans la navigation : une seule source, un seul
+ * endroit à maintenir.
+ */
 function ReferralSection() {
   const { t } = useTranslation()
-  const [data, setData] = useState<{ referral_code: string; referral_link: string; referees: any[]; total_tokens_earned: number } | null>(null)
-  const [copied, setCopied] = useState(false)
-
-  useEffect(() => {
-    fetch('/api/referral').then(r => r.json()).then(j => setData(j)).catch(() => {})
-  }, [])
-
-  function copyLink() {
-    if (!data?.referral_link) return
-    navigator.clipboard.writeText(data.referral_link)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
-  }
 
   return (
     <Card>
@@ -154,56 +152,10 @@ function ReferralSection() {
         </CardTitle>
         <CardDescription>{t('settings.referral_desc')}</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {data ? (
-          <>
-            <div className="space-y-2">
-              <Label>{t('settings.referral_link')}</Label>
-              <div className="flex gap-2">
-                <Input value={data.referral_link} readOnly className="font-mono text-xs" />
-                <Button variant="outline" size="icon" onClick={copyLink}>
-                  {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
-                </Button>
-              </div>
-            </div>
-            <div className="flex gap-6 text-sm">
-              <div>
-                <p className="text-muted-foreground">{t('settings.referees')}</p>
-                <p className="text-xl font-bold">{data.referees.length}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">{t('settings.tokens_earned')}</p>
-                <p className="text-xl font-bold">{(data.total_tokens_earned / 1000).toFixed(0)}k</p>
-              </div>
-            </div>
-            {data.referees.length > 0 && (
-              <div className="rounded-lg border overflow-hidden">
-                <table className="w-full text-sm">
-                  <thead className="bg-muted/30 border-b">
-                    <tr>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">{t('settings.referee')}</th>
-                      <th className="px-3 py-2 text-left font-medium text-muted-foreground">{t('settings.status')}</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y">
-                    {data.referees.map((r: any) => (
-                      <tr key={r.id}>
-                        <td className="px-3 py-2">{r.full_name || r.email}</td>
-                        <td className="px-3 py-2">
-                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${r.subscription_status === 'active' ? 'bg-green-100 text-green-700' : 'bg-muted text-muted-foreground'}`}>
-                            {r.subscription_status === 'active' ? t('settings.referee_subscribed') : t('settings.referee_signed_up')}
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="flex justify-center py-6"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>
-        )}
+      <CardContent>
+        <Button variant="outline" onClick={() => (window.location.href = '/referral')}>
+          <Gift className="mr-2 h-4 w-4" /> Voir mon parrainage
+        </Button>
       </CardContent>
     </Card>
   )
