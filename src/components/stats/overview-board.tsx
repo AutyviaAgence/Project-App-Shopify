@@ -168,13 +168,13 @@ export function StatsOverviewBoard({
       </div>
 
       {/* ── Rang 2 : 3 big cards.
-          Ces cartes ont un contenu de hauteur variable (liste, graphe de ventes,
-          globe). Plutôt que de contraindre chaque hauteur interne — fragile — on
-          laisse la rangée occuper l'espace restant et défiler à l'intérieur si
-          besoin. La page, elle, ne déborde jamais. ── */}
-      <div className="grid min-h-0 grid-cols-1 gap-4 lg:flex-[1.2] lg:grid-cols-3 lg:overflow-hidden">
+          Ces cartes affichent tout leur contenu, SANS barre de défilement interne
+          (une carte qui scrolle donne l'impression que la donnée est coupée). Elles
+          prennent donc leur hauteur naturelle (`shrink-0`) ; c'est la rangée 3 qui
+          absorbe l'espace restant pour que la page tienne sur un écran. ── */}
+      <div className="grid shrink-0 grid-cols-1 gap-4 lg:grid-cols-3">
         {/* Messages cette semaine */}
-        <FrameCard gradient className="lg:overflow-y-auto">
+        <FrameCard gradient>
           <div className="flex items-start justify-between">
             <p className="text-base font-semibold text-foreground">{labels.perDay}</p>
             <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
@@ -194,7 +194,7 @@ export function StatsOverviewBoard({
         </FrameCard>
 
         {/* Ventes Shopify (CA total + part WhatsApp) */}
-        <FrameCard gradient className="lg:overflow-y-auto">
+        <FrameCard gradient>
           <div className="flex items-start justify-between">
             <div>
               <p className="text-base font-semibold text-foreground">Ventes Shopify</p>
