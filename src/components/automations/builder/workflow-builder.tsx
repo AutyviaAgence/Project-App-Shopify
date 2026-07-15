@@ -240,7 +240,7 @@ export function WorkflowBuilder({
   const orientation = kind === 'marketing' ? 'horizontal' : 'vertical'
 
   return (
-    <div className="grid h-full grid-cols-1 gap-2 xl:grid-cols-[minmax(0,1fr)_270px] 2xl:grid-cols-[minmax(0,1fr)_400px]">
+    <div className="grid h-full grid-cols-1 gap-2 xl:grid-cols-[minmax(0,1fr)_300px] 2xl:grid-cols-[minmax(0,1fr)_360px]">
       {/* Timeline centrale (déplaçable au clic-glissé). En vertical on la borne
           en largeur pour qu'elle respire ; en horizontal elle s'étend à droite
           (le PannableTimeline gère le défilement). */}
@@ -265,7 +265,7 @@ export function WorkflowBuilder({
 
       {/* iPhone d'aperçu (tout à droite), affiché à partir de xl seulement
           (sur écran moyen/petit, on laisse toute la place au workflow). */}
-      <div className="hidden min-h-0 px-1 xl:flex xl:items-center xl:justify-center 2xl:px-4">
+      <div className="hidden min-h-0 xl:flex xl:items-center xl:justify-center">
         {previewTpl ? (
           <PhonePreview
             storeName={storeName}

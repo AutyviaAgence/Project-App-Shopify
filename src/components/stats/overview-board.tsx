@@ -257,10 +257,11 @@ export function StatsOverviewBoard({
             </div>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </div>
-          {/* Globe : par défaut zoomé/décalé (gros plan bas de carte). Au survol,
-              il se dézoome et se recentre → on voit la Terre entière au milieu. */}
+          {/* Globe : par défaut zoomé et remonté (on voit le haut de la sphère
+              dans la carte, pas seulement une tranche en bas). Au survol, il se
+              dézoome et se recentre → la Terre entière apparaît au milieu. */}
           <div className="relative mt-2 h-56">
-            <div className="absolute inset-0 translate-y-8 scale-[1.35] transition-transform duration-500 ease-out group-hover/globe:translate-y-0 group-hover/globe:scale-90">
+            <div className="absolute inset-0 -translate-y-2 scale-[1.35] transition-transform duration-500 ease-out group-hover/globe:translate-y-0 group-hover/globe:scale-90">
               <Globe className="!top-0" config={globeConfig} zoomable />
             </div>
           </div>

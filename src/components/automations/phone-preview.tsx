@@ -177,12 +177,17 @@ export function PhonePreview({
     const el = wrapRef.current?.parentElement
     if (!el) return
     const compute = () => {
-      const availW = el.clientWidth - 24
-      const H = el.clientHeight - 70
+      // On veut que le téléphone REMPLISSE la colonne d'aperçu, sans grand vide
+      // latéral. À fort dézoom navigateur, la hauteur devenait le facteur limitant
+      // (le mockup restait fin dans une colonne large → gros écart de chaque côté,
+      // ce que le marchand voyait à 80 %). On laisse donc la LARGEUR piloter : le
+      // téléphone occupe toute la largeur dispo, borné seulement par la hauteur.
+      const availW = el.clientWidth - 8
+      const H = el.clientHeight - 40
       const s = Math.min(
-        H / (NOM_H + (mascot ? NOM_W * mascotOverhang : 0)),
         availW / NOM_W,
-        0.95,
+        H / (NOM_H + (mascot ? NOM_W * mascotOverhang : 0)),
+        1,
       )
       setFitScale(Math.max(0.5, s))
     }
