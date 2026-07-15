@@ -141,9 +141,14 @@ export default function StatsPage() {
   }, [period])
 
   return (
-    <div className="space-y-6 p-4 sm:p-6">
+    // ⚠️ Colonne PLEINE HAUTEUR : la Vue globale tient sur un écran sans scroll
+    // (desktop). En-tête et onglets restent fixes (`shrink-0`) ; seul le contenu de
+    // l'onglet occupe le reste. Le calcul par `100vh` était faux — il ignorait le
+    // padding et la barre d'en-tête. Ici le flex répartit tout seul. Sur mobile
+    // (`lg:` uniquement), le contenu redéfile normalement.
+    <div className="flex flex-col gap-6 p-4 sm:p-6 lg:h-[calc(100dvh-4rem)]">
       {/* Header */}
-      <div data-tour="stats-header" data-page-header className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      <div data-tour="stats-header" data-page-header className="flex shrink-0 flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">{t('stats.title')}</h1>
           <p className="text-sm text-muted-foreground mt-1">
@@ -187,9 +192,10 @@ export default function StatsPage() {
       {loading ? (
         <BlobLoaderScreen />
       ) : stats ? (
-        <Tabs defaultValue="overview">
+        // Le Tabs occupe la hauteur restante ; sa barre d'onglets reste fixe.
+        <Tabs defaultValue="overview" className="flex min-h-0 flex-1 flex-col">
           {/* Onglets scrollables horizontalement sur mobile (sinon ils debordent) */}
-          <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="-mx-4 shrink-0 overflow-x-auto px-4 sm:mx-0 sm:px-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <TabsList className="w-max gap-1">
               <TabsTrigger value="overview">{t('stats.overview')}</TabsTrigger>
               <TabsTrigger value="automations">Automatisations</TabsTrigger>
@@ -203,7 +209,10 @@ export default function StatsPage() {
           {/* ================================================================ */}
           {/* === Vue globale === */}
           {/* ================================================================ */}
-          <TabsContent value="overview">
+          {/* `mt-6` : de l'air entre les onglets et les cartes, qui étaient collés.
+              `flex-1 min-h-0` : ce contenu occupe la hauteur restante → la Vue
+              globale tient sur un écran. */}
+          <TabsContent value="overview" className="mt-6 min-h-0 flex-1 data-[state=active]:flex data-[state=active]:flex-col">
             <StatsOverviewBoard
               stats={stats}
               locale={locale}
@@ -218,14 +227,14 @@ export default function StatsPage() {
           {/* ================================================================ */}
           {/* === Automatisations (entonnoir + A/B) === */}
           {/* ================================================================ */}
-          <TabsContent value="automations">
+          <TabsContent value="automations" className="mt-6 min-h-0 flex-1 overflow-y-auto">
             <AutomationsBoard days={parseInt(period, 10) || 30} />
           </TabsContent>
 
           {/* ================================================================ */}
           {/* === Agents IA === */}
           {/* ================================================================ */}
-          <TabsContent value="agents" className="space-y-3">
+          <TabsContent value="agents" className="mt-6 min-h-0 flex-1 space-y-3 overflow-y-auto">
             {stats.agents.length === 0 ? (
               <div className="flex h-40 items-center justify-center rounded-2xl border border-border bg-card">
                 <p className="text-muted-foreground">{t('stats.no_agents')}</p>
@@ -288,7 +297,7 @@ export default function StatsPage() {
           {/* ================================================================ */}
           {/* === Lifecycle (Pro & Scale) === */}
           {/* ================================================================ */}
-          <TabsContent value="lifecycle" className="space-y-6">
+          <TabsContent value="lifecycle" className="mt-6 min-h-0 flex-1 space-y-6 overflow-y-auto">
             {!stats.lifecycle || stats.lifecycle.stages.length === 0 ? (
               <Card>
                 <CardContent className="flex h-40 items-center justify-center">
@@ -488,7 +497,7 @@ export default function StatsPage() {
           {/* ================================================================ */}
           {/* === Contacts === */}
           {/* ================================================================ */}
-          <TabsContent value="contacts" className="space-y-6">
+          <TabsContent value="contacts" className="mt-6 min-h-0 flex-1 space-y-6 overflow-y-auto">
             {/* Première rangée en 2 colonnes : KPI contacts empilés à gauche,
                 entonnoir à droite (il est haut, il prend la colonne large).
                 Sous lg, tout retombe en une seule colonne. */}
@@ -662,7 +671,7 @@ export default function StatsPage() {
           {/* ================================================================ */}
           {/* === Opt-in === */}
           {/* ================================================================ */}
-          <TabsContent value="optins">
+          <TabsContent value="optins" className="mt-6 min-h-0 flex-1 overflow-y-auto">
             <OptinsTab period={period} sessionId={sessionFilter} locale={locale} />
           </TabsContent>
         </Tabs>

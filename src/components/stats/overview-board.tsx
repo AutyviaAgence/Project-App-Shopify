@@ -129,10 +129,17 @@ export function StatsOverviewBoard({
   )
 
   return (
-    // `space-y-5` (au lieu de 3) : la page respire. Elle était tassée en haut.
-    <div className="space-y-5">
+    // ⚠️ TOUT TIENT SUR UN ÉCRAN, SANS SCROLL (sur desktop haut).
+    //
+    // La 3e rangée « Activité des messages » débordait sous le pli : il fallait
+    // scroller, et elle apparaissait coupée. On répartit donc la hauteur : la page
+    // occupe l'espace disponible et les rangées se partagent ce qui reste.
+    //
+    // Sur mobile / petit écran, on redéfile normalement (`lg:` uniquement) — forcer
+    // trois rangées dans une hauteur de téléphone les écraserait.
+    <div className="flex flex-col gap-4 lg:h-full lg:min-h-0">
       {/* ── Rang 1 : 4 mini-cartes ── */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid shrink-0 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <FrameCard>
           <p className="text-sm text-muted-foreground">Messages total</p>
           <p className="mt-1 text-3xl font-bold text-foreground"><NumberTicker value={o.totalMessages} /></p>
@@ -160,10 +167,14 @@ export function StatsOverviewBoard({
         </FrameCard>
       </div>
 
-      {/* ── Rang 2 : 3 big cards ── */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+      {/* ── Rang 2 : 3 big cards.
+          Ces cartes ont un contenu de hauteur variable (liste, graphe de ventes,
+          globe). Plutôt que de contraindre chaque hauteur interne — fragile — on
+          laisse la rangée occuper l'espace restant et défiler à l'intérieur si
+          besoin. La page, elle, ne déborde jamais. ── */}
+      <div className="grid min-h-0 grid-cols-1 gap-4 lg:flex-[1.2] lg:grid-cols-3 lg:overflow-hidden">
         {/* Messages cette semaine */}
-        <FrameCard gradient>
+        <FrameCard gradient className="lg:overflow-y-auto">
           <div className="flex items-start justify-between">
             <p className="text-base font-semibold text-foreground">{labels.perDay}</p>
             <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
@@ -183,7 +194,7 @@ export function StatsOverviewBoard({
         </FrameCard>
 
         {/* Ventes Shopify (CA total + part WhatsApp) */}
-        <FrameCard gradient>
+        <FrameCard gradient className="lg:overflow-y-auto">
           <div className="flex items-start justify-between">
             <div>
               <p className="text-base font-semibold text-foreground">Ventes Shopify</p>
@@ -256,11 +267,10 @@ export function StatsOverviewBoard({
         </FrameCard>
       </div>
 
-      {/* ── Rang 3 : évolution des messages sur la période ──
-          Le bas de page était VIDE. Cette courbe le remplit avec une vraie donnée :
-          l'activité jour par jour, qui montre les pics et les creux. */}
-      <FrameCard gradient>
-        <div className="flex items-start justify-between">
+      {/* ── Rang 3 : activité des messages. `min-h-0` + `flex-1` : elle prend la
+          hauteur restante, quelle qu'elle soit, sans jamais déborder. ── */}
+      <FrameCard gradient className="flex min-h-0 flex-col lg:flex-1">
+        <div className="flex shrink-0 items-start justify-between">
           <div>
             <p className="text-base font-semibold text-foreground">Activité des messages</p>
             <p className="mt-0.5 text-xs text-muted-foreground">Reçus et envoyés, jour par jour.</p>
@@ -304,8 +314,11 @@ function MessageChart({
   }
 
   return (
-    <div className="mt-6">
-      <div className="flex h-40 items-end gap-[3px]">
+    // `flex-1 min-h-0` : le graphe occupe la hauteur que la carte lui laisse, au
+    // lieu d'une hauteur fixe qui débordait. `min-h-[6rem]` garde un plancher
+    // lisible sur petit écran.
+    <div className="mt-4 flex min-h-[6rem] flex-1 flex-col">
+      <div className="flex min-h-0 flex-1 items-end gap-[3px]">
         {shown.map((d, i) => (
           <div
             key={i}
