@@ -11,6 +11,7 @@ type KPICardProps = {
   icon: LucideIcon
   formatValue?: (value: number) => string
   color?: 'green' | 'blue' | 'teal' | 'orange'
+  className?: string
 }
 
 const colorClasses = {
@@ -43,13 +44,15 @@ export function KPICard({
   icon: Icon,
   formatValue,
   color = 'green',
+  className,
 }: KPICardProps) {
   const colors = colorClasses[color]
 
   return (
     <div className={cn(
-      'rounded-xl border bg-card p-5 transition-all hover:shadow-md hover:-translate-y-0.5',
-      colors.border
+      'flex flex-col justify-center rounded-xl border bg-card p-5 transition-all hover:shadow-md hover:-translate-y-0.5',
+      colors.border,
+      className
     )}>
       <div className="flex items-start justify-between">
         <div className="flex-1">

@@ -219,7 +219,7 @@ export default function StatsPage() {
               labels={{
                 title: t('stats.title'),
                 perDay: t('stats.messages_per_day'),
-                aiResponse: t('stats.ai_response_rate'),
+                aiResponse: t('stats.global_reach'),
               }}
             />
           </TabsContent>
@@ -501,15 +501,21 @@ export default function StatsPage() {
             {/* Première rangée en 2 colonnes : KPI contacts empilés à gauche,
                 entonnoir à droite (il est haut, il prend la colonne large).
                 Sous lg, tout retombe en une seule colonne. */}
-            <div className="grid gap-4 lg:grid-cols-[minmax(240px,1fr)_2fr] lg:items-start">
-            <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
+            {/* items-stretch (par défaut) : les deux colonnes prennent la MÊME
+                hauteur → la pile de gauche s'aligne sur l'entonnoir de droite. */}
+            <div className="grid gap-4 lg:grid-cols-[minmax(240px,1fr)_2fr]">
+            {/* Sur lg, la pile devient un flex vertical dont chaque carte s'étire
+                (flex-1) pour remplir à égalité la hauteur de l'entonnoir. */}
+            <div className="grid gap-4 sm:grid-cols-3 lg:flex lg:flex-col">
               <KPICard
+                className="lg:flex-1"
                 title={t('stats.total_contacts')}
                 value={stats.overview.totalContacts}
                 trend={null}
                 icon={Users}
               />
               <KPICard
+                className="lg:flex-1"
                 title={t('stats.new_contacts')}
                 value={stats.overview.newContacts}
                 trend={stats.overview.contactsTrend}
@@ -520,6 +526,7 @@ export default function StatsPage() {
                   que l'entonnoir ci-contre, donc toujours cohérent avec lui).
                   Ce n'est PAS le total des ventes de la boutique. */}
               <KPICard
+                className="lg:flex-1"
                 title="Ventes attribuées"
                 value={funnel?.ordered ?? 0}
                 trend={null}

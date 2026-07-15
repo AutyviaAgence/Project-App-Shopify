@@ -1063,6 +1063,7 @@
     "messages_received": "Messages received",
     "contact_response_rate": "Contact response rate",
     "ai_response_rate": "AI response rate",
+    "global_reach": "Global reach",
     "avg_response_time": "Avg response time",
     "messages_per_day": "Messages per day",
     "new_conversations": "New conversations",

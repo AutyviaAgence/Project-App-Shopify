@@ -11,33 +11,38 @@ import { useState } from 'react'
 export function EngagementFunnel({ steps }: { steps: { label: string; value: number }[] }) {
   const [active, setActive] = useState<number | null>(null)
 
-  // Définition de chaque étage : polygone, liseré clair, étiquette (ligne+point+pill)
+  // Définition de chaque étage : polygone, liseré clair, étiquette (ligne+point+pill).
+  // Les pills font 132px de large (le libellé le plus long, « Messages envoyés »,
+  // débordait d'une pill de 100). textX = centre de la pill = pillX + 66.
+  const PILL_W = 132
   const tiers = [
     {
       body: '150,150 530,150 482,235 198,235', top: '150,150 530,150 524,162 156,162',
       fill: '#7DA0FF', topFill: '#9DB6FF',
-      lineX1: 540, lineY: 175, dotX: 610, pillX: 630, pillY: 151, textX: 680,
+      lineX1: 540, lineY: 175, dotX: 610, pillX: 626, pillY: 151, textX: 692,
     },
     {
       body: '198,241 482,241 412,326 268,326', top: '198,241 482,241 476,253 204,253',
       fill: '#5B7FFF', topFill: '#7DA0FF',
-      lineX1: 490, lineY: 280, dotX: 560, pillX: 580, pillY: 256, textX: 630,
+      lineX1: 490, lineY: 280, dotX: 560, pillX: 576, pillY: 256, textX: 642,
     },
     {
       body: '268,332 412,332 372,400 308,400', top: '268,332 412,332 406,344 274,344',
       fill: '#3B82F6', topFill: '#5B7FFF',
-      lineX1: 420, lineY: 366, dotX: 490, pillX: 510, pillY: 342, textX: 560,
+      lineX1: 420, lineY: 366, dotX: 490, pillX: 506, pillY: 342, textX: 572,
     },
     {
       body: '308,406 372,406 372,488 308,462', top: '308,406 372,406 372,418 308,418',
       fill: '#2563EB', topFill: '#3B82F6',
-      lineX1: 402, lineY: 431, dotX: 472, pillX: 492, pillY: 407, textX: 542,
+      lineX1: 402, lineY: 431, dotX: 472, pillX: 488, pillY: 407, textX: 554,
     },
   ]
 
   return (
     <div className="h-full w-full">
-      <svg viewBox="140 140 600 358" className="h-full w-full" preserveAspectRatio="xMidYMid meet">
+      {/* viewBox élargi à 620 (au lieu de 600) pour que les pills de 132px tiennent
+          entièrement dans le cadre, libellé le plus long compris. */}
+      <svg viewBox="140 140 620 358" className="h-full w-full" preserveAspectRatio="xMidYMid meet">
         <defs>
           {/* Dégradé de balayage (userSpaceOnUse) : on anime le gradient, pas la forme */}
           <linearGradient id="funnelShine" gradientUnits="userSpaceOnUse" x1="150" y1="0" x2="270" y2="0">
@@ -90,7 +95,7 @@ export function EngagementFunnel({ steps }: { steps: { label: string; value: num
               <line x1={tier.lineX1} y1={tier.lineY} x2={tier.dotX} y2={tier.lineY} stroke={isActive ? '#3B82F6' : '#2A3645'} strokeWidth="2" />
               <circle cx={tier.dotX} cy={tier.lineY} r={isActive ? 7 : 6} fill="#3B82F6" />
               <rect
-                x={tier.pillX} y={tier.pillY} width="100" height="48" rx="10"
+                x={tier.pillX} y={tier.pillY} width={PILL_W} height="48" rx="10"
                 fill="#1A2433" stroke={isActive ? '#3B82F6' : '#2A3645'} strokeWidth={isActive ? 1.5 : 1}
                 style={{ transition: 'stroke 200ms ease' }}
               />
