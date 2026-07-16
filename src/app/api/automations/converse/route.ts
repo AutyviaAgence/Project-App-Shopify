@@ -287,9 +287,12 @@ Un message hors sujet est PIRE qu'un message à écrire : il part à de vrais
 clients, il ne convertit pas, et il abîme la réputation du numéro. Le trou, lui,
 se comble en un clic.
 
-N'utilise pas non plus DEUX FOIS le même modèle dans un parcours, ni deux
-modèles qui disent la même chose (deux messages de bienvenue à la suite) : à
-partir du deuxième, décris un message à créer.
+⚠️ CHAQUE ÉTAPE DOIT DIRE QUELQUE CHOSE DE NOUVEAU.
+N'utilise JAMAIS deux fois le même modèle. Et surtout, n'enchaîne pas deux
+modèles qui DISENT LA MÊME CHOSE, même s'ils portent des noms différents : deux
+messages de bienvenue à la suite (« message_bienvenue » puis « welcome ») font
+recevoir deux fois le même propos au client. C'est arrivé — compare les TEXTES,
+pas les noms. Si le second n'apporte rien de plus, décris un message à créer.
 
 # BROUILLONS ET MODÈLES EN REVUE
 
@@ -467,6 +470,90 @@ La première fois (aucune réponse), pose une question d'ouverture simple.`
       hallucinated++
     }
   }
+
+  // ⚠️ LE MÊME MODÈLE UTILISÉ PLUSIEURS FOIS DANS LE PARCOURS.
+  //
+  // La consigne l'interdit déjà — mais une consigne ne borne rien : constaté en
+  // production, un parcours généré répétait le même message à plusieurs étapes.
+  // Le client reçoit alors deux fois le même texte, ce qui n'a aucun sens pour
+  // lui et le pousse à ignorer (voire bloquer) — et le faible taux de lecture
+  // dégrade à lui seul la réputation du numéro.
+  //
+  // On garde la PREMIÈRE occurrence et on vide les suivantes : le nœud devient
+  // « message à créer », décrit dans missingTemplates. Mieux vaut un message à
+  // écrire qu'un doublon envoyé pour de vrai.
+  const seenTpl = new Set<string>()
+  let deduped = 0
+  for (const n of nodes) {
+    if (n.type !== 'action' || !n.templateId) continue
+    if (seenTpl.has(n.templateId)) {
+      n.templateId = null
+      deduped++
+      continue
+    }
+    seenTpl.add(n.templateId)
+  }
+
+  // ⚠️ QUASI-DOUBLONS : deux modèles DIFFÉRENTS qui disent la même chose.
+  //
+  // Le dédoublonnage par id ne les voit pas. Constaté en production :
+  // « message_bienvenue » puis « welcome » à la suite — deux noms distincts, deux
+  // fois le même propos. Le client reçoit deux messages de bienvenue.
+  //
+  // ⚠️ LE `use_case` SEUL NE SUFFIT PAS À CONCLURE.
+  //
+  // Premier essai : « deux messages du même usage à la suite = doublon ». Trop
+  // grossier — testé, ça supprimait « commande expédiée » après « commande
+  // payée », alors que ce sont deux étapes parfaitement légitimes d'un suivi
+  // (toutes deux en `order_status`). On aurait cassé un parcours correct.
+  //
+  // On ne cible donc que `support`, l'usage fourre-tout qui mélange bienvenue,
+  // avis et SAV — c'est là que le vrai doublon se produit (« message_bienvenue »
+  // puis « welcome », constaté en production), parce que deux messages d'accueil
+  // consécutifs n'ont aucun sens. Les usages à ÉTAPES (order_status, cart,
+  // billing) décrivent, eux, une progression : on n'y touche pas.
+  //
+  // On ne compare pas les textes : deux formulations proches peuvent être une
+  // relance légitime (« votre panier vous attend » puis « dernière chance »).
+  const AMBIGUOUS_USE_CASES = new Set(['support'])
+  const tplUseCase = new Map(templates.map((t) => [t.id, t.use_case]))
+  const nodeById = new Map(nodes.map((n) => [n.id, n]))
+
+  // Message suivant, EN TRAVERSANT les délais : le graphe réel est
+  // action → delay → action, jamais action → action. Comparer les seules arêtes
+  // directes ne verrait donc aucun doublon.
+  const nextAction = (fromId: string, seen = new Set<string>()): typeof nodes[number] | null => {
+    if (seen.has(fromId)) return null // sécurité anti-cycle
+    seen.add(fromId)
+    for (const e of graph.edges || []) {
+      if (e.from !== fromId) continue
+      // Une branche (condition, bouton, variante) change le contexte : deux
+      // messages du même usage dans des branches DIFFÉRENTES sont légitimes.
+      if (e.branch) continue
+      const to = nodeById.get(e.to)
+      if (!to) continue
+      if (to.type === 'action') return to
+      if (to.type === 'delay') return nextAction(to.id, seen)
+      return null // condition / ab_test : on s'arrête, le contexte diverge
+    }
+    return null
+  }
+
+  for (const n of nodes) {
+    if (n.type !== 'action' || !n.templateId) continue
+    const next = nextAction(n.id)
+    if (!next || next.type !== 'action' || !next.templateId) continue
+    const ucA = tplUseCase.get(n.templateId), ucB = tplUseCase.get(next.templateId)
+    if (ucA && ucA === ucB && AMBIGUOUS_USE_CASES.has(ucA) && n.templateId !== next.templateId) {
+      console.warn(`[automations/converse] quasi-doublon (${ucA}) retiré : 2 messages d'accueil à la suite`)
+      next.templateId = null
+      deduped++
+    }
+  }
+
+  if (deduped > 0) {
+    console.warn(`[automations/converse] ${deduped} modèle(s) en doublon retiré(s) du parcours`)
+  }
   // ⚠️ DEUX MESSAGES QUI SE SUIVENT SANS DÉLAI PARTENT EN MÊME TEMPS.
   //
   // Constaté : l'IA enchaîne parfois deux "action" sans "delay" entre elles. Le
@@ -577,6 +664,36 @@ La première fois (aucune réponse), pose une question d'ouverture simple.`
     return NextResponse.json({
       mode: 'ask',
       question: 'Je n’ai pas réussi à construire un parcours valide. Pouvez-vous préciser votre objectif ?',
+    })
+  }
+
+  // ⚠️ AUCUNE ÉTAPE N'A DE MESSAGE → CE N'EST PAS UN PARCOURS, C'EST UN SQUELETTE.
+  //
+  // Tolérer les actions sans modèle a du sens quand il en manque UNE ou DEUX : le
+  // marchand complète, et le reste du travail (déclencheur, délais, branches) lui
+  // est acquis. Mais quand AUCUNE n'a de message, on ne lui livre rien d'utile —
+  // juste une coquille vide qu'il doit remplir entièrement, et une automatisation
+  // qu'il ne peut évidemment pas activer. Constaté en production.
+  //
+  // On bascule alors sur `need_templates` : le mode prévu pour « il faut d'abord
+  // créer des messages », qui affiche les suggestions ET les boutons pour les
+  // créer en un clic. C'est le même travail, mais dans le bon ordre.
+  const actionNodes = nodes.filter((n) => n.type === 'action')
+  const withTemplate = actionNodes.filter((n) => n.templateId)
+  if (actionNodes.length > 0 && withTemplate.length === 0) {
+    console.warn('[automations/converse] aucune action avec modèle → need_templates')
+    return NextResponse.json({
+      mode: 'need_templates',
+      message:
+        'Aucun de vos modèles ne correspond à ce parcours. Créez d’abord le(s) message(s) ci-dessous — '
+        + 'je pourrai ensuite construire l’automatisation complète.',
+      missingTemplates: missing.length > 0 ? missing : [{
+        purpose: 'Message principal de ce parcours',
+        suggestion:
+          'Allez droit au but : rappelez le contexte, donnez UNE raison d’agir maintenant, '
+          + 'et terminez par un bouton de réponse rapide (ex. « Finaliser ma commande »). '
+          + 'Un clic rouvre 24 h de discussion — c’est ce qui permet à l’agent IA de répondre.',
+      }],
     })
   }
 
