@@ -108,9 +108,31 @@ export async function generateTemplates(input: GenerateInput): Promise<Generated
       usableProducts.map((p, i) => `  ${i + 1}. ${p.title}${p.price ? `, ${p.price}` : ''}\n     url: ${p.url}\n     image: ${p.image_url || '(aucune)'}`).join('\n')
     : 'Aucun produit réel disponible → NE PROPOSE PAS de carrousel produits ; privilégie texte, boutons (lien boutique), ou offre limitée.'
 
+  // ⚠️ La FAMILLE décide de ce qui est permis, et Meta refuse un modèle qui ment
+  // sur sa nature : une promo (code, remise, compte à rebours) dans un message
+  // déclaré UTILITY est rejetée. Le prompt ne le savait pas et proposait les
+  // mêmes formats partout — il pouvait donc glisser un code promo dans une
+  // confirmation de commande. On tranche depuis `metaCategory`, la source de
+  // vérité, plutôt que de laisser l'IA deviner.
+  const isMarketing = uc?.metaCategory === 'MARKETING'
+  const familyRules = isMarketing
+    ? `FAMILLE : CAMPAGNE (Meta MARKETING).
+Le message cherche à faire acheter. Promotions, codes promo, remises, comptes à rebours
+et mises en avant produit sont AUTORISÉS. Les 3 formats ci-dessous sont utilisables.`
+    : `FAMILLE : TRANSACTIONNEL (Meta UTILITY).
+Le message informe sur une commande EXISTANTE. Meta REJETTE tout contenu promotionnel ici.
+INTERDIT, sans exception :
+- aucun code promo, aucune remise, aucune offre, aucun compte à rebours ;
+- aucune incitation à acheter (« profitez-en », « découvrez nos nouveautés », « -20 % ») ;
+- format "limited_time_offer" INTERDIT ; bouton COPY_CODE INTERDIT ; carrousel produits INTERDIT.
+AUTORISÉ : le format "standard" uniquement, avec au plus un bouton URL de suivi/consultation
+de la commande. Contente-toi d'informer, clairement et sans rien vendre.`
+
   const prompt = `Tu es un expert en marketing WhatsApp e-commerce et en règles Meta.
 Génère EXACTEMENT 3 propositions DIFFÉRENTES de message WhatsApp pour un modèle.
 Pour CHAQUE proposition, RECOMMANDE toi-même le format le plus pertinent selon l'objectif.
+
+${familyRules}
 
 CATÉGORIE : ${uc?.label || input.useCase}
 OBJECTIF : ${input.objective}
@@ -179,13 +201,30 @@ Omets buttons/cards/lto_* quand le format ne les utilise pas. Aucune autre clé,
     let type: GeneratedProposal['template_type'] =
       ['standard', 'limited_time_offer', 'carousel'].includes(p?.template_type) ? p.template_type : 'standard'
 
+    // ⚠️ GARDE-FOU (le prompt l'interdit déjà, mais ce n'est qu'une consigne).
+    // En TRANSACTIONNEL, Meta rejette tout format promotionnel. On ne renvoie
+    // donc jamais une proposition que la soumission refuserait : on la ramène au
+    // format "standard" plutôt que de la laisser partir puis échouer chez Meta —
+    // le marchand ne comprendrait pas le refus.
+    if (!isMarketing && type !== 'standard') {
+      console.warn(`[templates/generate] format ${type} interdit en UTILITY (${input.useCase}) → standard`)
+      type = 'standard'
+    }
+
     // Boutons valides uniquement.
     const buttons: GenButton[] = []
     for (const b of Array.isArray(p?.buttons) ? p.buttons : []) {
       const text = String(b?.text || '').trim().slice(0, 20)
       if (!text) continue
       if (b?.type === 'URL' && httpUrl.test(String(b.url || ''))) buttons.push({ type: 'URL', text, url: String(b.url).trim() })
-      else if (b?.type === 'COPY_CODE' && String(b.code || '').trim()) buttons.push({ type: 'COPY_CODE', text, code: String(b.code).trim().slice(0, 15) })
+      else if (b?.type === 'COPY_CODE' && String(b.code || '').trim()) {
+        // Un code promo dans un message transactionnel = rejet Meta assuré.
+        if (!isMarketing) {
+          console.warn(`[templates/generate] bouton COPY_CODE interdit en UTILITY (${input.useCase}) → retiré`)
+          continue
+        }
+        buttons.push({ type: 'COPY_CODE', text, code: String(b.code).trim().slice(0, 15) })
+      }
     }
 
     // Cartes carrousel : uniquement avec image + url de produit réel.
