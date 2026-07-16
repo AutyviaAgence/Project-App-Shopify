@@ -260,8 +260,10 @@ NŒUDS (nodes), chaque nœud a un "id" unique (string) et un "type" :
               Paramètres optionnels selon l'event :
                 scheduled_date     → "scheduledAt" (ISO UTC), "scheduledTz"
                 no_customer_reply  → "inactivityHours" (nombre)
-- delay     : { id, type:"delay", minutes }, attente (minutes, 0 = immédiat).
-              Ex. 1440 = 1 jour, 4320 = 3 jours.
+- delay     : { id, type:"delay", minutes }, attente avant le message suivant.
+              Valeurs autorisées UNIQUEMENT : 0 (immédiat), 30, 60, 180,
+              1440 (1 jour), 2880 (2 jours), 10080 (7 jours).
+              ⚠️ Toute autre valeur s'affiche mal dans l'éditeur du marchand.
 - condition : { id, type:"condition", rule:{ field, op, value }, label? }
               field ∈ order_total | is_first_order | product_contains |
               collection_contains | country | language | has_stage

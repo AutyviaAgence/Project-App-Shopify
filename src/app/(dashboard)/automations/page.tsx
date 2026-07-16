@@ -226,10 +226,21 @@ function AutomationsPageInner() {
     try {
       const res = await fetch('/api/automations', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        // ⚠️ Le kind vient du DÉCLENCHEUR, pas de l'onglet courant : créer une
+        // ⚠️ CRÉÉE DÉSACTIVÉE (is_active: false).
+        //
+        // Un parcours généré par l'IA partait ACTIF : dès « Créer », il envoyait
+        // à de vrais clients, sans que le marchand ait relu quoi que ce soit. Or
+        // l'IA se trompe — ordre des messages discutable, délais à ajuster,
+        // modèle manquant. Le coût d'un mauvais envoi n'est pas rattrapable : le
+        // message est parti, et la réputation du numéro trinque.
+        //
+        // Il relit, corrige, puis active lui-même. Un clic de plus contre des
+        // messages irrattrapables : le choix est vite fait.
+        //
+        // Le kind vient du DÉCLENCHEUR, pas de l'onglet courant : créer une
         // relance de panier depuis Transactionnel l'y enfermait, alors que c'est
         // une campagne. C'est déjà ce que fait l'onboarding.
-        body: JSON.stringify({ name: data.name, trigger_event: data.trigger, graph: data.graph, builder_mode: true, is_active: true, kind: kindForTrigger(data.trigger as TriggerEvent) }),
+        body: JSON.stringify({ name: data.name, trigger_event: data.trigger, graph: data.graph, builder_mode: true, is_active: false, kind: kindForTrigger(data.trigger as TriggerEvent) }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Erreur')
@@ -241,7 +252,10 @@ function AutomationsPageInner() {
       setShowChat(false)
       setShowChoose(false)
       if (json.data) setCurrent(json.data as Automation)
-      toast.success('Automatisation créée, ajustez-la ici.')
+      // On DIT qu'elle est inactive : un parcours créé et silencieusement
+      // endormi serait pire que le problème qu'on corrige — le marchand
+      // croirait qu'il tourne, et se demanderait pourquoi rien ne part.
+      toast.success('Créée et mise en pause — relisez-la, puis activez-la avec le bouton en haut.', { duration: 7000 })
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Erreur') } finally { setBusyId(null) }
   }
 

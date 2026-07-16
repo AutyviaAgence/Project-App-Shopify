@@ -103,10 +103,17 @@ const FUNNEL_DOCTRINE_MARKETING = `- CONSTRUIS UN FUNNEL À BOUTONS, PAS UNE SUI
 - RESTE COURT : 2 à 3 messages. Plus long n'est pas plus vendeur : chaque message
   ignoré abîme la réputation du numéro, donc la délivrabilité de TOUS les envois.
 
+- ⚠️ UN NŒUD "delay" ENTRE CHAQUE MESSAGE, SANS EXCEPTION.
+  Deux "action" qui se suivent sans "delay" partent EN MÊME TEMPS : le client
+  reçoit deux messages d'affilée, les ignore, et le faible taux de lecture
+  dégrade la réputation du numéro — donc la délivrabilité de TOUS tes envois.
+  Utilise ces valeurs de "minutes" : 0, 30, 60, 180, 1440 (1 j), 2880 (2 j),
+  10080 (7 j). Rien d'autre — une valeur exotique s'affiche mal chez le marchand.
+
 - LE DÉLAI EST UN CHOIX DU MARCHAND, PAS UNE VÉRITÉ.
   Aucune donnée publique fiable ne dit si J+1 bat J+3. Propose un espacement
-  raisonnable (24 h), dis que c'est ajustable, et n'invente pas de justification
-  chiffrée. Un test A/B lui donnera SA réponse.
+  raisonnable (1440 = 24 h), dis que c'est ajustable, et n'invente pas de
+  justification chiffrée. Un test A/B lui donnera SA réponse.
 
 - ⚠️ CHAQUE NŒUD DOIT SE JUSTIFIER. PAS DE DÉCORATION.
   Un test A/B ou une condition qu'on ajoute « parce que ça fait pro » nuit : il
@@ -149,26 +156,58 @@ export async function POST(req: NextRequest) {
   const messages = (body.messages || []).filter((m) => m && m.content?.trim()).slice(-20)
   const kind: 'marketing' | 'transactional' = body.kind === 'transactional' ? 'transactional' : 'marketing'
 
-  // Modèles APPROUVÉS du marchand : seuls ceux-là sont envoyables → l'IA ne peut
-  // construire le funnel qu'avec eux (sinon elle proposera d'en créer un).
+  // Modèles utilisables pour CONSTRUIRE : approuvés, en revue, et brouillons.
+  //
+  // On ne se limite plus aux approuvés. Un brouillon (créé à la main ou par
+  // l'assistant) est parfaitement constructible : le parcours reste inactivable
+  // tant que Meta n'a pas validé, et chaque nœud le dit. L'exclure obligeait à
+  // attendre ~24 h de revue avant même de pouvoir dessiner son parcours — ou
+  // poussait l'IA à décrire un message « manquant » qui existait déjà.
+  //
+  // `use_case` est indispensable : sans lui, l'IA ne voit qu'un nom et un bout de
+  // texte, et place un modèle de bienvenue sur « Commande payée » (constaté).
   const { data: tpls } = await supabase
     .from('whatsapp_templates')
-    .select('id, name, language, body_text, buttons, status, category')
+    .select('id, name, language, body_text, buttons, status, category, use_case')
     .eq('user_id', user.id)
-    .eq('status', 'approved')
+    .in('status', ['approved', 'pending', 'draft'])
     .limit(60)
-  const templates = (tpls || []) as { id: string; name: string; language: string; body_text: string | null; buttons: unknown; category: string | null }[]
+  const templates = (tpls || []) as {
+    id: string; name: string; language: string; body_text: string | null
+    buttons: unknown; category: string | null; status: string; use_case: string | null
+  }[]
 
   // Dédup par nom (les variantes linguistiques partagent le même name).
   const byName = new Map<string, typeof templates[number]>()
   for (const t of templates) if (!byName.has(t.name)) byName.set(t.name, t)
+  // Ce que l'IA doit voir pour JUGER si un modèle convient :
+  //  - l'USAGE (use_case) : « bienvenue » vs « états de commande ». Sans lui, elle
+  //    n'a qu'un nom à interpréter, et met un message de bienvenue sur une
+  //    commande payée (constaté en production).
+  //  - le STATUT : un brouillon est utilisable, mais bloque l'activation — elle
+  //    doit pouvoir préférer un approuvé à statut égal de pertinence.
+  //  - un extrait de texte assez long pour reconnaître l'intention (110
+  //    caractères coupaient souvent avant le sujet réel du message).
+  const USE_CASE_FR: Record<string, string> = {
+    order_status: 'états de commande (confirmation, expédition, livraison)',
+    cart: 'panier / relance',
+    marketing: 'marketing / promotions',
+    support: 'support, bienvenue, avis',
+    billing: 'paiement / facturation',
+  }
   const tplCatalog = Array.from(byName.values()).map((t) => {
     const qr = Array.isArray(t.buttons)
       ? (t.buttons as { type?: string; text?: string }[]).filter((b) => b.type === 'QUICK_REPLY').map((b) => b.text).filter(Boolean)
       : []
-    const body = (t.body_text || '').replace(/\s+/g, ' ').slice(0, 110)
-    return `- id:"${t.id}" · ${t.name} [${t.category || 'UTILITY'}]${qr.length ? ` · boutons: ${qr.join(', ')}` : ''} · « ${body} »`
-  }).join('\n') || '(aucun modèle approuvé pour le moment)'
+    const body = (t.body_text || '').replace(/\s+/g, ' ').slice(0, 180)
+    const usage = t.use_case ? USE_CASE_FR[t.use_case] || t.use_case : 'usage non précisé'
+    const statut = t.status === 'approved' ? 'approuvé'
+      : t.status === 'pending' ? 'EN REVUE Meta'
+      : 'BROUILLON (non soumis)'
+    return `- id:"${t.id}" · ${t.name} · usage: ${usage} · ${statut} · [${t.category || 'UTILITY'}]`
+      + `${qr.length ? ` · boutons: ${qr.join(', ')}` : ' · aucun bouton'}`
+      + `\n    texte: « ${body} »`
+  }).join('\n') || '(aucun modèle pour le moment)'
 
   // Catalogue des déclencheurs : le LIBELLÉ humain est ce que l'IA doit montrer
   // au marchand ; le code technique ne sert QU'À remplir le champ "event" du
@@ -228,8 +267,36 @@ son objectif parmi ceux-ci — jamais un inventé.
 (Montre le LIBELLÉ au marchand, mets le code dans event.)
 ${triggerList}
 
-MODÈLES APPROUVÉS DISPONIBLES (n'utilise QUE ces id dans templateId) :
+MODÈLES DISPONIBLES (n'utilise QUE ces id dans templateId) :
 ${tplCatalog}
+
+# ⚠️ UN MODÈLE QUI NE CORRESPOND PAS NE DOIT PAS ÊTRE UTILISÉ
+
+Lis l'USAGE et le TEXTE de chaque modèle, pas seulement son nom. Un modèle de
+bienvenue placé sur « Commande payée » n'a aucun sens : le client recevrait
+« Bienvenue ! » après avoir payé. C'est arrivé — ne le refais pas.
+
+Pour CHAQUE message du parcours, demande-toi : « ce texte a-t-il un sens à CE
+moment précis, pour un client qui vient de vivre CET événement ? »
+ - OUI → utilise son id.
+ - NON, ou tu hésites → templateId:null + décris le message à créer dans
+   missingTemplates. Le marchand le créera en un clic depuis ta suggestion.
+
+⚠️ NE CASE JAMAIS un modèle « à peu près » pour éviter un trou dans le parcours.
+Un message hors sujet est PIRE qu'un message à écrire : il part à de vrais
+clients, il ne convertit pas, et il abîme la réputation du numéro. Le trou, lui,
+se comble en un clic.
+
+N'utilise pas non plus DEUX FOIS le même modèle dans un parcours, ni deux
+modèles qui disent la même chose (deux messages de bienvenue à la suite) : à
+partir du deuxième, décris un message à créer.
+
+# BROUILLONS ET MODÈLES EN REVUE
+
+Tu peux t'en servir : le parcours se construit, il ne pourra simplement pas être
+activé tant que Meta n'a pas approuvé (l'interface le signale sur chaque nœud).
+À pertinence ÉGALE, préfère un modèle « approuvé » — il est activable tout de
+suite. Mais un brouillon PERTINENT vaut toujours mieux qu'un approuvé hors sujet.
 
 ${GRAPH_JSON_SCHEMA_DOC}
 
@@ -400,6 +467,48 @@ La première fois (aucune réponse), pose une question d'ouverture simple.`
       hallucinated++
     }
   }
+  // ⚠️ DEUX MESSAGES QUI SE SUIVENT SANS DÉLAI PARTENT EN MÊME TEMPS.
+  //
+  // Constaté : l'IA enchaîne parfois deux "action" sans "delay" entre elles. Le
+  // client reçoit alors deux messages d'affilée — il les ignore, et le faible
+  // taux de lecture dégrade à lui seul la réputation du numéro (donc la
+  // délivrabilité de TOUS les envois du marchand).
+  //
+  // On insère le délai manquant plutôt que de rejeter le parcours : le marchand
+  // ajustera la durée, mais il ne recevra jamais un parcours qui mitraille.
+  let insertedDelays = 0
+  if (Array.isArray(graph.edges)) {
+    const byId = new Map(nodes.map((n) => [n.id, n]))
+    for (const e of [...graph.edges]) {
+      const from = byId.get(e.from), to = byId.get(e.to)
+      if (from?.type !== 'action' || to?.type !== 'action') continue
+      // Les branches boutons mènent volontairement à une suite immédiate : le
+      // client vient de cliquer, il ATTEND la réponse. On ne les retarde pas.
+      if (e.branch) continue
+      const id = `delay_auto_${insertedDelays + 1}`
+      nodes.push({ id, type: 'delay', minutes: 1440 })
+      graph.edges.push({ from: id, to: e.to })
+      e.to = id
+      insertedDelays++
+    }
+  }
+  if (insertedDelays > 0) {
+    console.warn(`[automations/converse] ${insertedDelays} délai(s) inséré(s) entre des messages consécutifs`)
+  }
+
+  // Délai hors presets → il s'afficherait mal dans l'éditeur. On ramène au
+  // preset le plus proche : le marchand voit une valeur, pas un champ vide.
+  const DELAY_PRESETS = [0, 30, 60, 180, 1440, 2880, 10080]
+  for (const n of nodes) {
+    if (n.type !== 'delay') continue
+    const m = Number((n as { minutes?: number }).minutes)
+    if (!Number.isFinite(m)) { (n as { minutes: number }).minutes = 1440; continue }
+    if (DELAY_PRESETS.includes(m)) continue
+    const closest = DELAY_PRESETS.reduce((a, b) => (Math.abs(b - m) < Math.abs(a - m) ? b : a))
+    console.warn(`[automations/converse] délai ${m} min hors presets → ${closest}`)
+    ;(n as { minutes: number }).minutes = closest
+  }
+
   // ⚠️ ON BRANCHE LES MESSAGES À BOUTONS LAISSÉS LINÉAIRES.
   //
   // La doctrine du prompt demande de brancher dès qu'un modèle a des boutons.

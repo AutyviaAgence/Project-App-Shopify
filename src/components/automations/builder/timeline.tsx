@@ -563,14 +563,40 @@ function TriggerBlock({ node, onPatch, kind }: { node: WorkflowNode; onPatch: (i
 
 function DelayBlock({ node, onPatch, onDelete }: { node: WorkflowNode; onPatch: (id: string, p: Partial<WorkflowNode>) => void; onDelete: () => void }) {
   if (node.type !== 'delay') return null
+
+  // ⚠️ LE BLOC « ATTENDRE » S'AFFICHAIT VIDE.
+  //
+  // Un Select ne peut afficher qu'une valeur présente dans ses options. Or les
+  // délais ne viennent pas tous d'ici : l'IA en génère (le schéma lui donne même
+  // « 4320 = 3 jours » en exemple… qui n'était PAS un preset), et une
+  // automatisation importée peut porter n'importe quelle valeur. Résultat : le
+  // marchand voyait « Attendre » sans durée, croyait le délai perdu, et le
+  // parcours semblait cassé alors que la valeur était bien là.
+  //
+  // On ajoute donc à la volée l'option correspondant à la valeur courante quand
+  // elle ne fait pas partie des presets : le Select affiche TOUJOURS ce qu'il
+  // contient, quelle que soit sa provenance.
+  const options = DELAY_PRESETS.some((d) => d.v === node.minutes)
+    ? DELAY_PRESETS
+    : [...DELAY_PRESETS, { v: node.minutes, l: humanDelay(node.minutes) }].sort((a, b) => a.v - b.v)
+
   return (
     <Shell tone={TONE.amber} icon={<Clock className="h-4 w-4" />} kind="Attendre" onDelete={onDelete}>
       <Select value={String(node.minutes)} onValueChange={(v) => onPatch(node.id, { minutes: parseInt(v, 10) } as never)}>
         <SelectTrigger><SelectValue /></SelectTrigger>
-        <SelectContent>{DELAY_PRESETS.map((d) => <SelectItem key={d.v} value={String(d.v)}>{d.l}</SelectItem>)}</SelectContent>
+        <SelectContent>{options.map((d) => <SelectItem key={d.v} value={String(d.v)}>{d.l}</SelectItem>)}</SelectContent>
       </Select>
     </Shell>
   )
+}
+
+/** Durée en minutes → libellé lisible (« 3 jours », « 12 heures »). */
+function humanDelay(minutes: number): string {
+  if (!Number.isFinite(minutes) || minutes <= 0) return 'Immédiat'
+  if (minutes < 60) return `${minutes} min`
+  if (minutes % 1440 === 0) { const d = minutes / 1440; return `${d} jour${d > 1 ? 's' : ''}` }
+  if (minutes % 60 === 0) { const h = minutes / 60; return `${h} heure${h > 1 ? 's' : ''}` }
+  return `${Math.round(minutes / 60)} h`
 }
 
 /**
