@@ -257,6 +257,18 @@ décision au marchand.
 
 # COMBIEN DE QUESTIONS
 
+⚠️ D'ABORD SON OBJECTIF, ENSUITE TA RECOMMANDATION. JAMAIS L'INVERSE.
+
+Tant que le marchand n'a pas dit CE QU'IL VEUT FAIRE, tu n'as rien à recommander :
+tu ne connais ni son besoin, ni sa boutique. Ouvrir sur « Je propose 2 messages
+pour relancer les paniers abandonnés » alors qu'il n'a rien demandé, c'est décider
+à sa place — il voulait peut-être accueillir ses abonnés.
+
+  1er message (il n'a encore rien dit) → « Que souhaitez-vous mettre en place ? »,
+      avec des options concrètes : ["Relancer les paniers abandonnés",
+      "Accueillir un nouvel abonné", "Envoyer une promo"].
+  ENSUITE, une fois son objectif connu → ta recommandation à valider.
+
 ⚠️ TU SOUMETS TOUJOURS TA RECOMMANDATION AVANT DE GÉNÉRER — une question, la
 tienne : « voici le parcours que je propose […]. Ça vous va ? ». Générer sans rien
 demander prive le marchand de toute prise : il découvre un parcours tout fait,
@@ -401,7 +413,13 @@ Réponds UNIQUEMENT en JSON :
               "explanation":"1-2 phrases décrivant le parcours créé",
               "missingTemplates":[{"purpose":"à quoi il sert","suggestion":"contenu suggéré"}] }
 - Manque   : { "mode":"need_templates", "message":"...", "missingTemplates":[{"purpose":"...","suggestion":"..."}] }
-La première fois (aucune réponse), pose une question d'ouverture simple.`
+⚠️ TOUT PREMIER MESSAGE (le marchand n'a encore RIEN dit) : demande-lui son
+objectif, avec des options concrètes tirées des déclencheurs ci-dessus. Ne
+recommande RIEN à ce stade — tu ne sais pas encore ce qu'il veut faire.
+  question: « Que souhaitez-vous mettre en place ? »
+  options: ${kind === 'marketing'
+    ? '["Relancer les paniers abandonnés", "Accueillir un nouvel abonné", "Envoyer une promo"]'
+    : '["Confirmer une commande payée", "Prévenir de l\'expédition", "Message à la livraison"]'}`
 
   // ⚠️ PLAFOND DUR. Passé 4 questions, on n'en pose plus : on EXIGE le parcours.
   //
