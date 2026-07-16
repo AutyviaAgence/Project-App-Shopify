@@ -88,6 +88,30 @@ function bodyEdgeInvalid(text: string): boolean {
 const httpUrl = /^https?:\/\/.+\..+/i
 
 /**
+ * Cette URL est-elle un EXEMPLE du catalogue de variables, plutôt qu'un vrai lien ?
+ *
+ * Le prompt présente chaque variable avec un échantillon — « Lien de suivi du
+ * colis (ex : https://suivi.exemple.com/1024) ». Le modèle confond l'exemple avec
+ * une adresse utilisable et le place dans un bouton : le client cliquerait dans
+ * le vide. On dérive les hôtes interdits du CATALOGUE lui-même, pour qu'un sample
+ * ajouté plus tard soit couvert sans qu'on ait à y penser.
+ */
+const SAMPLE_HOSTS = new Set(
+  Object.values(VARIABLE_BY_KEY)
+    .map((v) => v.sample)
+    .filter((s) => httpUrl.test(s))
+    .map((s) => { try { return new URL(s).host.toLowerCase() } catch { return '' } })
+    .filter(Boolean)
+)
+function isSampleUrl(url: string): boolean {
+  try {
+    return SAMPLE_HOSTS.has(new URL(url).host.toLowerCase())
+  } catch {
+    return false
+  }
+}
+
+/**
  * Génère jusqu'à 3 propositions riches. L'IA recommande le format ; on valide
  * et nettoie côté serveur pour rester conforme Meta.
  */
@@ -154,6 +178,11 @@ RÈGLES STRICTES (Meta), respecte-les SINON la proposition est rejetée :
 - N'utilise QUE les variables listées, avec leur numéro exact. Numérotation contiguë depuis {{1}}.
 - body_text ≤ 1024 caractères, 2 à 4 phrases.
 - Boutons : texte ≤ 20 caractères. URL = lien réel (boutique ou produit fourni), jamais inventé. COPY_CODE = un code promo court (ex : PROMO10).
+- ⚠️ Les « (ex : …) » de la liste des variables sont des EXEMPLES d'affichage, PAS des liens
+  utilisables. Ne recopie JAMAIS une url d'exemple (suivi.exemple.com, boutique.exemple.com…)
+  dans un bouton : elle ne mène nulle part, et le client cliquerait dans le vide. Quand
+  l'information EST un lien (suivi, panier, commande), mets la variable {{n}} dans le
+  CORPS du message et ne crée pas de bouton URL — l'adresse réelle n'existe qu'à l'envoi.
 - Carrousel : pas de footer ; chaque carte body ≤ 160 caractères ; 0 à 1 bouton URL par carte (déjà inclus via l'url de carte).
 - Les 3 propositions doivent être nettement différentes (format ou angle).
 
@@ -216,7 +245,24 @@ Omets buttons/cards/lto_* quand le format ne les utilise pas. Aucune autre clé,
     for (const b of Array.isArray(p?.buttons) ? p.buttons : []) {
       const text = String(b?.text || '').trim().slice(0, 20)
       if (!text) continue
-      if (b?.type === 'URL' && httpUrl.test(String(b.url || ''))) buttons.push({ type: 'URL', text, url: String(b.url).trim() })
+      if (b?.type === 'URL' && httpUrl.test(String(b.url || ''))) {
+        // ⚠️ URL D'EXEMPLE recopiée depuis le catalogue de variables.
+        //
+        // Le prompt montre « (ex : https://suivi.exemple.com/1024) » pour
+        // illustrer la variable ; le modèle prend l'exemple pour un lien
+        // utilisable et le met dans le bouton. Constaté en test sur « colis
+        // expédié » : les 3 propositions pointaient vers ce domaine bidon. En
+        // production, de vrais clients auraient cliqué dans le vide.
+        //
+        // La liste vient du catalogue, pas d'un domaine codé en dur : un sample
+        // ajouté demain sera couvert sans y penser.
+        const url = String(b.url).trim()
+        if (isSampleUrl(url)) {
+          console.warn(`[templates/generate] URL d'exemple rejetée: ${url}`)
+          continue
+        }
+        buttons.push({ type: 'URL', text, url })
+      }
       else if (b?.type === 'COPY_CODE' && String(b.code || '').trim()) {
         // Un code promo dans un message transactionnel = rejet Meta assuré.
         if (!isMarketing) {
