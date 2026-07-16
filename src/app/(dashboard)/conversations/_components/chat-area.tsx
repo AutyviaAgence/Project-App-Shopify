@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
+import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
@@ -30,6 +31,8 @@ import {
   CheckCircle,
   XCircle,
   FileText,
+  Workflow,
+  ExternalLink,
 } from 'lucide-react'
 import { getSessionDisplayName, getContactDisplayName } from '@/lib/format-phone'
 import { useTranslation } from '@/i18n/context'
@@ -370,6 +373,26 @@ export function ChatArea({
                             <Bot className="h-3 w-3" />
                             {(msg as typeof msg & { agent_name?: string }).agent_name || t('conversations.agent_ia')}
                           </div>
+                        )}
+                        {/* Message envoyé par une automatisation → on nomme le
+                            coupable, et on y mène. Sans ça, le marchand voit un
+                            message partir sans savoir QUI l'a envoyé ni où le
+                            régler. Le lien n'apparaît que si l'automatisation
+                            existe encore (nom résolu par l'API) : pas de renvoi
+                            vers une page morte. */}
+                        {(msg as typeof msg & { automation_id?: string | null; automation_name?: string | null }).automation_id
+                          && (msg as typeof msg & { automation_name?: string | null }).automation_name && (
+                          <Link
+                            href={`/automations?id=${(msg as typeof msg & { automation_id?: string }).automation_id}`}
+                            className="mb-1.5 inline-flex max-w-full items-center gap-1.5 rounded-md bg-black/10 px-1.5 py-0.5 text-[10px] font-medium text-current opacity-80 transition-opacity hover:opacity-100"
+                            title="Voir l’automatisation qui a envoyé ce message"
+                          >
+                            <Workflow className="h-3 w-3 shrink-0" />
+                            <span className="truncate">
+                              {(msg as typeof msg & { automation_name?: string }).automation_name}
+                            </span>
+                            <ExternalLink className="h-2.5 w-2.5 shrink-0" />
+                          </Link>
                         )}
                         {/* Tool executions */}
                         {(msg as typeof msg & { tool_executions?: { name: string; result: string; success: boolean; durationMs: number }[] }).tool_executions?.map((te, j) => (

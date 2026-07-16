@@ -80,6 +80,27 @@ export async function GET(
     agentsMap = Object.fromEntries((agents || []).map(a => [a.id, a.name]))
   }
 
+  // Nom de l'automatisation à l'origine du message : sans lui, on afficherait un
+  // identifiant, illisible. Une seule requête pour tout le lot (pas un appel par
+  // message). Une automatisation supprimée laisse un nom vide → l'UI n'affichera
+  // simplement pas de lien plutôt que d'envoyer le marchand sur une page morte.
+  const automationIds = [...new Set(
+    paginatedMessages.map(m => m.automation_id).filter((id): id is string => !!id)
+  )]
+  let automationsMap: Record<string, string> = {}
+  if (automationIds.length > 0) {
+    // `automations` n'est pas dans les types Supabase générés (comme ailleurs
+    // dans le projet, ex. api/automations/ab-summary) → cast local.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: autos } = await (supabase as any)
+      .from('automations')
+      .select('id, name')
+      .in('id', automationIds)
+    automationsMap = Object.fromEntries(
+      ((autos || []) as { id: string; name: string }[]).map(a => [a.id, a.name])
+    )
+  }
+
   // Charger les tool execution logs pour cette conversation
   const { data: toolLogs, error: toolLogsError } = await supabase
     .from('tool_execution_logs')
@@ -121,6 +142,7 @@ export async function GET(
     content: msg.content ? decryptMessage(msg.content) : msg.content,
     transcription: msg.transcription ? decryptMessage(msg.transcription) : null,
     agent_name: msg.ai_agent_id ? agentsMap[msg.ai_agent_id] || null : null,
+    automation_name: msg.automation_id ? automationsMap[msg.automation_id] || null : null,
     tool_executions: toolExecsByMessage[msg.id]?.map(log => ({
       name: log.function_name,
       result: log.status === 'success'

@@ -311,6 +311,9 @@ function ConversationsPageContent() {
       reaction_emoji: null,
       ai_processed: false,
       read_at: null,
+      // Envoi manuel du marchand : ni automatisation ni campagne.
+      automation_id: null,
+      campaign_id: null,
       created_at: new Date().toISOString(),
     }
     setMessages((prev) => [...prev, optimistic])
@@ -435,6 +438,9 @@ function ConversationsPageContent() {
       reaction_emoji: null,
       ai_processed: false,
       read_at: null,
+      // Envoi manuel du marchand : ni automatisation ni campagne.
+      automation_id: null,
+      campaign_id: null,
       created_at: new Date().toISOString(),
     }
     setMessages((prev) => [...prev, optimistic])

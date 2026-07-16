@@ -38,6 +38,9 @@ function AutomationsPageInner() {
   // Onglet actif, piloté par la sidebar via ?tab= (marketing | transactional).
   const searchParams = useSearchParams()
   const urlTab: AutomationKind = searchParams.get('tab') === 'marketing' ? 'marketing' : 'transactional'
+  // ?id= : automatisation à ouvrir directement (lien depuis un message envoyé,
+  // dans les conversations). Prime sur ?tab= — on déduit l'onglet de l'automatisation.
+  const urlId = searchParams.get('id')
   const [tab, setTab] = useState<AutomationKind>(urlTab)
   const [automations, setAutomations] = useState<Automation[]>([])
   const [templates, setTemplates] = useState<WhatsAppTemplate[]>([])
@@ -151,11 +154,29 @@ function AutomationsPageInner() {
 
   // Suivre l'onglet piloté par la sidebar (?tab=) : bascule le state, referme
   // le builder, et lâche l'automatisation courante si elle n'est pas du bon kind.
+  //
+  // ⚠️ Sauf si l'URL cible une automatisation précise (?id=, depuis une bulle de
+  // conversation) : cet effet remettrait `current` à null et on retomberait sur
+  // la liste, alors que le marchand a cliqué pour voir CETTE automatisation.
   useEffect(() => {
+    if (urlId) return
     setTab(urlTab)
     setShowChoose(false); setShowWizard(false)
     setCurrent((c) => (c && kindOf(c) === urlTab) ? c : null)
-  }, [urlTab])
+  }, [urlTab, urlId])
+
+  // Ouvrir l'automatisation ciblée par ?id= (lien « voir l'automatisation »
+  // depuis un message envoyé). On bascule aussi sur SON onglet : sans ça elle
+  // serait chargée mais invisible dans la liste, ce qui donne l'impression d'un
+  // lien cassé. On attend que la liste soit chargée pour la retrouver.
+  useEffect(() => {
+    if (!urlId || automations.length === 0) return
+    const target = automations.find((a) => a.id === urlId)
+    if (!target) return
+    setTab(kindOf(target))
+    setCurrent(target)
+    setShowChoose(false); setShowWizard(false)
+  }, [urlId, automations])
 
   // Quand l'automatisation courante change, (re)charge son graphe + nom.
   useEffect(() => {

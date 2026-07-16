@@ -262,6 +262,12 @@ export type Message = {
   ai_processed: boolean
   /** Horodatage de l'accusé de lecture WhatsApp (double coche bleue). */
   read_at: string | null
+  /** Automatisation qui a envoyé ce message (null = envoi manuel ou IA). */
+  automation_id: string | null
+  /** Campagne qui a envoyé ce message (null = hors campagne). */
+  campaign_id: string | null
+  /** Nom de l'automatisation, résolu par l'API (jointure) pour l'afficher. */
+  automation_name?: string | null
   created_at: string
 }
 
