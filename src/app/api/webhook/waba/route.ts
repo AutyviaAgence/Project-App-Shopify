@@ -247,8 +247,19 @@ export async function POST(req: NextRequest) {
                         customer_first_name: (readContact?.name || '').split(' ')[0] || '',
                         customer_full_name: readContact?.name || '',
                       },
-                      // idempotence : un message lu ne déclenche qu'une fois
-                      dedupKey: `read:${status.id}`,
+                      // ⚠️ ANTI-BOUCLE INFINIE — clé par CONTACT, pas par message.
+                      //
+                      // Avec `read:${status.id}` (le wamid), chaque message lu
+                      // créait un job NEUF : on envoyait un message → le client le
+                      // lisait → nouveau `message_read` → nouvel envoi… sans fin.
+                      // Le wamid change à chaque tour, donc la dédup ne mordait
+                      // jamais.
+                      //
+                      // Avec le contact, la clé est stable : l'unicité
+                      // (automation_id, dedup_key) en base fait qu'un contact ne
+                      // déclenche cette automatisation QU'UNE FOIS. C'est la base
+                      // qui l'empêche, pas un compteur applicatif.
+                      dedupKey: `read:contact:${contactId}`,
                     },
                   })
                 } catch (err) {

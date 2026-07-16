@@ -119,6 +119,15 @@ export type EventContext = {
   // button_clicked : texte du bouton cliqué (Meta ne renvoie pas de payload
   // custom pour les quick-reply → on matche sur le libellé).
   buttonTitle?: string
+  // checkout_abandoned : jeton du panier Shopify. Stable d'un bout à l'autre du
+  // panier (contrairement à l'id du checkout, réémis à chaque modification), il
+  // sert à dédupliquer la relance ET à vérifier, au moment d'envoyer, que ce
+  // panier précis n'a pas été payé entre-temps.
+  cartToken?: string
+  // checkout_abandoned : date de création du PANIER. Sert de référence au cron
+  // pour juger « une commande est-elle arrivée depuis ? ». La date du job ne
+  // convient pas : la commande peut la précéder (course de webhooks Shopify).
+  cartCreatedAt?: string
   // Données par clé nommée pour résoudre les variables du template
   variables: Record<string, string>
   // Clé d'idempotence (ex: `${event}:${orderId}`)

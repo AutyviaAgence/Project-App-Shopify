@@ -64,6 +64,10 @@ export async function enqueueAutomations(params: {
         collections: params.ctx.collections ?? null,
         country: params.ctx.country ?? null,
         language: params.ctx.language ?? null,
+        // Panier abandonné : servent au cron à revérifier, avant d'envoyer, que
+        // ce panier n'a pas été payé entre-temps.
+        cartToken: params.ctx.cartToken ?? null,
+        cartCreatedAt: params.ctx.cartCreatedAt ?? null,
       },
       scheduled_at: scheduledAt,
       status: 'pending',

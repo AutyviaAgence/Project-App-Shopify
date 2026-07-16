@@ -18,6 +18,16 @@ export type ShopifyOrder = {
   total_price?: string
   currency?: string
   cancelled_at?: string | null
+  created_at?: string
+  // Panier (checkouts/*) : jeton stable du panier, contrairement à `id` qui est
+  // réémis à chaque modification. Une COMMANDE porte le `checkout_token` du
+  // panier dont elle est issue → c'est ce qui relie les deux, et permet
+  // d'annuler la relance d'un panier qui a finalement abouti.
+  token?: string
+  cart_token?: string
+  checkout_token?: string
+  // Panier : renseigné dès qu'il est finalisé. `null` tant qu'il est abandonné.
+  completed_at?: string | null
   // Langue de la commande, choisie par le client au checkout (ex: 'fr', 'de-DE').
   customer_locale?: string | null
   // Téléphone de la commande (souvent rempli au checkout au lieu de customer.phone).

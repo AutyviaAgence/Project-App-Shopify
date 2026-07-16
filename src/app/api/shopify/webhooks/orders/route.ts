@@ -42,6 +42,46 @@ async function fetchOrderForWebhook(shopDomain: string, orderId: string | number
 }
 
 /**
+ * Le panier a abouti à une commande → on annule sa relance d'abandon.
+ *
+ * Une commande Shopify porte le `checkout_token` du panier dont elle est issue.
+ * On s'en sert pour retrouver les jobs de relance de CE panier (leur dedup_key
+ * vaut `checkout_abandoned:cart:<token>`, cf. webhook checkouts) et les
+ * neutraliser avant qu'ils ne partent.
+ *
+ * Pourquoi par token et pas par date : Shopify émet `checkouts/create` et
+ * `orders/create` quasi simultanément. Tout garde-fou fondé sur « la commande
+ * est-elle postérieure au job ? » perd la course dès que la commande arrive en
+ * premier. Le token, lui, ne dépend d'aucun ordre d'arrivée.
+ *
+ * Best-effort : un échec ici ne doit pas faire retenter le webhook (le cron
+ * revérifie de toute façon avant d'envoyer).
+ */
+async function cancelAbandonedCartJobs(userId: string, order: ShopifyOrder & { checkout_token?: string }) {
+  const token = order.checkout_token
+  if (!token) return
+  try {
+    const admin = createAdminSupabase(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+    const { error } = await admin
+      .from('automation_jobs')
+      .update({
+        status: 'skipped',
+        result: 'panier finalisé (commande passée)',
+        processed_at: new Date().toISOString(),
+      })
+      .eq('user_id', userId)
+      .eq('dedup_key', `checkout_abandoned:cart:${token}`)
+      .in('status', ['pending', 'waiting'])
+    if (error) console.error('[webhook orders] annulation relance panier:', error.message)
+  } catch (err) {
+    console.error('[webhook orders] annulation relance panier:', err)
+  }
+}
+
+/**
  * Webhook Shopify unifié — orders/create, orders/paid, orders/cancelled,
  * refunds/create, returns/request. Le topic est dans le header x-shopify-topic.
  *
@@ -91,6 +131,19 @@ export async function POST(req: NextRequest) {
   // Persiste la commande pour les stats de ventes (best-effort, non bloquant).
   // On le fait avant les automatisations pour ne rien perdre même sans contact.
   await persistShopifyOrder(userId, shopDomain, order)
+
+  // ⚠️ LE PANIER EST PAYÉ → ON ANNULE SA RELANCE D'ABANDON.
+  //
+  // C'est ici que se règle « relance de panier abandonné reçue alors que le
+  // panier était validé ». L'ancien garde-fou comparait `last_order_at` à la
+  // date du job : Shopify émettant `checkouts/create` et `orders/create`
+  // quasi simultanément, la commande pouvait arriver AVANT le job — la
+  // comparaison ne voyait rien et la relance partait.
+  //
+  // La commande porte le `checkout_token` du panier dont elle est issue : on
+  // annule les relances de CE panier, sans dépendre de l'ordre d'arrivée des
+  // webhooks ni d'une fenêtre de temps.
+  await cancelAbandonedCartJobs(userId, order)
 
   const ctx = await buildOrderContext(userId, order, mapping.status, true)
   if (!ctx) return NextResponse.json({ received: true, skipped: 'no contact/phone' })

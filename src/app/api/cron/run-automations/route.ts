@@ -213,19 +213,31 @@ async function processJob(
   const eventData = (job.event_data || {}) as {
     variables?: Record<string, string>; total?: number | null; isFirstOrder?: boolean | null
     productTitles?: string[]; collections?: string[]; country?: string; language?: string
+    cartToken?: string | null; cartCreatedAt?: string | null
   }
   if (!job.contact_id) { await mark(supabase, job.id, 'skipped', 'pas de contact'); return 'skipped' }
 
-  // PANIER ABANDONNÉ : annuler la relance si le contact a commandé entre-temps
-  // (last_order_at postérieur à la création du job). Évite de relancer un client
-  // qui a finalement finalisé son achat.
+  // PANIER ABANDONNÉ : ne jamais relancer un panier qui a abouti.
+  //
+  // Premier rempart (le vrai) : le webhook `orders/*` annule les jobs du panier
+  // via son `checkout_token` dès qu'une commande arrive — sans dépendre de
+  // l'ordre d'arrivée des webhooks. Ce test-ci est le SECOND filet, pour les cas
+  // où la commande n'expose pas de checkout_token (commande manuelle, POS…).
+  //
+  // ⚠️ La comparaison portait avant sur `job.created_at`, ce qui laissait passer
+  // les commandes payées AVANT la création du job — or Shopify émet
+  // `checkouts/create` et `orders/create` quasi simultanément, donc ce cas est
+  // fréquent, pas exotique. On compare désormais à la date du PANIER : toute
+  // commande postérieure au panier le rend caduc, quel que soit l'ordre.
   if (auto.trigger_event === 'checkout_abandoned') {
     const { data: c } = await supabase
       .from('contacts')
       .select('last_order_at')
       .eq('id', job.contact_id)
       .maybeSingle()
-    const ordered = c?.last_order_at && job.created_at && new Date(c.last_order_at) > new Date(job.created_at)
+    // Date du panier : celle de l'événement, pas celle du job.
+    const cartAt = eventData.cartCreatedAt || job.created_at
+    const ordered = c?.last_order_at && cartAt && new Date(c.last_order_at) >= new Date(cartAt)
     if (ordered) { await mark(supabase, job.id, 'skipped', 'commande finalisée entre-temps'); return 'skipped' }
   }
 
