@@ -342,8 +342,23 @@ ARÊTES (edges) : { from, to, branch? }
 - ab_test   → 1 arête par variante : branch:"variant:A", "variant:B"…
 - action à BOUTONS (le modèle a des boutons de réponse rapide) → 1 arête par
   bouton : branch:"button:<libellé exact du bouton>", PLUS une arête
-  branch:"button:__timeout__" = la SUITE PAR DÉFAUT (continuité du parcours,
-  envoyée immédiatement, que le contact clique ou non).
+  branch:"button:__timeout__" = la SUITE PAR DÉFAUT.
+
+  ⚠️ LIS BIEN CECI, C'EST LA SOURCE D'ERREUR N°1 :
+  « Par défaut » PART DANS TOUS LES CAS, que le client clique ou non. Ce n'est PAS
+  la branche « il n'a pas cliqué » — c'est la continuité normale du parcours.
+  Un client qui clique « Code promo » reçoit donc DEUX choses : la suite de son
+  bouton, ET la suite par défaut.
+
+  CONSÉQUENCES, à respecter :
+   - NE METS JAMAIS le même message (ni un équivalent) sur un bouton ET sur « par
+     défaut » : le client le recevrait deux fois. C'est arrivé.
+   - Tu n'es PAS obligé de remplir « par défaut ». Si toute la suite dépend du
+     clic (« s'il clique il reçoit le code, sinon rien »), NE METS AUCUNE arête
+     button:__timeout__ : le parcours s'arrête pour qui ne clique pas, et c'est
+     très bien.
+   - Ne remplis « par défaut » QUE si tu veux vraiment envoyer quelque chose à
+     TOUT LE MONDE — typiquement une relance 24 h plus tard.
 - les autres nœuds : une seule arête sortante, sans "branch".
 
 RÈGLES : exactement 1 trigger ; chaque action a un templateId ; une condition a

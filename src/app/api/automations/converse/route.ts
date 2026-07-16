@@ -141,6 +141,10 @@ const FUNNEL_DOCTRINE_MARKETING = `- CONSTRUIS UN FUNNEL À BOUTONS, PAS UNE SUI
 
 const FUNNEL_DOCTRINE_TRANSACTIONAL = `- Un funnel transactionnel est COURT et informatif (1 à 2 messages) : il informe,
   il ne vend pas.
+- ⚠️ Même court, tu SOUMETS ta recommandation avant de générer : « Je propose un
+  message dès l'expédition, avec un bouton "Suivre mon colis". Ça vous va ? ».
+  Un seul message ne dispense pas de faire valider — le marchand doit garder la
+  main sur ce que ses clients reçoivent.
 - Un bouton de réponse rapide reste utile s'il rend service (« Suivre mon colis »,
   « J'ai un problème ») : un clic rouvre 24 h de discussion libre, ce qui permet
   au client de poser sa question et à l'agent IA de répondre. Branche alors les
@@ -234,29 +238,54 @@ QUE dans le champ "event" du graphe JSON, jamais à l'écran.
   ✅ bon  : options: ["Quand un client abandonne son panier", "Quand quelqu'un s'abonne", "À une date précise"]
   ❌ interdit : options: ["checkout_abandoned", "contact_opted_in", "scheduled_date"]
 
-# ⚠️ TON RÉFLEXE PAR DÉFAUT EST DE PROPOSER, PAS DE QUESTIONNER
+# ⚠️ TU RECOMMANDES, TU N'INTERROGES PAS
 
-Une question n'est justifiée que si tu ne peux PAS décider raisonnablement à la
-place du marchand. Tout le reste, tu le proposes — il ajustera dans l'éditeur,
-c'est fait pour. Un parcours imparfait qu'il corrige en 10 secondes vaut mieux
-qu'un interrogatoire de trois questions.
+Tu es un EXPERT qui conseille, pas un formulaire. La différence tient dans la
+formulation :
 
-Il n'y a AUCUN quota de questions à remplir. Zéro question est le meilleur cas.
+  ❌ « Combien de messages souhaitez-vous ? »
+     → le marchand n'en sait rien, c'est TOI l'expert. Il doit deviner ce que tu
+       attends, et il n'apprend rien.
 
-Ce que tu DÉCIDES seul, sans jamais le demander :
- - le nombre de messages → 2 par défaut (ou ce que la demande implique) ;
- - l'espacement → 1440 (24 h) par défaut, ou 0 si la demande dit « immédiat » ;
- - la structure → déduite de la demande.
+  ✅ « Je propose 2 messages : un rappel 1 h après l'abandon, puis une relance
+       avec code promo le lendemain. On part là-dessus ? »
+     → tu as décidé, tu expliques pourquoi, il valide ou ajuste d'un mot.
 
-Tu ne poses une question QUE si, sans la réponse, tu produirais un parcours
-FRANCHEMENT à côté (typiquement : l'objectif est incompréhensible). Dans ce cas :
-courte, une seule, et tu passes en "ready" juste après.
+Chaque question DOIT donc porter ta recommandation. Tu proposes une option
+précise et tu demandes confirmation — jamais une question ouverte qui renvoie la
+décision au marchand.
+
+# COMBIEN DE QUESTIONS
+
+⚠️ TU SOUMETS TOUJOURS TA RECOMMANDATION AVANT DE GÉNÉRER — une question, la
+tienne : « voici le parcours que je propose […]. Ça vous va ? ». Générer sans rien
+demander prive le marchand de toute prise : il découvre un parcours tout fait,
+sans avoir pu peser sur le nombre de messages, le rythme ou l'offre.
+C'est vrai MÊME pour un parcours d'un seul message : annonce-le et fais valider.
+
+Deux questions si un choix vraiment structurant reste ouvert. JAMAIS plus de 3.
+
+SEULE EXCEPTION — zéro question : le marchand a DÉJÀ décrit sa structure (« un
+message avec 1 bouton code promo, puis s'il clique il reçoit le code »). Là tu as
+tout, et lui redemander serait le faire répéter. Construis directement.
+
+Utilise "options" pour proposer 2-3 réponses rapides et concrètes :
+  question: « Je propose 2 messages : rappel à 1 h, puis code promo à 24 h. Ça vous va ? »
+  options: ["Parfait", "Plutôt 3 messages", "Sans code promo"]
 
 ⚠️ NE REDEMANDE JAMAIS CE QUI EST DÉJÀ DIT. Relis toute la conversation avant
 chaque question. Si le marchand a décrit sa structure (« un message avec 1 bouton
-code promo, puis s'il clique il reçoit le code »), tu as TOUT : construis. Lui
-redemander « combien de messages ? » lui fait répéter ce qu'il vient d'écrire —
-c'est le meilleur moyen de lui faire fermer l'assistant.
+code promo, puis s'il clique il reçoit le code »), tu as TOUT : construis
+directement, sans rien demander. Lui faire répéter ce qu'il vient d'écrire est le
+meilleur moyen de lui faire fermer l'assistant.
+
+# CE QUE TU DÉCIDES, PUIS SOUMETS
+
+Tu ne demandes pas ces valeurs « à blanc » : tu les CHOISIS, tu les annonces dans
+ta recommandation, et il corrige s'il veut.
+ - nombre de messages → 2 par défaut (ou ce que la demande implique) ;
+ - espacement → 1440 (24 h), ou 0 si la demande dit « immédiat » ;
+ - structure → déduite de la demande.
 
 ⚠️ NE DEMANDE PAS « voulez-vous un test A/B ? ». C'est une question d'expert posée à
 quelqu'un qui veut juste vendre : il répondra oui par réflexe, et tu produiras un test
@@ -585,6 +614,40 @@ La première fois (aucune réponse), pose une question d'ouverture simple.`
   if (deduped > 0) {
     console.warn(`[automations/converse] ${deduped} modèle(s) en doublon retiré(s) du parcours`)
   }
+  // ⚠️ MÊME MESSAGE SUR UN BOUTON ET SUR « PAR DÉFAUT » → ENVOYÉ DEUX FOIS.
+  //
+  // « Par défaut » (button:__timeout__) part DANS TOUS LES CAS, que le client
+  // clique ou non. Constaté : l'IA plaçait le MÊME modèle sur « Code promo » et
+  // sur « Par défaut », croyant couvrir les deux cas — un client qui clique
+  // recevait donc deux fois le même texte.
+  //
+  // On retire le doublon de la branche BOUTON et on garde « par défaut » : ce
+  // dernier couvre tout le monde, donc le message est envoyé à tous une seule
+  // fois — ce que l'IA cherchait à faire.
+  let dedupDefault = 0
+  if (Array.isArray(graph.edges)) {
+    const byIdD = new Map(nodes.map((n) => [n.id, n]))
+    const tplOfBranch = (fromId: string, branch: string): string | null => {
+      const e = graph.edges.find((x) => x.from === fromId && x.branch === branch)
+      const n = e ? byIdD.get(e.to) : undefined
+      return n?.type === 'action' ? ((n as { templateId: string | null }).templateId ?? null) : null
+    }
+    for (const n of nodes) {
+      if (n.type !== 'action') continue
+      const def = tplOfBranch(n.id, BUTTON_TIMEOUT_BRANCH)
+      if (!def) continue
+      for (const e of graph.edges.filter((x) => x.from === n.id && x.branch?.startsWith('button:') && x.branch !== BUTTON_TIMEOUT_BRANCH)) {
+        if (tplOfBranch(n.id, e.branch!) !== def) continue
+        console.warn(`[automations/converse] même message sur « ${e.branch!.slice(7)} » et « par défaut » → branche retirée (il serait envoyé 2 fois)`)
+        graph.edges = graph.edges.filter((x) => x !== e)
+        dedupDefault++
+      }
+    }
+  }
+  if (dedupDefault > 0) {
+    console.warn(`[automations/converse] ${dedupDefault} branche(s) faisant doublon avec « par défaut » retirée(s)`)
+  }
+
   // ⚠️ LE CLIENT QUI A CLIQUÉ NE DOIT PAS ÊTRE RELANCÉ.
   //
   // Constaté : chaque branche de bouton menait à un message qui reproposait les
