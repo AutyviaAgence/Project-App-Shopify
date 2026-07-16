@@ -43,6 +43,16 @@ export type GenerateInput = {
 export type GenButton =
   | { type: 'URL'; text: string; url: string }
   | { type: 'COPY_CODE'; text: string; code: string }
+  // ⚠️ QUICK_REPLY manquait — et c'est le plus important des trois.
+  //
+  // Le générateur ne savait produire que des liens et des codes promo. Un
+  // marchand demandait « un message avec 2 boutons Oui/Non » : le modèle créé
+  // n'avait donc AUCUN bouton de réponse rapide, le parcours ne pouvait pas être
+  // branché, et il s'arrêtait au premier message.
+  //
+  // C'est aussi le seul bouton qui rouvre la fenêtre de 24 h : un clic dessus est
+  // un message entrant (un clic sur URL ne déclenche rien côté Meta).
+  | { type: 'QUICK_REPLY'; text: string }
 export type GenCard = { title: string; body: string; image_url: string | null; url: string | null }
 
 /** Une proposition générée, potentiellement riche. */
@@ -112,6 +122,79 @@ function isSampleUrl(url: string): boolean {
 }
 
 /**
+ * Libellés de boutons EXPLICITEMENT demandés dans l'objectif.
+ *
+ * Quand l'assistant de parcours décrit un message à créer, il cite les boutons
+ * entre guillemets : « deux boutons : "Oui, je veux un code promo" et "Non,
+ * montrez-moi d'autres produits" ». Ces libellés ne sont pas décoratifs — ce sont
+ * eux qui portent les branches du parcours. Sans eux, le funnel s'arrête.
+ *
+ * On reste STRICT pour ne pas inventer : il faut que le texte parle de boutons,
+ * et on ne retient que ce qui est entre guillemets. Un objectif qui mentionne un
+ * produit entre guillemets ne doit pas devenir un bouton.
+ */
+function extractRequestedButtons(objective: string): string[] {
+  if (!/bouton/i.test(objective)) return []
+
+  // ⚠️ NE PAS TRAITER L'APOSTROPHE COMME UN GUILLEMET.
+  //
+  // Première version : la classe incluait ' et ’. Résultat sur « 'J'ai une
+  // question' » → l'apostrophe de « J'ai » fermait la citation, et on extrayait
+  // un bouton « J ». On ne retient donc que de VRAIS délimiteurs appariés :
+  //   «…»   "…"   '…'  (guillemets simples typographiques ouvrant/fermant)
+  // L'apostrophe droite (') et typographique (’) restent du TEXTE.
+  //
+  // Les guillemets SIMPLES ('…') sont nécessaires : c'est le format que l'IA
+  // utilise en pratique (« deux boutons : 'Oui, je veux un code promo' et 'Non,
+  // montrez-moi d'autres produits' »). Mais ils s'apparient de travers avec les
+  // apostrophes du français — d'où l'exigence d'un CONTEXTE : l'ouvrant doit
+  // suivre un début de ligne, un espace ou une ponctuation d'introduction, et le
+  // fermant être suivi d'une fin, d'un espace ou d'une ponctuation. Une
+  // apostrophe interne (« montrez-moi d'autres ») ne satisfait ni l'un ni
+  // l'autre, et n'est donc plus prise pour un délimiteur.
+  const labels: string[] = []
+  const patterns = [
+    /«\s*([^«»]{2,40}?)\s*»/g,                    // français
+    /"\s*([^"]{2,40}?)\s*"/g,                       // anglais typographique
+    /"\s*([^"]{2,40}?)\s*"/g,                       // droit
+    // ⚠️ Guillemets SIMPLES : on exige que l'ouvrant suive un espace/début et que
+    // le fermant précède un espace/fin. Ça règle « J'ai une question » (dont
+    // l'apostrophe est collée), mais PAS « Non, montrez-moi d'autres produits » —
+    // l'apostrophe de « d'autres » est suivie d'une lettre… et précédée d'une
+    // lettre aussi, donc elle ne peut pas être un fermant valide ici. C'est
+    // exactement ce qu'on veut : on préfère RATER un libellé (le prompt demande
+    // déjà de le produire) plutôt qu'en fabriquer un tronqué.
+    /(?:^|[\s:(–—-])'([^']{2,40}?)'(?=$|[\s.,;:!?)])/gm,  // simple typographique
+    /(?:^|[\s:(–—-])'((?:[^']|'(?=[a-zà-ÿ]))*?)'(?=$|[\s.,;:!?)])/gmi,  // simple droit, apostrophe interne tolérée
+  ]
+  // Deux libellés ne diffèrent pas par leur apostrophe : « J'ai » et « J’ai »
+  // sont le même bouton. Sans cette normalisation on ajoutait un doublon.
+  const norm = (s: string) => s.toLowerCase().replace(/[’ʼ]/g, "'").trim()
+
+  for (const re of patterns) {
+    let m: RegExpExecArray | null
+    while ((m = re.exec(objective)) !== null) {
+      const text = (m[1] || '').trim()
+      if (!text) continue
+      // Un libellé est un appel à l'action COURT, pas un fragment de phrase.
+      // On écarte donc ce qui trahit du texte ramassé au vol : une variable, une
+      // fin de phrase, ou de la ponctuation en tête (« . Exemple : » était
+      // extrait comme un bouton — l'ouvrant/fermant tombaient à cheval sur deux
+      // citations voisines).
+      if (/\{\{\d+\}\}/.test(text)) continue
+      if (/[.!?]$/.test(text)) continue
+      if (/^[.,;:!?)\]]/.test(text)) continue
+      if (!/[a-zA-ZÀ-ÿ]/.test(text)) continue // au moins une lettre
+      const short = text.slice(0, 20)
+      if (!labels.some((l) => norm(l) === norm(short))) labels.push(short)
+    }
+  }
+  // Meta n'accepte qu'un nombre limité de boutons ; au-delà de 3, on a forcément
+  // ramassé autre chose que des libellés → on préfère ne rien imposer.
+  return labels.length > 3 ? [] : labels
+}
+
+/**
  * Génère jusqu'à 3 propositions riches. L'IA recommande le format ; on valide
  * et nettoie côté serveur pour rester conforme Meta.
  */
@@ -177,7 +260,26 @@ RÈGLES STRICTES (Meta), respecte-les SINON la proposition est rejetée :
 - body_text : ne commence ni ne finit JAMAIS par une variable {{n}} ; il faut de VRAIS MOTS avant la 1re et après la dernière variable (pas seulement de la ponctuation). Termine par une phrase de conclusion sans variable.
 - N'utilise QUE les variables listées, avec leur numéro exact. Numérotation contiguë depuis {{1}}.
 - body_text ≤ 1024 caractères, 2 à 4 phrases.
-- Boutons : texte ≤ 20 caractères. URL = lien réel (boutique ou produit fourni), jamais inventé. COPY_CODE = un code promo court (ex : PROMO10).
+- Boutons : texte ≤ 20 caractères. Trois types possibles :
+  · QUICK_REPLY : bouton de RÉPONSE RAPIDE (« Oui, je veux », « Non merci »,
+    « J'ai une question »). { "type":"QUICK_REPLY", "text":"…" } — pas d'url ni de code.
+    ⚠️ C'est le SEUL bouton qui fasse répondre le client : son clic est un message
+    entrant, il rouvre 24 h de discussion et permet de brancher la suite du parcours.
+    Un clic sur URL, lui, ne déclenche rien côté WhatsApp.
+
+    ⚠️⚠️ SI L'OBJECTIF DÉCRIT DES BOUTONS, REPRODUIS-LES À L'IDENTIQUE.
+    Des libellés entre guillemets dans l'objectif (« Oui, je veux un code promo »,
+    « Non, montrez-moi d'autres produits ») sont une COMMANDE, pas une suggestion :
+    crée UN bouton QUICK_REPLY par libellé, avec ce texte exact (tronqué à 20
+    caractères si besoin).
+    N'essaie SURTOUT pas de « rendre service » en donnant tout de suite ce que le
+    bouton promet : si l'objectif dit « bouton Oui pour recevoir un code promo »,
+    NE mets PAS le code promo dans ce message — le code est la SUITE du parcours,
+    envoyée après le clic. Mettre un COPY_CODE à la place du bouton Oui casse tout :
+    le client n'a plus rien à cliquer, le parcours ne peut plus être branché et
+    s'arrête là.
+  · URL = lien réel (boutique ou produit fourni), jamais inventé.
+  · COPY_CODE = un code promo court (ex : PROMO10).
 - ⚠️ Les « (ex : …) » de la liste des variables sont des EXEMPLES d'affichage, PAS des liens
   utilisables. Ne recopie JAMAIS une url d'exemple (suivi.exemple.com, boutique.exemple.com…)
   dans un bouton : elle ne mène nulle part, et le client cliquerait dans le vide. Quand
@@ -220,6 +322,20 @@ Omets buttons/cards/lto_* quand le format ne les utilise pas. Aucune autre clé,
 
   const rawProposals = Array.isArray(parsed?.proposals) ? parsed.proposals : []
   const productUrls = new Set(usableProducts.map((p) => p.url))
+  // ⚠️ BOUTONS EXIGÉS PAR L'OBJECTIF : on les extrait pour pouvoir les IMPOSER.
+  //
+  // Le prompt demande déjà de reproduire les libellés cités entre guillemets —
+  // mais ce n'est qu'une consigne, et le modèle la contourne : testé sur « deux
+  // boutons : "Oui, je veux un code promo" et "Non, montrez-moi d'autres
+  // produits" », il rendait un COPY_CODE et AUCUN bouton de réponse. Il croit
+  // rendre service en donnant le code tout de suite ; en réalité le client n'a
+  // plus rien à cliquer, le parcours ne peut plus être branché, et il s'arrête au
+  // premier message. C'est exactement le bug remonté par le marchand.
+  //
+  // On ne devine pas : on ne prend que les libellés explicitement cités entre
+  // guillemets DANS une phrase qui parle de boutons.
+  const requestedButtons = extractRequestedButtons(input.objective)
+
   const out: GeneratedProposal[] = []
 
   for (const p of rawProposals) {
@@ -245,6 +361,22 @@ Omets buttons/cards/lto_* quand le format ne les utilise pas. Aucune autre clé,
     for (const b of Array.isArray(p?.buttons) ? p.buttons : []) {
       const text = String(b?.text || '').trim().slice(0, 20)
       if (!text) continue
+      // Réponse rapide : rien d'autre à valider que le libellé. C'est le bouton
+      // qui permet de brancher un parcours — sans lui, la génération d'un
+      // « message avec 2 boutons Oui/Non » rendait un message sans boutons.
+      if (b?.type === 'QUICK_REPLY') {
+        // ⚠️ Dédoublonnage à la SOURCE : le modèle produit parfois deux fois le
+        // même libellé à l'apostrophe près (« J'ai une question » et « J’ai une
+        // question »). Le client verrait deux boutons identiques, et le parcours
+        // aurait deux branches pour la même intention.
+        const dup = buttons.some(
+          (x) => x.type === 'QUICK_REPLY'
+            && x.text.toLowerCase().replace(/[’ʼ]/g, "'") === text.toLowerCase().replace(/[’ʼ]/g, "'")
+        )
+        if (dup) continue
+        buttons.push({ type: 'QUICK_REPLY', text })
+        continue
+      }
       if (b?.type === 'URL' && httpUrl.test(String(b.url || ''))) {
         // ⚠️ URL D'EXEMPLE recopiée depuis le catalogue de variables.
         //
@@ -270,6 +402,37 @@ Omets buttons/cards/lto_* quand le format ne les utilise pas. Aucune autre clé,
           continue
         }
         buttons.push({ type: 'COPY_CODE', text, code: String(b.code).trim().slice(0, 15) })
+      }
+    }
+
+    // ⚠️ ON IMPOSE LES BOUTONS EXIGÉS PAR L'OBJECTIF.
+    //
+    // S'ils manquent, le parcours ne peut pas être branché et s'arrête à ce
+    // message : c'est le bug remonté (« les boutons ne sont pas mis et bloquent
+    // le reste de l'automatisation »). On les ajoute donc nous-mêmes, avec le
+    // libellé exact demandé.
+    //
+    // On retire au passage le COPY_CODE que le modèle met À LA PLACE du bouton
+    // « Oui, je veux un code promo » : il donne le code tout de suite, alors que
+    // le code est la SUITE du parcours — après le clic.
+    if (requestedButtons.length > 0) {
+      // ⚠️ Comparaison normalisée : « J'ai une question » (apostrophe droite) et
+      // « J’ai une question » (typographique) sont le MÊME bouton. Sans ça, on
+      // ajoutait un doublon à côté de celui que le modèle avait déjà produit.
+      const norm = (s: string) => s.toLowerCase().replace(/[’ʼ]/g, "'").trim()
+      const existing = new Set(
+        buttons.filter((b) => b.type === 'QUICK_REPLY').map((b) => norm(b.text))
+      )
+      const missingLabels = requestedButtons.filter((l) => !existing.has(norm(l)))
+      if (missingLabels.length > 0) {
+        console.warn(`[templates/generate] boutons exigés absents → ajoutés : ${missingLabels.join(', ')}`)
+        // Le code promo n'a rien à faire ici quand un bouton devait le promettre.
+        for (let i = buttons.length - 1; i >= 0; i--) {
+          if (buttons[i].type === 'COPY_CODE') buttons.splice(i, 1)
+        }
+        for (const label of missingLabels) buttons.push({ type: 'QUICK_REPLY', text: label })
+        // Un format à compte à rebours EXIGE un COPY_CODE qu'on vient de retirer.
+        if (type === 'limited_time_offer') type = 'standard'
       }
     }
 

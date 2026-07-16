@@ -279,9 +279,24 @@ NŒUDS (nodes), chaque nœud a un "id" unique (string) et un "type" :
               1440 (1 jour), 2880 (2 jours), 10080 (7 jours).
               ⚠️ Toute autre valeur s'affiche mal dans l'éditeur du marchand.
 - condition : { id, type:"condition", rule:{ field, op, value }, label? }
-              field ∈ order_total | is_first_order | product_contains |
-              collection_contains | country | language | has_stage
               op ∈ > >= < <= == != contains has_any has_none
+              Une condition SEGMENTE (deux publics → deux suites différentes).
+              Elle ne peut PAS savoir ce que le client a fait APRÈS l'envoi.
+              Champs, et ce qu'ils valent AU MOMENT du déclencheur :
+                order_total         → montant de la commande OU du panier (nombre).
+                                      ⚠️ Sur un panier abandonné il est TOUJOURS
+                                      renseigné : « order_total > 0 » est donc
+                                      toujours vrai et ne sert à rien. Ne l'utilise
+                                      que pour un VRAI seuil (ex. > 100).
+                is_first_order      → true/false : c'est sa 1re commande.
+                product_contains    → un produit dont le titre contient X.
+                collection_contains → un produit d'une collection X.
+                country / language  → pays / langue du client.
+                has_stage           → le contact porte telle étape/tag.
+              ⚠️ AUCUN champ ne dit « a-t-il commandé depuis ? » ou « a-t-il
+              cliqué ? » : ne l'invente pas. La relance d'un panier est annulée
+              AUTOMATIQUEMENT si le client commande — n'ajoute pas de condition
+              pour ça. Pour réagir à un clic, utilise une branche "button:".
 - ab_test   : { id, type:"ab_test", variants:[{key,weight},…], label? }
               Test A/B : 2 à 4 variantes (key = "A","B","C","D"), la somme des
               "weight" DOIT faire exactement 100. Chaque variante mène à sa

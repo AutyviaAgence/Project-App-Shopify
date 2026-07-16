@@ -95,10 +95,12 @@ const FUNNEL_DOCTRINE_MARKETING = `- CONSTRUIS UN FUNNEL À BOUTONS, PAS UNE SUI
   « Finaliser ». S'il n'existe pas de modèle pour une branche, décris-le dans
   missingTemplates plutôt que de tout faire converger.
 
-- SORS LE CLIENT DU PARCOURS DÈS QU'IL A AGI.
-  Ajoute une condition (« a-t-il commandé ? ») avant chaque relance. Continuer à
-  relancer quelqu'un qui a déjà acheté fait ignorer les messages — et l'absence de
-  lecture dégrade à elle seule la qualité du numéro, sans aucun blocage.
+- ⚠️ N'AJOUTE PAS DE CONDITION « A-T-IL COMMANDÉ ? ». C'EST DÉJÀ AUTOMATIQUE.
+  Le système annule tout seul la relance d'un panier dès que le client passe
+  commande — tu n'as rien à faire, et aucun champ ne permet de l'exprimer de
+  toute façon. En tenter une produit une condition absurde (du type
+  « montant > 0 », qui est TOUJOURS vrai sur un panier) : elle n'a aucun effet,
+  et le marchand ne comprend pas ce qu'elle fait dans son parcours.
 
 - RESTE COURT : 2 à 3 messages. Plus long n'est pas plus vendeur : chaque message
   ignoré abîme la réputation du numéro, donc la délivrabilité de TOUS les envois.
@@ -554,6 +556,50 @@ La première fois (aucune réponse), pose une question d'ouverture simple.`
   if (deduped > 0) {
     console.warn(`[automations/converse] ${deduped} modèle(s) en doublon retiré(s) du parcours`)
   }
+  // ⚠️ CONDITION SANS EFFET → ON LA RETIRE DU PARCOURS.
+  //
+  // Constaté en production sur une relance de panier : une condition absurde, du
+  // type « montant > 0 ». Elle est TOUJOURS vraie (un panier a forcément un
+  // montant), donc la branche "no" est morte — mais le marchand, lui, voit une
+  // condition dans son parcours et cherche ce qu'elle fait.
+  //
+  // La cause est notre doctrine : elle demandait « ajoute une condition (a-t-il
+  // commandé ?) avant chaque relance ». Or AUCUN champ n'exprime ça — et c'est
+  // déjà géré automatiquement par le cron (il annule la relance dès qu'une
+  // commande arrive). L'IA obéissait donc avec les moyens du bord.
+  //
+  // On supprime le nœud et on recoud le parcours sur sa branche "yes" (celle qui
+  // s'exécute toujours) : le marchand récupère un parcours propre plutôt qu'un
+  // aiguillage qui n'aiguille rien.
+  const isAlwaysTrue = (rule: { field?: string; op?: string; value?: unknown }): boolean => {
+    // Seul cas certain et fréquent : un seuil de montant à 0 ou moins. Sur tout
+    // déclencheur qui porte un panier/commande, le total est toujours > 0.
+    if (rule.field !== 'order_total') return false
+    const v = Number(rule.value)
+    if (!Number.isFinite(v)) return false
+    return (rule.op === '>' && v <= 0) || (rule.op === '>=' && v <= 0) || (rule.op === '!=' && v === 0)
+  }
+  let droppedConds = 0
+  for (const n of [...nodes]) {
+    if (n.type !== 'condition') continue
+    if (!isAlwaysTrue((n as { rule?: { field?: string; op?: string; value?: unknown } }).rule || {})) continue
+
+    const incoming = (graph.edges || []).filter((e) => e.to === n.id)
+    const yes = (graph.edges || []).find((e) => e.from === n.id && e.branch === 'yes')
+    if (!yes) continue // structure inattendue : on ne touche à rien
+
+    // Les entrants pointent désormais sur la suite du "yes"…
+    for (const e of incoming) e.to = yes.to
+    // …et le nœud + toutes ses sorties disparaissent.
+    graph.edges = (graph.edges || []).filter((e) => e.from !== n.id)
+    const i = nodes.indexOf(n)
+    if (i >= 0) nodes.splice(i, 1)
+    droppedConds++
+  }
+  if (droppedConds > 0) {
+    console.warn(`[automations/converse] ${droppedConds} condition(s) toujours vraie(s) retirée(s)`)
+  }
+
   // ⚠️ DEUX MESSAGES QUI SE SUIVENT SANS DÉLAI PARTENT EN MÊME TEMPS.
   //
   // Constaté : l'IA enchaîne parfois deux "action" sans "delay" entre elles. Le
