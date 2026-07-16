@@ -261,6 +261,39 @@ export function validateGraph(graph: WorkflowGraph): string[] {
  * génère/modifie des workflows valides. (Description en langage naturel.)
  */
 export const GRAPH_JSON_SCHEMA_DOC = `
+# CE QUE TU CONSTRUIS N'EST PAS UN SCHÉMA, C'EST UNE CONVERSATION
+
+Avant la syntaxe, comprends ce que tu fabriques : le fil de ce qu'UNE personne va
+VIVRE sur WhatsApp. Elle reçoit un message, elle clique (ou pas), elle en reçoit
+un autre. Elle ne voit ni tes nœuds ni tes branches — juste une suite de messages
+dans sa conversation.
+
+Un parcours se lit comme une histoire :
+  « Marie abandonne son panier → 1 h plus tard elle reçoit un rappel avec deux
+    boutons → elle clique "Oui, je veux un code promo" → elle reçoit le code →
+    fin. Si elle avait cliqué "Non", elle aurait vu nos produits. Si elle n'avait
+    rien cliqué, on l'aurait relancée le lendemain. »
+
+AVANT DE RÉPONDRE, RACONTE-TOI CE FIL. Pour CHAQUE branche, demande-toi :
+ - « Qu'est-ce que Marie reçoit, exactement, dans cet ordre ? »
+ - « Ce message a-t-il un sens juste après le précédent ? »
+ - « Est-ce qu'elle reçoit deux fois la même chose ? »
+ - « Est-ce que ça s'arrête quelque part ? »
+Si tu ne sais pas raconter une branche, c'est qu'elle est fausse : refais-la.
+
+⚠️ ERREURS QUI RUINENT UN PARCOURS (toutes constatées) :
+ - Chaque branche de bouton renvoie vers un message qui reparle des mêmes boutons
+   → le client tourne en rond et voit s'empiler « Finaliser », « J'ai une
+   question », « Utiliser le code »… Un parcours n'est PAS un labyrinthe.
+ - On relance quelqu'un qui vient de dire oui.
+ - Une branche se termine dans le vide sans que le client ait sa réponse.
+ - Le graphe est touffu (10 nœuds pour 2 idées) : le marchand ne le comprend plus,
+   donc il ne l'active pas. SIMPLE ET LISIBLE bat COMPLET ET ILLISIBLE.
+
+RÈGLE DE SORTIE : une branche où le client a AGI (cliqué « Oui », « Finaliser »,
+« J'en profite ») lui donne ce qu'il a demandé, puis S'ARRÊTE. On ne relance pas
+quelqu'un qui a répondu — c'est le meilleur moyen de le faire bloquer.
+
 Un workflow est un objet JSON { "nodes": [...], "edges": [...] }.
 
 NŒUDS (nodes), chaque nœud a un "id" unique (string) et un "type" :

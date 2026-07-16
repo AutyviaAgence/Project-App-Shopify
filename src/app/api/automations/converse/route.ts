@@ -102,8 +102,12 @@ const FUNNEL_DOCTRINE_MARKETING = `- CONSTRUIS UN FUNNEL À BOUTONS, PAS UNE SUI
   « montant > 0 », qui est TOUJOURS vrai sur un panier) : elle n'a aucun effet,
   et le marchand ne comprend pas ce qu'elle fait dans son parcours.
 
-- RESTE COURT : 2 à 3 messages. Plus long n'est pas plus vendeur : chaque message
-  ignoré abîme la réputation du numéro, donc la délivrabilité de TOUS les envois.
+- RESTE COURT : 3 ou 4 messages AU TOTAL, toutes branches confondues. Plus long
+  n'est pas plus vendeur : chaque message ignoré abîme la réputation du numéro,
+  donc la délivrabilité de TOUS les envois.
+  ⚠️ Compte bien : un message par branche compte. Un rappel + une branche « Oui »
+  + une branche « Non » + une relance = 4. C'est déjà le maximum. Un parcours de
+  10 messages est illisible pour le marchand — il ne l'activera jamais.
 
 - ⚠️ UN NŒUD "delay" ENTRE CHAQUE MESSAGE, SANS EXCEPTION.
   Deux "action" qui se suivent sans "delay" partent EN MÊME TEMPS : le client
@@ -556,6 +560,47 @@ La première fois (aucune réponse), pose une question d'ouverture simple.`
   if (deduped > 0) {
     console.warn(`[automations/converse] ${deduped} modèle(s) en doublon retiré(s) du parcours`)
   }
+  // ⚠️ LE CLIENT QUI A CLIQUÉ NE DOIT PAS ÊTRE RELANCÉ.
+  //
+  // Constaté : chaque branche de bouton menait à un message qui reproposait les
+  // MÊMES boutons — le client tournait en rond et voyait s'empiler « Finaliser »,
+  // « J'ai une question », « Utiliser le code »… Un parcours n'est pas un
+  // labyrinthe : quelqu'un qui a cliqué « Oui » a répondu, on lui donne ce qu'il
+  // demande et on s'arrête. Le relancer est le meilleur moyen de le faire bloquer.
+  //
+  // On coupe donc ce qui suit un message de branche « bouton » quand ce message
+  // reproposerait les mêmes boutons. On ne touche PAS à la branche
+  // `button:__timeout__` : celle-là s'adresse à qui n'a PAS cliqué, et c'est
+  // justement là que la relance a du sens.
+  let cutLoops = 0
+  if (Array.isArray(graph.edges)) {
+    const nodeByIdL = new Map(nodes.map((n) => [n.id, n]))
+    const qrOf = (templateId: string | null | undefined): string[] => {
+      if (!templateId) return []
+      const t = templates.find((x) => x.id === templateId)
+      return Array.isArray(t?.buttons)
+        ? (t!.buttons as { type?: string; text?: string }[])
+            .filter((b) => b.type === 'QUICK_REPLY' && b.text).map((b) => b.text!)
+        : []
+    }
+    for (const e of [...graph.edges]) {
+      // Sortie d'un CLIC réel (pas le timeout).
+      if (!e.branch?.startsWith('button:') || e.branch === BUTTON_TIMEOUT_BRANCH) continue
+      const target = nodeByIdL.get(e.to)
+      if (target?.type !== 'action') continue
+      // Ce message de réponse reproposerait-il des boutons ? Si oui, ses propres
+      // sorties `button:` ramènent le client dans la boucle.
+      const outs = graph.edges.filter((x) => x.from === target.id && x.branch?.startsWith('button:'))
+      if (outs.length === 0) continue
+      if (qrOf((target as { templateId: string | null }).templateId).length === 0) continue
+      graph.edges = graph.edges.filter((x) => !(x.from === target.id && x.branch?.startsWith('button:')))
+      cutLoops++
+    }
+  }
+  if (cutLoops > 0) {
+    console.warn(`[automations/converse] ${cutLoops} branche(s) en boucle coupée(s) : le client qui a cliqué ne doit pas être relancé`)
+  }
+
   // ⚠️ CONDITION SANS EFFET → ON LA RETIRE DU PARCOURS.
   //
   // Constaté en production sur une relance de panier : une condition absurde, du
