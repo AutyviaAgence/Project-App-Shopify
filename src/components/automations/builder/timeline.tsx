@@ -11,6 +11,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Input } from '@/components/ui/input'
 import { ChevronDown } from 'lucide-react'
 import { TRIGGER_EVENTS, TRIGGER_CAVEATS, triggersForKind, isRepeatableTrigger, isSelfFeedingTrigger, defaultRecurrenceFor } from '@/lib/automations/types'
+import { templateBlockReason, isBuildableTemplate } from '@/lib/templates/status'
 
 /** Fuseau détecté du navigateur, proposé par défaut. `scheduledAt` reste
  *  TOUJOURS un instant absolu (ISO UTC) : le fuseau ne sert qu'à saisir et à
@@ -808,10 +809,16 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction, onTem
                   (t as { use_case?: string }).use_case
                   || guessUseCase(t.name, (t as { category?: string }).category)
                 const shown = templates
-                  // La galerie ne propose QUE les modèles approuvés (envoyables).
-                  // Les `pending` restés dans la liste servent juste à afficher le
-                  // badge « en revue » sur un bloc déjà configuré, pas à en choisir.
-                  .filter((t) => t.status === 'approved')
+                  // La galerie propose aussi les BROUILLONS et les modèles EN
+                  // REVUE, pas seulement les approuvés.
+                  //
+                  // Sinon un message tout juste créé (par l'assistant IA, ou à la
+                  // main) est introuvable ici : il faudrait attendre ~24 h
+                  // d'approbation Meta avant même de pouvoir dessiner son
+                  // parcours. On laisse donc CONSTRUIRE ; l'activation, elle,
+                  // reste bloquée tant que Meta n'a pas approuvé — et chaque nœud
+                  // concerné le dit (cf. templateBlockReason).
+                  .filter(isBuildableTemplate)
                   .filter((t) => pickerCat === 'all' || catOfT(t) === pickerCat)
                   .filter((t) => !q || [t.name, t.body_text, t.header_text, t.language]
                     .filter(Boolean).join(' ').toLowerCase().includes(q))
@@ -852,6 +859,11 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction, onTem
                           )}
                           <span className="shrink-0 text-[10px] text-muted-foreground">{badge(t)}</span>
                         </div>
+                        {/* Statut VISIBLE dans la galerie : maintenant qu'on y
+                            propose des brouillons, il faut le savoir AVANT de
+                            choisir — pas en découvrant que le parcours refuse
+                            de s'activer. */}
+                        <div className="mb-1"><TemplateStatusBadge template={t} /></div>
                         {/* Aperçu grand : on voit le message en entier (scroll interne
                             si vraiment très long). */}
                         <div className="max-h-[360px] overflow-y-auto [scrollbar-width:thin]">
@@ -875,6 +887,18 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction, onTem
                 <TemplateStatusBadge template={selected} />
               </div>
               <TemplateBubble template={selected} labels={labelsFor(selected)} />
+
+              {/* ⚠️ Le blocage se dit SUR LE NŒUD fautif, pas seulement au
+                  moment d'activer. Meta n'envoie que des modèles approuvés
+                  (dispatch filtre là-dessus) : sans ce bandeau, le parcours
+                  semblait prêt, refusait de s'activer, et rien n'indiquait
+                  LEQUEL des messages posait problème. */}
+              {templateBlockReason(selected.status) && (
+                <p className="mt-1.5 flex items-start gap-1 rounded-md bg-amber-500/10 p-1.5 text-[10px] leading-snug text-amber-700 dark:text-amber-400">
+                  <AlertTriangle className="mt-px h-3 w-3 shrink-0" />
+                  <span>{templateBlockReason(selected.status)}</span>
+                </p>
+              )}
             </div>
           )}
 
@@ -935,6 +959,13 @@ function MultiRouteToggle({ value, onChange }: { value: boolean; onChange: (v: b
  *  (encore) envoyable. */
 function TemplateStatusBadge({ template }: { template: WhatsAppTemplate }) {
   const t = template as WhatsAppTemplate & { has_pending_changes?: boolean; status?: string }
+  // Brouillon : jamais soumis à Meta. Distinct de « en revue » — ici le marchand
+  // doit AGIR (soumettre), là il n'a qu'à attendre. Sans ce badge, un parcours
+  // bâti sur un brouillon paraissait prêt et refusait de s'activer sans dire
+  // lequel des messages posait problème.
+  if (t.status === 'draft') {
+    return <span className="rounded-full bg-slate-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-slate-500">Brouillon</span>
+  }
   if (t.status === 'pending') {
     return <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-amber-600">⏳ En revue</span>
   }

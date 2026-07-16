@@ -16,6 +16,7 @@ import { WorkflowWizard } from '@/components/automations/workflow-wizard'
 import { WorkflowChat } from '@/components/automations/workflow-chat'
 import { PerformancePanel } from '@/components/automations/performance-panel'
 import { defaultGraph, validateGraph, triggerNode, type WorkflowGraph } from '@/lib/automations/graph-types'
+import { isBuildableTemplate, isSendableTemplate } from '@/lib/templates/status'
 
 type AutomationKind = 'transactional' | 'marketing'
 
@@ -76,11 +77,7 @@ function AutomationsPageInner() {
       ])
       const autos: Automation[] = aRes.data || []
       setAutomations(autos)
-      // On garde `approved` ET `pending` : un modèle édité depuis le builder
-      // (ajout de boutons) repasse `pending` le temps de la revue Meta ; il doit
-      // rester visible dans le bloc (avec le badge « En revue ») sans disparaître.
-      // Le SÉLECTEUR (galerie) ne proposera que les `approved` — cf. ActionBlock.
-      setTemplates((tRes.data || []).filter((t: WhatsAppTemplate) => t.status === 'approved' || t.status === 'pending'))
+      setTemplates((tRes.data || []).filter(isBuildableTemplate))
       setFolders(fRes.data || [])
       // Ouvre la 1re automatisation de l'onglet courant (ou rien).
       setCurrent((c) => c || autos.find((a) => (a.kind === 'marketing' ? 'marketing' : 'transactional') === tab) || null)
@@ -134,7 +131,7 @@ function AutomationsPageInner() {
       if (document.visibilityState !== 'visible') return
       try {
         const tRes = await fetch('/api/templates').then((r) => r.json())
-        setTemplates((tRes.data || []).filter((t: WhatsAppTemplate) => t.status === 'approved' || t.status === 'pending'))
+        setTemplates((tRes.data || []).filter(isBuildableTemplate))
       } catch { /* silencieux */ }
     }
     document.addEventListener('visibilitychange', onVisible)
@@ -228,18 +225,26 @@ function AutomationsPageInner() {
   // Modèles NON approuvés (en revue / refusés) utilisés par un graphe : on
   // interdit l'activation tant qu'ils ne sont pas validés par Meta (sinon les
   // envois échoueraient). Renvoie les noms fautifs (vide = tout est bon).
-  function unapprovedTemplatesOf(a: Automation): string[] {
+  /**
+   * Modèles du parcours que Meta n'accepterait pas à l'envoi.
+   *
+   * On construit AVEC des brouillons (attendre 24 h d'approbation avant même de
+   * dessiner son parcours serait absurde), mais on ne peut pas activer : le
+   * dispatch ne prend que l'approuvé, et l'automatisation ne partirait jamais —
+   * silencieusement.
+   */
+  function unapprovedTemplatesOf(a: Automation): { name: string; status: string }[] {
     const g = (a.id === current?.id ? graph : (a as { graph?: WorkflowGraph }).graph) || null
     if (!g) return []
     const ids = new Set(
       g.nodes.filter((n) => n.type === 'action' && n.templateId).map((n) => (n as { templateId: string }).templateId)
     )
-    const bad: string[] = []
+    const bad: { name: string; status: string }[] = []
     ids.forEach((id) => {
       const t = templates.find((x) => x.id === id)
       // Modèle introuvable = probablement supprimé/non chargé → on ne bloque pas
-      // là-dessus (l'API le rejettera). On ne bloque que sur un statut connu ≠ approved.
-      if (t && t.status !== 'approved') bad.push(t.name)
+      // là-dessus (l'API le rejettera). On ne bloque que sur un statut connu.
+      if (t && !isSendableTemplate(t)) bad.push({ name: t.name, status: t.status })
     })
     return bad
   }
@@ -249,7 +254,20 @@ function AutomationsPageInner() {
     if (!a.is_active) {
       const bad = unapprovedTemplatesOf(a)
       if (bad.length > 0) {
-        toast.error(`Impossible d'activer : le(s) modèle(s) ${bad.join(', ')} sont en attente d'approbation Meta.`)
+        // Le motif exact compte : un brouillon n'a jamais été soumis (il faut
+        // agir), un « en revue » s'approuvera tout seul (il faut attendre).
+        // Dire « en attente d'approbation » pour un brouillon ferait attendre
+        // le marchand pour rien.
+        const drafts = bad.filter((b) => b.status === 'draft').map((b) => b.name)
+        const others = bad.filter((b) => b.status !== 'draft').map((b) => b.name)
+        if (drafts.length > 0) {
+          toast.error(
+            `Impossible d’activer : ${drafts.join(', ')} ${drafts.length > 1 ? 'sont des brouillons' : 'est un brouillon'} non soumis à Meta. Soumettez-le${drafts.length > 1 ? 's' : ''} depuis Modèles.`,
+            { duration: 7000 }
+          )
+        } else {
+          toast.error(`Impossible d’activer : ${others.join(', ')} ${others.length > 1 ? 'sont' : 'est'} en attente d’approbation Meta.`)
+        }
         return
       }
     }
