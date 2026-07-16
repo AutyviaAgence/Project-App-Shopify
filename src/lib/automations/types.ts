@@ -73,17 +73,27 @@ export function triggersForKind(kind: 'marketing' | 'transactional') {
  * fois, une date précise n'arrive qu'une fois (`triggered_once_at`), un
  * anniversaire une fois l'an. Leur proposer un réglage n'aurait aucun effet et
  * laisserait croire qu'il en a un.
- *
- * ⚠️ `checkout_abandoned` en est ABSENT VOLONTAIREMENT. Il est bien répétable,
- * mais son occurrence — le panier, identifié par son token — le borne déjà : une
- * relance par panier abandonné. Lui appliquer le défaut « une seule fois »
- * n'aurait relancé un client que pour son PREMIER panier, jamais pour les
- * suivants : une perte de ventes silencieuse, à l'exact opposé du but.
  */
 const REPEATABLE_TRIGGERS = new Set<TriggerEvent>([
   'no_customer_reply', 'message_read', 'button_clicked',
-  'contact_opted_in', 'optin_popup',
+  'contact_opted_in', 'optin_popup', 'checkout_abandoned',
 ])
+
+/**
+ * Récurrence par défaut, quand le graphe n'en porte pas.
+ *
+ * Le défaut général est 'once' : sûr par construction, aucune boucle possible
+ * sans choix explicite.
+ *
+ * ⚠️ SAUF `checkout_abandoned`, où 'once' serait un CONTRESENS MÉTIER : un client
+ * ne serait relancé que pour son PREMIER panier, jamais pour les suivants —
+ * perte de ventes silencieuse, à l'opposé du but. Son occurrence (le token de
+ * panier) le borne déjà correctement : une relance par panier. Le marchand peut
+ * toujours choisir 'once' s'il ne veut relancer chaque client qu'une seule fois.
+ */
+export function defaultRecurrenceFor(trigger: TriggerEvent): 'once' | 'per_event' {
+  return trigger === 'checkout_abandoned' ? 'per_event' : 'once'
+}
 
 export function isRepeatableTrigger(trigger: TriggerEvent): boolean {
   return REPEATABLE_TRIGGERS.has(trigger)

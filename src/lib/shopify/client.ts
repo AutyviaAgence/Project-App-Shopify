@@ -607,8 +607,51 @@ export async function registerWebhooks(shop: string, accessToken: string): Promi
     { topic: 'APP_SUBSCRIPTIONS_UPDATE', path: '/api/shopify/webhooks/app-subscriptions' },
   ]
 
+  // ⚠️ ON RÉCONCILIE, ON NE FAIT PAS QU'AJOUTER.
+  //
+  // `webhookSubscriptionCreate` échoue en « already exists » dès que le topic est
+  // pris — Y COMPRIS s'il pointe vers une MAUVAISE URL (ancien domaine, URL de
+  // dev...). L'ancien code avalait cette erreur comme un simple doublon et
+  // rapportait « ok » : un webhook resté sur un vieux domaine n'arrivait jamais,
+  // et le réenregistrement, censé réparer, ne changeait rien tout en affirmant
+  // que tout allait bien. On lit donc l'existant d'abord, et on CORRIGE l'URL
+  // (webhookSubscriptionUpdate) au lieu de retenter une création vouée à échouer.
+  const existing = await listWebhooks(shop, accessToken)
+  const byTopic = new Map<string, { id: string; callbackUrl: string }>()
+  if (existing.ok) {
+    for (const w of existing.webhooks) byTopic.set(w.topic, { id: w.id, callbackUrl: w.callbackUrl })
+  }
+
   const errors: string[] = []
   for (const sub of subscriptions) {
+    const wantedUrl = `${appUrl}${sub.path}`
+    const current = byTopic.get(sub.topic)
+
+    // Déjà là et bien dirigé → rien à faire.
+    if (current && current.callbackUrl === wantedUrl) continue
+
+    // Là mais mal dirigé → on redresse l'URL.
+    if (current) {
+      const upd = await shopifyGraphQL<{ webhookSubscriptionUpdate: { userErrors: { message: string }[] } }>(
+        shop,
+        accessToken,
+        `mutation($id: ID!, $url: URL!) {
+           webhookSubscriptionUpdate(id: $id, webhookSubscription: { callbackUrl: $url }) {
+             userErrors { message }
+           }
+         }`,
+        { id: current.id, url: wantedUrl }
+      )
+      if (!upd.ok) errors.push(`${sub.topic} (URL): ${upd.error}`)
+      else if (upd.data.webhookSubscriptionUpdate.userErrors.length > 0) {
+        errors.push(`${sub.topic} (URL): ${upd.data.webhookSubscriptionUpdate.userErrors[0].message}`)
+      } else {
+        console.warn(`[webhooks] ${shop} ${sub.topic} redirigé: ${current.callbackUrl} → ${wantedUrl}`)
+      }
+      continue
+    }
+
+    // Absent → on crée.
     const res = await shopifyGraphQL<{ webhookSubscriptionCreate: { userErrors: { message: string }[] } }>(
       shop,
       accessToken,
@@ -617,16 +660,55 @@ export async function registerWebhooks(shop: string, accessToken: string): Promi
            userErrors { message }
          }
        }`,
-      { topic: sub.topic, url: `${appUrl}${sub.path}` }
+      { topic: sub.topic, url: wantedUrl }
     )
     if (!res.ok) errors.push(`${sub.topic}: ${res.error}`)
     else if (res.data.webhookSubscriptionCreate.userErrors.length > 0) {
       const msg = res.data.webhookSubscriptionCreate.userErrors[0].message
-      // Doublon (webhook déjà enregistré) → non bloquant, on ignore.
+      // Doublon (course avec une autre exécution) → non bloquant.
       if (!/already|taken|exists/i.test(msg)) errors.push(`${sub.topic}: ${msg}`)
     }
   }
   return { ok: errors.length === 0, errors }
+}
+
+/**
+ * Liste les webhooks réellement enregistrés chez Shopify pour cette boutique.
+ *
+ * Sert au diagnostic (« pourquoi ce trigger ne part-il jamais ? ») et à la
+ * réconciliation ci-dessus. Sans ça, on est aveugle : un webhook peut être
+ * absent, ou pointer vers un domaine mort, sans que rien ne le signale.
+ */
+export async function listWebhooks(
+  shop: string,
+  accessToken: string
+): Promise<{ ok: true; webhooks: { id: string; topic: string; callbackUrl: string }[] } | { ok: false; error: string; webhooks: [] }> {
+  const res = await shopifyGraphQL<{
+    webhookSubscriptions: {
+      edges: { node: { id: string; topic: string; endpoint: { __typename: string; callbackUrl?: string } } }[]
+    }
+  }>(
+    shop,
+    accessToken,
+    `query {
+       webhookSubscriptions(first: 100) {
+         edges { node {
+           id
+           topic
+           endpoint { __typename ... on WebhookHttpEndpoint { callbackUrl } }
+         } }
+       }
+     }`
+  )
+  if (!res.ok) return { ok: false, error: res.error, webhooks: [] }
+  const webhooks = (res.data.webhookSubscriptions?.edges || [])
+    .map((e) => ({
+      id: e.node.id,
+      topic: e.node.topic,
+      callbackUrl: e.node.endpoint?.callbackUrl || '',
+    }))
+    .filter((w) => w.callbackUrl) // on ignore les endpoints non-HTTP (EventBridge, PubSub)
+  return { ok: true, webhooks }
 }
 
 /**

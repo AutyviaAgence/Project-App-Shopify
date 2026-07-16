@@ -10,7 +10,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
 import { ChevronDown } from 'lucide-react'
-import { TRIGGER_EVENTS, triggersForKind, isRepeatableTrigger, isSelfFeedingTrigger } from '@/lib/automations/types'
+import { TRIGGER_EVENTS, triggersForKind, isRepeatableTrigger, isSelfFeedingTrigger, defaultRecurrenceFor } from '@/lib/automations/types'
 
 /** Fuseau détecté du navigateur, proposé par défaut. `scheduledAt` reste
  *  TOUJOURS un instant absolu (ISO UTC) : le fuseau ne sert qu'à saisir et à
@@ -486,8 +486,15 @@ function TriggerBlock({ node, onPatch, kind }: { node: WorkflowNode; onPatch: (i
           Une commande n'est payée qu'une fois : le réglage n'aurait aucun effet,
           et l'afficher laisserait croire le contraire. */}
       {isRepeatableTrigger(node.event) && (() => {
-        const recurrence = node.recurrence ?? 'once'
+        // Le défaut dépend du déclencheur (panier abandonné = à chaque panier) :
+        // afficher « une seule fois » partout mentirait sur le comportement réel.
+        const recurrence = node.recurrence ?? defaultRecurrenceFor(node.event)
         const selfFeeding = isSelfFeedingTrigger(node.event)
+        // Le vocabulaire suit le déclencheur : « à chaque fois » ne dit rien,
+        // « à chaque panier » se comprend sans réfléchir.
+        const perEventLabel = node.event === 'checkout_abandoned' ? 'À chaque panier abandonné'
+          : node.event === 'no_customer_reply' ? 'À chaque silence'
+          : 'À chaque fois'
         return (
           <div className="mt-3 border-t pt-3">
             <p className="mb-1 text-xs text-muted-foreground">Combien de fois par client</p>
@@ -498,16 +505,22 @@ function TriggerBlock({ node, onPatch, kind }: { node: WorkflowNode; onPatch: (i
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="once">Une seule fois</SelectItem>
-                <SelectItem value="per_event">À chaque fois</SelectItem>
+                <SelectItem value="per_event">{perEventLabel}</SelectItem>
                 <SelectItem value="daily">Au plus une fois par jour</SelectItem>
               </SelectContent>
             </Select>
             <p className="mt-1 text-[11px] text-muted-foreground">
-              {recurrence === 'once' && 'Chaque client ne reçoit ce message qu’une fois, définitivement.'}
+              {recurrence === 'once' && (
+                node.event === 'checkout_abandoned'
+                  ? 'Chaque client n’est relancé que pour son premier panier abandonné, jamais pour les suivants.'
+                  : 'Chaque client ne reçoit ce message qu’une fois, définitivement.'
+              )}
               {recurrence === 'per_event' && (
                 node.event === 'no_customer_reply'
                   ? 'Une relance par silence : le client redevient relançable seulement s’il répond puis se tait à nouveau.'
-                  : 'Le message repart à chaque nouvel événement.'
+                  : node.event === 'checkout_abandoned'
+                    ? 'Une relance par panier abandonné, quel que soit le nombre de paniers du client.'
+                    : 'Le message repart à chaque nouvel événement.'
               )}
               {recurrence === 'daily' && 'Au maximum un message par jour et par client.'}
             </p>
@@ -520,6 +533,14 @@ function TriggerBlock({ node, onPatch, kind }: { node: WorkflowNode; onPatch: (i
                 {node.event === 'message_read'
                   ? 'Attention : votre message sera lui aussi lu, ce qui peut redéclencher l’envoi. Vérifiez que la suite du scénario s’arrête bien.'
                   : 'Attention : tant que le client ne répond pas, la condition reste vraie. Vérifiez que la suite du scénario s’arrête bien.'}
+              </p>
+            )}
+            {/* Sur un panier abandonné, « une seule fois » est contre-intuitif et
+                coûte des ventes : le client ne sera plus jamais relancé, même
+                pour un panier à 500 €. On le dit avant qu'il ne le découvre. */}
+            {node.event === 'checkout_abandoned' && recurrence === 'once' && (
+              <p className="mt-1.5 rounded-lg bg-amber-500/10 p-2 text-[11px] text-amber-600">
+                Attention : un client déjà relancé une fois ne le sera plus jamais, même pour un panier bien plus important. « À chaque panier abandonné » est le réglage habituel.
               </p>
             )}
           </div>

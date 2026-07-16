@@ -107,12 +107,21 @@ export async function POST(req: NextRequest) {
   }
 
   const topic = (req.headers.get('x-shopify-topic') || '').toLowerCase()
+  const shopDomain = req.headers.get('x-shopify-shop-domain') || ''
+
+  // Trace d'arrivée. Sans elle, « commande payée ne marche pas » est
+  // indiagnosticable : impossible de distinguer « Shopify n'a jamais appelé » de
+  // « appelé, mais aucun contact rattaché ». Aucune PII : topic + boutique.
+  console.log(`[webhook orders] ${shopDomain} topic=${topic}`)
+
   const mapping = TOPIC_TO_EVENT[topic]
   if (!mapping) return NextResponse.json({ received: true, skipped: `topic ${topic}` })
 
-  const shopDomain = req.headers.get('x-shopify-shop-domain') || ''
   const userId = await resolveStoreUser(shopDomain)
-  if (!userId) return NextResponse.json({ received: true })
+  if (!userId) {
+    console.warn(`[webhook orders] boutique inconnue ou inactive: ${shopDomain}`)
+    return NextResponse.json({ received: true })
+  }
 
   const payload = JSON.parse(rawBody || '{}')
 

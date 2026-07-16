@@ -1,7 +1,7 @@
 import 'server-only'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import type { Automation, AutomationConditions, EventContext, TriggerEvent } from './types'
-import { isRepeatableTrigger } from './types'
+import { isRepeatableTrigger, defaultRecurrenceFor } from './types'
 import type { TriggerRecurrence } from './graph-types'
 
 /**
@@ -102,11 +102,16 @@ export async function enqueueAutomations(params: {
         (n: { type?: string }) => n.type === 'trigger'
       ) as { recurrence?: TriggerRecurrence } | undefined
 
+      // Le défaut dépend du déclencheur : 'once' partout (sûr), sauf panier
+      // abandonné où il vaut 'per_event' — sinon on ne relancerait qu'un seul
+      // panier par client dans sa vie. Cf. defaultRecurrenceFor.
+      const recurrence = trigNode?.recurrence ?? defaultRecurrenceFor(params.event)
+
       // L'ancre identifie l'occurrence pour 'per_event'. Sans clé fournie par
       // l'appelant, le contact fait l'affaire — 'per_event' se comporte alors
       // comme 'once', ce qui est le repli sûr.
       const anchor = params.ctx.dedupKey || `contact:${params.ctx.contactId}`
-      dedupKey = `${params.event}:${params.ctx.contactId}:${dedupSuffix(trigNode?.recurrence, anchor)}`
+      dedupKey = `${params.event}:${params.ctx.contactId}:${dedupSuffix(recurrence, anchor)}`
     }
 
     const { error } = await supabase.from('automation_jobs').insert({

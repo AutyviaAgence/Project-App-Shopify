@@ -27,6 +27,12 @@ export async function POST(req: NextRequest) {
   const shopDomain = req.headers.get('x-shopify-shop-domain') || ''
   const event = JSON.parse(rawBody || '{}') as { status?: string; order_id?: number | string }
 
+  // Trace d'arrivée. Sans elle, « le trigger Livré ne marche pas » est
+  // indiagnosticable : on ne sait pas distinguer « Shopify n'a jamais appelé »
+  // de « appelé, mais le statut n'était pas delivered ». Aucune PII ici (ni
+  // téléphone ni email) : juste le statut et l'id de commande.
+  console.log(`[webhook fulfillment-events] ${shopDomain} status=${event.status} order=${event.order_id}`)
+
   // On ne réagit qu'à la livraison effective.
   if (String(event.status || '').toLowerCase() !== 'delivered') {
     return NextResponse.json({ received: true, ignored: 'status non-delivered' })
