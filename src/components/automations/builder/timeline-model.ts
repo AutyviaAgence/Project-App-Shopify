@@ -1,5 +1,5 @@
 import type { WorkflowGraph, WorkflowNode, ConditionRule, NodePosition } from '@/lib/automations/graph-types'
-import { variantBranch, isButtonBranch } from '@/lib/automations/graph-types'
+import { variantBranch, isButtonBranch, BUTTON_TIMEOUT_BRANCH } from '@/lib/automations/graph-types'
 import type { TriggerEvent } from '@/lib/automations/types'
 
 export type InsertKind = 'delay' | 'condition' | 'action' | 'ab_test'
@@ -118,12 +118,39 @@ export function removeVariant(graph: WorkflowGraph, nodeId: string, key: string)
   return { ...graph, nodes, edges }
 }
 
-/** Supprime un nœud et recoud la chaîne (son parent pointe vers son enfant). */
+/**
+ * Supprime un nœud et RECOUD la chaîne (son parent pointe vers son enfant).
+ *
+ * ⚠️ SUPPRIMER UN NŒUD NE DOIT JAMAIS EMPORTER LA SUITE DU PARCOURS.
+ *
+ * Le bug : on ne cherchait la sortie que parmi `branch === undefined` ou `'yes'`.
+ * Or un MESSAGE À BOUTONS n'a que des sorties `button:…`, et un test A/B que des
+ * `variant:…` — aucune ne correspondait, donc `outgoing` restait vide et RIEN
+ * n'était recousu : tout ce qui suivait devenait orphelin et disparaissait de
+ * l'écran. Le marchand devait reconstruire sa branche entière pour avoir retiré
+ * un seul bloc.
+ *
+ * On prend désormais la suite RÉELLE du nœud, quelle que soit l'étiquette de son
+ * arête. Pour un nœud qui se ramifie (boutons, condition, A/B), on garde la
+ * branche par défaut si elle existe — c'est le fil principal du parcours — et à
+ * défaut la première sortie : mieux vaut recoudre sur une branche que perdre
+ * toute la suite.
+ */
 export function removeNode(graph: WorkflowGraph, id: string): WorkflowGraph {
   const node = graph.nodes.find((n) => n.id === id)
   if (!node || node.type === 'trigger') return graph
   const incoming = graph.edges.find((e) => e.to === id)
-  const outgoing = graph.edges.find((e) => e.from === id && (e.branch === undefined || e.branch === 'yes'))
+
+  const outs = graph.edges.filter((e) => e.from === id)
+  // Ordre de préférence : la suite normale (sans branche) → la suite par défaut
+  // d'un message à boutons → la branche « oui » d'une condition → à défaut, la
+  // première sortie venue.
+  const outgoing =
+    outs.find((e) => e.branch === undefined)
+    || outs.find((e) => e.branch === BUTTON_TIMEOUT_BRANCH)
+    || outs.find((e) => e.branch === 'yes')
+    || outs[0]
+
   const nodes = graph.nodes.filter((n) => n.id !== id)
   let edges = graph.edges.filter((e) => e.from !== id && e.to !== id)
   // recoud : parent → enfant (en gardant la branche du parent)

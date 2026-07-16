@@ -218,7 +218,23 @@ export function WorkflowBuilder({
 
   const onPatch = useCallback((id: string, patch: Partial<WorkflowNode>) => onChange(patchNodeGraph(graph, id, patch)), [graph, onChange])
   const onInsert = useCallback((afterId: string, kind: 'delay' | 'condition' | 'action' | 'ab_test', branch?: string) => onChange(insertAfter(graph, afterId, kind, branch)), [graph, onChange])
-  const onDelete = useCallback((id: string) => onChange(removeNode(graph, id)), [graph, onChange])
+  const onDelete = useCallback((id: string) => {
+    // ⚠️ Supprimer un nœud QUI SE RAMIFIE (message à boutons, condition, A/B) ne
+    // peut pas tout garder : ses branches n'ont plus de porteur. `removeNode`
+    // recoud une seule suite ; les autres deviennent inatteignables et sortent de
+    // l'écran. On PRÉVIENT avant, plutôt que de laisser le marchand découvrir
+    // qu'une branche a disparu — il croirait à un bug.
+    const outs = graph.edges.filter((e) => e.from === id)
+    const branched = outs.filter((e) => e.branch).length
+    if (branched > 1) {
+      const ok = window.confirm(
+        `Ce bloc ouvre ${branched} routes. En le supprimant, une seule suite est conservée — `
+        + `les autres ne seront plus reliées au parcours.\n\nSupprimer quand même ?`
+      )
+      if (!ok) return
+    }
+    onChange(removeNode(graph, id))
+  }, [graph, onChange])
   const onAddVariant = useCallback((nodeId: string) => onChange(addVariant(graph, nodeId)), [graph, onChange])
   const onRemoveVariant = useCallback((nodeId: string, key: string) => onChange(removeVariant(graph, nodeId, key)), [graph, onChange])
   // Déplace la suite d'une route vers une autre (« Code promo » ⇄ « Par défaut »).
