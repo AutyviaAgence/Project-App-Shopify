@@ -24,6 +24,16 @@ import { canUseAiOrOnboarding } from '@/lib/plans/gate'
 type Msg = { role: 'user' | 'assistant'; content: string }
 
 /**
+ * Au-delà, on génère quoi qu'il arrive.
+ *
+ * Le prompt demande déjà 4 questions maximum, mais une consigne ne borne rien :
+ * face à un marchand qui répond « je sais pas », le modèle repose sa question
+ * indéfiniment (constaté : 6 fois d'affilée, sans jamais générer). Ce plafond-ci
+ * est le seul qui tienne.
+ */
+const MAX_QUESTIONS = 4
+
+/**
  * L'IA demande-t-elle la VALEUR d'une variable ?
  *
  * ⚠️ GARDE-FOU, pas une redite du prompt.
@@ -140,6 +150,23 @@ Questions COURTES, UNE À LA FOIS. Dès que tu as assez d'infos (2 à 4 question
 tu passes en mode "ready". Si le but est déjà clair dès le premier message, ne pose
 qu'une question (le ton), voire aucune.
 
+# NE REPOSE JAMAIS DEUX FOIS LA MÊME QUESTION
+
+Si le marchand répond à côté, évasivement (« je sais pas », « peu importe », « oui »)
+ou ne tranche pas, tu ne reformules PAS : tu DÉCIDES à sa place et tu avances.
+Reposer la question sous un autre angle le bloque en boucle — c'est le pire échec
+possible, il n'obtient jamais son message.
+
+Défauts à appliquer quand la réponse ne vient pas :
+ - famille indécise → TRANSACTIONNEL (catégorie "order_status") : c'est le besoin le plus
+   courant, et Meta n'y refuse rien tant qu'on ne vend pas.
+ - ton non précisé → "friendly".
+ - offre non précisée en campagne → pas de code promo, message générique.
+
+Après 4 questions au total, tu passes en "ready" QUOI QU'IL ARRIVE, avec les défauts
+ci-dessus. Un message imparfait que le marchand pourra corriger vaut infiniment mieux
+qu'un interrogatoire sans fin.
+
 Catégories possibles (chacune indique sa famille) :
 ${useCaseList}
 Variables disponibles (déduis les bonnes selon le but ; ne demande JAMAIS leur valeur) :
@@ -182,6 +209,19 @@ La première fois (aucune réponse encore), pose une question d'ouverture simple
     decision = JSON.parse(res.choices[0]?.message?.content || '{}')
   } catch {
     return NextResponse.json({ error: 'Échec de l’assistant. Réessayez.' }, { status: 502 })
+  }
+
+  // ⚠️ PLAFOND DUR DE QUESTIONS.
+  //
+  // Le prompt dit « 4 questions max » — mais ce n'est qu'une consigne, et le
+  // modèle boucle vraiment : testé, il a reposé 6 fois « commande ou promo ? » à
+  // un marchand qui répondait à côté, sans jamais générer. On tranche donc côté
+  // serveur : passé ce seuil, on génère avec ce qu'on a. Un message imparfait,
+  // corrigeable, vaut mieux qu'un interrogatoire sans issue.
+  const asked = messages.filter((m) => m.role === 'assistant').length
+  if (decision.mode !== 'ready' && asked >= MAX_QUESTIONS) {
+    console.warn(`[templates/converse] ${asked} questions posées → génération forcée`)
+    decision = { ...decision, mode: 'ready' }
   }
 
   // Mode question → on renvoie la question à afficher.
@@ -246,7 +286,15 @@ La première fois (aucune réponse encore), pose une question d'ouverture simple
   // Mode prêt → génération des 3 propositions (variables déduites par l'IA).
   const validKeys = TEMPLATE_VARIABLES.map((v) => v.key)
   let variableKeys = (decision.variable_keys || []).filter((k) => validKeys.includes(k))
-  const useCase = USE_CASES.some((u) => u.key === decision.use_case) ? decision.use_case! : 'marketing'
+  // ⚠️ Le repli est TRANSACTIONNEL, pas marketing.
+  //
+  // Il vaut surtout pour la génération forcée (plafond de questions atteint), où
+  // l'IA n'a rien tranché. `marketing` était le défaut le MOINS sûr : il autorise
+  // codes promo et comptes à rebours, donc un modèle promotionnel généré par
+  // défaut… que Meta refuse si le message n'en est pas un. `order_status` ne
+  // permet que d'informer : au pire le marchand corrige la catégorie, au mieux
+  // ça correspond (c'est le besoin le plus courant).
+  const useCase = USE_CASES.some((u) => u.key === decision.use_case) ? decision.use_case! : 'order_status'
 
   // ⚠️ Aucune variable déduite → le template serait un message FIGÉ, identique
   // pour tous les clients (« Bonjour, votre commande est confirmée »). C'est le
