@@ -32,6 +32,28 @@ export type ConditionRule = {
 
 // ---- Nœuds ---------------------------------------------------------------
 
+/**
+ * Combien de fois un même contact peut redéclencher l'automatisation.
+ *
+ * ⚠️ CE RÉGLAGE EST UN GARDE-FOU ANTI-BOUCLE, pas un confort.
+ *
+ * Certains déclencheurs décrivent un ÉTAT, pas un événement ponctuel : le
+ * silence d'un client (`no_customer_reply`) dure tant qu'il se tait ; un message
+ * lu (`message_read`) engendre un envoi, qui sera lu à son tour. Sans borne, ils
+ * se réalimentent indéfiniment — c'est arrivé en production sur les deux.
+ *
+ * - `once`     : une seule fois par contact, jamais plus. DÉFAUT — sûr par
+ *                construction, aucune boucle possible sans acte volontaire.
+ * - `per_event`: à chaque occurrence. La récurrence devient un choix ASSUMÉ ;
+ *                l'UI avertit du risque sur les déclencheurs qui s'auto-nourrissent.
+ * - `daily`    : au plus une fois par jour et par contact (relance bornée).
+ *
+ * C'est la clé de déduplication qui applique tout ça, donc l'unicité
+ * (automation_id, dedup_key) EN BASE — pas un compteur applicatif qu'une course
+ * pourrait contourner.
+ */
+export type TriggerRecurrence = 'once' | 'per_event' | 'daily'
+
 export type TriggerNode = {
   id: string; type: 'trigger'; event: TriggerEvent
   // Paramètres des triggers temporels :
@@ -40,6 +62,8 @@ export type TriggerNode = {
   scheduledTz?: string       // scheduled_date : fuseau de SAISIE/AFFICHAGE (ex. 'Europe/Paris').
                              // N'influence pas l'exécution : scheduledAt est déjà absolu.
   buttonText?: string        // button_clicked : libellé du bouton qui déclenche
+  /** Récurrence par contact. Absent = 'once' (défaut sûr). Cf. TriggerRecurrence. */
+  recurrence?: TriggerRecurrence
 }
 export type DelayNode = { id: string; type: 'delay'; minutes: number }
 export type ConditionNode = { id: string; type: 'condition'; rule: ConditionRule; label?: string }

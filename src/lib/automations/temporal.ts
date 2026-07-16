@@ -10,6 +10,9 @@ import 'server-only'
  * Enfile des automation_jobs (exécutés par le même cron). Idempotent (dedup_key).
  */
 
+import type { TriggerRecurrence } from './graph-types'
+import { dedupSuffix } from './engine'
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type SB = any
 type Auto = { id: string; user_id: string }
@@ -32,9 +35,9 @@ export async function runTemporalTriggers(supabase: SB): Promise<{ queued: numbe
   for (const a of autos || []) {
     if (ONCE.has(a.trigger_event) && a.triggered_once_at) continue // déjà fait
     const trig = (a.graph?.nodes || []).find((n: { type: string }) => n.type === 'trigger') as
-      | { event: string; inactivityHours?: number; scheduledAt?: string } | undefined
+      | { event: string; inactivityHours?: number; scheduledAt?: string; recurrence?: TriggerRecurrence } | undefined
     if (!trig) continue
-    if (a.trigger_event === 'no_customer_reply') queued += await handleNoReply(supabase, a, trig.inactivityHours ?? 24)
+    if (a.trigger_event === 'no_customer_reply') queued += await handleNoReply(supabase, a, trig.inactivityHours ?? 24, trig.recurrence)
     else if (a.trigger_event === 'scheduled_date') queued += await handleScheduled(supabase, a, trig.scheduledAt, now)
     else if (a.trigger_event === 'customer_birthday') queued += await handleBirthday(supabase, a, today)
   }
@@ -74,7 +77,7 @@ async function sessionIdsOf(supabase: SB, userId: string): Promise<string[]> {
  * silence lui-même relancerait le client tous les jours, à vie. Voir la clé
  * `noreply:` plus bas — c'est elle qui borne, via l'unicité en base.
  */
-async function handleNoReply(supabase: SB, a: Auto, hours: number): Promise<number> {
+async function handleNoReply(supabase: SB, a: Auto, hours: number, recurrence?: TriggerRecurrence): Promise<number> {
   const threshold = new Date(Date.now() - hours * 3600_000).toISOString()
   const sessionIds = await sessionIdsOf(supabase, a.user_id)
   if (!sessionIds.length) return 0
@@ -112,23 +115,23 @@ async function handleNoReply(supabase: SB, a: Auto, hours: number): Promise<numb
     const since = lastInbound.get(c.id)
     if (since && since >= threshold) continue
 
-    // ⚠️ ANTI-BOUCLE — LA CLÉ EST ANCRÉE SUR LE SILENCE, PAS SUR LE JOUR.
+    // ⚠️ ANTI-BOUCLE — LA CLÉ PORTE LA RÉCURRENCE CHOISIE PAR LE MARCHAND.
     //
     // Le silence est un ÉTAT PERMANENT : tant que le client ne répond pas, il
-    // reste éligible. Une clé journalière (…:2026-07-16) le relançait donc tous
-    // les jours, à vie. Ce n'était pas visible tant que le trigger était cassé —
+    // reste éligible. Une clé journalière le relançait donc tous les jours, à
+    // vie. Ce n'était pas visible tant que le trigger était cassé —
     // `last_message_at`, réécrit par notre propre envoi, excluait la conversation
     // le lendemain. Le réparer démasquait la boucle.
     //
-    // On ancre la clé sur le dernier message ENTRANT : une relance par silence.
-    // Tant que le client se tait, la clé ne change pas → la contrainte d'unicité
-    // (automation_id, dedup_key) refuse tout nouvel envoi. Qu'il réponde, et le
-    // prochain silence porte une nouvelle clé → il est de nouveau relançable.
+    // Défaut ('once') : clé stable par contact → une seule relance, jamais plus.
+    // 'per_event' : ancrée sur le silence courant → une relance PAR silence (le
+    //   client répond puis se retait → nouvelle clé → relançable). Ce n'est donc
+    //   toujours pas « tous les jours » : le silence en cours n'en vaut qu'une.
+    // 'daily' : datée → au plus une par jour, tant qu'il se tait.
     //
     // `a.id` reste dans la clé : sans lui, deux automatisations « pas de réponse »
     // du même marchand s'écrasaient l'une l'autre et la seconde ne partait jamais.
-    const silenceSince = since || 'never'
-    const dedup = `noreply:${a.id}:${c.contact_id}:${silenceSince}`
+    const dedup = `noreply:${a.id}:${c.contact_id}:${dedupSuffix(recurrence, since || 'never')}`
     if (await enqueue(supabase, a, c.contact_id, { customer_first_name: (contact?.name || '').split(' ')[0] || '' }, dedup)) n++
   }
   return n

@@ -1,6 +1,35 @@
 import 'server-only'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import type { Automation, AutomationConditions, EventContext, TriggerEvent } from './types'
+import { isRepeatableTrigger } from './types'
+import type { TriggerRecurrence } from './graph-types'
+
+/**
+ * Traduit la récurrence choisie en SUFFIXE de clé de déduplication.
+ *
+ * C'est le seul endroit qui décide « ce contact peut-il redéclencher ? ». Le
+ * verrou est l'unicité (automation_id, dedup_key) EN BASE : un job en double est
+ * refusé par Postgres, pas par un compteur applicatif qu'une course pourrait
+ * contourner (deux webhooks simultanés lisent le même compteur et passent tous
+ * les deux).
+ *
+ * - once      : suffixe constant → une seule fois par contact, définitivement.
+ * - per_event : suffixe = l'occurrence (wamid, silence courant, token de panier)
+ *               → une fois par occurrence réelle.
+ * - daily     : suffixe = le jour → au plus une par jour.
+ *
+ * `eventAnchor` doit identifier l'occurrence ; s'il est instable (un id réémis à
+ * chaque webhook), `per_event` devient une boucle — c'est exactement ce qui est
+ * arrivé sur message_read (wamid neuf à chaque lecture) et checkouts/create.
+ */
+export function dedupSuffix(recurrence: TriggerRecurrence | undefined, eventAnchor: string): string {
+  switch (recurrence) {
+    case 'per_event': return eventAnchor
+    case 'daily': return new Date().toISOString().slice(0, 10)
+    case 'once':
+    default: return 'once' // défaut SÛR : aucune boucle sans choix explicite
+  }
+}
 
 function admin() {
   return createAdminSupabase(
@@ -24,7 +53,7 @@ export async function enqueueAutomations(params: {
 
   const { data: automationsRaw } = await supabase
     .from('automations')
-    .select('id, delay_minutes, builder_mode, trigger_button_text')
+    .select('id, delay_minutes, builder_mode, trigger_button_text, graph')
     .eq('user_id', params.userId)
     .eq('trigger_event', params.event)
     .eq('is_active', true)
@@ -50,7 +79,35 @@ export async function enqueueAutomations(params: {
     const scheduledAt = a.builder_mode
       ? new Date(now).toISOString()
       : new Date(now + (a.delay_minutes || 0) * 60_000).toISOString()
-    const dedupKey = params.ctx.dedupKey ? `${params.event}:${params.ctx.dedupKey}` : null
+
+    // ── Récurrence : combien de fois CE contact peut redéclencher ──────────
+    //
+    // ⚠️ UNIQUEMENT pour les triggers RÉPÉTABLES (message_read, opt-in, clic,
+    // panier…). Surtout pas pour une commande : `order_paid` est déjà borné par
+    // l'id de la commande, et lui appliquer le défaut 'once' priverait un client
+    // fidèle de toute confirmation dès sa DEUXIÈME commande. La borne d'un
+    // événement ponctuel, c'est l'événement lui-même.
+    //
+    // La clé est calculée PAR automatisation : deux automatisations sur le même
+    // événement peuvent avoir des réglages différents, et l'unicité en base porte
+    // sur (automation_id, dedup_key) — chacune a donc sa propre borne.
+    //
+    // Le défaut ('once') est volontairement le plus strict : un trigger qui
+    // s'auto-nourrit — on envoie, le client lit, ce qui redéclenche — boucle à
+    // l'infini sinon. C'est arrivé en production sur message_read.
+    let dedupKey: string | null = params.ctx.dedupKey ? `${params.event}:${params.ctx.dedupKey}` : null
+
+    if (isRepeatableTrigger(params.event) && params.ctx.contactId) {
+      const trigNode = (a.graph?.nodes || []).find(
+        (n: { type?: string }) => n.type === 'trigger'
+      ) as { recurrence?: TriggerRecurrence } | undefined
+
+      // L'ancre identifie l'occurrence pour 'per_event'. Sans clé fournie par
+      // l'appelant, le contact fait l'affaire — 'per_event' se comporte alors
+      // comme 'once', ce qui est le repli sûr.
+      const anchor = params.ctx.dedupKey || `contact:${params.ctx.contactId}`
+      dedupKey = `${params.event}:${params.ctx.contactId}:${dedupSuffix(trigNode?.recurrence, anchor)}`
+    }
 
     const { error } = await supabase.from('automation_jobs').insert({
       automation_id: a.id,

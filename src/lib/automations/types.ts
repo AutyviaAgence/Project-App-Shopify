@@ -66,6 +66,46 @@ export function triggersForKind(kind: 'marketing' | 'transactional') {
 }
 
 /**
+ * Déclencheurs qu'un MÊME contact peut refranchir → la récurrence a un sens, et
+ * on la lui demande.
+ *
+ * Les autres sont bornés par nature : une commande donnée n'est payée qu'une
+ * fois, une date précise n'arrive qu'une fois (`triggered_once_at`), un
+ * anniversaire une fois l'an. Leur proposer un réglage n'aurait aucun effet et
+ * laisserait croire qu'il en a un.
+ *
+ * ⚠️ `checkout_abandoned` en est ABSENT VOLONTAIREMENT. Il est bien répétable,
+ * mais son occurrence — le panier, identifié par son token — le borne déjà : une
+ * relance par panier abandonné. Lui appliquer le défaut « une seule fois »
+ * n'aurait relancé un client que pour son PREMIER panier, jamais pour les
+ * suivants : une perte de ventes silencieuse, à l'exact opposé du but.
+ */
+const REPEATABLE_TRIGGERS = new Set<TriggerEvent>([
+  'no_customer_reply', 'message_read', 'button_clicked',
+  'contact_opted_in', 'optin_popup',
+])
+
+export function isRepeatableTrigger(trigger: TriggerEvent): boolean {
+  return REPEATABLE_TRIGGERS.has(trigger)
+}
+
+/**
+ * Déclencheurs qui S'AUTO-NOURRISSENT : notre propre envoi peut les refranchir.
+ *
+ * `message_read` : on envoie → le client lit → nouveau message_read → on renvoie.
+ * `no_customer_reply` : le silence ne s'épuise pas ; il dure tant qu'on n'a pas
+ * de réponse, donc la condition reste vraie indéfiniment.
+ *
+ * Les deux ont réellement bouclé en production. On avertit avant de laisser un
+ * marchand choisir « à chaque fois » là-dessus.
+ */
+const SELF_FEEDING_TRIGGERS = new Set<TriggerEvent>(['message_read', 'no_customer_reply'])
+
+export function isSelfFeedingTrigger(trigger: TriggerEvent): boolean {
+  return SELF_FEEDING_TRIGGERS.has(trigger)
+}
+
+/**
  * Onglet d'appartenance NATUREL d'un trigger (pour ranger une automatisation
  * créée automatiquement — ex. onboarding). Les statuts de commande sont
  * transactionnels ; tout le reste (opt-in/bienvenue, planifié, anniversaire,

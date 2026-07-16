@@ -247,19 +247,19 @@ export async function POST(req: NextRequest) {
                         customer_first_name: (readContact?.name || '').split(' ')[0] || '',
                         customer_full_name: readContact?.name || '',
                       },
-                      // ⚠️ ANTI-BOUCLE INFINIE — clé par CONTACT, pas par message.
+                      // ⚠️ ANTI-BOUCLE INFINIE.
                       //
-                      // Avec `read:${status.id}` (le wamid), chaque message lu
-                      // créait un job NEUF : on envoyait un message → le client le
-                      // lisait → nouveau `message_read` → nouvel envoi… sans fin.
-                      // Le wamid change à chaque tour, donc la dédup ne mordait
-                      // jamais.
+                      // Ceci n'est plus la clé finale mais l'ANCRE de l'occurrence :
+                      // `enqueueAutomations` la combine à la récurrence réglée sur
+                      // le trigger (défaut : une seule fois par contact).
                       //
-                      // Avec le contact, la clé est stable : l'unicité
-                      // (automation_id, dedup_key) en base fait qu'un contact ne
-                      // déclenche cette automatisation QU'UNE FOIS. C'est la base
-                      // qui l'empêche, pas un compteur applicatif.
-                      dedupKey: `read:contact:${contactId}`,
+                      // Le wamid est l'occurrence réelle d'une lecture — mais il
+                      // change à chaque tour : on envoyait → le client lisait →
+                      // nouveau `message_read` → nouvel envoi, sans fin. C'est
+                      // pourquoi le défaut est « une fois par contact », et que
+                      // « à chaque fois » (qui rend la boucle possible) doit être
+                      // un choix explicite du marchand, averti par l'UI.
+                      dedupKey: `read:${status.id}`,
                     },
                   })
                 } catch (err) {
