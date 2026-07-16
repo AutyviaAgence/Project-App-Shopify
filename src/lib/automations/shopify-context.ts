@@ -245,7 +245,19 @@ export async function buildOrderContext(
     language: lang?.language || (contact as { preferred_language?: string | null }).preferred_language || undefined,
     productTitles,
     collections,
-    dedupKey: order.id ? String(order.id) : orderName,
+    // Idempotence. Pour une COMMANDE (isRealOrder), `id` est stable → bonne clé.
+    //
+    // Pour un PANIER, `id` change à chaque `checkouts/create` — or Shopify le
+    // réémet à CHAQUE modification du panier : un client qui ajuste son panier
+    // trois fois recevrait trois relances. Le `token` du panier, lui, le suit de
+    // bout en bout → c'est lui la clé.
+    //
+    // ⚠️ On tranche sur `isRealOrder`, PAS sur la présence d'un token : une
+    // commande porte elle aussi un `token`/`checkout_token`, et s'y fier
+    // changerait silencieusement la dédup de order_paid, order_created, etc.
+    dedupKey: !isRealOrder && (order.token || order.cart_token)
+      ? `cart:${order.token || order.cart_token}`
+      : order.id ? String(order.id) : orderName,
     variables: {
       customer_first_name: firstName,
       customer_last_name: lastName,

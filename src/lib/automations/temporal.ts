@@ -68,6 +68,11 @@ async function sessionIdsOf(supabase: SB, userId: string): Promise<string[]> {
  *
  * On lit donc `messages` (direction='inbound'), qui est la source de vérité, au
  * lieu d'ajouter une colonne dénormalisée de plus à tenir synchronisée.
+ *
+ * ⚠️ CE TRIGGER EST UNE BOUCLE EN PUISSANCE : le silence ne s'épuise pas tout
+ * seul. Réparer la détection (ci-dessus) SANS ancrer la clé de dédup sur le
+ * silence lui-même relancerait le client tous les jours, à vie. Voir la clé
+ * `noreply:` plus bas — c'est elle qui borne, via l'unicité en base.
  */
 async function handleNoReply(supabase: SB, a: Auto, hours: number): Promise<number> {
   const threshold = new Date(Date.now() - hours * 3600_000).toISOString()
@@ -107,10 +112,23 @@ async function handleNoReply(supabase: SB, a: Auto, hours: number): Promise<numb
     const since = lastInbound.get(c.id)
     if (since && since >= threshold) continue
 
-    // ⚠️ La dédup inclut `a.id` : sans lui, deux automatisations « pas de réponse »
-    // du même marchand s'écrasaient l'une l'autre (contrainte d'unicité), et la
-    // seconde ne partait jamais.
-    const dedup = `noreply:${a.id}:${c.contact_id}:${new Date().toISOString().slice(0, 10)}`
+    // ⚠️ ANTI-BOUCLE — LA CLÉ EST ANCRÉE SUR LE SILENCE, PAS SUR LE JOUR.
+    //
+    // Le silence est un ÉTAT PERMANENT : tant que le client ne répond pas, il
+    // reste éligible. Une clé journalière (…:2026-07-16) le relançait donc tous
+    // les jours, à vie. Ce n'était pas visible tant que le trigger était cassé —
+    // `last_message_at`, réécrit par notre propre envoi, excluait la conversation
+    // le lendemain. Le réparer démasquait la boucle.
+    //
+    // On ancre la clé sur le dernier message ENTRANT : une relance par silence.
+    // Tant que le client se tait, la clé ne change pas → la contrainte d'unicité
+    // (automation_id, dedup_key) refuse tout nouvel envoi. Qu'il réponde, et le
+    // prochain silence porte une nouvelle clé → il est de nouveau relançable.
+    //
+    // `a.id` reste dans la clé : sans lui, deux automatisations « pas de réponse »
+    // du même marchand s'écrasaient l'une l'autre et la seconde ne partait jamais.
+    const silenceSince = since || 'never'
+    const dedup = `noreply:${a.id}:${c.contact_id}:${silenceSince}`
     if (await enqueue(supabase, a, c.contact_id, { customer_first_name: (contact?.name || '').split(' ')[0] || '' }, dedup)) n++
   }
   return n
