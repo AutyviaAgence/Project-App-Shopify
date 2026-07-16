@@ -16,9 +16,11 @@ import type { WorkflowGraph } from '@/lib/automations/graph-types'
  */
 
 type Msg = { role: 'user' | 'assistant'; content: string }
-type MissingTpl = { purpose: string; suggestion: string }
+/** `nodeId` : le nœud du parcours où brancher ce message une fois créé (posé par
+ *  la route — l'ordre d'affichage ne garantirait rien). */
+type MissingTpl = { purpose: string; suggestion: string; nodeId?: string }
 /** Suivi de la création d'un message manquant, depuis la conversation. */
-type CreatedState = { busy?: boolean; body?: string; submitted?: boolean; error?: string }
+type CreatedState = { busy?: boolean; id?: string; body?: string; submitted?: boolean; error?: string }
 
 type Ready = {
   name: string
@@ -81,6 +83,10 @@ export function WorkflowChat({ kind, onComplete, onCancel }: {
       setCreated((c) => ({
         ...c,
         [i]: {
+          // ⚠️ L'id est indispensable : c'est lui qui permet de RATTACHER le
+          // message au nœud du parcours. Sans lui, on créait un brouillon que
+          // rien ne reliait à l'automatisation — ses nœuds restaient vides.
+          id: json.template?.id,
           body: json.template?.body_text || '',
           submitted: submit && json.submitted?.ok,
           error: submitFailed ? `Enregistré en brouillon, mais Meta a refusé la soumission : ${json.submitted.error}` : undefined,
@@ -90,6 +96,36 @@ export function WorkflowChat({ kind, onComplete, onCancel }: {
     } catch {
       setCreated((c) => ({ ...c, [i]: { error: 'Erreur réseau' } }))
       toast.error('Erreur réseau')
+    }
+  }
+
+  /**
+   * Le graphe, avec les messages qu'on vient de créer BRANCHÉS sur leurs nœuds.
+   *
+   * Sans ça, les brouillons créés ici existaient bien dans Modèles… mais le
+   * parcours arrivait avec ses nœuds vides : il fallait re-choisir chaque message
+   * à la main dans l'éditeur, alors qu'on venait de les créer pour lui.
+   *
+   * On s'appuie sur `nodeId`, posé par la route sur chaque message manquant —
+   * pas sur l'ordre d'affichage, qui ne garantit rien.
+   */
+  function graphWithCreated(): WorkflowGraph {
+    if (!ready) throw new Error('graphe absent')
+    const list = missing.length > 0 ? missing : ready.missingTemplates
+    // nodeId → id du modèle fraîchement créé.
+    const byNode = new Map<string, string>()
+    list.forEach((m, i) => {
+      const id = created[i]?.id
+      if (m.nodeId && id) byNode.set(m.nodeId, id)
+    })
+    if (byNode.size === 0) return ready.graph
+    return {
+      ...ready.graph,
+      nodes: ready.graph.nodes.map((n) =>
+        n.type === 'action' && !n.templateId && byNode.has(n.id)
+          ? { ...n, templateId: byNode.get(n.id)! }
+          : n
+      ),
     }
   }
 
@@ -270,20 +306,40 @@ export function WorkflowChat({ kind, onComplete, onCancel }: {
               {ready.graph.nodes.filter((n) => n.type === 'ab_test').length} test(s) A/B
             </p>
           </div>
-          {(ready.missingTemplates?.length ?? 0) > 0 && (
-            <p className="flex items-start gap-1 text-[11px] text-amber-600">
-              <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
-              Le parcours sera créé mais {ready.missingTemplates.length} message(s) restent à écrire
-              (voir les conseils ci-dessus). Rattachez-les dans l’éditeur avant d’activer.
-            </p>
-          )}
+          {/* Le message dépend de ce qui a VRAIMENT été créé : dire « rattachez-les
+              dans l'éditeur » alors qu'ils viennent d'être branchés
+              automatiquement enverrait le marchand faire un travail déjà fait. */}
+          {(() => {
+            const total = (missing.length > 0 ? missing : ready.missingTemplates)?.length ?? 0
+            if (total === 0) return null
+            const done = Object.values(created).filter((c) => c.id).length
+            const rest = total - done
+            return (
+              <p className="flex items-start gap-1 text-[11px] text-amber-600">
+                <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+                {done > 0 && (
+                  <span>
+                    {done} message{done > 1 ? 's' : ''} créé{done > 1 ? 's' : ''} seront rattachés au parcours.{' '}
+                    {rest > 0 ? `Il en reste ${rest} à écrire. ` : ''}
+                    Le parcours ne pourra être activé qu’une fois tous les messages approuvés par Meta.
+                  </span>
+                )}
+                {done === 0 && (
+                  <span>
+                    Le parcours sera créé mais {total} message{total > 1 ? 's' : ''} reste{total > 1 ? 'nt' : ''} à écrire
+                    (voir les conseils ci-dessus). Rattachez-les dans l’éditeur avant d’activer.
+                  </span>
+                )}
+              </p>
+            )
+          })()}
           <div className="flex gap-2">
             <Button
               className="flex-1"
               disabled={!ready.trigger}
               onClick={() => {
                 if (!ready.trigger) { toast.error('Déclencheur manquant'); return }
-                onComplete({ name: ready.name, graph: ready.graph, trigger: ready.trigger })
+                onComplete({ name: ready.name, graph: graphWithCreated(), trigger: ready.trigger })
               }}
             >
               <Check className="mr-1 h-4 w-4" /> Créer ce parcours

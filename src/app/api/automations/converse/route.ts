@@ -222,9 +222,12 @@ La première fois (aucune réponse), pose une question d'ouverture simple.`
     return NextResponse.json({ error: 'Échec de l’assistant. Réessayez.' }, { status: 502 })
   }
 
-  const missing = Array.isArray(decision.missingTemplates)
-    ? decision.missingTemplates.filter((m) => m?.purpose).slice(0, 4)
-    : []
+  // `nodeId` est ajouté PAR NOUS plus bas (l'IA ne connaît pas les nœuds) : il
+  // dit à l'UI où brancher le message une fois créé.
+  const missing: { purpose: string; suggestion: string; nodeId?: string }[] =
+    Array.isArray(decision.missingTemplates)
+      ? decision.missingTemplates.filter((m) => m?.purpose).slice(0, 4)
+      : []
 
   // Manque de modèles pour construire quoi que ce soit.
   if (decision.mode === 'need_templates') {
@@ -332,8 +335,8 @@ La première fois (aucune réponse), pose une question d'ouverture simple.`
   // Nœuds SANS modèle (l'IA n'en avait pas de valable, ou son id était halluciné).
   // Chacun doit être expliqué au marchand avec des conseils pour convertir : on
   // complète `missing` si l'IA n'a pas décrit assez de messages à créer.
-  const emptyActions = nodes.filter((n) => n.type === 'action' && !n.templateId).length
-  while (missing.length < emptyActions && missing.length < 4) {
+  const emptyActionNodes = nodes.filter((n) => n.type === 'action' && !n.templateId)
+  while (missing.length < emptyActionNodes.length && missing.length < 4) {
     missing.push({
       purpose: `Message ${missing.length + 1} du parcours (à créer)`,
       suggestion:
@@ -341,6 +344,18 @@ La première fois (aucune réponse), pose une question d'ouverture simple.`
         + '(code promo, livraison offerte, stock limité) et terminez par un bouton de réponse rapide '
         + '(ex. « Finaliser ma commande », « J’ai une question »). Un message court convertit mieux qu’un long.',
     })
+  }
+
+  // ⚠️ ON RATTACHE CHAQUE MESSAGE MANQUANT À SON NŒUD, EXPLICITEMENT.
+  //
+  // Quand le marchand fait créer ces messages depuis la conversation, il faut
+  // savoir OÙ les brancher. Se fier à l'ordre (« le i-e message = le i-e nœud
+  // vide ») serait fragile : `missing` vient de l'IA et n'est complété qu'ensuite
+  // jusqu'au nombre de nœuds. On pose donc l'id du nœud sur chaque entrée — c'est
+  // ici, et seulement ici, qu'on connaît la correspondance.
+  for (let i = 0; i < missing.length; i++) {
+    const target = emptyActionNodes[i]
+    if (target) missing[i].nodeId = target.id
   }
 
   return NextResponse.json({
