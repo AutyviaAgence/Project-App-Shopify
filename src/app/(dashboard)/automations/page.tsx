@@ -17,6 +17,7 @@ import { WorkflowChat } from '@/components/automations/workflow-chat'
 import { PerformancePanel } from '@/components/automations/performance-panel'
 import { defaultGraph, validateGraph, triggerNode, type WorkflowGraph } from '@/lib/automations/graph-types'
 import { isBuildableTemplate, isSendableTemplate } from '@/lib/templates/status'
+import { kindForTrigger, type TriggerEvent } from '@/lib/automations/types'
 
 type AutomationKind = 'transactional' | 'marketing'
 
@@ -140,7 +141,26 @@ function AutomationsPageInner() {
 
   // Kind effectif d'une automatisation (les anciennes lignes sans kind, ou les
   // brouillons non encore sauvés, sont transactionnelles par défaut).
-  const kindOf = (a: Automation): AutomationKind => a.kind === 'marketing' ? 'marketing' : 'transactional'
+  /**
+   * Onglet d'une automatisation.
+   *
+   * ⚠️ LE DÉCLENCHEUR FAIT FOI, PAS LA COLONNE `kind`.
+   *
+   * `kind` est posé À LA CRÉATION avec l'onglet courant (`kind: tab`) : créer une
+   * relance de panier depuis l'onglet Transactionnel l'y enfermait pour toujours,
+   * alors que c'est une campagne. Le déclencheur, lui, dit toujours la vérité —
+   * et c'est déjà ce que fait l'onboarding (`kindForTrigger`).
+   *
+   * On ne se fie donc à `kind` que si le déclencheur est ambigu (inconnu, ou
+   * automatisation encore sans trigger).
+   */
+  const kindOf = (a: Automation): AutomationKind => {
+    const byTrigger = a.trigger_event
+      ? kindForTrigger(a.trigger_event as TriggerEvent)
+      : null
+    if (byTrigger) return byTrigger
+    return a.kind === 'marketing' ? 'marketing' : 'transactional'
+  }
   // Liste filtrée par l'onglet actif : c'est elle qui alimente la sidebar,
   // les dossiers, « tout activer », etc.
   const visibleAutomations = automations.filter((a) => kindOf(a) === tab)
@@ -206,11 +226,14 @@ function AutomationsPageInner() {
     try {
       const res = await fetch('/api/automations', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: data.name, trigger_event: data.trigger, graph: data.graph, builder_mode: true, is_active: true, kind: tab }),
+        // ⚠️ Le kind vient du DÉCLENCHEUR, pas de l'onglet courant : créer une
+        // relance de panier depuis Transactionnel l'y enfermait, alors que c'est
+        // une campagne. C'est déjà ce que fait l'onboarding.
+        body: JSON.stringify({ name: data.name, trigger_event: data.trigger, graph: data.graph, builder_mode: true, is_active: true, kind: kindForTrigger(data.trigger as TriggerEvent) }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Erreur')
-      track('automation_created', { trigger: data.trigger, via: 'wizard', kind: tab })
+      track('automation_created', { trigger: data.trigger, via: 'wizard', kind: kindForTrigger(data.trigger as TriggerEvent) })
       await load()
       // Sortir de TOUS les écrans de création (wizard OU assistant IA) et ouvrir
       // l'automatisation dans le builder — sinon on restait bloqué sur le chat.
@@ -353,8 +376,16 @@ function AutomationsPageInner() {
           name: nameDraft.trim(),
           trigger_event: trig?.event || current.trigger_event,
           graph, builder_mode: true, is_active: keepActive,
-          // Nouvelle automatisation : elle appartient à l'onglet courant.
-          ...(isNew ? { kind: current.kind || tab } : {}),
+          // ⚠️ Le kind SUIT le déclencheur, à la création comme à la mise à jour.
+          //
+          // Il était figé sur l'onglet courant à la création : une relance de
+          // panier créée depuis Transactionnel y restait pour toujours, alors que
+          // c'est une campagne. Et changer le déclencheur d'une automatisation
+          // existante ne la déplaçait jamais dans le bon onglet.
+          ...(() => {
+            const ev = (trig?.event || current.trigger_event) as TriggerEvent | undefined
+            return ev ? { kind: kindForTrigger(ev) } : {}
+          })(),
         }),
       })
       const json = await res.json()

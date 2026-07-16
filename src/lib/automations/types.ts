@@ -65,17 +65,28 @@ export const TRIGGER_EVENTS: { value: TriggerEvent; label: string; description: 
 /** Quels déclencheurs proposer dans l'onglet Campagnes (marketing) vs
  *  Automatisations (transactionnel). Les statuts de commande sont
  *  transactionnels ; le reste (planifié, opt-in/bienvenue, clic de bouton,
- *  relances) sert au marketing. `checkout_abandoned` apparaît dans les DEUX
- *  (relance = marketing, mais déclencheur de commande). */
+ *  relances, panier abandonné) sert au marketing.
+ *
+ *  Les deux ensembles sont DISJOINTS : un déclencheur n'appartient qu'à un
+ *  onglet, sinon on le propose là où il n'a rien à faire. */
 const MARKETING_TRIGGERS = new Set<TriggerEvent>([
   'scheduled_date', 'customer_birthday',
   'contact_opted_in', 'optin_popup',
   'button_clicked', 'message_read', 'no_customer_reply',
   'checkout_abandoned',
 ])
+// ⚠️ `checkout_abandoned` N'EST PAS ICI, volontairement.
+//
+// Il y figurait au motif que c'est « un déclencheur de commande ». Mais une
+// relance de panier CHERCHE À VENDRE : c'est du marketing, et tout le reste du
+// code le dit déjà — `use_case: 'cart'` est classé MARKETING chez Meta, et
+// `kindForTrigger` l'exclut explicitement du transactionnel. Le seul effet de sa
+// présence ici était de le proposer dans le mauvais onglet, où l'assistant
+// finissait par construire une campagne déguisée en automatisation
+// transactionnelle.
 const TRANSACTIONAL_TRIGGERS = new Set<TriggerEvent>([
   'order_created', 'order_paid', 'order_fulfilled', 'order_delivered',
-  'order_cancelled', 'refund_created', 'return_requested', 'checkout_abandoned',
+  'order_cancelled', 'refund_created', 'return_requested',
 ])
 
 /** Déclencheurs à proposer pour un onglet donné. */
@@ -142,8 +153,11 @@ export function isSelfFeedingTrigger(trigger: TriggerEvent): boolean {
  * `checkout_abandoned` est dans les deux sets → on tranche MARKETING (relance).
  */
 export function kindForTrigger(trigger: TriggerEvent): 'marketing' | 'transactional' {
-  // Un trigger purement transactionnel (statut de commande, hors panier abandonné).
-  if (TRANSACTIONAL_TRIGGERS.has(trigger) && trigger !== 'checkout_abandoned') return 'transactional'
+  // Les deux ensembles sont disjoints : l'appartenance suffit à trancher.
+  // (L'ancienne exception `!== 'checkout_abandoned'` compensait sa présence dans
+  // les DEUX ensembles ; elle n'a plus lieu d'être et laisserait croire à un cas
+  // particulier qui n'existe pas.)
+  if (TRANSACTIONAL_TRIGGERS.has(trigger)) return 'transactional'
   return 'marketing'
 }
 
