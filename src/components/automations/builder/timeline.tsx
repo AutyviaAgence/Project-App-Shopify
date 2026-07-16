@@ -752,6 +752,8 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction, onTem
   const [pickerQuery, setPickerQuery] = useState('')
   if (node.type !== 'action') return null
   const selected = templates.find((t) => t.id === node.templateId) || null
+  // Brief laissé par l'assistant IA quand aucun modèle existant ne convenait.
+  const todo = (node as { todo?: { purpose: string; suggestion?: string } }).todo
   const badge = (t: WhatsAppTemplate) =>
     t.template_type === 'carousel' ? '🎠 Carrousel'
     : t.template_type === 'limited_time_offer' ? '🏷️ Offre limitée'
@@ -760,10 +762,53 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction, onTem
 
   return (
     <Shell tone={TONE.green} icon={<MessageSquare className="h-4 w-4" />} kind="Envoyer le modèle" onDelete={onDelete}>
+      {/* Aucun modèle du tout : on affiche quand même le brief de l'IA s'il y en
+          a un — c'est justement là qu'il est le plus utile. Le texte ne dit plus
+          « approuvé » : les brouillons sont désormais utilisables ici. */}
       {templates.length === 0 ? (
-        <p className="text-xs text-muted-foreground">Aucun modèle approuvé.</p>
+        todo ? (
+          <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-2.5">
+            <p className="flex items-center gap-1.5 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
+              <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+              Modèle de message à publier
+            </p>
+            <p className="mt-1 text-xs font-medium text-foreground">{todo.purpose}</p>
+            {todo.suggestion && (
+              <p className="mt-1 rounded-md bg-muted/50 p-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                💡 {todo.suggestion}
+              </p>
+            )}
+          </div>
+        ) : (
+          <p className="text-xs text-muted-foreground">Aucun modèle disponible.</p>
+        )
       ) : (
         <div className="space-y-2">
+          {/* ⚠️ MESSAGE À CRÉER : le brief de l'IA reste SUR le nœud.
+              Sans lui, un nœud vide n'affichait que « Choisir un modèle » — le
+              marchand voyait un trou, sans savoir qu'il y avait un message à
+              écrire ni ce qu'il devait dire, alors que l'IA venait de le lui
+              décrire. Le panneau de conversation, lui, disparaît une fois le
+              parcours créé. */}
+          {!selected && todo && (
+            <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-2.5">
+              <p className="flex items-center gap-1.5 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                Modèle de message à publier
+              </p>
+              <p className="mt-1 text-xs font-medium text-foreground">{todo.purpose}</p>
+              {todo.suggestion && (
+                <p className="mt-1 rounded-md bg-muted/50 p-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                  💡 {todo.suggestion}
+                </p>
+              )}
+              <p className="mt-1.5 text-[10px] text-muted-foreground">
+                Créez-le dans Modèles, puis sélectionnez-le ci-dessous. L’automatisation
+                ne pourra pas être activée tant qu’il manque.
+              </p>
+            </div>
+          )}
+
           {/* Sélecteur VISUEL : ouvre une galerie de bulles de message. */}
           <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
             <PopoverTrigger asChild>
@@ -872,7 +917,15 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction, onTem
                     return (
                       <button
                         key={t.id}
-                        onClick={() => { onPatch(node.id, { templateId: t.id } as never); onSelectAction(t.id); setPickerOpen(false) }}
+                        onClick={() => {
+                          // `todo: undefined` : le brief décrivait le message
+                          // manquant. Il est choisi → le brief n'a plus lieu
+                          // d'être, et le laisser le ferait réapparaître si le
+                          // marchand change d'avis plus tard.
+                          onPatch(node.id, { templateId: t.id, todo: undefined } as never)
+                          onSelectAction(t.id)
+                          setPickerOpen(false)
+                        }}
                         className={cn(
                           'w-[230px] shrink-0 rounded-xl border p-2.5 text-left transition-colors',
                           isSel ? 'border-primary/50 bg-primary/5 ring-1 ring-primary/30' : 'border-border hover:border-foreground/30 hover:bg-muted/40'

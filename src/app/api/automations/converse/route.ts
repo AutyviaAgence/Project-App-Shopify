@@ -748,7 +748,16 @@ La première fois (aucune réponse), pose une question d'ouverture simple.`
   // ici, et seulement ici, qu'on connaît la correspondance.
   for (let i = 0; i < missing.length; i++) {
     const target = emptyActionNodes[i]
-    if (target) missing[i].nodeId = target.id
+    if (!target) continue
+    missing[i].nodeId = target.id
+    // Le brief voyage AVEC le nœud, pas seulement dans le panneau de la
+    // conversation : une fois le parcours créé, le chat disparaît. Sans ça, le
+    // marchand rouvrait son automatisation, tombait sur « Choisir un modèle » et
+    // n'avait plus aucune trace de ce que l'IA lui avait conseillé d'écrire.
+    ;(target as { todo?: { purpose: string; suggestion?: string } }).todo = {
+      purpose: missing[i].purpose,
+      suggestion: missing[i].suggestion,
+    }
   }
 
   return NextResponse.json({

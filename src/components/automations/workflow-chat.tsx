@@ -121,11 +121,13 @@ export function WorkflowChat({ kind, onComplete, onCancel }: {
     if (byNode.size === 0) return ready.graph
     return {
       ...ready.graph,
-      nodes: ready.graph.nodes.map((n) =>
-        n.type === 'action' && !n.templateId && byNode.has(n.id)
-          ? { ...n, templateId: byNode.get(n.id)! }
-          : n
-      ),
+      nodes: ready.graph.nodes.map((n) => {
+        if (n.type !== 'action' || n.templateId || !byNode.has(n.id)) return n
+        // Le brief « message à publier » disparaît avec le trou qu'il décrivait :
+        // le message existe désormais, le garder afficherait un rappel obsolète.
+        const { todo: _todo, ...rest } = n as typeof n & { todo?: unknown }
+        return { ...rest, templateId: byNode.get(n.id)! }
+      }),
     }
   }
 

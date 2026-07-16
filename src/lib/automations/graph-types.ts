@@ -69,6 +69,20 @@ export type DelayNode = { id: string; type: 'delay'; minutes: number }
 export type ConditionNode = { id: string; type: 'condition'; rule: ConditionRule; label?: string }
 export type ActionNode = {
   id: string; type: 'action'; templateId: string | null; label?: string
+  /**
+   * Message RESTANT À CRÉER sur ce nœud (posé par l'assistant IA quand aucun
+   * modèle existant ne convient).
+   *
+   * Sans ça, un nœud sans modèle n'affichait que « Choisir un modèle » : le
+   * marchand voyait un trou, sans savoir qu'il y avait un message à écrire ni ce
+   * qu'il devait dire — alors que l'IA venait justement de le lui décrire.
+   */
+  todo?: {
+    /** À quoi sert ce message dans le parcours (1 phrase). */
+    purpose: string
+    /** Conseils de rédaction : angle, incitation, boutons à prévoir. */
+    suggestion?: string
+  }
   /** Message à boutons : autorise le contact à suivre PLUSIEURS réponses (il
    *  clique Oui, reçoit la branche Oui, puis peut cliquer Non et recevoir aussi
    *  la branche Non). Chaque bouton ne se déclenche qu'UNE fois. `false` ou
