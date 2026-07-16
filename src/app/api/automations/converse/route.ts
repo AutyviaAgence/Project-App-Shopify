@@ -26,6 +26,16 @@ import { TRIGGER_EVENTS, triggersForKind } from '@/lib/automations/types'
  */
 type Msg = { role: 'user' | 'assistant'; content: string }
 
+/**
+ * Au-delà, on arrête de questionner.
+ *
+ * Le prompt annonce « 2 à 4 questions max », mais une consigne ne borne rien :
+ * testé, le modèle a posé « Quel déclencheur ? » puis, deux tours plus tard,
+ * « Pour clarifier, souhaitez-vous utiliser le déclencheur Opt-in reçu ? » — il
+ * redemande ce qu'il vient de demander. Seul le code peut y mettre fin.
+ */
+const MAX_QUESTIONS = 4
+
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -82,12 +92,37 @@ QUE dans le champ "event" du graphe JSON, jamais à l'écran.
 
 Tu poses des questions COURTES, UNE À LA FOIS (2 à 4 max), pour comprendre :
  - l'objectif du parcours (relancer un panier, accueillir un abonné, réactiver un inactif, promouvoir…),
- - le déclencheur (formulé en clair, cf. liste ci-dessous),
  - le rythme (combien de messages, quel espacement),
  - s'il veut tester deux versions d'un message (A/B).
 Dès que tu as assez d'infos, tu passes en mode "ready".
 
-DÉCLENCHEURS AUTORISÉS (montre le LIBELLÉ, mets le code dans event) :
+# ⚠️ NE DEMANDE PAS LE DÉCLENCHEUR SI L'OBJECTIF LE DIT DÉJÀ
+
+C'est l'erreur la plus fréquente, et elle exaspère : le marchand vient d'écrire
+« relancer les paniers abandonnés », et on lui demande « quel déclencheur ? ».
+Il l'a DÉJÀ dit. DÉDUIS-le, ne le fais pas répéter.
+
+Correspondances évidentes — applique-les sans poser de question :
+ - « panier abandonné », « pas fini leur commande », « panier oublié » → checkout_abandoned
+ - « nouvel abonné », « bienvenue », « quelqu'un s'abonne » → contact_opted_in
+ - « anniversaire » → customer_birthday
+ - « à telle date », « samedi », « lundi matin », « le 12 » → scheduled_date
+ - « client inactif », « qui n'achète plus », « qui ne répond plus », « réveiller », « réactiver »
+   → no_customer_reply (⚠️ SURTOUT PAS contact_opted_in : un client inactif n'est pas
+     quelqu'un qui vient de s'abonner — ce serait un contresens)
+ - « clique sur un bouton » → button_clicked
+ - « a lu le message » → message_read
+
+Ne demande le déclencheur QUE si l'objectif reste réellement ambigu après lecture.
+Et si tu l'as demandé une fois, NE LE REDEMANDE JAMAIS sous un autre angle : tranche
+avec la correspondance la plus proche et avance.
+
+DÉCLENCHEURS AUTORISÉS — la liste est EXHAUSTIVE pour cette ${kindLabel}.
+N'utilise AUCUN autre code dans "event", même s'il existe ailleurs dans l'app : un
+déclencheur hors de cette liste est rejeté, et le marchand se retrouve avec un
+parcours sans déclencheur. Si aucun ne colle vraiment, prends le plus proche de
+son objectif parmi ceux-ci — jamais un inventé.
+(Montre le LIBELLÉ au marchand, mets le code dans event.)
 ${triggerList}
 
 MODÈLES APPROUVÉS DISPONIBLES (n'utilise QUE ces id dans templateId) :
@@ -108,6 +143,22 @@ CONSIGNES IMPORTANTES :
   à partir de ta suggestion.
 - Si aucun modèle approuvé ne permet de démarrer, renvoie mode "need_templates".
 
+# NE REPOSE JAMAIS DEUX FOIS LA MÊME QUESTION
+
+Si le marchand répond à côté, évasivement (« je sais pas », « peu importe », « oui »)
+ou ne tranche pas, tu ne reformules PAS : tu DÉCIDES à sa place et tu avances.
+Reposer la question sous un autre angle le bloque en boucle — il n'obtient jamais
+son parcours, c'est le pire échec possible.
+
+Défauts à appliquer quand la réponse ne vient pas :
+ - rythme non précisé → ${kind === 'marketing' ? '2 messages espacés de 24 h' : '1 message immédiat'}
+ - A/B non demandé → pas de test A/B (garde le parcours simple)
+ - déclencheur indécis → la correspondance la plus proche de l'objectif énoncé
+
+Après 4 questions au total, tu passes en "ready" QUOI QU'IL ARRIVE, avec ces défauts.
+Un parcours imparfait, que le marchand pourra ajuster dans l'éditeur, vaut infiniment
+mieux qu'un interrogatoire sans fin.
+
 Réponds UNIQUEMENT en JSON :
 - Question : { "mode":"ask", "question":"...", "options":["...","..."] }   (options facultatives, 2-4)
 - Prêt     : { "mode":"ready", "name":"nom du parcours", "graph":{ "nodes":[...], "edges":[...] },
@@ -116,10 +167,30 @@ Réponds UNIQUEMENT en JSON :
 - Manque   : { "mode":"need_templates", "message":"...", "missingTemplates":[{"purpose":"...","suggestion":"..."}] }
 La première fois (aucune réponse), pose une question d'ouverture simple.`
 
+  // ⚠️ PLAFOND DUR. Passé 4 questions, on n'en pose plus : on EXIGE le parcours.
+  //
+  // Contrairement aux templates, on ne peut pas « forcer ready » côté serveur — il
+  // faut un graphe, que seule l'IA produit. On lui coupe donc l'option de
+  // questionner : une consigne finale, en dernier message, qu'elle ne peut pas
+  // contourner en reformulant.
+  const asked = messages.filter((m) => m.role === 'assistant').length
+  const forceReady = asked >= MAX_QUESTIONS
+
   const chatMessages = [
     { role: 'system' as const, content: system },
     ...messages.map((m) => ({ role: m.role, content: m.content })),
+    ...(forceReady
+      ? [{
+          role: 'user' as const,
+          content:
+            'STOP — tu as posé assez de questions. Ne pose PLUS AUCUNE question : ' +
+            'génère maintenant le parcours avec ce que tu sais, en appliquant les défauts ' +
+            '(déclencheur le plus proche de mon objectif, 2 messages espacés de 24 h, pas de test A/B). ' +
+            'Réponds en mode "ready" avec un graphe complet, ou "need_templates" s’il manque vraiment un modèle.',
+        }]
+      : []),
   ]
+  if (forceReady) console.warn(`[automations/converse] ${asked} questions posées → génération forcée`)
 
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY!, maxRetries: 3, timeout: 60_000 })
   const started = Date.now()
@@ -167,6 +238,20 @@ La première fois (aucune réponse), pose une question d'ouverture simple.`
   // Question suivante. Filet de sécurité : si l'IA renvoie malgré tout un code
   // technique en option (« contact_opted_in »), on le traduit par son libellé
   // humain ; à défaut on l'écarte (jamais de jargon affiché au marchand).
+  // Le tour forcé n'a RIEN produit d'exploitable → on ne repart pas pour un tour
+  // de questions : on le dit franchement et on renvoie vers l'éditeur manuel.
+  // Boucler serait pire que d'admettre l'échec.
+  if (forceReady && (decision.mode !== 'ready' || !decision.graph)) {
+    console.warn('[automations/converse] génération forcée sans graphe exploitable')
+    return NextResponse.json({
+      mode: 'need_templates',
+      message:
+        'Je n’ai pas réussi à cerner votre parcours. Décrivez-le en une phrase (ex. « relancer les paniers abandonnés avec 2 messages »), '
+        + 'ou construisez-le directement dans l’éditeur — c’est souvent plus rapide.',
+      missingTemplates: missing,
+    })
+  }
+
   if (decision.mode !== 'ready' || !decision.graph) {
     const labelByEvent = new Map(TRIGGER_EVENTS.map((e) => [e.value as string, e.label]))
     const humanOptions = (Array.isArray(decision.options) ? decision.options : [])
@@ -194,7 +279,14 @@ La première fois (aucune réponse), pose une question d'ouverture simple.`
   // marchand de choisir le modèle sur ce nœud).
   let hallucinated = 0
   for (const n of nodes) {
-    if (n.type === 'action' && n.templateId && !validIds.has(n.templateId)) {
+    if (n.type !== 'action') continue
+    // ⚠️ Le modèle renvoie parfois la CHAÎNE "null" (ou "") au lieu du littéral
+    // null pour dire « message à créer ». Sans ce filtre, on la comptait comme un
+    // id halluciné : le compteur remonté à l'UI était donc faux, alors que l'IA
+    // avait fait ce qu'on lui demandait.
+    const raw = n.templateId as string | null
+    if (raw === 'null' || raw === '') { n.templateId = null; continue }
+    if (raw && !validIds.has(raw)) {
       n.templateId = null
       hallucinated++
     }
@@ -210,7 +302,29 @@ La première fois (aucune réponse), pose une question d'ouverture simple.`
   }
 
   const trig = nodes.find((n) => n.type === 'trigger') as { event?: string } | undefined
-  const triggerOk = TRIGGER_EVENTS.some((e) => e.value === trig?.event)
+
+  // ⚠️ Le déclencheur doit appartenir à la FAMILLE demandée (campagne vs
+  // transactionnel). Le prompt ne présente déjà que ceux de la bonne famille,
+  // mais rien ne vérifiait ce que l'IA renvoyait : elle pouvait donc poser un
+  // déclencheur marketing sur une automatisation transactionnelle, qui
+  // n'apparaîtrait alors même pas dans l'onglet où le marchand l'a créée.
+  const allowedForKind = new Set(triggersForKind(kind).map((e) => e.value as string))
+  let triggerOk = !!trig?.event
+    && TRIGGER_EVENTS.some((e) => e.value === trig.event)
+    && allowedForKind.has(trig.event)
+
+  // Déclencheur hors famille (ou inventé) → on ne laisse PAS le marchand avec un
+  // parcours sans déclencheur : on retombe sur celui de sa famille qui est le
+  // point d'entrée le plus courant. Il reste modifiable d'un clic dans l'éditeur,
+  // alors qu'un parcours sans déclencheur ne part jamais et n'explique pas
+  // pourquoi. Constaté en test : « automatiser des trucs » en transactionnel
+  // produisait contact_opted_in, qui est un déclencheur marketing.
+  if (trig && !triggerOk) {
+    const fallback = kind === 'marketing' ? 'checkout_abandoned' : 'order_paid'
+    console.warn(`[automations/converse] déclencheur "${trig.event}" hors famille ${kind} → repli sur ${fallback}`)
+    trig.event = fallback
+    triggerOk = allowedForKind.has(fallback)
+  }
   const usedTemplates = nodes
     .filter((n) => n.type === 'action' && n.templateId)
     .map((n) => (n as { templateId: string }).templateId)
