@@ -192,6 +192,10 @@ type TimelineProps = {
   orientation?: Orientation
   /** Appelé après édition d'un modèle (ajout de boutons → resoumission Meta). */
   onTemplatesChanged?: () => void
+  /** Déplace la suite d'une route vers une autre du même message (« Code promo »
+   *  ⇄ « Par défaut »). Le canvas n'a pas de glisser-déposer : les blocs sont
+   *  alignés automatiquement, ce qui garantit un parcours lisible. */
+  onMoveBranch?: (fromId: string, branchFrom: string, branchTo: string) => void
 }
 
 /**
@@ -224,7 +228,7 @@ const VARIANT_COLORS = ['#3B82F6', '#8B5CF6', '#F59E0B', '#EC4899']
 const BUTTON_COLORS = ['#25D366', '#0EA5E9', '#F59E0B', '#EC4899', '#8B5CF6']
 
 function Branch(props: TimelineProps & { fromId: string; branch?: string }) {
-  const { graph, fromId, branch, templates, onPatch, onInsert, onDelete, onSelectAction, onTemplatesChanged } = props
+  const { graph, fromId, branch, templates, onPatch, onInsert, onDelete, onSelectAction, onTemplatesChanged, onMoveBranch } = props
   const chain = chainFrom(graph, fromId, branch)
   const horizontal = useOrientation() === 'horizontal'
   // Rangée qui porte les sous-branches (Oui/Non, A/B) : côte à côte en vertical
@@ -259,18 +263,39 @@ function Branch(props: TimelineProps & { fromId: string; branch?: string }) {
             <React.Fragment key={id}>
               <ActionBlock node={node} templates={templates} onPatch={onPatch} onDelete={() => onDelete(id)} onSelectAction={onSelectAction} onTemplatesChanged={onTemplatesChanged} />
               <div className={branchesRow}>
-                {buttons.map((text, bi) => (
-                  <BranchCol key={text} label={text} color={BUTTON_COLORS[bi % BUTTON_COLORS.length]}>
-                    <Branch {...props} fromId={id} branch={buttonBranch(text)} />
-                  </BranchCol>
-                ))}
-                {/* Suite PAR DÉFAUT : la continuité normale du parcours. Elle part
-                    IMMÉDIATEMENT après le message à boutons (ex. message suivant /
-                    carrousel), que le contact clique ou non. Les boutons ci-dessus
-                    déclenchent leurs branches EN PLUS si on clique. */}
-                <BranchCol label="Par défaut" color="#94A3B8">
-                  <Branch {...props} fromId={id} branch={BUTTON_TIMEOUT_BRANCH} />
-                </BranchCol>
+                {(() => {
+                  // Toutes les routes de ce message : les boutons + la suite par
+                  // défaut. Sert au menu « déplacer vers… » de chaque étiquette.
+                  const routes = [
+                    ...buttons.map((t) => ({ label: t, branch: buttonBranch(t) })),
+                    { label: 'Par défaut', branch: BUTTON_TIMEOUT_BRANCH },
+                  ]
+                  return (
+                    <>
+                      {buttons.map((text, bi) => (
+                        <BranchCol
+                          key={text} label={text} color={BUTTON_COLORS[bi % BUTTON_COLORS.length]}
+                          siblings={routes}
+                          onMove={(to) => onMoveBranch?.(id, buttonBranch(text), to)}
+                        >
+                          <Branch {...props} fromId={id} branch={buttonBranch(text)} />
+                        </BranchCol>
+                      ))}
+                      {/* Suite PAR DÉFAUT : la continuité normale du parcours. Elle
+                          part IMMÉDIATEMENT après le message à boutons (ex. message
+                          suivant / carrousel), que le contact clique ou non. Les
+                          boutons ci-dessus déclenchent leurs branches EN PLUS si on
+                          clique. */}
+                      <BranchCol
+                        label="Par défaut" color="#94A3B8"
+                        siblings={routes}
+                        onMove={(to) => onMoveBranch?.(id, BUTTON_TIMEOUT_BRANCH, to)}
+                      >
+                        <Branch {...props} fromId={id} branch={BUTTON_TIMEOUT_BRANCH} />
+                      </BranchCol>
+                    </>
+                  )
+                })()}
               </div>
             </React.Fragment>
           )
@@ -285,13 +310,29 @@ function Branch(props: TimelineProps & { fromId: string; branch?: string }) {
         if (node.type === 'condition') return (
           <React.Fragment key={id}>
             <ConditionBlock node={node} onPatch={onPatch} onDelete={() => onDelete(id)} />
+            {/* Oui/Non se déplacent aussi : se tromper de branche en construisant
+                sa condition est fréquent, et refaire toute la suite pour ça
+                serait absurde. */}
             <div className={branchesRow}>
-              <BranchCol label="Oui" color="#22C55E">
-                <Branch {...props} fromId={id} branch="yes" />
-              </BranchCol>
-              <BranchCol label="Non" color="#EF4444">
-                <Branch {...props} fromId={id} branch="no" />
-              </BranchCol>
+              {(() => {
+                const routes = [{ label: 'Oui', branch: 'yes' }, { label: 'Non', branch: 'no' }]
+                return (
+                  <>
+                    <BranchCol
+                      label="Oui" color="#22C55E" siblings={routes}
+                      onMove={(to) => onMoveBranch?.(id, 'yes', to)}
+                    >
+                      <Branch {...props} fromId={id} branch="yes" />
+                    </BranchCol>
+                    <BranchCol
+                      label="Non" color="#EF4444" siblings={routes}
+                      onMove={(to) => onMoveBranch?.(id, 'no', to)}
+                    >
+                      <Branch {...props} fromId={id} branch="no" />
+                    </BranchCol>
+                  </>
+                )
+              })()}
             </div>
           </React.Fragment>
         )
@@ -1171,14 +1212,67 @@ function Connector() {
   return <div className={cn('bg-border', horizontal ? 'h-px w-4' : 'h-4 w-px')} />
 }
 
-function BranchCol({ label, color, children }: { label: string; color: string; children: React.ReactNode }) {
+/**
+ * Colonne d'une branche (« Code promo », « Par défaut »…).
+ *
+ * L'étiquette est CLIQUABLE quand on peut déplacer la suite ailleurs : le
+ * marchand construisait sous « Par défaut », voulait la même suite sous « Code
+ * promo », et n'avait aucun moyen de la déplacer — il fallait tout supprimer et
+ * refaire. Le canvas ne fait pas de glisser-déposer (les blocs sont alignés
+ * automatiquement, ce qui garantit un parcours lisible) : un menu fait le même
+ * travail, au clic comme au clavier.
+ */
+function BranchCol({ label, color, children, siblings, onMove }: {
+  label: string
+  color: string
+  children: React.ReactNode
+  /** Autres branches du même nœud, vers lesquelles déplacer cette suite. */
+  siblings?: { label: string; branch: string }[]
+  onMove?: (targetBranch: string) => void
+}) {
   const horizontal = useOrientation() === 'horizontal'
+  const others = (siblings || []).filter((s) => s.label !== label)
+  const movable = !!onMove && others.length > 0
+
+  const chip = (
+    <span
+      className={cn(
+        'rounded-full px-2 py-0.5 text-[10px] font-semibold',
+        horizontal ? 'shrink-0' : 'mb-0.5',
+        movable && 'cursor-pointer transition-opacity hover:opacity-80'
+      )}
+      style={{ background: `${color}1a`, color }}
+      title={movable ? 'Déplacer cette suite vers une autre route' : undefined}
+    >
+      {label}{movable && ' ⇄'}
+    </span>
+  )
+
   return (
     <div className={cn('flex', horizontal ? 'flex-row items-center gap-1' : 'flex-col items-center')}>
-      <span
-        className={cn('rounded-full px-2 py-0.5 text-[10px] font-semibold', horizontal ? 'shrink-0' : 'mb-0.5')}
-        style={{ background: `${color}1a`, color }}
-      >{label}</span>
+      {movable ? (
+        <Popover>
+          <PopoverTrigger asChild><button type="button">{chip}</button></PopoverTrigger>
+          <PopoverContent align="center" className="w-56 p-1.5">
+            <p className="px-1.5 pb-1 pt-0.5 text-[11px] text-muted-foreground">
+              Déplacer cette suite vers…
+            </p>
+            {others.map((s) => (
+              <button
+                key={s.branch}
+                type="button"
+                onClick={() => onMove!(s.branch)}
+                className="block w-full rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-muted"
+              >
+                {s.label}
+              </button>
+            ))}
+            <p className="px-1.5 pb-0.5 pt-1 text-[10px] text-muted-foreground">
+              Si la route d’arrivée a déjà une suite, les deux sont échangées.
+            </p>
+          </PopoverContent>
+        </Popover>
+      ) : chip}
       {children}
     </div>
   )

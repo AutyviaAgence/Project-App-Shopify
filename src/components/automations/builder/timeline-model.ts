@@ -136,4 +136,41 @@ export function patchNode(graph: WorkflowGraph, id: string, patch: Partial<Workf
   return { ...graph, nodes: graph.nodes.map((n) => n.id === id ? ({ ...n, ...patch } as WorkflowNode) : n) }
 }
 
+/**
+ * Déplace la suite d'une branche vers une AUTRE branche du même nœud.
+ *
+ * Cas d'usage : le marchand a construit sa suite sous « Par défaut » et veut
+ * qu'elle parte de « Code promo ». Sans ça il était bloqué — il fallait tout
+ * supprimer et refaire sous la bonne branche, alors que seule l'étiquette de
+ * l'arête change.
+ *
+ * Si la branche d'ARRIVÉE a déjà une suite, on ÉCHANGE les deux : rien n'est
+ * perdu. Écraser silencieusement le travail du marchand serait pire que de ne
+ * rien faire.
+ */
+export function moveBranch(
+  graph: WorkflowGraph,
+  fromId: string,
+  branchFrom: string,
+  branchTo: string
+): WorkflowGraph {
+  if (branchFrom === branchTo) return graph
+  const src = graph.edges.find((e) => e.from === fromId && e.branch === branchFrom)
+  if (!src) return graph
+  const dst = graph.edges.find((e) => e.from === fromId && e.branch === branchTo)
+
+  // Vérifié : `validateGraph` n'exige qu'AU MOINS UNE branche sur une condition,
+  // pas les deux. Déplacer « Oui » vers un « Non » vide laisse donc une condition
+  // à une seule branche — c'est valide, et c'est exactement ce que le marchand a
+  // demandé. L'UI réaffiche la colonne vide avec son bouton « + ».
+  const edges = graph.edges.map((e) => {
+    if (e.from !== fromId) return e
+    if (e.branch === branchFrom) return { ...e, branch: branchTo }
+    // La cible existe → elle prend la place libérée (échange, pas écrasement).
+    if (dst && e.branch === branchTo) return { ...e, branch: branchFrom }
+    return e
+  })
+  return { ...graph, edges }
+}
+
 export type { WorkflowGraph, WorkflowNode, NodePosition, TriggerEvent }

@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
 import { Timeline } from './timeline'
-import { insertAfter, removeNode, patchNode as patchNodeGraph, addVariant, removeVariant } from './timeline-model'
+import { insertAfter, removeNode, patchNode as patchNodeGraph, addVariant, removeVariant, moveBranch } from './timeline-model'
 import { PhonePreview } from '@/components/automations/phone-preview'
 import { cn } from '@/lib/utils'
 import { Plus, Minus, Maximize2 } from 'lucide-react'
@@ -221,6 +221,12 @@ export function WorkflowBuilder({
   const onDelete = useCallback((id: string) => onChange(removeNode(graph, id)), [graph, onChange])
   const onAddVariant = useCallback((nodeId: string) => onChange(addVariant(graph, nodeId)), [graph, onChange])
   const onRemoveVariant = useCallback((nodeId: string, key: string) => onChange(removeVariant(graph, nodeId, key)), [graph, onChange])
+  // Déplace la suite d'une route vers une autre (« Code promo » ⇄ « Par défaut »).
+  // Sans ça, le marchand qui s'était trompé de route devait tout refaire.
+  const onMoveBranch = useCallback(
+    (fromId: string, branchFrom: string, branchTo: string) => onChange(moveBranch(graph, fromId, branchFrom, branchTo)),
+    [graph, onChange]
+  )
 
   // Modèle à prévisualiser : le dernier sélectionné, sinon le 1er nœud action.
   const firstAction = graph.nodes.find((n) => n.type === 'action' && n.templateId)
@@ -255,6 +261,7 @@ export function WorkflowBuilder({
             onSelectAction={setPreviewTplId}
             onAddVariant={onAddVariant}
             onRemoveVariant={onRemoveVariant}
+            onMoveBranch={onMoveBranch}
             automationId={automationId}
             kind={kind}
             orientation={orientation}
