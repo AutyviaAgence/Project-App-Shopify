@@ -22,12 +22,31 @@ export type TriggerEvent =
   | 'customer_birthday'
   | 'button_clicked'
 
+/**
+ * Mise en garde affichée sous un déclencheur dont l'événement ne dépend PAS de
+ * nous — il peut ne jamais arriver, quoi qu'on fasse.
+ *
+ * Sans ça, le marchand construit une automatisation, ne voit rien partir, et
+ * conclut logiquement à un bug de Xeyo. C'est arrivé sur les deux ci-dessous.
+ */
+export const TRIGGER_CAVEATS: Partial<Record<TriggerEvent, string>> = {
+  // `fulfillment_events/create` (status='delivered') est émis quand le
+  // TRANSPORTEUR confirme la livraison à Shopify. Beaucoup ne le font pas — et
+  // sur une boutique de test, ça n'arrive à peu près jamais.
+  order_delivered:
+    'Dépend de votre transporteur : beaucoup ne transmettent pas la livraison à Shopify, et ce déclencheur ne part alors jamais. Pour un envoi fiable, préférez « Commande expédiée ».',
+  // Shopify n'émet `orders/paid` qu'au paiement CAPTURÉ. Une commande créée à la
+  // main dans l'admin reste en « Paiement en attente » → l'événement ne part pas.
+  order_paid:
+    'Se déclenche au paiement encaissé. Une commande créée à la main dans l’admin Shopify reste « en attente de paiement » : elle ne déclenchera pas ce message.',
+}
+
 export const TRIGGER_EVENTS: { value: TriggerEvent; label: string; description: string; group: string }[] = [
   // Commande
   { value: 'order_created', label: 'Commande créée', description: 'Dès qu’une commande est passée.', group: 'Commande' },
   { value: 'order_paid', label: 'Commande payée', description: 'Quand le paiement est confirmé.', group: 'Commande' },
   { value: 'order_fulfilled', label: 'Commande expédiée', description: 'Quand la commande est expédiée (suivi disponible).', group: 'Commande' },
-  { value: 'order_delivered', label: 'Commande livrée', description: 'Quand le colis est livré au client (si le transporteur transmet l’info à Shopify).', group: 'Commande' },
+  { value: 'order_delivered', label: 'Commande livrée', description: 'Quand le colis est livré au client.', group: 'Commande' },
   { value: 'order_cancelled', label: 'Commande annulée', description: 'Quand une commande est annulée.', group: 'Commande' },
   { value: 'refund_created', label: 'Remboursement', description: 'Quand un remboursement est émis.', group: 'Commande' },
   { value: 'return_requested', label: 'Demande de retour', description: 'Quand un client ouvre une demande de retour (SAV).', group: 'Commande' },

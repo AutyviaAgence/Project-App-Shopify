@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Clock, GitBranch, MessageSquare, Plus, ShoppingBag, Trash2, FlaskConical, Users, CalendarClock, Search, X, Reply } from 'lucide-react'
+import { Clock, GitBranch, MessageSquare, Plus, ShoppingBag, Trash2, FlaskConical, Users, CalendarClock, Search, X, Reply, AlertTriangle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -10,7 +10,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Input } from '@/components/ui/input'
 import { ChevronDown } from 'lucide-react'
-import { TRIGGER_EVENTS, triggersForKind, isRepeatableTrigger, isSelfFeedingTrigger, defaultRecurrenceFor } from '@/lib/automations/types'
+import { TRIGGER_EVENTS, TRIGGER_CAVEATS, triggersForKind, isRepeatableTrigger, isSelfFeedingTrigger, defaultRecurrenceFor } from '@/lib/automations/types'
 
 /** Fuseau détecté du navigateur, proposé par défaut. `scheduledAt` reste
  *  TOUJOURS un instant absolu (ISO UTC) : le fuseau ne sert qu'à saisir et à
@@ -402,6 +402,16 @@ function TriggerBlock({ node, onPatch, kind }: { node: WorkflowNode; onPatch: (i
         </SelectContent>
       </Select>
       <p className="mt-1.5 text-xs text-muted-foreground">{TRIGGER_EVENTS.find((e) => e.value === node.event)?.description}</p>
+
+      {/* Mise en garde : cet événement ne dépend pas de nous et peut ne jamais
+          arriver (transporteur muet, commande jamais encaissée). Sans elle, le
+          marchand ne voit rien partir et conclut à un bug de Xeyo. */}
+      {TRIGGER_CAVEATS[node.event] && (
+        <p className="mt-1.5 flex gap-1.5 rounded-lg bg-amber-500/10 p-2 text-[11px] text-amber-600">
+          <AlertTriangle className="mt-px h-3 w-3 shrink-0" />
+          <span>{TRIGGER_CAVEATS[node.event]}</span>
+        </p>
+      )}
 
       {/* Paramètres spécifiques aux triggers temporels */}
       {node.event === 'no_customer_reply' && (
