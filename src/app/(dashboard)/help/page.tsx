@@ -4,9 +4,12 @@ import { useState, useMemo } from 'react'
 import Link from 'next/link'
 import {
   Search, Bot, FileText, Megaphone, Bell, CreditCard,
-  Plug, ChevronDown, LifeBuoy, Mail,
+  Plug, ChevronDown, LifeBuoy, MessageCircle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+
+/** Le numéro du support (public). Même source que la bulle d'aide. */
+const SUPPORT_WHATSAPP = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || '33636006808'
 
 type Article = { q: string; a: React.ReactNode }
 type Category = { id: string; title: string; icon: React.ElementType; articles: Article[] }
@@ -197,15 +200,20 @@ export function HelpContent({ embedded = false }: { embedded?: boolean }) {
         </div>
       )}
 
-      {/* Contact support */}
+      {/* Contact support — WhatsApp, comme la bulle d'aide. On vend WhatsApp :
+          répondre par mail serait incohérent, et le marchand a déjà l'app ouverte
+          sur son téléphone. Un <a> plutôt qu'un window.open : dans l'iframe
+          Shopify, window.open déclenche « Autorisez les pop-ups ». */}
       <div className="rounded-xl border bg-muted/30 p-5 text-center">
         <p className="text-sm font-medium">Vous ne trouvez pas votre réponse ?</p>
         <p className="mt-1 text-sm text-muted-foreground">Notre équipe est là pour vous aider.</p>
         <a
-          href="mailto:contact@autyvia.fr"
-          className="mt-3 inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          href={`https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent("Bonjour, j'ai besoin d'aide sur Xeyo.")}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-3 inline-flex items-center gap-2 rounded-lg bg-[#25D366] px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
         >
-          <Mail className="h-4 w-4" /> Contacter le support
+          <MessageCircle className="h-4 w-4" /> Contacter le support sur WhatsApp
         </a>
       </div>
     </div>

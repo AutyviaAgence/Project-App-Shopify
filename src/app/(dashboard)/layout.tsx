@@ -14,7 +14,6 @@ import {
   LogOut,
   Settings,
   ScrollText,
-  HelpCircle,
   FileText,
   X,
   ChevronLeft,
@@ -65,8 +64,9 @@ const NAV_ITEMS_KEYS = [
 
 // Le parrainage vit dans les PARAMÈTRES (section dédiée), pas dans la navigation :
 // c'est un réglage de compte, pas un espace de travail quotidien.
+// L'AIDE vit elle aussi dans les paramètres (même raison) : on la consulte
+// ponctuellement, et la bulle d'assistance couvre déjà le besoin immédiat.
 const BOTTOM_NAV_KEYS = [
-  { href: '/help', labelKey: 'nav.help', label: 'Aide', icon: HelpCircle },
   { href: '/logs', labelKey: 'nav.logs', icon: ScrollText },
   { href: '/settings', labelKey: 'nav.settings', icon: Settings },
 ]
