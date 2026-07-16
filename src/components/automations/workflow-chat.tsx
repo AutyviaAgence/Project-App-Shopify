@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -18,6 +17,8 @@ import type { WorkflowGraph } from '@/lib/automations/graph-types'
 
 type Msg = { role: 'user' | 'assistant'; content: string }
 type MissingTpl = { purpose: string; suggestion: string }
+/** Suivi de la création d'un message manquant, depuis la conversation. */
+type CreatedState = { busy?: boolean; body?: string; submitted?: boolean; error?: string }
 
 type Ready = {
   name: string
@@ -33,7 +34,6 @@ export function WorkflowChat({ kind, onComplete, onCancel }: {
   onComplete: (data: { name: string; graph: WorkflowGraph; trigger: string }) => void
   onCancel: () => void
 }) {
-  const router = useRouter()
   const [chat, setChat] = useState<Msg[]>([])
   const [question, setQuestion] = useState<string>('')
   const [options, setOptions] = useState<string[]>([])
@@ -41,8 +41,57 @@ export function WorkflowChat({ kind, onComplete, onCancel }: {
   const [busy, setBusy] = useState(false)
   const [ready, setReady] = useState<Ready | null>(null)
   const [missing, setMissing] = useState<MissingTpl[]>([])
+  // État de création par message manquant (indexé comme `missing`).
+  const [created, setCreated] = useState<Record<number, CreatedState>>({})
   const started = useRef(false)
   const endRef = useRef<HTMLDivElement>(null)
+
+  /**
+   * Crée le modèle manquant À PARTIR de la suggestion de l'IA, sans quitter la
+   * page.
+   *
+   * Avant, le bouton renvoyait vers /templates : le parcours en cours était
+   * perdu, et la suggestion — pourtant précise — devait être recopiée à la main.
+   */
+  async function createFromSuggestion(i: number, m: MissingTpl, submit: boolean) {
+    setCreated((c) => ({ ...c, [i]: { busy: true } }))
+    try {
+      const res = await fetch('/api/templates/from-suggestion', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          purpose: m.purpose,
+          suggestion: m.suggestion,
+          // La famille du parcours donne celle du message : une campagne peut
+          // promouvoir, une automatisation transactionnelle ne le peut pas.
+          useCase: kind === 'marketing' ? 'marketing' : 'order_status',
+          submit,
+        }),
+      })
+      const json = await res.json()
+      if (!res.ok) {
+        setCreated((c) => ({ ...c, [i]: { error: json.error || 'Création impossible' } }))
+        toast.error(json.error || 'Création impossible')
+        return
+      }
+      // Soumission refusée par Meta : le brouillon EXISTE quand même. On le dit
+      // clairement plutôt que de laisser croire à un échec total — le marchand
+      // n'a pas à refaire le travail.
+      const submitFailed = submit && json.submitted && !json.submitted.ok
+      setCreated((c) => ({
+        ...c,
+        [i]: {
+          body: json.template?.body_text || '',
+          submitted: submit && json.submitted?.ok,
+          error: submitFailed ? `Enregistré en brouillon, mais Meta a refusé la soumission : ${json.submitted.error}` : undefined,
+        },
+      }))
+      toast.success(submitFailed ? 'Message créé (soumission à reprendre)' : submit ? 'Message créé et envoyé à Meta' : 'Message créé en brouillon')
+    } catch {
+      setCreated((c) => ({ ...c, [i]: { error: 'Erreur réseau' } }))
+      toast.error('Erreur réseau')
+    }
+  }
 
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [chat, question, ready])
 
@@ -149,23 +198,59 @@ export function WorkflowChat({ kind, onComplete, onCancel }: {
               avec des conseils pour <span className="font-medium text-foreground">convertir</span> :
             </p>
             <div className="space-y-2">
-              {(missing.length > 0 ? missing : ready!.missingTemplates).map((m, i) => (
-                <div key={i} className="rounded-lg border bg-background p-2.5">
-                  <p className="text-sm font-medium">{m.purpose}</p>
-                  {m.suggestion && (
-                    <p className="mt-1 rounded-md bg-muted/50 p-2 text-xs leading-relaxed text-muted-foreground">
-                      💡 {m.suggestion}
-                    </p>
-                  )}
-                  <Button size="sm" variant="outline" className="mt-2"
-                    onClick={() => router.push('/templates')}>
-                    <FileText className="mr-1 h-3.5 w-3.5" /> Créer ce message
-                  </Button>
-                </div>
-              ))}
+              {(missing.length > 0 ? missing : ready!.missingTemplates).map((m, i) => {
+                const st = created[i]
+                return (
+                  <div key={i} className="rounded-lg border bg-background p-2.5">
+                    <p className="text-sm font-medium">{m.purpose}</p>
+                    {m.suggestion && (
+                      <p className="mt-1 rounded-md bg-muted/50 p-2 text-xs leading-relaxed text-muted-foreground">
+                        💡 {m.suggestion}
+                      </p>
+                    )}
+
+                    {/* Le message généré : le marchand LE VOIT avant qu'il ne
+                        parte en revue Meta — c'est lui qui sera envoyé à ses
+                        clients. */}
+                    {st?.body && (
+                      <div className="mt-2 rounded-md border border-primary/20 bg-primary/5 p-2">
+                        <p className="whitespace-pre-wrap text-xs leading-relaxed">{st.body}</p>
+                        <p className="mt-1.5 text-[10px] text-muted-foreground">
+                          {st.submitted
+                            ? '✓ Envoyé en revue chez Meta — approbation sous 24 h en général.'
+                            : 'Enregistré en brouillon. Vous pouvez le retoucher dans Modèles avant de le soumettre.'}
+                        </p>
+                      </div>
+                    )}
+
+                    {!st?.body && (
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {/* ⚠️ Avant, ce bouton faisait router.push('/templates') :
+                            on perdait TOUT le parcours en cours, et la suggestion
+                            de l'IA n'était qu'un texte à recopier à la main. On
+                            crée désormais le message sur place, sans quitter la
+                            conversation. */}
+                        <Button size="sm" disabled={st?.busy}
+                          onClick={() => createFromSuggestion(i, m, true)}>
+                          {st?.busy
+                            ? <><Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> Création…</>
+                            : <><Sparkles className="mr-1 h-3.5 w-3.5" /> Créer et soumettre à Meta</>}
+                        </Button>
+                        <Button size="sm" variant="outline" disabled={st?.busy}
+                          onClick={() => createFromSuggestion(i, m, false)}>
+                          <FileText className="mr-1 h-3.5 w-3.5" /> Créer en brouillon
+                        </Button>
+                      </div>
+                    )}
+                    {st?.error && (
+                      <p className="mt-1.5 text-[11px] text-red-500">{st.error}</p>
+                    )}
+                  </div>
+                )
+              })}
             </div>
             <p className="mt-2 text-[11px] text-muted-foreground">
-              Créez-le dans Modèles, faites-le approuver par Meta, puis rattachez-le au parcours.
+              Une fois approuvés par Meta, rattachez ces messages au parcours dans l’éditeur.
             </p>
           </div>
         )}

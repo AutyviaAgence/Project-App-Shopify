@@ -114,6 +114,7 @@ export default function TemplatesPage() {
   const [hasWhatsApp, setHasWhatsApp] = useState<boolean | null>(null)
   const [syncing, setSyncing] = useState(false)
   const [seeding, setSeeding] = useState(false)
+  const [submittingAll, setSubmittingAll] = useState(false)
   const [mode, setMode] = useState<'idle' | 'edit' | 'choose' | 'ai'>('idle')
 
   // Génération IA : questionnaire + propositions.
@@ -693,6 +694,60 @@ export default function TemplatesPage() {
     }
   }
 
+  /**
+   * Soumet à Meta TOUS les brouillons en un clic.
+   *
+   * Créer dix modèles puis les soumettre un par un est fastidieux — surtout après
+   * un pack d'onboarding ou une série générée par l'IA.
+   *
+   * ⚠️ Ne touche QUE les brouillons. Les modèles déjà approuvés ou en attente ne
+   * sont pas renvoyés (inutile), et les REFUSÉS non plus : les resoumettre sans
+   * les avoir corrigés reproduit le même refus, et les refus répétés dégradent la
+   * réputation du compte WhatsApp — ce qui se paie sur les envois réels.
+   */
+  async function handleSubmitAllDrafts() {
+    // Un modèle = plusieurs lignes (une par langue) partageant le même `name` ;
+    // submit-group les traite ensemble. On dédoublonne donc par nom.
+    const names = Array.from(new Set(
+      templates.filter((t) => t.status === 'draft').map((t) => t.name)
+    ))
+    if (names.length === 0) { toast.info('Aucun brouillon à soumettre.'); return }
+
+    setSubmittingAll(true)
+    const tId = toast.loading(`Soumission de ${names.length} modèle(s) à Meta…`)
+    let ok = 0
+    const failures: string[] = []
+    try {
+      // En séquence, pas en parallèle : Meta limite les créations de templates,
+      // et une rafale ferait échouer des soumissions pour rien.
+      for (const name of names) {
+        try {
+          const res = await fetch('/api/templates/submit-group', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name }),
+          })
+          const json = await res.json()
+          if (res.ok && json.ok) ok++
+          else failures.push(`${name} (${json.error || 'refusé'})`)
+        } catch {
+          failures.push(`${name} (réseau)`)
+        }
+      }
+      await fetchTemplates()
+      if (failures.length === 0) {
+        toast.success(`${ok} modèle(s) envoyé(s) en revue chez Meta.`, { duration: 6000 })
+      } else {
+        toast.warning(
+          `${ok} soumis. Échecs : ${failures.slice(0, 3).join(' · ')}${failures.length > 3 ? ` (+${failures.length - 3})` : ''}`,
+          { duration: 9000 }
+        )
+      }
+    } finally {
+      toast.dismiss(tId)
+      setSubmittingAll(false)
+    }
+  }
+
   // Soumet à Meta TOUTES les langues du modèle en un clic (résultat par langue).
   async function handleSubmitGroup(t: WhatsAppTemplate) {
     setBusyId(t.id)
@@ -786,6 +841,13 @@ export default function TemplatesPage() {
     return { name: main.name, rows, main, worst, langs, useCase: uc }
   })
 
+  // Brouillons à soumettre. Compté par NOM et non par ligne : un modèle décliné
+  // en 3 langues est 3 lignes mais UN seul modèle pour le marchand — annoncer
+  // « 3 brouillons » pour un seul message serait faux.
+  const draftCount = new Set(
+    templates.filter((t) => t.status === 'draft').map((t) => t.name)
+  ).size
+
   // Filtrage par onglet de catégorie + recherche par nom.
   const filteredGroups = groups.filter((g) => {
     if (useCaseFilter !== 'all' && g.useCase !== useCaseFilter) return false
@@ -817,6 +879,17 @@ export default function TemplatesPage() {
             <RefreshCw className={cn('mr-1 h-4 w-4', syncing && 'animate-spin')} />
             Synchroniser
           </Button>
+          {/* N'apparaît QUE s'il y a des brouillons : un bouton « tout soumettre »
+              affiché en permanence alors qu'il n'y a rien à soumettre est un
+              piège à clic. Le compte annoncé évite aussi la mauvaise surprise. */}
+          {draftCount > 0 && (
+            <Button variant="outline" size="sm" onClick={handleSubmitAllDrafts} disabled={submittingAll}>
+              {submittingAll
+                ? <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                : <Send className="mr-1 h-4 w-4" />}
+              Soumettre les {draftCount} brouillon{draftCount > 1 ? 's' : ''}
+            </Button>
+          )}
           {aiEnabled ? (
             <Button data-tour="template-new-btn" size="sm" onClick={openChoose}>
               <Plus className="mr-1 h-4 w-4" />Nouveau modèle
