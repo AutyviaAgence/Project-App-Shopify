@@ -3,7 +3,7 @@ import OpenAI from 'openai'
 import { createClient } from '@/lib/supabase/server'
 import { logAiUsage } from '@/lib/openai/usage-log'
 import { canUseAiOrOnboarding } from '@/lib/plans/gate'
-import { GRAPH_JSON_SCHEMA_DOC, validateGraph, type WorkflowGraph } from '@/lib/automations/graph-types'
+import { GRAPH_JSON_SCHEMA_DOC, validateGraph, buttonBranch, BUTTON_TIMEOUT_BRANCH, type WorkflowGraph } from '@/lib/automations/graph-types'
 import { TRIGGER_EVENTS, triggersForKind } from '@/lib/automations/types'
 
 /**
@@ -35,6 +35,105 @@ type Msg = { role: 'user' | 'assistant'; content: string }
  * redemande ce qu'il vient de demander. Seul le code peut y mettre fin.
  */
 const MAX_QUESTIONS = 4
+
+/**
+ * Comment construire un funnel de VENTE — doctrine fondée sur la mécanique Meta.
+ *
+ * ── D'OÙ VIENNENT CES RÈGLES ────────────────────────────────────────────────
+ *
+ * D'une recherche vérifiée contradictoirement (chaque affirmation contestée par
+ * 3 agents indépendants), pas de « bonnes pratiques » de blog. Résultat brut :
+ * AUCUN benchmark public sur les funnels WhatsApp n'a survécu — ni les taux de
+ * clic quick-reply vs lien, ni les revenus par message, ni les séquences types
+ * des éditeurs. Ces chiffres sont du marketing d'éditeur.
+ *
+ * Ce qui tient, en revanche, ce sont les règles de la plateforme, sourcées chez
+ * developers.facebook.com. Elles suffisent à fonder la structure :
+ *
+ * 1. UN CLIC SUR BOUTON EST UN MESSAGE ENTRANT. Il ouvre (et réarme) la fenêtre
+ *    de 24 h, et les messages marketing envoyés dans cette fenêtre NE COMPTENT
+ *    PAS dans le plafond marketing par utilisateur. Un clic sur un LIEN, lui, ne
+ *    déclenche aucun webhook et n'ouvre rien. C'est la seule raison DOCUMENTÉE
+ *    de préférer les boutons — pas une histoire de copywriting.
+ *
+ * 2. MOINS LU = MOINS ENVOYÉ. La qualité du numéro est notée sur le
+ *    comportement du destinataire (blocages, signalements, ET faible taux de
+ *    lecture) sur 7 jours glissants. Un funnel long qu'on ignore se punit tout
+ *    seul, sans que personne ne bloque. D'où : peu de messages, et une sortie
+ *    dès que le client a agi.
+ *
+ * 3. AU-DELÀ DE 24 H, C'EST TEMPLATE OBLIGATOIRE (erreur 131047 sinon), et en
+ *    catégorie MARKETING — donc soumis au plafond que le point 1 permet
+ *    justement de contourner.
+ *
+ * ── CE QU'ON NE SAIT PAS ────────────────────────────────────────────────────
+ *
+ * Le nombre optimal de boutons, les libellés qui convertissent, le bon délai
+ * (J+1 ? J+3 ?) : aucune source fiable. On ne prétend donc rien là-dessus. Le
+ * marchand a des tests A/B dans l'outil : ce sont SES chiffres qui trancheront,
+ * et ils valent mieux que n'importe quel benchmark d'éditeur.
+ *
+ * ⚠️ La limite « 3 boutons maximum » est souvent citée mais n'a PAS été
+ * confirmée par les sources : on ne l'impose pas ici.
+ */
+const FUNNEL_DOCTRINE_MARKETING = `- CONSTRUIS UN FUNNEL À BOUTONS, PAS UNE SUITE D'ENVOIS.
+  Un message à boutons de réponse rapide (« Finaliser ma commande » / « J'ai une
+  question ») vaut mieux qu'un message avec un simple lien, pour une raison
+  mécanique : quand le client CLIQUE un bouton, WhatsApp le compte comme une
+  réponse — cela rouvre 24 h de discussion libre et sort les messages suivants du
+  plafond marketing. Un lien cliqué ne produit rien de tel.
+  → Dès qu'un modèle disponible a des boutons — MÊME UN SEUL — sers-t'en et
+    BRANCHE le parcours : une arête branch:"button:<libellé exact>" par bouton,
+    plus la suite par défaut branch:"button:__timeout__" pour celui qui ne clique
+    pas. C'est le CLIC qui rouvre la fenêtre de 24 h, pas le nombre d'options :
+    un modèle à bouton unique laissé sans branche gâche exactement le même
+    avantage qu'un modèle à trois boutons.
+
+- CHAQUE BRANCHE DOIT MENER À QUELQUE CHOSE DE DIFFÉRENT.
+  Un bouton qui retombe sur le même message ne sert à rien. Celui qui clique
+  « J'ai une question » n'attend pas la même chose que celui qui clique
+  « Finaliser ». S'il n'existe pas de modèle pour une branche, décris-le dans
+  missingTemplates plutôt que de tout faire converger.
+
+- SORS LE CLIENT DU PARCOURS DÈS QU'IL A AGI.
+  Ajoute une condition (« a-t-il commandé ? ») avant chaque relance. Continuer à
+  relancer quelqu'un qui a déjà acheté fait ignorer les messages — et l'absence de
+  lecture dégrade à elle seule la qualité du numéro, sans aucun blocage.
+
+- RESTE COURT : 2 à 3 messages. Plus long n'est pas plus vendeur : chaque message
+  ignoré abîme la réputation du numéro, donc la délivrabilité de TOUS les envois.
+
+- LE DÉLAI EST UN CHOIX DU MARCHAND, PAS UNE VÉRITÉ.
+  Aucune donnée publique fiable ne dit si J+1 bat J+3. Propose un espacement
+  raisonnable (24 h), dis que c'est ajustable, et n'invente pas de justification
+  chiffrée. Un test A/B lui donnera SA réponse.
+
+- ⚠️ CHAQUE NŒUD DOIT SE JUSTIFIER. PAS DE DÉCORATION.
+  Un test A/B ou une condition qu'on ajoute « parce que ça fait pro » nuit : il
+  complique le parcours, dilue les envois sur deux variantes, et n'apprend rien.
+
+  TEST A/B — n'en mets un QUE si tu peux nommer l'HYPOTHÈSE testée et que les
+  variantes s'opposent vraiment (ex. « avec code promo » CONTRE « sans code
+  promo, réassurance seule » : on saura si la remise est nécessaire). Deux
+  formulations du même message ne sont pas une hypothèse. Dans le doute : PAS de
+  test A/B — le marchand pourra en ajouter un quand il aura une question précise.
+
+  CONDITION — n'en mets une QUE si les deux branches mènent à des suites
+  DIFFÉRENTES. « A-t-il commandé ? » est utile : oui → on arrête, non → on
+  relance. Une condition dont les deux sorties font la même chose est du bruit.
+
+  Explique en une phrase, dans "explanation", à quoi sert chaque test A/B ou
+  condition que tu as posé. Si tu n'y arrives pas, c'est qu'il ne sert à rien :
+  retire-le.`
+
+const FUNNEL_DOCTRINE_TRANSACTIONAL = `- Un funnel transactionnel est COURT et informatif (1 à 2 messages) : il informe,
+  il ne vend pas.
+- Un bouton de réponse rapide reste utile s'il rend service (« Suivre mon colis »,
+  « J'ai un problème ») : un clic rouvre 24 h de discussion libre, ce qui permet
+  au client de poser sa question et à l'agent IA de répondre. Branche alors les
+  sorties (branch:"button:<libellé>" + branch:"button:__timeout__").
+- Aucune promotion ici (ni code promo, ni offre) : Meta reclasserait le modèle en
+  MARKETING, ce qui coûte plus cher et fait perdre la gratuité dans la fenêtre.`
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -92,9 +191,13 @@ QUE dans le champ "event" du graphe JSON, jamais à l'écran.
 
 Tu poses des questions COURTES, UNE À LA FOIS (2 à 4 max), pour comprendre :
  - l'objectif du parcours (relancer un panier, accueillir un abonné, réactiver un inactif, promouvoir…),
- - le rythme (combien de messages, quel espacement),
- - s'il veut tester deux versions d'un message (A/B).
+ - le rythme (combien de messages, quel espacement).
 Dès que tu as assez d'infos, tu passes en mode "ready".
+
+⚠️ NE DEMANDE PAS « voulez-vous un test A/B ? ». C'est une question d'expert posée à
+quelqu'un qui veut juste vendre : il répondra oui par réflexe, et tu produiras un test
+qui ne teste rien. Un A/B ne se propose que si TU as une hypothèse à défendre (voir
+plus bas) — et dans ce cas tu l'expliques, tu ne la demandes pas.
 
 # ⚠️ NE DEMANDE PAS LE DÉCLENCHEUR SI L'OBJECTIF LE DIT DÉJÀ
 
@@ -131,16 +234,19 @@ ${tplCatalog}
 ${GRAPH_JSON_SCHEMA_DOC}
 
 CONSIGNES IMPORTANTES :
-- Un bon funnel ${kind === 'marketing' ? 'de vente enchaîne PLUSIEURS messages espacés par des délais, souvent avec une condition (« a-t-il commandé ? ») et parfois un test A/B' : 'transactionnel est court et informatif (1 à 2 messages)'}.
+${kind === 'marketing' ? FUNNEL_DOCTRINE_MARKETING : FUNNEL_DOCTRINE_TRANSACTIONAL}
 - N'INVENTE JAMAIS un templateId : utilise uniquement les id listés ci-dessus.
 - S'il MANQUE un message pour réaliser le funnel (ex. pas de modèle de relance promo), NE l'invente pas.
   Mets alors templateId:null sur ce nœud ET décris-le dans "missingTemplates" :
     { "purpose": "à quoi sert ce message dans le parcours (1 phrase claire)",
       "suggestion": "CONSEILS CONCRETS POUR CONVERTIR : angle à adopter, incitation
-                     (code promo, livraison offerte, urgence), boutons de réponse
-                     rapide utiles, et un exemple de formulation courte." }
-  Sois précis et actionnable : le marchand doit pouvoir créer le message directement
-  à partir de ta suggestion.
+                     (code promo, livraison offerte, urgence), LES BOUTONS DE RÉPONSE
+                     RAPIDE EXACTS à mettre, et un exemple de formulation courte." }
+  ⚠️ INDIQUE TOUJOURS LES BOUTONS dans la suggestion${kind === 'marketing' ? '' : ' quand ils rendent service'}.
+  Le marchand crée le message directement depuis ta suggestion : un message décrit
+  sans bouton devient un message sans bouton, donc un parcours qu'on ne peut plus
+  brancher — et qui perd la réouverture de fenêtre 24 h.
+  Sois précis et actionnable.
 - Si aucun modèle approuvé ne permet de démarrer, renvoie mode "need_templates".
 
 # NE REPOSE JAMAIS DEUX FOIS LA MÊME QUESTION
@@ -294,6 +400,67 @@ La première fois (aucune réponse), pose une question d'ouverture simple.`
       hallucinated++
     }
   }
+  // ⚠️ ON BRANCHE LES MESSAGES À BOUTONS LAISSÉS LINÉAIRES.
+  //
+  // La doctrine du prompt demande de brancher dès qu'un modèle a des boutons.
+  // Mesuré : le modèle l'ignore la plupart du temps et produit une chaîne
+  // d'envois. Or c'est précisément le clic qui fait l'intérêt des boutons — il
+  // compte comme une réponse, rouvre 24 h de discussion libre et sort les envois
+  // suivants du plafond marketing de Meta. Un bouton non branché gâche ça.
+  //
+  // On rattrape donc côté serveur : la sortie unique du nœud devient la suite
+  // par défaut (`button:__timeout__`, celui qui ne clique pas), et chaque bouton
+  // reçoit sa propre arête vers cette même suite. Le marchand n'a plus qu'à
+  // rediriger les branches qui l'intéressent — au lieu de tout câbler.
+  //
+  // `validateGraph` impose que TOUTES les sorties d'un nœud à boutons soient des
+  // branches `button:` : on convertit donc l'arête existante, on n'en ajoute pas
+  // une à côté (ce qui produirait un wildcard ambigu et un graphe invalide).
+  let autoBranched = 0
+  const qrLabelsOf = (templateId: string | null): string[] => {
+    if (!templateId) return []
+    const t = templates.find((x) => x.id === templateId)
+    return Array.isArray(t?.buttons)
+      ? (t!.buttons as { type?: string; text?: string }[])
+          .filter((b) => b.type === 'QUICK_REPLY' && b.text)
+          .map((b) => b.text!)
+      : []
+  }
+  if (Array.isArray(graph.edges)) {
+    for (const n of nodes) {
+      if (n.type !== 'action') continue
+      const labels = qrLabelsOf((n as { templateId: string | null }).templateId)
+      if (labels.length === 0) continue
+      const outs = graph.edges.filter((e) => e.from === n.id)
+      // Déjà branché : l'IA a fait le travail, on n'y touche pas.
+      if (outs.some((e) => e.branch)) continue
+
+      if (outs.length === 1) {
+        // Sortie unique et non branchée → elle devient la suite par défaut, et
+        // chaque bouton reçoit son arête vers cette même suite.
+        const next = outs[0].to
+        outs[0].branch = BUTTON_TIMEOUT_BRANCH
+        for (const label of labels) {
+          graph.edges.push({ from: n.id, to: next, branch: buttonBranch(label) })
+        }
+        autoBranched++
+      }
+      // ⚠️ DERNIER message du parcours (aucune sortie) : ON NE TOUCHE À RIEN.
+      //
+      // Tentant d'y poser quand même des branches `button:` — mais elles
+      // devraient pointer quelque part, et le seul nœud disponible est LUI-MÊME.
+      // `nextNodes` suivrait l'arête et renverrait le message à chaque clic :
+      // une boucle infinie, exactement ce que les branches sont censées éviter.
+      //
+      // Le clic n'est d'ailleurs pas perdu : il compte comme une réponse et
+      // rouvre la fenêtre de 24 h, ce qui laisse l'agent IA répondre librement.
+      // On ne gagnerait qu'une branche décorative — au prix d'une boucle.
+    }
+  }
+  if (autoBranched > 0) {
+    console.warn(`[automations/converse] ${autoBranched} message(s) à boutons branché(s) automatiquement`)
+  }
+
   const errors = validateGraph(graph)
   // Les seules erreurs tolérées : action sans modèle (le marchand complètera).
   const blocking = errors.filter((e) => !/n'a pas de modèle/.test(e))
