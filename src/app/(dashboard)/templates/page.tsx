@@ -497,7 +497,34 @@ export default function TemplatesPage() {
     const tt = (t.template_type === 'carousel' ? 'carousel' : t.template_type === 'limited_time_offer' ? 'limited_time_offer' : 'standard') as 'standard' | 'carousel' | 'limited_time_offer'
     setTemplateType(tt)
     setLtoTitle(t.lto_title || ''); setLtoHours(t.lto_default_hours || 24)
-    const cards = Array.isArray(t.carousel_cards) ? t.carousel_cards : []
+    // ⚠️ CARTES À L'ANCIENNE FORME → L'ÉDITEUR PLANTAIT À L'OUVERTURE.
+    //
+    // L'assistant IA a créé des carrousels avec la forme du générateur
+    // ({ title, body, image_url, url }) au lieu de celle de la base
+    // ({ header_media_url, body_text, buttons }). Ces lignes existent en prod.
+    // L'éditeur lisait `card.buttons.length` et `card.body_text.length` sans
+    // garde : « Cannot read properties of undefined (reading 'length') », page
+    // blanche, modèle impossible à ouvrir — donc impossible à corriger.
+    //
+    // On normalise à l'ouverture plutôt que de garder chaque `.length` : le
+    // marchand récupère un carrousel réparé (image + texte + lien produit)
+    // qu'il peut relire et soumettre. La correction à la source est faite
+    // (from-suggestion), mais les lignes déjà créées, elles, restent.
+    const rawCards = Array.isArray(t.carousel_cards) ? t.carousel_cards : []
+    const cards = rawCards.map((c) => {
+      const legacy = c as Partial<TemplateCard> & { title?: string; body?: string; image_url?: string; url?: string }
+      return {
+        header_type: (legacy.header_type === 'video' ? 'video' : 'image') as 'image' | 'video',
+        header_media_url: legacy.header_media_url ?? legacy.image_url ?? null,
+        body_text: legacy.body_text || [legacy.title, legacy.body].filter(Boolean).join(' — ') || '',
+        buttons: Array.isArray(legacy.buttons) && legacy.buttons.length > 0
+          ? legacy.buttons
+          : legacy.url
+            ? [{ type: 'URL' as const, text: 'Voir le produit', url: legacy.url }]
+            : [],
+        body_variable_keys: Array.isArray(legacy.body_variable_keys) ? legacy.body_variable_keys : [],
+      } as TemplateCard
+    })
     setCarouselCards(cards)
     setCardMediaKind((cards[0]?.header_type as 'image' | 'video') || 'image')
     setCardPreviews({})

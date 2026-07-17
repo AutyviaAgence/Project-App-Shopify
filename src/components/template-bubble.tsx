@@ -118,12 +118,21 @@ export function TemplateBubble({ template, labels, className }: {
       {/* Cartes carrousel */}
       {isCarousel && cards.length > 0 && (
         <div className="flex gap-2 overflow-x-auto border-t border-slate-100 p-2">
-          {cards.map((c, i) => (
-            <div key={i} className="w-[100px] shrink-0 overflow-hidden rounded-lg border">
-              <CardImage url={c.header_media_url} />
-              <p className="truncate px-1.5 py-1 text-[11px] font-medium text-gray-700">{c.body_text || `Carte ${i + 1}`}</p>
-            </div>
-          ))}
+          {cards.map((c, i) => {
+            // ⚠️ Cartes à l'ANCIENNE forme ({title, body, image_url}) : des
+            // carrousels créés par l'assistant IA avant le correctif existent en
+            // prod. Sans ce repli, l'aperçu affichait « Carte 1 » sans image —
+            // le marchand croyait son carrousel vide alors que tout était là.
+            const legacy = c as typeof c & { title?: string; body?: string; image_url?: string }
+            const img = c.header_media_url ?? legacy.image_url ?? null
+            const text = c.body_text || [legacy.title, legacy.body].filter(Boolean).join(' — ')
+            return (
+              <div key={i} className="w-[100px] shrink-0 overflow-hidden rounded-lg border">
+                <CardImage url={img} />
+                <p className="truncate px-1.5 py-1 text-[11px] font-medium text-gray-700">{text || `Carte ${i + 1}`}</p>
+              </div>
+            )
+          })}
         </div>
       )}
 
