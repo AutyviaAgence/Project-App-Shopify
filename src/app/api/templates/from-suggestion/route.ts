@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { after } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { translateTemplateRow } from '@/lib/templates/translate'
 import { generateTemplates } from '@/lib/templates/generate'
 import { submitTemplateRow } from '@/lib/templates/submit'
 import { buildStoreContextPrompt } from '@/lib/shopify/sync'
@@ -168,6 +171,42 @@ export async function POST(req: NextRequest) {
       submitted = { ok: false, error: e instanceof Error ? e.message : 'erreur' }
     }
   }
+
+  // ⚠️ TRADUCTION AUTOMATIQUE — un modèle créé ici ne partait QU'EN FRANÇAIS.
+  //
+  // Le dispatch choisit la variante selon la langue du contact : sans version
+  // anglaise, un client anglophone reçoit du français (ou rien). L'onboarding
+  // traduit déjà ses modèles ; ce chemin-ci ne le faisait pas — un marchand qui
+  // construit son parcours avec l'assistant se retrouvait avec un catalogue
+  // 100 % FR sans jamais l'avoir choisi.
+  //
+  // En tâche post-réponse (`after`) : le marchand n'attend pas la traduction, il
+  // voit son message tout de suite. Client admin car la session utilisateur n'est
+  // pas garantie après la réponse — translateTemplateRow borne tout par user_id.
+  const createdId = created.id as string
+  const userId = user.id
+  const alsoSubmit = body.submit === true && submitted?.ok === true
+  after(async () => {
+    try {
+      const admin = createAdminClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!
+      )
+      const { created: newIds } = await translateTemplateRow(admin, userId, createdId)
+      // Le FR vient d'être soumis → les traductions doivent l'être aussi, sinon
+      // le marchand se retrouve avec un EN en brouillon éternel : le parcours
+      // resterait inactivable pour ses clients anglophones sans qu'il comprenne.
+      if (alsoSubmit && newIds.length > 0) {
+        const res = await Promise.allSettled(newIds.map((id) => submitTemplateRow(admin, userId, id)))
+        const ko = res.filter((r) => r.status === 'rejected').length
+        console.log(`[from-suggestion] traductions soumises : ${newIds.length - ko}/${newIds.length}`)
+      }
+    } catch (e) {
+      // Best-effort : le modèle FR existe et fonctionne. Une traduction ratée ne
+      // doit pas faire échouer la création.
+      console.error('[from-suggestion] traduction:', e)
+    }
+  })
 
   return NextResponse.json({ template: created, submitted })
 }

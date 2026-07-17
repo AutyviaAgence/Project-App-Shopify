@@ -69,10 +69,21 @@ export const TRIGGER_EVENTS: { value: TriggerEvent; label: string; description: 
  *
  *  Les deux ensembles sont DISJOINTS : un déclencheur n'appartient qu'à un
  *  onglet, sinon on le propose là où il n'a rien à faire. */
+// ⚠️ `button_clicked` N'EST PLUS PROPOSÉ, volontairement.
+//
+// Il est devenu redondant : un message à boutons ouvre déjà ses propres branches
+// dans le builder (`button:<libellé>`), et le webhook leur donne la PRIORITÉ sur
+// les automatisations button_clicked. Brancher la suite dans le parcours est
+// meilleur — on garde le contexte (quel message, quel client, quelle étape),
+// alors qu'un déclencheur global réagit à n'importe quel clic, hors contexte.
+//
+// Il reste dans TriggerEvent et dans le moteur : les automatisations existantes
+// qui l'utilisent continuent de fonctionner. On cesse juste d'en proposer de
+// nouvelles.
 const MARKETING_TRIGGERS = new Set<TriggerEvent>([
   'scheduled_date', 'customer_birthday',
   'contact_opted_in', 'optin_popup',
-  'button_clicked', 'message_read', 'no_customer_reply',
+  'message_read', 'no_customer_reply',
   'checkout_abandoned',
 ])
 // ⚠️ `checkout_abandoned` N'EST PAS ICI, volontairement.

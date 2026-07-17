@@ -49,7 +49,21 @@ async function resolveLanguageVariant(
   if (approved.length === 0) return null
 
   // Ordre de préférence des langues, dédupliqué, sans valeurs vides.
-  const prefs = [contactLang, base.source_language, 'fr', base.language]
+  //
+  // ⚠️ LE REPLI EST L'ANGLAIS, PAS LE FRANÇAIS.
+  //
+  // Les modèles n'existent qu'en fr et en. Un client ALLEMAND ou ESPAGNOL a bien
+  // un `preferred_language` ('de', 'es'), mais aucune variante ne correspond : la
+  // cascade retombait alors sur `source_language` — le français — et il recevait
+  // un message qu'il ne comprend pas.
+  //
+  // Règle produit : francophone → français, TOUT LE RESTE → anglais. L'anglais
+  // passe donc AVANT la langue source et avant 'fr'. Un francophone n'est pas
+  // affecté : 'fr' est déjà en tête via contactLang.
+  //
+  // 'fr' et base.language restent en dernier recours — si l'anglais n'a pas été
+  // approuvé par Meta, mieux vaut envoyer du français que rien du tout.
+  const prefs = [contactLang, 'en', base.source_language, 'fr', base.language]
     .filter((l): l is string => !!l)
   const seen = new Set<string>()
   for (const lang of prefs) {

@@ -57,7 +57,6 @@ const OPENING_LABELS: Partial<Record<TriggerEvent, string>> = {
   scheduled_date: 'Envoyer une promo à une date',
   customer_birthday: 'Souhaiter un anniversaire',
   no_customer_reply: 'Réactiver un client inactif',
-  button_clicked: 'Réagir à un clic sur un bouton',
   message_read: 'Relancer après lecture',
   order_created: 'Confirmer une commande',
   order_paid: 'Confirmer un paiement',
@@ -353,7 +352,10 @@ Correspondances évidentes — applique-les sans poser de question :
  - « client inactif », « qui n'achète plus », « qui ne répond plus », « réveiller », « réactiver »
    → no_customer_reply (⚠️ SURTOUT PAS contact_opted_in : un client inactif n'est pas
      quelqu'un qui vient de s'abonner — ce serait un contresens)
- - « clique sur un bouton » → button_clicked
+ - « clique sur un bouton » → PAS un déclencheur : mets le message à boutons dans
+   le parcours et branche ses sorties (branch:"button:<libellé>"). C'est mieux —
+   on garde le contexte (quel message, quelle étape), là où un déclencheur global
+   réagirait à n'importe quel clic.
  - « a lu le message » → message_read
 
 Ne demande le déclencheur QUE si l'objectif reste réellement ambigu après lecture.

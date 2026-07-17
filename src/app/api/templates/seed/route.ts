@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { after } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { DEFAULT_TEMPLATES } from '@/lib/whatsapp-cloud/default-templates'
+import { translateTemplateRow } from '@/lib/templates/translate'
 import { canCreateContent } from '@/lib/plans/gate'
 
 /**
@@ -54,8 +57,40 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ data: { created: 0 } })
   }
 
-  const { error } = await supabase.from('whatsapp_templates').insert(toInsert)
+  const { data: inserted, error } = await supabase
+    .from('whatsapp_templates').insert(toInsert).select('id')
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // ⚠️ TRADUCTION AUTOMATIQUE — les 11 modèles par défaut sont écrits en FRANÇAIS.
+  //
+  // Le dispatch choisit la variante selon la langue du contact : sans version
+  // anglaise, un client anglophone reçoit du français. Un marchand qui clique
+  // « Modèles par défaut » se retrouvait avec un catalogue 100 % FR sans l'avoir
+  // choisi — et sans savoir qu'il devait traduire.
+  //
+  // On réutilise la traduction auto (comme l'onboarding) plutôt que d'écrire 11
+  // versions anglaises à la main : elles divergeraient au premier changement de
+  // formulation, et il faudrait les maintenir en double.
+  //
+  // En tâche post-réponse : le marchand voit ses modèles tout de suite. Best
+  // effort — une traduction ratée ne doit pas faire échouer le seed.
+  const ids = (inserted || []).map((r) => r.id as string)
+  const userId = user.id
+  if (ids.length > 0) {
+    after(async () => {
+      try {
+        const admin = createAdminClient(
+          process.env.NEXT_PUBLIC_SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!
+        )
+        const res = await Promise.allSettled(ids.map((id) => translateTemplateRow(admin, userId, id)))
+        const ko = res.filter((r) => r.status === 'rejected').length
+        console.log(`[seed] traductions : ${ids.length - ko}/${ids.length} ok`)
+      } catch (e) {
+        console.error('[seed] traduction:', e)
+      }
+    })
+  }
 
   return NextResponse.json({ data: { created: toInsert.length } })
 }

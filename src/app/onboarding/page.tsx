@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { SHOPIFY_APP_STORE_URL } from '@/lib/shopify/app-store'
+import { triggersForKind } from '@/lib/automations/types'
 import { Button } from '@/components/ui/button'
 import {
   Loader2, Sparkles, Check, ArrowLeft, ArrowRight, Store, MessageSquare,
@@ -527,12 +528,24 @@ export default function OnboardingPage() {
     )
   }
 
-  const groups: Record<string, string[]> = {
-    Commande: ['order_created', 'order_paid', 'order_fulfilled', 'order_delivered', 'order_cancelled', 'refund_created', 'return_requested'],
-    Contact: ['contact_opted_in', 'optin_popup'],
-    Conversation: ['button_clicked', 'message_read', 'no_customer_reply'],
-    Planifié: ['scheduled_date', 'customer_birthday', 'checkout_abandoned'],
-  }
+  // ⚠️ Les déclencheurs viennent de `triggersForKind`, pas d'une liste écrite ici.
+  //
+  // Cette liste était figée : elle proposait encore `button_clicked` après son
+  // retrait (devenu redondant — un message à boutons branche déjà ses sorties
+  // dans le parcours). Toute liste dupliquée finit par mentir ; on filtre donc
+  // sur la source de vérité.
+  const offered = new Set<string>([
+    ...triggersForKind('marketing').map((e) => e.value as string),
+    ...triggersForKind('transactional').map((e) => e.value as string),
+  ])
+  const groups: Record<string, string[]> = Object.fromEntries(
+    Object.entries({
+      Commande: ['order_created', 'order_paid', 'order_fulfilled', 'order_delivered', 'order_cancelled', 'refund_created', 'return_requested'],
+      Contact: ['contact_opted_in', 'optin_popup'],
+      Conversation: ['message_read', 'no_customer_reply'],
+      Planifié: ['scheduled_date', 'customer_birthday', 'checkout_abandoned'],
+    }).map(([k, v]) => [k, v.filter((t) => offered.has(t))])
+  )
   // Les 4 familles rangées sous les 2 onglets réels de l'app : Transactionnel
   // (statuts de commande) vs Campagnes marketing (le reste). Le panier abandonné
   // (relance) est une campagne → dans « Planifié ». Aligne l'onboarding sur la
