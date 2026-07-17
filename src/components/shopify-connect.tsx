@@ -297,8 +297,12 @@ export function ShopifyConnect() {
   }
 
   // Pas connecté
+  //
+  // `h-full flex-col` : même hauteur que la carte WhatsApp voisine (alignées sur
+  // la plus grande dans la grille). Le bloc bouton+légende plus bas porte
+  // `mt-auto` pour que les deux boutons tombent sur la même ligne.
   return (
-    <div className="rounded-xl border p-5 space-y-4">
+    <div className="flex h-full flex-col rounded-xl border p-5 space-y-4">
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
           <Store className="h-5 w-5 text-muted-foreground" />
@@ -352,18 +356,21 @@ export function ShopifyConnect() {
         identifie la boutique et nous la renvoie via OAuth. Ne jamais
         réintroduire de saisie manuelle ici — c'est un motif de rejet.
       */}
-      <a
-        href={SHOPIFY_APP_STORE_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
-      >
-        <Store className="h-4 w-4" />
-        Installer depuis le Shopify App Store
-      </a>
-      <p className="text-[11px] text-muted-foreground">
-        Shopify vous demandera d’autoriser l’accès, puis vous ramènera ici. Cette page se mettra à jour automatiquement.
-      </p>
+      {/* `mt-auto` colle le bouton au bas → aligné avec celui de la carte WhatsApp. */}
+      <div className="mt-auto space-y-2">
+        <a
+          href={SHOPIFY_APP_STORE_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex h-9 w-full items-center justify-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-opacity hover:opacity-90"
+        >
+          <Store className="h-4 w-4" />
+          Installer depuis le Shopify App Store
+        </a>
+        <p className="text-[11px] text-muted-foreground">
+          Shopify vous demandera d’autoriser l’accès, puis vous ramènera ici. Cette page se mettra à jour automatiquement.
+        </p>
+      </div>
     </div>
   )
 }

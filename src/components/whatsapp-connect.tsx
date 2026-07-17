@@ -416,8 +416,13 @@ export function WhatsAppConnect() {
   }
 
   // Pas connecté
+  //
+  // `h-full` : la carte remplit sa cellule de grille (les deux cartes de
+  // connexion partagent la même hauteur, alignées sur la plus grande). `flex-col`
+  // + `mt-auto` sur le bloc d'action pousse le bouton en bas, pour que les deux
+  // boutons soient à la même ligne même si un texte au-dessus est plus long.
   return (
-    <div className="rounded-xl border p-5 space-y-4">
+    <div className="flex h-full flex-col rounded-xl border p-5 space-y-4">
       <div className="flex items-center gap-3">
         <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
           <Smartphone className="h-5 w-5 text-muted-foreground" />
@@ -428,9 +433,11 @@ export function WhatsAppConnect() {
         </div>
       </div>
 
-      {/* Chemin principal : popup Meta (aucun identifiant à copier). */}
+      {/* Chemin principal : popup Meta (aucun identifiant à copier).
+          `mt-auto` colle ce bloc au bas de la carte → bouton aligné avec celui
+          de la carte Shopify. */}
       {embeddedSignupAvailable && !showForm && (
-        <div className="space-y-2">
+        <div className="mt-auto space-y-2">
           <WhatsAppEmbeddedSignup onConnected={fetchSession} />
           <p className="text-[11px] text-muted-foreground">
             Vous serez redirigé vers Facebook pour choisir votre compte WhatsApp Business. Aucun identifiant à copier.
