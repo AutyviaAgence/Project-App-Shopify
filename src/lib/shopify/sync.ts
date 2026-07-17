@@ -518,29 +518,79 @@ export async function autoConfigureAgentFromShop(storeId: string): Promise<AutoC
   // 1. Créer l'agent
   const systemPrompt = `Tu es l'assistant de la boutique en ligne "${shopName}". Tu réponds aux clients sur WhatsApp de façon claire, chaleureuse et professionnelle. Tu aides sur les produits, les commandes, le suivi de livraison, le SAV et les retours. Base-toi TOUJOURS sur la base de connaissances (catalogue, pages et politiques de la boutique) pour répondre. Si tu n'as pas l'information, propose de transférer à un conseiller. Ne donne jamais d'information inventée.`
 
-  const { data: agent } = await supabase
+  // ⚠️ RÉUTILISER L'AGENT DE CETTE BOUTIQUE, NE PAS EN RECRÉER UN.
+  //
+  // C'était un `.insert()` nu : chaque passage dans l'onboarding (reconnexion,
+  // resynchro, réinstallation) créait un agent de PLUS. Constaté en production :
+  // 6 « Assistant Xeyo - Dev » identiques pour une seule boutique, 16 agents au
+  // total. Le marchand ne sait plus lequel il édite — et celui qu'il règle n'est
+  // pas forcément celui qui répond.
+  //
+  // Pire, le webhook a un fallback « premier agent actif par date » quand aucun
+  // n'est is_default : sur un compte sans défaut, un client Shopify se serait vu
+  // répondre par un vieil agent sans rapport (ici « Support client Tiktok »).
+  //
+  // On borne par (user_id + description) : la description porte le domaine de la
+  // boutique, donc un marchand multi-boutiques garde un agent par boutique.
+  const agentDescription = `Agent SAV e-commerce auto-configuré depuis ${shop}`
+  const agentFields = {
+    name: `Assistant ${shopName}`,
+    description: agentDescription,
+    system_prompt: systemPrompt,
+    objective: 'Répondre aux clients (produits, commandes, SAV, retours) à partir des données de la boutique',
+    model: 'gpt-4o',
+    temperature: 0.7,
+    agent_type: 'conversation',
+    response_delay_min: 2,
+    response_delay_max: 8,
+    auto_detect_language: true,
+    escalation_enabled: true,
+    escalation_mode: 'both',
+    escalation_keywords: ['humain', 'conseiller', 'parler à quelqu\'un'],
+    is_active: true,
+  }
+
+  const { data: existing } = await supabase
     .from('ai_agents')
-    .insert({
-      user_id: store.user_id,
-      name: `Assistant ${shopName}`,
-      description: `Agent SAV e-commerce auto-configuré depuis ${shop}`,
-      system_prompt: systemPrompt,
-      objective: 'Répondre aux clients (produits, commandes, SAV, retours) à partir des données de la boutique',
-      model: 'gpt-4o',
-      temperature: 0.7,
-      agent_type: 'conversation',
-      response_delay_min: 2,
-      response_delay_max: 8,
-      auto_detect_language: true,
-      escalation_enabled: true,
-      escalation_mode: 'both',
-      escalation_keywords: ['humain', 'conseiller', 'parler à quelqu\'un'],
-      is_active: true,
-    })
-    .select()
-    .single()
+    .select('id')
+    .eq('user_id', store.user_id)
+    .eq('description', agentDescription)
+    .order('created_at', { ascending: true })
+    .limit(1)
+
+  let agent: { id: string } | null = existing?.[0] ?? null
+
+  if (agent) {
+    // Resynchro : on rafraîchit le prompt (le nom de la boutique a pu changer)
+    // sans toucher aux réglages que le marchand a pu personnaliser depuis.
+    await supabase
+      .from('ai_agents')
+      .update({ name: agentFields.name, system_prompt: systemPrompt, is_active: true })
+      .eq('id', agent.id)
+  } else {
+    const { data: created } = await supabase
+      .from('ai_agents')
+      .insert({ user_id: store.user_id, ...agentFields })
+      .select('id')
+      .single()
+    agent = created ?? null
+  }
 
   if (!agent) return { ok: false, error: 'Échec création agent' }
+
+  // L'agent de la boutique doit être CELUI QUI RÉPOND. Sans is_default, le
+  // webhook retombe sur « le plus ancien agent actif » — n'importe lequel. On ne
+  // l'impose que si le marchand n'a pas déjà choisi un défaut : c'est son choix,
+  // pas le nôtre.
+  const { data: hasDefault } = await supabase
+    .from('ai_agents')
+    .select('id')
+    .eq('user_id', store.user_id)
+    .eq('is_default', true)
+    .limit(1)
+  if (!hasDefault || hasDefault.length === 0) {
+    await supabase.from('ai_agents').update({ is_default: true }).eq('id', agent.id)
+  }
 
   // 2. Pull + ingestion (catalogue, pages, politiques) via upsertDoc (création
   // ici, mais on persiste les doc-ids/hashes/summary pour les resync futurs).
