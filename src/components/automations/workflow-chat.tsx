@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Sparkles, Loader2, Send, ArrowLeft, FileText, Check, AlertTriangle } from 'lucide-react'
 import type { WorkflowGraph } from '@/lib/automations/graph-types'
+import { cn } from '@/lib/utils'
 
 /**
  * Assistant IA de création de workflow (funnel), calqué sur l'assistant des
@@ -384,14 +385,28 @@ export function WorkflowChat({ kind, onComplete, onCancel }: {
             if (total === 0) return null
             const done = Object.values(created).filter((c) => c.id).length
             const rest = total - done
+
+            // ⚠️ MESSAGES CRÉÉS = INFO, PAS ALERTE.
+            //
+            // Tout était en ambre avec un ⚠️ : le marchand lisait « il y a un
+            // problème » alors que tout s'est bien passé — ses messages sont
+            // écrits, rattachés, et le parcours part se construire. La seule vraie
+            // alerte, c'est un message qui MANQUE encore.
+            const onlyGood = done > 0 && rest === 0
             return (
-              <p className="flex items-start gap-1 text-[11px] text-amber-600">
-                <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+              <p className={cn(
+                'flex items-start gap-1 text-[11px]',
+                onlyGood ? 'text-muted-foreground' : 'text-amber-600'
+              )}>
+                {onlyGood
+                  ? <Check className="mt-0.5 h-3 w-3 shrink-0 text-emerald-500" />
+                  : <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />}
                 {done > 0 && (
                   <span>
-                    {done} message{done > 1 ? 's' : ''} créé{done > 1 ? 's' : ''} seront rattachés au parcours.{' '}
+                    {done} message{done > 1 ? 's' : ''} créé{done > 1 ? 's' : ''} en brouillon,
+                    rattaché{done > 1 ? 's' : ''} automatiquement au parcours.{' '}
                     {rest > 0 ? `Il en reste ${rest} à écrire. ` : ''}
-                    Le parcours ne pourra être activé qu’une fois tous les messages approuvés par Meta.
+                    Vous pourrez tout relire dans l’éditeur ; l’approbation Meta ne sera nécessaire que pour l’activer.
                   </span>
                 )}
                 {done === 0 && (

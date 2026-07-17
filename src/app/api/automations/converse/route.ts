@@ -238,12 +238,30 @@ export async function POST(req: NextRequest) {
   //
   // `use_case` est indispensable : sans lui, l'IA ne voit qu'un nom et un bout de
   // texte, et place un modèle de bienvenue sur « Commande payée » (constaté).
+  //
+  // ⚠️⚠️ LE `limit(60)` SANS `ORDER BY` A ÉTÉ LA CAUSE RACINE D'UNE SÉRIE DE BUGS.
+  //
+  // Ce marchand a 118 modèles (traductions comprises : chaque modèle compte
+  // double). La requête en prenait 60, dans un ordre NON DÉFINI — Postgres n'a
+  // aucune obligation de rendre les plus récents. Ses modèles fraîchement créés
+  // tombaient donc HORS de la fenêtre. Conséquences en cascade, toutes constatées :
+  //   - le catalogue ne les montrait pas → l'IA les redemandait indéfiniment ;
+  //   - `templates.find(...)` échouait dans TOUS les garde-fous en aval (branche
+  //     morte, doublon, modèle sans bouton) : ils se croyaient satisfaits et
+  //     laissaient passer un parcours faux, en silence ;
+  //   - une branche sur un bouton lien survivait → un nœud vide de plus dans le
+  //     parcours (« 4 messages » pour 3 demandés).
+  //
+  // On trie donc du plus récent au plus ancien (ce qu'on vient de créer passe
+  // toujours), et on remonte la limite : 60 lignes = ~30 modèles réels une fois
+  // les traductions dédupliquées, c'est peu pour un catalogue mûr.
   const { data: tpls } = await supabase
     .from('whatsapp_templates')
     .select('id, name, language, body_text, buttons, status, category, use_case')
     .eq('user_id', user.id)
     .in('status', ['approved', 'pending', 'draft'])
-    .limit(60)
+    .order('created_at', { ascending: false })
+    .limit(200)
   const templates = (tpls || []) as {
     id: string; name: string; language: string; body_text: string | null
     buttons: unknown; category: string | null; status: string; use_case: string | null
