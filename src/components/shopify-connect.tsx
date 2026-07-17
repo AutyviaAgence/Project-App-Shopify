@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import Image from 'next/image'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import {
@@ -304,8 +305,8 @@ export function ShopifyConnect() {
   return (
     <div className="flex h-full flex-col rounded-xl border p-5 space-y-4">
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-muted">
-          <Store className="h-5 w-5 text-muted-foreground" />
+        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white ring-1 ring-black/5">
+          <Image src="/brand/shopify-logo.png" alt="Shopify" width={26} height={26} className="h-[26px] w-[26px]" />
         </div>
         <div>
           <p className="font-medium">Connectez votre boutique Shopify</p>

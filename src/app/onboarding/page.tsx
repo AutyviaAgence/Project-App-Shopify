@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -643,9 +644,22 @@ export default function OnboardingPage() {
                 initial={{ scale: 0.4, rotate: -12, opacity: 0 }}
                 animate={{ scale: 1, rotate: 0, opacity: 1 }}
                 transition={{ type: 'spring', stiffness: 320, damping: 18 }}
-                className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-primary/20 bg-primary/15 text-primary shadow-[0_0_20px_-4px] shadow-primary/40"
+                className={cn(
+                  'flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border shadow-[0_0_20px_-4px]',
+                  // Étapes de marque : logo réel sur fond blanc (les logos ont
+                  // leurs propres couleurs, un fond teinté les dénaturerait).
+                  step === 'shopify' || step === 'whatsapp'
+                    ? 'border-black/5 bg-white shadow-primary/20'
+                    : 'border-primary/20 bg-primary/15 text-primary shadow-primary/40',
+                )}
               >
-                <Icon className="h-5 w-5" />
+                {step === 'shopify' ? (
+                  <Image src="/brand/shopify-logo.png" alt="Shopify" width={24} height={24} className="h-6 w-6" />
+                ) : step === 'whatsapp' ? (
+                  <Image src="/brand/whatsapp-logo.webp" alt="WhatsApp" width={26} height={26} className="h-[26px] w-[26px]" />
+                ) : (
+                  <Icon className="h-5 w-5" />
+                )}
               </motion.span>
               {STEP_META[step].title}
             </h1>

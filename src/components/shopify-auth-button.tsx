@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { SHOPIFY_APP_STORE_URL } from '@/lib/shopify/app-store'
 
 /**
@@ -30,13 +31,10 @@ export function ShopifyAuthButton({
   const base =
     'inline-flex h-9 w-full items-center justify-center gap-2 rounded-md border px-4 text-sm font-medium transition-colors'
 
+  // Logo Shopify officiel (l'ancien SVG inline était un tracé tronqué, il
+  // s'affichait cassé). Fichier dans public/brand.
   const icon = (
-    <svg className="h-4 w-4" viewBox="0 0 24 24" aria-hidden="true">
-      <path
-        d="M15.34 3.5c-.1-.01-.2.02-.29.08-.04.03-.5.35-1.02.72-.53-1.53-1.47-2.93-3.12-2.93h-.15C10.3.72 9.7.4 9.16.4 5.03.4 3.06 5.56 2.44 8.19c-1.6.5-2.74.85-2.89.9-.9.28-.92.31-1.04 1.15L-3 22.7l13.1 2.45L21.9 22.6S15.47 3.66 15.34 3.5z"
-        fill="#95BF47"
-      />
-    </svg>
+    <Image src="/brand/shopify-logo.png" alt="" width={18} height={18} className="h-[18px] w-[18px]" aria-hidden="true" />
   )
 
   if (disabled) {
