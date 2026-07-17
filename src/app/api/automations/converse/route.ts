@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { logAiUsage } from '@/lib/openai/usage-log'
 import { canUseAiOrOnboarding } from '@/lib/plans/gate'
 import { GRAPH_JSON_SCHEMA_DOC, validateGraph, buttonBranch, BUTTON_TIMEOUT_BRANCH, type WorkflowGraph } from '@/lib/automations/graph-types'
-import { TRIGGER_EVENTS, triggersForKind } from '@/lib/automations/types'
+import { TRIGGER_EVENTS, triggersForKind, type TriggerEvent } from '@/lib/automations/types'
 
 /**
  * POST /api/automations/converse
@@ -35,6 +35,41 @@ type Msg = { role: 'user' | 'assistant'; content: string }
  * redemande ce qu'il vient de demander. Seul le code peut y mettre fin.
  */
 const MAX_QUESTIONS = 4
+
+/**
+ * Réponses rapides de la question d'ouverture : TOUS les déclencheurs de la
+ * famille, formulés comme des OBJECTIFS.
+ *
+ * Deux raisons de ne pas les écrire en dur :
+ *  - on n'en proposait que 3 sur 8 (marketing) ou 3 sur 7 (transactionnel) : le
+ *    marchand ne voyait pas ce que l'outil sait faire, et devait le deviner ;
+ *  - une liste figée diverge de `triggersForKind` au premier déclencheur ajouté.
+ *
+ * Les libellés bruts sont techniques (« Opt-in reçu », « Pas de réponse
+ * client ») : on les reformule en intention (« Accueillir un nouvel abonné »,
+ * « Réactiver un client inactif »). Un déclencheur non listé ici retombe sur son
+ * libellé — jamais absent, quitte à être moins joli.
+ */
+const OPENING_LABELS: Partial<Record<TriggerEvent, string>> = {
+  checkout_abandoned: 'Relancer les paniers abandonnés',
+  contact_opted_in: 'Accueillir un nouvel abonné',
+  optin_popup: 'Accueillir un abonné du site',
+  scheduled_date: 'Envoyer une promo à une date',
+  customer_birthday: 'Souhaiter un anniversaire',
+  no_customer_reply: 'Réactiver un client inactif',
+  button_clicked: 'Réagir à un clic sur un bouton',
+  message_read: 'Relancer après lecture',
+  order_created: 'Confirmer une commande',
+  order_paid: 'Confirmer un paiement',
+  order_fulfilled: 'Prévenir de l’expédition',
+  order_delivered: 'Message à la livraison',
+  order_cancelled: 'Prévenir d’une annulation',
+  refund_created: 'Confirmer un remboursement',
+  return_requested: 'Accompagner un retour',
+}
+function openingOptions(kind: 'marketing' | 'transactional'): string[] {
+  return triggersForKind(kind).map((e) => OPENING_LABELS[e.value] || e.label)
+}
 
 /**
  * Comment construire un funnel de VENTE — doctrine fondée sur la mécanique Meta.
@@ -414,12 +449,9 @@ Réponds UNIQUEMENT en JSON :
               "missingTemplates":[{"purpose":"à quoi il sert","suggestion":"contenu suggéré"}] }
 - Manque   : { "mode":"need_templates", "message":"...", "missingTemplates":[{"purpose":"...","suggestion":"..."}] }
 ⚠️ TOUT PREMIER MESSAGE (le marchand n'a encore RIEN dit) : demande-lui son
-objectif, avec des options concrètes tirées des déclencheurs ci-dessus. Ne
-recommande RIEN à ce stade — tu ne sais pas encore ce qu'il veut faire.
+objectif. Ne recommande RIEN à ce stade — tu ne sais pas encore ce qu'il veut.
   question: « Que souhaitez-vous mettre en place ? »
-  options: ${kind === 'marketing'
-    ? '["Relancer les paniers abandonnés", "Accueillir un nouvel abonné", "Envoyer une promo"]'
-    : '["Confirmer une commande payée", "Prévenir de l\'expédition", "Message à la livraison"]'}`
+  options: ${JSON.stringify(openingOptions(kind))}`
 
   // ⚠️ PLAFOND DUR. Passé 4 questions, on n'en pose plus : on EXIGE le parcours.
   //
@@ -519,7 +551,16 @@ recommande RIEN à ce stade — tu ne sais pas encore ce qu'il veut faire.
         return s
       })
       .filter((o): o is string => !!o)
-      .slice(0, 4)
+      // ⚠️ La QUESTION D'OUVERTURE montre TOUT ce que l'outil sait faire.
+      //
+      // Le plafond de 4 valait pour toutes les questions. À l'ouverture, il
+      // cachait 4 déclencheurs sur 8 : le marchand ne voyait pas la moitié des
+      // parcours possibles, et devait deviner qu'ils existaient.
+      //
+      // Les questions SUIVANTES gardent le plafond : une recommandation à
+      // valider (« ça vous va ? ») avec 8 réponses rapides serait illisible —
+      // là, 3 ou 4 options suffisent.
+      .slice(0, asked === 0 ? 10 : 4)
     return NextResponse.json({
       mode: 'ask',
       question: decision.question || 'Quel parcours souhaitez-vous créer ?',
