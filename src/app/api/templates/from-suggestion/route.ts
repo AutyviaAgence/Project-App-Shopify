@@ -145,7 +145,27 @@ export async function POST(req: NextRequest) {
       variable_keys: best.variable_keys || [],
       buttons: best.buttons || [],
       template_type: best.template_type || 'standard',
-      ...(best.template_type === 'carousel' ? { carousel_cards: best.cards || [] } : {}),
+      // ⚠️ LES CARTES DU GÉNÉRATEUR N'ONT PAS LA FORME D'UNE CARTE STOCKÉE.
+      //
+      // `generateTemplates` renvoie { title, body, image_url, url } ; la base et
+      // Meta attendent { header_type, header_media_url, body_text, buttons }. On
+      // insérait la forme brute : l'aperçu affichait des cartes VIDES (« Carte 1 »,
+      // « Carte 2 », sans image), et la soumission Meta aurait été refusée
+      // (« La carte 1 doit avoir une image ou vidéo »). Le carrousel était donc
+      // impossible à publier — sans que rien ne le dise.
+      ...(best.template_type === 'carousel'
+        ? {
+            carousel_cards: (best.cards || []).map((c) => ({
+              header_type: 'image' as const,
+              header_media_url: c.image_url,
+              // Le titre du produit ouvre le texte de la carte : c'est ce que le
+              // client lit en premier, et `title` n'existe pas côté Meta.
+              body_text: [c.title, c.body].filter(Boolean).join(' — ').slice(0, 160),
+              buttons: c.url ? [{ type: 'URL' as const, text: 'Voir le produit', url: c.url }] : [],
+              body_variable_keys: [],
+            })),
+          }
+        : {}),
       ...(best.template_type === 'limited_time_offer'
         ? { lto_title: best.lto_title, lto_default_hours: best.lto_hours }
         : {}),

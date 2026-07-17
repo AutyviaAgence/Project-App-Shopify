@@ -396,6 +396,21 @@ ARÊTES (edges) : { from, to, branch? }
      très bien.
    - Ne remplis « par défaut » QUE si tu veux vraiment envoyer quelque chose à
      TOUT LE MONDE — typiquement une relance 24 h plus tard.
+
+  ⚠️⚠️ SEUL UN BOUTON DE **RÉPONSE RAPIDE** PEUT PORTER UNE BRANCHE.
+  Un bouton **LIEN** (qui ouvre le site) n'envoie AUCUN signal quand on clique
+  dessus : WhatsApp ouvre le navigateur, et nous n'en saurons jamais rien. Une
+  arête branch:"button:<libellé d'un bouton lien>" ne partira JAMAIS. C'est du
+  parcours mort, invisible dans l'éditeur.
+  Le catalogue te dit pour chaque modèle « boutons: … » — ce sont les réponses
+  rapides, les SEULES branchables.
+
+  Donc, quand un message a 1 réponse rapide + 1 lien (cas courant : « Découvrir »
+  et « Visiter le site ») :
+    ✅ 1 arête branch:"button:Découvrir" → la suite de ce clic.
+       Le bouton lien n'a PAS d'arête : il fait déjà son travail, il ouvre le
+       site. Il n'a besoin de rien après lui.
+    ❌ une arête branch:"button:Visiter le site" → elle ne se déclenchera jamais.
 - les autres nœuds : une seule arête sortante, sans "branch".
 
 RÈGLES : exactement 1 trigger ; chaque action a un templateId ; une condition a

@@ -917,6 +917,57 @@ objectif. Ne recommande RIEN à ce stade — tu ne sais pas encore ce qu'il veut
   if (deduped > 0) {
     console.warn(`[automations/converse] ${deduped} modèle(s) en doublon retiré(s) du parcours`)
   }
+
+  // ⚠️ BRANCHE SUR UN BOUTON **LIEN** → ELLE NE PARTIRA JAMAIS.
+  //
+  // Meta n'envoie aucun webhook quand un client clique un bouton URL : WhatsApp
+  // ouvre le navigateur, et nous n'en savons rien. Seule une RÉPONSE RAPIDE nous
+  // revient. Une arête button:"Visiter le site" (bouton lien) est donc du parcours
+  // mort : le marchand voit une branche dans son éditeur, la croit active, et elle
+  // ne se déclenche pas une seule fois. Constaté sur « Découvrir » + « Visiter le
+  // site », où l'IA avait branché les deux.
+  //
+  // La doctrine le dit maintenant à l'IA — mais un prompt n'est jamais une
+  // garantie : on tranche ici sur la seule source de vérité, les boutons réels du
+  // modèle.
+  //
+  // ⚠️ AVANT le recousage des nœuds non reliés (juste en dessous) : couper une
+  // branche peut orpheliner le message qu'elle visait. Placé après, ce message
+  // serait perdu — invisible dans l'éditeur. Là, il est raccroché à la suite du
+  // parcours, et le marchand le voit.
+  let deadLinkBranches = 0
+  if (Array.isArray(graph.edges)) {
+    const nodeById2 = new Map(nodes.map((n) => [n.id, n]))
+    const normLbl = (s: string) => s.toLowerCase().replace(/[’ʼ]/g, "'").trim()
+    const qrLabels = (templateId: string | null | undefined): Set<string> => {
+      const t = templateId ? templates.find((x) => x.id === templateId) : null
+      const arr = Array.isArray(t?.buttons) ? (t!.buttons as { type?: string; text?: string }[]) : []
+      return new Set(
+        arr.filter((b) => b.type === 'QUICK_REPLY' && b.text).map((b) => normLbl(b.text!))
+      )
+    }
+    graph.edges = graph.edges.filter((e) => {
+      if (!e.branch?.startsWith('button:') || e.branch === BUTTON_TIMEOUT_BRANCH) return true
+      const src = nodeById2.get(e.from)
+      if (src?.type !== 'action') return true
+      const tplId = (src as { templateId?: string | null }).templateId
+      // Modèle pas encore choisi (brouillon à créer) : on ne peut rien affirmer,
+      // on laisse — le marchand rattachera son message et ses boutons suivront.
+      if (!tplId) return true
+      const labels = qrLabels(tplId)
+      // Modèle sans AUCUNE réponse rapide : c'est le garde-fou « modèle sans
+      // bouton » qui traite le cas, plus haut. Ne pas empiéter.
+      if (labels.size === 0) return true
+      if (labels.has(normLbl(e.branch.slice('button:'.length)))) return true
+      console.warn(`[automations/converse] branche "${e.branch}" ne correspond à aucune réponse rapide → retirée (bouton lien ou libellé inventé)`)
+      deadLinkBranches++
+      return false
+    })
+  }
+  if (deadLinkBranches > 0) {
+    console.warn(`[automations/converse] ${deadLinkBranches} branche(s) morte(s) retirée(s)`)
+  }
+
   // ⚠️ NŒUDS NON RELIÉS AU DÉCLENCHEUR → INVISIBLES ET JAMAIS ENVOYÉS.
   //
   // Constaté : « Souhaiter un anniversaire » produisait un parcours annoncé à

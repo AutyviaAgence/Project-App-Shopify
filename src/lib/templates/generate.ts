@@ -429,9 +429,48 @@ Omets buttons/cards/lto_* quand le format ne les utilise pas. Aucune autre clé,
       // « J’ai une question » (typographique) sont le MÊME bouton. Sans ça, on
       // ajoutait un doublon à côté de celui que le modèle avait déjà produit.
       const norm = (s: string) => s.toLowerCase().replace(/[’ʼ]/g, "'").trim()
+
+      // ⚠️ UN LIBELLÉ DEMANDÉ PEUT DÉJÀ EXISTER EN BOUTON **URL**.
+      //
+      // On ne regardait que les QUICK_REPLY. Sur « bouton "Découvrir" et bouton
+      // "Visiter le site" », le modèle produisait les deux en URL → `existing`
+      // était vide → les deux étaient jugés « manquants » → on les rajoutait en
+      // QUICK_REPLY. Le marchand se retrouvait avec QUATRE boutons : Découvrir,
+      // Visiter le site, Découvrir, Visiter le site. Constaté en production.
+      //
+      // Un bouton URL ne peut PAS porter une branche : Meta n'envoie aucun
+      // webhook quand on clique un lien (contrairement à une réponse rapide). Un
+      // libellé demandé qui n'existe qu'en URL doit donc être CONVERTI en réponse
+      // rapide — sauf s'il ne sert qu'à envoyer sur le site (cf. plus bas).
+      const urlByLabel = new Map(
+        buttons.filter((b) => b.type === 'URL').map((b) => [norm(b.text), b as Extract<GenButton, { type: 'URL' }>])
+      )
       const existing = new Set(
         buttons.filter((b) => b.type === 'QUICK_REPLY').map((b) => norm(b.text))
       )
+
+      // Un bouton dont le SEUL but est d'ouvrir le site reste un lien : le
+      // convertir en réponse rapide obligerait le client à cliquer, puis à
+      // attendre un second message pour recevoir l'URL. Le lien direct est
+      // meilleur pour lui — et la branche « par défaut » couvre la suite.
+      const isPureLink = (l: string) => /visiter|voir le site|notre site|boutique en ligne|voir les produits/i.test(l)
+      for (const l of requestedButtons) {
+        const u = urlByLabel.get(norm(l))
+        if (u && !isPureLink(l)) {
+          // Converti sur place : le libellé exact demandé est conservé, la
+          // branche devient cliquable, et l'URL n'est pas perdue — elle
+          // appartient au message suivant, celui qui suit le clic.
+          console.warn(`[templates/generate] bouton "${l}" en URL → converti en réponse rapide (branchable)`)
+          const i = buttons.indexOf(u)
+          buttons[i] = { type: 'QUICK_REPLY', text: u.text }
+          existing.add(norm(l))
+        } else if (u) {
+          // Lien assumé : il porte déjà le libellé demandé, on n'y touche pas et
+          // surtout on ne le duplique pas en réponse rapide.
+          existing.add(norm(l))
+        }
+      }
+
       const missingLabels = requestedButtons.filter((l) => !existing.has(norm(l)))
       if (missingLabels.length > 0) {
         console.warn(`[templates/generate] boutons exigés absents → ajoutés : ${missingLabels.join(', ')}`)
@@ -454,7 +493,68 @@ Omets buttons/cards/lto_* quand le format ne les utilise pas. Aucune autre clé,
           // Un compte à rebours EXIGE un COPY_CODE qu'on vient de retirer.
           if (type === 'limited_time_offer') type = 'standard'
         }
-        for (const label of missingLabels) buttons.push({ type: 'QUICK_REPLY', text: label })
+        // ⚠️ « Visiter le site » DOIT être un lien, pas une réponse rapide.
+        //
+        // On ajoutait tout en QUICK_REPLY. Un bouton « Visiter le site » qui ne
+        // visite rien : le client clique, il attend sa page, et il ne reçoit
+        // qu'un autre message WhatsApp. C'est exactement l'inverse de ce que le
+        // libellé promet — et le marchand demandait « l'autre bouton, un lien
+        // vers le site ».
+        //
+        // L'URL vient de la boutique RÉELLE (racine d'une url produit), jamais
+        // d'une invention : un lien inventé fait rejeter le modèle par Meta.
+        const storeRoot = (() => {
+          const first = usableProducts.find((p) => p.url)?.url
+          if (!first) return null
+          try { return new URL(first).origin } catch { return null }
+        })()
+        for (const label of missingLabels) {
+          if (isPureLink(label) && storeRoot) {
+            buttons.push({ type: 'URL', text: label, url: storeRoot })
+          } else {
+            buttons.push({ type: 'QUICK_REPLY', text: label })
+          }
+        }
+      }
+
+      // ⚠️ CE QUE LE MARCHAND A DEMANDÉ PASSE AVANT CE QUE LE MODÈLE A INVENTÉ.
+      //
+      // Meta plafonne à 3 réponses rapides et 10 boutons au total. Rien ne le
+      // vérifiait ici : on empilait les libellés exigés SUR ceux du modèle, et un
+      // message à 4 réponses rapides partait tel quel à Meta — refus au mieux,
+      // parcours branché sur un bouton fantôme au pire.
+      //
+      // On coupe donc dans les boutons INVENTÉS, jamais dans ceux demandés : le
+      // marchand a écrit noir sur blanc les libellés qu'il voulait, ce sont les
+      // seuls dont on est sûr. Ils portent aussi ses branches — en perdre un
+      // casserait le parcours en silence.
+      // On coupe donc dans les boutons INVENTÉS, jamais dans ceux demandés : le
+      // marchand a écrit noir sur blanc les libellés qu'il voulait, ce sont les
+      // seuls dont on est sûr. Ils portent aussi ses branches — en perdre un
+      // casserait le parcours en silence.
+      //
+      // ⚠️ Le plafond se compte sur le TOTAL, pas sur les seules réponses rapides.
+      // Première version : je ne comptais que les QR. En convertissant « Visiter
+      // le site » en lien, le compte retombait à 3 et la coupe s'arrêtait — le
+      // marchand gardait 4 boutons dont 2 qu'il n'avait jamais demandés, alors
+      // qu'il en avait demandé exactement 2. Le lien compte, lui aussi.
+      const wanted = new Set(requestedButtons.map(norm))
+      const isExtra = (b: GenButton) =>
+        (b.type === 'QUICK_REPLY' || b.type === 'URL') && !wanted.has(norm(b.text))
+      const cap = Math.max(3, requestedButtons.length)
+      for (let i = buttons.length - 1; i >= 0 && buttons.length > cap; i--) {
+        if (isExtra(buttons[i])) {
+          console.warn(`[templates/generate] plafond boutons → "${buttons[i].text}" retiré (non demandé)`)
+          buttons.splice(i, 1)
+        }
+      }
+      // Filet Meta : jamais plus de 3 réponses rapides, même si le marchand en a
+      // demandé 4. Meta refuserait le modèle — autant couper ici, proprement.
+      for (let i = buttons.length - 1; i >= 0 && buttons.filter((b) => b.type === 'QUICK_REPLY').length > 3; i--) {
+        if (buttons[i].type === 'QUICK_REPLY') {
+          console.warn(`[templates/generate] > 3 réponses rapides (limite Meta) → "${buttons[i].text}" retiré`)
+          buttons.splice(i, 1)
+        }
       }
     }
 
