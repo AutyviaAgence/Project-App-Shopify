@@ -48,6 +48,8 @@ type Message = {
   role: 'user' | 'assistant'
   content: string
   media?: MediaRef[]
+  /** Boutons de réponse rapide ([BTN:…]) — ce que le client verra sous le message. */
+  buttons?: string[]
   toolExecutions?: ToolExecution[]
   event?: ChatEvent
   rag?: RagInfo | null
@@ -128,6 +130,7 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
             role: 'assistant',
             content: data.response,
             media: data.media,
+            buttons: data.buttons,
             toolExecutions: data.toolExecutions,
             rag: data.rag || null,
           }])
@@ -315,14 +318,26 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
                       <div className="space-y-2">
                         {msg.media.map((m) => {
                           if (m.kind === 'image') {
+                            // Produit d'un carrousel : le client reçoit la photo AVEC
+                            // sa légende (nom + prix). Sans elle, le marchand voyait
+                            // une photo nue et croyait le prix perdu.
+                            const isProduct = m.ref.startsWith('product:')
                             return (
                               <a key={m.ref} href={m.url} target="_blank" rel="noreferrer" className="block">
                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img
                                   src={m.url}
                                   alt={m.filename || m.ref}
-                                  className="max-w-[260px] rounded-xl border object-cover shadow-sm hover:opacity-90 transition-opacity"
+                                  className={cn(
+                                    'max-w-[260px] border object-cover shadow-sm transition-opacity hover:opacity-90',
+                                    isProduct ? 'rounded-t-xl' : 'rounded-xl'
+                                  )}
                                 />
+                                {isProduct && m.filename && (
+                                  <p className="max-w-[260px] rounded-b-xl border border-t-0 bg-muted/30 px-2.5 py-1.5 text-[11px] font-medium">
+                                    {m.filename}
+                                  </p>
+                                )}
                               </a>
                             )
                           }
@@ -354,6 +369,20 @@ export function AgentTestChat({ open, onOpenChange, agentId, agentName }: AgentT
                             </a>
                           )
                         })}
+                      </div>
+                    )}
+
+                    {/* Boutons de réponse rapide : le client les voit sous le
+                        message et clique. Les afficher ici, c'est tester ce qu'il
+                        recevra — avant, la balise [BTN:…] n'existait pas dans ce
+                        chemin et le marchand ne pouvait pas les voir. */}
+                    {msg.buttons && msg.buttons.length > 0 && (
+                      <div className="flex max-w-[260px] flex-col gap-1">
+                        {msg.buttons.map((b, bi) => (
+                          <div key={bi} className="rounded-lg border bg-background px-3 py-1.5 text-center text-xs font-medium text-[#1ca5e0]">
+                            {b}
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>

@@ -7,6 +7,7 @@ import { logAiUsage } from '@/lib/openai/usage-log'
 import { retrieveContext } from '@/lib/knowledge/retriever'
 import { getAgentTools, buildOpenAITools, executeToolCall } from '@/lib/tools/executor'
 import { canUseAi } from '@/lib/plans/gate'
+import { buildCatalogPrompt, markdownToWhatsApp, BUTTONS_AND_CAROUSEL_SKILL } from '@/lib/openai/agent-skills'
 
 type TestMedia = {
   ref: string
@@ -26,11 +27,65 @@ type TestMedia = {
  *
  * Même expression que la production (process-ai-response.ts:652).
  */
-async function resolveMediaTags(text: string, userId: string): Promise<{ cleanText: string; media: TestMedia[] }> {
+async function resolveMediaTags(text: string, userId: string): Promise<{ cleanText: string; media: TestMedia[]; buttons: string[] }> {
   const tagRegex = /\[(IMAGE|VIDEO|DOC):([a-z0-9_-]+)\]/gi
   const refs = [...text.matchAll(tagRegex)].map(m => m[2])
-  const cleanText = text.replace(tagRegex, '').replace(/\n{3,}/g, '\n\n').trim()
-  if (refs.length === 0) return { cleanText, media: [] }
+
+  // ⚠️ LES BALISES NON RÉSOLUES ICI S'AFFICHAIENT EN CLAIR.
+  //
+  // Le testeur ne connaissait que IMAGE/VIDEO/DOC. Maintenant que l'agent peut
+  // répondre [CAROUSEL:…], [BTN:…] et [LINK:…] (comme en production), il faut les
+  // traiter — sinon le marchand lit « [CAROUSEL:the-minimal-snowboard] » dans sa
+  // fenêtre de test et croit que l'agent délire.
+  const btnMatch = text.match(/\[BTN:([^\]]+)\]/i)
+  const buttons = btnMatch ? btnMatch[1].split('|').map(t => t.trim()).filter(Boolean).slice(0, 3) : []
+  const carouselMatch = text.match(/\[CAROUSEL:([^\]]+)\]/i)
+  const handles = carouselMatch
+    ? carouselMatch[1].split(',').map(h => h.trim().toLowerCase()).filter(Boolean).slice(0, 5)
+    : []
+
+  const cleanText = markdownToWhatsApp(
+    text
+      .replace(tagRegex, '')
+      .replace(/\[BTN:[^\]]+\]/gi, '')
+      .replace(/\[CAROUSEL:[^\]]+\]/gi, '')
+      .replace(/\[LINK:([^|\]]+)\|([^\]]+)\]/gi, (_m, label, url) => `${label.trim()} : ${url.trim()}`)
+      .replace(/\n{3,}/g, '\n\n')
+      .trim()
+  )
+
+  const media: TestMedia[] = []
+
+  // Carrousel : mêmes règles qu'en production — on n'envoie que les produits qui
+  // ont une photo, dans l'ordre demandé par l'agent.
+  if (handles.length > 0) {
+    const adminC = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: prods } = await (adminC as any)
+      .from('shopify_products')
+      .select('handle, title, price, url, image_url')
+      .eq('user_id', userId)
+      .in('handle', handles) as { data: { handle: string; title: string; price: string | null; url: string | null; image_url: string | null }[] | null }
+    const byHandle = new Map((prods || []).map(p => [p.handle, p]))
+    for (const h of handles) {
+      const p = byHandle.get(h)
+      if (!p?.image_url) continue
+      media.push({
+        ref: `product:${p.handle}`,
+        kind: 'image',
+        url: p.image_url,
+        // Le testeur affiche `filename` sous la vignette : on y met ce que le
+        // client verra vraiment en légende (nom + prix).
+        filename: `${p.title}${p.price ? ` — ${p.price}` : ''}`,
+        mimeType: null,
+      })
+    }
+  }
+
+  if (refs.length === 0) return { cleanText, media, buttons }
 
   const admin = createAdminClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -46,7 +101,8 @@ async function resolveMediaTags(text: string, userId: string): Promise<{ cleanTe
       data: { ref: string; storage_path: string; media_kind: string | null; filename: string; mime_type: string | null }[] | null
     }
 
-  const media: TestMedia[] = []
+  // ⚠️ On COMPLÈTE `media` (déjà rempli par le carrousel), on ne le redéclare
+  // pas : une seconde déclaration écrasait les images produits en silence.
   for (const record of records || []) {
     const { data: signed } = await admin.storage
       .from('knowledge-images')
@@ -66,7 +122,7 @@ async function resolveMediaTags(text: string, userId: string): Promise<{ cleanTe
     })
   }
 
-  return { cleanText, media }
+  return { cleanText, media, buttons }
 }
 
 export async function POST(
@@ -209,6 +265,16 @@ export async function POST(
     systemPrompt += `\n\n--- Base de connaissances (PRIORITAIRE) ---\nIMPORTANT : Avant d'appeler un outil, vérifie TOUJOURS si la réponse se trouve dans la base de connaissances ci-dessous. N'appelle un outil que si l'information n'est PAS disponible ici. Utilise ces informations en priorité pour répondre de manière précise.\n\n${knowledgeContext}\n--- Fin de la base de connaissances ---`
   }
 
+  // ⚠️ LE CATALOGUE PRODUITS — ABSENT ICI ALORS QU'IL EXISTE EN PRODUCTION.
+  //
+  // Ce fichier annonçait « même logique que processAIResponse ». Ce n'était plus
+  // vrai : ni contexte boutique, ni catalogue, ni boutons, ni carrousel. Le
+  // marchand testait donc un agent qui n'existe nulle part — il voyait un mur de
+  // texte, corrigeait son prompt à l'aveugle, et la production faisait autre
+  // chose. On lit désormais la MÊME source que la production (agent-skills).
+  systemPrompt += await buildCatalogPrompt(supabase, user.id)
+  systemPrompt += `\n\n--- Compétences disponibles (fenêtre SAV, réponse libre) ---${BUTTONS_AND_CAROUSEL_SKILL}\n--- Fin des compétences ---`
+
   // Médias envoyables (images, vidéos, documents) — mêmes règles qu'en production.
   // Le prompt ne listait que des [IMAGE:…] : l'agent ignorait donc l'existence de
   // ses vidéos et documents, et les annonçait avec une balise IMAGE.
@@ -299,11 +365,12 @@ export async function POST(
     // Réponse texte finale (pas de tool calls)
     if (!result.toolCalls) {
       await recordTokenUsage(user.id, totalTokens)
-      const { cleanText, media } = await resolveMediaTags(result.content || '', user.id)
+      const { cleanText, media, buttons } = await resolveMediaTags(result.content || '', user.id)
       return NextResponse.json({
         data: {
           response: cleanText,
           media: media.length > 0 ? media : undefined,
+          buttons: buttons.length > 0 ? buttons : undefined,
           toolExecutions: toolExecutions.length > 0 ? toolExecutions : undefined,
           rag: ragInfo,
         }

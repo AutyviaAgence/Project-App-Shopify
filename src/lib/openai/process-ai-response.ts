@@ -11,6 +11,7 @@ import { SHOPIFY_ACTION_TOOLS, isShopifyActionTool, handleActionTool, userHasSho
 import { checkConversationQuota } from '@/lib/shopify/plans'
 import { canUseAi } from '@/lib/plans/gate'
 import { pickInitialModel, isSensitiveToolName, MODEL_QUALITY } from './model-router'
+import { buildCatalogPrompt, markdownToWhatsApp } from './agent-skills'
 import type { WhatsAppSession } from '@/types/database'
 
 const MAX_CONTEXT_MESSAGES = 50
@@ -457,33 +458,7 @@ Exemples :
     // est exactement ce que le système saura envoyer. Pas de handle halluciné,
     // pas de produit annoncé qui n'arrive jamais.
     if (userId) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data: prods } = await (supabase as any)
-        .from('shopify_products')
-        .select('handle, title, price, image_url, url')
-        .eq('user_id', userId)
-        .not('handle', 'is', null)
-        .limit(60) as { data: { handle: string; title: string; price: string | null; image_url: string | null; url: string | null }[] | null }
-
-      if (prods && prods.length > 0) {
-        const lines = prods.map((p) => {
-          // On DIT lesquels sont envoyables en carrousel : le handler écarte
-          // silencieusement les produits sans image (cf. `filter(p => p.image_url)`).
-          // Sans cette mention, l'agent annonçait « voici nos 5 produits » et le
-          // client n'en recevait que 3, sans explication.
-          const img = p.image_url ? '' : ' [SANS PHOTO — pas de carrousel possible]'
-          return `- handle:${p.handle} · ${p.title}${p.price ? ` · ${p.price}` : ''}${img}`
-        })
-        systemPrompt += `\n\n--- Catalogue produits (${prods.length}) ---
-Ce sont les VRAIS produits de la boutique. Les "handle" ci-dessous sont les seuls
-utilisables dans [CAROUSEL:...] — n'en invente jamais un.
-${lines.join('\n')}
-⚠️ Quand le client demande quels produits tu vends, ce qu'il pourrait acheter, ou
-te demande de recommander/comparer : réponds par une phrase COURTE + un
-[CAROUSEL:...] avec 2 à 5 produits pertinents. JAMAIS une liste numérotée en
-texte : le client ne verrait ni photo, ni prix cliquable, ni lien.
---- Fin catalogue ---`
-      }
+      systemPrompt += await buildCatalogPrompt(supabase, userId)
     }
     if (knowledgeContext) {
       systemPrompt += `\n\n--- Base de connaissances (PRIORITAIRE) ---\nIMPORTANT : Avant d'appeler un outil, vérifie TOUJOURS si la réponse se trouve dans la base de connaissances ci-dessous. N'appelle un outil que si l'information n'est PAS disponible ici. Utilise ces informations en priorité pour répondre de manière précise.\n\n${knowledgeContext}\n--- Fin de la base de connaissances ---`
@@ -743,7 +718,7 @@ NE liste JAMAIS des options en texte (genre "1. ... 2. ...") si tu peux les mett
       : []
 
     // Texte nettoyé : retirer médias + boutons + carrousel, remplacer [LINK:label|url] par "label : url"
-    const cleanText = aiResponseText
+    const cleanTextRaw = aiResponseText
       .replace(mediaTagRegex, '')
       .replace(/\[BTN:[^\]]+\]/gi, '')
       .replace(/\[CAROUSEL:[^\]]+\]/gi, '')
@@ -758,14 +733,11 @@ NE liste JAMAIS des options en texte (genre "1. ... 2. ...") si tu peux les mett
       // On convertit à la SORTIE plutôt que d'espérer que le prompt suffise :
       // aucune consigne ne tient sur 100 % des réponses, et le coût d'un raté est
       // un message parti chez un vrai client.
-      // Ordre important : ** avant *, sinon le simple mange le double.
-      .replace(/\*\*\*([^*\n]+)\*\*\*/g, '*_$1_*')   // gras+italique
-      .replace(/\*\*([^*\n]+)\*\*/g, '*$1*')          // **gras** → *gras*
-      .replace(/(^|[\s(])__([^_\n]+)__(?=$|[\s.,;:!?)])/gm, '$1*$2*')  // __gras__ → *gras*
-      // Titres markdown (« ## Nos produits ») : WhatsApp ne les rend pas, le # reste.
-      .replace(/^#{1,6}\s+(.+)$/gm, '*$1*')
       .replace(/\n{3,}/g, '\n\n')
       .trim()
+    // WhatsApp n'est pas du markdown (*gras* et non **gras**) : converti à la
+    // sortie, jamais par consigne de prompt. Cf. lib/openai/agent-skills.
+    const cleanText = markdownToWhatsApp(cleanTextRaw)
 
     // 6.1 Helper : envoyer un média stocké (image/vidéo/document) depuis la bibliothèque
     const mediaKindMap = { IMAGE: 'image', VIDEO: 'video', DOC: 'document' } as const
