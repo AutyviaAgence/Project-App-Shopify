@@ -186,6 +186,14 @@ const FUNNEL_DOCTRINE_TRANSACTIONAL = `- Un funnel transactionnel est COURT et i
 - Aucune promotion ici (ni code promo, ni offre) : Meta reclasserait le modèle en
   MARKETING, ce qui coûte plus cher et fait perdre la gratuité dans la fenêtre.`
 
+/**
+ * Messages de l'assistant qui NE SONT PAS des questions, et ne doivent donc pas
+ * compter dans le plafond : « il manque des modèles », « je n'ai pas compris ».
+ * Le plafond existe pour arrêter un interrogatoire — pas pour punir un marchand
+ * qui suit les étapes qu'on lui a demandées.
+ */
+const ASSISTANT_NON_QUESTION = /Aucun de vos modèles|Il faut d’abord créer|Créez d’abord|Je n’ai pas réussi/i
+
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
@@ -196,9 +204,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'L’assistant IA de création de workflow nécessite un plan payant.', upgrade: true }, { status: 403 })
   }
 
-  const body = (await req.json().catch(() => ({}))) as { messages?: Msg[]; kind?: 'marketing' | 'transactional' }
+  const body = (await req.json().catch(() => ({}))) as {
+    messages?: Msg[]
+    kind?: 'marketing' | 'transactional'
+    createdTemplateIds?: string[]
+  }
   const messages = (body.messages || []).filter((m) => m && m.content?.trim()).slice(-20)
   const kind: 'marketing' | 'transactional' = body.kind === 'transactional' ? 'transactional' : 'marketing'
+
+  // ⚠️ Les modèles que le marchand VIENT de créer depuis ce chat.
+  //
+  // Sans eux, la boucle était sans issue : l'IA répondait « need_templates », le
+  // marchand créait les messages, cliquait « Construire le parcours »… et l'IA
+  // répondait « Aucun de vos modèles ne correspond » — indéfiniment.
+  //
+  // Le catalogue est pourtant relu à chaque appel, brouillons compris : les
+  // modèles ÉTAIENT là. Mais sous des noms générés (`message_bienveillant_k3f9`),
+  // noyés parmi 60 autres, rien ne les reliait aux briefs qu'elle venait
+  // d'écrire. Une phrase (« je les ai créés ») ne prouve rien : elle refaisait le
+  // même jugement et retombait sur la même conclusion.
+  //
+  // On passe donc les IDs, pas une affirmation — et on les lui désigne nommément
+  // plus bas. C'est vérifiable, elle ne peut plus les rater.
+  const createdIds = (body.createdTemplateIds || []).filter((v) => typeof v === 'string').slice(0, 8)
 
   // Modèles utilisables pour CONSTRUIRE : approuvés, en revue, et brouillons.
   //
@@ -252,6 +280,44 @@ export async function POST(req: NextRequest) {
       + `${qr.length ? ` · boutons: ${qr.join(', ')}` : ' · aucun bouton'}`
       + `\n    texte: « ${body} »`
   }).join('\n') || '(aucun modèle pour le moment)'
+
+  // Les modèles tout juste créés, DÉSIGNÉS NOMMÉMENT.
+  //
+  // Ils sont déjà dans le catalogue ci-dessus — mais noyés. Ici on les ressort et
+  // on lève l'ambiguïté : ce sont EXACTEMENT les messages qu'elle a demandés au
+  // tour d'avant. Sans ce rappel, elle ne pouvait pas faire le lien entre son
+  // brief (« message de bienvenue avec 2 boutons ») et un `message_bienveillant_k3f9`
+  // apparu dans la liste. On borne par user_id : un ID envoyé par le client ne
+  // doit jamais donner accès au modèle d'un autre marchand.
+  let justCreated = ''
+  if (createdIds.length > 0) {
+    const fresh = templates.filter((t) => createdIds.includes(t.id))
+    if (fresh.length > 0) {
+      justCreated = `
+
+# ✅ LES MODÈLES QUE TU AS DEMANDÉS VIENNENT D'ÊTRE CRÉÉS
+
+Le marchand a créé ces modèles À L'INSTANT, à partir de TES propres descriptions,
+pour CE parcours précis :
+
+${fresh.map((t) => {
+  const qr = Array.isArray(t.buttons)
+    ? (t.buttons as { type?: string; text?: string }[]).filter((b) => b.type === 'QUICK_REPLY').map((b) => b.text).filter(Boolean)
+    : []
+  return `- id:"${t.id}" · ${t.name}`
+    + `${qr.length ? ` · boutons: ${qr.join(', ')}` : ' · aucun bouton'}`
+    + `\n    texte: « ${(t.body_text || '').replace(/\s+/g, ' ').slice(0, 180)} »`
+}).join('\n')}
+
+INTERDIT de répondre "need_templates" pour ces messages-là : ils EXISTENT, leurs
+id sont ci-dessus. Tu construis le parcours MAINTENANT, en mode "ready", en
+utilisant ces id dans les nœuds "action".
+Leur statut brouillon n'est PAS un obstacle : le parcours se dessine, il sera
+simplement inactivable tant que Meta n'a pas validé — c'est prévu et affiché.
+Si un message manque ENCORE (autre que ceux-ci), construis quand même le parcours
+complet et signale-le dans "missingTemplates" du mode "ready".`
+    }
+  }
 
   // Catalogue des déclencheurs : le LIBELLÉ humain est ce que l'IA doit montrer
   // au marchand ; le code technique ne sert QU'À remplir le champ "event" du
@@ -484,7 +550,7 @@ Réponds UNIQUEMENT en JSON :
 ⚠️ TOUT PREMIER MESSAGE (le marchand n'a encore RIEN dit) : demande-lui son
 objectif. Ne recommande RIEN à ce stade — tu ne sais pas encore ce qu'il veut.
   question: « Que souhaitez-vous mettre en place ? »
-  options: ${JSON.stringify(openingOptions(kind))}`
+  options: ${JSON.stringify(openingOptions(kind))}${justCreated}`
 
   // ⚠️ PLAFOND DUR. Passé 4 questions, on n'en pose plus : on EXIGE le parcours.
   //
@@ -492,8 +558,18 @@ objectif. Ne recommande RIEN à ce stade — tu ne sais pas encore ce qu'il veut
   // faut un graphe, que seule l'IA produit. On lui coupe donc l'option de
   // questionner : une consigne finale, en dernier message, qu'elle ne peut pas
   // contourner en reformulant.
-  const asked = messages.filter((m) => m.role === 'assistant').length
-  const forceReady = asked >= MAX_QUESTIONS
+  //
+  // ⚠️ On ne compte QUE les questions. Avant, on comptait tous les messages
+  // assistant — or « il faut d'abord créer ces messages » n'est pas une question :
+  // c'est une étape du parcours. Trois créations de modèles suffisaient à crever
+  // le plafond, et le « STOP, ne pose plus de questions » tombait au pire moment :
+  // pile quand le marchand venait de créer ses messages et demandait le parcours.
+  // Le bouton « Construire le parcours » alimentait ainsi le compteur qui le
+  // condamnait.
+  const asked = messages.filter((m) => m.role === 'assistant' && !ASSISTANT_NON_QUESTION.test(m.content)).length
+  // Les modèles viennent d'être créés : on veut un GRAPHE, pas une question de
+  // plus. C'est exactement le tour où forcer sert à quelque chose.
+  const forceReady = asked >= MAX_QUESTIONS || createdIds.length > 0
 
   const chatMessages = [
     { role: 'system' as const, content: system },
@@ -501,11 +577,19 @@ objectif. Ne recommande RIEN à ce stade — tu ne sais pas encore ce qu'il veut
     ...(forceReady
       ? [{
           role: 'user' as const,
-          content:
-            'STOP — tu as posé assez de questions. Ne pose PLUS AUCUNE question : ' +
-            'génère maintenant le parcours avec ce que tu sais, en appliquant les défauts ' +
-            '(déclencheur le plus proche de mon objectif, 2 messages espacés de 24 h, pas de test A/B). ' +
-            'Réponds en mode "ready" avec un graphe complet, ou "need_templates" s’il manque vraiment un modèle.',
+          content: createdIds.length > 0
+            // Les modèles demandés existent : "need_templates" n'est plus une
+            // sortie légitime, c'est la boucle qu'on vient de casser. Le mode est
+            // retiré de ses options — un rappel suffisait à peine, l'interdire est
+            // sans ambiguïté.
+            ? 'Les modèles que tu m’as demandés sont créés (leurs id sont dans le prompt système). ' +
+              'Réponds OBLIGATOIREMENT en mode "ready" avec le graphe complet, en utilisant ces id. ' +
+              'Les modes "need_templates" et "ask" sont INTERDITS pour ce tour. ' +
+              'S’il manque encore autre chose, construis quand même le parcours et signale-le dans "missingTemplates".'
+            : 'STOP — tu as posé assez de questions. Ne pose PLUS AUCUNE question : ' +
+              'génère maintenant le parcours avec ce que tu sais, en appliquant les défauts ' +
+              '(déclencheur le plus proche de mon objectif, 2 messages espacés de 24 h, pas de test A/B). ' +
+              'Réponds en mode "ready" avec un graphe complet, ou "need_templates" s’il manque vraiment un modèle.',
         }]
       : []),
   ]
@@ -541,6 +625,42 @@ objectif. Ne recommande RIEN à ce stade — tu ne sais pas encore ce qu'il veut
     return NextResponse.json({ error: 'Échec de l’assistant. Réessayez.' }, { status: 502 })
   }
 
+  // Les modèles existent mais l'IA n'a toujours pas produit de graphe : le prompt
+  // le lui interdisait, elle est passée outre. Un prompt n'est jamais une garantie
+  // — on lui redemande UNE fois, sans détour. Une seule : deux échecs de suite
+  // signalent un vrai blocage, et boucler coûterait au marchand sans rien changer.
+  if (createdIds.length > 0 && (decision.mode !== 'ready' || !decision.graph)) {
+    console.warn('[automations/converse] modèles créés mais pas de graphe → seconde tentative')
+    try {
+      const retry = await openai.chat.completions.create({
+        store: false,
+        model: 'gpt-4o',
+        messages: [
+          ...chatMessages,
+          { role: 'assistant' as const, content: JSON.stringify(decision) },
+          {
+            role: 'user' as const,
+            content:
+              'Ce n’est pas ce qui était demandé. Les modèles existent, leurs id sont dans le prompt système. '
+              + 'Renvoie UNIQUEMENT { "mode":"ready", "name":..., "graph":{ "nodes":[...], "edges":[...] }, "explanation":... } '
+              + 'avec ces id dans les nœuds "action". Aucun autre mode n’est accepté.',
+          },
+        ],
+        temperature: 0.2,
+        response_format: { type: 'json_object' },
+      })
+      void logAiUsage({
+        feature: 'campaign', model: retry.model || 'gpt-4o',
+        promptTokens: retry.usage?.prompt_tokens || 0, completionTokens: retry.usage?.completion_tokens || 0,
+        latencyMs: Date.now() - started, userId: user.id,
+      })
+      const second = JSON.parse(retry.choices[0]?.message?.content || '{}')
+      if (second?.mode === 'ready' && second.graph) decision = second
+    } catch {
+      // On garde la première réponse : les garde-fous en aval la rattraperont.
+    }
+  }
+
   // `nodeId` est ajouté PAR NOUS plus bas (l'IA ne connaît pas les nœuds) : il
   // dit à l'UI où brancher le message une fois créé.
   const missing: { purpose: string; suggestion: string; nodeId?: string }[] =
@@ -549,7 +669,12 @@ objectif. Ne recommande RIEN à ce stade — tu ne sais pas encore ce qu'il veut
       : []
 
   // Manque de modèles pour construire quoi que ce soit.
-  if (decision.mode === 'need_templates') {
+  //
+  // Jamais quand le marchand vient d'en créer : il a fait ce qu'on lui demandait,
+  // lui redemander la même chose est l'impasse qu'on ferme ici. Si l'IA insiste
+  // malgré l'interdiction du prompt (elle en est capable), on ignore sa réponse et
+  // on lui redemande un graphe — un prompt n'est pas une garantie, ce garde-fou si.
+  if (decision.mode === 'need_templates' && createdIds.length === 0) {
     return NextResponse.json({
       mode: 'need_templates',
       message: decision.message || 'Il faut d’abord créer un modèle de message pour ce parcours.',
@@ -567,10 +692,15 @@ objectif. Ne recommande RIEN à ce stade — tu ne sais pas encore ce qu'il veut
     console.warn('[automations/converse] génération forcée sans graphe exploitable')
     return NextResponse.json({
       mode: 'need_templates',
-      message:
-        'Je n’ai pas réussi à cerner votre parcours. Décrivez-le en une phrase (ex. « relancer les paniers abandonnés avec 2 messages »), '
-        + 'ou construisez-le directement dans l’éditeur — c’est souvent plus rapide.',
-      missingTemplates: missing,
+      // Les modèles sont créés (et la seconde tentative a échoué) : lui montrer
+      // encore des messages « à créer » serait absurde — il les a sous les yeux
+      // dans Modèles. On l'oriente vers l'éditeur, où son travail l'attend.
+      message: createdIds.length > 0
+        ? 'Vos messages sont bien créés, mais je n’arrive pas à assembler le parcours. Ouvrez l’éditeur : '
+          + 'vos messages y sont disponibles, il ne reste qu’à les enchaîner.'
+        : 'Je n’ai pas réussi à cerner votre parcours. Décrivez-le en une phrase (ex. « relancer les paniers abandonnés avec 2 messages »), '
+          + 'ou construisez-le directement dans l’éditeur — c’est souvent plus rapide.',
+      missingTemplates: createdIds.length > 0 ? [] : missing,
     })
   }
 
@@ -1114,9 +1244,15 @@ objectif. Ne recommande RIEN à ce stade — tu ne sais pas encore ce qu'il veut
   // On bascule alors sur `need_templates` : le mode prévu pour « il faut d'abord
   // créer des messages », qui affiche les suggestions ET les boutons pour les
   // créer en un clic. C'est le même travail, mais dans le bon ordre.
+  //
+  // ⚠️ SAUF si le marchand VIENT de créer ses messages. Sinon c'est l'impasse :
+  // on lui demande de créer des messages, il les crée, et on lui redemande de les
+  // créer — le mode `need_templates` boucle sur lui-même. Constaté : trois fois
+  // d'affilée la même réponse, aucun moyen d'en sortir. Ses modèles existent : on
+  // livre le parcours, quitte à ce qu'il rattache un nœud ou deux dans l'éditeur.
   const actionNodes = nodes.filter((n) => n.type === 'action')
   const withTemplate = actionNodes.filter((n) => n.templateId)
-  if (actionNodes.length > 0 && withTemplate.length === 0) {
+  if (actionNodes.length > 0 && withTemplate.length === 0 && createdIds.length === 0) {
     console.warn('[automations/converse] aucune action avec modèle → need_templates')
     return NextResponse.json({
       mode: 'need_templates',

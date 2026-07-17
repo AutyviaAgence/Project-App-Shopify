@@ -111,12 +111,32 @@ export function WorkflowChat({ kind, onComplete, onCancel }: {
    */
   function graphWithCreated(): WorkflowGraph {
     if (!ready) throw new Error('graphe absent')
-    const list = missing.length > 0 ? missing : ready.missingTemplates
+
+    // ⚠️ Les `nodeId` ne valent QUE pour le graphe qui les a produits.
+    //
+    // Après « Construire le parcours avec ces messages », l'assistant renvoie un
+    // graphe NEUF, avec de nouveaux id de nœuds. Les `nodeId` de `missing`
+    // désignent alors des nœuds disparus : le rattachement échouait en silence,
+    // et le marchand devait re-choisir à la main chaque message qu'on venait de
+    // créer pour lui.
+    //
+    // On se fie donc d'abord au graphe reçu : s'il a déjà branché les modèles
+    // (ce qu'on exige de lui maintenant), il n'y a rien à recoudre.
+    const createdIds = new Set(Object.values(created).map((c) => c.id).filter(Boolean))
+    const alreadyPlaced = ready.graph.nodes.some(
+      (n) => n.type === 'action' && n.templateId && createdIds.has(n.templateId)
+    )
+    if (alreadyPlaced) return ready.graph
+
+    // Sinon on recoud — mais avec la liste du DERNIER tour, seule cohérente avec
+    // les nœuds de ce graphe.
+    const list = ready.missingTemplates.length > 0 ? ready.missingTemplates : missing
+    const known = new Set(ready.graph.nodes.map((n) => n.id))
     // nodeId → id du modèle fraîchement créé.
     const byNode = new Map<string, string>()
     list.forEach((m, i) => {
       const id = created[i]?.id
-      if (m.nodeId && id) byNode.set(m.nodeId, id)
+      if (m.nodeId && id && known.has(m.nodeId)) byNode.set(m.nodeId, id)
     })
     if (byNode.size === 0) return ready.graph
     return {
@@ -140,13 +160,22 @@ export function WorkflowChat({ kind, onComplete, onCancel }: {
     converse([])
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function converse(next: Msg[]) {
+  /**
+   * @param createdTemplateIds  Modèles créés depuis ce chat, à l'instant.
+   *
+   * ⚠️ On envoie les IDS, pas une phrase. Dire « je les ai créés » ne prouvait
+   * rien à l'assistant : il relisait le catalogue, y voyait des noms générés
+   * (`message_bienveillant_k3f9`) noyés parmi 60, ne faisait pas le lien avec ses
+   * propres briefs, et re-répondait « aucun de vos modèles ne correspond ». En
+   * boucle. Les id, eux, il ne peut pas les rater : la route les lui désigne.
+   */
+  async function converse(next: Msg[], createdTemplateIds?: string[]) {
     setBusy(true)
     try {
       const res = await fetch('/api/automations/converse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: next, kind }),
+        body: JSON.stringify({ messages: next, kind, createdTemplateIds }),
       })
       const json = await res.json()
       if (!res.ok) { toast.error(json.error || 'Erreur de l’assistant'); return }
@@ -296,19 +325,19 @@ export function WorkflowChat({ kind, onComplete, onCancel }: {
                 <Button
                   className="w-full" disabled={busy}
                   onClick={() => {
-                    // ⚠️ On DIT à l'assistant que le catalogue a changé.
+                    // ⚠️ On PROUVE à l'assistant que les modèles existent, en lui
+                    // passant leurs id — une phrase ne suffisait pas (cf. converse).
                     //
-                    // Rejouer la conversation telle quelle ne suffit pas : il
-                    // avait conclu « aucun de vos modèles ne correspond », et
-                    // rien dans l'historique ne dit que le marchand vient de les
-                    // créer. Sans ce message, il reconclurait la même chose.
-                    // (La route relit le catalogue à chaque appel : les
-                    // brouillons fraîchement créés y sont.)
-                    setMissing([])
+                    // On garde `missing` : il porte les `nodeId` dont
+                    // graphWithCreated() a besoin pour rattacher chaque modèle à
+                    // son nœud. Le vider ici cassait ce lien, et le marchand
+                    // devait re-choisir à la main les messages qu'on venait de
+                    // créer pour lui.
+                    const ids = Object.values(created).map((c) => c.id).filter((v): v is string => !!v)
                     converse([...chat, {
                       role: 'user',
                       content: 'J’ai créé les messages que tu m’as demandés. Construis le parcours complet maintenant.',
-                    }])
+                    }], ids)
                   }}
                 >
                   {busy
