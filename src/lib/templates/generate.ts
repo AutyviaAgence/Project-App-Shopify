@@ -185,6 +185,15 @@ function extractRequestedButtons(objective: string): string[] {
       if (/[.!?]$/.test(text)) continue
       if (/^[.,;:!?)\]]/.test(text)) continue
       if (!/[a-zA-ZÀ-ÿ]/.test(text)) continue // au moins une lettre
+      // ⚠️ « Copier le code » décrit un bouton COPY_CODE, pas une réponse rapide.
+      //
+      // Constaté : sur un funnel A/B, l'IA proposait « Copier le code de l'offre »
+      // et « Non, montrez-moi d'autres produits ». On imposait les DEUX en
+      // QUICK_REPLY et on retirait le vrai COPY_CODE — le marchand perdait son
+      // code promo, et le libellé se retrouvait tronqué à 20 caractères
+      // (« Copier le code de l' »). Un COPY_CODE ne branche rien de toute façon :
+      // seul un quick-reply est capté par le webhook.
+      if (/^(copier|copie[rz]?)\b|\bcode (promo|de l)/i.test(text)) continue
       const short = text.slice(0, 20)
       if (!labels.some((l) => norm(l) === norm(short))) labels.push(short)
     }
@@ -426,13 +435,26 @@ Omets buttons/cards/lto_* quand le format ne les utilise pas. Aucune autre clé,
       const missingLabels = requestedButtons.filter((l) => !existing.has(norm(l)))
       if (missingLabels.length > 0) {
         console.warn(`[templates/generate] boutons exigés absents → ajoutés : ${missingLabels.join(', ')}`)
-        // Le code promo n'a rien à faire ici quand un bouton devait le promettre.
-        for (let i = buttons.length - 1; i >= 0; i--) {
-          if (buttons[i].type === 'COPY_CODE') buttons.splice(i, 1)
+
+        // ⚠️ ON NE RETIRE LE COPY_CODE QUE SI UN BOUTON PROMET LE CODE.
+        //
+        // Cas légitime : le brief dit « bouton "Oui, je veux un code promo" » et
+        // le modèle met un COPY_CODE à la place — il donne le code tout de suite,
+        // alors que le code est la SUITE du parcours, après le clic. Là, il faut
+        // le retirer, sinon il n'y a plus rien à cliquer.
+        //
+        // Mais on le retirait SYSTÉMATIQUEMENT. Constaté sur un funnel A/B : le
+        // message donnait le code ET proposait « Non, montrez-moi d'autres
+        // produits » — on supprimait le code promo du marchand pour rien.
+        const promisesCode = missingLabels.some((l) => /oui|code promo|profite|réduction|remise/i.test(l))
+        if (promisesCode) {
+          for (let i = buttons.length - 1; i >= 0; i--) {
+            if (buttons[i].type === 'COPY_CODE') buttons.splice(i, 1)
+          }
+          // Un compte à rebours EXIGE un COPY_CODE qu'on vient de retirer.
+          if (type === 'limited_time_offer') type = 'standard'
         }
         for (const label of missingLabels) buttons.push({ type: 'QUICK_REPLY', text: label })
-        // Un format à compte à rebours EXIGE un COPY_CODE qu'on vient de retirer.
-        if (type === 'limited_time_offer') type = 'standard'
       }
     }
 
