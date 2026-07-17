@@ -59,6 +59,8 @@ function AutomationsPageInner() {
   // Saisie inline du nom de dossier (au lieu d'un window.prompt).
   const [creatingFolder, setCreatingFolder] = useState(false)
   const [newFolderName, setNewFolderName] = useState('')
+  // Dossier en cours de renommage (id), au clic sur son nom.
+  const [renamingFolder, setRenamingFolder] = useState<string | null>(null)
   // Dossier survolé pendant un drag (surbrillance) + workflow en cours de drag.
   const [dragOverFolder, setDragOverFolder] = useState<string | null | 'none'>(null)
 
@@ -101,6 +103,29 @@ function AutomationsPageInner() {
     const json = await res.json()
     if (res.ok && json.data) { setFolders((prev) => [...prev, json.data]); setNewFolderName(''); setCreatingFolder(false) }
     else toast.error(json.error || 'Erreur')
+  }
+
+  /**
+   * Renomme un dossier. Optimiste : le nom change tout de suite à l'écran, et on
+   * revient en arrière si le serveur refuse — un aller-retour réseau pour une
+   * frappe donnerait une impression de latence sur une action triviale.
+   */
+  async function renameFolder(f: Folder, raw: string) {
+    setRenamingFolder(null)
+    const name = raw.trim()
+    // Vide ou inchangé : rien à faire. Un nom vide n'est pas une intention, c'est
+    // un champ qu'on a effacé sans valider — on garde l'ancien.
+    if (!name || name === f.name) return
+
+    setFolders((prev) => prev.map((x) => x.id === f.id ? { ...x, name } : x))
+    const res = await fetch(`/api/automation-folders/${f.id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    })
+    if (!res.ok) {
+      setFolders((prev) => prev.map((x) => x.id === f.id ? { ...x, name: f.name } : x))
+      toast.error('Renommage échoué')
+    }
   }
 
   async function deleteFolder(f: Folder) {
@@ -633,7 +658,33 @@ function AutomationsPageInner() {
                       className={cn('mb-1 rounded-lg border border-transparent', hot && 'border-primary/50 bg-primary/5')}>
                       <div className="group flex items-center gap-1.5 px-2 py-1.5">
                         <Folder className="h-3.5 w-3.5 shrink-0" style={{ color: f.color || undefined }} />
-                        <span className="flex-1 truncate text-xs font-semibold uppercase tracking-wide text-muted-foreground">{f.name}</span>
+                        {/* Renommage au clic : le nom d'un dossier se corrige
+                            souvent (faute de frappe, campagne renommée). Passer
+                            par une suppression + recréation ferait perdre le
+                            classement des workflows qu'il contient. */}
+                        {renamingFolder === f.id ? (
+                          <Input
+                            autoFocus
+                            defaultValue={f.name}
+                            onBlur={(e) => renameFolder(f, e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') renameFolder(f, e.currentTarget.value)
+                              // Échap = annuler : on ne veut pas qu'une frappe
+                              // malheureuse renomme le dossier sans retour possible.
+                              if (e.key === 'Escape') setRenamingFolder(null)
+                            }}
+                            className="h-6 flex-1 px-1.5 text-xs font-semibold uppercase tracking-wide"
+                          />
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => setRenamingFolder(f.id)}
+                            title="Renommer le dossier"
+                            className="flex-1 truncate text-left text-xs font-semibold uppercase tracking-wide text-muted-foreground transition-colors hover:text-foreground"
+                          >
+                            {f.name}
+                          </button>
+                        )}
                         <span className="text-[10px] text-muted-foreground/50">{items.length}</span>
                         <button onClick={() => deleteFolder(f)} title="Supprimer le dossier"
                           className="rounded p-0.5 text-muted-foreground/40 opacity-0 transition-colors hover:text-destructive group-hover:opacity-100">
