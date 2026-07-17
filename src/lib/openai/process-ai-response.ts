@@ -7,7 +7,7 @@ import { sendMessage, sendMediaMessage, sendInteractiveMessage, sendImageLink, s
 import { retrieveContext } from '@/lib/knowledge/retriever'
 import { encryptMessage, decryptMessage } from '@/lib/crypto/encryption'
 import { getAgentTools, buildOpenAITools, executeToolCall } from '@/lib/tools/executor'
-import { SHOPIFY_ACTION_TOOLS, isShopifyActionTool, handleActionTool, userHasShopifyStore, NOTIFICATION_CHANNEL_TOOL, isNotificationChannelTool, handleNotificationChannelTool, TRACK_ORDER_TOOL, isTrackOrderTool, handleTrackOrder, LINK_CUSTOMER_TOOL, isLinkCustomerTool, handleLinkCustomer } from '@/lib/shopify/ai-tools'
+import { SHOPIFY_ACTION_TOOLS, isShopifyActionTool, handleActionTool, userHasShopifyStore, NOTIFICATION_CHANNEL_TOOL, isNotificationChannelTool, handleNotificationChannelTool, TRACK_ORDER_TOOL, isTrackOrderTool, handleTrackOrder, LINK_CUSTOMER_TOOL, isLinkCustomerTool, handleLinkCustomer, UNSUBSCRIBE_TOOL, isUnsubscribeTool, handleUnsubscribe } from '@/lib/shopify/ai-tools'
 import { checkConversationQuota } from '@/lib/shopify/plans'
 import { canUseAi } from '@/lib/plans/gate'
 import { pickInitialModel, isSensitiveToolName, MODEL_QUALITY } from './model-router'
@@ -582,6 +582,14 @@ NE liste JAMAIS des options en texte (genre "1. ... 2. ...") si tu peux les mett
       openaiTools.push(LINK_CUSTOMER_TOOL)
     }
 
+    // Désabonnement : disponible TOUJOURS (pas seulement avec Shopify) — c'est du
+    // consentement WhatsApp, pas une action boutique. Honorer un opt-out exprimé
+    // en langage naturel protège la qualité du numéro (un client non entendu
+    // bloque, et un blocage coûte plus cher qu'un désabonnement).
+    if (userId) {
+      openaiTools.push(UNSUBSCRIBE_TOOL)
+    }
+
     if (openaiTools.length > 0) {
       console.log('[AI] Outils chargés:', openaiTools.length, 'fonctions')
       const toolNames = openaiTools.map(t => t.function.name).join(', ')
@@ -675,6 +683,15 @@ NE liste JAMAIS des options en texte (genre "1. ... 2. ...") si tu peux les mett
         if (isLinkCustomerTool(tc.functionName)) {
           const linkMsg = await handleLinkCustomer(tc.arguments, { userId: userId!, conversationId: params.conversationId })
           toolMessages.push({ role: 'tool', tool_call_id: tc.toolCallId, content: linkMsg })
+          continue
+        }
+
+        // Désabonnement en langage naturel : le client a exprimé qu'il ne veut
+        // plus être contacté. On l'opt-out réellement (le prompt seul ne le
+        // ferait pas) et on tait l'agent sur cette conversation.
+        if (isUnsubscribeTool(tc.functionName)) {
+          const unsubMsg = await handleUnsubscribe(tc.arguments, { userId: userId!, conversationId: params.conversationId })
+          toolMessages.push({ role: 'tool', tool_call_id: tc.toolCallId, content: unsubMsg })
           continue
         }
 

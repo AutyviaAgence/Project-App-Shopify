@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkPlanQuota } from '@/lib/plan-quota'
+import { OPT_OUT_PROMPT } from '@/lib/agents/opt-out-prompt'
 
 const VALID_MODELS = ['gpt-4o-mini', 'gpt-4o']
 
@@ -215,10 +216,23 @@ export async function POST(req: Request) {
   // agentId client perdu) → chaque POST créait un nouvel agent. Si le user est
   // en cours d'onboarding et a DÉJÀ un agent, on MET À JOUR le plus récent au
   // lieu d'en créer un nouveau (idempotent côté serveur, indépendant du client).
+  // ⚠️ DÉSABONNEMENT — GARANTI SUR TOUTE CRÉATION D'AGENT, quel que soit le chemin.
+  //
+  // La consigne d'opt-out ne doit pas dépendre de l'UI qui a créé l'agent
+  // (« Automatique » depuis la boutique, « Manuel » avec un prompt vierge, ou
+  // généré par l'IA). C'est une règle de conformité : honorer un désabonnement
+  // exprimé en langage naturel protège la qualité du numéro Meta. On l'ajoute donc
+  // ICI, au seul point par lequel PASSE toute création — et on ne la duplique pas
+  // si le prompt la porte déjà (agent d'onboarding, ré-onboarding).
+  const promptTrimmed = system_prompt.trim()
+  const finalPrompt = /DÉSABONNEMENT/.test(promptTrimmed)
+    ? promptTrimmed
+    : `${promptTrimmed}\n\n${OPT_OUT_PROMPT}`
+
   const agentFields: Record<string, unknown> = {
     name: name.trim(),
     description: description?.trim() || null,
-    system_prompt: system_prompt.trim(),
+    system_prompt: finalPrompt,
     objective: objective?.trim() || null,
     model: finalModel,
     temperature: finalTemp,

@@ -167,6 +167,74 @@ export function isLinkCustomerTool(name: string): boolean {
   return name === 'link_customer'
 }
 
+/**
+ * DÉSABONNEMENT EN LANGAGE NATUREL.
+ *
+ * Le mot-clé « STOP » exact est déjà géré par le webhook. Mais un client écrit
+ * rarement « STOP » : il dit « je ne veux plus recevoir vos messages », « arrêtez
+ * de m'écrire », « retirez-moi de votre liste ». Sans cet outil, l'agent
+ * comprenait l'intention… et continuait à bavarder, jusqu'à ce que le client
+ * BLOQUE le numéro — ce qui dégrade la qualité Meta (recherche 2024-2026 : les
+ * blocages font chuter la note de qualité sur 7 jours et réduisent les limites
+ * d'envoi). Un opt-out honoré vaut mille fois mieux qu'un blocage subi.
+ *
+ * ⚠️ Un prompt ne DÉSABONNE pas : il faut écrire en base. D'où cet outil, que
+ * l'agent APPELLE quand il détecte l'intention — il n'y a qu'à ce moment-là que
+ * le contact passe réellement en `opted_out` et que le dispatch cesse tout envoi.
+ */
+export const UNSUBSCRIBE_TOOL = {
+  type: 'function' as const,
+  function: {
+    name: 'unsubscribe_contact',
+    description:
+      "Désabonne le contact de TOUS les messages automatiques (campagnes, relances, agent). À appeler DÈS QUE le client exprime, même sans le mot « STOP », qu'il ne veut plus être contacté : « je ne veux plus de messages », « arrêtez de m'écrire », « retirez-moi de la liste », « désabonnez-moi », « stop pub »… En cas de doute (le client est juste agacé mais ne demande pas d'arrêter), NE PAS appeler : demande-lui d'abord s'il souhaite se désabonner. Après l'appel, confirme au client en une phrase qu'il ne recevra plus rien et qu'il peut revenir quand il veut.",
+    parameters: {
+      type: 'object',
+      properties: {
+        reason: { type: 'string', description: "Courte phrase reprenant ce que le client a dit (pour la traçabilité). Optionnel." },
+      },
+      required: [],
+    },
+  },
+}
+
+export function isUnsubscribeTool(name: string): boolean {
+  return name === 'unsubscribe_contact'
+}
+
+/** Désabonne le contact de la conversation. Écrit l'opt-out et tait l'agent. */
+export async function handleUnsubscribe(
+  args: Record<string, unknown>,
+  ctx: { userId: string; conversationId: string }
+): Promise<string> {
+  const supabase = createAdminSupabase(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+  const { data: conv } = await supabase
+    .from('conversations')
+    .select('contact_id')
+    .eq('id', ctx.conversationId)
+    .maybeSingle()
+  if (!conv?.contact_id) return "Impossible d'identifier le contact. Réponds au client que tu transmets sa demande à un conseiller."
+
+  // Opt-out : même effet qu'un « STOP » tapé — le dispatch bloque alors tout
+  // envoi (templates ET agent).
+  await supabase
+    .from('contacts')
+    .update({ opt_in_status: 'opted_out', opt_out_at: new Date().toISOString() })
+    .eq('id', conv.contact_id)
+
+  // On coupe l'agent sur CETTE conversation : un désabonné ne doit plus recevoir
+  // de réponses automatiques. Il pourra toujours écrire, un humain répondra.
+  await supabase
+    .from('conversations')
+    .update({ is_ai_active: false })
+    .eq('id', ctx.conversationId)
+
+  const reason = String(args.reason || '').trim().slice(0, 200)
+  if (reason) console.log('[AI unsubscribe]', ctx.conversationId, '→', reason)
+
+  return "Le client est désabonné : il ne recevra plus aucun message automatique. Confirme-lui en UNE phrase, chaleureusement, qu'il ne recevra plus rien et qu'il peut revenir/écrire « START » quand il veut. Ne propose plus rien d'autre."
+}
+
 /** Relie le contact de la conversation à un client Shopify via son email. */
 export async function handleLinkCustomer(
   args: Record<string, unknown>,

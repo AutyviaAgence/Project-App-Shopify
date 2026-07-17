@@ -166,6 +166,10 @@ Question hors du périmètre de l'agent (juridique, demande sur-mesure, gros vol
         objective: cfg.objective || 'Aider les clients de la boutique',
         tone: ['professional', 'friendly', 'casual'].includes(cfg.tone) ? cfg.tone : 'friendly',
         languages: Array.isArray(cfg.languages) && cfg.languages.length ? cfg.languages : ['fr'],
+        // La consigne de désabonnement n'est PAS ajoutée ici : cette route ne
+        // fait que GÉNÉRER la config, que l'UI renvoie ensuite à POST /api/agents
+        // — c'est là qu'elle est garantie (point unique, idempotent). L'ajouter
+        // ici la dupliquerait au mieux, divergerait au pire.
         system_prompt: cfg.system_prompt || '',
         escalation_situations: (typeof cfg.escalation_situations === 'string' && cfg.escalation_situations.trim())
           ? cfg.escalation_situations.trim()

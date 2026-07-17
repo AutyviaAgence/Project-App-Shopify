@@ -4,6 +4,7 @@ import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { shopifyGraphQL } from './client'
 import { getValidAccessToken } from './token'
 import { processDocument } from '@/lib/knowledge/processor'
+import { OPT_OUT_PROMPT } from '@/lib/agents/opt-out-prompt'
 
 /**
  * Auto-configuration de l'agent à partir d'une boutique Shopify (S2).
@@ -516,7 +517,13 @@ export async function autoConfigureAgentFromShop(storeId: string): Promise<AutoC
   const shopName = store.shop_name || shop
 
   // 1. Créer l'agent
-  const systemPrompt = `Tu es l'assistant de la boutique en ligne "${shopName}". Tu réponds aux clients sur WhatsApp de façon claire, chaleureuse et professionnelle. Tu aides sur les produits, les commandes, le suivi de livraison, le SAV et les retours. Base-toi TOUJOURS sur la base de connaissances (catalogue, pages et politiques de la boutique) pour répondre. Si tu n'as pas l'information, propose de transférer à un conseiller. Ne donne jamais d'information inventée.`
+  //
+  // ⚠️ Le bloc DÉSABONNEMENT est partagé (lib/agents/opt-out-prompt) : la même
+  // consigne doit valoir pour l'agent auto-configuré ET l'agent généré par l'IA
+  // dans l'onboarding UI. Deux textes divergeraient.
+  const systemPrompt = `Tu es l'assistant de la boutique en ligne "${shopName}". Tu réponds aux clients sur WhatsApp de façon claire, chaleureuse et professionnelle. Tu aides sur les produits, les commandes, le suivi de livraison, le SAV et les retours. Base-toi TOUJOURS sur la base de connaissances (catalogue, pages et politiques de la boutique) pour répondre. Si tu n'as pas l'information, propose de transférer à un conseiller. Ne donne jamais d'information inventée.
+
+${OPT_OUT_PROMPT}`
 
   // ⚠️ RÉUTILISER L'AGENT DE CETTE BOUTIQUE, NE PAS EN RECRÉER UN.
   //
