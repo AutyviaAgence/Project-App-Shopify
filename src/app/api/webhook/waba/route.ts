@@ -456,19 +456,76 @@ export async function POST(req: NextRequest) {
             }
 
             // 1.5 Opt-in / opt-out (consentement WhatsApp)
-            // Détection STOP → opt-out ; sinon, message entrant = opt-in implicite.
+            //
+            // ⚠️ CE QUE META EXIGE (recherche 2024-2026, sources officielles) :
+            // Meta n'impose AUCUN mot-clé précis — c'est à l'app de gérer le
+            // désabonnement texte, et de l'HONORER (un opt-out ignoré fait chuter
+            // la qualité du numéro : blocages, signalements). Le bouton d'opt-out
+            // natif ne couvre QUE les templates MARKETING ; un STOP tapé en texte,
+            // c'est à nous de l'attraper. On reprend donc le jeu de mots-clés
+            // standard de l'industrie (Twilio, Meta BSP) + le français.
             const normalized = messageType === 'text'
               ? content.trim().toLowerCase().replace(/[^a-zàâäéèêëïîôöùûüç ]/gi, '').trim()
               : ''
-            const STOP_WORDS = ['stop', 'stopp', 'desabonner', 'desabonnement', 'unsubscribe', 'arreter', 'arret']
+            const STOP_WORDS = [
+              // Standard international (reconnu par les BSP)
+              'stop', 'stopp', 'unsubscribe', 'end', 'quit', 'cancel', 'optout', 'stopall', 'revoke',
+              // Français
+              'desabonner', 'desabonnement', 'desinscription', 'arreter', 'arret', 'arretez',
+            ]
             const isStop = STOP_WORDS.includes(normalized)
-            const c = contact as typeof contact & { opt_in_status?: string; preferred_channel?: string }
+            // Ré-abonnement : un désabonné qui tape START / RESUME / OUI se
+            // réabonne. Pattern documenté (Wati : STOP → opt-out, START →
+            // ré-opt-in, avec confirmation dans les deux sens).
+            const START_WORDS = ['start', 'unstop', 'resume', 'reabonner', 'oui', 'yes']
+            const isStart = START_WORDS.includes(normalized)
+            const c = contact as typeof contact & { opt_in_status?: string; preferred_channel?: string; preferred_language?: string | null }
+            const lang = c.preferred_language || 'fr'
+            const sendFree = async (fr: string, en: string) => {
+              try {
+                const { sendMessage } = await import('@/lib/messaging/send')
+                await sendMessage(session, phoneNumber, lang === 'fr' ? fr : en)
+              } catch (e) {
+                console.error('[WABA] envoi confirmation opt-out/in échoué:', e)
+              }
+            }
 
+            // `optedOutNow` : le contact vient de taper STOP. Sert plus bas à
+            // couper l'IA une fois la conversation connue (elle est upsertée après
+            // ce bloc — on ne peut pas la mettre à jour ici).
+            let optedOutNow = false
             if (isStop) {
+              // Ne rien faire si déjà désabonné (évite une 2e confirmation).
+              const wasOptedOut = c.opt_in_status === 'opted_out'
               await supabase
                 .from('contacts')
                 .update({ opt_in_status: 'opted_out', opt_out_at: new Date().toISOString() })
                 .eq('id', contact.id)
+              optedOutNow = true
+
+              // Confirmation de désabonnement (bonne pratique documentée : le
+              // client sait que sa demande est prise en compte). Envoi libre —
+              // légitime, il vient de nous écrire, la fenêtre 24 h est ouverte.
+              // On indique le mot exact pour se réabonner (pas une promesse vague).
+              if (!wasOptedOut) {
+                await sendFree(
+                  'Vous êtes désabonné et ne recevrez plus de messages de notre part. Répondez « START » à tout moment pour vous réabonner.',
+                  'You have been unsubscribed and will no longer receive messages from us. Reply "START" anytime to resubscribe.',
+                )
+              }
+            } else if (isStart && c.opt_in_status === 'opted_out') {
+              // Ré-opt-in EXPLICITE : seul un désabonné qui tape START se
+              // réabonne. Un simple message entrant (branche suivante) ne suffit
+              // PAS à annuler un opt-out — sinon répondre « merci » après STOP
+              // réabonnerait le client contre son gré.
+              await supabase
+                .from('contacts')
+                .update({ opt_in_status: 'subscribed', opt_in_source: 'inbound_start', opt_in_at: new Date().toISOString(), opt_out_at: null })
+                .eq('id', contact.id)
+              await sendFree(
+                'Vous êtes réabonné. Bon retour parmi nous !',
+                'You are resubscribed. Welcome back!',
+              )
             } else if (c.opt_in_status !== 'opted_out') {
               // Message ENTRANT (hors STOP) = opt-in implicite ET preuve que le
               // canal WhatsApp est actif. On construit l'update de façon
@@ -523,6 +580,20 @@ export async function POST(req: NextRequest) {
               .single()
 
             if (!conversation) continue
+
+            // ⚠️ DÉSABONNEMENT → ON TAIT L'IA SUR CETTE CONVERSATION.
+            //
+            // Un désabonné ne doit plus recevoir de réponses automatiques — ni
+            // marketing (le dispatch bloque déjà les templates), ni agent
+            // conversationnel. On coupe `is_ai_active` et on saute le déclenchement
+            // IA plus bas (`continue`) : sinon l'agent répondrait au message
+            // « STOP » lui-même, juste après notre confirmation de désabonnement.
+            if (optedOutNow) {
+              await supabase.from('conversations')
+                .update({ is_ai_active: false })
+                .eq('id', conversation.id)
+              continue
+            }
 
             // Test A/B : le contact a répondu → marque ses assignations comme
             // "responded" ET "opened" : répondre implique avoir lu (l'accusé

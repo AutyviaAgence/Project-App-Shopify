@@ -288,30 +288,55 @@ Exemples :
         const agentX = agent as typeof agent & {
           max_messages_action?: string; resume_template_id?: string | null
         }
-        // MODE « pause_ask » : à la limite, on MET L'IA EN PAUSE et on envoie au
-        // client un message à boutons (« Voulez-vous continuer avec l'assistant ?
-        // Oui/Non »). Le clic « Oui » réactive l'IA (géré par le webhook) ; « Non »
-        // la laisse coupée. Une seule fois (l'IA étant coupée, on n'y revient pas).
-        if (agentX.max_messages_action === 'pause_ask' && agentX.resume_template_id) {
-          // Coupe l'IA sur cette conversation.
+        // MODE « pause_ask » : à la limite, on MET L'IA EN PAUSE. Le marchand
+        // reprend la main, ou le client relance et un humain répond.
+        //
+        // ⚠️ LA PAUSE NE DÉPEND PLUS DU MODÈLE DE REPRISE.
+        //
+        // Avant : `pause_ask && resume_template_id`. Sans modèle configuré (cas de
+        // l'agent d'onboarding), la condition était fausse et on RETOMBAIT sur
+        // « continue » — l'IA ne s'arrêtait jamais, alors que le marchand avait
+        // demandé qu'elle s'arrête. La pause est l'essentiel ; le modèle à boutons
+        // n'est qu'un confort (proposer « continuer / parler à un humain »).
+        if (agentX.max_messages_action === 'pause_ask') {
+          // Coupe l'IA sur cette conversation, TOUJOURS.
           await supabase.from('conversations')
             .update({ is_ai_active: false })
             .eq('id', params.conversationId)
-          // Envoie le modèle à boutons au client.
-          try {
-            const { sendTemplateToContact } = await import('@/lib/automations/dispatch')
-            const { data: conv } = await supabase
-              .from('conversations').select('contact_id').eq('id', params.conversationId).maybeSingle()
-            if (conv?.contact_id) {
-              await sendTemplateToContact({
-                templateId: agentX.resume_template_id, contactId: conv.contact_id,
-                variables: {}, manual: true,
+          // Modèle de reprise = optionnel : envoyé s'il existe, ignoré sinon.
+          if (agentX.resume_template_id) {
+            try {
+              const { sendTemplateToContact } = await import('@/lib/automations/dispatch')
+              const { data: conv } = await supabase
+                .from('conversations').select('contact_id').eq('id', params.conversationId).maybeSingle()
+              if (conv?.contact_id) {
+                await sendTemplateToContact({
+                  templateId: agentX.resume_template_id, contactId: conv.contact_id,
+                  variables: {}, manual: true,
+                })
+              }
+            } catch (e) {
+              console.error('[AI cap] envoi modèle de reprise échoué:', e)
+            }
+          }
+          // Alerte le marchand : « conversation en pause, reprenez la main ».
+          const { data: sessP } = await supabase
+            .from('whatsapp_sessions').select('user_id').eq('id', params.sessionId).single()
+          if (sessP?.user_id) {
+            const { data: exists } = await supabase
+              .from('user_alerts').select('id')
+              .eq('user_id', sessP.user_id).eq('alert_type', 'conversation_long')
+              .contains('metadata', { conversation_id: params.conversationId }).maybeSingle()
+            if (!exists) {
+              await supabase.from('user_alerts').insert({
+                user_id: sessP.user_id, alert_type: 'conversation_long',
+                title: 'Assistant en pause',
+                message: `L'assistant a atteint sa limite de ${aiCap} réponses sur une conversation et s'est mis en pause. Reprenez la main si besoin.`,
+                metadata: { conversation_id: params.conversationId, session_id: params.sessionId, agent_id: params.agentId, ai_messages: aiMsgCount },
               })
             }
-          } catch (e) {
-            console.error('[AI cap] envoi modèle de reprise échoué:', e)
           }
-          return // l'IA ne répond PAS ce tour-ci : elle est en pause, on attend le clic.
+          return // l'IA ne répond PAS : elle est en pause.
         }
 
         // MODE « continue » (défaut, soft cap) : on notifie juste le marchand.

@@ -547,6 +547,20 @@ export async function autoConfigureAgentFromShop(storeId: string): Promise<AutoC
     escalation_enabled: true,
     escalation_mode: 'both',
     escalation_keywords: ['humain', 'conseiller', 'parler à quelqu\'un'],
+    // ⚠️ QUAND L'AGENT S'ARRÊTE DE PARLER.
+    //
+    // Avant, l'onboarding ne posait AUCUN garde-fou d'arrêt : le plafond de
+    // messages tombait à 0 (donc jamais atteint), et même quand il était posé
+    // ailleurs l'action par défaut « continue » faisait répondre l'IA à l'infini.
+    // Vérifié : à 25 messages, l'agent continuait toujours.
+    //
+    // On borne à 40 réponses IA par conversation (large pour un vrai SAV, mais
+    // coupe les boucles et les conversations qui s'éternisent), avec l'action
+    // « pause_ask » : à la limite, l'IA se met en pause et demande au client s'il
+    // veut continuer avec l'assistant ou parler à un humain. Le marchand règle
+    // tout depuis Agents IA s'il veut autre chose.
+    max_messages_per_conversation: 40,
+    max_messages_action: 'pause_ask',
     is_active: true,
   }
 
