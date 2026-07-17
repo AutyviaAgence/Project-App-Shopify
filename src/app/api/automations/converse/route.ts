@@ -373,6 +373,26 @@ ${triggerList}
 MODÈLES DISPONIBLES (n'utilise QUE ces id dans templateId) :
 ${tplCatalog}
 
+# ⚠️⚠️ LE MARCHAND DEMANDE DES BOUTONS → LE MODÈLE DOIT EN AVOIR. SANS EXCEPTION.
+
+C'est l'erreur la plus coûteuse, et elle est arrivée plusieurs fois.
+
+Quand il écrit « un message de relance avec 2 boutons », il décrit la STRUCTURE de
+son parcours : ces boutons portent les branches. Un modèle sans bouton de réponse
+rapide ne peut PAS être branché — le parcours s'arrête à ce message, et tout ce
+qu'il a demandé derrière (test A/B, code promo, carrousel) disparaît.
+
+Le catalogue indique pour chaque modèle « boutons: … » ou « aucun bouton ».
+LIS-LE. Un modèle marqué « aucun bouton », ou qui n'a que des liens, NE PEUT PAS
+servir de point de branchement.
+
+  ❌ prendre « relancer_avec_urgence » (aucun bouton) parce que le texte colle
+  ✅ templateId:null + décrire dans missingTemplates : « message de relance avec
+     les boutons "Code promo" et "Visiter la boutique" »
+
+Un message à créer se règle en un clic. Un modèle sans bouton casse tout le
+funnel — et le marchand ne comprend pas pourquoi son parcours s'arrête là.
+
 # ⚠️ UN MODÈLE QUI NE CORRESPOND PAS NE DOIT PAS ÊTRE UTILISÉ
 
 Lis l'USAGE et le TEXTE de chaque modèle, pas seulement son nom. Un modèle de
@@ -590,6 +610,87 @@ objectif. Ne recommande RIEN à ce stade — tu ne sais pas encore ce qu'il veut
       n.templateId = null
       hallucinated++
     }
+  }
+
+  // ⚠️ MODÈLE SANS BOUTON LÀ OÙ LE PARCOURS SE BRANCHE → ON LE VIDE.
+  //
+  // Signalé plusieurs fois : le marchand demande « un message avec 2 boutons »,
+  // l'IA prend un modèle EXISTANT dont le texte colle… mais qui n'a aucun bouton
+  // de réponse rapide (juste un lien, ou rien). Le webhook ne capte que les
+  // quick-reply : sans eux, aucune branche ne peut partir de ce message. Le
+  // parcours s'arrête là, et tout ce qui était demandé derrière (test A/B, code
+  // promo, carrousel) n'existe jamais.
+  //
+  // On vide donc le nœud : il devient « message à créer », avec les boutons
+  // décrits. Un message à écrire se règle en un clic ; un funnel amputé, non.
+  let unbranchable = 0
+  if (Array.isArray(graph.edges)) {
+    const qrCountOf = (templateId: string | null): number => {
+      if (!templateId) return 0
+      const t = templates.find((x) => x.id === templateId)
+      return Array.isArray(t?.buttons)
+        ? (t!.buttons as { type?: string; text?: string }[]).filter((b) => b.type === 'QUICK_REPLY' && b.text).length
+        : 0
+    }
+    for (const n of nodes) {
+      if (n.type !== 'action' || !n.templateId) continue
+      // Ce nœud est-il un point de branchement (l'IA y a posé des sorties `button:`) ?
+      const branches = graph.edges.filter((e) => e.from === n.id && e.branch?.startsWith('button:'))
+      if (branches.length === 0) continue
+      if (qrCountOf(n.templateId) > 0) continue // le modèle a bien des boutons
+
+      const labels = branches
+        .filter((e) => e.branch !== BUTTON_TIMEOUT_BRANCH)
+        .map((e) => e.branch!.slice('button:'.length))
+      console.warn(`[automations/converse] modèle sans bouton sur un point de branchement → à créer (${labels.join(', ')})`)
+      n.templateId = null
+      // Le brief porte les boutons EXACTS attendus par les branches : le message
+      // créé pourra se rebrancher tel quel.
+      ;(n as { todo?: { purpose: string; suggestion?: string } }).todo = {
+        purpose: labels.length > 0
+          ? `Message avec les boutons : ${labels.join(', ')}`
+          : 'Message avec boutons de réponse rapide',
+        suggestion: labels.length > 0
+          ? `Ce message porte les branches du parcours : il lui faut EXACTEMENT les boutons de réponse rapide ${labels.map((l) => `« ${l} »`).join(' et ')}. Sans eux, la suite du parcours ne peut pas se déclencher.`
+          : 'Ce message doit porter des boutons de réponse rapide : ce sont eux qui branchent la suite du parcours.',
+      }
+      unbranchable++
+    }
+
+    // ⚠️ CAS PLUS SOURNOIS : l'IA prend un modèle sans bouton ET ne pose AUCUNE
+    // branche — alors que le marchand en a explicitement demandé.
+    //
+    // Le contrôle ci-dessus ne le voit pas : sans arête `button:`, ce nœud
+    // ressemble à un message ordinaire. C'est pourtant le cas signalé (« quand je
+    // dis que je veux un bouton, ça ne le met pas ») : le parcours s'arrête au
+    // premier message, et le test A/B demandé derrière n'existe jamais.
+    //
+    // On regarde donc ce que le marchand a ÉCRIT. S'il a demandé des boutons et
+    // que le PREMIER message n'en a aucun, on vide ce nœud : lui seul porte le
+    // branchement.
+    const askedButtons = messages.some(
+      (m) => m.role === 'user' && /\bboutons?\b/i.test(m.content)
+    )
+    if (askedButtons && unbranchable === 0) {
+      const trig0 = nodes.find((n) => n.type === 'trigger')
+      const firstEdge = trig0 && graph.edges.find((e) => e.from === trig0.id)
+      const first = firstEdge && nodes.find((n) => n.id === firstEdge.to)
+      if (first?.type === 'action' && first.templateId && qrCountOf(first.templateId) === 0) {
+        console.warn('[automations/converse] boutons demandés mais 1er message sans bouton → à créer')
+        first.templateId = null
+        ;(first as { todo?: { purpose: string; suggestion?: string } }).todo = {
+          purpose: 'Message d’ouverture avec boutons de réponse rapide',
+          suggestion:
+            'Vous avez demandé des boutons : ce message doit en porter. Aucun de vos modèles n’en a — '
+            + 'créez-le avec les boutons de réponse rapide voulus (ex. « Code promo », « Visiter la boutique »). '
+            + 'Ce sont eux qui branchent la suite du parcours.',
+        }
+        unbranchable++
+      }
+    }
+  }
+  if (unbranchable > 0) {
+    console.warn(`[automations/converse] ${unbranchable} message(s) sans bouton retiré(s) d'un point de branchement`)
   }
 
   // ⚠️ LE MÊME MODÈLE UTILISÉ PLUSIEURS FOIS DANS LE PARCOURS.
