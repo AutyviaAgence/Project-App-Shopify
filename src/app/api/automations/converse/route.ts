@@ -435,6 +435,17 @@ ${kind === 'marketing' ? FUNNEL_DOCTRINE_MARKETING : FUNNEL_DOCTRINE_TRANSACTION
       "suggestion": "CONSEILS CONCRETS POUR CONVERTIR : angle à adopter, incitation
                      (code promo, livraison offerte, urgence), LES BOUTONS DE RÉPONSE
                      RAPIDE EXACTS à mettre, et un exemple de formulation courte." }
+  ⚠️ DÉCRIS **TOUS** LES MESSAGES MANQUANTS — Y COMPRIS LES CARROUSELS.
+  Un carrousel de produits est un MESSAGE comme un autre : s'il n'existe pas dans
+  le catalogue, il va dans missingTemplates avec les autres. Constaté : sur un
+  parcours « A/B : carrousel contre code promo », l'IA décrivait le message
+  d'ouverture et celui du site… mais oubliait le carrousel. Le marchand se
+  retrouvait avec une variante A vide, sans savoir quoi y mettre.
+  Écris alors : purpose « Carrousel de produits », suggestion « Un carrousel
+  présentant 3 à 5 produits de la boutique, avec image, titre et lien ».
+  COMPTE tes nœuds sans modèle : il doit y avoir AUTANT d'entrées dans
+  missingTemplates que de nœuds à remplir.
+
   ⚠️ INDIQUE LES BOUTONS quand le parcours CONTINUE après ce message.
   Le marchand crée le message directement depuis ta suggestion : un message décrit
   sans bouton devient un message sans bouton, donc un parcours qu'on ne peut plus
@@ -1126,34 +1137,106 @@ objectif. Ne recommande RIEN à ce stade — tu ne sais pas encore ce qu'il veut
   // Chacun doit être expliqué au marchand avec des conseils pour convertir : on
   // complète `missing` si l'IA n'a pas décrit assez de messages à créer.
   const emptyActionNodes = nodes.filter((n) => n.type === 'action' && !n.templateId)
-  while (missing.length < emptyActionNodes.length && missing.length < 4) {
-    missing.push({
-      purpose: `Message ${missing.length + 1} du parcours (à créer)`,
+
+  // ⚠️ LE BRIFF DE COMPLÉMENT DOIT DIRE CE QU'EST **CE** NŒUD.
+  //
+  // Il était générique (« rappelez le contexte : panier, commande, offre »). Sur
+  // un parcours « A/B : carrousel contre code promo », l'IA décrivait 2 messages
+  // sur 3 et le complément produisait un conseil parlant de panier pour un nœud
+  // qui devait être un CARROUSEL. Le marchand voyait une variante A vide, sans
+  // savoir quoi y mettre — le carrousel apparaissait pourtant dans l'aperçu.
+  //
+  // On déduit donc l'intention du nœud de sa PLACE : le libellé posé par l'IA, ou
+  // la branche qui y mène (variante A/B, bouton). C'est imparfait, mais toujours
+  // plus utile qu'un conseil hors sujet.
+  const roleOf = (node: typeof nodes[number]): { purpose: string; suggestion: string } => {
+    const label = (node as { label?: string }).label || ''
+    const inEdge = (graph.edges || []).find((e) => e.to === node.id)
+    const branch = inEdge?.branch || ''
+    const hint = `${label} ${branch}`.toLowerCase()
+
+    if (/carrousel|carousel/.test(hint)) {
+      return {
+        purpose: 'Carrousel de produits',
+        suggestion: 'Un carrousel présentant 3 à 5 produits de votre boutique (image, titre, lien). '
+          + 'Choisissez des produits que ce client est susceptible d’aimer.',
+      }
+    }
+    if (/promo|code|réduction|remise/.test(hint)) {
+      return {
+        purpose: 'Message avec code promo',
+        suggestion: 'Donnez le code, dites ce qu’il offre et jusqu’à quand. Une raison d’agir maintenant, '
+          + 'et un bouton pour finaliser.',
+      }
+    }
+    if (branch.startsWith('variant:')) {
+      const v = branch.slice('variant:'.length)
+      return {
+        purpose: `Message de la variante ${v} (test A/B)`,
+        suggestion: `Cette variante s’oppose aux autres : elle doit tester une VRAIE différence `
+          + `(avec ou sans offre, angle produit contre angle service…), pas une reformulation.`,
+      }
+    }
+    return {
+      purpose: label ? `${label} (à créer)` : `Message ${missing.length + 1} du parcours (à créer)`,
       suggestion:
-        'Allez droit au but : rappelez le contexte (panier, commande, offre), donnez UNE raison d’agir maintenant '
+        'Allez droit au but : rappelez le contexte, donnez UNE raison d’agir maintenant '
         + '(code promo, livraison offerte, stock limité) et terminez par un bouton de réponse rapide '
         + '(ex. « Finaliser ma commande », « J’ai une question »). Un message court convertit mieux qu’un long.',
-    })
+    }
   }
 
-  // ⚠️ ON RATTACHE CHAQUE MESSAGE MANQUANT À SON NŒUD, EXPLICITEMENT.
+  // ⚠️ ON APPARIE D'ABORD LES BRIEFS DE L'IA À LEUR NŒUD, PAR LE SENS.
   //
-  // Quand le marchand fait créer ces messages depuis la conversation, il faut
-  // savoir OÙ les brancher. Se fier à l'ordre (« le i-e message = le i-e nœud
-  // vide ») serait fragile : `missing` vient de l'IA et n'est complété qu'ensuite
-  // jusqu'au nombre de nœuds. On pose donc l'id du nœud sur chaque entrée — c'est
-  // ici, et seulement ici, qu'on connaît la correspondance.
-  for (let i = 0; i < missing.length; i++) {
-    const target = emptyActionNodes[i]
+  // Se fier à l'ordre (« le i-e brief = le i-e nœud vide ») est FAUX : testé sur
+  // « A/B carrousel contre code promo », l'IA décrivait le message d'ouverture et
+  // celui du site, mais pas le carrousel. Le complément prenait alors le 3e nœud
+  // dans l'ordre du graphe et lui collait le brief « message vers le site » —
+  // sur le nœud CARROUSEL. Le marchand recevait un conseil hors sujet.
+  //
+  // On rapproche donc chaque brief du nœud dont le libellé lui ressemble, et on
+  // ne complète QUE les nœuds restés sans brief — avec un texte déduit de LEUR
+  // rôle (cf. roleOf).
+  const norm = (s: string) => s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+  const taken = new Set<string>()
+  for (const m of missing) {
+    const p = norm(m.purpose)
+    const match = emptyActionNodes.find((n) => {
+      if (taken.has(n.id)) return false
+      const label = norm((n as { label?: string }).label || '')
+      if (!label) return false
+      // Un mot significatif partagé suffit : les libellés sont courts et l'IA
+      // reprend en général les mêmes termes dans le brief et dans le nœud.
+      return label.split(/\s+/).some((w) => w.length > 4 && p.includes(w))
+    })
+    if (match) { m.nodeId = match.id; taken.add(match.id) }
+  }
+  // Les briefs sans nœud apparié prennent les nœuds libres, dans l'ordre.
+  for (const m of missing) {
+    if (m.nodeId) continue
+    const free = emptyActionNodes.find((n) => !taken.has(n.id))
+    if (!free) break
+    m.nodeId = free.id
+    taken.add(free.id)
+  }
+  // Nœuds encore sans brief → on en fabrique un, déduit de LEUR rôle.
+  for (const n of emptyActionNodes) {
+    if (taken.has(n.id)) continue
+    const r = roleOf(n)
+    missing.push({ ...r, nodeId: n.id })
+    taken.add(n.id)
+  }
+
+  // Le brief voyage AVEC le nœud (cf. plus bas) : le chat disparaît une fois le
+  // parcours créé, mais le marchand doit garder le conseil sous les yeux.
+  for (const m of missing) {
+    const target = emptyActionNodes.find((n) => n.id === m.nodeId)
     if (!target) continue
-    missing[i].nodeId = target.id
-    // Le brief voyage AVEC le nœud, pas seulement dans le panneau de la
-    // conversation : une fois le parcours créé, le chat disparaît. Sans ça, le
-    // marchand rouvrait son automatisation, tombait sur « Choisir un modèle » et
-    // n'avait plus aucune trace de ce que l'IA lui avait conseillé d'écrire.
+    // Sans ça, le marchand rouvrait son automatisation, tombait sur « Choisir un
+    // modèle » et n'avait plus aucune trace de ce que l'IA lui avait conseillé.
     ;(target as { todo?: { purpose: string; suggestion?: string } }).todo = {
-      purpose: missing[i].purpose,
-      suggestion: missing[i].suggestion,
+      purpose: m.purpose,
+      suggestion: m.suggestion,
     }
   }
 
