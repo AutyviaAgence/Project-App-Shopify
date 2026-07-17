@@ -287,6 +287,39 @@ export function WorkflowChat({ kind, onComplete, onCancel }: {
                 )
               })}
             </div>
+            {/* ⚠️ SORTIE DU MODE « messages à créer ».
+                Sans ce bouton, le marchand créait ses 3 messages… et restait
+                bloqué : plus aucun moyen de construire le parcours. L'assistant
+                proposait tout, et n'aboutissait à rien. */}
+            {!ready && Object.values(created).some((c) => c.id) && (
+              <div className="mt-3 border-t pt-3">
+                <Button
+                  className="w-full" disabled={busy}
+                  onClick={() => {
+                    // ⚠️ On DIT à l'assistant que le catalogue a changé.
+                    //
+                    // Rejouer la conversation telle quelle ne suffit pas : il
+                    // avait conclu « aucun de vos modèles ne correspond », et
+                    // rien dans l'historique ne dit que le marchand vient de les
+                    // créer. Sans ce message, il reconclurait la même chose.
+                    // (La route relit le catalogue à chaque appel : les
+                    // brouillons fraîchement créés y sont.)
+                    setMissing([])
+                    converse([...chat, {
+                      role: 'user',
+                      content: 'J’ai créé les messages que tu m’as demandés. Construis le parcours complet maintenant.',
+                    }])
+                  }}
+                >
+                  {busy
+                    ? <><Loader2 className="mr-1 h-4 w-4 animate-spin" /> Construction…</>
+                    : <><Sparkles className="mr-1 h-4 w-4" /> Construire le parcours avec ces messages</>}
+                </Button>
+                <p className="mt-1.5 text-[11px] text-muted-foreground">
+                  Vos messages sont créés : je peux maintenant assembler le parcours complet.
+                </p>
+              </div>
+            )}
             <p className="mt-2 text-[11px] text-muted-foreground">
               Une fois approuvés par Meta, rattachez ces messages au parcours dans l’éditeur.
             </p>

@@ -831,8 +831,24 @@ objectif. Ne recommande RIEN à ce stade — tu ne sais pas encore ce qu'il veut
         const tail = tailOf(trig0.id)
         // Un nœud qui se ramifie ne prend pas de suite « en vrac » : on ne
         // raccroche qu'à un point qui accepte une continuité simple.
-        const tailHasBranches = graph.edges.some((e) => e.from === tail && e.branch)
-        if (tailHasBranches) continue
+        // La fin de chaîne se ramifie (message à boutons) : on ne peut pas y
+        // accrocher une suite « en vrac » — validateGraph refuse une sortie sans
+        // branche à côté de sorties `button:`. On tente alors la branche PAR
+        // DÉFAUT, qui est justement la continuité normale du parcours.
+        //
+        // Sans ça on abandonnait, le nœud restait orphelin, et le parcours ENTIER
+        // était refusé — le marchand perdait tout.
+        const tailBranches = graph.edges.filter((e) => e.from === tail && e.branch)
+        if (tailBranches.length > 0) {
+          const hasDefault = tailBranches.some((e) => e.branch === BUTTON_TIMEOUT_BRANCH)
+          const isButtonNode = tailBranches.some((e) => e.branch?.startsWith('button:'))
+          if (isButtonNode && !hasDefault) {
+            graph.edges.push({ from: tail, to: n.id, branch: BUTTON_TIMEOUT_BRANCH })
+            reachable.add(n.id)
+            relinked++
+          }
+          continue
+        }
         graph.edges.push({ from: tail, to: n.id })
         reachable.add(n.id)
         relinked++
@@ -1066,8 +1082,20 @@ objectif. Ne recommande RIEN à ce stade — tu ne sais pas encore ce qu'il veut
   }
 
   const errors = validateGraph(graph)
-  // Les seules erreurs tolérées : action sans modèle (le marchand complètera).
-  const blocking = errors.filter((e) => !/n'a pas de modèle/.test(e))
+  // ⚠️ ERREURS TOLÉRÉES : celles que le marchand peut corriger dans l'éditeur.
+  //
+  //  - « n'a pas de modèle » : le nœud attend un message à créer, c'est prévu.
+  //  - « n'est relié à rien » : le nœud existe mais son fil manque. On tente de
+  //    le recoudre plus haut ; quand la fin de chaîne se ramifie (message à
+  //    boutons), on ne peut pas raccrocher « en vrac » et il reste orphelin.
+  //
+  // Cette dernière est devenue BLOQUANTE quand je l'ai ajoutée à validateGraph :
+  // un parcours entier était refusé (« Je n'ai pas réussi à construire un
+  // parcours valide ») alors que tout le reste était bon. Refuser un parcours à
+  // 90 % correct est PIRE que le livrer avec un bloc à rebrancher : le marchand
+  // perd tout, sans savoir quoi corriger. L'éditeur, lui, affiche le bloc et
+  // permet de le relier d'un clic.
+  const blocking = errors.filter((e) => !/n'a pas de modèle|n'est relié à rien/.test(e))
   if (blocking.length > 0) {
     return NextResponse.json({
       mode: 'ask',
