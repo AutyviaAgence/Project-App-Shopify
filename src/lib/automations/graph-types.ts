@@ -83,6 +83,16 @@ export type ActionNode = {
     /** Conseils de rédaction : angle, incitation, boutons à prévoir. */
     suggestion?: string
   }
+  /**
+   * Valeurs saisies par le MARCHAND pour les variables que les données ne
+   * peuvent pas fournir (aujourd'hui : `promo_code`).
+   *
+   * Le prénom vient du contact, le n° de commande de Shopify — mais aucun
+   * déclencheur ne porte de code promo. Sans ces valeurs, le client recevait
+   * « utilisez le code — » (le fallback). Elles sont injectées à l'envoi, par
+   * dessus le contexte du déclencheur.
+   */
+  vars?: Record<string, string>
   /** Message à boutons : autorise le contact à suivre PLUSIEURS réponses (il
    *  clique Oui, reçoit la branche Oui, puis peut cliquer Non et recevoir aussi
    *  la branche Non). Chaque bouton ne se déclenche qu'UNE fois. `false` ou

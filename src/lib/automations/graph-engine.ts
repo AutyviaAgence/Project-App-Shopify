@@ -102,10 +102,10 @@ function pickVariant(variants: { key: string; weight: number }[]): string {
  */
 
 export type WorkflowStep =
-  | { kind: 'send'; templateId: string; nextNodeId: string | null; abTest?: { nodeId: string; variant: string } }
+  | { kind: 'send'; templateId: string; nextNodeId: string | null; abTest?: { nodeId: string; variant: string }; vars?: Record<string, string> }
   // Message à boutons : on l'envoie PUIS on parque le job jusqu'au clic. La
   // reprise (resumeFromButton) est pilotée par le webhook, pas par le cron.
-  | { kind: 'send_wait_click'; templateId: string; nodeId: string; abTest?: { nodeId: string; variant: string } }
+  | { kind: 'send_wait_click'; templateId: string; nodeId: string; abTest?: { nodeId: string; variant: string }; vars?: Record<string, string> }
   | { kind: 'wait'; minutes: number; nextNodeId: string }
   | { kind: 'done' }
 
@@ -175,10 +175,10 @@ export function stepWorkflow(
       }
       // Message À BOUTONS : on envoie et on PARQUE (reprise sur clic via webhook).
       if (actionHasButtons(graph, node.id)) {
-        return { kind: 'send_wait_click', templateId: node.templateId, nodeId: node.id, abTest: pendingAb }
+        return { kind: 'send_wait_click', templateId: node.templateId, nodeId: node.id, abTest: pendingAb, vars: node.vars }
       }
       const next = nextNodes(graph, node.id)[0] || null
-      return { kind: 'send', templateId: node.templateId, nextNodeId: next, abTest: pendingAb }
+      return { kind: 'send', templateId: node.templateId, nextNodeId: next, abTest: pendingAb, vars: node.vars }
     }
 
     // trigger ou type inconnu → avancer

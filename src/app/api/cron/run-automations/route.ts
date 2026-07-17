@@ -312,7 +312,14 @@ async function processJob(
     }
 
     // send OU send_wait_click : dans les deux cas on envoie le message.
-    const r = await sendTemplateToContact({ templateId: step.templateId, contactId: job.contact_id, variables: eventData.variables || {}, automationId: auto.id })
+    // Les valeurs saisies par le marchand sur le NŒUD (code promo…) priment sur
+    // le contexte du déclencheur : elles n'existent nulle part ailleurs. Sans
+    // elles, le client recevait « utilisez le code — » (le fallback).
+    const r = await sendTemplateToContact({
+      templateId: step.templateId, contactId: job.contact_id,
+      variables: { ...(eventData.variables || {}), ...(step.vars || {}) },
+      automationId: auto.id,
+    })
     if (!r.ok) {
       const d = deferReason(r.error)
       if (d) { await deferJob(supabase, job.id, now, d); return 'deferred' }

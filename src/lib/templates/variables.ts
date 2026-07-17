@@ -13,6 +13,24 @@ export type TemplateVariable = {
   group: 'Client' | 'Commande' | 'Liens' | 'Boutique'
   /** Exemple fourni à Meta pour la soumission (sample_values). */
   sample: string
+  /**
+   * Le MARCHAND doit fournir cette valeur : rien dans les données ne peut la
+   * deviner.
+   *
+   * La quasi-totalité des variables se résolvent toutes seules à l'envoi (le
+   * prénom vient du contact, le n° de commande de Shopify…). Le code promo, lui,
+   * n'existe nulle part : aucun déclencheur ne le porte — un anniversaire ne
+   * « contient » pas de code. Sans saisie, le client recevait « utilisez le code
+   * — » (le fallback), ce qui est pire que pas de message du tout.
+   */
+  merchantProvided?: boolean
+  /** Aide affichée sous le champ de saisie (uniquement si merchantProvided). */
+  hint?: string
+}
+
+/** Variables que le marchand doit renseigner lui-même sur le bloc message. */
+export function isMerchantProvided(key: string): boolean {
+  return TEMPLATE_VARIABLES.some((v) => v.key === key && v.merchantProvided)
 }
 
 export const TEMPLATE_VARIABLES: TemplateVariable[] = [
@@ -36,7 +54,11 @@ export const TEMPLATE_VARIABLES: TemplateVariable[] = [
   { key: 'review_url', label: "Lien d'avis", group: 'Liens', sample: 'https://avis.exemple.com' },
   // Boutique
   { key: 'store_name', label: 'Nom de la boutique', group: 'Boutique', sample: 'Ma Boutique' },
-  { key: 'promo_code', label: 'Code promo', group: 'Boutique', sample: 'PROMO10' },
+  {
+    key: 'promo_code', label: 'Code promo', group: 'Boutique', sample: 'PROMO10',
+    merchantProvided: true,
+    hint: 'Le code de réduction créé dans Shopify (Réductions → Créer). Le même pour tous les clients de ce message.',
+  },
   // Interaction (clic de bouton)
   { key: 'button_title', label: 'Bouton cliqué', group: 'Boutique', sample: 'Suivre ma commande' },
 ]

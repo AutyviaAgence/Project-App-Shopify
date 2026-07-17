@@ -12,6 +12,7 @@ import { Input } from '@/components/ui/input'
 import { ChevronDown } from 'lucide-react'
 import { TRIGGER_EVENTS, TRIGGER_CAVEATS, triggersForKind, isRepeatableTrigger, isSelfFeedingTrigger, defaultRecurrenceFor } from '@/lib/automations/types'
 import { templateBlockReason, isBuildableTemplate } from '@/lib/templates/status'
+import { TEMPLATE_VARIABLES } from '@/lib/templates/variables'
 
 /** Fuseau détecté du navigateur, proposé par défaut. `scheduledAt` reste
  *  TOUJOURS un instant absolu (ISO UTC) : le fuseau ne sert qu'à saisir et à
@@ -795,6 +796,12 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction, onTem
   const selected = templates.find((t) => t.id === node.templateId) || null
   // Brief laissé par l'assistant IA quand aucun modèle existant ne convenait.
   const todo = (node as { todo?: { purpose: string; suggestion?: string } }).todo
+  // Variables de CE modèle que le marchand doit renseigner lui-même : on ne
+  // demande que ce que les données ne savent pas fournir (le code promo), et
+  // uniquement si le modèle s'en sert.
+  const merchantVars = (selected?.variable_keys || [])
+    .map((k) => TEMPLATE_VARIABLES.find((v) => v.key === k))
+    .filter((v): v is NonNullable<typeof v> => !!v?.merchantProvided)
   const badge = (t: WhatsAppTemplate) =>
     t.template_type === 'carousel' ? '🎠 Carrousel'
     : t.template_type === 'limited_time_offer' ? '🏷️ Offre limitée'
@@ -1018,6 +1025,40 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction, onTem
                   <AlertTriangle className="mt-px h-3 w-3 shrink-0" />
                   <span>{templateBlockReason(selected.status)}</span>
                 </p>
+              )}
+
+              {/* ⚠️ Variables que les DONNÉES ne peuvent pas fournir.
+                  Le prénom vient du contact, le n° de commande de Shopify — mais
+                  aucun déclencheur ne porte de code promo. Sans ce champ, le
+                  client recevait « utilisez le code — » (le fallback), ce qui est
+                  pire que pas de message du tout. */}
+              {merchantVars.length > 0 && (
+                <div className="mt-2 space-y-2 rounded-md border border-border/60 bg-muted/30 p-2">
+                  {merchantVars.map((v) => {
+                    const val = (node as { vars?: Record<string, string> }).vars?.[v.key] || ''
+                    return (
+                      <div key={v.key}>
+                        <label className="mb-1 block text-[10px] font-medium text-muted-foreground">
+                          {v.label} <span className="text-amber-600">· à renseigner</span>
+                        </label>
+                        <Input
+                          value={val}
+                          placeholder={v.sample}
+                          onChange={(e) => onPatch(node.id, {
+                            vars: { ...(node as { vars?: Record<string, string> }).vars, [v.key]: e.target.value },
+                          } as never)}
+                          className="h-7 text-xs"
+                        />
+                        {v.hint && <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">{v.hint}</p>}
+                        {!val && (
+                          <p className="mt-0.5 text-[10px] text-amber-600">
+                            Sans valeur, le client verra « — » à la place.
+                          </p>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
               )}
             </div>
           )}
