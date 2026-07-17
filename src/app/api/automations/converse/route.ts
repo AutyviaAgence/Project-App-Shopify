@@ -673,6 +673,62 @@ objectif. Ne recommande RIEN à ce stade — tu ne sais pas encore ce qu'il veut
   if (deduped > 0) {
     console.warn(`[automations/converse] ${deduped} modèle(s) en doublon retiré(s) du parcours`)
   }
+  // ⚠️ NŒUDS NON RELIÉS AU DÉCLENCHEUR → INVISIBLES ET JAMAIS ENVOYÉS.
+  //
+  // Constaté : « Souhaiter un anniversaire » produisait un parcours annoncé à
+  // « 1 message »… dont le canvas ne montrait QUE le déclencheur. L'IA avait bien
+  // créé le nœud message, mais SANS l'arête trigger → message.
+  //
+  // L'affichage suit les arêtes (chainFrom) : un nœud sans arête entrante n'est
+  // jamais rendu. Le moteur non plus ne l'atteindrait jamais. Et validateGraph ne
+  // vérifiait pas l'atteignabilité — seulement les arêtes orphelines. Le parcours
+  // passait donc pour valide tout en étant vide.
+  //
+  // On RECOUD plutôt que de rejeter : le message existe, il est pertinent, il
+  // manque juste son fil. On le raccroche à la fin de la chaîne principale.
+  let relinked = 0
+  if (Array.isArray(graph.edges) && Array.isArray(graph.nodes)) {
+    const trig0 = nodes.find((n) => n.type === 'trigger')
+    if (trig0) {
+      // Parcours en largeur depuis le déclencheur : qui est atteignable ?
+      const reachable = new Set<string>([trig0.id])
+      const queue = [trig0.id]
+      while (queue.length) {
+        const cur = queue.shift()!
+        for (const e of graph.edges.filter((x) => x.from === cur)) {
+          if (reachable.has(e.to)) continue
+          reachable.add(e.to)
+          queue.push(e.to)
+        }
+      }
+      // Dernier nœud de la chaîne principale : c'est là qu'on raccroche.
+      const tailOf = (start: string): string => {
+        let cur = start
+        const seen = new Set<string>([cur])
+        for (;;) {
+          const next = graph.edges.find((e) => e.from === cur && !e.branch)
+          if (!next || seen.has(next.to)) return cur
+          seen.add(next.to)
+          cur = next.to
+        }
+      }
+      for (const n of nodes) {
+        if (n.type === 'trigger' || reachable.has(n.id)) continue
+        const tail = tailOf(trig0.id)
+        // Un nœud qui se ramifie ne prend pas de suite « en vrac » : on ne
+        // raccroche qu'à un point qui accepte une continuité simple.
+        const tailHasBranches = graph.edges.some((e) => e.from === tail && e.branch)
+        if (tailHasBranches) continue
+        graph.edges.push({ from: tail, to: n.id })
+        reachable.add(n.id)
+        relinked++
+      }
+    }
+  }
+  if (relinked > 0) {
+    console.warn(`[automations/converse] ${relinked} nœud(s) non relié(s) au déclencheur → raccroché(s)`)
+  }
+
   // ⚠️ MÊME MESSAGE SUR UN BOUTON ET SUR « PAR DÉFAUT » → ENVOYÉ DEUX FOIS.
   //
   // « Par défaut » (button:__timeout__) part DANS TOUS LES CAS, que le client

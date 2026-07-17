@@ -253,6 +253,33 @@ export function validateGraph(graph: WorkflowGraph): string[] {
       }
     }
   }
+
+  // ⚠️ TOUT NŒUD DOIT ÊTRE ATTEIGNABLE DEPUIS LE DÉCLENCHEUR.
+  //
+  // On vérifiait les arêtes orphelines (pointant vers un id inconnu), jamais
+  // l'inverse : un NŒUD sans arête entrante passait pour valide. Constaté en
+  // production — un message d'anniversaire créé sans arête `trigger → message` :
+  // le parcours s'annonçait à « 1 message », le canvas n'affichait que le
+  // déclencheur (l'affichage suit les arêtes), et le moteur n'aurait jamais
+  // atteint ce message. Un parcours vide qui se croit complet.
+  const trig = triggers[0]
+  if (trig) {
+    const reachable = new Set<string>([trig.id])
+    const queue: string[] = [trig.id]
+    while (queue.length > 0) {
+      const cur = queue.shift()!
+      for (const e of graph.edges) {
+        if (e.from !== cur || reachable.has(e.to)) continue
+        reachable.add(e.to)
+        queue.push(e.to)
+      }
+    }
+    for (const n of graph.nodes) {
+      if (n.type === 'trigger' || reachable.has(n.id)) continue
+      errors.push(`Le bloc "${(n as { label?: string }).label || n.id}" n'est relié à rien : il ne sera jamais envoyé.`)
+    }
+  }
+
   return errors
 }
 
