@@ -349,8 +349,14 @@ export function WorkflowChat({ kind, onComplete, onCancel }: {
                 </p>
               </div>
             )}
+            {/* ⚠️ Ne PAS dire « une fois approuvés par Meta, rattachez-les » :
+                c'est faux deux fois. Les brouillons sont constructibles (c'est
+                tout l'intérêt : ne pas attendre 24 h de revue pour dessiner son
+                parcours), et ils sont rattachés AUTOMATIQUEMENT. On envoyait le
+                marchand attendre, puis faire un travail déjà fait. */}
             <p className="mt-2 text-[11px] text-muted-foreground">
-              Une fois approuvés par Meta, rattachez ces messages au parcours dans l’éditeur.
+              Vos brouillons suffisent pour construire le parcours : ils y seront rattachés automatiquement.
+              L’approbation Meta n’est nécessaire que pour l’activer.
             </p>
           </div>
         )}

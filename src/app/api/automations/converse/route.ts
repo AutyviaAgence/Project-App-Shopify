@@ -250,8 +250,31 @@ export async function POST(req: NextRequest) {
   }[]
 
   // Dédup par nom (les variantes linguistiques partagent le même name).
+  //
+  // ⚠️ QUELLE LANGUE GAGNE N'ÉTAIT PAS DÉCIDÉ — ET ÇA CASSAIT TOUT.
+  //
+  // La requête n'a pas d'ORDER BY : c'est donc la ligne que Postgres renvoie en
+  // premier qui gagnait, EN ou FR, au hasard. Or `createdTemplateIds` porte les
+  // id des modèles FR (ceux que /from-suggestion vient de créer ; la traduction
+  // anglaise est faite après, avec d'autres id). Quand l'anglais gagnait, l'id FR
+  // n'était PAS dans le catalogue — alors que le prompt exige « n'utilise QUE ces
+  // id ». On désignait donc à l'IA des modèles absents de la liste autorisée :
+  // elle suivait la liste, laissait les nœuds vides, et le parcours arrivait sans
+  // aucun message rattaché. Le marchand cliquait « Créer ce parcours » et voyait
+  // ses 3 messages redemandés.
+  //
+  // On tranche : le FR d'abord (langue de construction), et surtout JAMAIS un
+  // modèle qu'on vient de créer ne peut être masqué par sa traduction.
+  const createdSet = new Set(createdIds)
   const byName = new Map<string, typeof templates[number]>()
-  for (const t of templates) if (!byName.has(t.name)) byName.set(t.name, t)
+  for (const t of templates) {
+    const cur = byName.get(t.name)
+    if (!cur) { byName.set(t.name, t); continue }
+    // Priorité : modèle fraîchement créé > français > premier venu.
+    const better = createdSet.has(t.id) ? 2 : t.language === 'fr' ? 1 : 0
+    const currentScore = createdSet.has(cur.id) ? 2 : cur.language === 'fr' ? 1 : 0
+    if (better > currentScore) byName.set(t.name, t)
+  }
   // Ce que l'IA doit voir pour JUGER si un modèle convient :
   //  - l'USAGE (use_case) : « bienvenue » vs « états de commande ». Sans lui, elle
   //    n'a qu'un nom à interpréter, et met un message de bienvenue sur une
