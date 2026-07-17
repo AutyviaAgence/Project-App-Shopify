@@ -439,6 +439,52 @@ Exemples :
     if (storeContextPrompt) {
       systemPrompt += `\n\n${storeContextPrompt}`
     }
+
+    // ⚠️ LE CATALOGUE PRODUITS — SANS LUI, LE CARROUSEL ÉTAIT INUTILISABLE.
+    //
+    // La balise [CAROUSEL:handle,...] existe et fonctionne (elle lit
+    // `shopify_products` plus bas), et le prompt exige « uniquement des handle du
+    // catalogue ci-dessus ». Sauf qu'AUCUN catalogue n'était injecté :
+    // buildStoreContextPrompt ne donne que le nom de la boutique et des liens.
+    //
+    // L'agent n'avait donc jamais un seul handle. Il répondait ce qu'il trouvait
+    // dans la base de connaissances : une liste numérotée en markdown brut
+    // (« 1. **The Minimal Snowboard** — 885,95 € »), sans photo, sans lien, sans
+    // bouton. Constaté en production : un mur de texte pour vendre des snowboards
+    // à 950 €. Les produits, eux, étaient bien en base — avec leurs images.
+    //
+    // On injecte la MÊME source que le handler du carrousel : ce que l'agent voit
+    // est exactement ce que le système saura envoyer. Pas de handle halluciné,
+    // pas de produit annoncé qui n'arrive jamais.
+    if (userId) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data: prods } = await (supabase as any)
+        .from('shopify_products')
+        .select('handle, title, price, image_url, url')
+        .eq('user_id', userId)
+        .not('handle', 'is', null)
+        .limit(60) as { data: { handle: string; title: string; price: string | null; image_url: string | null; url: string | null }[] | null }
+
+      if (prods && prods.length > 0) {
+        const lines = prods.map((p) => {
+          // On DIT lesquels sont envoyables en carrousel : le handler écarte
+          // silencieusement les produits sans image (cf. `filter(p => p.image_url)`).
+          // Sans cette mention, l'agent annonçait « voici nos 5 produits » et le
+          // client n'en recevait que 3, sans explication.
+          const img = p.image_url ? '' : ' [SANS PHOTO — pas de carrousel possible]'
+          return `- handle:${p.handle} · ${p.title}${p.price ? ` · ${p.price}` : ''}${img}`
+        })
+        systemPrompt += `\n\n--- Catalogue produits (${prods.length}) ---
+Ce sont les VRAIS produits de la boutique. Les "handle" ci-dessous sont les seuls
+utilisables dans [CAROUSEL:...] — n'en invente jamais un.
+${lines.join('\n')}
+⚠️ Quand le client demande quels produits tu vends, ce qu'il pourrait acheter, ou
+te demande de recommander/comparer : réponds par une phrase COURTE + un
+[CAROUSEL:...] avec 2 à 5 produits pertinents. JAMAIS une liste numérotée en
+texte : le client ne verrait ni photo, ni prix cliquable, ni lien.
+--- Fin catalogue ---`
+      }
+    }
     if (knowledgeContext) {
       systemPrompt += `\n\n--- Base de connaissances (PRIORITAIRE) ---\nIMPORTANT : Avant d'appeler un outil, vérifie TOUJOURS si la réponse se trouve dans la base de connaissances ci-dessous. N'appelle un outil que si l'information n'est PAS disponible ici. Utilise ces informations en priorité pour répondre de manière précise.\n\n${knowledgeContext}\n--- Fin de la base de connaissances ---`
     }
@@ -702,6 +748,22 @@ NE liste JAMAIS des options en texte (genre "1. ... 2. ...") si tu peux les mett
       .replace(/\[BTN:[^\]]+\]/gi, '')
       .replace(/\[CAROUSEL:[^\]]+\]/gi, '')
       .replace(/\[LINK:([^|\]]+)\|([^\]]+)\]/gi, (_m, label, url) => `${label.trim()} : ${url.trim()}`)
+      // ⚠️ WHATSAPP N'EST PAS DU MARKDOWN.
+      //
+      // Le gras y est *simple étoile*, pas **double**. Le modèle écrit du
+      // markdown par défaut : le client recevait littéralement
+      // « 1. **The Minimal Snowboard** - 885,95 € », astérisques comprises.
+      // Constaté en production.
+      //
+      // On convertit à la SORTIE plutôt que d'espérer que le prompt suffise :
+      // aucune consigne ne tient sur 100 % des réponses, et le coût d'un raté est
+      // un message parti chez un vrai client.
+      // Ordre important : ** avant *, sinon le simple mange le double.
+      .replace(/\*\*\*([^*\n]+)\*\*\*/g, '*_$1_*')   // gras+italique
+      .replace(/\*\*([^*\n]+)\*\*/g, '*$1*')          // **gras** → *gras*
+      .replace(/(^|[\s(])__([^_\n]+)__(?=$|[\s.,;:!?)])/gm, '$1*$2*')  // __gras__ → *gras*
+      // Titres markdown (« ## Nos produits ») : WhatsApp ne les rend pas, le # reste.
+      .replace(/^#{1,6}\s+(.+)$/gm, '*$1*')
       .replace(/\n{3,}/g, '\n\n')
       .trim()
 
