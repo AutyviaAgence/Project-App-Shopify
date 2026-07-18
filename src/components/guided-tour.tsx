@@ -366,8 +366,22 @@ function TourOverlay() {
     const maxRetries = 20 // ~2 s puis on bascule en mode « centré »
     let retryTimer: NodeJS.Timeout | null = null
     setTargetMissing(false)
+    // ⚠️ On EFFACE la position de l'étape PRÉCÉDENTE dès le changement d'étape.
+    //
+    // Sans ça, la bulle restait affichée à l'ancienne position (ancien rect) puis
+    // « sautait » vers la nouvelle quand la cible était trouvée — l'effet de
+    // placement lent constaté. En repartant de null, on montre brièvement l'état
+    // de chargement, puis la bulle apparaît DIRECTEMENT au bon endroit.
+    setTargetRect(null)
+    let scrolled = false
 
     const updatePosition = (target: Element) => {
+      // Amener la cible dans le viewport la 1re fois (si elle est hors-écran, le
+      // rect serait hors-cadre et la bulle mal placée).
+      if (!scrolled) {
+        scrolled = true
+        target.scrollIntoView({ behavior: 'auto', block: 'center', inline: 'nearest' })
+      }
       const rect = target.getBoundingClientRect()
       setTargetRect(rect)
 

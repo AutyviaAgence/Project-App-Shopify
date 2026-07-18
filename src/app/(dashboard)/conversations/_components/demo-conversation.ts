@@ -39,7 +39,10 @@ export function makeDemoConversation(session?: {
     session_id: session?.id ?? 'demo-session',
     channel: 'whatsapp',
     contact_id: DEMO_CONTACT_ID,
-    ai_agent_id: null,
+    // Agent factice non-null : c'est ce qui fait APPARAÎTRE l'interrupteur IA dans
+    // le header du chat (il n'est rendu que si ai_agent_id est présent). Sans lui,
+    // l'étape « Activer/couper l'IA » du tour n'avait rien à pointer.
+    ai_agent_id: 'demo-agent',
     last_message_at: now,
     last_message_preview: 'Bienvenue sur Xeyo.IO 👋',
     unread_count: 0,
