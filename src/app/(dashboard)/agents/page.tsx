@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { track } from '@/lib/posthog/events'
 import { useKeepAliveFocus } from '@/components/keep-alive-outlet'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -256,6 +257,7 @@ export default function AgentsPage() {
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Erreur')
+      track('agent_created', { source: 'manual' })
       setCreateChoiceOpen(false)
       router.push(`/agents/${json.data.id}`)
     } catch (e) {
@@ -307,6 +309,7 @@ export default function AgentsPage() {
       if (res.ok && json.data) {
         setAgents((prev) => prev.map((a) => (a.id === agent.id ? json.data : a)))
         toast.success(json.data.is_active ? t('agents.agent_enabled') : t('agents.agent_disabled'))
+        if (json.data.is_active) track('agent_activated_on_session', { agent_id: agent.id })
       }
     } catch {
       toast.error(t('common.network_error'))
@@ -393,6 +396,7 @@ export default function AgentsPage() {
       if (res.ok && json.data) {
         setAgents((prev) => [json.data, ...prev])
         toast.success(t('agents.duplicated'))
+        track('agent_created', { source: 'duplicate' })
       } else {
         toast.error(json.error || t('common.error'))
       }

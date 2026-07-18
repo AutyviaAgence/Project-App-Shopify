@@ -25,6 +25,7 @@ import { ModuleIntro, type IntroModule } from '@/components/onboarding/module-in
 import { ThemeEditorDemo } from '@/components/onboarding/theme-editor-demo'
 import { PricingGlass, type TierType } from '@/components/ui/pricing-glass'
 import { PLANS, PAID_PLANS, ANNUAL_DISCOUNT } from '@/lib/plans'
+import { track, identifyMerchant } from '@/lib/posthog/events'
 import { AnimatePresence, motion } from 'framer-motion'
 
 /**
@@ -218,6 +219,15 @@ export default function OnboardingPage() {
       if (!s) return
       if (s.completed) { router.replace('/dashboard'); return }
       setStep(resolveStep(s))
+
+      // ⚠️ L'onboarding est HORS du layout dashboard (qui identifie le marchand) :
+      // sans ça, TOUT le funnel d'onboarding serait anonyme. On identifie donc ici,
+      // pour relier chaque étape au compte. Puis on marque le début du funnel.
+      try {
+        const { data: { user } } = await createClient().auth.getUser()
+        if (user) identifyMerchant(user.id, { email: user.email })
+      } catch { /* no-op */ }
+      track('onboarding_started', { resume_step: resolveStep(s) })
       // Bienvenue :
       //  - FORCÉE juste après l'acceptation des CGU (flag `xeyo_show_welcome`
       //    posé par /register/complete) — c'est le vrai « je viens de m'inscrire » ;
@@ -230,6 +240,14 @@ export default function OnboardingPage() {
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // Funnel : chaque étape vue (avec son index) — c'est ce qui permet de voir
+  // dans PostHog À QUELLE étape les marchands décrochent. Ne se déclenche pas
+  // tant que l'écran de bienvenue est affiché (l'étape n'est pas encore « vue »).
+  useEffect(() => {
+    if (showWelcome) return
+    track('onboarding_step_viewed', { step, index: STEPS.indexOf(step) })
+  }, [step, showWelcome])
 
   // Polling pendant les étapes d'attente (connexion dans un autre onglet, sync).
   useEffect(() => {
@@ -322,6 +340,9 @@ export default function OnboardingPage() {
   }
 
   function goTo(next: Step, msg?: string) {
+    // Étape validée : on émet l'étape QU'ON QUITTE (celle qui vient d'être
+    // complétée) → funnel de complétion, complémentaire de step_viewed.
+    track('onboarding_step_completed', { from: step, to: next, index: STEPS.indexOf(step) })
     if (msg) {
       // La carte annonce aussi l'étape suivante (« Étape suivante : … »).
       setFeedback({ message: msg, next: STEP_META[next].title })
@@ -483,6 +504,9 @@ export default function OnboardingPage() {
       // facturation Shopify », même quand l'abonnement était bien créé.
       const confirmationUrl = json?.data?.confirmationUrl
       if (!res.ok || !confirmationUrl) throw new Error(json.error || 'Erreur de facturation Shopify')
+      // Onboarding terminé : le marchand a choisi une formule et part vers la
+      // page d'approbation Shopify. Fin du funnel (avec plan + intervalle).
+      track('onboarding_completed', { plan: planId, billing })
       // Marque terminé AVANT la redirection : au retour, plus de gate.
       await fetch('/api/onboarding/complete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ done: true }) })
       window.location.href = confirmationUrl

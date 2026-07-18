@@ -404,6 +404,7 @@ export default function TemplatesPage() {
         if (json.meta?.use_case) setAiUseCase(json.meta.use_case)
         if (json.meta?.tone) setAiTone(json.meta.tone)
         if (json.meta?.objective) setAiObjective(json.meta.objective)
+        track('template_ai_generated', { use_case: json.meta?.use_case, count: json.proposals?.length || 0 })
         setAiProposals(json.proposals || [])
         setAiChat((c) => [...c, { role: 'assistant', content: 'Voici 3 propositions basées sur votre demande 👇' }])
         if (!json.proposals?.length) toast.error('Aucune proposition, précisez votre demande.')
@@ -670,6 +671,13 @@ export default function TemplatesPage() {
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || 'Erreur')
       const saved = json.data as WhatsAppTemplate | undefined
+      // Création manuelle (l'éditeur) — distincte de la création depuis la
+      // bibliothèque (source: 'library') déjà trackée. Édition = template_saved.
+      if (!editing && saved) {
+        track('template_created', { source: 'editor', template_type: templateType })
+      } else if (editing && saved) {
+        track('template_saved', { template_id: saved.id, template_type: templateType })
+      }
       const wasSubmitted = editing && editing.status !== 'draft'
       const nowDraft = saved?.status === 'draft'
       const nowModified = saved?.status === 'approved' && saved?.has_pending_changes
@@ -770,6 +778,7 @@ export default function TemplatesPage() {
         }
       }
       await fetchTemplates()
+      if (ok > 0) track('template_submitted', { source: 'submit_all', count: ok })
       if (failures.length === 0) {
         toast.success(`${ok} modèle(s) envoyé(s) en revue chez Meta.`, { duration: 6000 })
       } else {
@@ -799,6 +808,7 @@ export default function TemplatesPage() {
       const results = (json.results || []) as { language: string; ok: boolean; error?: string }[]
       const ok = results.filter((r) => r.ok).map((r) => r.language.toUpperCase())
       const ko = results.filter((r) => !r.ok)
+      if (ok.length > 0) track('template_submitted', { source: 'submit_group', template_id: t.id, languages: ok.length })
       if (ko.length === 0) {
         toast.success(`Toutes les langues soumises (${ok.join(', ')}).`, { duration: 5000 })
       } else {

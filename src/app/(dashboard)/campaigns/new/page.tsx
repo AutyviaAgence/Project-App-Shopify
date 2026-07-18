@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
+import { track } from '@/lib/posthog/events'
 import { useTranslation } from '@/i18n/context'
 import type { AIAgent, WhatsAppSession, ConversationTag, Team, WALink, LifecycleStage } from '@/types/database'
 import { Button } from '@/components/ui/button'
@@ -258,6 +259,7 @@ export default function NewCampaignPage() {
 
       const json = await res.json()
       if (res.ok && json.data) {
+        track('campaign_created', { mode: campaignMode })
         toast.success(t('campaigns.campaign_created'))
         router.push(`/campaigns/${json.data.id}`)
       } else {

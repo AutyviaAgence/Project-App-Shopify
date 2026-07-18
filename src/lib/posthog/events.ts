@@ -7,6 +7,11 @@ import posthog from 'posthog-js'
  * Usage : `import { track } from '@/lib/posthog/events'; track('agent_created', {...})`
  */
 export type XeyoEvent =
+  // Onboarding (funnel — mesurer où les marchands décrochent)
+  | 'onboarding_started'
+  | 'onboarding_step_viewed'
+  | 'onboarding_step_completed'
+  | 'onboarding_completed'
   // Agents & IA
   | 'agent_created'
   | 'agent_tested'
@@ -16,6 +21,7 @@ export type XeyoEvent =
   | 'auto_tag_enabled'
   // Templates
   | 'template_created'
+  | 'template_saved'
   | 'template_ai_generated'
   | 'template_submitted'
   | 'template_published'
@@ -32,6 +38,9 @@ export type XeyoEvent =
   | 'automation_created'
   | 'automation_activated'
   | 'automation_saved'
+  // Campagnes (envoi de masse)
+  | 'campaign_created'
+  | 'campaign_launched'
   // Liens & widget
   | 'link_created'
   | 'qr_downloaded'

@@ -437,6 +437,7 @@ function AutomationsPageInner() {
       await load()
       if (json.data?.id) setCurrent(json.data as Automation)
       if (isNew) track('automation_created', { trigger: trig?.event || undefined })
+      else track('automation_saved', { id: json.data?.id })
       if (current.is_active) track('automation_activated', { id: json.data?.id })
       toast.success('Workflow enregistré')
     } catch (e) { toast.error(e instanceof Error ? e.message : 'Erreur') } finally { setBusyId(null) }

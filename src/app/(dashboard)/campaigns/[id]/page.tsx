@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter, useParams } from 'next/navigation'
+import { track } from '@/lib/posthog/events'
 import { useTranslation } from '@/i18n/context'
 import type { Campaign, CampaignRecipient, Contact } from '@/types/database'
 import { Button } from '@/components/ui/button'
@@ -205,6 +206,8 @@ export default function CampaignDetailPage() {
       if (res.ok && json.data) {
         setCampaign((prev) => prev ? { ...prev, ...json.data } : null)
         toast.success(json.message)
+        // Le lancement = le vrai broadcast (envoi de masse). C'est l'event clé.
+        if (action === 'start') track('campaign_launched', { campaign_id: campaignId })
         if (action === 'cancel') {
           setCancelDialogOpen(false)
         }
