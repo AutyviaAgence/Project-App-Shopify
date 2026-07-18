@@ -64,6 +64,17 @@ const MASCOTS = [
   { key: 'envelope', src: '/mascots/envelope.png' },
   { key: 'phone', src: '/mascots/phone.png' },
   { key: 'selfie', src: '/mascots/selfie.png' },
+  // Nouvelles poses de la mascotte Xeyo (fournies par le marchand).
+  { key: 'pose-1', src: '/mascots/pose-1.png' },
+  { key: 'pose-2', src: '/mascots/pose-2.png' },
+  { key: 'pose-5', src: '/mascots/pose-5.png' },
+  { key: 'pose-6', src: '/mascots/pose-6.png' },
+  { key: 'pose-7', src: '/mascots/pose-7.png' },
+  { key: 'pose-8', src: '/mascots/pose-8.png' },
+  { key: 'pose-10', src: '/mascots/pose-10.png' },
+  { key: 'pose-17', src: '/mascots/pose-17.png' },
+  { key: 'pose-19', src: '/mascots/pose-19.png' },
+  { key: 'pose-21', src: '/mascots/pose-21.png' },
 ] as const
 const DEFAULT_MASCOT = 'envelope'
 const mascotSrc = (key: string | null | undefined) =>
@@ -94,7 +105,9 @@ function MascotPicker({ agent, typeColor, onChange, children }: {
       <PopoverTrigger asChild>{children}</PopoverTrigger>
       <PopoverContent align="center" className="w-72" onClick={(e) => e.stopPropagation()}>
         <p className="mb-2 text-xs font-semibold text-muted-foreground">Mascotte</p>
-        <div className="grid grid-cols-3 gap-2">
+        {/* Défilement interne : la liste s'est allongée (nouvelles poses), le
+            popover ne doit pas dépasser l'écran. */}
+        <div className="grid max-h-56 grid-cols-3 gap-2 overflow-y-auto [scrollbar-width:thin]">
           {MASCOTS.map((m) => (
             <button
               key={m.key}
