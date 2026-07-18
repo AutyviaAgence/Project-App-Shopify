@@ -98,6 +98,13 @@ export async function GET(req: NextRequest) {
   // RETARDER un changement, jamais accorder un plan supérieur sans le payer.
   const isDeferredDowngrade = req.nextUrl.searchParams.get('deferred') === '1'
 
+  // Intervalle de facturation : transmis par /subscribe (déjà écrit en base au
+  // moment du subscribe). On le relit du query param, mais on ne l'accepte que
+  // s'il est valide — sinon on ne touche pas à la colonne existante.
+  const intervalParam = req.nextUrl.searchParams.get('interval')
+  const billingInterval =
+    intervalParam === 'annual' || intervalParam === 'monthly' ? intervalParam : null
+
   await admin
     .from('shopify_stores')
     .update({
@@ -105,6 +112,7 @@ export async function GET(req: NextRequest) {
       pending_plan: isDeferredDowngrade ? activatedPlan : null,
       subscription_status: 'active',
       billing_source: 'shopify',
+      ...(billingInterval ? { billing_interval: billingInterval } : {}),
       current_period_end: periodEnd.toISOString(),
       updated_at: new Date().toISOString(),
     })

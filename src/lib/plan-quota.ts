@@ -33,9 +33,35 @@ export async function checkPlanQuota(
   // Les admins ne sont jamais bloqués par les quotas
   if (raw?.role === 'admin') return { allowed: true }
 
+  // ⚠️ MARCHAND SHOPIFY : la source de vérité du plan est `shopify_stores`, PAS
+  // `profiles` (le callback billing n'écrit jamais dans profiles). Lire
+  // `profiles.subscription_status` ici bloquerait à tort un marchand qui paie.
+  // getUserPlan() arbitre déjà les deux tables et n'ouvre les droits que si
+  // l'abonnement Shopify est réellement actif (sinon il renvoie le plan `free`).
+  const { getShopifyBilling, getUserPlan } = await import('@/lib/shopify/plans')
+  const { billed } = await getShopifyBilling(userId)
+  if (billed) {
+    const effective = resolvePlan((await getUserPlan(userId)).id)
+    // Plan effectif 'free' = pas d'abonnement Shopify actif → rien à créer.
+    if (effective === 'free') {
+      return { allowed: false, limit: 0, current: 0, plan: 'free', reason: 'no_subscription' }
+    }
+    const limitShopify = PLAN_LIMITS[effective][resource]
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { count } = await (supabase as any)
+      .from(RESOURCE_TABLE[resource])
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+    const currentShopify = count ?? 0
+    if (currentShopify >= limitShopify) {
+      return { allowed: false, limit: limitShopify, current: currentShopify, plan: effective, reason: 'limit_reached' }
+    }
+    return { allowed: true }
+  }
+
   const subscriptionStatus = raw?.subscription_status ?? null
 
-  // Abonnement inactif → aucune création autorisée
+  // Abonnement inactif (chemin non-Shopify) → aucune création autorisée
   if (!subscriptionStatus || !ACTIVE_STATUSES.has(subscriptionStatus)) {
     return { allowed: false, limit: 0, current: 0, plan: resolvePlan(raw?.plan), reason: 'no_subscription' }
   }

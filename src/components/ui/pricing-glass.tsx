@@ -146,6 +146,15 @@ function PricingCard({
           {!isFree && <span className="ml-1 text-lg font-medium text-muted-foreground">/mois</span>}
         </motion.div>
 
+        {/* Mention explicite en annuel : le prix affiché est « par mois », mais la
+            facturation est annuelle (-20 %). Sans ça, le marchand pourrait croire
+            qu'il paie ce montant chaque mois. */}
+        {!isFree && isAnnual && (
+          <motion.p variants={legoVariant} className="-mt-1 mb-2 text-xs font-medium text-emerald-500">
+            facturé annuellement · 2 mois offerts
+          </motion.p>
+        )}
+
         <motion.p variants={legoVariant} className="mb-8 min-h-[40px] text-sm leading-relaxed text-muted-foreground">
           {tier.description}
         </motion.p>

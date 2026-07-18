@@ -24,7 +24,7 @@ import { TemplateSwiper, type SwipeGroup } from '@/components/onboarding/templat
 import { ModuleIntro, type IntroModule } from '@/components/onboarding/module-intro'
 import { ThemeEditorDemo } from '@/components/onboarding/theme-editor-demo'
 import { PricingGlass, type TierType } from '@/components/ui/pricing-glass'
-import { PLANS, PAID_PLANS } from '@/lib/plans'
+import { PLANS, PAID_PLANS, ANNUAL_DISCOUNT } from '@/lib/plans'
 import { AnimatePresence, motion } from 'framer-motion'
 
 /**
@@ -137,7 +137,8 @@ const PRICING_TIERS: TierType[] = PAID_PLANS.map((id) => {
     id: p.id,
     name: p.name,
     priceMonthly: String(p.priceEur),
-    priceAnnual: String(Math.round(p.priceEur * 0.8)), // -20 % (toggle masqué tant que non facturé)
+    // Prix annuel affiché « par mois » (facturé annuellement) : mensuel -20 %.
+    priceAnnual: String(Math.round(p.priceEur * (1 - ANNUAL_DISCOUNT))),
     description: PLAN_DESC[p.id] ?? '',
     isPopular: p.id === 'pro',
     features: p.features,
@@ -459,16 +460,18 @@ export default function OnboardingPage() {
     setBusy(true)
     setPlanLoading(planId)
     try {
-      if (planId === 'free') {
-        await fetch('/api/onboarding/complete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ done: true }) })
-        toast.success('Bienvenue ! Votre espace est prêt 🎉')
-        router.replace('/dashboard')
+      // Abonnement OBLIGATOIRE : plus de plan Gratuit. Tout parcours passe par un
+      // plan payant (7 jours d'essai). Garde défensive au cas où un 'free' arriverait.
+      if (planId === 'free' || !PAID_PLANS.includes(planId as (typeof PAID_PLANS)[number])) {
+        toast.error('Veuillez choisir une formule.')
+        setBusy(false)
+        setPlanLoading(null)
         return
       }
       if (state?.billingSource === 'shopify' && state.shopDomain) {
         const res = await fetch('/api/shopify/billing/subscribe', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ shop: state.shopDomain, plan: planId }),
+          body: JSON.stringify({ shop: state.shopDomain, plan: planId, billing }),
         })
         const json = await res.json()
         // La route renvoie { data: { confirmationUrl } } — on lisait json.confirmationUrl
@@ -1176,33 +1179,17 @@ export default function OnboardingPage() {
               {/* ── 7. ABONNEMENT (Gratuit autorisé) ── */}
               {step === 'plan' && (
                 <div className="space-y-6">
-                  {/* Cartes « verre » (les 3 plans payants). Le toggle annuel est
-                      masqué tant qu'il n'existe pas de vrai tarif annuel côté
-                      Stripe/Shopify, inutile d'afficher un prix qu'on ne facture pas. */}
+                  {/* Cartes « verre » (les 3 plans payants). Toggle mensuel/annuel
+                      actif (-20 % sur l'annuel). Abonnement OBLIGATOIRE : plus de
+                      plan Gratuit — 7 jours d'essai gratuit sur tout abonnement. */}
                   <PricingGlass
                     title="Choisissez votre formule"
-                    description="Vous pourrez changer de plan à tout moment. Le plan Gratuit reste disponible ci-dessous."
+                    description="7 jours d'essai gratuit. Vous pourrez changer de plan ou d'intervalle à tout moment."
                     tiers={PRICING_TIERS}
-                    showBillingToggle={false}
-                    onSelect={(id) => choosePlan(id)}
+                    showBillingToggle
+                    onSelect={(id, billing) => choosePlan(id, billing)}
                     loadingTierId={planLoading}
                   />
-
-                  {/* Plan Gratuit : proposé en retrait, pour ne pas casser la grille à 3. */}
-                  <div className="flex flex-col items-center gap-2 pt-2 text-center">
-                    <button
-                      type="button"
-                      disabled={busy}
-                      onClick={() => choosePlan('free')}
-                      className="inline-flex items-center gap-1.5 text-sm font-medium text-muted-foreground underline-offset-4 transition-colors hover:text-foreground hover:underline disabled:opacity-60"
-                    >
-                      {planLoading === 'free' ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-                      Continuer avec le plan Gratuit (sans IA)
-                    </button>
-                    <p className="max-w-md text-xs text-muted-foreground">
-                      Boîte de réception WhatsApp et réponses manuelles. Vous pourrez passer à un plan avec IA à tout moment.
-                    </p>
-                  </div>
                 </div>
               )}
             </motion.div>

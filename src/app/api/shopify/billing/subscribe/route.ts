@@ -4,6 +4,7 @@ import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { isValidShopDomain, createAppSubscription, getShopifyConfig } from '@/lib/shopify/client'
 import { getValidAccessToken } from '@/lib/shopify/token'
 import { PLANS, PAID_PLANS, type PlanId } from '@/lib/shopify/plans'
+import { planPrice } from '@/lib/plans'
 
 /**
  * POST /api/shopify/billing/subscribe  { shop, plan }
@@ -29,11 +30,15 @@ export async function POST(req: NextRequest) {
     shop?: string
     plan?: PlanId
     promo_code?: string
+    billing?: 'monthly' | 'annual'
   }
   // En embedded, la boutique vient du SESSION TOKEN (source sûre), pas du corps.
   const shop = authed.shop || body.shop
   const plan = body.plan
   const promoCode = (body.promo_code || '').trim()
+  // Intervalle de facturation : mensuel (défaut) ou annuel (-20 %).
+  const billing: 'monthly' | 'annual' = body.billing === 'annual' ? 'annual' : 'monthly'
+  const isAnnual = billing === 'annual'
 
   if (!shop || !isValidShopDomain(shop)) {
     return NextResponse.json({ error: 'Paramètre shop invalide' }, { status: 400 })
@@ -87,7 +92,10 @@ export async function POST(req: NextRequest) {
   const { resolvePromoCode, isTestBilling } = await import('@/lib/shopify/billing')
   let promoId: string | null = null
   let discount: { percentage?: number; amount?: number; durationLimitInIntervals?: number } | undefined
-  let trialDays = 0
+  // ESSAI 7 JOURS par défaut sur tout nouvel abonnement. Un code promo peut
+  // offrir un essai plus long → on prend le max (cumul, jamais d'écrasement).
+  const DEFAULT_TRIAL_DAYS = 7
+  let trialDays = DEFAULT_TRIAL_DAYS
 
   if (promoCode) {
     const resolved = await resolvePromoCode(promoCode, authed.userId, plan)
@@ -102,7 +110,7 @@ export async function POST(req: NextRequest) {
         durationLimitInIntervals: resolved.promo.durationMonths,
       }
     }
-    trialDays = resolved.promo.trialDays ?? 0
+    trialDays = Math.max(DEFAULT_TRIAL_DAYS, resolved.promo.trialDays ?? 0)
   }
 
   // Le code promo voyage jusqu'au callback : c'est lui qui enregistrera son
@@ -118,15 +126,20 @@ export async function POST(req: NextRequest) {
   // La décision est prise ici, une fois, et elle voyage avec le retour.
   const returnUrl =
     `${appUrl}/api/shopify/billing/callback?shop=${encodeURIComponent(shop)}&plan=${plan}` +
+    `&interval=${billing}` +
     (promoId ? `&promo=${promoId}` : '') +
     (isDowngrade ? '&deferred=1' : '')
 
   const result = await createAppSubscription(shop, token, {
-    name: `Xeyo ${planDef.name}`,
-    price: planDef.priceEur,
+    // Le nom porte l'intervalle → le sync (qui déduit le plan depuis le nom)
+    // reste lisible, et le marchand distingue mensuel/annuel sur son écran Shopify.
+    name: `Xeyo ${planDef.name}${isAnnual ? ' (Annuel)' : ''}`,
+    // Prix selon l'intervalle : annuel = mensuel×12 -20 %.
+    price: planPrice(plan, billing),
     currencyCode: 'EUR',
     returnUrl,
     test: isTestBilling(),
+    annual: isAnnual,
     trialDays: trialDays || undefined,
     discount,
     // ⚠️ MONTÉE = TOUT DE SUITE. BAISSE = AU PROCHAIN CYCLE.
@@ -177,6 +190,7 @@ export async function POST(req: NextRequest) {
       ...(isDowngrade ? {} : { subscription_status: 'pending' }),
       shopify_charge_id: sub.appSubscription?.id ?? null,
       billing_source: 'shopify',
+      billing_interval: billing,
       updated_at: new Date().toISOString(),
     })
     .eq('id', store.id)

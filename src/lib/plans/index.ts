@@ -5,12 +5,17 @@
 //  plan (prix, limites, features, gating IA) doit passer par ce module —
 //  stripe/plans.ts et shopify/plans.ts s'alignent dessus.
 //
-//  Modèle commercial :
-//  - free    : 0€   — AUCUNE IA (gestion manuelle + onboarding seulement)
-//  - starter : 29€  — ~100 conversations IA / mois (gpt-4o-mini)
-//  - pro     : 89€  — ~500 conversations IA / mois
-//  - scale   : 249€ — « illimité » fair-use (plafond interne 2000 : ALERTE
-//                      sans blocage — on discute d'un sur-mesure au-delà)
+//  Modèle commercial (100 % Shopify Billing — plus de plan gratuit exposé) :
+//  - starter : 49€  — 550 conversations IA / mois
+//  - pro      : 149€ — 1 800 conversations IA / mois
+//  - scale   : 349€ — 4 500 conversations IA / mois (fair-use)
+//
+//  Chaque plan payant se décline en MENSUEL ou ANNUEL (-20 %, 2 mois offerts),
+//  avec 7 jours d'essai gratuit sur tout nouvel abonnement.
+//
+//  'free' N'EST PLUS un plan commercial : il subsiste UNIQUEMENT comme sentinelle
+//  interne « aucun abonnement actif » (résolution par défaut, gating IA off). Il
+//  n'apparaît jamais dans l'UI ni dans PAID_PLANS.
 //
 //  Unité affichée : conversations estimées (1 conversation ≈ 1 contact/mois).
 //  Les tokens (PLAN_TOKEN_LIMITS, stripe/plans.ts) restent un backstop
@@ -18,6 +23,15 @@
 // =====================================================================
 
 export type PlanId = 'free' | 'starter' | 'pro' | 'scale'
+
+/** Intervalle de facturation Shopify. */
+export type BillingInterval = 'monthly' | 'annual'
+
+/**
+ * Remise annuelle (2 mois offerts). Un seul chiffre à changer pour ajuster.
+ * annualPrice = round(priceEur * 12 * (1 - ANNUAL_DISCOUNT)).
+ */
+export const ANNUAL_DISCOUNT = 0.20
 
 export type PlanDef = {
   id: PlanId
@@ -29,6 +43,8 @@ export type PlanDef = {
   conversationsPerMonth: number | null
   /** Plafond fair-use (scale) : alerte au-delà, PAS de blocage. */
   fairUseCap?: number
+  /** Nombre max d'agents IA (gating : Starter = 1, Pro/Scale = plusieurs). */
+  maxAgents: number
   features: string[]
 }
 
@@ -39,6 +55,7 @@ export const PLANS: Record<PlanId, PlanDef> = {
     priceEur: 0,
     aiEnabled: false,
     conversationsPerMonth: 0,
+    maxAgents: 0,
     features: [
       'Boîte de réception WhatsApp',
       'Réponses manuelles illimitées',
@@ -52,6 +69,7 @@ export const PLANS: Record<PlanId, PlanDef> = {
     priceEur: 49,
     aiEnabled: true,
     conversationsPerMonth: 550,
+    maxAgents: 1,
     features: [
       '550 conversations IA / mois',
       'Agent IA auto-configuré (routage gpt-4o / mini)',
@@ -61,14 +79,15 @@ export const PLANS: Record<PlanId, PlanDef> = {
   },
   pro: {
     id: 'pro',
-    name: 'Growth',
+    name: 'Pro',
     priceEur: 149,
     aiEnabled: true,
     conversationsPerMonth: 1800,
+    maxAgents: 5,
     features: [
       '1 800 conversations IA / mois',
       'Actions Shopify (annulation, remboursement…)',
-      'Multi-agents',
+      'Multi-agents IA',
       'Analyse lifecycle IA',
     ],
   },
@@ -79,6 +98,7 @@ export const PLANS: Record<PlanId, PlanDef> = {
     aiEnabled: true,
     conversationsPerMonth: 4500,
     fairUseCap: 4500,
+    maxAgents: 20,
     features: [
       '4 500 conversations IA / mois',
       'GPT-4o prioritaire sur les demandes sensibles',
@@ -89,6 +109,24 @@ export const PLANS: Record<PlanId, PlanDef> = {
 }
 
 export const PAID_PLANS: PlanId[] = ['starter', 'pro', 'scale']
+
+/**
+ * Prix annuel d'un plan (mensuel × 12 avec ANNUAL_DISCOUNT), arrondi à l'euro.
+ * Ex. Starter 49€ → 470€/an · Pro 149€ → 1430€/an · Scale 349€ → 3350€/an.
+ */
+export function annualPrice(plan: PlanId): number {
+  return Math.round(PLANS[plan].priceEur * 12 * (1 - ANNUAL_DISCOUNT))
+}
+
+/** Prix affiché selon l'intervalle choisi. */
+export function planPrice(plan: PlanId, interval: BillingInterval): number {
+  return interval === 'annual' ? annualPrice(plan) : PLANS[plan].priceEur
+}
+
+/** Nombre max d'agents IA autorisés pour un plan (gating). */
+export function maxAgents(plan: PlanId): number {
+  return PLANS[plan].maxAgents
+}
 
 /**
  * Résout une valeur de plan stockée (profiles.plan / shopify_stores.plan) vers

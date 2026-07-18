@@ -38,11 +38,13 @@ export type PlanLimits = {
   links: number
 }
 
+// ⚠️ `agents` est dérivé de PLANS[].maxAgents (source de vérité unique du
+// gating multi-agents : Starter = 1, Pro/Scale = plusieurs). Ne pas diverger.
 export const PLAN_LIMITS: Record<PlanId, PlanLimits> = {
-  free:    { sessions: 1,  agents: 1,  docs: 2,  links: 1  },
-  starter: { sessions: 2,  agents: 2,  docs: 5,  links: 3  },
-  pro:     { sessions: 4,  agents: 5,  docs: 10, links: 8  },
-  scale:   { sessions: 10, agents: 10, docs: 30, links: 15 },
+  free:    { sessions: 1,  agents: PLANS.free.maxAgents,    docs: 2,  links: 1  },
+  starter: { sessions: 2,  agents: PLANS.starter.maxAgents, docs: 5,  links: 3  },
+  pro:     { sessions: 4,  agents: PLANS.pro.maxAgents,     docs: 10, links: 8  },
+  scale:   { sessions: 10, agents: PLANS.scale.maxAgents,   docs: 30, links: 15 },
 }
 
 /** Défaut 'free' (IA OFF) — voir @/lib/plans. */

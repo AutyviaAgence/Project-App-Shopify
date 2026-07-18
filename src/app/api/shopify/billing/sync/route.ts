@@ -93,13 +93,20 @@ export async function POST(req: NextRequest) {
 
   // ── Un abonnement EST actif : quel plan ? ────────────────────────────────
   //
-  // Le nom de l'abonnement chez Shopify est « Xeyo <Plan> » (cf. `subscribe`).
-  // On en déduit le plan, plutôt que de faire confiance à notre propre base — qui
-  // est précisément ce qu'on cherche à corriger.
+  // Le nom de l'abonnement chez Shopify est « Xeyo <Plan> » ou « Xeyo <Plan>
+  // (Annuel) » (cf. `subscribe`). On en déduit le plan, plutôt que de faire
+  // confiance à notre propre base — qui est précisément ce qu'on cherche à corriger.
+  //
+  // ⚠️ COMPAT RENAME Growth → Pro : les abonnements créés AVANT le renommage
+  // s'appellent « Xeyo Growth » et ne contiennent plus le libellé « pro ». On mappe
+  // donc explicitement l'ancien nom vers le plan `pro` en plus des noms actuels.
   const name = (live.name || '').toLowerCase()
-  const matched = (Object.keys(PLANS) as PlanId[]).find(
-    (id) => id !== 'free' && name.includes(PLANS[id].name.toLowerCase())
-  )
+  const matched: PlanId | undefined =
+    name.includes('growth') // ancien nom du plan Pro
+      ? 'pro'
+      : (Object.keys(PLANS) as PlanId[]).find(
+          (id) => id !== 'free' && name.includes(PLANS[id].name.toLowerCase())
+        )
 
   // Si le nom ne correspond à rien de connu, on garde ce qu'on avait plutôt que de
   // dégrader un marchand qui paie.

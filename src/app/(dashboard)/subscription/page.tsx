@@ -50,30 +50,12 @@ import { useTranslation } from '@/i18n/context'
 import { useTenant } from '@/lib/tenant/context'
 import Link from 'next/link'
 import type { PlanId } from '@/lib/stripe/plans'
+import { annualPrice, ANNUAL_DISCOUNT } from '@/lib/plans'
 
 // Grille commerciale (source de vérité : @/lib/plans). Les limites IA sont
 // affichées en CONVERSATIONS estimées ; les tokens restent un backstop interne.
+// Plus de plan Gratuit : l'app est 100 % payante (7 jours d'essai).
 const PLANS = [
-  {
-    id: 'free' as PlanId,
-    name: 'Gratuit',
-    price: 0,
-    limitDesc: 'Sans IA, gestion manuelle + onboarding',
-    icon: Cpu,
-    color: 'text-slate-400',
-    borderColor: 'border-border/60',
-    bgGradient: 'from-muted/20',
-    badgeBg: 'bg-muted text-muted-foreground',
-    buttonClass: '',
-    features: [
-      { text: 'Boîte de réception WhatsApp', included: true },
-      { text: 'Réponses manuelles illimitées', included: true },
-      { text: 'Modèles WhatsApp', included: true },
-      { text: 'Réponses IA automatiques', included: false },
-      { text: 'Automatisations', included: false },
-      { text: 'Campagnes', included: false },
-    ],
-  },
   {
     id: 'starter' as PlanId,
     name: 'Starter',
@@ -87,16 +69,16 @@ const PLANS = [
     buttonClass: 'bg-blue-500 hover:bg-blue-600 text-white',
     features: [
       { text: '1 numéro WhatsApp', included: true },
-      { text: '2 agents IA', included: true },
+      { text: '1 agent IA', included: true },
       { text: 'Base de connaissances', included: true },
       { text: 'Automatisations (panier abandonné…)', included: true },
-      { text: 'Lifecycle (relances)', included: false },
+      { text: 'Multi-agents IA', included: false },
       { text: 'Campagnes', included: false },
     ],
   },
   {
     id: 'pro' as PlanId,
-    name: 'Growth',
+    name: 'Pro',
     price: 149,
     limitDesc: '1 800 conversations IA / mois',
     icon: Rocket,
@@ -149,6 +131,8 @@ function SubscriptionContent() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [isCancelling, setIsCancelling] = useState(false)
   const [selectedPlan, setSelectedPlan] = useState<PlanId | null>(null)
+  // Intervalle de facturation choisi (mensuel par défaut, annuel = -20 %).
+  const [billingInterval, setBillingInterval] = useState<'monthly' | 'annual'>('monthly')
   const [cgvAccepted, setCgvAccepted] = useState(false)
   const [buyingCredits, setBuyingCredits] = useState(false)
   // Crédits IA = conversations IA du mois (compteur réel).
@@ -220,7 +204,7 @@ function SubscriptionContent() {
         const res = await fetch('/api/shopify/billing/subscribe', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ shop: shopDomain, plan: selectedPlan }),
+          body: JSON.stringify({ shop: shopDomain, plan: selectedPlan, billing: billingInterval }),
         })
         const json = await res.json()
         const confirmationUrl = json?.data?.confirmationUrl
@@ -513,10 +497,12 @@ function SubscriptionContent() {
                 <Zap className="h-5 w-5 text-amber-500" />
                 <span className="font-semibold">Crédits IA (conversations)</span>
               </div>
-              {/* ⚠️ CONFORMITÉ SHOPIFY : pas de pack Stripe pour un marchand facturé
-                  par Shopify (achats hors plateforme interdits sur l'App Store).
-                  Il augmente son quota en montant de plan (Billing API). */}
-              {!shopifyBilled && (
+              {/* Recharge de conversations IA via la Billing API Shopify
+                  (appPurchaseOneTimeCreate — achat ponctuel conforme App Store).
+                  rechargeAiCredits() appelle /api/shopify/billing/purchase : le
+                  bouton s'affiche donc POUR les marchands Shopify (la condition
+                  était inversée : il était masqué à ceux qui pouvaient l'utiliser). */}
+              {shopifyBilled && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -733,15 +719,47 @@ function SubscriptionContent() {
           ? 'Changer de plan'
           : 'Plans disponibles'}
       </h2>
+      {/* Sélecteur d'intervalle : mensuel vs annuel (-20 %). */}
+      <div className="mb-6 flex items-center justify-center gap-3">
+        <button
+          type="button"
+          onClick={() => setBillingInterval('monthly')}
+          className={cn(
+            'rounded-full px-4 py-1.5 text-sm font-medium transition-colors',
+            billingInterval === 'monthly' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          Mensuel
+        </button>
+        <button
+          type="button"
+          onClick={() => setBillingInterval('annual')}
+          className={cn(
+            'flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium transition-colors',
+            billingInterval === 'annual' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+          )}
+        >
+          Annuel
+          <span className={cn(
+            'rounded-full px-2 py-0.5 text-[11px] font-semibold',
+            billingInterval === 'annual' ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-emerald-500/15 text-emerald-600'
+          )}>
+            −{Math.round(ANNUAL_DISCOUNT * 100)}%
+          </span>
+        </button>
+      </div>
+
       {/* Ancre pour l'assistant d'aide : « comment changer de plan ? » l'amène ici
           et surligne la grille des plans. */}
-      <div data-tour="plans-grid" className="grid md:grid-cols-2 xl:grid-cols-4 gap-5 mb-8">
+      <div data-tour="plans-grid" className="grid md:grid-cols-3 gap-5 mb-8">
         {PLANS.map((plan) => {
           const Icon = plan.icon
-          const isCurrent = plan.id === 'free'
-            ? (!isActive || currentPlan === 'free') && !pendingPlan
-            : isActive && (!!currentPlan) && currentPlan === plan.id && !pendingPlan
+          const isCurrent = isActive && (!!currentPlan) && currentPlan === plan.id && !pendingPlan
           const isPending = pendingPlan === plan.id
+          // Prix affiché selon l'intervalle : mensuel, ou annuel « par mois » (-20 %).
+          const displayPrice = billingInterval === 'annual'
+            ? Math.round(annualPrice(plan.id) / 12)
+            : plan.price
           return (
             <Card
               key={plan.id}
@@ -781,9 +799,14 @@ function SubscriptionContent() {
                   </span>
                 </div>
                 <div className="flex items-end gap-1">
-                  <span className="text-3xl font-bold">{plan.price}€</span>
+                  <span className="text-3xl font-bold">{displayPrice}€</span>
                   <span className="text-muted-foreground mb-0.5 text-sm">/mois</span>
                 </div>
+                {billingInterval === 'annual' && (
+                  <p className="text-[11px] font-medium text-emerald-600">
+                    soit {annualPrice(plan.id)}€/an · 2 mois offerts
+                  </p>
+                )}
                 <p className="text-xs text-muted-foreground">{plan.limitDesc}</p>
               </CardHeader>
               <CardContent className="flex-1 pt-0">
@@ -808,12 +831,6 @@ function SubscriptionContent() {
                   <Button className="w-full" disabled variant="outline">
                     <Clock className="mr-2 h-4 w-4 text-amber-500" />
                     Prochain renouvellement
-                  </Button>
-                ) : plan.id === 'free' ? (
-                  // Le plan gratuit ne passe pas par un checkout : c'est l'état
-                  // par défaut (on y revient en résiliant un plan payant).
-                  <Button className="w-full" disabled variant="outline">
-                    Inclus par défaut
                   </Button>
                 ) : (
                   <Button
@@ -862,12 +879,21 @@ function SubscriptionContent() {
               )}
               <div className="flex items-center justify-between">
                 <span className="font-semibold">Plan {planDetails.name}</span>
-                <span className="font-bold">{planDetails.price}€/mois</span>
+                <span className="font-bold">
+                  {billingInterval === 'annual'
+                    ? `${annualPrice(planDetails.id)}€/an`
+                    : `${planDetails.price}€/mois`}
+                </span>
               </div>
+              {billingInterval === 'annual' && (
+                <p className="text-xs font-medium text-emerald-600">
+                  Facturation annuelle · 2 mois offerts (−{Math.round(ANNUAL_DISCOUNT * 100)}%)
+                </p>
+              )}
               <p className="text-sm text-muted-foreground">{planDetails.limitDesc}</p>
               {!isActive && !isCancelled && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  14 jours d&apos;essai gratuit, vous ne serez prélevé qu&apos;à l&apos;issue de la période d&apos;essai.
+                  7 jours d&apos;essai gratuit, vous ne serez prélevé qu&apos;à l&apos;issue de la période d&apos;essai.
                 </p>
               )}
               {isActive && !isCancelled && subscription?.stripeSubscriptionId && (
