@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { Clock, GitBranch, MessageSquare, Plus, ShoppingBag, Trash2, FlaskConical, Users, CalendarClock, Search, X, Reply, AlertTriangle } from 'lucide-react'
+import { Clock, GitBranch, MessageSquare, Plus, ShoppingBag, Trash2, FlaskConical, Users, CalendarClock, Search, X, Reply, AlertTriangle, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -939,8 +939,16 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction, onTem
                   // concerné le dit (cf. templateBlockReason).
                   .filter(isBuildableTemplate)
                   .filter((t) => pickerCat === 'all' || catOfT(t) === pickerCat)
-                  .filter((t) => !q || [t.name, t.body_text, t.header_text, t.language]
-                    .filter(Boolean).join(' ').toLowerCase().includes(q))
+                  // La recherche matche aussi le LIBELLÉ DE CATÉGORIE : taper
+                  // « panier » ou « marketing » filtre par famille, pas seulement
+                  // sur le texte du message. C'est ce que le marchand attend quand
+                  // il « recherche par catégorie ».
+                  .filter((t) => {
+                    if (!q) return true
+                    const catLabel = USE_CASES.find((u) => u.key === catOfT(t))?.label || ''
+                    return [t.name, t.body_text, t.header_text, t.language, catLabel]
+                      .filter(Boolean).join(' ').toLowerCase().includes(q)
+                  })
                 if (shown.length === 0) {
                   return (
                     <p className="rounded-lg border border-dashed p-3 text-center text-xs text-muted-foreground">
@@ -948,58 +956,82 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction, onTem
                     </p>
                   )
                 }
+                // ⚠️ DEUX LIGNES : modèles PRÊTS (approuvés/en revue) puis
+                // BROUILLONS en dessous, sur leur propre ligne étiquetée.
+                //
+                // Avant, tout était mélangé sur une seule ligne : le marchand ne
+                // distinguait pas d'un coup d'œil ce qu'il pouvait activer tout de
+                // suite de ce qui attend encore Meta. Les brouillons (créés à la
+                // main ou par l'assistant) sont maintenant regroupés à part.
+                const ready = shown.filter((t) => t.status !== 'draft')
+                const drafts = shown.filter((t) => t.status === 'draft')
+
+                // Une bulle de modèle (factorisée : identique dans les 2 lignes).
+                const card = (t: WhatsAppTemplate) => {
+                  const isSel = t.id === node.templateId
+                  return (
+                    <button
+                      key={t.id}
+                      onClick={() => {
+                        // `todo: undefined` : le brief décrivait le message
+                        // manquant. Il est choisi → le brief n'a plus lieu d'être.
+                        onPatch(node.id, { templateId: t.id, todo: undefined } as never)
+                        onSelectAction(t.id)
+                        setPickerOpen(false)
+                      }}
+                      className={cn(
+                        'w-[230px] shrink-0 rounded-xl border p-2.5 text-left transition-colors',
+                        isSel ? 'border-primary/50 bg-primary/5 ring-1 ring-primary/30' : 'border-border hover:border-foreground/30 hover:bg-muted/40'
+                      )}
+                    >
+                      <div className="mb-1.5 flex items-center justify-between gap-1.5">
+                        <span className="min-w-0 flex-1 truncate text-xs font-medium">{t.name}</span>
+                        {t.language && (
+                          <span className="shrink-0 rounded bg-muted px-1 py-0.5 text-[9px] uppercase text-muted-foreground">{t.language}</span>
+                        )}
+                        <span className="shrink-0 text-[10px] text-muted-foreground">{badge(t)}</span>
+                      </div>
+                      <div className="mb-1"><TemplateStatusBadge template={t} /></div>
+                      <div className="max-h-[360px] overflow-y-auto [scrollbar-width:thin]">
+                        <TemplateBubble template={t} labels={labelsFor(t)} />
+                      </div>
+                    </button>
+                  )
+                }
+
+                // Ligne horizontale de bulles (scroll contenu dans la galerie).
+                const row = (items: WhatsAppTemplate[]) => (
+                  <div
+                    className="flex gap-2 overflow-x-auto overscroll-contain pb-1 [scrollbar-width:thin]"
+                    onWheel={(e) => {
+                      if (e.deltaY !== 0) { e.currentTarget.scrollLeft += e.deltaY; e.stopPropagation() }
+                    }}
+                  >
+                    {items.map(card)}
+                  </div>
+                )
+
                 return (
                 <>
-                <p className="mb-1 px-1 text-[10px] text-muted-foreground">{shown.length} modèle{shown.length > 1 ? 's' : ''}</p>
-                {/* Bulles en défilement HORIZONTAL (le scroll reste dans la galerie). */}
-                <div
-                  className="flex gap-2 overflow-x-auto overscroll-contain pb-1 [scrollbar-width:thin]"
-                  onWheel={(e) => {
-                    // Convertit le scroll vertical de la molette en scroll horizontal.
-                    if (e.deltaY !== 0) { e.currentTarget.scrollLeft += e.deltaY; e.stopPropagation() }
-                  }}
-                >
-                {shown
-                  .map((t) => {
-                    const isSel = t.id === node.templateId
-                    return (
-                      <button
-                        key={t.id}
-                        onClick={() => {
-                          // `todo: undefined` : le brief décrivait le message
-                          // manquant. Il est choisi → le brief n'a plus lieu
-                          // d'être, et le laisser le ferait réapparaître si le
-                          // marchand change d'avis plus tard.
-                          onPatch(node.id, { templateId: t.id, todo: undefined } as never)
-                          onSelectAction(t.id)
-                          setPickerOpen(false)
-                        }}
-                        className={cn(
-                          'w-[230px] shrink-0 rounded-xl border p-2.5 text-left transition-colors',
-                          isSel ? 'border-primary/50 bg-primary/5 ring-1 ring-primary/30' : 'border-border hover:border-foreground/30 hover:bg-muted/40'
-                        )}
-                      >
-                        <div className="mb-1.5 flex items-center justify-between gap-1.5">
-                          <span className="min-w-0 flex-1 truncate text-xs font-medium">{t.name}</span>
-                          {t.language && (
-                            <span className="shrink-0 rounded bg-muted px-1 py-0.5 text-[9px] uppercase text-muted-foreground">{t.language}</span>
-                          )}
-                          <span className="shrink-0 text-[10px] text-muted-foreground">{badge(t)}</span>
-                        </div>
-                        {/* Statut VISIBLE dans la galerie : maintenant qu'on y
-                            propose des brouillons, il faut le savoir AVANT de
-                            choisir — pas en découvrant que le parcours refuse
-                            de s'activer. */}
-                        <div className="mb-1"><TemplateStatusBadge template={t} /></div>
-                        {/* Aperçu grand : on voit le message en entier (scroll interne
-                            si vraiment très long). */}
-                        <div className="max-h-[360px] overflow-y-auto [scrollbar-width:thin]">
-                          <TemplateBubble template={t} labels={labelsFor(t)} />
-                        </div>
-                      </button>
-                    )
-                  })}
-                </div>
+                {ready.length > 0 && (
+                  <>
+                    <p className="mb-1 px-1 text-[10px] font-medium text-muted-foreground">
+                      Prêts à l’emploi ({ready.length})
+                    </p>
+                    {row(ready)}
+                  </>
+                )}
+                {drafts.length > 0 && (
+                  <>
+                    <div className={cn('mb-1 flex items-center gap-1.5 px-1', ready.length > 0 && 'mt-3 border-t pt-2')}>
+                      <FileText className="h-3 w-3 text-muted-foreground" />
+                      <p className="text-[10px] font-medium text-muted-foreground">
+                        Brouillons ({drafts.length}) — utilisables pour construire, à faire approuver par Meta avant d’activer
+                      </p>
+                    </div>
+                    {row(drafts)}
+                  </>
+                )}
                 </>
                 )
               })()}
