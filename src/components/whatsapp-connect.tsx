@@ -237,8 +237,8 @@ export function WhatsAppConnect() {
             Les 3 boutons en shrink-0 débordaient de l'écran en dessous de ~500px. */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/15">
-              <Smartphone className="h-5 w-5 text-blue-600" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white ring-1 ring-black/5">
+              <Image src="/brand/whatsapp-logo.webp" alt="WhatsApp" width={28} height={28} className="h-7 w-7" />
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">

@@ -203,7 +203,7 @@ export function ChatArea({
               {/* Le tag (stage) se définit dans la liste de gauche. Ici on garde
                   uniquement l'analyse IA : bouton ✨ (manuel) + tag auto IA. */}
               {lifecycleStages.length > 0 && canAnalyze && (
-                <div className="flex items-center gap-1">
+                <div data-tour="conversation-summary" className="flex items-center gap-1">
                   <Button
                     variant="ghost"
                     size="icon"

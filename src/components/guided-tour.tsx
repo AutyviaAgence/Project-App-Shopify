@@ -31,33 +31,96 @@ interface TourContextType {
   goToStep: (index: number) => void
 }
 
-// Tour steps configuration - title/description hold i18n keys
+// Tour steps configuration - title/description hold i18n keys.
+//
+// Parcours complet, page par page, comme demandé. Chaque `target` vise une ancre
+// `data-tour` posée sur la page. Si une ancre manque (page vide, écran étroit),
+// l'étape s'affiche quand même, centrée (cf. TourOverlay). L'ordre suit le trajet
+// naturel : dashboard → conversations → agents → automatisations → campagnes →
+// transactionnel → stats.
 const ALL_TOUR_STEPS: TourStep[] = [
-  // Sessions
+  // ── DASHBOARD ──────────────────────────────────────────────────────────────
   {
-    id: 'sessions-page',
+    id: 'dashboard-welcome',
     page: '/dashboard',
-    target: '[data-tour="sessions-header"]',
-    title: 'tour.sessions_title',
-    description: 'tour.sessions_desc',
-    position: 'bottom'
+    target: '[data-tour="header"]',
+    title: 'tour.welcome_title',
+    description: 'tour.welcome_desc',
+    position: 'bottom',
   },
   {
-    id: 'sessions-new',
+    id: 'dashboard-whatsapp',
     page: '/dashboard',
-    target: '[data-tour="new-session-btn"]',
-    title: 'tour.connect_title',
-    description: 'tour.connect_desc',
-    position: 'left'
+    target: '[data-tour="whatsapp-connect"]',
+    title: 'tour.dash_whatsapp_title',
+    description: 'tour.dash_whatsapp_desc',
+    position: 'bottom',
   },
-  // Agents
+  {
+    id: 'dashboard-shopify',
+    page: '/dashboard',
+    target: '[data-tour="shopify-connect"]',
+    title: 'tour.dash_shopify_title',
+    description: 'tour.dash_shopify_desc',
+    position: 'bottom',
+  },
+  // ── CONVERSATIONS ──────────────────────────────────────────────────────────
+  {
+    id: 'conversations-page',
+    page: '/conversations',
+    target: '[data-tour="conversations-header"]',
+    title: 'tour.conversations_title',
+    description: 'tour.conversations_desc',
+    position: 'bottom',
+  },
+  {
+    id: 'conversations-list',
+    page: '/conversations',
+    target: '[data-tour="conversation-list"]',
+    title: 'tour.conv_list_title',
+    description: 'tour.conv_list_desc',
+    position: 'right',
+  },
+  {
+    id: 'conversations-tags',
+    page: '/conversations',
+    target: '[data-tour="conversations-filters"]',
+    title: 'tour.conv_tags_title',
+    description: 'tour.conv_tags_desc',
+    position: 'bottom',
+  },
+  {
+    id: 'conversations-summary',
+    page: '/conversations',
+    target: '[data-tour="conversation-summary"]',
+    title: 'tour.conv_summary_title',
+    description: 'tour.conv_summary_desc',
+    position: 'left',
+  },
+  {
+    id: 'conversations-orders',
+    page: '/conversations',
+    target: '[data-tour="conversation-orders"]',
+    title: 'tour.conv_orders_title',
+    description: 'tour.conv_orders_desc',
+    position: 'left',
+  },
+  {
+    id: 'conversations-ai-toggle',
+    page: '/conversations',
+    target: '[data-tour="conversation-ai-toggle"]',
+    title: 'tour.conv_ai_title',
+    description: 'tour.conv_ai_desc',
+    position: 'left',
+  },
+  // ── AGENTS IA ──────────────────────────────────────────────────────────────
   {
     id: 'agents-page',
     page: '/agents',
     target: '[data-tour="agents-header"]',
     title: 'tour.agents_title',
     description: 'tour.agents_desc',
-    position: 'bottom'
+    position: 'bottom',
   },
   {
     id: 'agents-new',
@@ -65,18 +128,42 @@ const ALL_TOUR_STEPS: TourStep[] = [
     target: '[data-tour="new-agent-btn"]',
     title: 'tour.create_agent_title',
     description: 'tour.create_agent_desc',
-    position: 'left'
+    position: 'top',
   },
-  // Conversations
   {
-    id: 'conversations-page',
-    page: '/conversations',
-    target: '[data-tour="conversations-header"]',
-    title: 'tour.conversations_title',
-    description: 'tour.conversations_desc',
-    position: 'bottom'
+    id: 'agents-customize',
+    page: '/agents',
+    target: '[data-tour="agents-header"]',
+    title: 'tour.agent_customize_title',
+    description: 'tour.agent_customize_desc',
+    position: 'bottom',
   },
-  // Campaigns â€” Scale uniquement
+  // ── AUTOMATISATIONS ────────────────────────────────────────────────────────
+  {
+    id: 'automations-page',
+    page: '/automations',
+    target: '[data-tour="automations-header"]',
+    title: 'tour.automations_title',
+    description: 'tour.automations_desc',
+    position: 'bottom',
+  },
+  {
+    id: 'automations-transactional',
+    page: '/automations',
+    target: '[data-tour="automations-header"]',
+    title: 'tour.transactional_title',
+    description: 'tour.transactional_desc',
+    position: 'bottom',
+  },
+  {
+    id: 'automations-new',
+    page: '/automations',
+    target: '[data-tour="automation-new-btn"]',
+    title: 'tour.automation_new_title',
+    description: 'tour.automation_new_desc',
+    position: 'left',
+  },
+  // ── CAMPAGNES (marketing) ──────────────────────────────────────────────────
   {
     id: 'campaigns-page',
     page: '/campaigns',
@@ -84,35 +171,35 @@ const ALL_TOUR_STEPS: TourStep[] = [
     title: 'tour.campaigns_title',
     description: 'tour.campaigns_desc',
     position: 'bottom',
-    requiredPlan: 'scale'
+    requiredPlan: 'scale',
   },
-  // Stats
+  {
+    id: 'campaigns-new',
+    page: '/campaigns',
+    target: '[data-tour="new-campaign-btn"]',
+    title: 'tour.campaign_new_title',
+    description: 'tour.campaign_new_desc',
+    position: 'left',
+    requiredPlan: 'scale',
+  },
+  // ── STATS ──────────────────────────────────────────────────────────────────
   {
     id: 'stats-page',
     page: '/stats',
     target: '[data-tour="stats-header"]',
     title: 'tour.stats_title',
     description: 'tour.stats_desc',
-    position: 'bottom'
+    position: 'bottom',
   },
-  // Settings
-  {
-    id: 'settings-page',
-    page: '/settings',
-    target: '[data-tour="settings-header"]',
-    title: 'tour.settings_title',
-    description: 'tour.settings_desc',
-    position: 'bottom'
-  },
-  // End
+  // ── FIN ────────────────────────────────────────────────────────────────────
   {
     id: 'tour-end',
     page: '/dashboard',
-    target: '[data-tour="sessions-header"]',
+    target: '[data-tour="header"]',
     title: 'tour.ready_title',
     description: 'tour.ready_desc',
-    position: 'bottom'
-  }
+    position: 'bottom',
+  },
 ]
 
 // Context
@@ -175,6 +262,23 @@ export function TourProvider({ children, plan = 'scale' }: { children: React.Rea
     localStorage.setItem('autyvia_tour_completed', 'true')
   }, [])
 
+  // ⚠️ DÉMARRAGE AUTOMATIQUE À LA 1re CONNEXION.
+  //
+  // Si le tour n'a jamais été terminé/fermé (pas de flag localStorage), on le
+  // lance une fois, depuis le dashboard. Un petit délai laisse la page se monter
+  // (sinon la 1re cible n'est pas encore là). Marqué « vu » AVANT de lancer : même
+  // si l'utilisateur recharge en plein tour, il ne redémarre pas en boucle.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (localStorage.getItem('autyvia_tour_completed')) return
+    if (pathname !== '/dashboard') return // on n'auto-lance que depuis l'accueil
+    localStorage.setItem('autyvia_tour_completed', 'true')
+    const timer = setTimeout(() => startTour(), 1200)
+    return () => clearTimeout(timer)
+    // startTour est stable pour ce montage ; on ne veut lancer qu'une fois.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const nextStep = useCallback(() => {
     if (currentStep < TOUR_STEPS.length - 1) {
       setCurrentStep(prev => prev + 1)
@@ -212,6 +316,29 @@ export function TourProvider({ children, plan = 'scale' }: { children: React.Rea
   )
 }
 
+/**
+ * Bouton « Guide » de la topbar : relance le tour à tout moment.
+ * Doit être rendu À L'INTÉRIEUR du TourProvider (c'est le cas dans le layout).
+ */
+export function TourGuideButton({ className }: { className?: string }) {
+  const { startTour } = useTour()
+  const { t } = useTranslation()
+  return (
+    <button
+      onClick={startTour}
+      aria-label={t('tour.interactive_guide')}
+      title={t('tour.interactive_guide')}
+      className={cn(
+        'flex h-9 items-center gap-1.5 rounded-xl px-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground',
+        className
+      )}
+    >
+      <Sparkles className="h-[18px] w-[18px]" />
+      <span className="hidden sm:inline">{t('tour.interactive_guide')}</span>
+    </button>
+  )
+}
+
 // Overlay component that highlights elements
 function TourOverlay() {
   const { currentStep, steps, nextStep, prevStep, endTour } = useTour()
@@ -224,11 +351,21 @@ function TourOverlay() {
   const isFirstStep = currentStep === 0
   const isLastStep = currentStep === steps.length - 1
 
+  // ⚠️ CIBLE INTROUVABLE → ON EXPLIQUE QUAND MÊME (tour jamais bloqué).
+  //
+  // Une étape peut viser un élément absent : page vide (aucune conversation, aucun
+  // agent…), ou ancre non montée. Avant, l'overlay restait sur un « Chargement… »
+  // infini et le tour était coincé. Désormais, passé les tentatives, on affiche la
+  // bulle CENTRÉE sans spotlight : l'utilisateur lit l'explication de la zone et
+  // continue. C'est le comportement demandé (« pointer la zone même vide »).
+  const [targetMissing, setTargetMissing] = useState(false)
+
   // Find and track target element
   useEffect(() => {
     let retryCount = 0
-    const maxRetries = 30 // Try for up to 3 seconds
+    const maxRetries = 20 // ~2 s puis on bascule en mode « centré »
     let retryTimer: NodeJS.Timeout | null = null
+    setTargetMissing(false)
 
     const updatePosition = (target: Element) => {
       const rect = target.getBoundingClientRect()
@@ -277,6 +414,15 @@ function TourOverlay() {
         // Element not found, retry after a short delay
         retryCount++
         retryTimer = setTimeout(findTarget, 100)
+      } else {
+        // Cible définitivement absente → bulle centrée, sans spotlight.
+        setTargetRect(null)
+        setTargetMissing(true)
+        setTooltipStyle({
+          top: window.innerHeight / 2 - 120,
+          left: window.innerWidth / 2 - 180,
+          width: 360,
+        })
       }
     }
 
@@ -317,7 +463,8 @@ function TourOverlay() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [endTour, nextStep, prevStep])
 
-  if (!targetRect) {
+  // Ni cible trouvée, ni « définitivement absente » → on cherche encore (bref).
+  if (!targetRect && !targetMissing) {
     return (
       <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/30">
         <div className="animate-pulse text-white">{t('common.loading')}</div>
@@ -329,43 +476,47 @@ function TourOverlay() {
 
   return (
     <div className="fixed inset-0 z-[9999] pointer-events-none overflow-visible">
-      {/* Dark overlay with hole for target - plus lÃ©ger et permet le scroll */}
-      <svg className="absolute inset-0 w-full h-full" style={{ pointerEvents: 'none' }}>
-        <defs>
-          <mask id="spotlight-mask">
-            <rect x="0" y="0" width="100%" height="100%" fill="white" />
+      {targetRect ? (
+        <>
+          {/* Dark overlay with hole for target - plus lÃ©ger et permet le scroll */}
+          <svg className="absolute inset-0 w-full h-full" style={{ pointerEvents: 'none' }}>
+            <defs>
+              <mask id="spotlight-mask">
+                <rect x="0" y="0" width="100%" height="100%" fill="white" />
+                <rect
+                  x={targetRect.left - highlightPadding}
+                  y={targetRect.top - highlightPadding}
+                  width={targetRect.width + highlightPadding * 2}
+                  height={targetRect.height + highlightPadding * 2}
+                  rx="8"
+                  fill="black"
+                />
+              </mask>
+            </defs>
             <rect
-              x={targetRect.left - highlightPadding}
-              y={targetRect.top - highlightPadding}
-              width={targetRect.width + highlightPadding * 2}
-              height={targetRect.height + highlightPadding * 2}
-              rx="8"
-              fill="black"
+              x="0" y="0" width="100%" height="100%"
+              fill="rgba(0, 0, 0, 0.4)"
+              mask="url(#spotlight-mask)"
+              style={{ pointerEvents: 'none' }}
             />
-          </mask>
-        </defs>
-        <rect
-          x="0"
-          y="0"
-          width="100%"
-          height="100%"
-          fill="rgba(0, 0, 0, 0.4)"
-          mask="url(#spotlight-mask)"
-          style={{ pointerEvents: 'none' }}
-        />
-      </svg>
+          </svg>
 
-      {/* Highlight border */}
-      <div
-        className="absolute border-2 border-[#3B82F6] rounded-lg pointer-events-none animate-pulse"
-        style={{
-          top: targetRect.top - highlightPadding,
-          left: targetRect.left - highlightPadding,
-          width: targetRect.width + highlightPadding * 2,
-          height: targetRect.height + highlightPadding * 2,
-          boxShadow: '0 0 0 4px rgba(125, 194, 165, 0.3), 0 0 20px rgba(125, 194, 165, 0.5)'
-        }}
-      />
+          {/* Highlight border */}
+          <div
+            className="absolute border-2 border-[#3B82F6] rounded-lg pointer-events-none animate-pulse"
+            style={{
+              top: targetRect.top - highlightPadding,
+              left: targetRect.left - highlightPadding,
+              width: targetRect.width + highlightPadding * 2,
+              height: targetRect.height + highlightPadding * 2,
+              boxShadow: '0 0 0 4px rgba(125, 194, 165, 0.3), 0 0 20px rgba(125, 194, 165, 0.5)'
+            }}
+          />
+        </>
+      ) : (
+        // Cible absente : voile plein (pas de spotlight), la bulle est centrée.
+        <div className="absolute inset-0 bg-black/40" style={{ pointerEvents: 'none' }} />
+      )}
 
       {/* Tooltip */}
       <div

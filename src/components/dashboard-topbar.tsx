@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { Menu, Settings } from 'lucide-react'
 import { AlertsDropdown } from '@/components/alerts-dropdown'
+import { TourGuideButton } from '@/components/guided-tour'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { UsageBar } from '@/components/usage-bar'
 import { cn } from '@/lib/utils'
@@ -56,6 +57,9 @@ export function DashboardTopBar({ onOpenSidebar }: { onOpenSidebar: () => void }
         {/* Emplacement rempli par la page courante (ex : bascule Messagerie/Tableau
             dans Conversations) via un portail sur cet id. */}
         <div id="topbar-slot" className="flex items-center" />
+
+        {/* Guide interactif — relançable à tout moment. */}
+        <TourGuideButton />
 
         <AlertsDropdown />
 

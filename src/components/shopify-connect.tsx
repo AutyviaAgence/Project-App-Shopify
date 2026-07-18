@@ -187,8 +187,8 @@ export function ShopifyConnect() {
       <div className="rounded-xl border p-5">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-500/15">
-              <Store className="h-5 w-5 text-blue-600" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white ring-1 ring-black/5">
+              <Image src="/brand/shopify-logo.png" alt="Shopify" width={26} height={26} className="h-[26px] w-[26px]" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-2">

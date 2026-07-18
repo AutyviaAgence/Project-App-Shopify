@@ -445,7 +445,7 @@ function AutomationsPageInner() {
     <div className="flex h-full flex-col pb-16 md:pb-0">
       {/* En-tête. Mobile : titre puis actions dessous, sur une seule ligne, le
           bouton « Enregistrer » sortait de l'écran. */}
-      <div className="flex flex-col gap-2 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between md:px-6">
+      <div data-tour="automations-header" className="flex flex-col gap-2 border-b px-4 py-3 sm:flex-row sm:items-center sm:justify-between md:px-6">
         <div className="min-w-0">
           {/* Le choix Campagnes/Automatisations se fait dans la SIDEBAR
               (sous-menu). Ici on rappelle juste l'onglet courant. */}

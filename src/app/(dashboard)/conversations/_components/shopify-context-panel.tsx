@@ -181,7 +181,7 @@ export function ShopifyContextPanel({ contactId, contactName, refreshKey }: { co
           aria-hidden="true"
         />
       )}
-      <div className={cn(
+      <div data-tour="conversation-orders" className={cn(
         'h-full min-h-0 w-72 shrink-0 flex-col overflow-hidden border-l bg-background',
         // ≥ xl : panneau en ligne, comme avant.
         'hidden xl:flex',

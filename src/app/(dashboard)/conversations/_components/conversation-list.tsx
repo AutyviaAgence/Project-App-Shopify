@@ -161,6 +161,7 @@ export function ConversationList({
 
   return (
     <div
+      data-tour="conversation-list"
       className={cn(
         'h-full min-h-0 w-full flex-col overflow-hidden bg-background md:w-80 lg:w-96 md:border-r',
         selectedConvId ? 'hidden md:flex' : 'flex'
