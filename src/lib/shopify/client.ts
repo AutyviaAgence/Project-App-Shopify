@@ -1354,22 +1354,44 @@ export async function getAppPurchaseOneTimeStatus(
 export async function listActiveSubscriptions(
   shop: string,
   accessToken: string
-): Promise<{ id: string; name: string; status: string; currentPeriodEnd: string | null }[]> {
+): Promise<{ id: string; name: string; status: string; currentPeriodEnd: string | null; interval: 'monthly' | 'annual' | null }[]> {
   const res = await shopifyGraphQL<{
     currentAppInstallation: {
-      activeSubscriptions: { id: string; name: string; status: string; currentPeriodEnd: string | null }[]
+      activeSubscriptions: {
+        id: string
+        name: string
+        status: string
+        currentPeriodEnd: string | null
+        lineItems: { plan: { pricingDetails: { interval?: string } } }[]
+      }[]
     }
   }>(
     shop,
     accessToken,
+    // On remonte AUSSI l'intervalle (EVERY_30_DAYS / ANNUAL) pour que le sync
+    // puisse réaligner `billing_interval` en base — sans ça, un changement
+    // mensuel↔annuel rattrapé par le sync laissait un intervalle faux.
     `query {
        currentAppInstallation {
-         activeSubscriptions { id name status currentPeriodEnd }
+         activeSubscriptions {
+           id name status currentPeriodEnd
+           lineItems {
+             plan {
+               pricingDetails {
+                 ... on AppRecurringPricing { interval }
+               }
+             }
+           }
+         }
        }
      }`
   )
   if (!res.ok) return []
-  return res.data.currentAppInstallation?.activeSubscriptions || []
+  return (res.data.currentAppInstallation?.activeSubscriptions || []).map((s) => {
+    const raw = s.lineItems?.[0]?.plan?.pricingDetails?.interval
+    const interval = raw === 'ANNUAL' ? 'annual' : raw === 'EVERY_30_DAYS' ? 'monthly' : null
+    return { id: s.id, name: s.name, status: s.status, currentPeriodEnd: s.currentPeriodEnd, interval }
+  })
 }
 
 /** Annule un abonnement app (retour au plan gratuit). */

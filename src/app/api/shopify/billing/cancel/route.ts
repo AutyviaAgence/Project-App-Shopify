@@ -37,9 +37,12 @@ export async function POST(req: NextRequest) {
   }
   if (!store.shopify_charge_id) {
     // Déjà sans abonnement payant : rien à annuler, on s'assure juste de l'état.
+    // ⚠️ `subscription_status` est NOT NULL : écrire `null` faisait ÉCHOUER tout
+    // l'UPDATE (violates not-null constraint) → l'état n'était jamais corrigé.
+    // `'none'` est la valeur prévue pour « aucun abonnement » (cf. app-uninstalled).
     await admin
       .from('shopify_stores')
-      .update({ plan: 'free', subscription_status: null, updated_at: new Date().toISOString() })
+      .update({ plan: 'free', subscription_status: 'none', updated_at: new Date().toISOString() })
       .eq('id', store.id)
     return NextResponse.json({ data: { cancelled: true, already: true } })
   }

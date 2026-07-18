@@ -29,7 +29,7 @@ export async function GET(req: NextRequest) {
   // Récupérer l'abonnement en attente (créé par /subscribe) + le token.
   const { data: store } = await admin
     .from('shopify_stores')
-    .select('id, user_id, access_token, shopify_charge_id, pending_plan, plan, subscription_status')
+    .select('id, user_id, access_token, shopify_charge_id, pending_plan, plan, subscription_status, trial_used_at')
     .eq('shop_domain', shop)
     .eq('is_active', true)
     .maybeSingle()
@@ -113,6 +113,11 @@ export async function GET(req: NextRequest) {
       subscription_status: 'active',
       billing_source: 'shopify',
       ...(billingInterval ? { billing_interval: billingInterval } : {}),
+      // ESSAI CONSOMMÉ : à la PREMIÈRE activation, on grave `trial_used_at`. Tout
+      // réabonnement ultérieur n'aura plus d'essai (subscribe le lit). On ne
+      // l'écrase jamais s'il existe déjà (préserve la date du 1ᵉʳ essai, et
+      // survit à une désinstallation/réinstallation puisque la ligne est gardée).
+      ...(store.trial_used_at ? {} : { trial_used_at: new Date().toISOString() }),
       current_period_end: periodEnd.toISOString(),
       updated_at: new Date().toISOString(),
     })

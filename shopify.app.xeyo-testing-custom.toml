@@ -25,6 +25,13 @@ api_version = "2026-04"
   uri = "https://app.xeyo.io/api/shopify/webhooks/app-uninstalled"
   topics = [ "app/uninstalled" ]
 
+  # Cycle de vie de l'abonnement (annulation/gel/expiration côté Shopify + filet
+  # de sécurité callback). Sans ce topic : plan payant maintenu après annulation
+  # et impayés (FROZEN) invisibles. Route : webhooks/app-subscriptions.
+  [[webhooks.subscriptions]]
+  uri = "https://app.xeyo.io/api/shopify/webhooks/app-subscriptions"
+  topics = [ "app_subscriptions/update" ]
+
   # ── Webhooks de conformité RGPD — OBLIGATOIRES ─────────────────────────────
   # Shopify refuse la soumission sans eux. Syntaxe canonique : `compliance_topics`
   # (et NON `topics`, qui renvoie « The following topic is invalid », ni une section

@@ -22,13 +22,22 @@ export async function getUserPlan(
 
 /**
  * true si l'utilisateur peut utiliser l'analyse IA (lifecycle) : plan pro/scale ou admin.
+ *
+ * ⚠️ MARCHAND SHOPIFY : le plan effectif vit dans `shopify_stores`, PAS dans
+ * `profiles` (le callback billing n'écrit jamais dans profiles). Lire
+ * `profiles.plan` ici refusait l'analyse lifecycle à un marchand Shopify Pro/Scale
+ * qui paie. On passe donc par getUserPlan de @/lib/shopify/plans, qui arbitre les
+ * deux tables et n'ouvre les droits que si l'abonnement Shopify est actif — même
+ * correctif que gate.ts et plan-quota.ts.
  */
 export async function canUseAiAnalysis(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: SupabaseClient<any>,
   userId: string
 ): Promise<boolean> {
-  const { plan, role } = await getUserPlan(supabase, userId)
+  const { role } = await getUserPlan(supabase, userId)
   if (role === 'admin') return true
-  return !!plan && (AI_PLANS as readonly string[]).includes(plan)
+  const { getUserPlan: getEffectivePlan } = await import('@/lib/shopify/plans')
+  const effective = (await getEffectivePlan(userId)).id
+  return (AI_PLANS as readonly string[]).includes(effective)
 }

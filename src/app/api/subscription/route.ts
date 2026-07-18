@@ -67,9 +67,12 @@ export async function GET() {
     )
     const { data: store } = await admin
       .from('shopify_stores')
-      .select('plan, subscription_status, current_period_end, pending_plan')
+      .select('plan, subscription_status, current_period_end, pending_plan, billing_interval')
       .eq('user_id', user.id)
       .eq('is_active', true)
+      // Deux boutiques actives → maybeSingle seul planterait. On prend la plus récente.
+      .order('updated_at', { ascending: false })
+      .limit(1)
       .maybeSingle()
 
     if (store) {

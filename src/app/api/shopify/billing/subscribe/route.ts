@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
   // n'y a pas de RLS, c'est le code qui garantit l'isolation).
   const { data: store } = await admin
     .from('shopify_stores')
-    .select('id, access_token, plan, subscription_status')
+    .select('id, access_token, plan, subscription_status, trial_used_at, billing_interval')
     .eq('shop_domain', shop)
     .eq('user_id', authed.userId)
     .eq('is_active', true)
@@ -79,12 +79,22 @@ export async function POST(req: NextRequest) {
   const planDef = PLANS[plan]
   const { appUrl } = getShopifyConfig()
 
-  // Passe-t-il à un plan MOINS cher, alors qu'il a un abonnement en cours ?
+  // Passe-t-il à un montant MOINS cher, alors qu'il a un abonnement en cours ?
   // (S'il n'a pas d'abonnement actif, il n'a rien payé : rien à préserver.)
+  //
+  // ⚠️ On compare les prix EFFECTIVEMENT FACTURÉS (plan × intervalle), pas le
+  // prix mensuel de référence. Sinon un marchand en Pro ANNUEL (1430 € payés
+  // d'avance) qui repasse Pro MENSUEL passait pour « pas une baisse » (149 vs 149)
+  // et était basculé immédiatement — perdant l'année déjà réglée. En comparant
+  // le montant réel (1430/an vs 149/mois), c'est bien détecté comme une baisse
+  // et différé au prochain cycle.
   const currentPlan = (store.plan || 'free') as PlanId
-  const currentPrice = PLANS[currentPlan]?.priceEur ?? 0
+  const currentInterval: 'monthly' | 'annual' =
+    store.billing_interval === 'annual' ? 'annual' : 'monthly'
+  const currentPrice = currentPlan === 'free' ? 0 : planPrice(currentPlan, currentInterval)
+  const newPrice = planPrice(plan, billing)
   const isDowngrade =
-    store.subscription_status === 'active' && planDef.priceEur < currentPrice
+    store.subscription_status === 'active' && newPrice < currentPrice
 
   // ── Code promo (optionnel) ────────────────────────────────────────────────
   // La table `promo_codes` existait mais n'était JAMAIS lue : cette route
@@ -92,9 +102,14 @@ export async function POST(req: NextRequest) {
   const { resolvePromoCode, isTestBilling } = await import('@/lib/shopify/billing')
   let promoId: string | null = null
   let discount: { percentage?: number; amount?: number; durationLimitInIntervals?: number } | undefined
-  // ESSAI 7 JOURS par défaut sur tout nouvel abonnement. Un code promo peut
-  // offrir un essai plus long → on prend le max (cumul, jamais d'écrasement).
-  const DEFAULT_TRIAL_DAYS = 7
+  // ESSAI 7 JOURS — UNE SEULE FOIS PAR BOUTIQUE.
+  //
+  // ⚠️ La Billing API (appSubscriptionCreate + trialDays) N'A PAS la protection
+  // anti-abus des 180 jours de « Shopify App Pricing ». Sans garde-fou, un
+  // marchand s'abonnerait → annulerait → se réabonnerait pour un nouvel essai,
+  // en boucle. `trial_used_at` (posé au callback, paiement confirmé) garantit un
+  // seul essai. NULL = jamais eu → essai accordé.
+  const DEFAULT_TRIAL_DAYS = store.trial_used_at ? 0 : 7
   let trialDays = DEFAULT_TRIAL_DAYS
 
   if (promoCode) {
@@ -110,6 +125,8 @@ export async function POST(req: NextRequest) {
         durationLimitInIntervals: resolved.promo.durationMonths,
       }
     }
+    // Un code promo peut toujours offrir un essai (même après le 1ᵉʳ essai
+    // consommé) : c'est un avantage explicite, pas un abus. On prend le max.
     trialDays = Math.max(DEFAULT_TRIAL_DAYS, resolved.promo.trialDays ?? 0)
   }
 

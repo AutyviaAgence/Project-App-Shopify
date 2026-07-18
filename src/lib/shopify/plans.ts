@@ -69,11 +69,17 @@ export async function isShopifyBilled(userId: string): Promise<boolean> {
 
 /** Facturation Shopify + domaine de la boutique (pour rediriger vers la Billing API). */
 export async function getShopifyBilling(userId: string): Promise<{ billed: boolean; shopDomain: string | null }> {
+  // ⚠️ `.order().limit(1)` et PAS `.maybeSingle()` seul : un compte relié à DEUX
+  // boutiques actives (réinstallation où l'ancienne ligne n'a pas été désactivée)
+  // faisait renvoyer une ERREUR PostgREST à maybeSingle → store=null → marchand
+  // traité comme non-facturé, IA coupée alors qu'il paie. On prend la plus récente.
   const { data: store } = await admin()
     .from('shopify_stores')
     .select('billing_source, shop_domain')
     .eq('user_id', userId)
     .eq('is_active', true)
+    .order('updated_at', { ascending: false })
+    .limit(1)
     .maybeSingle()
   return {
     billed: store?.billing_source === 'shopify',
@@ -95,6 +101,10 @@ export async function getUserPlan(userId: string): Promise<PlanDef> {
     .select('plan, billing_source, subscription_status, current_period_end')
     .eq('user_id', userId)
     .eq('is_active', true)
+    // Deux boutiques actives (réinstallation) → maybeSingle seul planterait. On
+    // prend la plus récente. Cf. getShopifyBilling.
+    .order('updated_at', { ascending: false })
+    .limit(1)
     .maybeSingle()
 
   if (store?.billing_source === 'shopify') {

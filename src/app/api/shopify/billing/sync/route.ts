@@ -4,6 +4,17 @@ import { isValidShopDomain, listActiveSubscriptions } from '@/lib/shopify/client
 import { getValidAccessToken } from '@/lib/shopify/token'
 import { PLANS, type PlanId } from '@/lib/shopify/plans'
 
+/** Déduit le plan depuis le nom d'un abonnement Shopify (« Xeyo <Plan> [(Annuel)] »),
+ *  avec compat rename Growth→Pro, et renvoie son prix mensuel de référence.
+ *  Sert à départager deux abonnements ACTIVE (on garde le plus cher). */
+function planPriceFromName(name: string): number {
+  const n = (name || '').toLowerCase()
+  const plan: PlanId | undefined = n.includes('growth')
+    ? 'pro'
+    : (Object.keys(PLANS) as PlanId[]).find((id) => id !== 'free' && n.includes(PLANS[id].name.toLowerCase()))
+  return plan ? PLANS[plan].priceEur : 0
+}
+
 /**
  * POST /api/shopify/billing/sync
  *
@@ -54,7 +65,16 @@ export async function POST(req: NextRequest) {
 
   // La vérité, telle que Shopify la connaît.
   const active = await listActiveSubscriptions(shop, token)
-  const live = active.find((s) => s.status === 'ACTIVE')
+  const actives = active.filter((s) => s.status === 'ACTIVE')
+  // ⚠️ CHOIX DÉTERMINISTE quand deux abonnements ACTIVE coexistent (downgrade
+  // différé : ancien + nouveau se chevauchent). `find` prenait le PREMIER, dont
+  // l'ordre n'est pas garanti par Shopify — on pouvait tomber sur le nouveau
+  // (moins cher) et appliquer la baisse trop tôt. On privilégie donc :
+  //   1. l'abonnement qu'on suit déjà (shopify_charge_id) — c'est le référent ;
+  //   2. sinon le plus cher (l'ancien, tant que la baisse n'a pas pris effet).
+  const live =
+    actives.find((s) => s.id === store.shopify_charge_id) ||
+    actives.slice().sort((a, b) => planPriceFromName(b.name) - planPriceFromName(a.name))[0]
 
   // ── Aucun abonnement actif chez Shopify ──────────────────────────────────
   if (!live) {
@@ -147,6 +167,10 @@ export async function POST(req: NextRequest) {
       subscription_status: 'active',
       shopify_charge_id: live.id,
       billing_source: 'shopify',
+      // Réaligne aussi l'intervalle (mensuel/annuel) sur ce que Shopify facture
+      // réellement — sinon un changement d'intervalle rattrapé par le sync
+      // laissait `billing_interval` faux (prix/affichage incohérents).
+      ...(live.interval ? { billing_interval: live.interval } : {}),
       current_period_end: live.currentPeriodEnd,
       updated_at: new Date().toISOString(),
     })
