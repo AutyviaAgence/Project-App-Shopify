@@ -237,8 +237,10 @@ export function WhatsAppConnect() {
             Les 3 boutons en shrink-0 débordaient de l'écran en dessous de ~500px. */}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3 min-w-0">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white ring-1 ring-black/5">
-              <Image src="/brand/whatsapp-logo.webp" alt="WhatsApp" width={28} height={28} className="h-7 w-7" />
+            <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-white ring-1 ring-black/5">
+              {/* Logo agrandi (scale) : il a beaucoup de marge transparente, il
+                  paraissait petit dans le cercle. Le cercle, lui, ne change pas. */}
+              <Image src="/brand/whatsapp-logo.webp" alt="WhatsApp" width={40} height={40} className="h-10 w-10 scale-125" />
             </div>
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -425,8 +427,8 @@ export function WhatsAppConnect() {
   return (
     <div className="flex h-full flex-col rounded-xl border p-5 space-y-4">
       <div className="flex items-center gap-3">
-        <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white ring-1 ring-black/5">
-          <Image src="/brand/whatsapp-logo.webp" alt="WhatsApp" width={28} height={28} className="h-7 w-7" />
+        <div className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-white ring-1 ring-black/5">
+          <Image src="/brand/whatsapp-logo.webp" alt="WhatsApp" width={40} height={40} className="h-10 w-10 scale-125" />
         </div>
         <div>
           <p className="font-medium">Connectez votre WhatsApp Business</p>

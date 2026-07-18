@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useTranslation } from '@/i18n/context'
 import { WhatsAppConnect } from '@/components/whatsapp-connect'
 import { ShopifyConnect } from '@/components/shopify-connect'
+import { TourGuideButton } from '@/components/guided-tour'
 import { useTenant } from '@/lib/tenant/context'
 import { Meteors } from '@/components/ui/meteors'
 import { TypingAnimation } from '@/components/ui/typing-animation'
@@ -108,18 +109,22 @@ function DashboardHome() {
         <Meteors number={20} className="opacity-60" />
       </div>
 
-      <div data-tour="header" data-page-header className="relative z-10 space-y-1">
-        <TypingAnimation
-          as="p"
-          className="text-sm font-normal leading-normal tracking-normal text-muted-foreground"
-          duration={70}
-        >
-          {t('dashboard.greeting')}
-        </TypingAnimation>
-        <h1 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">{tenant.appName}</h1>
-        <p className="max-w-xl pt-1 text-sm text-muted-foreground">
-          Votre espace de connexion. Reliez vos canaux et votre boutique pour que vos agents IA prennent le relais.
-        </p>
+      <div data-tour="header" data-page-header className="relative z-10 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="space-y-1">
+          <TypingAnimation
+            as="p"
+            className="text-sm font-normal leading-normal tracking-normal text-muted-foreground"
+            duration={70}
+          >
+            {t('dashboard.greeting')}
+          </TypingAnimation>
+          <h1 className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">{tenant.appName}</h1>
+          <p className="max-w-xl pt-1 text-sm text-muted-foreground">
+            Votre espace de connexion. Reliez vos canaux et votre boutique pour que vos agents IA prennent le relais.
+          </p>
+        </div>
+        {/* Guide interactif — déclenché depuis le dashboard (et non la topbar). */}
+        <TourGuideButton className="shrink-0 self-start border border-border bg-background/60 backdrop-blur" />
       </div>
 
       {/* Connexions. Les ancres `data-tour` permettent à l'assistant d'aide de
