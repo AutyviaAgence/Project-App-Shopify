@@ -175,11 +175,11 @@ function SubscriptionContent() {
 
   useEffect(() => {
     if (searchParams.get('success') === 'true') {
+      // Retour post-paiement : la réconciliation du plan est faite par le callback
+      // Billing Shopify. Ici on rafraîchit juste l'affichage. (L'ancien appel à
+      // /api/subscription/sync, côté Stripe, a été retiré.)
       track('subscription_started')
-      fetch('/api/subscription/sync', { method: 'POST' })
-        .then(() => refetch())
-        .then(() => toast.success(t('subscription.payment_success')))
-        .catch(() => refetch())
+      refetch().then(() => toast.success(t('subscription.payment_success')))
     } else if (searchParams.get('cancelled') === 'true') {
       toast.info(t('subscription.payment_cancelled'))
     } else if (searchParams.get('tokens_success') === 'true') {
@@ -196,62 +196,22 @@ function SubscriptionContent() {
     if (!selectedPlan || !cgvAccepted) return
     setIsProcessing(true)
     try {
-      // ⚠️ CONFORMITÉ SHOPIFY : un marchand facturé par Shopify s'abonne via la
-      // BILLING API (App Store requirement §1.2 — le billing hors plateforme est
-      // interdit). Stripe est bloqué côté serveur ; ici on l'envoie sur le bon
-      // chemin (page de confirmation Shopify).
-      if (shopifyBilled) {
-        const res = await fetch('/api/shopify/billing/subscribe', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ shop: shopDomain, plan: selectedPlan, billing: billingInterval }),
-        })
-        const json = await res.json()
-        const confirmationUrl = json?.data?.confirmationUrl
-        if (!res.ok || !confirmationUrl) throw new Error(json.error || 'Erreur de facturation Shopify')
-        window.location.href = confirmationUrl
-        return
+      // FACTURATION 100 % SHOPIFY : tout abonnement (souscription, changement de
+      // plan, changement d'intervalle) passe par la Billing API. Stripe a été
+      // retiré. `createAppSubscription` gère upgrade/downgrade côté serveur
+      // (APPLY_IMMEDIATELY / APPLY_ON_NEXT_BILLING_CYCLE).
+      if (!shopifyBilled || !shopDomain) {
+        throw new Error("Aucune boutique Shopify liée. Ouvrez l'application depuis votre admin Shopify pour vous abonner.")
       }
-
-      // Si abonnement actif → changement de plan immédiat (prorata)
-      if (isActive && !isCancelled && subscription?.stripeSubscriptionId) {
-        const res = await fetch('/api/stripe/change-plan', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ plan: selectedPlan }),
-        })
-        const data = await res.json()
-        if (!res.ok) throw new Error(data.error || 'Erreur lors du changement de plan')
-        toast.success(`Plan changé vers ${selectedPlan.charAt(0).toUpperCase() + selectedPlan.slice(1)} avec succès`)
-        await refetch()
-        setSelectedPlan(null)
-        setIsProcessing(false)
-        return
-      }
-
-      // ⚠️ Le cookie `affiliate_code` était lu ICI — et c'est précisément ce qui
-      // cassait l'affiliation : RIEN ne le posait jamais (le lien de partage
-      // posait `referral_code`). La commission ne pouvait donc jamais être
-      // attribuée.
-      //
-      // Le front n'a plus rien à porter : l'attribution est posée à
-      // l'INSCRIPTION (trigger `handle_new_user`), et la récompense est versée au
-      // premier paiement confirmé (`settleAttribution`, dans le callback Shopify).
-      const res = await fetch('/api/stripe/create-checkout', {
+      const res = await fetch('/api/shopify/billing/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: selectedPlan }),
+        body: JSON.stringify({ shop: shopDomain, plan: selectedPlan, billing: billingInterval }),
       })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || t('subscription.payment_error'))
-      if (data.already_active) {
-        toast.success(t('subscription.already_synced'))
-        await refetch()
-        setSelectedPlan(null)
-        setIsProcessing(false)
-        return
-      }
-      window.location.href = data.url
+      const json = await res.json()
+      const confirmationUrl = json?.data?.confirmationUrl
+      if (!res.ok || !confirmationUrl) throw new Error(json.error || 'Erreur de facturation Shopify')
+      window.location.href = confirmationUrl
     } catch (error) {
       console.error('[Subscription] Error:', error)
       toast.error(error instanceof Error ? error.message : t('subscription.payment_error'))
@@ -262,13 +222,10 @@ function SubscriptionContent() {
   const handleCancel = async () => {
     setIsCancelling(true)
     try {
-      // Marchand Shopify → annulation via la Billing API (Stripe lui est interdit).
-      // App Store requirement 1.2.3 : le marchand doit pouvoir annuler/changer de
-      // plan SANS contacter le support.
-      const endpoint = shopifyBilled
-        ? '/api/shopify/billing/cancel'
-        : '/api/stripe/cancel-subscription'
-      const res = await fetch(endpoint, { method: 'POST' })
+      // Annulation via la Billing API Shopify (App Store requirement 1.2.3 : le
+      // marchand doit pouvoir annuler SANS contacter le support). Facturation
+      // 100 % Shopify — plus de chemin Stripe.
+      const res = await fetch('/api/shopify/billing/cancel', { method: 'POST' })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       toast.success(t('subscription.cancel_success'))
@@ -303,6 +260,10 @@ function SubscriptionContent() {
   // For cancelled subscriptions, ignore pending_plan — user needs to re-subscribe fresh
   const pendingPlan = !isCancelled ? (subscription?.pendingPlan ?? null) : null
   const planDetails = PLANS.find(p => p.id === selectedPlan)
+  // A-t-il DÉJÀ un abonnement payant actif ? → c'est un CHANGEMENT de plan, pas
+  // une première souscription. (Remplace l'ancien test `stripeSubscriptionId`,
+  // toujours null en facturation 100 % Shopify.)
+  const hasActivePlan = isActive && !isCancelled && !isFree && !!currentPlan
 
   return (
     <div className="container max-w-5xl mx-auto py-8 px-4">
@@ -591,18 +552,9 @@ function SubscriptionContent() {
       {isActive && (!!currentPlan) && (
         <Card className="mb-8">
           <CardContent className="pt-6 space-y-4">
-            {/* Portail Stripe : jamais pour un marchand facturé par Shopify (App
-                Store requirement 1.2.1). Un compte Xeyo pré-existant rattaché à une
-                boutique peut avoir un stripe_customer_id résiduel → le test sur
-                stripeCustomerId seul ne suffit PAS. */}
-            {/* ⚠️ « Gérer mon abonnement » était CASSÉ : il ouvrait le portail
-                Stripe, qui refuse les marchands Shopify — c'est-à-dire tous. Et
-                comme il ne s'affichait que si l'on avait un client Stripe, on
-                tombait sur le `sinon` : un bandeau « Abonnement mensuel requis »
-                affiché AU-DESSUS d'un abonnement Scale actif. Incompréhensible.
-
-                Chez Shopify, les factures et le moyen de paiement se gèrent dans
-                l'admin Shopify. On y renvoie, au lieu d'un portail inaccessible. */}
+            {/* Facturation 100 % Shopify : les factures et le moyen de paiement se
+                gèrent dans l'admin Shopify. On y renvoie (le portail Stripe a été
+                retiré). */}
             {shopifyBilled ? (
               <>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -628,43 +580,11 @@ function SubscriptionContent() {
                 </div>
                 <div className="border-t" />
               </>
-            ) : subscription?.stripeCustomerId ? (
-              <>
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-medium">Portail de facturation</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      Gérez vos moyens de paiement, téléchargez vos factures et modifiez vos informations de facturation.
-                    </p>
-                  </div>
-                  <Button
-                    variant="outline"
-                    className="shrink-0"
-                    onClick={async () => {
-                      try {
-                        const res = await fetch('/api/stripe/portal', { method: 'POST' })
-                        const data = await res.json()
-                        if (!res.ok) throw new Error(data.error)
-                        window.location.href = data.url
-                      } catch {
-                        toast.error('Impossible d\'ouvrir la gestion de l\'abonnement')
-                      }
-                    }}
-                  >
-                    <CreditCard className="mr-2 h-4 w-4" />
-                    Gérer mon abonnement
-                  </Button>
-                </div>
-                <div className="border-t" />
-              </>
             ) : null}
 
-            {/* Résiliation. ⚠️ Elle était conditionnée à `stripeCustomerId` → un
-                marchand Shopify (sans customer Stripe) ne pouvait JAMAIS annuler,
-                ce qui viole le requirement 1.2.3 (« changement de plan sans
-                contacter le support »). On l'affiche donc aussi pour eux : le
-                handler route alors vers /api/shopify/billing/cancel. */}
-            {(shopifyBilled || subscription?.stripeCustomerId) && (
+            {/* Résiliation via la Billing API Shopify (requirement 1.2.3 : annuler
+                sans contacter le support). Facturation 100 % Shopify. */}
+            {shopifyBilled && (
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">Zone de danger</p>
@@ -713,9 +633,7 @@ function SubscriptionContent() {
       <h2 className="text-xl font-semibold mb-4">
         {isCancelled
           ? 'Se réabonner'
-          : isActive && (!!currentPlan) && !subscription?.stripeCustomerId
-          ? 'Souscrire un abonnement mensuel'
-          : isActive && (!!currentPlan)
+          : hasActivePlan
           ? 'Changer de plan'
           : 'Plans disponibles'}
       </h2>
@@ -857,10 +775,10 @@ function SubscriptionContent() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {isActive && !isCancelled && subscription?.stripeSubscriptionId ? 'Changer de plan' : isCancelled ? 'Se réabonner' : 'Confirmer votre abonnement'}
+              {hasActivePlan ? 'Changer de plan' : isCancelled ? 'Se réabonner' : 'Confirmer votre abonnement'}
             </DialogTitle>
             <DialogDescription>
-              {isActive && !isCancelled && subscription?.stripeSubscriptionId
+              {hasActivePlan
                 ? `Le changement prendra effet à votre prochain renouvellement${subscription?.subscriptionEndsAt ? ` le ${subscription.subscriptionEndsAt.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}` : ''}. Votre plan actuel reste actif jusqu\'à cette date.`
                 : isCancelled
                 ? 'Votre abonnement a été annulé. Choisissez un plan pour vous réabonner.'
@@ -870,7 +788,7 @@ function SubscriptionContent() {
 
           {planDetails && (
             <div className="rounded-xl border bg-muted/30 p-4 space-y-2">
-              {isActive && !isCancelled && subscription?.stripeSubscriptionId && currentPlan && (
+              {hasActivePlan && currentPlan && (
                 <div className="flex items-center gap-2 text-sm text-muted-foreground mb-1">
                   <span>{PLANS.find(p => p.id === currentPlan)?.name ?? currentPlan}</span>
                   <ArrowRight className="h-3.5 w-3.5" />
@@ -896,7 +814,7 @@ function SubscriptionContent() {
                   7 jours d&apos;essai gratuit, vous ne serez prélevé qu&apos;à l&apos;issue de la période d&apos;essai.
                 </p>
               )}
-              {isActive && !isCancelled && subscription?.stripeSubscriptionId && (
+              {hasActivePlan && (
                 <p className="text-xs text-muted-foreground mt-1">
                   Vos tokens actuels restent disponibles jusqu&apos;au renouvellement, puis remis à zéro avec la limite du nouveau plan.
                 </p>
@@ -930,9 +848,9 @@ function SubscriptionContent() {
             </Button>
             <Button onClick={handleSubscribe} disabled={!cgvAccepted || isProcessing}>
               {isProcessing ? (
-                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{isActive && !isCancelled && subscription?.stripeSubscriptionId ? 'Changement…' : 'Redirection…'}</>
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{hasActivePlan ? 'Changement…' : 'Redirection…'}</>
               ) : (
-                isActive && !isCancelled && subscription?.stripeSubscriptionId ? 'Confirmer le changement' : isCancelled ? 'Se réabonner' : 'Continuer vers le paiement'
+                hasActivePlan ? 'Confirmer le changement' : isCancelled ? 'Se réabonner' : 'Continuer vers le paiement'
               )}
             </Button>
           </DialogFooter>

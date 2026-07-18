@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-import { PLAN_TOKEN_LIMITS, type PlanId } from '@/lib/stripe/client'
+import { PLAN_TOKEN_LIMITS, type PlanId } from '@/lib/stripe/plans'
 
 const VALID_PLANS: PlanId[] = ['starter', 'pro', 'scale']
 

@@ -468,30 +468,24 @@ export default function OnboardingPage() {
         setPlanLoading(null)
         return
       }
-      if (state?.billingSource === 'shopify' && state.shopDomain) {
-        const res = await fetch('/api/shopify/billing/subscribe', {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ shop: state.shopDomain, plan: planId, billing }),
-        })
-        const json = await res.json()
-        // La route renvoie { data: { confirmationUrl } } — on lisait json.confirmationUrl
-        // (non imbriqué) → le flux Shopify jetait systématiquement « Erreur de
-        // facturation Shopify », même quand l'abonnement était bien créé.
-        const confirmationUrl = json?.data?.confirmationUrl
-        if (!res.ok || !confirmationUrl) throw new Error(json.error || 'Erreur de facturation Shopify')
-        // Marque terminé AVANT la redirection : au retour, plus de gate.
-        await fetch('/api/onboarding/complete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ done: true }) })
-        window.location.href = confirmationUrl
-        return
+      // FACTURATION 100 % SHOPIFY : l'onboarding impose une boutique Shopify, donc
+      // toute souscription passe par la Billing API. Plus de fallback Stripe.
+      if (!(state?.billingSource === 'shopify' && state.shopDomain)) {
+        throw new Error("Aucune boutique Shopify liée. Rouvrez l'application depuis votre admin Shopify.")
       }
-      const res = await fetch('/api/stripe/create-checkout', {
+      const res = await fetch('/api/shopify/billing/subscribe', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ plan: planId, billing }),
+        body: JSON.stringify({ shop: state.shopDomain, plan: planId, billing }),
       })
       const json = await res.json()
-      if (!res.ok || !json.url) throw new Error(json.error || 'Erreur de paiement')
+      // La route renvoie { data: { confirmationUrl } } — on lisait json.confirmationUrl
+      // (non imbriqué) → le flux Shopify jetait systématiquement « Erreur de
+      // facturation Shopify », même quand l'abonnement était bien créé.
+      const confirmationUrl = json?.data?.confirmationUrl
+      if (!res.ok || !confirmationUrl) throw new Error(json.error || 'Erreur de facturation Shopify')
+      // Marque terminé AVANT la redirection : au retour, plus de gate.
       await fetch('/api/onboarding/complete', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ done: true }) })
-      window.location.href = json.url
+      window.location.href = confirmationUrl
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Erreur')
       setBusy(false)
