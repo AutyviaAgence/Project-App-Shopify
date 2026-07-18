@@ -69,6 +69,18 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url)
   }
 
+  // IMPERSONATION : pas d'accès à l'admin tant qu'on agit « en tant que » un
+  // client. On ne peut pas cumuler ses pouvoirs admin ET l'identité d'un
+  // marchand — ce serait la porte à une élévation de privilège par erreur. Tant
+  // que le cookie d'impersonation est posé, /admin renvoie au dashboard (du
+  // client impersonné). Pour revenir à l'admin : « Revenir à mon compte » (la
+  // bannière), qui efface le cookie.
+  if (user && request.cookies.get('impersonate_uid') && pathname.startsWith('/admin')) {
+    const url = request.nextUrl.clone()
+    url.pathname = '/dashboard'
+    return NextResponse.redirect(url)
+  }
+
   // GRAND ONBOARDING (gate SERVEUR — fiable, pas de dépendance au JS client) :
   // un utilisateur authentifié qui n'a pas terminé l'onboarding est redirigé
   // vers /onboarding depuis toute page protégée. Fail-open sur erreur (jamais

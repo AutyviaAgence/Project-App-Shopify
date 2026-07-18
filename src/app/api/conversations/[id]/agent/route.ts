@@ -1,18 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { getScopedClient } from '@/lib/admin/impersonation'
 
-/** PATCH /api/conversations/[id]/agent — Assigner/désactiver un agent IA */
+/** PATCH /api/conversations/[id]/agent — Assigner/désactiver un agent IA.
+ *  Fonctionne aussi en impersonation (le scoping passe par la vérif
+ *  d'appartenance session/agent à l'id effectif ci-dessous). */
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params
-  const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-  }
+  const scoped = await getScopedClient()
+  if (!scoped) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  const { supabase } = scoped
+  const user = { id: scoped.userId }
 
   const body = await req.json()
   const { ai_agent_id, is_ai_active } = body as {

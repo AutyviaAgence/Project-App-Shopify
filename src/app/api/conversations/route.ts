@@ -1,14 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { getScopedClient } from '@/lib/admin/impersonation'
 
-/** GET /api/conversations — Lister les conversations de l'utilisateur */
+/** GET /api/conversations — Lister les conversations de l'utilisateur (ou du
+ *  client impersonné si un admin est « connecté en tant que »). */
 export async function GET(req: NextRequest) {
-  const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-  }
+  // ⚠️ getScopedClient : hors impersonation = client normal (RLS), en
+  // impersonation = client service_role scopé par `userId`. On filtre TOUJOURS
+  // par `user.id` ci-dessous (indispensable en impersonation).
+  const scoped = await getScopedClient()
+  if (!scoped) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  const { supabase } = scoped
+  const user = { id: scoped.userId }
 
   // Parse query params for filters and pagination
   const { searchParams } = new URL(req.url)

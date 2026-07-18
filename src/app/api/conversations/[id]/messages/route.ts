@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { decryptMessage } from '@/lib/crypto/encryption'
+import { getScopedClient } from '@/lib/admin/impersonation'
 
 /** GET /api/conversations/[id]/messages — Lister les messages d'une conversation */
 export async function GET(
@@ -14,12 +14,10 @@ export async function GET(
   const searchParams = req.nextUrl.searchParams
   const limit = Math.max(1, Math.min(parseInt(searchParams.get('limit') || '100') || 100, 200))
   const before = searchParams.get('before') // cursor: created_at ISO pour charger les messages précédents
-  const supabase = await createClient()
-  const { data: { user }, error: authError } = await supabase.auth.getUser()
-
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
-  }
+  const scoped = await getScopedClient()
+  if (!scoped) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+  const { supabase } = scoped
+  const user = { id: scoped.userId }
 
   // Récupérer la conversation
   const { data: conversation, error: convError } = await supabase

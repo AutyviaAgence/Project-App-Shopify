@@ -26,7 +26,7 @@ import {
   TrendingUp, AlertCircle, ExternalLink, CheckCircle, Ban, Calendar,
   Wifi, WifiOff, Gift, Tag as TagIcon, Trash2, Link2, Store as StoreIcon,
   ChevronLeft, ChevronRight, MoreVertical, Coins, PauseCircle, PlayCircle,
-  ShieldOff,
+  ShieldOff, UserCog,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -192,6 +192,27 @@ export default function AdminPage() {
   const [tokensExtraInput, setTokensExtraInput] = useState('')
   const [tokensResetUsed, setTokensResetUsed] = useState(false)
   const [actionBusy, setActionBusy] = useState(false)
+
+  // Démarre l'impersonation puis recharge sur le dashboard DU CLIENT. À partir de
+  // là, tout est vu/modifié comme lui, et une bannière permet de revenir.
+  async function impersonate(userId: string, email: string) {
+    setActionBusy(true)
+    try {
+      const res = await fetch('/api/admin/impersonate/start', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target_user_id: userId }),
+      })
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error || 'Impossible de démarrer')
+      toast.success(`Connecté en tant que ${email}`)
+      // Rechargement DUR (pas router.push) : tous les Server Components doivent
+      // relire l'utilisateur effectif depuis le cookie fraîchement posé.
+      window.location.href = '/dashboard'
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Erreur')
+      setActionBusy(false)
+    }
+  }
 
   async function clientAction(userId: string, action: string, extra?: Record<string, unknown>) {
     setActionBusy(true)
@@ -383,11 +404,16 @@ export default function AdminPage() {
     )
   }
 
-  const noAudit = clients.filter(c => !c.audit_status || c.audit_status === 'none')
-  const auditInProgress = clients.filter(c => c.audit_status === 'acompte_paid')
-  const auditDone = clients.filter(c => c.audit_status === 'solde_paid')
-  const refunded = clients.filter(c => c.audit_status === 'refunded')
   const activeSubscriptions = clients.filter(c => c.subscription_status === 'active' || c.subscription_status === 'trialing')
+
+  // Répartition par ABONNEMENT (remplace les anciennes stats d'audit).
+  // « Inscription sans abonnement » = pas d'abonnement actif payant (plan vide OU
+  // statut non actif). Les 3 autres comptent l'abonnement par plan.
+  const isActive = (c: ClientRow) => c.subscription_status === 'active' || c.subscription_status === 'trialing'
+  const noSubscription = clients.filter(c => !isActive(c) || !c.plan)
+  const proCount = clients.filter(c => isActive(c) && c.plan === 'pro')
+  const scaleCount = clients.filter(c => isActive(c) && c.plan === 'scale')
+  const starterCount = clients.filter(c => isActive(c) && c.plan === 'starter')
 
   // Liste des plans présents (pour le filtre déroulant).
   const availablePlans = Array.from(new Set(clients.map(c => c.plan).filter(Boolean))) as string[]
@@ -600,20 +626,20 @@ export default function AdminPage() {
           <p className="text-xs text-muted-foreground mt-1">Abonnés actifs</p>
         </div>
         <div className="rounded-xl border p-4 text-center">
-          <p className="text-2xl font-bold text-gray-500">{noAudit.length}</p>
-          <p className="text-xs text-muted-foreground mt-1">Sans audit</p>
+          <p className="text-2xl font-bold text-gray-500">{noSubscription.length}</p>
+          <p className="text-xs text-muted-foreground mt-1">Sans abonnement</p>
         </div>
         <div className="rounded-xl border p-4 text-center">
-          <p className="text-2xl font-bold text-blue-500">{auditInProgress.length}</p>
-          <p className="text-xs text-muted-foreground mt-1">Audit en cours</p>
+          <p className="text-2xl font-bold text-blue-500">{starterCount.length}</p>
+          <p className="text-xs text-muted-foreground mt-1">Starter</p>
         </div>
         <div className="rounded-xl border p-4 text-center">
-          <p className="text-2xl font-bold text-purple-500">{auditDone.length}</p>
-          <p className="text-xs text-muted-foreground mt-1">Audit livré</p>
+          <p className="text-2xl font-bold text-purple-500">{proCount.length}</p>
+          <p className="text-xs text-muted-foreground mt-1">Pro</p>
         </div>
         <div className="rounded-xl border p-4 text-center">
-          <p className="text-2xl font-bold text-red-500">{refunded.length}</p>
-          <p className="text-xs text-muted-foreground mt-1">Remboursés</p>
+          <p className="text-2xl font-bold text-emerald-500">{scaleCount.length}</p>
+          <p className="text-xs text-muted-foreground mt-1">Scale</p>
         </div>
       </div>
 
@@ -797,7 +823,14 @@ export default function AdminPage() {
                               <MoreVertical className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-52">
+                          <DropdownMenuContent align="end" className="w-56">
+                            {/* Se connecter EN TANT QUE ce client (impersonation) :
+                                voir et modifier son compte comme lui, avec une
+                                bannière pour revenir. Journalisé. */}
+                            <DropdownMenuItem onClick={() => impersonate(client.id, client.email)}>
+                              <UserCog className="mr-2 h-4 w-4 text-primary" /> Se connecter en tant que
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
                             <DropdownMenuItem
                               onClick={() => {
                                 setTokensLimitInput(String(client.tokens_limit ?? 0))

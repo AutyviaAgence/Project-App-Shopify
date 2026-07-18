@@ -2,12 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { blockIfImpersonating } from '@/lib/admin/impersonation'
 
 /** POST /api/account/delete — Supprimer le compte utilisateur */
 export async function POST(req: NextRequest) {
   // Rate limiting strict — empêcher le brute-force de suppression
   const rateLimitResponse = checkRateLimit(req, 'AUTH')
   if (rateLimitResponse) return rateLimitResponse
+
+  // ⚠️ Jamais de suppression de compte en mode impersonation.
+  const blocked = await blockIfImpersonating()
+  if (blocked) return blocked
 
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()

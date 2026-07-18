@@ -2,12 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { checkRateLimit } from '@/lib/rate-limit'
+import { blockIfImpersonating } from '@/lib/admin/impersonation'
 
 /** POST /api/account/password — Changer le mot de passe */
 export async function POST(req: NextRequest) {
   // Rate limiting strict — empêcher le brute-force
   const rateLimitResponse = checkRateLimit(req, 'AUTH')
   if (rateLimitResponse) return rateLimitResponse
+
+  // ⚠️ Jamais de changement de mot de passe en mode impersonation.
+  const blocked = await blockIfImpersonating()
+  if (blocked) return blocked
 
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()

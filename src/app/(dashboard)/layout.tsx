@@ -38,6 +38,7 @@ const TourProvider = dynamic(() => import('@/components/guided-tour').then(m => 
   ssr: false,
 })
 import { SubscriptionBanner } from '@/components/subscription-banner'
+import { ImpersonationBanner } from '@/components/impersonation-banner'
 import { useSubscription } from '@/hooks/use-subscription'
 import { useTranslation } from '@/i18n/context'
 import { useTenant } from '@/lib/tenant/context'
@@ -434,6 +435,10 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         // un liseré sur le bord gauche, juste là où la languette doit fusionner.
         'md:ml-2 md:rounded-[20px] md:ring-1 md:ring-black/5 dark:md:ring-white/10'
       )}>
+        {/* Bannière d'impersonation (admin agissant « en tant que » un client).
+            En haut de tout : impossible à rater, retour en un clic. */}
+        <ImpersonationBanner />
+
         {/* Topbar globale : menu mobile (gauche) + cloche/réglages/profil (droite) */}
         <DashboardTopBar onOpenSidebar={() => setSidebarOpen(true)} />
 
