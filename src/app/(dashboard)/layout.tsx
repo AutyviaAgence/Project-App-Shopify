@@ -37,6 +37,22 @@ import dynamic from 'next/dynamic'
 const TourProvider = dynamic(() => import('@/components/guided-tour').then(m => ({ default: m.TourProvider })), {
   ssr: false,
 })
+
+// ── KEEP-ALIVE : pages principales gardées MONTÉES entre les navigations ──────
+//
+// On importe leur composant dynamiquement (le bundle ne charge qu'à la 1re
+// visite, comme le routing normal), et le KeepAliveOutlet les garde vivantes.
+// Voir keep-alive-outlet pour le pourquoi. Les pages NON listées (Admin, Logs,
+// Réglages…) restent sur le routing normal (via `children`) et se remontent.
+import { KeepAliveOutlet, isKeepAlivePath, type KeepAlivePage } from '@/components/keep-alive-outlet'
+const KEEP_ALIVE_PAGES: KeepAlivePage[] = [
+  { path: '/dashboard', Component: dynamic(() => import('./dashboard/page'), { ssr: false }) },
+  { path: '/conversations', Component: dynamic(() => import('./conversations/page'), { ssr: false }) },
+  { path: '/agents', Component: dynamic(() => import('./agents/page'), { ssr: false }) },
+  { path: '/templates', Component: dynamic(() => import('./templates/page'), { ssr: false }) },
+  { path: '/automations', Component: dynamic(() => import('./automations/page'), { ssr: false }) },
+  { path: '/stats', Component: dynamic(() => import('./stats/page'), { ssr: false }) },
+]
 import { SubscriptionBanner } from '@/components/subscription-banner'
 import { ImpersonationBanner } from '@/components/impersonation-banner'
 import { useSubscription } from '@/hooks/use-subscription'
@@ -526,8 +542,14 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
               </div>
             </div>
           ) : (
-            <div className="animate-fade-in-up h-full w-full">
-              {children}
+            <div className="h-full w-full">
+              {/* Pages persistantes (montées une fois, gardées vivantes) + le
+                  routing normal pour les autres. On ne rend `children` QUE si le
+                  chemin n'est pas géré par le keep-alive, sinon double affichage. */}
+              <KeepAliveOutlet pages={KEEP_ALIVE_PAGES} />
+              {!isKeepAlivePath(pathname, KEEP_ALIVE_PAGES) && (
+                <div className="animate-fade-in-up h-full w-full">{children}</div>
+              )}
             </div>
           )}
         </main>
