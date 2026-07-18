@@ -571,6 +571,13 @@ export default function AgentsPage() {
           // déborde la scène sur grand écran (root ~18px).
           const footerReserve = 230 * (rootFont / 16) + 20
           const imgH = Math.max(140, Math.min(256, sceneH - footerReserve))
+          // ⚠️ ÉCART SOUS LA CARTE : `sceneH` est une hauteur RÉSERVÉE, mais la
+          // carte réelle mesure `imgH + pied`. Quand l'image est plafonnée (256),
+          // la carte est plus COURTE que la scène → le reliquat apparaissait comme
+          // un grand vide entre la carte et les points de pagination. On rétrécit
+          // donc la scène à la hauteur réellement occupée.
+          const realCardH = imgH + footerReserve
+          const sceneHFinal = Math.min(sceneH, realCardH)
           // Les flèches se calaient sur `top-1/2` du CONTENEUR, donc trop bas : les
           // cartes sont ancrées en `top-0`, et une carte latérale est plus courte
           // que la centrale (pas de bouton « Configurer »). On vise son milieu :
@@ -589,7 +596,7 @@ export default function AgentsPage() {
               )}
 
               {/* Scène coverflow */}
-              <div className="relative mx-auto w-full" style={{ height: sceneH, maxWidth: sceneW, transformStyle: 'preserve-3d' }}>
+              <div className="relative mx-auto w-full" style={{ height: sceneHFinal, maxWidth: sceneW, transformStyle: 'preserve-3d' }}>
                 {sorted.map((agent, idx) => {
                   // offset relatif au centre, normalisé sur [-n/2, n/2]
                   let offset = idx - center
@@ -811,15 +818,18 @@ export default function AgentsPage() {
           dedans, ils passaient sous la carte centrale (qui déborde en 3D) et
           se retrouvaient tracés par-dessus le bouton « Configurer ». */}
       {agents.length > 1 && (
-        // `flex-wrap` + `shrink-0` : sans eux, le flex étirait les points en gros
-        // cercles dès que la largeur manquait (11 agents sur un écran mobile).
-        <div className="mt-1 flex shrink-0 flex-wrap justify-center gap-1.5 px-4">
+        // `flex-wrap` + `shrink-0` + `items-center` : sans eux, le flex étirait les
+        // points en gros cercles dès que la largeur manquait (constaté sur mobile).
+        // Les dimensions sont posées EN DUR (style inline) : elles ne peuvent pas
+        // être étirées par le conteneur, contrairement aux classes Tailwind.
+        <div className="mt-1 flex shrink-0 flex-wrap items-center justify-center gap-1.5 px-4">
           {agents.map((_, i) => {
             const active = ((centerIndex % agents.length) + agents.length) % agents.length === i
             return (
               <button key={i} onClick={() => setCenterIndex(i)} aria-label={`Agent ${i + 1}`}
-                className={cn('h-1.5 shrink-0 rounded-full transition-all',
-                  active ? 'w-5 bg-foreground/70' : 'w-1.5 bg-muted-foreground/30 hover:bg-muted-foreground/50')} />
+                style={{ height: 6, width: active ? 20 : 6, flex: '0 0 auto' }}
+                className={cn('rounded-full transition-all',
+                  active ? 'bg-foreground/70' : 'bg-muted-foreground/30 hover:bg-muted-foreground/50')} />
             )
           })}
         </div>
