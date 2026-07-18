@@ -55,7 +55,7 @@ export async function GET(req: NextRequest) {
 
   const { data: store } = await admin
     .from('shopify_stores')
-    .select('shop_domain, access_token')
+    .select('shop_domain, access_token, user_id')
     .eq('shop_domain', shop)
     .maybeSingle()
   if (!store?.access_token) {
@@ -133,6 +133,35 @@ export async function GET(req: NextRequest) {
     null
   )
 
+  // ── Ce numéro est-il DÉJÀ opted-in ? ──────────────────────────────────────
+  // La page Merci s'en sert pour afficher « ✓ déjà abonné » au lieu de reproposer
+  // l'opt-in (évite un doublon et une re-saisie inutile). On compare sur les 9
+  // derniers chiffres (tolère les écarts de format : 0769… vs 33769… vs +33769…),
+  // exactement comme la recherche de commandes.
+  let alreadyOptedIn = false
+  const wantDigits = (phone || '').replace(/\D/g, '')
+  if (wantDigits.length >= 9 && store.user_id) {
+    const tail = wantDigits.slice(-9)
+    // Les contacts opted-in de CE marchand (via ses sessions WhatsApp).
+    const { data: sessions } = await admin
+      .from('whatsapp_sessions').select('id').eq('user_id', store.user_id)
+    const sessionIds = (sessions || []).map((s) => s.id)
+    if (sessionIds.length > 0) {
+      const { data: contacts } = await admin
+        .from('contacts')
+        .select('phone_number')
+        .in('session_id', sessionIds)
+        .eq('opt_in_status', 'subscribed')
+        // Pré-filtre serveur sur la fin du numéro (les 9 derniers chiffres) pour
+        // ne pas tout ramener ; on confirme ensuite côté code.
+        .ilike('phone_number', `%${tail}`)
+      alreadyOptedIn = (contacts || []).some((c) => {
+        const d = (c.phone_number || '').replace(/\D/g, '')
+        return d.length >= 9 && (d.endsWith(tail) || tail.endsWith(d.slice(-9)))
+      })
+    }
+  }
+
   // `tried` aide à diagnostiquer côté console quel chemin a résolu (ou non).
-  return NextResponse.json({ phone, tried }, { headers: { ...CORS, 'Cache-Control': 'private, max-age=15' } })
+  return NextResponse.json({ phone, alreadyOptedIn, tried }, { headers: { ...CORS, 'Cache-Control': 'private, max-age=15' } })
 }

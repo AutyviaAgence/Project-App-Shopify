@@ -233,6 +233,18 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
       .then((j) => {
         // eslint-disable-next-line no-console
         console.log('[Xeyo opt-in] order-phone réponse', j)
+        // DÉJÀ ABONNÉ : ce client a déjà opté-in (popup en amont). On ne repropose
+        // pas l'opt-in — on remplace tout le bloc par une confirmation discrète,
+        // pour éviter une re-saisie et un doublon.
+        if (j?.alreadyOptedIn) {
+          root.replaceChildren(
+            root.createComponent(InlineStack, { spacing: 'tight', blockAlignment: 'center' }, [
+              root.createComponent(Text, { appearance: 'success' }, '✓'),
+              root.createComponent(Text, { appearance: 'subdued' }, t.subscribed),
+            ])
+          )
+          return
+        }
         const digits = (j?.phone || '').toString().replace(/\D/g, '')
         if (digits && !localNumber) {
           // Sépare l'indicatif (le plus long qui matche) du numéro local,
