@@ -60,11 +60,10 @@ type BookingStats = {
 type AgentWithTeamIds = AIAgent & { team_ids?: string[]; booking_stats?: BookingStats }
 
 // ─── Mascottes & fonds personnalisables ──────────────────────────────────────
+// « envelope » et « phone » retirées (à la demande du marchand). « selfie » reste,
+// + les 10 nouvelles poses. Aucun agent n'utilisait envelope/phone (vérifié) — le
+// fallback ci-dessous couvre de toute façon un ancien agent qui les référencerait.
 const MASCOTS = [
-  { key: 'envelope', src: '/mascots/envelope.png' },
-  { key: 'phone', src: '/mascots/phone.png' },
-  { key: 'selfie', src: '/mascots/selfie.png' },
-  // Nouvelles poses de la mascotte Xeyo (fournies par le marchand).
   { key: 'pose-1', src: '/mascots/pose-1.png' },
   { key: 'pose-2', src: '/mascots/pose-2.png' },
   { key: 'pose-5', src: '/mascots/pose-5.png' },
@@ -75,15 +74,15 @@ const MASCOTS = [
   { key: 'pose-17', src: '/mascots/pose-17.png' },
   { key: 'pose-19', src: '/mascots/pose-19.png' },
   { key: 'pose-21', src: '/mascots/pose-21.png' },
+  { key: 'selfie', src: '/mascots/selfie.png' },
 ] as const
-const DEFAULT_MASCOT = 'envelope'
+const DEFAULT_MASCOT = 'pose-1'
 const mascotSrc = (key: string | null | undefined) =>
   MASCOTS.find((m) => m.key === key)?.src ?? MASCOTS[0].src
 
-// Les nouvelles poses (pose-*) ont plus de marge transparente autour du
-// personnage : à taille égale elles paraissent plus petites que les 3 mascottes
-// d'origine (enveloppe/téléphone/selfie), qui remplissent mieux le cadre. On les
-// agrandit un peu pour rétablir un rendu homogène dans la carte de l'agent.
+// Les nouvelles poses (pose-*) remplissent PLUS le cadre que « selfie » : à taille
+// égale elles débordaient de la carte de l'agent (constaté). On les rend un peu
+// PLUS PETITES pour qu'elles tiennent, d'où le traitement séparé ci-dessous.
 const isNewPose = (key: string | null | undefined) => !!key && key.startsWith('pose-')
 
 const MASCOT_BGS: Record<string, string> = {
@@ -124,16 +123,7 @@ function MascotPicker({ agent, typeColor, onChange, children }: {
               )}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={m.src}
-                alt={m.key}
-                className={cn(
-                  'h-full w-full object-contain',
-                  // Nouvelles poses : moins de marge + léger agrandissement pour
-                  // qu'elles remplissent la vignette comme les 3 d'origine.
-                  isNewPose(m.key) ? 'scale-125 p-0' : 'p-1'
-                )}
-              />
+              <img src={m.src} alt={m.key} className="h-full w-full object-contain p-1" />
             </button>
           ))}
         </div>
@@ -614,7 +604,7 @@ export default function AgentsPage() {
                                    Les nouvelles poses sont agrandies (cf. isNewPose). */
                                 className={cn(
                                   'absolute -left-5 bottom-0 z-10 max-w-none cursor-pointer object-contain object-bottom drop-shadow-[0_12px_24px_rgba(0,0,0,0.45)] transition-transform duration-500 ease-out hover:-translate-y-1.5 hover:scale-[1.02]',
-                                  isNewPose(agent.mascot) ? 'max-h-[150%] w-[132%]' : 'max-h-[128%] w-[112%]'
+                                  isNewPose(agent.mascot) ? 'max-h-[115%] w-[100%]' : 'max-h-[128%] w-[112%]'
                                 )}
                               />
                             </MascotPicker>
@@ -625,7 +615,7 @@ export default function AgentsPage() {
                               alt={agent.name}
                               className={cn(
                                 'pointer-events-none absolute -left-5 bottom-0 max-w-none object-contain object-bottom drop-shadow-[0_12px_24px_rgba(0,0,0,0.45)]',
-                                isNewPose(agent.mascot) ? 'max-h-[150%] w-[132%]' : 'max-h-[128%] w-[112%]'
+                                isNewPose(agent.mascot) ? 'max-h-[115%] w-[100%]' : 'max-h-[128%] w-[112%]'
                               )}
                             />
                           )}
