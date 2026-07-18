@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useState, useCallback, useRef } from 'react'
+import { useSessionState } from '@/hooks/use-session-state'
 import type { WhatsAppTemplate, TemplateButton, TemplateCard } from '@/types/database'
 import { track } from '@/lib/posthog/events'
 import { useSubscription } from '@/hooks/use-subscription'
@@ -143,8 +144,9 @@ export default function TemplatesPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
   // Filtres de la liste : catégorie e-commerce (use_case) + recherche par nom.
-  const [useCaseFilter, setUseCaseFilter] = useState<UseCaseKey | 'all'>('all')
-  const [search, setSearch] = useState('')
+  // Persistés pour la session (retrouvés en revenant sur la page Modèles).
+  const [useCaseFilter, setUseCaseFilter] = useSessionState<UseCaseKey | 'all'>('templates.useCaseFilter', 'all')
+  const [search, setSearch] = useSessionState<string>('templates.search', '')
 
   // Galerie de modèles suggérés (bibliothèque prête à l'emploi).
   type LibraryItem = { key: string; label: string; description: string; name: string; language: string; use_case: UseCaseKey; body_text: string; added: boolean }

@@ -24,6 +24,7 @@ import type { ConversationWithJoins, Team, Message, AIAgent, LifecycleStage } fr
 import { BlobLoaderScreen } from '@/components/blob-loader'
 import { useTour } from '@/components/guided-tour'
 import { makeDemoConversation, makeDemoMessages, isDemoConversation, DEMO_CONVERSATION_ID } from './_components/demo-conversation'
+import { useSessionState } from '@/hooks/use-session-state'
 
 let notificationAudio: HTMLAudioElement | null = null
 
@@ -58,6 +59,14 @@ function ConversationsPageContent() {
   const [conversations, setConversations] = useState<ConversationWithJoins[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedConv, setSelectedConv] = useState<ConversationWithJoins | null>(null)
+  // ⚠️ ON PERSISTE L'ID, PAS L'OBJET.
+  //
+  // Persister `selectedConv` entier restaurerait des données PÉRIMÉES (le dernier
+  // message, l'état IA… figés à la navigation). On mémorise donc seulement l'id de
+  // la conversation ouverte, et on la re-sélectionne depuis la liste FRAÎCHE une
+  // fois celle-ci chargée (effet plus bas). Résultat : on retrouve la même
+  // conversation ouverte, avec ses données à jour.
+  const [persistedConvId, setPersistedConvId] = useSessionState<string | null>('conversations.selectedId', null)
   // Conversations ayant une action Shopify en attente (badge + remontée en haut).
   const [pendingActionConvIds, setPendingActionConvIds] = useState<Set<string>>(new Set())
   // Incrémenté après une action Shopify (remboursement…) → force le panneau
@@ -100,7 +109,8 @@ function ConversationsPageContent() {
   const [agents, setAgents] = useState<AIAgent[]>([])
   const [profileOpen, setProfileOpen] = useState(false)
   // Bascule d'affichage : messagerie (chat) ↔ tableau exportable des contacts.
-  const [viewMode, setViewMode] = useState<'chat' | 'table'>('chat')
+  // Persisté pour la session : on retrouve la vue choisie en revenant sur la page.
+  const [viewMode, setViewMode] = useSessionState<'chat' | 'table'>('conversations.viewMode', 'chat')
   // Cible du portail : l'emplacement réservé dans la barre du haut globale.
 
   // Lifecycle stages (= « étapes », l'ancien système de tags a été fusionné ici)
@@ -113,12 +123,13 @@ function ConversationsPageContent() {
   // Filters
   const [sessions, setSessions] = useState<{ id: string; instance_name: string; phone_number: string | null }[]>([])
   const [teams, setTeams] = useState<Team[]>([])
-  const [filterChannel, setFilterChannel] = useState<string>('all')
-  const [filterSession, setFilterSession] = useState<string>('all')
-  const [filterAiActive, setFilterAiActive] = useState<string>('all')
-  const [filterTeam, setFilterTeam] = useState<string>('all')
-  const [filterLifecycleStage, setFilterLifecycleStage] = useState<string>('all')
-  const [searchQuery, setSearchQuery] = useState('')
+  // Filtres persistés pour la session : on les retrouve en revenant sur la page.
+  const [filterChannel, setFilterChannel] = useSessionState<string>('conversations.filterChannel', 'all')
+  const [filterSession, setFilterSession] = useSessionState<string>('conversations.filterSession', 'all')
+  const [filterAiActive, setFilterAiActive] = useSessionState<string>('conversations.filterAiActive', 'all')
+  const [filterTeam, setFilterTeam] = useSessionState<string>('conversations.filterTeam', 'all')
+  const [filterLifecycleStage, setFilterLifecycleStage] = useSessionState<string>('conversations.filterLifecycleStage', 'all')
+  const [searchQuery, setSearchQuery] = useSessionState<string>('conversations.searchQuery', '')
   const [debouncedSearch, setDebouncedSearch] = useState('')
 
   // Pagination
@@ -692,6 +703,32 @@ function ConversationsPageContent() {
   useEffect(() => {
     selectedConvIdRef.current = selectedConv?.id ?? null
   }, [selectedConv?.id])
+
+  // ── PERSISTANCE DE LA CONVERSATION OUVERTE (session) ────────────────────────
+  //
+  // 1) On MÉMORISE l'id ouvert (hors démo de tour) à chaque changement.
+  useEffect(() => {
+    const id = selectedConv?.id ?? null
+    if (isDemoConversation(id)) return // la démo ne se persiste pas
+    setPersistedConvId(id)
+  }, [selectedConv?.id, setPersistedConvId])
+
+  // 2) On RESTAURE la conversation mémorisée dès que la liste est chargée, si rien
+  //    n'est ouvert et qu'aucune URL ?open= ne prime. On la retrouve dans la liste
+  //    FRAÎCHE (données à jour), sinon on nettoie l'id périmé.
+  const restoredConvRef = useRef(false)
+  useEffect(() => {
+    if (restoredConvRef.current) return
+    if (loading || selectedConv || !persistedConvId || pendingOpenConvId) return
+    const match = conversations.find((c) => c.id === persistedConvId)
+    restoredConvRef.current = true
+    if (match) {
+      setSelectedConv(match)
+    } else {
+      // La conversation n'est plus dans la liste (filtre, supprimée…) : on oublie.
+      setPersistedConvId(null)
+    }
+  }, [loading, conversations, selectedConv, persistedConvId, pendingOpenConvId, setPersistedConvId])
 
   // Load messages when selecting a conversation
   useEffect(() => {

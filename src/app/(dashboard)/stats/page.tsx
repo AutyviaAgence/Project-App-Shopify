@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useSessionState } from '@/hooks/use-session-state'
 import type { StatsResponse } from '@/types/stats'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import {
@@ -60,12 +61,14 @@ function formatSeconds(s: number): string {
 
 export default function StatsPage() {
   const { t, locale } = useTranslation()
-  const [period, setPeriod] = useState('30')
-  const [sessionFilter, setSessionFilter] = useState('all')
+  // Persistés pour la session : la période et les filtres choisis sont retrouvés
+  // en revenant sur les stats.
+  const [period, setPeriod] = useSessionState<string>('stats.period', '30')
+  const [sessionFilter, setSessionFilter] = useSessionState<string>('stats.sessionFilter', 'all')
   const [sessions, setSessions] = useState<SessionOption[]>([])
   const [stats, setStats] = useState<StatsResponse | null>(null)
   const [loading, setLoading] = useState(true)
-  const [lifecycleFilter, setLifecycleFilter] = useState<string[]>([])
+  const [lifecycleFilter, setLifecycleFilter] = useSessionState<string[]>('stats.lifecycleFilter', [])
   // Entonnoir d'engagement : ce que deviennent les messages INITIÉS
   // (envoyés → ouverts → réponses → ventes). Même source que l'onglet
   // Automatisations, pour que les deux vues ne se contredisent jamais.
