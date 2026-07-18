@@ -21,7 +21,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import {
-  Loader2, ShieldAlert, Users, Zap, FileText, ChevronDown, ChevronUp,
+  Loader2, ShieldAlert, Users, Zap, FileText,
   CheckCircle2, XCircle, Clock, RefreshCw, ShieldCheck, CreditCard,
   TrendingUp, AlertCircle, ExternalLink, CheckCircle, Ban, Calendar,
   Wifi, WifiOff, Gift, Tag as TagIcon, Trash2, Link2, Store as StoreIcon,
@@ -164,7 +164,6 @@ export default function AdminPage() {
   const [activating, setActivating] = useState<string | null>(null)
   const [selectedPlans, setSelectedPlans] = useState<Record<string, PlanId | 'none'>>({})
   const [configModal, setConfigModal] = useState<{ config: OnboardingConfig; userId: string } | null>(null)
-  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set())
   const [validating, setValidating] = useState(false)
   const [adminNotes, setAdminNotes] = useState('')
   const [activeTab, setActiveTab] = useState<'clients' | 'billing' | 'sessions' | 'affiliate' | 'promo' | 'install' | 'settings'>('clients')
@@ -378,14 +377,6 @@ export default function AdminPage() {
       fetchSessions()
     }
   }, [activeTab, subscription, sessions.length, fetchSessions])
-
-  const toggleRow = (id: string) => {
-    setExpandedRows(prev => {
-      const next = new Set(prev)
-      next.has(id) ? next.delete(id) : next.add(id)
-      return next
-    })
-  }
 
   if (subLoading || loading) {
     return (
@@ -697,7 +688,6 @@ export default function AdminPage() {
               const usagePct = client.tokens_limit > 0
                 ? Math.round((client.tokens_used / client.tokens_limit) * 100)
                 : 0
-              const isExpanded = expandedRows.has(client.id)
 
 
               return (
@@ -859,33 +849,9 @@ export default function AdminPage() {
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="h-7 w-7 p-0"
-                          onClick={() => toggleRow(client.id)}
-                        >
-                          {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-                        </Button>
                       </div>
                     </td>
                   </tr>
-
-                  {/* Row étendue */}
-                  {isExpanded && client.onboarding_config && (
-                    <tr key={`${client.id}-expanded`} className="bg-muted/10">
-                      <td colSpan={7} className="px-6 py-4">
-                        <ConfigDetails config={client.onboarding_config} />
-                      </td>
-                    </tr>
-                  )}
-                  {isExpanded && !client.onboarding_config && (
-                    <tr key={`${client.id}-expanded-empty`} className="bg-muted/10">
-                      <td colSpan={7} className="px-6 py-4 text-sm text-muted-foreground">
-                        Aucun configurateur soumis pour ce client.
-                      </td>
-                    </tr>
-                  )}
                 </>
               )
             })}
