@@ -639,7 +639,7 @@ export default function AgentsPage() {
                                    Les nouvelles poses sont agrandies (cf. isNewPose). */
                                 className={cn(
                                   'absolute -left-5 bottom-0 z-10 max-w-none cursor-pointer object-contain object-bottom drop-shadow-[0_12px_24px_rgba(0,0,0,0.45)] transition-transform duration-500 ease-out hover:-translate-y-1.5 hover:scale-[1.02]',
-                                  isNewPose(agent.mascot) ? 'max-h-[115%] w-[100%]' : 'max-h-[128%] w-[112%]'
+                                  isNewPose(agent.mascot) ? 'max-h-[135%] w-[118%]' : 'max-h-[128%] w-[112%]'
                                 )}
                               />
                             </MascotPicker>
@@ -650,7 +650,7 @@ export default function AgentsPage() {
                               alt={agent.name}
                               className={cn(
                                 'pointer-events-none absolute -left-5 bottom-0 max-w-none object-contain object-bottom drop-shadow-[0_12px_24px_rgba(0,0,0,0.45)]',
-                                isNewPose(agent.mascot) ? 'max-h-[115%] w-[100%]' : 'max-h-[128%] w-[112%]'
+                                isNewPose(agent.mascot) ? 'max-h-[135%] w-[118%]' : 'max-h-[128%] w-[112%]'
                               )}
                             />
                           )}
