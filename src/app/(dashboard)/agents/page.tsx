@@ -496,24 +496,34 @@ export default function AgentsPage() {
           const cardW = Math.min(cardCap, Math.max(240, viewportW - 96))
           const sceneW = Math.min(cardCap + 80, viewportW - 32)
           // Hauteur de scène : idéale selon la carte, MAIS plafonnée par la hauteur
-          // dispo (topbar + titre au-dessus, flèches/points + bouton "Nouvel agent"
-          // en dessous ≈ 320px réservés) pour que le bouton reste visible sans scroll.
-          const idealSceneH = cardW >= 440 ? 500 : cardW >= 360 ? 440 : cardW >= 300 ? 400 : 360
-          // Espace réellement occupé SOUS/AU-DESSUS de la scène : topbar (~64) +
-          // titre (~74) + paddings (~16) + points (~14) + bouton « Nouvel agent »
-          // (~72). On le réserve pour que le bouton reste visible sans scroll.
-          const RESERVED = 240
-          // Plancher à 360 : en dessous la carte (image + nom + boutons) ne tient
-          // plus. Si le viewport est encore plus court, la page défile — c'est
-          // préférable à un bouton « Nouvel agent » coupé hors de l'écran.
-          const sceneH = Math.max(360, Math.min(idealSceneH, viewportH - RESERVED))
+          // dispo pour que TOUT tienne sans scroll (constaté : à 100% la carte
+          // centrale + « Nouvel agent » débordaient ; à 80% ça tenait pile).
+          const idealSceneH = cardW >= 440 ? 480 : cardW >= 360 ? 430 : cardW >= 300 ? 390 : 360
+          // ⚠️ RÉSERVE RÉELLE (la sous-estimation causait le débordement à 100 %).
+          //
+          // Sous/au-dessus de la SCÈNE il y a : la topbar (~64), le titre + sous-
+          // titre (~90), les paddings (~24), les points de pagination (~24), le
+          // bouton « Nouvel agent » (~72). MAIS surtout, la carte centrale a un
+          // PIED qui vit DANS la scène (nom + badge « Agent référent » + pitch +
+          // statut + bouton « Configurer » ≈ 190). Ce pied s'ajoute à la hauteur de
+          // l'image ; si sceneH est trop grand, l'ensemble dépasse le viewport.
+          // On réserve donc large pour que sceneH rétrécisse assez sur un écran
+          // court — c'est ce qui reproduit à 100 % le rendu qui tenait à 80 %.
+          const RESERVED = 300
+          // Plancher à 340 : en dessous la carte ne tient plus, la page défile
+          // (préférable à un bouton coupé).
+          const sceneH = Math.max(340, Math.min(idealSceneH, viewportH - RESERVED))
           // Translation laterale des cartes voisines, proportionnelle a la largeur de carte
           const stepFront = cardW * 0.9
           const stepBack = cardW * 0.8
 
-          // `pt` réduit : la mascotte déborde déjà au-dessus de sa zone, un grand
-          // padding créait un vide inutile entre le titre et les cartes.
-          const imgH = sceneH >= 440 ? 256 : sceneH >= 400 ? 224 : sceneH >= 370 ? 196 : 168
+          // ⚠️ Hauteur de l'image bornée pour que la CARTE ENTIÈRE tienne dans
+          // sceneH. Le pied de la carte centrale (nom + badge + pitch + statut +
+          // « Configurer ») fait ~230 px : image + pied + padding doivent rester
+          // ≤ sceneH, sinon le bouton « Configurer » déborde sous la scène et
+          // chevauche « Nouvel agent » (constaté à 100 %). On réserve donc ~250 px
+          // pour le pied et on prend le reste pour l'image.
+          const imgH = Math.max(150, Math.min(256, sceneH - 250))
           // Les flèches se calaient sur `top-1/2` du CONTENEUR, donc trop bas : les
           // cartes sont ancrées en `top-0`, et une carte latérale est plus courte
           // que la centrale (pas de bouton « Configurer »). On vise son milieu :
@@ -584,7 +594,7 @@ export default function AgentsPage() {
                             le bras + enveloppe deborder a gauche de la carte */}
                         <div
                           className="relative flex items-end justify-center rounded-t-[34px] m-2 mb-0"
-                          style={{ height: sceneH >= 440 ? 256 : sceneH >= 400 ? 224 : sceneH >= 370 ? 196 : 168, background: `radial-gradient(130% 110% at 50% 22%, ${typeColor}30 0%, ${typeColor}0c 48%, transparent 78%)` }}
+                          style={{ height: imgH, background: `radial-gradient(130% 110% at 50% 22%, ${typeColor}30 0%, ${typeColor}0c 48%, transparent 78%)` }}
                         >
                           {/* halo derriere la mascotte */}
                           <div className="pointer-events-none absolute left-1/2 top-1/2 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full opacity-25 blur-3xl" style={{ background: typeColor }} />
