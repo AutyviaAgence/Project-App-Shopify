@@ -4,7 +4,7 @@ import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { shopifyGraphQL } from './client'
 import { getValidAccessToken } from './token'
 import { processDocument } from '@/lib/knowledge/processor'
-import { OPT_OUT_PROMPT } from '@/lib/agents/opt-out-prompt'
+import { OPT_OUT_PROMPT, HANDOFF_PROMPT } from '@/lib/agents/opt-out-prompt'
 
 /**
  * Auto-configuration de l'agent à partir d'une boutique Shopify (S2).
@@ -523,7 +523,9 @@ export async function autoConfigureAgentFromShop(storeId: string): Promise<AutoC
   // dans l'onboarding UI. Deux textes divergeraient.
   const systemPrompt = `Tu es l'assistant de la boutique en ligne "${shopName}". Tu réponds aux clients sur WhatsApp de façon claire, chaleureuse et professionnelle. Tu aides sur les produits, les commandes, le suivi de livraison, le SAV et les retours. Base-toi TOUJOURS sur la base de connaissances (catalogue, pages et politiques de la boutique) pour répondre. Si tu n'as pas l'information, propose de transférer à un conseiller. Ne donne jamais d'information inventée.
 
-${OPT_OUT_PROMPT}`
+${OPT_OUT_PROMPT}
+
+${HANDOFF_PROMPT}`
 
   // ⚠️ RÉUTILISER L'AGENT DE CETTE BOUTIQUE, NE PAS EN RECRÉER UN.
   //
@@ -561,12 +563,11 @@ ${OPT_OUT_PROMPT}`
     // ailleurs l'action par défaut « continue » faisait répondre l'IA à l'infini.
     // Vérifié : à 25 messages, l'agent continuait toujours.
     //
-    // On borne à 40 réponses IA par conversation (large pour un vrai SAV, mais
-    // coupe les boucles et les conversations qui s'éternisent), avec l'action
-    // « pause_ask » : à la limite, l'IA se met en pause et demande au client s'il
-    // veut continuer avec l'assistant ou parler à un humain. Le marchand règle
-    // tout depuis Agents IA s'il veut autre chose.
-    max_messages_per_conversation: 40,
+    // On borne à 10 réponses IA par conversation, avec l'action « pause_ask » :
+    // à la limite, l'IA se COUPE et une notification demande au marchand s'il veut
+    // reprendre l'assistant (Continuer OUI/NON) ou prendre la main. 10 est le
+    // défaut demandé — réglable par le marchand depuis Agents IA (0 = illimité).
+    max_messages_per_conversation: 10,
     max_messages_action: 'pause_ask',
     is_active: true,
   }

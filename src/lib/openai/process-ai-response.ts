@@ -7,7 +7,7 @@ import { sendMessage, sendMediaMessage, sendInteractiveMessage, sendImageLink, s
 import { retrieveContext } from '@/lib/knowledge/retriever'
 import { encryptMessage, decryptMessage } from '@/lib/crypto/encryption'
 import { getAgentTools, buildOpenAITools, executeToolCall } from '@/lib/tools/executor'
-import { SHOPIFY_ACTION_TOOLS, isShopifyActionTool, handleActionTool, userHasShopifyStore, NOTIFICATION_CHANNEL_TOOL, isNotificationChannelTool, handleNotificationChannelTool, TRACK_ORDER_TOOL, isTrackOrderTool, handleTrackOrder, LINK_CUSTOMER_TOOL, isLinkCustomerTool, handleLinkCustomer, UNSUBSCRIBE_TOOL, isUnsubscribeTool, handleUnsubscribe } from '@/lib/shopify/ai-tools'
+import { SHOPIFY_ACTION_TOOLS, isShopifyActionTool, handleActionTool, userHasShopifyStore, NOTIFICATION_CHANNEL_TOOL, isNotificationChannelTool, handleNotificationChannelTool, TRACK_ORDER_TOOL, isTrackOrderTool, handleTrackOrder, LINK_CUSTOMER_TOOL, isLinkCustomerTool, handleLinkCustomer, UNSUBSCRIBE_TOOL, isUnsubscribeTool, handleUnsubscribe, HANDOFF_TOOL, isHandoffTool, handleHandoff } from '@/lib/shopify/ai-tools'
 import { checkConversationQuota } from '@/lib/shopify/plans'
 import { canUseAi } from '@/lib/plans/gate'
 import { pickInitialModel, isSensitiveToolName, MODEL_QUALITY } from './model-router'
@@ -331,7 +331,7 @@ Exemples :
               await supabase.from('user_alerts').insert({
                 user_id: sessP.user_id, alert_type: 'conversation_long',
                 title: 'Assistant en pause',
-                message: `L'assistant a atteint sa limite de ${aiCap} réponses sur une conversation et s'est mis en pause. Reprenez la main si besoin.`,
+                message: `L'assistant a atteint sa limite de ${aiCap} réponses sur une conversation et s'est mis en pause. Voulez-vous continuer avec l'IA ? Cliquez « Continuer avec l'IA », ou « Voir conversation » pour reprendre la main.`,
                 metadata: { conversation_id: params.conversationId, session_id: params.sessionId, agent_id: params.agentId, ai_messages: aiMsgCount },
               })
             }
@@ -582,12 +582,13 @@ NE liste JAMAIS des options en texte (genre "1. ... 2. ...") si tu peux les mett
       openaiTools.push(LINK_CUSTOMER_TOOL)
     }
 
-    // Désabonnement : disponible TOUJOURS (pas seulement avec Shopify) — c'est du
-    // consentement WhatsApp, pas une action boutique. Honorer un opt-out exprimé
-    // en langage naturel protège la qualité du numéro (un client non entendu
-    // bloque, et un blocage coûte plus cher qu'un désabonnement).
+    // Désabonnement + transfert humain : disponibles TOUJOURS (pas seulement avec
+    // Shopify). Le désabonnement protège la qualité du numéro ; le transfert
+    // humain garantit qu'une demande de conseiller déclenche une VRAIE prise en
+    // main + notification, quelle que soit la config d'escalation de l'agent.
     if (userId) {
       openaiTools.push(UNSUBSCRIBE_TOOL)
+      openaiTools.push(HANDOFF_TOOL)
     }
 
     if (openaiTools.length > 0) {
@@ -695,6 +696,14 @@ NE liste JAMAIS des options en texte (genre "1. ... 2. ...") si tu peux les mett
           continue
         }
 
+        // Transfert vers un humain : le client demande un conseiller (ou situation
+        // à ne pas gérer seul). Coupe l'IA + notifie le marchand.
+        if (isHandoffTool(tc.functionName)) {
+          const handoffMsg = await handleHandoff(tc.arguments, { userId: userId!, conversationId: params.conversationId })
+          toolMessages.push({ role: 'tool', tool_call_id: tc.toolCallId, content: handoffMsg })
+          continue
+        }
+
         const mapping = functionMap.get(tc.functionName)
         if (!mapping) {
           toolMessages.push({
@@ -747,10 +756,20 @@ NE liste JAMAIS des options en texte (genre "1. ... 2. ...") si tu peux les mett
       ref: m[2],
     }))
 
-    // Boutons : on ne garde que le PREMIER bloc [BTN:...] (un seul message interactif)
-    const btnMatch = aiResponseText.match(/\[BTN:([^\]]+)\]/i)
+    // Boutons : on ne garde que le PREMIER bloc (un seul message interactif).
+    //
+    // ⚠️ LE MODÈLE ÉCRIT SOUVENT LA MAUVAISE SYNTAXE.
+    //
+    // Le prompt enseigne [BTN:...], mais gpt écrit régulièrement
+    // « [boutons: Parler à un conseiller] » — qui n'était pas reconnu et
+    // s'affichait EN CLAIR chez le client (constaté). On tolère donc les variantes
+    // (bouton/boutons/button/buttons, avec ou sans espace après « : »), en plus de
+    // la forme canonique. Séparateur : « | » comme prévu, mais on accepte aussi la
+    // virgule (autre erreur fréquente du modèle).
+    const BTN_TAG = /\[(?:BTN|boutons?|buttons?)\s*:\s*([^\]]+)\]/i
+    const btnMatch = aiResponseText.match(BTN_TAG)
     const buttonTitles = btnMatch
-      ? btnMatch[1].split('|').map(t => t.trim()).filter(Boolean).slice(0, 3)
+      ? btnMatch[1].split(/[|,]/).map(t => t.trim()).filter(Boolean).slice(0, 3)
       : []
 
     // Carrousel produits : [CAROUSEL:handle1,handle2,...] → on garde le PREMIER bloc (2 à 5 handles)
@@ -762,7 +781,9 @@ NE liste JAMAIS des options en texte (genre "1. ... 2. ...") si tu peux les mett
     // Texte nettoyé : retirer médias + boutons + carrousel, remplacer [LINK:label|url] par "label : url"
     const cleanTextRaw = aiResponseText
       .replace(mediaTagRegex, '')
-      .replace(/\[BTN:[^\]]+\]/gi, '')
+      // Retire TOUTES les variantes de balise bouton (cf. BTN_TAG), pas seulement
+      // [BTN:…] — sinon « [boutons: …] » restait affiché en clair.
+      .replace(/\[(?:BTN|boutons?|buttons?)\s*:[^\]]+\]/gi, '')
       .replace(/\[CAROUSEL:[^\]]+\]/gi, '')
       .replace(/\[LINK:([^|\]]+)\|([^\]]+)\]/gi, (_m, label, url) => `${label.trim()} : ${url.trim()}`)
       // ⚠️ WHATSAPP N'EST PAS DU MARKDOWN.

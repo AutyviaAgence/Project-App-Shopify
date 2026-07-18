@@ -272,6 +272,85 @@ export async function handleUnsubscribe(
   return "Le client est désabonné : il ne recevra plus aucun message automatique. Confirme-lui en UNE phrase, chaleureusement, qu'il ne recevra plus rien et qu'il peut revenir/écrire « START » quand il veut. Ne propose plus rien d'autre."
 }
 
+/**
+ * TRANSFERT VERS UN HUMAIN.
+ *
+ * Quand le client demande explicitement un conseiller (« je veux parler à un
+ * humain », « passez-moi quelqu'un ») ou dans une situation que l'IA ne doit pas
+ * gérer (litige, menace, réclamation grave), l'agent APPELLE cet outil. Il met
+ * l'IA en pause sur la conversation ET notifie le marchand — sinon le client
+ * attendait une réponse humaine que personne ne savait devoir donner.
+ *
+ * ⚠️ Ceci fonctionne INDÉPENDAMMENT de la config d'escalation de l'agent (mots-
+ * clés, message). Constaté : un agent créé à la main avec escalation désactivée
+ * laissait le client demander un humain… et l'IA se contentait d'en parler, sans
+ * transfert ni notification. Une demande d'humain est universelle.
+ */
+export const HANDOFF_TOOL = {
+  type: 'function' as const,
+  function: {
+    name: 'request_human',
+    description:
+      "Transfère la conversation à un conseiller humain et alerte l'équipe. À appeler quand le client demande explicitement à parler à un humain/conseiller, OU face à une situation que tu ne dois pas gérer seul (litige sur un remboursement, menace légale, client très mécontent, réclamation grave). Après l'appel, dis au client en UNE phrase qu'un conseiller va prendre le relais. N'invente pas de délai précis.",
+    parameters: {
+      type: 'object',
+      properties: {
+        reason: { type: 'string', description: "Courte phrase : pourquoi un humain est nécessaire (repris de ce que dit le client)." },
+      },
+      required: [],
+    },
+  },
+}
+
+export function isHandoffTool(name: string): boolean {
+  return name === 'request_human'
+}
+
+/** Met l'IA en pause sur la conversation et notifie le marchand qu'un humain doit intervenir. */
+export async function handleHandoff(
+  args: Record<string, unknown>,
+  ctx: { userId: string; conversationId: string }
+): Promise<string> {
+  const supabase = createAdminSupabase(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
+  const reason = String(args.reason || '').trim().slice(0, 200)
+
+  // Couper l'IA : à partir de là, c'est un humain qui répond. On enregistre la
+  // raison + l'horodatage d'escalation (mêmes champs que l'escalation par mots-clés).
+  await supabase
+    .from('conversations')
+    .update({
+      is_ai_active: false,
+      escalation_reason: reason ? `IA (outil): ${reason}` : 'IA (outil): demande de transfert',
+      escalated_at: new Date().toISOString(),
+    })
+    .eq('id', ctx.conversationId)
+
+  // Notifier le marchand — une seule alerte tant qu'elle n'est pas traitée.
+  const { data: sess } = await supabase
+    .from('conversations')
+    .select('contact_id, whatsapp_sessions(user_id)')
+    .eq('id', ctx.conversationId)
+    .maybeSingle()
+  const ownerId = (sess as { whatsapp_sessions?: { user_id?: string } } | null)?.whatsapp_sessions?.user_id || ctx.userId
+  if (ownerId) {
+    const { data: exists } = await supabase
+      .from('user_alerts').select('id')
+      .eq('user_id', ownerId).eq('alert_type', 'human_handoff')
+      .contains('metadata', { conversation_id: ctx.conversationId }).maybeSingle()
+    if (!exists) {
+      await supabase.from('user_alerts').insert({
+        user_id: ownerId,
+        alert_type: 'human_handoff',
+        title: 'Un client demande un conseiller',
+        message: `Un client a besoin d'une intervention humaine${reason ? ` : « ${reason} »` : ''}. L'assistant a été mis en pause sur cette conversation.`,
+        metadata: { conversation_id: ctx.conversationId, contact_id: (sess as { contact_id?: string } | null)?.contact_id },
+      })
+    }
+  }
+
+  return "La conversation est transférée à un conseiller humain (l'assistant est en pause). Dis au client en UNE phrase qu'un membre de l'équipe va prendre le relais. Ne promets pas de délai précis, ne pose plus de question."
+}
+
 /** Relie le contact de la conversation à un client Shopify via son email. */
 export async function handleLinkCustomer(
   args: Record<string, unknown>,

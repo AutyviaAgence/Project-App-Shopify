@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Bell, Check, Trash2, AlertTriangle, WifiOff, AlertCircle, Info, Zap, Bot, BotOff, UserX, ExternalLink, CalendarCheck } from 'lucide-react'
+import { Bell, Check, Trash2, AlertTriangle, WifiOff, AlertCircle, Info, Zap, Bot, BotOff, UserX, ExternalLink, CalendarCheck, Play } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import {
   DropdownMenu,
@@ -144,6 +144,37 @@ export function AlertsDropdown() {
     return !!(alert.metadata as Record<string, unknown>)?.conversation_id
   }
 
+  // « Continuer avec l'IA » : réactive l'assistant sur la conversation mise en
+  // pause (plafond de messages atteint). Répond à la demande « OUI/NON » du
+  // marchand DEPUIS la notif, sans avoir à ouvrir la conversation.
+  const [resuming, setResuming] = useState<string | null>(null)
+  const handleResumeAI = async (alert: UserAlert) => {
+    const conversationId = (alert.metadata as Record<string, unknown>)?.conversation_id as string | undefined
+    if (!conversationId) return
+    setResuming(alert.id)
+    try {
+      const res = await fetch(`/api/conversations/${conversationId}/agent`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ is_ai_active: true }),
+      })
+      if (res.ok) {
+        toast.success('Assistant réactivé sur cette conversation.')
+        handleMarkAsRead(alert.id)
+      } else {
+        toast.error('Impossible de réactiver l’assistant.')
+      }
+    } catch {
+      toast.error('Erreur réseau.')
+    } finally {
+      setResuming(null)
+    }
+  }
+
+  // Une pause d'assistant (plafond atteint) → on propose de reprendre.
+  const isPausedAlert = (alert: UserAlert) =>
+    alert.alert_type === 'conversation_long' && !!(alert.metadata as Record<string, unknown>)?.conversation_id
+
   return (
     <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
       <DropdownMenuTrigger asChild>
@@ -216,7 +247,25 @@ export function AlertsDropdown() {
                     )}>
                       {alert.message}
                     </p>
-                    <div className="flex items-center gap-1 mt-2">
+                    <div className="flex items-center gap-1 mt-2 flex-wrap">
+                      {/* Assistant en pause (plafond atteint) → « Continuer avec l'IA ».
+                          C'est le OUI de la question posée dans la notification ;
+                          « Voir conversation » sert de NON (le marchand prend la main). */}
+                      {isPausedAlert(alert) && (
+                        <Button
+                          variant="default"
+                          size="sm"
+                          className="h-6 text-[10px] px-2"
+                          disabled={resuming === alert.id}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleResumeAI(alert)
+                          }}
+                        >
+                          <Play className="mr-1 h-2.5 w-2.5" />
+                          {resuming === alert.id ? '…' : 'Continuer avec l’IA'}
+                        </Button>
+                      )}
                       {hasConversationLink(alert) && (
                         <Button
                           variant="outline"

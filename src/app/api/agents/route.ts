@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { checkPlanQuota } from '@/lib/plan-quota'
-import { OPT_OUT_PROMPT } from '@/lib/agents/opt-out-prompt'
+import { OPT_OUT_PROMPT, HANDOFF_PROMPT } from '@/lib/agents/opt-out-prompt'
 
 const VALID_MODELS = ['gpt-4o-mini', 'gpt-4o']
 
@@ -196,9 +196,14 @@ export async function POST(req: Request) {
     ? Math.max(finalDelayMin, Math.min(60, Math.floor(response_delay_max)))
     : finalDelayMin
 
+  // ⚠️ DÉFAUT = 10 (et pause à la limite). Un agent sans plafond répondait à
+  // l'infini. Si le champ est absent à la création, on borne à 10 (réglable
+  // ensuite, 0 = illimité). L'éditeur d'agent, lui, envoie toujours la valeur
+  // choisie — donc un marchand qui met « illimité » (0/null explicite) n'est pas
+  // écrasé, car il passe par PATCH, pas par ce POST de création.
   const finalMaxMessages = max_messages_per_conversation != null
-    ? Math.max(1, Math.min(10000, Math.floor(max_messages_per_conversation)))
-    : null
+    ? (Math.floor(max_messages_per_conversation) <= 0 ? null : Math.max(1, Math.min(10000, Math.floor(max_messages_per_conversation))))
+    : 10
   const finalInactivityTimeout = inactivity_timeout_minutes != null
     ? Math.max(1, Math.min(10080, Math.floor(inactivity_timeout_minutes)))
     : null
@@ -224,10 +229,15 @@ export async function POST(req: Request) {
   // exprimé en langage naturel protège la qualité du numéro Meta. On l'ajoute donc
   // ICI, au seul point par lequel PASSE toute création — et on ne la duplique pas
   // si le prompt la porte déjà (agent d'onboarding, ré-onboarding).
+  // Idem pour le TRANSFERT HUMAIN : une demande de conseiller doit toujours
+  // déclencher une vraie prise en main, quelle que soit la config d'escalation.
   const promptTrimmed = system_prompt.trim()
-  const finalPrompt = /DÉSABONNEMENT/.test(promptTrimmed)
+  let finalPrompt = /DÉSABONNEMENT/.test(promptTrimmed)
     ? promptTrimmed
     : `${promptTrimmed}\n\n${OPT_OUT_PROMPT}`
+  if (!/TRANSFERT À UN HUMAIN/.test(finalPrompt)) {
+    finalPrompt = `${finalPrompt}\n\n${HANDOFF_PROMPT}`
+  }
 
   const agentFields: Record<string, unknown> = {
     name: name.trim(),
@@ -240,6 +250,10 @@ export async function POST(req: Request) {
     response_delay_max: finalDelayMax,
     is_active: is_active !== undefined ? is_active : true,
     max_messages_per_conversation: finalMaxMessages,
+    // Action à la limite : par défaut « pause_ask » → l'IA se coupe et une notif
+    // demande au marchand s'il veut reprendre. « continue » (soft) laissait l'IA
+    // répondre à l'infini malgré le plafond.
+    max_messages_action: (body as { max_messages_action?: string }).max_messages_action || 'pause_ask',
     inactivity_timeout_minutes: finalInactivityTimeout,
     escalation_enabled: escalation_enabled ?? false,
     escalation_keywords: finalEscalationKeywords,

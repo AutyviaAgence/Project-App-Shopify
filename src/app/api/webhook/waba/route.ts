@@ -534,6 +534,20 @@ export async function POST(req: NextRequest) {
                 'Vous êtes réabonné. Bon retour parmi nous !',
                 'You are resubscribed. Welcome back!',
               )
+              // Notifier le marchand : un réabonnement est une bonne nouvelle
+              // commerciale (un canal de contact récupéré) qu'il doit voir, au même
+              // titre que le désabonnement.
+              const { data: sOpt } = await supabase
+                .from('whatsapp_sessions').select('user_id').eq('id', session.id).maybeSingle()
+              if (sOpt?.user_id) {
+                await supabase.from('user_alerts').insert({
+                  user_id: sOpt.user_id,
+                  alert_type: 'contact_opted_in',
+                  title: 'Contact réabonné',
+                  message: `Un contact s'est réabonné (« START ») : il recevra de nouveau vos messages.`,
+                  metadata: { contact_id: contact.id, session_id: session.id },
+                })
+              }
             } else if (c.opt_in_status !== 'opted_out') {
               // Message ENTRANT (hors STOP) = opt-in implicite ET preuve que le
               // canal WhatsApp est actif. On construit l'update de façon
@@ -603,16 +617,22 @@ export async function POST(req: NextRequest) {
               continue
             }
 
-            // RÉ-ABONNEMENT (START) → on RALLUME l'IA et on continue le flux normal
-            // pour que ce même message reçoive une réponse. Sans ça, le client se
-            // réabonnait mais l'agent restait muet (is_ai_active resté à false).
+            // RÉ-ABONNEMENT (START) → on RALLUME l'IA, puis on SAUTE le tour IA.
+            //
+            // ⚠️ On envoie DÉJÀ « Vous êtes réabonné » depuis le webhook. Si on
+            // laissait l'IA répondre AUSSI sur ce « START », elle parlait par
+            // dessus — et, voyant le vieux STOP dans l'historique, elle rappelait
+            // même son outil de désabonnement (constaté : « START » → réponse
+            // « vous êtes désabonné », deux fois). Le webhook et l'agent se
+            // marchaient dessus.
+            //
+            // On coupe donc le tour : l'IA est réactivée pour le PROCHAIN vrai
+            // message du client, mais elle ne commente pas le « START » lui-même.
             if (resubscribedNow) {
               await supabase.from('conversations')
                 .update({ is_ai_active: true })
                 .eq('id', conversation.id)
-              ;(conversation as { is_ai_active?: boolean }).is_ai_active = true
-              // Pas de `continue` : le message « START » suit le flux et l'IA
-              // pourra enchaîner (on a déjà envoyé la confirmation de réabonnement).
+              continue
             }
 
             // Test A/B : le contact a répondu → marque ses assignations comme

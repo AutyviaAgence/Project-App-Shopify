@@ -31,6 +31,7 @@ import {
   Search,
   Workflow,
   Pin,
+  UserX,
 } from 'lucide-react'
 import { formatDistanceToNow } from 'date-fns'
 import { fr, enUS } from 'date-fns/locale'
@@ -459,6 +460,14 @@ export function ConversationList({
                         <Badge className="h-4 shrink-0 px-1.5 text-[9px] bg-primary/10 text-primary hover:bg-primary/20 border-0">
                           <Bot className="mr-0.5 h-2.5 w-2.5" />
                           {locale === 'fr' ? 'IA' : 'AI'}
+                        </Badge>
+                      )}
+                      {/* Désabonné : repérable d'un coup d'œil dans la liste (le
+                          contact ne reçoit plus de messages automatiques). */}
+                      {conv.contact?.opt_in_status === 'opted_out' && (
+                        <Badge className="h-4 shrink-0 px-1.5 text-[9px] bg-red-500/10 text-red-500 hover:bg-red-500/20 border-0">
+                          <UserX className="mr-0.5 h-2.5 w-2.5" />
+                          {locale === 'fr' ? 'Désabonné' : 'Unsubscribed'}
                         </Badge>
                       )}
                       {/* Étapes de la conversation (multi), 2 badges visibles + « +N ».
