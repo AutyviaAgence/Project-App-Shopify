@@ -506,9 +506,14 @@ export default function AgentsPage() {
           // Carte responsive : grandit avec l'écran (plafond plus haut sur desktop
           // large) pour ne plus laisser un grand vide autour.
           const isMobile = viewportW < 640
-          const cardCap = viewportW >= 1280 ? 480 : viewportW >= 1024 ? 440 : 400
+          // Carte centrale : plafond réduit sur grand écran pour laisser respirer
+          // les cartes voisines (avant, 480px prenait presque toute la scène et on
+          // ne voyait qu'un mince liseré des voisines — cf. retour marchand).
+          const cardCap = viewportW >= 1280 ? 400 : viewportW >= 1024 ? 380 : 360
           const cardW = Math.min(cardCap, Math.max(240, viewportW - 96))
-          const sceneW = Math.min(cardCap + 80, viewportW - 32)
+          // Scène plus large que la carte pour que les voisines écartées restent
+          // visibles au lieu d'être coupées par le bord.
+          const sceneW = Math.min(cardCap + 360, viewportW - 32)
           // Hauteur de scène : idéale selon la carte, MAIS plafonnée par la hauteur
           // dispo pour que TOUT tienne sans scroll (constaté : à 100% la carte
           // centrale + « Nouvel agent » débordaient ; à 80% ça tenait pile).
@@ -527,9 +532,12 @@ export default function AgentsPage() {
           // Plancher à 340 : en dessous la carte ne tient plus, la page défile
           // (préférable à un bouton coupé).
           const sceneH = Math.max(340, Math.min(idealSceneH, viewportH - RESERVED))
-          // Translation laterale des cartes voisines, proportionnelle a la largeur de carte
-          const stepFront = cardW * 0.9
-          const stepBack = cardW * 0.8
+          // Translation laterale des cartes voisines, proportionnelle a la largeur
+          // de carte. Pas ÉLARGI (0.9 -> 1.02) : les voisines s'écartent davantage
+          // de la centrale, on les voit enfin nettement au lieu d'un simple liseré
+          // derrière la carte active.
+          const stepFront = cardW * 1.02
+          const stepBack = cardW * 0.9
 
           // ⚠️ Hauteur de l'image bornée pour que la CARTE ENTIÈRE tienne dans
           // sceneH. Le pied de la carte centrale (nom + badge + pitch + statut +
