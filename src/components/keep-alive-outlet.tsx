@@ -42,6 +42,18 @@ export type KeepAlivePage = {
 }
 
 /**
+ * Une page keep-alive n'est active que sur son chemin EXACT.
+ *
+ * ⚠️ Le matching incluait `pathname.startsWith(path + '/')` : une sous-route
+ * (/agents/123, /campaigns/new) était alors considérée comme gérée par le
+ * keep-alive → le layout ne rendait plus `children`, et on affichait la LISTE
+ * à la place du détail. Les sous-routes doivent suivre le routing normal.
+ */
+function matchPage(pathname: string, pages: KeepAlivePage[]): KeepAlivePage | undefined {
+  return pages.find((p) => pathname === p.path)
+}
+
+/**
  * Contexte : le chemin ACTUELLEMENT actif + un compteur qui s'incrémente à chaque
  * (re)activation. Une page keep-alive s'y abonne (useKeepAliveFocus) pour se
  * resynchroniser quand on revient dessus — sans se recharger de zéro.
@@ -81,7 +93,7 @@ export function KeepAliveOutlet({ pages }: { pages: KeepAlivePage[] }) {
   const mountedRef = useRef<Set<string>>(new Set())
   const [, force] = useState(0)
 
-  const active = pages.find((p) => pathname === p.path || pathname.startsWith(p.path + '/'))
+  const active = matchPage(pathname, pages)
   if (active && !mountedRef.current.has(active.path)) {
     mountedRef.current.add(active.path)
   }
@@ -125,5 +137,5 @@ export function KeepAliveOutlet({ pages }: { pages: KeepAlivePage[] }) {
  * PAS aussi rendre `children`, sinon la page s'afficherait en double).
  */
 export function isKeepAlivePath(pathname: string, pages: KeepAlivePage[]): boolean {
-  return pages.some((p) => pathname === p.path || pathname.startsWith(p.path + '/'))
+  return !!matchPage(pathname, pages)
 }

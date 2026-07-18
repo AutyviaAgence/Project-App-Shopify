@@ -51,6 +51,9 @@ const KEEP_ALIVE_PAGES: KeepAlivePage[] = [
   { path: '/agents', Component: dynamic(() => import('./agents/page'), { ssr: false }) },
   { path: '/templates', Component: dynamic(() => import('./templates/page'), { ssr: false }) },
   { path: '/automations', Component: dynamic(() => import('./automations/page'), { ssr: false }) },
+  // « Transactionnel » n'est pas une page à part : c'est /automations?tab=transactional
+  // (même composant, donc déjà persistant).
+  { path: '/campaigns', Component: dynamic(() => import('./campaigns/page'), { ssr: false }) },
   { path: '/stats', Component: dynamic(() => import('./stats/page'), { ssr: false }) },
 ]
 import { SubscriptionBanner } from '@/components/subscription-banner'

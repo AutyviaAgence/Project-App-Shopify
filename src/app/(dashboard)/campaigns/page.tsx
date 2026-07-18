@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { useKeepAliveFocus } from '@/components/keep-alive-outlet'
 import { useRouter } from 'next/navigation'
 import { useTranslation } from '@/i18n/context'
 import type { Campaign } from '@/types/database'
@@ -88,6 +89,11 @@ export default function CampaignsPage() {
     setLoading(true)
     fetchCampaigns()
   }, [fetchCampaigns])
+
+  // Keep-alive : la page reste montée → on resynchronise en revenant dessus,
+  // sinon on afficherait l'état d'il y a plusieurs minutes (une campagne créée
+  // ou lancée entre-temps n'apparaîtrait pas sans rechargement manuel).
+  useKeepAliveFocus('/campaigns', () => { fetchCampaigns() })
 
   function openDeleteDialog(campaign: CampaignWithAgent) {
     setCampaignToDelete(campaign)
