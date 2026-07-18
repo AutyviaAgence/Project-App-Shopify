@@ -506,10 +506,10 @@ export default function AgentsPage() {
           // Carte responsive : grandit avec l'écran (plafond plus haut sur desktop
           // large) pour ne plus laisser un grand vide autour.
           const isMobile = viewportW < 640
-          // Carte centrale un peu moins large sur grand écran (retour marchand :
-          // à 100% elle paraissait trop large). Seul ce plafond change ; l'écart
-          // latéral et la scène restent comme avant.
-          const cardCap = viewportW >= 1280 ? 430 : viewportW >= 1024 ? 410 : 390
+          // Carte centrale moins large sur grand écran (retour marchand : à 100%
+          // elle paraissait trop large horizontalement). Seul ce plafond change ;
+          // l'écart latéral et la scène restent comme avant.
+          const cardCap = viewportW >= 1280 ? 380 : viewportW >= 1024 ? 360 : 340
           const cardW = Math.min(cardCap, Math.max(240, viewportW - 96))
           const sceneW = Math.min(cardCap + 80, viewportW - 32)
           // Hauteur de scène : idéale selon la carte, MAIS plafonnée par la hauteur
