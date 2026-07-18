@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useEffect, useRef, useState } from 'react'
+import { Suspense, useEffect, useRef, useState, createContext, useContext } from 'react'
 import { usePathname } from 'next/navigation'
 
 /**
@@ -41,6 +41,38 @@ export type KeepAlivePage = {
   Component: React.ComponentType
 }
 
+/**
+ * Contexte : le chemin ACTUELLEMENT actif + un compteur qui s'incrémente à chaque
+ * (re)activation. Une page keep-alive s'y abonne (useKeepAliveFocus) pour se
+ * resynchroniser quand on revient dessus — sans se recharger de zéro.
+ */
+const KeepAliveContext = createContext<{ activePath: string; focusTick: number }>({
+  activePath: '',
+  focusTick: 0,
+})
+
+/**
+ * Exécute `onFocus` chaque fois que la page `path` REDEVIENT active (retour sur
+ * l'onglet), PAS à son premier montage (elle vient déjà de charger ses données).
+ *
+ * Usage dans une page keep-alive :
+ *   useKeepAliveFocus('/templates', () => { fetchTemplates() })
+ */
+export function useKeepAliveFocus(path: string, onFocus: () => void) {
+  const { activePath, focusTick } = useContext(KeepAliveContext)
+  const firstRef = useRef(true)
+  const cbRef = useRef(onFocus)
+  cbRef.current = onFocus
+  useEffect(() => {
+    if (activePath !== path) return
+    // On saute la 1re activation (= le montage initial) : inutile de re-fetch ce
+    // qu'on vient de charger.
+    if (firstRef.current) { firstRef.current = false; return }
+    cbRef.current()
+    // focusTick change à chaque réactivation → l'effet re-tourne au retour.
+  }, [activePath, focusTick, path])
+}
+
 export function KeepAliveOutlet({ pages }: { pages: KeepAlivePage[] }) {
   const pathname = usePathname()
 
@@ -54,11 +86,15 @@ export function KeepAliveOutlet({ pages }: { pages: KeepAlivePage[] }) {
     mountedRef.current.add(active.path)
   }
 
+  // `focusTick` s'incrémente à chaque changement de page active → sert de signal
+  // « on vient de revenir » aux pages abonnées (useKeepAliveFocus).
+  const [focusTick, setFocusTick] = useState(0)
+
   // Re-render quand on entre/sort d'une page persistante (pour basculer `hidden`).
-  useEffect(() => { force((n) => n + 1) }, [pathname])
+  useEffect(() => { force((n) => n + 1); setFocusTick((n) => n + 1) }, [pathname])
 
   return (
-    <>
+    <KeepAliveContext.Provider value={{ activePath: active?.path ?? '', focusTick }}>
       {pages.map((p) => {
         if (!mountedRef.current.has(p.path)) return null // pas encore visitée
         const isActive = active?.path === p.path
@@ -80,7 +116,7 @@ export function KeepAliveOutlet({ pages }: { pages: KeepAlivePage[] }) {
           </div>
         )
       })}
-    </>
+    </KeepAliveContext.Provider>
   )
 }
 

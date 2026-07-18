@@ -25,6 +25,7 @@ import { BlobLoaderScreen } from '@/components/blob-loader'
 import { useTour } from '@/components/guided-tour'
 import { makeDemoConversation, makeDemoMessages, isDemoConversation, DEMO_CONVERSATION_ID } from './_components/demo-conversation'
 import { useSessionState } from '@/hooks/use-session-state'
+import { useKeepAliveFocus } from '@/components/keep-alive-outlet'
 
 let notificationAudio: HTMLAudioElement | null = null
 
@@ -660,6 +661,11 @@ function ConversationsPageContent() {
       fetchLifecycleStages(),
     ])
   }, [fetchConversations, fetchAgents, fetchSessions, fetchTeams, fetchLifecycleStages])
+
+  // Keep-alive : la page reste montée (le realtime tourne déjà) — on refait
+  // néanmoins un fetch léger de la liste au RETOUR, pour rattraper tout ce que le
+  // realtime aurait pu manquer (reconnexion, envoi depuis une autre page…).
+  useKeepAliveFocus('/conversations', () => { fetchConversations() })
 
   // Handle ?open=conversationId URL param
   useEffect(() => {

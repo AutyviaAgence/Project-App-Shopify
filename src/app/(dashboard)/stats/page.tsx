@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useSessionState } from '@/hooks/use-session-state'
+import { useKeepAliveFocus } from '@/components/keep-alive-outlet'
 import type { StatsResponse } from '@/types/stats'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import {
@@ -126,6 +127,10 @@ export default function StatsPage() {
   useEffect(() => {
     fetchStats()
   }, [fetchStats])
+
+  // Keep-alive : rafraîchit les stats en revenant sur la page (données à jour
+  // sans rechargement manuel, malgré la page gardée montée).
+  useKeepAliveFocus('/stats', () => { fetchStats() })
 
   // Entonnoir : envois initiés → ouverts → réponses → ventes (mêmes données
   // que l'onglet Automatisations). Échec silencieux : l'entonnoir se masque.

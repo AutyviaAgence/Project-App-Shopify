@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { useSessionState } from '@/hooks/use-session-state'
+import { useKeepAliveFocus } from '@/components/keep-alive-outlet'
 import type { WhatsAppTemplate, TemplateButton, TemplateCard } from '@/types/database'
 import { track } from '@/lib/posthog/events'
 import { useSubscription } from '@/hooks/use-subscription'
@@ -344,6 +345,12 @@ export default function TemplatesPage() {
     document.addEventListener('visibilitychange', onVisible)
     return () => document.removeEventListener('visibilitychange', onVisible)
   }, [fetchTemplates])
+
+  // ⚠️ KEEP-ALIVE : la page reste MONTÉE quand on navigue ailleurs → le
+  // visibilitychange ci-dessus ne suffit plus (l'onglet ne perd pas le focus).
+  // On resynchronise donc quand on REVIENT sur Modèles : un modèle créé ailleurs
+  // (assistant IA, builder…) apparaît alors sans rechargement manuel.
+  useKeepAliveFocus('/templates', () => { fetchTemplates() })
 
   async function handleSeedDefaults() {
     setSeeding(true)

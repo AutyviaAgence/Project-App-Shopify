@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
+import { useKeepAliveFocus } from '@/components/keep-alive-outlet'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useTranslation } from '@/i18n/context'
@@ -218,6 +219,10 @@ export default function AgentsPage() {
   useEffect(() => {
     fetchAgents()
   }, [fetchAgents])
+
+  // Keep-alive : la page reste montée → on resynchronise les agents en revenant
+  // dessus (un agent créé/modifié ailleurs apparaît sans rechargement manuel).
+  useKeepAliveFocus('/agents', () => { fetchAgents() })
 
 
   // Chemin de création UNIQUE : onboarding e-commerce pré-rempli depuis

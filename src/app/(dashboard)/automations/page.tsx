@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useEffect, useState, useCallback, Suspense } from 'react'
+import { useKeepAliveFocus } from '@/components/keep-alive-outlet'
 import { AnimatePresence } from 'framer-motion'
 import { useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
@@ -148,6 +149,10 @@ function AutomationsPageInner() {
   }
 
   useEffect(() => { load() }, [load])
+
+  // Keep-alive : resynchronise automatisations + modèles en revenant sur la page
+  // (un modèle ou une auto créé ailleurs apparaît sans rechargement manuel).
+  useKeepAliveFocus('/automations', () => { load() })
 
   // Re-synchronise les modèles au retour sur l'onglet : un modèle édité dans la
   // page Modèles (statut, boutons) est reflété dans le builder sans recharger.
