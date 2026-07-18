@@ -781,9 +781,25 @@ function ConversationsPageContent() {
                 last_message_at: updated.last_message_at,
                 last_message_preview: updated.last_message_preview,
                 unread_count: isCurrentlyOpen ? 0 : updated.unread_count,
+                // ⚠️ `is_ai_active` peut changer CÔTÉ SERVEUR (STOP/opt-out, outil
+                // de désabonnement, plafond de messages). Sans cette ligne,
+                // l'interrupteur restait sur « activé » alors que l'IA était
+                // coupée (constaté : « en haut il dit activé »). On reflète l'état
+                // réel — la source de vérité, c'est la base.
+                is_ai_active: updated.is_ai_active,
+                ai_agent_id: updated.ai_agent_id,
               }
             })
           )
+          // La conversation OUVERTE doit refléter le même état, sinon le toggle
+          // ment jusqu'au prochain rechargement.
+          if (isCurrentlyOpen) {
+            setSelectedConv((prev) =>
+              prev && prev.id === updated.id
+                ? { ...prev, is_ai_active: updated.is_ai_active, ai_agent_id: updated.ai_agent_id }
+                : prev
+            )
+          }
         }
       )
       .subscribe()

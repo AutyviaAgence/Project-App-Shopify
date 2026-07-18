@@ -490,10 +490,12 @@ export async function POST(req: NextRequest) {
               }
             }
 
-            // `optedOutNow` : le contact vient de taper STOP. Sert plus bas à
-            // couper l'IA une fois la conversation connue (elle est upsertée après
-            // ce bloc — on ne peut pas la mettre à jour ici).
+            // `optedOutNow` / `resubscribedNow` : STOP coupe l'IA, START la
+            // réactive — mais la conversation est upsertée APRÈS ce bloc, on ne
+            // peut pas la mettre à jour ici. On mémorise l'intention et on
+            // l'applique plus bas, une fois `conversation` connue.
             let optedOutNow = false
+            let resubscribedNow = false
             if (isStop) {
               // Ne rien faire si déjà désabonné (évite une 2e confirmation).
               const wasOptedOut = c.opt_in_status === 'opted_out'
@@ -522,6 +524,12 @@ export async function POST(req: NextRequest) {
                 .from('contacts')
                 .update({ opt_in_status: 'subscribed', opt_in_source: 'inbound_start', opt_in_at: new Date().toISOString(), opt_out_at: null })
                 .eq('id', contact.id)
+              // ⚠️ RÉACTIVER L'IA (elle avait été coupée par le STOP).
+              // Sans ça, le client se réabonnait… mais l'agent restait muet — il
+              // écrivait « Bonjour », « Quels sont vos produits ? » et rien ne
+              // répondait, alors que le toggle affichait « activé ». Appliqué plus
+              // bas, une fois la conversation connue.
+              resubscribedNow = true
               await sendFree(
                 'Vous êtes réabonné. Bon retour parmi nous !',
                 'You are resubscribed. Welcome back!',
@@ -593,6 +601,18 @@ export async function POST(req: NextRequest) {
                 .update({ is_ai_active: false })
                 .eq('id', conversation.id)
               continue
+            }
+
+            // RÉ-ABONNEMENT (START) → on RALLUME l'IA et on continue le flux normal
+            // pour que ce même message reçoive une réponse. Sans ça, le client se
+            // réabonnait mais l'agent restait muet (is_ai_active resté à false).
+            if (resubscribedNow) {
+              await supabase.from('conversations')
+                .update({ is_ai_active: true })
+                .eq('id', conversation.id)
+              ;(conversation as { is_ai_active?: boolean }).is_ai_active = true
+              // Pas de `continue` : le message « START » suit le flux et l'IA
+              // pourra enchaîner (on a déjà envoyé la confirmation de réabonnement).
             }
 
             // Test A/B : le contact a répondu → marque ses assignations comme

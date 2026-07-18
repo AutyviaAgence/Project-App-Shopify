@@ -120,22 +120,44 @@ export function ShopifyContextPanel({ contactId, conversationId, contactName, re
   // Sous xl, on démarre replié (bande) pour ne pas masquer le chat d'entrée.
   useEffect(() => { if (belowXl) setCollapsed(true) }, [belowXl])
 
+  // Le contact affiché DANS `data`, pour ne jamais montrer les commandes d'un
+  // autre. Voir le garde ci-dessous.
+  const [dataForContact, setDataForContact] = useState<string | null>(null)
+
   useEffect(() => {
     let active = true
-    if (!contactId) { setData(null); return }
+    if (!contactId) { setData(null); setDataForContact(null); return }
+
+    // ⚠️ VIDER LES DONNÉES DU CONTACT PRÉCÉDENT À CHAQUE CHANGEMENT DE CONTACT.
+    //
+    // Sans ça, en passant du contact A au contact B, le panneau gardait AFFICHÉES
+    // les commandes de A tant que le fetch de B n'avait pas répondu. Résultat vu
+    // par le marchand : « les commandes sont unifiées sur une conversation » (on
+    // voit celles de quelqu'un d'autre) et « je ne les vois pas toujours » (elles
+    // clignotent, puis se remplacent). C'est une confusion dangereuse : un
+    // conseiller pourrait traiter la commande du mauvais client.
+    //
+    // On ne vide QUE quand le CONTACT change (pas sur un simple refreshKey, qui
+    // rafraîchit le même contact — inutile d'y faire clignoter le panneau).
+    if (dataForContact !== contactId) {
+      setData(null)
+    }
+
     ;(async () => {
       setLoading(true)
       try {
         const j = await (await fetch(`/api/shopify/orders?contact_id=${contactId}`)).json()
-        if (active) setData(j.data || null)
+        // Double garde : le composant est toujours monté ET on est toujours sur
+        // CE contact (le state a pu changer pendant le await).
+        if (active) { setData(j.data || null); setDataForContact(contactId) }
       } catch {
-        if (active) setData(null)
+        if (active) { setData(null); setDataForContact(contactId) }
       } finally {
         if (active) setLoading(false)
       }
     })()
     return () => { active = false }
-  }, [contactId, refreshKey])
+  }, [contactId, refreshKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Historique des actions de la conversation (chargé à l'ouverture de l'onglet)
   useEffect(() => {
@@ -159,7 +181,15 @@ export function ShopifyContextPanel({ contactId, conversationId, contactName, re
   // Boutique non connectée → on n'affiche pas le panneau
   if (data && !data.connected) return null
 
-  const orderCount = data?.orders.length ?? 0
+  // ⚠️ NE JAMAIS AFFICHER LES COMMANDES D'UN AUTRE CONTACT.
+  //
+  // Si `data` appartient encore au contact précédent (fetch du nouveau pas encore
+  // arrivé), on considère qu'il n'y a rien à montrer plutôt que d'afficher les
+  // mauvaises commandes. C'est le filet final contre la confusion « commandes
+  // unifiées ».
+  const dataIsForCurrent = dataForContact === contactId
+  const shownData = dataIsForCurrent ? data : null
+  const orderCount = shownData?.orders.length ?? 0
 
   // Replié : fine bande verticale avec une flèche pour rouvrir (comme la sidebar).
   // Visible dès `lg` (1024 px) — c'est ce qui redonne l'accès aux commandes sur
@@ -272,11 +302,15 @@ export function ShopifyContextPanel({ contactId, conversationId, contactName, re
         </div>
       ) : (
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4 [scrollbar-width:thin]">
-        {loading ? (
+        {/* Spinner UNIQUEMENT quand on n'a encore rien à montrer pour ce contact.
+            Un refreshKey (toutes les 12 s) rafraîchit le MÊME contact : on garde
+            les commandes affichées et on recharge en silence, sinon le panneau
+            clignotait sans raison — le « spinner d'une demi-seconde » constaté. */}
+        {loading && !shownData ? (
           <div className="flex items-center justify-center py-8 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
           </div>
-        ) : !data || data.orders.length === 0 ? (
+        ) : !shownData || shownData.orders.length === 0 ? (
           <div className="flex flex-col items-center gap-2 py-10 text-center">
             <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-muted/40">
               <ShoppingBag className="h-5 w-5 text-muted-foreground" />
@@ -284,10 +318,10 @@ export function ShopifyContextPanel({ contactId, conversationId, contactName, re
             <p className="text-sm text-muted-foreground">Aucune commande trouvée pour ce client.</p>
           </div>
         ) : (
-          data.orders.map((o) => {
+          shownData.orders.map((o) => {
             const fl = fulfillmentLabel(o.fulfillmentStatus)
             const refund = refundInfo(o)
-            const adminUrl = orderAdminUrl(data.shopDomain, o.id)
+            const adminUrl = orderAdminUrl(shownData.shopDomain, o.id)
             return (
               <div
                 key={o.id}

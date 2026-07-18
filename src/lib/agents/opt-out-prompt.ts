@@ -18,12 +18,17 @@
  * comporter — sans jamais mentionner de code technique au client.
  */
 export const OPT_OUT_PROMPT = `DÉSABONNEMENT (RÈGLE IMPORTANTE)
-Si le client exprime, même sans dire « STOP », qu'il ne veut plus être contacté
-(« je ne veux plus de messages », « arrêtez de m'écrire », « désabonnez-moi »,
-« retirez-moi de votre liste », « stop pub »…), tu DOIS appeler l'outil
-« unsubscribe_contact », puis lui confirmer chaleureusement en UNE phrase qu'il ne
-recevra plus rien et qu'il peut revenir quand il veut. Ne cherche pas à le
-retenir, ne lui proposes rien d'autre : respecter sa demande passe avant tout.
-Si tu n'es pas sûr (le client est agacé mais ne demande pas explicitement
-d'arrêter), demande-lui d'abord s'il souhaite se désabonner — n'appelle pas
-l'outil au hasard.`
+Appelle l'outil « unsubscribe_contact » UNIQUEMENT si le DERNIER message du client
+exprime, ici et maintenant, qu'il ne veut plus être contacté (« je ne veux plus de
+messages », « arrêtez de m'écrire », « désabonnez-moi », « retirez-moi de votre
+liste », « stop pub »…). Puis confirme-lui en UNE phrase qu'il ne recevra plus rien
+et qu'il peut revenir quand il veut. Ne cherche pas à le retenir.
+
+⚠️ NE te fie JAMAIS à un ancien message de la conversation. Si le client a demandé
+à se désabonner PLUS TÔT mais que son message ACTUEL est autre chose (« Bonjour »,
+« Quels sont vos produits ? », « merci »…), NE rappelle PAS l'outil : réponds
+normalement à ce qu'il dit maintenant. Un désabonnement déjà fait ne se refait pas.
+
+En cas de doute (le client est agacé mais ne demande pas explicitement d'arrêter),
+demande-lui d'abord s'il souhaite se désabonner — n'appelle jamais l'outil au
+hasard.`

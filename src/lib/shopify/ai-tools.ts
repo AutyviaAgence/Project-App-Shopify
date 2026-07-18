@@ -210,10 +210,23 @@ export async function handleUnsubscribe(
   const supabase = createAdminSupabase(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!)
   const { data: conv } = await supabase
     .from('conversations')
-    .select('contact_id')
+    .select('contact_id, contacts(opt_in_status)')
     .eq('id', ctx.conversationId)
     .maybeSingle()
   if (!conv?.contact_id) return "Impossible d'identifier le contact. Réponds au client que tu transmets sa demande à un conseiller."
+
+  // ⚠️ DÉJÀ DÉSABONNÉ → NE RIEN REFAIRE.
+  //
+  // L'IA a rappelé cet outil sur un « Bonjour » parce que la conversation
+  // contenait un STOP plus ANCIEN (constaté en production : désabonnement « tout
+  // seul »). Le prompt lui interdit maintenant de se fier à l'historique, mais un
+  // prompt n'est pas une garantie : si le contact est DÉJÀ opted_out, on ne
+  // réécrit rien, on ne renvoie pas de confirmation, on ne re-notifie pas. On
+  // rend juste la main à l'IA pour qu'elle réponde au message réel.
+  const already = (conv as { contacts?: { opt_in_status?: string } | null }).contacts?.opt_in_status === 'opted_out'
+  if (already) {
+    return "Ce contact est DÉJÀ désabonné (probablement d'un message précédent). N'annonce PAS un nouveau désabonnement : réponds simplement et normalement à ce que le client demande maintenant."
+  }
 
   // Opt-out : même effet qu'un « STOP » tapé — le dispatch bloque alors tout
   // envoi (templates ET agent).
@@ -231,6 +244,30 @@ export async function handleUnsubscribe(
 
   const reason = String(args.reason || '').trim().slice(0, 200)
   if (reason) console.log('[AI unsubscribe]', ctx.conversationId, '→', reason)
+
+  // Notifier le marchand : un désabonnement est une info commerciale (perte d'un
+  // canal de contact) qu'il doit voir. Le marchand a signalé « pas eu de notif ».
+  const { data: sess } = await supabase
+    .from('conversations')
+    .select('session_id, whatsapp_sessions(user_id)')
+    .eq('id', ctx.conversationId)
+    .maybeSingle()
+  const ownerId = (sess as { whatsapp_sessions?: { user_id?: string } } | null)?.whatsapp_sessions?.user_id || ctx.userId
+  if (ownerId) {
+    const { data: exists } = await supabase
+      .from('user_alerts').select('id')
+      .eq('user_id', ownerId).eq('alert_type', 'contact_opted_out')
+      .contains('metadata', { conversation_id: ctx.conversationId }).maybeSingle()
+    if (!exists) {
+      await supabase.from('user_alerts').insert({
+        user_id: ownerId,
+        alert_type: 'contact_opted_out',
+        title: 'Contact désabonné',
+        message: `Un contact s'est désabonné via l'assistant${reason ? ` (« ${reason} »)` : ''}. Il ne recevra plus de messages automatiques.`,
+        metadata: { conversation_id: ctx.conversationId, contact_id: conv.contact_id },
+      })
+    }
+  }
 
   return "Le client est désabonné : il ne recevra plus aucun message automatique. Confirme-lui en UNE phrase, chaleureusement, qu'il ne recevra plus rien et qu'il peut revenir/écrire « START » quand il veut. Ne propose plus rien d'autre."
 }
