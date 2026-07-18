@@ -22,6 +22,8 @@ import { cn } from '@/lib/utils'
 import { track } from '@/lib/posthog/events'
 import type { ConversationWithJoins, Team, Message, AIAgent, LifecycleStage } from './_components/types'
 import { BlobLoaderScreen } from '@/components/blob-loader'
+import { useTour } from '@/components/guided-tour'
+import { makeDemoConversation, makeDemoMessages, isDemoConversation, DEMO_CONVERSATION_ID } from './_components/demo-conversation'
 
 let notificationAudio: HTMLAudioElement | null = null
 
@@ -46,6 +48,11 @@ function ConversationsPageContent() {
   const { subscription } = useSubscription()
   // Analyse IA réservée aux plans pro/scale (ou admin)
   const canAnalyze = subscription?.role === 'admin' || subscription?.plan === 'pro' || subscription?.plan === 'scale'
+
+  // Tour guidé : quand il est actif, on injecte une conversation de DÉMO factice
+  // pour que les zones (résumé IA, toggle IA, commandes) aient un contexte. Cf.
+  // demo-conversation. Le hook est toujours dispo (page montée dans le TourProvider).
+  const { isActive: tourActive } = useTour()
 
   // Core state
   const [conversations, setConversations] = useState<ConversationWithJoins[]>([])
@@ -228,6 +235,9 @@ function ConversationsPageContent() {
   }, [t])
 
   const loadMessages = useCallback(async (convId: string) => {
+    // Conversation de démo (tour) : jamais d'appel API. Le fil est fourni par
+    // makeDemoMessages à l'affichage.
+    if (isDemoConversation(convId)) { setMessages([]); setMessagesLoading(false); setHasMoreMessages(false); return }
     setMessagesLoading(true)
     setHasMoreMessages(false)
     try {
@@ -509,6 +519,7 @@ function ConversationsPageContent() {
   }, [selectedConv?.id, t])
 
   const handleToggleAI = useCallback(async (convId: string, isActive: boolean) => {
+    if (isDemoConversation(convId)) return // conversation de démo : aucun effet
     track('ai_toggle_changed', { active: isActive })
     try {
       const res = await fetch(`/api/conversations/${convId}/agent`, {
@@ -564,6 +575,7 @@ function ConversationsPageContent() {
   }, [selectedConv?.id, lifecycleStages, t])
 
   const handleAnalyzeConversation = useCallback(async (convId: string) => {
+    if (isDemoConversation(convId)) return // conversation de démo : pas d'analyse réelle
     if (analyzingConvId) return
     setAnalyzingConvId(convId)
     try {
@@ -885,14 +897,25 @@ function ConversationsPageContent() {
     )
   }
 
+  // ── DÉMO DU TOUR (affichage seulement) ──────────────────────────────────────
+  //
+  // Pendant le tour : conversation factice en tête de liste, ouverte d'office avec
+  // son message de bienvenue. Rien n'est écrit, rien n'est appelé côté API. Hors
+  // tour : `conversations`/`selectedConv`/`messages` réels, inchangés.
+  const demoConv = tourActive ? makeDemoConversation(sessions[0]) : null
+  const displayConversations = demoConv ? [demoConv, ...conversations] : conversations
+  const displaySelectedConv = tourActive ? (selectedConv ?? demoConv) : selectedConv
+  const displayMessages =
+    tourActive && displaySelectedConv?.id === DEMO_CONVERSATION_ID ? makeDemoMessages() : messages
+
   return (
     <div className="relative flex h-full min-h-0 overflow-hidden pb-16 md:pb-0">
       <ConversationList
         viewToggle={viewToggle}
-        conversations={conversations}
+        conversations={displayConversations}
         pendingActionConvIds={pendingActionConvIds}
         onNewConversation={() => { setNewConvOpen(true); setNewConvPhone(''); setNewConvTemplate('') }}
-        selectedConvId={selectedConv?.id ?? null}
+        selectedConvId={displaySelectedConv?.id ?? null}
         totalPages={totalPages}
         totalConversations={totalConversations}
         page={page}
@@ -906,7 +929,13 @@ function ConversationsPageContent() {
         filterAiActive={filterAiActive}
         filterTeam={filterTeam}
         filterLifecycleStage={filterLifecycleStage}
-        onSelectConversation={(conv) => { setSelectedConv(conv); setProfileOpen(false); track('conversation_opened') }}
+        onSelectConversation={(conv) => {
+          // Clic sur la conversation de démo (tour) : elle est déjà « ouverte » via
+          // displaySelectedConv, on ne la met PAS dans le vrai state (sinon les
+          // effets déclencheraient des appels API sur un id factice).
+          if (isDemoConversation(conv.id)) { setProfileOpen(false); return }
+          setSelectedConv(conv); setProfileOpen(false); track('conversation_opened')
+        }}
         onTogglePin={togglePin}
         onSetPage={setPage}
         onSetSearchQuery={setSearchQuery}
@@ -920,8 +949,8 @@ function ConversationsPageContent() {
       />
 
       <ChatArea
-        selectedConv={selectedConv}
-        messages={messages}
+        selectedConv={displaySelectedConv}
+        messages={displayMessages}
         messagesLoading={messagesLoading}
         sending={sending}
         agents={agents}
@@ -943,16 +972,19 @@ function ConversationsPageContent() {
         onSendTemplate={() => setTemplateDialogOpen(true)}
       />
 
-      {/* Contexte Shopify : commandes du client (helpdesk e-commerce) */}
-      {selectedConv && (
+      {/* Contexte Shopify : commandes du client (helpdesk e-commerce).
+          En démo de tour, on passe le contact factice : le panneau s'affiche (zone
+          à pointer) mais l'API /shopify/orders ne renvoie rien pour un contact
+          `demo-` — c'est voulu, aucune commande réelle. */}
+      {displaySelectedConv && (
         <ShopifyContextPanel
-          contactId={selectedConv.contact_id}
-          conversationId={selectedConv.id}
+          contactId={displaySelectedConv.contact_id}
+          conversationId={displaySelectedConv.id}
           refreshKey={shopifyRefreshKey}
           contactName={
-            selectedConv.contact?.name
-            || [selectedConv.contact?.first_name, selectedConv.contact?.last_name].filter(Boolean).join(' ')
-            || selectedConv.contact?.phone_number
+            displaySelectedConv.contact?.name
+            || [displaySelectedConv.contact?.first_name, displaySelectedConv.contact?.last_name].filter(Boolean).join(' ')
+            || displaySelectedConv.contact?.phone_number
             || null
           }
         />

@@ -101,6 +101,13 @@ export function ShopifyContextPanel({ contactId, contactName, refreshKey }: { co
   useEffect(() => {
     let active = true
     if (!contactId) { setData(null); setDataForContact(null); return }
+    // Contact de démo (tour) : pas d'appel API. On affiche « connecté, aucune
+    // commande » pour que la zone soit visible sans requête inutile.
+    if (contactId.startsWith('demo-')) {
+      setData({ connected: true, orders: [] })
+      setDataForContact(contactId)
+      return
+    }
 
     // ⚠️ VIDER LES DONNÉES DU CONTACT PRÉCÉDENT À CHAQUE CHANGEMENT DE CONTACT.
     //
