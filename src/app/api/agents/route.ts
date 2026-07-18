@@ -5,6 +5,21 @@ import { OPT_OUT_PROMPT, HANDOFF_PROMPT } from '@/lib/agents/opt-out-prompt'
 
 const VALID_MODELS = ['gpt-4o-mini', 'gpt-4o']
 
+// ─── Apparence par défaut : mascotte + couleur ALÉATOIRES ────────────────────
+// Sans ça, tout nouvel agent retombait sur le fallback (pose-1 + violet) et tous
+// les agents se ressemblaient. On tire au sort à la création pour que chacun ait
+// d'emblée sa propre identité visuelle (le marchand peut la changer ensuite).
+//
+// ⚠️ Doit rester aligné sur MASCOTS / MASCOT_BGS de la page agents
+// (src/app/(dashboard)/agents/page.tsx) : une clé inconnue retomberait sur le
+// fallback côté UI.
+const MASCOT_KEYS = [
+  'pose-1', 'pose-2', 'pose-5', 'pose-6', 'pose-7',
+  'pose-8', 'pose-10', 'pose-17', 'pose-19', 'pose-21', 'selfie',
+]
+const MASCOT_BG_KEYS = ['green', 'blue', 'violet', 'coral', 'amber', 'sky']
+const pickRandom = <T,>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)]
+
 /** GET /api/agents — Lister les agents IA de l'utilisateur */
 export async function GET() {
   const supabase = await createClient()
@@ -261,6 +276,10 @@ export async function POST(req: Request) {
     booking_url: booking_url?.trim() || null,
     agent_type: finalAgentType,
     stop_condition: stop_condition?.trim() || null,
+    // Apparence : on respecte ce que le client envoie (duplication → l'agent
+    // copié garde l'apparence de l'original), sinon tirage au sort.
+    mascot: (body as { mascot?: string }).mascot || pickRandom(MASCOT_KEYS),
+    mascot_bg: (body as { mascot_bg?: string }).mascot_bg || pickRandom(MASCOT_BG_KEYS),
   }
   // On n'applique l'upsert QUE si l'appel se déclare « onboarding » (flag envoyé
   // par l'étape agent référent) ET que l'onboarding n'est pas terminé. Ainsi la
@@ -274,9 +293,16 @@ export async function POST(req: Request) {
         .from('ai_agents').select('id').eq('user_id', user.id)
         .order('created_at', { ascending: false }).limit(1).maybeSingle()
       if (existing?.id) {
+        // ⚠️ NE PAS écraser l'apparence sur un rejeu d'onboarding : `agentFields`
+        // porte une mascotte/couleur TIRÉE AU SORT. Sans ce filtre, un marchand
+        // qui revient en arrière verrait son agent changer d'apparence à chaque
+        // passage. On ne la touche que si le client l'a explicitement envoyée.
+        const updateFields = { ...agentFields }
+        if (!(body as { mascot?: string }).mascot) delete updateFields.mascot
+        if (!(body as { mascot_bg?: string }).mascot_bg) delete updateFields.mascot_bg
         const { data: updated, error: upErr } = await supabase
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .from('ai_agents').update(agentFields as any).eq('id', existing.id).eq('user_id', user.id)
+          .from('ai_agents').update(updateFields as any).eq('id', existing.id).eq('user_id', user.id)
           .select().single()
         if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 })
         return NextResponse.json({ data: updated })

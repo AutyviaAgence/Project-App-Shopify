@@ -401,6 +401,10 @@ export default function AgentsPage() {
           booking_url: agent.booking_url,
           agent_type: agent.agent_type,
           stop_condition: agent.stop_condition,
+          // La copie garde l'apparence de l'original (sinon le serveur en
+          // tirerait une au hasard, cf. POST /api/agents).
+          mascot: agent.mascot,
+          mascot_bg: agent.mascot_bg,
           team_ids: (agent as AIAgent & { team_ids?: string[] }).team_ids || (agent.team_id ? [agent.team_id] : []),
           is_active: false,
           schedule_enabled: agent.schedule_enabled,
