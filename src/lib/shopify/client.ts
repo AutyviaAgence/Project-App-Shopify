@@ -27,6 +27,34 @@ function shopifySearchValue(v: string): string {
 }
 
 /**
+ * Variantes d'un numéro (E.164 sans « + », ex. « 33769134398 ») à tester dans
+ * la recherche Shopify `phone:`. Shopify indexe le numéro TEL QUE saisi au
+ * checkout — qui n'est pas forcément le format international du contact WhatsApp.
+ * On couvre donc : E.164 avec « + », national avec « 0 » (indicatif retiré),
+ * et le numéro nu sans indicatif. Le filtre applicatif écarte les faux positifs.
+ *
+ * Ex. « 33769134398 » → ["+33769134398", "33769134398", "0769134398", "769134398"].
+ */
+function phoneSearchVariants(digits: string): string[] {
+  const variants = new Set<string>()
+  variants.add(`+${digits}`)
+  variants.add(digits)
+  // Indicatifs pays courants → forme nationale préfixée de « 0 » (FR/BE/etc.).
+  // On retire l'indicatif si le reste ressemble à un numéro national (8–10 chiffres).
+  for (const cc of ['33', '32', '41', '352', '44', '49', '34', '39', '351', '1']) {
+    if (digits.startsWith(cc)) {
+      const national = digits.slice(cc.length)
+      if (national.length >= 8 && national.length <= 10) {
+        variants.add(`0${national}`)
+        variants.add(national)
+      }
+      break
+    }
+  }
+  return Array.from(variants)
+}
+
+/**
  * Scopes demandés à l'OAuth. ⚠️ DOIT rester STRICTEMENT aligné sur
  * `shopify.app.xeyo-app-store.toml` ([access_scopes].scopes) : si le code demande
  * moins que le toml, les appels correspondants échouent en 403 en prod (c'était le
@@ -727,7 +755,20 @@ export async function findOrdersByCustomer(
   const email = (opts.email || '').trim()
   const phone = (opts.phone || '').trim()
   if (email.includes('@')) clauses.push(`email:${shopifySearchValue(email)}`)
-  if (phone.replace(/\D/g, '').length >= 6) clauses.push(`phone:${shopifySearchValue(phone)}`)
+  // ⚠️ RECHERCHE TÉLÉPHONE TOLÉRANTE AU FORMAT.
+  //
+  // Le contact WhatsApp est stocké en E.164 (ex. « 33769134398 »), donc on
+  // cherchait `phone:"+33769134398"`. Mais Shopify indexe le numéro TEL QUE
+  // SAISI au checkout : une commande passée avec « 0769134398 » (format national
+  // FR) n'était JAMAIS remontée → le panneau restait vide. On envoie donc
+  // plusieurs variantes en OR (E.164, national avec 0, sans indicatif) ; le
+  // filtre applicatif plus bas écarte tout faux positif.
+  const digits = phone.replace(/\D/g, '')
+  if (digits.length >= 6) {
+    for (const v of phoneSearchVariants(digits)) {
+      clauses.push(`phone:${shopifySearchValue(v)}`)
+    }
+  }
   if (clauses.length === 0) return { ok: true as const, data: [] }
 
   const q = clauses.join(' OR ')
