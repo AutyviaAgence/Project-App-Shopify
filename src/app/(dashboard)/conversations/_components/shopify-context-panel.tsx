@@ -101,6 +101,25 @@ export function ShopifyContextPanel({ contactId, conversationId, contactName, re
   const [actionsLoading, setActionsLoading] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
 
+  // ⚠️ EN DESSOUS DE 1280 px (xl), LE PANNEAU OUVERT VOLE TROP DE LARGEUR AU CHAT.
+  //
+  // Avant, le panneau ET sa bande repliée étaient `hidden xl:flex` : sous 1280 px
+  // le marchand ne voyait PLUS DU TOUT les commandes, sans même un bouton pour les
+  // rouvrir (constaté : « je ne vois plus les commandes »). On abaisse l'accès à
+  // 1024 px (lg) via la bande repliée ; mais à cette largeur, ouvrir le panneau en
+  // ligne écraserait le chat (~350 px). On l'ouvre donc EN SUPERPOSITION (overlay)
+  // tant qu'on est sous 1280 px — la conversation garde sa largeur.
+  const [belowXl, setBelowXl] = useState(false)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 1279px)')
+    const apply = () => setBelowXl(mq.matches)
+    apply()
+    mq.addEventListener('change', apply)
+    return () => mq.removeEventListener('change', apply)
+  }, [])
+  // Sous xl, on démarre replié (bande) pour ne pas masquer le chat d'entrée.
+  useEffect(() => { if (belowXl) setCollapsed(true) }, [belowXl])
+
   useEffect(() => {
     let active = true
     if (!contactId) { setData(null); return }
@@ -143,9 +162,11 @@ export function ShopifyContextPanel({ contactId, conversationId, contactName, re
   const orderCount = data?.orders.length ?? 0
 
   // Replié : fine bande verticale avec une flèche pour rouvrir (comme la sidebar).
+  // Visible dès `lg` (1024 px) — c'est ce qui redonne l'accès aux commandes sur
+  // les écrans plus étroits où le panneau complet ne tient pas en ligne.
   if (collapsed) {
     return (
-      <div className="hidden w-12 shrink-0 flex-col items-center gap-3 border-l bg-background py-3 xl:flex">
+      <div className="hidden w-12 shrink-0 flex-col items-center gap-3 border-l bg-background py-3 lg:flex">
         <button
           onClick={() => setCollapsed(false)}
           title="Afficher les commandes"
@@ -164,7 +185,22 @@ export function ShopifyContextPanel({ contactId, conversationId, contactName, re
   }
 
   return (
-    <div className="hidden h-full min-h-0 w-72 shrink-0 flex-col overflow-hidden border-l bg-background xl:flex">
+    <>
+      {/* Sous xl : voile cliquable derrière l'overlay pour le refermer. */}
+      {belowXl && (
+        <div
+          className="absolute inset-0 z-20 bg-black/20 lg:block xl:hidden"
+          onClick={() => setCollapsed(true)}
+          aria-hidden="true"
+        />
+      )}
+      <div className={cn(
+        'h-full min-h-0 w-72 shrink-0 flex-col overflow-hidden border-l bg-background',
+        // ≥ xl : panneau en ligne, comme avant.
+        'hidden xl:flex',
+        // lg–xl : superposé à droite (n'écrase pas le chat).
+        belowXl && 'absolute inset-y-0 right-0 z-30 !flex shadow-xl',
+      )}>
       {/* En-tête : conversation liée + bouton replier */}
       <div className="flex shrink-0 items-center gap-2 border-b px-3 py-2">
         <MessageSquare className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -313,5 +349,6 @@ export function ShopifyContextPanel({ contactId, conversationId, contactName, re
       </div>
       )}
     </div>
+    </>
   )
 }
