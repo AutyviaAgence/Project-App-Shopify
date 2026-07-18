@@ -203,14 +203,17 @@
     zoom: var(--app-zoom);
   }
 
-  /* PALIERS DE ZOOM par largeur d'écran. En dessous de ~1536px : 100% (aucune
-   * densification, l'app reste à taille normale sur laptop). Au-dessus, on
-   * compacte progressivement pour retrouver la densité que le marchand aime à 80%
-   * de zoom navigateur — sans jamais descendre trop bas (lisibilité). */
-  @media (min-width: 1536px) { :root { --app-zoom: 0.92; } }
-  @media (min-width: 1728px) { :root { --app-zoom: 0.86; } }
-  @media (min-width: 1920px) { :root { --app-zoom: 0.82; } }
-  @media (min-width: 2400px) { :root { --app-zoom: 0.78; } }
+  /* PALIERS DE ZOOM par largeur d'écran. La densification commence dès ~1180px
+   * (laptop standard) : sur l'écran du marchand la densité tombe à ~0.80, ce qui
+   * reproduit son « 80% de zoom navigateur » sans qu'il ait à le faire. On
+   * compacte ensuite davantage sur les grands écrans, sans jamais descendre trop
+   * bas (lisibilité). En dessous de 1180px (mobile/petite tablette) : 100%. */
+  @media (min-width: 1180px) { :root { --app-zoom: 0.90; } }
+  @media (min-width: 1360px) { :root { --app-zoom: 0.84; } }
+  @media (min-width: 1500px) { :root { --app-zoom: 0.80; } }
+  @media (min-width: 1728px) { :root { --app-zoom: 0.76; } }
+  @media (min-width: 1920px) { :root { --app-zoom: 0.72; } }
+  @media (min-width: 2400px) { :root { --app-zoom: 0.68; } }
 
   /* Smooth transitions everywhere */
   .transition-smooth {
