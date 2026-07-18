@@ -533,11 +533,11 @@ export default function AgentsPage() {
           // (préférable à un bouton coupé).
           const sceneH = Math.max(340, Math.min(idealSceneH, viewportH - RESERVED))
           // Translation laterale des cartes voisines, proportionnelle a la largeur
-          // de carte. Pas ÉLARGI (0.9 -> 1.02) : les voisines s'écartent davantage
-          // de la centrale, on les voit enfin nettement au lieu d'un simple liseré
-          // derrière la carte active.
-          const stepFront = cardW * 1.02
-          const stepBack = cardW * 0.9
+          // de carte. Écartement modéré : les voisines restent partiellement
+          // derrière la centrale (effet coverflow) sans se chevaucher au point de
+          // disparaître.
+          const stepFront = cardW * 0.94
+          const stepBack = cardW * 0.84
 
           // ⚠️ Hauteur de l'image bornée pour que la CARTE ENTIÈRE tienne dans
           // sceneH. Le pied de la carte centrale (nom + badge + pitch + statut +
