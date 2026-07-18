@@ -86,13 +86,11 @@ type LinkState = {
  */
 const PLAN_CURRENCY = '€'
 
-// ⚠️ Le plan gratuit MANQUAIT. Un marchand en Free ne voyait donc aucune carte
-// marquée « plan actuel » : il ne savait pas où il en était, et l'écran ressemblait
-// à une grille de tarifs sans aucun rapport avec sa situation.
+// Plus de plan Gratuit : l'app est 100 % payante (7 jours d'essai). L'annulation
+// se fait via un bouton dédié (plus par une « carte Gratuit »).
 const PLANS = [
-  { id: 'free', name: 'Gratuit', price: 0, desc: 'Boîte de réception, réponses manuelles' },
   { id: 'starter', name: 'Starter', price: 49, desc: '550 conversations IA / mois' },
-  { id: 'pro', name: 'Growth', price: 149, desc: '1 800 conversations IA / mois' },
+  { id: 'pro', name: 'Pro', price: 149, desc: '1 800 conversations IA / mois' },
   { id: 'scale', name: 'Scale', price: 349, desc: '4 500 conversations IA / mois' },
 ]
 
@@ -248,8 +246,8 @@ export default function ShopifyEmbeddedClient() {
 
     const ok = window.confirm(
       until
-        ? `Annuler votre abonnement ?\n\nVous conservez votre plan actuel jusqu'au ${until}, puis vous repasserez au plan gratuit. Aucun remboursement au prorata.`
-        : 'Annuler votre abonnement ?\n\nVous conservez votre plan jusqu\'à la fin de la période déjà payée, puis vous repasserez au plan gratuit.'
+        ? `Annuler votre abonnement ?\n\nVous conservez votre accès jusqu'au ${until}, puis votre abonnement prendra fin. Aucun remboursement au prorata.`
+        : 'Annuler votre abonnement ?\n\nVous conservez votre accès jusqu\'à la fin de la période déjà payée, puis votre abonnement prendra fin.'
     )
     if (!ok) return
 
@@ -700,7 +698,7 @@ export default function ShopifyEmbeddedClient() {
                         {overview.periodEnd
                           ? ` jusqu'au ${new Date(overview.periodEnd).toLocaleDateString('fr-FR')}`
                           : ' jusqu’à la fin de la période payée'}
-                        , puis vous repasserez au plan gratuit.
+                        , puis votre abonnement prendra fin.
                       </>
                     ) : (
                       <>
@@ -717,7 +715,7 @@ export default function ShopifyEmbeddedClient() {
                 </div>
               )}
 
-              <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="mt-4 grid gap-2 sm:grid-cols-3">
                 {PLANS.map((p) => {
                   const active = currentPlan === p.id
                   // `disabled` UNIQUEMENT sur le plan courant ou celui en cours de
@@ -734,10 +732,7 @@ export default function ShopifyEmbeddedClient() {
                       key={p.id}
                       type="button"
                       disabled={active || busy}
-                      // Le plan gratuit ne se « souscrit » pas : y revenir, c'est
-                      // ANNULER son abonnement. Sans ça, on créerait un abonnement
-                      // Shopify à 0 €, ce qui n'a aucun sens.
-                      onClick={() => (p.id === 'free' ? cancel() : subscribe(p.id))}
+                      onClick={() => subscribe(p.id)}
                       className={`group rounded-xl border p-3 text-left transition ${
                         active
                           ? 'border-gray-900 bg-gray-900 text-white'
@@ -761,11 +756,9 @@ export default function ShopifyEmbeddedClient() {
                           ? 'Ouverture…'
                           : active
                             ? 'Plan actuel'
-                            : p.id === 'free'
-                              ? 'Annuler mon abonnement'
-                              : isPaid
-                                ? 'Changer'
-                                : 'Choisir'}
+                            : isPaid
+                              ? 'Changer'
+                              : 'Choisir'}
                       </span>
                     </button>
                   )
@@ -814,10 +807,20 @@ export default function ShopifyEmbeddedClient() {
                 le montant s’ajoute à votre facture Shopify.
               </p>
 
-              {/* Le lien « Annuler » qui vivait ici faisait doublon avec la carte
-                  « Gratuit » : y revenir EST l'annulation. Un seul chemin, plus
-                  lisible — et l'exigence App Store 1.2.3 (changer de plan sans
-                  contacter le support) reste satisfaite. */}
+              {/* Annulation : bouton dédié (App Store 1.2.3 — le marchand doit
+                  pouvoir annuler sans contacter le support). Affiché seulement s'il
+                  a un abonnement actif. L'accès reste ouvert jusqu'à la fin de la
+                  période payée. */}
+              {isPaid && (
+                <button
+                  type="button"
+                  onClick={() => cancel()}
+                  disabled={busyPlan === 'cancel'}
+                  className="mt-3 text-xs font-medium text-gray-400 underline hover:text-gray-700 disabled:opacity-60"
+                >
+                  {busyPlan === 'cancel' ? 'Annulation…' : 'Annuler mon abonnement'}
+                </button>
+              )}
             </div>
 
             {/* ── CONFIGURATION restante ── */}
