@@ -336,11 +336,15 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         className={cn(
-          'group/sidebar fixed inset-y-0 left-0 z-50 flex w-[260px] max-w-[80vw] flex-col bg-[var(--sidebar)] transition-all duration-300',
+          // Largeurs en REM (et non px) : la sidebar suit la police racine fluide
+          // → sa proportion par rapport au contenu reste constante quelle que soit
+          // la taille d'écran (16.25rem ≈ 260px à 16px, mais rétrécit/grandit avec
+          // l'échelle globale).
+          'group/sidebar fixed inset-y-0 left-0 z-50 flex w-[16.25rem] max-w-[80vw] flex-col bg-[var(--sidebar)] transition-all duration-300',
           'md:relative md:inset-y-auto md:m-2 md:mr-0 md:h-[calc(100dvh-1rem)] md:max-w-none md:p-2',
           // Épinglée : colle au panneau (pas d'arrondi à droite). Sinon : carte arrondie.
           'md:rounded-[10px]',
-          expanded ? 'md:w-[240px]' : 'md:w-[81px]',
+          expanded ? 'md:w-[15rem]' : 'md:w-[5.0625rem]',
           sidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'
         )}
       >

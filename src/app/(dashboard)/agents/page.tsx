@@ -183,8 +183,17 @@ export default function AgentsPage() {
   // Largeur/hauteur de viewport pour rendre le carrousel responsive (cartes + translations)
   const [viewportW, setViewportW] = useState(1024)
   const [viewportH, setViewportH] = useState(800)
+  // ⚠️ La police RACINE est fluide (globals.css) : le pied de la carte, en rem,
+  // grandit avec elle. On la lit pour ajuster la place réservée à ce pied (sinon
+  // la carte déborde de la scène sur grand écran, où le root passe à ~18px).
+  const [rootFont, setRootFont] = useState(16)
   useEffect(() => {
-    const onResize = () => { setViewportW(window.innerWidth); setViewportH(window.innerHeight) }
+    const onResize = () => {
+      setViewportW(window.innerWidth)
+      setViewportH(window.innerHeight)
+      const fs = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+      setRootFont(fs)
+    }
     onResize()
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
@@ -523,7 +532,11 @@ export default function AgentsPage() {
           // ≤ sceneH, sinon le bouton « Configurer » déborde sous la scène et
           // chevauche « Nouvel agent » (constaté à 100 %). On réserve donc ~250 px
           // pour le pied et on prend le reste pour l'image.
-          const imgH = Math.max(150, Math.min(256, sceneH - 250))
+          // Le pied de la carte (~230px à 16px) grandit avec la police racine.
+          // On réserve donc proportionnellement à `rootFont`, sinon la carte
+          // déborde la scène sur grand écran (root ~18px).
+          const footerReserve = 230 * (rootFont / 16) + 20
+          const imgH = Math.max(140, Math.min(256, sceneH - footerReserve))
           // Les flèches se calaient sur `top-1/2` du CONTENEUR, donc trop bas : les
           // cartes sont ancrées en `top-0`, et une carte latérale est plus courte
           // que la centrale (pas de bouton « Configurer »). On vise son milieu :
