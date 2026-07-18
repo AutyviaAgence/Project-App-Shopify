@@ -337,7 +337,13 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
 
   return (
     <TourProvider plan={plan ?? undefined}>
-    <div className="flex h-[100dvh] overflow-hidden bg-[var(--sidebar)]">
+    {/* app-zoom : densifie l'interface sur grand écran (cf. globals.css). La
+        hauteur compense le zoom (100dvh / zoom) pour remplir exactement le
+        viewport après mise à l'échelle. */}
+    <div
+      className="app-zoom flex overflow-hidden bg-[var(--sidebar)]"
+      style={{ height: 'calc(100dvh / var(--app-zoom, 1))' }}
+    >
       {/* Mobile overlay */}
       {sidebarOpen && (
         <div

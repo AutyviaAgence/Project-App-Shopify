@@ -166,35 +166,23 @@
   --sidebar-accent-foreground: #f5f5f7;
   --sidebar-border: rgba(255, 255, 255, 0.10);
   --sidebar-ring: #3B82F6;
+
+  /* ⚠️ ZOOM D'INTERFACE GLOBAL — l'app se « dézoome » sur grand écran.
+   *
+   * Le marchand : à 80% de zoom navigateur, l'app est à la bonne densité ; à 100%
+   * elle paraît trop grande. On reproduit cet effet AUTOMATIQUEMENT : la propriété
+   * CSS `zoom` (≠ transform:scale — elle recalcule le layout, donc position:fixed,
+   * dvh, popovers et coordonnées de clic restent corrects) est pilotée par cette
+   * variable, ajustée par paliers de largeur d'écran (cf. .app-zoom plus bas).
+   *
+   * 1 = taille normale. < 1 = plus compact (grand écran). On ne descend jamais
+   * sous ~0.8 pour rester lisible. */
+  --app-zoom: 1;
 }
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
-  }
-
-  /* ⚠️ POLICE RACINE FLUIDE → TOUTE L'INTERFACE DEVIENT PROPORTIONNELLE.
-   *
-   * Tailwind exprime TOUT en rem (texte, marges, gaps, tailles) : en rendant la
-   * taille de police RACINE fluide avec la largeur d'écran, l'app entière se met
-   * à l'échelle en douceur — texte, espacements, cartes, sidebar (convertie en
-   * rem). Fini l'app « figée à 16px » qui paraît trop grande sur un petit écran
-   * et trop petite sur un grand.
-   *
-   * clamp(min, préféré, max) — VOLONTAIREMENT CONSERVATEUR pour ne rien déformer :
-   *   - min 14px : plancher lisible sur petit écran (l'app rétrécit un peu).
-   *   - 0.28vw + 12.6px : ≈ 16px vers 1200px, ≈ 17.5px vers 1920px.
-   *   - max 18px : plafond sur très grand écran (pas d'app géante).
-   * Sur mobile (< ~640px) on force 16px : le fluide n'a de sens qu'à partir des
-   * écrans desktop, et un plancher trop bas tasserait l'UI tactile.
-   */
-  html {
-    font-size: clamp(14px, 0.28vw + 12.6px, 18px);
-  }
-  @media (max-width: 640px) {
-    html {
-      font-size: 16px;
-    }
   }
 
   body {
@@ -207,6 +195,23 @@
    =========================================== */
 
 @layer utilities {
+  /* Zoom d'interface : appliqué sur la racine du dashboard. `zoom` recalcule le
+   * layout (contrairement à transform:scale), donc tout reste cohérent. Sur les
+   * navigateurs très anciens qui l'ignorent, l'app reste à 100% — dégradation
+   * douce, rien de cassé. */
+  .app-zoom {
+    zoom: var(--app-zoom);
+  }
+
+  /* PALIERS DE ZOOM par largeur d'écran. En dessous de ~1536px : 100% (aucune
+   * densification, l'app reste à taille normale sur laptop). Au-dessus, on
+   * compacte progressivement pour retrouver la densité que le marchand aime à 80%
+   * de zoom navigateur — sans jamais descendre trop bas (lisibilité). */
+  @media (min-width: 1536px) { :root { --app-zoom: 0.92; } }
+  @media (min-width: 1728px) { :root { --app-zoom: 0.86; } }
+  @media (min-width: 1920px) { :root { --app-zoom: 0.82; } }
+  @media (min-width: 2400px) { :root { --app-zoom: 0.78; } }
+
   /* Smooth transitions everywhere */
   .transition-smooth {
     @apply transition-all duration-200 ease-out;
