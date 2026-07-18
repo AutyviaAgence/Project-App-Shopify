@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { ShoppingBag, Package, ExternalLink, Loader2, History, Ban, RotateCcw, Tag, Check, X, ChevronRight, ChevronLeft, MessageSquare } from 'lucide-react'
+import { ShoppingBag, Package, ExternalLink, Loader2, RotateCcw, ChevronRight, ChevronLeft, MessageSquare } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 type Order = {
@@ -64,41 +64,15 @@ function financialLabel(s: string | null): string {
   }
 }
 
-// Action passée (historique)
-type ActionItem = {
-  id: string
-  action_type: 'cancel_order' | 'refund_order' | 'create_discount'
-  summary: string | null
-  status: 'pending' | 'confirmed' | 'rejected' | 'executed' | 'failed'
-  // Résultat réel après exécution (montant vraiment remboursé pour un refund).
-  result: { amount?: number; currency?: string; refundId?: string } | null
-  // Payload de la demande (contient le montant estimé + refund_auto le cas échéant).
-  payload?: { amount_estimated?: number; currency?: string; refund_auto?: boolean } | null
-  created_at: string
-}
-const ACTION_META: Record<ActionItem['action_type'], { label: string; icon: typeof Ban; cls: string }> = {
-  cancel_order: { label: 'Annulation', icon: Ban, cls: 'text-red-500' },
-  refund_order: { label: 'Remboursement', icon: RotateCcw, cls: 'text-amber-500' },
-  create_discount: { label: 'Code promo', icon: Tag, cls: 'text-green-600' },
-}
-const STATUS_META: Record<ActionItem['status'], { label: string; cls: string }> = {
-  pending: { label: 'À valider', cls: 'bg-amber-500/15 text-amber-600' },
-  confirmed: { label: 'Confirmée', cls: 'bg-blue-500/15 text-blue-500' },
-  executed: { label: 'Exécutée', cls: 'bg-green-500/15 text-green-600' },
-  rejected: { label: 'Refusée', cls: 'bg-muted text-muted-foreground' },
-  failed: { label: 'Échec', cls: 'bg-red-500/15 text-red-500' },
-}
-
 /**
  * Panneau de contexte Shopify : commandes récentes du client + historique des
  * actions de la conversation (annulations, remboursements, codes promo).
  */
-export function ShopifyContextPanel({ contactId, conversationId, contactName, refreshKey }: { contactId: string | null; conversationId?: string; contactName?: string | null; refreshKey?: number }) {
+// `conversationId` reste accepté (le parent le passe) mais n'est plus utilisé
+// depuis le retrait de l'onglet Historique — on ne le destructure donc pas.
+export function ShopifyContextPanel({ contactId, contactName, refreshKey }: { contactId: string | null; conversationId?: string; contactName?: string | null; refreshKey?: number }) {
   const [data, setData] = useState<Data | null>(null)
   const [loading, setLoading] = useState(false)
-  const [tab, setTab] = useState<'orders' | 'history'>('orders')
-  const [actions, setActions] = useState<ActionItem[]>([])
-  const [actionsLoading, setActionsLoading] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
 
   // ⚠️ EN DESSOUS DE 1280 px (xl), LE PANNEAU OUVERT VOLE TROP DE LARGEUR AU CHAT.
@@ -159,23 +133,6 @@ export function ShopifyContextPanel({ contactId, conversationId, contactName, re
     return () => { active = false }
   }, [contactId, refreshKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Historique des actions de la conversation (chargé à l'ouverture de l'onglet)
-  useEffect(() => {
-    if (tab !== 'history' || !conversationId) return
-    let active = true
-    ;(async () => {
-      setActionsLoading(true)
-      try {
-        const j = await (await fetch(`/api/shopify/actions?conversation_id=${conversationId}`)).json()
-        if (active) setActions(j.data || [])
-      } catch {
-        if (active) setActions([])
-      } finally {
-        if (active) setActionsLoading(false)
-      }
-    })()
-    return () => { active = false }
-  }, [tab, conversationId, refreshKey])
 
   if (!contactId) return null
   // Boutique non connectée → on n'affiche pas le panneau
@@ -245,62 +202,13 @@ export function ShopifyContextPanel({ contactId, conversationId, contactName, re
           <ChevronRight className="h-4 w-4" />
         </button>
       </div>
-      {/* Onglets Commandes / Historique */}
-      <div className="flex shrink-0 border-b">
-        <button onClick={() => setTab('orders')}
-          className={cn('flex flex-1 items-center justify-center gap-1.5 px-3 py-3 text-sm font-medium transition-colors',
-            tab === 'orders' ? 'border-b-2 border-primary text-primary' : 'text-muted-foreground hover:text-foreground')}>
-          <ShoppingBag className="h-4 w-4" /> Commandes
-        </button>
-        <button onClick={() => setTab('history')}
-          className={cn('flex flex-1 items-center justify-center gap-1.5 px-3 py-3 text-sm font-medium transition-colors',
-            tab === 'history' ? 'border-b-2 border-primary text-primary' : 'text-muted-foreground hover:text-foreground')}>
-          <History className="h-4 w-4" /> Historique
-        </button>
+      {/* En-tête « Commandes ». L'onglet « Historique » (actions Shopify de la
+          conversation) a été retiré : vide dans l'usage actuel, il n'apportait
+          rien. Le panneau ne montre plus que les commandes du client. */}
+      <div className="flex shrink-0 items-center gap-1.5 border-b px-3 py-3 text-sm font-medium text-primary">
+        <ShoppingBag className="h-4 w-4" /> Commandes
       </div>
 
-      {tab === 'history' ? (
-        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4">
-          {actionsLoading ? (
-            <div className="flex items-center justify-center py-8 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /></div>
-          ) : actions.length === 0 ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">Aucune action sur cette conversation.</p>
-          ) : (
-            actions.map((a) => {
-              const meta = ACTION_META[a.action_type]
-              const st = STATUS_META[a.status]
-              const Icon = meta.icon
-              return (
-                <div key={a.id} className="rounded-xl border p-3">
-                  <div className="flex items-center gap-2">
-                    <Icon className={cn('h-4 w-4', meta.cls)} />
-                    <span className="text-sm font-medium">{meta.label}</span>
-                    {a.payload?.refund_auto && (
-                      <span className="rounded-full bg-violet-500/15 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-violet-600 dark:text-violet-400">
-                        Auto IA
-                      </span>
-                    )}
-                    <span className={cn('ml-auto flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium', st.cls)}>
-                      {a.status === 'executed' && <Check className="h-2.5 w-2.5" />}
-                      {a.status === 'rejected' && <X className="h-2.5 w-2.5" />}
-                      {st.label}
-                    </span>
-                  </div>
-                  {a.summary && <p className="mt-1 text-xs text-muted-foreground">{a.summary}</p>}
-                  {/* Montant RÉELLEMENT remboursé (source de vérité, ≠ estimé) une
-                      fois l'action exécutée. */}
-                  {a.action_type === 'refund_order' && a.status === 'executed' && a.result?.amount != null && (
-                    <p className="mt-1 text-xs font-medium text-amber-600 dark:text-amber-400">
-                      Remboursé : {Number(a.result.amount).toFixed(2)} {a.result.currency || ''}
-                    </p>
-                  )}
-                  <p className="mt-1 text-[11px] text-muted-foreground/70">{new Date(a.created_at).toLocaleString('fr-FR')}</p>
-                </div>
-              )
-            })
-          )}
-        </div>
-      ) : (
       <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4 [scrollbar-width:thin]">
         {/* Spinner UNIQUEMENT quand on n'a encore rien à montrer pour ce contact.
             Un refreshKey (toutes les 12 s) rafraîchit le MÊME contact : on garde
@@ -381,7 +289,6 @@ export function ShopifyContextPanel({ contactId, conversationId, contactName, re
           })
         )}
       </div>
-      )}
     </div>
     </>
   )
