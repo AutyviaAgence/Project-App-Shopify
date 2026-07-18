@@ -65,27 +65,49 @@ type AgentWithTeamIds = AIAgent & { team_ids?: string[]; booking_stats?: Booking
 // « envelope » et « phone » retirées (à la demande du marchand). « selfie » reste,
 // + les 10 nouvelles poses. Aucun agent n'utilisait envelope/phone (vérifié) — le
 // fallback ci-dessous couvre de toute façon un ancien agent qui les référencerait.
+// ⚠️ `zoom` : tous les PNG font 472×308, MAIS le personnage y est dessiné plus ou
+// moins grand selon la pose (marge interne variable dans le fichier). À taille CSS
+// égale, certaines poses paraissent donc nettement plus petites que d'autres.
+// Ce facteur compense pose par pose. Référence = pose-1/pose-2 (les plus remplies).
 const MASCOTS = [
-  { key: 'pose-1', src: '/mascots/pose-1.png' },
-  { key: 'pose-2', src: '/mascots/pose-2.png' },
-  { key: 'pose-5', src: '/mascots/pose-5.png' },
-  { key: 'pose-6', src: '/mascots/pose-6.png' },
-  { key: 'pose-7', src: '/mascots/pose-7.png' },
-  { key: 'pose-8', src: '/mascots/pose-8.png' },
-  { key: 'pose-10', src: '/mascots/pose-10.png' },
-  { key: 'pose-17', src: '/mascots/pose-17.png' },
-  { key: 'pose-19', src: '/mascots/pose-19.png' },
-  { key: 'pose-21', src: '/mascots/pose-21.png' },
-  { key: 'selfie', src: '/mascots/selfie.png' },
+  { key: 'pose-1', src: '/mascots/pose-1.png', zoom: 1 },
+  { key: 'pose-2', src: '/mascots/pose-2.png', zoom: 1 },
+  { key: 'pose-5', src: '/mascots/pose-5.png', zoom: 1.08 },
+  { key: 'pose-6', src: '/mascots/pose-6.png', zoom: 1.08 },
+  { key: 'pose-7', src: '/mascots/pose-7.png', zoom: 1.2 },
+  { key: 'pose-8', src: '/mascots/pose-8.png', zoom: 1.12 },
+  { key: 'pose-10', src: '/mascots/pose-10.png', zoom: 1.08 },
+  { key: 'pose-17', src: '/mascots/pose-17.png', zoom: 1.12 },
+  { key: 'pose-19', src: '/mascots/pose-19.png', zoom: 1.12 },
+  { key: 'pose-21', src: '/mascots/pose-21.png', zoom: 1.12 },
+  { key: 'selfie', src: '/mascots/selfie.png', zoom: 1 },
 ] as const
 const DEFAULT_MASCOT = 'pose-1'
 const mascotSrc = (key: string | null | undefined) =>
   MASCOTS.find((m) => m.key === key)?.src ?? MASCOTS[0].src
+/** Facteur d'échelle propre à la pose (compense la marge interne du PNG). */
+const mascotZoom = (key: string | null | undefined) =>
+  MASCOTS.find((m) => m.key === key)?.zoom ?? 1
 
 // Les nouvelles poses (pose-*) remplissent PLUS le cadre que « selfie » : à taille
 // égale elles débordaient de la carte de l'agent (constaté). On les rend un peu
 // PLUS PETITES pour qu'elles tiennent, d'où le traitement séparé ci-dessous.
 const isNewPose = (key: string | null | undefined) => !!key && key.startsWith('pose-')
+
+/**
+ * Taille de la mascotte dans la carte : base selon le type de pose, multipliée
+ * par le `zoom` propre à la pose (compense la marge interne du PNG, cf. MASCOTS).
+ *
+ * ⚠️ La hauteur doit rester BORNÉE (max-height) : la mascotte déborde
+ * volontairement au-dessus de sa zone, mais sans plafond elle recouvrait le titre
+ * de la page.
+ */
+function mascotSizing(key: string | null | undefined): React.CSSProperties {
+  const z = mascotZoom(key)
+  const baseH = isNewPose(key) ? 135 : 128
+  const baseW = isNewPose(key) ? 118 : 112
+  return { maxHeight: `${Math.round(baseH * z)}%`, width: `${Math.round(baseW * z)}%` }
+}
 
 const MASCOT_BGS: Record<string, string> = {
   green: '#3B82F6',
@@ -637,10 +659,8 @@ export default function AgentsPage() {
                                    rester BORNÉE, sans plafond, `w-[112%] object-contain` la faisait
                                    grandir sans limite et recouvrir le titre de la page.
                                    Les nouvelles poses sont agrandies (cf. isNewPose). */
-                                className={cn(
-                                  'absolute -left-5 bottom-0 z-10 max-w-none cursor-pointer object-contain object-bottom drop-shadow-[0_12px_24px_rgba(0,0,0,0.45)] transition-transform duration-500 ease-out hover:-translate-y-1.5 hover:scale-[1.02]',
-                                  isNewPose(agent.mascot) ? 'max-h-[135%] w-[118%]' : 'max-h-[128%] w-[112%]'
-                                )}
+                                className="absolute -left-5 bottom-0 z-10 max-w-none cursor-pointer object-contain object-bottom drop-shadow-[0_12px_24px_rgba(0,0,0,0.45)] transition-transform duration-500 ease-out hover:-translate-y-1.5 hover:scale-[1.02]"
+                                style={mascotSizing(agent.mascot)}
                               />
                             </MascotPicker>
                           ) : (
@@ -648,10 +668,8 @@ export default function AgentsPage() {
                             <img
                               src={mascotSrc(agent.mascot)}
                               alt={agent.name}
-                              className={cn(
-                                'pointer-events-none absolute -left-5 bottom-0 max-w-none object-contain object-bottom drop-shadow-[0_12px_24px_rgba(0,0,0,0.45)]',
-                                isNewPose(agent.mascot) ? 'max-h-[135%] w-[118%]' : 'max-h-[128%] w-[112%]'
-                              )}
+                              className="pointer-events-none absolute -left-5 bottom-0 max-w-none object-contain object-bottom drop-shadow-[0_12px_24px_rgba(0,0,0,0.45)]"
+                              style={mascotSizing(agent.mascot)}
                             />
                           )}
                           {/* Badge type (pill, en haut a gauche) */}
