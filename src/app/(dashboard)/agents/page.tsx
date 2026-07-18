@@ -80,6 +80,12 @@ const DEFAULT_MASCOT = 'envelope'
 const mascotSrc = (key: string | null | undefined) =>
   MASCOTS.find((m) => m.key === key)?.src ?? MASCOTS[0].src
 
+// Les nouvelles poses (pose-*) ont plus de marge transparente autour du
+// personnage : à taille égale elles paraissent plus petites que les 3 mascottes
+// d'origine (enveloppe/téléphone/selfie), qui remplissent mieux le cadre. On les
+// agrandit un peu pour rétablir un rendu homogène dans la carte de l'agent.
+const isNewPose = (key: string | null | undefined) => !!key && key.startsWith('pose-')
+
 const MASCOT_BGS: Record<string, string> = {
   green: '#3B82F6',
   blue: '#3b82f6',
@@ -118,7 +124,16 @@ function MascotPicker({ agent, typeColor, onChange, children }: {
               )}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={m.src} alt={m.key} className="h-full w-full object-contain p-1" />
+              <img
+                src={m.src}
+                alt={m.key}
+                className={cn(
+                  'h-full w-full object-contain',
+                  // Nouvelles poses : moins de marge + léger agrandissement pour
+                  // qu'elles remplissent la vignette comme les 3 d'origine.
+                  isNewPose(m.key) ? 'scale-125 p-0' : 'p-1'
+                )}
+              />
             </button>
           ))}
         </div>
@@ -595,8 +610,12 @@ export default function AgentsPage() {
                                 /* max-h-[128%] : la mascotte déborde volontairement un peu au-dessus
                                    de sa zone (c'est le parti pris visuel), mais la hauteur doit
                                    rester BORNÉE, sans plafond, `w-[112%] object-contain` la faisait
-                                   grandir sans limite et recouvrir le titre de la page. */
-                                className="absolute -left-5 bottom-0 z-10 max-h-[128%] w-[112%] max-w-none cursor-pointer object-contain object-bottom drop-shadow-[0_12px_24px_rgba(0,0,0,0.45)] transition-transform duration-500 ease-out hover:-translate-y-1.5 hover:scale-[1.02]"
+                                   grandir sans limite et recouvrir le titre de la page.
+                                   Les nouvelles poses sont agrandies (cf. isNewPose). */
+                                className={cn(
+                                  'absolute -left-5 bottom-0 z-10 max-w-none cursor-pointer object-contain object-bottom drop-shadow-[0_12px_24px_rgba(0,0,0,0.45)] transition-transform duration-500 ease-out hover:-translate-y-1.5 hover:scale-[1.02]',
+                                  isNewPose(agent.mascot) ? 'max-h-[150%] w-[132%]' : 'max-h-[128%] w-[112%]'
+                                )}
                               />
                             </MascotPicker>
                           ) : (
@@ -604,7 +623,10 @@ export default function AgentsPage() {
                             <img
                               src={mascotSrc(agent.mascot)}
                               alt={agent.name}
-                              className="pointer-events-none absolute -left-5 bottom-0 max-h-[128%] w-[112%] max-w-none object-contain object-bottom drop-shadow-[0_12px_24px_rgba(0,0,0,0.45)]"
+                              className={cn(
+                                'pointer-events-none absolute -left-5 bottom-0 max-w-none object-contain object-bottom drop-shadow-[0_12px_24px_rgba(0,0,0,0.45)]',
+                                isNewPose(agent.mascot) ? 'max-h-[150%] w-[132%]' : 'max-h-[128%] w-[112%]'
+                              )}
                             />
                           )}
                           {/* Badge type (pill, en haut a gauche) */}
