@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
+import { checkConversationQuota } from '@/lib/shopify/plans'
 
 /** GET /api/admin/clients — Liste tous les clients (admin only) */
 export async function GET() {
@@ -66,10 +67,49 @@ export async function GET() {
     }
   }
 
+  // Connexions WhatsApp / Shopify par client (pour l'affichage admin).
+  //  - WhatsApp connecté = au moins une session status='connected'.
+  //  - Shopify connecté = au moins une boutique active.
+  const whatsappConnected = new Set<string>()
+  const shopifyConnected = new Set<string>()
+  if (clientIds.length > 0) {
+    const { data: sessions } = await adminSupabase
+      .from('whatsapp_sessions')
+      .select('user_id, status')
+      .in('user_id', clientIds)
+      .eq('status', 'connected')
+    for (const s of (sessions || []) as Array<{ user_id: string }>) whatsappConnected.add(s.user_id)
+
+    const { data: stores } = await adminSupabase
+      .from('shopify_stores')
+      .select('user_id, is_active')
+      .in('user_id', clientIds)
+      .eq('is_active', true)
+    for (const s of (stores || []) as Array<{ user_id: string }>) shopifyConnected.add(s.user_id)
+  }
+
+  // Conversations IA du mois (l'unité RÉELLE du plan, à côté des tokens). On
+  // réutilise checkConversationQuota — la même source que le quota appliqué à
+  // l'envoi, donc pas de divergence. En parallèle pour ne pas empiler les délais.
+  // limit peut être Infinity (plans illimités) → on renvoie null pour le JSON.
+  const convByUser: Record<string, { used: number; limit: number | null }> = {}
+  await Promise.all(clientIds.map(async (id: string) => {
+    try {
+      const q = await checkConversationQuota(id)
+      convByUser[id] = { used: q.used, limit: Number.isFinite(q.limit) ? q.limit : null }
+    } catch {
+      convByUser[id] = { used: 0, limit: null }
+    }
+  }))
+
   const enriched = (clients || []).map((c: { id: string; tenant_id: string | null }) => ({
     ...c,
     onboarding_config: configsByUser[c.id] || null,
     tenant_name: c.tenant_id ? (tenantNames[c.tenant_id] || null) : null,
+    has_whatsapp: whatsappConnected.has(c.id),
+    has_shopify: shopifyConnected.has(c.id),
+    ai_conversations_used: convByUser[c.id]?.used ?? 0,
+    ai_conversations_limit: convByUser[c.id]?.limit ?? null, // null = illimité
   }))
 
   return NextResponse.json({ clients: enriched })

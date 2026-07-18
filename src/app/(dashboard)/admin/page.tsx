@@ -26,7 +26,7 @@ import {
   TrendingUp, AlertCircle, ExternalLink, CheckCircle, Ban, Calendar,
   Wifi, WifiOff, Gift, Tag as TagIcon, Trash2, Link2, Store as StoreIcon,
   ChevronLeft, ChevronRight, MoreVertical, Coins, PauseCircle, PlayCircle,
-  ShieldOff, UserCog,
+  ShieldOff, UserCog, ChevronDown, MessageSquare,
 } from 'lucide-react'
 import {
   DropdownMenu,
@@ -69,6 +69,10 @@ type ClientRow = {
   created_at: string
   tenant_name: string | null
   onboarding_config: OnboardingConfig | null
+  has_whatsapp?: boolean
+  has_shopify?: boolean
+  ai_conversations_used?: number
+  ai_conversations_limit?: number | null // null = illimité
 }
 
 const PLAN_LABELS: Record<string, string> = { starter: 'Starter', pro: 'Pro', scale: 'Scale' }
@@ -161,6 +165,8 @@ export default function AdminPage() {
   const [clientPlanFilter, setClientPlanFilter] = useState<string>('all')
   const [clientSort, setClientSort] = useState<'name_asc' | 'name_desc' | 'plan' | 'tokens_desc' | 'tokens_asc' | 'recent'>('recent')
   const [clientVisible, setClientVisible] = useState(30)
+  // Colonne d'usage : bascule tokens ↔ conversations IA (clic sur l'en-tête).
+  const [usageMetric, setUsageMetric] = useState<'tokens' | 'conversations'>('conversations')
   const [activating, setActivating] = useState<string | null>(null)
   const [selectedPlans, setSelectedPlans] = useState<Record<string, PlanId | 'none'>>({})
   const [configModal, setConfigModal] = useState<{ config: OnboardingConfig; userId: string } | null>(null)
@@ -678,7 +684,17 @@ export default function AdminPage() {
               <th className="px-4 py-3 text-left font-semibold">Site</th>
               <th className="px-4 py-3 text-left font-semibold">Abonnement</th>
               <th className="px-4 py-3 text-left font-semibold">Plan</th>
-              <th className="px-4 py-3 text-left font-semibold">Tokens</th>
+              <th className="px-4 py-3 text-left font-semibold">
+                {/* Clic = bascule tokens ↔ conversations IA (l'unité du plan). */}
+                <button
+                  onClick={() => setUsageMetric(m => m === 'tokens' ? 'conversations' : 'tokens')}
+                  className="inline-flex items-center gap-1 rounded hover:text-primary"
+                  title="Cliquer pour basculer entre conversations IA et tokens"
+                >
+                  {usageMetric === 'tokens' ? 'Tokens' : 'Conversations IA'}
+                  <ChevronDown className="h-3 w-3 opacity-60" />
+                </button>
+              </th>
               <th className="px-4 py-3 text-left font-semibold">Rôle</th>
               <th className="px-4 py-3 text-left font-semibold">Actions</th>
             </tr>
@@ -700,13 +716,36 @@ export default function AdminPage() {
                       <div className="text-xs text-muted-foreground">{new Date(client.created_at).toLocaleDateString('fr-FR')}</div>
                     </td>
 
-                    {/* Tenant / Site */}
+                    {/* Tenant / Site + connexions WhatsApp / Shopify */}
                     <td className="px-4 py-3">
-                      {client.tenant_name ? (
-                        <Badge variant="outline" className="text-xs">{client.tenant_name}</Badge>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">—</span>
-                      )}
+                      <div className="space-y-1.5">
+                        {client.tenant_name ? (
+                          <Badge variant="outline" className="text-xs">{client.tenant_name}</Badge>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                        {/* Pastilles de connexion : vert = branché, gris = pas branché. */}
+                        <div className="flex items-center gap-1.5">
+                          <span
+                            title={client.has_whatsapp ? 'WhatsApp connecté' : 'WhatsApp non connecté'}
+                            className={cn(
+                              'inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] font-medium',
+                              client.has_whatsapp ? 'bg-emerald-500/15 text-emerald-600' : 'bg-muted text-muted-foreground'
+                            )}
+                          >
+                            <MessageSquare className="h-2.5 w-2.5" /> WA
+                          </span>
+                          <span
+                            title={client.has_shopify ? 'Shopify connecté' : 'Shopify non connecté'}
+                            className={cn(
+                              'inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] font-medium',
+                              client.has_shopify ? 'bg-emerald-500/15 text-emerald-600' : 'bg-muted text-muted-foreground'
+                            )}
+                          >
+                            <StoreIcon className="h-2.5 w-2.5" /> Shopify
+                          </span>
+                        </div>
+                      </div>
                     </td>
 
                     {/* Subscription status */}
@@ -774,17 +813,38 @@ export default function AdminPage() {
                       </div>
                     </td>
 
-                    {/* Tokens */}
+                    {/* Usage : tokens OU conversations IA selon l'en-tête. */}
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5">
-                        <Zap className={cn('h-3.5 w-3.5 shrink-0', usagePct >= 90 ? 'text-red-500' : 'text-muted-foreground')} />
-                        <span className="text-xs">
-                          {client.tokens_used.toLocaleString()} / {client.tokens_limit.toLocaleString()}
-                          <span className={cn('ml-1', usagePct >= 90 ? 'text-red-500 font-semibold' : 'text-muted-foreground')}>
-                            ({usagePct}%)
+                      {usageMetric === 'tokens' ? (
+                        <div className="flex items-center gap-1.5">
+                          <Zap className={cn('h-3.5 w-3.5 shrink-0', usagePct >= 90 ? 'text-red-500' : 'text-muted-foreground')} />
+                          <span className="text-xs">
+                            {client.tokens_used.toLocaleString()} / {client.tokens_limit.toLocaleString()}
+                            <span className={cn('ml-1', usagePct >= 90 ? 'text-red-500 font-semibold' : 'text-muted-foreground')}>
+                              ({usagePct}%)
+                            </span>
                           </span>
-                        </span>
-                      </div>
+                        </div>
+                      ) : (() => {
+                        // Conversations IA : l'unité RÉELLE du plan. limit null = illimité.
+                        const used = client.ai_conversations_used ?? 0
+                        const limit = client.ai_conversations_limit
+                        const pct = limit && limit > 0 ? Math.round((used / limit) * 100) : 0
+                        const hot = limit != null && pct >= 90
+                        return (
+                          <div className="flex items-center gap-1.5">
+                            <MessageSquare className={cn('h-3.5 w-3.5 shrink-0', hot ? 'text-red-500' : 'text-muted-foreground')} />
+                            <span className="text-xs">
+                              {used.toLocaleString()} / {limit == null ? '∞' : limit.toLocaleString()}
+                              {limit != null && (
+                                <span className={cn('ml-1', hot ? 'text-red-500 font-semibold' : 'text-muted-foreground')}>
+                                  ({pct}%)
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                        )
+                      })()}
                     </td>
 
                     {/* Rôle */}
