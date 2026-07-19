@@ -39,6 +39,26 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     .maybeSingle()
   if (!conv) return NextResponse.json({ error: 'Conversation introuvable' }, { status: 404 })
 
+  // ⚠️ CONTRÔLE D'APPARTENANCE — SANS LUI, FUITE ENTRE MARCHANDS.
+  //
+  // Cette route utilise le client `service_role`, qui BYPASSE la RLS : c'est donc
+  // au code de cloisonner. `session_id` était lu mais jamais vérifié, et le seul
+  // contrôle portait sur l'AGENT (trivialement satisfait, puisqu'on retombe sur
+  // le premier agent de l'appelant quand la conversation n'en a pas).
+  //
+  // N'importe quel marchand authentifié pouvait donc appeler cette route avec
+  // l'ID d'une conversation d'un AUTRE marchand : ses 30 derniers messages
+  // WhatsApp étaient déchiffrés et envoyés à OpenAI, puis résumés dans la
+  // réponse. Fuite de conversations clients + PII.
+  const { data: sess } = await admin
+    .from('whatsapp_sessions')
+    .select('user_id')
+    .eq('id', conv.session_id)
+    .maybeSingle()
+  if (!sess || sess.user_id !== user.id) {
+    return NextResponse.json({ error: 'Accès refusé' }, { status: 403 })
+  }
+
   // Agent (assigné à la conversation, sinon le premier agent de l'utilisateur)
   let agentId = conv.ai_agent_id
   if (!agentId) {

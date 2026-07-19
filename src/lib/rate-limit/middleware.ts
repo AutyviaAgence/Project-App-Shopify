@@ -7,13 +7,27 @@ import { RATE_LIMITS, type RateLimitType } from './config'
  * Utilise l'IP ou un header personnalisé
  */
 function getClientIdentifier(req: NextRequest): string {
-  // Essayer x-forwarded-for (derrière un proxy/load balancer)
+  // ⚠️ ON PREND LE **DERNIER** SEGMENT, PAS LE PREMIER.
+  //
+  // `x-forwarded-for` est une liste « client, proxy1, proxy2 » où seuls les
+  // segments de DROITE sont écrits par nos propres proxys : tout ce qui est à
+  // gauche vient du client et est donc FORGEABLE.
+  //
+  // En lisant le premier segment, il suffisait d'envoyer un
+  // `X-Forwarded-For: <valeur aléatoire>` différent à chaque requête pour
+  // repartir d'un compteur neuf — le rate limiting entier était contournable,
+  // y compris sur l'opt-in public (inscription massive de numéros tiers, aux
+  // frais du marchand et au détriment de sa qualité Meta).
+  //
+  // Le dernier segment est posé par le reverse-proxy (Traefik/Dokploy) et ne
+  // peut pas être choisi par l'appelant.
   const forwarded = req.headers.get('x-forwarded-for')
   if (forwarded) {
-    return forwarded.split(',')[0].trim()
+    const hops = forwarded.split(',').map((s) => s.trim()).filter(Boolean)
+    if (hops.length > 0) return hops[hops.length - 1]
   }
 
-  // Essayer x-real-ip
+  // `x-real-ip` est posé par le proxy lui-même : non forgeable de bout en bout.
   const realIp = req.headers.get('x-real-ip')
   if (realIp) {
     return realIp

@@ -619,14 +619,20 @@ async function estimateRefundAmount(
 }
 
 /**
- * Vérifie l'identité avant un remboursement : le contact doit être relié à un
- * client Shopify (via opt-in Cas 3, ou via link_customer Cas 2) ET la commande
- * demandée doit appartenir à CE client. Sinon on refuse et on demande à l'agent
- * de vérifier l'identité (email + n° de commande).
+ * Vérifie que la commande visée APPARTIENT BIEN au client qui parle : le contact
+ * doit être relié à un client Shopify (via opt-in Cas 3, ou via link_customer
+ * Cas 2) ET la commande demandée doit figurer parmi les siennes. Sinon on refuse
+ * et on demande à l'agent de vérifier l'identité (email + n° de commande).
+ *
+ * ⚠️ Sert à TOUTE action sur une commande (remboursement ET annulation) — les
+ * numéros Shopify étant séquentiels, sans ce contrôle n'importe qui pourrait
+ * agir sur la commande d'autrui en devinant son numéro. `action` ne sert qu'à
+ * formuler un message cohérent pour l'agent.
  */
-async function verifyRefundIdentity(
+async function verifyOrderOwnership(
   ctx: { userId: string; conversationId?: string | null },
-  orderName: string
+  orderName: string,
+  action: 'remboursement' | 'annulation' = 'remboursement'
 ): Promise<{ ok: true } | { ok: false; message: string }> {
   if (!ctx.conversationId) return { ok: false, message: "Impossible de vérifier l'identité (conversation inconnue). Demande à un conseiller humain." }
 
@@ -639,7 +645,7 @@ async function verifyRefundIdentity(
   const customerId = (conv?.contact as unknown as { shopify_customer_id: string | null } | null)?.shopify_customer_id || null
 
   if (!customerId) {
-    return { ok: false, message: "Avant tout remboursement, tu DOIS vérifier l'identité du client : demande-lui l'email utilisé pour sa commande et appelle l'outil link_customer. Ne crée PAS de demande de remboursement tant que le compte n'est pas relié." }
+    return { ok: false, message: `Avant toute ${action}, tu DOIS vérifier l'identité du client : demande-lui l'email utilisé pour sa commande et appelle l'outil link_customer. Ne crée PAS de demande de ${action} tant que le compte n'est pas relié.` }
   }
 
   // La commande demandée appartient-elle bien à ce client ?
@@ -650,7 +656,7 @@ async function verifyRefundIdentity(
     const wanted = orderName.replace(/^#?/, '#').toLowerCase()
     const found = orders.data.some((o) => o.name.toLowerCase() === wanted)
     if (!found) {
-      return { ok: false, message: `La commande ${orderName} ne figure pas parmi les commandes de ce client. Demande-lui de reconfirmer le numéro exact de sa commande, ne rembourse pas une commande qui n'est pas la sienne.` }
+      return { ok: false, message: `La commande ${orderName} ne figure pas parmi les commandes de ce client. Demande-lui de reconfirmer le numéro exact de sa commande — n'agis JAMAIS sur une commande qui n'est pas la sienne.` }
     }
   }
   return { ok: true }
@@ -670,6 +676,20 @@ export async function handleActionTool(
 
   if (call.functionName === 'request_cancel_order') {
     actionType = 'cancel_order'
+
+    // ⚠️ MÊME GARDE-FOU QUE LE REMBOURSEMENT — IL MANQUAIT ICI.
+    //
+    // Le remboursement vérifiait l'identité, l'annulation NON : n'importe quel
+    // client pouvait écrire « annulez la commande #1234 » avec le numéro d'un
+    // AUTRE (les numéros Shopify sont séquentiels, donc devinables) et faire
+    // créer une demande d'annulation sur la commande d'autrui — avec remise en
+    // stock et notification au vrai client. Sabotage trivial et répétable.
+    //
+    // La validation humaine restait le seul rempart, mais le marchand n'avait
+    // aucun signal d'alerte : la demande lui paraissait légitime.
+    const gate = await verifyOrderOwnership(ctx, String(args.order_name || ''), 'annulation')
+    if (!gate.ok) return gate.message
+
     summary = `Annulation de la commande ${args.order_name}${args.reason ? `, ${args.reason}` : ''}`
   } else if (call.functionName === 'request_refund') {
     actionType = 'refund_order'
@@ -678,7 +698,7 @@ export async function handleActionTool(
     // le contact est relié à un client Shopify ET que la commande demandée
     // appartient bien à ce client (email + n° de commande cohérents). Empêche
     // qu'un inconnu se fasse rembourser la commande de quelqu'un d'autre.
-    const gate = await verifyRefundIdentity(ctx, String(args.order_name || ''))
+    const gate = await verifyOrderOwnership(ctx, String(args.order_name || ''), 'remboursement')
     if (!gate.ok) return gate.message
 
     // Estimer le montant remboursable pour l'afficher avant validation.
