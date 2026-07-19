@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
   // Plan (source de vérité : la boutique, facturée par Shopify).
   const { data: store } = await admin
     .from('shopify_stores')
-    .select('plan, subscription_status, shop_domain, current_period_end, pending_plan')
+    .select('plan, subscription_status, shop_domain, current_period_end, pending_plan, billing_interval')
     .eq('user_id', authed.userId)
     .eq('is_active', true)
     .maybeSingle()
@@ -112,6 +112,8 @@ export async function GET(req: NextRequest) {
         shopDomain: store?.shop_domain || null,
         periodEnd: store?.current_period_end || null,
         pendingPlan: store?.pending_plan || null,
+        billingInterval: store?.billing_interval === 'annual' ? 'annual' : 'monthly',
+        credits: null,
         contactsCount: 0,
         optedInCount: 0,
         conversations: [],
@@ -159,6 +161,31 @@ export async function GET(req: NextRequest) {
     }
   })
 
+  // Crédits IA : le marchand ne pouvait pas savoir ce qu'il lui restait sans
+  // quitter l'admin Shopify. On renvoie la ventilation plan / recharges (même
+  // logique que la page Abonnement : le quota du plan se remet à zéro chaque
+  // mois, les recharges ne périment pas).
+  let credits: {
+    used: number; planLimit: number | null; planUsed: number
+    extra: number; extraRemaining: number; unlimited: boolean
+  } | null = null
+  try {
+    const { checkConversationQuota } = await import('@/lib/shopify/plans')
+    const q = await checkConversationQuota(authed.userId)
+    const planUsed = q.planLimit === null ? q.used : Math.min(q.used, q.planLimit)
+    const extraUsed = q.planLimit === null ? 0 : Math.max(0, q.used - q.planLimit)
+    credits = {
+      used: q.used,
+      planLimit: q.planLimit,
+      planUsed,
+      extra: q.extra,
+      extraRemaining: Math.max(0, q.extra - extraUsed),
+      unlimited: q.limit === Infinity,
+    }
+  } catch {
+    // Non bloquant : l'aperçu doit s'afficher même si le quota est indisponible.
+  }
+
   return NextResponse.json({
     data: {
       linkedAccountEmail,
@@ -172,6 +199,8 @@ export async function GET(req: NextRequest) {
       shopDomain: store?.shop_domain || null,
       periodEnd: store?.current_period_end || null,
       pendingPlan: store?.pending_plan || null,
+      billingInterval: store?.billing_interval === 'annual' ? 'annual' : 'monthly',
+      credits,
       contactsCount: contactsCount ?? 0,
       optedInCount: optedInCount ?? 0,
       conversations,

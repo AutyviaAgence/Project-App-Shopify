@@ -48,6 +48,17 @@ type Overview = {
   periodEnd?: string | null
   /** Plan qui prendra effet au prochain renouvellement (baisse de plan, annulation). */
   pendingPlan?: string | null
+  /** Intervalle réellement facturé : mensuel ou annuel (-20 %). */
+  billingInterval?: 'monthly' | 'annual'
+  /** Crédits IA : quota du plan (mensuel) et recharges (ne périment pas). */
+  credits?: {
+    used: number
+    planLimit: number | null
+    planUsed: number
+    extra: number
+    extraRemaining: number
+    unlimited: boolean
+  } | null
   contactsCount: number
   optedInCount: number
   conversations: Conversation[]
@@ -108,6 +119,11 @@ export default function ShopifyEmbeddedClient() {
   // créer des codes que personne ne pouvait utiliser.
   const [promoCode, setPromoCode] = useState('')
   const [showPromo, setShowPromo] = useState(false)
+  // Intervalle choisi dans le sélecteur. Aligné sur l'abonnement en cours dès que
+  // l'aperçu est chargé : un marchand déjà en annuel ne doit pas voir « Mensuel »
+  // présélectionné (il croirait devoir rebasculer).
+  const [billingInterval, setBillingInterval] = useState<'monthly' | 'annual'>('monthly')
+  const [buyingCredits, setBuyingCredits] = useState(false)
   const [unlinking, setUnlinking] = useState(false)
   const [linking, setLinking] = useState(false)
   const [opening, setOpening] = useState(false)
@@ -143,7 +159,11 @@ export default function ShopifyEmbeddedClient() {
         authenticatedFetch('/api/shopify/embedded/link-account').then((r) => r.json()).catch(() => null),
       ])
       setStatus(s?.data ?? null)
-      setOverview(o?.data ?? null)
+      const ov = (o?.data as Overview | undefined) ?? null
+      setOverview(ov)
+      // Le sélecteur reflète l'abonnement EN COURS : sinon un marchand déjà en
+      // annuel verrait « Mensuel » coché et croirait devoir rebasculer.
+      if (ov?.billingInterval) setBillingInterval(ov.billingInterval)
       setLinkState((l?.data as LinkState | undefined) ?? null)
     } finally {
       setLoading(false)
@@ -196,8 +216,37 @@ export default function ShopifyEmbeddedClient() {
     window.location.href = url
   }
 
+  /**
+   * Recharge de conversations IA, sans quitter l'admin Shopify.
+   *
+   * Achat ponctuel (`appPurchaseOneTimeCreate`) : le marchand approuve dans
+   * Shopify, comme pour un abonnement. Il fallait auparavant ouvrir l'app Xeyo
+   * pour recharger — alors que le compteur, lui, n'était même pas visible ici.
+   */
+  const rechargeCredits = async () => {
+    setBuyingCredits(true)
+    setError(null)
+    try {
+      const res = await authenticatedFetch('/api/shopify/billing/purchase', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shop, pack: 'ai_credits' }),
+      })
+      const json = await res.json()
+      const url = json?.data?.confirmationUrl
+      if (!res.ok || !url) throw new Error(json.error || 'Achat impossible')
+      // ⚠️ `redirectTop`, PAS `openInTop` (qui préfixe par APP_BASE et casserait
+      // l'URL Shopify). L'écran d'approbation refuse l'iframe : il doit s'ouvrir
+      // au niveau supérieur — même mécanisme que pour l'abonnement.
+      redirectTop(url)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Achat impossible')
+      setBuyingCredits(false)
+    }
+  }
+
   /** Abonnement via la Billing API — le marchand approuve DANS Shopify. */
-  const subscribe = async (plan: string) => {
+  const subscribe = async (plan: string, billing: 'monthly' | 'annual' = billingInterval) => {
     setBusyPlan(plan)
     setError(null)
     try {
@@ -206,7 +255,9 @@ export default function ShopifyEmbeddedClient() {
         headers: { 'Content-Type': 'application/json' },
         // Le code promo était accepté par le serveur, mais rien ne l'envoyait :
         // aucun champ n'existait pour le saisir.
-        body: JSON.stringify({ shop, plan, ...(promoCode.trim() ? { promo_code: promoCode.trim() } : {}) }),
+        // `billing` : sans lui, tout marchand était facturé au MOIS, même en
+        // choisissant l'annuel — l'intervalle n'était jamais transmis d'ici.
+        body: JSON.stringify({ shop, plan, billing, ...(promoCode.trim() ? { promo_code: promoCode.trim() } : {}) }),
       })
       const json = await res.json()
       const url = json?.data?.confirmationUrl
@@ -670,6 +721,77 @@ export default function ShopifyEmbeddedClient() {
               )}
             </div>
 
+            {/* ── CRÉDITS IA ─────────────────────────────────────────────────
+                Le marchand ne pouvait ni voir ce qu'il lui restait, ni recharger,
+                sans quitter l'admin Shopify. Le quota du plan (remis à zéro chaque
+                mois) et les recharges (qui ne périment pas) sont distingués. */}
+            {isPaid && overview?.credits && (
+              <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h2 className="text-sm font-semibold text-gray-900">Conversations IA</h2>
+                    <p className="mt-0.5 text-xs text-gray-500">
+                      Une conversation où votre agent a répondu au moins une fois.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={rechargeCredits}
+                    disabled={buyingCredits}
+                    className="shrink-0 rounded-lg bg-gray-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-gray-700 disabled:opacity-60"
+                  >
+                    {buyingCredits ? 'Ouverture…' : 'Recharger · 500 conv. (45 €)'}
+                  </button>
+                </div>
+
+                {(() => {
+                  const c = overview.credits!
+                  if (c.unlimited) {
+                    return (
+                      <p className="mt-4 text-sm text-gray-700">
+                        <span className="font-semibold">{c.used.toLocaleString('fr-FR')}</span> conversations ce mois-ci ·
+                        <span className="ml-1 font-medium text-emerald-600">illimité</span>
+                      </p>
+                    )
+                  }
+                  const planLimit = c.planLimit ?? 0
+                  const planLeft = Math.max(0, planLimit - c.planUsed)
+                  const pct = planLimit > 0 ? Math.min(100, Math.round((c.planUsed / planLimit) * 100)) : 0
+                  return (
+                    <div className="mt-4 space-y-3">
+                      <div>
+                        <div className="flex items-baseline justify-between text-sm">
+                          <span className="text-gray-700">
+                            <span className="font-semibold text-gray-900">{planLeft.toLocaleString('fr-FR')}</span> restantes
+                            <span className="text-gray-500"> sur {planLimit.toLocaleString('fr-FR')} incluses</span>
+                          </span>
+                          <span className={pct >= 95 ? 'font-medium text-rose-600' : pct >= 80 ? 'font-medium text-amber-600' : 'text-gray-500'}>
+                            {pct}%
+                          </span>
+                        </div>
+                        <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-gray-100">
+                          <div
+                            className={`h-full rounded-full transition-all ${pct >= 95 ? 'bg-rose-500' : pct >= 80 ? 'bg-amber-500' : 'bg-emerald-500'}`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                        <p className="mt-1 text-[11px] text-gray-400">Remis à zéro au prochain renouvellement</p>
+                      </div>
+
+                      {c.extra > 0 && (
+                        <div className="rounded-lg bg-amber-50 px-3 py-2">
+                          <p className="text-xs text-amber-900">
+                            <span className="font-semibold">{c.extraRemaining.toLocaleString('fr-FR')}</span> de recharge en réserve ·
+                            <span className="ml-1">ne périment pas</span>
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })()}
+              </div>
+            )}
+
             {/* ── ABONNEMENT (requirements 1.2.1 / 1.2.3 — géré DANS l'admin) ── */}
             <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
               <div className="flex items-center justify-between">
@@ -715,13 +837,50 @@ export default function ShopifyEmbeddedClient() {
                 </div>
               )}
 
-              <div className="mt-4 grid gap-2 sm:grid-cols-3">
+              {/* ── MENSUEL / ANNUEL ────────────────────────────────────────
+                  Le sélecteur n'existait pas ici : l'intervalle n'était jamais
+                  transmis, donc TOUT marchand était facturé au mois — et un
+                  marchand en mensuel ne pouvait pas passer à l'annuel. */}
+              <div className="mt-4 flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setBillingInterval('monthly')}
+                  className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                    billingInterval === 'monthly' ? 'bg-gray-900 text-white' : 'text-gray-500 hover:text-gray-900'
+                  }`}
+                >
+                  Mensuel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBillingInterval('annual')}
+                  className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                    billingInterval === 'annual' ? 'bg-gray-900 text-white' : 'text-gray-500 hover:text-gray-900'
+                  }`}
+                >
+                  Annuel
+                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${
+                    billingInterval === 'annual' ? 'bg-white/20 text-white' : 'bg-emerald-50 text-emerald-700'
+                  }`}>
+                    −20%
+                  </span>
+                </button>
+              </div>
+
+              <div className="mt-3 grid gap-2 sm:grid-cols-3">
                 {PLANS.map((p) => {
-                  const active = currentPlan === p.id
+                  // ⚠️ « Plan actuel » = MÊME plan ET MÊME intervalle.
+                  //
+                  // On ne comparait que le plan : un marchand en Pro MENSUEL voyait
+                  // la carte Pro grisée « Plan actuel » même en sélectionnant
+                  // « Annuel » — il ne pouvait donc PAS passer à l'annuel.
+                  const active = currentPlan === p.id && (overview?.billingInterval ?? 'monthly') === billingInterval
                   // `disabled` UNIQUEMENT sur le plan courant ou celui en cours de
                   // souscription. Le désactiver dès qu'un autre bouton travaille
                   // grisait TOUTES les cartes (opacity-60), rendant les prix illisibles.
                   const busy = busyPlan === p.id
+                  // Prix annuel = mensuel × 12 − 20 % (aligné sur ANNUAL_DISCOUNT).
+                  const annual = Math.round(p.price * 12 * 0.8)
                   return (
                     /* ⚠️ Ces cartes ÉTAIENT déjà cliquables — mais rien ne le disait.
                        Aucun appel à l'action, aucun bouton : le marchand voyait une
@@ -742,8 +901,15 @@ export default function ShopifyEmbeddedClient() {
                       <p className={`text-sm font-semibold ${active ? 'text-white' : 'text-gray-900'}`}>{p.name}</p>
                       <p className={`text-xs ${active ? 'text-white/70' : 'text-gray-600'}`}>{p.desc}</p>
                       <p className={`mt-1 text-sm font-bold ${active ? 'text-white' : 'text-gray-900'}`}>
-                        {p.price} {PLAN_CURRENCY}/mois
+                        {billingInterval === 'annual'
+                          ? `${annual} ${PLAN_CURRENCY}/an`
+                          : `${p.price} ${PLAN_CURRENCY}/mois`}
                       </p>
+                      {billingInterval === 'annual' && (
+                        <p className={`text-[11px] ${active ? 'text-white/70' : 'text-emerald-600'}`}>
+                          soit {Math.round(annual / 12)} {PLAN_CURRENCY}/mois · 2 mois offerts
+                        </p>
+                      )}
 
                       <span
                         className={`mt-2.5 flex items-center justify-center rounded-lg px-2 py-1.5 text-xs font-semibold transition ${
@@ -756,9 +922,13 @@ export default function ShopifyEmbeddedClient() {
                           ? 'Ouverture…'
                           : active
                             ? 'Plan actuel'
-                            : isPaid
-                              ? 'Changer'
-                              : 'Choisir'}
+                            : // Même plan, autre intervalle : « Changer » serait
+                              // ambigu — on dit ce qui va réellement se passer.
+                              currentPlan === p.id
+                              ? (billingInterval === 'annual' ? 'Passer à l’annuel' : 'Passer au mensuel')
+                              : isPaid
+                                ? 'Changer'
+                                : 'Choisir'}
                       </span>
                     </button>
                   )
