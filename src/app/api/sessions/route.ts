@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
       .from('profiles').select('role').eq('id', user.id).maybeSingle() as { data: { role: string | null } | null }
     if (prof?.role !== 'admin') {
       return NextResponse.json(
-        { error: 'Connectez WhatsApp via le bouton « Connecter avec Facebook ».' },
+        { error: 'Connectez WhatsApp via le bouton « Connecter mon WhatsApp ».' },
         { status: 403 }
       )
     }

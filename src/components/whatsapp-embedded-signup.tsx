@@ -91,7 +91,7 @@ export function WhatsAppEmbeddedSignup({
   }, [configured])
 
   const launch = useCallback(() => {
-    if (!window.FB) { toast.error('Le SDK Facebook n’est pas chargé.'); return }
+    if (!window.FB) { toast.error('La connexion WhatsApp n’est pas encore prête, réessayez dans un instant.'); return }
     setBusy(true)
     signupData.current = {}
 
@@ -155,7 +155,9 @@ export function WhatsAppEmbeddedSignup({
   return (
     <Button onClick={launch} disabled={!sdkReady || busy} className={className}>
       {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <MessageSquare className="mr-2 h-4 w-4" />}
-      {busy ? 'Connexion…' : !sdkReady ? 'Chargement…' : 'Connecter avec Facebook'}
+      {/* On nomme le RÉSULTAT (connecter WhatsApp), pas le fournisseur d'identité :
+          le marchand vient connecter WhatsApp, Meta n'est que le passage obligé. */}
+      {busy ? 'Connexion…' : !sdkReady ? 'Chargement…' : 'Connecter mon WhatsApp'}
     </Button>
   )
 }

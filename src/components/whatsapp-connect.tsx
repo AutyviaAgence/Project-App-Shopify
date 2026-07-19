@@ -443,7 +443,7 @@ export function WhatsAppConnect() {
         <div className="mt-auto space-y-2">
           <WhatsAppEmbeddedSignup onConnected={fetchSession} />
           <p className="text-[11px] text-muted-foreground">
-            Vous serez redirigé vers Facebook pour choisir votre compte WhatsApp Business. Aucun identifiant à copier.
+            Vous choisirez votre compte WhatsApp Business dans une fenêtre sécurisée Meta. Aucun identifiant à copier.
           </p>
         </div>
       )}

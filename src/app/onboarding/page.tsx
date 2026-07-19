@@ -874,7 +874,7 @@ export default function OnboardingPage() {
                             onConnected={async () => { await fetchState(); goTo('widget', 'WhatsApp connecté') }}
                           />
                           <p className="text-xs text-muted-foreground">
-                            Vous choisirez votre numéro dans une fenêtre Facebook. Aucun identifiant à copier.
+                            Vous choisirez votre numéro dans une fenêtre sécurisée Meta (propriétaire de WhatsApp). Aucun identifiant à copier.
                           </p>
                         </div>
                       ) : (

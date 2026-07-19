@@ -41,7 +41,7 @@ export const HELP_TOPICS: HelpTopic[] = [
     id: 'connect-whatsapp',
     question: 'Comment connecter mon numéro WhatsApp ?',
     answer:
-      'Sur le tableau de bord, la carte « Connectez votre WhatsApp Business » vous emmène chez Meta : vous vous connectez à Facebook, choisissez votre numéro, et c’est fini. Aucun identifiant à recopier.',
+      'Sur le tableau de bord, la carte « Connectez votre WhatsApp Business » ouvre une fenêtre sécurisée Meta : vous choisissez votre numéro, et c’est fini. Aucun identifiant à recopier.',
     page: '/dashboard',
     target: 'whatsapp-connect',
   },
