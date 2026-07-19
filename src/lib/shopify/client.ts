@@ -1454,15 +1454,38 @@ export async function getAppSubscriptionStatus(
   shop: string,
   accessToken: string,
   subscriptionId: string
-): Promise<{ status: string; name: string } | null> {
-  const res = await shopifyGraphQL<{ node: { status: string; name: string } | null }>(
+): Promise<{ status: string; name: string; trialDays: number; createdAt: string | null } | null> {
+  // `trialDays` + `createdAt` : indispensables pour savoir si l'abonnement est
+  // encore en PÉRIODE D'ESSAI. Shopify le passe en ACTIVE dès l'approbation,
+  // avant tout paiement — un versement de récompense déclenché sur ce seul
+  // statut serait offert à quelqu'un qui n'a rien payé (cf. growth/engine).
+  const res = await shopifyGraphQL<{
+    node: { status: string; name: string; trialDays?: number; createdAt?: string } | null
+  }>(
     shop,
     accessToken,
-    `query($id: ID!) { node(id: $id) { ... on AppSubscription { status name } } }`,
+    `query($id: ID!) { node(id: $id) { ... on AppSubscription { status name trialDays createdAt } } }`,
     { id: subscriptionId }
   )
   if (!res.ok || !res.data.node) return null
-  return res.data.node
+  const n = res.data.node
+  return { status: n.status, name: n.name, trialDays: n.trialDays ?? 0, createdAt: n.createdAt ?? null }
+}
+
+/**
+ * L'abonnement est-il ENCORE en période d'essai ? (donc : aucun euro versé)
+ *
+ * Sert de garde-fou avant toute récompense de parrainage : un abonnement est
+ * `ACTIVE` chez Shopify dès l'approbation, essai compris. Sans ce contrôle, il
+ * suffisait d'approuver un essai gratuit puis d'annuler avant la fin pour
+ * déclencher une récompense réelle — et un avoir Shopify n'est pas révocable.
+ */
+export function isWithinTrial(sub: { trialDays: number; createdAt: string | null }): boolean {
+  if (!sub.trialDays || sub.trialDays <= 0) return false
+  if (!sub.createdAt) return true // date inconnue : on suppose l'essai en cours (prudence)
+  const end = new Date(sub.createdAt)
+  end.setDate(end.getDate() + sub.trialDays)
+  return new Date() < end
 }
 
 /** Crée un code de réduction (montant ou pourcentage). */

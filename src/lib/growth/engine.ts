@@ -99,10 +99,21 @@ export async function settleAttribution(userId: string, shop: string): Promise<v
   const planId = (store?.plan || 'free') as PlanId
   const planPrice = PLANS[planId]?.priceEur ?? 0
 
-  if (code.kind === 'affiliate') {
-    await grantCommission(attribution.id, code, planPrice)
-  } else {
-    await grantReferralReward(attribution.id, code, shop)
+  const granted = code.kind === 'affiliate'
+    ? await grantCommission(attribution.id, code, planPrice)
+    : await grantReferralReward(attribution.id, code, shop)
+
+  // ⚠️ `converted_at` UNIQUEMENT si la récompense a réellement abouti.
+  //
+  // Il était posé inconditionnellement : quand l'émission échouait (parrain sans
+  // boutique active, identifiant introuvable, avoir refusé…), la récompense
+  // restait `pending` — mais le garde `if (attribution.converted_at) return` en
+  // tête de fonction interdisait tout nouvel essai. La récompense était donc
+  // gelée À VIE, malgré les commentaires « rattrapable ». On ne clôt donc
+  // l'attribution que sur un succès ; sinon un prochain passage la rejouera.
+  if (!granted) {
+    console.warn('[growth] récompense non accordée pour attribution', attribution.id, '— attribution laissée ouverte (rejouable)')
+    return
   }
 
   await supabase
@@ -121,14 +132,20 @@ async function grantCommission(
   attributionId: string,
   code: { id: string; owner_user_id: string | null; commission_percent: number | null },
   planPriceEur: number
-): Promise<void> {
+): Promise<boolean> {
   const supabase = admin()
 
   const baseCents = Math.round(planPriceEur * 100)
   const percent = code.commission_percent ?? 0
   const amountCents = Math.round((baseCents * percent) / 100)
 
-  if (amountCents <= 0) return
+  if (amountCents <= 0) {
+    // ⚠️ Assiette nulle : on TRACE au lieu de sortir en silence. Sans ça, une
+    // commission perdue (plan lu à `free` sur une race) ne laissait aucune trace
+    // et l'attribution était quand même marquée réglée → perte définitive.
+    console.warn('[growth] commission nulle (assiette 0) pour attribution', attributionId, '— non réglée, rejouable')
+    return false
+  }
 
   const { error } = await supabase.from('growth_rewards').insert({
     attribution_id: attributionId,
@@ -144,12 +161,13 @@ async function grantCommission(
   // 23505 = doublon : le callback a déjà été traité. Ce n'est pas une erreur.
   if (error && error.code !== '23505') {
     console.error('[growth] commission non enregistrée:', error.message)
-    return
+    return false
   }
 
   if (!error && code.owner_user_id) {
     await notify(code.owner_user_id, 'Nouvelle commission', `Une commission de ${(amountCents / 100).toFixed(2)} € vous a été attribuée.`)
   }
+  return true
 }
 
 /**
@@ -166,13 +184,13 @@ async function grantReferralReward(
   attributionId: string,
   code: { id: string; owner_user_id: string | null; reward_months: number },
   shop: string
-): Promise<void> {
+): Promise<boolean> {
   const supabase = admin()
   const referrerId = code.owner_user_id
-  if (!referrerId) return
+  if (!referrerId) return false
 
   const months = code.reward_months ?? 1
-  if (months <= 0) return
+  if (months <= 0) return false
 
   const usePartnerApi = isPartnerApiConfigured()
 
@@ -192,8 +210,12 @@ async function grantReferralReward(
     .single()
 
   if (error) {
-    if (error.code !== '23505') console.error('[growth] récompense non réservée:', error.message)
-    return // doublon = déjà versée
+    // Doublon (23505) = déjà versée : c'est un SUCCÈS (idempotence).
+    if (error.code !== '23505') {
+      console.error('[growth] récompense non réservée:', error.message)
+      return false
+    }
+    return true
   }
 
   // ── Repli : crédits IA (aucun jeton Partner API) ──────────────────────────
@@ -207,7 +229,7 @@ async function grantReferralReward(
     if (rpcErr) {
       console.error('[growth] crédit IA échoué:', rpcErr.message)
       await supabase.from('growth_rewards').update({ status: 'void' }).eq('id', reward.id)
-      return
+      return false
     }
 
     await supabase
@@ -216,7 +238,7 @@ async function grantReferralReward(
       .eq('id', reward.id)
 
     await notify(referrerId, 'Parrainage réussi', `${credits} conversations IA ont été ajoutées à votre compte.`)
-    return
+    return true
   }
 
   // ── Avoir Shopify : la vraie récompense ───────────────────────────────────
@@ -240,14 +262,14 @@ async function grantReferralReward(
   const referrerShop = referrerStore?.shop_domain
   if (!referrerShop) {
     console.error('[growth] le parrain n’a pas de boutique active — avoir non émis')
-    return // reste `pending` : rattrapable
+    return false // reste `pending` : rattrapable (converted_at NON posé)
   }
 
   const shopGid = await fetchShopGid(referrerShop)
   if (!shopGid) {
     console.error('[growth] identifiant de boutique introuvable — avoir non émis')
     // On garde la récompense en `pending` : elle pourra être émise plus tard.
-    return
+    return false
   }
 
   const credit = await createAppCredit({
@@ -261,7 +283,7 @@ async function grantReferralReward(
 
   if (!credit.ok) {
     console.error('[growth] avoir non émis:', credit.error)
-    return // reste `pending` : rattrapable
+    return false // reste `pending` : rattrapable (converted_at NON posé)
   }
 
   await supabase
@@ -278,6 +300,7 @@ async function grantReferralReward(
     'Parrainage réussi 🎉',
     `${months} mois offert${months > 1 ? 's' : ''} : le montant sera déduit de votre prochaine facture Shopify.`
   )
+  return true
 }
 
 /**

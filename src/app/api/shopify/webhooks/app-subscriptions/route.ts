@@ -60,7 +60,8 @@ export async function POST(req: NextRequest) {
 
   const { data: store } = await supabase
     .from('shopify_stores')
-    .select('id, shopify_charge_id, plan, pending_plan')
+    // `user_id` : requis pour régler la récompense de parrainage (voir plus bas).
+    .select('id, user_id, shopify_charge_id, plan, pending_plan')
     .eq('shop_domain', shopDomain)
     .maybeSingle()
 
@@ -137,6 +138,32 @@ export async function POST(req: NextRequest) {
       .eq('id', store.id)
 
     console.log('[webhook/app-subscriptions]', shopDomain, '→ actif :', targetPlan)
+
+    // ── RATTRAPAGE DE LA RÉCOMPENSE DE PARRAINAGE ───────────────────────────
+    //
+    // Le callback de facturation ne verse RIEN tant que l'essai gratuit court
+    // (sinon la récompense serait offerte à quelqu'un qui n'a pas payé). C'est
+    // donc ici qu'elle est versée : ce webhook se déclenche à chaque changement
+    // d'état de l'abonnement, notamment quand il devient réellement facturé à la
+    // fin de l'essai. On revérifie l'essai auprès de Shopify avant de verser.
+    // Idempotent (unicité en base) : les rappels répétés ne versent pas deux fois.
+    if (store.user_id) {
+      try {
+        const { getValidAccessToken } = await import('@/lib/shopify/token')
+        const { getAppSubscriptionStatus, isWithinTrial } = await import('@/lib/shopify/client')
+        const token = await getValidAccessToken(shopDomain)
+        if (token) {
+          const live = await getAppSubscriptionStatus(shopDomain, token, chargeId)
+          if (live && live.status === 'ACTIVE' && !isWithinTrial(live)) {
+            const { settleAttribution } = await import('@/lib/growth/engine')
+            await settleAttribution(store.user_id, shopDomain)
+          }
+        }
+      } catch (e) {
+        // Ne doit jamais faire échouer le webhook (Shopify rejouerait en boucle).
+        console.error('[webhook/app-subscriptions] règlement parrainage échoué (non bloquant):', e)
+      }
+    }
   }
 
   return NextResponse.json({ received: true })

@@ -138,16 +138,28 @@ export async function GET(req: NextRequest) {
   }
 
   // ── Parrainage / affiliation ──────────────────────────────────────────────
-  // C'est LE point de déclenchement unique des récompenses : le premier paiement
-  // confirmé. Idempotent (contrainte d'unicité en base) : un callback rejoué ne
-  // verse pas deux fois.
-  if (store.user_id) {
+  //
+  // ⚠️ PAS DE RÉCOMPENSE PENDANT L'ESSAI GRATUIT.
+  //
+  // Shopify passe l'abonnement en `ACTIVE` dès l'approbation — essai compris,
+  // donc AVANT le moindre paiement. Verser sur ce seul statut était exploitable :
+  // approuver un essai de 7 jours, encaisser la récompense (un avoir Shopify, qui
+  // n'est PAS révocable), puis annuler avant la fin. Coût pour le fraudeur : 0 €.
+  //
+  // On attend donc un cycle réellement facturé. C'est le webhook
+  // `app_subscriptions/update` qui rattrapera le versement à la fin de l'essai
+  // (l'abonnement y repasse ACTIVE hors trial). Idempotent : contrainte d'unicité
+  // en base, un rejeu ne verse pas deux fois.
+  const { isWithinTrial } = await import('@/lib/shopify/client')
+  if (store.user_id && !isWithinTrial(sub)) {
     try {
       const { settleAttribution } = await import('@/lib/growth/engine')
       await settleAttribution(store.user_id, shop)
     } catch (e) {
       console.error('[billing/callback] attribution échouée (non bloquant):', e)
     }
+  } else if (store.user_id) {
+    console.log('[billing/callback] récompense différée : essai en cours pour', shop)
   }
 
   const { appUrl } = getShopifyConfig()
