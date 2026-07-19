@@ -959,7 +959,12 @@ export default function ShopifyEmbeddedClient() {
                         onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
                         placeholder="Code promo"
                         autoFocus
-                        className="w-40 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs uppercase tracking-wide focus:border-gray-900 focus:outline-none"
+                        // ⚠️ `bg-white text-gray-900` EXPLICITES : sans elles,
+                        // l'input héritait de la couleur de texte du thème
+                        // (claire) sur un fond blanc → le code saisi était
+                        // illisible, blanc sur blanc. Cette vue est toujours en
+                        // thème clair (admin Shopify), on fige donc les deux.
+                        className="w-40 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs uppercase tracking-wide text-gray-900 placeholder:text-gray-400 focus:border-gray-900 focus:outline-none"
                       />
                       <span className="text-[11px] text-gray-400">
                         La remise s’affichera sur l’écran Shopify avant validation.
