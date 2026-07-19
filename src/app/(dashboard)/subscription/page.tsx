@@ -134,6 +134,10 @@ function SubscriptionContent() {
   // Intervalle de facturation choisi (mensuel par défaut, annuel = -20 %).
   const [billingInterval, setBillingInterval] = useState<'monthly' | 'annual'>('monthly')
   const [cgvAccepted, setCgvAccepted] = useState(false)
+  // Code promo : replié par défaut. Un champ toujours visible pousse le marchand
+  // à en chercher un, et à hésiter s'il n'en a pas.
+  const [showPromo, setShowPromo] = useState(false)
+  const [promoCode, setPromoCode] = useState('')
   const [buyingCredits, setBuyingCredits] = useState(false)
   // Crédits IA = conversations IA du mois (compteur réel).
   const [aiCredits, setAiCredits] = useState<{
@@ -227,7 +231,14 @@ function SubscriptionContent() {
       const res = await fetch('/api/shopify/billing/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shop: shopDomain, plan: selectedPlan, billing: billingInterval }),
+        body: JSON.stringify({
+          shop: shopDomain,
+          plan: selectedPlan,
+          billing: billingInterval,
+          // N'envoyer la clé que si un code est saisi : la route refuse un code
+          // vide, et un `promo_code: ''` la ferait échouer inutilement.
+          ...(promoCode.trim() ? { promo_code: promoCode.trim() } : {}),
+        }),
       })
       const json = await res.json()
       const confirmationUrl = json?.data?.confirmationUrl
@@ -847,7 +858,14 @@ function SubscriptionContent() {
       </p>
 
       {/* Modale confirmation plan */}
-      <Dialog open={!!selectedPlan} onOpenChange={(open) => { if (!open) setSelectedPlan(null) }}>
+      {/* À la fermeture, on remet le champ promo à zéro : sinon un code refusé
+          resterait saisi à la prochaine ouverture et échouerait à nouveau. */}
+      <Dialog
+        open={!!selectedPlan}
+        onOpenChange={(open) => {
+          if (!open) { setSelectedPlan(null); setPromoCode(''); setShowPromo(false) }
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
@@ -897,6 +915,38 @@ function SubscriptionContent() {
               )}
             </div>
           )}
+
+          {/* ── CODE PROMO ──────────────────────────────────────────────────
+              Le serveur savait déjà résoudre et appliquer un code (remise,
+              durée, jours d'essai), mais AUCUN champ n'existait sur ce parcours
+              — le principal. Les codes créés étaient donc inutilisables ici.
+              Replié par défaut : un champ visible pousse à chercher un code. */}
+          <div>
+            {showPromo ? (
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-muted-foreground">Code promo</label>
+                <input
+                  type="text"
+                  value={promoCode}
+                  onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                  placeholder="EX : BIENVENUE20"
+                  autoFocus
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm uppercase tracking-wide outline-none focus:border-primary"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  La remise s’affichera sur l’écran de confirmation Shopify avant validation.
+                </p>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowPromo(true)}
+                className="text-xs font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground"
+              >
+                J’ai un code promo
+              </button>
+            )}
+          </div>
 
           <label className="flex items-start gap-3 cursor-pointer group">
             <input
