@@ -1536,7 +1536,20 @@ function AffiliateTab() {
 function PromoTab() {
   const [codes, setCodes] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
-  const [form, setForm] = useState({ code: '', discount_percent: '10', max_redemptions: '', applies_to: 'both' })
+  // Tous les champs supportés par l'API. Le formulaire n'en exposait que 4 : on
+  // ne pouvait créer que des codes « % simple », alors que la remise en euros,
+  // la durée, les jours d'essai, l'expiration et le ciblage par plan étaient
+  // déjà gérés côté serveur. C'est ce qu'il faut pour un « tarif fondateur ».
+  const [form, setForm] = useState({
+    code: '',
+    discount_percent: '10',
+    discount_amount_cents: '',
+    duration_months: '',
+    trial_days: '',
+    max_redemptions: '',
+    valid_until: '',
+    plans: [] as string[],
+  })
   const [creating, setCreating] = useState(false)
   const [deleting, setDeleting] = useState<string | null>(null)
 
@@ -1550,18 +1563,36 @@ function PromoTab() {
   useEffect(() => { fetchCodes() }, [fetchCodes])
 
   const handleCreate = async () => {
-    if (!form.code || !form.discount_percent) return toast.error('Code et remise requis')
+    if (!form.code) return toast.error('Code requis')
+    // Un code doit offrir quelque chose (la route le revalide de son côté).
+    if (!form.discount_percent && !form.discount_amount_cents && !form.trial_days) {
+      return toast.error('Indiquez une remise (% ou €) ou des jours d’essai.')
+    }
     setCreating(true)
     try {
       const res = await fetch('/api/admin/promo-codes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          code: form.code,
+          // On n'envoie que ce qui est renseigné : la route traite null =
+          // « non applicable » (remise permanente, tous plans, sans expiration…).
+          discount_percent: form.discount_percent || null,
+          // Saisie en euros côté admin, stockée en centimes.
+          discount_amount_cents: form.discount_amount_cents
+            ? Math.round(Number(form.discount_amount_cents) * 100)
+            : null,
+          duration_months: form.duration_months || null,
+          trial_days: form.trial_days || null,
+          max_redemptions: form.max_redemptions || null,
+          valid_until: form.valid_until || null,
+          plans: form.plans.length ? form.plans : null,
+        }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
-      toast.success('Code promo créé dans Stripe')
-      setForm({ code: '', discount_percent: '10', max_redemptions: '', applies_to: 'both' })
+      toast.success(`Code ${data.code} créé`)
+      setForm({ code: '', discount_percent: '10', discount_amount_cents: '', duration_months: '', trial_days: '', max_redemptions: '', valid_until: '', plans: [] })
       fetchCodes()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur')
@@ -1570,10 +1601,25 @@ function PromoTab() {
     }
   }
 
-  const handleDelete = async (id: string) => {
+  /**
+   * DÉSACTIVATION, pas suppression.
+   *
+   * Le bouton appelait `DELETE`, qui supprime réellement la ligne — et le
+   * `ON DELETE CASCADE` effaçait au passage TOUT l'historique d'utilisation
+   * (`promo_redemptions`), alors que le toast annonçait « désactivé ». On perdait
+   * la trace de qui avait utilisé quoi, et un marchand pouvait réutiliser un code
+   * recréé sous le même nom. `PATCH is_active:false` existait déjà côté API.
+   */
+  const handleDeactivate = async (id: string) => {
     setDeleting(id)
     try {
-      const res = await fetch(`/api/admin/promo-codes/${id}`, { method: 'DELETE' })
+      // ⚠️ Le PATCH est sur la route RACINE et attend `id` dans le BODY
+      // (pas /promo-codes/{id}, qui n'expose qu'un DELETE destructif).
+      const res = await fetch('/api/admin/promo-codes', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, is_active: false }),
+      })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       toast.success('Code promo désactivé')
@@ -1590,43 +1636,108 @@ function PromoTab() {
   return (
     <div className="space-y-8">
       <div className="rounded-xl border p-6">
-        <h2 className="text-lg font-semibold mb-4 flex items-center gap-2"><TagIcon className="h-5 w-5 text-primary" />Créer un code promo Stripe</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
-          <input
-            type="text"
-            placeholder="Code (ex: LAUNCH30)"
-            value={form.code}
-            onChange={e => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))}
-            className="border rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/30"
-          />
-          <input
-            type="number"
-            placeholder="Remise %"
-            value={form.discount_percent}
-            onChange={e => setForm(f => ({ ...f, discount_percent: e.target.value }))}
-            className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-          />
-          <input
-            type="number"
-            placeholder="Max utilisations (optionnel)"
-            value={form.max_redemptions}
-            onChange={e => setForm(f => ({ ...f, max_redemptions: e.target.value }))}
-            className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-          />
-          <div className="flex gap-2">
-            <select
-              value={form.applies_to}
-              onChange={e => setForm(f => ({ ...f, applies_to: e.target.value }))}
-              className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 bg-white dark:bg-slate-900"
-            >
-              <option value="both">Abonnement + Audit</option>
-              <option value="subscription">Abonnement seul</option>
-              <option value="audit">Audit seul</option>
-            </select>
-            <Button onClick={handleCreate} disabled={creating} size="sm">
-              {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Créer'}
-            </Button>
+        <h2 className="text-lg font-semibold mb-1 flex items-center gap-2"><TagIcon className="h-5 w-5 text-primary" />Créer un code promo</h2>
+        <p className="mb-4 text-xs text-muted-foreground">
+          Remise en % ou en €, limitée dans le temps ou permanente, avec ou sans jours d’essai offerts.
+          Un « tarif fondateur » = une remise en % sans durée ni date d’expiration.
+        </p>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Code</label>
+            <input
+              type="text"
+              placeholder="FONDATEUR"
+              value={form.code}
+              onChange={e => setForm(f => ({ ...f, code: e.target.value.toUpperCase() }))}
+              className="w-full border rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
           </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Remise %</label>
+            <input
+              type="number" min="0" max="100"
+              placeholder="20"
+              value={form.discount_percent}
+              onChange={e => setForm(f => ({ ...f, discount_percent: e.target.value }))}
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">…ou remise en €</label>
+            <input
+              type="number" min="0" step="0.01"
+              placeholder="30"
+              value={form.discount_amount_cents}
+              onChange={e => setForm(f => ({ ...f, discount_amount_cents: e.target.value }))}
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Durée (mois)</label>
+            <input
+              type="number" min="1"
+              placeholder="Vide = permanente"
+              value={form.duration_months}
+              onChange={e => setForm(f => ({ ...f, duration_months: e.target.value }))}
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Jours d’essai offerts</label>
+            <input
+              type="number" min="0"
+              placeholder="En plus des 7 jours"
+              value={form.trial_days}
+              onChange={e => setForm(f => ({ ...f, trial_days: e.target.value }))}
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Max utilisations</label>
+            <input
+              type="number" min="1"
+              placeholder="Vide = illimité"
+              value={form.max_redemptions}
+              onChange={e => setForm(f => ({ ...f, max_redemptions: e.target.value }))}
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-xs font-medium text-muted-foreground">Expire le</label>
+            <input
+              type="date"
+              value={form.valid_until}
+              onChange={e => setForm(f => ({ ...f, valid_until: e.target.value }))}
+              className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+            />
+          </div>
+          <div className="space-y-1 sm:col-span-2">
+            <label className="text-xs font-medium text-muted-foreground">
+              Plans éligibles <span className="font-normal">(aucun coché = tous)</span>
+            </label>
+            <div className="flex flex-wrap gap-3 pt-1.5">
+              {(['starter', 'pro', 'scale'] as const).map(p => (
+                <label key={p} className="flex cursor-pointer items-center gap-1.5 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={form.plans.includes(p)}
+                    onChange={e => setForm(f => ({
+                      ...f,
+                      plans: e.target.checked ? [...f.plans, p] : f.plans.filter(x => x !== p),
+                    }))}
+                    className="h-4 w-4 cursor-pointer rounded border-border accent-primary"
+                  />
+                  <span className="capitalize">{p}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="mt-4 flex justify-end">
+          <Button onClick={handleCreate} disabled={creating}>
+            {creating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+            Créer le code
+          </Button>
         </div>
       </div>
 
@@ -1636,10 +1747,15 @@ function PromoTab() {
           <table className="w-full text-sm">
             <thead className="border-b bg-muted/30">
               <tr>
+                {/* « Applicable à » (applies_to) était une colonne legacy Stripe,
+                    plus lue par l'API. Remplacée par les infos réellement
+                    appliquées : durée, essai, plans, utilisations, expiration. */}
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Code</th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Remise</th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Applicable à</th>
-                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Max util.</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Avantage</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Durée</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Plans</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Utilisations</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Expire</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Statut</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Action</th>
               </tr>
@@ -1648,9 +1764,27 @@ function PromoTab() {
               {codes.map((code: any) => (
                 <tr key={code.id} className="hover:bg-muted/20">
                   <td className="px-4 py-3 font-mono font-semibold">{code.code}</td>
-                  <td className="px-4 py-3 text-primary font-medium">-{code.discount_percent}%</td>
-                  <td className="px-4 py-3">{code.applies_to === 'both' ? 'Abonnement + Audit' : code.applies_to === 'subscription' ? 'Abonnement' : 'Audit'}</td>
-                  <td className="px-4 py-3">{code.max_redemptions ?? '∞'}</td>
+                  <td className="px-4 py-3 font-medium text-primary">
+                    {[
+                      code.discount_percent ? `-${code.discount_percent}%` : null,
+                      code.discount_amount_cents ? `-${(code.discount_amount_cents / 100).toFixed(2)}€` : null,
+                      code.trial_days ? `+${code.trial_days}j d’essai` : null,
+                    ].filter(Boolean).join(' · ') || '—'}
+                  </td>
+                  <td className="px-4 py-3">
+                    {code.duration_months ? `${code.duration_months} mois` : 'Permanente'}
+                  </td>
+                  <td className="px-4 py-3 capitalize">
+                    {Array.isArray(code.plans) && code.plans.length ? code.plans.join(', ') : 'Tous'}
+                  </td>
+                  <td className="px-4 py-3 tabular-nums">
+                    {(code.redemptions ?? 0)} / {code.max_redemptions ?? '∞'}
+                  </td>
+                  <td className="px-4 py-3">
+                    {code.valid_until
+                      ? new Date(code.valid_until).toLocaleDateString('fr-FR')
+                      : '—'}
+                  </td>
                   <td className="px-4 py-3">
                     {code.is_active
                       ? <Badge className="bg-green-500 text-white">Actif</Badge>
@@ -1663,7 +1797,8 @@ function PromoTab() {
                         variant="ghost"
                         className="text-destructive hover:text-destructive hover:bg-destructive/10"
                         disabled={deleting === code.id}
-                        onClick={() => handleDelete(code.id)}
+                        title="Désactiver ce code (l’historique d’utilisation est conservé)"
+                        onClick={() => handleDeactivate(code.id)}
                       >
                         {deleting === code.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
                       </Button>
@@ -1672,7 +1807,7 @@ function PromoTab() {
                 </tr>
               ))}
               {codes.length === 0 && (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground text-sm">Aucun code promo</td></tr>
+                <tr><td colSpan={8} className="px-4 py-8 text-center text-muted-foreground text-sm">Aucun code promo</td></tr>
               )}
             </tbody>
           </table>
