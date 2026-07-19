@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, Suspense } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { useSubscription } from '@/hooks/use-subscription'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
@@ -119,7 +119,16 @@ const PLANS = [
   },
 ]
 
-function SubscriptionContent() {
+/**
+ * Contenu complet de l'abonnement (plan, crédits IA, recharge, changement de
+ * plan, annulation).
+ *
+ * Exporté pour être rendu DANS l'onglet Paramètres › Abonnement : les Paramètres
+ * sont désormais la seule destination, et /subscription y redirige. Sans cet
+ * export, il aurait fallu dupliquer 900 lignes — ou laisser deux endroits
+ * différents pour la même chose, ce qui était justement le problème.
+ */
+export function SubscriptionContent() {
   const { t, locale } = useTranslation()
   const tenant = useTenant()
   const searchParams = useSearchParams()
@@ -986,14 +995,28 @@ function SubscriptionContent() {
   )
 }
 
+/**
+ * ⚠️ CETTE PAGE REDIRIGE — l'abonnement vit désormais dans les Paramètres.
+ *
+ * Il y avait DEUX endroits pour la même chose : la jauge de crédits menait ici,
+ * mais les Paramètres › Abonnement affichaient un résumé + un bouton renvoyant
+ * ici, tandis que les tokens et le parrainage vivaient, eux, dans les Paramètres.
+ * Le marchand ne savait plus où gérer quoi.
+ *
+ * On ne supprime pas la route : une quinzaine de liens y pointent (bandeaux,
+ * badges, jauge, aide, callback d'achat, inscription…), sans compter les URL déjà
+ * partagées ou mises en favori. Elle redirige donc vers l'onglet, ce qui les
+ * garde tous valides.
+ */
 export default function SubscriptionPage() {
+  const router = useRouter()
+  useEffect(() => {
+    router.replace('/settings?tab=abonnement')
+  }, [router])
+
   return (
-    <Suspense fallback={
-      <div className="flex h-[calc(100vh-8rem)] items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-      </div>
-    }>
-      <SubscriptionContent />
-    </Suspense>
+    <div className="flex h-[calc(100vh-8rem)] items-center justify-center">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+    </div>
   )
 }

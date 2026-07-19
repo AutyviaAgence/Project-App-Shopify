@@ -1,7 +1,10 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useEffect, useRef, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+// Contenu complet de l'abonnement, rendu ici (les Paramètres sont la seule
+// destination ; /subscription redirige vers cet onglet).
+import { SubscriptionContent } from '@/app/(dashboard)/subscription/page'
 import { useTheme } from 'next-themes'
 import type { Profile, ConversationTag } from '@/types/database'
 import { Button } from '@/components/ui/button'
@@ -227,6 +230,26 @@ function ReferralSection() {
       </CardContent>
     </Card>
   )
+}
+
+/**
+ * Ouvre les Paramètres sur le bon onglet via `?tab=` (ex. /settings?tab=abonnement).
+ *
+ * Les Paramètres sont devenus la SEULE destination pour l'abonnement : /subscription
+ * y redirige, et tous les liens existants (jauge de crédits, bandeaux, aide…)
+ * doivent donc atterrir directement sur la bonne section.
+ *
+ * ⚠️ Lecteur isolé : `useSearchParams()` suspend le composant qui l'appelle. En
+ * l'isolant, la page ne se remonte pas à chaque navigation (même patron que le
+ * layout et les pages persistantes).
+ */
+function TabFromUrl({ onTab }: { onTab: (tab: string) => void }) {
+  const sp = useSearchParams()
+  const tab = sp.get('tab')
+  const ref = useRef(onTab)
+  ref.current = onTab
+  useEffect(() => { if (tab) ref.current(tab) }, [tab])
+  return null
 }
 
 export default function SettingsPage() {
@@ -597,6 +620,11 @@ export default function SettingsPage() {
         </p>
       </div>
 
+      {/* Ouvre l'onglet demandé par l'URL (?tab=abonnement…). */}
+      <Suspense fallback={null}>
+        <TabFromUrl onTab={(t) => setTab((cur) => (cur === t ? cur : t))} />
+      </Suspense>
+
       <div className="grid gap-6 md:grid-cols-[220px_1fr]">
         {/* Sidebar d'onglets */}
         <Card className="h-fit md:sticky md:top-6 p-2">
@@ -834,29 +862,24 @@ export default function SettingsPage() {
         </>)}
 
         {tab === 'abonnement' && (<>
-        {/* Abonnement */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <CreditCard className="h-5 w-5" />
-              {t('settings.subscription_title')}
-            </CardTitle>
-            <CardDescription>{t('settings.subscription_desc', { appName: tenant.appName })}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground mb-4">
-              {t('settings.subscription_info')}
-            </p>
-            <Link href="/subscription">
-              <Button variant="outline">
-                <CreditCard className="mr-2 h-4 w-4" />
-                {t('settings.manage_subscription')}
-              </Button>
-            </Link>
-          </CardContent>
-        </Card>
+        {/* ── ABONNEMENT COMPLET ───────────────────────────────────────────
+            Auparavant : un résumé + un bouton « Gérer mon abonnement » qui
+            renvoyait vers /subscription — alors que les tokens et le parrainage
+            étaient, eux, juste en dessous. Deux endroits pour la même chose : la
+            jauge de crédits menait à /subscription, les Paramètres à un résumé.
+            On affiche donc ici le contenu réel (plan, crédits IA + recharge,
+            changement de plan, annulation) ; /subscription redirige vers cet
+            onglet, ce qui garde valides tous les liens existants.
+            ⚠️ Suspense obligatoire : le composant lit les paramètres d'URL
+            (retour de paiement `?success=`) et suspend donc au montage. */}
+        <Suspense fallback={<div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}>
+          <SubscriptionContent />
+        </Suspense>
 
-        {/* Tokens IA supplémentaires */}
+        {/* Tokens IA supplémentaires.
+            ⚠️ À NE PAS confondre avec les « crédits IA » ci-dessus : ce sont deux
+            produits différents. Les crédits = des CONVERSATIONS (la limite
+            commerciale) ; les tokens = le backstop technique anti-abus. */}
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
