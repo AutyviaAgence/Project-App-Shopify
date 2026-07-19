@@ -69,6 +69,13 @@ function AutomationsPageInner({ urlTab, urlId }: { urlTab: AutomationKind; urlId
   // Panneau « Performance » ouvert (slide-over droit) pour l'automatisation courante.
   const [showPerf, setShowPerf] = useState(false)
 
+  // ⚠️ Miroir des valeurs COURANTES de l'écran (voir « MÉMOIRE PAR ONGLET » plus
+  // bas). Déclaré ICI car `load` s'en sert : une ref lue dans un callback doit
+  // exister avant lui. Mise à jour à chaque rendu → toujours l'état réel, jamais
+  // une valeur périmée capturée par une closure.
+  type TabState = { current: Automation | null; showChat: boolean; showChoose: boolean; showWizard: boolean; showPerf: boolean }
+  const liveStateRef = useRef<TabState>({ current: null, showChat: false, showChoose: false, showWizard: false, showPerf: false })
+
   const load = useCallback(async () => {
     try {
       const [aRes, tRes, fRes] = await Promise.all([
@@ -93,7 +100,12 @@ function AutomationsPageInner({ urlTab, urlId }: { urlTab: AutomationKind; urlId
       // ÉCRASERAIT les modifications non sauvegardées du canvas au simple retour
       // sur la page. La sélection et le travail en cours priment ; les données
       // fraîches servent la liste, pas l'élément ouvert.
-      setCurrent((c) => c || autos.find((a) => (a.kind === 'marketing' ? 'marketing' : 'transactional') === tab) || null)
+      //
+      // ⚠️ Et on n'auto-sélectionne PAS si un panneau est ouvert : le marchand qui
+      // était sur l'assistant IA (donc sans automatisation ouverte) et revient de
+      // Modèles verrait sinon un workflow s'ouvrir PAR-DESSUS son assistant.
+      const panelOpen = liveStateRef.current.showChat || liveStateRef.current.showChoose || liveStateRef.current.showWizard
+      setCurrent((c) => c || (panelOpen ? null : autos.find((a) => (a.kind === 'marketing' ? 'marketing' : 'transactional') === tab) || null))
     } finally {
       setLoading(false)
     }
@@ -222,23 +234,45 @@ function AutomationsPageInner({ urlTab, urlId }: { urlTab: AutomationKind; urlId
   // de la liste : le marchand qui avait ouvert « Optin », partait sur Modèles puis
   // revenait, retrouvait « Optin popup ». On ne réagit donc qu'au changement réel
   // de l'onglet ciblé par l'URL.
+  // ── MÉMOIRE PAR ONGLET ──────────────────────────────────────────────────────
+  //
+  // Campagnes et Transactionnel sont la MÊME page (?tab=). Il faut donc deux
+  // choses A LA FOIS, et c'est tout l'enjeu :
+  //   · les deux onglets sont SÉPARÉS (l'assistant ouvert en Campagnes ne doit
+  //     pas apparaître en Transactionnel) ;
+  //   · chaque onglet est PERSISTANT (revenir dessus, même après un détour par
+  //     Modèles, doit rendre EXACTEMENT ce qu'on y avait laissé).
+  //
+  // Réinitialiser au changement d'onglet donnait bien la séparation, mais tuait
+  // la persistance. On MÉMORISE donc l'état de l'onglet qu'on quitte, et on
+  // RESTAURE celui qu'on rejoint.
+  const tabMemoryRef = useRef<Partial<Record<AutomationKind, TabState>>>({})
   const prevUrlTabRef = useRef<AutomationKind | null>(null)
+  // Rafraîchit le miroir à chaque rendu (cf. sa déclaration, plus haut).
+  liveStateRef.current = { current, showChat, showChoose, showWizard, showPerf }
   useEffect(() => {
     if (urlId) return
-    const changed = prevUrlTabRef.current !== null && prevUrlTabRef.current !== urlTab
+    const from = prevUrlTabRef.current
     prevUrlTabRef.current = urlTab
-    if (!changed) return
+    if (from === null || from === urlTab) return // 1er rendu, ou même onglet : rien à faire
+
+    // 1. On range l'état de l'onglet qu'on QUITTE.
+    tabMemoryRef.current[from] = { ...liveStateRef.current }
+
+    // 2. On restaure celui qu'on REJOINT (vierge s'il n'a jamais été visité).
+    const saved = tabMemoryRef.current[urlTab]
     setTab(urlTab)
-    // ⚠️ `showChat` DOIT être fermé aussi (il manquait).
-    //
-    // Campagnes et Transactionnel sont la MÊME page (?tab=), et la page ne se
-    // remonte plus (keep-alive). L'assistant IA ouvert côté Campagnes restait donc
-    // affiché en basculant sur Transactionnel — alors que ce sont deux contextes
-    // distincts (l'assistant construit un funnel pour l'onglet courant).
-    // `showPerf` aussi : il affiche les performances de l'automatisation ouverte,
-    // qui est justement réinitialisée juste en dessous.
-    setShowChoose(false); setShowWizard(false); setShowChat(false); setShowPerf(false)
-    setCurrent((c) => (c && kindOf(c) === urlTab) ? c : null)
+    setShowChat(saved?.showChat ?? false)
+    setShowChoose(saved?.showChoose ?? false)
+    setShowWizard(saved?.showWizard ?? false)
+    setShowPerf(saved?.showPerf ?? false)
+    // La sélection restaurée doit toujours appartenir à l'onglet (sécurité si une
+    // automatisation a changé de type entre-temps).
+    const restored = saved?.current ?? null
+    setCurrent(restored && kindOf(restored) === urlTab ? restored : null)
+    // `current`/`show*` sont lus pour la sauvegarde : les mettre en dépendances
+    // relancerait l'effet à chaque frappe. Seul le changement d'onglet compte.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [urlTab, urlId])
 
   // Ouvrir l'automatisation ciblée par ?id= (lien « voir l'automatisation »
