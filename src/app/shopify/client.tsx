@@ -568,7 +568,8 @@ export default function ShopifyEmbeddedClient() {
         // aucun champ n'existait pour le saisir.
         // `billing` : sans lui, tout marchand était facturé au MOIS, même en
         // choisissant l'annuel — l'intervalle n'était jamais transmis d'ici.
-        body: JSON.stringify({ shop, plan, billing, ...(promoCode.trim() ? { promo_code: promoCode.trim() } : {}) }),
+        // `origin` : ramène le marchand ICI s'il annule sur l'écran Shopify.
+        body: JSON.stringify({ shop, plan, billing, origin: 'embedded', ...(promoCode.trim() ? { promo_code: promoCode.trim() } : {}) }),
       })
       const json = await res.json()
       const url = json?.data?.confirmationUrl

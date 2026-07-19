@@ -6,27 +6,35 @@ import { PLANS, type PlanId } from '@/lib/shopify/plans'
 
 /**
  * GET /api/shopify/billing/callback?shop=…&plan=…
- * Retour après confirmation du paiement par le marchand (Billing API).
+ * Retour de l'écran de facturation Shopify (Billing API).
+ *
+ * ⚠️ `appSubscriptionCreate` ne prend QU'UNE URL de retour : Shopify y renvoie
+ * le marchand qu'il approuve OU qu'il annule. Il n'existe pas d'URL
+ * d'annulation distincte — c'est à nous de distinguer les deux cas.
  *
  * ⚠️ SÉCURITÉ : ne JAMAIS faire confiance aux query params seuls. On vérifie
  * auprès de Shopify que l'abonnement (charge_id stocké au subscribe) est bien
  * ACTIVE avant d'activer le plan — sinon n'importe qui pourrait forger ce
  * callback (?shop=X&plan=scale) et débloquer un plan payant sans payer.
  */
+
 /**
- * Ramène le marchand DANS l'app plutôt que sur une page d'erreur nue.
+ * Ramène le marchand LÀ D'OÙ IL VIENT, plutôt que sur une page d'erreur nue.
  *
- * Shopify renvoie sur le MÊME `returnUrl` que le marchand approuve ou annule —
- * il n'y a pas d'URL d'annulation distincte. Tout échec de vérification ici est
- * donc, la plupart du temps, un simple « Annuler » : répondre un JSON d'erreur
- * laissait le marchand bloqué devant un message brut au lieu de son tableau de
- * bord. On redirige avec un motif que l'app affiche en message discret.
+ * `from` est posé par /subscribe depuis une liste blanche — jamais une URL
+ * libre, sinon ce lien signé par Shopify deviendrait une redirection ouverte.
  */
-function backToApp(shop: string, reason: string) {
+function backToApp(req: NextRequest, shop: string, reason: string) {
   const { appUrl } = getShopifyConfig()
-  return NextResponse.redirect(
-    `${appUrl}/shopify?shop=${encodeURIComponent(shop)}&billing=${reason}`
-  )
+  const from = req.nextUrl.searchParams.get('from')
+
+  const path =
+    from === 'subscription' ? '/settings?tab=abonnement'
+    : from === 'onboarding' ? '/onboarding'
+    : `/shopify?shop=${encodeURIComponent(shop)}`
+
+  const sep = path.includes('?') ? '&' : '?'
+  return NextResponse.redirect(`${appUrl}${path}${sep}billing=${reason}`)
 }
 
 export async function GET(req: NextRequest) {
@@ -52,7 +60,7 @@ export async function GET(req: NextRequest) {
     .maybeSingle()
 
   if (!store?.access_token || !store.shopify_charge_id) {
-    return backToApp(shop, 'none')
+    return backToApp(req, shop, 'none')
   }
 
   // VÉRIFICATION auprès de Shopify : l'abonnement doit être ACTIVE.
@@ -62,13 +70,34 @@ export async function GET(req: NextRequest) {
   // explicite au marchand plutôt que d'échouer en silence.
   const token = await getValidAccessToken(shop)
   if (!token) {
-    return backToApp(shop, 'reconnect')
+    return backToApp(req, shop, 'reconnect')
   }
   const sub = await getAppSubscriptionStatus(shop, token, store.shopify_charge_id)
   if (!sub || sub.status !== 'ACTIVE') {
-    // Cas nominal du bouton « Annuler » : l'abonnement reste DECLINED/PENDING.
-    // Ce n'est pas une erreur, le marchand a simplement changé d'avis.
-    return backToApp(shop, 'cancelled')
+    // ── ANNULATION : on revient simplement en arrière ────────────────────────
+    //
+    // C'est le chemin du bouton « Annuler » (l'abonnement reste DECLINED, ou
+    // n'existe pas). Ce n'est PAS une erreur : le marchand a changé d'avis.
+    //
+    // On efface l'attente laissée par /subscribe, sinon l'app continuerait
+    // d'annoncer un changement de plan « en cours » qui n'arrivera jamais, et
+    // le prochain essai comparerait au mauvais plan de référence.
+    //
+    // `plan` et `subscription_status` ne sont PAS touchés : /subscribe ne les
+    // modifie pas non plus (il n'écrit que `pending_plan`), donc un marchand
+    // déjà abonné qui renonce à changer de formule garde exactement la sienne.
+    //
+    // ⚠️ NE PAS effacer `shopify_charge_id` ici. /subscribe l'a écrasé avec le
+    // NOUVEAU abonnement (celui qui vient d'être refusé), mais /billing/cancel
+    // s'en sert comme unique référence pour résilier : le vider laisserait un
+    // marchand déjà abonné sans aucun moyen d'annuler sa formule en cours.
+    // Le prochain /subscribe le réécrira de toute façon.
+    await admin
+      .from('shopify_stores')
+      .update({ pending_plan: null, updated_at: new Date().toISOString() })
+      .eq('id', store.id)
+
+    return backToApp(req, shop, 'cancelled')
   }
 
   // La VRAIE date de fin de période, demandée à Shopify.
@@ -175,6 +204,6 @@ export async function GET(req: NextRequest) {
     console.log('[billing/callback] récompense différée : essai en cours pour', shop)
   }
 
-  const { appUrl } = getShopifyConfig()
-  return NextResponse.redirect(`${appUrl}/shopify?shop=${encodeURIComponent(shop)}&subscribed=1`)
+  // Succès : même logique de retour — le marchand revient là où il a cliqué.
+  return backToApp(req, shop, 'ok')
 }

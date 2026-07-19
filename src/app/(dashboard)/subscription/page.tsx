@@ -244,6 +244,8 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
           shop: shopDomain,
           plan: selectedPlan,
           billing: billingInterval,
+          // Ramène ici si le marchand annule sur l'écran Shopify.
+          origin: 'subscription',
           // N'envoyer la clé que si un code est saisi : la route refuse un code
           // vide, et un `promo_code: ''` la ferait échouer inutilement.
           ...(promoCode.trim() ? { promo_code: promoCode.trim() } : {}),

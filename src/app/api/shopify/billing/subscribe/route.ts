@@ -31,6 +31,8 @@ export async function POST(req: NextRequest) {
     plan?: PlanId
     promo_code?: string
     billing?: 'monthly' | 'annual'
+    /** D'où part la demande, pour y ramener le marchand s'il annule. */
+    origin?: 'embedded' | 'subscription' | 'onboarding'
   }
   // En embedded, la boutique vient du SESSION TOKEN (source sûre), pas du corps.
   const shop = authed.shop || body.shop
@@ -39,6 +41,14 @@ export async function POST(req: NextRequest) {
   // Intervalle de facturation : mensuel (défaut) ou annuel (-20 %).
   const billing: 'monthly' | 'annual' = body.billing === 'annual' ? 'annual' : 'monthly'
   const isAnnual = billing === 'annual'
+
+  // Page d'où part la demande — le callback y ramène le marchand s'il annule.
+  //
+  // ⚠️ LISTE BLANCHE, jamais une URL. Ce champ vient du navigateur : accepter un
+  // chemin libre ouvrirait une redirection arbitraire depuis un lien signé par
+  // Shopify. Une valeur inconnue retombe sur la vue embedded.
+  const origin =
+    body.origin === 'subscription' || body.origin === 'onboarding' ? body.origin : 'embedded'
 
   if (!shop || !isValidShopDomain(shop)) {
     return NextResponse.json({ error: 'Paramètre shop invalide' }, { status: 400 })
@@ -144,6 +154,7 @@ export async function POST(req: NextRequest) {
   const returnUrl =
     `${appUrl}/api/shopify/billing/callback?shop=${encodeURIComponent(shop)}&plan=${plan}` +
     `&interval=${billing}` +
+    `&from=${origin}` +
     (promoId ? `&promo=${promoId}` : '') +
     (isDowngrade ? '&deferred=1' : '')
 

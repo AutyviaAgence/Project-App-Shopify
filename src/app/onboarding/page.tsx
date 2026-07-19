@@ -504,6 +504,8 @@ export default function OnboardingPage() {
           shop: state.shopDomain,
           plan: planId,
           billing,
+          // Ramène à l'onboarding si le marchand annule sur l'écran Shopify.
+          origin: 'onboarding',
           ...(promoCode.trim() ? { promo_code: promoCode.trim() } : {}),
         }),
       })
