@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useEffect, useState, useCallback, Suspense } from 'react'
+import React, { useEffect, useState, useCallback, useRef, Suspense } from 'react'
 import { useKeepAliveFocus } from '@/components/keep-alive-outlet'
 import { AnimatePresence } from 'framer-motion'
 import { useSearchParams } from 'next/navigation'
@@ -84,6 +84,18 @@ function AutomationsPageInner() {
       setTemplates((tRes.data || []).filter(isBuildableTemplate))
       setFolders(fRes.data || [])
       // Ouvre la 1re automatisation de l'onglet courant (ou rien).
+      //
+      // ⚠️ Si une automatisation est DÉJÀ ouverte, on la GARDE — mais on la
+      // rafraîchit depuis le serveur (même id) : sans ça, revenir sur la page
+      // (keep-alive) réaffichait une version périmée de l'automatisation, et une
+      // création en cours (id vide) était perdue.
+      // ⚠️ ON NE REMPLACE JAMAIS `current` s'il est déjà posé.
+      //
+      // Tentant de le « rafraîchir » depuis le serveur — mais changer sa référence
+      // relance l'effet qui recharge le graphe (cf. useEffect [current]), ce qui
+      // ÉCRASERAIT les modifications non sauvegardées du canvas au simple retour
+      // sur la page. La sélection et le travail en cours priment ; les données
+      // fraîches servent la liste, pas l'élément ouvert.
       setCurrent((c) => c || autos.find((a) => (a.kind === 'marketing' ? 'marketing' : 'transactional') === tab) || null)
     } finally {
       setLoading(false)
@@ -205,8 +217,20 @@ function AutomationsPageInner() {
   // ⚠️ Sauf si l'URL cible une automatisation précise (?id=, depuis une bulle de
   // conversation) : cet effet remettrait `current` à null et on retomberait sur
   // la liste, alors que le marchand a cliqué pour voir CETTE automatisation.
+  // ⚠️ NE SE DÉCLENCHE QUE SUR UN VRAI CHANGEMENT D'ONGLET.
+  //
+  // Cet effet tournait à chaque (re)exécution — donc aussi au RETOUR sur la page
+  // (keep-alive : la page reste montée, mais l'effet se rejouait). Il remettait
+  // alors `current` à null, et `load()` resélectionnait la PREMIÈRE automatisation
+  // de la liste : le marchand qui avait ouvert « Optin », partait sur Modèles puis
+  // revenait, retrouvait « Optin popup ». On ne réagit donc qu'au changement réel
+  // de l'onglet ciblé par l'URL.
+  const prevUrlTabRef = useRef<AutomationKind | null>(null)
   useEffect(() => {
     if (urlId) return
+    const changed = prevUrlTabRef.current !== null && prevUrlTabRef.current !== urlTab
+    prevUrlTabRef.current = urlTab
+    if (!changed) return
     setTab(urlTab)
     setShowChoose(false); setShowWizard(false)
     setCurrent((c) => (c && kindOf(c) === urlTab) ? c : null)
@@ -216,10 +240,17 @@ function AutomationsPageInner() {
   // depuis un message envoyé). On bascule aussi sur SON onglet : sans ça elle
   // serait chargée mais invisible dans la liste, ce qui donne l'impression d'un
   // lien cassé. On attend que la liste soit chargée pour la retrouver.
+  // ⚠️ UNE SEULE FOIS PAR `?id=` : cet effet dépend de `automations`, or `load()`
+  // en recrée la liste à chaque retour sur la page (keep-alive). Sans ce garde-fou
+  // il rouvrait l'automatisation de l'URL et écrasait la sélection (et le graphe
+  // en cours d'édition) chaque fois qu'on revenait.
+  const appliedUrlIdRef = useRef<string | null>(null)
   useEffect(() => {
     if (!urlId || automations.length === 0) return
+    if (appliedUrlIdRef.current === urlId) return
     const target = automations.find((a) => a.id === urlId)
     if (!target) return
+    appliedUrlIdRef.current = urlId
     setTab(kindOf(target))
     setCurrent(target)
     setShowChoose(false); setShowWizard(false)
