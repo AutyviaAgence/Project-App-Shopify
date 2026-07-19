@@ -455,8 +455,14 @@ export default function SettingsPage() {
       // jamais et on affichait « email envoyé » même quand rien ne partait
       // (SMTP non configuré, quota d'envoi Supabase atteint, domaine refusé).
       // Le marchand attendait un email qui n'existait pas.
+      // ⚠️ DESTINATION : /update-password, la page qui fait SAISIR le mot de passe.
+      //
+      // Le lien pointait vers `/auth/callback?redirect=/settings` : le marchand
+      // était reconnecté puis renvoyé aux Paramètres, sans qu'on lui propose nulle
+      // part de choisir son mot de passe — alors que c'est tout l'objet du bouton.
+      // C'est la page déjà utilisée par le flux « mot de passe oublié ».
       const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-        redirectTo: `${window.location.origin}/auth/callback?redirect=/settings`,
+        redirectTo: `${window.location.origin}/update-password`,
       })
       if (error) {
         console.error('[settings] envoi email mot de passe échoué:', error.message, error.status)
