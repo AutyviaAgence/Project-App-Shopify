@@ -7,6 +7,7 @@ import { TEMPLATE_VARIABLES } from '@/lib/templates/variables'
 import { USE_CASES } from '@/lib/templates/use-cases'
 import { buildStoreContextPrompt } from '@/lib/shopify/sync'
 import { canUseAiOrOnboarding } from '@/lib/plans/gate'
+import { checkTokenLimit } from '@/lib/openai/token-tracker'
 
 /**
  * POST /api/templates/converse
@@ -73,6 +74,17 @@ export async function POST(req: NextRequest) {
 
   const gate = await canUseAiOrOnboarding(user.id)
   if (!gate.allowed) return NextResponse.json({ error: 'L’assistant IA de création de modèles nécessite un plan payant.', upgrade: true }, { status: 403 })
+
+  // ⚠️ QUOTA DE TOKENS — protege VOTRE cle OpenAI, qui est mutualisee.
+  //
+  // Cette route etait authentifiee mais sans aucun garde-fou : un seul compte
+  // (y compris un compte d'essai cree pour l'occasion) pouvait la boucler et
+  // bruler le budget API. Les routes voisines (agents/generate, optimize-prompt,
+  // refine-prompt) verifiaient deja le quota — c'etait un oubli, pas un choix.
+  const tokenCheck = await checkTokenLimit(user.id)
+  if (!tokenCheck.allowed) {
+    return NextResponse.json({ error: 'Limite de tokens IA atteinte. Achetez des tokens supplementaires.' }, { status: 429 })
+  }
 
   const body = (await req.json().catch(() => ({}))) as { messages?: Msg[] }
   const messages = (body.messages || []).filter((m) => m && m.content?.trim()).slice(-20)

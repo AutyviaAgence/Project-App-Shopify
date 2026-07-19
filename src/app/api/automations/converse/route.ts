@@ -3,6 +3,7 @@ import OpenAI from 'openai'
 import { createClient } from '@/lib/supabase/server'
 import { logAiUsage } from '@/lib/openai/usage-log'
 import { canUseAiOrOnboarding } from '@/lib/plans/gate'
+import { checkTokenLimit } from '@/lib/openai/token-tracker'
 import { GRAPH_JSON_SCHEMA_DOC, validateGraph, buttonBranch, BUTTON_TIMEOUT_BRANCH, type WorkflowGraph } from '@/lib/automations/graph-types'
 import { TRIGGER_EVENTS, triggersForKind, type TriggerEvent } from '@/lib/automations/types'
 
@@ -202,6 +203,17 @@ export async function POST(req: NextRequest) {
   const gate = await canUseAiOrOnboarding(user.id)
   if (!gate.allowed) {
     return NextResponse.json({ error: 'L’assistant IA de création de workflow nécessite un plan payant.', upgrade: true }, { status: 403 })
+  }
+
+  // ⚠️ QUOTA DE TOKENS — protege VOTRE cle OpenAI, qui est mutualisee.
+  //
+  // Cette route etait authentifiee mais sans aucun garde-fou : un seul compte
+  // (y compris un compte d'essai cree pour l'occasion) pouvait la boucler et
+  // bruler le budget API. Les routes voisines (agents/generate, optimize-prompt,
+  // refine-prompt) verifiaient deja le quota — c'etait un oubli, pas un choix.
+  const tokenCheck = await checkTokenLimit(user.id)
+  if (!tokenCheck.allowed) {
+    return NextResponse.json({ error: 'Limite de tokens IA atteinte. Achetez des tokens supplementaires.' }, { status: 429 })
   }
 
   const body = (await req.json().catch(() => ({}))) as {

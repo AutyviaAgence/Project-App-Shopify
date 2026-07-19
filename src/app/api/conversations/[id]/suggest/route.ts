@@ -5,6 +5,7 @@ import { decryptMessage } from '@/lib/crypto/encryption'
 import { generateAgentResponse, type OpenAIMessage } from '@/lib/openai/client'
 import { logAiUsage } from '@/lib/openai/usage-log'
 import { canUseAi } from '@/lib/plans/gate'
+import { checkTokenLimit } from '@/lib/openai/token-tracker'
 
 /**
  * POST /api/conversations/[id]/suggest
@@ -24,6 +25,13 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       { error: "Cette fonctionnalité IA nécessite un plan payant." },
       { status: 403 }
     )
+  }
+
+  // ⚠️ QUOTA DE TOKENS — protège la clé OpenAI, qui est mutualisée. Sans ce
+  // contrôle, un compte pouvait boucler sur la suggestion et brûler le budget API.
+  const tokenCheck = await checkTokenLimit(user.id)
+  if (!tokenCheck.allowed) {
+    return NextResponse.json({ error: 'Limite de tokens IA atteinte. Achetez des tokens supplémentaires.' }, { status: 429 })
   }
 
   const admin = createAdminClient(

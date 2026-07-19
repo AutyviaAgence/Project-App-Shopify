@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { checkTokenLimit } from '@/lib/openai/token-tracker'
 import OpenAI from 'openai'
 import { createClient } from '@/lib/supabase/server'
 import { logAiUsage } from '@/lib/openai/usage-log'
@@ -24,6 +25,14 @@ export async function POST(req: NextRequest) {
   const supabase = await createClient()
   const { data: { user }, error: authError } = await supabase.auth.getUser()
   if (authError || !user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+
+  // ⚠️ QUOTA DE TOKENS — la cle OpenAI est mutualisee entre tous les marchands.
+  // Sans ce controle, un seul compte pouvait boucler sur cette route et bruler
+  // le budget API. Les routes agents/generate & co le verifiaient deja.
+  const tokenCheck = await checkTokenLimit(user.id)
+  if (!tokenCheck.allowed) {
+    return NextResponse.json({ error: 'Limite de tokens IA atteinte. Achetez des tokens supplementaires.' }, { status: 429 })
+  }
 
   const body = (await req.json().catch(() => ({}))) as { tone?: string; objectives?: string[]; refresh?: boolean }
 

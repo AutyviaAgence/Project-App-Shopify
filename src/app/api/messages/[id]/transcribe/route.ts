@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { checkTokenLimit } from '@/lib/openai/token-tracker'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { downloadMediaFromStorage } from '@/lib/storage/media'
 import { transcribeAudio, describeImage } from '@/lib/openai/client'
@@ -54,6 +55,15 @@ export async function POST(
 
   if (session.user_id !== user.id) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+  }
+
+  // ⚠️ QUOTA DE TOKENS — placé APRÈS le contrôle d'appartenance (inutile de
+  // consommer du quota pour une requête qu'on va refuser). La transcription
+  // Whisper est facturée : sans ce garde-fou, un compte pouvait boucler dessus
+  // et brûler le budget OpenAI, qui est mutualisé entre tous les marchands.
+  const tokenCheck = await checkTokenLimit(user.id)
+  if (!tokenCheck.allowed) {
+    return NextResponse.json({ error: 'Limite de tokens IA atteinte. Achetez des tokens supplémentaires.' }, { status: 429 })
   }
 
   // Télécharger le média depuis Supabase Storage
