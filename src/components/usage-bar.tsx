@@ -26,6 +26,13 @@ type Usage = {
     unlimited: boolean
     percentage: number
     fairUseCap: number | null
+    /** Ventilation plan / recharges (cf. /api/subscription/usage). Le quota du
+     *  plan se remet à zéro chaque mois ; les recharges ne périment pas. */
+    planLimit?: number | null
+    extra?: number
+    planUsed?: number
+    extraUsed?: number
+    extraRemaining?: number | null
   }
 }
 
@@ -107,6 +114,22 @@ export function UsageBar() {
   const low = pct >= 80
   const critical = pct >= 95
 
+  // ── RESTANT + RECHARGES ─────────────────────────────────────────────────────
+  // La barre affichait « consommé / total » : le marchand devait faire la
+  // soustraction pour savoir ce qui lui reste — l'information qui l'intéresse
+  // vraiment. Et les recharges (qui ne périment pas) étaient noyées dans le
+  // total. On affiche donc le RESTANT, en distinguant le quota du plan des
+  // recharges.
+  const planLimit = usage.conversations.planLimit ?? limit ?? 0
+  const planUsed = usage.conversations.planUsed ?? used
+  const extra = usage.conversations.extra ?? 0
+  const extraLeft = usage.conversations.extraRemaining
+    ?? Math.max(0, extra - (usage.conversations.extraUsed ?? 0))
+  const planLeft = Math.max(0, planLimit - planUsed)
+  // Part du plan dans la barre : le reste est la portion « recharge » (ambre),
+  // pour qu'on voie d'un coup d'œil que du crédit supplémentaire prend le relais.
+  const planShare = total > 0 ? Math.min(100, (planLimit / total) * 100) : 100
+
   // Couleur de la barre + libellé selon le niveau de conso.
   const barColor = critical
     ? 'from-rose-500 to-red-500'
@@ -120,7 +143,11 @@ export function UsageBar() {
   return (
     <Link
       href="/subscription"
-      title={`${used} / ${total} conversations IA utilisées ce mois-ci, plan ${planName}`}
+      title={
+        `${planLeft} conversation(s) IA restantes sur les ${planLimit} incluses dans le plan ${planName}` +
+        (extraLeft > 0 ? ` · +${extraLeft} de recharge (ne périment pas)` : '') +
+        ` · ${used} utilisée(s) ce mois-ci`
+      }
       className="group flex w-full items-center gap-3 rounded-full border border-border/60 bg-muted/30 px-4 py-1.5 transition-colors hover:border-primary/40"
     >
       <Zap className={cn('h-4 w-4 shrink-0', critical ? 'text-rose-500' : low ? 'text-amber-500' : 'text-emerald-500')} />
@@ -129,16 +156,31 @@ export function UsageBar() {
           le compteur : la barre s'affichait sinon vide, sans aucun contexte. */}
       <span className="shrink-0 whitespace-nowrap text-xs">
         <span className="hidden text-muted-foreground sm:inline">Crédits IA </span>
-        <span className={cn('tabular-nums font-semibold', textColor)}>{used.toLocaleString('fr-FR')}</span>
-        <span className="text-muted-foreground"> / {total.toLocaleString('fr-FR')}</span>
+        <span className={cn('tabular-nums font-semibold', textColor)}>{planLeft.toLocaleString('fr-FR')}</span>
+        <span className="text-muted-foreground"> restants</span>
+        {/* Recharges affichées à part : elles ne périment pas, contrairement au
+            quota du plan qui se remet à zéro chaque mois. */}
+        {extraLeft > 0 && (
+          <span className="ml-1 rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-amber-600">
+            +{extraLeft.toLocaleString('fr-FR')}
+          </span>
+        )}
       </span>
 
-      {/* Barre de progression colorée */}
+      {/* Barre de progression. Quand des recharges existent, une césure marque la
+          fin du quota du plan : au-delà, c'est le crédit acheté qui est entamé. */}
       <div className="relative h-2 flex-1 overflow-hidden rounded-full bg-muted">
         <div
           className={cn('h-full rounded-full bg-gradient-to-r transition-all duration-500', barColor)}
           style={{ width: `${pct}%` }}
         />
+        {extra > 0 && planShare < 100 && (
+          <div
+            className="absolute inset-y-0 w-px bg-amber-500/70"
+            style={{ left: `${planShare}%` }}
+            title="Au-delà : crédits de recharge"
+          />
+        )}
       </div>
 
       {/* Bouton « Recharger », quand il reste peu de crédits.
