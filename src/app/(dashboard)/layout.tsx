@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo, useCallback, Suspense } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef, Suspense } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
@@ -99,10 +99,17 @@ const ALLOWED_WITHOUT_SUBSCRIPTION = ['/subscription', '/settings', '/admin', '/
 // Le dashboard reste accessible : c'est là qu'on reconnecte la boutique.
 const STORE_REQUIRED_PATHS = ['/conversations', '/agents', '/templates', '/automations', '/stats', '/campaigns', '/lifecycle']
 
-function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
+// ⚠️ `currentTab` arrive en PROP, il n'est PAS lu ici.
+//
+// Appeler `useSearchParams()` dans CE composant faisait suspendre TOUT le layout
+// a chaque navigation touchant la query (?tab=marketing <-> ?tab=transactional).
+// Or un composant qui suspend est demonte puis remonte — et le layout contient le
+// KeepAliveOutlet : TOUTES les pages persistantes etaient donc detruites d'un
+// coup. C'etait la cause racine de la perte d'etat sur Campagnes/Transactionnel,
+// un etage AU-DESSUS de la page elle-meme.
+function DashboardLayoutInner({ children, currentTab }: { children: React.ReactNode; currentTab: string | null }) {
   const pathname = usePathname()
   const router = useRouter()
-  const searchParams = useSearchParams()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [pinned, setPinned] = useState(true)   // sidebar épinglée ouverte par défaut (desktop)
   const [hovered, setHovered] = useState(false)  // survol → élargissement temporaire
@@ -248,7 +255,6 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
     // Sous-entrées (accordéon) : déployées quand la route parente est active
     // ET la sidebar élargie. `tab` courant lu dans l'URL pour surligner.
     const children = (item as { children?: { href: string; label: string; icon: typeof item.icon }[] }).children
-    const currentTab = searchParams.get('tab')
     // Un menu à sous-entrées est déplié s'il a été ouvert manuellement OU si sa
     // route est active (on arrive dessus par lien direct → sous-menu visible).
     const menuOpen = !!children && (openMenus.has(item.href) || isActive)
@@ -600,11 +606,38 @@ function DashboardLayoutInner({ children }: { children: React.ReactNode }) {
   )
 }
 
-// `useSearchParams` (sous-menu accordéon) exige un Suspense boundary en Next 16.
+/**
+ * ⚠️ LE LAYOUT NE DOIT JAMAIS SUSPENDRE.
+ *
+ * Il contient le KeepAliveOutlet : s'il suspend, React le demonte et TOUTES les
+ * pages gardees vivantes sont detruites (etat, selection, travail en cours).
+ * Or `useSearchParams()` suspend a chaque navigation touchant la query — d'ou la
+ * perte d'etat sur Campagnes/Transactionnel malgre le keep-alive.
+ *
+ * Un lecteur dedie suspend donc a sa place, et remonte la valeur au layout qui,
+ * lui, reste monte en permanence. Le `?tab=` ne sert qu'au surlignage du
+ * sous-menu : le layout s'affiche immediatement, le surlignage suit.
+ */
+function TabParamReader({ onChange }: { onChange: (v: string | null) => void }) {
+  const sp = useSearchParams()
+  const tab = sp.get('tab')
+  const ref = useRef(onChange)
+  ref.current = onChange
+  useEffect(() => { ref.current(tab) }, [tab])
+  return null
+}
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
+  const [currentTab, setCurrentTab] = useState<string | null>(null)
+  const handleTab = useCallback((v: string | null) => {
+    setCurrentTab((prev) => (prev === v ? prev : v))
+  }, [])
   return (
-    <Suspense fallback={<BlobLoaderScreen />}>
-      <DashboardLayoutInner>{children}</DashboardLayoutInner>
-    </Suspense>
+    <>
+      <Suspense fallback={null}>
+        <TabParamReader onChange={handleTab} />
+      </Suspense>
+      <DashboardLayoutInner currentTab={currentTab}>{children}</DashboardLayoutInner>
+    </>
   )
 }
