@@ -36,12 +36,8 @@ export async function POST(req: NextRequest) {
   }
 
   const body = (await req.json().catch(() => ({}))) as { shop?: string; pack?: string }
-  const shop = authed.shop || body.shop
   const packId = body.pack as PackId | undefined
 
-  if (!shop || !isValidShopDomain(shop)) {
-    return NextResponse.json({ error: 'Paramètre shop invalide' }, { status: 400 })
-  }
   if (!packId || !(packId in ONE_TIME_PACKS)) {
     return NextResponse.json({ error: 'Pack invalide' }, { status: 400 })
   }
@@ -52,6 +48,34 @@ export async function POST(req: NextRequest) {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
+
+  // ⚠️ RÉSOLUTION DE LA BOUTIQUE, SANS DÉPENDRE DE L'APPELANT.
+  //
+  // `authed.shop` n'existe QU'EN EMBEDDED (il vient du session token Shopify).
+  // Depuis le dashboard web il est vide, et les appelants qui n'envoyaient pas
+  // `shop` dans le corps se prenaient « Paramètre shop invalide » — c'était le cas
+  // des 3 boutons de recharge (page Abonnement, Réglages, jauge d'usage), dont un
+  // échouait même en silence. On déduit donc la boutique du marchand authentifié
+  // quand elle n'est pas fournie : plus aucun appelant ne peut l'oublier.
+  let shop = authed.shop || body.shop
+  if (!shop) {
+    const { data: own } = await admin
+      .from('shopify_stores')
+      .select('shop_domain')
+      .eq('user_id', authed.userId)
+      .eq('is_active', true)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    shop = own?.shop_domain ?? undefined
+  }
+
+  if (!shop || !isValidShopDomain(shop)) {
+    return NextResponse.json(
+      { error: 'Aucune boutique Shopify liée à votre compte.' },
+      { status: 400 }
+    )
+  }
 
   // La boutique doit appartenir à l'utilisateur : en embedded il n'y a pas de
   // RLS, c'est ce filtre qui garantit l'isolation entre marchands.

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { toast } from 'sonner'
 import Link from 'next/link'
 import { Sparkles, Zap, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -60,9 +61,12 @@ export function UsageBar() {
       })
       const json = await res.json()
       const url = json?.data?.confirmationUrl
-      if (url) window.location.href = url
-      else setBuying(false)
-    } catch {
+      if (url) { window.location.href = url; return }
+      // ⚠️ Ne PAS échouer en silence : le bouton se réactivait sans rien dire,
+      // le marchand cliquait en boucle sans comprendre. On remonte la raison.
+      throw new Error(json?.error || 'Achat impossible')
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Achat impossible')
       setBuying(false)
     }
   }

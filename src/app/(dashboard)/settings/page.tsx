@@ -890,10 +890,14 @@ export default function SettingsPage() {
                         body: JSON.stringify({ pack: 'tokens' }),
                       })
                       const json = await res.json()
-                      if (!res.ok || !json?.data?.confirmationUrl) throw new Error(json.error)
+                      if (!res.ok || !json?.data?.confirmationUrl) {
+                        throw new Error(json?.error || t('settings.tokens_buy_error'))
+                      }
                       window.location.href = json.data.confirmationUrl
-                    } catch {
-                      toast.error(t('settings.tokens_buy_error'))
+                    } catch (e) {
+                      // On remonte la raison exacte (jeton expiré, refus Shopify…)
+                      // plutôt qu'un message générique qui empêche tout diagnostic.
+                      toast.error(e instanceof Error ? e.message : t('settings.tokens_buy_error'))
                     }
                   }}
                 >

@@ -153,7 +153,11 @@ function SubscriptionContent() {
       const res = await fetch('/api/shopify/billing/purchase', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pack: 'ai_credits' }),
+        // ⚠️ `shop` est OBLIGATOIRE hors iframe Shopify. La route lit
+        // `authed.shop || body.shop` : en embedded le domaine vient du session
+        // token, mais depuis le dashboard web il n'y en a pas → « Paramètre shop
+        // invalide ». On l'envoie donc explicitement, comme pour l'abonnement.
+        body: JSON.stringify({ pack: 'ai_credits', shop: shopDomain }),
       })
       const json = await res.json()
       if (!res.ok || !json?.data?.confirmationUrl) {
