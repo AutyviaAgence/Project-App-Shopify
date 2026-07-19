@@ -100,14 +100,298 @@ const PLAN_CURRENCY = '€'
 // Plus de plan Gratuit : l'app est 100 % payante (7 jours d'essai). L'annulation
 // se fait via un bouton dédié (plus par une « carte Gratuit »).
 const PLANS = [
-  { id: 'starter', name: 'Starter', price: 49, desc: '550 conversations IA / mois' },
-  { id: 'pro', name: 'Pro', price: 149, desc: '1 800 conversations IA / mois' },
-  { id: 'scale', name: 'Scale', price: 349, desc: '4 500 conversations IA / mois' },
+  { id: 'starter', name: 'Starter', price: 49, aiConv: 550 },
+  { id: 'pro', name: 'Pro', price: 149, aiConv: 1800 },
+  { id: 'scale', name: 'Scale', price: 349, aiConv: 4500 },
 ]
+
+/**
+ * Dictionnaire LOCAL (FR/EN).
+ *
+ * ⚠️ Volontairement PAS le provider `@/i18n/context` : cette page vit hors de
+ * l'arbre React du provider (vue embedded Shopify). S'y brancher risquerait de
+ * casser le chargement dans l'iframe.
+ *
+ * L'anglais est la langue PAR DÉFAUT : Shopify est majoritairement anglophone et
+ * la review de l'App Store se fait en anglais. Le français n'est servi que si la
+ * locale transmise par Shopify commence par `fr`.
+ */
+const STRINGS = {
+  fr: {
+    // ── Locale de formatage (dates, nombres) ──
+    locale: 'fr-FR',
+
+    // ── En-tête ──
+    appTitle: 'Xeyo, WhatsApp Support & Chat',
+    opening: 'Ouverture…',
+    openApp: 'Ouvrir l’application →',
+    loading: 'Chargement…',
+
+    // ── Erreurs / messages système ──
+    errGeneric: 'Erreur',
+    errPurchase: 'Achat impossible',
+    errBilling: 'Erreur de facturation',
+    errLink: 'Liaison impossible',
+    errOpen: 'Ouverture impossible',
+
+    // ── Confirmations ──
+    confirmCancelUntil: (until: string) =>
+      `Annuler votre abonnement ?\n\nVous conservez votre accès jusqu'au ${until}, puis votre abonnement prendra fin. Aucun remboursement au prorata.`,
+    confirmCancel:
+      'Annuler votre abonnement ?\n\nVous conservez votre accès jusqu\'à la fin de la période déjà payée, puis votre abonnement prendra fin.',
+    confirmUnlink:
+      'Délier cette boutique de son compte Xeyo ?\n\n' +
+      'Vos contacts et conversations restent attachés au compte actuel. ' +
+      'Vous pourrez ensuite relier la boutique au compte de votre choix.',
+
+    // ── Écran d'accueil / liaison ──
+    welcomeTitle: 'Bienvenue sur Xeyo',
+    welcomeSubtitle: 'Votre agent IA WhatsApp pour le support et les ventes.',
+    featureAutoTitle: 'Réponses automatiques',
+    featureAutoDesc: 'Un agent IA répond à vos clients 24h/24, avec vos vraies données produits.',
+    featureCartTitle: 'Paniers abandonnés',
+    featureCartDesc: 'Relancez sur WhatsApp, là où les messages sont vraiment lus.',
+    featureOrderTitle: 'Suivi de commande',
+    featureOrderDesc: 'Confirmation, expédition, livraison : tout est envoyé automatiquement.',
+    linkTitle: 'Reliez votre compte',
+    linkDesc:
+      'Cette boutique n’est reliée à aucun compte Xeyo. Reliez-la pour accéder à vos contacts, votre agent IA et vos conversations.',
+    linking: 'Liaison…',
+    continueAs: (email: string) => `Continuer en tant que ${email}`,
+    createAccountAs: (email: string) => `Créer mon compte (${email})`,
+    haveAccount: 'J’ai déjà un compte Xeyo →',
+    collaboratorNote:
+      'Vous êtes collaborateur sur cette boutique. Reliez votre propre compte Xeyo, ou demandez au propriétaire de créer le compte.',
+    linkHint:
+      '« J’ai déjà un compte » ouvre app.xeyo.io : connectez-vous au compte de votre choix, la boutique y sera rattachée.',
+
+    // ── Non installé ──
+    notInstalledTitle: 'Installation requise',
+    notInstalledDesc:
+      'Cette boutique n’est pas encore reliée à Xeyo. Réinstallez l’application depuis l’App Store.',
+
+    // ── Onboarding ──
+    setupTitle: 'Terminez votre configuration',
+    setupDesc:
+      'Connectez WhatsApp, configurez votre agent IA et validez vos modèles de messages pour activer Xeyo sur votre boutique.',
+    setupCta: 'Continuer la configuration →',
+
+    // ── Contacts ──
+    contactsTitle: 'Vos contacts WhatsApp',
+    contactsDesc: 'Collectés depuis votre boutique (popup, checkout, page de remerciement).',
+    contactsLabel: 'Contacts',
+    optedInLabel: 'Abonnés WhatsApp (opt-in)',
+
+    // ── Conversations ──
+    conversationsTitle: 'Conversations récentes',
+    seeAll: 'Tout voir →',
+    noConversations: 'Aucune conversation pour l’instant.',
+    optInBadge: 'opt-in',
+
+    // ── Crédits IA ──
+    creditsTitle: 'Conversations IA',
+    creditsDesc: 'Une conversation où votre agent a répondu au moins une fois.',
+    topUp: `Recharger · 500 conv. (45 ${PLAN_CURRENCY})`,
+    creditsThisMonth: 'conversations ce mois-ci ·',
+    unlimited: 'illimité',
+    remaining: 'restantes',
+    outOfIncluded: (total: string) => ` sur ${total} incluses`,
+    resetsNextRenewal: 'Remis à zéro au prochain renouvellement',
+    extraInReserve: 'de recharge en réserve ·',
+    neverExpire: 'ne périment pas',
+
+    // ── Abonnement ──
+    subscriptionTitle: 'Abonnement',
+    subscriptionDesc: 'Facturé avec votre facture Shopify. Changez ou annulez à tout moment.',
+    planBadge: (plan: string) => `Plan ${plan}`,
+    cancelledLabel: 'Abonnement annulé.',
+    scheduledLabel: 'Changement programmé.',
+    youKeepPlan: 'Vous gardez le plan',
+    untilDate: (date: string) => ` jusqu'au ${date}`,
+    untilPeriodEnd: ' jusqu’à la fin de la période payée',
+    thenSubscriptionEnds: ', puis votre abonnement prendra fin.',
+    thenYouSwitchTo: ', puis vous passerez au plan',
+    // Suffixe qui suit le nom du plan (« … au plan Pro. » / « … to the Pro plan. »)
+    planSuffix: '.',
+    monthly: 'Mensuel',
+    annual: 'Annuel',
+    annualDiscount: '−20%',
+    planDesc: (n: string) => `${n} conversations IA / mois`,
+    perYear: (amount: string) => `${amount} ${PLAN_CURRENCY}/an`,
+    perMonth: (amount: string) => `${amount} ${PLAN_CURRENCY}/mois`,
+    annualEquivalent: (amount: string) => `soit ${amount} ${PLAN_CURRENCY}/mois · 2 mois offerts`,
+    currentPlan: 'Plan actuel',
+    switchToAnnual: 'Passer à l’annuel',
+    switchToMonthly: 'Passer au mensuel',
+    switchPlan: 'Changer',
+    choosePlan: 'Choisir',
+    promoPlaceholder: 'Code promo',
+    promoHint: 'La remise s’affichera sur l’écran Shopify avant validation.',
+    promoToggle: 'J’ai un code promo',
+    billingNote:
+      'Shopify vous demandera de confirmer. Aucun moyen de paiement à saisir : le montant s’ajoute à votre facture Shopify.',
+    cancelling: 'Annulation…',
+    cancelSubscription: 'Annuler mon abonnement',
+
+    // ── Configuration ──
+    configTitle: 'Configuration',
+    stepWhatsapp: 'WhatsApp connecté',
+    stepAgent: 'Agent IA configuré',
+    stepTemplates: 'Modèles approuvés',
+
+    // ── Compte relié ──
+    accountTitle: 'Compte Xeyo relié',
+    unlinkedNoticeBefore: 'Cette boutique n’est plus reliée à aucun compte Xeyo. Connectez-vous sur',
+    unlinkedNoticeAfter:
+      'avec le compte souhaité, puis cliquez sur « Relier à mon compte » depuis le tableau de bord.',
+    linkedTo: 'Boutique reliée au compte Xeyo',
+    teamNote: 'Tous les membres de votre équipe Shopify voient les mêmes données.',
+    unlinking: 'Déliaison…',
+    unlinkStore: 'Délier ma boutique',
+  },
+  en: {
+    // ── Locale de formatage (dates, nombres) ──
+    locale: 'en-US',
+
+    // ── En-tête ──
+    appTitle: 'Xeyo, WhatsApp Support & Chat',
+    opening: 'Opening…',
+    openApp: 'Open app →',
+    loading: 'Loading…',
+
+    // ── Erreurs / messages système ──
+    errGeneric: 'Something went wrong',
+    errPurchase: 'Purchase failed',
+    errBilling: 'Billing error',
+    errLink: 'Could not link your account',
+    errOpen: 'Could not open the app',
+
+    // ── Confirmations ──
+    confirmCancelUntil: (until: string) =>
+      `Cancel your subscription?\n\nYou keep access until ${until}, then your subscription ends. No prorated refund.`,
+    confirmCancel:
+      'Cancel your subscription?\n\nYou keep access until the end of the period you already paid for, then your subscription ends.',
+    confirmUnlink:
+      'Disconnect this store from its Xeyo account?\n\n' +
+      'Your contacts and conversations stay with the current account. ' +
+      'You can then connect the store to any account you choose.',
+
+    // ── Écran d'accueil / liaison ──
+    welcomeTitle: 'Welcome to Xeyo',
+    welcomeSubtitle: 'Your WhatsApp AI agent for support and sales.',
+    featureAutoTitle: 'Automated replies',
+    featureAutoDesc: 'An AI agent answers your customers 24/7, using your real product data.',
+    featureCartTitle: 'Abandoned carts',
+    featureCartDesc: 'Follow up on WhatsApp, where messages actually get read.',
+    featureOrderTitle: 'Order tracking',
+    featureOrderDesc: 'Confirmation, shipping, delivery: everything is sent automatically.',
+    linkTitle: 'Connect your account',
+    linkDesc:
+      'This store isn’t connected to a Xeyo account yet. Connect it to access your contacts, your AI agent and your conversations.',
+    linking: 'Connecting…',
+    continueAs: (email: string) => `Continue as ${email}`,
+    createAccountAs: (email: string) => `Create my account (${email})`,
+    haveAccount: 'I already have a Xeyo account →',
+    collaboratorNote:
+      'You’re a collaborator on this store. Connect your own Xeyo account, or ask the store owner to create one.',
+    linkHint:
+      '“I already have an account” opens app.xeyo.io: sign in with any account you like, and the store will be connected to it.',
+
+    // ── Non installé ──
+    notInstalledTitle: 'Installation required',
+    notInstalledDesc:
+      'This store isn’t connected to Xeyo yet. Reinstall the app from the App Store.',
+
+    // ── Onboarding ──
+    setupTitle: 'Finish your setup',
+    setupDesc:
+      'Connect WhatsApp, configure your AI agent and get your message templates approved to activate Xeyo on your store.',
+    setupCta: 'Continue setup →',
+
+    // ── Contacts ──
+    contactsTitle: 'Your WhatsApp contacts',
+    contactsDesc: 'Collected from your store (popup, checkout, thank-you page).',
+    contactsLabel: 'Contacts',
+    optedInLabel: 'WhatsApp subscribers (opt-in)',
+
+    // ── Conversations ──
+    conversationsTitle: 'Recent conversations',
+    seeAll: 'View all →',
+    noConversations: 'No conversations yet.',
+    optInBadge: 'opt-in',
+
+    // ── Crédits IA ──
+    creditsTitle: 'AI conversations',
+    creditsDesc: 'A conversation where your agent replied at least once.',
+    topUp: `Top up · 500 conv. (${PLAN_CURRENCY}45)`,
+    creditsThisMonth: 'conversations this month ·',
+    unlimited: 'unlimited',
+    remaining: 'remaining',
+    outOfIncluded: (total: string) => ` of ${total} included`,
+    resetsNextRenewal: 'Resets on your next renewal',
+    extraInReserve: 'top-up conversations in reserve ·',
+    neverExpire: 'never expire',
+
+    // ── Abonnement ──
+    subscriptionTitle: 'Subscription',
+    subscriptionDesc: 'Billed on your Shopify invoice. Switch or cancel anytime.',
+    planBadge: (plan: string) => `${plan} plan`,
+    cancelledLabel: 'Subscription cancelled.',
+    scheduledLabel: 'Change scheduled.',
+    youKeepPlan: 'You keep the',
+    untilDate: (date: string) => ` plan until ${date}`,
+    untilPeriodEnd: ' plan until the end of the paid period',
+    thenSubscriptionEnds: ', then your subscription ends.',
+    thenYouSwitchTo: ', then you’ll move to the',
+    // Suffixe qui suit le nom du plan (« … au plan Pro. » / « … to the Pro plan. »)
+    planSuffix: ' plan.',
+    monthly: 'Monthly',
+    annual: 'Annual',
+    annualDiscount: '−20%',
+    planDesc: (n: string) => `${n} AI conversations / month`,
+    perYear: (amount: string) => `${PLAN_CURRENCY}${amount}/yr`,
+    perMonth: (amount: string) => `${PLAN_CURRENCY}${amount}/mo`,
+    annualEquivalent: (amount: string) => `that’s ${PLAN_CURRENCY}${amount}/mo · 2 months free`,
+    currentPlan: 'Current plan',
+    switchToAnnual: 'Switch to annual',
+    switchToMonthly: 'Switch to monthly',
+    switchPlan: 'Switch',
+    choosePlan: 'Choose',
+    promoPlaceholder: 'Promo code',
+    promoHint: 'The discount will appear on the Shopify screen before you confirm.',
+    promoToggle: 'I have a promo code',
+    billingNote:
+      'Shopify will ask you to confirm. No payment details needed: the amount is added to your Shopify invoice.',
+    cancelling: 'Cancelling…',
+    cancelSubscription: 'Cancel subscription',
+
+    // ── Configuration ──
+    configTitle: 'Setup',
+    stepWhatsapp: 'WhatsApp connected',
+    stepAgent: 'AI agent configured',
+    stepTemplates: 'Templates approved',
+
+    // ── Compte relié ──
+    accountTitle: 'Connected Xeyo account',
+    unlinkedNoticeBefore: 'This store is no longer connected to a Xeyo account. Sign in at',
+    unlinkedNoticeAfter:
+      'with the account you want, then click “Connect to my account” from the dashboard.',
+    linkedTo: 'Store connected to the Xeyo account',
+    teamNote: 'Everyone on your Shopify staff sees the same data.',
+    unlinking: 'Disconnecting…',
+    unlinkStore: 'Disconnect my store',
+  },
+} as const
 
 export default function ShopifyEmbeddedClient() {
   const searchParams = useSearchParams()
   const shop = searchParams.get('shop') || ''
+  // Shopify transmet la locale du marchand dans l'URL de l'app embedded
+  // (`?locale=en`, `?locale=fr-FR`…). Anglais par défaut : c'est la langue de la
+  // majorité des marchands ET celle de la review App Store.
+  const localeParam = searchParams.get('locale') || ''
+  const lang: 'fr' | 'en' = localeParam.toLowerCase().startsWith('fr') ? 'fr' : 'en'
+  const t = STRINGS[lang]
   const [status, setStatus] = useState<Status | null>(null)
   const [overview, setOverview] = useState<Overview | null>(null)
   const [linkState, setLinkState] = useState<LinkState | null>(null)
@@ -234,13 +518,13 @@ export default function ShopifyEmbeddedClient() {
       })
       const json = await res.json()
       const url = json?.data?.confirmationUrl
-      if (!res.ok || !url) throw new Error(json.error || 'Achat impossible')
+      if (!res.ok || !url) throw new Error(json.error || t.errPurchase)
       // ⚠️ `redirectTop`, PAS `openInTop` (qui préfixe par APP_BASE et casserait
       // l'URL Shopify). L'écran d'approbation refuse l'iframe : il doit s'ouvrir
       // au niveau supérieur — même mécanisme que pour l'abonnement.
       redirectTop(url)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Achat impossible')
+      setError(e instanceof Error ? e.message : t.errPurchase)
       setBuyingCredits(false)
     }
   }
@@ -261,7 +545,7 @@ export default function ShopifyEmbeddedClient() {
       })
       const json = await res.json()
       const url = json?.data?.confirmationUrl
-      if (!res.ok || !url) throw new Error(json.error || 'Erreur de facturation')
+      if (!res.ok || !url) throw new Error(json.error || t.errBilling)
 
       // ⚠️ `window.open` DEPUIS UNE IFRAME EST BLOQUÉ PAR LE NAVIGATEUR.
       //
@@ -275,7 +559,7 @@ export default function ShopifyEmbeddedClient() {
       // expose `window.top.location` précisément pour la facturation.
       redirectTop(url)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur')
+      setError(e instanceof Error ? e.message : t.errGeneric)
       setBusyPlan(null)
     }
   }
@@ -292,14 +576,10 @@ export default function ShopifyEmbeddedClient() {
    */
   const cancel = async () => {
     const until = overview?.periodEnd
-      ? new Date(overview.periodEnd).toLocaleDateString('fr-FR')
+      ? new Date(overview.periodEnd).toLocaleDateString(t.locale)
       : null
 
-    const ok = window.confirm(
-      until
-        ? `Annuler votre abonnement ?\n\nVous conservez votre accès jusqu'au ${until}, puis votre abonnement prendra fin. Aucun remboursement au prorata.`
-        : 'Annuler votre abonnement ?\n\nVous conservez votre accès jusqu\'à la fin de la période déjà payée, puis votre abonnement prendra fin.'
-    )
+    const ok = window.confirm(until ? t.confirmCancelUntil(until) : t.confirmCancel)
     if (!ok) return
 
     setBusyPlan('cancel')
@@ -307,10 +587,10 @@ export default function ShopifyEmbeddedClient() {
     try {
       const res = await authenticatedFetch('/api/shopify/billing/cancel', { method: 'POST' })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Erreur')
+      if (!res.ok) throw new Error(json.error || t.errGeneric)
       await load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur')
+      setError(e instanceof Error ? e.message : t.errGeneric)
     } finally {
       setBusyPlan(null)
     }
@@ -325,21 +605,17 @@ export default function ShopifyEmbeddedClient() {
    * bloqué sur les données du premier compte lié, sans aucun moyen d'en changer.
    */
   const unlink = async () => {
-    if (!window.confirm(
-      'Délier cette boutique de son compte Xeyo ?\n\n' +
-      'Vos contacts et conversations restent attachés au compte actuel. ' +
-      'Vous pourrez ensuite relier la boutique au compte de votre choix.'
-    )) return
+    if (!window.confirm(t.confirmUnlink)) return
     setUnlinking(true)
     setError(null)
     try {
       const res = await authenticatedFetch('/api/shopify/embedded/unlink', { method: 'POST' })
       const json = await res.json()
-      if (!res.ok) throw new Error(json.error || 'Erreur')
+      if (!res.ok) throw new Error(json.error || t.errGeneric)
       setUnlinked(true)
       await load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur')
+      setError(e instanceof Error ? e.message : t.errGeneric)
     } finally {
       setUnlinking(false)
     }
@@ -369,11 +645,11 @@ export default function ShopifyEmbeddedClient() {
         body: JSON.stringify({ action: 'create' }),
       })
       const json = await res.json()
-      if (!res.ok || !json?.data?.linked) throw new Error(json?.error || 'Liaison impossible')
+      if (!res.ok || !json?.data?.linked) throw new Error(json?.error || t.errLink)
       setUnlinked(false)
       await load()
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur')
+      setError(e instanceof Error ? e.message : t.errGeneric)
     } finally {
       setLinking(false)
     }
@@ -399,7 +675,7 @@ export default function ShopifyEmbeddedClient() {
         body: JSON.stringify({ action: 'link' }),
       })
       const json = await res.json()
-      if (!res.ok || !json?.data?.linkUrl) throw new Error(json?.error || 'Liaison impossible')
+      if (!res.ok || !json?.data?.linkUrl) throw new Error(json?.error || t.errLink)
 
       // ⚠️ `window.open` depuis une iframe est BLOQUÉ par le navigateur — ce bouton
       // ne fonctionnait donc pas. Or c'est LE chemin qui permet au marchand de relier
@@ -411,7 +687,7 @@ export default function ShopifyEmbeddedClient() {
       redirectTop(json.data.linkUrl)
     } catch (e) {
       // Pas de `finally` : en cas de succès on quitte la page, l'état n'a plus de sens.
-      setError(e instanceof Error ? e.message : 'Erreur')
+      setError(e instanceof Error ? e.message : t.errGeneric)
       setLinking(false)
     }
   }
@@ -435,7 +711,7 @@ export default function ShopifyEmbeddedClient() {
     try {
       const res = await authenticatedFetch('/api/shopify/embedded/login-link', { method: 'POST' })
       const json = await res.json()
-      if (!res.ok || !json?.data?.url) throw new Error(json.error || 'Ouverture impossible')
+      if (!res.ok || !json?.data?.url) throw new Error(json.error || t.errOpen)
 
       // ⚠️ On ouvrait un onglet AVANT l'await pour esquiver le blocage des pop-ups.
       // Ça ne suffit pas : le navigateur bloque tout de même l'ouverture d'onglets
@@ -449,7 +725,7 @@ export default function ShopifyEmbeddedClient() {
       // /shopify → page blanche, marchand bloqué.
       redirectTop(json.data.url)
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Erreur')
+      setError(e instanceof Error ? e.message : t.errGeneric)
       setOpening(false)
     }
   }
@@ -471,9 +747,9 @@ export default function ShopifyEmbeddedClient() {
   const isPaid = currentPlan !== 'free'
 
   const setupSteps = [
-    { key: 'whatsapp', label: 'WhatsApp connecté', done: !!status?.whatsapp_connected, path: '/dashboard' },
-    { key: 'agent', label: 'Agent IA configuré', done: !!status?.agent, path: '/agents' },
-    { key: 'templates', label: 'Modèles approuvés', done: (status?.approved_templates ?? 0) > 0, path: '/templates' },
+    { key: 'whatsapp', label: t.stepWhatsapp, done: !!status?.whatsapp_connected, path: '/dashboard' },
+    { key: 'agent', label: t.stepAgent, done: !!status?.agent, path: '/agents' },
+    { key: 'templates', label: t.stepTemplates, done: (status?.approved_templates ?? 0) > 0, path: '/templates' },
   ]
 
   return (
@@ -482,7 +758,7 @@ export default function ShopifyEmbeddedClient() {
         <div className="flex items-center gap-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/xeyo-logo.png" alt="Xeyo" className="h-8 w-8 object-contain" />
-          <h1 className="text-lg font-semibold text-gray-800">Xeyo, WhatsApp Support &amp; Chat</h1>
+          <h1 className="text-lg font-semibold text-gray-800">{t.appTitle}</h1>
 
           {/* ⚠️ Le seul accès au dashboard n'existait QUE pendant l'onboarding.
               Une fois configuré, le marchand n'avait plus AUCUN moyen d'ouvrir Xeyo
@@ -498,14 +774,14 @@ export default function ShopifyEmbeddedClient() {
               disabled={opening}
               className="ml-auto shrink-0 rounded-lg bg-gray-900 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-gray-800 disabled:opacity-60"
             >
-              {opening ? 'Ouverture…' : 'Ouvrir l’application →'}
+              {opening ? t.opening : t.openApp}
             </button>
           )}
         </div>
 
         {loading ? (
           <div className="rounded-2xl bg-white p-8 text-center text-sm text-gray-500 shadow-sm ring-1 ring-gray-200">
-            Chargement…
+            {t.loading}
           </div>
         ) : linkState && linkState.installed && !linkState.linked ? (
           /* ── BOUTIQUE DÉLIÉE (user_id = NULL) ──
@@ -522,29 +798,29 @@ export default function ShopifyEmbeddedClient() {
             <div className="text-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src="/xeyo-logo.png" alt="Xeyo" className="mx-auto h-12 w-12 object-contain" />
-              <h2 className="mt-4 text-2xl font-semibold text-gray-900">Bienvenue sur Xeyo</h2>
+              <h2 className="mt-4 text-2xl font-semibold text-gray-900">{t.welcomeTitle}</h2>
               <p className="mt-1 text-sm text-gray-500">
-                Votre agent IA WhatsApp pour le support et les ventes.
+                {t.welcomeSubtitle}
               </p>
             </div>
 
             <div className="grid gap-3 sm:grid-cols-3">
               <div className="rounded-xl bg-gray-50 p-3 ring-1 ring-gray-100">
-                <p className="text-xs font-semibold text-gray-900">Réponses automatiques</p>
+                <p className="text-xs font-semibold text-gray-900">{t.featureAutoTitle}</p>
                 <p className="mt-1 text-[11px] leading-relaxed text-gray-500">
-                  Un agent IA répond à vos clients 24h/24, avec vos vraies données produits.
+                  {t.featureAutoDesc}
                 </p>
               </div>
               <div className="rounded-xl bg-gray-50 p-3 ring-1 ring-gray-100">
-                <p className="text-xs font-semibold text-gray-900">Paniers abandonnés</p>
+                <p className="text-xs font-semibold text-gray-900">{t.featureCartTitle}</p>
                 <p className="mt-1 text-[11px] leading-relaxed text-gray-500">
-                  Relancez sur WhatsApp, là où les messages sont vraiment lus.
+                  {t.featureCartDesc}
                 </p>
               </div>
               <div className="rounded-xl bg-gray-50 p-3 ring-1 ring-gray-100">
-                <p className="text-xs font-semibold text-gray-900">Suivi de commande</p>
+                <p className="text-xs font-semibold text-gray-900">{t.featureOrderTitle}</p>
                 <p className="mt-1 text-[11px] leading-relaxed text-gray-500">
-                  Confirmation, expédition, livraison : tout est envoyé automatiquement.
+                  {t.featureOrderDesc}
                 </p>
               </div>
             </div>
@@ -556,10 +832,9 @@ export default function ShopifyEmbeddedClient() {
                 C'est aussi la sortie du cercle vicieux : on n'IMPOSE plus le compte
                 de `shop_email`. Le marchand choisit. */}
             <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
-              <h3 className="text-base font-semibold text-gray-900">Reliez votre compte</h3>
+              <h3 className="text-base font-semibold text-gray-900">{t.linkTitle}</h3>
               <p className="mt-2 text-sm text-gray-500">
-                Cette boutique n’est reliée à aucun compte Xeyo. Reliez-la pour accéder à vos contacts,
-                votre agent IA et vos conversations.
+                {t.linkDesc}
               </p>
 
               {error && (
@@ -579,10 +854,10 @@ export default function ShopifyEmbeddedClient() {
                     className="w-full rounded-xl bg-gray-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:opacity-60"
                   >
                     {linking
-                      ? 'Liaison…'
+                      ? t.linking
                       : linkState.hasAccount
-                        ? `Continuer en tant que ${linkState.staffEmail}`
-                        : `Créer mon compte (${linkState.staffEmail})`}
+                        ? t.continueAs(linkState.staffEmail)
+                        : t.createAccountAs(linkState.staffEmail)}
                   </button>
                 )}
 
@@ -601,7 +876,7 @@ export default function ShopifyEmbeddedClient() {
                       : 'w-full rounded-xl bg-gray-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:opacity-60'
                   }
                 >
-                  J’ai déjà un compte Xeyo →
+                  {t.haveAccount}
                 </button>
               </div>
 
@@ -609,22 +884,20 @@ export default function ShopifyEmbeddedClient() {
                   boutique ne doit pas atterrir sur son compte perso. */}
               {linkState.isCollaborator ? (
                 <p className="mt-3 text-center text-[11px] leading-relaxed text-gray-400">
-                  Vous êtes collaborateur sur cette boutique. Reliez votre propre compte Xeyo,
-                  ou demandez au propriétaire de créer le compte.
+                  {t.collaboratorNote}
                 </p>
               ) : (
                 <p className="mt-3 text-center text-[11px] leading-relaxed text-gray-400">
-                  « J’ai déjà un compte » ouvre app.xeyo.io : connectez-vous au compte de votre
-                  choix, la boutique y sera rattachée.
+                  {t.linkHint}
                 </p>
               )}
             </div>
           </div>
         ) : !status?.installed ? (
           <div className="rounded-2xl bg-white p-8 text-center shadow-sm ring-1 ring-gray-200">
-            <h2 className="text-base font-semibold text-gray-900">Installation requise</h2>
+            <h2 className="text-base font-semibold text-gray-900">{t.notInstalledTitle}</h2>
             <p className="mt-2 text-sm text-gray-500">
-              Cette boutique n’est pas encore reliée à Xeyo. Réinstallez l’application depuis l’App Store.
+              {t.notInstalledDesc}
             </p>
           </div>
         ) : (
@@ -639,10 +912,9 @@ export default function ShopifyEmbeddedClient() {
                 tableau vide (0 contact, 0 conversation) sans savoir quoi faire. */}
             {overview?.onboardingDone === false && (
               <div className="rounded-2xl bg-blue-50 p-6 ring-1 ring-blue-200">
-                <h2 className="text-base font-semibold text-gray-900">Terminez votre configuration</h2>
+                <h2 className="text-base font-semibold text-gray-900">{t.setupTitle}</h2>
                 <p className="mt-1 text-sm text-gray-600">
-                  Connectez WhatsApp, configurez votre agent IA et validez vos modèles de messages
-                  pour activer Xeyo sur votre boutique.
+                  {t.setupDesc}
                 </p>
                 <button
                   type="button"
@@ -650,25 +922,25 @@ export default function ShopifyEmbeddedClient() {
                   disabled={opening}
                   className="mt-4 rounded-xl bg-gray-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-gray-800 disabled:opacity-60"
                 >
-                  {opening ? 'Ouverture…' : 'Continuer la configuration →'}
+                  {opening ? t.opening : t.setupCta}
                 </button>
               </div>
             )}
 
             {/* ── DONNÉES CLIENTS collectées (requirement 5.1.5) ── */}
             <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
-              <h2 className="text-sm font-semibold text-gray-900">Vos contacts WhatsApp</h2>
+              <h2 className="text-sm font-semibold text-gray-900">{t.contactsTitle}</h2>
               <p className="mt-0.5 text-xs text-gray-500">
-                Collectés depuis votre boutique (popup, checkout, page de remerciement).
+                {t.contactsDesc}
               </p>
               <div className="mt-4 grid grid-cols-2 gap-3">
                 <div className="rounded-xl border border-gray-200 p-3">
                   <p className="text-2xl font-bold tabular-nums text-gray-900">{overview?.contactsCount ?? 0}</p>
-                  <p className="text-xs text-gray-500">Contacts</p>
+                  <p className="text-xs text-gray-500">{t.contactsLabel}</p>
                 </div>
                 <div className="rounded-xl border border-gray-200 p-3">
                   <p className="text-2xl font-bold tabular-nums text-emerald-600">{overview?.optedInCount ?? 0}</p>
-                  <p className="text-xs text-gray-500">Abonnés WhatsApp (opt-in)</p>
+                  <p className="text-xs text-gray-500">{t.optedInLabel}</p>
                 </div>
               </div>
             </div>
@@ -676,18 +948,18 @@ export default function ShopifyEmbeddedClient() {
             {/* ── CONVERSATIONS RÉCENTES (requirement 5.1.5) ── */}
             <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200">
               <div className="flex items-center justify-between px-6 py-4">
-                <h2 className="text-sm font-semibold text-gray-900">Conversations récentes</h2>
+                <h2 className="text-sm font-semibold text-gray-900">{t.conversationsTitle}</h2>
                 <button
                   type="button"
                   onClick={() => openInTop('/conversations')}
                   className="text-xs font-medium text-gray-600 hover:text-gray-900 hover:underline"
                 >
-                  Tout voir →
+                  {t.seeAll}
                 </button>
               </div>
               {(overview?.conversations?.length ?? 0) === 0 ? (
                 <p className="border-t border-gray-100 px-6 py-8 text-center text-sm text-gray-400">
-                  Aucune conversation pour l’instant.
+                  {t.noConversations}
                 </p>
               ) : (
                 overview!.conversations.map((c) => (
@@ -700,7 +972,7 @@ export default function ShopifyEmbeddedClient() {
                         <p className="truncate text-sm font-medium text-gray-900">{c.name}</p>
                         {c.optedIn && (
                           <span className="shrink-0 rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700">
-                            opt-in
+                            {t.optInBadge}
                           </span>
                         )}
                         {c.unread > 0 && (
@@ -713,7 +985,7 @@ export default function ShopifyEmbeddedClient() {
                     </div>
                     {c.lastMessageAt && (
                       <span className="shrink-0 text-[11px] text-gray-400">
-                        {new Date(c.lastMessageAt).toLocaleDateString('fr-FR')}
+                        {new Date(c.lastMessageAt).toLocaleDateString(t.locale)}
                       </span>
                     )}
                   </div>
@@ -729,9 +1001,9 @@ export default function ShopifyEmbeddedClient() {
               <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
                 <div className="flex items-center justify-between gap-3">
                   <div>
-                    <h2 className="text-sm font-semibold text-gray-900">Conversations IA</h2>
+                    <h2 className="text-sm font-semibold text-gray-900">{t.creditsTitle}</h2>
                     <p className="mt-0.5 text-xs text-gray-500">
-                      Une conversation où votre agent a répondu au moins une fois.
+                      {t.creditsDesc}
                     </p>
                   </div>
                   <button
@@ -740,7 +1012,7 @@ export default function ShopifyEmbeddedClient() {
                     disabled={buyingCredits}
                     className="shrink-0 rounded-lg bg-gray-900 px-3 py-2 text-xs font-semibold text-white transition hover:bg-gray-700 disabled:opacity-60"
                   >
-                    {buyingCredits ? 'Ouverture…' : 'Recharger · 500 conv. (45 €)'}
+                    {buyingCredits ? t.opening : t.topUp}
                   </button>
                 </div>
 
@@ -749,8 +1021,8 @@ export default function ShopifyEmbeddedClient() {
                   if (c.unlimited) {
                     return (
                       <p className="mt-4 text-sm text-gray-700">
-                        <span className="font-semibold">{c.used.toLocaleString('fr-FR')}</span> conversations ce mois-ci ·
-                        <span className="ml-1 font-medium text-emerald-600">illimité</span>
+                        <span className="font-semibold">{c.used.toLocaleString(t.locale)}</span> {t.creditsThisMonth}
+                        <span className="ml-1 font-medium text-emerald-600">{t.unlimited}</span>
                       </p>
                     )
                   }
@@ -762,8 +1034,8 @@ export default function ShopifyEmbeddedClient() {
                       <div>
                         <div className="flex items-baseline justify-between text-sm">
                           <span className="text-gray-700">
-                            <span className="font-semibold text-gray-900">{planLeft.toLocaleString('fr-FR')}</span> restantes
-                            <span className="text-gray-500"> sur {planLimit.toLocaleString('fr-FR')} incluses</span>
+                            <span className="font-semibold text-gray-900">{planLeft.toLocaleString(t.locale)}</span> {t.remaining}
+                            <span className="text-gray-500">{t.outOfIncluded(planLimit.toLocaleString(t.locale))}</span>
                           </span>
                           <span className={pct >= 95 ? 'font-medium text-rose-600' : pct >= 80 ? 'font-medium text-amber-600' : 'text-gray-500'}>
                             {pct}%
@@ -775,14 +1047,14 @@ export default function ShopifyEmbeddedClient() {
                             style={{ width: `${pct}%` }}
                           />
                         </div>
-                        <p className="mt-1 text-[11px] text-gray-400">Remis à zéro au prochain renouvellement</p>
+                        <p className="mt-1 text-[11px] text-gray-400">{t.resetsNextRenewal}</p>
                       </div>
 
                       {c.extra > 0 && (
                         <div className="rounded-lg bg-amber-50 px-3 py-2">
                           <p className="text-xs text-amber-900">
-                            <span className="font-semibold">{c.extraRemaining.toLocaleString('fr-FR')}</span> de recharge en réserve ·
-                            <span className="ml-1">ne périment pas</span>
+                            <span className="font-semibold">{c.extraRemaining.toLocaleString(t.locale)}</span> {t.extraInReserve}
+                            <span className="ml-1">{t.neverExpire}</span>
                           </p>
                         </div>
                       )}
@@ -796,13 +1068,13 @@ export default function ShopifyEmbeddedClient() {
             <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-sm font-semibold text-gray-900">Abonnement</h2>
+                  <h2 className="text-sm font-semibold text-gray-900">{t.subscriptionTitle}</h2>
                   <p className="mt-0.5 text-xs text-gray-500">
-                    Facturé avec votre facture Shopify. Changez ou annulez à tout moment.
+                    {t.subscriptionDesc}
                   </p>
                 </div>
                 <span className="rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium capitalize text-gray-600">
-                  Plan {currentPlan}
+                  {t.planBadge(currentPlan)}
                 </span>
               </div>
 
@@ -815,22 +1087,23 @@ export default function ShopifyEmbeddedClient() {
                   <p className="text-xs text-amber-900">
                     {overview.pendingPlan === 'free' ? (
                       <>
-                        <span className="font-semibold">Abonnement annulé.</span> Vous gardez le plan{' '}
+                        <span className="font-semibold">{t.cancelledLabel}</span> {t.youKeepPlan}{' '}
                         <span className="capitalize">{currentPlan}</span>
                         {overview.periodEnd
-                          ? ` jusqu'au ${new Date(overview.periodEnd).toLocaleDateString('fr-FR')}`
-                          : ' jusqu’à la fin de la période payée'}
-                        , puis votre abonnement prendra fin.
+                          ? t.untilDate(new Date(overview.periodEnd).toLocaleDateString(t.locale))
+                          : t.untilPeriodEnd}
+                        {t.thenSubscriptionEnds}
                       </>
                     ) : (
                       <>
-                        <span className="font-semibold">Changement programmé.</span> Vous gardez le plan{' '}
+                        <span className="font-semibold">{t.scheduledLabel}</span> {t.youKeepPlan}{' '}
                         <span className="capitalize">{currentPlan}</span>
                         {overview.periodEnd
-                          ? ` jusqu'au ${new Date(overview.periodEnd).toLocaleDateString('fr-FR')}`
-                          : ' jusqu’à la fin de la période payée'}
-                        , puis vous passerez au plan{' '}
-                        <span className="capitalize">{overview.pendingPlan}</span>.
+                          ? t.untilDate(new Date(overview.periodEnd).toLocaleDateString(t.locale))
+                          : t.untilPeriodEnd}
+                        {t.thenYouSwitchTo}{' '}
+                        <span className="capitalize">{overview.pendingPlan}</span>
+                        {t.planSuffix}
                       </>
                     )}
                   </p>
@@ -849,7 +1122,7 @@ export default function ShopifyEmbeddedClient() {
                     billingInterval === 'monthly' ? 'bg-gray-900 text-white' : 'text-gray-500 hover:text-gray-900'
                   }`}
                 >
-                  Mensuel
+                  {t.monthly}
                 </button>
                 <button
                   type="button"
@@ -858,11 +1131,11 @@ export default function ShopifyEmbeddedClient() {
                     billingInterval === 'annual' ? 'bg-gray-900 text-white' : 'text-gray-500 hover:text-gray-900'
                   }`}
                 >
-                  Annuel
+                  {t.annual}
                   <span className={`rounded-full px-1.5 py-0.5 text-[10px] ${
                     billingInterval === 'annual' ? 'bg-white/20 text-white' : 'bg-emerald-50 text-emerald-700'
                   }`}>
-                    −20%
+                    {t.annualDiscount}
                   </span>
                 </button>
               </div>
@@ -899,15 +1172,17 @@ export default function ShopifyEmbeddedClient() {
                       }`}
                     >
                       <p className={`text-sm font-semibold ${active ? 'text-white' : 'text-gray-900'}`}>{p.name}</p>
-                      <p className={`text-xs ${active ? 'text-white/70' : 'text-gray-600'}`}>{p.desc}</p>
+                      <p className={`text-xs ${active ? 'text-white/70' : 'text-gray-600'}`}>
+                        {t.planDesc(p.aiConv.toLocaleString(t.locale))}
+                      </p>
                       <p className={`mt-1 text-sm font-bold ${active ? 'text-white' : 'text-gray-900'}`}>
                         {billingInterval === 'annual'
-                          ? `${annual} ${PLAN_CURRENCY}/an`
-                          : `${p.price} ${PLAN_CURRENCY}/mois`}
+                          ? t.perYear(String(annual))
+                          : t.perMonth(String(p.price))}
                       </p>
                       {billingInterval === 'annual' && (
                         <p className={`text-[11px] ${active ? 'text-white/70' : 'text-emerald-600'}`}>
-                          soit {Math.round(annual / 12)} {PLAN_CURRENCY}/mois · 2 mois offerts
+                          {t.annualEquivalent(String(Math.round(annual / 12)))}
                         </p>
                       )}
 
@@ -919,16 +1194,16 @@ export default function ShopifyEmbeddedClient() {
                         }`}
                       >
                         {busy
-                          ? 'Ouverture…'
+                          ? t.opening
                           : active
-                            ? 'Plan actuel'
+                            ? t.currentPlan
                             : // Même plan, autre intervalle : « Changer » serait
                               // ambigu — on dit ce qui va réellement se passer.
                               currentPlan === p.id
-                              ? (billingInterval === 'annual' ? 'Passer à l’annuel' : 'Passer au mensuel')
+                              ? (billingInterval === 'annual' ? t.switchToAnnual : t.switchToMonthly)
                               : isPaid
-                                ? 'Changer'
-                                : 'Choisir'}
+                                ? t.switchPlan
+                                : t.choosePlan}
                       </span>
                     </button>
                   )
@@ -957,7 +1232,7 @@ export default function ShopifyEmbeddedClient() {
                         type="text"
                         value={promoCode}
                         onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-                        placeholder="Code promo"
+                        placeholder={t.promoPlaceholder}
                         autoFocus
                         // ⚠️ `bg-white text-gray-900` EXPLICITES : sans elles,
                         // l'input héritait de la couleur de texte du thème
@@ -967,7 +1242,7 @@ export default function ShopifyEmbeddedClient() {
                         className="w-40 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs uppercase tracking-wide text-gray-900 placeholder:text-gray-400 focus:border-gray-900 focus:outline-none"
                       />
                       <span className="text-[11px] text-gray-400">
-                        La remise s’affichera sur l’écran Shopify avant validation.
+                        {t.promoHint}
                       </span>
                     </div>
                   ) : (
@@ -976,7 +1251,7 @@ export default function ShopifyEmbeddedClient() {
                       onClick={() => setShowPromo(true)}
                       className="text-xs font-medium text-gray-500 underline hover:text-gray-900"
                     >
-                      J’ai un code promo
+                      {t.promoToggle}
                     </button>
                   )}
               </div>
@@ -984,8 +1259,7 @@ export default function ShopifyEmbeddedClient() {
               {/* Shopify EXIGE l'approbation du marchand pour toute modification
                   d'abonnement — on le prévient, sinon la redirection le surprend. */}
               <p className="mt-3 text-[11px] text-gray-400">
-                Shopify vous demandera de confirmer. Aucun moyen de paiement à saisir :
-                le montant s’ajoute à votre facture Shopify.
+                {t.billingNote}
               </p>
 
               {/* Annulation : bouton dédié (App Store 1.2.3 — le marchand doit
@@ -999,14 +1273,14 @@ export default function ShopifyEmbeddedClient() {
                   disabled={busyPlan === 'cancel'}
                   className="mt-3 text-xs font-medium text-gray-400 underline hover:text-gray-700 disabled:opacity-60"
                 >
-                  {busyPlan === 'cancel' ? 'Annulation…' : 'Annuler mon abonnement'}
+                  {busyPlan === 'cancel' ? t.cancelling : t.cancelSubscription}
                 </button>
               )}
             </div>
 
             {/* ── CONFIGURATION restante ── */}
             <div className="overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-gray-200">
-              <h2 className="px-6 py-4 text-sm font-semibold text-gray-900">Configuration</h2>
+              <h2 className="px-6 py-4 text-sm font-semibold text-gray-900">{t.configTitle}</h2>
               {setupSteps.map((s) => (
                 <button
                   key={s.key}
@@ -1025,24 +1299,24 @@ export default function ShopifyEmbeddedClient() {
 
             {/* ── COMPTE XEYO RELIÉ (action rare, volontairement discrète) ── */}
             <div className="rounded-2xl bg-white p-6 shadow-sm ring-1 ring-gray-200">
-              <h2 className="text-sm font-semibold text-gray-900">Compte Xeyo relié</h2>
+              <h2 className="text-sm font-semibold text-gray-900">{t.accountTitle}</h2>
               {unlinked ? (
                 <p className="mt-2 text-xs leading-relaxed text-gray-600">
-                  Cette boutique n’est plus reliée à aucun compte Xeyo. Connectez-vous sur{' '}
-                  <span className="font-medium text-gray-900">app.xeyo.io</span> avec le compte souhaité,
-                  puis cliquez sur « Relier à mon compte » depuis le tableau de bord.
+                  {t.unlinkedNoticeBefore}{' '}
+                  <span className="font-medium text-gray-900">app.xeyo.io</span>{' '}
+                  {t.unlinkedNoticeAfter}
                 </p>
               ) : (
                 <>
                   <p className="mt-2 text-xs leading-relaxed text-gray-600">
-                    Boutique reliée au compte Xeyo{' '}
+                    {t.linkedTo}{' '}
                     <span className="font-medium text-gray-900">
                       {overview?.linkedAccountEmail || '—'}
                     </span>
                     .
                   </p>
                   <p className="mt-0.5 text-xs text-gray-500">
-                    Tous les membres de votre équipe Shopify voient les mêmes données.
+                    {t.teamNote}
                   </p>
                   <button
                     type="button"
@@ -1050,7 +1324,7 @@ export default function ShopifyEmbeddedClient() {
                     disabled={unlinking}
                     className="mt-3 text-xs font-medium text-gray-500 hover:text-red-600 hover:underline disabled:opacity-50"
                   >
-                    {unlinking ? 'Déliaison…' : 'Délier ma boutique'}
+                    {unlinking ? t.unlinking : t.unlinkStore}
                   </button>
                 </>
               )}
