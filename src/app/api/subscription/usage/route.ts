@@ -31,9 +31,11 @@ export async function GET() {
   }
 
   const tokensRemaining = Math.max(0, profile.tokens_limit - profile.tokens_used)
+  // ⚠️ Quota INCONNU (tokens_limit = 0, compte tout juste créé) ≠ quota ÉPUISÉ.
+  // Le défaut 100 % faisait croire à une limite atteinte dès l'inscription.
   const usagePercentage = profile.tokens_limit > 0
     ? Math.round((profile.tokens_used / profile.tokens_limit) * 100)
-    : 100
+    : 0
 
   const [plan, gate, quota] = await Promise.all([
     getUserPlan(user.id),

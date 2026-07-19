@@ -41,7 +41,7 @@ const BEATS: Beat[] = [
   { page: 'accueil', target: 'popup', step: 'Applications', caption: 'Activez la Popup opt-in' },
   { page: 'remerciements', target: 'pagesel', step: 'Changer de page', caption: 'Passez sur la page Remerciements' },
   { page: 'remerciements', target: 'thanks', step: 'Ajouter le bloc', caption: 'Ajoutez le bloc Opt-in WhatsApp' },
-  { page: 'remerciements', target: 'save', step: 'Enregistrer', caption: 'Enregistrez — c’est en ligne' },
+  { page: 'remerciements', target: 'save', step: 'Enregistrer', caption: 'Enregistrez, c’est en ligne' },
 ]
 
 const BEAT_MS = 2100

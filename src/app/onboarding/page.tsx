@@ -738,7 +738,7 @@ export default function OnboardingPage() {
                     <ShieldCheck className="h-3.5 w-3.5" /> Shopify vous demandera d’autoriser l’application, puis vous ramènera ici automatiquement.
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Cette page se met à jour toute seule dès que la boutique est liée — laissez-la ouverte.
+                    Cette page se met à jour toute seule dès que la boutique est liée. Laissez-la ouverte.
                   </p>
 
                   {/*
@@ -1078,7 +1078,7 @@ export default function OnboardingPage() {
                   ) : (
                     <>
                       <p className="text-sm text-muted-foreground">
-                        Vos automatisations, rangées comme dans l’app : le <span className="font-medium text-foreground">Transactionnel</span> (lié aux commandes) et les <span className="font-medium text-foreground">Campagnes marketing</span>. Activez celles qui vous parlent — créées <span className="font-medium text-foreground">désactivées</span>, vous les lancerez quand vous serez prêt.
+                        Vos automatisations, rangées comme dans l’app : le <span className="font-medium text-foreground">Transactionnel</span> (lié aux commandes) et les <span className="font-medium text-foreground">Campagnes marketing</span>. Activez celles qui vous parlent. Elles sont créées <span className="font-medium text-foreground">désactivées</span>, vous les lancerez quand vous serez prêt.
                       </p>
                       {/* Regroupées sous les 2 onglets réels (Transactionnel /
                           Campagnes). Une CARTE par catégorie ; l'interrupteur agit

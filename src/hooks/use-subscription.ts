@@ -80,7 +80,14 @@ export function useSubscription() {
         const tokensExtra = data.data.tokens_extra || 0
         const tokensTotal = tokensLimit + tokensExtra
         const tokensRemaining = Math.max(0, tokensTotal - tokensUsed)
-        const usagePercentage = tokensTotal > 0 ? Math.round((tokensUsed / tokensTotal) * 100) : 100
+        // ⚠️ QUOTA INCONNU ≠ QUOTA ÉPUISÉ.
+        //
+        // Le défaut était 100 % quand `tokensTotal` valait 0 (compte tout juste
+        // créé : `tokens_limit` pas encore posé). Résultat : un marchand qui vient
+        // de s'inscrire, avec 0 token consommé, voyait le bandeau ROUGE « Limite de
+        // tokens IA atteinte, l'IA est suspendue » — la pire première impression
+        // possible, et faux. Sans quota connu, on n'annonce aucune consommation.
+        const usagePercentage = tokensTotal > 0 ? Math.round((tokensUsed / tokensTotal) * 100) : 0
 
         setSubscription({
           status: data.data.subscription_status,
