@@ -148,12 +148,20 @@ function DashboardLayoutInner({ children, currentTab }: { children: React.ReactN
     p => pathname === p || pathname.startsWith(p + '/')
   )
 
-  // Nouveau modèle : accès direct (essai libre). Plus de redirection forcée
-  // vers le configurateur/welcome-v2. Les limites (conversations/tokens IA)
-  // sont gérées au cas par cas ; l'abonnement se gère depuis /subscription.
-  // Blocage niveau 2 : a un plan PAYANT mais subscription inactive
-  // (past_due/canceled). Le plan Gratuit garde l'accès (sans IA) → jamais bloqué.
-  const isBlocked = !isAdmin && subscription && !!plan && plan !== 'free' && !subscription.isActive && !isAllowedPage
+  // ⚠️ ABONNEMENT OBLIGATOIRE — le plan Gratuit n'existe plus.
+  //
+  // La condition portait `plan !== 'free'` : seul un marchand ayant DÉJÀ eu un
+  // plan payant devenu inactif était bloqué. Un marchand SANS aucun abonnement
+  // (plan `free`, la valeur par défaut) gardait donc l'accès complet à l'app —
+  // vestige du modèle « essai libre », abandonné depuis le passage au 100 %
+  // payant. On bloque désormais dès qu'il n'y a pas d'abonnement actif, quelle
+  // qu'en soit la raison (jamais souscrit, annulé, impayé).
+  //
+  // Dashboard, Paramètres, Aide et Admin restent accessibles (cf.
+  // ALLOWED_WITHOUT_SUBSCRIPTION) : c'est là qu'on souscrit, qu'on gère son
+  // compte et qu'on comprend ce qui se passe. Bloquer TOUT enfermerait le
+  // marchand dans une impasse.
+  const isBlocked = !isAdmin && !!subscription && !subscription.isActive && !isAllowedPage
 
   // Feature gating : Lifecycle est désormais universel (remplace Tags). Seule
   // l'analyse IA dedans est gated par plan (géré dans la page elle-même).
@@ -539,16 +547,22 @@ function DashboardLayoutInner({ children, currentTab }: { children: React.ReactN
                 </div>
                 <div className="space-y-2">
                   <h2 className="text-2xl font-bold text-foreground">{t('blocked.title')}</h2>
+                  {/* Le cas « jamais souscrit » n'était pas couvert : les trois
+                      messages parlaient d'annulation, d'expiration ou de fin
+                      d'essai. Un marchand sans abonnement lisait donc « votre
+                      essai est terminé » alors qu'il n'en avait jamais eu. */}
                   <p className="text-muted-foreground">
                     {subscription?.status === 'canceled'
                       ? t('blocked.cancelled')
                       : subscription?.status === 'past_due'
                         ? t('blocked.expired', { appName: tenant.appName })
-                        : t('blocked.trial_ended', { appName: tenant.appName })}
+                        : subscription?.status === 'trialing'
+                          ? t('blocked.trial_ended', { appName: tenant.appName })
+                          : `Choisissez une formule pour activer ${tenant.appName} : agent IA, automatisations, campagnes et boîte de réception WhatsApp. 7 jours d'essai gratuit.`}
                   </p>
                 </div>
                 <Link
-                  href="/subscription"
+                  href="/settings?tab=abonnement"
                   className="inline-flex items-center gap-2 rounded-lg bg-primary px-6 py-3 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90"
                 >
                   <CreditCard className="h-5 w-5" />
