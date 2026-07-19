@@ -136,7 +136,18 @@ function SubscriptionContent() {
   const [cgvAccepted, setCgvAccepted] = useState(false)
   const [buyingCredits, setBuyingCredits] = useState(false)
   // Crédits IA = conversations IA du mois (compteur réel).
-  const [aiCredits, setAiCredits] = useState<{ used: number; limit: number | null; percentage: number } | null>(null)
+  const [aiCredits, setAiCredits] = useState<{
+    used: number
+    limit: number | null
+    percentage: number
+    /** Quota du plan seul (remis à zéro chaque mois). null = illimité. */
+    planLimit?: number | null
+    /** Recharges achetées (ne périment pas). */
+    extra?: number
+    planUsed?: number
+    extraUsed?: number
+    extraRemaining?: number | null
+  } | null>(null)
 
   useEffect(() => {
     fetch('/api/subscription/usage')
@@ -496,52 +507,88 @@ function SubscriptionContent() {
             </p>
             <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
               <li>• Ne consomment <span className="font-medium text-foreground">rien</span> : vos réponses manuelles, les automatisations et les modèles envoyés sans IA.</li>
-              <li>• Le compteur repart de zéro à chaque renouvellement mensuel.</li>
-              <li>• Les recharges achetées s’ajoutent au quota et <span className="font-medium text-foreground">ne périment pas</span>.</li>
+              <li>• Le quota <span className="font-medium text-foreground">inclus dans votre plan</span> repart de zéro à chaque renouvellement mensuel.</li>
+              <li>• Les <span className="font-medium text-foreground">recharges</span> achetées prennent le relais une fois ce quota épuisé, et <span className="font-medium text-foreground">ne périment pas</span>.</li>
             </ul>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Barre de conversations IA du mois */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">
-                  <span className="font-semibold text-foreground">{aiCredits.used.toLocaleString('fr-FR')}</span>
-                  {' / '}{aiCredits.limit.toLocaleString('fr-FR')} conversations IA ce mois-ci
-                </span>
-                <span className={cn(
-                  'font-medium',
-                  aiCredits.percentage < 80 && 'text-green-600',
-                  aiCredits.percentage >= 80 && aiCredits.percentage < 95 && 'text-amber-600',
-                  aiCredits.percentage >= 95 && 'text-red-600',
-                )}>
-                  {aiCredits.percentage}%
-                </span>
-              </div>
-              <Progress
-                value={Math.min(aiCredits.percentage, 100)}
-                className={cn(
-                  'h-2.5',
-                  aiCredits.percentage >= 95 && '[&>div]:bg-red-500',
-                  aiCredits.percentage >= 80 && aiCredits.percentage < 95 && '[&>div]:bg-amber-500',
-                )}
-              />
-              <p className="text-xs text-muted-foreground">
-                {Math.max(0, aiCredits.limit - aiCredits.used).toLocaleString('fr-FR')} conversations IA restantes
-              </p>
-            </div>
+            {/* ── DEUX COMPTEURS DISTINCTS ────────────────────────────────────
+                Le quota du plan et les recharges n'ont PAS la même nature : le
+                premier se remet à zéro chaque mois, les secondes ne périment
+                jamais. Les fondre dans une seule barre (« 1 / 2 800 ») laissait
+                croire que le plan incluait tout, et contredisait la mention
+                « remis à zéro chaque mois ». On les sépare donc.
+                Le plan est consommé EN PREMIER, les recharges ensuite. */}
+            {(() => {
+              const planLimit = aiCredits.planLimit ?? aiCredits.limit
+              const planUsed = aiCredits.planUsed ?? aiCredits.used
+              const extra = aiCredits.extra ?? 0
+              const extraUsed = aiCredits.extraUsed ?? 0
+              const extraLeft = aiCredits.extraRemaining ?? Math.max(0, extra - extraUsed)
+              const planPct = planLimit && planLimit > 0
+                ? Math.min(100, Math.round((planUsed / planLimit) * 100))
+                : 0
+              const extraPct = extra > 0 ? Math.min(100, Math.round((extraUsed / extra) * 100)) : 0
+              return (
+                <div className="space-y-4">
+                  {/* 1. Quota du plan (mensuel) */}
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        <span className="font-semibold text-foreground">{planUsed.toLocaleString('fr-FR')}</span>
+                        {' / '}{(planLimit ?? 0).toLocaleString('fr-FR')} <span className="font-medium text-foreground">inclus dans votre plan</span>
+                      </span>
+                      <span className={cn(
+                        'font-medium',
+                        planPct < 80 && 'text-green-600',
+                        planPct >= 80 && planPct < 95 && 'text-amber-600',
+                        planPct >= 95 && 'text-red-600',
+                      )}>
+                        {planPct}%
+                      </span>
+                    </div>
+                    <Progress
+                      value={planPct}
+                      className={cn(
+                        'h-2.5',
+                        planPct >= 95 && '[&>div]:bg-red-500',
+                        planPct >= 80 && planPct < 95 && '[&>div]:bg-amber-500',
+                      )}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {Math.max(0, (planLimit ?? 0) - planUsed).toLocaleString('fr-FR')} restantes · remis à zéro le mois prochain
+                    </p>
+                  </div>
 
-            <div className="grid grid-cols-2 gap-3 pt-1">
-              <div className="rounded-lg border bg-muted/30 p-3 space-y-0.5">
-                <p className="text-xs text-muted-foreground">Inclus dans le plan</p>
-                <p className="text-sm font-semibold">{aiCredits.limit.toLocaleString('fr-FR')} conv.</p>
-                <p className="text-xs text-muted-foreground/70">Remis à zéro chaque mois</p>
-              </div>
-              <div className="rounded-lg border bg-muted/30 p-3 space-y-0.5">
-                <p className="text-xs text-muted-foreground">Recharge</p>
-                <p className="text-sm font-semibold">500 conv. · 45€</p>
-                <p className="text-xs text-muted-foreground/70">Ne périment pas</p>
-              </div>
-            </div>
+                  {/* 2. Recharges achetées — affichées SEULEMENT si le marchand
+                         en a. Sinon on propose la recharge (encart ci-dessous). */}
+                  {extra > 0 ? (
+                    <div className="space-y-1.5 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">
+                          <span className="font-semibold text-foreground">{extraUsed.toLocaleString('fr-FR')}</span>
+                          {' / '}{extra.toLocaleString('fr-FR')} <span className="font-medium text-foreground">de recharge</span>
+                        </span>
+                        <span className="font-medium text-amber-600">{extraPct}%</span>
+                      </div>
+                      <Progress value={extraPct} className="h-2 [&>div]:bg-amber-500" />
+                      <p className="text-xs text-muted-foreground">
+                        {extraLeft.toLocaleString('fr-FR')} restantes · <span className="font-medium text-foreground">ne périment pas</span>
+                        {planLimit !== null && planUsed < planLimit && ' (utilisées après le quota du plan)'}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border bg-muted/30 p-3">
+                      <p className="text-xs text-muted-foreground">
+                        <span className="font-medium text-foreground">Aucune recharge en réserve.</span>{' '}
+                        Une recharge ajoute 500 conversations (45 €) qui <span className="font-medium text-foreground">ne périment pas</span> :
+                        elles prennent le relais une fois le quota du plan épuisé.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )
+            })()}
 
             {aiCredits.percentage >= 80 && (
               <div className={cn(

@@ -65,6 +65,18 @@ export async function GET() {
         unlimited: limit === null,
         percentage,
         fairUseCap: plan.fairUseCap ?? null,
+        // ── Ventilation plan / recharges ──────────────────────────────────
+        // Le quota du plan se remet à zéro chaque mois ; les recharges achetées
+        // ne périment pas. Les fondre dans un seul total (« 1 / 2 800 ») laissait
+        // croire que le plan incluait tout, et contredisait le « remis à zéro
+        // chaque mois ». On consomme d'ABORD le quota du plan, puis les recharges.
+        planLimit: quota.planLimit,
+        extra: quota.extra,
+        planUsed: quota.planLimit === null ? quota.used : Math.min(quota.used, quota.planLimit),
+        extraUsed: quota.planLimit === null ? 0 : Math.max(0, quota.used - quota.planLimit),
+        extraRemaining: quota.planLimit === null
+          ? null
+          : Math.max(0, quota.extra - Math.max(0, quota.used - quota.planLimit)),
       },
     },
   })

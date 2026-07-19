@@ -157,6 +157,10 @@ export async function checkConversationQuota(userId: string): Promise<{
   used: number
   limit: number
   plan: PlanId
+  /** Quota MENSUEL du plan seul (remis à zéro chaque mois). */
+  planLimit: number | null
+  /** Conversations ACHETÉES en recharge (ne périment pas). */
+  extra: number
 }> {
   const plan = await getUserPlan(userId)
 
@@ -166,7 +170,7 @@ export async function checkConversationQuota(userId: string): Promise<{
     if (plan.fairUseCap && used >= plan.fairUseCap) {
       await alertFairUseOnce(userId, used, plan.fairUseCap)
     }
-    return { allowed: true, used, limit: Infinity, plan: plan.id }
+    return { allowed: true, used, limit: Infinity, plan: plan.id, planLimit: null, extra: 0 }
   }
 
   // Crédits achetés en plus (ne périment pas) → s'ajoutent au quota mensuel.
@@ -177,7 +181,10 @@ export async function checkConversationQuota(userId: string): Promise<{
 
   const used = await countAiConversationsThisMonth(userId)
   const limit = plan.conversationsPerMonth + extra
-  return { allowed: used < limit, used, limit, plan: plan.id }
+  // `limit` reste le TOTAL (c'est lui qui autorise ou bloque l'IA) ; `planLimit`
+  // et `extra` sont exposés en plus pour que l'UI puisse les afficher séparément
+  // — le quota du plan se remet à zéro chaque mois, les recharges non.
+  return { allowed: used < limit, used, limit, plan: plan.id, planLimit: plan.conversationsPerMonth, extra }
 }
 
 /** Alerte fair-use dédupliquée : une seule par mois calendaire. */
