@@ -442,13 +442,31 @@ export default function SettingsPage() {
     try {
       const supabase = (await import('@/lib/supabase/client')).createClient()
       const { data: { user } } = await supabase.auth.getUser()
-      if (!user?.email) return
-      await supabase.auth.resetPasswordForEmail(user.email, {
+      if (!user?.email) {
+        // Sortie silencieuse auparavant : le marchand cliquait, rien ne se
+        // passait, aucun message. On le dit.
+        toast.error('Aucune adresse email sur ce compte.')
+        return
+      }
+      // ⚠️ L'ERREUR ÉTAIT IGNORÉE.
+      //
+      // `resetPasswordForEmail` ne LÈVE PAS en cas d'échec : il renvoie
+      // `{ error }`. Le résultat n'étant pas lu, le `catch` ne se déclenchait
+      // jamais et on affichait « email envoyé » même quand rien ne partait
+      // (SMTP non configuré, quota d'envoi Supabase atteint, domaine refusé).
+      // Le marchand attendait un email qui n'existait pas.
+      const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
         redirectTo: `${window.location.origin}/auth/callback?redirect=/settings`,
       })
+      if (error) {
+        console.error('[settings] envoi email mot de passe échoué:', error.message, error.status)
+        toast.error(`Envoi impossible : ${error.message}`)
+        return
+      }
       toast.success(t('settings.password_email_sent'))
-    } catch {
-      toast.error(t('common.network_error'))
+    } catch (e) {
+      console.error('[settings] envoi email mot de passe — exception:', e)
+      toast.error(e instanceof Error ? e.message : t('common.network_error'))
     }
   }
 
