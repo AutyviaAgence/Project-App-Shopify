@@ -134,14 +134,41 @@ export async function PATCH(req: NextRequest) {
   const auth = await requireAdmin()
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
-  const { id, is_active } = await req.json()
+  const { id, is_active, max_redemptions, valid_until } = await req.json()
   if (!id) return NextResponse.json({ error: 'Identifiant requis' }, { status: 400 })
 
-  const { error } = await auth.admin
+  // ⚠️ Le PATCH ne gérait QUE `is_active` : une fois créé, un code était figé.
+  // Impossible de relever le plafond d'une campagne qui marche, de la clôturer
+  // par une date, ni de réactiver un code stoppé par erreur — il fallait le
+  // supprimer et le recréer (en perdant l'historique).
+  //
+  // On applique donc uniquement les champs RÉELLEMENT fournis : `undefined` =
+  // « ne pas toucher », alors que `null` est une valeur légitime (illimité /
+  // sans expiration) qu'il faut pouvoir poser.
+  const patch: Record<string, unknown> = {}
+  if (is_active !== undefined) patch.is_active = !!is_active
+  if (max_redemptions !== undefined) {
+    const n = max_redemptions === null || max_redemptions === '' ? null : Number(max_redemptions)
+    if (n !== null && (!Number.isFinite(n) || n < 1)) {
+      return NextResponse.json({ error: 'Le plafond doit être un entier ≥ 1 (ou vide pour illimité).' }, { status: 400 })
+    }
+    patch.max_redemptions = n
+  }
+  if (valid_until !== undefined) {
+    patch.valid_until = valid_until === null || valid_until === '' ? null : valid_until
+  }
+
+  if (Object.keys(patch).length === 0) {
+    return NextResponse.json({ error: 'Aucune modification fournie.' }, { status: 400 })
+  }
+
+  const { data, error } = await auth.admin
     .from('promo_codes')
-    .update({ is_active: !!is_active })
+    .update(patch)
     .eq('id', id)
+    .select()
+    .single()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true, code: data })
 }

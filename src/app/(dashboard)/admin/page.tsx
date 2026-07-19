@@ -1610,7 +1610,8 @@ function PromoTab() {
    * la trace de qui avait utilisé quoi, et un marchand pouvait réutiliser un code
    * recréé sous le même nom. `PATCH is_active:false` existait déjà côté API.
    */
-  const handleDeactivate = async (id: string) => {
+  /** Modifie un code existant (statut, plafond, expiration) sans le recréer. */
+  const patchCode = async (id: string, patch: Record<string, unknown>, okMsg: string) => {
     setDeleting(id)
     try {
       // ⚠️ Le PATCH est sur la route RACINE et attend `id` dans le BODY
@@ -1618,17 +1619,38 @@ function PromoTab() {
       const res = await fetch('/api/admin/promo-codes', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, is_active: false }),
+        body: JSON.stringify({ id, ...patch }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
-      toast.success('Code promo désactivé')
+      toast.success(okMsg)
       fetchCodes()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur')
     } finally {
       setDeleting(null)
     }
+  }
+
+  const handleDeactivate = (id: string) => patchCode(id, { is_active: false }, 'Code promo arrêté')
+  const handleReactivate = (id: string) => patchCode(id, { is_active: true }, 'Code promo réactivé')
+
+  /** Change le plafond d'utilisations d'un code déjà créé. */
+  const handleEditLimit = (code: { id: string; code: string; max_redemptions: number | null; redemptions?: number }) => {
+    const current = code.max_redemptions ?? ''
+    const input = window.prompt(
+      `Plafond d'utilisations pour ${code.code}\n\n` +
+      `Déjà utilisé : ${code.redemptions ?? 0} fois.\n` +
+      `Laissez vide pour un usage illimité.`,
+      String(current)
+    )
+    if (input === null) return // annulé
+    const trimmed = input.trim()
+    if (trimmed !== '' && (!Number.isFinite(Number(trimmed)) || Number(trimmed) < 1)) {
+      toast.error('Indiquez un nombre ≥ 1, ou laissez vide pour illimité.')
+      return
+    }
+    patchCode(code.id, { max_redemptions: trimmed === '' ? null : Number(trimmed) }, 'Plafond mis à jour')
   }
 
   if (loading) return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
@@ -1777,8 +1799,14 @@ function PromoTab() {
                   <td className="px-4 py-3 capitalize">
                     {Array.isArray(code.plans) && code.plans.length ? code.plans.join(', ') : 'Tous'}
                   </td>
-                  <td className="px-4 py-3 tabular-nums">
+                  {/* Plafond atteint : le code est encore « actif » mais refusé
+                      côté client. Sans repère visuel, l'admin croit qu'il marche. */}
+                  <td className={cn(
+                    'px-4 py-3 tabular-nums',
+                    code.max_redemptions && (code.redemptions ?? 0) >= code.max_redemptions && 'font-semibold text-amber-600'
+                  )}>
                     {(code.redemptions ?? 0)} / {code.max_redemptions ?? '∞'}
+                    {code.max_redemptions && (code.redemptions ?? 0) >= code.max_redemptions && ' (épuisé)'}
                   </td>
                   <td className="px-4 py-3">
                     {code.valid_until
@@ -1791,18 +1819,44 @@ function PromoTab() {
                       : <Badge variant="secondary">Inactif</Badge>}
                   </td>
                   <td className="px-4 py-3">
-                    {code.is_active && (
+                    <div className="flex items-center gap-1">
+                      {/* Modifier le plafond sans recréer le code (ex. relever la
+                          limite d'une campagne qui marche). */}
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
                         disabled={deleting === code.id}
-                        title="Désactiver ce code (l’historique d’utilisation est conservé)"
-                        onClick={() => handleDeactivate(code.id)}
+                        title="Modifier le plafond d’utilisations"
+                        onClick={() => handleEditLimit(code)}
                       >
-                        {deleting === code.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
+                        <TagIcon className="h-4 w-4" />
                       </Button>
-                    )}
+                      {code.is_active ? (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          disabled={deleting === code.id}
+                          title="Arrêter ce code (il devient inutilisable ; l’historique est conservé)"
+                          onClick={() => handleDeactivate(code.id)}
+                        >
+                          {deleting === code.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <XCircle className="h-4 w-4" />}
+                        </Button>
+                      ) : (
+                        /* Réactivation : un code arrêté par erreur était perdu —
+                           il fallait le recréer, et l'historique repartait de zéro. */
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-green-600 hover:bg-green-500/10 hover:text-green-600"
+                          disabled={deleting === code.id}
+                          title="Réactiver ce code"
+                          onClick={() => handleReactivate(code.id)}
+                        >
+                          {deleting === code.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle className="h-4 w-4" />}
+                        </Button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
