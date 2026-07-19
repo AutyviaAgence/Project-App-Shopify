@@ -156,10 +156,16 @@ function SubscriptionContent() {
         body: JSON.stringify({ pack: 'ai_credits' }),
       })
       const json = await res.json()
-      if (!res.ok || !json?.data?.confirmationUrl) throw new Error(json.error)
+      if (!res.ok || !json?.data?.confirmationUrl) {
+        throw new Error(json?.error || 'Achat impossible')
+      }
       window.location.href = json.data.confirmationUrl
-    } catch {
-      toast.error('Impossible de lancer l’achat de crédits.')
+    } catch (e) {
+      // ⚠️ On REMONTE l'erreur du serveur au lieu d'un message générique : le
+      // « Impossible de lancer l'achat » masquait la vraie cause (jeton Shopify
+      // expiré, refus de Shopify, table manquante…) et rendait le diagnostic
+      // impossible côté marchand comme côté support.
+      toast.error(e instanceof Error ? e.message : 'Impossible de lancer l’achat de crédits.')
       setBuyingCredits(false)
     }
   }

@@ -58,6 +58,9 @@ export async function GET() {
   let periodEnd: string | null = null
   let realPlan = plan
   let realStatus = p.subscription_status as string | null
+  // Intervalle réellement facturé (mensuel/annuel) — sert à afficher le bon
+  // montant et la bonne périodicité sur la page Abonnement.
+  let billingInterval: 'monthly' | 'annual' = 'monthly'
 
   if (shopifyBilled) {
     const { createClient: createAdminSupabase } = await import('@supabase/supabase-js')
@@ -79,6 +82,7 @@ export async function GET() {
       realPlan = (store.plan || 'free') as typeof plan
       realStatus = store.subscription_status
       periodEnd = store.current_period_end
+      if (store.billing_interval === 'annual') billingInterval = 'annual'
     }
   }
 
@@ -90,6 +94,8 @@ export async function GET() {
       subscription_status: realStatus,
       /** Vraie date de renouvellement (Shopify), `null` si aucun abonnement. */
       current_period_end: periodEnd,
+      /** 'monthly' | 'annual' — intervalle réellement facturé par Shopify. */
+      billing_interval: billingInterval,
       configurateur_submitted: !!onboardingConfig?.submitted_at,
       aiEnabled,
       shopifyBilled,

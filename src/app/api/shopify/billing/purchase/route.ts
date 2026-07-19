@@ -92,8 +92,17 @@ export async function POST(req: NextRequest) {
     .single()
 
   if (insertErr || !purchase) {
-    console.error('[billing/purchase] enregistrement échoué:', insertErr?.message)
-    return NextResponse.json({ error: 'Achat impossible' }, { status: 500 })
+    console.error('[billing/purchase] enregistrement échoué:', insertErr?.message, insertErr?.code)
+    // ⚠️ Message EXPLICITE : « Achat impossible » ne disait rien et masquait la
+    // vraie cause. La plus fréquente est la table absente (migration
+    // 20260715_one_time_purchases.sql non appliquée) → PostgREST renvoie PGRST205
+    // / 42P01. On le dit clairement au lieu de laisser chercher.
+    const missingTable = insertErr?.code === 'PGRST205' || insertErr?.code === '42P01'
+    return NextResponse.json({
+      error: missingTable
+        ? "Le système d'achat n'est pas encore initialisé côté base (table shopify_one_time_purchases manquante). Appliquez la migration 20260715_one_time_purchases.sql."
+        : `Achat impossible : ${insertErr?.message || 'erreur inconnue'}`,
+    }, { status: 500 })
   }
 
   const { appUrl } = getShopifyConfig()
