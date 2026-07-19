@@ -37,13 +37,10 @@ type Automation = {
 
 type Folder = { id: string; name: string; color: string | null; position: number }
 
-function AutomationsPageInner() {
-  // Onglet actif, piloté par la sidebar via ?tab= (marketing | transactional).
-  const searchParams = useSearchParams()
-  const urlTab: AutomationKind = searchParams.get('tab') === 'marketing' ? 'marketing' : 'transactional'
-  // ?id= : automatisation à ouvrir directement (lien depuis un message envoyé,
-  // dans les conversations). Prime sur ?tab= — on déduit l'onglet de l'automatisation.
-  const urlId = searchParams.get('id')
+// ⚠️ `urlTab`/`urlId` arrivent en PROPS (lus par SearchParamsReader, cf. bas du
+// fichier). Appeler `useSearchParams()` ICI ferait suspendre — donc remonter — ce
+// composant à chaque navigation, et tout son état serait perdu.
+function AutomationsPageInner({ urlTab, urlId }: { urlTab: AutomationKind; urlId: string | null }) {
   const [tab, setTab] = useState<AutomationKind>(urlTab)
   const [automations, setAutomations] = useState<Automation[]>([])
   const [templates, setTemplates] = useState<WhatsAppTemplate[]>([])
@@ -837,11 +834,47 @@ function AutomationsPageInner() {
   )
 }
 
-// `useSearchParams` (onglet piloté par la sidebar) exige un Suspense en Next 16.
+/**
+ * ⚠️ POURQUOI LES PARAMÈTRES D'URL SONT LUS **HORS** DE LA PAGE.
+ *
+ * `useSearchParams()` SUSPEND le composant à chaque navigation qui change la
+ * query (?tab=marketing ↔ ?tab=transactional, retour depuis Modèles…). Quand un
+ * composant suspend, React DÉMONTE son contenu et le REMONTE : tout l'état vivant
+ * est perdu (automatisation ouverte, graphe en cours d'édition, onglet).
+ *
+ * C'est ce qui faisait qu'en revenant sur Campagnes on retombait sur « aucun
+ * workflow sélectionné » — le keep-alive gardait bien la page montée, mais le
+ * Suspense la réinitialisait de l'intérieur.
+ *
+ * Un petit composant dédié lit donc la query et la remonte au parent ; c'est LUI
+ * qui suspend, tandis que `AutomationsPageInner` — rendu en dehors du Suspense —
+ * reste monté et conserve son état.
+ */
+function SearchParamsReader({ onChange }: { onChange: (v: { tab: AutomationKind; id: string | null }) => void }) {
+  const sp = useSearchParams()
+  const tab: AutomationKind = sp.get('tab') === 'marketing' ? 'marketing' : 'transactional'
+  const id = sp.get('id')
+  const ref = useRef(onChange)
+  ref.current = onChange
+  useEffect(() => { ref.current({ tab, id }) }, [tab, id])
+  return null
+}
+
 export default function AutomationsPage() {
+  const [params, setParams] = useState<{ tab: AutomationKind; id: string | null }>({
+    tab: 'transactional',
+    id: null,
+  })
+  const handleChange = useCallback((v: { tab: AutomationKind; id: string | null }) => {
+    // Ne re-render que sur un vrai changement (évite une boucle de rendu).
+    setParams((p) => (p.tab === v.tab && p.id === v.id ? p : v))
+  }, [])
   return (
-    <Suspense fallback={<BlobLoaderScreen />}>
-      <AutomationsPageInner />
-    </Suspense>
+    <>
+      <Suspense fallback={null}>
+        <SearchParamsReader onChange={handleChange} />
+      </Suspense>
+      <AutomationsPageInner urlTab={params.tab} urlId={params.id} />
+    </>
   )
 }

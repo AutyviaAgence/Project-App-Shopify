@@ -43,8 +43,10 @@ function playMessageSound() {
   }
 }
 
-function ConversationsPageContent() {
-  const searchParams = useSearchParams()
+// ⚠️ `openConvId` arrive en PROP (lu par OpenParamReader) : appeler
+// `useSearchParams()` ici ferait suspendre — donc remonter — ce composant à chaque
+// navigation, et tout son état serait perdu malgré le keep-alive.
+function ConversationsPageContent({ openConvId }: { openConvId: string | null }) {
   const router = useRouter()
   const { t } = useTranslation()
   const { subscription } = useSubscription()
@@ -667,14 +669,13 @@ function ConversationsPageContent() {
   // realtime aurait pu manquer (reconnexion, envoi depuis une autre page…).
   useKeepAliveFocus('/conversations', () => { fetchConversations() })
 
-  // Handle ?open=conversationId URL param
+  // Handle ?open=conversationId URL param (reçu en prop, cf. OpenParamReader)
   useEffect(() => {
-    const openConvId = searchParams.get('open')
     if (openConvId) {
       setPendingOpenConvId(openConvId)
       router.replace('/conversations', { scroll: false })
     }
-  }, [searchParams, router])
+  }, [openConvId, router])
 
   // Open pending conversation when available
   useEffect(() => {
@@ -1226,10 +1227,33 @@ function ConversationsPageContent() {
   )
 }
 
+/**
+ * ⚠️ Le paramètre d'URL est lu HORS de la page (même raison que la page
+ * Automatisations) : `useSearchParams()` SUSPEND le composant à chaque navigation
+ * qui touche la query, et un composant qui suspend est DÉMONTÉ puis REMONTÉ →
+ * conversation ouverte, filtres et scroll perdus, malgré le keep-alive.
+ * Ce petit lecteur suspend à sa place ; le contenu reste monté.
+ */
+function OpenParamReader({ onChange }: { onChange: (v: string | null) => void }) {
+  const sp = useSearchParams()
+  const open = sp.get('open')
+  const ref = useRef(onChange)
+  ref.current = onChange
+  useEffect(() => { ref.current(open) }, [open])
+  return null
+}
+
 export default function ConversationsPage() {
+  const [openConvId, setOpenConvId] = useState<string | null>(null)
+  const handleOpen = useCallback((v: string | null) => {
+    setOpenConvId((prev) => (prev === v ? prev : v))
+  }, [])
   return (
-    <Suspense fallback={<BlobLoaderScreen />}>
-      <ConversationsPageContent />
-    </Suspense>
+    <>
+      <Suspense fallback={null}>
+        <OpenParamReader onChange={handleOpen} />
+      </Suspense>
+      <ConversationsPageContent openConvId={openConvId} />
+    </>
   )
 }
