@@ -456,7 +456,10 @@ Exemples :
       if (c?.shopify_customer_id) {
         systemPrompt += `\nCe client est IDENTIFIÉ (compte Shopify relié${contactEmail ? `, email : ${contactEmail}` : ''}). Tu peux consulter ses commandes directement.`
       } else {
-        systemPrompt += `\nCe client n'est PAS encore relié à un compte Shopify.${contactEmail ? ` Email connu : ${contactEmail}.` : ''} Pour toute demande liée à une commande (SAV, suivi, remboursement), demande d'abord poliment l'email utilisé pour la commande puis appelle l'outil link_customer. Ne traite JAMAIS un remboursement sans avoir vérifié l'identité (email + numéro de commande qui correspondent).`
+        // ⚠️ DEUX facteurs exigés (email ET n° de commande) : l'email seul
+        // permettait d'usurper l'identité d'un autre client. Le prompt doit le
+        // refléter, sinon l'agent ne réclame qu'un email et l'outil refuse.
+        systemPrompt += `\nCe client n'est PAS encore relié à un compte Shopify.${contactEmail ? ` Email connu : ${contactEmail}.` : ''} Pour toute demande liée à une commande (SAV, suivi, remboursement), demande poliment DEUX informations : l'email utilisé pour la commande ET le numéro de commande (ex. #1234, visible dans l'email de confirmation). Les deux sont obligatoires — c'est ce qui prouve que la commande lui appartient. Appelle ensuite l'outil link_customer avec ces deux informations. Ne traite JAMAIS un remboursement ni une annulation sans cette vérification.`
       }
     }
     if (agent.objective) {

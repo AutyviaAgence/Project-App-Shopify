@@ -152,13 +152,14 @@ export const LINK_CUSTOMER_TOOL = {
   function: {
     name: 'link_customer',
     description:
-      "Relie le contact WhatsApp à son compte client Shopify via l'email de sa commande. À appeler quand le client fait une demande liée à une commande (SAV, suivi, remboursement) MAIS qu'on ne connaît pas encore son email/compte. Demande d'abord poliment l'email utilisé pour la commande, puis appelle cet outil. Réponds ensuite selon le résultat (compte trouvé ou non).",
+      "Relie le contact WhatsApp à son compte client Shopify. À appeler quand le client fait une demande liée à une commande (SAV, suivi, remboursement) MAIS qu'on ne connaît pas encore son compte. Demande poliment DEUX informations : l'email utilisé pour la commande ET le numéro de commande (ex. #1234, présent dans l'email de confirmation). Les deux sont OBLIGATOIRES : c'est ce qui prouve que la commande lui appartient vraiment. N'appelle cet outil que lorsque tu as les deux. Réponds ensuite selon le résultat.",
     parameters: {
       type: 'object',
       properties: {
         email: { type: 'string', description: "Email fourni par le client (celui utilisé pour sa commande)." },
+        order_name: { type: 'string', description: "Numéro de commande fourni par le client (ex. #1234). Obligatoire : sert de preuve d'appartenance." },
       },
-      required: ['email'],
+      required: ['email', 'order_name'],
     },
   },
 }
@@ -359,12 +360,44 @@ export async function handleLinkCustomer(
   const email = String(args.email || '').trim().toLowerCase()
   if (!email.includes('@')) return "Cet email ne semble pas valide. Peux-tu redemander poliment au client l'email utilisé pour sa commande ?"
 
+  // ⚠️ DEUX FACTEURS OBLIGATOIRES — SINON USURPATION D'IDENTITÉ TRIVIALE.
+  //
+  // L'email seul suffisait à relier un contact WhatsApp à un compte client, avec
+  // pour seule validation la présence d'un « @ ». N'importe qui pouvait donc
+  // écrire au numéro du marchand, donner l'email d'UN AUTRE client (deviné,
+  // trouvé dans un avis produit ou issu d'une fuite), et lire ses commandes :
+  // montants, statuts, suivi. Fuite de données personnelles immédiate, sans
+  // aucune validation humaine — et le lien frauduleux faisait ensuite passer le
+  // contrôle d'identité pour demander un remboursement sur la commande d'autrui.
+  //
+  // On exige désormais email ET numéro de commande, ET qu'ils correspondent :
+  // deviner l'un ne suffit plus. Aucune friction pour un vrai client, qui a les
+  // deux sous les yeux dans son email de confirmation.
+  const orderName = String(args.order_name || '').trim()
+  if (!orderName) {
+    return "Il manque le numéro de commande. Demande poliment au client son numéro de commande (ex. #1234), visible dans son email de confirmation — c'est nécessaire pour retrouver son dossier en toute sécurité."
+  }
+
   const store = await getUserStore(ctx.userId)
   if (!store) return "Aucune boutique connectée, impossible de relier le compte pour l'instant."
 
   const customer = await findCustomerByEmail(store.shop, store.token, email)
   if (!customer) {
     return `Aucun compte client trouvé avec l'email ${email}. Dis au client qu'on ne trouve pas de commande à cet email et demande s'il a utilisé une autre adresse.`
+  }
+
+  // La commande annoncée appartient-elle VRAIMENT à ce client ?
+  const custOrders = await findOrdersByCustomerId(store.shop, store.token, customer.id, 50)
+  if (custOrders.ok) {
+    const wanted = orderName.replace(/^#?/, '#').toLowerCase()
+    const match = custOrders.data.some((o) => o.name.toLowerCase() === wanted)
+    if (!match) {
+      // Message volontairement neutre : ne pas révéler si c'est l'email ou le
+      // numéro qui est faux (sinon on donne un oracle pour deviner l'autre).
+      return `Ces informations ne correspondent pas à une commande. Demande au client de vérifier l'email ET le numéro de commande exactement comme ils apparaissent dans son email de confirmation. Ne relie PAS le compte tant que les deux ne correspondent pas.`
+    }
+  } else {
+    return "Impossible de vérifier la commande pour le moment. Propose au client de réessayer dans un instant ou de passer par un conseiller."
   }
 
   // Retrouver le contact de la conversation et stocker le lien + l'email.
