@@ -285,6 +285,8 @@ function SubscriptionContent() {
   // une première souscription. (Remplace l'ancien test `stripeSubscriptionId`,
   // toujours null en facturation 100 % Shopify.)
   const hasActivePlan = isActive && !isCancelled && !isFree && !!currentPlan
+  /** Le marchand est-il facturé à l'ANNÉE ? (pilote tous les montants affichés) */
+  const isAnnualPlan = subscription?.billingInterval === 'annual'
 
   return (
     <div className="container max-w-5xl mx-auto py-8 px-4">
@@ -347,11 +349,19 @@ function SubscriptionContent() {
                         </span>
                       )}
                     </p>
+                    {/* Prix affiché selon l'intervalle RÉELLEMENT facturé. */}
                     <p className="text-sm text-muted-foreground">
-                      {PLANS.find(p => p.id === currentPlan)?.price ?? '—'}€/mois
-                      {pendingPlan && (
+                      {currentPlan && PLANS.find(p => p.id === currentPlan)
+                        ? isAnnualPlan
+                          ? `${annualPrice(currentPlan).toLocaleString('fr-FR')}€/an`
+                          : `${PLANS.find(p => p.id === currentPlan)?.price}€/mois`
+                        : '—'}
+                      {isAnnualPlan && <span className="ml-1 text-emerald-600">· 2 mois offerts</span>}
+                      {pendingPlan && PLANS.find(p => p.id === pendingPlan) && (
                         <span className="ml-1">
-                          → {PLANS.find(p => p.id === pendingPlan)?.price ?? '—'}€/mois après renouvellement
+                          → {isAnnualPlan
+                            ? `${annualPrice(pendingPlan).toLocaleString('fr-FR')}€/an`
+                            : `${PLANS.find(p => p.id === pendingPlan)?.price}€/mois`} après renouvellement
                         </span>
                       )}
                     </p>
@@ -420,15 +430,24 @@ function SubscriptionContent() {
                       ? 'Prochain paiement'
                       : 'Montant prélevé'}
                   </p>
+                  {/* ⚠️ Le montant DOIT suivre l'intervalle réellement facturé :
+                      un marchand en annuel voyait « 149 € · par mois » alors qu'il
+                      est prélevé de 1 430 € par an. */}
                   <p className="text-sm font-semibold">
                     {subscription.status === 'canceled' || subscription.status === 'past_due'
                       ? '—'
-                      : pendingPlan
-                      ? `${PLANS.find(p => p.id === pendingPlan)?.price ?? '—'}€`
-                      : `${PLANS.find(p => p.id === currentPlan)?.price ?? '—'}€`}
+                      : (() => {
+                          const shown = (pendingPlan || currentPlan) as PlanId
+                          if (!PLANS.find(p => p.id === shown)) return '—'
+                          return isAnnualPlan
+                            ? `${annualPrice(shown).toLocaleString('fr-FR')}€`
+                            : `${PLANS.find(p => p.id === shown)?.price}€`
+                        })()}
                   </p>
                   {(subscription.status === 'active' || subscription.status === 'trialing') && !pendingPlan && (
-                    <p className="text-xs text-muted-foreground/70">par mois, hors taxes</p>
+                    <p className="text-xs text-muted-foreground/70">
+                      {isAnnualPlan ? 'par an, hors taxes' : 'par mois, hors taxes'}
+                    </p>
                   )}
                   {pendingPlan && subscription.status !== 'canceled' && subscription.status !== 'past_due' && (
                     <p className="text-xs text-amber-600 dark:text-amber-400">nouveau montant</p>

@@ -33,6 +33,8 @@ type SubscriptionInfo = {
   shopifyBilled: boolean
   /** Domaine de la boutique Shopify liée (pour la Billing API). */
   shopDomain: string | null
+  /** Intervalle réellement facturé par Shopify ('monthly' | 'annual'). */
+  billingInterval: 'monthly' | 'annual'
 }
 
 export function useSubscription() {
@@ -114,6 +116,7 @@ export function useSubscription() {
           aiEnabled: data.data.aiEnabled === true,
           shopifyBilled: data.data.shopifyBilled === true,
           shopDomain: data.data.shopDomain ?? null,
+          billingInterval: data.data.billing_interval === 'annual' ? 'annual' : 'monthly',
         })
       }
     } catch (error) {
