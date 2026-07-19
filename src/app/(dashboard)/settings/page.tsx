@@ -327,6 +327,25 @@ export default function SettingsPage() {
     if (stored !== null) setSoundEnabled(stored !== 'false')
   }, [])
 
+  // ⚠️ ERREUR DE LIEN EMAIL : elle arrive dans le FRAGMENT d'URL (#error=…),
+  // pas en query string — Supabase y renvoie quand un lien de récupération est
+  // expiré ou déjà utilisé (usage unique). Personne ne la lisait : le marchand
+  // revenait sur les Paramètres sans le moindre message et croyait à un bug.
+  useEffect(() => {
+    const hash = window.location.hash
+    if (!hash.includes('error')) return
+    const params = new URLSearchParams(hash.replace(/^#/, ''))
+    const code = params.get('error_code')
+    const desc = params.get('error_description')
+    if (code === 'otp_expired') {
+      toast.error('Ce lien a expiré ou a déjà été utilisé. Demandez-en un nouveau.', { duration: 8000 })
+    } else if (desc) {
+      toast.error(desc.replace(/\+/g, ' '), { duration: 8000 })
+    }
+    // On nettoie l'URL : sinon le message revient à chaque rafraîchissement.
+    window.history.replaceState(null, '', window.location.pathname + window.location.search)
+  }, [])
+
   const handleSoundToggle = (enabled: boolean) => {
     setSoundEnabled(enabled)
     localStorage.setItem('autyvia_sound_enabled', String(enabled))
