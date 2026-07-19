@@ -941,9 +941,16 @@ export default function ShopifyEmbeddedClient() {
                   pouvait créer des codes que personne ne pouvait utiliser.
 
                   Replié par défaut : un champ « code promo » toujours visible pousse
-                  le marchand à en chercher un, et à hésiter s'il n'en a pas. */}
-              {!isPaid && (
-                <div className="mt-3">
+                  le marchand à en chercher un, et à hésiter s'il n'en a pas.
+
+                  ⚠️ AFFICHÉ AUSSI POUR UN MARCHAND DÉJÀ ABONNÉ.
+                  La condition était `!isPaid` : le champ disparaissait dès qu'on
+                  avait un abonnement. Or un code s'applique tout autant à un
+                  CHANGEMENT de plan (monter en gamme, passer à l'annuel avec un
+                  tarif fondateur) — c'est même le cas le plus fréquent. Le
+                  marchand voyait donc les plans, mais aucun moyen de saisir son
+                  code. */}
+              <div className="mt-3">
                   {showPromo ? (
                     <div className="flex items-center gap-2">
                       <input
@@ -967,8 +974,7 @@ export default function ShopifyEmbeddedClient() {
                       J’ai un code promo
                     </button>
                   )}
-                </div>
-              )}
+              </div>
 
               {/* Shopify EXIGE l'approbation du marchand pour toute modification
                   d'abonnement — on le prévient, sinon la redirection le surprend. */}
