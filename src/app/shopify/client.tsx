@@ -121,6 +121,15 @@ const STRINGS = {
     // ── Locale de formatage (dates, nombres) ──
     locale: 'fr-FR',
 
+    // ── Retour de l'écran de facturation Shopify ──
+    // Shopify renvoie sur la même URL qu'on approuve ou qu'on annule : ces
+    // messages disent au marchand ce qui vient de se passer.
+    billingOk: 'Abonnement activé, merci ! Vous pouvez ouvrir l’application.',
+    billingCancelled: 'Abonnement non validé. Vous pouvez réessayer quand vous le souhaitez.',
+    billingNone: 'Aucun abonnement en attente pour cette boutique.',
+    billingReconnect: 'Connexion à Shopify expirée. Rouvrez l’application depuis votre admin Shopify, puis réessayez.',
+    dismiss: 'Fermer',
+
     // ── En-tête ──
     appTitle: 'Xeyo, WhatsApp Support & Chat',
     opening: 'Ouverture…',
@@ -252,6 +261,13 @@ const STRINGS = {
   en: {
     // ── Locale de formatage (dates, nombres) ──
     locale: 'en-US',
+
+    // ── Return from the Shopify billing screen ──
+    billingOk: 'Subscription activated, thank you! You can now open the app.',
+    billingCancelled: 'Subscription not confirmed. You can try again whenever you like.',
+    billingNone: 'No pending subscription for this store.',
+    billingReconnect: 'Your Shopify connection expired. Reopen the app from your Shopify admin, then try again.',
+    dismiss: 'Dismiss',
 
     // ── En-tête ──
     appTitle: 'Xeyo, WhatsApp Support & Chat',
@@ -398,6 +414,17 @@ export default function ShopifyEmbeddedClient() {
   const [loading, setLoading] = useState(true)
   const [busyPlan, setBusyPlan] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+
+  // Résultat du passage par l'écran de facturation Shopify. `subscribed=1` est
+  // conservé pour les liens déjà en circulation ; `billing=…` porte les autres cas.
+  const billingParam = searchParams.get('subscribed') === '1' ? 'ok' : searchParams.get('billing')
+  const [billingNoticeOpen, setBillingNoticeOpen] = useState(true)
+  const billingNotice =
+    billingParam === 'ok' ? { text: t.billingOk, ok: true }
+    : billingParam === 'cancelled' ? { text: t.billingCancelled, ok: false }
+    : billingParam === 'none' ? { text: t.billingNone, ok: false }
+    : billingParam === 'reconnect' ? { text: t.billingReconnect, ok: false }
+    : null
   // ⚠️ Le code promo était accepté par le serveur (la remise Shopify est bien
   // appliquée), mais AUCUNE interface ne permettait de le saisir. L'admin pouvait
   // créer des codes que personne ne pouvait utiliser.
@@ -755,6 +782,29 @@ export default function ShopifyEmbeddedClient() {
   return (
     <div className="min-h-screen bg-[#f1f1f1] px-4 py-8">
       <div className="mx-auto max-w-3xl space-y-5">
+        {/* Retour de l'écran de facturation Shopify. Une annulation n'est PAS une
+            erreur : ton discret plutôt que rouge, pour ne pas alarmer le marchand
+            qui a simplement changé d'avis. */}
+        {billingNotice && billingNoticeOpen && (
+          <div
+            className={
+              billingNotice.ok
+                ? 'flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800'
+                : 'flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900'
+            }
+          >
+            <span className="flex-1">{billingNotice.text}</span>
+            <button
+              type="button"
+              onClick={() => setBillingNoticeOpen(false)}
+              aria-label={t.dismiss}
+              className="shrink-0 rounded px-1 text-base leading-none opacity-60 transition-opacity hover:opacity-100"
+            >
+              ×
+            </button>
+          </div>
+        )}
+
         <div className="flex items-center gap-2.5">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/xeyo-logo.png" alt="Xeyo" className="h-8 w-8 object-contain" />

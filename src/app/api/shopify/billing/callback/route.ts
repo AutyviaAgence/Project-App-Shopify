@@ -13,10 +13,27 @@ import { PLANS, type PlanId } from '@/lib/shopify/plans'
  * ACTIVE avant d'activer le plan — sinon n'importe qui pourrait forger ce
  * callback (?shop=X&plan=scale) et débloquer un plan payant sans payer.
  */
+/**
+ * Ramène le marchand DANS l'app plutôt que sur une page d'erreur nue.
+ *
+ * Shopify renvoie sur le MÊME `returnUrl` que le marchand approuve ou annule —
+ * il n'y a pas d'URL d'annulation distincte. Tout échec de vérification ici est
+ * donc, la plupart du temps, un simple « Annuler » : répondre un JSON d'erreur
+ * laissait le marchand bloqué devant un message brut au lieu de son tableau de
+ * bord. On redirige avec un motif que l'app affiche en message discret.
+ */
+function backToApp(shop: string, reason: string) {
+  const { appUrl } = getShopifyConfig()
+  return NextResponse.redirect(
+    `${appUrl}/shopify?shop=${encodeURIComponent(shop)}&billing=${reason}`
+  )
+}
+
 export async function GET(req: NextRequest) {
   const shop = req.nextUrl.searchParams.get('shop')
   const plan = req.nextUrl.searchParams.get('plan') as PlanId | null
 
+  // Domaine invalide : on ne peut même pas construire un retour fiable.
   if (!shop || !isValidShopDomain(shop) || !plan || !(plan in PLANS)) {
     return NextResponse.json({ error: 'Paramètres invalides' }, { status: 400 })
   }
@@ -35,7 +52,7 @@ export async function GET(req: NextRequest) {
     .maybeSingle()
 
   if (!store?.access_token || !store.shopify_charge_id) {
-    return NextResponse.json({ error: 'Aucun abonnement en attente pour cette boutique.' }, { status: 400 })
+    return backToApp(shop, 'none')
   }
 
   // VÉRIFICATION auprès de Shopify : l'abonnement doit être ACTIVE.
@@ -45,17 +62,13 @@ export async function GET(req: NextRequest) {
   // explicite au marchand plutôt que d'échouer en silence.
   const token = await getValidAccessToken(shop)
   if (!token) {
-    return NextResponse.json(
-      { error: 'Jeton Shopify invalide — rouvrez l\'application depuis l\'admin Shopify pour la reconnecter, puis réessayez.' },
-      { status: 502 }
-    )
+    return backToApp(shop, 'reconnect')
   }
   const sub = await getAppSubscriptionStatus(shop, token, store.shopify_charge_id)
   if (!sub || sub.status !== 'ACTIVE') {
-    return NextResponse.json(
-      { error: `Abonnement non confirmé (statut : ${sub?.status || 'inconnu'}).` },
-      { status: 402 }
-    )
+    // Cas nominal du bouton « Annuler » : l'abonnement reste DECLINED/PENDING.
+    // Ce n'est pas une erreur, le marchand a simplement changé d'avis.
+    return backToApp(shop, 'cancelled')
   }
 
   // La VRAIE date de fin de période, demandée à Shopify.
