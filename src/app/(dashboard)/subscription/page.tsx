@@ -128,7 +128,7 @@ const PLANS = [
  * export, il aurait fallu dupliquer 900 lignes — ou laisser deux endroits
  * différents pour la même chose, ce qui était justement le problème.
  */
-export function SubscriptionContent() {
+export function SubscriptionContent({ embedded = false }: { embedded?: boolean } = {}) {
   const { t, locale } = useTranslation()
   const tenant = useTenant()
   const searchParams = useSearchParams()
@@ -309,13 +309,22 @@ export function SubscriptionContent() {
   const isAnnualPlan = subscription?.billingInterval === 'annual'
 
   return (
-    <div className="container max-w-5xl mx-auto py-8 px-4">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold">{t('subscription.title')}</h1>
-        <p className="mt-2 text-muted-foreground">
-          {t('subscription.description', { appName: tenant.appName })}
-        </p>
-      </div>
+    // ⚠️ MISE EN PAGE CONDITIONNELLE.
+    //
+    // Ce composant était une PAGE autonome : il portait son propre conteneur
+    // (largeur max, marges, padding) et son titre <h1>. Rendu dans l'onglet
+    // Paramètres, ces habillages se cumulaient à ceux des Paramètres — d'où un
+    // contenu décalé, plus étroit que les autres onglets, et un titre en double.
+    // En mode « intégré » (embedded), on ne rend que le contenu.
+    <div className={embedded ? 'space-y-6' : 'container max-w-5xl mx-auto py-8 px-4'}>
+      {!embedded && (
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold">{t('subscription.title')}</h1>
+          <p className="mt-2 text-muted-foreground">
+            {t('subscription.description', { appName: tenant.appName })}
+          </p>
+        </div>
+      )}
 
       {/* Marchand Shopify : la facturation passe par Shopify (Billing API), pas
           par Stripe — on l'explique pour éviter la confusion (aucun moyen de

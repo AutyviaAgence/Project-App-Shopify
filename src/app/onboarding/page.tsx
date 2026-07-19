@@ -160,6 +160,9 @@ export default function OnboardingPage() {
   const [busy, setBusy] = useState(false)
   // Plan en cours de souscription (spinner sur la carte concernée).
   const [planLoading, setPlanLoading] = useState<string | null>(null)
+  // Code promo (étape « plan »). Replié par défaut.
+  const [promoCode, setPromoCode] = useState('')
+  const [showPromo, setShowPromo] = useState(false)
   // Intros animées « c'est quoi ce module ? » : vues une fois par étape
   // (état de session — revenir en arrière ne les rejoue pas).
   const [seenIntros, setSeenIntros] = useState<Set<IntroModule>>(new Set())
@@ -496,7 +499,13 @@ export default function OnboardingPage() {
       }
       const res = await fetch('/api/shopify/billing/subscribe', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shop: state.shopDomain, plan: planId, billing }),
+        // `promo_code` seulement s'il est renseigné : la route refuse un code vide.
+        body: JSON.stringify({
+          shop: state.shopDomain,
+          plan: planId,
+          billing,
+          ...(promoCode.trim() ? { promo_code: promoCode.trim() } : {}),
+        }),
       })
       const json = await res.json()
       // La route renvoie { data: { confirmationUrl } } — on lisait json.confirmationUrl
@@ -1208,6 +1217,39 @@ export default function OnboardingPage() {
                     onSelect={(id, billing) => choosePlan(id, billing)}
                     loadingTierId={planLoading}
                   />
+
+                  {/* ── CODE PROMO ────────────────────────────────────────────
+                      Le serveur sait résoudre et appliquer un code depuis
+                      toujours, mais l'onboarding ne proposait aucun champ : un
+                      code d'acquisition (tarif fondateur, campagne) était donc
+                      inutilisable au moment PRÉCIS où il sert le plus — la
+                      première souscription. Replié par défaut : un champ visible
+                      pousse à chercher un code, et fait hésiter qui n'en a pas. */}
+                  <div className="flex flex-col items-center gap-2 text-center">
+                    {showPromo ? (
+                      <div className="w-full max-w-xs space-y-1.5">
+                        <input
+                          type="text"
+                          value={promoCode}
+                          onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                          placeholder="CODE PROMO"
+                          autoFocus
+                          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-center text-sm uppercase tracking-widest text-foreground outline-none focus:border-primary"
+                        />
+                        <p className="text-[11px] text-muted-foreground">
+                          La remise s’affichera sur l’écran Shopify avant validation.
+                        </p>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setShowPromo(true)}
+                        className="text-xs font-medium text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground"
+                      >
+                        J’ai un code promo
+                      </button>
+                    )}
+                  </div>
                 </div>
               )}
             </motion.div>

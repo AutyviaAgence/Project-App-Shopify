@@ -873,7 +873,9 @@ export default function SettingsPage() {
             ⚠️ Suspense obligatoire : le composant lit les paramètres d'URL
             (retour de paiement `?success=`) et suspend donc au montage. */}
         <Suspense fallback={<div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>}>
-          <SubscriptionContent />
+          {/* `embedded` : sans conteneur ni titre propres — les Paramètres les
+              fournissent déjà (sinon contenu décalé et titre en double). */}
+          <SubscriptionContent embedded />
         </Suspense>
 
         {/* Tokens IA supplémentaires.
