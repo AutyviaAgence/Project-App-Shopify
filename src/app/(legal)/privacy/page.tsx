@@ -120,7 +120,7 @@ export default function PrivacyPage() {
             <li><strong>OpenAI Inc.</strong> (USA): AI processing of messages</li>
             <li><strong>Anthropic PBC</strong> (USA): AI processing of messages (Claude models)</li>
             <li><strong>Google LLC</strong> (USA): only if you use the &ldquo;Sign in with Google&rdquo; connection (authentication), to retrieve your name, email address, and profile picture in order to create and manage your account.</li>
-            <li><strong>Stripe Inc.</strong> (USA/Europe): payment processing - PCI-DSS certified</li>
+            <li><strong>Shopify Inc.</strong> (Canada/Europe): billing and payment processing via the Shopify Billing API - PCI-DSS certified</li>
           </ul>
 
           <p><strong>We never sell your personal data to third parties.</strong></p>
@@ -168,7 +168,7 @@ export default function PrivacyPage() {
           <h2>International data transfers</h2>
           <p>
             Our application and database are hosted in the European Union (France / EU region). Some
-            of our subprocessors (OpenAI, Anthropic, Stripe, and Meta for routing) are located in or
+            of our subprocessors (OpenAI, Anthropic, Shopify, and Meta for routing) are located in or
             may process data in the <strong>United States</strong>. When personal data is transferred
             outside the European Economic Area, the transfer is governed by appropriate safeguards,
             primarily the <strong>European Commission&apos;s Standard Contractual Clauses (SCC)</strong>,
@@ -398,7 +398,7 @@ export default function PrivacyPage() {
         <li><strong>OpenAI Inc.</strong> (USA) : traitement IA des messages</li>
         <li><strong>Anthropic PBC</strong> (USA) : traitement IA des messages (modèles Claude)</li>
         <li><strong>Google LLC</strong> (USA) : uniquement si vous utilisez la connexion « Se connecter avec Google » (authentification), pour récupérer votre nom, adresse email et photo de profil afin de créer et gérer votre compte.</li>
-        <li><strong>Stripe Inc.</strong> (USA/Europe) : traitement des paiements - Certifié PCI-DSS</li>
+        <li><strong>Shopify Inc.</strong> (Canada/Europe) : facturation et traitement des paiements via l&apos;API de facturation Shopify - Certifié PCI-DSS</li>
       </ul>
 
       <p><strong>Nous ne vendons jamais vos données personnelles à des tiers.</strong></p>
@@ -447,7 +447,7 @@ export default function PrivacyPage() {
       <h2>Transferts internationaux de données</h2>
       <p>
         Notre application et notre base de données sont hébergées dans l&apos;Union européenne
-        (France / région UE). Certains de nos sous-traitants (OpenAI, Anthropic, Stripe, et Meta
+        (France / région UE). Certains de nos sous-traitants (OpenAI, Anthropic, Shopify, et Meta
         pour l&apos;acheminement) sont situés ou peuvent traiter des données aux <strong>États-Unis</strong>.
         Lorsqu&apos;une donnée personnelle est transférée hors de l&apos;Espace économique européen,
         le transfert est encadré par des garanties appropriées, principalement les <strong>Clauses

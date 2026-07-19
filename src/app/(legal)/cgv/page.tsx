@@ -69,18 +69,24 @@ export default function CGVPage() {
 
           <h3>3.1 Terms</h3>
           <p>
-            Payment is made by credit card via the secure Stripe platform. The subscription is
-            billed monthly, on the anniversary date of the subscription.
+            Xeyo is billed exclusively through the <strong>Shopify Billing API</strong>: the amount is added to
+            your Shopify invoice and collected by Shopify using the payment method already registered on your
+            store. No payment details are entered in Xeyo. The subscription is billed monthly or annually,
+            depending on the plan you choose, from the date the charge is approved in your Shopify admin.
           </p>
 
           <h3>3.2 Payment failure</h3>
           <p>
-            In the event of a payment failure, access to the Service is suspended immediately. Stripe makes
-            several automatic attempts before final termination.
+            In the event of a payment failure, Shopify freezes the subscription and access to the Service is
+            suspended. Shopify manages the retry attempts under its own terms; the Service is restored as soon
+            as the charge is settled.
           </p>
 
           <h3>3.3 Invoicing</h3>
-          <p>An invoice is issued for each payment and is accessible from the customer area and the Stripe portal.</p>
+          <p>
+            Invoices are issued by Shopify and available from your Shopify admin, under
+            <strong> Settings &rsaquo; Billing</strong>, alongside your other Shopify charges.
+          </p>
 
           <h3>3.4 Late payment penalties</h3>
           <p>
@@ -167,8 +173,9 @@ export default function CGVPage() {
                 </a>
               </p>
               <p>
-                <strong className="text-slate-900 dark:text-white">Stripe billing:</strong>{' '}
-                Accessible from your customer area → Subscription → Manage my subscription
+                <strong className="text-slate-900 dark:text-white">Shopify billing:</strong>{' '}
+                Accessible from Settings → Subscription in Xeyo, or directly from your Shopify admin
+                (Settings › Billing). Cancellation takes effect at the end of the period already paid.
               </p>
             </div>
           </div>
@@ -233,18 +240,25 @@ export default function CGVPage() {
 
       <h3>3.1 Modalités</h3>
       <p>
-        Le paiement s&apos;effectue par carte bancaire via la plateforme sécurisée Stripe. L&apos;abonnement est
-        facturé mensuellement, à la date anniversaire de la souscription.
+        Xeyo est facturé exclusivement via l&apos;<strong>API de facturation Shopify</strong> : le montant est
+        ajouté à votre facture Shopify et prélevé par Shopify sur le moyen de paiement déjà enregistré sur
+        votre boutique. Aucune coordonnée bancaire n&apos;est saisie dans Xeyo. L&apos;abonnement est facturé
+        mensuellement ou annuellement selon la formule choisie, à compter de l&apos;approbation de la charge
+        dans votre administration Shopify.
       </p>
 
       <h3>3.2 Échec de paiement</h3>
       <p>
-        En cas d&apos;échec de paiement, l&apos;accès au Service est suspendu immédiatement. Stripe procède à
-        plusieurs tentatives automatiques avant résiliation définitive.
+        En cas d&apos;échec de paiement, Shopify gèle l&apos;abonnement et l&apos;accès au Service est suspendu.
+        Shopify gère les tentatives de relance selon ses propres conditions ; le Service est rétabli dès que
+        la charge est réglée.
       </p>
 
       <h3>3.3 Facturation</h3>
-      <p>Une facture est émise à chaque paiement et accessible depuis l&apos;espace client et le portail Stripe.</p>
+      <p>
+        Les factures sont émises par Shopify et disponibles depuis votre administration Shopify, dans
+        <strong> Paramètres &rsaquo; Facturation</strong>, avec vos autres frais Shopify.
+      </p>
 
       <h3>3.4 Pénalités de retard</h3>
       <p>
@@ -331,8 +345,10 @@ export default function CGVPage() {
             </a>
           </p>
           <p>
-            <strong className="text-slate-900 dark:text-white">Facturation Stripe :</strong>{' '}
-            Accessible depuis votre espace client → Abonnement → Gérer mon abonnement
+            <strong className="text-slate-900 dark:text-white">Facturation Shopify :</strong>{' '}
+            Accessible depuis Paramètres → Abonnement dans Xeyo, ou directement depuis votre
+            administration Shopify (Paramètres › Facturation). La résiliation prend effet à la fin
+            de la période déjà payée.
           </p>
         </div>
       </div>

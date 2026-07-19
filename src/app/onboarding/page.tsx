@@ -844,7 +844,12 @@ export default function OnboardingPage() {
                       onClick={() => {
                         if (!state.shopDomain) return
                         // Éditeur de thème, onglet Applications (contexte des blocs d'app).
-                        window.open(`https://${state.shopDomain}/admin/themes/current/editor?context=apps`, '_blank', 'noopener')
+                        // `activateAppId` PRÉ-ACTIVE le bloc au lieu de simplement
+                        // ouvrir l'onglet Applications : sans lui, le marchand
+                        // devait trouver « Bulle WhatsApp Xeyo » lui-même dans la
+                        // liste. Format attendu : <uid-extension>/<handle-du-bloc>
+                        // (uid depuis extensions/xeyo-widget/shopify.extension.toml).
+                        window.open(`https://${state.shopDomain}/admin/themes/current/editor?context=apps&activateAppId=e3857e0a-b639-5426-2200-b52aac2028dc82cc2313/whatsapp-bubble`, '_blank', 'noopener')
                       }}
                     >
                       <ExternalLink className="mr-1.5 h-4 w-4" /> Ouvrir l’éditeur de thème

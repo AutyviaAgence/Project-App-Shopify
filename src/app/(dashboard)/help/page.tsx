@@ -105,7 +105,7 @@ const CATEGORIES: Category[] = [
     articles: [
       {
         q: 'Gérer mon abonnement',
-        a: <>Rendez-vous dans <Link href="/subscription" className="text-primary underline">Abonnement</Link> pour changer de formule ou accéder au portail de facturation Stripe (factures, moyen de paiement, annulation).</>,
+        a: <>Rendez-vous dans <Link href="/settings?tab=abonnement" className="text-primary underline">Paramètres › Abonnement</Link> pour changer de formule, recharger vos conversations IA ou résilier. La facturation passe par Shopify : vos factures et votre moyen de paiement se gèrent dans votre administration Shopify (Paramètres › Facturation).</>,
       },
       {
         q: 'Que se passe-t-il si j’atteins ma limite ?',
