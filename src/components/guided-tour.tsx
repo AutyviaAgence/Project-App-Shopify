@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useState, useEffect, useCallback, createContext, useContext } from 'react'
+import { useState, useEffect, useCallback, useRef, createContext, useContext } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { X, ChevronRight, ChevronLeft, Sparkles } from 'lucide-react'
@@ -268,16 +268,27 @@ export function TourProvider({ children, plan = 'scale' }: { children: React.Rea
   // lance une fois, depuis le dashboard. Un petit délai laisse la page se monter
   // (sinon la 1re cible n'est pas encore là). Marqué « vu » AVANT de lancer : même
   // si l'utilisateur recharge en plein tour, il ne redémarre pas en boucle.
+  // ⚠️ L'effet DOIT suivre `pathname` (il avait `[]`).
+  //
+  // Le provider vit dans le layout : il se monte AVANT que la route soit
+  // /dashboard (l'arrivée depuis l'onboarding passe par une redirection). Avec
+  // `[]`, l'effet ne tournait qu'une fois, voyait un chemin différent, sortait —
+  // et ne se relançait jamais. Résultat : un marchand qui vient de s'inscrire
+  // n'avait PAS le guide. On écoute donc les changements de route, et le flag
+  // localStorage (+ la ref) garantit qu'on ne lance qu'une seule fois.
+  const autoStartedRef = useRef(false)
   useEffect(() => {
     if (typeof window === 'undefined') return
+    if (autoStartedRef.current) return
     if (localStorage.getItem('autyvia_tour_completed')) return
     if (pathname !== '/dashboard') return // on n'auto-lance que depuis l'accueil
+    autoStartedRef.current = true
     localStorage.setItem('autyvia_tour_completed', 'true')
     const timer = setTimeout(() => startTour(), 1200)
     return () => clearTimeout(timer)
-    // startTour est stable pour ce montage ; on ne veut lancer qu'une fois.
+    // startTour est stable ; on ne veut lancer qu'une fois (garde par ref).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [pathname])
 
   const nextStep = useCallback(() => {
     if (currentStep < TOUR_STEPS.length - 1) {
@@ -594,7 +605,10 @@ function TourOverlay() {
           <Button
             size="sm"
             onClick={nextStep}
-            className="gap-1 bg-[#3B82F6] hover:bg-[#6BB294] text-white"
+            // Survol : un bleu plus soutenu. C'était `#6BB294` (un VERT), sans
+            // rapport avec le bleu du bouton — le bouton changeait de couleur au
+            // survol.
+            className="gap-1 bg-[#3B82F6] hover:bg-[#2563EB] text-white"
           >
             {isLastStep ? t('common.finish') : t('common.next')}
             {!isLastStep && <ChevronRight className="h-4 w-4" />}
