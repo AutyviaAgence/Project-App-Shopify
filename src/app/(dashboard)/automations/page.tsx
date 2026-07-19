@@ -229,7 +229,15 @@ function AutomationsPageInner({ urlTab, urlId }: { urlTab: AutomationKind; urlId
     prevUrlTabRef.current = urlTab
     if (!changed) return
     setTab(urlTab)
-    setShowChoose(false); setShowWizard(false)
+    // ⚠️ `showChat` DOIT être fermé aussi (il manquait).
+    //
+    // Campagnes et Transactionnel sont la MÊME page (?tab=), et la page ne se
+    // remonte plus (keep-alive). L'assistant IA ouvert côté Campagnes restait donc
+    // affiché en basculant sur Transactionnel — alors que ce sont deux contextes
+    // distincts (l'assistant construit un funnel pour l'onglet courant).
+    // `showPerf` aussi : il affiche les performances de l'automatisation ouverte,
+    // qui est justement réinitialisée juste en dessous.
+    setShowChoose(false); setShowWizard(false); setShowChat(false); setShowPerf(false)
     setCurrent((c) => (c && kindOf(c) === urlTab) ? c : null)
   }, [urlTab, urlId])
 
