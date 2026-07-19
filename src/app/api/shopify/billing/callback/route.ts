@@ -19,6 +19,19 @@ import { PLANS, type PlanId } from '@/lib/shopify/plans'
  */
 
 /**
+ * L'app vue depuis l'admin Shopify du marchand.
+ *
+ * ⚠️ Le nom de boutique est DÉRIVÉ de `shop`, jamais écrit en dur : coder
+ * `/store/xeyo-dev/` enverrait tous les marchands dans NOTRE boutique de dev.
+ * Le handle, lui, appartient à l'app et ne change pas d'un marchand à l'autre.
+ */
+function adminAppUrl(shop: string) {
+  const storeName = shop.replace(/\.myshopify\.com$/i, '')
+  const handle = process.env.SHOPIFY_APP_HANDLE || 'xeyo-whatsapp-support-chat-1'
+  return `https://admin.shopify.com/store/${storeName}/apps/${handle}/shopify`
+}
+
+/**
  * Ramène le marchand LÀ D'OÙ IL VIENT, plutôt que sur une page d'erreur nue.
  *
  * `from` est posé par /subscribe depuis une liste blanche — jamais une URL
@@ -28,11 +41,14 @@ function backToApp(req: NextRequest, shop: string, reason: string) {
   const { appUrl } = getShopifyConfig()
   const from = req.nextUrl.searchParams.get('from')
 
-  const path =
-    from === 'subscription' ? '/settings?tab=abonnement'
-    : from === 'onboarding' ? '/onboarding'
-    : `/shopify?shop=${encodeURIComponent(shop)}`
+  // Depuis la vue embedded, on renvoie vers l'app DANS l'admin Shopify — pas
+  // vers app.xeyo.io en direct. Sans ça, le marchand qui annule sort de son
+  // admin et se retrouve sur une page nue, hors du cadre Shopify.
+  if (from !== 'subscription' && from !== 'onboarding') {
+    return NextResponse.redirect(`${adminAppUrl(shop)}?billing=${reason}`)
+  }
 
+  const path = from === 'subscription' ? '/settings?tab=abonnement' : '/onboarding'
   const sep = path.includes('?') ? '&' : '?'
   return NextResponse.redirect(`${appUrl}${path}${sep}billing=${reason}`)
 }
