@@ -71,6 +71,10 @@ type ClientRow = {
   onboarding_config: OnboardingConfig | null
   has_whatsapp?: boolean
   has_shopify?: boolean
+  /** Code promo utilisé à la souscription (table `promo_codes`). */
+  promo_code?: { code: string; usedAt: string } | null
+  /** Code d'affiliation ou de parrainage (table `growth_codes`). */
+  growth_code?: { code: string; kind: string; converted: boolean } | null
   ai_conversations_used?: number
   ai_conversations_limit?: number | null // null = illimité
 }
@@ -744,6 +748,40 @@ export default function AdminPage() {
                           >
                             <StoreIcon className="h-2.5 w-2.5" /> Shopify
                           </span>
+
+                          {/* CODE PROMO / PARRAINAGE — rien ne disait jusqu'ici
+                              d'où venait un marchand, ni pourquoi il payait moins.
+                              Deux sources distinctes, deux couleurs. */}
+                          {client.promo_code && (
+                            <span
+                              title={`Code promo « ${client.promo_code.code} » utilisé le ${new Date(client.promo_code.usedAt).toLocaleDateString('fr-FR')}`}
+                              className="inline-flex items-center gap-0.5 rounded bg-violet-500/15 px-1 py-0.5 text-[9px] font-medium text-violet-600"
+                            >
+                              <TagIcon className="h-2.5 w-2.5" /> {client.promo_code.code}
+                            </span>
+                          )}
+                          {client.growth_code && (
+                            <span
+                              title={
+                                (client.growth_code.kind === 'affiliate' ? 'Affilié' : 'Parrainage') +
+                                ` « ${client.growth_code.code} » — ` +
+                                (client.growth_code.converted
+                                  ? 'commission réglée'
+                                  : 'en attente du premier paiement')
+                              }
+                              className={cn(
+                                'inline-flex items-center gap-0.5 rounded px-1 py-0.5 text-[9px] font-medium',
+                                // Plein = commission versée. Contour = attribué mais
+                                // pas encore payé : la distinction évite de croire
+                                // qu'un partenaire a déjà été rémunéré.
+                                client.growth_code.converted
+                                  ? 'bg-amber-500/15 text-amber-600'
+                                  : 'bg-muted text-muted-foreground ring-1 ring-amber-500/30'
+                              )}
+                            >
+                              <Gift className="h-2.5 w-2.5" /> {client.growth_code.code}
+                            </span>
+                          )}
                         </div>
                       </div>
                     </td>

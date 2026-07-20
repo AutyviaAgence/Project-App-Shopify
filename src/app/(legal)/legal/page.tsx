@@ -25,7 +25,7 @@ export default function LegalPage() {
               <p><strong>APE code:</strong> 62.02A, IT systems and software consulting</p>
               <p><strong>Activity:</strong> Service provision in process automation and integration of digital tools for businesses.</p>
               <p><strong>Address:</strong> 778 routes des barthes</p>
-              <p><strong>Email:</strong> <a href="mailto:contact@autyvia.fr" className="text-primary hover:underline">contact@autyvia.fr</a></p>
+              <p><strong>Email:</strong> <a href="mailto:autyvia@autyvia.fr" className="text-primary hover:underline">autyvia@autyvia.fr</a></p>
               <p><strong>Phone:</strong> <a href="tel:+33636006808" className="text-primary hover:underline">06 36 00 68 08</a></p>
             </div>
           </div>
@@ -90,7 +90,7 @@ export default function LegalPage() {
           <p><strong>Code APE :</strong> 62.02A – Conseil en systèmes et logiciels informatiques</p>
           <p><strong>Activité :</strong> Prestations de services en automatisation de processus et intégration d&apos;outils numériques pour entreprises.</p>
           <p><strong>Adresse :</strong> 778 routes des barthes</p>
-          <p><strong>Email :</strong> <a href="mailto:contact@autyvia.fr" className="text-primary hover:underline">contact@autyvia.fr</a></p>
+          <p><strong>Email :</strong> <a href="mailto:autyvia@autyvia.fr" className="text-primary hover:underline">autyvia@autyvia.fr</a></p>
           <p><strong>Téléphone :</strong> <a href="tel:+33636006808" className="text-primary hover:underline">06 36 00 68 08</a></p>
         </div>
       </div>

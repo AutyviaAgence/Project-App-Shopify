@@ -172,11 +172,11 @@ export function LegalPageLayout({
               </div>
               <div className="p-4 space-y-2.5">
                 <a
-                  href="mailto:contact@autyvia.fr"
+                  href="mailto:autyvia@autyvia.fr"
                   className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 hover:text-primary transition-colors"
                 >
                   <Mail className="h-4 w-4 shrink-0 text-slate-400" />
-                  <span className="truncate">contact@autyvia.fr</span>
+                  <span className="truncate">autyvia@autyvia.fr</span>
                 </a>
               </div>
             </div>

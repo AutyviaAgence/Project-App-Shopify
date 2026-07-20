@@ -27,7 +27,7 @@ export default function DataDeletionPage() {
           <p>To request the deletion of your data, email us from the address associated with your account:</p>
           <div className="not-prose rounded-lg bg-slate-50 p-4 dark:bg-slate-800">
             <p className="font-semibold text-slate-900 dark:text-white">
-              <a href="mailto:contact@autyvia.fr" className="text-primary hover:underline">contact@autyvia.fr</a>
+              <a href="mailto:autyvia@autyvia.fr" className="text-primary hover:underline">autyvia@autyvia.fr</a>
             </p>
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Subject: &ldquo;Data deletion request&rdquo;</p>
           </div>
@@ -64,7 +64,7 @@ export default function DataDeletionPage() {
           <h2>Contact</h2>
           <p>
             For any question about your personal data, see our <a href="/privacy">Privacy Policy</a> or
-            contact us at <a href="mailto:contact@autyvia.fr" className="text-primary hover:underline">contact@autyvia.fr</a>.
+            contact us at <a href="mailto:autyvia@autyvia.fr" className="text-primary hover:underline">autyvia@autyvia.fr</a>.
           </p>
         </>
       }
@@ -84,8 +84,8 @@ export default function DataDeletionPage() {
       </p>
       <div className="not-prose rounded-lg bg-slate-50 p-4 dark:bg-slate-800">
         <p className="font-semibold text-slate-900 dark:text-white">
-          <a href="mailto:contact@autyvia.fr" className="text-primary hover:underline">
-            contact@autyvia.fr
+          <a href="mailto:autyvia@autyvia.fr" className="text-primary hover:underline">
+            autyvia@autyvia.fr
           </a>
         </p>
         <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
@@ -129,8 +129,8 @@ export default function DataDeletionPage() {
       <p>
         Pour toute question relative à vos données personnelles, consultez notre{' '}
         <a href="/privacy">Politique de Confidentialité</a> ou contactez-nous à{' '}
-        <a href="mailto:contact@autyvia.fr" className="text-primary hover:underline">
-          contact@autyvia.fr
+        <a href="mailto:autyvia@autyvia.fr" className="text-primary hover:underline">
+          autyvia@autyvia.fr
         </a>.
       </p>
     </LegalPageLayout>

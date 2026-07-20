@@ -447,7 +447,7 @@ async function executeDistanceCalculator(
   async function geocode(address: string): Promise<{ lat: number; lon: number } | null> {
     const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(address)}&format=json&limit=1&countrycodes=fr`
     const res = await fetchWithTimeout(url, {
-      headers: { 'User-Agent': 'AutyviaApp/1.0 (contact@autyvia.fr)' },
+      headers: { 'User-Agent': 'AutyviaApp/1.0 (autyvia@autyvia.fr)' },
     })
     const data = await res.json() as Array<{ lat: string; lon: string }>
     if (!data.length) return null

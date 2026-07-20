@@ -25,8 +25,8 @@ export default function PrivacyPage() {
             <p className="text-sm text-slate-600 dark:text-slate-400">Trading as Autyvia, sole proprietorship (micro-entreprise)</p>
             <p className="text-sm text-slate-600 dark:text-slate-400">SIRET: 992 684 829 00011</p>
             <p className="text-sm text-slate-600 dark:text-slate-400">778 routes des barthes</p>
-            <a href="mailto:contact@autyvia.fr" className="text-sm text-primary hover:underline">
-              contact@autyvia.fr
+            <a href="mailto:autyvia@autyvia.fr" className="text-sm text-primary hover:underline">
+              autyvia@autyvia.fr
             </a>
           </div>
 
@@ -137,7 +137,7 @@ export default function PrivacyPage() {
             <strong> international transfers</strong>, <strong>security</strong> and <strong>data
             retention</strong>, constitute our <strong>Data Processing Agreement (DPA)</strong> within
             the meaning of Article 28 of the GDPR. Merchant customers may request a separate signed copy
-            by writing to <a href="mailto:contact@autyvia.fr">contact@autyvia.fr</a>.
+            by writing to <a href="mailto:autyvia@autyvia.fr">autyvia@autyvia.fr</a>.
           </p>
           <p>
             Within the framework of the WhatsApp Business API, we process the data of
@@ -252,7 +252,7 @@ export default function PrivacyPage() {
           <h3>Exercising your rights</h3>
           <ul>
             <li>From your account: Settings &gt; Personal data</li>
-            <li>By email: <a href="mailto:contact@autyvia.fr">contact@autyvia.fr</a></li>
+            <li>By email: <a href="mailto:autyvia@autyvia.fr">autyvia@autyvia.fr</a></li>
             <li>By post: 778 routes des barthes</li>
           </ul>
           <p>We will respond within 30 days.</p>
@@ -262,7 +262,7 @@ export default function PrivacyPage() {
             You can permanently delete your account and all associated data
             (conversations, contacts, agents, documents) directly from <strong>Settings &gt; Delete my account</strong>.
             Deletion is immediate and irreversible. For any request to delete data processed
-            via WhatsApp Business, contact us at <a href="mailto:contact@autyvia.fr">contact@autyvia.fr</a>;
+            via WhatsApp Business, contact us at <a href="mailto:autyvia@autyvia.fr">autyvia@autyvia.fr</a>;
             we will process the request as soon as possible.
           </p>
 
@@ -302,8 +302,8 @@ export default function PrivacyPage() {
         <p className="text-sm text-slate-600 dark:text-slate-400">Nom commercial : Autyvia, Micro-entreprise</p>
         <p className="text-sm text-slate-600 dark:text-slate-400">SIRET : 992 684 829 00011</p>
         <p className="text-sm text-slate-600 dark:text-slate-400">778 routes des barthes</p>
-        <a href="mailto:contact@autyvia.fr" className="text-sm text-primary hover:underline">
-          contact@autyvia.fr
+        <a href="mailto:autyvia@autyvia.fr" className="text-sm text-primary hover:underline">
+          autyvia@autyvia.fr
         </a>
       </div>
 
@@ -416,7 +416,7 @@ export default function PrivacyPage() {
         <strong> sécurité</strong> et à la <strong>durée de conservation</strong>, constituent notre
         <strong> accord de traitement des données (Data Processing Agreement, DPA)</strong> au sens de
         l&apos;article 28 du RGPD. Nos clients marchands peuvent demander un exemplaire signé distinct
-        en nous écrivant à <a href="mailto:contact@autyvia.fr">contact@autyvia.fr</a>.
+        en nous écrivant à <a href="mailto:autyvia@autyvia.fr">autyvia@autyvia.fr</a>.
       </p>
       <p>
         Dans le cadre de l&apos;API WhatsApp Business, nous traitons les données des
@@ -533,7 +533,7 @@ export default function PrivacyPage() {
       <h3>Exercer vos droits</h3>
       <ul>
         <li>Depuis votre compte : Paramètres &gt; Données personnelles</li>
-        <li>Par email : <a href="mailto:contact@autyvia.fr">contact@autyvia.fr</a></li>
+        <li>Par email : <a href="mailto:autyvia@autyvia.fr">autyvia@autyvia.fr</a></li>
         <li>Par courrier : 778 routes des barthes</li>
       </ul>
       <p>Nous répondrons dans un délai de 30 jours.</p>
@@ -543,7 +543,7 @@ export default function PrivacyPage() {
         Vous pouvez supprimer définitivement votre compte et l&apos;ensemble des données associées
         (conversations, contacts, agents, documents) directement depuis <strong>Paramètres &gt; Supprimer mon compte</strong>.
         La suppression est immédiate et irréversible. Pour toute demande de suppression de données traitées
-        via WhatsApp Business, contactez-nous à <a href="mailto:contact@autyvia.fr">contact@autyvia.fr</a> ;
+        via WhatsApp Business, contactez-nous à <a href="mailto:autyvia@autyvia.fr">autyvia@autyvia.fr</a> ;
         nous traiterons la demande dans les meilleurs délais.
       </p>
 
