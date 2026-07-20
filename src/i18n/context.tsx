@@ -16,7 +16,7 @@ type TranslationContextType = {
 }
 
 const LanguageContext = createContext<TranslationContextType>({
-  locale: 'fr',
+  locale: 'en',
   setLocale: () => {},
   t: (key: string) => key,
 })
@@ -32,13 +32,20 @@ function getNestedValue(obj: Record<string, unknown>, path: string): string | un
 }
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>('fr')
+  // ⚠️ ANGLAIS PAR DÉFAUT — c'est la langue de la majorité des marchands
+  // Shopify ET celle de la review App Store. Le français était imposé à tout le
+  // monde jusqu'à un changement manuel.
+  const [locale, setLocaleState] = useState<Locale>('en')
   const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
+    // Priorité : choix explicite du marchand > langue du navigateur > anglais.
     const saved = localStorage.getItem(LS_KEY)
     if (saved === 'en' || saved === 'fr') {
       setLocaleState(saved)
+    } else if (typeof navigator !== 'undefined' && navigator.language?.toLowerCase().startsWith('fr')) {
+      // Un marchand francophone garde le français sans rien régler.
+      setLocaleState('fr')
     }
     setMounted(true)
   }, [])
