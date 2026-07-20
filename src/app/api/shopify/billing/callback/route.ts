@@ -103,14 +103,34 @@ export async function GET(req: NextRequest) {
     // modifie pas non plus (il n'écrit que `pending_plan`), donc un marchand
     // déjà abonné qui renonce à changer de formule garde exactement la sienne.
     //
-    // ⚠️ NE PAS effacer `shopify_charge_id` ici. /subscribe l'a écrasé avec le
-    // NOUVEAU abonnement (celui qui vient d'être refusé), mais /billing/cancel
-    // s'en sert comme unique référence pour résilier : le vider laisserait un
-    // marchand déjà abonné sans aucun moyen d'annuler sa formule en cours.
-    // Le prochain /subscribe le réécrira de toute façon.
+    // ⚠️ RESTAURER LE VRAI `shopify_charge_id`.
+    //
+    // /subscribe l'a écrasé avec le NOUVEL abonnement — celui qui vient d'être
+    // refusé. Le laisser tel quel pointe sur un abonnement DECLINED, avec deux
+    // conséquences : le webhook `app_subscriptions/update` filtre sur ce champ
+    // et IGNORERAIT donc les événements du vrai abonnement (annulation, impayé
+    // FROZEN, expiration) — Xeyo servirait un plan payant pour un abonnement
+    // mort ; et /billing/cancel n'aurait plus la bonne référence.
+    //
+    // On redemande donc à Shopify quel abonnement court réellement. À défaut de
+    // réponse, on garde l'ancienne valeur : mieux qu'un champ vide, qui priverait
+    // le marchand de toute possibilité de résilier.
+    let realChargeId: string | null = null
+    try {
+      const { listActiveSubscriptions } = await import('@/lib/shopify/client')
+      const live = (await listActiveSubscriptions(shop, token)).filter((s) => s.status === 'ACTIVE')
+      if (live.length > 0) realChargeId = live[0].id
+    } catch {
+      // Shopify injoignable : on ne touche pas au champ.
+    }
+
     await admin
       .from('shopify_stores')
-      .update({ pending_plan: null, updated_at: new Date().toISOString() })
+      .update({
+        pending_plan: null,
+        ...(realChargeId ? { shopify_charge_id: realChargeId } : {}),
+        updated_at: new Date().toISOString(),
+      })
       .eq('id', store.id)
 
     return backToApp(req, shop, 'cancelled')

@@ -125,6 +125,33 @@ export async function resolvePromoCode(
       .maybeSingle()
 
     if (growth?.is_active) {
+      // ⚠️ UNE SEULE FOIS PAR MARCHAND.
+      //
+      // Rien ne vérifiait la réutilisation : il suffisait de resaisir le même
+      // code à chaque changement de plan pour réappliquer la remise. Sur un
+      // code à -50 %, la remise « temporaire » devenait permanente — plus de
+      // 1600 €/an de manque à gagner sur un seul Scale annuel.
+      //
+      // ⚠️ C'est `converted_at` qui bloque, PAS la simple existence de
+      // l'attribution : un marchand venu par le lien `/r/<code>` en a déjà une
+      // depuis son inscription, et saisit ensuite le code pour obtenir sa
+      // remise — c'est le parcours NORMAL, qu'il ne faut pas refuser.
+      //
+      // `converted_at` n'est posé qu'au premier paiement réglé. Sa présence
+      // signifie donc « la remise a déjà servi ».
+      const { data: already } = await supabase
+        .from('growth_attributions')
+        .select('id, converted_at')
+        .eq('referee_id', userId)
+        .maybeSingle()
+
+      if (already?.converted_at) {
+        return {
+          ok: false,
+          error: 'Ce code a déjà été utilisé sur votre compte.',
+        }
+      }
+
       // ⚠️ 0 % est une valeur VALIDE, pas une absence.
       //
       // Un partenaire peut apporter des clients sans leur accorder de remise :

@@ -3,16 +3,25 @@ import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { isValidShopDomain, listActiveSubscriptions } from '@/lib/shopify/client'
 import { getValidAccessToken } from '@/lib/shopify/token'
 import { PLANS, type PlanId } from '@/lib/shopify/plans'
+import { planPrice } from '@/lib/plans'
 
 /** Déduit le plan depuis le nom d'un abonnement Shopify (« Xeyo <Plan> [(Annuel)] »),
  *  avec compat rename Growth→Pro, et renvoie son prix mensuel de référence.
  *  Sert à départager deux abonnements ACTIVE (on garde le plus cher). */
+/**
+ * ⚠️ L'INTERVALLE COMPTE : un Pro ANNUEL vaut 1430 €, pas 149 €.
+ *
+ * Cette fonction lisait le prix mensuel de référence en ignorant « (Annuel) »
+ * dans le nom. Un marchand en Pro annuel (1430 € réglés d'avance) passant au
+ * mensuel n'était donc pas vu comme une baisse.
+ */
 function planPriceFromName(name: string): number {
   const n = (name || '').toLowerCase()
+  const annual = n.includes('annuel') || n.includes('annual')
   const plan: PlanId | undefined = n.includes('growth')
     ? 'pro'
     : (Object.keys(PLANS) as PlanId[]).find((id) => id !== 'free' && n.includes(PLANS[id].name.toLowerCase()))
-  return plan ? PLANS[plan].priceEur : 0
+  return plan ? planPrice(plan, annual ? 'annual' : 'monthly') : 0
 }
 
 /**
@@ -52,7 +61,9 @@ export async function POST(req: NextRequest) {
 
   const { data: store } = await admin
     .from('shopify_stores')
-    .select('id, plan, pending_plan, subscription_status, shopify_charge_id, current_period_end')
+    // `billing_interval` : sans lui, un plan annuel est évalué à son prix
+    // mensuel et la comparaison de baisse est fausse.
+    .select('id, plan, pending_plan, subscription_status, shopify_charge_id, current_period_end, billing_interval')
     .eq('shop_domain', shop)
     .eq('user_id', authed.userId)
     .eq('is_active', true)
@@ -143,15 +154,20 @@ export async function POST(req: NextRequest) {
 
   // ⚠️ NE PAS PRÉCIPITER UNE BAISSE PROGRAMMÉE.
   //
-  // Sur `APPLY_ON_NEXT_BILLING_CYCLE`, deux abonnements coexistent brièvement chez
-  // Shopify : l'ancien (qui court jusqu'à l'échéance) et le nouveau (qui prendra le
-  // relais). Si cette resynchro tombait sur le nouveau, elle appliquerait la baisse
-  // sur-le-champ — exactement ce que le différé cherche à éviter.
+  // ⚠️ Établi auprès du staff Shopify : les deux abonnements NE coexistent PAS.
+  // Dès l'approbation d'une baisse, l'ancien passe CANCELLED et le nouveau
+  // ACTIVE — seule la FACTURATION est différée. Shopify montre donc déjà le
+  // plan inférieur alors que le marchand a payé le supérieur : c'est à NOUS de
+  // lui garantir l'accès jusqu'à l'échéance.
   //
-  // Tant que la période payée court et qu'une baisse est programmée, on ne touche à
-  // rien : c'est le webhook d'abonnement qui basculera le jour venu.
-  const currentPrice = PLANS[(store.plan || 'free') as PlanId]?.priceEur ?? 0
-  const newPrice = PLANS[plan]?.priceEur ?? 0
+  // Les prix comparés intègrent l'intervalle réellement facturé (un Pro annuel
+  // vaut 1430 €, pas 149 €), sans quoi un passage annuel → mensuel ne serait
+  // pas vu comme une baisse.
+  const currentInterval: 'monthly' | 'annual' =
+    store.billing_interval === 'annual' ? 'annual' : 'monthly'
+  const currentPlanId = (store.plan || 'free') as PlanId
+  const currentPrice = currentPlanId === 'free' ? 0 : planPrice(currentPlanId, currentInterval)
+  const newPrice = live.interval === 'annual' ? planPrice(plan, 'annual') : planPrice(plan, 'monthly')
   const periodStillRunning =
     !!store.current_period_end && new Date(store.current_period_end) > new Date()
 
