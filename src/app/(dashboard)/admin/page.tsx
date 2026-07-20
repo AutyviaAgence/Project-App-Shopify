@@ -167,7 +167,14 @@ export default function AdminPage() {
   // Filtres / tri / pagination de la liste clients.
   const [clientSearch, setClientSearch] = useState('')
   const [clientPlanFilter, setClientPlanFilter] = useState<string>('all')
-  const [clientSort, setClientSort] = useState<'name_asc' | 'name_desc' | 'plan' | 'tokens_desc' | 'tokens_asc' | 'recent'>('recent')
+  /**
+   * Filtre par code utilisé à la souscription.
+   *
+   * `all` · `any` (n'importe quel code) · `none` (aucun) · `promo` · `growth`
+   * · ou le CODE lui-même (« PARTNER1 ») pour isoler les clients d'un partenaire.
+   */
+  const [clientCodeFilter, setClientCodeFilter] = useState<string>('all')
+  const [clientSort, setClientSort] = useState<'name_asc' | 'name_desc' | 'plan' | 'code' | 'tokens_desc' | 'tokens_asc' | 'recent'>('recent')
   const [clientVisible, setClientVisible] = useState(30)
   // Colonne d'usage : bascule tokens ↔ conversations IA (clic sur l'en-tête).
   const [usageMetric, setUsageMetric] = useState<'tokens' | 'conversations'>('conversations')
@@ -419,10 +426,29 @@ export default function AdminPage() {
   // Liste des plans présents (pour le filtre déroulant).
   const availablePlans = Array.from(new Set(clients.map(c => c.plan).filter(Boolean))) as string[]
 
+  // Codes RÉELLEMENT utilisés par au moins un client — on ne propose pas de
+  // filtrer sur un code que personne n'a pris.
+  const usedCodes = Array.from(
+    new Set(clients.flatMap(c => [c.promo_code?.code, c.growth_code?.code].filter(Boolean)))
+  ).sort() as string[]
+
   // Filtrage (recherche + plan) puis tri.
   const filteredClients = clients
     .filter(c => {
       if (clientPlanFilter !== 'all' && (c.plan ?? '') !== clientPlanFilter) return false
+
+      // Filtre par code promo / parrainage.
+      if (clientCodeFilter !== 'all') {
+        const promo = c.promo_code?.code || null
+        const growth = c.growth_code?.code || null
+        if (clientCodeFilter === 'any') { if (!promo && !growth) return false }
+        else if (clientCodeFilter === 'none') { if (promo || growth) return false }
+        else if (clientCodeFilter === 'promo') { if (!promo) return false }
+        else if (clientCodeFilter === 'growth') { if (!growth) return false }
+        // Sinon : un code précis — utile pour isoler les clients d'un partenaire.
+        else if (promo !== clientCodeFilter && growth !== clientCodeFilter) return false
+      }
+
       const q = clientSearch.trim().toLowerCase()
       if (!q) return true
       return (c.full_name ?? '').toLowerCase().includes(q) ||
@@ -434,6 +460,13 @@ export default function AdminPage() {
         case 'name_asc': return (a.full_name || a.email).localeCompare(b.full_name || b.email, 'fr')
         case 'name_desc': return (b.full_name || b.email).localeCompare(a.full_name || a.email, 'fr')
         case 'plan': return (a.plan ?? '').localeCompare(b.plan ?? '', 'fr')
+        // Regroupe les clients d'un même code ; ceux sans code passent en fin
+        // de liste (chaîne vide triée après, via le repli sur 'zzz').
+        case 'code': {
+          const ca = a.promo_code?.code || a.growth_code?.code || 'zzz'
+          const cb = b.promo_code?.code || b.growth_code?.code || 'zzz'
+          return ca.localeCompare(cb, 'fr')
+        }
         case 'tokens_desc': return b.tokens_used - a.tokens_used
         case 'tokens_asc': return a.tokens_used - b.tokens_used
         case 'recent':
@@ -664,6 +697,21 @@ export default function AdminPage() {
               ))}
             </SelectContent>
           </Select>
+          {/* Filtre par code : « avec un code » pour mesurer l'acquisition,
+              ou un code PRÉCIS pour isoler les clients d'un partenaire. */}
+          <Select value={clientCodeFilter} onValueChange={v => { setClientCodeFilter(v); setClientVisible(30) }}>
+            <SelectTrigger className="h-9 w-48 text-sm"><SelectValue placeholder="Code" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Tous (code ou non)</SelectItem>
+              <SelectItem value="any">Avec un code</SelectItem>
+              <SelectItem value="none">Sans code</SelectItem>
+              <SelectItem value="promo">Code promo</SelectItem>
+              <SelectItem value="growth">Parrainage / affilié</SelectItem>
+              {usedCodes.map(code => (
+                <SelectItem key={code} value={code}>{code}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <Select value={clientSort} onValueChange={v => setClientSort(v as typeof clientSort)}>
             <SelectTrigger className="h-9 w-52 text-sm"><SelectValue /></SelectTrigger>
             <SelectContent>
@@ -671,6 +719,7 @@ export default function AdminPage() {
               <SelectItem value="name_asc">Nom (A → Z)</SelectItem>
               <SelectItem value="name_desc">Nom (Z → A)</SelectItem>
               <SelectItem value="plan">Par abonnement (plan)</SelectItem>
+              <SelectItem value="code">Par code (promo / parrainage)</SelectItem>
               <SelectItem value="tokens_desc">Tokens (plus consommé)</SelectItem>
               <SelectItem value="tokens_asc">Tokens (moins consommé)</SelectItem>
             </SelectContent>
