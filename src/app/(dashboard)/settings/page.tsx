@@ -50,7 +50,6 @@ import {
   Scale,
   ExternalLink,
   CreditCard,
-  Cpu,
   Zap,
   Workflow,
   Sparkles,
@@ -921,64 +920,19 @@ export default function SettingsPage() {
           <SubscriptionContent embedded />
         </Suspense>
 
-        {/* Tokens IA supplémentaires.
-            ⚠️ À NE PAS confondre avec les « crédits IA » ci-dessus : ce sont deux
-            produits différents. Les crédits = des CONVERSATIONS (la limite
-            commerciale) ; les tokens = le backstop technique anti-abus. */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Cpu className="h-5 w-5" />
-              {t('settings.tokens_title')}
-            </CardTitle>
-            <CardDescription>{t('settings.tokens_desc')}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground mb-4">
-              {t('settings.tokens_info')}
-            </p>
-            <div className="flex items-center justify-between rounded-lg border p-4">
-              <div>
-                <p className="font-medium">{t('settings.tokens_amount')}</p>
-                <p className="text-sm text-muted-foreground">{t('settings.tokens_payment')}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-2xl font-bold">50&euro;</p>
-                <Button
-                  size="sm"
-                  className="mt-2"
-                  onClick={async () => {
-                    // Passait par Stripe, qui refuse les marchands Shopify (403) —
-                    // c'est-à-dire tous. La Billing API renvoie une URL
-                    // d'approbation, comme pour un abonnement.
-                    try {
-                      const res = await fetch('/api/shopify/billing/purchase', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ pack: 'tokens' }),
-                      })
-                      const json = await res.json()
-                      if (!res.ok || !json?.data?.confirmationUrl) {
-                        throw new Error(json?.error || t('settings.tokens_buy_error'))
-                      }
-                      window.location.href = json.data.confirmationUrl
-                    } catch (e) {
-                      // On remonte la raison exacte (jeton expiré, refus Shopify…)
-                      // plutôt qu'un message générique qui empêche tout diagnostic.
-                      toast.error(e instanceof Error ? e.message : t('settings.tokens_buy_error'))
-                    }
-                  }}
-                >
-                  <Zap className="mr-2 h-4 w-4" />
-                  {t('settings.tokens_buy')}
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+        {/* ⚠️ BLOC « TOKENS IA SUPPLÉMENTAIRES » RETIRÉ.
+            Il vendait un pack de tokens à 50 € — une notion qui n'a plus cours
+            pour le marchand : la limite commerciale, ce sont les CONVERSATIONS
+            (rechargeables juste au-dessus). Afficher deux produits distincts
+            dont un seul compte prêtait à confusion, et le quota de tokens ne
+            bloque plus les marchands Shopify. Le pack 'tokens' reste
+            disponible côté API si besoin. */}
 
-        {/* Parrainage */}
-        <ReferralSection />
+        {/* ⚠️ PARRAINAGE MASQUÉ — décision produit, pas un retrait.
+            Le système reste entier (tables growth_*, /r/<code>, moteur de
+            commissions, admin) : seul l'accès marchand est retiré. Réafficher
+            = décommenter cette ligne. */}
+        {/* <ReferralSection /> */}
         </>)}
 
         {tab === 'securite' && (<>
