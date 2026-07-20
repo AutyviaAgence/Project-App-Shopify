@@ -123,8 +123,26 @@ export async function POST(req: NextRequest) {
   // On coupe donc le renouvellement sans toucher au `plan` : `getUserPlan`
   // accorde l'accès tant que `current_period_end` court, puis bascule seul.
   if (['CANCELLED', 'DECLINED', 'EXPIRED'].includes(status)) {
-    const stillPaidFor =
-      !!store.current_period_end && new Date(store.current_period_end) > new Date()
+    // ⚠️ COURSE AVEC /billing/cancel — c'est ce qui remettait le marchand en
+    // gratuit alors qu'il venait d'annuler depuis l'app.
+    //
+    // Shopify émet ce webhook DÈS l'appel `appSubscriptionCancel`, souvent
+    // AVANT que /billing/cancel n'ait fini d'écrire `current_period_end`. Le
+    // webhook lisait donc une date absente ou périmée, en concluait « rien
+    // n'est payé » et écrivait `plan: 'free'` : l'accès sautait sur-le-champ,
+    // alors que la route venait précisément de le préserver.
+    //
+    // On relit donc la ligne juste avant de décider. En cas de doute (date
+    // introuvable), on CONSERVE le plan : mieux vaut accorder quelques jours de
+    // trop que couper un accès déjà réglé — Shopify ne rembourse pas au prorata.
+    const { data: fresh } = await supabase
+      .from('shopify_stores')
+      .select('current_period_end, subscription_status')
+      .eq('id', store.id)
+      .maybeSingle()
+
+    const periodEnd = fresh?.current_period_end || store.current_period_end
+    const stillPaidFor = !!periodEnd && new Date(periodEnd) > new Date()
 
     await supabase
       .from('shopify_stores')

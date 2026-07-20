@@ -308,7 +308,24 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
   const currentPlan = (subscription?.plan ?? 'free') as PlanId
   const isFree = currentPlan === 'free'
   // Accès : payant actif/trial OU plan gratuit (le Gratuit n'est jamais « suspendu »).
-  const isActive = subscription?.status === 'active' || subscription?.status === 'trialing' || isFree
+  // ⚠️ ANNULÉ ≠ SUSPENDU tant que la période payée court.
+  //
+  // La carte affichait « Accès jusqu'au 19 août 2026 » ET « Accès plateforme :
+  // Suspendu » — deux affirmations contradictoires sur la même ligne. Le
+  // marchand croyait avoir perdu l'accès qu'il venait pourtant de payer.
+  //
+  // Même règle que `getUserPlan` côté serveur, qui accorde bien l'accès dans ce
+  // cas : l'affichage doit dire la même chose que le moteur de droits.
+  const stillWithinPaidPeriod =
+    subscription?.status === 'canceled' &&
+    !!subscription?.subscriptionEndsAt &&
+    subscription.subscriptionEndsAt > new Date()
+
+  const isActive =
+    subscription?.status === 'active' ||
+    subscription?.status === 'trialing' ||
+    stillWithinPaidPeriod ||
+    isFree
   const isCancelled = subscription?.status === 'canceled'
   // For cancelled subscriptions, ignore pending_plan — user needs to re-subscribe fresh
   const pendingPlan = !isCancelled ? (subscription?.pendingPlan ?? null) : null
