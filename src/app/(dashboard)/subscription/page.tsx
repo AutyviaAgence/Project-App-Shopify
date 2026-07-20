@@ -849,7 +849,15 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
       <div data-tour="plans-grid" className="grid md:grid-cols-3 gap-5 mb-8">
         {PLANS.map((plan) => {
           const Icon = plan.icon
-          const isCurrent = isActive && (!!currentPlan) && currentPlan === plan.id && !pendingPlan
+          // ⚠️ APRÈS UNE ANNULATION, AUCUN plan n'est « actuel ».
+          //
+          // `isActive` reste vrai tant que la période payée court (c'est voulu :
+          // l'accès est maintenu). Résultat : la carte du plan annulé restait
+          // marquée « Plan actuel », grisée et NON CLIQUABLE — le marchand ne
+          // pouvait pas reprendre ce plan, alors que la section s'intitule
+          // « Se réabonner ». Il devait passer à un autre plan puis revenir.
+          const isCurrent =
+            isActive && !isCancelled && (!!currentPlan) && currentPlan === plan.id && !pendingPlan
           const isPending = pendingPlan === plan.id
           // Prix affiché selon l'intervalle : mensuel, ou annuel « par mois » (-20 %).
           const displayPrice = billingInterval === 'annual'
