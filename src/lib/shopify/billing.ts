@@ -141,9 +141,27 @@ export async function resolvePromoCode(
       // signifie donc « la remise a déjà servi ».
       const { data: already } = await supabase
         .from('growth_attributions')
-        .select('id, converted_at')
+        .select('id, code_id, converted_at')
         .eq('referee_id', userId)
         .maybeSingle()
+
+      // ⚠️ DÉJÀ ATTRIBUÉ À UN AUTRE CODE — refus explicite.
+      //
+      // `referee_id` est UNIQUE : un marchand n'a qu'un parrain, à vie (sinon on
+      // pourrait en changer après coup pour lui faire toucher une commission
+      // indue). L'insert d'une seconde attribution échoue donc en base… et le
+      // `catch` du callback l'avalait en silence : le marchand obtenait la
+      // remise, le partenaire ne touchait JAMAIS sa commission, et rien ne
+      // signalait le problème. On refuse le code plutôt que d'offrir une remise
+      // qui ne sera jamais créditée.
+      if (already && already.code_id !== growth.id) {
+        return {
+          ok: false,
+          error:
+            'Un autre code de parrainage est déjà associé à ce compte. ' +
+            'Un seul parrainage est possible par boutique.',
+        }
+      }
 
       if (already?.converted_at) {
         return {

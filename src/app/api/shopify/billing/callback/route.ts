@@ -252,12 +252,36 @@ export async function GET(req: NextRequest) {
 
       // Anti auto-parrainage : on ne touche pas de commission sur soi-même.
       if (code?.is_active && code.owner_user_id !== store.user_id) {
-        await admin
+        const { error: insErr } = await admin
           .from('growth_attributions')
           .insert({ code_id: code.id, referee_id: store.user_id })
+
+        // ⚠️ DISTINGUER le doublon attendu d'un échec réel.
+        //
+        // `referee_id` est UNIQUE : réinsérer LE MÊME code est le cas normal
+        // (le marchand est venu par le lien /r/<code>, puis a saisi le code) —
+        // sans conséquence. Mais un conflit avec un AUTRE code signifie que le
+        // partenaire ne touchera jamais sa commission : ça doit se voir dans
+        // les logs, pas disparaître dans un catch muet.
+        if (insErr && insErr.code === '23505') {
+          const { data: existing } = await admin
+            .from('growth_attributions')
+            .select('code_id')
+            .eq('referee_id', store.user_id)
+            .maybeSingle()
+
+          if (existing && existing.code_id !== code.id) {
+            console.error(
+              '[billing/callback] ⚠️ COMMISSION PERDUE :', shop,
+              '— code', promoId, 'refusé, la boutique est déjà attribuée au code',
+              existing.code_id
+            )
+          }
+        } else if (insErr) {
+          console.error('[billing/callback] attribution échouée :', insErr.message)
+        }
       }
     } catch (e) {
-      // Un doublon est le cas NORMAL (déjà attribué via le lien) — jamais bloquant.
       console.error('[billing/callback] attribution du code affilié ignorée:', e)
     }
   }
