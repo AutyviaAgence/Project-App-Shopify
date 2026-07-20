@@ -278,12 +278,43 @@ export function TourProvider({ children, plan = 'scale' }: { children: React.Rea
     if (autoStartedRef.current) return
     if (localStorage.getItem('autyvia_tour_completed')) return
     if (pathname !== '/dashboard') return // on n'auto-lance que depuis l'accueil
-    autoStartedRef.current = true
-    localStorage.setItem('autyvia_tour_completed', 'true')
-    const timer = setTimeout(() => startTour(), 1200)
-    return () => clearTimeout(timer)
+
+    // ⚠️ ATTENDRE QUE LA PAGE EXISTE — un délai fixe ne suffit pas.
+    //
+    // Le layout affiche un loader tant que l'abonnement se charge
+    // (`subscriptionLoading`) : le contenu du dashboard n'est PAS monté. Or le
+    // marchand arrive ici juste après son paiement, par une redirection — le
+    // moment précis où ce chargement est le plus lent.
+    //
+    // Avec un `setTimeout(1200)` sec, le guide démarrait dans le vide : sa
+    // première cible n'existait pas, et comme le flag localStorage était DÉJÀ
+    // posé, il ne réessayait jamais. Résultat : le marchand qui vient de
+    // s'inscrire n'avait pas le guide — exactement le seul qui en a besoin.
+    //
+    // On sonde donc la présence de la première cible, jusqu'à 10 s. Le flag
+    // n'est posé QU'AU démarrage effectif.
+    let attempts = 0
+    const MAX_ATTEMPTS = 50 // 50 × 200 ms = 10 s
+    const poll = setInterval(() => {
+      attempts++
+      const firstTarget = TOUR_STEPS[0]?.target
+      if (firstTarget && document.querySelector(firstTarget)) {
+        clearInterval(poll)
+        autoStartedRef.current = true
+        localStorage.setItem('autyvia_tour_completed', 'true')
+        startTour()
+      } else if (attempts >= MAX_ATTEMPTS) {
+        // Page toujours absente après 10 s : on renonce SANS poser le flag,
+        // pour que le guide puisse se lancer à la prochaine visite.
+        clearInterval(poll)
+      }
+    }, 200)
+    return () => clearInterval(poll)
     // startTour est stable ; on ne veut lancer qu'une fois (garde par ref).
     // eslint-disable-next-line react-hooks/exhaustive-deps
+    // `TOUR_STEPS` volontairement absent : sa 1re étape (dashboard-welcome) n'a
+    // pas de `requiredPlan`, elle est donc identique quel que soit le plan. Et
+    // `autoStartedRef` garantit un lancement unique.
   }, [pathname])
 
   const nextStep = useCallback(() => {
