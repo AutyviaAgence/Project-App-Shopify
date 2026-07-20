@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { authenticatedFetch } from '@/lib/shopify/authenticated-fetch'
 
@@ -440,8 +440,26 @@ export default function ShopifyEmbeddedClient() {
   const [opening, setOpening] = useState(false)
   const [unlinked, setUnlinked] = useState(false)
 
+  /**
+   * Un seul `load()` à la fois.
+   *
+   * `visibilitychange` ET `focus` se déclenchent tous deux sur un simple
+   * aller-retour d'onglet → deux `load()` concurrents, donc deux POST
+   * `/billing/sync` (appel Shopify réel). Et rien ne garantit l'ordre des
+   * réponses : un load lent parti en premier pouvait écraser les données d'un
+   * load plus récent — le marchand qui venait de relier son compte retombait
+   * sur « Reliez votre compte », précisément le bug que ce rechargement
+   * automatique devait corriger.
+   */
+  const loadingRef = useRef(false)
+
   const load = useCallback(async () => {
+    if (loadingRef.current) return
+    loadingRef.current = true
     setLoading(true)
+    // Une erreur passée ne doit pas survivre à un rechargement réussi : le
+    // bandeau rouge restait affiché en contradiction avec les données fraîches.
+    setError(null)
     try {
       // Le session token (App Bridge) identifie la boutique ET le compte Xeyo :
       // le serveur ne fait plus confiance au `?shop=` de l'URL.
@@ -475,8 +493,15 @@ export default function ShopifyEmbeddedClient() {
       // Le sélecteur reflète l'abonnement EN COURS : sinon un marchand déjà en
       // annuel verrait « Mensuel » coché et croirait devoir rebasculer.
       if (ov?.billingInterval) setBillingInterval(ov.billingInterval)
-      setLinkState((l?.data as LinkState | undefined) ?? null)
+      const ls = (l?.data as LinkState | undefined) ?? null
+      setLinkState(ls)
+      // `unlinked` est un drapeau posé par unlink() qui NE se levait jamais seul :
+      // le marchand qui reliait de nouveau sa boutique depuis un autre onglet
+      // continuait de lire « plus reliée à aucun compte Xeyo ». La vérité vient
+      // de `link-account`, pas d'un drapeau local.
+      if (ls?.linked) setUnlinked(false)
     } finally {
+      loadingRef.current = false
       setLoading(false)
     }
   }, [shop])
@@ -944,7 +969,13 @@ export default function ShopifyEmbeddedClient() {
               )}
             </div>
           </div>
-        ) : !status?.installed ? (
+        ) : /* ⚠️ `status === null` ≠ « pas installée ».
+              `load()` met `status` à null quand l'appel ÉCHOUE (réseau, 500).
+              Avec `!status?.installed`, un simple hoquet réseau affichait
+              « Réinstallez l'application » à un marchand parfaitement installé —
+              qui pouvait la désinstaller pour de bon. On n'affiche donc cet écran
+              que si l'API a RÉPONDU et dit explicitement « non installée ». */
+          status !== null && !status.installed ? (
           <div className="rounded-2xl bg-white p-8 text-center shadow-sm ring-1 ring-gray-200">
             <h2 className="text-base font-semibold text-gray-900">{t.notInstalledTitle}</h2>
             <p className="mt-2 text-sm text-gray-500">
@@ -1101,7 +1132,11 @@ export default function ShopifyEmbeddedClient() {
                         <p className="mt-1 text-[11px] text-gray-400">{t.resetsNextRenewal}</p>
                       </div>
 
-                      {c.extra > 0 && (
+                      {/* `extraRemaining`, PAS `extra` : la condition portait sur le
+                          total ACHETÉ, mais la valeur affichée est ce qu'il RESTE.
+                          Un marchand ayant consommé toute sa réserve lisait donc
+                          « 0 de recharge en réserve · ne périment pas ». */}
+                      {c.extraRemaining > 0 && (
                         <div className="rounded-lg bg-amber-50 px-3 py-2">
                           <p className="text-xs text-amber-900">
                             <span className="font-semibold">{c.extraRemaining.toLocaleString(t.locale)}</span> {t.extraInReserve}
@@ -1227,9 +1262,11 @@ export default function ShopifyEmbeddedClient() {
                         {t.planDesc(p.aiConv.toLocaleString(t.locale))}
                       </p>
                       <p className={`mt-1 text-sm font-bold ${active ? 'text-white' : 'text-gray-900'}`}>
+                        {/* `toLocaleString`, pas `String` : le Scale annuel vaut 3350
+                            et s'affichait « 3350 €/an » au lieu de « 3 350 €/an ». */}
                         {billingInterval === 'annual'
-                          ? t.perYear(String(annual))
-                          : t.perMonth(String(p.price))}
+                          ? t.perYear(annual.toLocaleString(t.locale))
+                          : t.perMonth(p.price.toLocaleString(t.locale))}
                       </p>
                       {billingInterval === 'annual' && (
                         <p className={`text-[11px] ${active ? 'text-white/70' : 'text-emerald-600'}`}>
