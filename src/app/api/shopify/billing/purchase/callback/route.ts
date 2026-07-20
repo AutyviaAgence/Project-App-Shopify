@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
-import { getShopifyConfig, getAppPurchaseOneTimeStatus } from '@/lib/shopify/client'
+import { getShopifyConfig, getAppPurchaseOneTimeStatus, isValidShopDomain } from '@/lib/shopify/client'
 import { getValidAccessToken } from '@/lib/shopify/token'
 import { creditOneTimePack, ONE_TIME_PACKS, type PackId } from '@/lib/shopify/billing'
 
@@ -27,7 +27,33 @@ export async function GET(req: NextRequest) {
   const shop = req.nextUrl.searchParams.get('shop') || ''
   const purchaseId = req.nextUrl.searchParams.get('id') || ''
 
-  const back = (params: string) => NextResponse.redirect(`${appUrl}/subscription?${params}`)
+  /**
+   * ⚠️ NE PAS RENVOYER VERS `/subscription` — PAGE BLANCHE GARANTIE.
+   *
+   * Le marchand revient de l'écran Shopify DANS l'iframe de son admin. Or les
+   * pages du dashboard envoient `X-Frame-Options: DENY` : le navigateur refuse
+   * de les afficher (« app.xeyo.io n'autorise pas la connexion ») et il se
+   * retrouve devant un écran vide après avoir PAYÉ.
+   *
+   * Seule `/shopify` déclare `frame-ancestors` pour l'admin Shopify. On renvoie
+   * donc vers l'app telle qu'elle vit dans l'admin — même logique que le
+   * callback d'abonnement. Le nom de boutique est dérivé de `shop`, jamais codé
+   * en dur, sinon tous les marchands atterriraient dans la même boutique.
+   */
+  const back = (params: string) => {
+    const handle = process.env.SHOPIFY_APP_HANDLE || 'xeyo-whatsapp-support-chat-1'
+    // ⚠️ VALIDER le domaine avant de le mettre dans une URL : `shop` vient de
+    // l'URL et sans contrôle, une valeur forgée détournerait la redirection.
+    // La regex n'autorise que `[a-z0-9-]+.myshopify.com` — ni `/`, ni `?`, ni `.`.
+    if (isValidShopDomain(shop)) {
+      const storeName = shop.replace(/\.myshopify\.com$/i, '')
+      return NextResponse.redirect(
+        `https://admin.shopify.com/store/${storeName}/apps/${handle}/shopify?${params}`
+      )
+    }
+    // Sans boutique identifiable (paramètre manquant), on retombe sur l'app.
+    return NextResponse.redirect(`${appUrl}/shopify?${params}`)
+  }
 
   if (!shop || !purchaseId) return back('purchase=error')
 

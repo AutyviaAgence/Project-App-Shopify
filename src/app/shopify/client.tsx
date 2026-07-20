@@ -128,6 +128,10 @@ const STRINGS = {
     billingCancelled: 'Abonnement non validé. Vous pouvez réessayer quand vous le souhaitez.',
     billingNone: 'Aucun abonnement en attente pour cette boutique.',
     billingReconnect: 'Connexion à Shopify expirée. Rouvrez l’application depuis votre admin Shopify, puis réessayez.',
+    // Retour d'une recharge de conversations (achat ponctuel).
+    purchaseOk: 'Recharge créditée, merci ! Vos conversations sont disponibles immédiatement.',
+    purchaseDeclined: 'Recharge non validée. Vous pouvez réessayer quand vous le souhaitez.',
+    purchaseError: 'La recharge n’a pas pu être finalisée. Réessayez, ou contactez-nous si le montant a été débité.',
     dismiss: 'Fermer',
 
     // ── En-tête ──
@@ -275,6 +279,9 @@ const STRINGS = {
     billingCancelled: 'Subscription not confirmed. You can try again whenever you like.',
     billingNone: 'No pending subscription for this store.',
     billingReconnect: 'Your Shopify connection expired. Reopen the app from your Shopify admin, then try again.',
+    purchaseOk: 'Top-up credited, thank you! Your conversations are available right away.',
+    purchaseDeclined: 'Top-up not confirmed. You can try again whenever you like.',
+    purchaseError: 'The top-up could not be completed. Try again, or contact us if you were charged.',
     dismiss: 'Dismiss',
 
     // ── En-tête ──
@@ -434,12 +441,21 @@ export default function ShopifyEmbeddedClient() {
   // Résultat du passage par l'écran de facturation Shopify. `subscribed=1` est
   // conservé pour les liens déjà en circulation ; `billing=…` porte les autres cas.
   const billingParam = searchParams.get('subscribed') === '1' ? 'ok' : searchParams.get('billing')
+  // Retour d'une RECHARGE de conversations (achat ponctuel). Le callback
+  // renvoie désormais ici — auparavant il visait /subscription, une page du
+  // dashboard qui refuse l'iframe : le marchand voyait un écran BLANC après
+  // avoir payé, sans savoir si sa recharge avait abouti.
+  const purchaseParam = searchParams.get('purchase')
   const [billingNoticeOpen, setBillingNoticeOpen] = useState(true)
   const billingNotice =
     billingParam === 'ok' ? { text: t.billingOk, ok: true }
     : billingParam === 'cancelled' ? { text: t.billingCancelled, ok: false }
     : billingParam === 'none' ? { text: t.billingNone, ok: false }
     : billingParam === 'reconnect' ? { text: t.billingReconnect, ok: false }
+    // Recharge de conversations : même bandeau, messages dédiés.
+    : purchaseParam === 'success' ? { text: t.purchaseOk, ok: true }
+    : purchaseParam === 'declined' ? { text: t.purchaseDeclined, ok: false }
+    : purchaseParam === 'error' ? { text: t.purchaseError, ok: false }
     : null
   // ⚠️ Le code promo était accepté par le serveur (la remise Shopify est bien
   // appliquée), mais AUCUNE interface ne permettait de le saisir. L'admin pouvait
