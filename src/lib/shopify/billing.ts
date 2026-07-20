@@ -72,6 +72,14 @@ export type ResolvedPromo = {
   /** Nombre de cycles de facturation concernés. Absent = permanent. */
   durationMonths?: number
   trialDays?: number
+  /**
+   * Table d'origine. `growth` = code d'affiliation/parrainage portant une remise.
+   *
+   * ⚠️ Indispensable : `promo_redemptions.promo_code_id` a une clé étrangère
+   * STRICTE vers `promo_codes`. Y insérer l'id d'un `growth_codes` violerait la
+   * contrainte — l'enregistrement échouerait après un paiement déjà encaissé.
+   */
+  source: 'promo' | 'growth'
 }
 
 /**
@@ -102,6 +110,44 @@ export async function resolvePromoCode(
     .maybeSingle()
 
   if (!promo || !promo.is_active) {
+    // ── CODE D'AFFILIATION ────────────────────────────────────────────────
+    //
+    // Les codes d'affiliation vivent dans `growth_codes`, une table distincte.
+    // Le champ ne consultait que `promo_codes` : un partenaire qui donnait son
+    // code à un marchand le voyait refusé d'un sec « Code promo invalide ».
+    //
+    // On les accepte désormais s'ils portent une remise marchand — la
+    // commission de l'affilié, elle, reste gérée par le moteur growth.
+    const { data: growth } = await supabase
+      .from('growth_codes')
+      .select('id, code, discount_percent, discount_duration_months, is_active')
+      .ilike('code', normalized)
+      .maybeSingle()
+
+    if (growth?.is_active && growth.discount_percent) {
+      return {
+        ok: true,
+        promo: {
+          id: growth.id,
+          code: growth.code,
+          percentage: Number(growth.discount_percent),
+          durationMonths: growth.discount_duration_months ?? undefined,
+          source: 'growth',
+        },
+      }
+    }
+
+    // Code growth SANS remise : il est valide, mais ne donne rien ici. Le dire,
+    // plutôt que « invalide » — sinon le marchand croit s'être trompé de code.
+    if (growth?.is_active) {
+      return {
+        ok: false,
+        error:
+          'Ce code de parrainage ne donne pas de remise sur l’abonnement. ' +
+          'Il crédite votre parrain une fois votre premier paiement encaissé.',
+      }
+    }
+
     return { ok: false, error: 'Code promo invalide' }
   }
   if (promo.valid_until && new Date(promo.valid_until) < new Date()) {
@@ -136,6 +182,7 @@ export async function resolvePromoCode(
       amountCents: promo.discount_amount_cents ?? undefined,
       durationMonths: promo.duration_months ?? undefined,
       trialDays: promo.trial_days ?? undefined,
+      source: 'promo',
     },
   }
 }

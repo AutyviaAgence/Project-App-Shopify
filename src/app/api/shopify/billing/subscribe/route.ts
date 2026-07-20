@@ -111,6 +111,9 @@ export async function POST(req: NextRequest) {
   // attendait un code que personne ne lui envoyait. Elle le reçoit enfin.
   const { resolvePromoCode, isTestBilling } = await import('@/lib/shopify/billing')
   let promoId: string | null = null
+  // Table d'origine du code : `promo_redemptions` a une FK stricte vers
+  // `promo_codes`, donc le callback ne doit PAS y enregistrer un code growth.
+  let promoSource: 'promo' | 'growth' = 'promo'
   let discount: { percentage?: number; amount?: number; durationLimitInIntervals?: number } | undefined
   // ESSAI 7 JOURS — UNE SEULE FOIS PAR BOUTIQUE.
   //
@@ -128,6 +131,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: resolved.error }, { status: 400 })
     }
     promoId = resolved.promo.id
+    promoSource = resolved.promo.source
     if (resolved.promo.percentage != null || resolved.promo.amountCents != null) {
       discount = {
         percentage: resolved.promo.percentage,
@@ -155,7 +159,7 @@ export async function POST(req: NextRequest) {
     `${appUrl}/api/shopify/billing/callback?shop=${encodeURIComponent(shop)}&plan=${plan}` +
     `&interval=${billing}` +
     `&from=${origin}` +
-    (promoId ? `&promo=${promoId}` : '') +
+    (promoId ? `&promo=${promoId}&promo_src=${promoSource}` : '') +
     (isDowngrade ? '&deferred=1' : '')
 
   const result = await createAppSubscription(shop, token, {

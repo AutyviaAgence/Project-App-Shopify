@@ -185,7 +185,11 @@ export async function GET(req: NextRequest) {
   // Le paiement vient d'être CONFIRMÉ par Shopify. Enregistrer l'utilisation
   // plus tôt permettrait de « brûler » un code sans jamais payer.
   const promoId = req.nextUrl.searchParams.get('promo')
-  if (promoId && store.user_id) {
+  // ⚠️ Un code d'AFFILIATION ne s'enregistre pas ici : `promo_redemptions` a une
+  // clé étrangère stricte vers `promo_codes`, l'insert échouerait. Son suivi
+  // passe par `growth_attributions`, posé à l'inscription du marchand.
+  const isGrowthCode = req.nextUrl.searchParams.get('promo_src') === 'growth'
+  if (promoId && store.user_id && !isGrowthCode) {
     try {
       const { redeemPromoCode } = await import('@/lib/shopify/billing')
       await redeemPromoCode(promoId, store.user_id, store.shopify_charge_id)

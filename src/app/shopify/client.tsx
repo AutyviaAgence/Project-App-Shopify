@@ -201,9 +201,11 @@ const STRINGS = {
     creditsTitle: 'Conversations IA',
     creditsDesc: 'Une conversation où votre agent a répondu au moins une fois.',
     topUp: `Recharger · 500 conv. (45 ${PLAN_CURRENCY})`,
-    creditsThisMonth: 'conversations ce mois-ci ·',
+    // Accord au singulier : sur une boutique neuve, les compteurs valent 1 —
+    // et c'est précisément ce que voit le reviewer de l'App Store.
+    creditsThisMonth: (n: number) => (n === 1 ? 'conversation ce mois-ci ·' : 'conversations ce mois-ci ·'),
     unlimited: 'illimité',
-    remaining: 'restantes',
+    remaining: (n: number) => (n === 1 ? 'restante' : 'restantes'),
     outOfIncluded: (total: string) => ` sur ${total} incluses`,
     resetsNextRenewal: 'Remis à zéro au prochain renouvellement',
     extraInReserve: 'de recharge en réserve ·',
@@ -340,9 +342,10 @@ const STRINGS = {
     creditsTitle: 'AI conversations',
     creditsDesc: 'A conversation where your agent replied at least once.',
     topUp: `Top up · 500 conv. (${PLAN_CURRENCY}45)`,
-    creditsThisMonth: 'conversations this month ·',
+    creditsThisMonth: (n: number) => (n === 1 ? 'conversation this month ·' : 'conversations this month ·'),
     unlimited: 'unlimited',
-    remaining: 'remaining',
+    // Invariable en anglais, mais gardé en fonction pour la parité du dictionnaire.
+    remaining: (_n: number) => 'remaining',
     outOfIncluded: (total: string) => ` of ${total} included`,
     resetsNextRenewal: 'Resets on your next renewal',
     extraInReserve: 'top-up conversations in reserve ·',
@@ -376,8 +379,12 @@ const STRINGS = {
     promoPlaceholder: 'Promo code',
     promoHint: 'The discount will appear on the Shopify screen before you confirm.',
     promoToggle: 'I have a promo code',
+    // « Billed in EUR » est explicite à dessein : les tarifs sont en euros pour
+    // tous les marchands (Shopify facture en EUR). Sans cette mention, un
+    // marchand hors zone euro voit « €49/mo » sans comprendre pourquoi — et
+    // Shopify convertira dans sa devise au taux du jour.
     billingNote:
-      'Shopify will ask you to confirm. No payment details needed: the amount is added to your Shopify invoice.',
+      'Shopify will ask you to confirm. No payment details needed: the amount is added to your Shopify invoice. Plans are billed in EUR; Shopify converts to your local currency.',
     cancelling: 'Cancelling…',
     cancelSubscription: 'Cancel subscription',
 
@@ -1103,7 +1110,7 @@ export default function ShopifyEmbeddedClient() {
                   if (c.unlimited) {
                     return (
                       <p className="mt-4 text-sm text-gray-700">
-                        <span className="font-semibold">{c.used.toLocaleString(t.locale)}</span> {t.creditsThisMonth}
+                        <span className="font-semibold">{c.used.toLocaleString(t.locale)}</span> {t.creditsThisMonth(c.used)}
                         <span className="ml-1 font-medium text-emerald-600">{t.unlimited}</span>
                       </p>
                     )
@@ -1116,7 +1123,7 @@ export default function ShopifyEmbeddedClient() {
                       <div>
                         <div className="flex items-baseline justify-between text-sm">
                           <span className="text-gray-700">
-                            <span className="font-semibold text-gray-900">{planLeft.toLocaleString(t.locale)}</span> {t.remaining}
+                            <span className="font-semibold text-gray-900">{planLeft.toLocaleString(t.locale)}</span> {t.remaining(planLeft)}
                             <span className="text-gray-500">{t.outOfIncluded(planLimit.toLocaleString(t.locale))}</span>
                           </span>
                           <span className={pct >= 95 ? 'font-medium text-rose-600' : pct >= 80 ? 'font-medium text-amber-600' : 'text-gray-500'}>
@@ -1396,13 +1403,18 @@ export default function ShopifyEmbeddedClient() {
                 </p>
               ) : (
                 <>
-                  <p className="mt-2 text-xs leading-relaxed text-gray-600">
-                    {t.linkedTo}{' '}
-                    <span className="font-medium text-gray-900">
-                      {overview?.linkedAccountEmail || '—'}
-                    </span>
-                    .
-                  </p>
+                  {/* Sans email, cette phrase se terminait par « le compte Xeyo —. »
+                      — ce qui se lit comme une coquille. On ne l'affiche donc que
+                      lorsqu'on a réellement l'adresse à nommer. */}
+                  {overview?.linkedAccountEmail && (
+                    <p className="mt-2 text-xs leading-relaxed text-gray-600">
+                      {t.linkedTo}{' '}
+                      <span className="font-medium text-gray-900">
+                        {overview.linkedAccountEmail}
+                      </span>
+                      .
+                    </p>
+                  )}
                   <p className="mt-0.5 text-xs text-gray-500">
                     {t.teamNote}
                   </p>

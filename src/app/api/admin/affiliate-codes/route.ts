@@ -47,7 +47,7 @@ export async function GET() {
 
   const { data } = await auth.admin
     .from('growth_codes')
-    .select('id, code, label, contact_email, commission_percent, owner_user_id, is_active, created_at')
+    .select('id, code, label, contact_email, commission_percent, discount_percent, discount_duration_months, owner_user_id, is_active, created_at')
     .eq('kind', 'affiliate')
     .order('created_at', { ascending: false })
 
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
   const body = await req.json()
-  const { label, code, commission_percent, contact_email } = body
+  const { label, code, commission_percent, contact_email, discount_percent, discount_duration_months } = body
 
   const normalized = String(code || '').trim().toUpperCase()
   if (!normalized || !commission_percent) {
@@ -68,6 +68,25 @@ export async function POST(req: NextRequest) {
   const percent = Number(commission_percent)
   if (!(percent > 0 && percent <= 100)) {
     return NextResponse.json({ error: 'La commission doit être comprise entre 1 et 100 %.' }, { status: 400 })
+  }
+
+  // Remise accordée AU MARCHAND (facultative) — distincte de la commission qui,
+  // elle, rémunère l'affilié. Elle s'applique sur l'abonnement Shopify.
+  let discount: number | null = null
+  if (discount_percent != null && String(discount_percent).trim() !== '') {
+    discount = Number(discount_percent)
+    if (!(discount > 0 && discount <= 100)) {
+      return NextResponse.json({ error: 'La remise doit être comprise entre 1 et 100 %.' }, { status: 400 })
+    }
+  }
+
+  // Durée de la remise, en cycles. Vide = permanente.
+  let discountMonths: number | null = null
+  if (discount_duration_months != null && String(discount_duration_months).trim() !== '') {
+    discountMonths = Number(discount_duration_months)
+    if (!Number.isInteger(discountMonths) || discountMonths <= 0) {
+      return NextResponse.json({ error: 'La durée de la remise doit être un nombre de mois positif.' }, { status: 400 })
+    }
   }
 
   // Si le partenaire a déjà un compte Xeyo, on le rattache tout de suite : c'est
@@ -91,6 +110,8 @@ export async function POST(req: NextRequest) {
       label: label ? String(label).trim() : null,
       contact_email: email || null,
       commission_percent: percent,
+      discount_percent: discount,
+      discount_duration_months: discountMonths,
       owner_user_id: ownerId,
       is_active: true,
     })
@@ -118,11 +139,36 @@ export async function PATCH(req: NextRequest) {
   const auth = await requireAdmin()
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
-  const { id, is_active, contact_email } = await req.json()
+  const { id, is_active, contact_email, discount_percent, discount_duration_months } = await req.json()
   if (!id) return NextResponse.json({ error: 'Identifiant requis' }, { status: 400 })
 
   const patch: Record<string, unknown> = {}
   if (typeof is_active === 'boolean') patch.is_active = is_active
+
+  // Remise marchand : une chaîne vide la RETIRE (null), une valeur la définit.
+  if (discount_percent !== undefined) {
+    if (discount_percent === null || String(discount_percent).trim() === '') {
+      patch.discount_percent = null
+    } else {
+      const d = Number(discount_percent)
+      if (!(d > 0 && d <= 100)) {
+        return NextResponse.json({ error: 'La remise doit être comprise entre 1 et 100 %.' }, { status: 400 })
+      }
+      patch.discount_percent = d
+    }
+  }
+
+  if (discount_duration_months !== undefined) {
+    if (discount_duration_months === null || String(discount_duration_months).trim() === '') {
+      patch.discount_duration_months = null
+    } else {
+      const m = Number(discount_duration_months)
+      if (!Number.isInteger(m) || m <= 0) {
+        return NextResponse.json({ error: 'La durée de la remise doit être un nombre de mois positif.' }, { status: 400 })
+      }
+      patch.discount_duration_months = m
+    }
+  }
 
   if (contact_email) {
     const email = String(contact_email).trim().toLowerCase()
