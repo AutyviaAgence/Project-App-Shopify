@@ -292,7 +292,21 @@ export async function POST(req: NextRequest) {
     .from('shopify_stores')
     .update({
       pending_plan: plan,
-      ...(isDowngrade ? {} : { subscription_status: 'pending' }),
+      // ⚠️ NE PLUS ÉCRIRE `subscription_status: 'pending'` ICI.
+      //
+      // On dégradait le statut AVANT que le marchand n'ait vu l'écran Shopify.
+      // Or `getUserPlan` retombe en GRATUIT dès que le statut n'est pas
+      // `active` : un simple clic sur « Choisir Scale annuel » suffisait donc à
+      // couper l'accès d'un marchand qui paie — et s'il annulait, fermait
+      // l'onglet ou perdait le réseau, il restait bloqué « Plan Free » sans
+      // rien comprendre. Le chemin « fermer l'onglet » ne passe même pas par le
+      // callback : personne ne l'aurait rattrapé.
+      //
+      // Ce statut n'était lu NULLE PART comme information utile — il ne servait
+      // qu'à retirer l'accès par effet de bord. `pending_plan` mémorise déjà
+      // l'intention, et le callback (ou le webhook, ou le sync) écrira `active`
+      // quand Shopify aura confirmé. Tant que rien n'est approuvé, le marchand
+      // garde simplement ce qu'il a déjà payé.
       // Sur une BAISSE, on grave la date jusqu'à laquelle l'ancien plan est
       // payé : Shopify va l'effacer en annulant l'abonnement, et c'est notre
       // seule preuve que le marchand a droit au plan supérieur jusque-là.
