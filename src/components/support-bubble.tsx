@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
-import { MessageCircleQuestion, MessageCircle, X, Send, Loader2, ArrowRight } from 'lucide-react'
+import { MessageCircleQuestion, X, Send, Loader2, ArrowRight } from 'lucide-react'
 
 /**
  * ASSISTANT D'AIDE — il répond, et il MONTRE.
@@ -64,13 +64,16 @@ export function SupportBubble() {
 
   // La bulle n'a rien à faire sur les pages publiques (connexion, inscription) ni
   // dans l'app embarquée Shopify — elle y masquerait l'interface.
-  // ⚠️ `/onboarding` N'EST PLUS EXCLU — c'est le moment où le marchand a le
-  // PLUS besoin d'aide (connexion WhatsApp, liaison Shopify), et il n'avait
-  // aucun moyen de nous joindre avant d'avoir terminé.
+  // La bulle n'a rien à faire sur les pages publiques (connexion, inscription) ni
+  // dans l'app embarquée Shopify — elle y masquerait l'interface.
+  //
+  // `/onboarding` a son propre bouton WhatsApp, plus direct : l'assistant y
+  // serait de trop, le marchand n'a pas encore d'app à explorer.
   const hidden =
     pathname?.startsWith('/shopify') ||
     pathname?.startsWith('/login') ||
-    pathname?.startsWith('/register')
+    pathname?.startsWith('/register') ||
+    pathname?.startsWith('/onboarding')
 
   useEffect(() => {
     requestAnimationFrame(() => scrollRef.current?.scrollTo({ top: 9e9, behavior: 'smooth' }))
@@ -351,21 +354,6 @@ export function SupportBubble() {
                   <Send className="h-4 w-4" />
                 </button>
               </div>
-
-              {/* ⚠️ CONTACT HUMAIN TOUJOURS ACCESSIBLE.
-                  Il n'apparaissait qu'une fois les questions épuisées. Or un
-                  marchand bloqué pendant l'onboarding (connexion WhatsApp,
-                  liaison Shopify) doit pouvoir nous joindre TOUT DE SUITE —
-                  l'obliger à interroger l'assistant d'abord, c'est le perdre.
-                  Discret pour ne pas court-circuiter l'assistant, qui répond
-                  plus vite sur les questions courantes. */}
-              <button
-                type="button"
-                onClick={() => openWhatsApp(SUPPORT_WHATSAPP)}
-                className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-lg border border-[#25D366]/40 px-3 py-1.5 text-[11px] font-medium text-[#25D366] transition-colors hover:bg-[#25D366]/10"
-              >
-                <MessageCircle className="h-3.5 w-3.5" /> Écrire à un humain sur WhatsApp
-              </button>
 
               {/* Le compteur n'apparaît qu'à l'approche de la limite : l'afficher
                   d'emblée donnerait l'impression d'être rationné. */}
