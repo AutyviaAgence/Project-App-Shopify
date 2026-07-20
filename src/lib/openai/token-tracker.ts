@@ -20,12 +20,43 @@ export async function checkTokenLimit(userId: string): Promise<
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('tokens_used, tokens_limit, tokens_extra, subscription_status, trial_ends_at, subscription_ends_at')
+    .select('tokens_used, tokens_limit, tokens_extra, subscription_status, trial_ends_at, subscription_ends_at, role')
     .eq('id', userId)
     .single()
 
   if (!profile) {
     return { allowed: false, used: 0, limit: 0, reason: 'profile_not_found' }
+  }
+
+  // Les admins ne sont jamais bloqués (même règle que plan-quota).
+  if ((profile as { role?: string | null }).role === 'admin') {
+    return { allowed: true, remaining: Number.MAX_SAFE_INTEGER }
+  }
+
+  // ⚠️ MARCHAND SHOPIFY : `profiles.subscription_status` N'EST JAMAIS ÉCRIT par
+  // le callback de facturation — il reste à `none` même pour un marchand qui
+  // paie. Cette fonction, restée sur l'ancien modèle Stripe, refusait donc TOUS
+  // les marchands Shopify : « Limite de tokens IA atteinte » dès l'onboarding,
+  // et pire, elle remettait leur `tokens_limit` à 0 au passage.
+  //
+  // La source de vérité est `shopify_stores`, arbitrée par `getUserPlan()` —
+  // exactement ce que documente déjà `plan-quota.ts`.
+  const { getShopifyBilling, getUserPlan } = await import('@/lib/shopify/plans')
+  const { billed } = await getShopifyBilling(userId)
+  if (billed) {
+    const plan = await getUserPlan(userId)
+    // Plan effectif `free` = aucun abonnement Shopify actif → on bloque.
+    if (plan.id === 'free') {
+      return { allowed: false, used: profile.tokens_used, limit: 0, reason: 'subscription_inactive' }
+    }
+    // Abonnement actif : seul le solde de tokens compte. `tokens_limit` étant
+    // hérité du modèle Stripe et souvent à 0 chez un marchand Shopify, on ne
+    // s'appuie que sur les recharges explicites — et on laisse passer sinon.
+    const extra = profile.tokens_extra || 0
+    if (extra > 0 && profile.tokens_used >= extra + (profile.tokens_limit || 0)) {
+      return { allowed: false, used: profile.tokens_used, limit: extra + (profile.tokens_limit || 0) }
+    }
+    return { allowed: true, remaining: Number.MAX_SAFE_INTEGER }
   }
 
   const now = new Date()
