@@ -124,11 +124,31 @@ export async function GET(req: NextRequest) {
       // Shopify injoignable : on ne touche pas au champ.
     }
 
+    // ⚠️ RESTAURER LE STATUT — sinon le marchand perd son abonnement en cours.
+    //
+    // Sur une MONTÉE en gamme, `subscribe` pose `subscription_status: 'pending'`
+    // (la charge n'est pas encore approuvée). En annulant, ce statut n'était
+    // jamais nettoyé : la boutique restait bloquée en `pending`, et `getUserPlan`
+    // retombe en GRATUIT dès que le statut n'est pas `active`.
+    //
+    // Résultat observé : un marchand abonné Scale qui renonce à passer à
+    // l'annuel se retrouvait « Plan Free », sans plus aucun accès — alors qu'il
+    // paie toujours.
+    //
+    // Shopify fait foi : si un abonnement y est ACTIVE, le marchand est actif.
+    const stillActive = !!realChargeId
+
     await admin
       .from('shopify_stores')
       .update({
         pending_plan: null,
         ...(realChargeId ? { shopify_charge_id: realChargeId } : {}),
+        // On ne remet `active` que si Shopify confirme un abonnement en cours.
+        // Sans abonnement réel, on laisse le statut tel quel plutôt que
+        // d'accorder un accès qui n'est pas payé.
+        ...(stillActive && store.subscription_status === 'pending'
+          ? { subscription_status: 'active' }
+          : {}),
         updated_at: new Date().toISOString(),
       })
       .eq('id', store.id)

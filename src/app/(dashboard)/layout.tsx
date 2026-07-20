@@ -91,8 +91,13 @@ const BOTTOM_NAV_KEYS = [
   { href: '/settings', labelKey: 'nav.settings', icon: Settings },
 ]
 
-// Pages accessibles même sans abonnement actif
-const ALLOWED_WITHOUT_SUBSCRIPTION = ['/subscription', '/settings', '/admin', '/help']
+// Pages accessibles même sans abonnement actif.
+//
+// ⚠️ `/` (le dashboard) EN FAIT PARTIE — il manquait, alors que le commentaire
+// plus bas affirmait le contraire. Sans lui, un marchand sans abonnement était
+// bloqué sur sa page d'accueil : il ne voyait plus l'état de sa boutique ni sa
+// connexion WhatsApp, et ne comprenait pas ce qui se passait.
+const ALLOWED_WITHOUT_SUBSCRIPTION = ['/', '/subscription', '/settings', '/admin', '/help']
 
 // Pages BLOQUÉES tant qu'aucune boutique Shopify n'est connectée : toutes les
 // données de l'app en découlent (conversations, agents, modèles, stats…).
