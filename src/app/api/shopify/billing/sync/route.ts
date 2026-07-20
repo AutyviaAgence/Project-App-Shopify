@@ -72,9 +72,22 @@ export async function POST(req: NextRequest) {
   // (moins cher) et appliquer la baisse trop tôt. On privilégie donc :
   //   1. l'abonnement qu'on suit déjà (shopify_charge_id) — c'est le référent ;
   //   2. sinon le plus cher (l'ancien, tant que la baisse n'a pas pris effet).
+  //
+  // ⚠️ LA RÈGLE 1 NE SUFFIT PAS — elle produisait même l'inverse de l'effet voulu.
+  //
+  // `subscribe` ÉCRASE `shopify_charge_id` avec le NOUVEL abonnement avant la
+  // redirection. Sur une baisse différée, « l'abonnement qu'on suit » est donc
+  // le moins cher : cette resynchro le trouvait et appliquait la baisse
+  // sur-le-champ. Constaté en production — Scale payé, marchand bridé en Pro
+  // le jour même, alors que le callback avait correctement gardé `plan: scale`.
+  //
+  // Tant que PLUSIEURS abonnements coexistent, on prend donc TOUJOURS le plus
+  // cher : c'est celui qui court jusqu'à l'échéance déjà réglée. Le `find` ne
+  // sert que lorsqu'il n'y en a qu'un (cas nominal), où il est sans effet.
   const live =
-    actives.find((s) => s.id === store.shopify_charge_id) ||
-    actives.slice().sort((a, b) => planPriceFromName(b.name) - planPriceFromName(a.name))[0]
+    actives.length > 1
+      ? actives.slice().sort((a, b) => planPriceFromName(b.name) - planPriceFromName(a.name))[0]
+      : actives.find((s) => s.id === store.shopify_charge_id) || actives[0]
 
   // ── Aucun abonnement actif chez Shopify ──────────────────────────────────
   if (!live) {
@@ -146,7 +159,26 @@ export async function POST(req: NextRequest) {
   const periodStillRunning =
     !!store.current_period_end && new Date(store.current_period_end) > new Date()
 
-  if (store.pending_plan && periodStillRunning && newPrice < currentPrice) {
+  // ⚠️ LA CONDITION `store.pending_plan &&` ÉTAIT DE TROP.
+  //
+  // Elle supposait qu'une baisse programmée laisse toujours une trace en base.
+  // Or dès qu'une resynchro passe (ou que Shopify ne présente plus qu'un seul
+  // abonnement actif), `pending_plan` est remis à null plus bas — et la
+  // protection s'évapore : le sync suivant dégrade le marchand alors que sa
+  // période payée court encore.
+  //
+  // La vraie règle ne dépend pas de notre propre état : tant que la période
+  // RÉGLÉE court, on ne descend JAMAIS un marchand en dessous de ce qu'il a
+  // payé. On mémorise la baisse dans `pending_plan` et on laisse l'échéance
+  // faire son œuvre.
+  if (periodStillRunning && newPrice < currentPrice) {
+    // Garder la trace de la baisse à venir, sans toucher au plan en cours.
+    if (store.pending_plan !== plan) {
+      await admin
+        .from('shopify_stores')
+        .update({ pending_plan: plan, updated_at: new Date().toISOString() })
+        .eq('id', store.id)
+    }
     return NextResponse.json({ data: { synced: false, plan: store.plan } })
   }
 
