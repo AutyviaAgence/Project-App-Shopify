@@ -124,27 +124,29 @@ export async function resolvePromoCode(
       .ilike('code', normalized)
       .maybeSingle()
 
-    if (growth?.is_active && growth.discount_percent) {
+    if (growth?.is_active) {
+      // ⚠️ 0 % est une valeur VALIDE, pas une absence.
+      //
+      // Un partenaire peut apporter des clients sans leur accorder de remise :
+      // il touche sa commission, le marchand paie plein tarif. Le code doit
+      // donc être ACCEPTÉ (sinon l'attribution du partenaire ne se fait pas),
+      // simplement sans remise transmise à Shopify.
+      //
+      // D'où le test sur `!= null` et non sur la véracité : `if (percent)`
+      // rejetait 0 en silence.
+      const raw = growth.discount_percent
+      const percent = raw != null ? Number(raw) : 0
+
       return {
         ok: true,
         promo: {
           id: growth.id,
           code: growth.code,
-          percentage: Number(growth.discount_percent),
-          durationMonths: growth.discount_duration_months ?? undefined,
+          // `undefined` à 0 : la Billing API n'a pas à recevoir une remise nulle.
+          percentage: percent > 0 ? percent : undefined,
+          durationMonths: percent > 0 ? (growth.discount_duration_months ?? undefined) : undefined,
           source: 'growth',
         },
-      }
-    }
-
-    // Code growth SANS remise : il est valide, mais ne donne rien ici. Le dire,
-    // plutôt que « invalide » — sinon le marchand croit s'être trompé de code.
-    if (growth?.is_active) {
-      return {
-        ok: false,
-        error:
-          'Ce code de parrainage ne donne pas de remise sur l’abonnement. ' +
-          'Il crédite votre parrain une fois votre premier paiement encaissé.',
       }
     }
 

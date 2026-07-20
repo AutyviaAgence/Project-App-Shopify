@@ -72,11 +72,14 @@ export async function POST(req: NextRequest) {
 
   // Remise accordée AU MARCHAND (facultative) — distincte de la commission qui,
   // elle, rémunère l'affilié. Elle s'applique sur l'abonnement Shopify.
+  // 0 % est valide : le partenaire touche sa commission, le marchand paie plein
+  // tarif. Champ vide = pas de remise du tout (NULL) ; « 0 » = remise nulle
+  // assumée. Les deux se comportent pareil à l'usage, mais on respecte la saisie.
   let discount: number | null = null
   if (discount_percent != null && String(discount_percent).trim() !== '') {
     discount = Number(discount_percent)
-    if (!(discount > 0 && discount <= 100)) {
-      return NextResponse.json({ error: 'La remise doit être comprise entre 1 et 100 %.' }, { status: 400 })
+    if (!Number.isFinite(discount) || discount < 0 || discount > 100) {
+      return NextResponse.json({ error: 'La remise doit être comprise entre 0 et 100 %.' }, { status: 400 })
     }
   }
 
@@ -151,8 +154,8 @@ export async function PATCH(req: NextRequest) {
       patch.discount_percent = null
     } else {
       const d = Number(discount_percent)
-      if (!(d > 0 && d <= 100)) {
-        return NextResponse.json({ error: 'La remise doit être comprise entre 1 et 100 %.' }, { status: 400 })
+      if (!Number.isFinite(d) || d < 0 || d > 100) {
+        return NextResponse.json({ error: 'La remise doit être comprise entre 0 et 100 %.' }, { status: 400 })
       }
       patch.discount_percent = d
     }

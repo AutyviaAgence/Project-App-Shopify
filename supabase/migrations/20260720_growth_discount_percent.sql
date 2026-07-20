@@ -9,11 +9,15 @@
 -- encaissé ; la remise s'applique sur l'abonnement Shopify, à la souscription.
 -- Les fusionner rendrait impossible « 30 % pour l'affilié, 20 % pour le
 -- marchand » — c'est-à-dire le cas normal.
+-- 0 est une valeur VALIDE, pas une absence : un partenaire peut apporter des
+-- clients sans leur accorder de remise (il touche sa commission, le marchand
+-- paie plein tarif). `NULL` et `0` sont donc deux choses différentes ici —
+-- d'où `>= 0` et non `> 0`.
 ALTER TABLE growth_codes
   ADD COLUMN IF NOT EXISTS discount_percent NUMERIC
     CHECK (
       discount_percent IS NULL
-      OR (discount_percent > 0 AND discount_percent <= 100)
+      OR (discount_percent >= 0 AND discount_percent <= 100)
     );
 
 -- Durée de la remise, en cycles de facturation. NULL = permanente (tant que
