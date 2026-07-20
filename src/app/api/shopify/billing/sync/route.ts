@@ -216,7 +216,21 @@ export async function POST(req: NextRequest) {
       // réellement — sinon un changement d'intervalle rattrapé par le sync
       // laissait `billing_interval` faux (prix/affichage incohérents).
       ...(live.interval ? { billing_interval: live.interval } : {}),
-      current_period_end: live.currentPeriodEnd,
+      // ⚠️ NE JAMAIS RACCOURCIR LA PÉRIODE PAYÉE.
+      //
+      // `live.currentPeriodEnd` est la période du nouvel abonnement. Sur une
+      // baisse, elle est PLUS COURTE que celle déjà réglée : l'écrire écraserait
+      // la date capturée par `subscribe` et ferait perdre au marchand l'accès
+      // qu'il a payé. Et comme ce sync tourne à chaque ouverture de l'app, la
+      // protection sautait dans la minute.
+      //
+      // On ne repousse la date que si Shopify en annonce une PLUS LOINTAINE
+      // (renouvellement, montée en gamme) — jamais l'inverse.
+      ...(live.currentPeriodEnd &&
+      (!store.current_period_end ||
+        new Date(live.currentPeriodEnd) > new Date(store.current_period_end))
+        ? { current_period_end: live.currentPeriodEnd }
+        : {}),
       updated_at: new Date().toISOString(),
     })
     .eq('id', store.id)

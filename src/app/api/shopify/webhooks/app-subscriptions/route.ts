@@ -178,15 +178,28 @@ export async function POST(req: NextRequest) {
     // La vérité est le NOM de l'abonnement que Shopify facture (« Xeyo Pro »,
     // « Xeyo Scale (Annuel) »…). On ne bascule que lorsqu'il correspond
     // réellement au plan en attente.
+    // ⚠️ LE NOM NE SUFFIT PAS — c'est la PÉRIODE PAYÉE qui tranche.
+    //
+    // Shopify renomme l'abonnement « Xeyo Pro » DÈS L'APPROBATION, alors que le
+    // marchand a réglé Scale jusqu'à l'échéance : se fier au seul nom appliquait
+    // donc la baisse sur-le-champ. Tant que `current_period_end` court, le plan
+    // payé reste dû, quoi qu'affiche Shopify.
     const billedPlan = planFromSubscriptionName(sub?.name || '')
-    const pendingNowBilled = !!store.pending_plan && billedPlan === store.pending_plan
+    const stillPaidForCurrent =
+      !!store.current_period_end && new Date(store.current_period_end) > new Date()
+    const pendingNowBilled =
+      !!store.pending_plan && billedPlan === store.pending_plan && !stillPaidForCurrent
 
     // Si Shopify facture encore l'ancien plan, on garde le plan courant ET la
     // baisse en attente : elle s'appliquera au prochain passage du webhook,
     // quand le nouvel abonnement entrera réellement en vigueur.
     const targetPlan = pendingNowBilled
       ? store.pending_plan
-      : (billedPlan || store.pending_plan || store.plan)
+      // Période encore réglée → on NE TOUCHE PAS au plan, même si Shopify
+      // annonce déjà le plan inférieur. Sinon le marchand perd ce qu'il a payé.
+      : stillPaidForCurrent
+        ? store.plan
+        : (billedPlan || store.pending_plan || store.plan)
     const keepPending = !!store.pending_plan && !pendingNowBilled
     await supabase
       .from('shopify_stores')

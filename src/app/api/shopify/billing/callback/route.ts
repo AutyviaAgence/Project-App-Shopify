@@ -196,7 +196,17 @@ export async function GET(req: NextRequest) {
       // l'écrase jamais s'il existe déjà (préserve la date du 1ᵉʳ essai, et
       // survit à une désinstallation/réinstallation puisque la ligne est gardée).
       ...(store.trial_used_at ? {} : { trial_used_at: new Date().toISOString() }),
-      current_period_end: periodEnd.toISOString(),
+      // ⚠️ SUR UNE BAISSE, NE PAS TOUCHER À `current_period_end`.
+      //
+      // `periodEnd` est la fin de période du NOUVEAU (petit) abonnement. Or sur
+      // une rétrogradation, c'est la date de l'ANCIEN qui compte : c'est jusque-là
+      // que le marchand a payé, et c'est elle qui lui garantit le plan supérieur.
+      //
+      // `subscribe` l'a relevée auprès de Shopify AVANT de créer le remplacement
+      // (Shopify l'efface ensuite) et l'a déjà écrite en base. L'écraser ici
+      // détruisait cette capture — et avec elle toute la protection : la seule
+      // preuve de l'accès payé disparaissait au moment même de son enregistrement.
+      ...(isDeferredDowngrade ? {} : { current_period_end: periodEnd.toISOString() }),
       updated_at: new Date().toISOString(),
     })
     .eq('id', store.id)
