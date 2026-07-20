@@ -179,10 +179,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ data: { synced: false, plan: store.plan } })
   }
 
+  // ⚠️ Un `pending_plan` abandonné doit être nettoyé MÊME si tout le reste est
+  // déjà correct — sinon ce raccourci sortait avant l'UPDATE et l'app affichait
+  // « Changement programmé » pour toujours.
+  const pendingPriceEarly = store.pending_plan
+    ? planPrice(store.pending_plan as PlanId, currentInterval)
+    : 0
+  const hasAbandonedPending =
+    !!store.pending_plan && store.pending_plan !== plan && pendingPriceEarly > newPrice
+
   const alreadyCorrect =
     store.subscription_status === 'active' &&
     store.plan === plan &&
-    store.shopify_charge_id === live.id
+    store.shopify_charge_id === live.id &&
+    !hasAbandonedPending
 
   if (alreadyCorrect) {
     return NextResponse.json({ data: { synced: false, plan } })
@@ -204,11 +214,26 @@ export async function POST(req: NextRequest) {
   // quand Shopify facture enfin le plan qui attendait.
   const pendingApplied = store.pending_plan && store.pending_plan === plan
 
+  // ⚠️ NETTOYER UN `pending_plan` ABANDONNÉ.
+  //
+  // `subscribe` l'écrit AVANT l'écran Shopify. Si le marchand annule, le
+  // callback le nettoie — mais s'il ferme l'onglet, personne ne passe : l'app
+  // annonçait alors indéfiniment « Changement programmé » vers un plan qu'il
+  // n'a jamais pris.
+  //
+  // Une baisse programmée, elle, est LÉGITIME : elle vaut moins cher que le
+  // plan facturé et doit être conservée. Un `pending_plan` qui coûte PLUS cher
+  // que ce que Shopify facture ne correspond en revanche à rien de payé — c'est
+  // une montée en gamme abandonnée.
+  const pendingIsAbandonedUpgrade = hasAbandonedPending
+
   await admin
     .from('shopify_stores')
     .update({
       plan,
-      ...(pendingApplied || !store.pending_plan ? { pending_plan: null } : {}),
+      ...(pendingApplied || !store.pending_plan || pendingIsAbandonedUpgrade
+        ? { pending_plan: null }
+        : {}),
       subscription_status: 'active',
       shopify_charge_id: live.id,
       billing_source: 'shopify',

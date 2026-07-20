@@ -313,7 +313,16 @@ export async function POST(req: NextRequest) {
       ...(isDowngrade && paidUntil ? { current_period_end: paidUntil } : {}),
       shopify_charge_id: sub.appSubscription?.id ?? null,
       billing_source: 'shopify',
-      billing_interval: billing,
+      // ⚠️ PAS `billing_interval` ICI — rien n'est encore approuvé.
+      //
+      // On l'écrivait avant l'écran Shopify : un marchand en Scale MENSUEL qui
+      // ouvrait « Pro annuel » puis annulait gardait `billing_interval: annual`
+      // en base. Son app affichait alors des tarifs annuels qu'il n'a jamais
+      // pris — et pire, cette valeur fausse sert au calcul de la baisse
+      // suivante (l. 163) : son Scale mensuel (349 €) était évalué 3350 €,
+      // faussant toutes les comparaisons à venir.
+      //
+      // Le callback l'écrit déjà, une fois le paiement confirmé.
       updated_at: new Date().toISOString(),
     })
     .eq('id', store.id)
