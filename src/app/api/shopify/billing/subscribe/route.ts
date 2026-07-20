@@ -7,6 +7,28 @@ import { PLANS, PAID_PLANS, type PlanId } from '@/lib/shopify/plans'
 import { planPrice } from '@/lib/plans'
 
 /**
+ * Montant réellement facturé, déduit du NOM de l'abonnement Shopify.
+ *
+ * Format posé par cette route : « Xeyo <Plan> » ou « Xeyo <Plan> (Annuel) ».
+ * On lit l'intervalle dans le nom : sans lui, un Pro ANNUEL (1430 € réglés
+ * d'avance) serait évalué à 149 € et un passage au mensuel ne passerait pas
+ * pour une baisse.
+ *
+ * ⚠️ Compat rename Growth → Pro : les abonnements antérieurs s'appellent
+ * « Xeyo Growth » et ne contiennent plus le libellé « pro ».
+ */
+function priceFromSubscriptionName(name: string): number {
+  const n = (name || '').toLowerCase()
+  const annual = n.includes('annuel') || n.includes('annual')
+  const plan: PlanId | undefined = n.includes('growth')
+    ? 'pro'
+    : (Object.keys(PLANS) as PlanId[]).find(
+        (id) => id !== 'free' && n.includes(PLANS[id].name.toLowerCase())
+      )
+  return plan ? planPrice(plan, annual ? 'annual' : 'monthly') : 0
+}
+
+/**
  * POST /api/shopify/billing/subscribe  { shop, plan }
  * Crée un abonnement Shopify pour un plan payant et renvoie l'URL de
  * confirmation (le marchand approuve le paiement côté Shopify).
@@ -98,13 +120,41 @@ export async function POST(req: NextRequest) {
   // et était basculé immédiatement — perdant l'année déjà réglée. En comparant
   // le montant réel (1430/an vs 149/mois), c'est bien détecté comme une baisse
   // et différé au prochain cycle.
-  const currentPlan = (store.plan || 'free') as PlanId
-  const currentInterval: 'monthly' | 'annual' =
-    store.billing_interval === 'annual' ? 'annual' : 'monthly'
-  const currentPrice = currentPlan === 'free' ? 0 : planPrice(currentPlan, currentInterval)
+  // ⚠️ LA RÉFÉRENCE EST SHOPIFY, PAS NOTRE BASE.
+  //
+  // On comparait au `plan` stocké. Si celui-ci est faux — une resynchro qui a
+  // dérapé, une correction manuelle, un webhook manqué — la comparaison se fait
+  // contre une valeur erronée : un Scale enregistré à tort en Pro passe pour
+  // « Pro → Pro », donc PAS une baisse, et le marchand perd sur-le-champ le
+  // Scale qu'il a payé. C'est exactement ce qui s'est produit en test.
+  //
+  // On demande donc à Shopify ce qu'il facture RÉELLEMENT, et on ne retombe sur
+  // notre base que s'il ne répond pas.
+  let currentPrice = 0
+  let hasActiveSub = store.subscription_status === 'active'
+  try {
+    const { listActiveSubscriptions } = await import('@/lib/shopify/client')
+    const live = (await listActiveSubscriptions(shop, token)).filter((s) => s.status === 'ACTIVE')
+    if (live.length > 0) {
+      hasActiveSub = true
+      // Le PLUS CHER fait foi : sur une baisse déjà programmée, l'ancien
+      // abonnement coexiste avec le nouveau et c'est lui qui court encore.
+      currentPrice = Math.max(...live.map((s) => priceFromSubscriptionName(s.name)))
+    }
+  } catch {
+    // Shopify injoignable : on retombe sur la base, mieux que rien.
+    currentPrice = 0
+  }
+
+  if (currentPrice === 0) {
+    const currentPlan = (store.plan || 'free') as PlanId
+    const currentInterval: 'monthly' | 'annual' =
+      store.billing_interval === 'annual' ? 'annual' : 'monthly'
+    currentPrice = currentPlan === 'free' ? 0 : planPrice(currentPlan, currentInterval)
+  }
+
   const newPrice = planPrice(plan, billing)
-  const isDowngrade =
-    store.subscription_status === 'active' && newPrice < currentPrice
+  const isDowngrade = hasActiveSub && newPrice < currentPrice
 
   // ── Code promo (optionnel) ────────────────────────────────────────────────
   // La table `promo_codes` existait mais n'était JAMAIS lue : cette route
