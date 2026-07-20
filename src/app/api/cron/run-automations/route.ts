@@ -107,13 +107,26 @@ export async function GET(req: NextRequest) {
 
   // Jobs dus. On monte la limite (500) et on traite par LOTS PARALLÈLES pour
   // absorber plus de volume par tick sans que le tick s'allonge linéairement.
-  const { data: jobs } = await supabase
-    .from('automation_jobs')
-    .select('id, automation_id, contact_id, event_data, scheduled_at, current_node_id, created_at')
-    .eq('status', 'pending')
-    .lte('scheduled_at', now.toISOString())
-    .order('scheduled_at', { ascending: true })
-    .limit(500)
+  // ⚠️ RÉSERVATION ATOMIQUE — sinon DOUBLE ENVOI chez de vrais clients.
+  //
+  // On sélectionnait les jobs `pending` sans les réserver : le tick suivant
+  // (toutes les minutes) reprenait les mêmes tant que le précédent n'avait pas
+  // fini de les marquer. Un lot de 500 jobs — un carrousel = download Shopify
+  // + upload Meta — dépasse facilement 60 s. Le client recevait le message deux
+  // fois, et la note de qualité du numéro Meta en pâtissait.
+  //
+  // `claim_automation_jobs` fait le SELECT et le passage en `processing` dans
+  // UNE transaction, avec `FOR UPDATE SKIP LOCKED` : deux ticks concurrents
+  // obtiennent des lots disjoints. Les jobs abandonnés (processus tué en cours)
+  // repassent en `pending` au bout de 10 min via `requeue_stale_automation_jobs`.
+  const { data: staleCount } = await supabase.rpc('requeue_stale_automation_jobs')
+  if (staleCount) console.log('[cron] jobs abandonnés remis en file :', staleCount)
+
+  const { data: jobs, error: claimErr } = await supabase.rpc('claim_automation_jobs', { p_limit: 500 })
+  if (claimErr) {
+    console.error('[cron] réservation des jobs impossible :', claimErr.message)
+    return NextResponse.json({ error: 'claim failed' }, { status: 500 })
+  }
 
   // Jobs PARQUÉS sur un message à boutons dont le timeout (72 h) est dépassé :
   // le client n'a jamais cliqué → on les repasse en 'pending' pour que
@@ -132,7 +145,9 @@ export async function GET(req: NextRequest) {
   }
 
   const counts = { sent: 0, skipped: 0, failed: 0, deferred: 0 }
-  const allJobs = jobs || []
+  // Le RPC renvoie `any` : on rétablit le type pour garder l'inférence dans la
+  // boucle de traitement (mêmes colonnes que l'ancien SELECT).
+  const allJobs = (jobs || []) as JobRow[]
 
   // Concurrence bornée : lots de 10 en parallèle. Chaque job est indépendant
   // (ligne distincte), donc parallélisable sans risque de course. La borne évite
@@ -438,9 +453,16 @@ async function deferJob(
   minutes: number
 ) {
   const when = new Date(now.getTime() + minutes * 60_000).toISOString()
-  // On garde status 'pending' → le job sera re-tenté ; on ne le marque JAMAIS
-  // 'failed' (l'envoi n'est pas perdu, juste étalé).
-  await supabase.from('automation_jobs').update({ scheduled_at: when, result: `report: ${minutes}min` }).eq('id', id)
+  // ⚠️ REMETTRE `pending` ET LIBÉRER LA RÉSERVATION.
+  //
+  // Le job vient d'être réservé (`processing`) par `claim_automation_jobs`.
+  // Se contenter de repousser `scheduled_at` le laisserait en `processing` :
+  // plus aucun tick ne le reprendrait et le message ne partirait JAMAIS.
+  // On ne le marque jamais 'failed' — l'envoi n'est pas perdu, juste étalé.
+  await supabase
+    .from('automation_jobs')
+    .update({ status: 'pending', claimed_at: null, scheduled_at: when, result: `report: ${minutes}min` })
+    .eq('id', id)
 }
 
 async function mark(
