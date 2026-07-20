@@ -199,6 +199,39 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // ── Code d'AFFILIATION saisi à la souscription ────────────────────────────
+  //
+  // ⚠️ LE MAILLON QUI MANQUAIT.
+  //
+  // L'attribution n'était posée qu'à l'INSCRIPTION, depuis le cookie du lien
+  // `/r/<code>`. Un marchand déjà inscrit qui saisissait le code de son
+  // partenaire dans le champ obtenait bien la remise… mais aucune attribution
+  // n'existait, donc `settleAttribution` (juste en dessous) ne trouvait rien et
+  // le partenaire ne touchait JAMAIS sa commission.
+  //
+  // On la pose donc ici, le paiement étant confirmé. `referee_id` est UNIQUE :
+  // un marchand déjà attribué (via le lien) le reste — l'insert est ignoré,
+  // ce qui interdit aussi de changer de parrain après coup.
+  if (promoId && store.user_id && isGrowthCode) {
+    try {
+      const { data: code } = await admin
+        .from('growth_codes')
+        .select('id, owner_user_id, is_active')
+        .eq('id', promoId)
+        .maybeSingle()
+
+      // Anti auto-parrainage : on ne touche pas de commission sur soi-même.
+      if (code?.is_active && code.owner_user_id !== store.user_id) {
+        await admin
+          .from('growth_attributions')
+          .insert({ code_id: code.id, referee_id: store.user_id })
+      }
+    } catch (e) {
+      // Un doublon est le cas NORMAL (déjà attribué via le lien) — jamais bloquant.
+      console.error('[billing/callback] attribution du code affilié ignorée:', e)
+    }
+  }
+
   // ── Parrainage / affiliation ──────────────────────────────────────────────
   //
   // ⚠️ PAS DE RÉCOMPENSE PENDANT L'ESSAI GRATUIT.

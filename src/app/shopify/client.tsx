@@ -235,6 +235,12 @@ const STRINGS = {
     switchToAnnual: 'Passer à l’annuel',
     switchToMonthly: 'Passer au mensuel',
     switchPlan: 'Changer',
+    // Une BAISSE de plan ne se paie pas tout de suite : le marchand garde ce
+    // qu'il a payé jusqu'au bout de sa période. Le bouton doit le dire, sinon
+    // il croit être débité sur-le-champ et n'ose pas cliquer.
+    downgradePlan: 'Rétrograder',
+    downgradeNote: (date: string) =>
+      `Vous gardez votre plan actuel jusqu’au ${date}. Le nouveau tarif ne s’applique qu’ensuite — rien n’est débité aujourd’hui.`,
     choosePlan: 'Choisir',
     promoPlaceholder: 'Code promo',
     promoHint: 'La remise s’affichera sur l’écran Shopify avant validation.',
@@ -375,6 +381,9 @@ const STRINGS = {
     switchToAnnual: 'Switch to annual',
     switchToMonthly: 'Switch to monthly',
     switchPlan: 'Switch',
+    downgradePlan: 'Downgrade',
+    downgradeNote: (date: string) =>
+      `You keep your current plan until ${date}. The new rate applies only after that — nothing is charged today.`,
     choosePlan: 'Choose',
     promoPlaceholder: 'Promo code',
     promoHint: 'The discount will appear on the Shopify screen before you confirm.',
@@ -1247,6 +1256,19 @@ export default function ShopifyEmbeddedClient() {
                   const busy = busyPlan === p.id
                   // Prix annuel = mensuel × 12 − 20 % (aligné sur ANNUAL_DISCOUNT).
                   const annual = Math.round(p.price * 12 * 0.8)
+
+                  // BAISSE DE PLAN : même règle que le serveur (subscribe/route.ts) —
+                  // on compare les montants EFFECTIVEMENT facturés (plan × intervalle),
+                  // pas le prix mensuel de référence. Sans ça, un marchand en annuel
+                  // qui repasse au mensuel passerait pour une non-baisse.
+                  const curInterval = overview?.billingInterval ?? 'monthly'
+                  const curDef = PLANS.find((x) => x.id === currentPlan)
+                  const priceOf = (price: number, iv: string) =>
+                    iv === 'annual' ? Math.round(price * 12 * 0.8) : price
+                  const currentEffective = curDef ? priceOf(curDef.price, curInterval) : 0
+                  const newEffective = priceOf(p.price, billingInterval)
+                  const isDowngrade = isPaid && !active && newEffective < currentEffective
+
                   return (
                     /* ⚠️ Ces cartes ÉTAIENT déjà cliquables — mais rien ne le disait.
                        Aucun appel à l'action, aucun bouton : le marchand voyait une
@@ -1296,14 +1318,28 @@ export default function ShopifyEmbeddedClient() {
                               // ambigu — on dit ce qui va réellement se passer.
                               currentPlan === p.id
                               ? (billingInterval === 'annual' ? t.switchToAnnual : t.switchToMonthly)
-                              : isPaid
-                                ? t.switchPlan
-                                : t.choosePlan}
+                              : isDowngrade
+                                ? t.downgradePlan
+                                : isPaid
+                                  ? t.switchPlan
+                                  : t.choosePlan}
                       </span>
                     </button>
                   )
                 })}
               </div>
+
+              {/* RÉTROGRADATION : dire que rien n'est débité aujourd'hui.
+                  Le serveur applique déjà `APPLY_ON_NEXT_BILLING_CYCLE` (le
+                  marchand garde ce qu'il a payé jusqu'au bout), mais RIEN ne le
+                  disait ici — il croyait être prélevé sur-le-champ et n'osait
+                  pas rétrograder. Affiché une fois sous la grille plutôt que
+                  sur chaque carte, pour ne pas répéter le même message. */}
+              {isPaid && overview?.periodEnd && (
+                <p className="mt-2 text-[11px] leading-relaxed text-gray-500">
+                  {t.downgradeNote(new Date(overview.periodEnd).toLocaleDateString(t.locale))}
+                </p>
+              )}
 
               {/* ⚠️ LE CODE PROMO N'AVAIT AUCUN CHAMP DE SAISIE.
                   Le serveur l'acceptait, la remise Shopify était bien appliquée — mais
