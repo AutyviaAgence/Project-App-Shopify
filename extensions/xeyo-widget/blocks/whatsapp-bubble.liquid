@@ -174,9 +174,9 @@
       return '<div class="xeyo-wa-notice">'
         + '<span class="xeyo-wa-notice-dot"></span>'
         + '<div>'
-        +   '<strong>Bulle inactive</strong>'
+        +   '<strong>Bubble inactive</strong>'
         +   '<p>' + text + '</p>'
-        +   '<span class="xeyo-wa-notice-foot">Aperçu éditeur — invisible pour vos clients</span>'
+        +   '<span class="xeyo-wa-notice-foot">Editor preview — invisible to your customers</span>'
         + '</div>'
         + '</div>';
     }
@@ -222,7 +222,7 @@
         function buttonHtml(tag, hrefOrEmpty) {
           var open = tag === 'a'
             ? '<a class="xeyo-wa-button" href="' + hrefOrEmpty + '" target="_blank" rel="noopener noreferrer" aria-label="WhatsApp">'
-            : '<button class="xeyo-wa-button" type="button" id="xeyo-wa-toggle" aria-label="Ouvrir les options">';
+            : '<button class="xeyo-wa-button" type="button" id="xeyo-wa-toggle" aria-label="Open options">';
           return open + waSvg
             + (displayLabel && label ? '<span class="xeyo-wa-label">' + label + '</span>' : '')
             + (tag === 'a' ? '</a>' : '</button>');
@@ -234,14 +234,14 @@
         // au-dessus de la bulle. Elle suit donc la position du widget (gauche/droite)
         // et ne peut plus le recouvrir.
         if (previewOnly) {
-          html += noticeHtml('Connectez votre numéro WhatsApp dans Xeyo pour activer la bulle sur votre boutique.');
+          html += noticeHtml('Connect your WhatsApp number in Xeyo to activate the bubble on your store.');
         }
 
         // Greeting (petite bulle au-dessus) — uniquement en mode 1 lien.
         // Masqué en aperçu : la note occupe déjà cette place.
         if (!previewOnly && !useChoices && attr('data-greeting') === 'true') {
           html += '<div class="xeyo-wa-greeting" id="xeyo-wa-greeting">'
-            + '<button class="xeyo-wa-greeting-close" aria-label="Fermer" onclick="document.getElementById(\'xeyo-wa-greeting\').style.display=\'none\'">&times;</button>'
+            + '<button class="xeyo-wa-greeting-close" aria-label="Close" onclick="document.getElementById(\'xeyo-wa-greeting\').style.display=\'none\'">&times;</button>'
             + '<p class="xeyo-wa-greeting-text">' + attr('data-greeting-text') + '</p>'
             + '</div>';
         }
@@ -294,7 +294,7 @@
               +   '<span class="xeyo-wa-panel-avatar">' + waSvg + '</span>'
               +   '<span class="xeyo-wa-panel-meta"><strong>' + hName + '</strong>'
               +     (hSub ? '<span>' + hSub + '</span>' : '') + '</span>'
-              +   '<button class="xeyo-wa-panel-close" id="xeyo-wa-panel-close" aria-label="Fermer">&times;</button>'
+              +   '<button class="xeyo-wa-panel-close" id="xeyo-wa-panel-close" aria-label="Close">&times;</button>'
               + '</div>'
               // Corps : heure + accroche + choix (fond WhatsApp officiel)
               + '<div class="xeyo-wa-panel-body" style="background-image:url(\'' + attr('data-bg') + '\')">'
@@ -305,7 +305,7 @@
             html += '</div>'
               // Barre de saisie décorative → ouvre WhatsApp
               + '<a class="xeyo-wa-input" href="' + waUrl(cfg.message || '') + '" target="_blank" rel="noopener noreferrer">'
-              +   '<span>Écrivez votre message…</span>'
+              +   '<span>Type your message…</span>'
               +   '<span class="xeyo-wa-input-send"><svg viewBox="0 0 24 24" width="18" height="18" fill="#fff"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg></span>'
               + '</a>'
               + '</div>';
@@ -322,133 +322,133 @@
 
 {% schema %}
 {
-  "name": "Bulle WhatsApp Xeyo",
+  "name": "t:blocks.whatsapp_bubble.name",
   "target": "body",
   "settings": [
     {
       "type": "paragraph",
-      "content": "Le numéro WhatsApp est récupéré automatiquement depuis votre compte Xeyo. Connectez votre WhatsApp dans Xeyo pour activer la bulle. Personnalisez l'apparence ci-dessous."
+      "content": "t:blocks.whatsapp_bubble.intro"
     },
     {
       "type": "select",
       "id": "button_display",
-      "label": "Affichage du bouton",
+      "label": "t:blocks.whatsapp_bubble.button_display",
       "options": [
-        { "value": "icon", "label": "Logo WhatsApp seul" },
-        { "value": "label", "label": "Logo + texte" }
+        { "value": "icon", "label": "t:blocks.whatsapp_bubble.button_display_icon" },
+        { "value": "label", "label": "t:blocks.whatsapp_bubble.button_display_label" }
       ],
       "default": "label"
     },
     {
       "type": "text",
       "id": "button_label",
-      "label": "Texte du bouton",
-      "default": "Besoin d'aide ?"
+      "label": "t:blocks.whatsapp_bubble.button_label",
+      "default": "Need help?"
     },
     {
       "type": "select",
       "id": "position",
-      "label": "Position",
+      "label": "t:blocks.whatsapp_bubble.position",
       "options": [
-        { "value": "right", "label": "En bas à droite" },
-        { "value": "left", "label": "En bas à gauche" }
+        { "value": "right", "label": "t:blocks.whatsapp_bubble.position_right" },
+        { "value": "left", "label": "t:blocks.whatsapp_bubble.position_left" }
       ],
       "default": "right"
     },
     {
       "type": "color",
       "id": "bubble_color",
-      "label": "Couleur de la bulle",
+      "label": "t:blocks.whatsapp_bubble.bubble_color",
       "default": "#25D366"
     },
     {
       "type": "select",
       "id": "bubble_size",
-      "label": "Taille de la bulle / logo",
+      "label": "t:blocks.whatsapp_bubble.bubble_size",
       "options": [
-        { "value": "0.8", "label": "Petit" },
-        { "value": "1", "label": "Moyen" },
-        { "value": "1.2", "label": "Grand" },
-        { "value": "1.45", "label": "Très grand" }
+        { "value": "0.8", "label": "t:blocks.whatsapp_bubble.size_small" },
+        { "value": "1", "label": "t:blocks.whatsapp_bubble.size_medium" },
+        { "value": "1.2", "label": "t:blocks.whatsapp_bubble.size_large" },
+        { "value": "1.45", "label": "t:blocks.whatsapp_bubble.size_xlarge" }
       ],
       "default": "1"
     },
     {
       "type": "header",
-      "content": "Mode 2 choix"
+      "content": "t:blocks.whatsapp_bubble.choices_header"
     },
     {
       "type": "paragraph",
-      "content": "Si activé, cliquer sur la bulle affiche un message d'accroche et 2 boutons. Chaque bouton ouvre WhatsApp avec son propre message."
+      "content": "t:blocks.whatsapp_bubble.choices_intro"
     },
     {
       "type": "checkbox",
       "id": "enable_choices",
-      "label": "Activer le mode 2 choix",
+      "label": "t:blocks.whatsapp_bubble.enable_choices",
       "default": false
     },
     {
       "type": "text",
       "id": "header_name",
-      "label": "Nom affiché (en-tête)",
+      "label": "t:blocks.whatsapp_bubble.header_name",
       "default": "Support"
     },
     {
       "type": "text",
       "id": "header_subtitle",
-      "label": "Sous-titre (en-tête)",
-      "default": "Pour toute demande, écrivez-nous"
+      "label": "t:blocks.whatsapp_bubble.header_subtitle",
+      "default": "Message us with any question"
     },
     {
       "type": "textarea",
       "id": "choices_title",
-      "label": "Message d'accroche",
-      "default": "Bonjour ! Comment pouvons-nous vous aider ?"
+      "label": "t:blocks.whatsapp_bubble.choices_title",
+      "default": "Hi there! How can we help you?"
     },
     {
       "type": "text",
       "id": "choice1_label",
-      "label": "Choix 1 — texte du bouton",
-      "default": "J'ai une question"
+      "label": "t:blocks.whatsapp_bubble.choice1_label",
+      "default": "I have a question"
     },
     {
       "type": "textarea",
       "id": "choice1_message",
-      "label": "Choix 1 — message WhatsApp pré-rempli",
-      "default": "Bonjour, j'ai une question."
+      "label": "t:blocks.whatsapp_bubble.choice1_message",
+      "default": "Hi, I have a question."
     },
     {
       "type": "text",
       "id": "choice2_label",
-      "label": "Choix 2 — texte du bouton",
-      "default": "Je cherche un cadeau"
+      "label": "t:blocks.whatsapp_bubble.choice2_label",
+      "default": "I'm looking for a gift"
     },
     {
       "type": "textarea",
       "id": "choice2_message",
-      "label": "Choix 2 — message WhatsApp pré-rempli",
-      "default": "Bonjour, je cherche un cadeau."
+      "label": "t:blocks.whatsapp_bubble.choice2_message",
+      "default": "Hi, I'm looking for a gift."
     },
     {
       "type": "header",
-      "content": "Autres options"
+      "content": "t:blocks.whatsapp_bubble.other_header"
     },
     {
       "type": "checkbox",
       "id": "show_greeting",
-      "label": "Afficher un message d'accueil (mode 1 lien)",
+      "label": "t:blocks.whatsapp_bubble.show_greeting",
       "default": true
     },
     {
       "type": "text",
       "id": "greeting_text",
-      "label": "Message d'accueil",
-      "default": "👋 Une question ? Écrivez-nous sur WhatsApp !"
+      "label": "t:blocks.whatsapp_bubble.greeting_text",
+      "default": "👋 Any questions? Message us on WhatsApp!"
     },
     {
       "type": "checkbox",
       "id": "show_branding",
-      "label": "Afficher \"Powered by Xeyo.io\"",
+      "label": "t:blocks.whatsapp_bubble.show_branding",
       "default": false
     }
   ]

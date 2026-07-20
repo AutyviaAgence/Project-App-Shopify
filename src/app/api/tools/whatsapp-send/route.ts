@@ -47,7 +47,11 @@ export async function POST(req: NextRequest) {
       const { data: link } = await supabase
         .from('wa_links')
         .select('session_id')
-        .eq('agent_id', agent_id)
+        // ⚠️ La colonne s'appelle `ai_agent_id`, pas `agent_id` — vérifié en base
+        // (`agent_id` renvoie 400). L'erreur n'était pas lue (seul `data` est
+        // destructuré), donc la requête échouait EN SILENCE : l'envoi WhatsApp
+        // répondait « No WhatsApp session linked to this agent » quoi qu'il arrive.
+        .eq('ai_agent_id', agent_id)
         .limit(1)
         .single()
       if (!link) {

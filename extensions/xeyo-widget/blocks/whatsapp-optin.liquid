@@ -69,10 +69,10 @@
       submit.addEventListener('click', function () {
         var val = (phone.value || '').replace(/[^0-9+]/g, '');
         if (val.replace(/[^0-9]/g, '').length < 8) {
-          msg.className = 'xeyo-optin-msg err'; msg.textContent = 'Numéro invalide.'; return;
+          msg.className = 'xeyo-optin-msg err'; msg.textContent = 'Invalid phone number.'; return;
         }
         submit.disabled = true;
-        msg.className = 'xeyo-optin-msg'; msg.textContent = 'Enregistrement…';
+        msg.className = 'xeyo-optin-msg'; msg.textContent = 'Saving…';
         fetch(proxy + '?shop=' + encodeURIComponent(shop), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -82,16 +82,16 @@
           .then(function (res) {
             if (res && res.ok) {
               msg.className = 'xeyo-optin-msg ok';
-              msg.textContent = 'C\'est noté ! Vous recevrez le suivi sur WhatsApp.';
+              msg.textContent = 'You\'re all set! You\'ll get order updates on WhatsApp.';
               fields.style.display = 'none'; check.checked = true; check.disabled = true;
             } else {
               msg.className = 'xeyo-optin-msg err';
-              msg.textContent = (res && res.error) ? res.error : 'Erreur, réessayez.';
+              msg.textContent = (res && res.error) ? res.error : 'Something went wrong, please try again.';
               submit.disabled = false;
             }
           })
           .catch(function () {
-            msg.className = 'xeyo-optin-msg err'; msg.textContent = 'Erreur réseau.'; submit.disabled = false;
+            msg.className = 'xeyo-optin-msg err'; msg.textContent = 'Network error.'; submit.disabled = false;
           });
       });
     });
@@ -100,37 +100,37 @@
 
 {% schema %}
 {
-  "name": "Opt-in WhatsApp Xeyo",
+  "name": "t:blocks.whatsapp_optin.name",
   "target": "section",
   "settings": [
     {
       "type": "text",
       "id": "label",
-      "label": "Texte de la case",
-      "default": "📦 Recevoir le suivi de ma commande sur WhatsApp"
+      "label": "t:blocks.whatsapp_optin.label",
+      "default": "📦 Get my order updates on WhatsApp"
     },
     {
       "type": "text",
       "id": "placeholder",
-      "label": "Placeholder du numéro",
-      "default": "+33 6 12 34 56 78"
+      "label": "t:blocks.whatsapp_optin.placeholder",
+      "default": "+1 555 123 4567"
     },
     {
       "type": "text",
       "id": "button",
-      "label": "Texte du bouton",
-      "default": "Valider"
+      "label": "t:blocks.whatsapp_optin.button",
+      "default": "Submit"
     },
     {
       "type": "color",
       "id": "accent_color",
-      "label": "Couleur",
+      "label": "t:blocks.whatsapp_optin.accent_color",
       "default": "#25D366"
     },
     {
       "type": "checkbox",
       "id": "show_branding",
-      "label": "Afficher \"Powered by Xeyo.io\"",
+      "label": "t:blocks.whatsapp_optin.show_branding",
       "default": false
     }
   ]

@@ -102,9 +102,59 @@ export async function GET() {
     }
   }))
 
+  // ── Codes promo et parrainage utilisés ────────────────────────────────────
+  //
+  // Rien n'indiquait, dans la fiche client, s'il avait souscrit avec un code.
+  // Impossible de savoir d'où venait un marchand ni pourquoi il payait moins.
+  //
+  // Deux sources DISTINCTES (cf. les deux tables) : `promo_redemptions` pour les
+  // codes promo, `growth_attributions` pour l'affiliation et le parrainage.
+  const promoByUser: Record<string, { code: string; usedAt: string }> = {}
+  const growthByUser: Record<string, { code: string; kind: string; converted: boolean }> = {}
+
+  try {
+    const [{ data: redemptions }, { data: attributions }] = await Promise.all([
+      adminSupabase
+        .from('promo_redemptions')
+        .select('user_id, created_at, promo_codes(code)')
+        .in('user_id', clientIds),
+      adminSupabase
+        .from('growth_attributions')
+        .select('referee_id, converted_at, growth_codes(code, kind)')
+        .in('referee_id', clientIds),
+    ])
+
+    for (const r of (redemptions || []) as unknown as {
+      user_id: string; created_at: string; promo_codes: { code: string } | null
+    }[]) {
+      if (r.promo_codes?.code) {
+        promoByUser[r.user_id] = { code: r.promo_codes.code, usedAt: r.created_at }
+      }
+    }
+
+    for (const a of (attributions || []) as unknown as {
+      referee_id: string; converted_at: string | null; growth_codes: { code: string; kind: string } | null
+    }[]) {
+      if (a.growth_codes?.code) {
+        growthByUser[a.referee_id] = {
+          code: a.growth_codes.code,
+          kind: a.growth_codes.kind,
+          // `converted_at` n'est posé qu'au premier paiement réellement encaissé :
+          // c'est ce qui distingue un parrainage abouti d'une simple attribution.
+          converted: !!a.converted_at,
+        }
+      }
+    }
+  } catch {
+    // Jamais bloquant : la liste des clients doit s'afficher même si ces
+    // informations complémentaires échouent.
+  }
+
   const enriched = (clients || []).map((c: { id: string; tenant_id: string | null }) => ({
     ...c,
     onboarding_config: configsByUser[c.id] || null,
+    promo_code: promoByUser[c.id] || null,
+    growth_code: growthByUser[c.id] || null,
     tenant_name: c.tenant_id ? (tenantNames[c.tenant_id] || null) : null,
     has_whatsapp: whatsappConnected.has(c.id),
     has_shopify: shopifyConnected.has(c.id),

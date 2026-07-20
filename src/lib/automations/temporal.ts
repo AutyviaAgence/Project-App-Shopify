@@ -188,6 +188,17 @@ async function handleBirthday(supabase: SB, a: Auto, today: string): Promise<num
   const mmdd = today.slice(5)
   const sessionIds = await sessionIdsOf(supabase, a.user_id)
   if (!sessionIds.length) return 0
+  // ⚠️ AUTOMATISATION INACTIVE — `contacts.metadata` N'EXISTE PAS.
+  //
+  // Vérifié en base : la requête renvoie 400, et aucune colonne ne stocke de
+  // date d'anniversaire. Comme seule `data` est destructurée, l'erreur passait
+  // inaperçue : la fonction retournait 0 contact, silencieusement, à chaque
+  // exécution. Le déclencheur « anniversaire » n'a donc JAMAIS envoyé un
+  // message, alors qu'il s'affiche comme disponible dans l'interface.
+  //
+  // Remettre en service demande une vraie colonne (`birthday date`) ET un moyen
+  // de la renseigner (import Shopify, saisie manuelle) — pas seulement un
+  // renommage. À traiter hors du périmètre de la soumission App Store.
   const { data: contacts } = await supabase
     .from('contacts').select('id, name, metadata, opt_in_status, preferred_channel')
     .in('session_id', sessionIds).eq('opt_in_status', 'subscribed').neq('preferred_channel', 'none').limit(1000)

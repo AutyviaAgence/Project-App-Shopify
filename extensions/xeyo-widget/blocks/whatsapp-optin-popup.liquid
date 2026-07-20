@@ -20,12 +20,12 @@
   data-custom-paths="{{ block.settings.custom_paths | escape }}"
   data-email="{{ customer.email | default: '' }}"
 >
-  <div class="xeyo-pop-card" role="dialog" aria-modal="true" aria-label="Opt-in WhatsApp">
-    <button type="button" class="xeyo-pop-close" aria-label="Fermer">&times;</button>
+  <div class="xeyo-pop-card" role="dialog" aria-modal="true" aria-label="WhatsApp opt-in">
+    <button type="button" class="xeyo-pop-close" aria-label="Close">&times;</button>
     <p class="xeyo-pop-title">{{ block.settings.title }}</p>
     <p class="xeyo-pop-text">{{ block.settings.subtitle }}</p>
     <div class="xeyo-pop-fields">
-      <select class="xeyo-pop-cc" aria-label="Indicatif pays"></select>
+      <select class="xeyo-pop-cc" aria-label="Country code"></select>
       <input type="tel" class="xeyo-pop-phone" placeholder="{{ block.settings.placeholder }}" />
     </div>
     <button type="button" class="xeyo-pop-submit">{{ block.settings.button }}</button>
@@ -133,14 +133,14 @@
     // Indicatifs pays (drapeau + nom + indicatif). Le client choisit, il ne tape
     // que la partie locale du numéro.
     var COUNTRIES = [
-      ['FR','33','🇫🇷','France'],['BE','32','🇧🇪','Belgique'],['CH','41','🇨🇭','Suisse'],
-      ['LU','352','🇱🇺','Luxembourg'],['CA','1','🇨🇦','Canada'],['US','1','🇺🇸','États-Unis'],
-      ['GB','44','🇬🇧','Royaume-Uni'],['DE','49','🇩🇪','Allemagne'],['ES','34','🇪🇸','Espagne'],
-      ['IT','39','🇮🇹','Italie'],['PT','351','🇵🇹','Portugal'],['NL','31','🇳🇱','Pays-Bas'],
-      ['IE','353','🇮🇪','Irlande'],['AT','43','🇦🇹','Autriche'],['MA','212','🇲🇦','Maroc'],
-      ['DZ','213','🇩🇿','Algérie'],['TN','216','🇹🇳','Tunisie'],['SN','221','🇸🇳','Sénégal'],
-      ['CI','225','🇨🇮',"Côte d'Ivoire"],['CM','237','🇨🇲','Cameroun'],['AE','971','🇦🇪','Émirats AU'],
-      ['CN','86','🇨🇳','Chine'],['BR','55','🇧🇷','Brésil'],['MX','52','🇲🇽','Mexique']
+      ['US','1','🇺🇸','United States'],['GB','44','🇬🇧','United Kingdom'],['CA','1','🇨🇦','Canada'],
+      ['FR','33','🇫🇷','France'],['BE','32','🇧🇪','Belgium'],['CH','41','🇨🇭','Switzerland'],
+      ['LU','352','🇱🇺','Luxembourg'],['DE','49','🇩🇪','Germany'],['ES','34','🇪🇸','Spain'],
+      ['IT','39','🇮🇹','Italy'],['PT','351','🇵🇹','Portugal'],['NL','31','🇳🇱','Netherlands'],
+      ['IE','353','🇮🇪','Ireland'],['AT','43','🇦🇹','Austria'],['MA','212','🇲🇦','Morocco'],
+      ['DZ','213','🇩🇿','Algeria'],['TN','216','🇹🇳','Tunisia'],['SN','221','🇸🇳','Senegal'],
+      ['CI','225','🇨🇮',"Côte d'Ivoire"],['CM','237','🇨🇲','Cameroon'],['AE','971','🇦🇪','United Arab Emirates'],
+      ['CN','86','🇨🇳','China'],['BR','55','🇧🇷','Brazil'],['MX','52','🇲🇽','Mexico']
     ];
     var dialByIso = {};
     COUNTRIES.forEach(function (c) {
@@ -150,9 +150,16 @@
       opt.textContent = c[2] + ' +' + c[1];
       ccSelect.appendChild(opt);
     });
-    // Pays par défaut : déduit de la locale du navigateur, sinon FR.
-    var navIso = ((navigator.language || 'fr').split('-')[1] || '').toUpperCase();
-    ccSelect.value = dialByIso[navIso] ? navIso : 'FR';
+    // Pays par défaut : la locale du navigateur d'abord (« fr-FR » → FR), puis
+    // le PAYS DE LA BOUTIQUE, et seulement en dernier recours les États-Unis.
+    //
+    // Le repli était codé en dur sur US : un acheteur français dont le
+    // navigateur n'annonce que « fr » (sans région) se voyait proposer +1.
+    // `localization.country` est la donnée que Shopify expose ici — c'est le
+    // marché réel de la boutique, bien meilleur qu'une constante.
+    var navIso = ((navigator.language || '').split('-')[1] || '').toUpperCase();
+    var shopIso = {{ localization.country.iso_code | default: 'US' | json }};
+    ccSelect.value = dialByIso[navIso] ? navIso : (dialByIso[shopIso] ? shopIso : 'US');
 
     var STORE_KEY = 'xeyo_optin_seen';
     function alreadyHandled() {
@@ -182,18 +189,18 @@
       // silencieusement le mauvais mode.
       var mode = root.getAttribute('data-display-mode') || 'cart';
       var modeLabel = mode === 'all'
-        ? 'sur toutes les pages'
-        : (mode === 'custom' ? 'sur les pages que vous avez indiquées' : 'quand leur panier n’est pas vide');
+        ? 'on every page'
+        : (mode === 'custom' ? 'on the pages you specified' : 'when their cart is not empty');
 
       var note = document.createElement('div');
       note.className = 'xeyo-pop-preview-note';
       note.innerHTML =
-        '<strong>Aperçu éditeur</strong> — elle s’ouvre ici tout de suite pour que vous puissiez la régler. '
-        + 'C’est normal : vos clients ne la verront pas comme ça.'
-        + '<span class="xeyo-pop-preview-rule">Pour eux : ' + modeLabel
-        + ', au plus tôt après <strong>' + delay + ' s</strong>'
-        + (exitIntent ? ', ou dès qu’ils s’apprêtent à quitter la page' : '')
-        + '. Ce délai se règle ci-contre.</span>';
+        '<strong>Editor preview</strong> — it opens right away here so you can style it. '
+        + 'That’s expected: your customers won’t see it like this.'
+        + '<span class="xeyo-pop-preview-rule">For them: ' + modeLabel
+        + ', at the earliest after <strong>' + delay + ' s</strong>'
+        + (exitIntent ? ', or as soon as they are about to leave the page' : '')
+        + '. You can adjust this delay in the settings panel.</span>';
       card.appendChild(note);
 
       // Aucun envoi, aucune fermeture définitive : c'est une maquette vivante. On
@@ -201,7 +208,7 @@
       submit.addEventListener('click', function (e) {
         e.preventDefault(); e.stopImmediatePropagation();
         msg.className = 'xeyo-pop-msg ok';
-        msg.textContent = 'Aperçu : rien n’est envoyé depuis l’éditeur.';
+        msg.textContent = 'Preview: nothing is submitted from the editor.';
       }, true);
 
       function closePreview(e) { e.preventDefault(); root.classList.remove('xeyo-open'); }
@@ -314,7 +321,7 @@
 
     function doSubmit(val, custEmail) {
       submit.disabled = true;
-      msg.className = 'xeyo-pop-msg'; msg.textContent = 'Enregistrement…';
+      msg.className = 'xeyo-pop-msg'; msg.textContent = 'Saving…';
       var payload = {
         phone: val,
         email: custEmail || undefined,
@@ -333,7 +340,7 @@
         .then(function (res) {
           if (res && res.ok) {
             msg.className = 'xeyo-pop-msg ok';
-            msg.textContent = 'C\'est noté ! Vous recevrez le suivi sur WhatsApp.';
+            msg.textContent = 'You\'re all set! You\'ll get order updates on WhatsApp.';
             // On mémorise le numéro opt-in : si le client ajoute un article APRÈS
             // puis quitte sans commander, on arme la relance panier à la sortie
             // (cf. armCartRecoveryOnExit). Couvre le cas opt-in d'abord, panier ensuite.
@@ -343,20 +350,20 @@
             setTimeout(hide, 1600);
           } else {
             msg.className = 'xeyo-pop-msg err';
-            msg.textContent = (res && res.error) ? res.error : 'Erreur, réessayez.';
+            msg.textContent = (res && res.error) ? res.error : 'Something went wrong, please try again.';
             submit.disabled = false;
           }
         })
         .catch(function () {
-          msg.className = 'xeyo-pop-msg err'; msg.textContent = 'Erreur réseau.'; submit.disabled = false;
+          msg.className = 'xeyo-pop-msg err'; msg.textContent = 'Network error.'; submit.disabled = false;
         });
     }
 
     submit.addEventListener('click', function () {
-      var dial = dialByIso[ccSelect.value] || '33';
+      var dial = dialByIso[ccSelect.value] || '1';
       var local = (phone.value || '').replace(/[^0-9]/g, '').replace(/^0+/, '');
       if (local.length < 6) {
-        msg.className = 'xeyo-pop-msg err'; msg.textContent = 'Numéro invalide.'; return;
+        msg.className = 'xeyo-pop-msg err'; msg.textContent = 'Invalid phone number.'; return;
       }
       var val = dial + local; // E.164 sans le "+", le serveur ne garde que les chiffres
       var custEmail = root.getAttribute('data-email') || '';
@@ -459,38 +466,38 @@
 
 {% schema %}
 {
-  "name": "Xeyo — Popup opt-in",
+  "name": "t:blocks.whatsapp_optin_popup.name",
   "target": "body",
   "settings": [
     {
       "type": "paragraph",
-      "content": "Popup d'opt-in WhatsApp sur la page panier (avant l'abandon). Connectez votre WhatsApp dans Xeyo pour l'activer. Personnalisez ci-dessous."
+      "content": "t:blocks.whatsapp_optin_popup.intro"
     },
-    { "type": "text", "id": "title", "label": "Titre", "default": "📦 Suivez votre commande sur WhatsApp" },
-    { "type": "text", "id": "subtitle", "label": "Sous-titre", "default": "Recevez le suivi de votre commande et nos offres exclusives." },
-    { "type": "text", "id": "placeholder", "label": "Placeholder du numéro", "default": "6 12 34 56 78" },
-    { "type": "text", "id": "button", "label": "Texte du bouton", "default": "Recevoir sur WhatsApp" },
-    { "type": "text", "id": "consent", "label": "Mention de consentement", "default": "En validant, j'accepte de recevoir des messages WhatsApp (suivi + offres). STOP pour me désabonner." },
-    { "type": "paragraph", "content": "La popup s'affiche sur un signal d'engagement (intention de sortie sur ordinateur, défilement sur mobile), jamais dès l'arrivée. Le délai ci-dessous est un minimum de sécurité avant tout affichage." },
-    { "type": "range", "id": "delay_seconds", "label": "Délai minimum avant affichage (secondes)", "min": 3, "max": 30, "step": 1, "default": 8 },
-    { "type": "checkbox", "id": "exit_intent", "label": "Déclencher à l'intention de sortie (ordinateur)", "default": true },
+    { "type": "text", "id": "title", "label": "t:blocks.whatsapp_optin_popup.title", "default": "📦 Track your order on WhatsApp" },
+    { "type": "text", "id": "subtitle", "label": "t:blocks.whatsapp_optin_popup.subtitle", "default": "Get order updates and our exclusive offers." },
+    { "type": "text", "id": "placeholder", "label": "t:blocks.whatsapp_optin_popup.placeholder", "default": "555 123 4567" },
+    { "type": "text", "id": "button", "label": "t:blocks.whatsapp_optin_popup.button", "default": "Get updates on WhatsApp" },
+    { "type": "text", "id": "consent", "label": "t:blocks.whatsapp_optin_popup.consent", "default": "By submitting, I agree to receive WhatsApp messages (order updates + offers). Reply STOP to unsubscribe." },
+    { "type": "paragraph", "content": "t:blocks.whatsapp_optin_popup.trigger_intro" },
+    { "type": "range", "id": "delay_seconds", "label": "t:blocks.whatsapp_optin_popup.delay_seconds", "min": 3, "max": 30, "step": 1, "default": 8 },
+    { "type": "checkbox", "id": "exit_intent", "label": "t:blocks.whatsapp_optin_popup.exit_intent", "default": true },
     {
       "type": "select",
       "id": "display_mode",
-      "label": "Où afficher la popup",
+      "label": "t:blocks.whatsapp_optin_popup.display_mode",
       "options": [
-        { "value": "cart", "label": "Quand le panier n'est pas vide (recommandé)" },
-        { "value": "all", "label": "Sur toutes les pages" },
-        { "value": "custom", "label": "Sur des pages précises (ci-dessous)" }
+        { "value": "cart", "label": "t:blocks.whatsapp_optin_popup.display_mode_cart" },
+        { "value": "all", "label": "t:blocks.whatsapp_optin_popup.display_mode_all" },
+        { "value": "custom", "label": "t:blocks.whatsapp_optin_popup.display_mode_custom" }
       ],
       "default": "cart"
     },
-    { "type": "text", "id": "custom_paths", "label": "Pages précises (si « pages précises »)", "info": "Chemins d'URL séparés par des virgules. Ex : /cart, /products, /collections/promo", "default": "/cart" },
-    { "type": "color", "id": "accent_color", "label": "Couleur", "default": "#25D366" },
+    { "type": "text", "id": "custom_paths", "label": "t:blocks.whatsapp_optin_popup.custom_paths", "info": "t:blocks.whatsapp_optin_popup.custom_paths_info", "default": "/cart" },
+    { "type": "color", "id": "accent_color", "label": "t:blocks.whatsapp_optin_popup.accent_color", "default": "#25D366" },
     {
       "type": "checkbox",
       "id": "show_branding",
-      "label": "Afficher \"Powered by Xeyo.io\"",
+      "label": "t:blocks.whatsapp_optin_popup.show_branding",
       "default": false
     }
   ]

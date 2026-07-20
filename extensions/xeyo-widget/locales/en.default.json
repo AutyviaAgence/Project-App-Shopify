@@ -1,5 +1,66 @@
 {
   "general": {
     "app_name": "Xeyo"
+  },
+  "blocks": {
+    "whatsapp_bubble": {
+      "name": "Xeyo WhatsApp bubble",
+      "intro": "Your WhatsApp number is pulled automatically from your Xeyo account. Connect WhatsApp in Xeyo to activate the bubble. Customize its appearance below.",
+      "button_display": "Button display",
+      "button_display_icon": "WhatsApp logo only",
+      "button_display_label": "Logo + text",
+      "button_label": "Button text",
+      "position": "Position",
+      "position_right": "Bottom right",
+      "position_left": "Bottom left",
+      "bubble_color": "Bubble color",
+      "bubble_size": "Bubble / logo size",
+      "size_small": "Small",
+      "size_medium": "Medium",
+      "size_large": "Large",
+      "size_xlarge": "Extra large",
+      "choices_header": "Two-choice mode",
+      "choices_intro": "When enabled, clicking the bubble shows a welcome message and 2 buttons. Each button opens WhatsApp with its own pre-filled message.",
+      "enable_choices": "Enable two-choice mode",
+      "header_name": "Display name (header)",
+      "header_subtitle": "Subtitle (header)",
+      "choices_title": "Welcome message",
+      "choice1_label": "Choice 1 — button text",
+      "choice1_message": "Choice 1 — pre-filled WhatsApp message",
+      "choice2_label": "Choice 2 — button text",
+      "choice2_message": "Choice 2 — pre-filled WhatsApp message",
+      "other_header": "Other options",
+      "show_greeting": "Show a greeting message (single-link mode)",
+      "greeting_text": "Greeting message",
+      "show_branding": "Show \"Powered by Xeyo.io\""
+    },
+    "whatsapp_optin": {
+      "name": "Xeyo WhatsApp opt-in",
+      "label": "Checkbox text",
+      "placeholder": "Phone number placeholder",
+      "button": "Button text",
+      "accent_color": "Color",
+      "show_branding": "Show \"Powered by Xeyo.io\""
+    },
+    "whatsapp_optin_popup": {
+      "name": "Xeyo — Opt-in popup",
+      "intro": "WhatsApp opt-in popup on the cart page (before abandonment). Connect WhatsApp in Xeyo to activate it. Customize it below.",
+      "title": "Title",
+      "subtitle": "Subtitle",
+      "placeholder": "Phone number placeholder",
+      "button": "Button text",
+      "consent": "Consent notice",
+      "trigger_intro": "The popup appears on an engagement signal (exit intent on desktop, scrolling on mobile), never right on arrival. The delay below is a minimum safety threshold before any display.",
+      "delay_seconds": "Minimum delay before display (seconds)",
+      "exit_intent": "Trigger on exit intent (desktop)",
+      "display_mode": "Where to show the popup",
+      "display_mode_cart": "When the cart is not empty (recommended)",
+      "display_mode_all": "On all pages",
+      "display_mode_custom": "On specific pages (below)",
+      "custom_paths": "Specific pages (if \"specific pages\")",
+      "custom_paths_info": "URL paths separated by commas. e.g. /cart, /products, /collections/sale",
+      "accent_color": "Color",
+      "show_branding": "Show \"Powered by Xeyo.io\""
+    }
   }
 }

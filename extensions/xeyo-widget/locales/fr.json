@@ -1,0 +1,66 @@
+{
+  "general": {
+    "app_name": "Xeyo"
+  },
+  "blocks": {
+    "whatsapp_bubble": {
+      "name": "Bulle WhatsApp Xeyo",
+      "intro": "Le numéro WhatsApp est récupéré automatiquement depuis votre compte Xeyo. Connectez votre WhatsApp dans Xeyo pour activer la bulle. Personnalisez l'apparence ci-dessous.",
+      "button_display": "Affichage du bouton",
+      "button_display_icon": "Logo WhatsApp seul",
+      "button_display_label": "Logo + texte",
+      "button_label": "Texte du bouton",
+      "position": "Position",
+      "position_right": "En bas à droite",
+      "position_left": "En bas à gauche",
+      "bubble_color": "Couleur de la bulle",
+      "bubble_size": "Taille de la bulle / logo",
+      "size_small": "Petit",
+      "size_medium": "Moyen",
+      "size_large": "Grand",
+      "size_xlarge": "Très grand",
+      "choices_header": "Mode 2 choix",
+      "choices_intro": "Si activé, cliquer sur la bulle affiche un message d'accroche et 2 boutons. Chaque bouton ouvre WhatsApp avec son propre message.",
+      "enable_choices": "Activer le mode 2 choix",
+      "header_name": "Nom affiché (en-tête)",
+      "header_subtitle": "Sous-titre (en-tête)",
+      "choices_title": "Message d'accroche",
+      "choice1_label": "Choix 1 — texte du bouton",
+      "choice1_message": "Choix 1 — message WhatsApp pré-rempli",
+      "choice2_label": "Choix 2 — texte du bouton",
+      "choice2_message": "Choix 2 — message WhatsApp pré-rempli",
+      "other_header": "Autres options",
+      "show_greeting": "Afficher un message d'accueil (mode 1 lien)",
+      "greeting_text": "Message d'accueil",
+      "show_branding": "Afficher \"Powered by Xeyo.io\""
+    },
+    "whatsapp_optin": {
+      "name": "Opt-in WhatsApp Xeyo",
+      "label": "Texte de la case",
+      "placeholder": "Placeholder du numéro",
+      "button": "Texte du bouton",
+      "accent_color": "Couleur",
+      "show_branding": "Afficher \"Powered by Xeyo.io\""
+    },
+    "whatsapp_optin_popup": {
+      "name": "Xeyo — Popup opt-in",
+      "intro": "Popup d'opt-in WhatsApp sur la page panier (avant l'abandon). Connectez votre WhatsApp dans Xeyo pour l'activer. Personnalisez ci-dessous.",
+      "title": "Titre",
+      "subtitle": "Sous-titre",
+      "placeholder": "Placeholder du numéro",
+      "button": "Texte du bouton",
+      "consent": "Mention de consentement",
+      "trigger_intro": "La popup s'affiche sur un signal d'engagement (intention de sortie sur ordinateur, défilement sur mobile), jamais dès l'arrivée. Le délai ci-dessous est un minimum de sécurité avant tout affichage.",
+      "delay_seconds": "Délai minimum avant affichage (secondes)",
+      "exit_intent": "Déclencher à l'intention de sortie (ordinateur)",
+      "display_mode": "Où afficher la popup",
+      "display_mode_cart": "Quand le panier n'est pas vide (recommandé)",
+      "display_mode_all": "Sur toutes les pages",
+      "display_mode_custom": "Sur des pages précises (ci-dessous)",
+      "custom_paths": "Pages précises (si « pages précises »)",
+      "custom_paths_info": "Chemins d'URL séparés par des virgules. Ex : /cart, /products, /collections/promo",
+      "accent_color": "Couleur",
+      "show_branding": "Afficher \"Powered by Xeyo.io\""
+    }
+  }
+}

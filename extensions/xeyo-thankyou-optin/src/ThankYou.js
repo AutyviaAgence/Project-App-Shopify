@@ -218,21 +218,19 @@ export default extension('purchase.thank-you.block.render', (root, api) => {
   const XEYO_BASE = 'https://app.xeyo.io'
   const orderNumber = api.orderConfirmation?.current?.number
   const orderId = api.orderConfirmation?.current?.order?.id
-  // eslint-disable-next-line no-console
-  console.log('[Xeyo opt-in] orderNumber=', orderNumber, 'orderId=', orderId)
   if (orderNumber || orderId) {
     const domain = shop.myshopifyDomain
     const params = new URLSearchParams({ shop: domain })
     if (orderNumber) params.set('order', String(orderNumber))
     if (orderId) params.set('id', String(orderId))
     const url = `${XEYO_BASE}/api/shopify/proxy/order-phone?${params.toString()}`
-    // eslint-disable-next-line no-console
-    console.log('[Xeyo opt-in] fetch', url)
     fetch(url)
       .then((r) => r.json())
       .then((j) => {
-        // eslint-disable-next-line no-console
-        console.log('[Xeyo opt-in] order-phone réponse', j)
+        // ⚠️ NE PAS journaliser `j` : la réponse contient le TÉLÉPHONE du client.
+        // Ces traces de mise au point s'affichaient dans la console de l'acheteur
+        // sur la page de remerciement — donnée personnelle exposée, et visible
+        // par un reviewer App Store.
         // DÉJÀ ABONNÉ : ce client a déjà opté-in (popup en amont). On ne repropose
         // pas l'opt-in — on remplace tout le bloc par une confirmation discrète,
         // pour éviter une re-saisie et un doublon.

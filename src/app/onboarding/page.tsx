@@ -856,6 +856,28 @@ export default function OnboardingPage() {
                     >
                       <ExternalLink className="mr-1.5 h-4 w-4" /> Ouvrir l’éditeur de thème
                     </Button>
+
+                    {/* La POPUP d'opt-in avait été oubliée : seule la bulle avait un
+                        lien d'activation. Le marchand devait la trouver seul dans la
+                        liste des blocs — exigence 5.1.3 (instructions d'activation
+                        des blocs de thème).
+
+                        Même format que la bulle : c'est aussi un app embed
+                        (`target: "body"`), donc `activateAppId` suffit. Le bloc
+                        `whatsapp-optin`, lui, est un bloc de SECTION : il s'ajoute
+                        dans une page précise, ce qu'un deep link ne peut pas faire —
+                        c'est la démo au-dessus qui montre le geste. */}
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      disabled={!state.shopDomain}
+                      onClick={() => {
+                        if (!state.shopDomain) return
+                        window.open(`https://${state.shopDomain}/admin/themes/current/editor?context=apps&activateAppId=e3857e0a-b639-5426-2200-b52aac2028dc82cc2313/whatsapp-optin-popup`, '_blank', 'noopener')
+                      }}
+                    >
+                      <ExternalLink className="mr-1.5 h-4 w-4" /> Activer la popup d’opt-in
+                    </Button>
                     <Button variant="outline" className="flex-1" disabled={busy}
                       onClick={() => goTo('agent', 'Étape suivante')}>
                       C’est activé, continuer <ArrowRight className="ml-1.5 h-4 w-4" />
