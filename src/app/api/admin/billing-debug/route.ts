@@ -69,9 +69,42 @@ export async function GET(req: NextRequest) {
 
   const json = await res.json()
 
+  const subs = json?.data?.currentAppInstallation?.activeSubscriptions ?? null
+
+  // Ce que déciderait `subscribe` MAINTENANT pour chaque plan : c'est la seule
+  // façon de voir si une rétrogradation serait bien détectée comme telle, sans
+  // avoir à la déclencher pour de vrai.
+  const { planPrice } = await import('@/lib/plans')
+  const { PLANS } = await import('@/lib/shopify/plans')
+  const priceFromName = (name: string): number => {
+    const n = (name || '').toLowerCase()
+    const annual = n.includes('annuel') || n.includes('annual')
+    const id = n.includes('growth')
+      ? 'pro'
+      : (Object.keys(PLANS) as (keyof typeof PLANS)[]).find(
+          (k) => k !== 'free' && n.includes(PLANS[k].name.toLowerCase())
+        )
+    return id ? planPrice(id as never, annual ? 'annual' : 'monthly') : 0
+  }
+
+  const currentPrice = subs?.length
+    ? Math.max(...subs.map((s: { name: string }) => priceFromName(s.name)))
+    : 0
+
+  const simulation = (['starter', 'pro', 'scale'] as const).map((p) => {
+    const newPrice = planPrice(p, 'monthly')
+    return {
+      plan: p,
+      newPrice,
+      currentPrice,
+      wouldDefer: subs?.length ? newPrice < currentPrice : false,
+    }
+  })
+
   return NextResponse.json({
     db: store,
-    shopify: json?.data?.currentAppInstallation?.activeSubscriptions ?? null,
+    shopify: subs,
     shopifyErrors: json?.errors ?? null,
+    simulation,
   })
 }

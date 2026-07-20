@@ -156,6 +156,18 @@ export async function POST(req: NextRequest) {
   const newPrice = planPrice(plan, billing)
   const isDowngrade = hasActiveSub && newPrice < currentPrice
 
+  // Trace de la décision : sans elle, un différé qui ne s'applique pas est
+  // indébogable — on ne sait pas si c'est le calcul ou Shopify qui a tranché.
+  console.log('[billing/subscribe]', shop, {
+    from: store.plan,
+    to: plan,
+    currentPrice,
+    newPrice,
+    hasActiveSub,
+    isDowngrade,
+    replacementBehavior: isDowngrade ? 'APPLY_ON_NEXT_BILLING_CYCLE' : 'APPLY_IMMEDIATELY',
+  })
+
   // ── Code promo (optionnel) ────────────────────────────────────────────────
   // La table `promo_codes` existait mais n'était JAMAIS lue : cette route
   // attendait un code que personne ne lui envoyait. Elle le reçoit enfin.
