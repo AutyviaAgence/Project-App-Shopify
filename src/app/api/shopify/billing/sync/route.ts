@@ -73,21 +73,17 @@ export async function POST(req: NextRequest) {
   //   1. l'abonnement qu'on suit déjà (shopify_charge_id) — c'est le référent ;
   //   2. sinon le plus cher (l'ancien, tant que la baisse n'a pas pris effet).
   //
-  // ⚠️ LA RÈGLE 1 NE SUFFIT PAS — elle produisait même l'inverse de l'effet voulu.
+  // ⚠️ VÉRIFIÉ SUR L'API : avec `APPLY_ON_NEXT_BILLING_CYCLE`, Shopify n'expose
+  // qu'UN SEUL abonnement actif — l'ancien. Le nouveau n'est créé qu'au cycle
+  // suivant, les deux NE coexistent PAS (contrairement à ce qu'on supposait ici).
   //
-  // `subscribe` ÉCRASE `shopify_charge_id` avec le NOUVEL abonnement avant la
-  // redirection. Sur une baisse différée, « l'abonnement qu'on suit » est donc
-  // le moins cher : cette resynchro le trouvait et appliquait la baisse
-  // sur-le-champ. Constaté en production — Scale payé, marchand bridé en Pro
-  // le jour même, alors que le callback avait correctement gardé `plan: scale`.
-  //
-  // Tant que PLUSIEURS abonnements coexistent, on prend donc TOUJOURS le plus
-  // cher : c'est celui qui court jusqu'à l'échéance déjà réglée. Le `find` ne
-  // sert que lorsqu'il n'y en a qu'un (cas nominal), où il est sans effet.
+  // Le tri par prix reste comme filet, au cas où un état transitoire en
+  // présenterait plusieurs : c'est alors le plus cher qui fait foi, celui dont
+  // la période est déjà réglée.
   const live =
     actives.length > 1
       ? actives.slice().sort((a, b) => planPriceFromName(b.name) - planPriceFromName(a.name))[0]
-      : actives.find((s) => s.id === store.shopify_charge_id) || actives[0]
+      : actives[0]
 
   // ── Aucun abonnement actif chez Shopify ──────────────────────────────────
   if (!live) {
@@ -159,26 +155,11 @@ export async function POST(req: NextRequest) {
   const periodStillRunning =
     !!store.current_period_end && new Date(store.current_period_end) > new Date()
 
-  // ⚠️ LA CONDITION `store.pending_plan &&` ÉTAIT DE TROP.
-  //
-  // Elle supposait qu'une baisse programmée laisse toujours une trace en base.
-  // Or dès qu'une resynchro passe (ou que Shopify ne présente plus qu'un seul
-  // abonnement actif), `pending_plan` est remis à null plus bas — et la
-  // protection s'évapore : le sync suivant dégrade le marchand alors que sa
-  // période payée court encore.
-  //
-  // La vraie règle ne dépend pas de notre propre état : tant que la période
-  // RÉGLÉE court, on ne descend JAMAIS un marchand en dessous de ce qu'il a
-  // payé. On mémorise la baisse dans `pending_plan` et on laisse l'échéance
-  // faire son œuvre.
+  // FILET DE SÉCURITÉ : ne jamais descendre un marchand sous ce qu'il a payé
+  // tant que sa période court. On ne fait que s'abstenir — la baisse est
+  // décidée par `subscribe` et mémorisée dans `pending_plan` ; la déduire ici
+  // reviendrait à programmer une rétrogradation que personne n'a demandée.
   if (periodStillRunning && newPrice < currentPrice) {
-    // Garder la trace de la baisse à venir, sans toucher au plan en cours.
-    if (store.pending_plan !== plan) {
-      await admin
-        .from('shopify_stores')
-        .update({ pending_plan: plan, updated_at: new Date().toISOString() })
-        .eq('id', store.id)
-    }
     return NextResponse.json({ data: { synced: false, plan: store.plan } })
   }
 
@@ -191,11 +172,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ data: { synced: false, plan } })
   }
 
+  // ⚠️ NE PAS EFFACER UNE BAISSE PROGRAMMÉE — c'était LE bug.
+  //
+  // Vérifié sur l'API : avec `APPLY_ON_NEXT_BILLING_CYCLE`, Shopify n'expose
+  // qu'UN SEUL abonnement actif — l'ANCIEN. Le nouveau n'est créé qu'au
+  // prochain cycle. (Contrairement à ce qu'on supposait, les deux ne
+  // coexistent pas.)
+  //
+  // Cette resynchro voyait donc « Xeyo Scale » chez Shopify, en concluait que
+  // le plan est Scale — et remettait `pending_plan` à null au passage,
+  // détruisant la mémoire de la baisse à venir. Résultat : la rétrogradation
+  // n'arrivait JAMAIS, et l'app affichait le mauvais plan.
+  //
+  // On ne l'efface que si la baisse a réellement pris effet, c'est-à-dire
+  // quand Shopify facture enfin le plan qui attendait.
+  const pendingApplied = store.pending_plan && store.pending_plan === plan
+
   await admin
     .from('shopify_stores')
     .update({
       plan,
-      pending_plan: null,
+      ...(pendingApplied || !store.pending_plan ? { pending_plan: null } : {}),
       subscription_status: 'active',
       shopify_charge_id: live.id,
       billing_source: 'shopify',
