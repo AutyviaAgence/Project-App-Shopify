@@ -1,6 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient as createAdminSupabase } from '@supabase/supabase-js'
 import { verifyWebhookHmac } from '@/lib/shopify/client'
+import { PLANS, type PlanId } from '@/lib/shopify/plans'
+
+/**
+ * Plan réellement facturé, déduit du NOM de l'abonnement Shopify.
+ *
+ * Format posé par `subscribe` : « Xeyo <Plan> » ou « Xeyo <Plan> (Annuel) ».
+ * C'est la seule source fiable pour savoir ce que Shopify facture MAINTENANT —
+ * notre `pending_plan` dit seulement ce qui est prévu.
+ *
+ * ⚠️ Compat rename Growth → Pro : les abonnements antérieurs s'appellent
+ * « Xeyo Growth » et ne contiennent plus le libellé « pro ».
+ */
+function planFromSubscriptionName(name: string): PlanId | null {
+  const n = (name || '').toLowerCase()
+  if (!n) return null
+  if (n.includes('growth')) return 'pro'
+  return (
+    (Object.keys(PLANS) as PlanId[]).find(
+      (id) => id !== 'free' && n.includes(PLANS[id].name.toLowerCase())
+    ) ?? null
+  )
+}
 
 /**
  * Webhook Shopify — app_subscriptions/update.
@@ -125,14 +147,33 @@ export async function POST(req: NextRequest) {
   // jamais appelé : il aurait payé sans que son plan s'active. Ce webhook le
   // rattrape.
   if (status === 'ACTIVE') {
-    const targetPlan = store.pending_plan || store.plan
+    // ⚠️ NE PAS APPLIQUER `pending_plan` LES YEUX FERMÉS.
+    //
+    // Ce webhook se déclenche DÈS L'APPROBATION, y compris sur une baisse
+    // différée — où Shopify continue pourtant de facturer l'ancien plan
+    // jusqu'à l'échéance. Appliquer `pending_plan` ici rétrogradait donc le
+    // marchand sur-le-champ, alors qu'il a payé le plan supérieur.
+    //
+    // La vérité est le NOM de l'abonnement que Shopify facture (« Xeyo Pro »,
+    // « Xeyo Scale (Annuel) »…). On ne bascule que lorsqu'il correspond
+    // réellement au plan en attente.
+    const billedPlan = planFromSubscriptionName(sub?.name || '')
+    const pendingNowBilled = !!store.pending_plan && billedPlan === store.pending_plan
+
+    // Si Shopify facture encore l'ancien plan, on garde le plan courant ET la
+    // baisse en attente : elle s'appliquera au prochain passage du webhook,
+    // quand le nouvel abonnement entrera réellement en vigueur.
+    const targetPlan = pendingNowBilled
+      ? store.pending_plan
+      : (billedPlan || store.pending_plan || store.plan)
+    const keepPending = !!store.pending_plan && !pendingNowBilled
     await supabase
       .from('shopify_stores')
       .update({
         plan: targetPlan,
         subscription_status: 'active',
         shopify_charge_id: chargeId,
-        pending_plan: null,
+        ...(keepPending ? {} : { pending_plan: null }),
         updated_at: new Date().toISOString(),
       })
       .eq('id', store.id)
