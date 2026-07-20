@@ -1279,7 +1279,7 @@ function AffiliateTab() {
   // partenaire reste orphelin et ne voit jamais ses commissions — c'était
   // exactement le bug de l'ancienne version (la colonne `user_id` était NOT NULL
   // mais n'était jamais renseignée).
-  const [form, setForm] = useState({ label: '', code: '', commission_percent: '30', contact_email: '' })
+  const [form, setForm] = useState({ label: '', code: '', commission_percent: '30', contact_email: '', discount_percent: '' })
   const [creating, setCreating] = useState(false)
   const [paying, setPaying] = useState<string | null>(null)
   const [deleting, setDeleting] = useState<string | null>(null)
@@ -1310,7 +1310,7 @@ function AffiliateTab() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error)
       toast.success('Code affilié créé')
-      setForm({ label: '', code: '', commission_percent: '30', contact_email: '' })
+      setForm({ label: '', code: '', commission_percent: '30', contact_email: '', discount_percent: '' })
       fetchAll()
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Erreur')
@@ -1338,8 +1338,65 @@ function AffiliateTab() {
     }
   }
 
+  /**
+   * Modifie un code affilié sans le recréer (statut, remise marchand).
+   *
+   * ⚠️ Le PATCH est sur la route RACINE et attend `id` dans le BODY.
+   */
+  const patchAffiliate = async (id: string, patch: Record<string, unknown>, okMsg: string) => {
+    setDeleting(id)
+    try {
+      const res = await fetch('/api/admin/affiliate-codes', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, ...patch }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error)
+      toast.success(okMsg)
+      fetchAll()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Erreur')
+    } finally {
+      setDeleting(null)
+    }
+  }
+
+  const handleDeactivateAffiliate = (id: string) =>
+    patchAffiliate(id, { is_active: false }, 'Code affilié arrêté')
+  const handleReactivateAffiliate = (id: string) =>
+    patchAffiliate(id, { is_active: true }, 'Code affilié réactivé')
+
+  /** Change la remise accordée au marchand (0 = aucune remise, assumée). */
+  const handleEditDiscount = (code: { id: string; code: string; discount_percent: number | null }) => {
+    const current = code.discount_percent ?? ''
+    const input = prompt(
+      `Remise accordée au marchand qui utilise « ${code.code} » (en %).\n\n` +
+        'Laisser vide = aucune remise. 0 est une valeur valide : le partenaire ' +
+        'touche sa commission, le marchand paie plein tarif.',
+      String(current)
+    )
+    if (input === null) return // annulé
+    const trimmed = input.trim()
+    if (trimmed !== '') {
+      const n = Number(trimmed)
+      if (!Number.isFinite(n) || n < 0 || n > 100) {
+        toast.error('La remise doit être comprise entre 0 et 100 %.')
+        return
+      }
+    }
+    patchAffiliate(code.id, { discount_percent: trimmed === '' ? null : Number(trimmed) }, 'Remise mise à jour')
+  }
+
   const handleDeleteCode = async (id: string) => {
-    if (!confirm('Supprimer ce code affilié ? Cette action est irréversible.')) return
+    // ⚠️ `ON DELETE CASCADE` : supprimer efface AUSSI les attributions et les
+    // commissions dues au partenaire. Pour retirer un code de la circulation,
+    // le bon geste est de le DÉSACTIVER.
+    if (!confirm(
+      'Supprimer ce code affilié ?\n\n' +
+      'Cela efface aussi ses attributions et les commissions dues au partenaire. ' +
+      'Pour simplement le retirer de la circulation, utilisez « Désactiver ».'
+    )) return
     setDeleting(id)
     try {
       const res = await fetch(`/api/admin/affiliate-codes?id=${id}`, { method: 'DELETE' })
@@ -1394,15 +1451,31 @@ function AffiliateTab() {
             onChange={e => setForm(f => ({ ...f, contact_email: e.target.value }))}
             className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
           />
+          {/* Deux pourcentages aux bénéficiaires DIFFÉRENTS : sans étiquette,
+              on ne sait pas lequel est lequel. La commission rémunère
+              l'affilié ; la remise s'applique au marchand. */}
           <div className="flex gap-2">
-            <input
-              type="number"
-              placeholder="Commission %"
-              value={form.commission_percent}
-              onChange={e => setForm(f => ({ ...f, commission_percent: e.target.value }))}
-              className="flex-1 border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-            />
-            <Button onClick={handleCreate} disabled={creating} size="sm">
+            <label className="flex-1">
+              <span className="mb-1 block text-[11px] text-muted-foreground">Commission affilié (%)</span>
+              <input
+                type="number"
+                placeholder="30"
+                value={form.commission_percent}
+                onChange={e => setForm(f => ({ ...f, commission_percent: e.target.value }))}
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </label>
+            <label className="flex-1">
+              <span className="mb-1 block text-[11px] text-muted-foreground">Remise marchand (%)</span>
+              <input
+                type="number"
+                placeholder="Aucune"
+                value={form.discount_percent}
+                onChange={e => setForm(f => ({ ...f, discount_percent: e.target.value }))}
+                className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </label>
+            <Button onClick={handleCreate} disabled={creating} size="sm" className="self-end">
               {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Créer'}
             </Button>
           </div>
@@ -1410,7 +1483,9 @@ function AffiliateTab() {
       </div>
 
       <div>
-        <h2 className="text-lg font-semibold mb-3">Codes actifs ({codes.length})</h2>
+        {/* « Codes actifs » était trompeur : la liste contient aussi les codes
+            désactivés (colonne Statut). */}
+        <h2 className="text-lg font-semibold mb-3">Codes affiliés ({codes.length})</h2>
         <div className="rounded-xl border overflow-hidden">
           <table className="w-full text-sm">
             <thead className="border-b bg-muted/30">
@@ -1418,6 +1493,7 @@ function AffiliateTab() {
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Affilié</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Code</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Commission</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Remise marchand</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Statut</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Lien</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Actions</th>
@@ -1431,6 +1507,18 @@ function AffiliateTab() {
                   </td>
                   <td className="px-4 py-3 font-mono font-semibold">{code.code}</td>
                   <td className="px-4 py-3">{code.commission_percent}%</td>
+                  {/* `!= null` et non `||` : 0 % est une remise assumée
+                      (le partenaire touche sa commission, le marchand paie
+                      plein tarif), à distinguer de « aucune remise définie ». */}
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => handleEditDiscount(code)}
+                      className="text-xs text-primary hover:underline"
+                      title="Modifier la remise accordée au marchand"
+                    >
+                      {code.discount_percent != null ? `-${code.discount_percent}%` : 'Aucune'}
+                    </button>
+                  </td>
                   <td className="px-4 py-3">
                     {code.is_active
                       ? <Badge className="bg-green-500 text-white">Actif</Badge>
@@ -1447,21 +1535,42 @@ function AffiliateTab() {
                     </button>
                   </td>
                   <td className="px-4 py-3">
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
-                      disabled={deleting === code.id}
-                      onClick={() => handleDeleteCode(code.id)}
-                      title="Supprimer ce code"
-                    >
-                      {deleting === code.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      {/* Désactiver AVANT supprimer : retirer un code de la
+                          circulation ne doit pas coûter l'historique des
+                          commissions dues au partenaire (ON DELETE CASCADE). */}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 px-2 text-xs"
+                        disabled={deleting === code.id}
+                        onClick={() =>
+                          code.is_active
+                            ? handleDeactivateAffiliate(code.id)
+                            : handleReactivateAffiliate(code.id)
+                        }
+                        title={code.is_active ? 'Arrêter ce code (réversible)' : 'Remettre ce code en circulation'}
+                      >
+                        {deleting === code.id
+                          ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          : code.is_active ? 'Désactiver' : 'Réactiver'}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        disabled={deleting === code.id}
+                        onClick={() => handleDeleteCode(code.id)}
+                        title="Supprimer définitivement (efface aussi les commissions)"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
                   </td>
                 </tr>
               ))}
               {codes.length === 0 && (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground text-sm">Aucun code affilié</td></tr>
+                <tr><td colSpan={7} className="px-4 py-8 text-center text-muted-foreground text-sm">Aucun code affilié</td></tr>
               )}
             </tbody>
           </table>
