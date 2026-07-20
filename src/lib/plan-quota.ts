@@ -5,13 +5,16 @@ type SupabaseClient = Awaited<ReturnType<typeof import('@/lib/supabase/server').
 
 // 'teams' retiré : le système d'équipes a été supprimé (refonte V2), la table
 // teams/team_members n'existe plus en base.
-type QuotaResource = 'sessions' | 'agents' | 'docs' | 'links'
+type QuotaResource = 'sessions' | 'agents' | 'docs' | 'links' | 'automations'
 
 const RESOURCE_TABLE: Record<QuotaResource, string> = {
   sessions: 'whatsapp_sessions',
   agents: 'ai_agents',
   docs: 'knowledge_documents',
   links: 'wa_links',
+  // Campagnes ET transactionnelles : une seule table, donc un seul quota —
+  // conforme à la grille (15 / 50 / 200, tous types confondus).
+  automations: 'automations',
 }
 
 const ACTIVE_STATUSES = new Set(['active', 'trialing'])

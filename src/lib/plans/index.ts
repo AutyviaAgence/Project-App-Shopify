@@ -45,6 +45,15 @@ export type PlanDef = {
   fairUseCap?: number
   /** Nombre max d'agents IA (gating : Starter = 1, Pro/Scale = plusieurs). */
   maxAgents: number
+  /**
+   * Nombre max d'automatisations — campagnes ET transactionnelles confondues.
+   *
+   * ⚠️ C'est le NOMBRE de scénarios qui est limité, pas le volume d'envois :
+   * un marchand Starter peut créer 15 automatisations qui enverront autant de
+   * messages qu'il le souhaite. Le vrai coût pour nous, ce sont les
+   * conversations IA (`conversationsPerMonth`), pas les envois.
+   */
+  maxAutomations: number
   features: string[]
 }
 
@@ -56,6 +65,7 @@ export const PLANS: Record<PlanId, PlanDef> = {
     aiEnabled: false,
     conversationsPerMonth: 0,
     maxAgents: 0,
+    maxAutomations: 0,
     features: [
       'Boîte de réception WhatsApp',
       'Réponses manuelles illimitées',
@@ -70,11 +80,16 @@ export const PLANS: Record<PlanId, PlanDef> = {
     aiEnabled: true,
     conversationsPerMonth: 550,
     maxAgents: 1,
+    maxAutomations: 15,
     features: [
       '550 conversations IA / mois',
-      'Agent IA auto-configuré (routage gpt-4o / mini)',
-      'Base de connaissances Shopify',
-      'Automatisations & templates illimités (panier abandonné…)',
+      '1 agent IA',
+      '15 automatisations (campagnes + transactionnel)',
+      'Envois de messages illimités',
+      'Conversations illimitées',
+      'Modèles de messages illimités',
+      'Widget de chat + popup',
+      'Tableau de bord de performance',
     ],
   },
   pro: {
@@ -84,11 +99,17 @@ export const PLANS: Record<PlanId, PlanDef> = {
     aiEnabled: true,
     conversationsPerMonth: 1800,
     maxAgents: 5,
+    maxAutomations: 50,
     features: [
       '1 800 conversations IA / mois',
-      'Actions Shopify (annulation, remboursement…)',
-      'Multi-agents IA',
-      'Analyse lifecycle IA',
+      '5 agents IA',
+      '50 automatisations (campagnes + transactionnel)',
+      'Envois de messages illimités',
+      'Conversations illimitées',
+      'Modèles de messages illimités',
+      'Aide à l’installation',
+      'Widget de chat + popup',
+      'Tableau de bord de performance',
     ],
   },
   scale: {
@@ -99,11 +120,19 @@ export const PLANS: Record<PlanId, PlanDef> = {
     conversationsPerMonth: 4500,
     fairUseCap: 4500,
     maxAgents: 20,
+    maxAutomations: 200,
     features: [
       '4 500 conversations IA / mois',
-      'GPT-4o prioritaire sur les demandes sensibles',
+      '20 agents IA',
+      '200 automatisations (campagnes + transactionnel)',
+      'Envois de messages illimités',
+      'Conversations illimitées',
+      'Modèles de messages illimités',
+      'Aide à l’installation',
       'Support prioritaire',
-      'Volume élevé + crédits supplémentaires',
+      'Copywriting de vos campagnes',
+      'Widget de chat + popup',
+      'Tableau de bord de performance',
     ],
   },
 }
@@ -126,6 +155,11 @@ export function planPrice(plan: PlanId, interval: BillingInterval): number {
 /** Nombre max d'agents IA autorisés pour un plan (gating). */
 export function maxAgents(plan: PlanId): number {
   return PLANS[plan].maxAgents
+}
+
+/** Nombre max d'automatisations (campagnes + transactionnelles) pour un plan. */
+export function maxAutomations(plan: PlanId): number {
+  return PLANS[plan].maxAutomations
 }
 
 /**

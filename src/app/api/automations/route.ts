@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { checkPlanQuota } from '@/lib/plan-quota'
 
 /** GET /api/automations — liste des automatisations. `?kind=marketing|transactional`
  *  filtre par onglet (Campagnes vs Automatisations) ; absent = tout. */
@@ -39,6 +40,28 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => ({}))
   if (!body.name?.trim() || !body.trigger_event) {
     return NextResponse.json({ error: 'Nom et événement requis' }, { status: 400 })
+  }
+
+  // ── QUOTA D'AUTOMATISATIONS (15 / 50 / 200 selon le plan) ─────────────────
+  //
+  // C'est le NOMBRE de scénarios qui est limité, pas le volume d'envois :
+  // chaque automatisation peut envoyer autant de messages que voulu. Campagnes
+  // et transactionnelles partagent le même compteur (même table), conformément
+  // à la grille tarifaire.
+  const quota = await checkPlanQuota(supabase, user.id, 'automations')
+  if (!quota.allowed) {
+    const error = quota.reason === 'observer_mode'
+      ? 'Votre compte est en mode visualisation. Souscrivez à un plan pour créer des automatisations.'
+      : quota.reason === 'no_subscription'
+      ? 'Abonnement requis pour créer une automatisation. Souscrivez à un plan depuis la page Abonnement.'
+      : `Limite atteinte : votre plan ${quota.plan} inclut ${quota.limit} automatisations. Passez à un plan supérieur pour en créer davantage.`
+    return NextResponse.json({
+      error,
+      quota_exceeded: true,
+      reason: quota.reason,
+      limit: quota.limit,
+      current: quota.current,
+    }, { status: 403 })
   }
 
   const base = {
