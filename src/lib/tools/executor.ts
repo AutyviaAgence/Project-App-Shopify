@@ -112,10 +112,17 @@ async function resolveToolConfig(
   }
 
   const supabase = getAdminClient()
+  // ⚠️ FILTRER PAR PROPRIÉTAIRE — sans quoi c'est une fuite entre marchands.
+  //
+  // La lecture se fait en `service_role` (RLS contournée) : un marchand qui
+  // renseigne le `credential_id` d'un AUTRE tenant sur son propre outil faisait
+  // déchiffrer le jeton OAuth de ce tenant… puis l'envoyait à sa propre
+  // `base_url`. Exfiltration complète d'un accès Google/Gmail tiers.
   const { data: cred, error } = await supabase
     .from('oauth_credentials')
     .select('*')
     .eq('id', tool.credential_id)
+    .eq('user_id', tool.user_id)
     .single()
 
   if (error || !cred) {

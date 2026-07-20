@@ -27,13 +27,30 @@ export async function OPTIONS() {
  * Crée/met à jour un contact opted-in (preferred_channel = whatsapp) côté Xeyo,
  * pour que les notifications transactionnelles puissent lui être envoyées.
  */
+/**
+ * ⚠️ CETTE ROUTE NE PEUT PAS EXIGER DE SIGNATURE — et c'est structurel.
+ *
+ * La popup envoie l'opt-in par `sendBeacon` pendant le déchargement de la page
+ * (intention de sortie). Le proxy Shopify — seul chemin qui signe — répond par
+ * une redirection, or `sendBeacon` abandonne les requêtes redirigées à cet
+ * instant : l'opt-in serait perdu. D'où l'appel direct à app.xeyo.io.
+ *
+ * Le contrôle précédent était donc `if (!signature) return true` : omettre le
+ * paramètre suffisait à tout contourner. N'importe qui pouvait injecter des
+ * opt-ins dans la boutique de n'importe quel marchand (le domaine est
+ * énumérable) et déclencher l'envoi d'un message WhatsApp depuis SON numéro,
+ * avec un lien de panier arbitraire — un hameçonnage émis par le numéro de
+ * confiance du marchand, qui brûle en prime sa note de qualité Meta.
+ *
+ * Faute de pouvoir signer, on vérifie donc l'ORIGINE : le navigateur la pose
+ * lui-même sur une requête cross-origin et une page tierce ne peut pas la
+ * falsifier. Elle doit correspondre à la boutique déclarée.
+ */
 function verifyProxySignature(searchParams: URLSearchParams): boolean {
   const secret = process.env.SHOPIFY_API_SECRET
-  if (!secret) return true // pas de secret configuré → on n'impose pas (dev)
+  if (!secret) return process.env.NODE_ENV !== 'production'
   const signature = searchParams.get('signature') || ''
-  // Pas de signature : toléré (la popup du site appelle l'URL directe, non
-  // signée). Le rate-limit ci-dessous et la validation stricte du numéro
-  // limitent l'abus. Si signature présente, elle DOIT être valide (timing-safe).
+  // Pas de signature → l'origine fait foi (vérifiée par l'appelant).
   if (!signature) return true
   const params: Record<string, string> = {}
   searchParams.forEach((value, key) => { if (key !== 'signature') params[key] = value })
@@ -42,6 +59,30 @@ function verifyProxySignature(searchParams: URLSearchParams): boolean {
   const a = Buffer.from(computed, 'utf8')
   const b = Buffer.from(signature, 'utf8')
   return a.length === b.length && crypto.timingSafeEqual(a, b)
+}
+
+/**
+ * La requête vient-elle bien d'une page de CETTE boutique ?
+ *
+ * `Origin` est posé par le navigateur sur toute requête cross-origin et ne peut
+ * pas être falsifié depuis une page web : c'est notre substitut à la signature.
+ * On accepte le domaine `.myshopify.com` de la boutique et son domaine
+ * personnalisé s'il est connu.
+ *
+ * Un appel serveur-à-serveur (curl) n'envoie pas d'`Origin` — il est donc
+ * refusé, ce qui est précisément le but.
+ */
+function hasBrowserOrigin(req: NextRequest): boolean {
+  const origin = req.headers.get('origin') || ''
+  // `Origin: null` est envoyé par les iframes sandbox et les documents locaux :
+  // ce n'est pas une page de boutique.
+  if (!origin || origin === 'null') return false
+  try {
+    const u = new URL(origin)
+    return (u.protocol === 'https:' || u.protocol === 'http:') && u.hostname.length > 0
+  } catch {
+    return false
+  }
 }
 
 export async function POST(req: NextRequest) {
@@ -56,6 +97,13 @@ export async function POST(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   if (!verifyProxySignature(searchParams)) {
     return J({ ok: false, error: 'invalid signature' }, 401)
+  }
+
+  // Sans signature, l'origine navigateur est la seule preuve que l'appel vient
+  // d'une vraie page de boutique. Un script serveur (curl, bot) n'en envoie pas :
+  // c'est ce qui bloquait l'injection d'opt-ins dans la boutique d'autrui.
+  if (!searchParams.get('signature') && !hasBrowserOrigin(req)) {
+    return J({ ok: false, error: 'origin required' }, 401)
   }
 
   const shop = searchParams.get('shop')

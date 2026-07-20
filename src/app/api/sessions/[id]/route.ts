@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+/**
+ * Colonnes exposables au navigateur.
+ *
+ * ⚠️ `waba_access_token` en est VOLONTAIREMENT absent : ce jeton Meta permet
+ * d'envoyer des messages au nom du marchand. Il ne doit jamais quitter le
+ * serveur. Même liste que la route de liste (`sessions/route.ts`).
+ */
+const SAFE_SESSION_COLUMNS =
+  'id, user_id, instance_name, status, phone_number, display_name, integration_type, waba_phone_number_id, waba_business_account_id, daily_ai_message_limit, ai_message_delay, created_at, updated_at'
+
 /** PATCH /api/sessions/[id] — Modifier les paramètres d'une session */
 export async function PATCH(
   req: NextRequest,
@@ -17,7 +27,12 @@ export async function PATCH(
   // Récupérer la session actuelle pour vérifier l'accès
   const { data: existingSession } = await supabase
     .from('whatsapp_sessions')
-    .select('*')
+    // ⚠️ LISTE BLANCHE — `select('*')` renvoyait `waba_access_token` au
+    // NAVIGATEUR. Le jeton Meta permet d'envoyer des messages au nom du
+    // marchand : il n'a rien à faire côté client, où il est exposé aux
+    // extensions, aux outils de développement et à toute XSS.
+    // Mêmes colonnes que la route de liste (sessions/route.ts).
+    .select(SAFE_SESSION_COLUMNS)
     .eq('id', id)
     .eq('user_id', user.id)
     .single()
@@ -62,7 +77,7 @@ export async function PATCH(
       .update(updateData)
       .eq('id', id)
       .eq('user_id', user.id)
-      .select()
+      .select(SAFE_SESSION_COLUMNS)
       .single()
 
     if (error) {

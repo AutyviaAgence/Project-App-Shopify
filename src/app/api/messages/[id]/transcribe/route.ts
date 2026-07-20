@@ -31,13 +31,6 @@ export async function POST(
     return NextResponse.json({ error: 'Message introuvable' }, { status: 404 })
   }
 
-  // Si transcription existe déjà, la retourner
-  if (message.transcription) {
-    return NextResponse.json({
-      transcription: decryptMessage(message.transcription),
-    })
-  }
-
   if (!message.media_url) {
     return NextResponse.json({ error: 'Pas de média associé' }, { status: 400 })
   }
@@ -55,6 +48,20 @@ export async function POST(
 
   if (session.user_id !== user.id) {
     return NextResponse.json({ error: 'Non autorisé' }, { status: 403 })
+  }
+
+  // ⚠️ RETOUR DE LA TRANSCRIPTION EXISTANTE — APRÈS le contrôle d'appartenance.
+  //
+  // Ce bloc était placé AVANT : la route déchiffrait et renvoyait le contenu
+  // d'un message sans avoir jamais évalué qui le demandait. La RLS rattrapait
+  // le cas aujourd'hui (la lecture plus haut est liée à l'utilisateur), mais
+  // l'écriture voisine se fait en `service_role` : basculer cette lecture sur
+  // le client admin — comme les routes sœurs le font déjà — aurait transformé
+  // le défaut en fuite directe de notes vocales entre marchands.
+  if (message.transcription) {
+    return NextResponse.json({
+      transcription: decryptMessage(message.transcription),
+    })
   }
 
   // ⚠️ QUOTA DE TOKENS — placé APRÈS le contrôle d'appartenance (inutile de
