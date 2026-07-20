@@ -163,25 +163,21 @@ const ALL_TOUR_STEPS: TourStep[] = [
     description: 'tour.automation_new_desc',
     position: 'left',
   },
-  // ── CAMPAGNES (marketing) ──────────────────────────────────────────────────
-  {
-    id: 'campaigns-page',
-    page: '/campaigns',
-    target: '[data-tour="campaigns-header"]',
-    title: 'tour.campaigns_title',
-    description: 'tour.campaigns_desc',
-    position: 'bottom',
-    requiredPlan: 'scale',
-  },
-  {
-    id: 'campaigns-new',
-    page: '/campaigns',
-    target: '[data-tour="new-campaign-btn"]',
-    title: 'tour.campaign_new_title',
-    description: 'tour.campaign_new_desc',
-    position: 'left',
-    requiredPlan: 'scale',
-  },
+  // ── CAMPAGNES : PLUS D'ÉTAPE DÉDIÉE ────────────────────────────────────────
+  //
+  // Les campagnes ont été fusionnées dans /automations?tab=marketing — la page
+  // /campaigns n'est plus une destination. Ces deux étapes y envoyaient encore
+  // le marchand (le guide fait `router.push(step.page)`), et leurs ancres
+  // `campaigns-header` / `new-campaign-btn` n'existent pas sur /automations :
+  // le guide serait resté bloqué à chercher un élément absent.
+  //
+  // ⚠️ Ne PAS les pointer vers '/automations?tab=marketing' : le guide compare
+  // `pathname !== step.page`, et `pathname` vaut '/automations' sans les
+  // paramètres — la navigation boucherait à l'infini.
+  //
+  // Le marketing reste couvert : l'étape `automations-transactional` explique
+  // déjà « Transactionnel vs Campagnes », et `automations-new` montre le bouton
+  // de création, commun aux deux onglets.
   // ── STATS ──────────────────────────────────────────────────────────────────
   {
     id: 'stats-page',
