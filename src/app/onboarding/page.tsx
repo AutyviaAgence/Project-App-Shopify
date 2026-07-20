@@ -27,6 +27,10 @@ import { PricingGlass, type TierType } from '@/components/ui/pricing-glass'
 import { PLANS, PAID_PLANS, ANNUAL_DISCOUNT } from '@/lib/plans'
 import { track, identifyMerchant } from '@/lib/posthog/events'
 import { AnimatePresence, motion } from 'framer-motion'
+// Support pendant l'onboarding : cette page vit HORS du layout dashboard, donc
+// la bulle n'y apparaissait pas — alors que c'est l'étape où le marchand bloque
+// le plus (connexion WhatsApp, liaison Shopify). Elle est montée ici.
+import { SupportBubble } from '@/components/support-bubble'
 
 /**
  * GRAND ONBOARDING BLOQUANT (« blow up ») :
@@ -1296,6 +1300,9 @@ export default function OnboardingPage() {
           </div>
         )}
       </div>
+
+      {/* Aide + contact WhatsApp, disponibles à chaque étape. */}
+      <SupportBubble />
     </div>
   )
 }

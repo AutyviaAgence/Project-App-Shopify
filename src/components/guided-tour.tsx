@@ -436,7 +436,21 @@ function TourOverlay() {
         retryCount++
         retryTimer = setTimeout(findTarget, 100)
       } else {
-        // Cible définitivement absente → bulle centrée, sans spotlight.
+        // ⚠️ CIBLE ABSENTE → ON PASSE À LA SUITE.
+        //
+        // Plusieurs boutons n'existent que sous condition : « Résumé IA »
+        // demande des étapes de cycle de vie configurées, donc il n'est PAS
+        // rendu sur un compte neuf. La bulle s'affichait alors au centre de
+        // l'écran, à décrire un bouton introuvable — déroutant, et c'est
+        // justement le compte neuf qui suit le guide.
+        //
+        // On saute l'étape plutôt que de la commenter dans le vide. Sur la
+        // DERNIÈRE étape, on garde la bulle centrée : `nextStep` y terminerait
+        // le guide, ce qui donnerait l'impression qu'il a planté.
+        if (!isLastStep) {
+          nextStep()
+          return
+        }
         setTargetRect(null)
         setTargetMissing(true)
         setTooltipStyle({
@@ -466,7 +480,10 @@ function TourOverlay() {
       window.removeEventListener('resize', handleUpdate)
       window.removeEventListener('scroll', handleUpdate, true)
     }
-  }, [step])
+    // `nextStep`/`isLastStep` : nécessaires depuis que l'effet saute les étapes
+    // dont la cible est absente — sans eux il travaillerait sur une closure
+    // périmée et pourrait sauter la mauvaise étape.
+  }, [step, nextStep, isLastStep])
 
   // Handle keyboard
   useEffect(() => {
