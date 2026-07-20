@@ -146,6 +146,16 @@ export async function POST(req: NextRequest) {
     if (live.length > 0) {
       hasActiveSub = true
       currentPrice = Math.max(...live.map((s) => priceFromSubscriptionName(s.name)))
+      // ⚠️ FILET : un nom d'abonnement non reconnu (renommage, création hors
+      // app, casse inattendue) renvoie 0 — et `newPrice < 0` étant faux, la
+      // baisse ne serait PAS détectée : le marchand perdrait sur-le-champ le
+      // plan qu'il a payé. On croise donc avec l'intervalle RÉEL de Shopify et
+      // le plan connu en base, et on retient le plus élevé des deux.
+      const dbPlan = (store.plan || 'free') as PlanId
+      if (dbPlan !== 'free') {
+        const liveInterval = live[0]?.interval === 'annual' ? 'annual' : 'monthly'
+        currentPrice = Math.max(currentPrice, planPrice(dbPlan, liveInterval))
+      }
       // La plus lointaine : c'est jusque-là que l'accès est acquis.
       const ends = live.map((s) => s.currentPeriodEnd).filter(Boolean) as string[]
       if (ends.length > 0) {

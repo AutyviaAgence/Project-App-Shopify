@@ -524,6 +524,42 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
                 </div>
               </div>
 
+              {/* ── CHANGEMENT PROGRAMMÉ ────────────────────────────────────
+                  Sur une baisse de plan, Shopify continue de facturer l'ancien
+                  jusqu'à l'échéance : le marchand garde son plan actuel, et le
+                  nouveau prend le relais ensuite. Rien ne le disait — la carte
+                  affichait « Plan Pro · Actif » sans mentionner le passage à
+                  Starter, laissant croire que la demande n'avait pas abouti.
+
+                  Affiché seulement si le plan en attente DIFFÈRE de l'actuel
+                  (un `pending_plan` égal au plan courant est un résidu). */}
+              {subscription.pendingPlan
+                && subscription.pendingPlan !== subscription.plan
+                && subscription.subscriptionEndsAt && (
+                <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
+                  <Clock className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                  <p className="text-xs leading-relaxed text-amber-800 dark:text-amber-200">
+                    <span className="font-semibold">Changement programmé.</span>{' '}
+                    Vous gardez le plan{' '}
+                    <span className="font-semibold capitalize">{subscription.plan}</span>{' '}
+                    jusqu&apos;au{' '}
+                    <span className="font-semibold">
+                      {subscription.subscriptionEndsAt.toLocaleDateString(locale === 'en' ? 'en-US' : 'fr-FR', {
+                        day: 'numeric', month: 'long', year: 'numeric',
+                      })}
+                    </span>
+                    ,{' '}
+                    {/* `pending_plan: 'free'` = ANNULATION, pas une baisse : le
+                        marchand ne « passe » pas à un plan gratuit (il n'existe
+                        plus), son abonnement prend fin. */}
+                    {subscription.pendingPlan === 'free'
+                      ? <>puis votre abonnement prendra fin.</>
+                      : <>puis vous passerez au plan{' '}
+                          <span className="font-semibold capitalize">{subscription.pendingPlan}</span>.</>}
+                  </p>
+                </div>
+              )}
+
             </div>
           </CardContent>
         </Card>
