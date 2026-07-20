@@ -229,6 +229,33 @@ export function TourProvider({ children, plan = 'scale' }: { children: React.Rea
   const TOUR_STEPS = filterStepsByPlan(plan)
   const step = TOUR_STEPS[currentStep]
 
+  /**
+   * Clé « guide déjà vu », PAR COMPTE.
+   *
+   * ⚠️ Elle était globale au navigateur (`autyvia_tour_completed`). Conséquence :
+   * dès qu'un guide avait été vu une fois, TOUT nouveau compte créé depuis le
+   * même navigateur n'y avait plus droit — le cas de figure exact du marchand
+   * qui teste, et de nous quand on vérifie. Pire, en poste partagé, le second
+   * utilisateur ne voyait jamais le guide.
+   *
+   * `null` tant que l'id n'est pas connu : on n'auto-lance pas à l'aveugle.
+   */
+  const [tourKey, setTourKey] = useState<string | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/profile')
+      .then(r => (r.ok ? r.json() : null))
+      .then(j => {
+        if (cancelled) return
+        const id = j?.data?.id || j?.id
+        // Sans id (appel en échec), on retombe sur l'ancienne clé globale
+        // plutôt que de relancer le guide en boucle.
+        setTourKey(id ? `xeyo_tour_done_${id}` : 'autyvia_tour_completed')
+      })
+      .catch(() => { if (!cancelled) setTourKey('autyvia_tour_completed') })
+    return () => { cancelled = true }
+  }, [])
+
   // Navigate to step's page if needed
   useEffect(() => {
     if (isActive && step && pathname !== step.page && !isNavigating) {
@@ -255,8 +282,8 @@ export function TourProvider({ children, plan = 'scale' }: { children: React.Rea
   const endTour = useCallback(() => {
     setIsActive(false)
     setCurrentStep(0)
-    localStorage.setItem('autyvia_tour_completed', 'true')
-  }, [])
+    if (tourKey) localStorage.setItem(tourKey, 'true')
+  }, [tourKey])
 
   // ⚠️ DÉMARRAGE AUTOMATIQUE À LA 1re CONNEXION.
   //
@@ -276,7 +303,8 @@ export function TourProvider({ children, plan = 'scale' }: { children: React.Rea
   useEffect(() => {
     if (typeof window === 'undefined') return
     if (autoStartedRef.current) return
-    if (localStorage.getItem('autyvia_tour_completed')) return
+    if (!tourKey) return // id du compte pas encore connu
+    if (localStorage.getItem(tourKey)) return
     if (pathname !== '/dashboard') return // on n'auto-lance que depuis l'accueil
 
     // ⚠️ ATTENDRE QUE LA PAGE EXISTE — un délai fixe ne suffit pas.
@@ -301,7 +329,7 @@ export function TourProvider({ children, plan = 'scale' }: { children: React.Rea
       if (firstTarget && document.querySelector(firstTarget)) {
         clearInterval(poll)
         autoStartedRef.current = true
-        localStorage.setItem('autyvia_tour_completed', 'true')
+        localStorage.setItem(tourKey, 'true')
         startTour()
       } else if (attempts >= MAX_ATTEMPTS) {
         // Page toujours absente après 10 s : on renonce SANS poser le flag,
@@ -312,10 +340,14 @@ export function TourProvider({ children, plan = 'scale' }: { children: React.Rea
     return () => clearInterval(poll)
     // startTour est stable ; on ne veut lancer qu'une fois (garde par ref).
     // eslint-disable-next-line react-hooks/exhaustive-deps
+    // `tourKey` EST une dépendance : il arrive de façon asynchrone (appel à
+    // /api/profile), et l'effet doit se relancer quand il devient connu.
+    //
     // `TOUR_STEPS` volontairement absent : sa 1re étape (dashboard-welcome) n'a
     // pas de `requiredPlan`, elle est donc identique quel que soit le plan. Et
     // `autoStartedRef` garantit un lancement unique.
-  }, [pathname])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, tourKey])
 
   const nextStep = useCallback(() => {
     if (currentStep < TOUR_STEPS.length - 1) {
