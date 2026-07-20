@@ -132,14 +132,25 @@ export async function POST(req: NextRequest) {
   // notre base que s'il ne répond pas.
   let currentPrice = 0
   let hasActiveSub = store.subscription_status === 'active'
+  // ⚠️ CAPTURER LA FIN DE PÉRIODE **AVANT** DE CRÉER LE REMPLACEMENT.
+  //
+  // Shopify ne garde qu'UN SEUL abonnement actif : créer le nouveau annule
+  // l'ancien, et son `currentPeriodEnd` devient alors `null`. La date jusqu'à
+  // laquelle le marchand a PAYÉ est donc perdue à jamais si on ne la relève pas
+  // maintenant — et c'est précisément cette date qui doit lui garantir l'accès
+  // pendant toute la période réglée.
+  let paidUntil: string | null = null
   try {
     const { listActiveSubscriptions } = await import('@/lib/shopify/client')
     const live = (await listActiveSubscriptions(shop, token)).filter((s) => s.status === 'ACTIVE')
     if (live.length > 0) {
       hasActiveSub = true
-      // Le PLUS CHER fait foi : sur une baisse déjà programmée, l'ancien
-      // abonnement coexiste avec le nouveau et c'est lui qui court encore.
       currentPrice = Math.max(...live.map((s) => priceFromSubscriptionName(s.name)))
+      // La plus lointaine : c'est jusque-là que l'accès est acquis.
+      const ends = live.map((s) => s.currentPeriodEnd).filter(Boolean) as string[]
+      if (ends.length > 0) {
+        paidUntil = ends.sort().reverse()[0]
+      }
     }
   } catch {
     // Shopify injoignable : on retombe sur la base, mieux que rien.
@@ -282,6 +293,10 @@ export async function POST(req: NextRequest) {
     .update({
       pending_plan: plan,
       ...(isDowngrade ? {} : { subscription_status: 'pending' }),
+      // Sur une BAISSE, on grave la date jusqu'à laquelle l'ancien plan est
+      // payé : Shopify va l'effacer en annulant l'abonnement, et c'est notre
+      // seule preuve que le marchand a droit au plan supérieur jusque-là.
+      ...(isDowngrade && paidUntil ? { current_period_end: paidUntil } : {}),
       shopify_charge_id: sub.appSubscription?.id ?? null,
       billing_source: 'shopify',
       billing_interval: billing,

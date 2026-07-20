@@ -25,11 +25,20 @@ export async function POST(req: NextRequest) {
 
   // Boutique du marchand (filtre explicite sur user_id : en embedded il n'y a pas
   // de RLS, c'est le code qui garantit l'isolation).
+  // ⚠️ `.order().limit(1)` INDISPENSABLE — le reste du code l'applique déjà.
+  //
+  // Un compte peut avoir DEUX lignes actives (réinstallation où l'ancienne n'a
+  // pas été désactivée). `maybeSingle()` renvoie alors une erreur PostgREST →
+  // `store` null → 404 « Boutique introuvable » : le marchand ne peut PLUS
+  // résilier depuis l'app et continue d'être facturé. C'est aussi un motif de
+  // rejet App Store (§1.2.3).
   const { data: store } = await admin
     .from('shopify_stores')
-    .select('id, shop_domain, access_token, shopify_charge_id')
+    .select('id, shop_domain, access_token, shopify_charge_id, current_period_end')
     .eq('user_id', authed.userId)
     .eq('is_active', true)
+    .order('updated_at', { ascending: false })
+    .limit(1)
     .maybeSingle()
 
   if (!store?.access_token) {
@@ -71,6 +80,15 @@ export async function POST(req: NextRequest) {
   // actifs, et tous les annuler. Après ça, plus rien ne facture.
   const { listActiveSubscriptions } = await import('@/lib/shopify/client')
   const active = await listActiveSubscriptions(store.shop_domain, token)
+
+  // ⚠️ RELEVER LA FIN DE PÉRIODE **AVANT** D'ANNULER.
+  //
+  // Shopify met `currentPeriodEnd` à `null` une fois l'abonnement annulé : la
+  // date jusqu'à laquelle le marchand a payé serait perdue. Or c'est elle qui
+  // lui garantit l'accès jusqu'à l'échéance (`getUserPlan` la lit, et retombe
+  // en gratuit si elle est absente — le privant de ce qu'il a réglé).
+  const ends = active.map((s) => s.currentPeriodEnd).filter(Boolean) as string[]
+  const paidUntil = ends.length > 0 ? ends.sort().reverse()[0] : store.current_period_end
 
   // Filet : si l'appel échoue, on annule au moins celui qu'on connaît.
   const toCancel = active.length > 0
@@ -115,6 +133,9 @@ export async function POST(req: NextRequest) {
       subscription_status: 'canceled',
       pending_plan: 'free',
       shopify_charge_id: null,
+      // Sans cette date, `getUserPlan` retombe en gratuit sur-le-champ et le
+      // marchand perd la période qu'il a payée.
+      ...(paidUntil ? { current_period_end: paidUntil } : {}),
       updated_at: new Date().toISOString(),
     })
     .eq('id', store.id)

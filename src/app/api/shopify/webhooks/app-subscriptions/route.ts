@@ -83,7 +83,9 @@ export async function POST(req: NextRequest) {
   const { data: store } = await supabase
     .from('shopify_stores')
     // `user_id` : requis pour régler la récompense de parrainage (voir plus bas).
-    .select('id, user_id, shopify_charge_id, plan, pending_plan')
+    // `current_period_end` : sans lui, impossible de savoir si l'accès est
+    // encore payé — et on couperait un plan déjà réglé.
+    .select('id, user_id, shopify_charge_id, plan, pending_plan, current_period_end')
     .eq('shop_domain', shopDomain)
     .maybeSingle()
 
@@ -108,20 +110,39 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ received: true })
   }
 
-  // ── L'abonnement est mort : retour au plan gratuit ────────────────────────
+  // ── L'abonnement est mort ─────────────────────────────────────────────────
+  //
+  // ⚠️ NE PAS COUPER UN ACCÈS DÉJÀ PAYÉ.
+  //
+  // On écrivait `plan: 'free'` sur-le-champ. Or Shopify ne rembourse pas au
+  // prorata : un marchand qui résilie le 5 a réglé jusqu'au 30 et doit garder
+  // son plan jusque-là. C'est exactement ce que fait /billing/cancel — et ce
+  // webhook, déclenché juste après, défaisait son travail quelques secondes
+  // plus tard.
+  //
+  // On coupe donc le renouvellement sans toucher au `plan` : `getUserPlan`
+  // accorde l'accès tant que `current_period_end` court, puis bascule seul.
   if (['CANCELLED', 'DECLINED', 'EXPIRED'].includes(status)) {
+    const stillPaidFor =
+      !!store.current_period_end && new Date(store.current_period_end) > new Date()
+
     await supabase
       .from('shopify_stores')
       .update({
-        plan: 'free',
+        // Période encore réglée → on garde le plan. Sinon (ou refus d'une
+        // souscription jamais payée) → retour au gratuit.
+        ...(stillPaidFor ? {} : { plan: 'free' }),
         subscription_status: 'canceled',
         shopify_charge_id: null,
-        pending_plan: null,
+        pending_plan: stillPaidFor ? 'free' : null,
         updated_at: new Date().toISOString(),
       })
       .eq('id', store.id)
 
-    console.log('[webhook/app-subscriptions]', shopDomain, '→', status, ': retour au plan gratuit')
+    console.log(
+      '[webhook/app-subscriptions]', shopDomain, '→', status,
+      stillPaidFor ? `: accès conservé jusqu'au ${store.current_period_end}` : ': retour au plan gratuit'
+    )
     return NextResponse.json({ received: true })
   }
 
