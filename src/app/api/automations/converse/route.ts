@@ -56,7 +56,6 @@ const OPENING_LABELS: Partial<Record<TriggerEvent, string>> = {
   contact_opted_in: 'Accueillir un nouvel abonné',
   optin_popup: 'Accueillir un abonné du site',
   scheduled_date: 'Envoyer une promo à une date',
-  customer_birthday: 'Souhaiter un anniversaire',
   no_customer_reply: 'Réactiver un client inactif',
   message_read: 'Relancer après lecture',
   order_created: 'Confirmer une commande',
@@ -73,7 +72,6 @@ const OPENING_LABELS_EN: Partial<Record<TriggerEvent, string>> = {
   contact_opted_in: 'Welcome a new subscriber',
   optin_popup: 'Welcome a website subscriber',
   scheduled_date: 'Send a promo on a date',
-  customer_birthday: 'Wish a happy birthday',
   no_customer_reply: 'Re-engage an inactive customer',
   message_read: 'Follow up after the message is read',
   order_created: 'Confirm an order',
@@ -494,7 +492,6 @@ Il l'a DÉJÀ dit. DÉDUIS-le, ne le fais pas répéter.
 Correspondances évidentes — applique-les sans poser de question :
  - « panier abandonné », « pas fini leur commande », « panier oublié » → checkout_abandoned
  - « nouvel abonné », « bienvenue », « quelqu'un s'abonne » → contact_opted_in
- - « anniversaire » → customer_birthday
  - « à telle date », « samedi », « lundi matin », « le 12 » → scheduled_date
  - « client inactif », « qui n'achète plus », « qui ne répond plus », « réveiller », « réactiver »
    → no_customer_reply (⚠️ SURTOUT PAS contact_opted_in : un client inactif n'est pas

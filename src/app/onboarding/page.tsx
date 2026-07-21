@@ -591,7 +591,8 @@ export default function OnboardingPage() {
       Commande: ['order_created', 'order_paid', 'order_fulfilled', 'order_delivered', 'order_cancelled', 'refund_created', 'return_requested'],
       Contact: ['contact_opted_in', 'optin_popup'],
       Conversation: ['message_read', 'no_customer_reply'],
-      Planifié: ['scheduled_date', 'customer_birthday', 'checkout_abandoned'],
+      // `customer_birthday` retiré : déclencheur inopérant (cf. types.ts).
+      Planifié: ['scheduled_date', 'checkout_abandoned'],
     }).map(([k, v]) => [k, v.filter((t) => offered.has(t))])
   )
   // Les 4 familles rangées sous les 2 onglets réels de l'app : Transactionnel

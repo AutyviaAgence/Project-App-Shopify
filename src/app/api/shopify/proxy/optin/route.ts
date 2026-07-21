@@ -250,6 +250,7 @@ export async function POST(req: NextRequest) {
               cart_url: cartUrl,
               order_total: cartTotal != null ? String(cartTotal) : '',
               order_status: 'Panier en attente',
+              order_status_en: 'Cart pending',
             },
             // Anti-doublon par contact + tranche de 5 min : un même client ne
             // reçoit pas plusieurs relances rapprochées, mais peut être relancé

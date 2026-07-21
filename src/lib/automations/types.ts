@@ -90,8 +90,16 @@ export const TRIGGER_EVENTS: {
 // Il reste dans TriggerEvent et dans le moteur : les automatisations existantes
 // qui l'utilisent continuent de fonctionner. On cesse juste d'en proposer de
 // nouvelles.
+//
+// ⚠️ `customer_birthday` RETIRÉ AUSSI — il lit `contacts.metadata.birthday`, une
+// colonne qui N'EXISTE PAS (vérifié : la requête renvoie 400, l'erreur n'était
+// pas testée, la fonction retournait 0 contact en silence). Ce déclencheur n'a
+// donc jamais envoyé un seul message, tout en s'affichant comme disponible : un
+// marchand pouvait configurer une relance anniversaire qui ne partirait jamais.
+// Le remettre en service suppose une vraie colonne ET un moyen de la remplir
+// (Shopify n'expose pas la date de naissance).
 const MARKETING_TRIGGERS = new Set<TriggerEvent>([
-  'scheduled_date', 'customer_birthday',
+  'scheduled_date',
   'contact_opted_in', 'optin_popup',
   'message_read', 'no_customer_reply',
   'checkout_abandoned',

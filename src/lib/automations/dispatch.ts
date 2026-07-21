@@ -199,6 +199,15 @@ export async function sendTemplateToContact(params: {
   // qu'il n'est pas déjà fourni par le trigger — sinon on afficherait « notre
   // boutique » alors qu'on connaît le vrai nom (Shopify).
   const vars: Record<string, string> = { ...params.variables }
+  // ⚠️ STATUT DE COMMANDE DANS LA LANGUE DU MESSAGE.
+  //
+  // `order_status` est figé en français au webhook, avant que la langue du
+  // contact soit connue : un client anglophone lisait « Your order is now
+  // Expédiée ». Le producteur fournit désormais `order_status_en` en parallèle ;
+  // on bascule ici, une fois la variante de langue résolue.
+  if (tpl.language?.startsWith('en') && vars.order_status_en) {
+    vars.order_status = vars.order_status_en
+  }
   // ⚠️ `store_url` et `review_url` n'étaient produits par AUCUN déclencheur, alors
   // que deux modèles par défaut les déclarent (`promotion`, `review_request`) :
   // ces modèles partaient donc avec une URL vide et Meta rejetait l'envoi. On les

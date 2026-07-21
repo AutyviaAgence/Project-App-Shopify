@@ -42,6 +42,11 @@ function isShopifyOrigin(req: NextRequest): boolean {
     return u.hostname.endsWith('.myshopify.com')
       || u.hostname === 'shopify.com' || u.hostname.endsWith('.shopify.com')
       || u.hostname === 'checkout.shopify.com'
+      // ⚠️ Les Checkout UI Extensions tournent dans un iframe SANDBOX servi par
+      // le CDN d'extensions : leur `Origin` n'est pas la boutique. Sans ce
+      // domaine, l'appel était refusé (401) et le numéro jamais pré-rempli.
+      || u.hostname.endsWith('.shopifycdn.com')
+      || u.hostname.endsWith('.shopifysvc.com')
   } catch {
     return false
   }
@@ -64,6 +69,14 @@ export async function GET(req: NextRequest) {
   const fromShopify = isShopifyOrigin(req)
   const hasOpaqueId = (searchParams.get('id') || '').startsWith('gid://shopify/')
   if (!signed && !(fromShopify && hasOpaqueId)) {
+    // Trace de diagnostic : l'origine exacte envoyée par l'extension n'est pas
+    // documentée (iframe sandbox du checkout). Sans elle, on ne peut que deviner.
+    console.warn('[order-phone] refusé', {
+      origin: req.headers.get('origin'),
+      referer: req.headers.get('referer'),
+      hasId: hasOpaqueId,
+      id: (searchParams.get('id') || '').slice(0, 40),
+    })
     return NextResponse.json({ phone: null, error: 'signature invalide' }, { status: 401, headers: { ...CORS, 'Cache-Control': 'no-store' } })
   }
 

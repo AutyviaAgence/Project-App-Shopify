@@ -68,6 +68,28 @@ export async function resolveStoreUser(shopDomain: string): Promise<string | nul
  * Trouve (ou crée) le contact correspondant à une commande, et construit le
  * contexte d'événement (variables nommées + données pour les conditions).
  */
+/**
+ * Statuts de commande : le libellé FRANÇAIS produit au webhook → sa traduction.
+ *
+ * ⚠️ Le statut était figé en français AU WEBHOOK, donc bien avant que la langue
+ * du contact soit connue (elle n'est résolue qu'à l'envoi, dans dispatch). Un
+ * client anglophone lisait « Your order is now Expédiée ».
+ *
+ * On garde `order_status` en français (repli, et jobs déjà en file) et on ajoute
+ * `order_status_en` en parallèle : dispatch choisit selon la langue du modèle
+ * réellement envoyé. Indexer par le libellé FR évite de toucher aux 5 appelants.
+ */
+export const ORDER_STATUS_EN: Record<string, string> = {
+  'En préparation': 'Being prepared',
+  'Payée': 'Paid',
+  'Expédiée': 'Shipped',
+  'Livrée': 'Delivered',
+  'Annulée': 'Cancelled',
+  'Remboursée': 'Refunded',
+  'Retour demandé': 'Return requested',
+  'Panier en attente': 'Cart pending',
+}
+
 export async function buildOrderContext(
   userId: string,
   order: ShopifyOrder,
@@ -284,6 +306,9 @@ export async function buildOrderContext(
       order_number: orderName,
       order_total: order.total_price ? `${order.total_price}${order.currency ? ' ' + order.currency : ''}` : '',
       order_status: statusLabel,
+      // Variante anglaise du MÊME statut — choisie à l'envoi selon la langue du
+      // modèle. Absente = ancien job : dispatch retombe sur `order_status`.
+      order_status_en: ORDER_STATUS_EN[statusLabel] || statusLabel,
       tracking_number: order.fulfillments?.[0]?.tracking_number || '',
       tracking_url: tracking,
       order_status_url: order.order_status_url || '',
