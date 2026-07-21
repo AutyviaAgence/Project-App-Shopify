@@ -38,6 +38,14 @@ export type GenerateInput = {
   variableKeys: string[]
   storeContextPrompt?: string | null
   products?: GenProduct[]
+  /**
+   * Langue du modèle à RÉDIGER ('fr' par défaut).
+   *
+   * Un marchand dont l'interface est en anglais crée des modèles anglais : sans
+   * ça, le générateur produisait toujours du français, et il fallait ensuite
+   * traduire à la main chaque message.
+   */
+  language?: 'fr' | 'en'
 }
 
 export type GenButton =
@@ -244,9 +252,15 @@ INTERDIT, sans exception :
 AUTORISÉ : le format "standard" uniquement, avec au plus un bouton URL de suivi/consultation
 de la commande. Contente-toi d'informer, clairement et sans rien vendre.`
 
+  const wantEn = input.language === 'en'
+
   const prompt = `Tu es un expert en marketing WhatsApp e-commerce et en règles Meta.
 Génère EXACTEMENT 3 propositions DIFFÉRENTES de message WhatsApp pour un modèle.
 Pour CHAQUE proposition, RECOMMANDE toi-même le format le plus pertinent selon l'objectif.
+
+LANGUE DE RÉDACTION : ${wantEn ? 'ANGLAIS' : 'FRANÇAIS'}. Tous les textes destinés au
+client (body_text, header_text, footer_text, libellés de boutons) doivent être
+rédigés ${wantEn ? 'EN ANGLAIS, sans un seul mot de français' : 'EN FRANÇAIS'}.
 
 ${familyRules}
 

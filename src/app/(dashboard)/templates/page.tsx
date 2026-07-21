@@ -146,6 +146,8 @@ export default function TemplatesPage() {
     cards?: { title: string; body: string; image_url: string | null; url: string | null }[]
   }
   const [aiProposals, setAiProposals] = useState<AiProposal[]>([])
+  // Langue dans laquelle l'IA a redige les propositions (renvoyee par la route).
+  const [aiLanguage, setAiLanguage] = useState<'fr' | 'en'>('fr')
   const [editing, setEditing] = useState<WhatsAppTemplate | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -401,7 +403,8 @@ export default function TemplatesPage() {
     try {
       const res = await fetch('/api/templates/converse', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: nextChat }),
+        // `locale` : l'assistant parle ET redige dans la langue du marchand.
+        body: JSON.stringify({ messages: nextChat, locale }),
       })
       const json = await res.json()
       if (!res.ok) throw new Error(json.error || t('templates.toast_error'))
@@ -410,6 +413,7 @@ export default function TemplatesPage() {
         if (json.meta?.use_case) setAiUseCase(json.meta.use_case)
         if (json.meta?.tone) setAiTone(json.meta.tone)
         if (json.meta?.objective) setAiObjective(json.meta.objective)
+        if (json.meta?.language === 'en' || json.meta?.language === 'fr') setAiLanguage(json.meta.language)
         track('template_ai_generated', { use_case: json.meta?.use_case, count: json.proposals?.length || 0 })
         setAiProposals(json.proposals || [])
         setAiChat((c) => [...c, { role: 'assistant', content: t('templates.ai_proposals_intro') }])
@@ -444,7 +448,10 @@ export default function TemplatesPage() {
       .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 40) || 'modele_ia'
     setEditing(null); setSelectedId(null)
     setName(slug)
-    setLanguage('fr')
+    // Langue REELLEMENT redigee par l'IA (renvoyee par la route). En dur a 'fr',
+    // un corps anglais etait enregistre comme francais : la resolution de
+    // variante a l'envoi partait alors sur la mauvaise ligne.
+    setLanguage(aiLanguage)
     setUseCase(aiUseCase)
     // LTO impose MARKETING ; sinon catégorie du use_case.
     setCategory(p.template_type === 'limited_time_offer' ? 'MARKETING' : (uc?.metaCategory || 'MARKETING'))

@@ -38,7 +38,7 @@ export function WorkflowChat({ kind, onComplete, onCancel }: {
   onComplete: (data: { name: string; graph: WorkflowGraph; trigger: string }) => void
   onCancel: () => void
 }) {
-  const { t } = useTranslation()
+  const { t, locale } = useTranslation()
   const [chat, setChat] = useState<Msg[]>([])
   const [question, setQuestion] = useState<string>('')
   const [options, setOptions] = useState<string[]>([])
@@ -178,7 +178,8 @@ export function WorkflowChat({ kind, onComplete, onCancel }: {
       const res = await fetch('/api/automations/converse', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: next, kind, createdTemplateIds }),
+        // `locale` : l'assistant repond dans la langue de l'INTERFACE marchand.
+        body: JSON.stringify({ messages: next, kind, createdTemplateIds, locale }),
       })
       const json = await res.json()
       if (!res.ok) { toast.error(json.error || t('automations.builder.chat_assistant_error')); return }

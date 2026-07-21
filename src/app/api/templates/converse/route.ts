@@ -86,7 +86,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Limite de tokens IA atteinte. Achetez des tokens supplementaires.' }, { status: 429 })
   }
 
-  const body = (await req.json().catch(() => ({}))) as { messages?: Msg[] }
+  const body = (await req.json().catch(() => ({}))) as { messages?: Msg[]; locale?: string }
+  // Langue de l'INTERFACE marchand : l'assistant lui parle et redige dans SA langue.
+  const merchantEn = body.locale === 'en'
   const messages = (body.messages || []).filter((m) => m && m.content?.trim()).slice(-20)
 
   const varCatalog = TEMPLATE_VARIABLES.map((v) => `- ${v.key} : ${v.label}`).join('\n')
@@ -99,6 +101,7 @@ export async function POST(req: NextRequest) {
 
   // Prompt de contrôle : l'IA décide si elle pose une question OU si elle est prête.
   const system = `Tu es un assistant qui aide un marchand e-commerce à créer un message WhatsApp (template).
+${merchantEn ? 'LANGUE : parle au marchand EN ANGLAIS (questions, options, libelles). Le message WhatsApp genere doit lui aussi etre en anglais.' : ''}
 
 # CE QU'EST UN TEMPLATE
 
@@ -351,11 +354,12 @@ La première fois (aucune réponse encore), pose une question d'ouverture simple
     variableKeys,
     storeContextPrompt,
     products: products || [],
+    language: merchantEn ? 'en' : 'fr',
   })
 
   return NextResponse.json({
     mode: 'ready',
     proposals,
-    meta: { objective, use_case: useCase, tone, variable_keys: variableKeys },
+    meta: { objective, use_case: useCase, tone, variable_keys: variableKeys, language: merchantEn ? 'en' : 'fr' },
   })
 }

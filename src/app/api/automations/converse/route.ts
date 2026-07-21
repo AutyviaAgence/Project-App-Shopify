@@ -67,8 +67,26 @@ const OPENING_LABELS: Partial<Record<TriggerEvent, string>> = {
   refund_created: 'Confirmer un remboursement',
   return_requested: 'Accompagner un retour',
 }
-function openingOptions(kind: 'marketing' | 'transactional'): string[] {
-  return triggersForKind(kind).map((e) => OPENING_LABELS[e.value] || e.label)
+/** Mêmes intentions, pour un marchand dont l'interface est en anglais. */
+const OPENING_LABELS_EN: Partial<Record<TriggerEvent, string>> = {
+  checkout_abandoned: 'Recover abandoned carts',
+  contact_opted_in: 'Welcome a new subscriber',
+  optin_popup: 'Welcome a website subscriber',
+  scheduled_date: 'Send a promo on a date',
+  customer_birthday: 'Wish a happy birthday',
+  no_customer_reply: 'Re-engage an inactive customer',
+  message_read: 'Follow up after the message is read',
+  order_created: 'Confirm an order',
+  order_paid: 'Confirm a payment',
+  order_fulfilled: 'Announce the shipment',
+  order_delivered: 'Message on delivery',
+  order_cancelled: 'Announce a cancellation',
+  refund_created: 'Confirm a refund',
+  return_requested: 'Support a return',
+}
+function openingOptions(kind: 'marketing' | 'transactional', en = false): string[] {
+  const table = en ? OPENING_LABELS_EN : OPENING_LABELS
+  return triggersForKind(kind).map((e) => table[e.value] || OPENING_LABELS[e.value] || e.label)
 }
 
 /**
@@ -220,6 +238,7 @@ export async function POST(req: NextRequest) {
     messages?: Msg[]
     kind?: 'marketing' | 'transactional'
     createdTemplateIds?: string[]
+    locale?: string
   }
   const messages = (body.messages || []).filter((m) => m && m.content?.trim()).slice(-20)
   const kind: 'marketing' | 'transactional' = body.kind === 'transactional' ? 'transactional' : 'marketing'
@@ -381,12 +400,21 @@ complet et signale-le dans "missingTemplates" du mode "ready".`
     .join('\n')
   const kindLabel = kind === 'marketing' ? 'CAMPAGNE MARKETING' : 'AUTOMATISATION TRANSACTIONNELLE'
 
-  const system = `Tu es un expert en funnels WhatsApp pour l'e-commerce. Tu aides un marchand à construire une ${kindLabel} complète.
+  // Langue de l'INTERFACE marchand : l'assistant lui parle dans SA langue.
+  // (Le corps des messages WhatsApp, lui, suit la langue du CLIENT à l'envoi.)
+  const merchantEn = body.locale === 'en'
+  const langRule = merchantEn
+    ? `\n# LANGUE\nÉcris TOUT ce qui s'affiche à l'écran EN ANGLAIS : "question", "options",
+"name", "description", et les libellés de boutons. Le marchand utilise une
+interface anglaise — ne réponds jamais en français.\n`
+    : ''
 
+  const system = `Tu es un expert en funnels WhatsApp pour l'e-commerce. Tu aides un marchand à construire une ${kindLabel} complète.
+${langRule}
 Tu parles à un COMMERÇANT, pas à un développeur.
 RÈGLE ABSOLUE : dans "question" et "options", n'écris JAMAIS de code technique
 (pas de "contact_opted_in", "scheduled_date", "order_paid"…). Utilise UNIQUEMENT
-des formulations humaines, en français courant. Les codes techniques ne servent
+des formulations humaines, dans ${merchantEn ? 'un anglais courant' : 'un français courant'}. Les codes techniques ne servent
 QUE dans le champ "event" du graphe JSON, jamais à l'écran.
   ✅ bon  : options: ["Quand un client abandonne son panier", "Quand quelqu'un s'abonne", "À une date précise"]
   ❌ interdit : options: ["checkout_abandoned", "contact_opted_in", "scheduled_date"]
@@ -603,7 +631,7 @@ Réponds UNIQUEMENT en JSON :
 ⚠️ TOUT PREMIER MESSAGE (le marchand n'a encore RIEN dit) : demande-lui son
 objectif. Ne recommande RIEN à ce stade — tu ne sais pas encore ce qu'il veut.
   question: « Que souhaitez-vous mettre en place ? »
-  options: ${JSON.stringify(openingOptions(kind))}${justCreated}`
+  options: ${JSON.stringify(openingOptions(kind, merchantEn))}${justCreated}`
 
   // ⚠️ PLAFOND DUR. Passé 4 questions, on n'en pose plus : on EXIGE le parcours.
   //

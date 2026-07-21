@@ -25,6 +25,8 @@ export async function POST(req: NextRequest) {
   const objective = String(body.objective || '').trim()
   const tone = (['professional', 'friendly', 'casual'].includes(body.tone) ? body.tone : 'professional') as 'professional' | 'friendly' | 'casual'
   const variableKeys = Array.isArray(body.variable_keys) ? body.variable_keys.filter((k: unknown) => typeof k === 'string') : []
+  // Langue de REDACTION du modele : suit l'interface du marchand.
+  const language: 'fr' | 'en' = body.locale === 'en' || body.language === 'en' ? 'en' : 'fr'
 
   if (!useCase || !objective) {
     return NextResponse.json({ error: 'Catégorie et objectif requis' }, { status: 400 })
@@ -60,11 +62,14 @@ export async function POST(req: NextRequest) {
   } catch { /* contexte boutique facultatif */ }
 
   try {
-    const proposals = await generateTemplates({ useCase, objective, tone, variableKeys, storeContextPrompt, products })
+    const proposals = await generateTemplates({ useCase, objective, tone, variableKeys, storeContextPrompt, products, language })
     if (proposals.length === 0) {
       return NextResponse.json({ error: 'Aucune proposition exploitable, reformulez l\'objectif.' }, { status: 422 })
     }
-    return NextResponse.json({ data: { proposals } })
+    // `language` est renvoyée : le client crée le modèle avec la langue
+    // RÉELLEMENT rédigée, sinon un corps anglais serait enregistré en `fr` et
+    // la résolution de variante à l'envoi partirait sur la mauvaise ligne.
+    return NextResponse.json({ data: { proposals, language } })
   } catch (e) {
     console.error('[templates/generate]', e)
     return NextResponse.json({ error: e instanceof Error ? e.message : 'Erreur de génération' }, { status: 500 })
