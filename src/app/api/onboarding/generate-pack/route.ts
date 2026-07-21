@@ -5,6 +5,10 @@ import { createClient } from '@/lib/supabase/server'
 import { logAiUsage } from '@/lib/openai/usage-log'
 import { buildStoreContextPrompt } from '@/lib/shopify/sync'
 import { PACK_SPECS, PACK_VERSION, isValidBody, type OnboardingPack, type PackItem } from '@/lib/onboarding/pack-spec'
+import { translateTemplateContent } from '@/lib/templates/translate'
+
+/** Generation longue (15 messages d'un coup) : meme protection qu'agents/onboard. */
+export const maxDuration = 60
 
 /**
  * POST /api/onboarding/generate-pack
@@ -101,7 +105,7 @@ PRODUITS (échantillon) : ${productList}
 MESSAGES À RÉDIGER :
 ${specLines}`
 
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY!, maxRetries: 2, timeout: 90_000 })
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY!, maxRetries: 1, timeout: 45_000 })
   const started = Date.now()
   let generated: Record<string, { header?: string | null; body?: string }> = {}
   try {
@@ -185,6 +189,48 @@ ${specLines}`
       campaign.description = merchantEn
         ? 'Campaign with a carousel of your products (image, price, View button).'
         : 'Campagne avec carrousel de vos produits (image, prix, bouton Voir).'
+    }
+  }
+
+  // ── FILET DE SECURITE : l'IA a-t-elle VRAIMENT ecrit en anglais ? ──
+  //
+  // Consigne de langue en tete du prompt ou non, le modele retombe parfois en
+  // francais : tout son contexte (nom des intentions, contexte boutique, corps
+  // de secours) l'est. Un prompt ne donne aucune garantie — on VERIFIE donc le
+  // resultat, et on traduit ce qui est reste francais.
+  //
+  // `translateTemplateContent` est deterministe sur les variables : il preserve
+  // les {{n}} et tronque aux limites Meta.
+  if (merchantEn) {
+    // Heuristique volontairement simple : mots-outils francais frequents que
+    // l'anglais n'a pas. Pas de faux positif sur un corps anglais correct.
+    const looksFrench = (txt: string) =>
+      /(votre|vos|nous|vous|bonjour|merci|commande|est|pour|avec|dans|une|des|les|sur)/i.test(txt)
+    const toFix = items.filter((i) => looksFrench(i.body_text))
+    if (toFix.length > 0) {
+      console.log(`[generate-pack] ${toFix.length}/${items.length} corps encore en FR -> traduction`)
+      // ⚠️ BORNE DE TEMPS. Le client de translate.ts a `maxRetries: 4` x 60 s :
+      // un seul appel lent depasserait le maxDuration de la route et la ferait
+      // repondre 502 — alors qu'un pack francais reste utilisable. On abandonne
+      // donc la traduction au bout de 20 s et on renvoie ce qu'on a.
+      const deadline = new Promise<void>((r) => setTimeout(r, 20_000))
+      await Promise.race([deadline, Promise.all(toFix.map(async (item) => {
+        try {
+          const tr = await translateTemplateContent({
+            source: { body_text: item.body_text, header_text: item.header_text, footer_text: item.footer_text },
+            sourceLang: 'fr',
+            targetLang: 'en',
+          })
+          // isValidBody : ne remplace QUE si la traduction garde les variables.
+          if (isValidBody(tr.body_text, item.variable_keys.length)) {
+            item.body_text = tr.body_text
+            if (tr.header_text != null) item.header_text = tr.header_text
+            if (tr.footer_text != null) item.footer_text = tr.footer_text
+          }
+        } catch (e) {
+          console.error('[generate-pack] traduction impossible pour', item.trigger, e)
+        }
+      }))])
     }
   }
 

@@ -5,6 +5,16 @@ import { logAiUsage } from '@/lib/openai/usage-log'
 import { buildStoreContextPrompt } from '@/lib/shopify/sync'
 
 /**
+ * ⚠️ Generation longue (analyse boutique + system_prompt >= 500 mots).
+ *
+ * Sans `maxDuration`, la plateforme coupait la requete avant la fin : le client
+ * recevait un 502 et l'onboarding affichait « Generation didn't complete ».
+ * `maxRetries: 3` x 60 s pouvait en plus cumuler jusqu'a 3 minutes — on ramene
+ * a 1 nouvelle tentative, dans une enveloppe qui tient dans la limite.
+ */
+export const maxDuration = 60
+
+/**
  * POST /api/agents/onboard
  *
  * Onboarding e-commerce PRÉ-REMPLI : génère une config d'agent SAV à partir de
@@ -143,7 +153,7 @@ ${objectivesText}
 
 Génère la config de l'agent pour CETTE boutique.`
 
-  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY!, maxRetries: 3, timeout: 60_000 })
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY!, maxRetries: 1, timeout: 45_000 })
   const started = Date.now()
   try {
     const res = await openai.chat.completions.create({
