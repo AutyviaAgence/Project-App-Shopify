@@ -4,6 +4,7 @@ import React, { useState } from 'react'
 import { AnimatePresence, motion, useMotionTemplate, useMotionValue, type Variants } from 'framer-motion'
 import { ArrowRight, Check, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTranslation } from '@/i18n/context'
 
 const NOISE_PATTERN =
   'url("data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.8%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E")'
@@ -200,8 +201,11 @@ function PricingCard({
 }
 
 export function PricingGlass({
-  title = 'Choisissez votre formule',
-  description = 'Vous pourrez changer de plan à tout moment.',
+  // ⚠️ Defauts resolus DANS le composant, pas dans la signature : une valeur
+  // par defaut litterale ne peut pas etre traduite (elle est evaluee avant que
+  // le hook i18n existe) et la grille restait francaise en interface anglaise.
+  title,
+  description,
   tiers,
   className,
   currency = '€',
@@ -209,6 +213,9 @@ export function PricingGlass({
   onSelect,
   loadingTierId,
 }: PricingGlassProps) {
+  const { t } = useTranslation()
+  const heading = title ?? t('pricing.default_title')
+  const subheading = description ?? t('pricing.default_description')
   const [isAnnual, setIsAnnual] = useState(false)
   const busy = Boolean(loadingTierId)
 
@@ -231,10 +238,10 @@ export function PricingGlass({
       <div className="relative z-20 flex w-full flex-col items-center gap-8">
         <div className="space-y-3 px-4 text-center">
           <motion.h2 variants={legoVariant} className="text-3xl font-bold tracking-tight text-foreground md:text-4xl">
-            {title}
+            {heading}
           </motion.h2>
           <motion.p variants={legoVariant} className="mx-auto max-w-2xl text-base text-muted-foreground md:text-lg">
-            {description}
+            {subheading}
           </motion.p>
         </div>
 
@@ -250,7 +257,7 @@ export function PricingGlass({
                 !isAnnual ? 'text-foreground' : 'text-muted-foreground hover:text-foreground/80',
               )}
             >
-              Mensuel
+              {t('pricing.monthly')}
             </button>
             <button
               onClick={() => setIsAnnual(true)}
@@ -259,7 +266,7 @@ export function PricingGlass({
                 isAnnual ? 'text-foreground' : 'text-muted-foreground hover:text-foreground/80',
               )}
             >
-              Annuel
+              {t('pricing.annual')}
               <span className="absolute -right-3 -top-3 rounded-full bg-primary px-2 py-1 text-[10px] font-bold tracking-wider text-primary-foreground shadow-lg md:-right-6">
                 -20%
               </span>

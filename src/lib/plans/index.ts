@@ -55,6 +55,14 @@ export type PlanDef = {
    */
   maxAutomations: number
   features: string[]
+  /**
+   * Mêmes fonctionnalités, en CLÉS i18n + paramètres — l'UI DOIT passer par là.
+   *
+   * `features` reste en français : il sert hors composant (comparatifs, docs).
+   * Affiché tel quel, il donnait une grille de prix française dans une
+   * interface anglaise.
+   */
+  featureKeys: { key: string; n?: number }[]
 }
 
 export const PLANS: Record<PlanId, PlanDef> = {
@@ -72,6 +80,9 @@ export const PLANS: Record<PlanId, PlanDef> = {
       'Onboarding assisté',
       'Modèles WhatsApp',
     ],
+    // `free` est une SENTINELLE interne (« aucun abonnement actif »), jamais
+    // affichée dans l'UI : pas de clés i18n à prévoir.
+    featureKeys: [],
   },
   starter: {
     id: 'starter',
@@ -90,6 +101,16 @@ export const PLANS: Record<PlanId, PlanDef> = {
       'Modèles de messages illimités',
       'Widget de chat + popup',
       'Tableau de bord de performance',
+    ],
+    featureKeys: [
+      { key: 'plan_features.ai_conversations', n: 550 },
+      { key: 'plan_features.agents', n: 1 },
+      { key: 'plan_features.automations', n: 15 },
+      { key: 'plan_features.unlimited_sends' },
+      { key: 'plan_features.unlimited_conversations' },
+      { key: 'plan_features.unlimited_templates' },
+      { key: 'plan_features.chat_widget' },
+      { key: 'plan_features.performance_dashboard' },
     ],
   },
   pro: {
@@ -110,6 +131,17 @@ export const PLANS: Record<PlanId, PlanDef> = {
       'Aide à l’installation',
       'Widget de chat + popup',
       'Tableau de bord de performance',
+    ],
+    featureKeys: [
+      { key: 'plan_features.ai_conversations', n: 1800 },
+      { key: 'plan_features.agents_plural', n: 5 },
+      { key: 'plan_features.automations', n: 50 },
+      { key: 'plan_features.unlimited_sends' },
+      { key: 'plan_features.unlimited_conversations' },
+      { key: 'plan_features.unlimited_templates' },
+      { key: 'plan_features.install_help' },
+      { key: 'plan_features.chat_widget' },
+      { key: 'plan_features.performance_dashboard' },
     ],
   },
   scale: {
@@ -133,6 +165,19 @@ export const PLANS: Record<PlanId, PlanDef> = {
       'Copywriting de vos campagnes',
       'Widget de chat + popup',
       'Tableau de bord de performance',
+    ],
+    featureKeys: [
+      { key: 'plan_features.ai_conversations', n: 4500 },
+      { key: 'plan_features.agents_plural', n: 20 },
+      { key: 'plan_features.automations', n: 200 },
+      { key: 'plan_features.unlimited_sends' },
+      { key: 'plan_features.unlimited_conversations' },
+      { key: 'plan_features.unlimited_templates' },
+      { key: 'plan_features.install_help' },
+      { key: 'plan_features.priority_support' },
+      { key: 'plan_features.campaign_copywriting' },
+      { key: 'plan_features.chat_widget' },
+      { key: 'plan_features.performance_dashboard' },
     ],
   },
 }

@@ -3399,5 +3399,25 @@
   },
   "onboarding_feedback": {
     "next_step": "Étape suivante : {next}"
+  },
+  "plan_features": {
+    "ai_conversations": "{n} conversations IA / mois",
+    "agents": "{n} agent IA",
+    "agents_plural": "{n} agents IA",
+    "automations": "{n} automatisations (campagnes + transactionnel)",
+    "unlimited_sends": "Envois de messages illimités",
+    "unlimited_conversations": "Conversations illimitées",
+    "unlimited_templates": "Modèles de messages illimités",
+    "install_help": "Aide à l'installation",
+    "priority_support": "Support prioritaire",
+    "campaign_copywriting": "Copywriting de vos campagnes",
+    "chat_widget": "Widget de chat + popup",
+    "performance_dashboard": "Tableau de bord de performance"
+  },
+  "pricing": {
+    "monthly": "Mensuel",
+    "annual": "Annuel",
+    "default_title": "Choisissez votre formule",
+    "default_description": "Vous pourrez changer de plan à tout moment."
   }
 }

@@ -159,7 +159,8 @@ export default function OnboardingPage() {
       priceAnnual: String(Math.round(p.priceEur * (1 - ANNUAL_DISCOUNT))),
       description: t(PLAN_DESC_KEY[p.id] ?? ''),
       isPopular: p.id === 'pro',
-      features: p.features,
+      // Libellés résolus AU RENDU : `p.features` est le français brut.
+      features: p.featureKeys.map((f) => t(f.key, f.n !== undefined ? { n: f.n.toLocaleString(locale === 'en' ? 'en-US' : 'fr-FR') } : undefined)),
       cta: t('wizard.onboarding.choose_this_plan'),
     }
   })

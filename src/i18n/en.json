@@ -3399,5 +3399,25 @@
   },
   "onboarding_feedback": {
     "next_step": "Next step: {next}"
+  },
+  "plan_features": {
+    "ai_conversations": "{n} AI conversations / month",
+    "agents": "{n} AI agent",
+    "agents_plural": "{n} AI agents",
+    "automations": "{n} automations (campaigns + transactional)",
+    "unlimited_sends": "Unlimited message sends",
+    "unlimited_conversations": "Unlimited conversations",
+    "unlimited_templates": "Unlimited message templates",
+    "install_help": "Setup assistance",
+    "priority_support": "Priority support",
+    "campaign_copywriting": "Copywriting for your campaigns",
+    "chat_widget": "Chat widget + popup",
+    "performance_dashboard": "Performance dashboard"
+  },
+  "pricing": {
+    "monthly": "Monthly",
+    "annual": "Annual",
+    "default_title": "Choose your plan",
+    "default_description": "You can switch plans at any time."
   }
 }
