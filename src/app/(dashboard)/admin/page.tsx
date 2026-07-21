@@ -1361,6 +1361,8 @@ function ConfigDetails({ config }: { config: OnboardingConfig }) {
 function AffiliateTab() {
   const [codes, setCodes] = useState<any[]>([])
   const [conversions, setConversions] = useState<any[]>([])
+  // Tri des commissions : « date » (défaut) ou « code » (regroupe par partenaire).
+  const [commissionSort, setCommissionSort] = useState<'date' | 'code'>('date')
   const [loading, setLoading] = useState(true)
   // ⚠️ `contact_email` est ce qui RATTACHE le code à un compte Xeyo. Sans lui, le
   // partenaire reste orphelin et ne voit jamais ses commissions — c'était
@@ -1508,6 +1510,26 @@ function AffiliateTab() {
   if (loading) return <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
 
   const pending = conversions.filter((c: any) => c.status === 'pending')
+
+  // ── Toutes les commissions, triables — pas seulement les « en attente » ──
+  //
+  // Une commission payée disparaissait de l'écran : impossible de vérifier
+  // ce qu'on avait déjà versé. On les garde toutes ; « Payé » est un état
+  // visible, pas une suppression.
+  //
+  // Tri : par CODE (regroupe les commissions d'un même partenaire), sinon par
+  // date. Les « en attente » remontent en tête à date/code égal — ce sont
+  // celles sur lesquelles il faut agir.
+  const codeOf = (c: any) => c.attribution?.code?.code || ''
+  const sortedConversions = [...conversions].sort((a: any, b: any) => {
+    if (commissionSort === 'code') {
+      const byCode = codeOf(a).localeCompare(codeOf(b), 'fr')
+      if (byCode !== 0) return byCode
+    }
+    // À code égal (ou tri par date) : en attente d'abord, puis plus récent.
+    if (a.status !== b.status) return a.status === 'pending' ? -1 : 1
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+  })
 
   return (
     <div className="space-y-8">
@@ -1665,10 +1687,22 @@ function AffiliateTab() {
       </div>
 
       <div>
-        <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
-          <Clock className="h-5 w-5 text-amber-500" />
-          Commissions en attente ({pending.length})
-        </h2>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-lg font-semibold flex items-center gap-2">
+            <Clock className="h-5 w-5 text-amber-500" />
+            Commissions ({conversions.length})
+            {pending.length > 0 && (
+              <span className="text-sm font-normal text-amber-600">· {pending.length} à verser</span>
+            )}
+          </h2>
+          <Select value={commissionSort} onValueChange={v => setCommissionSort(v as 'date' | 'code')}>
+            <SelectTrigger className="h-9 w-48 text-sm"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="date">Plus récentes</SelectItem>
+              <SelectItem value="code">Par code (partenaire)</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         <div className="rounded-xl border overflow-hidden">
           <table className="w-full text-sm">
             <thead className="border-b bg-muted/30">
@@ -1678,6 +1712,7 @@ function AffiliateTab() {
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Code</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Payé par le client</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Commission</th>
+                <th className="px-4 py-3 text-left font-medium text-muted-foreground">Statut</th>
                 <th className="px-4 py-3 text-left font-medium text-muted-foreground">Actions</th>
               </tr>
             </thead>
@@ -1686,8 +1721,10 @@ function AffiliateTab() {
                   bénéficiaire est le PARTENAIRE, et le code qui l'a générée vient de
                   l'attribution. On n'affiche plus l'identité du client converti — un
                   partenaire n'a pas à connaître les clients de la plateforme. */}
-              {pending.map((conv: any) => (
-                <tr key={conv.id} className="hover:bg-muted/20">
+              {sortedConversions.map((conv: any) => {
+                const isPaid = conv.status === 'paid'
+                return (
+                <tr key={conv.id} className={cn('hover:bg-muted/20', isPaid && 'opacity-70')}>
                   <td className="px-4 py-3">
                     <p className="font-medium">
                       {conv.beneficiary?.full_name || conv.beneficiary?.email || '—'}
@@ -1704,20 +1741,39 @@ function AffiliateTab() {
                   <td className="px-4 py-3 font-mono">{conv.attribution?.code?.code || '—'}</td>
                   <td className="px-4 py-3">{((conv.base_amount_cents || 0) / 100).toFixed(2)} €</td>
                   <td className="px-4 py-3 font-semibold text-primary">{((conv.amount_cents || 0) / 100).toFixed(2)} €</td>
+                  {/* STATUT — une commission payée RESTE visible, marquée « Payé ». */}
                   <td className="px-4 py-3">
-                    <div className="flex gap-2">
-                      <Button size="sm" variant="outline" disabled={!!paying} onClick={() => handleMarkPaid(conv.id, 'transfer')}>
-                        {paying === conv.id ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Virement'}
-                      </Button>
-                      <Button size="sm" variant="outline" disabled={!!paying} onClick={() => handleMarkPaid(conv.id, 'credit')}>
-                        Crédit plateforme
-                      </Button>
-                    </div>
+                    {isPaid ? (
+                      <div className="space-y-0.5">
+                        <Badge className="bg-green-500/15 text-green-600 text-xs">Payé</Badge>
+                        <p className="text-[11px] text-muted-foreground">
+                          {conv.payout_method === 'credit' ? 'Crédit plateforme' : 'Virement'}
+                          {conv.paid_at && ` · ${new Date(conv.paid_at).toLocaleDateString('fr-FR')}`}
+                        </p>
+                      </div>
+                    ) : (
+                      <Badge className="bg-amber-500/15 text-amber-600 text-xs">À verser</Badge>
+                    )}
+                  </td>
+                  <td className="px-4 py-3">
+                    {isPaid ? (
+                      <span className="text-xs text-muted-foreground">—</span>
+                    ) : (
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" disabled={!!paying} onClick={() => handleMarkPaid(conv.id, 'transfer')}>
+                          {paying === conv.id ? <Loader2 className="h-3 w-3 animate-spin" /> : 'Virement'}
+                        </Button>
+                        <Button size="sm" variant="outline" disabled={!!paying} onClick={() => handleMarkPaid(conv.id, 'credit')}>
+                          Crédit plateforme
+                        </Button>
+                      </div>
+                    )}
                   </td>
                 </tr>
-              ))}
-              {pending.length === 0 && (
-                <tr><td colSpan={6} className="px-4 py-8 text-center text-muted-foreground text-sm">Aucune commission en attente</td></tr>
+                )
+              })}
+              {conversions.length === 0 && (
+                <tr><td colSpan={7} className="px-4 py-8 text-center text-muted-foreground text-sm">Aucune commission pour l’instant</td></tr>
               )}
             </tbody>
           </table>
