@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import dynamic from 'next/dynamic'
-import { Timeline } from './timeline'
+import { Timeline, localizedTemplate } from './timeline'
 import { insertAfter, removeNode, patchNode as patchNodeGraph, addVariant, removeVariant, moveBranch } from './timeline-model'
 import { PhonePreview } from '@/components/automations/phone-preview'
 import { cn } from '@/lib/utils'
@@ -219,7 +219,7 @@ export function WorkflowBuilder({
   /** Rechargé après édition d'un modèle (ajout de boutons → resoumission Meta). */
   onTemplatesChanged?: () => void
 }) {
-  const { t } = useTranslation()
+  const { t, locale } = useTranslation()
   // Dernier modèle choisi → alimente l'aperçu téléphone.
   const [previewTplId, setPreviewTplId] = useState<string | null>(null)
 
@@ -251,7 +251,16 @@ export function WorkflowBuilder({
   // Modèle à prévisualiser : le dernier sélectionné, sinon le 1er nœud action.
   const firstAction = graph.nodes.find((n) => n.type === 'action' && n.templateId)
   const previewId = previewTplId || (firstAction?.type === 'action' ? firstAction.templateId : null)
-  const previewTpl = templates.find((t) => t.id === previewId)
+  // ⚠️ APERÇU DANS LA LANGUE DU MARCHAND — via le MÊME helper que la timeline.
+  //
+  // Un `templates.find(t => t.id === previewId)` brut renvoyait la ligne
+  // RÉFÉRENCÉE PAR LE NŒUD, donc le français, même avec l'interface en anglais :
+  // ce chemin de rendu (l'aperçu téléphone) contournait entièrement la
+  // localisation appliquée dans timeline.tsx.
+  //
+  // Rappel : ceci ne change QUE l'aperçu. L'envoi réel choisit toujours la
+  // variante selon la langue du CLIENT, pas celle du marchand.
+  const previewTpl = localizedTemplate(templates, previewId, locale) || undefined
 
   // Contexte réel du chemin menant à ce message : événement déclencheur,
   // délai cumulé, et condition rencontrée (pour la bulle système du mockup).

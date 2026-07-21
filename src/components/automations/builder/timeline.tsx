@@ -123,7 +123,7 @@ import type { WhatsAppTemplate, TemplateButton } from '@/types/database'
  * l'automatisation référençait la ligne FR — alors que la version EN existe
  * sous le même nom.
  */
-function localizedTemplate(
+export function localizedTemplate(
   templates: WhatsAppTemplate[],
   templateId: string | undefined | null,
   locale: string
