@@ -49,7 +49,16 @@ export async function POST(req: NextRequest) {
     .from('profiles').select('onboarding_pack').eq('id', user.id).maybeSingle()
   // Un cache d'une VERSION antérieure (généré avant les boutons/le carrousel)
   // est ignoré et régénéré, sinon les nouveautés n'apparaîtraient jamais.
-  if (profile?.onboarding_pack && profile.onboarding_pack.version === PACK_VERSION && !body.refresh) {
+  //
+  // ⚠️ LA LANGUE FAIT PARTIE DE LA CLE DE CACHE.
+  //
+  // Sans ce test, un pack genere en francais etait resservi tel quel a un
+  // marchand passe en anglais : la generation ne tournait meme pas, et aucune
+  // consigne de langue dans le prompt ne pouvait y changer quoi que ce soit.
+  const cachedLang = profile?.onboarding_pack?.language || 'fr'
+  const wantLang = merchantEn ? 'en' : 'fr'
+  if (profile?.onboarding_pack && profile.onboarding_pack.version === PACK_VERSION
+      && cachedLang === wantLang && !body.refresh) {
     return NextResponse.json({ data: profile.onboarding_pack, cached: true })
   }
 
