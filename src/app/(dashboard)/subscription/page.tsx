@@ -147,6 +147,25 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
   // (checkout, changement de plan, packs, portail) sont masqués/redirigés.
   const shopifyBilled = subscription?.shopifyBilled === true
   const shopDomain = subscription?.shopDomain ?? null
+
+  /**
+   * Ouvre l'app DANS l'admin Shopify — pas la page de facturation Shopify.
+   *
+   * C'est de là que le marchand gère son abonnement (approuve un changement,
+   * annule), au même endroit que le retour du callback de facturation.
+   * `/admin/settings/billing` menait aux factures brutes de Shopify, hors de
+   * l'app.
+   *
+   * ⚠️ Le nom de boutique est DÉRIVÉ de `shopDomain`, jamais codé en dur —
+   * sinon tous les marchands atterriraient dans la même boutique. Le handle, lui,
+   * appartient à l'app (surchargeable via NEXT_PUBLIC_SHOPIFY_APP_HANDLE).
+   */
+  const openShopifyApp = () => {
+    if (!shopDomain) return
+    const storeName = shopDomain.replace(/\.myshopify\.com$/i, '')
+    const handle = process.env.NEXT_PUBLIC_SHOPIFY_APP_HANDLE || 'xeyo-whatsapp-support-chat-1'
+    window.open(`https://admin.shopify.com/store/${storeName}/apps/${handle}/shopify`, '_blank', 'noopener')
+  }
   const [isProcessing, setIsProcessing] = useState(false)
   const [isCancelling, setIsCancelling] = useState(false)
   const [selectedPlan, setSelectedPlan] = useState<PlanId | null>(null)
@@ -756,11 +775,7 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
                   <Button
                     variant="outline"
                     className="shrink-0"
-                    onClick={() => {
-                      const domain = subscription?.shopDomain
-                      if (!domain) return
-                      window.open(`https://${domain}/admin/settings/billing`, '_blank', 'noopener')
-                    }}
+                    onClick={openShopifyApp}
                   >
                     <CreditCard className="mr-2 h-4 w-4" />
                     {t('subscription.sub_open_shopify')}
@@ -796,11 +811,7 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
                   variant="outline"
                   size="sm"
                   className="shrink-0"
-                  onClick={() => {
-                    const domain = subscription?.shopDomain
-                    if (!domain) return
-                    window.open(`https://${domain}/admin/settings/billing`, '_blank', 'noopener')
-                  }}
+                  onClick={openShopifyApp}
                 >
                   <CreditCard className="mr-2 h-4 w-4" />
                   {t('subscription.sub_open_shopify')}
