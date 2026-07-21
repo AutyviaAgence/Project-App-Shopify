@@ -883,12 +883,20 @@ export default function TemplatesPage() {
       return acc
     }, {} as Record<string, WhatsAppTemplate[]>)
   ).map((rows) => {
-    // Ligne "principale" = la langue source si connue, sinon 'fr', sinon la 1re.
+    // ⚠️ LA LANGUE DU MARCHAND PRIME SUR LA LANGUE SOURCE.
+    //
+    // Chaque modèle existe en plusieurs langues sous le MÊME nom (fr + en…).
+    // On affichait la version « source » d'abord — or elle vaut 'fr' sur les
+    // modèles créés en français : un marchand anglophone voyait donc le
+    // français alors que l'équivalent anglais existait déjà.
+    //
+    // Ordre : langue de l'app → langue source → français → première ligne.
     const src = rows.find((r) => r.source_language && r.language === r.source_language)
-    // Modèle « principal » affiché : la langue SOURCE d'abord, sinon celle de
-    // l'app (anglais pour un marchand anglophone), et le français en dernier
-    // recours pour ne pas casser l'existant.
-    const main = src || rows.find((r) => r.language === preferredLang) || rows.find((r) => r.language === 'fr') || rows[0]
+    const main =
+      rows.find((r) => r.language === preferredLang) ||
+      src ||
+      rows.find((r) => r.language === 'fr') ||
+      rows[0]
     // Statut affiché = le plus faible (si une langue est en draft, le groupe l'est).
     const worst = rows.reduce((w, r) => {
       const s = effectiveStatus(r)
