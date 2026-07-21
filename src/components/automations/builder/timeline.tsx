@@ -458,7 +458,7 @@ function TriggerBlock({ node, onPatch, kind }: { node: WorkflowNode; onPatch: (i
       {TRIGGER_CAVEATS[node.event] && (
         <p className="mt-1.5 flex gap-1.5 rounded-lg bg-amber-500/10 p-2 text-[11px] text-amber-600">
           <AlertTriangle className="mt-px h-3 w-3 shrink-0" />
-          <span>{TRIGGER_CAVEATS[node.event]}</span>
+          <span>{t(TRIGGER_CAVEATS[node.event]!)}</span>
         </p>
       )}
 

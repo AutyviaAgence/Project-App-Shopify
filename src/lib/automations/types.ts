@@ -29,16 +29,12 @@ export type TriggerEvent =
  * Sans ça, le marchand construit une automatisation, ne voit rien partir, et
  * conclut logiquement à un bug de Xeyo. C'est arrivé sur les deux ci-dessous.
  */
+// Clés i18n des avertissements — le texte est dans automations.trigger.*.
+// (Ce ne sont QUE des clés d'affichage : contrairement à label/description,
+// TRIGGER_CAVEATS n'est pas lu côté serveur, donc rien à préserver en dur.)
 export const TRIGGER_CAVEATS: Partial<Record<TriggerEvent, string>> = {
-  // `fulfillment_events/create` (status='delivered') est émis quand le
-  // TRANSPORTEUR confirme la livraison à Shopify. Beaucoup ne le font pas — et
-  // sur une boutique de test, ça n'arrive à peu près jamais.
-  order_delivered:
-    'Dépend de votre transporteur : beaucoup ne transmettent pas la livraison à Shopify, et ce déclencheur ne part alors jamais. Pour un envoi fiable, préférez « Commande expédiée ».',
-  // Shopify n'émet `orders/paid` qu'au paiement CAPTURÉ. Une commande créée à la
-  // main dans l'admin reste en « Paiement en attente » → l'événement ne part pas.
-  order_paid:
-    'Se déclenche au paiement encaissé. Une commande créée à la main dans l’admin Shopify reste « en attente de paiement » : elle ne déclenchera pas ce message.',
+  order_delivered: 'automations.trigger.order_delivered_caveat',
+  order_paid: 'automations.trigger.order_paid_caveat',
 }
 
 /**

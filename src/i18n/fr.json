@@ -1893,7 +1893,9 @@
       "scheduled_date_label": "Date précise",
       "scheduled_date_desc": "À une date/heure choisie (campagne planifiée).",
       "customer_birthday_label": "Anniversaire client",
-      "customer_birthday_desc": "Le jour de l’anniversaire du client (si connu)."
+      "customer_birthday_desc": "Le jour de l’anniversaire du client (si connu).",
+      "order_delivered_caveat": "Dépend de votre transporteur : beaucoup ne transmettent pas la livraison à Shopify, et ce déclencheur ne part alors jamais. Pour un envoi fiable, préférez « Commande expédiée ».",
+      "order_paid_caveat": "Se déclenche au paiement encaissé. Une commande créée à la main dans l’admin Shopify reste « en attente de paiement » : elle ne déclenchera pas ce message."
     }
   },
   "stats": {
@@ -2254,7 +2256,9 @@
     "sub_feat_priority_support": "Support prioritaire",
     "sub_feat_chat_widget": "Widget de chat + popup",
     "sub_feat_perf_dashboard": "Tableau de bord de performance",
-    "sub_feat_campaign_copywriting": "Copywriting de vos campagnes"
+    "sub_feat_campaign_copywriting": "Copywriting de vos campagnes",
+    "sub_cancelled_notice": "Abonnement résilié. Vous gardez l’accès jusqu’au",
+    "sub_resubscribe_below": "Choisissez un plan ci-dessous pour reprendre."
   },
   "auth": {
     "brand_headline_1": "Le support client e-commerce,",

@@ -1893,7 +1893,9 @@
       "scheduled_date_label": "Specific date",
       "scheduled_date_desc": "At a chosen date/time (scheduled campaign).",
       "customer_birthday_label": "Customer birthday",
-      "customer_birthday_desc": "On the customer’s birthday (if known)."
+      "customer_birthday_desc": "On the customer’s birthday (if known).",
+      "order_delivered_caveat": "Depends on your carrier: many don’t report delivery to Shopify, so this trigger may never fire. For reliable sending, prefer “Order shipped”.",
+      "order_paid_caveat": "Fires on captured payment. An order created manually in the Shopify admin stays “payment pending” and won’t trigger this message."
     }
   },
   "stats": {
@@ -2254,7 +2256,9 @@
     "sub_feat_priority_support": "Priority support",
     "sub_feat_chat_widget": "Chat widget + popup",
     "sub_feat_perf_dashboard": "Performance dashboard",
-    "sub_feat_campaign_copywriting": "Copywriting for your campaigns"
+    "sub_feat_campaign_copywriting": "Copywriting for your campaigns",
+    "sub_cancelled_notice": "Subscription cancelled. You keep access until",
+    "sub_resubscribe_below": "Pick a plan below to resume."
   },
   "auth": {
     "brand_headline_1": "E-commerce customer support,",

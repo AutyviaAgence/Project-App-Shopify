@@ -770,9 +770,31 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
               </>
             ) : null}
 
+            {/* DÉJÀ ANNULÉ : plus de bouton « Annuler » — on informe seulement de
+                la fin d'accès et on renvoie vers la reprise plus bas. Sans ce
+                cas, la carte proposait « Annuler l'abonnement » sur un
+                abonnement déjà résilié : action sans effet et message trompeur. */}
+            {shopifyBilled && isCancelled && (
+              <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
+                <Clock className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                <p className="text-xs leading-relaxed text-amber-800 dark:text-amber-200">
+                  {t('subscription.sub_cancelled_notice')}{' '}
+                  {subscription?.subscriptionEndsAt && (
+                    <span className="font-semibold">
+                      {subscription.subscriptionEndsAt.toLocaleDateString(locale === 'en' ? 'en-US' : 'fr-FR', {
+                        day: 'numeric', month: 'long', year: 'numeric',
+                      })}
+                    </span>
+                  )}
+                  . {t('subscription.sub_resubscribe_below')}
+                </p>
+              </div>
+            )}
+
             {/* Résiliation via la Billing API Shopify (requirement 1.2.3 : annuler
-                sans contacter le support). Facturation 100 % Shopify. */}
-            {shopifyBilled && (
+                sans contacter le support). Facturation 100 % Shopify.
+                Masqué si DÉJÀ annulé — cf. bloc ci-dessus. */}
+            {shopifyBilled && !isCancelled && (
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">{t('subscription.sub_danger_zone')}</p>
