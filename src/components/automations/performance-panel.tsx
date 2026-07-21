@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { X, Loader2, Send, Eye, MessageCircle, ShoppingBag, Trophy, Info, MousePointerClick, CheckCheck, AlertTriangle, FlaskConical } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTranslation } from '@/i18n/context'
 
 /**
  * Panneau PERFORMANCE d'une campagne/automatisation (slide-over droit).
@@ -33,6 +34,7 @@ type Perf = {
 const DAYS_OPTIONS = [7, 30, 90]
 
 export function PerformancePanel({ automationId, name, onClose }: { automationId: string; name: string; onClose: () => void }) {
+  const { t } = useTranslation()
   const [days, setDays] = useState(30)
   const [loading, setLoading] = useState(true)
   const [perf, setPerf] = useState<Perf | null>(null)
@@ -66,8 +68,8 @@ export function PerformancePanel({ automationId, name, onClose }: { automationId
         {/* Header */}
         <div className="flex items-center justify-between border-b px-5 py-4">
           <div className="min-w-0">
-            <h2 className="truncate text-lg font-semibold">Performance</h2>
-            <p className="truncate text-xs text-muted-foreground">{name || perf?.name || 'Automatisation'}</p>
+            <h2 className="truncate text-lg font-semibold">{t('automations.builder.perf_title')}</h2>
+            <p className="truncate text-xs text-muted-foreground">{name || perf?.name || t('automations.builder.perf_default_name')}</p>
           </div>
           <button onClick={onClose} className="rounded-lg p-1.5 text-muted-foreground transition-colors hover:bg-muted">
             <X className="h-5 w-5" />
@@ -76,7 +78,7 @@ export function PerformancePanel({ automationId, name, onClose }: { automationId
 
         {/* Sélecteur de période */}
         <div className="flex items-center gap-1.5 border-b px-5 py-2.5">
-          <span className="mr-1 text-xs text-muted-foreground">Période :</span>
+          <span className="mr-1 text-xs text-muted-foreground">{t('automations.builder.perf_period')}</span>
           {DAYS_OPTIONS.map((d) => (
             <button
               key={d}
@@ -85,7 +87,7 @@ export function PerformancePanel({ automationId, name, onClose }: { automationId
                 'rounded-full px-2.5 py-1 text-xs font-medium transition-colors',
                 days === d ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:bg-muted'
               )}
-            >{d} j</button>
+            >{t('automations.builder.perf_days', { count: d })}</button>
           ))}
         </div>
 
@@ -94,11 +96,11 @@ export function PerformancePanel({ automationId, name, onClose }: { automationId
           {loading ? (
             <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
           ) : !perf ? (
-            <p className="py-16 text-center text-sm text-muted-foreground">Aucune donnée pour cette période.</p>
+            <p className="py-16 text-center text-sm text-muted-foreground">{t('automations.builder.perf_no_data_period')}</p>
           ) : perf.funnel.sent === 0 ? (
             <div className="py-16 text-center">
-              <p className="text-sm font-medium">Pas encore d&apos;envois</p>
-              <p className="mt-1 text-xs text-muted-foreground">Les chiffres apparaîtront dès les premiers envois de cette automatisation.</p>
+              <p className="text-sm font-medium">{t('automations.builder.perf_no_sends_yet')}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{t('automations.builder.perf_no_sends_desc')}</p>
             </div>
           ) : (
             <div className="space-y-6">
@@ -106,7 +108,7 @@ export function PerformancePanel({ automationId, name, onClose }: { automationId
               {perf.revenue && perf.revenue.orders > 0 && (
                 <div className="rounded-xl border border-green-500/30 bg-gradient-to-br from-green-500/10 to-emerald-500/5 p-4">
                   <div className="flex items-center gap-1.5 text-xs font-medium text-green-700 dark:text-green-400">
-                    <ShoppingBag className="h-4 w-4" /> CA généré (attribué)
+                    <ShoppingBag className="h-4 w-4" /> {t('automations.builder.perf_revenue_generated')}
                   </div>
                   <div className="mt-1 flex items-baseline gap-2">
                     <span className="text-3xl font-bold tabular-nums text-green-700 dark:text-green-400">
@@ -115,33 +117,37 @@ export function PerformancePanel({ automationId, name, onClose }: { automationId
                     <span className="text-lg font-semibold text-green-700/70 dark:text-green-400/70">{perf.revenue.currency || '€'}</span>
                   </div>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    {perf.revenue.orders} commande{perf.revenue.orders > 1 ? 's' : ''} attribuée{perf.revenue.orders > 1 ? 's' : ''} sur {perf.days} j
+                    {perf.revenue.orders > 1
+                      ? t('automations.builder.perf_orders_attributed_plural', { count: perf.revenue.orders, days: perf.days })
+                      : t('automations.builder.perf_orders_attributed', { count: perf.revenue.orders, days: perf.days })}
                   </p>
                 </div>
               )}
 
               {/* FUNNEL UNIFIÉ — un seul entonnoir clair, à l'échelle des contacts. */}
               <section>
-                <h3 className="mb-2 text-sm font-semibold">Parcours des contacts</h3>
+                <h3 className="mb-2 text-sm font-semibold">{t('automations.builder.perf_contact_journey')}</h3>
                 <div className="space-y-1.5">
-                  <FunnelRow label="Envoyés" value={perf.unified.sent} pct={100} icon={<Send className="h-4 w-4" />} tone="#64748b" />
+                  <FunnelRow label={t('automations.builder.perf_sent')} value={perf.unified.sent} pct={100} icon={<Send className="h-4 w-4" />} tone="#64748b" />
                   {perf.unified.hasDelivery && (
-                    <FunnelRow label="Livrés" value={perf.unified.delivered} pct={perf.unified.deliveredRate} icon={<CheckCheck className="h-4 w-4" />} tone="#0ea5e9" />
+                    <FunnelRow label={t('automations.builder.perf_delivered')} value={perf.unified.delivered} pct={perf.unified.deliveredRate} icon={<CheckCheck className="h-4 w-4" />} tone="#0ea5e9" />
                   )}
-                  <FunnelRow label="Lus" value={perf.unified.read} pct={perf.unified.readRate} icon={<Eye className="h-4 w-4" />} tone="#8b5cf6" />
-                  <FunnelRow label="Ont répondu" value={perf.unified.responded} pct={perf.unified.responseRate} icon={<MessageCircle className="h-4 w-4" />} tone="#a855f7" />
-                  <FunnelRow label="Ventes" value={perf.unified.ordered} pct={perf.unified.orderRate} icon={<ShoppingBag className="h-4 w-4" />} tone="#22c55e" />
+                  <FunnelRow label={t('automations.builder.perf_read')} value={perf.unified.read} pct={perf.unified.readRate} icon={<Eye className="h-4 w-4" />} tone="#8b5cf6" />
+                  <FunnelRow label={t('automations.builder.perf_responded')} value={perf.unified.responded} pct={perf.unified.responseRate} icon={<MessageCircle className="h-4 w-4" />} tone="#a855f7" />
+                  <FunnelRow label={t('automations.builder.perf_sales')} value={perf.unified.ordered} pct={perf.unified.orderRate} icon={<ShoppingBag className="h-4 w-4" />} tone="#22c55e" />
                 </div>
                 {perf.unified.failed > 0 && (
                   <p className="mt-1.5 flex items-center gap-1 text-[12px] text-rose-600">
-                    <AlertTriangle className="h-3.5 w-3.5" /> {perf.unified.failed} échec{perf.unified.failed > 1 ? 's' : ''} de livraison
+                    <AlertTriangle className="h-3.5 w-3.5" /> {perf.unified.failed > 1
+                      ? t('automations.builder.perf_delivery_failures_plural', { count: perf.unified.failed })
+                      : t('automations.builder.perf_delivery_failures', { count: perf.unified.failed })}
                   </p>
                 )}
                 <p className="mt-1.5 flex items-start gap-1 text-[11px] text-muted-foreground">
                   <Info className="mt-0.5 h-3 w-3 shrink-0" />
                   {perf.unified.hasDelivery
-                    ? 'Livrés / lus : accusés Meta réels. Réponses et ventes : attribuées par contact.'
-                    : 'Ouvertures, réponses et ventes attribuées par contact (approximation).'}
+                    ? t('automations.builder.perf_note_with_delivery')
+                    : t('automations.builder.perf_note_without_delivery')}
                 </p>
               </section>
 
@@ -149,22 +155,24 @@ export function PerformancePanel({ automationId, name, onClose }: { automationId
               {perf.buttonClicks.total > 0 && (
                 <section>
                   <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold">
-                    <MousePointerClick className="h-4 w-4" /> Détail par réponse (bouton)
+                    <MousePointerClick className="h-4 w-4" /> {t('automations.builder.perf_detail_by_button')}
                   </h3>
                   <div className="space-y-2.5">
                     {perf.buttonClicks.branches.map((b) => (
                       <div key={b.label} className="rounded-lg border p-2.5">
                         <div className="mb-1 flex items-center justify-between text-sm">
                           <span className="font-semibold">« {b.label} »</span>
-                          <span className="text-xs text-muted-foreground">{b.count} clic{b.count > 1 ? 's' : ''} · {b.rate}% des clics</span>
+                          <span className="text-xs text-muted-foreground">{b.count > 1
+                            ? t('automations.builder.perf_clicks_of_clicks_plural', { count: b.count, rate: b.rate })
+                            : t('automations.builder.perf_clicks_of_clicks', { count: b.count, rate: b.rate })}</span>
                         </div>
                         <div className="mb-1.5 h-2 overflow-hidden rounded-full bg-muted">
                           <div className="h-full rounded-full bg-primary" style={{ width: `${b.rate}%` }} />
                         </div>
                         <div className="grid grid-cols-3 gap-1.5 text-center">
-                          <MiniStat label="Clics" value={String(b.count)} />
-                          <MiniStat label="Répondu" value={String(b.responded)} sub={`${b.count ? Math.round(b.responded / b.count * 100) : 0}%`} />
-                          <MiniStat label="Ventes" value={String(b.ordered)} sub={`${b.orderRate}%`} />
+                          <MiniStat label={t('automations.builder.perf_clicks')} value={String(b.count)} />
+                          <MiniStat label={t('automations.builder.perf_replied')} value={String(b.responded)} sub={`${b.count ? Math.round(b.responded / b.count * 100) : 0}%`} />
+                          <MiniStat label={t('automations.builder.perf_sales')} value={String(b.ordered)} sub={`${b.orderRate}%`} />
                         </div>
                       </div>
                     ))}
@@ -186,20 +194,20 @@ export function PerformancePanel({ automationId, name, onClose }: { automationId
                           <div className="mb-1.5 flex items-center justify-between gap-2">
                             <span className="flex min-w-0 items-center gap-1.5 text-sm font-semibold">
                               <span className="truncate">{v.label}</span>
-                              {isWinner && <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-green-500/15 px-1.5 py-0.5 text-[10px] font-medium text-green-600"><Trophy className="h-3 w-3" /> Gagnant</span>}
+                              {isWinner && <span className="flex shrink-0 items-center gap-0.5 rounded-full bg-green-500/15 px-1.5 py-0.5 text-[10px] font-medium text-green-600"><Trophy className="h-3 w-3" /> {t('automations.builder.winner')}</span>}
                             </span>
-                            <span className="shrink-0 text-xs font-medium text-muted-foreground">{v.sent} envoyés</span>
+                            <span className="shrink-0 text-xs font-medium text-muted-foreground">{t('automations.builder.perf_variant_sent', { count: v.sent })}</span>
                           </div>
                           <div className="grid grid-cols-3 gap-1.5 text-center">
-                            <MiniStat label="Ouverts" value={String(v.opened)} sub={`${v.openRate}%`} />
-                            <MiniStat label="Répondu" value={String(v.responded)} sub={`${v.responseRate}%`} />
-                            <MiniStat label="Ventes" value={String(v.ordered)} sub={`${v.orderRate}%`} />
+                            <MiniStat label={t('automations.builder.perf_opened')} value={String(v.opened)} sub={`${v.openRate}%`} />
+                            <MiniStat label={t('automations.builder.perf_replied')} value={String(v.responded)} sub={`${v.responseRate}%`} />
+                            <MiniStat label={t('automations.builder.perf_sales')} value={String(v.ordered)} sub={`${v.orderRate}%`} />
                           </div>
                         </div>
                       )
                     })}
                     {test.winner == null && test.variants.some((v) => v.sent < 5) && (
-                      <p className="text-[11px] text-muted-foreground">Gagnant déterminé dès 5 envois par variante.</p>
+                      <p className="text-[11px] text-muted-foreground">{t('automations.builder.perf_winner_from_5')}</p>
                     )}
                   </div>
                 </section>
@@ -207,18 +215,18 @@ export function PerformancePanel({ automationId, name, onClose }: { automationId
 
               {/* JOBS */}
               <section>
-                <h3 className="mb-2 text-sm font-semibold">Exécution</h3>
+                <h3 className="mb-2 text-sm font-semibold">{t('automations.builder.perf_execution')}</h3>
                 <div className="grid grid-cols-3 gap-2">
-                  <Metric compact label="Envoyés" value={perf.jobs.byStatus.sent || 0} tone="green" />
-                  <Metric compact label="Ignorés" value={perf.jobs.byStatus.skipped || 0} tone="slate" />
-                  <Metric compact label="Échoués" value={perf.jobs.byStatus.failed || 0} tone="rose" />
+                  <Metric compact label={t('automations.builder.perf_sent')} value={perf.jobs.byStatus.sent || 0} tone="green" />
+                  <Metric compact label={t('automations.builder.perf_ignored')} value={perf.jobs.byStatus.skipped || 0} tone="slate" />
+                  <Metric compact label={t('automations.builder.perf_failed')} value={perf.jobs.byStatus.failed || 0} tone="rose" />
                 </div>
                 {(perf.jobs.byStatus.waiting || 0) > 0 && (
-                  <p className="mt-2 text-xs text-muted-foreground">{perf.jobs.byStatus.waiting} en attente d&apos;un clic (funnel à boutons).</p>
+                  <p className="mt-2 text-xs text-muted-foreground">{t('automations.builder.perf_waiting_click', { count: perf.jobs.byStatus.waiting })}</p>
                 )}
                 {perf.jobs.topSkipReasons.length > 0 && (
                   <div className="mt-2 space-y-1">
-                    <p className="text-[11px] font-medium text-muted-foreground">Raisons principales</p>
+                    <p className="text-[11px] font-medium text-muted-foreground">{t('automations.builder.perf_main_reasons')}</p>
                     {perf.jobs.topSkipReasons.map((r) => (
                       <div key={r.reason} className="flex items-center justify-between text-[11px]">
                         <span className="truncate text-muted-foreground">{r.reason}</span>

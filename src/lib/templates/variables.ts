@@ -9,10 +9,20 @@
 
 export type TemplateVariable = {
   key: string
+  /** Libellé FR par défaut — conservé pour les usages SERVEUR (prompts IA de
+   *  generate.ts / suggest) où le hook i18n n'existe pas. L'UI marchand résout
+   *  plutôt `labelKey` via t() au moment du rendu. */
   label: string
+  /** Clé i18n du libellé (`automations.builder.var_*`), résolue côté composant. */
+  labelKey: string
   group: 'Client' | 'Commande' | 'Liens' | 'Boutique'
+  /** Clé i18n du groupe (`automations.builder.var_group_*`). */
+  groupKey: string
   /** Exemple fourni à Meta pour la soumission (sample_values). */
   sample: string
+  /** Clé i18n de l'exemple, uniquement quand `sample` est une phrase à traduire
+   *  (les données neutres comme « Marie » ou « #1024 » n'en ont pas). */
+  sampleKey?: string
   /**
    * Le MARCHAND doit fournir cette valeur : rien dans les données ne peut la
    * deviner.
@@ -26,6 +36,8 @@ export type TemplateVariable = {
   merchantProvided?: boolean
   /** Aide affichée sous le champ de saisie (uniquement si merchantProvided). */
   hint?: string
+  /** Clé i18n de l'aide (`automations.builder.var_hint_*`). */
+  hintKey?: string
 }
 
 /** Variables que le marchand doit renseigner lui-même sur le bloc message. */
@@ -35,32 +47,33 @@ export function isMerchantProvided(key: string): boolean {
 
 export const TEMPLATE_VARIABLES: TemplateVariable[] = [
   // Client
-  { key: 'customer_first_name', label: 'Prénom client', group: 'Client', sample: 'Marie' },
-  { key: 'customer_last_name', label: 'Nom client', group: 'Client', sample: 'Dupont' },
-  { key: 'customer_full_name', label: 'Nom complet client', group: 'Client', sample: 'Marie Dupont' },
-  { key: 'customer_email', label: 'Email client', group: 'Client', sample: 'marie@email.com' },
-  { key: 'customer_phone', label: 'Téléphone client', group: 'Client', sample: '+33 6 12 34 56 78' },
+  { key: 'customer_first_name', label: 'Prénom client', labelKey: 'automations.builder.var_customer_first_name', group: 'Client', groupKey: 'automations.builder.var_group_client', sample: 'Marie' },
+  { key: 'customer_last_name', label: 'Nom client', labelKey: 'automations.builder.var_customer_last_name', group: 'Client', groupKey: 'automations.builder.var_group_client', sample: 'Dupont' },
+  { key: 'customer_full_name', label: 'Nom complet client', labelKey: 'automations.builder.var_customer_full_name', group: 'Client', groupKey: 'automations.builder.var_group_client', sample: 'Marie Dupont' },
+  { key: 'customer_email', label: 'Email client', labelKey: 'automations.builder.var_customer_email', group: 'Client', groupKey: 'automations.builder.var_group_client', sample: 'marie@email.com' },
+  { key: 'customer_phone', label: 'Téléphone client', labelKey: 'automations.builder.var_customer_phone', group: 'Client', groupKey: 'automations.builder.var_group_client', sample: '+33 6 12 34 56 78' },
   // Commande
-  { key: 'order_number', label: 'N° de commande', group: 'Commande', sample: '#1024' },
-  { key: 'order_total', label: 'Montant de la commande', group: 'Commande', sample: '49,90 €' },
-  { key: 'order_date', label: 'Date de commande', group: 'Commande', sample: '12/06/2026' },
-  { key: 'order_status', label: 'Statut de la commande', group: 'Commande', sample: 'Expédiée' },
-  { key: 'tracking_number', label: 'N° de suivi', group: 'Commande', sample: 'LP00123456789' },
+  { key: 'order_number', label: 'N° de commande', labelKey: 'automations.builder.var_order_number', group: 'Commande', groupKey: 'automations.builder.var_group_order', sample: '#1024' },
+  { key: 'order_total', label: 'Montant de la commande', labelKey: 'automations.builder.var_order_total', group: 'Commande', groupKey: 'automations.builder.var_group_order', sample: '49,90 €' },
+  { key: 'order_date', label: 'Date de commande', labelKey: 'automations.builder.var_order_date', group: 'Commande', groupKey: 'automations.builder.var_group_order', sample: '12/06/2026' },
+  { key: 'order_status', label: 'Statut de la commande', labelKey: 'automations.builder.var_order_status', group: 'Commande', groupKey: 'automations.builder.var_group_order', sample: 'Expédiée', sampleKey: 'automations.builder.var_sample_order_status' },
+  { key: 'tracking_number', label: 'N° de suivi', labelKey: 'automations.builder.var_tracking_number', group: 'Commande', groupKey: 'automations.builder.var_group_order', sample: 'LP00123456789' },
   // Liens
-  { key: 'order_status_url', label: 'Lien de suivi de commande (Shopify)', group: 'Liens', sample: 'https://boutique.exemple.com/orders/abc123' },
-  { key: 'tracking_url', label: 'Lien de suivi du colis', group: 'Liens', sample: 'https://suivi.exemple.com/1024' },
-  { key: 'cart_url', label: 'Lien du panier', group: 'Liens', sample: 'https://boutique.exemple.com/panier' },
-  { key: 'store_url', label: 'Lien de la boutique', group: 'Liens', sample: 'https://boutique.exemple.com' },
-  { key: 'review_url', label: "Lien d'avis", group: 'Liens', sample: 'https://avis.exemple.com' },
+  { key: 'order_status_url', label: 'Lien de suivi de commande (Shopify)', labelKey: 'automations.builder.var_order_status_url', group: 'Liens', groupKey: 'automations.builder.var_group_links', sample: 'https://boutique.exemple.com/orders/abc123' },
+  { key: 'tracking_url', label: 'Lien de suivi du colis', labelKey: 'automations.builder.var_tracking_url', group: 'Liens', groupKey: 'automations.builder.var_group_links', sample: 'https://suivi.exemple.com/1024' },
+  { key: 'cart_url', label: 'Lien du panier', labelKey: 'automations.builder.var_cart_url', group: 'Liens', groupKey: 'automations.builder.var_group_links', sample: 'https://boutique.exemple.com/panier' },
+  { key: 'store_url', label: 'Lien de la boutique', labelKey: 'automations.builder.var_store_url', group: 'Liens', groupKey: 'automations.builder.var_group_links', sample: 'https://boutique.exemple.com' },
+  { key: 'review_url', label: "Lien d'avis", labelKey: 'automations.builder.var_review_url', group: 'Liens', groupKey: 'automations.builder.var_group_links', sample: 'https://avis.exemple.com' },
   // Boutique
-  { key: 'store_name', label: 'Nom de la boutique', group: 'Boutique', sample: 'Ma Boutique' },
+  { key: 'store_name', label: 'Nom de la boutique', labelKey: 'automations.builder.var_store_name', group: 'Boutique', groupKey: 'automations.builder.var_group_store', sample: 'Ma Boutique' },
   {
-    key: 'promo_code', label: 'Code promo', group: 'Boutique', sample: 'PROMO10',
+    key: 'promo_code', label: 'Code promo', labelKey: 'automations.builder.var_promo_code', group: 'Boutique', groupKey: 'automations.builder.var_group_store', sample: 'PROMO10',
     merchantProvided: true,
     hint: 'Le code de réduction créé dans Shopify (Réductions → Créer). Le même pour tous les clients de ce message.',
+    hintKey: 'automations.builder.var_hint_promo_code',
   },
   // Interaction (clic de bouton)
-  { key: 'button_title', label: 'Bouton cliqué', group: 'Boutique', sample: 'Suivre ma commande' },
+  { key: 'button_title', label: 'Bouton cliqué', labelKey: 'automations.builder.var_button_title', group: 'Boutique', groupKey: 'automations.builder.var_group_store', sample: 'Suivre ma commande', sampleKey: 'automations.builder.var_sample_button_title' },
 ]
 
 export const VARIABLE_BY_KEY: Record<string, TemplateVariable> = Object.fromEntries(

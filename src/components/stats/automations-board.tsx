@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { Loader2, MessageSquare, ShoppingBag, Trophy } from 'lucide-react'
+import { useTranslation } from '@/i18n/context'
 
 type Variant = { key: string; sent: number; openRate: number; responseRate: number; orderRate: number }
 type AutoRow = {
@@ -17,6 +18,7 @@ type Funnel = {
 
 /** Onglet Automatisations : entonnoir d'engagement + résultats A/B par automatisation. */
 export function AutomationsBoard({ days }: { days: number }) {
+  const { t } = useTranslation()
   const [loading, setLoading] = useState(true)
   const [funnel, setFunnel] = useState<Funnel | null>(null)
   const [rows, setRows] = useState<AutoRow[]>([])
@@ -42,8 +44,8 @@ export function AutomationsBoard({ days }: { days: number }) {
   if (!funnel || funnel.sent === 0) {
     return (
       <div className="flex h-40 flex-col items-center justify-center gap-1 rounded-2xl border border-border bg-card text-center">
-        <p className="font-medium text-foreground">Aucun envoi d’automatisation sur la période</p>
-        <p className="text-sm text-muted-foreground">Activez une automatisation (panier abandonné, relance…) pour voir vos résultats ici.</p>
+        <p className="font-medium text-foreground">{t('stats.ab_no_automation_sent')}</p>
+        <p className="text-sm text-muted-foreground">{t('stats.ab_activate_automation_hint')}</p>
       </div>
     )
   }
@@ -59,24 +61,24 @@ export function AutomationsBoard({ days }: { days: number }) {
           (3 envoyés → 3 ouverts → 3 réponses = 100 % partout, sur ta capture).
           On ne garde que le mesurable : envoyé, répondu, converti en vente. */}
       <div className="rounded-2xl border border-border bg-card p-5">
-        <h3 className="text-lg font-semibold">Vue d’ensemble</h3>
+        <h3 className="text-lg font-semibold">{t('stats.ab_overview')}</h3>
         <p className="mt-0.5 text-sm text-muted-foreground">
-          Vos messages d’automatisation sur la période (les réponses SAV ne comptent pas).
+          {t('stats.ab_overview_sub')}
         </p>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          <BigStat icon={MessageSquare} label="Messages envoyés" value={funnel.sent} />
+          <BigStat icon={MessageSquare} label={t('stats.ab_messages_sent')} value={funnel.sent} />
           <BigStat
             icon={MessageSquare}
-            label="Réponses reçues"
+            label={t('stats.ab_responses_received')}
             value={funnel.responded}
-            sub={`${funnel.responseRate}% de réponse`}
+            sub={t('stats.ab_response_rate_sub', { rate: funnel.responseRate })}
           />
           <BigStat
             icon={ShoppingBag}
-            label="Ventes générées"
+            label={t('stats.ab_sales_generated')}
             value={funnel.ordered}
-            sub={`${funnel.orderRate}% de conversion`}
+            sub={t('stats.ab_conversion_rate_sub', { rate: funnel.orderRate })}
             accent
           />
         </div>
@@ -86,10 +88,8 @@ export function AutomationsBoard({ days }: { days: number }) {
         {funnel.sent > 0 && (
           <p className="mt-3 text-xs text-muted-foreground">
             {funnel.ordered > 0
-              ? `Sur ${funnel.sent} message${funnel.sent > 1 ? 's' : ''}, ${funnel.ordered} ${
-                  funnel.ordered > 1 ? 'ont' : 'a'
-                } abouti à une vente.`
-              : `Aucune vente attribuée pour l’instant. Les ventes apparaissent quand un client commande après avoir reçu un message.`}
+              ? t(funnel.sent > 1 ? 'stats.ab_summary_many' : 'stats.ab_summary_one', { sent: funnel.sent, ordered: funnel.ordered })
+              : t('stats.ab_no_sale_attributed')}
           </p>
         )}
       </div>
@@ -99,12 +99,12 @@ export function AutomationsBoard({ days }: { days: number }) {
         <div className="rounded-2xl border border-primary/30 bg-primary/[0.03] p-5">
           <div className="flex items-center gap-2">
             <Trophy className="h-4 w-4 text-primary" />
-            <h3 className="text-lg font-semibold">Tests A/B</h3>
+            <h3 className="text-lg font-semibold">{t('stats.ab_ab_tests')}</h3>
             <span className="rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary">
               {rows.filter((a) => a.hasAbTest).length}
             </span>
           </div>
-          <p className="mt-0.5 text-sm text-muted-foreground">Vos automatisations qui comparent plusieurs messages, et la variante gagnante.</p>
+          <p className="mt-0.5 text-sm text-muted-foreground">{t('stats.ab_ab_tests_sub')}</p>
           <div className="mt-4 space-y-3">
             {rows.filter((a) => a.hasAbTest).map((a) => (
               <AutoCard key={a.id} a={a} />
@@ -115,12 +115,12 @@ export function AutomationsBoard({ days }: { days: number }) {
 
       {/* ── Toutes les automatisations ── */}
       <div className="rounded-2xl border border-border bg-card p-5">
-        <h3 className="text-lg font-semibold">Toutes les automatisations</h3>
-        <p className="mt-0.5 text-sm text-muted-foreground">Taux d’ouverture, de réponse et de vente pour chaque automatisation active.</p>
+        <h3 className="text-lg font-semibold">{t('stats.ab_all_automations')}</h3>
+        <p className="mt-0.5 text-sm text-muted-foreground">{t('stats.ab_all_automations_sub')}</p>
 
         <div className="mt-4 space-y-3">
           {rows.filter((a) => !a.hasAbTest).length === 0 && rows.some((a) => a.hasAbTest) ? (
-            <p className="text-sm text-muted-foreground">Toutes vos automatisations avec des envois sont des tests A/B (voir ci-dessus).</p>
+            <p className="text-sm text-muted-foreground">{t('stats.ab_all_are_ab_tests')}</p>
           ) : rows.filter((a) => !a.hasAbTest).map((a) => (
             <AutoCard key={a.id} a={a} />
           ))}
@@ -132,24 +132,25 @@ export function AutomationsBoard({ days }: { days: number }) {
 
 /** Carte de résultats d'une automatisation (taux + variantes A/B éventuelles). */
 function AutoCard({ a }: { a: AutoRow }) {
+  const { t } = useTranslation()
   return (
             <div key={a.id} className="rounded-xl border p-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <span className="font-medium">{a.name}</span>
                   {a.hasAbTest && (
-                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-primary">Test A/B</span>
+                    <span className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-semibold uppercase text-primary">{t('stats.ab_ab_badge')}</span>
                   )}
                 </div>
-                <span className="text-xs text-muted-foreground">{a.sent} envoi{a.sent > 1 ? 's' : ''}</span>
+                <span className="text-xs text-muted-foreground">{t(a.sent > 1 ? 'stats.ab_send_many' : 'stats.ab_send_one', { count: a.sent })}</span>
               </div>
 
               {/* Taux fiables uniquement. « Ouverture » a été retirée ici comme dans
                   la vue d'ensemble : sur WhatsApp, elle n'est qu'une coche bleue, que
                   la plupart des clients désactivent — elle affichait donc 100 %. */}
               <div className="mt-3 grid grid-cols-2 gap-2">
-                <Metric icon={MessageSquare} label="Réponse" value={a.responseRate} />
-                <Metric icon={ShoppingBag} label="Vente" value={a.orderRate} accent />
+                <Metric icon={MessageSquare} label={t('stats.ab_metric_response')} value={a.responseRate} />
+                <Metric icon={ShoppingBag} label={t('stats.ab_metric_sale')} value={a.orderRate} accent />
               </div>
 
               {/* Variantes A/B */}
@@ -158,10 +159,10 @@ function AutoCard({ a }: { a: AutoRow }) {
                   <table className="w-full min-w-[420px] text-sm">
                     <thead>
                       <tr className="text-left text-[11px] uppercase text-muted-foreground">
-                        <th className="pb-1 font-medium">Variante</th>
-                        <th className="pb-1 text-right font-medium">Envois</th>
-                        <th className="pb-1 text-right font-medium">Rép.</th>
-                        <th className="pb-1 text-right font-medium">Vente</th>
+                        <th className="pb-1 font-medium">{t('stats.ab_col_variant')}</th>
+                        <th className="pb-1 text-right font-medium">{t('stats.ab_col_sends')}</th>
+                        <th className="pb-1 text-right font-medium">{t('stats.ab_col_response_short')}</th>
+                        <th className="pb-1 text-right font-medium">{t('stats.ab_col_sale')}</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -182,7 +183,7 @@ function AutoCard({ a }: { a: AutoRow }) {
                   </table>
                   {a.winner && (
                     <p className="mt-1.5 flex items-center gap-1 text-xs text-emerald-600">
-                      <Trophy className="h-3.5 w-3.5" /> Variante <span className="font-semibold">{a.winner}</span> gagnante (meilleur taux de vente).
+                      <Trophy className="h-3.5 w-3.5" /> {t('stats.ab_winner_variant', { variant: a.winner })}
                     </p>
                   )}
                 </div>

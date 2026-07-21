@@ -11,6 +11,7 @@ import { VARIABLE_BY_KEY } from '@/lib/templates/variables'
 import { TRIGGER_EVENTS } from '@/lib/automations/types'
 import type { WorkflowGraph, WorkflowNode } from '@/lib/automations/graph-types'
 import type { WhatsAppTemplate } from '@/types/database'
+import { useTranslation } from '@/i18n/context'
 
 const Particles = dynamic(() => import('@/components/Particles'), { ssr: false })
 
@@ -41,6 +42,7 @@ function dedupeByName(templates: WhatsAppTemplate[]): WhatsAppTemplate[] {
  * ou un bouton reste normal (on n'amorce le pan que sur le fond).
  */
 function PannableTimeline({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation()
   // Pan (clic-glissé) + ZOOM (molette). On n'amorce le pan que sur le fond.
   const [offset, setOffset] = useState({ x: 0, y: 0 })
   const [zoom, setZoom] = useState(1)
@@ -126,17 +128,17 @@ function PannableTimeline({ children }: { children: React.ReactNode }) {
       {/* Contrôles zoom + recentrer */}
       <div
         className="absolute bottom-3 right-3 z-10 flex items-center gap-1 rounded-full border bg-card px-1 py-1 shadow-sm"
-        title="Zoom : Ctrl + molette (ou pincer). Déplacer : cliquer-glisser le fond."
+        title={t('automations.builder.canvas_hint')}
       >
-        <button onClick={() => setZoom((z) => Math.max(0.15, z - 0.15))} className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted" title="Dézoomer">
+        <button onClick={() => setZoom((z) => Math.max(0.15, z - 0.15))} className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted" title={t('automations.builder.zoom_out')}>
           <Minus className="h-4 w-4" />
         </button>
         <span className="w-10 text-center text-xs tabular-nums text-muted-foreground">{Math.round(zoom * 100)}%</span>
-        <button onClick={() => setZoom((z) => Math.min(2, z + 0.15))} className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted" title="Zoomer">
+        <button onClick={() => setZoom((z) => Math.min(2, z + 0.15))} className="flex h-7 w-7 items-center justify-center rounded-full text-muted-foreground hover:bg-muted" title={t('automations.builder.zoom_in')}>
           <Plus className="h-4 w-4" />
         </button>
         {(offset.x !== 0 || offset.y !== 0 || zoom !== 1) && (
-          <button onClick={reset} className="ml-1 rounded-full px-2 py-1 text-xs text-muted-foreground hover:bg-muted" title="Recentrer">
+          <button onClick={reset} className="ml-1 rounded-full px-2 py-1 text-xs text-muted-foreground hover:bg-muted" title={t('automations.builder.recenter')}>
             <Maximize2 className="h-3.5 w-3.5" />
           </button>
         )}
@@ -145,15 +147,19 @@ function PannableTimeline({ children }: { children: React.ReactNode }) {
   )
 }
 
-function templateSamples(tpl?: WhatsAppTemplate): string[] {
+type TFn = (key: string, params?: Record<string, string | number>) => string
+
+function templateSamples(tpl: WhatsAppTemplate | undefined, t: TFn): string[] {
   if (!tpl) return []
   const keys = (tpl.variable_keys as string[]) || []
-  if (keys.length > 0) return keys.map((k) => VARIABLE_BY_KEY[k]?.sample || 'exemple')
+  // Les samples « phrase » (statut de commande, bouton cliqué) portent une clé
+  // i18n ; les données neutres (« Marie », « #1024 ») restent telles quelles.
+  if (keys.length > 0) return keys.map((k) => { const v = VARIABLE_BY_KEY[k]; return v ? (v.sampleKey ? t(v.sampleKey) : v.sample) : 'exemple' })
   return (tpl.sample_values as string[]) || []
 }
 
-function delayLabelMin(m: number): string {
-  if (m <= 0) return 'Immédiat'
+function delayLabelMin(m: number, t: TFn): string {
+  if (m <= 0) return t('automations.builder.immediate')
   if (m < 60) return `${m} min`
   if (m < 1440) return `${Math.round(m / 60)} h`
   return `${Math.round(m / 1440)} j`
@@ -213,6 +219,7 @@ export function WorkflowBuilder({
   /** Rechargé après édition d'un modèle (ajout de boutons → resoumission Meta). */
   onTemplatesChanged?: () => void
 }) {
+  const { t } = useTranslation()
   // Dernier modèle choisi → alimente l'aperçu téléphone.
   const [previewTplId, setPreviewTplId] = useState<string | null>(null)
 
@@ -227,10 +234,7 @@ export function WorkflowBuilder({
     const outs = graph.edges.filter((e) => e.from === id)
     const branched = outs.filter((e) => e.branch).length
     if (branched > 1) {
-      const ok = window.confirm(
-        `Ce bloc ouvre ${branched} routes. En le supprimant, une seule suite est conservée — `
-        + `les autres ne seront plus reliées au parcours.\n\nSupprimer quand même ?`
-      )
+      const ok = window.confirm(t('automations.builder.delete_branching_confirm', { count: branched }))
       if (!ok) return
     }
     onChange(removeNode(graph, id))
@@ -292,13 +296,13 @@ export function WorkflowBuilder({
         {previewTpl ? (
           <PhonePreview
             storeName={storeName}
-            eventLabel={TRIGGER_EVENTS.find((e) => e.value === ctx.eventValue)?.label || 'Déclencheur'}
+            eventLabel={TRIGGER_EVENTS.find((e) => e.value === ctx.eventValue)?.label || t('automations.builder.trigger')}
             conditionsText={ctx.condition}
-            delayLabel={delayLabelMin(ctx.delayMin)}
+            delayLabel={delayLabelMin(ctx.delayMin, t)}
             headerText={previewTpl.header_text || undefined}
             bodyText={previewTpl.body_text}
             footerText={previewTpl.footer_text || undefined}
-            samples={templateSamples(previewTpl)}
+            samples={templateSamples(previewTpl, t)}
             mediaType={previewTpl.header_type}
             scale={0.82}
             mascot
@@ -310,10 +314,10 @@ export function WorkflowBuilder({
           // message d'invitation à l'intérieur (plus visuel qu'un texte seul).
           <PhonePreview
             storeName={storeName}
-            eventLabel={TRIGGER_EVENTS.find((e) => e.value === ctx.eventValue)?.label || 'Déclencheur'}
+            eventLabel={TRIGGER_EVENTS.find((e) => e.value === ctx.eventValue)?.label || t('automations.builder.trigger')}
             conditionsText={ctx.condition}
-            delayLabel={delayLabelMin(ctx.delayMin)}
-            bodyText="Choisissez un modèle dans un bloc « Message » pour voir l’aperçu ici."
+            delayLabel={delayLabelMin(ctx.delayMin, t)}
+            bodyText={t('automations.builder.choose_template_for_preview')}
             samples={[]}
             scale={0.82}
             mascot

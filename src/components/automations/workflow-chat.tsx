@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Sparkles, Loader2, Send, ArrowLeft, FileText, Check, AlertTriangle } from 'lucide-react'
 import type { WorkflowGraph } from '@/lib/automations/graph-types'
 import { cn } from '@/lib/utils'
+import { useTranslation } from '@/i18n/context'
 
 /**
  * Assistant IA de création de workflow (funnel), calqué sur l'assistant des
@@ -37,6 +38,7 @@ export function WorkflowChat({ kind, onComplete, onCancel }: {
   onComplete: (data: { name: string; graph: WorkflowGraph; trigger: string }) => void
   onCancel: () => void
 }) {
+  const { t } = useTranslation()
   const [chat, setChat] = useState<Msg[]>([])
   const [question, setQuestion] = useState<string>('')
   const [options, setOptions] = useState<string[]>([])
@@ -73,8 +75,8 @@ export function WorkflowChat({ kind, onComplete, onCancel }: {
       })
       const json = await res.json()
       if (!res.ok) {
-        setCreated((c) => ({ ...c, [i]: { error: json.error || 'Création impossible' } }))
-        toast.error(json.error || 'Création impossible')
+        setCreated((c) => ({ ...c, [i]: { error: json.error || t('automations.builder.chat_creation_failed') } }))
+        toast.error(json.error || t('automations.builder.chat_creation_failed'))
         return
       }
       // Soumission refusée par Meta : le brouillon EXISTE quand même. On le dit
@@ -90,13 +92,13 @@ export function WorkflowChat({ kind, onComplete, onCancel }: {
           id: json.template?.id,
           body: json.template?.body_text || '',
           submitted: submit && json.submitted?.ok,
-          error: submitFailed ? `Enregistré en brouillon, mais Meta a refusé la soumission : ${json.submitted.error}` : undefined,
+          error: submitFailed ? t('automations.builder.chat_saved_draft_meta_refused', { error: json.submitted.error }) : undefined,
         },
       }))
-      toast.success(submitFailed ? 'Message créé (soumission à reprendre)' : submit ? 'Message créé et envoyé à Meta' : 'Message créé en brouillon')
+      toast.success(submitFailed ? t('automations.builder.chat_toast_created_resubmit') : submit ? t('automations.builder.chat_toast_created_submitted') : t('automations.builder.chat_toast_created_draft'))
     } catch {
-      setCreated((c) => ({ ...c, [i]: { error: 'Erreur réseau' } }))
-      toast.error('Erreur réseau')
+      setCreated((c) => ({ ...c, [i]: { error: t('automations.builder.chat_network_error') } }))
+      toast.error(t('automations.builder.chat_network_error'))
     }
   }
 
@@ -179,12 +181,12 @@ export function WorkflowChat({ kind, onComplete, onCancel }: {
         body: JSON.stringify({ messages: next, kind, createdTemplateIds }),
       })
       const json = await res.json()
-      if (!res.ok) { toast.error(json.error || 'Erreur de l’assistant'); return }
+      if (!res.ok) { toast.error(json.error || t('automations.builder.chat_assistant_error')); return }
 
       if (json.mode === 'need_templates') {
         setQuestion('')
         setMissing(json.missingTemplates || [])
-        setChat([...next, { role: 'assistant', content: json.message || 'Il faut d’abord créer un modèle.' }])
+        setChat([...next, { role: 'assistant', content: json.message || t('automations.builder.chat_need_template_first') }])
         return
       }
       if (json.mode === 'ready') {
@@ -196,7 +198,7 @@ export function WorkflowChat({ kind, onComplete, onCancel }: {
           missingTemplates: json.missingTemplates || [],
           hallucinated: json.hallucinated || 0,
         })
-        setChat([...next, { role: 'assistant', content: json.explanation || 'Voici le parcours proposé.' }])
+        setChat([...next, { role: 'assistant', content: json.explanation || t('automations.builder.chat_workflow_proposed') }])
         return
       }
       // mode ask
@@ -204,7 +206,7 @@ export function WorkflowChat({ kind, onComplete, onCancel }: {
       setOptions(Array.isArray(json.options) ? json.options : [])
       setChat([...next, { role: 'assistant', content: json.question || '' }])
     } catch {
-      toast.error('Erreur réseau')
+      toast.error(t('automations.builder.chat_network_error'))
     } finally {
       setBusy(false)
     }
@@ -225,11 +227,11 @@ export function WorkflowChat({ kind, onComplete, onCancel }: {
     <div className="mx-auto flex h-full w-full max-w-2xl flex-col gap-4 p-4">
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="sm" onClick={onCancel}>
-          <ArrowLeft className="mr-1 h-4 w-4" /> Retour
+          <ArrowLeft className="mr-1 h-4 w-4" /> {t('automations.builder.chat_back')}
         </Button>
         <div className="flex items-center gap-1.5 text-sm font-semibold">
           <Sparkles className="h-4 w-4 text-primary" />
-          Assistant IA — {kind === 'marketing' ? 'campagne' : 'automatisation'}
+          {kind === 'marketing' ? t('automations.builder.chat_assistant_campaign') : t('automations.builder.chat_assistant_automation')}
         </div>
       </div>
 
@@ -237,7 +239,7 @@ export function WorkflowChat({ kind, onComplete, onCancel }: {
       <div className="min-h-0 flex-1 space-y-3 overflow-y-auto rounded-xl border bg-muted/20 p-4">
         {chat.length === 0 && busy && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" /> L’assistant réfléchit…
+            <Loader2 className="h-4 w-4 animate-spin" /> {t('automations.builder.chat_thinking')}
           </div>
         )}
         {chat.map((m, i) => (
@@ -259,11 +261,10 @@ export function WorkflowChat({ kind, onComplete, onCancel }: {
         {(missing.length > 0 || (ready?.missingTemplates?.length ?? 0) > 0) && (
           <div className="rounded-xl border border-amber-500/30 bg-amber-500/5 p-3">
             <p className="mb-1 flex items-center gap-1.5 text-sm font-medium text-amber-700 dark:text-amber-400">
-              <AlertTriangle className="h-4 w-4" /> Message(s) à créer
+              <AlertTriangle className="h-4 w-4" /> {t('automations.builder.chat_messages_to_create')}
             </p>
             <p className="mb-2 text-xs text-muted-foreground">
-              Ce parcours a besoin de message(s) que vous n’avez pas encore. Voici ce qu’il faut créer,
-              avec des conseils pour <span className="font-medium text-foreground">convertir</span> :
+              {t('automations.builder.chat_needs_messages')}
             </p>
             <div className="space-y-2">
               {(missing.length > 0 ? missing : ready!.missingTemplates).map((m, i) => {
@@ -285,8 +286,8 @@ export function WorkflowChat({ kind, onComplete, onCancel }: {
                         <p className="whitespace-pre-wrap text-xs leading-relaxed">{st.body}</p>
                         <p className="mt-1.5 text-[10px] text-muted-foreground">
                           {st.submitted
-                            ? '✓ Envoyé en revue chez Meta — approbation sous 24 h en général.'
-                            : 'Enregistré en brouillon. Vous pouvez le retoucher dans Modèles avant de le soumettre.'}
+                            ? t('automations.builder.chat_submitted_notice')
+                            : t('automations.builder.chat_draft_notice')}
                         </p>
                       </div>
                     )}
@@ -301,12 +302,12 @@ export function WorkflowChat({ kind, onComplete, onCancel }: {
                         <Button size="sm" disabled={st?.busy}
                           onClick={() => createFromSuggestion(i, m, true)}>
                           {st?.busy
-                            ? <><Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> Création…</>
-                            : <><Sparkles className="mr-1 h-3.5 w-3.5" /> Créer et soumettre à Meta</>}
+                            ? <><Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> {t('automations.builder.chat_creating')}</>
+                            : <><Sparkles className="mr-1 h-3.5 w-3.5" /> {t('automations.builder.chat_create_and_submit')}</>}
                         </Button>
                         <Button size="sm" variant="outline" disabled={st?.busy}
                           onClick={() => createFromSuggestion(i, m, false)}>
-                          <FileText className="mr-1 h-3.5 w-3.5" /> Créer en brouillon
+                          <FileText className="mr-1 h-3.5 w-3.5" /> {t('automations.builder.chat_create_draft')}
                         </Button>
                       </div>
                     )}
@@ -342,11 +343,11 @@ export function WorkflowChat({ kind, onComplete, onCancel }: {
                   }}
                 >
                   {busy
-                    ? <><Loader2 className="mr-1 h-4 w-4 animate-spin" /> Construction…</>
-                    : <><Sparkles className="mr-1 h-4 w-4" /> Construire le parcours avec ces messages</>}
+                    ? <><Loader2 className="mr-1 h-4 w-4 animate-spin" /> {t('automations.builder.chat_building')}</>
+                    : <><Sparkles className="mr-1 h-4 w-4" /> {t('automations.builder.chat_build_with_messages')}</>}
                 </Button>
                 <p className="mt-1.5 text-[11px] text-muted-foreground">
-                  Vos messages sont créés : je peux maintenant assembler le parcours complet.
+                  {t('automations.builder.chat_messages_created_notice')}
                 </p>
               </div>
             )}
@@ -356,8 +357,7 @@ export function WorkflowChat({ kind, onComplete, onCancel }: {
                 parcours), et ils sont rattachés AUTOMATIQUEMENT. On envoyait le
                 marchand attendre, puis faire un travail déjà fait. */}
             <p className="mt-2 text-[11px] text-muted-foreground">
-              Vos brouillons suffisent pour construire le parcours : ils y seront rattachés automatiquement.
-              L’approbation Meta n’est nécessaire que pour l’activer.
+              {t('automations.builder.chat_drafts_enough_notice')}
             </p>
           </div>
         )}
@@ -371,10 +371,10 @@ export function WorkflowChat({ kind, onComplete, onCancel }: {
           <div>
             <p className="text-sm font-semibold">{ready.name}</p>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              {ready.graph.nodes.filter((n) => n.type === 'action').length} message(s) ·{' '}
-              {ready.graph.nodes.filter((n) => n.type === 'delay').length} délai(s) ·{' '}
-              {ready.graph.nodes.filter((n) => n.type === 'condition').length} condition(s) ·{' '}
-              {ready.graph.nodes.filter((n) => n.type === 'ab_test').length} test(s) A/B
+              {ready.graph.nodes.filter((n) => n.type === 'action').length} {t('automations.builder.chat_summary_messages')} ·{' '}
+              {ready.graph.nodes.filter((n) => n.type === 'delay').length} {t('automations.builder.chat_summary_delays')} ·{' '}
+              {ready.graph.nodes.filter((n) => n.type === 'condition').length} {t('automations.builder.chat_summary_conditions')} ·{' '}
+              {ready.graph.nodes.filter((n) => n.type === 'ab_test').length} {t('automations.builder.chat_summary_ab_tests')}
             </p>
           </div>
           {/* Le message dépend de ce qui a VRAIMENT été créé : dire « rattachez-les
@@ -403,16 +403,18 @@ export function WorkflowChat({ kind, onComplete, onCancel }: {
                   : <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />}
                 {done > 0 && (
                   <span>
-                    {done} message{done > 1 ? 's' : ''} créé{done > 1 ? 's' : ''} en brouillon,
-                    rattaché{done > 1 ? 's' : ''} automatiquement au parcours.{' '}
-                    {rest > 0 ? `Il en reste ${rest} à écrire. ` : ''}
-                    Vous pourrez tout relire dans l’éditeur ; l’approbation Meta ne sera nécessaire que pour l’activer.
+                    {done > 1
+                      ? t('automations.builder.chat_messages_created_attached_plural', { count: done })
+                      : t('automations.builder.chat_messages_created_attached', { count: done })}{' '}
+                    {rest > 0 ? t('automations.builder.chat_remaining_to_write', { count: rest }) : ''}
+                    {t('automations.builder.chat_review_in_editor')}
                   </span>
                 )}
                 {done === 0 && (
                   <span>
-                    Le parcours sera créé mais {total} message{total > 1 ? 's' : ''} reste{total > 1 ? 'nt' : ''} à écrire
-                    (voir les conseils ci-dessus). Rattachez-les dans l’éditeur avant d’activer.
+                    {total > 1
+                      ? t('automations.builder.chat_workflow_created_missing_plural', { count: total })
+                      : t('automations.builder.chat_workflow_created_missing', { count: total })}
                   </span>
                 )}
               </p>
@@ -423,14 +425,14 @@ export function WorkflowChat({ kind, onComplete, onCancel }: {
               className="flex-1"
               disabled={!ready.trigger}
               onClick={() => {
-                if (!ready.trigger) { toast.error('Déclencheur manquant'); return }
+                if (!ready.trigger) { toast.error(t('automations.builder.chat_missing_trigger')); return }
                 onComplete({ name: ready.name, graph: graphWithCreated(), trigger: ready.trigger })
               }}
             >
-              <Check className="mr-1 h-4 w-4" /> Créer ce parcours
+              <Check className="mr-1 h-4 w-4" /> {t('automations.builder.chat_create_workflow')}
             </Button>
-            <Button variant="outline" onClick={() => { setReady(null); setQuestion('Que souhaitez-vous changer ?') }}>
-              Ajuster
+            <Button variant="outline" onClick={() => { setReady(null); setQuestion(t('automations.builder.chat_what_to_change')) }}>
+              {t('automations.builder.chat_adjust')}
             </Button>
           </div>
         </div>
@@ -452,7 +454,7 @@ export function WorkflowChat({ kind, onComplete, onCancel }: {
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') answer(draft) }}
-              placeholder={question ? 'Votre réponse…' : 'Décrivez le parcours souhaité…'}
+              placeholder={question ? t('automations.builder.chat_your_answer') : t('automations.builder.chat_describe_workflow')}
               disabled={busy}
             />
             <Button onClick={() => answer(draft)} disabled={busy || !draft.trim()}>

@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import { Globe } from '@/components/ui/globe'
 import { NumberTicker } from '@/components/ui/number-ticker'
 import { countryToCoords } from '@/lib/country-coords'
+import { useTranslation } from '@/i18n/context'
 import type { StatsResponse } from '@/types/stats'
 
 type SalesMonth = { month: string; total: number; whatsapp: number }
@@ -27,13 +28,14 @@ function FrameCard({ className, children, gradient }: { className?: string; chil
   )
 }
 
-function Trend({ value, suffix = '% comparé au mois dernier' }: { value: number | null; suffix?: string }) {
+function Trend({ value, suffix }: { value: number | null; suffix?: string }) {
+  const { t } = useTranslation()
   if (value == null) return null
   const up = value >= 0
   return (
     <p className={cn('mt-2 flex items-center gap-1 text-xs font-medium', up ? 'text-emerald-400' : 'text-red-400')}>
       {up ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-      {up ? '+' : ''}{value}{suffix}
+      {up ? '+' : ''}{value}{suffix ?? t('stats.ov_trend_vs_last_month')}
     </p>
   )
 }
@@ -63,6 +65,7 @@ export function StatsOverviewBoard({
   locale: string
   labels: { title: string; perDay: string; aiResponse: string }
 }) {
+  const { t } = useTranslation()
   const o = stats.overview
   const [sales, setSales] = useState<SalesData | null>(null)
 
@@ -141,25 +144,25 @@ export function StatsOverviewBoard({
       {/* ── Rang 1 : 4 mini-cartes ── */}
       <div className="grid shrink-0 grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <FrameCard>
-          <p className="text-sm text-muted-foreground">Messages total</p>
+          <p className="text-sm text-muted-foreground">{t('stats.ov_messages_total')}</p>
           <p className="mt-1 text-3xl font-bold text-foreground"><NumberTicker value={o.totalMessages} /></p>
           <Trend value={o.messagesTrend} />
         </FrameCard>
         <FrameCard>
-          <p className="text-sm text-muted-foreground">Messages reçus</p>
+          <p className="text-sm text-muted-foreground">{t('stats.ov_messages_received')}</p>
           <p className="mt-1 text-3xl font-bold text-foreground"><NumberTicker value={o.messagesIn} /></p>
           <Trend value={null} />
         </FrameCard>
         <FrameCard>
-          <p className="text-sm text-muted-foreground">Conversations actives</p>
+          <p className="text-sm text-muted-foreground">{t('stats.ov_active_conversations')}</p>
           <p className="mt-1 text-3xl font-bold text-foreground"><NumberTicker value={o.activeConversations} /></p>
           <Trend value={o.conversationsTrend} />
         </FrameCard>
         <FrameCard>
           <div className="flex items-start justify-between">
-            <p className="text-sm text-muted-foreground">Nouveaux contacts</p>
+            <p className="text-sm text-muted-foreground">{t('stats.ov_new_contacts')}</p>
             {o.contactsTrend != null && o.contactsTrend < 0 && (
-              <span className="rounded-[4px] bg-red-500/20 px-2 py-0.5 text-[11px] font-semibold text-red-400">en baisse</span>
+              <span className="rounded-[4px] bg-red-500/20 px-2 py-0.5 text-[11px] font-semibold text-red-400">{t('stats.ov_declining')}</span>
             )}
           </div>
           <p className="mt-1 text-3xl font-bold text-foreground"><NumberTicker value={o.newContacts} /></p>
@@ -179,17 +182,17 @@ export function StatsOverviewBoard({
             <p className="text-base font-semibold text-foreground">{labels.perDay}</p>
             <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
           </div>
-          <p className="mt-3 text-xs text-muted-foreground">Cette semaine</p>
+          <p className="mt-3 text-xs text-muted-foreground">{t('stats.ov_this_week')}</p>
           <p className="mt-1 text-4xl font-bold text-foreground">+ {nf(messagesWeek)}</p>
           <Trend value={o.messagesTrend} />
           <div className="mt-4 h-2 overflow-hidden rounded-full bg-foreground/10">
             <div className="h-full rounded-full bg-foreground" style={{ width: `${Math.min(100, respRate)}%` }} />
           </div>
           <ul className="mt-4 space-y-1.5 text-sm text-foreground/70">
-            <li className="flex justify-between"><span>• Messages reçus</span><span className="font-semibold text-foreground">{nf(o.messagesIn)}</span></li>
-            <li className="flex justify-between"><span>• Messages envoyés</span><span className="font-semibold text-foreground">{nf(o.messagesOut)}</span></li>
-            <li className="flex justify-between"><span>• Conversations</span><span className="font-semibold text-foreground">{nf(o.totalConversations)}</span></li>
-            <li className="flex justify-between"><span>• Contacts</span><span className="font-semibold text-foreground">{nf(o.totalContacts)}</span></li>
+            <li className="flex justify-between"><span>• {t('stats.ov_messages_received')}</span><span className="font-semibold text-foreground">{nf(o.messagesIn)}</span></li>
+            <li className="flex justify-between"><span>• {t('stats.ov_messages_sent')}</span><span className="font-semibold text-foreground">{nf(o.messagesOut)}</span></li>
+            <li className="flex justify-between"><span>• {t('stats.ov_conversations')}</span><span className="font-semibold text-foreground">{nf(o.totalConversations)}</span></li>
+            <li className="flex justify-between"><span>• {t('stats.ov_contacts')}</span><span className="font-semibold text-foreground">{nf(o.totalContacts)}</span></li>
           </ul>
         </FrameCard>
 
@@ -197,13 +200,13 @@ export function StatsOverviewBoard({
         <FrameCard gradient>
           <div className="flex items-start justify-between">
             <div>
-              <p className="text-base font-semibold text-foreground">Ventes Shopify</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">6 derniers mois</p>
+              <p className="text-base font-semibold text-foreground">{t('stats.ov_shopify_sales')}</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">{t('stats.ov_last_6_months')}</p>
             </div>
             {sales && (
               <div className="text-right">
                 <p className="text-lg font-bold text-foreground">{nf(Math.round(sales.totalAll))} <span className="text-xs font-medium text-muted-foreground">{sales.currency}</span></p>
-                <p className="text-[11px] text-blue-400">dont {nf(Math.round(sales.totalWhatsapp))} via WhatsApp</p>
+                <p className="text-[11px] text-blue-400">{t('stats.ov_of_which_whatsapp', { value: nf(Math.round(sales.totalWhatsapp)) })}</p>
               </div>
             )}
           </div>
@@ -214,8 +217,8 @@ export function StatsOverviewBoard({
             if (!hasData) {
               return (
                 <div className="mt-6 flex h-48 flex-col items-center justify-center gap-2 text-center">
-                  <p className="text-sm text-muted-foreground">Aucune vente sur la période.</p>
-                  <p className="text-[11px] text-muted-foreground/70">Les commandes apparaîtront ici dès réception.</p>
+                  <p className="text-sm text-muted-foreground">{t('stats.ov_no_sales_period')}</p>
+                  <p className="text-[11px] text-muted-foreground/70">{t('stats.ov_orders_appear_here')}</p>
                 </div>
               )
             }
@@ -237,7 +240,7 @@ export function StatsOverviewBoard({
                   ))}
                 </div>
                 <div className="mt-3 flex items-center gap-4 text-[11px] text-muted-foreground">
-                  <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-foreground/85" /> Total</span>
+                  <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-foreground/85" /> {t('stats.ov_total')}</span>
                   <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-sm bg-blue-500" /> WhatsApp</span>
                 </div>
               </>
@@ -252,7 +255,9 @@ export function StatsOverviewBoard({
             <div>
               <p className="text-base font-semibold text-foreground">{labels.aiResponse}</p>
               <p className="mt-0.5 text-xs text-muted-foreground">
-                {countryCount > 0 ? `${countryCount} pays · ${respRate}% automatisé` : `${respRate}% de réponses automatisées`}
+                {countryCount > 0
+                  ? t('stats.ov_countries_automated', { count: countryCount, rate: respRate })
+                  : t('stats.ov_percent_automated', { rate: respRate })}
               </p>
             </div>
             <ChevronRight className="h-4 w-4 text-muted-foreground" />
@@ -273,8 +278,8 @@ export function StatsOverviewBoard({
       <FrameCard gradient className="flex min-h-0 flex-col lg:flex-1">
         <div className="flex shrink-0 items-start justify-between">
           <div>
-            <p className="text-base font-semibold text-foreground">Activité des messages</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">Reçus et envoyés, jour par jour.</p>
+            <p className="text-base font-semibold text-foreground">{t('stats.ov_message_activity')}</p>
+            <p className="mt-0.5 text-xs text-muted-foreground">{t('stats.ov_received_sent_daily')}</p>
           </div>
           <span className="text-sm font-semibold text-foreground">{nf(o.totalMessages)}</span>
         </div>
@@ -297,10 +302,11 @@ function MessageChart({
   data: { date: string; value: number }[]
   locale: string
 }) {
+  const { t } = useTranslation()
   if (data.length === 0) {
     return (
       <div className="mt-6 flex h-40 items-center justify-center text-sm text-muted-foreground">
-        Aucun message sur la période.
+        {t('stats.ov_no_messages_period')}
       </div>
     )
   }

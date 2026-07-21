@@ -60,7 +60,7 @@ const PLANS = [
     id: 'starter' as PlanId,
     name: 'Starter',
     price: 49,
-    limitDesc: '550 conversations IA / mois',
+    limitCount: 550,
     icon: Zap,
     color: 'text-blue-500',
     borderColor: 'border-blue-500/30',
@@ -68,22 +68,22 @@ const PLANS = [
     badgeBg: 'bg-blue-500/10 text-blue-600',
     buttonClass: 'bg-blue-500 hover:bg-blue-600 text-white',
     features: [
-      { text: '1 agent IA', included: true },
-      { text: '15 automatisations (campagnes + transactionnel)', included: true },
-      { text: 'Envois de messages illimités', included: true },
-      { text: 'Conversations illimitées', included: true },
-      { text: 'Modèles de messages illimités', included: true },
-      { text: 'Widget de chat + popup', included: true },
-      { text: 'Tableau de bord de performance', included: true },
-      { text: 'Aide à l’installation', included: false },
-      { text: 'Support prioritaire', included: false },
+      { key: 'agents', count: 1, included: true },
+      { key: 'automations', count: 15, included: true },
+      { key: 'unlimited_sends', included: true },
+      { key: 'unlimited_conversations', included: true },
+      { key: 'unlimited_templates', included: true },
+      { key: 'chat_widget', included: true },
+      { key: 'perf_dashboard', included: true },
+      { key: 'install_help', included: false },
+      { key: 'priority_support', included: false },
     ],
   },
   {
     id: 'pro' as PlanId,
     name: 'Pro',
     price: 149,
-    limitDesc: '1 800 conversations IA / mois',
+    limitCount: 1800,
     icon: Rocket,
     color: 'text-primary',
     borderColor: 'border-primary/50',
@@ -92,22 +92,22 @@ const PLANS = [
     buttonClass: '',
     popular: true,
     features: [
-      { text: '5 agents IA', included: true },
-      { text: '50 automatisations (campagnes + transactionnel)', included: true },
-      { text: 'Envois de messages illimités', included: true },
-      { text: 'Conversations illimitées', included: true },
-      { text: 'Modèles de messages illimités', included: true },
-      { text: 'Aide à l’installation', included: true },
-      { text: 'Widget de chat + popup', included: true },
-      { text: 'Tableau de bord de performance', included: true },
-      { text: 'Support prioritaire', included: false },
+      { key: 'agents', count: 5, included: true },
+      { key: 'automations', count: 50, included: true },
+      { key: 'unlimited_sends', included: true },
+      { key: 'unlimited_conversations', included: true },
+      { key: 'unlimited_templates', included: true },
+      { key: 'install_help', included: true },
+      { key: 'chat_widget', included: true },
+      { key: 'perf_dashboard', included: true },
+      { key: 'priority_support', included: false },
     ],
   },
   {
     id: 'scale' as PlanId,
     name: 'Scale',
     price: 349,
-    limitDesc: '4 500 conversations IA / mois',
+    limitCount: 4500,
     icon: Crown,
     color: 'text-sky-500',
     borderColor: 'border-sky-500/30',
@@ -115,16 +115,16 @@ const PLANS = [
     badgeBg: 'bg-sky-500/10 text-sky-600',
     buttonClass: 'bg-sky-500 hover:bg-sky-600 text-white',
     features: [
-      { text: '20 agents IA', included: true },
-      { text: '200 automatisations (campagnes + transactionnel)', included: true },
-      { text: 'Envois de messages illimités', included: true },
-      { text: 'Conversations illimitées', included: true },
-      { text: 'Modèles de messages illimités', included: true },
-      { text: 'Aide à l’installation', included: true },
-      { text: 'Support prioritaire', included: true },
-      { text: 'Copywriting de vos campagnes', included: true },
-      { text: 'Widget de chat + popup', included: true },
-      { text: 'Tableau de bord de performance', included: true },
+      { key: 'agents', count: 20, included: true },
+      { key: 'automations', count: 200, included: true },
+      { key: 'unlimited_sends', included: true },
+      { key: 'unlimited_conversations', included: true },
+      { key: 'unlimited_templates', included: true },
+      { key: 'install_help', included: true },
+      { key: 'priority_support', included: true },
+      { key: 'campaign_copywriting', included: true },
+      { key: 'chat_widget', included: true },
+      { key: 'perf_dashboard', included: true },
     ],
   },
 ]
@@ -195,7 +195,7 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
       })
       const json = await res.json()
       if (!res.ok || !json?.data?.confirmationUrl) {
-        throw new Error(json?.error || 'Achat impossible')
+        throw new Error(json?.error || t('subscription.sub_purchase_failed'))
       }
       window.location.href = json.data.confirmationUrl
     } catch (e) {
@@ -203,7 +203,7 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
       // « Impossible de lancer l'achat » masquait la vraie cause (jeton Shopify
       // expiré, refus de Shopify, table manquante…) et rendait le diagnostic
       // impossible côté marchand comme côté support.
-      toast.error(e instanceof Error ? e.message : 'Impossible de lancer l’achat de crédits.')
+      toast.error(e instanceof Error ? e.message : t('subscription.sub_recharge_error'))
       setBuyingCredits(false)
     }
   }
@@ -245,7 +245,7 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
       // retiré. `createAppSubscription` gère upgrade/downgrade côté serveur
       // (APPLY_IMMEDIATELY / APPLY_ON_NEXT_BILLING_CYCLE).
       if (!shopifyBilled || !shopDomain) {
-        throw new Error("Aucune boutique Shopify liée. Ouvrez l'application depuis votre admin Shopify pour vous abonner.")
+        throw new Error(t('subscription.sub_no_shop_linked'))
       }
       const res = await fetch('/api/shopify/billing/subscribe', {
         method: 'POST',
@@ -263,7 +263,7 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
       })
       const json = await res.json()
       const confirmationUrl = json?.data?.confirmationUrl
-      if (!res.ok || !confirmationUrl) throw new Error(json.error || 'Erreur de facturation Shopify')
+      if (!res.ok || !confirmationUrl) throw new Error(json.error || t('subscription.sub_billing_error'))
       window.location.href = confirmationUrl
     } catch (error) {
       console.error('[Subscription] Error:', error)
@@ -302,6 +302,20 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
     if (!date) return '-'
     return date.toLocaleDateString(dateLocale, { day: 'numeric', month: 'long', year: 'numeric' })
   }
+
+  /** Libellé traduit d'une fonctionnalité de plan (clé + éventuel compteur). */
+  const featureLabel = (f: { key: string; count?: number; included: boolean }) => {
+    switch (f.key) {
+      case 'agents':
+        return t(f.count && f.count > 1 ? 'subscription.sub_feat_agents_many' : 'subscription.sub_feat_agents_one', { count: f.count ?? 1 })
+      case 'automations':
+        return t('subscription.sub_feat_automations', { count: (f.count ?? 0).toLocaleString(dateLocale) })
+      default:
+        return t(`subscription.sub_feat_${f.key}`)
+    }
+  }
+  /** Description de la limite du plan (conversations IA / mois). */
+  const limitDescLabel = (count: number) => t('subscription.sub_limit_desc', { count: count.toLocaleString(dateLocale) })
 
   // Sans abonnement payant explicite, le compte est sur le plan GRATUIT (0€) :
   // c'est un vrai plan (pas « aucun plan »), avec accès à la plateforme (sans IA).
@@ -363,11 +377,10 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
           <CardContent className="flex items-start gap-3 pt-6">
             <ShoppingBag className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
             <div className="text-sm">
-              <p className="font-medium">Facturation gérée par Shopify</p>
+              <p className="font-medium">{t('subscription.sub_billing_by_shopify')}</p>
               <p className="mt-0.5 text-muted-foreground">
-                Votre abonnement Xeyo est facturé <span className="font-medium text-foreground">avec votre facture Shopify</span>
-                {shopDomain ? ` (${shopDomain})` : ''}. Vous approuvez le changement de plan directement dans Shopify —
-                aucun moyen de paiement à saisir ici.
+                {t('subscription.sub_billing_by_shopify_desc', { appName: tenant.appName })} <span className="font-medium text-foreground">{t('subscription.sub_billing_with_shopify_invoice')}</span>
+                {shopDomain ? ` (${shopDomain})` : ''}{t('subscription.sub_billing_approve_in_shopify')}
               </p>
             </div>
           </CardContent>
@@ -400,10 +413,10 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
                   })()}
                   <div>
                     <p className="text-lg font-bold">
-                      Plan {PLANS.find(p => p.id === currentPlan)?.name ?? 'Aucun plan'}
+                      {t('subscription.sub_plan_prefix')} {PLANS.find(p => p.id === currentPlan)?.name ?? t('subscription.sub_no_plan')}
                       {pendingPlan && (
                         <span className="ml-2 text-sm font-normal text-amber-600 dark:text-amber-400">
-                          → {PLANS.find(p => p.id === pendingPlan)?.name ?? pendingPlan} au prochain renouvellement
+                          → {PLANS.find(p => p.id === pendingPlan)?.name ?? pendingPlan} {t('subscription.sub_at_next_renewal')}
                         </span>
                       )}
                     </p>
@@ -411,15 +424,15 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
                     <p className="text-sm text-muted-foreground">
                       {currentPlan && PLANS.find(p => p.id === currentPlan)
                         ? isAnnualPlan
-                          ? `${annualPrice(currentPlan).toLocaleString('fr-FR')}€/an`
-                          : `${PLANS.find(p => p.id === currentPlan)?.price}€/mois`
+                          ? t('subscription.sub_per_year', { amount: annualPrice(currentPlan).toLocaleString(dateLocale) })
+                          : t('subscription.sub_per_month', { amount: PLANS.find(p => p.id === currentPlan)?.price ?? 0 })
                         : '—'}
-                      {isAnnualPlan && <span className="ml-1 text-emerald-600">· 2 mois offerts</span>}
+                      {isAnnualPlan && <span className="ml-1 text-emerald-600">· {t('subscription.sub_two_months_free')}</span>}
                       {pendingPlan && PLANS.find(p => p.id === pendingPlan) && (
                         <span className="ml-1">
                           → {isAnnualPlan
-                            ? `${annualPrice(pendingPlan).toLocaleString('fr-FR')}€/an`
-                            : `${PLANS.find(p => p.id === pendingPlan)?.price}€/mois`} après renouvellement
+                            ? t('subscription.sub_per_year', { amount: annualPrice(pendingPlan).toLocaleString(dateLocale) })
+                            : t('subscription.sub_per_month', { amount: PLANS.find(p => p.id === pendingPlan)?.price ?? 0 })} {t('subscription.sub_after_renewal')}
                         </span>
                       )}
                     </p>
@@ -442,15 +455,15 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
                     subscription.status || ''
                   ) && 'bg-muted text-muted-foreground hover:bg-muted',
                 )}>
-                  {subscription.status === 'active' && 'Actif'}
-                  {subscription.status === 'trialing' && 'Période d’essai'}
-                  {subscription.status === 'pending' && 'En attente d’approbation'}
-                  {subscription.status === 'canceled' && 'Annulé'}
-                  {subscription.status === 'frozen' && 'Impayé'}
-                  {subscription.status === 'past_due' && 'Expiré'}
+                  {subscription.status === 'active' && t('subscription.sub_status_active')}
+                  {subscription.status === 'trialing' && t('subscription.sub_status_trial')}
+                  {subscription.status === 'pending' && t('subscription.sub_status_pending')}
+                  {subscription.status === 'canceled' && t('subscription.sub_status_cancelled')}
+                  {subscription.status === 'frozen' && t('subscription.sub_status_unpaid')}
+                  {subscription.status === 'past_due' && t('subscription.sub_status_expired')}
                   {!['active', 'trialing', 'pending', 'canceled', 'frozen', 'past_due'].includes(
                     subscription.status || ''
-                  ) && 'Aucun abonnement'}
+                  ) && t('subscription.sub_status_none')}
                 </Badge>
               </div>
 
@@ -461,10 +474,10 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
                   <p className="text-xs text-muted-foreground flex items-center gap-1">
                     <Calendar className="h-3 w-3" />
                     {subscription.status === 'canceled'
-                      ? 'Accès jusqu\'au'
+                      ? t('subscription.sub_access_until')
                       : subscription.status === 'trialing'
-                      ? 'Fin d\'essai'
-                      : 'Prochain renouvellement'}
+                      ? t('subscription.sub_trial_end')
+                      : t('subscription.sub_next_renewal')}
                   </p>
                   <p className="text-sm font-semibold">
                     {subscription.status === 'active' && subscription.subscriptionEndsAt
@@ -476,7 +489,7 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
                       : '—'}
                   </p>
                   {subscription.daysRemaining !== null && subscription.daysRemaining > 0 && (
-                    <p className="text-xs text-muted-foreground/70">{subscription.daysRemaining} jour{subscription.daysRemaining > 1 ? 's' : ''} restant{subscription.daysRemaining > 1 ? 's' : ''}</p>
+                    <p className="text-xs text-muted-foreground/70">{t(subscription.daysRemaining > 1 ? 'subscription.sub_days_remaining_many' : 'subscription.sub_days_remaining_one', { count: subscription.daysRemaining })}</p>
                   )}
                 </div>
 
@@ -485,8 +498,8 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
                   <p className="text-xs text-muted-foreground flex items-center gap-1">
                     <CreditCard className="h-3 w-3" />
                     {subscription.status === 'canceled' || subscription.status === 'past_due'
-                      ? 'Prochain paiement'
-                      : 'Montant prélevé'}
+                      ? t('subscription.sub_next_payment')
+                      : t('subscription.sub_amount_charged')}
                   </p>
                   {/* ⚠️ Le montant DOIT suivre l'intervalle réellement facturé :
                       un marchand en annuel voyait « 149 € · par mois » alors qu'il
@@ -498,20 +511,20 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
                           const shown = (pendingPlan || currentPlan) as PlanId
                           if (!PLANS.find(p => p.id === shown)) return '—'
                           return isAnnualPlan
-                            ? `${annualPrice(shown).toLocaleString('fr-FR')}€`
+                            ? `${annualPrice(shown).toLocaleString(dateLocale)}€`
                             : `${PLANS.find(p => p.id === shown)?.price}€`
                         })()}
                   </p>
                   {(subscription.status === 'active' || subscription.status === 'trialing') && !pendingPlan && (
                     <p className="text-xs text-muted-foreground/70">
-                      {isAnnualPlan ? 'par an, hors taxes' : 'par mois, hors taxes'}
+                      {isAnnualPlan ? t('subscription.sub_per_year_taxfree') : t('subscription.sub_per_month_taxfree')}
                     </p>
                   )}
                   {pendingPlan && subscription.status !== 'canceled' && subscription.status !== 'past_due' && (
-                    <p className="text-xs text-amber-600 dark:text-amber-400">nouveau montant</p>
+                    <p className="text-xs text-amber-600 dark:text-amber-400">{t('subscription.sub_new_amount')}</p>
                   )}
                   {(subscription.status === 'canceled' || subscription.status === 'past_due') && (
-                    <p className="text-xs text-muted-foreground/70">aucun renouvellement</p>
+                    <p className="text-xs text-muted-foreground/70">{t('subscription.sub_no_renewal')}</p>
                   )}
                 </div>
 
@@ -524,19 +537,19 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
                     {isActive
                       ? <CheckCircle className="h-3 w-3 text-green-500" />
                       : <XCircle className="h-3 w-3 text-red-500" />}
-                    Accès plateforme
+                    {t('subscription.sub_platform_access')}
                   </p>
                   <p className={cn('text-sm font-semibold', isActive ? 'text-green-600' : 'text-red-600')}>
-                    {isActive ? 'Actif' : 'Suspendu'}
+                    {isActive ? t('subscription.sub_status_active') : t('subscription.sub_access_suspended')}
                   </p>
                   {subscription.status === 'canceled' && isActive && (
-                    <p className="text-xs text-orange-600 dark:text-orange-400">jusqu&apos;à fin de période</p>
+                    <p className="text-xs text-orange-600 dark:text-orange-400">{t('subscription.sub_until_period_end')}</p>
                   )}
                   {isFree && (
-                    <p className="text-xs text-muted-foreground/70">Sans IA, passez à un plan payant pour l&apos;activer</p>
+                    <p className="text-xs text-muted-foreground/70">{t('subscription.sub_free_activate_hint')}</p>
                   )}
                   {!isActive && !isFree && (
-                    <p className="text-xs text-red-500/70">Réabonnez-vous pour accéder</p>
+                    <p className="text-xs text-red-500/70">{t('subscription.sub_resubscribe_to_access')}</p>
                   )}
                 </div>
               </div>
@@ -556,10 +569,10 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
                 <div className="mt-4 flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2.5">
                   <Clock className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
                   <p className="text-xs leading-relaxed text-amber-800 dark:text-amber-200">
-                    <span className="font-semibold">Changement programmé.</span>{' '}
-                    Vous gardez le plan{' '}
+                    <span className="font-semibold">{t('subscription.sub_scheduled_change')}</span>{' '}
+                    {t('subscription.sub_you_keep_plan')}{' '}
                     <span className="font-semibold capitalize">{subscription.plan}</span>{' '}
-                    jusqu&apos;au{' '}
+                    {t('subscription.sub_until')}{' '}
                     <span className="font-semibold">
                       {subscription.subscriptionEndsAt.toLocaleDateString(locale === 'en' ? 'en-US' : 'fr-FR', {
                         day: 'numeric', month: 'long', year: 'numeric',
@@ -570,8 +583,8 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
                         marchand ne « passe » pas à un plan gratuit (il n'existe
                         plus), son abonnement prend fin. */}
                     {subscription.pendingPlan === 'free'
-                      ? <>puis votre abonnement prendra fin.</>
-                      : <>puis vous passerez au plan{' '}
+                      ? <>{t('subscription.sub_then_ends')}</>
+                      : <>{t('subscription.sub_then_switch_to')}{' '}
                           <span className="font-semibold capitalize">{subscription.pendingPlan}</span>.</>}
                   </p>
                 </div>
@@ -590,7 +603,7 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Zap className="h-5 w-5 text-amber-500" />
-                <span className="font-semibold">Crédits IA (conversations)</span>
+                <span className="font-semibold">{t('subscription.sub_ai_credits')}</span>
               </div>
               {/* Recharge de conversations IA via la Billing API Shopify
                   (appPurchaseOneTimeCreate — achat ponctuel conforme App Store).
@@ -606,7 +619,7 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
                   disabled={buyingCredits}
                 >
                   <Zap className="mr-1 h-3 w-3" />
-                  {buyingCredits ? 'Redirection…' : 'Recharger +500 conversations (45€)'}
+                  {buyingCredits ? t('subscription.sub_recharge_redirecting') : t('subscription.sub_recharge_button')}
                 </Button>
               )}
             </div>
@@ -618,16 +631,16 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
                 Définition alignée sur countAiConversationsThisMonth() :
                 « conversations distinctes avec au moins un message sent_by=ai_agent ». */}
             <p className="mt-1 text-sm text-muted-foreground">
-              1 crédit = 1 conversation où votre agent IA a répondu, quel que soit le nombre de messages.
+              {t('subscription.sub_credit_definition')}
             </p>
             <details className="group mt-1">
               <summary className="cursor-pointer list-none text-xs font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground">
-                Comment sont comptés les crédits ?
+                {t('subscription.sub_how_credits_counted')}
               </summary>
               <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
-                <li>• Ne consomment <span className="font-medium text-foreground">rien</span> : vos réponses manuelles, les automatisations et les modèles envoyés sans IA.</li>
-                <li>• Le quota <span className="font-medium text-foreground">inclus dans votre plan</span> repart de zéro à chaque renouvellement mensuel.</li>
-                <li>• Les <span className="font-medium text-foreground">recharges</span> achetées prennent le relais une fois ce quota épuisé, et <span className="font-medium text-foreground">ne périment pas</span>.</li>
+                <li>• {t('subscription.sub_credits_note_nothing')}</li>
+                <li>• {t('subscription.sub_credits_note_plan_quota')}</li>
+                <li>• {t('subscription.sub_credits_note_recharges')}</li>
               </ul>
             </details>
           </CardHeader>
@@ -655,8 +668,8 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
                   <div className="space-y-1.5">
                     <div className="flex items-center justify-between text-sm">
                       <span className="text-muted-foreground">
-                        <span className="font-semibold text-foreground">{planUsed.toLocaleString('fr-FR')}</span>
-                        {' / '}{(planLimit ?? 0).toLocaleString('fr-FR')} <span className="font-medium text-foreground">inclus dans votre plan</span>
+                        <span className="font-semibold text-foreground">{planUsed.toLocaleString(dateLocale)}</span>
+                        {' / '}{(planLimit ?? 0).toLocaleString(dateLocale)} <span className="font-medium text-foreground">{t('subscription.sub_included_in_plan')}</span>
                       </span>
                       <span className={cn(
                         'font-medium',
@@ -676,7 +689,7 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
                       )}
                     />
                     <p className="text-xs text-muted-foreground">
-                      {Math.max(0, (planLimit ?? 0) - planUsed).toLocaleString('fr-FR')} restantes · remis à zéro le mois prochain
+                      {t('subscription.sub_remaining_reset_next_month', { count: Math.max(0, (planLimit ?? 0) - planUsed).toLocaleString(dateLocale) })}
                     </p>
                   </div>
 
@@ -686,23 +699,22 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
                     <div className="space-y-1.5 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
                       <div className="flex items-center justify-between text-sm">
                         <span className="text-muted-foreground">
-                          <span className="font-semibold text-foreground">{extraUsed.toLocaleString('fr-FR')}</span>
-                          {' / '}{extra.toLocaleString('fr-FR')} <span className="font-medium text-foreground">de recharge</span>
+                          <span className="font-semibold text-foreground">{extraUsed.toLocaleString(dateLocale)}</span>
+                          {' / '}{extra.toLocaleString(dateLocale)} <span className="font-medium text-foreground">{t('subscription.sub_of_recharge')}</span>
                         </span>
                         <span className="font-medium text-amber-600">{extraPct}%</span>
                       </div>
                       <Progress value={extraPct} className="h-2 [&>div]:bg-amber-500" />
                       <p className="text-xs text-muted-foreground">
-                        {extraLeft.toLocaleString('fr-FR')} restantes · <span className="font-medium text-foreground">ne périment pas</span>
-                        {planLimit !== null && planUsed < planLimit && ' (utilisées après le quota du plan)'}
+                        {t('subscription.sub_remaining_no_expiry', { count: extraLeft.toLocaleString(dateLocale) })}
+                        {planLimit !== null && planUsed < planLimit && t('subscription.sub_used_after_plan_quota')}
                       </p>
                     </div>
                   ) : (
                     <div className="rounded-lg border bg-muted/30 p-3">
                       <p className="text-xs text-muted-foreground">
-                        <span className="font-medium text-foreground">Aucune recharge en réserve.</span>{' '}
-                        Une recharge ajoute 500 conversations (45 €) qui <span className="font-medium text-foreground">ne périment pas</span> :
-                        elles prennent le relais une fois le quota du plan épuisé.
+                        <span className="font-medium text-foreground">{t('subscription.sub_no_recharge_title')}</span>{' '}
+                        {t('subscription.sub_no_recharge_desc')}
                       </p>
                     </div>
                   )}
@@ -717,8 +729,8 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
                 'bg-amber-500/10 text-amber-700 border border-amber-500/20',
               )}>
                 {aiCredits.percentage >= 100
-                  ? "Crédits IA épuisés, l'IA est en pause. Rechargez pour continuer à répondre automatiquement."
-                  : "Vous avez consommé plus de 80% de vos crédits IA. Pensez à recharger bientôt."}
+                  ? t('subscription.sub_credits_exhausted')
+                  : t('subscription.sub_credits_low')}
               </div>
             )}
           </CardContent>
@@ -736,10 +748,9 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
               <>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <p className="text-sm font-medium">Factures et moyen de paiement</p>
+                    <p className="text-sm font-medium">{t('subscription.sub_invoices_payment_method')}</p>
                     <p className="mt-0.5 text-xs text-muted-foreground">
-                      Votre abonnement Xeyo est facturé avec votre facture Shopify. Vos factures et
-                      votre moyen de paiement se gèrent dans votre admin Shopify.
+                      {t('subscription.sub_invoices_payment_method_desc', { appName: tenant.appName })}
                     </p>
                   </div>
                   <Button
@@ -752,7 +763,7 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
                     }}
                   >
                     <CreditCard className="mr-2 h-4 w-4" />
-                    Ouvrir Shopify
+                    {t('subscription.sub_open_shopify')}
                   </Button>
                 </div>
                 <div className="border-t" />
@@ -764,11 +775,11 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
             {shopifyBilled && (
               <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                 <div>
-                  <p className="text-sm font-medium text-muted-foreground">Zone de danger</p>
+                  <p className="text-sm font-medium text-muted-foreground">{t('subscription.sub_danger_zone')}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">
                     {subscription?.status === 'trialing'
-                      ? 'L\'annulation est immédiate. Vous ne serez pas débité.'
-                      : 'L\'accès reste actif jusqu\'à la fin de la période en cours. Aucun remboursement au prorata.'}
+                      ? t('subscription.sub_cancel_immediate_trial')
+                      : t('subscription.sub_cancel_end_of_period')}
                   </p>
                 </div>
                 <AlertDialog>
@@ -783,7 +794,7 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
                       <AlertDialogTitle>{t('subscription.cancel_confirm_title')}</AlertDialogTitle>
                       <AlertDialogDescription>
                         {subscription?.status === 'trialing'
-                          ? 'Votre essai gratuit sera annulé immédiatement. Vous ne serez jamais débité.'
+                          ? t('subscription.sub_cancel_trial_confirm')
                           : t('subscription.cancel_confirm_desc')}
                       </AlertDialogDescription>
                     </AlertDialogHeader>
@@ -809,10 +820,10 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
       {/* Plans */}
       <h2 className="text-xl font-semibold mb-4">
         {isCancelled
-          ? 'Se réabonner'
+          ? t('subscription.sub_resubscribe')
           : hasActivePlan
-          ? 'Changer de plan'
-          : 'Plans disponibles'}
+          ? t('subscription.sub_change_plan')
+          : t('subscription.sub_available_plans')}
       </h2>
       {/* Sélecteur d'intervalle : mensuel vs annuel (-20 %). */}
       <div className="mb-6 flex items-center justify-center gap-3">
@@ -824,7 +835,7 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
             billingInterval === 'monthly' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
           )}
         >
-          Mensuel
+          {t('subscription.sub_monthly')}
         </button>
         <button
           type="button"
@@ -834,7 +845,7 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
             billingInterval === 'annual' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
           )}
         >
-          Annuel
+          {t('subscription.sub_annual')}
           <span className={cn(
             'rounded-full px-2 py-0.5 text-[11px] font-semibold',
             billingInterval === 'annual' ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-emerald-500/15 text-emerald-600'
@@ -876,21 +887,21 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
               {isCurrent && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                   <span className="rounded-full bg-green-500 px-3 py-1 text-xs font-semibold text-white">
-                    Plan actuel
+                    {t('subscription.sub_current_plan')}
                   </span>
                 </div>
               )}
               {isPending && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                   <span className="rounded-full bg-amber-500 px-3 py-1 text-xs font-semibold text-white">
-                    Prochain plan
+                    {t('subscription.sub_next_plan')}
                   </span>
                 </div>
               )}
               {plan.popular && !isCurrent && !isPending && (
                 <div className="absolute -top-3 left-1/2 -translate-x-1/2">
                   <span className="rounded-full bg-primary px-3 py-1 text-xs font-semibold text-primary-foreground">
-                    Populaire
+                    {t('subscription.sub_popular')}
                   </span>
                 </div>
               )}
@@ -903,14 +914,14 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
                 </div>
                 <div className="flex items-end gap-1">
                   <span className="text-3xl font-bold">{displayPrice}€</span>
-                  <span className="text-muted-foreground mb-0.5 text-sm">/mois</span>
+                  <span className="text-muted-foreground mb-0.5 text-sm">{t('subscription.per_month')}</span>
                 </div>
                 {billingInterval === 'annual' && (
                   <p className="text-[11px] font-medium text-emerald-600">
-                    soit {annualPrice(plan.id)}€/an · 2 mois offerts
+                    {t('subscription.sub_per_year_2months', { amount: annualPrice(plan.id) })}
                   </p>
                 )}
-                <p className="text-xs text-muted-foreground">{plan.limitDesc}</p>
+                <p className="text-xs text-muted-foreground">{limitDescLabel(plan.limitCount)}</p>
               </CardHeader>
               <CardContent className="flex-1 pt-0">
                 <ul className="space-y-2">
@@ -919,7 +930,7 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
                       {f.included
                         ? <Check className="h-3.5 w-3.5 shrink-0 text-green-500" />
                         : <X className="h-3.5 w-3.5 shrink-0 text-muted-foreground/40" />}
-                      <span className={f.included ? '' : 'text-muted-foreground/60'}>{f.text}</span>
+                      <span className={f.included ? '' : 'text-muted-foreground/60'}>{featureLabel(f)}</span>
                     </li>
                   ))}
                 </ul>
@@ -928,19 +939,19 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
                 {isCurrent ? (
                   <Button className="w-full" disabled variant="outline">
                     <Check className="mr-2 h-4 w-4" />
-                    Plan actuel
+                    {t('subscription.sub_current_plan')}
                   </Button>
                 ) : isPending ? (
                   <Button className="w-full" disabled variant="outline">
                     <Clock className="mr-2 h-4 w-4 text-amber-500" />
-                    Prochain renouvellement
+                    {t('subscription.sub_next_renewal_button')}
                   </Button>
                 ) : (
                   <Button
                     className={cn('w-full', plan.buttonClass)}
                     onClick={() => handleSelectPlan(plan.id)}
                   >
-                    Choisir {plan.name}
+                    {t('subscription.sub_choose_plan', { plan: plan.name })}
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 )}
@@ -967,14 +978,14 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
-              {hasActivePlan ? 'Changer de plan' : isCancelled ? 'Se réabonner' : 'Confirmer votre abonnement'}
+              {hasActivePlan ? t('subscription.sub_change_plan') : isCancelled ? t('subscription.sub_resubscribe') : t('subscription.sub_confirm_subscription')}
             </DialogTitle>
             <DialogDescription>
               {hasActivePlan
-                ? `Le changement prendra effet à votre prochain renouvellement${subscription?.subscriptionEndsAt ? ` le ${subscription.subscriptionEndsAt.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}` : ''}. Votre plan actuel reste actif jusqu\'à cette date.`
+                ? t('subscription.sub_change_effective_at', { date: subscription?.subscriptionEndsAt ? t('subscription.sub_change_effective_date', { date: subscription.subscriptionEndsAt.toLocaleDateString(dateLocale, { day: 'numeric', month: 'long', year: 'numeric' }) }) : '' })
                 : isCancelled
-                ? 'Votre abonnement a été annulé. Choisissez un plan pour vous réabonner.'
-                : 'Lisez et acceptez nos conditions avant de procéder au paiement.'}
+                ? t('subscription.sub_cancelled_choose_plan')
+                : t('subscription.sub_read_accept_terms')}
             </DialogDescription>
           </DialogHeader>
 
@@ -988,27 +999,27 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
                 </div>
               )}
               <div className="flex items-center justify-between">
-                <span className="font-semibold">Plan {planDetails.name}</span>
+                <span className="font-semibold">{t('subscription.sub_plan_prefix')} {planDetails.name}</span>
                 <span className="font-bold">
                   {billingInterval === 'annual'
-                    ? `${annualPrice(planDetails.id)}€/an`
-                    : `${planDetails.price}€/mois`}
+                    ? t('subscription.sub_per_year', { amount: annualPrice(planDetails.id) })
+                    : t('subscription.sub_per_month', { amount: planDetails.price })}
                 </span>
               </div>
               {billingInterval === 'annual' && (
                 <p className="text-xs font-medium text-emerald-600">
-                  Facturation annuelle · 2 mois offerts (−{Math.round(ANNUAL_DISCOUNT * 100)}%)
+                  {t('subscription.sub_annual_billing_2months', { discount: Math.round(ANNUAL_DISCOUNT * 100) })}
                 </p>
               )}
-              <p className="text-sm text-muted-foreground">{planDetails.limitDesc}</p>
+              <p className="text-sm text-muted-foreground">{limitDescLabel(planDetails.limitCount)}</p>
               {!isActive && !isCancelled && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  7 jours d&apos;essai gratuit, vous ne serez prélevé qu&apos;à l&apos;issue de la période d&apos;essai.
+                  {t('subscription.sub_trial_note')}
                 </p>
               )}
               {hasActivePlan && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  Vos tokens actuels restent disponibles jusqu&apos;au renouvellement, puis remis à zéro avec la limite du nouveau plan.
+                  {t('subscription.sub_tokens_kept_note')}
                 </p>
               )}
             </div>
@@ -1022,17 +1033,17 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
           <div>
             {showPromo ? (
               <div className="space-y-1.5">
-                <label className="text-xs font-medium text-muted-foreground">Code promo</label>
+                <label className="text-xs font-medium text-muted-foreground">{t('subscription.sub_promo_code')}</label>
                 <input
                   type="text"
                   value={promoCode}
                   onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
-                  placeholder="EX : BIENVENUE20"
+                  placeholder={t('subscription.sub_promo_placeholder')}
                   autoFocus
                   className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm uppercase tracking-wide outline-none focus:border-primary"
                 />
                 <p className="text-[11px] text-muted-foreground">
-                  La remise s’affichera sur l’écran de confirmation Shopify avant validation.
+                  {t('subscription.sub_promo_hint')}
                 </p>
               </div>
             ) : (
@@ -1041,7 +1052,7 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
                 onClick={() => setShowPromo(true)}
                 className="text-xs font-medium text-muted-foreground underline underline-offset-4 hover:text-foreground"
               >
-                J’ai un code promo
+                {t('subscription.sub_have_promo')}
               </button>
             )}
           </div>
@@ -1054,11 +1065,11 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
               className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer rounded border-border accent-primary"
             />
             <span className="text-sm text-muted-foreground leading-relaxed group-hover:text-foreground transition-colors">
-              J&apos;ai lu et j&apos;accepte les{' '}
+              {t('subscription.sub_accept_terms_prefix')}{' '}
               <Link href="/cgv" target="_blank" className="text-primary underline hover:no-underline" onClick={e => e.stopPropagation()}>
                 CGV
               </Link>{' '}
-              et les{' '}
+              {t('subscription.sub_accept_terms_and')}{' '}
               <Link href="/cgu" target="_blank" className="text-primary underline hover:no-underline" onClick={e => e.stopPropagation()}>
                 CGU
               </Link>
@@ -1068,13 +1079,13 @@ export function SubscriptionContent({ embedded = false }: { embedded?: boolean }
 
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="ghost" onClick={() => setSelectedPlan(null)} disabled={isProcessing}>
-              Annuler
+              {t('common.cancel')}
             </Button>
             <Button onClick={handleSubscribe} disabled={!cgvAccepted || isProcessing}>
               {isProcessing ? (
-                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{hasActivePlan ? 'Changement…' : 'Redirection…'}</>
+                <><Loader2 className="mr-2 h-4 w-4 animate-spin" />{hasActivePlan ? t('subscription.sub_changing') : t('subscription.sub_redirecting')}</>
               ) : (
-                hasActivePlan ? 'Confirmer le changement' : isCancelled ? 'Se réabonner' : 'Continuer vers le paiement'
+                hasActivePlan ? t('subscription.sub_confirm_change') : isCancelled ? t('subscription.sub_resubscribe') : t('subscription.sub_continue_to_payment')
               )}
             </Button>
           </DialogFooter>

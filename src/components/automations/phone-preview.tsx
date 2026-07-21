@@ -7,6 +7,7 @@ import IPhoneMockup from '@/components/ui/iphone-mockup'
 import { cn } from '@/lib/utils'
 import type { WorkflowGraph } from '@/lib/automations/graph-types'
 import { startSim, clickButton, typeText, buildTour, type SimTemplate, type SimState, type SimItem } from './phone-sim'
+import { useTranslation } from '@/i18n/context'
 
 /**
  * Aperçu téléphone WhatsApp du builder d'automatisation.
@@ -87,6 +88,7 @@ export function PhonePreview({
   graph?: WorkflowGraph
   templates?: SimTemplate[]
 }) {
+  const { t } = useTranslation()
   const resolved = resolvePreview(bodyText, samples)
   const customerName = samples[0] || 'Marie'
   const immediate = /imm/i.test(delayLabel)
@@ -219,8 +221,8 @@ export function PhonePreview({
               {(storeName || 'X').charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="truncate text-[15px] font-medium">{storeName || 'Votre boutique'}</p>
-              <p className="text-[11px] text-white/70">{mode === 'test' ? 'test en cours…' : 'en ligne'}</p>
+              <p className="truncate text-[15px] font-medium">{storeName || t('automations.builder.preview_your_store')}</p>
+              <p className="text-[11px] text-white/70">{mode === 'test' ? t('automations.builder.preview_test_in_progress') : t('automations.builder.preview_online')}</p>
             </div>
           </div>
 
@@ -268,7 +270,7 @@ export function PhonePreview({
                     <motion.span animate={{ rotate: immediate ? 0 : 360 }} transition={{ duration: 2, repeat: immediate ? 0 : Infinity, ease: 'linear' }}>
                       <Clock className="h-3.5 w-3.5" />
                     </motion.span>
-                    {immediate ? 'Envoi immédiat' : `Attend ${delayLabel}`}
+                    {immediate ? t('automations.builder.preview_immediate_send') : t('automations.builder.preview_waits', { delay: delayLabel })}
                   </motion.div>
                 )}
                 {step >= 2 && (
@@ -281,11 +283,11 @@ export function PhonePreview({
                       ? <img src={mediaUrl} alt="" className="h-24 w-full object-cover" />
                       : <div className="h-24 w-full bg-slate-300" />)}
                     {mediaType === 'video' && <div className="h-24 w-full bg-slate-800" />}
-                    {mediaType === 'document' && <div className="bg-slate-100 px-2 py-2 text-xs text-slate-500">📄 Document.pdf</div>}
+                    {mediaType === 'document' && <div className="bg-slate-100 px-2 py-2 text-xs text-slate-500">📄 {t('automations.builder.preview_document')}</div>}
                     <div className="px-2.5 py-1.5">
                       {headerText && mediaType === 'text' && <p className="mb-0.5 text-[21px] font-semibold text-gray-900">{headerText}</p>}
                       <p className="whitespace-pre-wrap break-words text-[20px] leading-snug text-gray-800">
-                        {renderFormat(resolved) || <span className="text-gray-400">Votre message…</span>}
+                        {renderFormat(resolved) || <span className="text-gray-400">{t('automations.builder.preview_your_message')}</span>}
                       </p>
                       {footerText && <p className="mt-1 text-[16px] text-gray-500">{footerText}</p>}
                       <div className="mt-0.5 flex items-center justify-end gap-0.5 text-[11px] text-gray-400">
@@ -314,7 +316,7 @@ export function PhonePreview({
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') onSendDraft() }}
                 disabled={mode !== 'test'}
-                placeholder={mode === 'test' ? 'Répondez au test…' : 'Entrez un message'}
+                placeholder={mode === 'test' ? t('automations.builder.preview_reply_to_test') : t('automations.builder.preview_enter_message')}
                 className="w-full bg-transparent text-[18px] text-white placeholder:text-white/40 outline-none disabled:cursor-default"
               />
             </div>
@@ -336,19 +338,19 @@ export function PhonePreview({
           <>
             <button onClick={() => setPlayKey((k) => k + 1)}
               className="flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted">
-              <Play className="h-3 w-3" /> Rejouer
+              <Play className="h-3 w-3" /> {t('automations.builder.preview_replay')}
             </button>
             {canTest && (
               <button onClick={startTest}
                 className="flex items-center gap-1.5 rounded-full bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90">
-                <FlaskConical className="h-3 w-3" /> Tester l’automatisation
+                <FlaskConical className="h-3 w-3" /> {t('automations.builder.preview_test_automation')}
               </button>
             )}
           </>
         ) : (
           <button onClick={resetTest}
             className="flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-muted">
-            <RotateCcw className="h-3 w-3" /> Reset
+            <RotateCcw className="h-3 w-3" /> {t('automations.builder.preview_reset')}
           </button>
         )}
       </div>
@@ -366,6 +368,7 @@ function SimConversation({ sim, onClickButton }: { sim: SimState; onClickButton:
 }
 
 function SimBubble({ item, last, onClickButton, waiting }: { item: SimItem; last: boolean; onClickButton: (label: string) => void; waiting: boolean }) {
+  const { t } = useTranslation()
   if (item.kind === 'system') {
     return (
       <div className="mx-auto max-w-[92%] rounded-lg bg-[#fdf4c9] px-3 py-2 text-center shadow-sm">
@@ -377,7 +380,7 @@ function SimBubble({ item, last, onClickButton, waiting }: { item: SimItem; last
   if (item.kind === 'delay') {
     return (
       <div className="mx-auto flex items-center gap-1.5 rounded-full bg-black/10 px-3 py-1.5 text-[15px] text-gray-700 backdrop-blur-sm">
-        <Clock className="h-4 w-4" /> {item.immediate ? 'Envoi immédiat' : `Attend ${item.label}`}
+        <Clock className="h-4 w-4" /> {item.immediate ? t('automations.builder.preview_immediate_send') : t('automations.builder.preview_waits', { delay: item.label })}
       </div>
     )
   }
@@ -400,7 +403,7 @@ function SimBubble({ item, last, onClickButton, waiting }: { item: SimItem; last
         ? <SimImage src={item.mediaUrl} className="h-28 w-full object-cover" />
         : <div className="h-28 w-full bg-slate-200" />)}
       {item.mediaType === 'video' && <div className="flex h-28 w-full items-center justify-center bg-slate-800 text-white/70">▶</div>}
-      {item.mediaType === 'document' && <div className="bg-slate-100 px-3 py-2 text-[13px] text-slate-500">📄 Document.pdf</div>}
+      {item.mediaType === 'document' && <div className="bg-slate-100 px-3 py-2 text-[13px] text-slate-500">📄 {t('automations.builder.preview_document')}</div>}
 
       {/* Carrousel : cartes horizontales (image + court texte) */}
       {item.cards && item.cards.length > 0 && (
@@ -410,7 +413,7 @@ function SimBubble({ item, last, onClickButton, waiting }: { item: SimItem; last
               {c.image
                 ? <SimImage src={c.image} className="h-[72px] w-full object-cover" />
                 : <div className="flex h-[72px] w-full items-center justify-center bg-slate-100 text-slate-300">🖼️</div>}
-              <p className="truncate px-1.5 py-1 text-[12px] font-medium text-gray-700">{c.body || `Carte ${i + 1}`}</p>
+              <p className="truncate px-1.5 py-1 text-[12px] font-medium text-gray-700">{c.body || t('automations.builder.preview_card', { n: i + 1 })}</p>
             </div>
           ))}
         </div>

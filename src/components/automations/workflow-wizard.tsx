@@ -14,18 +14,29 @@ import { useSubscription } from '@/hooks/use-subscription'
 import { UpgradeBadge } from '@/components/upgrade-badge'
 import { VARIABLE_BY_KEY } from '@/lib/templates/variables'
 import { USE_CASES, guessUseCase } from '@/lib/templates/use-cases'
+import { useTranslation } from '@/i18n/context'
 
-const DELAY_PRESETS: { label: string; minutes: number }[] = [
-  { label: 'Immédiat', minutes: 0 },
-  { label: '30 min', minutes: 30 },
-  { label: '1 h', minutes: 60 },
-  { label: '3 h', minutes: 180 },
-  { label: '24 h', minutes: 1440 },
-  { label: '48 h', minutes: 2880 },
-  { label: '7 jours', minutes: 10080 },
+// `labelKey` = clé i18n résolue via t() au rendu de l'étape « Délai ».
+const DELAY_PRESETS: { labelKey: string; minutes: number }[] = [
+  { labelKey: 'automations.builder.immediate', minutes: 0 },
+  { labelKey: 'automations.builder.preset_30_min', minutes: 30 },
+  { labelKey: 'automations.builder.preset_1h', minutes: 60 },
+  { labelKey: 'automations.builder.preset_3h', minutes: 180 },
+  { labelKey: 'automations.builder.preset_24h', minutes: 1440 },
+  { labelKey: 'automations.builder.preset_48h', minutes: 2880 },
+  { labelKey: 'automations.builder.duration_7_days', minutes: 10080 },
 ]
 
 type Variant = { templateId: string | null; weight: number }
+
+// Nom technique de groupe de déclencheurs (== TRIGGER_EVENTS[].group, hors
+// périmètre i18n) → clé d'affichage traduite. Inconnu = affiché tel quel.
+const TRIGGER_GROUP_KEY: Record<string, string> = {
+  'Commande': 'automations.builder.trigger_group_order',
+  'Contact': 'automations.builder.trigger_group_contact',
+  'Conversation': 'automations.builder.trigger_group_conversation',
+  'Planifié': 'automations.builder.trigger_group_scheduled',
+}
 
 /**
  * Wizard de création d'automatisation, étape par étape :
@@ -45,6 +56,7 @@ export function WorkflowWizard({
   /** Onglet : filtre les déclencheurs + adapte le vocabulaire (campagne vs auto). */
   kind?: 'marketing' | 'transactional'
 }) {
+  const { t } = useTranslation()
   const isMarketing = kind === 'marketing'
   // Déclencheurs proposés selon l'onglet, regroupés par famille.
   const allowedTriggers = triggersForKind(kind)
@@ -79,11 +91,11 @@ export function WorkflowWizard({
       // L'IA peut proposer un trigger hors onglet : on ne l'accepte que s'il
       // fait partie des déclencheurs autorisés ici (sinon non sélectionnable).
       if (json.event && allowedTriggers.some((e) => e.value === json.event)) {
-        setEvent(json.event); toast.success('Événement suggéré')
+        setEvent(json.event); toast.success(t('automations.builder.toast_event_suggested'))
       } else if (json.event) {
-        toast.error(isMarketing ? 'Cet événement relève plutôt du transactionnel.' : 'Cet événement relève plutôt des campagnes.')
-      } else toast.error('Aucun événement trouvé, choisissez manuellement.')
-    } catch { toast.error('Erreur') } finally { setAiBusy(false); setAiText('') }
+        toast.error(isMarketing ? t('automations.builder.toast_event_wrong_tab_marketing') : t('automations.builder.toast_event_wrong_tab_transactional'))
+      } else toast.error(t('automations.builder.toast_no_event_found'))
+    } catch { toast.error(t('automations.builder.toast_error')) } finally { setAiBusy(false); setAiText('') }
   }
 
   async function suggestCondition() {
@@ -95,9 +107,9 @@ export function WorkflowWizard({
         body: JSON.stringify({ kind: 'condition', text: aiText }),
       })
       const json = await res.json()
-      if (json.rule) { setRule(json.rule); setUseCondition(true); toast.success('Condition suggérée') }
-      else toast.error('Condition non déduite, choisissez manuellement.')
-    } catch { toast.error('Erreur') } finally { setAiBusy(false); setAiText('') }
+      if (json.rule) { setRule(json.rule); setUseCondition(true); toast.success(t('automations.builder.toast_condition_suggested')) }
+      else toast.error(t('automations.builder.toast_condition_not_deduced'))
+    } catch { toast.error(t('automations.builder.toast_error')) } finally { setAiBusy(false); setAiText('') }
   }
 
   // Construit le graphe final à partir des choix du wizard.
@@ -150,12 +162,18 @@ export function WorkflowWizard({
 
   function finish() {
     const graph = buildGraph()
-    if (!graph || !event) { toast.error('Complétez le message avant de créer.'); return }
-    onComplete({ name: name.trim() || defaultName(event), graph, trigger: event })
+    if (!graph || !event) { toast.error(t('automations.builder.toast_complete_message')); return }
+    onComplete({ name: name.trim() || defaultName(event, t), graph, trigger: event })
   }
 
   // ── Étapes ──
-  const steps = ['Événement', 'Conditions', 'Message(s)', 'Délai', 'Finaliser']
+  const steps = [
+    t('automations.builder.step_event'),
+    t('automations.builder.step_conditions'),
+    t('automations.builder.step_messages'),
+    t('automations.builder.step_delay'),
+    t('automations.builder.step_finalize'),
+  ]
   const canNext =
     (step === 0 && !!event) ||
     (step === 1) ||
@@ -170,7 +188,7 @@ export function WorkflowWizard({
     <div className={cn('mx-auto flex w-full flex-col gap-4 p-4 md:p-6', wide ? 'max-w-none' : 'max-w-3xl lg:max-w-4xl')}>
       {/* Barre d'étapes */}
       <div className="flex items-center gap-2">
-        <button onClick={onCancel} className="text-xs text-muted-foreground hover:text-foreground">← Retour</button>
+        <button onClick={onCancel} className="text-xs text-muted-foreground hover:text-foreground">← {t('automations.builder.back')}</button>
         <div className="ml-2 flex flex-1 items-center gap-1.5">
           {steps.map((s, i) => (
             <div key={s} className="flex flex-1 items-center gap-1.5">
@@ -190,10 +208,10 @@ export function WorkflowWizard({
         <div className="space-y-3">
           {aiEnabled ? (
             <AiHelp value={aiText} onChange={setAiText} busy={aiBusy} onGo={suggestEvent}
-              placeholder={isMarketing ? 'Ex : envoyer une promo aux clients inactifs…' : 'Ex : quand un client abandonne son panier…'} />
+              placeholder={isMarketing ? t('automations.builder.ai_placeholder_marketing') : t('automations.builder.ai_placeholder_event')} />
           ) : (
             <div className="flex items-center justify-between gap-2 rounded-xl border border-dashed p-3 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5" /> L’assistant IA vous aide à décrire l’événement.</span>
+              <span className="flex items-center gap-1.5"><Sparkles className="h-3.5 w-3.5" /> {t('automations.builder.ai_help_event')}</span>
               <UpgradeBadge />
             </div>
           )}
@@ -201,7 +219,7 @@ export function WorkflowWizard({
               bouton/relances/panier ; transactionnel : statuts commande). */}
           {triggerGroups.map((group) => (
             <div key={group} className="space-y-1.5">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{group}</p>
+              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{TRIGGER_GROUP_KEY[group] ? t(TRIGGER_GROUP_KEY[group]) : group}</p>
               <div className="flex flex-wrap gap-1.5">
                 {allowedTriggers.filter((e) => e.group === group).map((e) => (
                   <button key={e.value} onClick={() => setEvent(e.value)}
@@ -223,20 +241,20 @@ export function WorkflowWizard({
           <div className="flex gap-2">
             <button onClick={() => setUseCondition(false)}
               className={cn('flex-1 rounded-lg border p-3 text-left text-sm', !useCondition ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted')}>
-              <p className="font-medium">Pour tous les clients</p>
-              <p className="text-xs text-muted-foreground">Aucune condition</p>
+              <p className="font-medium">{t('automations.builder.for_all_customers')}</p>
+              <p className="text-xs text-muted-foreground">{t('automations.builder.no_condition')}</p>
             </button>
             <button onClick={() => setUseCondition(true)}
               className={cn('flex-1 rounded-lg border p-3 text-left text-sm', useCondition ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted')}>
-              <p className="font-medium">Sous condition</p>
-              <p className="text-xs text-muted-foreground">Ex : montant, pays, 1re commande…</p>
+              <p className="font-medium">{t('automations.builder.under_condition')}</p>
+              <p className="text-xs text-muted-foreground">{t('automations.builder.condition_examples')}</p>
             </button>
           </div>
           {useCondition && (
             <div className="space-y-2 rounded-lg border p-3">
               {aiEnabled && (
                 <AiHelp value={aiText} onChange={setAiText} busy={aiBusy} onGo={suggestCondition}
-                  placeholder="Ex : si la commande dépasse 100 €…" />
+                  placeholder={t('automations.builder.ai_placeholder_condition')} />
               )}
               <div className="flex flex-wrap items-center gap-2">
                 <select value={rule.field}
@@ -244,14 +262,14 @@ export function WorkflowWizard({
                   className="h-9 rounded-md border border-input bg-background px-2 text-sm">
                   {/* has_stage nécessite une multi-sélection de tags → réservé au
                       builder complet, pas à ce mini-éditeur texte. */}
-                  {CONDITION_FIELDS.filter((f) => !f.multi).map((f) => <option key={f.value} value={f.value}>{f.label}</option>)}
+                  {CONDITION_FIELDS.filter((f) => !f.multi).map((f) => <option key={f.value} value={f.value}>{t(f.labelKey)}</option>)}
                 </select>
                 <select value={rule.op} onChange={(e) => setRule({ ...rule, op: e.target.value as ConditionRule['op'] })}
                   className="h-9 rounded-md border border-input bg-background px-2 text-sm">
                   {(CONDITION_FIELDS.find((f) => f.value === rule.field)?.ops || []).map((op) => <option key={op} value={op}>{op}</option>)}
                 </select>
                 <input value={String(rule.value ?? '')} onChange={(e) => setRule({ ...rule, value: e.target.value })}
-                  placeholder="valeur" className="h-9 w-28 rounded-md border border-input bg-background px-2 text-sm" />
+                  placeholder={t('automations.builder.value')} className="h-9 w-28 rounded-md border border-input bg-background px-2 text-sm" />
               </div>
             </div>
           )}
@@ -264,12 +282,12 @@ export function WorkflowWizard({
           <div className="flex gap-2">
             <button onClick={() => setAbTest(false)}
               className={cn('flex-1 rounded-lg border p-3 text-left text-sm', !abTest ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted')}>
-              <p className="font-medium">Un seul message</p>
+              <p className="font-medium">{t('automations.builder.single_message')}</p>
             </button>
             <button onClick={() => setAbTest(true)}
               className={cn('flex-1 rounded-lg border p-3 text-left text-sm', abTest ? 'border-primary bg-primary/5' : 'border-border hover:bg-muted')}>
-              <p className="font-medium">Test A/B</p>
-              <p className="text-xs text-muted-foreground">Comparer 2 à 4 messages</p>
+              <p className="font-medium">{t('automations.builder.node_ab_test')}</p>
+              <p className="text-xs text-muted-foreground">{t('automations.builder.compare_messages')}</p>
             </button>
           </div>
 
@@ -282,14 +300,14 @@ export function WorkflowWizard({
                   {/* En-tête variante : lettre + poids % + suppression */}
                   <div className="flex items-center gap-2">
                     <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">{String.fromCharCode(65 + i)}</span>
-                    <span className="text-sm font-medium">Variante {String.fromCharCode(65 + i)}</span>
+                    <span className="text-sm font-medium">{t('automations.builder.variant')} {String.fromCharCode(65 + i)}</span>
                     <div className="ml-auto flex items-center gap-1">
                       <input type="number" min={1} max={100} value={v.weight}
                         onChange={(e) => setVariants((prev) => prev.map((x, j) => j === i ? { ...x, weight: Number(e.target.value) || 0 } : x))}
                         className="h-8 w-16 rounded-md border border-input bg-background px-2 text-sm" />
                       <span className="text-xs text-muted-foreground">%</span>
                       {variants.length > 2 && (
-                        <button onClick={() => setVariants((prev) => prev.filter((_, j) => j !== i))} title="Retirer la variante"
+                        <button onClick={() => setVariants((prev) => prev.filter((_, j) => j !== i))} title={t('automations.builder.remove_variant_short')}
                           className="ml-1 rounded p-1 text-muted-foreground hover:text-destructive">✕</button>
                       )}
                     </div>
@@ -300,7 +318,7 @@ export function WorkflowWizard({
               ))}
               {variants.length < 4 && (
                 <button onClick={() => setVariants((prev) => [...prev, { templateId: null, weight: 0 }])}
-                  className="text-xs text-primary hover:underline">+ Ajouter une variante</button>
+                  className="text-xs text-primary hover:underline">{t('automations.builder.add_variant')}</button>
               )}
             </div>
           )}
@@ -310,13 +328,13 @@ export function WorkflowWizard({
       {/* ── Étape 3 : Délai ── */}
       {step === 3 && (
         <div className="space-y-2">
-          <p className="text-sm text-muted-foreground">Attendre combien de temps après l’événement avant d’envoyer ?</p>
+          <p className="text-sm text-muted-foreground">{t('automations.builder.delay_after_event')}</p>
           <div className="flex flex-wrap gap-1.5">
             {DELAY_PRESETS.map((d) => (
               <button key={d.minutes} onClick={() => setDelayMin(d.minutes)}
                 className={cn('rounded-lg border px-3 py-1.5 text-sm transition-colors',
                   delayMin === d.minutes ? 'border-primary bg-primary/10 text-primary' : 'border-border hover:bg-muted')}>
-                {d.label}
+                {t(d.labelKey)}
               </button>
             ))}
           </div>
@@ -327,33 +345,33 @@ export function WorkflowWizard({
       {step === 4 && (
         <div className="space-y-3">
           <div className="space-y-1.5">
-            <label className="text-sm font-medium">Nom {isMarketing ? 'de la campagne' : 'de l’automatisation'}</label>
+            <label className="text-sm font-medium">{isMarketing ? t('automations.builder.name_campaign') : t('automations.builder.name_automation')}</label>
             <input value={name} onChange={(e) => setName(e.target.value)}
-              placeholder={event ? defaultName(event) : (isMarketing ? 'Ma campagne' : 'Mon automatisation')}
+              placeholder={event ? defaultName(event, t) : (isMarketing ? t('automations.builder.my_campaign') : t('automations.builder.my_automation'))}
               className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm" />
           </div>
           <div className="rounded-lg border bg-muted/30 p-3 text-sm">
-            <p><span className="text-muted-foreground">Déclencheur :</span> {TRIGGER_EVENTS.find((e) => e.value === event)?.label}</p>
-            {useCondition && <p><span className="text-muted-foreground">Condition :</span> {CONDITION_FIELDS.find((f) => f.value === rule.field)?.label} {rule.op} {String(rule.value)}</p>}
-            <p><span className="text-muted-foreground">Délai :</span> {DELAY_PRESETS.find((d) => d.minutes === delayMin)?.label || `${delayMin} min`}</p>
-            <p><span className="text-muted-foreground">Message :</span> {abTest ? `Test A/B (${variants.filter((v) => v.templateId).length} variantes)` : (templates.find((t) => t.id === singleTemplate)?.name || '—')}</p>
+            <p><span className="text-muted-foreground">{t('automations.builder.recap_trigger')}</span> {TRIGGER_EVENTS.find((e) => e.value === event)?.label}</p>
+            {useCondition && <p><span className="text-muted-foreground">{t('automations.builder.recap_condition')}</span> {(() => { const f = CONDITION_FIELDS.find((f) => f.value === rule.field); return f ? t(f.labelKey) : '' })()} {rule.op} {String(rule.value)}</p>}
+            <p><span className="text-muted-foreground">{t('automations.builder.recap_delay')}</span> {(() => { const d = DELAY_PRESETS.find((d) => d.minutes === delayMin); return d ? t(d.labelKey) : `${delayMin} min` })()}</p>
+            <p><span className="text-muted-foreground">{t('automations.builder.recap_message')}</span> {abTest ? t('automations.builder.ab_test_variants_count', { count: variants.filter((v) => v.templateId).length }) : (templates.find((tpl) => tpl.id === singleTemplate)?.name || '—')}</p>
           </div>
-          <p className="text-xs text-muted-foreground">Après création, vous pourrez ajuster finement dans l’éditeur visuel.</p>
+          <p className="text-xs text-muted-foreground">{t('automations.builder.fine_tune_notice')}</p>
         </div>
       )}
 
       {/* Navigation */}
       <div className="mt-2 flex items-center justify-between">
         <Button variant="outline" size="sm" disabled={step === 0} onClick={() => setStep((s) => s - 1)}>
-          <ChevronLeft className="mr-1 h-4 w-4" /> Précédent
+          <ChevronLeft className="mr-1 h-4 w-4" /> {t('automations.builder.previous')}
         </Button>
         {step < steps.length - 1 ? (
           <Button size="sm" disabled={!canNext} onClick={() => setStep((s) => s + 1)}>
-            Suivant <ChevronRight className="ml-1 h-4 w-4" />
+            {t('automations.builder.next')} <ChevronRight className="ml-1 h-4 w-4" />
           </Button>
         ) : (
           <Button size="sm" onClick={finish}>
-            <Check className="mr-1 h-4 w-4" /> Créer et ouvrir l’éditeur
+            <Check className="mr-1 h-4 w-4" /> {t('automations.builder.create_and_open_editor')}
           </Button>
         )}
       </div>
@@ -361,14 +379,15 @@ export function WorkflowWizard({
   )
 }
 
-function defaultName(event: TriggerEvent): string {
-  return TRIGGER_EVENTS.find((e) => e.value === event)?.label || 'Automatisation'
+function defaultName(event: TriggerEvent, t: (key: string) => string): string {
+  return TRIGGER_EVENTS.find((e) => e.value === event)?.label || t('automations.builder.wizard_default_automation_name')
 }
 
 /** Champ d'aide IA (phrase → suggestion). */
 function AiHelp({ value, onChange, busy, onGo, placeholder }: {
   value: string; onChange: (v: string) => void; busy: boolean; onGo: () => void; placeholder: string
 }) {
+  const { t } = useTranslation()
   return (
     <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 p-2">
       <Sparkles className="h-4 w-4 shrink-0 text-primary" />
@@ -377,7 +396,7 @@ function AiHelp({ value, onChange, busy, onGo, placeholder }: {
         placeholder={placeholder}
         className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground/70" />
       <Button size="sm" variant="ghost" className="h-7 text-primary" disabled={busy || !value.trim()} onClick={onGo}>
-        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Suggérer'}
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : t('automations.builder.ai_suggest')}
       </Button>
     </div>
   )
@@ -385,8 +404,10 @@ function AiHelp({ value, onChange, busy, onGo, placeholder }: {
 
 // Types de modèles : libellés issus de USE_CASES, la même source que la page
 // Modèles et que le sélecteur du builder — plus de libellés dupliqués.
-const PICKER_CATS: { key: string; label: string }[] = [
-  { key: 'all', label: 'Tous' },
+// La catégorie « all » porte une clé i18n (résolue au rendu de TemplateSelect) ;
+// les autres viennent de USE_CASES (source hors périmètre, déjà gérée ailleurs).
+const PICKER_CATS: { key: string; label: string; labelKey?: string }[] = [
+  { key: 'all', label: 'Tous', labelKey: 'automations.builder.all' },
   ...USE_CASES.map((u) => ({ key: u.key as string, label: u.label })),
 ]
 
@@ -402,13 +423,14 @@ function catOfTemplate(t: WhatsAppTemplate): string {
 function TemplateSelect({ templates, value, onChange }: {
   templates: WhatsAppTemplate[]; value: string | null; onChange: (id: string) => void; compact?: boolean
 }) {
+  const { t } = useTranslation()
   const [cat, setCat] = useState('all')
   // Recherche libre : nom, contenu du message, langue. Indispensable dès qu'un
   // même modèle existe en plusieurs langues (panier_abandonne fr + en…).
   const [query, setQuery] = useState('')
-  const labelsFor = (t: WhatsAppTemplate) => (t.variable_keys || []).map((k) => VARIABLE_BY_KEY[k]?.label || k)
+  const labelsFor = (tpl: WhatsAppTemplate) => (tpl.variable_keys || []).map((k) => { const v = VARIABLE_BY_KEY[k]; return v ? t(v.labelKey) : k })
   if (templates.length === 0) {
-    return <p className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">Aucun modèle approuvé. Créez-en un dans « Modèles ».</p>
+    return <p className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">{t('automations.builder.no_approved_template')}</p>
   }
   const present = new Set(templates.map(catOfTemplate))
   const cats = PICKER_CATS.filter((c) => c.key === 'all' || present.has(c.key))
@@ -430,17 +452,17 @@ function TemplateSelect({ templates, value, onChange }: {
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Rechercher un modèle (nom, texte, langue)…"
+            placeholder={t('automations.builder.search_template_placeholder')}
             className="h-8 w-full rounded-lg border border-input bg-background pl-7 pr-7 text-xs outline-none focus:border-primary"
           />
           {query && (
-            <button type="button" onClick={() => setQuery('')} title="Effacer"
+            <button type="button" onClick={() => setQuery('')} title={t('automations.builder.clear')}
               className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground">
               <X className="h-3.5 w-3.5" />
             </button>
           )}
         </div>
-        <span className="shrink-0 text-[11px] text-muted-foreground">{shown.length} modèle{shown.length > 1 ? 's' : ''}</span>
+        <span className="shrink-0 text-[11px] text-muted-foreground">{shown.length > 1 ? t('automations.builder.templates_count_plural', { count: shown.length }) : t('automations.builder.templates_count', { count: shown.length })}</span>
       </div>
       {/* Catégories */}
       <div className="flex flex-wrap gap-1">
@@ -454,14 +476,14 @@ function TemplateSelect({ templates, value, onChange }: {
             <button key={c.key} type="button" onClick={() => setCat(c.key)}
               className={cn('rounded-full px-2.5 py-1 text-[11px] transition-colors',
                 cat === c.key ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground hover:text-foreground')}>
-              {c.label} ({count})
+              {c.labelKey ? t(c.labelKey) : c.label} ({count})
             </button>
           )
         })}
       </div>
       {shown.length === 0 ? (
         <p className="rounded-lg border border-dashed p-3 text-xs text-muted-foreground">
-          Aucun modèle ne correspond{q ? ` à « ${query.trim()} »` : ''}.
+          {t('automations.builder.no_template_matches', { query: q ? t('automations.builder.no_template_matches_query', { query: query.trim() }) : '' })}
         </p>
       ) : (
         /* Bulles (grandes) en défilement horizontal */

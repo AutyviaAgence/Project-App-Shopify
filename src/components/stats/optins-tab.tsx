@@ -5,6 +5,7 @@ import { Loader2, UserCheck, ShoppingBag, MessageSquare, HelpCircle, Phone, Cred
 import dynamic from 'next/dynamic'
 import { cn } from '@/lib/utils'
 import { formatPhoneNumber } from '@/lib/format-phone'
+import { useTranslation } from '@/i18n/context'
 
 const TimeSeriesChart = dynamic(() => import('@/components/stats/charts').then(m => ({ default: m.TimeSeriesChart })))
 
@@ -16,17 +17,18 @@ type OptinData = {
   contacts: OptinContact[]
 }
 
-/** Libellé + icône lisibles pour une source d'opt-in. */
-function sourceMeta(source: string | null): { label: string; icon: typeof ShoppingBag; cls: string } {
+/** Clé i18n + icône lisibles pour une source d'opt-in. */
+function sourceMeta(source: string | null): { labelKey: string; icon: typeof ShoppingBag; cls: string } {
   switch (source) {
-    case 'shopify_storefront': return { label: 'Boutique Shopify', icon: ShoppingBag, cls: 'text-blue-500 bg-blue-500/10' }
-    case 'checkout': return { label: 'Checkout', icon: CreditCard, cls: 'text-violet-500 bg-violet-500/10' }
-    case 'inbound_message': return { label: 'Message entrant', icon: MessageSquare, cls: 'text-emerald-500 bg-emerald-500/10' }
-    default: return { label: 'Autre / manuel', icon: HelpCircle, cls: 'text-muted-foreground bg-muted' }
+    case 'shopify_storefront': return { labelKey: 'stats.opt_source_shopify', icon: ShoppingBag, cls: 'text-blue-500 bg-blue-500/10' }
+    case 'checkout': return { labelKey: 'stats.opt_source_checkout', icon: CreditCard, cls: 'text-violet-500 bg-violet-500/10' }
+    case 'inbound_message': return { labelKey: 'stats.opt_source_inbound', icon: MessageSquare, cls: 'text-emerald-500 bg-emerald-500/10' }
+    default: return { labelKey: 'stats.opt_source_other', icon: HelpCircle, cls: 'text-muted-foreground bg-muted' }
   }
 }
 
 export function OptinsTab({ period, sessionId, locale }: { period: string; sessionId: string; locale: string }) {
+  const { t } = useTranslation()
   const [data, setData] = useState<OptinData | null>(null)
   const [loading, setLoading] = useState(true)
   const [granularity, setGranularity] = useState<'day' | 'month'>('day')
@@ -67,7 +69,7 @@ export function OptinsTab({ period, sessionId, locale }: { period: string; sessi
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <div className="rounded-2xl border border-border bg-card p-5">
           <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            <UserCheck className="h-4 w-4 text-primary" /> Total opt-in
+            <UserCheck className="h-4 w-4 text-primary" /> {t('stats.opt_total')}
           </div>
           <p className="mt-2 text-3xl font-bold tracking-tight">{data.total.toLocaleString(numberLocale)}</p>
         </div>
@@ -77,7 +79,7 @@ export function OptinsTab({ period, sessionId, locale }: { period: string; sessi
           return (
             <div key={src} className="rounded-2xl border border-border bg-card p-5">
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                <m.icon className={cn('h-4 w-4', m.cls.split(' ')[0])} /> {m.label}
+                <m.icon className={cn('h-4 w-4', m.cls.split(' ')[0])} /> {t(m.labelKey)}
               </div>
               <p className="mt-2 text-3xl font-bold tracking-tight">{count.toLocaleString(numberLocale)}</p>
             </div>
@@ -88,7 +90,7 @@ export function OptinsTab({ period, sessionId, locale }: { period: string; sessi
       {/* Graphe d'évolution + bascule jour/mois */}
       <div className="rounded-2xl border border-border bg-card p-5">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-[15px] font-semibold">Évolution des opt-in</h3>
+          <h3 className="text-[15px] font-semibold">{t('stats.opt_evolution')}</h3>
           <div className="flex rounded-lg border border-border bg-muted/30 p-0.5 text-xs">
             {(['day', 'month'] as const).map((g) => (
               <button
@@ -97,32 +99,32 @@ export function OptinsTab({ period, sessionId, locale }: { period: string; sessi
                 className={cn('rounded-md px-3 py-1 font-medium transition-colors',
                   granularity === g ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground')}
               >
-                {g === 'day' ? 'Par jour' : 'Par mois'}
+                {g === 'day' ? t('stats.opt_by_day') : t('stats.opt_by_month')}
               </button>
             ))}
           </div>
         </div>
         {data.series.some(p => p.count > 0)
           ? <TimeSeriesChart data={data.series} title="optins" color="var(--primary,#3B82F6)" />
-          : <p className="py-10 text-center text-sm text-muted-foreground">Aucun opt-in sur la période.</p>}
+          : <p className="py-10 text-center text-sm text-muted-foreground">{t('stats.opt_no_optin_period')}</p>}
       </div>
 
       {/* Tableau des contacts opt-in */}
       <div className="rounded-2xl border border-border bg-card">
         <div className="border-b border-border px-5 py-3">
-          <h3 className="text-[15px] font-semibold">Contacts opt-in</h3>
+          <h3 className="text-[15px] font-semibold">{t('stats.opt_contacts')}</h3>
         </div>
         {data.contacts.length === 0 ? (
-          <p className="py-10 text-center text-sm text-muted-foreground">Aucun contact opt-in.</p>
+          <p className="py-10 text-center text-sm text-muted-foreground">{t('stats.opt_no_optin_contact')}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-muted-foreground">
-                  <th className="px-5 py-3 font-medium">Contact</th>
-                  <th className="px-5 py-3 font-medium">Téléphone</th>
-                  <th className="px-5 py-3 font-medium">Source</th>
-                  <th className="px-5 py-3 font-medium text-right">Date d&apos;opt-in</th>
+                  <th className="px-5 py-3 font-medium">{t('stats.opt_col_contact')}</th>
+                  <th className="px-5 py-3 font-medium">{t('stats.opt_col_phone')}</th>
+                  <th className="px-5 py-3 font-medium">{t('stats.opt_col_source')}</th>
+                  <th className="px-5 py-3 font-medium text-right">{t('stats.opt_col_date')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -130,7 +132,7 @@ export function OptinsTab({ period, sessionId, locale }: { period: string; sessi
                   const m = sourceMeta(c.source)
                   return (
                     <tr key={c.id} className={cn('border-b border-border/60 last:border-0', i % 2 === 0 ? '' : 'bg-muted/10')}>
-                      <td className="px-5 py-3 font-medium">{c.name || 'Inconnu'}</td>
+                      <td className="px-5 py-3 font-medium">{c.name || t('stats.opt_unknown_contact')}</td>
                       <td className="px-5 py-3">
                         <span className="flex items-center gap-1.5 text-muted-foreground">
                           <Phone className="h-3.5 w-3.5" /> {c.phone_number ? formatPhoneNumber(c.phone_number) : '—'}
@@ -138,7 +140,7 @@ export function OptinsTab({ period, sessionId, locale }: { period: string; sessi
                       </td>
                       <td className="px-5 py-3">
                         <span className={cn('inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium', m.cls)}>
-                          <m.icon className="h-3 w-3" /> {m.label}
+                          <m.icon className="h-3 w-3" /> {t(m.labelKey)}
                         </span>
                       </td>
                       <td className="px-5 py-3 text-right text-muted-foreground">

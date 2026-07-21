@@ -13,6 +13,7 @@ import { ChevronDown } from 'lucide-react'
 import { TRIGGER_EVENTS, TRIGGER_CAVEATS, triggersForKind, isRepeatableTrigger, isSelfFeedingTrigger, defaultRecurrenceFor } from '@/lib/automations/types'
 import { templateBlockReason, isBuildableTemplate } from '@/lib/templates/status'
 import { TEMPLATE_VARIABLES } from '@/lib/templates/variables'
+import { useTranslation } from '@/i18n/context'
 
 /** Fuseau détecté du navigateur, proposé par défaut. `scheduledAt` reste
  *  TOUJOURS un instant absolu (ISO UTC) : le fuseau ne sert qu'à saisir et à
@@ -89,15 +90,16 @@ function formatInTz(iso: string, tz: string): string {
   return d.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short', timeZone: tz })
 }
 
-/** Groupes de déclencheurs (ordre d'affichage + repère visuel). Les noms
- *  correspondent au champ `group` de TRIGGER_EVENTS. */
+/** Groupes de déclencheurs (ordre d'affichage + repère visuel). `name` reste la
+ *  CLÉ TECHNIQUE de filtrage (== `TRIGGER_EVENTS[].group`, hors périmètre i18n) ;
+ *  `nameKey` sert uniquement à l'affichage traduit du titre de section. */
 const TRIGGER_GROUPS = [
-  { name: 'Commande', icon: ShoppingBag, color: 'text-blue-500' },
-  { name: 'Contact', icon: Users, color: 'text-emerald-500' },
-  { name: 'Conversation', icon: MessageSquare, color: 'text-violet-500' },
-  { name: 'Planifié', icon: CalendarClock, color: 'text-amber-500' },
+  { name: 'Commande', nameKey: 'automations.builder.trigger_group_order', icon: ShoppingBag, color: 'text-blue-500' },
+  { name: 'Contact', nameKey: 'automations.builder.trigger_group_contact', icon: Users, color: 'text-emerald-500' },
+  { name: 'Conversation', nameKey: 'automations.builder.trigger_group_conversation', icon: MessageSquare, color: 'text-violet-500' },
+  { name: 'Planifié', nameKey: 'automations.builder.trigger_group_scheduled', icon: CalendarClock, color: 'text-amber-500' },
 ] as const
-import { CONDITION_FIELDS, COUNTRY_OPTIONS, LANGUAGE_OPTIONS, OP_LABEL } from './field-labels'
+import { CONDITION_FIELDS, COUNTRY_OPTIONS, LANGUAGE_OPTIONS, OP_LABEL_KEY } from './field-labels'
 import { chainFrom, getNode } from './timeline-model'
 import { TemplateBubble } from '@/components/template-bubble'
 import { VARIABLE_BY_KEY } from '@/lib/templates/variables'
@@ -116,9 +118,10 @@ function quickReplyLabels(t: WhatsAppTemplate | undefined | null): string[] {
     .map((b) => b.text)
 }
 
+// `lk` = clé i18n du libellé (résolue via t() au rendu du bloc « Attendre »).
 const DELAY_PRESETS = [
-  { v: 0, l: 'Immédiat' }, { v: 30, l: '30 min' }, { v: 60, l: '1 heure' },
-  { v: 180, l: '3 heures' }, { v: 1440, l: '1 jour' }, { v: 2880, l: '2 jours' }, { v: 10080, l: '7 jours' },
+  { v: 0, lk: 'automations.builder.immediate' }, { v: 30, lk: 'automations.builder.preset_30_min' }, { v: 60, lk: 'automations.builder.preset_1_hour' },
+  { v: 180, lk: 'automations.builder.preset_3_hours' }, { v: 1440, lk: 'automations.builder.duration_1_day' }, { v: 2880, lk: 'automations.builder.duration_2_days' }, { v: 10080, lk: 'automations.builder.duration_7_days' },
 ]
 
 // Produits / collections de la boutique (titres) — chargés une seule fois et
@@ -229,6 +232,7 @@ const VARIANT_COLORS = ['#3B82F6', '#8B5CF6', '#F59E0B', '#EC4899']
 const BUTTON_COLORS = ['#25D366', '#0EA5E9', '#F59E0B', '#EC4899', '#8B5CF6']
 
 function Branch(props: TimelineProps & { fromId: string; branch?: string }) {
+  const { t } = useTranslation()
   const { graph, fromId, branch, templates, onPatch, onInsert, onDelete, onSelectAction, onTemplatesChanged, onMoveBranch } = props
   const chain = chainFrom(graph, fromId, branch)
   const horizontal = useOrientation() === 'horizontal'
@@ -268,8 +272,8 @@ function Branch(props: TimelineProps & { fromId: string; branch?: string }) {
                   // Toutes les routes de ce message : les boutons + la suite par
                   // défaut. Sert au menu « déplacer vers… » de chaque étiquette.
                   const routes = [
-                    ...buttons.map((t) => ({ label: t, branch: buttonBranch(t) })),
-                    { label: 'Par défaut', branch: BUTTON_TIMEOUT_BRANCH },
+                    ...buttons.map((label) => ({ label, branch: buttonBranch(label) })),
+                    { label: t('automations.builder.branch_default'), branch: BUTTON_TIMEOUT_BRANCH },
                   ]
                   return (
                     <>
@@ -288,7 +292,7 @@ function Branch(props: TimelineProps & { fromId: string; branch?: string }) {
                           boutons ci-dessus déclenchent leurs branches EN PLUS si on
                           clique. */}
                       <BranchCol
-                        label="Par défaut" color="#94A3B8"
+                        label={t('automations.builder.branch_default')} color="#94A3B8"
                         siblings={routes}
                         onMove={(to) => onMoveBranch?.(id, BUTTON_TIMEOUT_BRANCH, to)}
                       >
@@ -316,17 +320,17 @@ function Branch(props: TimelineProps & { fromId: string; branch?: string }) {
                 serait absurde. */}
             <div className={branchesRow}>
               {(() => {
-                const routes = [{ label: 'Oui', branch: 'yes' }, { label: 'Non', branch: 'no' }]
+                const routes = [{ label: t('automations.builder.yes'), branch: 'yes' }, { label: t('automations.builder.no'), branch: 'no' }]
                 return (
                   <>
                     <BranchCol
-                      label="Oui" color="#22C55E" siblings={routes}
+                      label={t('automations.builder.yes')} color="#22C55E" siblings={routes}
                       onMove={(to) => onMoveBranch?.(id, 'yes', to)}
                     >
                       <Branch {...props} fromId={id} branch="yes" />
                     </BranchCol>
                     <BranchCol
-                      label="Non" color="#EF4444" siblings={routes}
+                      label={t('automations.builder.no')} color="#EF4444" siblings={routes}
                       onMove={(to) => onMoveBranch?.(id, 'no', to)}
                     >
                       <Branch {...props} fromId={id} branch="no" />
@@ -365,6 +369,7 @@ function Shell({ tone, icon, kind, onDelete, children }: {
   tone: { text: string; tint: string }
   icon: React.ReactNode; kind: string; onDelete?: () => void; children: React.ReactNode
 }) {
+  const { t } = useTranslation()
   return (
     <>
       <Connector />
@@ -373,7 +378,7 @@ function Shell({ tone, icon, kind, onDelete, children }: {
           <span className={cn('flex h-5 w-5 items-center justify-center rounded-full bg-current/10', tone.text)}>{icon}</span>
           <span className={cn('text-sm font-medium', tone.text)}>{kind}</span>
           {onDelete && (
-            <button onClick={(e) => { e.stopPropagation(); onDelete() }} title="Supprimer ce bloc"
+            <button onClick={(e) => { e.stopPropagation(); onDelete() }} title={t('automations.builder.delete_block')}
               className="ml-auto rounded-md p-1 text-muted-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive">
               <Trash2 className="h-3.5 w-3.5" />
             </button>
@@ -398,6 +403,7 @@ const TONE = {
 }
 
 function TriggerBlock({ node, onPatch, kind }: { node: WorkflowNode; onPatch: (id: string, p: Partial<WorkflowNode>) => void; kind: 'marketing' | 'transactional' }) {
+  const { t } = useTranslation()
   if (node.type !== 'trigger') return null
   // Déclencheurs autorisés dans cet onglet.
   const allowed = new Set(triggersForKind(kind).map((e) => e.value))
@@ -405,7 +411,7 @@ function TriggerBlock({ node, onPatch, kind }: { node: WorkflowNode; onPatch: (i
     <div data-block className="liquid-glass relative w-72 rounded-2xl p-3" style={{ ['--lg-tint' as string]: TONE.blue.tint }}>
       <div className="mb-2 flex items-center gap-1.5">
         <span className={cn('flex h-5 w-5 items-center justify-center rounded-full bg-current/10', TONE.blue.text)}><ShoppingBag className="h-4 w-4" /></span>
-        <span className={cn('text-sm font-medium', TONE.blue.text)}>Quand</span>
+        <span className={cn('text-sm font-medium', TONE.blue.text)}>{t('automations.builder.node_when')}</span>
       </div>
       <Select value={node.event} onValueChange={(v) => onPatch(node.id, { event: v as never })}>
         {/* Le trigger n'affiche QUE le libellé : Radix recopie sinon tout le
@@ -413,7 +419,7 @@ function TriggerBlock({ node, onPatch, kind }: { node: WorkflowNode; onPatch: (i
             retrouvait affichée deux fois, dans le champ et juste en dessous. */}
         <SelectTrigger>
           <SelectValue>
-            {TRIGGER_EVENTS.find((e) => e.value === node.event)?.label ?? 'Choisir un déclencheur'}
+            {TRIGGER_EVENTS.find((e) => e.value === node.event)?.label ?? t('automations.builder.choose_trigger')}
           </SelectValue>
         </SelectTrigger>
         {/* max-h borné : sans lui Radix étire le menu sur toute la hauteur
@@ -429,7 +435,7 @@ function TriggerBlock({ node, onPatch, kind }: { node: WorkflowNode; onPatch: (i
               <SelectGroup key={g.name}>
                 {gi > 0 && <SelectSeparator />}
                 <SelectLabel className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground">
-                  <Icon className={cn('h-3.5 w-3.5', g.color)} /> {g.name}
+                  <Icon className={cn('h-3.5 w-3.5', g.color)} /> {t(g.nameKey)}
                 </SelectLabel>
                 {items.map((e) => (
                   <SelectItem key={e.value} value={e.value} textValue={e.label} className="items-start py-1.5">
@@ -459,17 +465,17 @@ function TriggerBlock({ node, onPatch, kind }: { node: WorkflowNode; onPatch: (i
       {/* Paramètres spécifiques aux triggers temporels */}
       {node.event === 'no_customer_reply' && (
         <div className="mt-2">
-          <p className="mb-1 text-xs text-muted-foreground">Sans réponse depuis</p>
+          <p className="mb-1 text-xs text-muted-foreground">{t('automations.builder.without_reply_since')}</p>
           <Select value={String(node.inactivityHours ?? 24)} onValueChange={(v) => onPatch(node.id, { inactivityHours: parseInt(v, 10) } as never)}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="1">1 heure</SelectItem>
-              <SelectItem value="3">3 heures</SelectItem>
-              <SelectItem value="12">12 heures</SelectItem>
-              <SelectItem value="24">1 jour</SelectItem>
-              <SelectItem value="48">2 jours</SelectItem>
-              <SelectItem value="72">3 jours</SelectItem>
-              <SelectItem value="168">7 jours</SelectItem>
+              <SelectItem value="1">{t('automations.builder.duration_1_hour')}</SelectItem>
+              <SelectItem value="3">{t('automations.builder.duration_3_hours')}</SelectItem>
+              <SelectItem value="12">{t('automations.builder.duration_12_hours')}</SelectItem>
+              <SelectItem value="24">{t('automations.builder.duration_1_day')}</SelectItem>
+              <SelectItem value="48">{t('automations.builder.duration_2_days')}</SelectItem>
+              <SelectItem value="72">{t('automations.builder.duration_3_days')}</SelectItem>
+              <SelectItem value="168">{t('automations.builder.duration_7_days')}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -485,7 +491,7 @@ function TriggerBlock({ node, onPatch, kind }: { node: WorkflowNode; onPatch: (i
           {/* Le fuseau est AU-DESSUS du champ : le calendrier natif s'ouvre
               par-dessous et masquerait une mention placée sous l'input, au
               moment précis où l'on choisit l'heure. */}
-          <p className="mb-1 text-xs text-muted-foreground">Date et heure d’envoi</p>
+          <p className="mb-1 text-xs text-muted-foreground">{t('automations.builder.send_date_time')}</p>
           <Input type="datetime-local"
             value={isoToZonedInput(node.scheduledAt, tz)}
             onChange={(e) => onPatch(node.id, {
@@ -493,7 +499,7 @@ function TriggerBlock({ node, onPatch, kind }: { node: WorkflowNode; onPatch: (i
               scheduledTz: tz,
             } as never)} />
           <div className="mt-1.5 flex items-center gap-1.5">
-            <span className="shrink-0 text-[11px] text-muted-foreground">Fuseau</span>
+            <span className="shrink-0 text-[11px] text-muted-foreground">{t('automations.builder.timezone')}</span>
             <Select value={tz} onValueChange={(v) => onPatch(node.id, { scheduledTz: v } as never)}>
               {/* Libellé compact : sans enfant explicite, Radix recopierait tout
                   le contenu de l'item (nom + décalage) dans le champ. */}
@@ -510,26 +516,26 @@ function TriggerBlock({ node, onPatch, kind }: { node: WorkflowNode; onPatch: (i
             </Select>
           </div>
           {node.scheduledAt && (
-            <p className="mt-1 text-[11px] text-muted-foreground">Envoi le {formatInTz(node.scheduledAt, tz)}</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">{t('automations.builder.send_on', { date: formatInTz(node.scheduledAt, tz) })}</p>
           )}
         </div>
         )
       })()}
       {node.event === 'customer_birthday' && (
         <p className="mt-2 rounded-lg bg-muted/50 p-2 text-[11px] text-muted-foreground">
-          Envoyé le jour de l’anniversaire (si la date est connue dans la fiche du client).
+          {t('automations.builder.birthday_hint')}
         </p>
       )}
       {node.event === 'button_clicked' && (
         <div className="mt-2">
-          <p className="mb-1 text-xs text-muted-foreground">Libellé du bouton (laisser vide = tout bouton)</p>
+          <p className="mb-1 text-xs text-muted-foreground">{t('automations.builder.button_label_field')}</p>
           <Input
-            placeholder="Ex : Suivre ma commande"
+            placeholder={t('automations.builder.button_label_placeholder')}
             value={node.buttonText ?? ''}
             onChange={(e) => onPatch(node.id, { buttonText: e.target.value } as never)}
           />
           <p className="mt-1 text-[11px] text-muted-foreground">
-            Se déclenche quand le client clique sur un bouton « réponse rapide » portant ce texte.
+            {t('automations.builder.button_clicked_hint')}
           </p>
         </div>
       )}
@@ -545,37 +551,37 @@ function TriggerBlock({ node, onPatch, kind }: { node: WorkflowNode; onPatch: (i
         const selfFeeding = isSelfFeedingTrigger(node.event)
         // Le vocabulaire suit le déclencheur : « à chaque fois » ne dit rien,
         // « à chaque panier » se comprend sans réfléchir.
-        const perEventLabel = node.event === 'checkout_abandoned' ? 'À chaque panier abandonné'
-          : node.event === 'no_customer_reply' ? 'À chaque silence'
-          : 'À chaque fois'
+        const perEventLabel = node.event === 'checkout_abandoned' ? t('automations.builder.per_event_abandoned_cart')
+          : node.event === 'no_customer_reply' ? t('automations.builder.per_event_silence')
+          : t('automations.builder.per_event_default')
         return (
           <div className="mt-3 border-t pt-3">
-            <p className="mb-1 text-xs text-muted-foreground">Combien de fois par client</p>
+            <p className="mb-1 text-xs text-muted-foreground">{t('automations.builder.how_many_times_per_customer')}</p>
             <Select
               value={recurrence}
               onValueChange={(v) => onPatch(node.id, { recurrence: v as TriggerRecurrence } as never)}
             >
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="once">Une seule fois</SelectItem>
+                <SelectItem value="once">{t('automations.builder.recurrence_once')}</SelectItem>
                 <SelectItem value="per_event">{perEventLabel}</SelectItem>
-                <SelectItem value="daily">Au plus une fois par jour</SelectItem>
+                <SelectItem value="daily">{t('automations.builder.recurrence_daily')}</SelectItem>
               </SelectContent>
             </Select>
             <p className="mt-1 text-[11px] text-muted-foreground">
               {recurrence === 'once' && (
                 node.event === 'checkout_abandoned'
-                  ? 'Chaque client n’est relancé que pour son premier panier abandonné, jamais pour les suivants.'
-                  : 'Chaque client ne reçoit ce message qu’une fois, définitivement.'
+                  ? t('automations.builder.recurrence_once_desc_abandoned')
+                  : t('automations.builder.recurrence_once_desc_default')
               )}
               {recurrence === 'per_event' && (
                 node.event === 'no_customer_reply'
-                  ? 'Une relance par silence : le client redevient relançable seulement s’il répond puis se tait à nouveau.'
+                  ? t('automations.builder.recurrence_per_event_desc_silence')
                   : node.event === 'checkout_abandoned'
-                    ? 'Une relance par panier abandonné, quel que soit le nombre de paniers du client.'
-                    : 'Le message repart à chaque nouvel événement.'
+                    ? t('automations.builder.recurrence_per_event_desc_abandoned')
+                    : t('automations.builder.recurrence_per_event_desc_default')
               )}
-              {recurrence === 'daily' && 'Au maximum un message par jour et par client.'}
+              {recurrence === 'daily' && t('automations.builder.recurrence_daily_desc')}
             </p>
             {/* ⚠️ Ces deux déclencheurs se nourrissent de nos propres envois :
                 on envoie → le client lit (ou continue de se taire) → ça
@@ -584,8 +590,8 @@ function TriggerBlock({ node, onPatch, kind }: { node: WorkflowNode; onPatch: (i
             {selfFeeding && recurrence !== 'once' && (
               <p className="mt-1.5 rounded-lg bg-amber-500/10 p-2 text-[11px] text-amber-600">
                 {node.event === 'message_read'
-                  ? 'Attention : votre message sera lui aussi lu, ce qui peut redéclencher l’envoi. Vérifiez que la suite du scénario s’arrête bien.'
-                  : 'Attention : tant que le client ne répond pas, la condition reste vraie. Vérifiez que la suite du scénario s’arrête bien.'}
+                  ? t('automations.builder.self_feeding_warning_read')
+                  : t('automations.builder.self_feeding_warning_silence')}
               </p>
             )}
             {/* Sur un panier abandonné, « une seule fois » est contre-intuitif et
@@ -593,7 +599,7 @@ function TriggerBlock({ node, onPatch, kind }: { node: WorkflowNode; onPatch: (i
                 pour un panier à 500 €. On le dit avant qu'il ne le découvre. */}
             {node.event === 'checkout_abandoned' && recurrence === 'once' && (
               <p className="mt-1.5 rounded-lg bg-amber-500/10 p-2 text-[11px] text-amber-600">
-                Attention : un client déjà relancé une fois ne le sera plus jamais, même pour un panier bien plus important. « À chaque panier abandonné » est le réglage habituel.
+                {t('automations.builder.abandoned_once_warning')}
               </p>
             )}
           </div>
@@ -604,6 +610,7 @@ function TriggerBlock({ node, onPatch, kind }: { node: WorkflowNode; onPatch: (i
 }
 
 function DelayBlock({ node, onPatch, onDelete }: { node: WorkflowNode; onPatch: (id: string, p: Partial<WorkflowNode>) => void; onDelete: () => void }) {
+  const { t } = useTranslation()
   if (node.type !== 'delay') return null
 
   // ⚠️ LE BLOC « ATTENDRE » S'AFFICHAIT VIDE.
@@ -618,26 +625,29 @@ function DelayBlock({ node, onPatch, onDelete }: { node: WorkflowNode; onPatch: 
   // On ajoute donc à la volée l'option correspondant à la valeur courante quand
   // elle ne fait pas partie des presets : le Select affiche TOUJOURS ce qu'il
   // contient, quelle que soit sa provenance.
-  const options = DELAY_PRESETS.some((d) => d.v === node.minutes)
-    ? DELAY_PRESETS
-    : [...DELAY_PRESETS, { v: node.minutes, l: humanDelay(node.minutes) }].sort((a, b) => a.v - b.v)
+  // Chaque preset porte une clé i18n (`lk`) → résolue via t(). La valeur courante
+  // hors preset (générée par l'IA / import) reçoit un libellé calculé au vol.
+  const options: { v: number; label: string }[] = DELAY_PRESETS.some((d) => d.v === node.minutes)
+    ? DELAY_PRESETS.map((d) => ({ v: d.v, label: t(d.lk) }))
+    : [...DELAY_PRESETS.map((d) => ({ v: d.v, label: t(d.lk) })), { v: node.minutes, label: humanDelay(node.minutes, t) }].sort((a, b) => a.v - b.v)
 
   return (
-    <Shell tone={TONE.amber} icon={<Clock className="h-4 w-4" />} kind="Attendre" onDelete={onDelete}>
+    <Shell tone={TONE.amber} icon={<Clock className="h-4 w-4" />} kind={t('automations.builder.node_wait')} onDelete={onDelete}>
       <Select value={String(node.minutes)} onValueChange={(v) => onPatch(node.id, { minutes: parseInt(v, 10) } as never)}>
         <SelectTrigger><SelectValue /></SelectTrigger>
-        <SelectContent>{options.map((d) => <SelectItem key={d.v} value={String(d.v)}>{d.l}</SelectItem>)}</SelectContent>
+        <SelectContent>{options.map((d) => <SelectItem key={d.v} value={String(d.v)}>{d.label}</SelectItem>)}</SelectContent>
       </Select>
     </Shell>
   )
 }
 
-/** Durée en minutes → libellé lisible (« 3 jours », « 12 heures »). */
-function humanDelay(minutes: number): string {
-  if (!Number.isFinite(minutes) || minutes <= 0) return 'Immédiat'
+/** Durée en minutes → libellé lisible (« 3 jours », « 12 heures »). Reçoit `t`
+ *  pour les unités traduites (le nombre reste inséré via interpolation). */
+function humanDelay(minutes: number, t: (key: string, params?: Record<string, string | number>) => string): string {
+  if (!Number.isFinite(minutes) || minutes <= 0) return t('automations.builder.immediate')
   if (minutes < 60) return `${minutes} min`
-  if (minutes % 1440 === 0) { const d = minutes / 1440; return `${d} jour${d > 1 ? 's' : ''}` }
-  if (minutes % 60 === 0) { const h = minutes / 60; return `${h} heure${h > 1 ? 's' : ''}` }
+  if (minutes % 1440 === 0) { const d = minutes / 1440; return d > 1 ? t('automations.builder.duration_n_days', { n: d }) : t('automations.builder.duration_1_day') }
+  if (minutes % 60 === 0) { const h = minutes / 60; return h > 1 ? t('automations.builder.duration_n_hours', { n: h }) : t('automations.builder.duration_1_hour') }
   return `${Math.round(minutes / 60)} h`
 }
 
@@ -653,6 +663,7 @@ function TemplateButtonsEditor({ template, onSaved }: {
   template: WhatsAppTemplate
   onSaved?: () => void
 }) {
+  const { t } = useTranslation()
   // On n'édite QUE les boutons quick-reply. Les éventuels boutons URL/PHONE/
   // COPY_CODE du template sont conservés tels quels à la sauvegarde.
   const initial = ((template.buttons ?? []) as TemplateButton[])
@@ -678,8 +689,8 @@ function TemplateButtonsEditor({ template, onSaved }: {
 
   async function save() {
     const clean = labels.map((s) => s.trim()).filter(Boolean)
-    if (clean.some((s) => s.length > 25)) { setError('Un bouton fait 25 caractères max.'); return }
-    if (new Set(clean.map((s) => s.toLowerCase())).size !== clean.length) { setError('Deux boutons ne peuvent pas avoir le même texte.'); return }
+    if (clean.some((s) => s.length > 25)) { setError(t('automations.builder.err_button_max_length')); return }
+    if (new Set(clean.map((s) => s.toLowerCase())).size !== clean.length) { setError(t('automations.builder.err_button_duplicate')); return }
     setSaving(true); setError(null)
     try {
       const nextButtons = [...otherButtons, ...clean.map((text): TemplateButton => ({ type: 'QUICK_REPLY', text }))]
@@ -689,19 +700,19 @@ function TemplateButtonsEditor({ template, onSaved }: {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ buttons: nextButtons }),
       })
-      if (!patch.ok) { setError((await patch.json().catch(() => ({}))).error || 'Échec de l’enregistrement.'); return }
+      if (!patch.ok) { setError((await patch.json().catch(() => ({}))).error || t('automations.builder.err_save_failed')); return }
       // 2) RESOUMET à Meta pour re-validation (le modèle repasse « en revue »).
       const submit = await fetch(`/api/templates/${template.id}/submit`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })
       if (!submit.ok) {
         const j = await submit.json().catch(() => ({}))
-        setError(j.error || 'Modèle enregistré, mais la soumission à Meta a échoué.')
+        setError(j.error || t('automations.builder.err_submit_failed'))
         // Le PATCH a réussi : on rafraîchit quand même pour refléter l'état.
         onSaved?.()
         return
       }
       onSaved?.()
     } catch {
-      setError('Erreur réseau.')
+      setError(t('automations.builder.err_network'))
     } finally {
       setSaving(false)
     }
@@ -715,8 +726,8 @@ function TemplateButtonsEditor({ template, onSaved }: {
       <button type="button" onClick={() => setOpen((o) => !o)}
         className="flex w-full items-center gap-1.5 text-[10px] font-medium text-muted-foreground transition-colors hover:text-foreground">
         <Reply className="h-3 w-3" />
-        <span>Boutons de réponse rapide{count > 0 ? ` (${count})` : ''}</span>
-        {dirty && <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-amber-600">non enregistré</span>}
+        <span>{t('automations.builder.quick_reply_buttons')}{count > 0 ? ` (${count})` : ''}</span>
+        {dirty && <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-amber-600">{t('automations.builder.unsaved')}</span>}
         <ChevronDown className={cn('ml-auto h-3.5 w-3.5 transition-transform', open && 'rotate-180')} />
       </button>
 
@@ -724,7 +735,7 @@ function TemplateButtonsEditor({ template, onSaved }: {
       <div className="mt-2">
       {otherButtons.length > 0 && (
         <p className="mb-1.5 text-[10px] text-amber-600">
-          Ce modèle a déjà des boutons {otherButtons.map((b) => b.type).join(', ')} : impossible d’y ajouter des réponses rapides (règle Meta).
+          {t('automations.builder.other_buttons_conflict', { types: otherButtons.map((b) => b.type).join(', ') })}
         </p>
       )}
       {/* Reclassement : ajouter des réponses rapides à un modèle UTILITY peut
@@ -732,7 +743,7 @@ function TemplateButtonsEditor({ template, onSaved }: {
           différents). On prévient avant, seulement si on ajoute vraiment des boutons. */}
       {isUtility && dirty && labels.some((l) => l.trim()) && (
         <p className="mb-1.5 rounded-md bg-amber-500/10 px-2 py-1.5 text-[10px] text-amber-600">
-          ⚠️ Ajouter des boutons peut faire reclasser ce modèle <b>Utilitaire → Marketing</b> par Meta (tarif et règles d’envoi différents).
+          {t('automations.builder.reclassify_warning')}
         </p>
       )}
       <div className="space-y-1.5">
@@ -742,10 +753,10 @@ function TemplateButtonsEditor({ template, onSaved }: {
               value={text}
               maxLength={25}
               onChange={(e) => setAt(i, e.target.value)}
-              placeholder={`Bouton ${i + 1} (ex. Oui)`}
+              placeholder={t('automations.builder.button_placeholder', { n: i + 1 })}
               className="h-8 text-xs"
             />
-            <button type="button" onClick={() => removeAt(i)} title="Retirer ce bouton"
+            <button type="button" onClick={() => removeAt(i)} title={t('automations.builder.remove_button')}
               className="rounded-md p-1.5 text-muted-foreground/70 transition-colors hover:bg-destructive/10 hover:text-destructive">
               <Trash2 className="h-3.5 w-3.5" />
             </button>
@@ -755,7 +766,7 @@ function TemplateButtonsEditor({ template, onSaved }: {
       {canAdd && (
         <button type="button" onClick={add}
           className="mt-1.5 flex items-center gap-1 rounded-md px-1.5 py-1 text-[11px] font-medium text-primary transition-colors hover:bg-primary/10">
-          <Plus className="h-3.5 w-3.5" /> Ajouter un bouton
+          <Plus className="h-3.5 w-3.5" /> {t('automations.builder.add_button')}
         </button>
       )}
       {error && <p className="mt-1.5 text-[10px] text-destructive">{error}</p>}
@@ -763,17 +774,17 @@ function TemplateButtonsEditor({ template, onSaved }: {
         <div className="mt-2 flex items-center gap-2">
           <button type="button" onClick={save} disabled={saving}
             className="flex items-center gap-1.5 rounded-lg bg-primary px-2.5 py-1.5 text-[11px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60">
-            {saving ? 'Envoi à Meta…' : 'Enregistrer les boutons'}
+            {saving ? t('automations.builder.sending_to_meta') : t('automations.builder.save_buttons')}
           </button>
           <button type="button" onClick={() => { setLabels(initial); setError(null) }} disabled={saving}
             className="text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-60">
-            Annuler
+            {t('automations.builder.cancel')}
           </button>
         </div>
       )}
       {dirty && (
         <p className="mt-1.5 text-[10px] text-muted-foreground">
-          ⏳ Enregistrer renvoie le modèle en revue Meta (~quelques minutes). Il ne pourra être envoyé qu’une fois approuvé.
+          {t('automations.builder.resubmit_notice')}
         </p>
       )}
       </div>
@@ -787,6 +798,7 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction, onTem
   onPatch: (id: string, p: Partial<WorkflowNode>) => void; onDelete: () => void; onSelectAction: (t: string | null) => void
   onTemplatesChanged?: () => void
 }) {
+  const { t } = useTranslation()
   const [pickerOpen, setPickerOpen] = useState(false)
   const [pickerCat, setPickerCat] = useState<string>('all')
   // Recherche libre : nom, texte du message, langue. Indispensable dès qu'un
@@ -802,14 +814,15 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction, onTem
   const merchantVars = (selected?.variable_keys || [])
     .map((k) => TEMPLATE_VARIABLES.find((v) => v.key === k))
     .filter((v): v is NonNullable<typeof v> => !!v?.merchantProvided)
-  const badge = (t: WhatsAppTemplate) =>
-    t.template_type === 'carousel' ? '🎠 Carrousel'
-    : t.template_type === 'limited_time_offer' ? '🏷️ Offre limitée'
-    : '💬 Message'
-  const labelsFor = (t: WhatsAppTemplate) => (t.variable_keys || []).map((k) => VARIABLE_BY_KEY[k]?.label || k)
+  // ⚠️ Le param est renommé `tpl` : `t` est désormais la fonction i18n du scope.
+  const badge = (tpl: WhatsAppTemplate) =>
+    tpl.template_type === 'carousel' ? t('automations.builder.badge_carousel')
+    : tpl.template_type === 'limited_time_offer' ? t('automations.builder.badge_limited_offer')
+    : t('automations.builder.badge_message')
+  const labelsFor = (tpl: WhatsAppTemplate) => (tpl.variable_keys || []).map((k) => { const v = VARIABLE_BY_KEY[k]; return v ? t(v.labelKey) : k })
 
   return (
-    <Shell tone={TONE.green} icon={<MessageSquare className="h-4 w-4" />} kind="Envoyer le modèle" onDelete={onDelete}>
+    <Shell tone={TONE.green} icon={<MessageSquare className="h-4 w-4" />} kind={t('automations.builder.node_send_template')} onDelete={onDelete}>
       {/* Aucun modèle du tout : on affiche quand même le brief de l'IA s'il y en
           a un — c'est justement là qu'il est le plus utile. Le texte ne dit plus
           « approuvé » : les brouillons sont désormais utilisables ici. */}
@@ -818,7 +831,7 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction, onTem
           <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-2.5">
             <p className="flex items-center gap-1.5 text-[11px] font-semibold text-amber-700 dark:text-amber-400">
               <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-              Modèle de message à publier
+              {t('automations.builder.template_to_publish')}
             </p>
             <p className="mt-1 text-xs font-medium text-foreground">{todo.purpose}</p>
             {todo.suggestion && (
@@ -828,7 +841,7 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction, onTem
             )}
           </div>
         ) : (
-          <p className="text-xs text-muted-foreground">Aucun modèle disponible.</p>
+          <p className="text-xs text-muted-foreground">{t('automations.builder.no_template_available')}</p>
         )
       ) : (
         <div className="space-y-2">
@@ -851,8 +864,7 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction, onTem
                 </p>
               )}
               <p className="mt-1.5 text-[10px] text-muted-foreground">
-                Créez-le dans Modèles, puis sélectionnez-le ci-dessous. L’automatisation
-                ne pourra pas être activée tant qu’il manque.
+                {t('automations.builder.create_in_templates_notice')}
               </p>
             </div>
           )}
@@ -862,7 +874,7 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction, onTem
             <PopoverTrigger asChild>
               <button className="flex w-full items-center justify-between gap-2 rounded-lg border border-border bg-background px-3 py-2 text-left text-sm transition-colors hover:border-foreground/30">
                 <span className={cn('truncate', selected ? 'font-medium' : 'text-muted-foreground')}>
-                  {selected ? selected.name : 'Choisir un modèle'}
+                  {selected ? selected.name : t('automations.builder.choose_template')}
                 </span>
                 <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground" />
               </button>
@@ -872,7 +884,7 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction, onTem
               className="w-[540px] max-w-[92vw] overscroll-contain p-2"
               onWheel={(e) => e.stopPropagation()}
             >
-              <p className="px-1 pb-2 pt-1 text-[11px] font-medium text-muted-foreground">Choisir un modèle</p>
+              <p className="px-1 pb-2 pt-1 text-[11px] font-medium text-muted-foreground">{t('automations.builder.choose_template')}</p>
 
               {/* Recherche (nom, texte, langue) */}
               <div className="relative mb-2">
@@ -880,11 +892,11 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction, onTem
                 <input
                   value={pickerQuery}
                   onChange={(e) => setPickerQuery(e.target.value)}
-                  placeholder="Rechercher un modèle (nom, texte, langue)…"
+                  placeholder={t('automations.builder.search_template_placeholder')}
                   className="h-8 w-full rounded-lg border border-input bg-background pl-7 pr-7 text-xs outline-none focus:border-primary"
                 />
                 {pickerQuery && (
-                  <button type="button" onClick={() => setPickerQuery('')} title="Effacer"
+                  <button type="button" onClick={() => setPickerQuery('')} title={t('automations.builder.clear')}
                     className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-0.5 text-muted-foreground hover:text-foreground">
                     <X className="h-3.5 w-3.5" />
                   </button>
@@ -904,7 +916,7 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction, onTem
                 const countIn = (key: string) =>
                   key === 'all' ? templates.length : templates.filter((t) => catOf(t) === key).length
                 const cats = [
-                  { key: 'all', label: 'Tous' },
+                  { key: 'all', label: t('automations.builder.all') },
                   // On n'affiche que les catégories qui ont au moins un modèle.
                   ...USE_CASES.filter((u) => countIn(u.key) > 0).map((u) => ({ key: u.key as string, label: u.label })),
                 ]
@@ -952,7 +964,7 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction, onTem
                 if (shown.length === 0) {
                   return (
                     <p className="rounded-lg border border-dashed p-3 text-center text-xs text-muted-foreground">
-                      Aucun modèle ne correspond{q ? ` à « ${pickerQuery.trim()} »` : ''}.
+                      {t('automations.builder.no_template_matches', { query: q ? t('automations.builder.no_template_matches_query', { query: pickerQuery.trim() }) : '' })}
                     </p>
                   )
                 }
@@ -1016,7 +1028,7 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction, onTem
                 {ready.length > 0 && (
                   <>
                     <p className="mb-1 px-1 text-[10px] font-medium text-muted-foreground">
-                      Prêts à l’emploi ({ready.length})
+                      {t('automations.builder.ready_to_use', { count: ready.length })}
                     </p>
                     {row(ready)}
                   </>
@@ -1026,7 +1038,7 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction, onTem
                     <div className={cn('mb-1 flex items-center gap-1.5 px-1', ready.length > 0 && 'mt-3 border-t pt-2')}>
                       <FileText className="h-3 w-3 text-muted-foreground" />
                       <p className="text-[10px] font-medium text-muted-foreground">
-                        Brouillons ({drafts.length}) — utilisables pour construire, à faire approuver par Meta avant d’activer
+                        {t('automations.builder.drafts_label', { count: drafts.length })}
                       </p>
                     </div>
                     {row(drafts)}
@@ -1071,20 +1083,20 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction, onTem
                     return (
                       <div key={v.key}>
                         <label className="mb-1 block text-[10px] font-medium text-muted-foreground">
-                          {v.label} <span className="text-amber-600">· à renseigner</span>
+                          {t(v.labelKey)} <span className="text-amber-600">· {t('automations.builder.to_fill_in')}</span>
                         </label>
                         <Input
                           value={val}
-                          placeholder={v.sample}
+                          placeholder={v.sampleKey ? t(v.sampleKey) : v.sample}
                           onChange={(e) => onPatch(node.id, {
                             vars: { ...(node as { vars?: Record<string, string> }).vars, [v.key]: e.target.value },
                           } as never)}
                           className="h-7 text-xs"
                         />
-                        {v.hint && <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">{v.hint}</p>}
+                        {v.hintKey ? <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">{t(v.hintKey)}</p> : v.hint && <p className="mt-0.5 text-[10px] leading-snug text-muted-foreground">{v.hint}</p>}
                         {!val && (
                           <p className="mt-0.5 text-[10px] text-amber-600">
-                            Sans valeur, le client verra « — » à la place.
+                            {t('automations.builder.empty_value_fallback')}
                           </p>
                         )}
                       </div>
@@ -1120,6 +1132,7 @@ function ActionBlock({ node, templates, onPatch, onDelete, onSelectAction, onTem
  *  boutons. ON = chaque bouton mène à sa branche (chacun une fois). OFF = une
  *  seule route (le 1er clic ferme le funnel). */
 function MultiRouteToggle({ value, onChange }: { value: boolean; onChange: (v: boolean) => void }) {
+  const { t } = useTranslation()
   return (
     <button
       type="button"
@@ -1136,11 +1149,11 @@ function MultiRouteToggle({ value, onChange }: { value: boolean; onChange: (v: b
         )} />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block text-[11px] font-medium">Plusieurs réponses possibles</span>
+        <span className="block text-[11px] font-medium">{t('automations.builder.multiple_replies_possible')}</span>
         <span className="block text-[10px] leading-tight text-muted-foreground">
           {value
-            ? 'Le client peut cliquer plusieurs boutons et recevoir chaque suite (une fois chacun).'
-            : 'Le client ne suit qu’une seule réponse (le 1er clic termine le parcours).'}
+            ? t('automations.builder.multiple_replies_on_desc')
+            : t('automations.builder.multiple_replies_off_desc')}
         </span>
       </span>
     </button>
@@ -1151,27 +1164,30 @@ function MultiRouteToggle({ value, onChange }: { value: boolean; onChange: (v: b
  *  repère « en revue » / « refusé » pour que le merchant sache qu'il n'est pas
  *  (encore) envoyable. */
 function TemplateStatusBadge({ template }: { template: WhatsAppTemplate }) {
-  const t = template as WhatsAppTemplate & { has_pending_changes?: boolean; status?: string }
+  const { t } = useTranslation()
+  // ⚠️ Renommé `tpl` : `t` est la fonction i18n du scope.
+  const tpl = template as WhatsAppTemplate & { has_pending_changes?: boolean; status?: string }
   // Brouillon : jamais soumis à Meta. Distinct de « en revue » — ici le marchand
   // doit AGIR (soumettre), là il n'a qu'à attendre. Sans ce badge, un parcours
   // bâti sur un brouillon paraissait prêt et refusait de s'activer sans dire
   // lequel des messages posait problème.
-  if (t.status === 'draft') {
-    return <span className="rounded-full bg-slate-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-slate-500">Brouillon</span>
+  if (tpl.status === 'draft') {
+    return <span className="rounded-full bg-slate-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-slate-500">{t('automations.builder.status_draft')}</span>
   }
-  if (t.status === 'pending') {
-    return <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-amber-600">⏳ En revue</span>
+  if (tpl.status === 'pending') {
+    return <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-amber-600">{t('automations.builder.status_in_review')}</span>
   }
-  if (t.status === 'rejected') {
-    return <span className="rounded-full bg-destructive/15 px-1.5 py-0.5 text-[9px] font-semibold text-destructive">Refusé</span>
+  if (tpl.status === 'rejected') {
+    return <span className="rounded-full bg-destructive/15 px-1.5 py-0.5 text-[9px] font-semibold text-destructive">{t('automations.builder.status_rejected')}</span>
   }
-  if (t.has_pending_changes) {
-    return <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-amber-600">Modifs non soumises</span>
+  if (tpl.has_pending_changes) {
+    return <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[9px] font-semibold text-amber-600">{t('automations.builder.status_unsaved_changes')}</span>
   }
   return null
 }
 
 function ConditionBlock({ node, onPatch, onDelete }: { node: WorkflowNode; onPatch: (id: string, p: Partial<WorkflowNode>) => void; onDelete: () => void }) {
+  const { t } = useTranslation()
   const products = useShopList('/api/shopify/products')
   const collections = useShopList('/api/shopify/collections')
   const lifecycleStages = useLifecycleStageList()
@@ -1192,7 +1208,7 @@ function ConditionBlock({ node, onPatch, onDelete }: { node: WorkflowNode; onPat
         setValue(next)
       }
       if (lifecycleStages.length === 0) {
-        return <span className="flex-1 text-[11px] text-muted-foreground">Aucune étape définie. Créez-en dans « Gérer les étapes ».</span>
+        return <span className="flex-1 text-[11px] text-muted-foreground">{t('automations.builder.no_stage_defined')}</span>
       }
       return (
         <div className="flex flex-1 flex-wrap gap-1">
@@ -1221,7 +1237,7 @@ function ConditionBlock({ node, onPatch, onDelete }: { node: WorkflowNode; onPat
       return (
         <Select value={String(rule.value)} onValueChange={(v) => setValue(v === 'true')}>
           <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
-          <SelectContent><SelectItem value="true">Oui</SelectItem><SelectItem value="false">Non</SelectItem></SelectContent>
+          <SelectContent><SelectItem value="true">{t('automations.builder.yes')}</SelectItem><SelectItem value="false">{t('automations.builder.no')}</SelectItem></SelectContent>
         </Select>
       )
     }
@@ -1229,15 +1245,15 @@ function ConditionBlock({ node, onPatch, onDelete }: { node: WorkflowNode; onPat
       const options = field.source === 'country' ? COUNTRY_OPTIONS : LANGUAGE_OPTIONS
       return (
         <Select value={String(rule.value ?? '')} onValueChange={setValue}>
-          <SelectTrigger className="flex-1 min-w-0"><SelectValue placeholder={field.source === 'country' ? 'Choisir un pays' : 'Choisir une langue'} /></SelectTrigger>
-          <SelectContent>{options.map((o) => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}</SelectContent>
+          <SelectTrigger className="flex-1 min-w-0"><SelectValue placeholder={field.source === 'country' ? t('automations.builder.choose_country') : t('automations.builder.choose_language')} /></SelectTrigger>
+          <SelectContent>{options.map((o) => <SelectItem key={o.value} value={o.value}>{t(o.labelKey)}</SelectItem>)}</SelectContent>
         </Select>
       )
     }
     if (field.source === 'product' || field.source === 'collection') {
       // La valeur stockée reste le TITRE (la condition fait « commande contient ce titre »).
       const items = field.source === 'product' ? products : collections
-      const ph = field.source === 'product' ? 'Choisir un produit' : 'Choisir une collection'
+      const ph = field.source === 'product' ? t('automations.builder.choose_product') : t('automations.builder.choose_collection')
       return items.length > 0 ? (
         <Select value={String(rule.value ?? '')} onValueChange={setValue}>
           <SelectTrigger className="flex-1 min-w-0"><SelectValue placeholder={ph} /></SelectTrigger>
@@ -1256,7 +1272,7 @@ function ConditionBlock({ node, onPatch, onDelete }: { node: WorkflowNode; onPat
   }
 
   return (
-    <Shell tone={TONE.violet} icon={<GitBranch className="h-4 w-4" />} kind="Si (condition)" onDelete={onDelete}>
+    <Shell tone={TONE.violet} icon={<GitBranch className="h-4 w-4" />} kind={t('automations.builder.node_condition')} onDelete={onDelete}>
       <div className="space-y-2">
         <Select value={rule.field} onValueChange={(v) => {
           const f = CONDITION_FIELDS.find((x) => x.value === v)!
@@ -1264,12 +1280,12 @@ function ConditionBlock({ node, onPatch, onDelete }: { node: WorkflowNode; onPat
           onPatch(nodeId, { rule: { field: v as never, op: f.ops[0], value: defaultValue } } as never)
         }}>
           <SelectTrigger><SelectValue /></SelectTrigger>
-          <SelectContent>{CONDITION_FIELDS.map((f) => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}</SelectContent>
+          <SelectContent>{CONDITION_FIELDS.map((f) => <SelectItem key={f.value} value={f.value}>{t(f.labelKey)}</SelectItem>)}</SelectContent>
         </Select>
         <div className={cn('flex gap-2', field.source === 'stage' && 'flex-col')}>
           <Select value={rule.op} onValueChange={(v) => onPatch(nodeId, { rule: { ...rule, op: v as never } } as never)}>
             <SelectTrigger className={field.source === 'stage' ? 'w-full' : 'w-24'}><SelectValue /></SelectTrigger>
-            <SelectContent>{field.ops.map((op) => <SelectItem key={op} value={op}>{OP_LABEL[op] || op}</SelectItem>)}</SelectContent>
+            <SelectContent>{field.ops.map((op) => <SelectItem key={op} value={op}>{OP_LABEL_KEY[op] ? t(OP_LABEL_KEY[op]) : op}</SelectItem>)}</SelectContent>
           </Select>
           {valueEditor()}
         </div>
@@ -1303,6 +1319,7 @@ function BranchCol({ label, color, children, siblings, onMove }: {
   siblings?: { label: string; branch: string }[]
   onMove?: (targetBranch: string) => void
 }) {
+  const { t } = useTranslation()
   const horizontal = useOrientation() === 'horizontal'
   const others = (siblings || []).filter((s) => s.label !== label)
   const movable = !!onMove && others.length > 0
@@ -1315,7 +1332,7 @@ function BranchCol({ label, color, children, siblings, onMove }: {
         movable && 'cursor-pointer transition-opacity hover:opacity-80'
       )}
       style={{ background: `${color}1a`, color }}
-      title={movable ? 'Déplacer cette suite vers une autre route' : undefined}
+      title={movable ? t('automations.builder.move_suite_tooltip') : undefined}
     >
       {label}{movable && ' ⇄'}
     </span>
@@ -1328,7 +1345,7 @@ function BranchCol({ label, color, children, siblings, onMove }: {
           <PopoverTrigger asChild><button type="button">{chip}</button></PopoverTrigger>
           <PopoverContent align="center" className="w-56 p-1.5">
             <p className="px-1.5 pb-1 pt-0.5 text-[11px] text-muted-foreground">
-              Déplacer cette suite vers…
+              {t('automations.builder.move_suite_to')}
             </p>
             {others.map((s) => (
               <button
@@ -1341,7 +1358,7 @@ function BranchCol({ label, color, children, siblings, onMove }: {
               </button>
             ))}
             <p className="px-1.5 pb-0.5 pt-1 text-[10px] text-muted-foreground">
-              Si la route d’arrivée a déjà une suite, les deux sont échangées.
+              {t('automations.builder.move_suite_swap_notice')}
             </p>
           </PopoverContent>
         </Popover>
@@ -1352,6 +1369,7 @@ function BranchCol({ label, color, children, siblings, onMove }: {
 }
 
 function Inserter({ onInsert }: { onInsert: (kind: InsertKind) => void }) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const horizontal = useOrientation() === 'horizontal'
   return (
@@ -1368,10 +1386,10 @@ function Inserter({ onInsert }: { onInsert: (kind: InsertKind) => void }) {
             'absolute z-20 flex gap-1 rounded-xl border bg-card p-1 shadow-lg',
             horizontal ? 'left-1/2 top-8 -translate-x-1/2' : 'top-7',
           )}>
-            <MenuItem className="text-amber-600" icon={<Clock className="h-3.5 w-3.5" />} label="Délai" onClick={() => { onInsert('delay'); setOpen(false) }} />
-            <MenuItem className="text-violet-600" icon={<GitBranch className="h-3.5 w-3.5" />} label="Condition" onClick={() => { onInsert('condition'); setOpen(false) }} />
-            <MenuItem className="text-blue-600" icon={<FlaskConical className="h-3.5 w-3.5" />} label="Test A/B" onClick={() => { onInsert('ab_test'); setOpen(false) }} />
-            <MenuItem className="text-green-600" icon={<MessageSquare className="h-3.5 w-3.5" />} label="Message" onClick={() => { onInsert('action'); setOpen(false) }} />
+            <MenuItem className="text-amber-600" icon={<Clock className="h-3.5 w-3.5" />} label={t('automations.builder.insert_delay')} onClick={() => { onInsert('delay'); setOpen(false) }} />
+            <MenuItem className="text-violet-600" icon={<GitBranch className="h-3.5 w-3.5" />} label={t('automations.builder.insert_condition')} onClick={() => { onInsert('condition'); setOpen(false) }} />
+            <MenuItem className="text-blue-600" icon={<FlaskConical className="h-3.5 w-3.5" />} label={t('automations.builder.insert_ab_test')} onClick={() => { onInsert('ab_test'); setOpen(false) }} />
+            <MenuItem className="text-green-600" icon={<MessageSquare className="h-3.5 w-3.5" />} label={t('automations.builder.insert_message')} onClick={() => { onInsert('action'); setOpen(false) }} />
           </div>
         </>
       )}
@@ -1392,6 +1410,7 @@ function ABTestBlock({ node, onPatch, onDelete, onAddVariant, onRemoveVariant, a
   /** Rang du test A/B dans le workflow (1, 2…) pour le distinguer des autres. */
   abNumber?: number
 }) {
+  const { t } = useTranslation()
   const [results, setResults] = useState<{ variants: ABVariantResult[]; winner: string | null } | null>(null)
   const [showResults, setShowResults] = useState(false)
   const nodeId = node.type === 'ab_test' ? node.id : ''
@@ -1417,8 +1436,8 @@ function ABTestBlock({ node, onPatch, onDelete, onAddVariant, onRemoveVariant, a
     onPatch(node.id, { variants } as Partial<WorkflowNode>)
   }
   return (
-    <Shell tone={TONE.pink} icon={<FlaskConical className="h-4 w-4" />} kind={abNumber && abNumber > 0 ? `Test A/B ${abNumber}` : 'Test A/B'} onDelete={onDelete}>
-      <p className="mb-2 text-xs text-muted-foreground">Répartit les contacts entre les variantes. Chaque variante a son propre message.</p>
+    <Shell tone={TONE.pink} icon={<FlaskConical className="h-4 w-4" />} kind={abNumber && abNumber > 0 ? t('automations.builder.node_ab_test_n', { n: abNumber }) : t('automations.builder.node_ab_test')} onDelete={onDelete}>
+      <p className="mb-2 text-xs text-muted-foreground">{t('automations.builder.ab_split_desc')}</p>
       <div className="space-y-1.5">
         {node.variants.map((v, i) => (
           <div key={v.key} className="flex items-center gap-2">
@@ -1428,7 +1447,7 @@ function ABTestBlock({ node, onPatch, onDelete, onAddVariant, onRemoveVariant, a
               className="h-8 w-16 rounded-lg border border-border bg-background px-2 text-sm" />
             <span className="text-xs text-muted-foreground">%</span>
             {node.variants.length > 2 && onRemoveVariant && (
-              <button onClick={() => onRemoveVariant(node.id, v.key)} title="Retirer cette variante"
+              <button onClick={() => onRemoveVariant(node.id, v.key)} title={t('automations.builder.remove_variant')}
                 className="ml-auto rounded p-1 text-muted-foreground/70 hover:bg-destructive/10 hover:text-destructive">
                 <Trash2 className="h-3 w-3" />
               </button>
@@ -1438,11 +1457,11 @@ function ABTestBlock({ node, onPatch, onDelete, onAddVariant, onRemoveVariant, a
       </div>
       <div className="mt-2 flex items-center justify-between">
         <span className={cn('text-[11px] font-medium', total === 100 ? 'text-muted-foreground' : 'text-destructive')}>
-          Total : {total}% {total !== 100 && '(doit faire 100 %)'}
+          {t('automations.builder.total_percent', { total })} {total !== 100 && t('automations.builder.must_be_100')}
         </span>
         {node.variants.length < 4 && onAddVariant && (
           <button onClick={() => onAddVariant(node.id)} className="flex items-center gap-1 text-[11px] font-medium text-blue-600 hover:text-blue-700">
-            <Plus className="h-3 w-3" /> Variante
+            <Plus className="h-3 w-3" /> {t('automations.builder.variant')}
           </button>
         )}
       </div>
@@ -1451,25 +1470,25 @@ function ABTestBlock({ node, onPatch, onDelete, onAddVariant, onRemoveVariant, a
       {automationId && (
         <div className="mt-2 border-t border-border/60 pt-2">
           <button onClick={() => setShowResults((s) => !s)} className="flex w-full items-center justify-between text-[11px] font-medium text-muted-foreground hover:text-foreground">
-            <span>📊 Résultats</span>
+            <span>{t('automations.builder.results')}</span>
             <ChevronDown className={cn('h-3.5 w-3.5 transition-transform', showResults && 'rotate-180')} />
           </button>
           {showResults && (
             <div className="mt-2 space-y-1.5">
               {!results ? (
-                <p className="text-[11px] text-muted-foreground">Chargement…</p>
+                <p className="text-[11px] text-muted-foreground">{t('automations.builder.loading')}</p>
               ) : results.variants.length === 0 ? (
-                <p className="text-[11px] text-muted-foreground">Aucune donnée pour l&apos;instant (les envois apparaîtront ici).</p>
+                <p className="text-[11px] text-muted-foreground">{t('automations.builder.no_data_yet')}</p>
               ) : results.variants.map((v, i) => (
                 <div key={v.key} className={cn('rounded-lg border p-2', results.winner === v.key ? 'border-emerald-500/40 bg-emerald-500/5' : 'border-border/60')}>
                   <div className="flex items-center gap-1.5">
                     <span className="flex h-4 w-4 items-center justify-center rounded-full text-[10px] font-bold" style={{ background: `${VARIANT_COLORS[i % 4]}1a`, color: VARIANT_COLORS[i % 4] }}>{v.key}</span>
-                    {results.winner === v.key && <span className="rounded-full bg-emerald-500/15 px-1.5 text-[9px] font-semibold text-emerald-500">Gagnant</span>}
-                    <span className="ml-auto text-[10px] text-muted-foreground">{v.sent} envoi{v.sent > 1 ? 's' : ''}</span>
+                    {results.winner === v.key && <span className="rounded-full bg-emerald-500/15 px-1.5 text-[9px] font-semibold text-emerald-500">{t('automations.builder.winner')}</span>}
+                    <span className="ml-auto text-[10px] text-muted-foreground">{v.sent > 1 ? t('automations.builder.sends_count_plural', { count: v.sent }) : t('automations.builder.sends_count', { count: v.sent })}</span>
                   </div>
                   <div className="mt-1 flex gap-3 text-[11px]">
-                    <span className="text-muted-foreground">Réponse : <span className="font-semibold text-foreground">{v.responseRate}%</span></span>
-                    <span className="text-muted-foreground">Commande : <span className="font-semibold text-foreground">{v.orderRate}%</span></span>
+                    <span className="text-muted-foreground">{t('automations.builder.response_label')} <span className="font-semibold text-foreground">{v.responseRate}%</span></span>
+                    <span className="text-muted-foreground">{t('automations.builder.order_label')} <span className="font-semibold text-foreground">{v.orderRate}%</span></span>
                   </div>
                 </div>
               ))}
